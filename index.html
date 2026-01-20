@@ -745,6 +745,7 @@
     let draggedImageIndex = null;
     let notifications = [];
     let unsubscribeNotifications = null;
+    let notificationCheckInterval = null;
 
     function initDepartamentos() {
       const select = document.getElementById('propDepartamento');
@@ -797,45 +798,67 @@
       }
     }
 
-    // ==================== NOTIFICATIONS SYSTEM ====================
-    function startNotificationListener() {
-      if (!currentUser) {
-        console.log('No user logged in, skipping notification listener');
-        return;
-      }
+    // ==================== NOTIFICATIONS SYSTEM - SIMPLIFIED ====================
+    
+    // Load notifications manually (without complex index)
+    async function loadNotifications() {
+      if (!currentUser) return;
       
-      // Clean up existing listener
-      if (unsubscribeNotifications) {
-        unsubscribeNotifications();
-      }
-
-      console.log('Starting notification listener for user:', currentUser.uid);
-
-      unsubscribeNotifications = db.collection('notifications')
-        .where('ownerId', '==', currentUser.uid)
-        .orderBy('createdAt', 'desc')
-        .limit(50)
-        .onSnapshot((snapshot) => {
-          console.log('Notifications snapshot received, count:', snapshot.docs.length);
-          
-          const oldIds = new Set(notifications.map(n => n.id));
-          const newNotifications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          
-          // Check for new notifications (not in old list)
-          snapshot.docChanges().forEach(change => {
-            if (change.type === 'added' && !oldIds.has(change.doc.id) && oldIds.size > 0) {
-              const data = change.doc.data();
-              console.log('New notification detected:', data);
-              showToast('Nueva consulta', `${data.userName} consultó sobre "${data.propertyTitle}"`, 'fa-comment');
-              sendBrowserNotification('Nueva consulta', `${data.userName} consultó sobre "${data.propertyTitle}"`);
-            }
+      try {
+        // Simple query without orderBy to avoid index requirement
+        const snapshot = await db.collection('notifications')
+          .where('ownerId', '==', currentUser.uid)
+          .get();
+        
+        // Sort in JavaScript
+        const newNotifications = snapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0);
+            const dateB = new Date(b.createdAt || 0);
+            return dateB - dateA;
+          })
+          .slice(0, 50);
+        
+        // Check for new notifications
+        const oldIds = new Set(notifications.map(n => n.id));
+        const brandNew = newNotifications.filter(n => !oldIds.has(n.id) && !n.read);
+        
+        if (brandNew.length > 0 && notifications.length > 0) {
+          brandNew.forEach(n => {
+            showToast('Nueva consulta', `${n.userName} consultó sobre "${n.propertyTitle}"`, 'fa-comment');
+            sendBrowserNotification('Nueva consulta', `${n.userName} consultó sobre "${n.propertyTitle}"`);
           });
-          
-          notifications = newNotifications;
-          renderNotifications();
-        }, (error) => {
-          console.error('Error in notification listener:', error);
-        });
+        }
+        
+        notifications = newNotifications;
+        renderNotifications();
+        
+      } catch (error) {
+        console.error('Error loading notifications:', error);
+      }
+    }
+
+    // Start polling for notifications (simpler than onSnapshot with complex index)
+    function startNotificationPolling() {
+      if (!currentUser) return;
+      
+      // Load immediately
+      loadNotifications();
+      
+      // Then poll every 10 seconds
+      if (notificationCheckInterval) {
+        clearInterval(notificationCheckInterval);
+      }
+      notificationCheckInterval = setInterval(loadNotifications, 10000);
+    }
+
+    // Stop polling
+    function stopNotificationPolling() {
+      if (notificationCheckInterval) {
+        clearInterval(notificationCheckInterval);
+        notificationCheckInterval = null;
+      }
     }
 
     function renderNotifications() {
@@ -844,7 +867,6 @@
       const list = document.getElementById('notificationList');
       
       const unreadCount = notifications.filter(n => !n.read).length;
-      console.log('Rendering notifications, unread count:', unreadCount);
       
       // Update badge
       if (unreadCount > 0) {
@@ -883,7 +905,7 @@
     }
 
     function formatTimeAgo(timestamp) {
-      const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      const date = typeof timestamp === 'string' ? new Date(timestamp) : new Date(timestamp);
       const seconds = Math.floor((new Date() - date) / 1000);
       if (seconds < 60) return 'Ahora';
       const minutes = Math.floor(seconds / 60);
@@ -897,7 +919,13 @@
 
     function toggleNotifications(e) {
       e.stopPropagation();
-      document.getElementById('notificationDropdown').classList.toggle('active');
+      const dropdown = document.getElementById('notificationDropdown');
+      dropdown.classList.toggle('active');
+      
+      // Reload notifications when opening
+      if (dropdown.classList.contains('active')) {
+        loadNotifications();
+      }
     }
 
     document.addEventListener('click', (e) => {
@@ -915,6 +943,10 @@
       // Mark as read
       try {
         await db.collection('notifications').doc(notificationId).update({ read: true });
+        // Update local state
+        const notification = notifications.find(n => n.id === notificationId);
+        if (notification) notification.read = true;
+        renderNotifications();
       } catch (err) {
         console.error('Error marking notification as read:', err);
       }
@@ -928,13 +960,17 @@
       const unread = notifications.filter(n => !n.read);
       if (unread.length === 0) return;
       
-      const batch = db.batch();
-      unread.forEach(n => {
-        batch.update(db.collection('notifications').doc(n.id), { read: true });
-      });
-      
       try {
-        await batch.commit();
+        // Update each notification
+        const promises = unread.map(n => 
+          db.collection('notifications').doc(n.id).update({ read: true })
+        );
+        await Promise.all(promises);
+        
+        // Update local state
+        notifications.forEach(n => n.read = true);
+        renderNotifications();
+        
         showToast('Listo', 'Todas las consultas marcadas como leídas', 'fa-check');
       } catch (err) {
         console.error('Error marking all as read:', err);
@@ -952,7 +988,7 @@
             allUsers[user.uid] = userProfile;
             updateUI();
             requestNotificationPermission();
-            startNotificationListener();
+            startNotificationPolling();
           } else { 
             auth.signOut(); 
             alert('Tu cuenta está pendiente de aprobación'); 
@@ -962,10 +998,7 @@
         currentUser = null; 
         userProfile = null;
         notifications = [];
-        if (unsubscribeNotifications) {
-          unsubscribeNotifications();
-          unsubscribeNotifications = null;
-        }
+        stopNotificationPolling();
         updateUI(); 
       }
     });
@@ -1207,7 +1240,7 @@
       renderProperties(filtered);
     }
 
-    // FIXED: View counting - only count if viewer is NOT the property owner
+    // View counting - only count if viewer is NOT the property owner
     async function openDetail(id, skipViewCount = false) {
       const p = properties.find(prop => prop.id === id);
       if (!p) return;
@@ -1215,18 +1248,13 @@
       currentDetailProperty = p;
       currentDetailImageIndex = 0;
       
-      // Count view ONLY if:
-      // 1. skipViewCount is false (not coming from notifications)
-      // 2. User is NOT the property owner (including logged out users)
+      // Count view ONLY if not owner and not skipped
       const isOwner = currentUser && currentUser.uid === p.ownerId;
       
       if (!skipViewCount && !isOwner) {
-        console.log('Counting view for property:', p.title);
         db.collection('properties').doc(id).update({ 
           views: firebase.firestore.FieldValue.increment(1) 
         }).catch(err => console.log('Error counting view:', err));
-      } else {
-        console.log('NOT counting view - isOwner:', isOwner, 'skipViewCount:', skipViewCount);
       }
       
       const images = p.images?.length ? p.images : ['https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'];
@@ -1363,12 +1391,14 @@
           createdAt: new Date().toISOString()
         };
         
-        // Add comment
+        // Add comment to property subcollection
         await db.collection('properties').doc(currentDetailProperty.id).collection('comments').add(commentData);
         console.log('Comment added successfully');
         
         // Create notification for property owner (if not self)
-        if (currentDetailProperty.ownerId !== currentUser?.uid) {
+        const isOwner = currentUser && currentUser.uid === currentDetailProperty.ownerId;
+        
+        if (!isOwner) {
           const notificationData = {
             ownerId: currentDetailProperty.ownerId,
             propertyId: currentDetailProperty.id,
@@ -1382,7 +1412,7 @@
           };
           
           await db.collection('notifications').add(notificationData);
-          console.log('Notification created successfully');
+          console.log('Notification created successfully for owner:', currentDetailProperty.ownerId);
         }
         
         // Clear inputs
