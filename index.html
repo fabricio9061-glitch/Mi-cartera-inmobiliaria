@@ -25,6 +25,7 @@
       --gray-700: #495057;
       --success: #2ecc71;
       --danger: #e74c3c;
+      --instagram: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
       --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);
       --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
       --shadow-lg: 0 8px 32px rgba(0,0,0,0.16);
@@ -61,32 +62,58 @@
     .logout-btn { background: var(--gray-200) !important; color: var(--gray-700) !important; }
     .logout-btn:hover { background: var(--gray-300) !important; }
 
-    /* Notification Bell */
+    /* Notification Bell - Improved */
     .notification-bell { position: relative; width: 44px; height: 44px; border-radius: 50%; background: var(--gray-100); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; }
     .notification-bell:hover { background: var(--gray-200); transform: scale(1.05); }
-    .notification-bell i { font-size: 20px; color: var(--gray-600); }
-    .notification-badge { position: absolute; top: -2px; right: -2px; min-width: 20px; height: 20px; background: var(--accent); color: var(--white); font-size: 11px; font-weight: 700; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 0 5px; border: 2px solid var(--white); }
-    .notification-dropdown { position: absolute; top: 100%; right: 0; width: 360px; max-height: 450px; background: var(--white); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); margin-top: 8px; overflow: hidden; display: none; z-index: 1000; }
-    .notification-dropdown.active { display: block; }
-    .notification-header { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid var(--gray-100); }
-    .notification-header h3 { font-size: 16px; font-family: 'DM Sans', sans-serif; }
-    .notification-header button { background: none; color: var(--accent); font-size: 13px; font-weight: 500; }
-    .notification-list { max-height: 350px; overflow-y: auto; }
-    .notification-item { display: flex; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--gray-50); transition: background 0.2s; cursor: pointer; }
+    .notification-bell.has-new { animation: bellShake 0.5s ease-in-out; }
+    @keyframes bellShake {
+      0%, 100% { transform: rotate(0); }
+      25% { transform: rotate(-15deg); }
+      50% { transform: rotate(15deg); }
+      75% { transform: rotate(-10deg); }
+    }
+    .notification-bell i { font-size: 20px; color: var(--gray-600); transition: color 0.3s; }
+    .notification-bell.has-new i { color: var(--accent); }
+    .notification-badge { position: absolute; top: -2px; right: -2px; min-width: 20px; height: 20px; background: var(--accent); color: var(--white); font-size: 11px; font-weight: 700; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 0 5px; border: 2px solid var(--white); animation: badgePulse 2s infinite; }
+    @keyframes badgePulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    .notification-dropdown { position: absolute; top: 100%; right: 0; width: 380px; max-height: 480px; background: var(--white); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); margin-top: 8px; overflow: hidden; display: none; z-index: 1000; }
+    .notification-dropdown.active { display: block; animation: dropdownSlide 0.2s ease; }
+    @keyframes dropdownSlide {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .notification-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--gray-100); background: var(--gray-50); }
+    .notification-header h3 { font-size: 16px; font-family: 'DM Sans', sans-serif; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .notification-header h3 i { color: var(--accent); }
+    .notification-header button { background: none; color: var(--accent); font-size: 13px; font-weight: 500; transition: all 0.3s; }
+    .notification-header button:hover { text-decoration: underline; }
+    .notification-list { max-height: 380px; overflow-y: auto; }
+    .notification-item { display: flex; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--gray-100); transition: background 0.2s; cursor: pointer; position: relative; }
     .notification-item:hover { background: var(--gray-50); }
     .notification-item.unread { background: rgba(233, 69, 96, 0.05); }
-    .notification-item.unread::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 4px; height: 60%; background: var(--accent); border-radius: 0 4px 4px 0; }
-    .notification-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--gray-200); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
+    .notification-item.unread::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent); }
+    .notification-item.new-entry { animation: newNotification 0.5s ease; }
+    @keyframes newNotification {
+      from { background: rgba(233, 69, 96, 0.2); }
+      to { background: rgba(233, 69, 96, 0.05); }
+    }
+    .notification-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--gray-200); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; font-weight: 600; color: var(--gray-600); }
     .notification-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .notification-content { flex: 1; min-width: 0; }
-    .notification-content p { font-size: 14px; color: var(--gray-700); margin-bottom: 4px; }
+    .notification-content p { font-size: 14px; color: var(--gray-700); margin-bottom: 4px; line-height: 1.4; }
     .notification-content p strong { color: var(--primary); }
-    .notification-content small { color: var(--gray-500); font-size: 12px; }
-    .notification-contact { display: flex; align-items: center; gap: 6px; margin-top: 6px; padding: 6px 10px; background: var(--gray-100); border-radius: var(--radius-sm); font-size: 12px; color: var(--gray-600); }
-    .notification-contact i { color: #25D366; }
-    .notification-contact a { color: #25D366; font-weight: 600; }
-    .notification-empty { text-align: center; padding: 40px 20px; color: var(--gray-400); }
-    .notification-empty i { font-size: 40px; margin-bottom: 12px; }
+    .notification-content .notification-text { font-size: 13px; color: var(--gray-500); background: var(--gray-50); padding: 8px 12px; border-radius: var(--radius-sm); margin: 8px 0; border-left: 3px solid var(--accent); }
+    .notification-content small { color: var(--gray-400); font-size: 12px; }
+    .notification-contact { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 8px 12px; background: rgba(37, 211, 102, 0.1); border-radius: var(--radius-md); font-size: 13px; }
+    .notification-contact i { color: #25D366; font-size: 16px; }
+    .notification-contact a { color: #25D366; font-weight: 600; transition: all 0.3s; }
+    .notification-contact a:hover { text-decoration: underline; }
+    .notification-empty { text-align: center; padding: 50px 20px; color: var(--gray-400); }
+    .notification-empty i { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+    .notification-empty p { font-size: 15px; }
 
     .btn-new-property {
       display: inline-flex; align-items: center; gap: 12px; padding: 14px 28px;
@@ -115,6 +142,20 @@
     .hero-btn-primary:hover { background: #d4ad2b; transform: translateY(-3px); }
     .hero-btn-secondary { background: rgba(255,255,255,0.15); color: var(--white); border: 2px solid var(--white); }
     .hero-btn-secondary:hover { background: var(--white); color: var(--primary); }
+
+    /* CTA Banner - Contact Us */
+    .cta-banner { background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 50%, var(--primary-light) 100%); padding: 40px; border-radius: var(--radius-xl); margin: 40px 0; text-align: center; position: relative; overflow: hidden; }
+    .cta-banner::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%); animation: ctaGlow 10s linear infinite; }
+    @keyframes ctaGlow {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .cta-banner-content { position: relative; z-index: 1; }
+    .cta-banner h3 { color: var(--white); font-size: 28px; margin-bottom: 12px; }
+    .cta-banner p { color: rgba(255,255,255,0.85); font-size: 16px; margin-bottom: 24px; max-width: 500px; margin-left: auto; margin-right: auto; }
+    .cta-banner .btn-cta { display: inline-flex; align-items: center; gap: 10px; padding: 16px 32px; background: var(--gold); color: var(--primary); font-size: 16px; font-weight: 600; border-radius: var(--radius-full); transition: all 0.3s; }
+    .cta-banner .btn-cta:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(201, 162, 39, 0.4); background: #d4ad2b; }
+    .cta-banner .btn-cta i { font-size: 18px; }
 
     .filters { background: var(--white); padding: 24px; border-radius: var(--radius-xl); box-shadow: var(--shadow-md); margin: -40px auto 40px; max-width: 1000px; position: relative; z-index: 10; }
     .filters-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 16px; align-items: end; }
@@ -165,6 +206,8 @@
     .card-views { font-size: 13px; color: var(--gray-500); }
     .btn-whatsapp { display: flex; align-items: center; gap: 8px; padding: 10px 18px; background: #25D366; color: var(--white); border-radius: var(--radius-md); font-size: 13px; font-weight: 600; transition: all 0.3s; }
     .btn-whatsapp:hover { background: #128C7E; transform: scale(1.05); }
+    .btn-instagram { display: flex; align-items: center; gap: 8px; padding: 10px 18px; background: var(--instagram); color: var(--white); border-radius: var(--radius-md); font-size: 13px; font-weight: 600; transition: all 0.3s; }
+    .btn-instagram:hover { transform: scale(1.05); filter: brightness(1.1); }
 
     .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
     .modal.active { display: flex; }
@@ -179,6 +222,7 @@
     .form-group label { display: block; font-weight: 600; margin-bottom: 8px; color: var(--gray-700); }
     .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 14px 16px; border: 2px solid var(--gray-200); border-radius: var(--radius-md); font-size: 15px; transition: all 0.3s; font-family: inherit; }
     .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); outline: none; }
+    .form-group small { display: block; margin-top: 6px; color: var(--gray-500); font-size: 12px; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .form-row-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
     .form-error { background: rgba(231,76,60,0.1); color: var(--danger); padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 20px; font-size: 14px; }
@@ -229,10 +273,8 @@
     .btn-share:hover { background: rgba(255,255,255,0.3); transform: translateY(-2px); }
     .btn-share-whatsapp { background: #25D366; }
     .btn-share-whatsapp:hover { background: #128C7E; }
-    .btn-share-facebook { background: #1877F2; }
-    .btn-share-facebook:hover { background: #166FE5; }
-    .btn-share-twitter { background: #1DA1F2; }
-    .btn-share-twitter:hover { background: #1A91DA; }
+    .btn-share-instagram { background: var(--instagram); }
+    .btn-share-instagram:hover { filter: brightness(1.1); }
 
     .detail-modal .modal-content { max-width: 800px; }
     .detail-gallery { position: relative; height: 400px; background: var(--gray-100); }
@@ -259,9 +301,11 @@
     .detail-feature strong { display: block; font-size: 18px; color: var(--primary); }
     .detail-feature span { font-size: 12px; color: var(--gray-500); }
     .detail-description { margin-bottom: 24px; color: var(--gray-600); line-height: 1.8; }
-    .detail-actions { display: flex; gap: 12px; margin-bottom: 24px; }
-    .detail-whatsapp { flex: 1; padding: 16px; background: #25D366; color: var(--white); border-radius: var(--radius-md); font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.3s; }
+    .detail-actions { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+    .detail-whatsapp { flex: 1; min-width: 200px; padding: 16px; background: #25D366; color: var(--white); border-radius: var(--radius-md); font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.3s; }
     .detail-whatsapp:hover { background: #128C7E; }
+    .detail-instagram { padding: 16px 24px; background: var(--instagram); color: var(--white); border-radius: var(--radius-md); font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.3s; }
+    .detail-instagram:hover { filter: brightness(1.1); transform: scale(1.02); }
     .detail-edit-btn { padding: 16px 24px; background: #3498db; color: var(--white); border-radius: var(--radius-md); font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.3s; }
     .detail-edit-btn:hover { background: #2980b9; }
 
@@ -318,7 +362,7 @@
     .footer-content { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
     .footer-logo { font-family: 'Playfair Display', serif; font-size: 20px; }
     .footer-links { display: flex; gap: 24px; }
-    .footer-links a { color: rgba(255,255,255,0.7); transition: color 0.3s; }
+    .footer-links a { color: rgba(255,255,255,0.7); transition: color 0.3s; font-size: 20px; }
     .footer-links a:hover { color: var(--gold); }
     .footer-bottom { text-align: center; padding-top: 20px; color: rgba(255,255,255,0.5); font-size: 14px; }
 
@@ -326,12 +370,29 @@
     .spinner { width: 40px; height: 40px; border: 3px solid var(--gray-200); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* Toast Notification */
+    .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; }
+    .toast { background: var(--white); padding: 16px 20px; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 12px; animation: toastSlide 0.3s ease; max-width: 350px; }
+    @keyframes toastSlide {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .toast.hiding { animation: toastHide 0.3s ease forwards; }
+    @keyframes toastHide {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(100%); opacity: 0; }
+    }
+    .toast-icon { width: 40px; height: 40px; border-radius: 50%; background: rgba(233, 69, 96, 0.1); display: flex; align-items: center; justify-content: center; color: var(--accent); flex-shrink: 0; }
+    .toast-content { flex: 1; }
+    .toast-content strong { display: block; color: var(--primary); margin-bottom: 2px; }
+    .toast-content p { font-size: 13px; color: var(--gray-600); margin: 0; }
+
     @media (max-width: 968px) {
       .detail-features { grid-template-columns: repeat(2, 1fr); }
       .profile-header-content { flex-direction: column; text-align: center; }
       .profile-stats { justify-content: center; }
       .profile-share { justify-content: center; }
-      .notification-dropdown { width: 320px; right: -100px; }
+      .notification-dropdown { width: 340px; right: -80px; }
     }
     @media (max-width: 768px) {
       .header-content { flex-wrap: wrap; gap: 16px; }
@@ -355,10 +416,14 @@
       .profile-avatar { width: 100px; height: 100px; font-size: 36px; }
       .comment-form-row { flex-direction: column; }
       .notification-dropdown { width: 100vw; right: -60px; border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+      .cta-banner { padding: 30px 20px; }
+      .cta-banner h3 { font-size: 22px; }
     }
   </style>
 </head>
 <body>
+
+  <div class="toast-container" id="toastContainer"></div>
 
   <header class="header">
     <div class="container">
@@ -373,13 +438,13 @@
         <nav class="nav hidden" id="nav-user">
           <a href="#" onclick="showHome()">Inicio</a>
           <a href="#propiedades">Propiedades</a>
-          <div class="notification-bell" onclick="toggleNotifications(event)">
+          <div class="notification-bell" id="notificationBell" onclick="toggleNotifications(event)">
             <i class="fas fa-bell"></i>
             <span class="notification-badge hidden" id="notificationBadge">0</span>
             <div class="notification-dropdown" id="notificationDropdown">
               <div class="notification-header">
-                <h3>Consultas</h3>
-                <button onclick="markAllAsRead(event)">Marcar como leídas</button>
+                <h3><i class="fas fa-comments"></i> Consultas</h3>
+                <button onclick="markAllAsRead(event)">Marcar leídas</button>
               </div>
               <div class="notification-list" id="notificationList">
                 <div class="notification-empty">
@@ -437,6 +502,15 @@
       </div>
       <div id="propertiesLoading" class="loading"><div class="spinner"></div></div>
       <div class="properties-grid" id="propertiesGrid"></div>
+      
+      <!-- CTA Banner -->
+      <div class="cta-banner">
+        <div class="cta-banner-content">
+          <h3>¿Querés que tu propiedad forme parte de nuestro portafolio?</h3>
+          <p>Publicá tu propiedad y llegá a miles de compradores e inquilinos interesados.</p>
+          <button class="btn-cta" onclick="contactForListing()"><i class="fab fa-whatsapp"></i> Contactanos</button>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -461,8 +535,7 @@
             <div class="profile-share">
               <button class="btn-share" onclick="copyProfileLink()"><i class="fas fa-link"></i> Copiar enlace</button>
               <button class="btn-share btn-share-whatsapp" onclick="shareProfileWhatsapp()"><i class="fab fa-whatsapp"></i> WhatsApp</button>
-              <button class="btn-share btn-share-facebook" onclick="shareProfileFacebook()"><i class="fab fa-facebook-f"></i> Facebook</button>
-              <button class="btn-share btn-share-twitter" onclick="shareProfileTwitter()"><i class="fab fa-twitter"></i> Twitter</button>
+              <button class="btn-share btn-share-instagram hidden" id="profileInstagramBtn" onclick="openProfileInstagram()"><i class="fab fa-instagram"></i> Instagram</button>
             </div>
           </div>
         </div>
@@ -498,7 +571,10 @@
     <div class="container">
       <div class="footer-content">
         <div class="footer-logo"><i class="fas fa-building"></i> Mi Cartera Inmobiliaria</div>
-        <div class="footer-links"><a href="#"><i class="fab fa-facebook"></i></a><a href="#"><i class="fab fa-instagram"></i></a><a href="#"><i class="fab fa-whatsapp"></i></a></div>
+        <div class="footer-links">
+          <a href="https://www.instagram.com/" target="_blank" title="Instagram"><i class="fab fa-instagram"></i></a>
+          <a href="https://wa.me/59899000000" target="_blank" title="WhatsApp"><i class="fab fa-whatsapp"></i></a>
+        </div>
       </div>
       <div class="footer-bottom">Página creada por Anibal Malave © 2026</div>
     </div>
@@ -532,6 +608,11 @@
           <div class="form-group"><label>Nombre Completo *</label><input type="text" id="registerName" required placeholder="Tu nombre"></div>
           <div class="form-group"><label>Correo Electrónico *</label><input type="email" id="registerEmail" required placeholder="tu@email.com"></div>
           <div class="form-group"><label>WhatsApp *</label><input type="tel" id="registerWhatsapp" required placeholder="+598 99 123 456"></div>
+          <div class="form-group">
+            <label>Instagram (opcional)</label>
+            <input type="url" id="registerInstagram" placeholder="https://instagram.com/tu_usuario">
+            <small>Ingresa el link completo de tu perfil</small>
+          </div>
           <div class="form-row">
             <div class="form-group"><label>Contraseña *</label><input type="password" id="registerPassword" required minlength="6" placeholder="Mínimo 6 caracteres"></div>
             <div class="form-group"><label>Confirmar *</label><input type="password" id="registerConfirm" required placeholder="Repetir"></div>
@@ -567,6 +648,7 @@
         <p class="detail-description" id="detailDescription"></p>
         <div class="detail-actions">
           <button class="detail-whatsapp" id="detailWhatsapp"><i class="fab fa-whatsapp"></i> Contactar por WhatsApp</button>
+          <button class="detail-instagram hidden" id="detailInstagram"><i class="fab fa-instagram"></i> Instagram</button>
           <button class="detail-edit-btn hidden" id="detailEditBtn" onclick="editCurrentProperty()"><i class="fas fa-edit"></i> Editar</button>
         </div>
         <div class="comments-section">
@@ -642,6 +724,25 @@
     </div>
   </div>
 
+  <!-- Edit Profile Modal -->
+  <div class="modal" id="editProfileModal">
+    <div class="modal-content">
+      <div class="modal-header"><h2>Editar Perfil</h2><button class="modal-close" onclick="closeModal('editProfileModal')"><i class="fas fa-times"></i></button></div>
+      <div class="modal-body">
+        <form onsubmit="handleUpdateProfile(event)">
+          <div class="form-group"><label>Nombre</label><input type="text" id="editProfileName" required></div>
+          <div class="form-group"><label>WhatsApp</label><input type="tel" id="editProfileWhatsapp" placeholder="+598 99 123 456"></div>
+          <div class="form-group">
+            <label>Instagram (opcional)</label>
+            <input type="url" id="editProfileInstagram" placeholder="https://instagram.com/tu_usuario">
+            <small>Ingresa el link completo de tu perfil para mostrar el botón de Instagram</small>
+          </div>
+          <button type="submit" class="btn-submit"><i class="fas fa-save"></i> Guardar Cambios</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -660,6 +761,7 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
     const ADMIN_EMAIL = "fabricio9061@gmail.com";
+    const CONTACT_WHATSAPP = "59899000000"; // WhatsApp de contacto para el CTA
 
     const uruguayData = {
       "Montevideo": ["Ciudad Vieja", "Centro", "Cordón", "Tres Cruces", "La Unión", "La Figurita", "Villa Muñoz", "Goes", "Pocitos", "Punta Carretas", "Malvín", "Buceo", "Parque Batlle", "Carrasco", "Prado", "Cerro", "La Teja", "Paso de la Arena", "Colón", "Sayago", "Peñarol", "Manga", "Piedras Blancas", "Maroñas", "La Blanqueada", "Parque Rodó", "Aguada", "Reducto", "Bella Vista", "Atahualpa", "Jacinto Vera", "La Comercial", "Brazo Oriental", "Capurro", "Belvedere", "Nuevo París", "Casavalle", "Borro", "Flor de Maroñas", "Jardines del Hipódromo", "Las Canteras", "Malvín Norte", "Unión", "Villa Española", "Aires Puros"],
@@ -694,6 +796,9 @@
     let draggedImageIndex = null;
     let notifications = [];
     let unsubscribeNotifications = null;
+    let previousNotificationCount = 0;
+    let viewedProperties = new Set(); // Track viewed properties in this session
+    let isFromProfile = false; // Track if navigating from profile
 
     function initDepartamentos() {
       const select = document.getElementById('propDepartamento');
@@ -719,6 +824,31 @@
     }
     loadUsers();
 
+    // Toast notification system
+    function showToast(title, message, icon = 'fa-bell') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.innerHTML = `
+        <div class="toast-icon"><i class="fas ${icon}"></i></div>
+        <div class="toast-content"><strong>${title}</strong><p>${message}</p></div>
+      `;
+      container.appendChild(toast);
+      
+      // Play sound
+      try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQM5nt7OeQwAI6jk22kVACu43s9VFgA4wtjBRhkAS87TtT0bAFzY0Ks4HQBq4M6hNB4AeenNmzEeAIjwzJcvHgCW9syULh0Aovjvky0cAK768JIsGwC2/fGRKxoAwv7xkSoZAMz/8pEpGADV//ORKBYA3P/zkScVAOP/85EmEwDo//SRJhIA7P/0kSUQAPD/9ZEkDgD0//WRJA0A9//1kSMLAPr/9ZEjCgD8//WRIgkA/f/1kSIIAP7/9ZEhBwD///aRIQYAAQD2kCAFAAIA9pAgBAADAP6QIAMABQP+jyACAAwN/Y8fAQAaFfyOHwAAKh77jR4AADgn+40eAABFMfqMHQAAUzv5jB0AAF9E+IscAABrTveKHAAAd1f2ihsAAINg9YkaAACMaPSIGgAAlXDziRkAAJ15+IcYAACmgfqGGAAAroj7hhcAALSP+4UXAAC6lvqFFgAAwJ35hBYAAMOi+YQUAADH');
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+      } catch(e) {}
+      
+      // Auto remove
+      setTimeout(() => {
+        toast.classList.add('hiding');
+        setTimeout(() => toast.remove(), 300);
+      }, 5000);
+    }
+
     // Request notification permission
     async function requestNotificationPermission() {
       if ('Notification' in window && Notification.permission === 'default') {
@@ -733,42 +863,65 @@
       }
     }
 
-    // Listen to notifications
+    // Listen to notifications in real-time
     function listenToNotifications() {
       if (!currentUser) return;
       if (unsubscribeNotifications) unsubscribeNotifications();
+      
+      previousNotificationCount = 0;
       
       unsubscribeNotifications = db.collection('notifications')
         .where('ownerId', '==', currentUser.uid)
         .orderBy('createdAt', 'desc')
         .limit(50)
         .onSnapshot((snapshot) => {
-          const newNotifications = [];
+          const oldNotificationIds = new Set(notifications.map(n => n.id));
+          notifications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          
+          // Check for new notifications
           snapshot.docChanges().forEach(change => {
-            if (change.type === 'added' && notifications.length > 0) {
+            if (change.type === 'added') {
               const data = change.doc.data();
-              sendBrowserNotification(
-                'Nueva consulta',
-                `${data.userName} consultó sobre "${data.propertyTitle}"`,
-                data.userPhoto
-              );
+              // Only notify if this is actually new (not initial load)
+              if (!oldNotificationIds.has(change.doc.id) && previousNotificationCount > 0) {
+                // Show toast notification
+                showToast('Nueva consulta', `${data.userName} consultó sobre "${data.propertyTitle}"`, 'fa-comment');
+                
+                // Send browser notification
+                sendBrowserNotification(
+                  'Nueva consulta',
+                  `${data.userName} consultó sobre "${data.propertyTitle}"`,
+                  data.userPhoto
+                );
+                
+                // Animate bell
+                const bell = document.getElementById('notificationBell');
+                bell.classList.add('has-new');
+                setTimeout(() => bell.classList.remove('has-new'), 1000);
+              }
             }
           });
-          notifications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          
+          previousNotificationCount = notifications.length;
           updateNotificationUI();
+        }, (error) => {
+          console.error('Error listening to notifications:', error);
         });
     }
 
     function updateNotificationUI() {
       const badge = document.getElementById('notificationBadge');
       const list = document.getElementById('notificationList');
+      const bell = document.getElementById('notificationBell');
       const unreadCount = notifications.filter(n => !n.read).length;
       
       if (unreadCount > 0) {
         badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
         badge.classList.remove('hidden');
+        bell.classList.add('has-new');
       } else {
         badge.classList.add('hidden');
+        bell.classList.remove('has-new');
       }
 
       if (notifications.length === 0) {
@@ -779,15 +932,14 @@
       list.innerHTML = notifications.map(n => {
         const initial = (n.userName || 'A').charAt(0).toUpperCase();
         const time = n.createdAt ? timeAgo(new Date(n.createdAt)) : '';
-        const prop = properties.find(p => p.id === n.propertyId);
         return `
           <div class="notification-item ${n.read ? '' : 'unread'}" onclick="openNotificationProperty('${n.propertyId}', '${n.id}')">
             <div class="notification-avatar">${n.userPhoto ? `<img src="${n.userPhoto}" alt="">` : initial}</div>
             <div class="notification-content">
               <p><strong>${n.userName}</strong> consultó sobre <strong>${n.propertyTitle}</strong></p>
-              <p style="font-size: 13px; color: var(--gray-600);">"${n.text.substring(0, 60)}${n.text.length > 60 ? '...' : ''}"</p>
+              <div class="notification-text">"${n.text.substring(0, 80)}${n.text.length > 80 ? '...' : ''}"</div>
               ${n.userPhone ? `<div class="notification-contact"><i class="fab fa-whatsapp"></i> <a href="https://wa.me/${n.userPhone.replace(/\D/g, '')}" target="_blank" onclick="event.stopPropagation()">${n.userPhone}</a></div>` : ''}
-              <small>${time}</small>
+              <small><i class="far fa-clock"></i> ${time}</small>
             </div>
           </div>`;
       }).join('');
@@ -795,13 +947,13 @@
 
     function timeAgo(date) {
       const seconds = Math.floor((new Date() - date) / 1000);
-      if (seconds < 60) return 'Ahora';
+      if (seconds < 60) return 'Ahora mismo';
       const minutes = Math.floor(seconds / 60);
-      if (minutes < 60) return `Hace ${minutes}m`;
+      if (minutes < 60) return `Hace ${minutes} min`;
       const hours = Math.floor(minutes / 60);
       if (hours < 24) return `Hace ${hours}h`;
       const days = Math.floor(hours / 24);
-      if (days < 7) return `Hace ${days}d`;
+      if (days < 7) return `Hace ${days} días`;
       return date.toLocaleDateString('es');
     }
 
@@ -833,6 +985,7 @@
       if (notificationId) {
         await db.collection('notifications').doc(notificationId).update({ read: true });
       }
+      isFromProfile = true; // Don't count view when opening from notification
       openDetail(propertyId);
     }
 
@@ -965,6 +1118,7 @@
       const name = document.getElementById('registerName').value;
       const email = document.getElementById('registerEmail').value;
       const whatsapp = document.getElementById('registerWhatsapp').value;
+      const instagram = document.getElementById('registerInstagram').value.trim();
       const password = document.getElementById('registerPassword').value;
       const confirm = document.getElementById('registerConfirm').value;
       if (password !== confirm) { error.textContent = 'Las contraseñas no coinciden'; error.classList.remove('hidden'); return; }
@@ -972,13 +1126,28 @@
       try {
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         const isAdmin = email.toLowerCase() === ADMIN_EMAIL;
-        await db.collection('users').doc(userCredential.user.uid).set({ uid: userCredential.user.uid, email, name, whatsapp, status: isAdmin ? 'approved' : 'pending', createdAt: new Date().toISOString() });
+        const userData = { 
+          uid: userCredential.user.uid, 
+          email, 
+          name, 
+          whatsapp, 
+          status: isAdmin ? 'approved' : 'pending', 
+          createdAt: new Date().toISOString() 
+        };
+        if (instagram && isValidInstagramUrl(instagram)) {
+          userData.instagram = instagram;
+        }
+        await db.collection('users').doc(userCredential.user.uid).set(userData);
         await auth.signOut();
         document.getElementById('registerForm').reset();
         success.textContent = isAdmin ? '¡Cuenta admin creada!' : '¡Cuenta creada! Espera aprobación.';
         success.classList.remove('hidden');
       } catch (err) { error.textContent = err.code === 'auth/email-already-in-use' ? 'Este correo ya está registrado' : err.message; error.classList.remove('hidden'); }
       finally { btn.disabled = false; btn.textContent = 'Crear Cuenta'; }
+    }
+
+    function isValidInstagramUrl(url) {
+      return url && (url.includes('instagram.com/') || url.includes('instagr.am/'));
     }
 
     function logout() { auth.signOut(); showHome(); }
@@ -993,8 +1162,44 @@
         allUsers[currentUser.uid].profilePhoto = compressed;
         updateUI();
         document.getElementById('profileAvatar').innerHTML = `<img src="${compressed}" alt="">`;
-        alert('¡Foto de perfil actualizada!');
+        showToast('Perfil actualizado', 'Tu foto de perfil ha sido actualizada', 'fa-check');
       } catch (err) { alert('Error al actualizar foto'); }
+    }
+
+    async function handleUpdateProfile(e) {
+      e.preventDefault();
+      if (!currentUser) return;
+      
+      const name = document.getElementById('editProfileName').value;
+      const whatsapp = document.getElementById('editProfileWhatsapp').value;
+      const instagram = document.getElementById('editProfileInstagram').value.trim();
+      
+      try {
+        const updateData = { name, whatsapp };
+        if (instagram && isValidInstagramUrl(instagram)) {
+          updateData.instagram = instagram;
+        } else {
+          updateData.instagram = firebase.firestore.FieldValue.delete();
+        }
+        
+        await db.collection('users').doc(currentUser.uid).update(updateData);
+        userProfile = { ...userProfile, name, whatsapp, instagram: instagram || null };
+        allUsers[currentUser.uid] = userProfile;
+        updateUI();
+        closeModal('editProfileModal');
+        showProfile(currentUser.uid);
+        showToast('Perfil actualizado', 'Tus datos han sido guardados', 'fa-check');
+      } catch (err) {
+        alert('Error al actualizar perfil');
+      }
+    }
+
+    function openEditProfileModal() {
+      if (!userProfile) return;
+      document.getElementById('editProfileName').value = userProfile.name || '';
+      document.getElementById('editProfileWhatsapp').value = userProfile.whatsapp || '';
+      document.getElementById('editProfileInstagram').value = userProfile.instagram || '';
+      openModal('editProfileModal');
     }
 
     function loadProperties() {
@@ -1023,6 +1228,8 @@
         const currency = p.currency || 'USD';
         const location = getLocationString(p);
         const canEdit = canEditProperty(p);
+        const hasInstagram = owner.instagram && isValidInstagramUrl(owner.instagram);
+        
         return `
           <div class="property-card" onclick="openDetail('${p.id}')">
             <div class="card-image">
@@ -1055,7 +1262,10 @@
             </div>
             <div class="card-footer">
               <span class="card-views"><i class="fas fa-eye"></i> ${p.views || 0}</span>
-              <button class="btn-whatsapp" onclick="event.stopPropagation(); contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button>
+              <div style="display: flex; gap: 8px;">
+                ${hasInstagram ? `<button class="btn-instagram" onclick="event.stopPropagation(); window.open('${owner.instagram}', '_blank')" title="Instagram"><i class="fab fa-instagram"></i></button>` : ''}
+                <button class="btn-whatsapp" onclick="event.stopPropagation(); contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button>
+              </div>
             </div>
           </div>`;
       }).join('');
@@ -1083,12 +1293,43 @@
       renderProperties(filtered);
     }
 
+    // Improved view counting logic
+    function shouldCountView(property) {
+      // Don't count if user is the owner
+      if (currentUser && currentUser.uid === property.ownerId) {
+        return false;
+      }
+      
+      // Don't count if navigating from profile (owner viewing their properties)
+      if (isFromProfile) {
+        return false;
+      }
+      
+      // Don't count if already viewed in this session
+      if (viewedProperties.has(property.id)) {
+        return false;
+      }
+      
+      return true;
+    }
+
     async function openDetail(id) {
       const p = properties.find(prop => prop.id === id);
       if (!p) return;
       currentDetailProperty = p;
       currentDetailImageIndex = 0;
-      db.collection('properties').doc(id).update({ views: firebase.firestore.FieldValue.increment(1) });
+      
+      // Only count view if conditions are met
+      if (shouldCountView(p)) {
+        viewedProperties.add(p.id);
+        db.collection('properties').doc(id).update({ 
+          views: firebase.firestore.FieldValue.increment(1) 
+        }).catch(err => console.log('View count error:', err));
+      }
+      
+      // Reset the fromProfile flag after checking
+      isFromProfile = false;
+      
       const images = p.images?.length ? p.images : ['https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'];
       document.getElementById('detailImage').src = images[0];
       document.getElementById('detailTitle').textContent = p.title;
@@ -1101,26 +1342,39 @@
         thumbsContainer.innerHTML = images.map((img, i) => `<div class="detail-thumb ${i === 0 ? 'active' : ''}" onclick="setDetailImage(${i})"><img src="${img}" alt=""></div>`).join('');
         thumbsContainer.style.display = 'flex';
       } else thumbsContainer.style.display = 'none';
+      
       const owner = getUserInfo(p.ownerId);
       const ownerInitial = (owner.name || 'U').charAt(0).toUpperCase();
       document.getElementById('detailOwnerName').textContent = owner.name || 'Usuario';
       document.getElementById('detailOwnerAvatar').innerHTML = owner.profilePhoto ? `<img src="${owner.profilePhoto}" alt="">` : ownerInitial;
+      
       document.getElementById('detailBadges').innerHTML = `
         <span class="badge ${p.type === 'sale' ? 'badge-sale' : 'badge-rent'}">${p.type === 'sale' ? 'VENTA' : 'ALQUILER'}</span>
         ${p.type === 'sale' && p.propertyType === 'ph' ? '<span class="badge badge-ph">PH</span>' : ''}
         ${currency === 'UYU' ? '<span class="badge badge-currency">UYU</span>' : ''}
         ${p.garage === 'yes' ? '<span class="badge badge-garage"><i class="fas fa-car"></i></span>' : ''}`;
+      
       document.getElementById('detailFeatures').innerHTML = `
         ${p.bedrooms ? `<div class="detail-feature"><i class="fas fa-bed"></i><strong>${p.bedrooms}</strong><span>Dormitorios</span></div>` : ''}
         ${p.bathrooms ? `<div class="detail-feature"><i class="fas fa-bath"></i><strong>${p.bathrooms}</strong><span>Baños</span></div>` : ''}
         ${p.totalArea ? `<div class="detail-feature"><i class="fas fa-expand"></i><strong>${p.totalArea}</strong><span>m²</span></div>` : ''}
         ${p.garage === 'yes' ? `<div class="detail-feature"><i class="fas fa-car"></i><strong>Sí</strong><span>Garaje</span></div>` : ''}
         ${p.commonExpenses ? `<div class="detail-feature"><i class="fas fa-dollar-sign"></i><strong>${p.commonExpenses}</strong><span>Gastos</span></div>` : ''}`;
+      
       document.getElementById('detailWhatsapp').onclick = () => contactWhatsapp(id);
+      
+      // Instagram button - only show if owner has valid Instagram
+      const instagramBtn = document.getElementById('detailInstagram');
+      if (owner.instagram && isValidInstagramUrl(owner.instagram)) {
+        instagramBtn.classList.remove('hidden');
+        instagramBtn.onclick = () => window.open(owner.instagram, '_blank');
+      } else {
+        instagramBtn.classList.add('hidden');
+      }
+      
       document.getElementById('detailEditBtn').classList.toggle('hidden', !canEditProperty(p));
       
       // Show correct comment form
-      const isOwner = currentUser && currentUser.uid === p.ownerId;
       document.getElementById('commentFormGuest').classList.toggle('hidden', !!currentUser);
       document.getElementById('commentFormUser').classList.toggle('hidden', !currentUser);
       
@@ -1164,7 +1418,7 @@
               </div>
             </div>`;
         }).join('');
-      } catch (err) { container.innerHTML = '<p style="color: var(--danger);">Error</p>'; }
+      } catch (err) { container.innerHTML = '<p style="color: var(--danger);">Error al cargar consultas</p>'; }
     }
 
     async function addComment() {
@@ -1201,7 +1455,7 @@
           createdAt: new Date().toISOString()
         });
         
-        // Create notification for property owner
+        // Create notification for property owner (only if commenter is not the owner)
         if (currentDetailProperty.ownerId !== currentUser?.uid) {
           await db.collection('notifications').add({
             ownerId: currentDetailProperty.ownerId,
@@ -1224,7 +1478,7 @@
         }
         
         loadComments(currentDetailProperty.id);
-        alert('¡Consulta enviada!');
+        showToast('Consulta enviada', 'Tu mensaje ha sido enviado al propietario', 'fa-check');
       } catch (err) { 
         console.error(err);
         alert('Error al enviar consulta'); 
@@ -1240,31 +1494,60 @@
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
     }
 
+    function contactForListing() {
+      const message = 'Hola, me interesa publicar mi propiedad en Mi Cartera Inmobiliaria. ¿Podrían darme más información?';
+      window.open(`https://wa.me/${CONTACT_WHATSAPP}?text=${encodeURIComponent(message)}`, '_blank');
+    }
+
     function showHome() {
       document.getElementById('mainContent').classList.remove('hidden');
       document.getElementById('adminPanel').classList.add('hidden');
       document.getElementById('profilePage').classList.add('hidden');
-      currentProfileUserId = null; window.location.hash = '';
+      currentProfileUserId = null; 
+      isFromProfile = false;
+      window.location.hash = '';
     }
 
     async function showProfile(userId) {
       currentProfileUserId = userId;
+      isFromProfile = true; // Set flag when viewing profile
       window.location.hash = `perfil/${userId}`;
-      const userDoc = await db.collection('users').doc(userId).get();
-      const userData = userDoc.exists ? userDoc.data() : { name: 'Usuario', email: '' };
+      
+      // Fetch fresh user data
+      let userData;
+      if (allUsers[userId]) {
+        userData = allUsers[userId];
+      } else {
+        const userDoc = await db.collection('users').doc(userId).get();
+        userData = userDoc.exists ? userDoc.data() : { name: 'Usuario', email: '' };
+        allUsers[userId] = userData;
+      }
+      
       document.getElementById('profileName').textContent = userData.name || 'Usuario';
       document.getElementById('profileNameTitle').textContent = userData.name || 'Usuario';
       document.getElementById('profileEmail').textContent = userData.email || '';
       const initial = (userData.name || 'U').charAt(0).toUpperCase();
       document.getElementById('profileAvatar').innerHTML = userData.profilePhoto ? `<img src="${userData.profilePhoto}" alt="">` : initial;
+      
       const isOwnProfile = currentUser && currentUser.uid === userId;
       document.getElementById('profileAvatarEdit').classList.toggle('hidden', !isOwnProfile);
+      
+      // Instagram button on profile
+      const instagramBtn = document.getElementById('profileInstagramBtn');
+      if (userData.instagram && isValidInstagramUrl(userData.instagram)) {
+        instagramBtn.classList.remove('hidden');
+        instagramBtn.onclick = () => window.open(userData.instagram, '_blank');
+      } else {
+        instagramBtn.classList.add('hidden');
+      }
+      
       const userProperties = properties.filter(p => p.ownerId === userId);
       const totalViews = userProperties.reduce((sum, p) => sum + (p.views || 0), 0);
       document.getElementById('profilePropertiesCount').textContent = userProperties.length;
       document.getElementById('profileViewsCount').textContent = totalViews;
       document.getElementById('profilePropertiesSubtitle').textContent = `${userProperties.length} propiedades`;
       document.getElementById('btnNewPropertyProfile').classList.toggle('hidden', !isOwnProfile);
+      
       renderProperties(userProperties, 'profilePropertiesGrid');
       document.getElementById('mainContent').classList.add('hidden');
       document.getElementById('adminPanel').classList.add('hidden');
@@ -1273,12 +1556,25 @@
 
     function showMyProfile() { if (currentUser) showProfile(currentUser.uid); }
     function getProfileLink() { return `${window.location.origin}${window.location.pathname}#perfil/${currentProfileUserId}`; }
-    function copyProfileLink() { navigator.clipboard.writeText(getProfileLink()).then(() => { alert('¡Enlace copiado!'); }); }
-    function shareProfileWhatsapp() { const user = allUsers[currentProfileUserId] || { name: 'este usuario' }; window.open(`https://wa.me/?text=${encodeURIComponent(`Mira las propiedades de ${user.name}: ${getProfileLink()}`)}`, '_blank'); }
-    function shareProfileFacebook() { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getProfileLink())}`, '_blank'); }
-    function shareProfileTwitter() { const user = allUsers[currentProfileUserId] || { name: 'este usuario' }; window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Mira las propiedades de ${user.name}`)}&url=${encodeURIComponent(getProfileLink())}`, '_blank'); }
+    function copyProfileLink() { navigator.clipboard.writeText(getProfileLink()).then(() => { showToast('Enlace copiado', 'El enlace ha sido copiado al portapapeles', 'fa-link'); }); }
+    function shareProfileWhatsapp() { 
+      const user = allUsers[currentProfileUserId] || { name: 'este usuario' }; 
+      window.open(`https://wa.me/?text=${encodeURIComponent(`Mira las propiedades de ${user.name}: ${getProfileLink()}`)}`, '_blank'); 
+    }
+    function openProfileInstagram() {
+      const user = allUsers[currentProfileUserId];
+      if (user && user.instagram) {
+        window.open(user.instagram, '_blank');
+      }
+    }
 
-    function handleHash() { const hash = window.location.hash; if (hash.startsWith('#perfil/')) showProfile(hash.replace('#perfil/', '')); }
+    function handleHash() { 
+      const hash = window.location.hash; 
+      if (hash.startsWith('#perfil/')) {
+        isFromProfile = true;
+        showProfile(hash.replace('#perfil/', '')); 
+      }
+    }
     window.addEventListener('hashchange', handleHash);
 
     function showAdmin() {
@@ -1313,7 +1609,12 @@
       }
     }
 
-    async function approveUser(id) { await db.collection('users').doc(id).update({ status: 'approved' }); allUsers[id] = { ...allUsers[id], status: 'approved' }; showAdminTab('pending'); }
+    async function approveUser(id) { 
+      await db.collection('users').doc(id).update({ status: 'approved' }); 
+      allUsers[id] = { ...allUsers[id], status: 'approved' }; 
+      showAdminTab('pending'); 
+      showToast('Usuario aprobado', 'El usuario ya puede acceder a la plataforma', 'fa-user-check');
+    }
     async function rejectUser(id) { await db.collection('users').doc(id).update({ status: 'rejected' }); showAdminTab('pending'); }
     async function deleteUser(id) { if (!confirm('¿Eliminar?')) return; await db.collection('users').doc(id).delete(); delete allUsers[id]; showAdminTab('users'); }
     async function deleteProperty(id) { if (!confirm('¿Eliminar esta propiedad?')) return; await db.collection('properties').doc(id).delete(); }
@@ -1425,14 +1726,14 @@
 
         if (editingId) {
           await db.collection('properties').doc(editingId).update(propertyData);
-          alert('¡Propiedad actualizada!');
+          showToast('Propiedad actualizada', 'Los cambios han sido guardados', 'fa-check');
         } else {
           propertyData.ownerId = currentUser.uid;
           propertyData.ownerName = userProfile.name;
           propertyData.views = 0;
           propertyData.createdAt = new Date().toISOString();
           await db.collection('properties').add(propertyData);
-          alert('¡Propiedad publicada!');
+          showToast('Propiedad publicada', 'Tu propiedad ya está visible', 'fa-home');
         }
 
         closeModal('propertyModal');
