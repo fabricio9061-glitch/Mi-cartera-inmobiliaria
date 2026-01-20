@@ -62,58 +62,37 @@
     .logout-btn { background: var(--gray-200) !important; color: var(--gray-700) !important; }
     .logout-btn:hover { background: var(--gray-300) !important; }
 
-    /* Notification Bell - Improved */
+    /* Notification Bell */
     .notification-bell { position: relative; width: 44px; height: 44px; border-radius: 50%; background: var(--gray-100); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; }
     .notification-bell:hover { background: var(--gray-200); transform: scale(1.05); }
-    .notification-bell.has-new { animation: bellShake 0.5s ease-in-out; }
-    @keyframes bellShake {
-      0%, 100% { transform: rotate(0); }
-      25% { transform: rotate(-15deg); }
-      50% { transform: rotate(15deg); }
-      75% { transform: rotate(-10deg); }
-    }
     .notification-bell i { font-size: 20px; color: var(--gray-600); transition: color 0.3s; }
-    .notification-bell.has-new i { color: var(--accent); }
-    .notification-badge { position: absolute; top: -2px; right: -2px; min-width: 20px; height: 20px; background: var(--accent); color: var(--white); font-size: 11px; font-weight: 700; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 0 5px; border: 2px solid var(--white); animation: badgePulse 2s infinite; }
-    @keyframes badgePulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.1); }
-    }
-    .notification-dropdown { position: absolute; top: 100%; right: 0; width: 380px; max-height: 480px; background: var(--white); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); margin-top: 8px; overflow: hidden; display: none; z-index: 1000; }
-    .notification-dropdown.active { display: block; animation: dropdownSlide 0.2s ease; }
-    @keyframes dropdownSlide {
-      from { opacity: 0; transform: translateY(-10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+    .notification-bell.has-unread i { color: var(--accent); }
+    .notification-badge { position: absolute; top: -4px; right: -4px; min-width: 22px; height: 22px; background: var(--accent); color: var(--white); font-size: 11px; font-weight: 700; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 0 6px; border: 2px solid var(--white); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+    .notification-dropdown { position: absolute; top: calc(100% + 8px); right: 0; width: 380px; max-height: 500px; background: var(--white); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden; display: none; z-index: 1000; }
+    .notification-dropdown.active { display: block; animation: slideDown 0.2s ease; }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
     .notification-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--gray-100); background: var(--gray-50); }
     .notification-header h3 { font-size: 16px; font-family: 'DM Sans', sans-serif; font-weight: 600; display: flex; align-items: center; gap: 8px; }
     .notification-header h3 i { color: var(--accent); }
-    .notification-header button { background: none; color: var(--accent); font-size: 13px; font-weight: 500; transition: all 0.3s; }
+    .notification-header button { background: none; color: var(--accent); font-size: 13px; font-weight: 500; }
     .notification-header button:hover { text-decoration: underline; }
-    .notification-list { max-height: 380px; overflow-y: auto; }
-    .notification-item { display: flex; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--gray-100); transition: background 0.2s; cursor: pointer; position: relative; }
+    .notification-list { max-height: 400px; overflow-y: auto; }
+    .notification-item { display: flex; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--gray-100); cursor: pointer; transition: background 0.2s; position: relative; }
     .notification-item:hover { background: var(--gray-50); }
-    .notification-item.unread { background: rgba(233, 69, 96, 0.05); }
-    .notification-item.unread::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent); }
-    .notification-item.new-entry { animation: newNotification 0.5s ease; }
-    @keyframes newNotification {
-      from { background: rgba(233, 69, 96, 0.2); }
-      to { background: rgba(233, 69, 96, 0.05); }
-    }
-    .notification-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--gray-200); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; font-weight: 600; color: var(--gray-600); }
+    .notification-item.unread { background: rgba(233, 69, 96, 0.08); }
+    .notification-item.unread::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent); }
+    .notification-avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--gold)); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; font-weight: 600; color: var(--white); font-size: 18px; }
     .notification-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .notification-content { flex: 1; min-width: 0; }
-    .notification-content p { font-size: 14px; color: var(--gray-700); margin-bottom: 4px; line-height: 1.4; }
-    .notification-content p strong { color: var(--primary); }
-    .notification-content .notification-text { font-size: 13px; color: var(--gray-500); background: var(--gray-50); padding: 8px 12px; border-radius: var(--radius-sm); margin: 8px 0; border-left: 3px solid var(--accent); }
-    .notification-content small { color: var(--gray-400); font-size: 12px; }
-    .notification-contact { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 8px 12px; background: rgba(37, 211, 102, 0.1); border-radius: var(--radius-md); font-size: 13px; }
-    .notification-contact i { color: #25D366; font-size: 16px; }
-    .notification-contact a { color: #25D366; font-weight: 600; transition: all 0.3s; }
-    .notification-contact a:hover { text-decoration: underline; }
-    .notification-empty { text-align: center; padding: 50px 20px; color: var(--gray-400); }
+    .notification-body { flex: 1; min-width: 0; }
+    .notification-body p { font-size: 14px; color: var(--gray-700); margin-bottom: 6px; line-height: 1.4; }
+    .notification-body p strong { color: var(--primary); }
+    .notification-message { font-size: 13px; color: var(--gray-500); background: var(--gray-100); padding: 8px 12px; border-radius: var(--radius-sm); margin-bottom: 8px; border-left: 3px solid var(--accent); }
+    .notification-meta { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--gray-400); }
+    .notification-phone { display: inline-flex; align-items: center; gap: 4px; color: #25D366; font-weight: 500; }
+    .notification-phone:hover { text-decoration: underline; }
+    .notification-empty { text-align: center; padding: 60px 20px; color: var(--gray-400); }
     .notification-empty i { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
-    .notification-empty p { font-size: 15px; }
 
     .btn-new-property {
       display: inline-flex; align-items: center; gap: 12px; padding: 14px 28px;
@@ -143,19 +122,15 @@
     .hero-btn-secondary { background: rgba(255,255,255,0.15); color: var(--white); border: 2px solid var(--white); }
     .hero-btn-secondary:hover { background: var(--white); color: var(--primary); }
 
-    /* CTA Banner - Contact Us */
+    /* CTA Banner */
     .cta-banner { background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 50%, var(--primary-light) 100%); padding: 40px; border-radius: var(--radius-xl); margin: 40px 0; text-align: center; position: relative; overflow: hidden; }
     .cta-banner::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%); animation: ctaGlow 10s linear infinite; }
-    @keyframes ctaGlow {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
+    @keyframes ctaGlow { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .cta-banner-content { position: relative; z-index: 1; }
     .cta-banner h3 { color: var(--white); font-size: 28px; margin-bottom: 12px; }
     .cta-banner p { color: rgba(255,255,255,0.85); font-size: 16px; margin-bottom: 24px; max-width: 500px; margin-left: auto; margin-right: auto; }
     .cta-banner .btn-cta { display: inline-flex; align-items: center; gap: 10px; padding: 16px 32px; background: var(--gold); color: var(--primary); font-size: 16px; font-weight: 600; border-radius: var(--radius-full); transition: all 0.3s; }
     .cta-banner .btn-cta:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(201, 162, 39, 0.4); background: #d4ad2b; }
-    .cta-banner .btn-cta i { font-size: 18px; }
 
     .filters { background: var(--white); padding: 24px; border-radius: var(--radius-xl); box-shadow: var(--shadow-md); margin: -40px auto 40px; max-width: 1000px; position: relative; z-index: 10; }
     .filters-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 16px; align-items: end; }
@@ -206,7 +181,7 @@
     .card-views { font-size: 13px; color: var(--gray-500); }
     .btn-whatsapp { display: flex; align-items: center; gap: 8px; padding: 10px 18px; background: #25D366; color: var(--white); border-radius: var(--radius-md); font-size: 13px; font-weight: 600; transition: all 0.3s; }
     .btn-whatsapp:hover { background: #128C7E; transform: scale(1.05); }
-    .btn-instagram { display: flex; align-items: center; gap: 8px; padding: 10px 18px; background: var(--instagram); color: var(--white); border-radius: var(--radius-md); font-size: 13px; font-weight: 600; transition: all 0.3s; }
+    .btn-instagram { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--instagram); color: var(--white); border-radius: var(--radius-md); font-size: 13px; font-weight: 600; transition: all 0.3s; }
     .btn-instagram:hover { transform: scale(1.05); filter: brightness(1.1); }
 
     .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
@@ -305,7 +280,7 @@
     .detail-whatsapp { flex: 1; min-width: 200px; padding: 16px; background: #25D366; color: var(--white); border-radius: var(--radius-md); font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.3s; }
     .detail-whatsapp:hover { background: #128C7E; }
     .detail-instagram { padding: 16px 24px; background: var(--instagram); color: var(--white); border-radius: var(--radius-md); font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.3s; }
-    .detail-instagram:hover { filter: brightness(1.1); transform: scale(1.02); }
+    .detail-instagram:hover { filter: brightness(1.1); }
     .detail-edit-btn { padding: 16px 24px; background: #3498db; color: var(--white); border-radius: var(--radius-md); font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.3s; }
     .detail-edit-btn:hover { background: #2980b9; }
 
@@ -319,7 +294,7 @@
     .comment-form button:hover { background: var(--accent-hover); }
     .comment-form small { color: var(--gray-500); font-size: 12px; display: flex; align-items: center; gap: 6px; }
     .comment-form small i { color: var(--gold); }
-    .comment-item { display: flex; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--gray-100); position: relative; }
+    .comment-item { display: flex; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--gray-100); }
     .comment-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--gray-200); display: flex; align-items: center; justify-content: center; color: var(--gray-500); font-weight: 600; overflow: hidden; flex-shrink: 0; }
     .comment-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .comment-content { flex: 1; }
@@ -370,18 +345,12 @@
     .spinner { width: 40px; height: 40px; border: 3px solid var(--gray-200); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Toast Notification */
+    /* Toast */
     .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; }
-    .toast { background: var(--white); padding: 16px 20px; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 12px; animation: toastSlide 0.3s ease; max-width: 350px; }
-    @keyframes toastSlide {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
-    .toast.hiding { animation: toastHide 0.3s ease forwards; }
-    @keyframes toastHide {
-      from { transform: translateX(0); opacity: 1; }
-      to { transform: translateX(100%); opacity: 0; }
-    }
+    .toast { background: var(--white); padding: 16px 20px; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 12px; animation: toastIn 0.3s ease; max-width: 350px; }
+    @keyframes toastIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .toast.hiding { animation: toastOut 0.3s ease forwards; }
+    @keyframes toastOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
     .toast-icon { width: 40px; height: 40px; border-radius: 50%; background: rgba(233, 69, 96, 0.1); display: flex; align-items: center; justify-content: center; color: var(--accent); flex-shrink: 0; }
     .toast-content { flex: 1; }
     .toast-content strong { display: block; color: var(--primary); margin-bottom: 2px; }
@@ -392,7 +361,7 @@
       .profile-header-content { flex-direction: column; text-align: center; }
       .profile-stats { justify-content: center; }
       .profile-share { justify-content: center; }
-      .notification-dropdown { width: 340px; right: -80px; }
+      .notification-dropdown { width: 340px; right: -100px; }
     }
     @media (max-width: 768px) {
       .header-content { flex-wrap: wrap; gap: 16px; }
@@ -503,7 +472,6 @@
       <div id="propertiesLoading" class="loading"><div class="spinner"></div></div>
       <div class="properties-grid" id="propertiesGrid"></div>
       
-      <!-- CTA Banner -->
       <div class="cta-banner">
         <div class="cta-banner-content">
           <h3>¿Querés que tu propiedad forme parte de nuestro portafolio?</h3>
@@ -724,25 +692,6 @@
     </div>
   </div>
 
-  <!-- Edit Profile Modal -->
-  <div class="modal" id="editProfileModal">
-    <div class="modal-content">
-      <div class="modal-header"><h2>Editar Perfil</h2><button class="modal-close" onclick="closeModal('editProfileModal')"><i class="fas fa-times"></i></button></div>
-      <div class="modal-body">
-        <form onsubmit="handleUpdateProfile(event)">
-          <div class="form-group"><label>Nombre</label><input type="text" id="editProfileName" required></div>
-          <div class="form-group"><label>WhatsApp</label><input type="tel" id="editProfileWhatsapp" placeholder="+598 99 123 456"></div>
-          <div class="form-group">
-            <label>Instagram (opcional)</label>
-            <input type="url" id="editProfileInstagram" placeholder="https://instagram.com/tu_usuario">
-            <small>Ingresa el link completo de tu perfil para mostrar el botón de Instagram</small>
-          </div>
-          <button type="submit" class="btn-submit"><i class="fas fa-save"></i> Guardar Cambios</button>
-        </form>
-      </div>
-    </div>
-  </div>
-
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -761,28 +710,28 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
     const ADMIN_EMAIL = "fabricio9061@gmail.com";
-    const CONTACT_WHATSAPP = "59899000000"; // WhatsApp de contacto para el CTA
+    const CONTACT_WHATSAPP = "59899000000";
 
     const uruguayData = {
-      "Montevideo": ["Ciudad Vieja", "Centro", "Cordón", "Tres Cruces", "La Unión", "La Figurita", "Villa Muñoz", "Goes", "Pocitos", "Punta Carretas", "Malvín", "Buceo", "Parque Batlle", "Carrasco", "Prado", "Cerro", "La Teja", "Paso de la Arena", "Colón", "Sayago", "Peñarol", "Manga", "Piedras Blancas", "Maroñas", "La Blanqueada", "Parque Rodó", "Aguada", "Reducto", "Bella Vista", "Atahualpa", "Jacinto Vera", "La Comercial", "Brazo Oriental", "Capurro", "Belvedere", "Nuevo París", "Casavalle", "Borro", "Flor de Maroñas", "Jardines del Hipódromo", "Las Canteras", "Malvín Norte", "Unión", "Villa Española", "Aires Puros"],
+      "Montevideo": ["Ciudad Vieja", "Centro", "Cordón", "Tres Cruces", "La Unión", "Pocitos", "Punta Carretas", "Malvín", "Buceo", "Parque Batlle", "Carrasco", "Prado", "Cerro", "La Teja", "Paso de la Arena", "Colón", "Sayago", "Peñarol", "Manga", "Piedras Blancas", "Maroñas", "La Blanqueada", "Parque Rodó", "Aguada", "Reducto", "Bella Vista", "Atahualpa", "Jacinto Vera", "La Comercial", "Brazo Oriental", "Capurro", "Belvedere", "Nuevo París", "Casavalle", "Flor de Maroñas", "Jardines del Hipódromo", "Las Canteras", "Malvín Norte", "Unión", "Villa Española", "Aires Puros"],
       "Canelones": ["Ciudad de la Costa", "Las Piedras", "Pando", "Canelones", "Santa Lucía", "Progreso", "Sauce", "Tala", "Atlántida", "Salinas", "Parque del Plata", "La Paz", "San Ramón", "Barros Blancos", "Toledo", "Joaquín Suárez", "Solymar", "Shangrilá", "El Pinar", "Neptunia", "Pinamar", "Lagomar"],
-      "Maldonado": ["Maldonado", "Punta del Este", "San Carlos", "Piriápolis", "Pan de Azúcar", "Aiguá", "La Barra", "José Ignacio", "Manantiales", "Punta Ballena", "Solanas", "Balneario Buenos Aires"],
-      "Colonia": ["Colonia del Sacramento", "Carmelo", "Juan Lacaze", "Nueva Helvecia", "Rosario", "Tarariras", "Nueva Palmira", "Ombúes de Lavalle", "Conchillas", "Florencio Sánchez"],
+      "Maldonado": ["Maldonado", "Punta del Este", "San Carlos", "Piriápolis", "Pan de Azúcar", "Aiguá", "La Barra", "José Ignacio", "Manantiales", "Punta Ballena", "Solanas"],
+      "Colonia": ["Colonia del Sacramento", "Carmelo", "Juan Lacaze", "Nueva Helvecia", "Rosario", "Tarariras", "Nueva Palmira"],
       "Salto": ["Salto", "Daymán", "Belén", "Constitución", "San Antonio", "Termas del Daymán", "Termas del Arapey"],
-      "Paysandú": ["Paysandú", "Guichón", "Quebracho", "Piedras Coloradas", "Termas de Guaviyú", "Termas de Almirón", "Chapicuy"],
-      "Río Negro": ["Fray Bentos", "Young", "San Javier", "Nuevo Berlín", "Las Cañas"],
-      "Soriano": ["Mercedes", "Dolores", "Cardona", "Palmitas", "José Enrique Rodó", "Santa Catalina"],
-      "San José": ["San José de Mayo", "Ciudad del Plata", "Libertad", "Ecilda Paullier", "Rodríguez", "Rafael Perazza", "Delta del Tigre", "Kiyú"],
-      "Florida": ["Florida", "Sarandí Grande", "Casupá", "25 de Mayo", "Fray Marcos", "Nico Pérez"],
-      "Flores": ["Trinidad", "Ismael Cortinas", "Andresito"],
-      "Durazno": ["Durazno", "Sarandí del Yí", "Carlos Reyles", "Blanquillo", "La Paloma"],
-      "Tacuarembó": ["Tacuarembó", "Paso de los Toros", "San Gregorio de Polanco", "Curtina", "Achar"],
+      "Paysandú": ["Paysandú", "Guichón", "Quebracho", "Piedras Coloradas", "Termas de Guaviyú", "Termas de Almirón"],
+      "Río Negro": ["Fray Bentos", "Young", "San Javier", "Nuevo Berlín"],
+      "Soriano": ["Mercedes", "Dolores", "Cardona", "Palmitas"],
+      "San José": ["San José de Mayo", "Ciudad del Plata", "Libertad", "Ecilda Paullier", "Delta del Tigre", "Kiyú"],
+      "Florida": ["Florida", "Sarandí Grande", "Casupá", "25 de Mayo", "Fray Marcos"],
+      "Flores": ["Trinidad", "Ismael Cortinas"],
+      "Durazno": ["Durazno", "Sarandí del Yí", "Carlos Reyles"],
+      "Tacuarembó": ["Tacuarembó", "Paso de los Toros", "San Gregorio de Polanco"],
       "Rivera": ["Rivera", "Tranqueras", "Vichadero", "Minas de Corrales"],
-      "Artigas": ["Artigas", "Bella Unión", "Baltasar Brum", "Tomás Gomensoro"],
-      "Cerro Largo": ["Melo", "Río Branco", "Fraile Muerto", "Aceguá", "Tupambaé", "Isidoro Noblía"],
-      "Lavalleja": ["Minas", "José Pedro Varela", "Solís de Mataojo", "Mariscala", "José Batlle y Ordóñez"],
-      "Rocha": ["Rocha", "Chuy", "Castillos", "Lascano", "La Paloma", "La Pedrera", "Cabo Polonio", "Punta del Diablo", "Aguas Dulces", "Barra de Valizas"],
-      "Treinta y Tres": ["Treinta y Tres", "Vergara", "Santa Clara de Olimar", "General Enrique Martínez", "Cerro Chato"]
+      "Artigas": ["Artigas", "Bella Unión", "Baltasar Brum"],
+      "Cerro Largo": ["Melo", "Río Branco", "Fraile Muerto"],
+      "Lavalleja": ["Minas", "José Pedro Varela", "Solís de Mataojo"],
+      "Rocha": ["Rocha", "Chuy", "Castillos", "Lascano", "La Paloma", "La Pedrera", "Cabo Polonio", "Punta del Diablo"],
+      "Treinta y Tres": ["Treinta y Tres", "Vergara", "Santa Clara de Olimar"]
     };
 
     let currentUser = null;
@@ -796,9 +745,6 @@
     let draggedImageIndex = null;
     let notifications = [];
     let unsubscribeNotifications = null;
-    let previousNotificationCount = 0;
-    let viewedProperties = new Set(); // Track viewed properties in this session
-    let isFromProfile = false; // Track if navigating from profile
 
     function initDepartamentos() {
       const select = document.getElementById('propDepartamento');
@@ -824,7 +770,7 @@
     }
     loadUsers();
 
-    // Toast notification system
+    // Toast notifications
     function showToast(title, message, icon = 'fa-bell') {
       const container = document.getElementById('toastContainer');
       const toast = document.createElement('div');
@@ -834,96 +780,83 @@
         <div class="toast-content"><strong>${title}</strong><p>${message}</p></div>
       `;
       container.appendChild(toast);
-      
-      // Play sound
-      try {
-        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQM5nt7OeQwAI6jk22kVACu43s9VFgA4wtjBRhkAS87TtT0bAFzY0Ks4HQBq4M6hNB4AeenNmzEeAIjwzJcvHgCW9syULh0Aovjvky0cAK768JIsGwC2/fGRKxoAwv7xkSoZAMz/8pEpGADV//ORKBYA3P/zkScVAOP/85EmEwDo//SRJhIA7P/0kSUQAPD/9ZEkDgD0//WRJA0A9//1kSMLAPr/9ZEjCgD8//WRIgkA/f/1kSIIAP7/9ZEhBwD///aRIQYAAQD2kCAFAAIA9pAgBAADAP6QIAMABQP+jyACAAwN/Y8fAQAaFfyOHwAAKh77jR4AADgn+40eAABFMfqMHQAAUzv5jB0AAF9E+IscAABrTveKHAAAd1f2ihsAAINg9YkaAACMaPSIGgAAlXDziRkAAJ15+IcYAACmgfqGGAAAroj7hhcAALSP+4UXAAC6lvqFFgAAwJ35hBYAAMOi+YQUAADH');
-        audio.volume = 0.3;
-        audio.play().catch(() => {});
-      } catch(e) {}
-      
-      // Auto remove
-      setTimeout(() => {
-        toast.classList.add('hiding');
-        setTimeout(() => toast.remove(), 300);
-      }, 5000);
+      setTimeout(() => { toast.classList.add('hiding'); setTimeout(() => toast.remove(), 300); }, 5000);
     }
 
-    // Request notification permission
-    async function requestNotificationPermission() {
+    // Request browser notification permission
+    function requestNotificationPermission() {
       if ('Notification' in window && Notification.permission === 'default') {
-        await Notification.requestPermission();
+        Notification.requestPermission();
       }
     }
 
     // Send browser notification
-    function sendBrowserNotification(title, body, icon) {
+    function sendBrowserNotification(title, body) {
       if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(title, { body, icon: icon || '/favicon.ico', badge: '/favicon.ico' });
+        new Notification(title, { body, icon: 'https://cdn-icons-png.flaticon.com/512/1946/1946488.png' });
       }
     }
 
-    // Listen to notifications in real-time
-    function listenToNotifications() {
-      if (!currentUser) return;
-      if (unsubscribeNotifications) unsubscribeNotifications();
+    // ==================== NOTIFICATIONS SYSTEM ====================
+    function startNotificationListener() {
+      if (!currentUser) {
+        console.log('No user logged in, skipping notification listener');
+        return;
+      }
       
-      previousNotificationCount = 0;
-      
+      // Clean up existing listener
+      if (unsubscribeNotifications) {
+        unsubscribeNotifications();
+      }
+
+      console.log('Starting notification listener for user:', currentUser.uid);
+
       unsubscribeNotifications = db.collection('notifications')
         .where('ownerId', '==', currentUser.uid)
         .orderBy('createdAt', 'desc')
         .limit(50)
         .onSnapshot((snapshot) => {
-          const oldNotificationIds = new Set(notifications.map(n => n.id));
-          notifications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          console.log('Notifications snapshot received, count:', snapshot.docs.length);
           
-          // Check for new notifications
+          const oldIds = new Set(notifications.map(n => n.id));
+          const newNotifications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          
+          // Check for new notifications (not in old list)
           snapshot.docChanges().forEach(change => {
-            if (change.type === 'added') {
+            if (change.type === 'added' && !oldIds.has(change.doc.id) && oldIds.size > 0) {
               const data = change.doc.data();
-              // Only notify if this is actually new (not initial load)
-              if (!oldNotificationIds.has(change.doc.id) && previousNotificationCount > 0) {
-                // Show toast notification
-                showToast('Nueva consulta', `${data.userName} consultó sobre "${data.propertyTitle}"`, 'fa-comment');
-                
-                // Send browser notification
-                sendBrowserNotification(
-                  'Nueva consulta',
-                  `${data.userName} consultó sobre "${data.propertyTitle}"`,
-                  data.userPhoto
-                );
-                
-                // Animate bell
-                const bell = document.getElementById('notificationBell');
-                bell.classList.add('has-new');
-                setTimeout(() => bell.classList.remove('has-new'), 1000);
-              }
+              console.log('New notification detected:', data);
+              showToast('Nueva consulta', `${data.userName} consultó sobre "${data.propertyTitle}"`, 'fa-comment');
+              sendBrowserNotification('Nueva consulta', `${data.userName} consultó sobre "${data.propertyTitle}"`);
             }
           });
           
-          previousNotificationCount = notifications.length;
-          updateNotificationUI();
+          notifications = newNotifications;
+          renderNotifications();
         }, (error) => {
-          console.error('Error listening to notifications:', error);
+          console.error('Error in notification listener:', error);
         });
     }
 
-    function updateNotificationUI() {
+    function renderNotifications() {
       const badge = document.getElementById('notificationBadge');
-      const list = document.getElementById('notificationList');
       const bell = document.getElementById('notificationBell');
-      const unreadCount = notifications.filter(n => !n.read).length;
+      const list = document.getElementById('notificationList');
       
+      const unreadCount = notifications.filter(n => !n.read).length;
+      console.log('Rendering notifications, unread count:', unreadCount);
+      
+      // Update badge
       if (unreadCount > 0) {
         badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
         badge.classList.remove('hidden');
-        bell.classList.add('has-new');
+        bell.classList.add('has-unread');
       } else {
         badge.classList.add('hidden');
-        bell.classList.remove('has-new');
+        bell.classList.remove('has-unread');
       }
 
+      // Render list
       if (notifications.length === 0) {
         list.innerHTML = '<div class="notification-empty"><i class="fas fa-bell-slash"></i><p>No tienes consultas</p></div>';
         return;
@@ -931,23 +864,28 @@
 
       list.innerHTML = notifications.map(n => {
         const initial = (n.userName || 'A').charAt(0).toUpperCase();
-        const time = n.createdAt ? timeAgo(new Date(n.createdAt)) : '';
+        const timeStr = n.createdAt ? formatTimeAgo(n.createdAt) : '';
+        
         return `
-          <div class="notification-item ${n.read ? '' : 'unread'}" onclick="openNotificationProperty('${n.propertyId}', '${n.id}')">
+          <div class="notification-item ${n.read ? '' : 'unread'}" onclick="handleNotificationClick('${n.id}', '${n.propertyId}')">
             <div class="notification-avatar">${n.userPhoto ? `<img src="${n.userPhoto}" alt="">` : initial}</div>
-            <div class="notification-content">
+            <div class="notification-body">
               <p><strong>${n.userName}</strong> consultó sobre <strong>${n.propertyTitle}</strong></p>
-              <div class="notification-text">"${n.text.substring(0, 80)}${n.text.length > 80 ? '...' : ''}"</div>
-              ${n.userPhone ? `<div class="notification-contact"><i class="fab fa-whatsapp"></i> <a href="https://wa.me/${n.userPhone.replace(/\D/g, '')}" target="_blank" onclick="event.stopPropagation()">${n.userPhone}</a></div>` : ''}
-              <small><i class="far fa-clock"></i> ${time}</small>
+              <div class="notification-message">"${(n.text || '').substring(0, 100)}${(n.text || '').length > 100 ? '...' : ''}"</div>
+              <div class="notification-meta">
+                <span><i class="far fa-clock"></i> ${timeStr}</span>
+                ${n.userPhone ? `<a href="https://wa.me/${n.userPhone.replace(/\D/g, '')}" target="_blank" class="notification-phone" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i> ${n.userPhone}</a>` : ''}
+              </div>
             </div>
-          </div>`;
+          </div>
+        `;
       }).join('');
     }
 
-    function timeAgo(date) {
+    function formatTimeAgo(timestamp) {
+      const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
       const seconds = Math.floor((new Date() - date) / 1000);
-      if (seconds < 60) return 'Ahora mismo';
+      if (seconds < 60) return 'Ahora';
       const minutes = Math.floor(seconds / 60);
       if (minutes < 60) return `Hace ${minutes} min`;
       const hours = Math.floor(minutes / 60);
@@ -959,35 +897,50 @@
 
     function toggleNotifications(e) {
       e.stopPropagation();
-      const dropdown = document.getElementById('notificationDropdown');
-      dropdown.classList.toggle('active');
+      document.getElementById('notificationDropdown').classList.toggle('active');
     }
 
     document.addEventListener('click', (e) => {
       const dropdown = document.getElementById('notificationDropdown');
-      const bell = document.querySelector('.notification-bell');
-      if (dropdown && !dropdown.contains(e.target) && !bell.contains(e.target)) {
+      const bell = document.getElementById('notificationBell');
+      if (!dropdown.contains(e.target) && !bell.contains(e.target)) {
         dropdown.classList.remove('active');
       }
     });
 
-    async function markAllAsRead(e) {
-      e.stopPropagation();
-      const batch = db.batch();
-      notifications.filter(n => !n.read).forEach(n => {
-        batch.update(db.collection('notifications').doc(n.id), { read: true });
-      });
-      await batch.commit();
+    async function handleNotificationClick(notificationId, propertyId) {
+      // Close dropdown
+      document.getElementById('notificationDropdown').classList.remove('active');
+      
+      // Mark as read
+      try {
+        await db.collection('notifications').doc(notificationId).update({ read: true });
+      } catch (err) {
+        console.error('Error marking notification as read:', err);
+      }
+      
+      // Open property (without counting view since it's the owner)
+      openDetail(propertyId, true);
     }
 
-    async function openNotificationProperty(propertyId, notificationId) {
-      document.getElementById('notificationDropdown').classList.remove('active');
-      if (notificationId) {
-        await db.collection('notifications').doc(notificationId).update({ read: true });
+    async function markAllAsRead(e) {
+      e.stopPropagation();
+      const unread = notifications.filter(n => !n.read);
+      if (unread.length === 0) return;
+      
+      const batch = db.batch();
+      unread.forEach(n => {
+        batch.update(db.collection('notifications').doc(n.id), { read: true });
+      });
+      
+      try {
+        await batch.commit();
+        showToast('Listo', 'Todas las consultas marcadas como leídas', 'fa-check');
+      } catch (err) {
+        console.error('Error marking all as read:', err);
       }
-      isFromProfile = true; // Don't count view when opening from notification
-      openDetail(propertyId);
     }
+    // ==================== END NOTIFICATIONS ====================
 
     auth.onAuthStateChanged(async (user) => {
       if (user) {
@@ -999,13 +952,20 @@
             allUsers[user.uid] = userProfile;
             updateUI();
             requestNotificationPermission();
-            listenToNotifications();
-          } else { auth.signOut(); alert('Tu cuenta está pendiente de aprobación'); }
+            startNotificationListener();
+          } else { 
+            auth.signOut(); 
+            alert('Tu cuenta está pendiente de aprobación'); 
+          }
         }
       } else { 
         currentUser = null; 
-        userProfile = null; 
-        if (unsubscribeNotifications) unsubscribeNotifications();
+        userProfile = null;
+        notifications = [];
+        if (unsubscribeNotifications) {
+          unsubscribeNotifications();
+          unsubscribeNotifications = null;
+        }
         updateUI(); 
       }
     });
@@ -1019,32 +979,34 @@
       const userAvatar = document.getElementById('userAvatar');
       const heroButtons = document.getElementById('heroButtons');
       const btnNewProperty = document.getElementById('btnNewProperty');
-      const commentFormGuest = document.getElementById('commentFormGuest');
-      const commentFormUser = document.getElementById('commentFormUser');
 
       if (currentUser && userProfile) {
         navGuest.classList.add('hidden');
         navUser.classList.remove('hidden');
         heroButtons.classList.add('hidden');
         btnNewProperty.classList.remove('hidden');
-        if (commentFormGuest) commentFormGuest.classList.add('hidden');
-        if (commentFormUser) commentFormUser.classList.remove('hidden');
         userName.textContent = userProfile.name || 'Usuario';
         const initial = (userProfile.name || 'U').charAt(0).toUpperCase();
         userAvatar.innerHTML = userProfile.profilePhoto ? `<img src="${userProfile.profilePhoto}" alt="">` : initial;
-        if (userProfile.email.toLowerCase() === ADMIN_EMAIL) { adminBadge.classList.remove('hidden'); adminBtn.classList.remove('hidden'); }
-        else { adminBadge.classList.add('hidden'); adminBtn.classList.add('hidden'); }
+        if (userProfile.email.toLowerCase() === ADMIN_EMAIL) { 
+          adminBadge.classList.remove('hidden'); 
+          adminBtn.classList.remove('hidden'); 
+        } else { 
+          adminBadge.classList.add('hidden'); 
+          adminBtn.classList.add('hidden'); 
+        }
       } else {
         navGuest.classList.remove('hidden');
         navUser.classList.add('hidden');
         heroButtons.classList.remove('hidden');
         btnNewProperty.classList.add('hidden');
-        if (commentFormGuest) commentFormGuest.classList.remove('hidden');
-        if (commentFormUser) commentFormUser.classList.add('hidden');
       }
     }
 
-    function openModal(id) { document.getElementById(id).classList.add('active'); if (id === 'loginModal') loadRememberedUser(); }
+    function openModal(id) { 
+      document.getElementById(id).classList.add('active'); 
+      if (id === 'loginModal') loadRememberedUser(); 
+    }
     function closeModal(id) { document.getElementById(id).classList.remove('active'); }
     function switchModal(from, to) { closeModal(from); setTimeout(() => openModal(to), 200); }
 
@@ -1126,17 +1088,8 @@
       try {
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         const isAdmin = email.toLowerCase() === ADMIN_EMAIL;
-        const userData = { 
-          uid: userCredential.user.uid, 
-          email, 
-          name, 
-          whatsapp, 
-          status: isAdmin ? 'approved' : 'pending', 
-          createdAt: new Date().toISOString() 
-        };
-        if (instagram && isValidInstagramUrl(instagram)) {
-          userData.instagram = instagram;
-        }
+        const userData = { uid: userCredential.user.uid, email, name, whatsapp, status: isAdmin ? 'approved' : 'pending', createdAt: new Date().toISOString() };
+        if (instagram && instagram.includes('instagram.com')) userData.instagram = instagram;
         await db.collection('users').doc(userCredential.user.uid).set(userData);
         await auth.signOut();
         document.getElementById('registerForm').reset();
@@ -1144,10 +1097,6 @@
         success.classList.remove('hidden');
       } catch (err) { error.textContent = err.code === 'auth/email-already-in-use' ? 'Este correo ya está registrado' : err.message; error.classList.remove('hidden'); }
       finally { btn.disabled = false; btn.textContent = 'Crear Cuenta'; }
-    }
-
-    function isValidInstagramUrl(url) {
-      return url && (url.includes('instagram.com/') || url.includes('instagr.am/'));
     }
 
     function logout() { auth.signOut(); showHome(); }
@@ -1162,44 +1111,8 @@
         allUsers[currentUser.uid].profilePhoto = compressed;
         updateUI();
         document.getElementById('profileAvatar').innerHTML = `<img src="${compressed}" alt="">`;
-        showToast('Perfil actualizado', 'Tu foto de perfil ha sido actualizada', 'fa-check');
+        showToast('Perfil actualizado', 'Tu foto ha sido actualizada', 'fa-check');
       } catch (err) { alert('Error al actualizar foto'); }
-    }
-
-    async function handleUpdateProfile(e) {
-      e.preventDefault();
-      if (!currentUser) return;
-      
-      const name = document.getElementById('editProfileName').value;
-      const whatsapp = document.getElementById('editProfileWhatsapp').value;
-      const instagram = document.getElementById('editProfileInstagram').value.trim();
-      
-      try {
-        const updateData = { name, whatsapp };
-        if (instagram && isValidInstagramUrl(instagram)) {
-          updateData.instagram = instagram;
-        } else {
-          updateData.instagram = firebase.firestore.FieldValue.delete();
-        }
-        
-        await db.collection('users').doc(currentUser.uid).update(updateData);
-        userProfile = { ...userProfile, name, whatsapp, instagram: instagram || null };
-        allUsers[currentUser.uid] = userProfile;
-        updateUI();
-        closeModal('editProfileModal');
-        showProfile(currentUser.uid);
-        showToast('Perfil actualizado', 'Tus datos han sido guardados', 'fa-check');
-      } catch (err) {
-        alert('Error al actualizar perfil');
-      }
-    }
-
-    function openEditProfileModal() {
-      if (!userProfile) return;
-      document.getElementById('editProfileName').value = userProfile.name || '';
-      document.getElementById('editProfileWhatsapp').value = userProfile.whatsapp || '';
-      document.getElementById('editProfileInstagram').value = userProfile.instagram || '';
-      openModal('editProfileModal');
     }
 
     function loadProperties() {
@@ -1222,13 +1135,14 @@
       if (loading) loading.classList.add('hidden');
       if (count) count.textContent = `${props.length} propiedades encontradas`;
       if (props.length === 0) { grid.innerHTML = '<p style="text-align: center; color: var(--gray-500); grid-column: 1/-1; padding: 60px;">No hay propiedades disponibles</p>'; return; }
+      
       grid.innerHTML = props.map(p => {
         const owner = getUserInfo(p.ownerId);
         const ownerInitial = (owner.name || 'U').charAt(0).toUpperCase();
         const currency = p.currency || 'USD';
         const location = getLocationString(p);
         const canEdit = canEditProperty(p);
-        const hasInstagram = owner.instagram && isValidInstagramUrl(owner.instagram);
+        const hasInstagram = owner.instagram && owner.instagram.includes('instagram.com');
         
         return `
           <div class="property-card" onclick="openDetail('${p.id}')">
@@ -1263,7 +1177,7 @@
             <div class="card-footer">
               <span class="card-views"><i class="fas fa-eye"></i> ${p.views || 0}</span>
               <div style="display: flex; gap: 8px;">
-                ${hasInstagram ? `<button class="btn-instagram" onclick="event.stopPropagation(); window.open('${owner.instagram}', '_blank')" title="Instagram"><i class="fab fa-instagram"></i></button>` : ''}
+                ${hasInstagram ? `<button class="btn-instagram" onclick="event.stopPropagation(); window.open('${owner.instagram}', '_blank')"><i class="fab fa-instagram"></i></button>` : ''}
                 <button class="btn-whatsapp" onclick="event.stopPropagation(); contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button>
               </div>
             </div>
@@ -1293,42 +1207,27 @@
       renderProperties(filtered);
     }
 
-    // Improved view counting logic
-    function shouldCountView(property) {
-      // Don't count if user is the owner
-      if (currentUser && currentUser.uid === property.ownerId) {
-        return false;
-      }
-      
-      // Don't count if navigating from profile (owner viewing their properties)
-      if (isFromProfile) {
-        return false;
-      }
-      
-      // Don't count if already viewed in this session
-      if (viewedProperties.has(property.id)) {
-        return false;
-      }
-      
-      return true;
-    }
-
-    async function openDetail(id) {
+    // FIXED: View counting - only count if viewer is NOT the property owner
+    async function openDetail(id, skipViewCount = false) {
       const p = properties.find(prop => prop.id === id);
       if (!p) return;
+      
       currentDetailProperty = p;
       currentDetailImageIndex = 0;
       
-      // Only count view if conditions are met
-      if (shouldCountView(p)) {
-        viewedProperties.add(p.id);
+      // Count view ONLY if:
+      // 1. skipViewCount is false (not coming from notifications)
+      // 2. User is NOT the property owner (including logged out users)
+      const isOwner = currentUser && currentUser.uid === p.ownerId;
+      
+      if (!skipViewCount && !isOwner) {
+        console.log('Counting view for property:', p.title);
         db.collection('properties').doc(id).update({ 
           views: firebase.firestore.FieldValue.increment(1) 
-        }).catch(err => console.log('View count error:', err));
+        }).catch(err => console.log('Error counting view:', err));
+      } else {
+        console.log('NOT counting view - isOwner:', isOwner, 'skipViewCount:', skipViewCount);
       }
-      
-      // Reset the fromProfile flag after checking
-      isFromProfile = false;
       
       const images = p.images?.length ? p.images : ['https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'];
       document.getElementById('detailImage').src = images[0];
@@ -1337,6 +1236,7 @@
       const currency = p.currency || 'USD';
       document.getElementById('detailPrice').textContent = `${formatPrice(p.price, currency)}${p.type === 'rent' ? '/mes' : ''}`;
       document.getElementById('detailDescription').textContent = p.description || 'Sin descripción.';
+      
       const thumbsContainer = document.getElementById('detailThumbnails');
       if (images.length > 1) {
         thumbsContainer.innerHTML = images.map((img, i) => `<div class="detail-thumb ${i === 0 ? 'active' : ''}" onclick="setDetailImage(${i})"><img src="${img}" alt=""></div>`).join('');
@@ -1363,9 +1263,9 @@
       
       document.getElementById('detailWhatsapp').onclick = () => contactWhatsapp(id);
       
-      // Instagram button - only show if owner has valid Instagram
+      // Instagram button
       const instagramBtn = document.getElementById('detailInstagram');
-      if (owner.instagram && isValidInstagramUrl(owner.instagram)) {
+      if (owner.instagram && owner.instagram.includes('instagram.com')) {
         instagramBtn.classList.remove('hidden');
         instagramBtn.onclick = () => window.open(owner.instagram, '_blank');
       } else {
@@ -1374,7 +1274,7 @@
       
       document.getElementById('detailEditBtn').classList.toggle('hidden', !canEditProperty(p));
       
-      // Show correct comment form
+      // Comment forms
       document.getElementById('commentFormGuest').classList.toggle('hidden', !!currentUser);
       document.getElementById('commentFormUser').classList.toggle('hidden', !currentUser);
       
@@ -1386,7 +1286,7 @@
       if (!currentDetailProperty?.images?.length) return;
       currentDetailImageIndex = index;
       document.getElementById('detailImage').src = currentDetailProperty.images[index];
-      document.querySelectorAll('.detail-thumb').forEach((t, i) => { t.classList.toggle('active', i === index); });
+      document.querySelectorAll('.detail-thumb').forEach((t, i) => t.classList.toggle('active', i === index));
     }
     function prevDetailImage() { if (!currentDetailProperty?.images?.length) return; currentDetailImageIndex = (currentDetailImageIndex - 1 + currentDetailProperty.images.length) % currentDetailProperty.images.length; setDetailImage(currentDetailImageIndex); }
     function nextDetailImage() { if (!currentDetailProperty?.images?.length) return; currentDetailImageIndex = (currentDetailImageIndex + 1) % currentDetailProperty.images.length; setDetailImage(currentDetailImageIndex); }
@@ -1396,10 +1296,16 @@
       const container = document.getElementById('commentsList');
       container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
       const isOwner = currentUser && currentDetailProperty && currentUser.uid === currentDetailProperty.ownerId;
+      
       try {
         const snapshot = await db.collection('properties').doc(propertyId).collection('comments').orderBy('createdAt', 'desc').get();
         const comments = snapshot.docs.map(doc => doc.data());
-        if (comments.length === 0) { container.innerHTML = '<div class="no-comments"><i class="fas fa-comment-slash"></i><p>Sé el primero en consultar</p></div>'; return; }
+        
+        if (comments.length === 0) { 
+          container.innerHTML = '<div class="no-comments"><i class="fas fa-comment-slash"></i><p>Sé el primero en consultar</p></div>'; 
+          return; 
+        }
+        
         container.innerHTML = comments.map(c => {
           const initial = (c.userName || 'A').charAt(0).toUpperCase();
           const time = c.createdAt ? new Date(c.createdAt).toLocaleDateString('es') : '';
@@ -1418,7 +1324,10 @@
               </div>
             </div>`;
         }).join('');
-      } catch (err) { container.innerHTML = '<p style="color: var(--danger);">Error al cargar consultas</p>'; }
+      } catch (err) { 
+        console.error('Error loading comments:', err);
+        container.innerHTML = '<p style="color: var(--danger);">Error al cargar consultas</p>'; 
+      }
     }
 
     async function addComment() {
@@ -1444,8 +1353,7 @@
       if (!text || !currentDetailProperty) { alert('Por favor escribe tu consulta'); return; }
       
       try {
-        // Add comment to property
-        await db.collection('properties').doc(currentDetailProperty.id).collection('comments').add({
+        const commentData = {
           userId: currentUser?.uid || null,
           userName,
           userPhone,
@@ -1453,11 +1361,15 @@
           text,
           isGuest,
           createdAt: new Date().toISOString()
-        });
+        };
         
-        // Create notification for property owner (only if commenter is not the owner)
+        // Add comment
+        await db.collection('properties').doc(currentDetailProperty.id).collection('comments').add(commentData);
+        console.log('Comment added successfully');
+        
+        // Create notification for property owner (if not self)
         if (currentDetailProperty.ownerId !== currentUser?.uid) {
-          await db.collection('notifications').add({
+          const notificationData = {
             ownerId: currentDetailProperty.ownerId,
             propertyId: currentDetailProperty.id,
             propertyTitle: currentDetailProperty.title,
@@ -1467,7 +1379,10 @@
             text,
             read: false,
             createdAt: new Date().toISOString()
-          });
+          };
+          
+          await db.collection('notifications').add(notificationData);
+          console.log('Notification created successfully');
         }
         
         // Clear inputs
@@ -1480,8 +1395,8 @@
         loadComments(currentDetailProperty.id);
         showToast('Consulta enviada', 'Tu mensaje ha sido enviado al propietario', 'fa-check');
       } catch (err) { 
-        console.error(err);
-        alert('Error al enviar consulta'); 
+        console.error('Error adding comment:', err);
+        alert('Error al enviar consulta: ' + err.message); 
       }
     }
 
@@ -1504,20 +1419,15 @@
       document.getElementById('adminPanel').classList.add('hidden');
       document.getElementById('profilePage').classList.add('hidden');
       currentProfileUserId = null; 
-      isFromProfile = false;
       window.location.hash = '';
     }
 
     async function showProfile(userId) {
       currentProfileUserId = userId;
-      isFromProfile = true; // Set flag when viewing profile
       window.location.hash = `perfil/${userId}`;
       
-      // Fetch fresh user data
-      let userData;
-      if (allUsers[userId]) {
-        userData = allUsers[userId];
-      } else {
+      let userData = allUsers[userId];
+      if (!userData) {
         const userDoc = await db.collection('users').doc(userId).get();
         userData = userDoc.exists ? userDoc.data() : { name: 'Usuario', email: '' };
         allUsers[userId] = userData;
@@ -1532,9 +1442,9 @@
       const isOwnProfile = currentUser && currentUser.uid === userId;
       document.getElementById('profileAvatarEdit').classList.toggle('hidden', !isOwnProfile);
       
-      // Instagram button on profile
+      // Instagram button
       const instagramBtn = document.getElementById('profileInstagramBtn');
-      if (userData.instagram && isValidInstagramUrl(userData.instagram)) {
+      if (userData.instagram && userData.instagram.includes('instagram.com')) {
         instagramBtn.classList.remove('hidden');
         instagramBtn.onclick = () => window.open(userData.instagram, '_blank');
       } else {
@@ -1556,24 +1466,19 @@
 
     function showMyProfile() { if (currentUser) showProfile(currentUser.uid); }
     function getProfileLink() { return `${window.location.origin}${window.location.pathname}#perfil/${currentProfileUserId}`; }
-    function copyProfileLink() { navigator.clipboard.writeText(getProfileLink()).then(() => { showToast('Enlace copiado', 'El enlace ha sido copiado al portapapeles', 'fa-link'); }); }
+    function copyProfileLink() { navigator.clipboard.writeText(getProfileLink()).then(() => { showToast('Enlace copiado', 'El enlace ha sido copiado', 'fa-link'); }); }
     function shareProfileWhatsapp() { 
       const user = allUsers[currentProfileUserId] || { name: 'este usuario' }; 
       window.open(`https://wa.me/?text=${encodeURIComponent(`Mira las propiedades de ${user.name}: ${getProfileLink()}`)}`, '_blank'); 
     }
     function openProfileInstagram() {
       const user = allUsers[currentProfileUserId];
-      if (user && user.instagram) {
-        window.open(user.instagram, '_blank');
-      }
+      if (user && user.instagram) window.open(user.instagram, '_blank');
     }
 
     function handleHash() { 
       const hash = window.location.hash; 
-      if (hash.startsWith('#perfil/')) {
-        isFromProfile = true;
-        showProfile(hash.replace('#perfil/', '')); 
-      }
+      if (hash.startsWith('#perfil/')) showProfile(hash.replace('#perfil/', '')); 
     }
     window.addEventListener('hashchange', handleHash);
 
@@ -1590,6 +1495,7 @@
       document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('active');
       const content = document.getElementById('adminContent');
       content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      
       if (tab === 'pending') {
         const snapshot = await db.collection('users').where('status', '==', 'pending').get();
         const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -1604,7 +1510,7 @@
         content.innerHTML = properties.length === 0 ? '<div class="empty-state"><i class="fas fa-building"></i><h3>Sin propiedades</h3></div>'
           : properties.map(p => {
             const owner = getUserInfo(p.ownerId);
-            return `<div class="user-card"><div class="user-card-avatar" style="border-radius: 8px;"><img src="${p.images?.[0] || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=100'}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;"></div><div class="user-card-info"><h4>${p.title}</h4><p>${formatPrice(p.price, p.currency || 'USD')} - ${getLocationString(p)}</p><small>${owner.name}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="openPropertyModal('${p.id}')"><i class="fas fa-edit"></i></button><button class="btn-reject" onclick="deleteProperty('${p.id}')"><i class="fas fa-trash"></i></button></div></div>`;
+            return `<div class="user-card"><div class="user-card-avatar" style="border-radius: 8px;"><img src="${p.images?.[0] || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=100'}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;"></div><div class="user-card-info"><h4>${p.title}</h4><p>${formatPrice(p.price, p.currency || 'USD')} - ${getLocationString(p)}</p><small>${owner.name} | <i class="fas fa-eye"></i> ${p.views || 0}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="openPropertyModal('${p.id}')"><i class="fas fa-edit"></i></button><button class="btn-reject" onclick="deleteProperty('${p.id}')"><i class="fas fa-trash"></i></button></div></div>`;
           }).join('');
       }
     }
@@ -1613,7 +1519,7 @@
       await db.collection('users').doc(id).update({ status: 'approved' }); 
       allUsers[id] = { ...allUsers[id], status: 'approved' }; 
       showAdminTab('pending'); 
-      showToast('Usuario aprobado', 'El usuario ya puede acceder a la plataforma', 'fa-user-check');
+      showToast('Usuario aprobado', 'El usuario ya puede acceder', 'fa-user-check');
     }
     async function rejectUser(id) { await db.collection('users').doc(id).update({ status: 'rejected' }); showAdminTab('pending'); }
     async function deleteUser(id) { if (!confirm('¿Eliminar?')) return; await db.collection('users').doc(id).delete(); delete allUsers[id]; showAdminTab('users'); }
