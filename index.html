@@ -28,9 +28,11 @@
       --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);
       --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
       --shadow-lg: 0 8px 32px rgba(0,0,0,0.16);
+      --radius-sm: 8px;
       --radius-md: 12px;
       --radius-lg: 16px;
       --radius-xl: 24px;
+      --radius-full: 50px;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -43,6 +45,7 @@
     a { text-decoration: none; color: inherit; }
     button { cursor: pointer; font-family: inherit; border: none; }
     .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+    .hidden { display: none !important; }
 
     /* Header */
     .header {
@@ -66,9 +69,10 @@
       font-size: 22px;
       font-weight: 700;
       color: var(--primary);
+      cursor: pointer;
     }
     .logo i { color: var(--accent); font-size: 28px; }
-    .nav { display: flex; gap: 8px; }
+    .nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .nav a, .nav button {
       padding: 10px 20px;
       border-radius: var(--radius-md);
@@ -79,63 +83,90 @@
     }
     .nav a:hover { background: var(--gray-100); }
     .btn-primary {
-      background: linear-gradient(135deg, var(--accent), var(--gold)) !important;
-      color: var(--white) !important;
-    }
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-    .btn-secondary {
-      background: var(--white) !important;
-      color: var(--accent) !important;
-      border: 2px solid var(--accent) !important;
-    }
-    .btn-secondary:hover { background: var(--accent) !important; color: var(--white) !important; }
-    .nav .btn-primary {
       background: var(--accent) !important;
       color: var(--white) !important;
     }
-    .nav .btn-secondary {
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); background: var(--accent-hover) !important; }
+    .btn-secondary {
       background: transparent !important;
       color: var(--accent) !important;
       border: 2px solid var(--accent) !important;
     }
-    .nav .btn-secondary:hover {
-      background: var(--accent) !important;
-      color: var(--white) !important;
-    }
+    .btn-secondary:hover { background: var(--accent) !important; color: var(--white) !important; }
     .user-info {
       display: flex;
       align-items: center;
       gap: 12px;
       padding: 8px 16px;
       background: var(--gray-100);
-      border-radius: 50px;
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      transition: all 0.3s;
     }
+    .user-info:hover { background: var(--gray-200); }
     .user-avatar {
       width: 36px;
       height: 36px;
       border-radius: 50%;
-      background: var(--gray-300);
+      background: linear-gradient(135deg, var(--accent), var(--gold));
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      color: var(--white);
+      font-weight: 600;
     }
     .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .admin-badge {
       background: var(--gold);
       color: var(--white);
       padding: 4px 10px;
-      border-radius: 50px;
+      border-radius: var(--radius-full);
       font-size: 11px;
       font-weight: 600;
     }
     .logout-btn {
-      background: var(--gray-200);
-      padding: 8px 16px;
-      border-radius: var(--radius-md);
-      font-size: 14px;
+      background: var(--gray-200) !important;
+      color: var(--gray-700) !important;
     }
-    .logout-btn:hover { background: var(--gray-300); }
+    .logout-btn:hover { background: var(--gray-300) !important; }
+
+    /* Botón Nueva Propiedad - MODERNO */
+    .btn-new-property {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 28px;
+      background: linear-gradient(135deg, var(--accent) 0%, #ff6b8a 50%, var(--gold) 100%);
+      background-size: 200% 200%;
+      color: var(--white);
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: var(--radius-full);
+      box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-new-property::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      transition: left 0.5s;
+    }
+    .btn-new-property:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 8px 25px rgba(233, 69, 96, 0.5);
+      background-position: 100% 0;
+    }
+    .btn-new-property:hover::before { left: 100%; }
+    .btn-new-property:active { transform: translateY(-1px) scale(0.98); }
+    .btn-new-property i { font-size: 18px; transition: transform 0.3s; }
+    .btn-new-property:hover i { transform: rotate(90deg); }
 
     /* Hero */
     .hero {
@@ -173,16 +204,9 @@
       gap: 10px;
       transition: all 0.3s;
     }
-    .hero-btn-primary {
-      background: var(--gold);
-      color: var(--primary);
-    }
+    .hero-btn-primary { background: var(--gold); color: var(--primary); }
     .hero-btn-primary:hover { background: #d4ad2b; transform: translateY(-3px); box-shadow: 0 10px 30px rgba(201,162,39,0.4); }
-    .hero-btn-secondary {
-      background: rgba(255,255,255,0.15);
-      color: var(--white);
-      border: 2px solid var(--white);
-    }
+    .hero-btn-secondary { background: rgba(255,255,255,0.15); color: var(--white); border: 2px solid var(--white); }
     .hero-btn-secondary:hover { background: var(--white); color: var(--primary); }
 
     /* Filtros */
@@ -218,10 +242,7 @@
       font-size: 14px;
       transition: all 0.3s;
     }
-    .filter-group input:focus, .filter-group select:focus {
-      border-color: var(--accent);
-      outline: none;
-    }
+    .filter-group input:focus, .filter-group select:focus { border-color: var(--accent); outline: none; }
     .filter-btn {
       padding: 12px 28px;
       background: var(--accent);
@@ -232,12 +253,19 @@
     }
     .filter-btn:hover { background: var(--accent-hover); }
 
-    /* Propiedades Grid */
-    .section-title {
-      font-size: 32px;
-      margin-bottom: 8px;
+    /* Section Header */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      gap: 16px;
     }
-    .section-subtitle { color: var(--gray-500); margin-bottom: 32px; }
+    .section-title { font-size: 32px; margin-bottom: 0; }
+    .section-subtitle { color: var(--gray-500); margin-top: 4px; }
+
+    /* Properties Grid */
     .properties-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -252,121 +280,56 @@
       overflow: hidden;
       box-shadow: var(--shadow-sm);
       transition: all 0.3s;
+      cursor: pointer;
     }
-    .property-card:hover {
-      transform: translateY(-8px);
-      box-shadow: var(--shadow-lg);
-    }
-    .card-image {
-      position: relative;
-      height: 220px;
-      overflow: hidden;
-    }
-    .card-image img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transition: transform 0.5s;
-    }
+    .property-card:hover { transform: translateY(-8px); box-shadow: var(--shadow-lg); }
+    .card-image { position: relative; height: 220px; overflow: hidden; }
+    .card-image img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
     .property-card:hover .card-image img { transform: scale(1.05); }
-    .card-badges {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      display: flex;
-      gap: 8px;
-    }
-    .badge {
-      padding: 6px 14px;
-      border-radius: 50px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
+    .card-badges { position: absolute; top: 16px; left: 16px; display: flex; gap: 8px; }
+    .badge { padding: 6px 14px; border-radius: var(--radius-full); font-size: 11px; font-weight: 700; text-transform: uppercase; }
     .badge-sale { background: linear-gradient(135deg, var(--accent), #ff6b6b); color: var(--white); }
     .badge-rent { background: linear-gradient(135deg, #3498db, #2ecc71); color: var(--white); }
     .badge-ph { background: var(--gold); color: var(--white); }
-    .card-nav {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 36px;
-      height: 36px;
-      background: rgba(255,255,255,0.9);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      transition: all 0.3s;
-    }
-    .property-card:hover .card-nav { opacity: 1; }
-    .card-nav.prev { left: 12px; }
-    .card-nav.next { right: 12px; }
-    .card-nav:hover { background: var(--white); transform: translateY(-50%) scale(1.1); }
-    .card-dots {
+    .card-owner {
       position: absolute;
       bottom: 12px;
-      left: 50%;
-      transform: translateX(-50%);
+      left: 12px;
       display: flex;
-      gap: 6px;
-    }
-    .card-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.5);
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(10px);
+      border-radius: var(--radius-full);
+      color: var(--white);
+      font-size: 12px;
       cursor: pointer;
       transition: all 0.3s;
     }
-    .card-dot.active { background: var(--white); width: 20px; border-radius: 4px; }
-    .card-content { padding: 20px; }
-    .card-price {
-      font-family: 'Playfair Display', serif;
-      font-size: 26px;
-      font-weight: 700;
-      color: var(--accent);
-      margin-bottom: 8px;
-    }
-    .card-price span { font-size: 14px; color: var(--gray-500); font-weight: 400; }
-    .card-title {
-      font-size: 18px;
+    .card-owner:hover { background: rgba(0,0,0,0.8); }
+    .card-owner img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
+    .card-owner-initial {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--gold));
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-weight: 600;
-      color: var(--primary);
-      margin-bottom: 8px;
+      font-size: 11px;
     }
-    .card-location {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--gray-500);
-      font-size: 14px;
-      margin-bottom: 16px;
-    }
+    .card-content { padding: 20px; }
+    .card-price { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
+    .card-price span { font-size: 14px; color: var(--gray-500); font-weight: 400; }
+    .card-title { font-size: 18px; font-weight: 600; color: var(--primary); margin-bottom: 8px; }
+    .card-location { display: flex; align-items: center; gap: 6px; color: var(--gray-500); font-size: 14px; margin-bottom: 16px; }
     .card-location i { color: var(--accent); }
-    .card-features {
-      display: flex;
-      gap: 16px;
-      padding-top: 16px;
-      border-top: 1px solid var(--gray-100);
-    }
-    .card-feature {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 13px;
-      color: var(--gray-600);
-    }
+    .card-features { display: flex; gap: 16px; padding-top: 16px; border-top: 1px solid var(--gray-100); }
+    .card-feature { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--gray-600); }
     .card-feature i { color: var(--gray-400); }
-    .card-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 16px 20px;
-      background: var(--gray-50);
-      border-top: 1px solid var(--gray-100);
-    }
+    .card-footer { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: var(--gray-50); border-top: 1px solid var(--gray-100); }
     .card-views { font-size: 13px; color: var(--gray-500); }
     .card-views i { margin-right: 4px; }
     .btn-whatsapp {
@@ -383,7 +346,7 @@
     }
     .btn-whatsapp:hover { background: #128C7E; transform: scale(1.05); }
 
-    /* Modal */
+    /* Modal Base */
     .modal {
       display: none;
       position: fixed;
@@ -392,10 +355,12 @@
       right: 0;
       bottom: 0;
       background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
       z-index: 1000;
       align-items: center;
       justify-content: center;
       padding: 20px;
+      overflow-y: auto;
     }
     .modal.active { display: flex; }
     .modal-content {
@@ -406,18 +371,10 @@
       max-height: 90vh;
       overflow-y: auto;
       animation: slideIn 0.3s ease;
+      margin: auto;
     }
-    @keyframes slideIn {
-      from { transform: translateY(-20px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 24px;
-      border-bottom: 1px solid var(--gray-100);
-    }
+    @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 24px; border-bottom: 1px solid var(--gray-100); }
     .modal-header h2 { font-size: 24px; }
     .modal-close {
       width: 40px;
@@ -434,12 +391,7 @@
     .modal-close:hover { background: var(--gray-200); }
     .modal-body { padding: 24px; }
     .form-group { margin-bottom: 20px; }
-    .form-group label {
-      display: block;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: var(--gray-700);
-    }
+    .form-group label { display: block; font-weight: 600; margin-bottom: 8px; color: var(--gray-700); }
     .form-group input, .form-group select, .form-group textarea {
       width: 100%;
       padding: 14px 16px;
@@ -447,28 +399,12 @@
       border-radius: var(--radius-md);
       font-size: 15px;
       transition: all 0.3s;
+      font-family: inherit;
     }
-    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-      border-color: var(--accent);
-      outline: none;
-    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); outline: none; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .form-error {
-      background: rgba(231,76,60,0.1);
-      color: var(--danger);
-      padding: 12px 16px;
-      border-radius: var(--radius-md);
-      margin-bottom: 20px;
-      font-size: 14px;
-    }
-    .form-success {
-      background: rgba(46,204,113,0.1);
-      color: var(--success);
-      padding: 12px 16px;
-      border-radius: var(--radius-md);
-      margin-bottom: 20px;
-      font-size: 14px;
-    }
+    .form-error { background: rgba(231,76,60,0.1); color: var(--danger); padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 20px; font-size: 14px; }
+    .form-success { background: rgba(46,204,113,0.1); color: var(--success); padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 20px; font-size: 14px; }
     .btn-submit {
       width: 100%;
       padding: 14px;
@@ -478,115 +414,117 @@
       font-size: 16px;
       font-weight: 600;
       transition: all 0.3s;
-    }
-    .btn-submit:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-    .modal-footer {
-      padding: 16px 24px;
-      border-top: 1px solid var(--gray-100);
-      text-align: center;
-      color: var(--gray-500);
-      font-size: 14px;
-    }
-    .modal-footer a { color: var(--accent); font-weight: 600; }
-
-    /* Admin Panel */
-    .admin-panel { padding: 40px 0; }
-    .admin-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 32px;
-    }
-    .admin-tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 24px;
-      background: var(--white);
-      padding: 8px;
-      border-radius: var(--radius-lg);
-    }
-    .admin-tab {
-      padding: 12px 24px;
-      border-radius: var(--radius-md);
-      font-weight: 500;
-      background: none;
-      color: var(--gray-600);
-      transition: all 0.3s;
-    }
-    .admin-tab.active { background: var(--primary); color: var(--white); }
-    .admin-tab:hover:not(.active) { background: var(--gray-100); }
-    .admin-content {
-      background: var(--white);
-      border-radius: var(--radius-xl);
-      padding: 24px;
-      box-shadow: var(--shadow-md);
-    }
-    .user-card {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      padding: 20px;
-      background: var(--gray-50);
-      border-radius: var(--radius-lg);
-      margin-bottom: 16px;
-    }
-    .user-card-avatar {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      background: var(--gray-200);
       display: flex;
       align-items: center;
       justify-content: center;
-      overflow: hidden;
-      font-size: 24px;
-      color: var(--gray-400);
+      gap: 8px;
     }
-    .user-card-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .user-card-info { flex: 1; }
-    .user-card-info h4 { margin-bottom: 4px; }
-    .user-card-info p { color: var(--gray-600); font-size: 14px; }
-    .user-card-info small { color: var(--gray-400); font-size: 12px; }
-    .user-card-actions { display: flex; gap: 8px; }
-    .btn-approve {
-      padding: 10px 18px;
-      background: rgba(46,204,113,0.1);
-      color: var(--success);
-      border-radius: var(--radius-md);
-      font-weight: 500;
-      transition: all 0.3s;
-    }
-    .btn-approve:hover { background: var(--success); color: var(--white); }
-    .btn-reject {
-      padding: 10px 18px;
-      background: rgba(231,76,60,0.1);
-      color: var(--danger);
-      border-radius: var(--radius-md);
-      font-weight: 500;
-      transition: all 0.3s;
-    }
-    .btn-reject:hover { background: var(--danger); color: var(--white); }
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--gray-400);
-    }
-    .empty-state i { font-size: 48px; margin-bottom: 16px; color: var(--success); }
-    .empty-state h3 { color: var(--gray-600); margin-bottom: 8px; }
+    .btn-submit:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid var(--gray-100); text-align: center; color: var(--gray-500); font-size: 14px; }
+    .modal-footer a { color: var(--accent); font-weight: 600; cursor: pointer; }
 
-    /* Property Detail Modal */
+    /* Image Upload */
+    .image-upload-area {
+      border: 2px dashed var(--gray-300);
+      border-radius: var(--radius-lg);
+      padding: 30px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: var(--gray-50);
+    }
+    .image-upload-area:hover { border-color: var(--accent); background: rgba(233, 69, 96, 0.05); }
+    .image-upload-area.dragover { border-color: var(--accent); background: rgba(233, 69, 96, 0.1); transform: scale(1.02); }
+    .image-upload-area i { font-size: 48px; color: var(--gray-400); margin-bottom: 16px; }
+    .image-upload-area p { color: var(--gray-600); margin-bottom: 8px; }
+    .image-upload-area small { color: var(--gray-400); }
+    .image-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 12px; margin-top: 16px; }
+    .image-preview-item { position: relative; aspect-ratio: 1; border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-sm); }
+    .image-preview-item img { width: 100%; height: 100%; object-fit: cover; }
+    .image-preview-item .remove-image {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 24px;
+      height: 24px;
+      background: var(--danger);
+      color: var(--white);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      cursor: pointer;
+      opacity: 0;
+      transition: all 0.3s;
+    }
+    .image-preview-item:hover .remove-image { opacity: 1; }
+    .image-preview-item.main::after {
+      content: 'Principal';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--gold);
+      color: var(--white);
+      font-size: 9px;
+      padding: 3px;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    /* Profile */
+    .profile-header {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      padding: 60px 0;
+      color: var(--white);
+      margin-bottom: 40px;
+    }
+    .profile-header-content { display: flex; align-items: center; gap: 32px; }
+    .profile-avatar {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--gold));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      font-weight: 700;
+      color: var(--white);
+      border: 4px solid rgba(255,255,255,0.3);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .profile-info h1 { color: var(--white); margin-bottom: 8px; }
+    .profile-info p { opacity: 0.8; margin-bottom: 16px; }
+    .profile-stats { display: flex; gap: 32px; }
+    .profile-stat { text-align: center; }
+    .profile-stat-number { font-size: 28px; font-weight: 700; font-family: 'Playfair Display', serif; }
+    .profile-stat-label { font-size: 13px; opacity: 0.7; }
+    .profile-share { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+    .btn-share {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: rgba(255,255,255,0.2);
+      color: var(--white);
+      border-radius: var(--radius-full);
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.3s;
+    }
+    .btn-share:hover { background: rgba(255,255,255,0.3); }
+    .btn-share-whatsapp { background: #25D366; }
+    .btn-share-whatsapp:hover { background: #128C7E; }
+
+    /* Detail Modal */
     .detail-modal .modal-content { max-width: 800px; }
-    .detail-gallery {
-      position: relative;
-      height: 400px;
-      background: var(--gray-100);
-    }
-    .detail-gallery img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
+    .detail-gallery { position: relative; height: 400px; background: var(--gray-100); }
+    .detail-gallery img { width: 100%; height: 100%; object-fit: cover; }
     .detail-nav {
       position: absolute;
       top: 50%;
@@ -602,34 +540,54 @@
       color: var(--primary);
       transition: all 0.3s;
     }
-    .detail-nav:hover { background: var(--white); }
+    .detail-nav:hover { background: var(--white); transform: translateY(-50%) scale(1.1); }
     .detail-nav.prev { left: 16px; }
     .detail-nav.next { right: 16px; }
+    .detail-thumbnails { display: flex; gap: 8px; padding: 12px; overflow-x: auto; background: var(--gray-100); }
+    .detail-thumb {
+      width: 60px;
+      height: 60px;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      cursor: pointer;
+      opacity: 0.6;
+      transition: all 0.3s;
+      flex-shrink: 0;
+      border: 2px solid transparent;
+    }
+    .detail-thumb.active, .detail-thumb:hover { opacity: 1; border-color: var(--accent); }
+    .detail-thumb img { width: 100%; height: 100%; object-fit: cover; }
     .detail-content { padding: 32px; }
-    .detail-header {
+    .detail-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+    .detail-price { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 700; color: var(--accent); }
+    .detail-owner {
       display: flex;
-      justify-content: space-between;
-      align-items: start;
-      margin-bottom: 24px;
-    }
-    .detail-price {
-      font-family: 'Playfair Display', serif;
-      font-size: 36px;
-      font-weight: 700;
-      color: var(--accent);
-    }
-    .detail-features {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-    .detail-feature {
-      padding: 16px;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
       background: var(--gray-50);
-      border-radius: var(--radius-md);
-      text-align: center;
+      border-radius: var(--radius-lg);
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 24px;
     }
+    .detail-owner:hover { background: var(--gray-100); }
+    .detail-owner-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--gold));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--white);
+      font-weight: 600;
+      overflow: hidden;
+    }
+    .detail-owner-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .detail-owner-info small { color: var(--gray-500); }
+    .detail-features { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .detail-feature { padding: 16px; background: var(--gray-50); border-radius: var(--radius-md); text-align: center; }
     .detail-feature i { font-size: 24px; color: var(--accent); margin-bottom: 8px; display: block; }
     .detail-feature strong { display: block; font-size: 18px; color: var(--primary); }
     .detail-feature span { font-size: 12px; color: var(--gray-500); }
@@ -650,36 +608,89 @@
     }
     .detail-whatsapp:hover { background: #128C7E; }
 
-    /* Footer */
-    .footer {
-      background: var(--primary);
-      color: var(--white);
-      padding: 40px 0 20px;
-      margin-top: 60px;
-    }
-    .footer-content {
+    /* Comments */
+    .comments-section { border-top: 1px solid var(--gray-200); padding-top: 24px; margin-top: 24px; }
+    .comments-section h3 { margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+    .comment-form { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+    .comment-form input { flex: 1; min-width: 200px; padding: 12px 16px; border: 2px solid var(--gray-200); border-radius: var(--radius-full); font-size: 14px; }
+    .comment-form input:focus { border-color: var(--accent); outline: none; }
+    .comment-form button { padding: 12px 24px; background: var(--accent); color: var(--white); border-radius: var(--radius-full); font-weight: 600; transition: all 0.3s; }
+    .comment-form button:hover { background: var(--accent-hover); }
+    .guest-name-input { flex: 0 0 150px; }
+    .comment-item { display: flex; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--gray-100); }
+    .comment-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--gray-200);
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      padding-bottom: 20px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+      justify-content: center;
+      color: var(--gray-500);
+      font-weight: 600;
+      overflow: hidden;
+      flex-shrink: 0;
     }
+    .comment-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .comment-content { flex: 1; }
+    .comment-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+    .comment-author { font-weight: 600; color: var(--primary); }
+    .comment-guest-badge { font-size: 10px; padding: 2px 8px; background: var(--gray-200); border-radius: var(--radius-full); color: var(--gray-600); }
+    .comment-time { font-size: 12px; color: var(--gray-400); }
+    .comment-text { color: var(--gray-600); }
+    .no-comments { text-align: center; padding: 30px; color: var(--gray-400); }
+
+    /* Admin */
+    .admin-panel { padding: 40px 0; }
+    .admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
+    .admin-tabs { display: flex; gap: 8px; margin-bottom: 24px; background: var(--white); padding: 8px; border-radius: var(--radius-lg); flex-wrap: wrap; }
+    .admin-tab { padding: 12px 24px; border-radius: var(--radius-md); font-weight: 500; background: none; color: var(--gray-600); transition: all 0.3s; }
+    .admin-tab.active { background: var(--primary); color: var(--white); }
+    .admin-tab:hover:not(.active) { background: var(--gray-100); }
+    .admin-content { background: var(--white); border-radius: var(--radius-xl); padding: 24px; box-shadow: var(--shadow-md); }
+    .user-card { display: flex; align-items: center; gap: 20px; padding: 20px; background: var(--gray-50); border-radius: var(--radius-lg); margin-bottom: 16px; flex-wrap: wrap; }
+    .user-card-avatar { width: 60px; height: 60px; border-radius: 50%; background: var(--gray-200); display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 24px; color: var(--gray-400); flex-shrink: 0; }
+    .user-card-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .user-card-info { flex: 1; min-width: 200px; }
+    .user-card-info h4 { margin-bottom: 4px; }
+    .user-card-info p { color: var(--gray-600); font-size: 14px; }
+    .user-card-info small { color: var(--gray-400); font-size: 12px; }
+    .user-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-approve { padding: 10px 18px; background: rgba(46,204,113,0.1); color: var(--success); border-radius: var(--radius-md); font-weight: 500; transition: all 0.3s; }
+    .btn-approve:hover { background: var(--success); color: var(--white); }
+    .btn-reject { padding: 10px 18px; background: rgba(231,76,60,0.1); color: var(--danger); border-radius: var(--radius-md); font-weight: 500; transition: all 0.3s; }
+    .btn-reject:hover { background: var(--danger); color: var(--white); }
+    .btn-edit { padding: 10px 18px; background: rgba(52,152,219,0.1); color: #3498db; border-radius: var(--radius-md); font-weight: 500; transition: all 0.3s; }
+    .btn-edit:hover { background: #3498db; color: var(--white); }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--gray-400); }
+    .empty-state i { font-size: 48px; margin-bottom: 16px; }
+    .empty-state h3 { color: var(--gray-600); margin-bottom: 8px; }
+
+    /* Footer */
+    .footer { background: var(--primary); color: var(--white); padding: 40px 0 20px; margin-top: 60px; }
+    .footer-content { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
     .footer-logo { font-family: 'Playfair Display', serif; font-size: 20px; }
     .footer-links { display: flex; gap: 24px; }
     .footer-links a { color: rgba(255,255,255,0.7); transition: color 0.3s; }
     .footer-links a:hover { color: var(--gold); }
-    .footer-bottom {
-      text-align: center;
-      padding-top: 20px;
-      color: rgba(255,255,255,0.5);
-      font-size: 14px;
-    }
+    .footer-bottom { text-align: center; padding-top: 20px; color: rgba(255,255,255,0.5); font-size: 14px; }
+
+    /* Loading */
+    .loading { display: flex; justify-content: center; padding: 60px; }
+    .spinner { width: 40px; height: 40px; border: 3px solid var(--gray-200); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* Responsive */
+    @media (max-width: 968px) {
+      .detail-features { grid-template-columns: repeat(2, 1fr); }
+      .profile-header-content { flex-direction: column; text-align: center; }
+      .profile-stats { justify-content: center; }
+      .profile-share { justify-content: center; }
+    }
     @media (max-width: 768px) {
       .header-content { flex-wrap: wrap; gap: 16px; }
       .nav { width: 100%; justify-content: center; flex-wrap: wrap; }
-      .nav a, .nav button { padding: 10px 14px; font-size: 13px; }
+      .nav a, .nav button { padding: 8px 12px; font-size: 13px; }
       .hero h1 { font-size: 28px; }
       .hero p { font-size: 16px; padding: 0 10px; }
       .hero-buttons { padding: 0 20px; }
@@ -688,29 +699,16 @@
       .filters-row { grid-template-columns: 1fr; }
       .properties-grid { grid-template-columns: 1fr; }
       .form-row { grid-template-columns: 1fr; }
-      .detail-features { grid-template-columns: repeat(2, 1fr); }
+      .section-header { flex-direction: column; align-items: stretch; }
+      .btn-new-property { width: 100%; justify-content: center; }
       .footer-content { flex-direction: column; gap: 20px; text-align: center; }
-      .user-info { padding: 6px 12px; }
       .user-info span:not(.admin-badge) { display: none; }
+      .detail-gallery { height: 280px; }
+      .detail-header { flex-direction: column; }
+      .profile-avatar { width: 100px; height: 100px; font-size: 36px; }
+      .comment-form { flex-direction: column; }
+      .guest-name-input { flex: none !important; width: 100% !important; }
     }
-
-    /* Loading */
-    .loading {
-      display: flex;
-      justify-content: center;
-      padding: 60px;
-    }
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid var(--gray-200);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .hidden { display: none !important; }
   </style>
 </head>
 <body>
@@ -719,10 +717,10 @@
   <header class="header">
     <div class="container">
       <div class="header-content">
-        <a href="#" class="logo" onclick="showHome()">
+        <div class="logo" onclick="showHome()">
           <i class="fas fa-building"></i>
           Mi Cartera Inmobiliaria
-        </a>
+        </div>
         <nav class="nav" id="nav-guest">
           <a href="#" onclick="showHome()">Inicio</a>
           <a href="#propiedades">Propiedades</a>
@@ -732,13 +730,13 @@
         <nav class="nav hidden" id="nav-user">
           <a href="#" onclick="showHome()">Inicio</a>
           <a href="#propiedades">Propiedades</a>
-          <div class="user-info">
+          <div class="user-info" onclick="showMyProfile()">
             <div class="user-avatar" id="userAvatar"><i class="fas fa-user"></i></div>
             <span id="userName">Usuario</span>
             <span class="admin-badge hidden" id="adminBadge">Admin</span>
           </div>
           <button class="btn-primary hidden" id="adminBtn" onclick="showAdmin()">Panel Admin</button>
-          <button class="logout-btn" onclick="logout()">Salir</button>
+          <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Salir</button>
         </nav>
       </div>
     </div>
@@ -746,13 +744,10 @@
 
   <!-- Main Content -->
   <main id="mainContent">
-    <!-- Hero -->
     <section class="hero">
       <div class="container">
         <h1>Encuentra la propiedad<br><span>de tus sueños</span></h1>
         <p>Explora nuestra amplia selección de propiedades en venta y alquiler. Encuentra tu hogar ideal con nosotros.</p>
-        
-        <!-- Botones de acción grandes -->
         <div class="hero-buttons" id="heroButtons">
           <button class="hero-btn hero-btn-primary" onclick="openModal('registerModal')">
             <i class="fas fa-user-plus"></i> Crear Cuenta
@@ -761,7 +756,6 @@
             <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
           </button>
         </div>
-        
         <div class="hero-stats">
           <div class="hero-stat">
             <div class="hero-stat-number" id="statTotal">0</div>
@@ -779,7 +773,6 @@
       </div>
     </section>
 
-    <!-- Filtros -->
     <section class="container">
       <div class="filters">
         <div class="filters-row">
@@ -816,17 +809,64 @@
       </div>
     </section>
 
-    <!-- Propiedades -->
     <section class="container" id="propiedades">
-      <h2 class="section-title">Propiedades Disponibles</h2>
-      <p class="section-subtitle" id="propertiesCount">Cargando propiedades...</p>
-      
-      <div id="propertiesLoading" class="loading">
-        <div class="spinner"></div>
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Propiedades Disponibles</h2>
+          <p class="section-subtitle" id="propertiesCount">Cargando propiedades...</p>
+        </div>
+        <button class="btn-new-property hidden" id="btnNewProperty" onclick="openModal('propertyModal')">
+          <i class="fas fa-plus"></i>
+          <span>Nueva Propiedad</span>
+        </button>
       </div>
-      
+      <div id="propertiesLoading" class="loading"><div class="spinner"></div></div>
       <div class="properties-grid" id="propertiesGrid"></div>
     </section>
+  </main>
+
+  <!-- Profile Page -->
+  <main id="profilePage" class="hidden">
+    <div class="profile-header">
+      <div class="container">
+        <div class="profile-header-content">
+          <div class="profile-avatar" id="profileAvatar">U</div>
+          <div class="profile-info">
+            <h1 id="profileName">Usuario</h1>
+            <p id="profileEmail">email@ejemplo.com</p>
+            <div class="profile-stats">
+              <div class="profile-stat">
+                <div class="profile-stat-number" id="profilePropertiesCount">0</div>
+                <div class="profile-stat-label">Propiedades</div>
+              </div>
+              <div class="profile-stat">
+                <div class="profile-stat-number" id="profileViewsCount">0</div>
+                <div class="profile-stat-label">Vistas totales</div>
+              </div>
+            </div>
+            <div class="profile-share">
+              <button class="btn-share" onclick="copyProfileLink()"><i class="fas fa-link"></i> Copiar enlace</button>
+              <button class="btn-share btn-share-whatsapp" onclick="shareProfileWhatsapp()"><i class="fab fa-whatsapp"></i> Compartir</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Propiedades de <span id="profileNameTitle">Usuario</span></h2>
+          <p class="section-subtitle" id="profilePropertiesSubtitle">0 propiedades publicadas</p>
+        </div>
+        <button class="btn-new-property hidden" id="btnNewPropertyProfile" onclick="openModal('propertyModal')">
+          <i class="fas fa-plus"></i><span>Nueva Propiedad</span>
+        </button>
+      </div>
+      <div class="properties-grid" id="profilePropertiesGrid"></div>
+      <div style="text-align: center; margin-top: 20px;">
+        <button class="btn-secondary" onclick="showHome()" style="padding: 12px 24px;"><i class="fas fa-arrow-left"></i> Volver al inicio</button>
+      </div>
+    </div>
   </main>
 
   <!-- Admin Panel -->
@@ -837,30 +877,17 @@
           <h1>Panel de Administración</h1>
           <p style="color: var(--gray-500);">Gestiona usuarios y propiedades</p>
         </div>
-        <button class="btn-primary" onclick="openModal('propertyModal')">
-          <i class="fas fa-plus"></i> Nueva Propiedad
+        <button class="btn-new-property" onclick="openModal('propertyModal')">
+          <i class="fas fa-plus"></i><span>Nueva Propiedad</span>
         </button>
       </div>
-
       <div class="admin-tabs">
-        <button class="admin-tab active" onclick="showAdminTab('pending')" id="tabPending">
-          <i class="fas fa-clock"></i> Pendientes <span id="pendingCount"></span>
-        </button>
-        <button class="admin-tab" onclick="showAdminTab('users')" id="tabUsers">
-          <i class="fas fa-users"></i> Usuarios
-        </button>
-        <button class="admin-tab" onclick="showAdminTab('properties')" id="tabProperties">
-          <i class="fas fa-building"></i> Propiedades
-        </button>
+        <button class="admin-tab active" onclick="showAdminTab('pending')" id="tabPending"><i class="fas fa-clock"></i> Pendientes <span id="pendingCount"></span></button>
+        <button class="admin-tab" onclick="showAdminTab('users')" id="tabUsers"><i class="fas fa-users"></i> Usuarios</button>
+        <button class="admin-tab" onclick="showAdminTab('properties')" id="tabProperties"><i class="fas fa-building"></i> Propiedades</button>
       </div>
-
-      <div class="admin-content" id="adminContent">
-        <!-- Content loaded dynamically -->
-      </div>
-
-      <button style="margin-top: 24px;" class="logout-btn" onclick="showHome()">
-        <i class="fas fa-arrow-left"></i> Volver al Inicio
-      </button>
+      <div class="admin-content" id="adminContent"></div>
+      <button style="margin-top: 24px;" class="btn-secondary" onclick="showHome()"><i class="fas fa-arrow-left"></i> Volver al Inicio</button>
     </section>
   </main>
 
@@ -868,18 +895,14 @@
   <footer class="footer">
     <div class="container">
       <div class="footer-content">
-        <div class="footer-logo">
-          <i class="fas fa-building"></i> Mi Cartera Inmobiliaria
-        </div>
+        <div class="footer-logo"><i class="fas fa-building"></i> Mi Cartera Inmobiliaria</div>
         <div class="footer-links">
           <a href="#"><i class="fab fa-facebook"></i></a>
           <a href="#"><i class="fab fa-instagram"></i></a>
           <a href="#"><i class="fab fa-whatsapp"></i></a>
         </div>
       </div>
-      <div class="footer-bottom">
-        Página creada por Anibal Malave © 2026
-      </div>
+      <div class="footer-bottom">Página creada por Anibal Malave © 2026</div>
     </div>
   </footer>
 
@@ -888,9 +911,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2>Iniciar Sesión</h2>
-        <button class="modal-close" onclick="closeModal('loginModal')">
-          <i class="fas fa-times"></i>
-        </button>
+        <button class="modal-close" onclick="closeModal('loginModal')"><i class="fas fa-times"></i></button>
       </div>
       <div class="modal-body">
         <div id="loginError" class="form-error hidden"></div>
@@ -906,9 +927,7 @@
           <button type="submit" class="btn-submit" id="loginBtn">Iniciar Sesión</button>
         </form>
       </div>
-      <div class="modal-footer">
-        ¿No tienes cuenta? <a href="#" onclick="switchModal('loginModal', 'registerModal')">Regístrate aquí</a>
-      </div>
+      <div class="modal-footer">¿No tienes cuenta? <a onclick="switchModal('loginModal', 'registerModal')">Regístrate aquí</a></div>
     </div>
   </div>
 
@@ -917,9 +936,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2>Crear Cuenta</h2>
-        <button class="modal-close" onclick="closeModal('registerModal')">
-          <i class="fas fa-times"></i>
-        </button>
+        <button class="modal-close" onclick="closeModal('registerModal')"><i class="fas fa-times"></i></button>
       </div>
       <div class="modal-body">
         <div id="registerError" class="form-error hidden"></div>
@@ -954,9 +971,7 @@
           <button type="submit" class="btn-submit" id="registerBtn">Crear Cuenta</button>
         </form>
       </div>
-      <div class="modal-footer">
-        ¿Ya tienes cuenta? <a href="#" onclick="switchModal('registerModal', 'loginModal')">Inicia sesión</a>
-      </div>
+      <div class="modal-footer">¿Ya tienes cuenta? <a onclick="switchModal('registerModal', 'loginModal')">Inicia sesión</a></div>
     </div>
   </div>
 
@@ -969,6 +984,7 @@
         <button class="detail-nav next" onclick="nextDetailImage()"><i class="fas fa-chevron-right"></i></button>
         <div class="card-badges" id="detailBadges"></div>
       </div>
+      <div class="detail-thumbnails" id="detailThumbnails"></div>
       <div class="detail-content">
         <div class="detail-header">
           <div>
@@ -977,15 +993,27 @@
           </div>
           <div class="detail-price" id="detailPrice"></div>
         </div>
+        <div class="detail-owner" id="detailOwner" onclick="viewOwnerProfile()">
+          <div class="detail-owner-avatar" id="detailOwnerAvatar">U</div>
+          <div class="detail-owner-info">
+            <strong id="detailOwnerName">Usuario</strong>
+            <small>Ver perfil del vendedor</small>
+          </div>
+        </div>
         <div class="detail-features" id="detailFeatures"></div>
         <p class="detail-description" id="detailDescription"></p>
-        <button class="detail-whatsapp" id="detailWhatsapp">
-          <i class="fab fa-whatsapp"></i> Contactar por WhatsApp
-        </button>
+        <button class="detail-whatsapp" id="detailWhatsapp"><i class="fab fa-whatsapp"></i> Contactar por WhatsApp</button>
+        <div class="comments-section">
+          <h3><i class="fas fa-comments"></i> Comentarios</h3>
+          <div class="comment-form" id="commentForm">
+            <input type="text" id="guestName" class="guest-name-input" placeholder="Tu nombre">
+            <input type="text" id="commentInput" placeholder="Escribe un comentario...">
+            <button onclick="addComment()">Enviar</button>
+          </div>
+          <div id="commentsList"></div>
+        </div>
       </div>
-      <button class="modal-close" style="position: absolute; top: 16px; right: 16px;" onclick="closeModal('detailModal')">
-        <i class="fas fa-times"></i>
-      </button>
+      <button class="modal-close" style="position: absolute; top: 16px; right: 16px; background: rgba(0,0,0,0.5); color: white;" onclick="closeModal('detailModal')"><i class="fas fa-times"></i></button>
     </div>
   </div>
 
@@ -993,14 +1021,12 @@
   <div class="modal" id="propertyModal">
     <div class="modal-content" style="max-width: 600px;">
       <div class="modal-header">
-        <h2>Nueva Propiedad</h2>
-        <button class="modal-close" onclick="closeModal('propertyModal')">
-          <i class="fas fa-times"></i>
-        </button>
+        <h2 id="propertyModalTitle">Nueva Propiedad</h2>
+        <button class="modal-close" onclick="closeModal('propertyModal')"><i class="fas fa-times"></i></button>
       </div>
       <div class="modal-body">
         <div id="propertyError" class="form-error hidden"></div>
-        <form onsubmit="handleNewProperty(event)">
+        <form onsubmit="handleNewProperty(event)" id="propertyForm">
           <div class="form-group">
             <label>Título *</label>
             <input type="text" id="propTitle" required placeholder="Ej: Apartamento moderno en Pocitos">
@@ -1018,17 +1044,11 @@
           <div class="form-row">
             <div class="form-group">
               <label>Tipo de Operación</label>
-              <select id="propType">
-                <option value="sale">Venta</option>
-                <option value="rent">Alquiler</option>
-              </select>
+              <select id="propType"><option value="sale">Venta</option><option value="rent">Alquiler</option></select>
             </div>
             <div class="form-group">
               <label>Tipo de Propiedad</label>
-              <select id="propPropertyType">
-                <option value="common">Padrón Común</option>
-                <option value="ph">PH</option>
-              </select>
+              <select id="propPropertyType"><option value="common">Padrón Común</option><option value="ph">PH</option></select>
             </div>
           </div>
           <div class="form-row">
@@ -1052,8 +1072,14 @@
             </div>
           </div>
           <div class="form-group">
-            <label>URL de Imagen *</label>
-            <input type="url" id="propImage" required placeholder="https://ejemplo.com/imagen.jpg">
+            <label>Fotos de la Propiedad *</label>
+            <div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <p>Haz clic o arrastra las imágenes aquí</p>
+              <small>Puedes subir múltiples fotos (JPG, PNG, WebP)</small>
+            </div>
+            <input type="file" id="imageInput" multiple accept="image/*" style="display: none;" onchange="handleImageSelect(event)">
+            <div class="image-preview-grid" id="imagePreviewGrid"></div>
           </div>
           <div class="form-group">
             <label>Descripción</label>
@@ -1063,7 +1089,7 @@
             <label>WhatsApp de Contacto</label>
             <input type="tel" id="propWhatsapp" placeholder="+598 99 123 456">
           </div>
-          <button type="submit" class="btn-submit" id="propertyBtn">Publicar Propiedad</button>
+          <button type="submit" class="btn-submit" id="propertyBtn"><i class="fas fa-check"></i> Publicar Propiedad</button>
         </form>
       </div>
     </div>
@@ -1073,9 +1099,9 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 
   <script>
-    // Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
       authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
@@ -1088,15 +1114,24 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
+    const storage = firebase.storage();
     const ADMIN_EMAIL = "fabricio9061@gmail.com";
 
     let currentUser = null;
     let userProfile = null;
     let properties = [];
+    let allUsers = {};
     let currentDetailProperty = null;
     let currentDetailImageIndex = 0;
+    let currentProfileUserId = null;
+    let selectedImages = [];
 
-    // Auth State
+    async function loadUsers() {
+      const snapshot = await db.collection('users').get();
+      snapshot.docs.forEach(doc => { allUsers[doc.id] = doc.data(); });
+    }
+    loadUsers();
+
     auth.onAuthStateChanged(async (user) => {
       if (user) {
         const doc = await db.collection('users').doc(user.uid).get();
@@ -1117,7 +1152,6 @@
       }
     });
 
-    // Update UI
     function updateUI() {
       const navGuest = document.getElementById('nav-guest');
       const navUser = document.getElementById('nav-user');
@@ -1126,17 +1160,18 @@
       const adminBtn = document.getElementById('adminBtn');
       const userAvatar = document.getElementById('userAvatar');
       const heroButtons = document.getElementById('heroButtons');
+      const btnNewProperty = document.getElementById('btnNewProperty');
+      const guestNameInput = document.getElementById('guestName');
 
       if (currentUser && userProfile) {
         navGuest.classList.add('hidden');
         navUser.classList.remove('hidden');
         heroButtons.classList.add('hidden');
+        btnNewProperty.classList.remove('hidden');
+        if (guestNameInput) guestNameInput.style.display = 'none';
         userName.textContent = userProfile.name || 'Usuario';
-        
-        if (userProfile.profilePhoto) {
-          userAvatar.innerHTML = `<img src="${userProfile.profilePhoto}" alt="">`;
-        }
-
+        const initial = (userProfile.name || 'U').charAt(0).toUpperCase();
+        userAvatar.innerHTML = userProfile.profilePhoto ? `<img src="${userProfile.profilePhoto}" alt="">` : initial;
         if (userProfile.email.toLowerCase() === ADMIN_EMAIL) {
           adminBadge.classList.remove('hidden');
           adminBtn.classList.remove('hidden');
@@ -1148,114 +1183,65 @@
         navGuest.classList.remove('hidden');
         navUser.classList.add('hidden');
         heroButtons.classList.remove('hidden');
+        btnNewProperty.classList.add('hidden');
+        if (guestNameInput) guestNameInput.style.display = 'block';
       }
     }
 
-    // Modal Functions
     function openModal(id) {
       document.getElementById(id).classList.add('active');
+      if (id === 'propertyModal') resetPropertyForm();
     }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+    function switchModal(from, to) { closeModal(from); setTimeout(() => openModal(to), 200); }
 
-    function closeModal(id) {
-      document.getElementById(id).classList.remove('active');
-    }
-
-    function switchModal(from, to) {
-      closeModal(from);
-      openModal(to);
-    }
-
-    // Login
     async function handleLogin(e) {
       e.preventDefault();
       const btn = document.getElementById('loginBtn');
       const error = document.getElementById('loginError');
-      
-      btn.disabled = true;
-      btn.textContent = 'Iniciando...';
-      error.classList.add('hidden');
-
+      btn.disabled = true; btn.textContent = 'Iniciando...'; error.classList.add('hidden');
       try {
-        const email = document.getElementById('loginEmail').value;
-        const password = document.getElementById('loginPassword').value;
-        
-        await auth.signInWithEmailAndPassword(email, password);
+        await auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value);
         closeModal('loginModal');
         document.getElementById('loginEmail').value = '';
         document.getElementById('loginPassword').value = '';
       } catch (err) {
         error.textContent = 'Correo o contraseña incorrectos';
         error.classList.remove('hidden');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Iniciar Sesión';
-      }
+      } finally { btn.disabled = false; btn.textContent = 'Iniciar Sesión'; }
     }
 
-    // Register
     async function handleRegister(e) {
       e.preventDefault();
       const btn = document.getElementById('registerBtn');
       const error = document.getElementById('registerError');
       const success = document.getElementById('registerSuccess');
-      
       const name = document.getElementById('registerName').value;
       const email = document.getElementById('registerEmail').value;
       const whatsapp = document.getElementById('registerWhatsapp').value;
       const password = document.getElementById('registerPassword').value;
       const confirm = document.getElementById('registerConfirm').value;
 
-      if (password !== confirm) {
-        error.textContent = 'Las contraseñas no coinciden';
-        error.classList.remove('hidden');
-        return;
-      }
-
-      btn.disabled = true;
-      btn.textContent = 'Creando cuenta...';
-      error.classList.add('hidden');
-      success.classList.add('hidden');
-
+      if (password !== confirm) { error.textContent = 'Las contraseñas no coinciden'; error.classList.remove('hidden'); return; }
+      btn.disabled = true; btn.textContent = 'Creando cuenta...'; error.classList.add('hidden'); success.classList.add('hidden');
       try {
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        
         const isAdmin = email.toLowerCase() === ADMIN_EMAIL;
         await db.collection('users').doc(userCredential.user.uid).set({
-          uid: userCredential.user.uid,
-          email: email,
-          name: name,
-          whatsapp: whatsapp,
-          status: isAdmin ? 'approved' : 'pending',
-          createdAt: new Date().toISOString()
+          uid: userCredential.user.uid, email, name, whatsapp, status: isAdmin ? 'approved' : 'pending', createdAt: new Date().toISOString()
         });
-
         await auth.signOut();
-        
         document.getElementById('registerForm').reset();
-        success.textContent = '¡Cuenta creada! Espera la aprobación del administrador.';
+        success.textContent = isAdmin ? '¡Cuenta de administrador creada! Ya puedes iniciar sesión.' : '¡Cuenta creada! Espera la aprobación del administrador.';
         success.classList.remove('hidden');
-        
-        if (isAdmin) {
-          success.textContent = '¡Cuenta de administrador creada! Ya puedes iniciar sesión.';
-        }
       } catch (err) {
-        error.textContent = err.code === 'auth/email-already-in-use' 
-          ? 'Este correo ya está registrado' 
-          : err.message;
+        error.textContent = err.code === 'auth/email-already-in-use' ? 'Este correo ya está registrado' : err.message;
         error.classList.remove('hidden');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Crear Cuenta';
-      }
+      } finally { btn.disabled = false; btn.textContent = 'Crear Cuenta'; }
     }
 
-    // Logout
-    function logout() {
-      auth.signOut();
-      showHome();
-    }
+    function logout() { auth.signOut(); showHome(); }
 
-    // Load Properties
     function loadProperties() {
       db.collection('properties').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
         properties = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -1264,63 +1250,63 @@
       });
     }
 
-    // Render Properties
-    function renderProperties(props) {
-      const grid = document.getElementById('propertiesGrid');
+    function getUserInfo(userId) { return allUsers[userId] || { name: 'Usuario', profilePhoto: null }; }
+
+    function renderProperties(props, targetGrid = 'propertiesGrid') {
+      const grid = document.getElementById(targetGrid);
       const loading = document.getElementById('propertiesLoading');
       const count = document.getElementById('propertiesCount');
-      
-      loading.classList.add('hidden');
-      count.textContent = `${props.length} propiedades encontradas`;
-
+      if (loading) loading.classList.add('hidden');
+      if (count) count.textContent = `${props.length} propiedades encontradas`;
       if (props.length === 0) {
         grid.innerHTML = '<p style="text-align: center; color: var(--gray-500); grid-column: 1/-1; padding: 60px;">No hay propiedades disponibles</p>';
         return;
       }
-
-      grid.innerHTML = props.map(p => `
-        <div class="property-card" onclick="openDetail('${p.id}')">
-          <div class="card-image">
-            <img src="${p.images?.[0] || p.image || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${p.title}">
-            <div class="card-badges">
-              <span class="badge ${p.type === 'sale' ? 'badge-sale' : 'badge-rent'}">${p.type === 'sale' ? 'VENTA' : 'ALQUILER'}</span>
-              ${p.propertyType === 'ph' ? '<span class="badge badge-ph">PH</span>' : ''}
+      grid.innerHTML = props.map(p => {
+        const owner = getUserInfo(p.ownerId);
+        const ownerInitial = (owner.name || 'U').charAt(0).toUpperCase();
+        return `
+          <div class="property-card" onclick="openDetail('${p.id}')">
+            <div class="card-image">
+              <img src="${p.images?.[0] || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${p.title}">
+              <div class="card-badges">
+                <span class="badge ${p.type === 'sale' ? 'badge-sale' : 'badge-rent'}">${p.type === 'sale' ? 'VENTA' : 'ALQUILER'}</span>
+                ${p.propertyType === 'ph' ? '<span class="badge badge-ph">PH</span>' : ''}
+              </div>
+              <div class="card-owner" onclick="event.stopPropagation(); showProfile('${p.ownerId}')">
+                ${owner.profilePhoto ? `<img src="${owner.profilePhoto}" alt="">` : `<div class="card-owner-initial">${ownerInitial}</div>`}
+                <span>${owner.name || 'Usuario'}</span>
+              </div>
             </div>
-          </div>
-          <div class="card-content">
-            <div class="card-price">$${(p.price || 0).toLocaleString()}${p.type === 'rent' ? '<span>/mes</span>' : ''}</div>
-            <h3 class="card-title">${p.title}</h3>
-            <div class="card-location"><i class="fas fa-map-marker-alt"></i>${p.location}</div>
-            <div class="card-features">
-              ${p.bedrooms ? `<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>` : ''}
-              ${p.bathrooms ? `<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>` : ''}
-              ${p.totalArea ? `<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>` : ''}
+            <div class="card-content">
+              <div class="card-price">$${(p.price || 0).toLocaleString()}${p.type === 'rent' ? '<span>/mes</span>' : ''}</div>
+              <h3 class="card-title">${p.title}</h3>
+              <div class="card-location"><i class="fas fa-map-marker-alt"></i>${p.location}</div>
+              <div class="card-features">
+                ${p.bedrooms ? `<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>` : ''}
+                ${p.bathrooms ? `<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>` : ''}
+                ${p.totalArea ? `<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>` : ''}
+              </div>
             </div>
-          </div>
-          <div class="card-footer">
-            <span class="card-views"><i class="fas fa-eye"></i> ${p.views || 0} vistas</span>
-            <button class="btn-whatsapp" onclick="event.stopPropagation(); contactWhatsapp('${p.id}')">
-              <i class="fab fa-whatsapp"></i> Contactar
-            </button>
-          </div>
-        </div>
-      `).join('');
+            <div class="card-footer">
+              <span class="card-views"><i class="fas fa-eye"></i> ${p.views || 0} vistas</span>
+              <button class="btn-whatsapp" onclick="event.stopPropagation(); contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button>
+            </div>
+          </div>`;
+      }).join('');
     }
 
-    // Update Stats
     function updateStats() {
       document.getElementById('statTotal').textContent = properties.length;
       document.getElementById('statSale').textContent = properties.filter(p => p.type === 'sale').length;
       document.getElementById('statRent').textContent = properties.filter(p => p.type === 'rent').length;
     }
 
-    // Filter Properties
     function filterProperties() {
       const search = document.getElementById('filterSearch').value.toLowerCase();
       const type = document.getElementById('filterType').value;
       const bedrooms = parseInt(document.getElementById('filterBedrooms').value) || 0;
       const maxPrice = parseInt(document.getElementById('filterPrice').value) || Infinity;
-
       const filtered = properties.filter(p => {
         if (search && !p.title.toLowerCase().includes(search) && !p.location.toLowerCase().includes(search)) return false;
         if (type && p.type !== type) return false;
@@ -1328,200 +1314,226 @@
         if (p.price > maxPrice) return false;
         return true;
       });
-
       renderProperties(filtered);
     }
 
-    // Open Property Detail
     async function openDetail(id) {
       const p = properties.find(prop => prop.id === id);
       if (!p) return;
-
       currentDetailProperty = p;
       currentDetailImageIndex = 0;
-
-      // Increment views
-      db.collection('properties').doc(id).update({
-        views: firebase.firestore.FieldValue.increment(1)
-      });
-
-      document.getElementById('detailImage').src = p.images?.[0] || p.image || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800';
+      db.collection('properties').doc(id).update({ views: firebase.firestore.FieldValue.increment(1) });
+      const images = p.images?.length ? p.images : ['https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'];
+      document.getElementById('detailImage').src = images[0];
       document.getElementById('detailTitle').textContent = p.title;
       document.getElementById('detailLocation').textContent = p.location;
       document.getElementById('detailPrice').textContent = `$${(p.price || 0).toLocaleString()}${p.type === 'rent' ? '/mes' : ''}`;
       document.getElementById('detailDescription').textContent = p.description || 'Sin descripción disponible.';
-      
-      document.getElementById('detailBadges').innerHTML = `
-        <span class="badge ${p.type === 'sale' ? 'badge-sale' : 'badge-rent'}">${p.type === 'sale' ? 'VENTA' : 'ALQUILER'}</span>
-        ${p.propertyType === 'ph' ? '<span class="badge badge-ph">PH</span>' : ''}
-      `;
-
+      const thumbsContainer = document.getElementById('detailThumbnails');
+      if (images.length > 1) {
+        thumbsContainer.innerHTML = images.map((img, i) => `<div class="detail-thumb ${i === 0 ? 'active' : ''}" onclick="setDetailImage(${i})"><img src="${img}" alt=""></div>`).join('');
+        thumbsContainer.style.display = 'flex';
+      } else { thumbsContainer.style.display = 'none'; }
+      const owner = getUserInfo(p.ownerId);
+      const ownerInitial = (owner.name || 'U').charAt(0).toUpperCase();
+      document.getElementById('detailOwnerName').textContent = owner.name || 'Usuario';
+      document.getElementById('detailOwnerAvatar').innerHTML = owner.profilePhoto ? `<img src="${owner.profilePhoto}" alt="">` : ownerInitial;
+      document.getElementById('detailBadges').innerHTML = `<span class="badge ${p.type === 'sale' ? 'badge-sale' : 'badge-rent'}">${p.type === 'sale' ? 'VENTA' : 'ALQUILER'}</span>${p.propertyType === 'ph' ? '<span class="badge badge-ph">PH</span>' : ''}`;
       document.getElementById('detailFeatures').innerHTML = `
         ${p.bedrooms ? `<div class="detail-feature"><i class="fas fa-bed"></i><strong>${p.bedrooms}</strong><span>Habitaciones</span></div>` : ''}
         ${p.bathrooms ? `<div class="detail-feature"><i class="fas fa-bath"></i><strong>${p.bathrooms}</strong><span>Baños</span></div>` : ''}
         ${p.totalArea ? `<div class="detail-feature"><i class="fas fa-expand"></i><strong>${p.totalArea}</strong><span>m² totales</span></div>` : ''}
-        ${p.commonExpenses ? `<div class="detail-feature"><i class="fas fa-dollar-sign"></i><strong>${p.commonExpenses}</strong><span>Gastos Com.</span></div>` : ''}
-      `;
-
-      const whatsappBtn = document.getElementById('detailWhatsapp');
-      whatsappBtn.onclick = () => contactWhatsapp(id);
-
+        ${p.commonExpenses ? `<div class="detail-feature"><i class="fas fa-dollar-sign"></i><strong>${p.commonExpenses}</strong><span>Gastos Com.</span></div>` : ''}`;
+      document.getElementById('detailWhatsapp').onclick = () => contactWhatsapp(id);
+      loadComments(id);
       openModal('detailModal');
     }
 
-    function prevDetailImage() {
+    function setDetailImage(index) {
       if (!currentDetailProperty?.images?.length) return;
-      currentDetailImageIndex = (currentDetailImageIndex - 1 + currentDetailProperty.images.length) % currentDetailProperty.images.length;
-      document.getElementById('detailImage').src = currentDetailProperty.images[currentDetailImageIndex];
+      currentDetailImageIndex = index;
+      document.getElementById('detailImage').src = currentDetailProperty.images[index];
+      document.querySelectorAll('.detail-thumb').forEach((t, i) => { t.classList.toggle('active', i === index); });
+    }
+    function prevDetailImage() { if (!currentDetailProperty?.images?.length) return; currentDetailImageIndex = (currentDetailImageIndex - 1 + currentDetailProperty.images.length) % currentDetailProperty.images.length; setDetailImage(currentDetailImageIndex); }
+    function nextDetailImage() { if (!currentDetailProperty?.images?.length) return; currentDetailImageIndex = (currentDetailImageIndex + 1) % currentDetailProperty.images.length; setDetailImage(currentDetailImageIndex); }
+    function viewOwnerProfile() { if (currentDetailProperty) { closeModal('detailModal'); showProfile(currentDetailProperty.ownerId); } }
+
+    async function loadComments(propertyId) {
+      const container = document.getElementById('commentsList');
+      container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      try {
+        const snapshot = await db.collection('properties').doc(propertyId).collection('comments').orderBy('createdAt', 'desc').get();
+        const comments = snapshot.docs.map(doc => doc.data());
+        if (comments.length === 0) { container.innerHTML = '<div class="no-comments"><i class="fas fa-comment-slash"></i><p>Sé el primero en comentar</p></div>'; return; }
+        container.innerHTML = comments.map(c => {
+          const initial = (c.userName || 'A').charAt(0).toUpperCase();
+          const time = c.createdAt ? new Date(c.createdAt).toLocaleDateString('es') : '';
+          return `<div class="comment-item"><div class="comment-avatar">${c.userPhoto ? `<img src="${c.userPhoto}" alt="">` : initial}</div><div class="comment-content"><div class="comment-header"><span class="comment-author">${c.userName || 'Anónimo'}</span>${c.isGuest ? '<span class="comment-guest-badge">Invitado</span>' : ''}<span class="comment-time">${time}</span></div><p class="comment-text">${c.text}</p></div></div>`;
+        }).join('');
+      } catch (err) { container.innerHTML = '<p style="color: var(--danger);">Error al cargar comentarios</p>'; }
     }
 
-    function nextDetailImage() {
-      if (!currentDetailProperty?.images?.length) return;
-      currentDetailImageIndex = (currentDetailImageIndex + 1) % currentDetailProperty.images.length;
-      document.getElementById('detailImage').src = currentDetailProperty.images[currentDetailImageIndex];
+    async function addComment() {
+      const input = document.getElementById('commentInput');
+      const text = input.value.trim();
+      if (!text || !currentDetailProperty) return;
+      let userName, userPhoto, isGuest;
+      if (currentUser && userProfile) { userName = userProfile.name; userPhoto = userProfile.profilePhoto || null; isGuest = false; }
+      else {
+        const guestName = document.getElementById('guestName').value.trim();
+        if (!guestName) { alert('Por favor ingresa tu nombre'); return; }
+        userName = guestName; userPhoto = null; isGuest = true;
+      }
+      try {
+        await db.collection('properties').doc(currentDetailProperty.id).collection('comments').add({ userId: currentUser?.uid || null, userName, userPhoto, text, isGuest, createdAt: new Date().toISOString() });
+        input.value = '';
+        loadComments(currentDetailProperty.id);
+      } catch (err) { alert('Error al enviar comentario'); }
     }
 
-    // WhatsApp Contact
     function contactWhatsapp(id) {
       const p = properties.find(prop => prop.id === id);
       if (!p) return;
-      
-      const phone = (p.ownerWhatsapp || p.whatsapp || '59899000000').replace(/\D/g, '');
+      const owner = getUserInfo(p.ownerId);
+      const phone = (p.ownerWhatsapp || owner.whatsapp || '59899000000').replace(/\D/g, '');
       const message = `Hola, me interesa la propiedad: ${p.title} - $${(p.price || 0).toLocaleString()}`;
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
     }
 
-    // Show Home
     function showHome() {
       document.getElementById('mainContent').classList.remove('hidden');
       document.getElementById('adminPanel').classList.add('hidden');
+      document.getElementById('profilePage').classList.add('hidden');
+      currentProfileUserId = null;
+      window.location.hash = '';
     }
 
-    // Show Admin
+    async function showProfile(userId) {
+      currentProfileUserId = userId;
+      window.location.hash = `perfil/${userId}`;
+      const userDoc = await db.collection('users').doc(userId).get();
+      const userData = userDoc.exists ? userDoc.data() : { name: 'Usuario', email: '' };
+      document.getElementById('profileName').textContent = userData.name || 'Usuario';
+      document.getElementById('profileNameTitle').textContent = userData.name || 'Usuario';
+      document.getElementById('profileEmail').textContent = userData.email || '';
+      const initial = (userData.name || 'U').charAt(0).toUpperCase();
+      document.getElementById('profileAvatar').innerHTML = userData.profilePhoto ? `<img src="${userData.profilePhoto}" alt="">` : initial;
+      const userProperties = properties.filter(p => p.ownerId === userId);
+      const totalViews = userProperties.reduce((sum, p) => sum + (p.views || 0), 0);
+      document.getElementById('profilePropertiesCount').textContent = userProperties.length;
+      document.getElementById('profileViewsCount').textContent = totalViews;
+      document.getElementById('profilePropertiesSubtitle').textContent = `${userProperties.length} propiedades publicadas`;
+      const btnNewPropertyProfile = document.getElementById('btnNewPropertyProfile');
+      btnNewPropertyProfile.classList.toggle('hidden', !(currentUser && currentUser.uid === userId));
+      renderProperties(userProperties, 'profilePropertiesGrid');
+      document.getElementById('mainContent').classList.add('hidden');
+      document.getElementById('adminPanel').classList.add('hidden');
+      document.getElementById('profilePage').classList.remove('hidden');
+    }
+
+    function showMyProfile() { if (currentUser) showProfile(currentUser.uid); }
+
+    function copyProfileLink() {
+      const link = `${window.location.origin}${window.location.pathname}#perfil/${currentProfileUserId}`;
+      navigator.clipboard.writeText(link).then(() => { alert('¡Enlace copiado!'); });
+    }
+
+    function shareProfileWhatsapp() {
+      const link = `${window.location.origin}${window.location.pathname}#perfil/${currentProfileUserId}`;
+      const user = allUsers[currentProfileUserId] || { name: 'este usuario' };
+      const message = `Mira las propiedades de ${user.name} en Mi Cartera Inmobiliaria: ${link}`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+    }
+
+    function handleHash() {
+      const hash = window.location.hash;
+      if (hash.startsWith('#perfil/')) { const userId = hash.replace('#perfil/', ''); showProfile(userId); }
+    }
+    window.addEventListener('hashchange', handleHash);
+
     function showAdmin() {
       if (!currentUser || userProfile?.email?.toLowerCase() !== ADMIN_EMAIL) return;
-      
       document.getElementById('mainContent').classList.add('hidden');
+      document.getElementById('profilePage').classList.add('hidden');
       document.getElementById('adminPanel').classList.remove('hidden');
       showAdminTab('pending');
     }
 
-    // Admin Tabs
     async function showAdminTab(tab) {
       document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
       document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('active');
-      
       const content = document.getElementById('adminContent');
       content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-
       if (tab === 'pending') {
         const snapshot = await db.collection('users').where('status', '==', 'pending').get();
         const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
         document.getElementById('pendingCount').textContent = users.length > 0 ? `(${users.length})` : '';
-        
         if (users.length === 0) {
-          content.innerHTML = `
-            <div class="empty-state">
-              <i class="fas fa-check-circle"></i>
-              <h3>No hay usuarios pendientes</h3>
-              <p>Todos los usuarios han sido gestionados</p>
-            </div>
-          `;
+          content.innerHTML = `<div class="empty-state"><i class="fas fa-check-circle" style="color: var(--success);"></i><h3>No hay usuarios pendientes</h3><p>Todos los usuarios han sido gestionados</p></div>`;
         } else {
-          content.innerHTML = users.map(u => `
-            <div class="user-card" id="user-${u.id}">
-              <div class="user-card-avatar"><i class="fas fa-user"></i></div>
-              <div class="user-card-info">
-                <h4>${u.name}</h4>
-                <p>${u.email}</p>
-                <small>WhatsApp: ${u.whatsapp || 'No especificado'}</small>
-              </div>
-              <div class="user-card-actions">
-                <button class="btn-approve" onclick="approveUser('${u.id}')">
-                  <i class="fas fa-check"></i> Aprobar
-                </button>
-                <button class="btn-reject" onclick="rejectUser('${u.id}')">
-                  <i class="fas fa-times"></i> Rechazar
-                </button>
-              </div>
-            </div>
-          `).join('');
+          content.innerHTML = users.map(u => `<div class="user-card"><div class="user-card-avatar"><i class="fas fa-user"></i></div><div class="user-card-info"><h4>${u.name}</h4><p>${u.email}</p><small>WhatsApp: ${u.whatsapp || 'No especificado'}</small></div><div class="user-card-actions"><button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i> Aprobar</button><button class="btn-reject" onclick="rejectUser('${u.id}')"><i class="fas fa-times"></i> Rechazar</button></div></div>`).join('');
         }
       } else if (tab === 'users') {
         const snapshot = await db.collection('users').get();
         const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        content.innerHTML = users.map(u => `
-          <div class="user-card">
-            <div class="user-card-avatar"><i class="fas fa-user"></i></div>
-            <div class="user-card-info">
-              <h4>${u.name} ${u.email.toLowerCase() === ADMIN_EMAIL ? '<span class="admin-badge">Admin</span>' : ''}</h4>
-              <p>${u.email}</p>
-              <small>Estado: <strong style="color: ${u.status === 'approved' ? 'var(--success)' : u.status === 'pending' ? 'var(--gold)' : 'var(--danger)'}">${u.status}</strong></small>
-            </div>
-            <div class="user-card-actions">
-              ${u.status === 'pending' ? `
-                <button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>
-                <button class="btn-reject" onclick="rejectUser('${u.id}')"><i class="fas fa-times"></i></button>
-              ` : ''}
-              ${u.email.toLowerCase() !== ADMIN_EMAIL ? `<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>` : ''}
-            </div>
-          </div>
-        `).join('');
+        content.innerHTML = users.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto ? `<img src="${u.profilePhoto}" alt="">` : '<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${u.name} ${u.email.toLowerCase() === ADMIN_EMAIL ? '<span class="admin-badge">Admin</span>' : ''}</h4><p>${u.email}</p><small>Estado: <strong style="color: ${u.status === 'approved' ? 'var(--success)' : u.status === 'pending' ? 'var(--gold)' : 'var(--danger)'}">${u.status}</strong></small></div><div class="user-card-actions"><button class="btn-edit" onclick="showProfile('${u.id}')"><i class="fas fa-eye"></i></button>${u.status === 'pending' ? `<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button><button class="btn-reject" onclick="rejectUser('${u.id}')"><i class="fas fa-times"></i></button>` : ''}${u.email.toLowerCase() !== ADMIN_EMAIL ? `<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>` : ''}</div></div>`).join('');
       } else if (tab === 'properties') {
-        content.innerHTML = properties.length === 0 
-          ? '<div class="empty-state"><i class="fas fa-building"></i><h3>No hay propiedades</h3></div>'
-          : properties.map(p => `
-            <div class="user-card">
-              <div class="user-card-avatar" style="border-radius: 8px;"><img src="${p.images?.[0] || p.image || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=100'}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;"></div>
-              <div class="user-card-info">
-                <h4>${p.title}</h4>
-                <p>$${(p.price || 0).toLocaleString()} - ${p.location}</p>
-                <small><i class="fas fa-eye"></i> ${p.views || 0} vistas</small>
-              </div>
-              <div class="user-card-actions">
-                <button class="btn-reject" onclick="deleteProperty('${p.id}')"><i class="fas fa-trash"></i></button>
-              </div>
-            </div>
-          `).join('');
+        content.innerHTML = properties.length === 0 ? '<div class="empty-state"><i class="fas fa-building"></i><h3>No hay propiedades</h3></div>'
+          : properties.map(p => {
+            const owner = getUserInfo(p.ownerId);
+            return `<div class="user-card"><div class="user-card-avatar" style="border-radius: 8px;"><img src="${p.images?.[0] || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=100'}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;"></div><div class="user-card-info"><h4>${p.title}</h4><p>$${(p.price || 0).toLocaleString()} - ${p.location}</p><small><i class="fas fa-user"></i> ${owner.name} · <i class="fas fa-eye"></i> ${p.views || 0} vistas</small></div><div class="user-card-actions"><button class="btn-edit" onclick="openDetail('${p.id}')"><i class="fas fa-eye"></i></button><button class="btn-reject" onclick="deleteProperty('${p.id}')"><i class="fas fa-trash"></i></button></div></div>`;
+          }).join('');
       }
     }
 
-    // Admin Actions
-    async function approveUser(id) {
-      await db.collection('users').doc(id).update({ status: 'approved' });
-      showAdminTab('pending');
+    async function approveUser(id) { await db.collection('users').doc(id).update({ status: 'approved' }); allUsers[id] = { ...allUsers[id], status: 'approved' }; showAdminTab('pending'); }
+    async function rejectUser(id) { await db.collection('users').doc(id).update({ status: 'rejected' }); showAdminTab('pending'); }
+    async function deleteUser(id) { if (!confirm('¿Eliminar este usuario?')) return; await db.collection('users').doc(id).delete(); delete allUsers[id]; showAdminTab('users'); }
+    async function deleteProperty(id) { if (!confirm('¿Eliminar esta propiedad?')) return; await db.collection('properties').doc(id).delete(); }
+
+    // Image Upload
+    const uploadArea = document.getElementById('imageUploadArea');
+    uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+    uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('dragover'); });
+    uploadArea.addEventListener('drop', (e) => { e.preventDefault(); uploadArea.classList.remove('dragover'); addImagesToPreview(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))); });
+
+    function handleImageSelect(e) { addImagesToPreview(Array.from(e.target.files)); e.target.value = ''; }
+    function addImagesToPreview(files) {
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => { selectedImages.push({ file, preview: e.target.result }); renderImagePreviews(); };
+        reader.readAsDataURL(file);
+      });
+    }
+    function renderImagePreviews() {
+      document.getElementById('imagePreviewGrid').innerHTML = selectedImages.map((img, i) => `<div class="image-preview-item ${i === 0 ? 'main' : ''}"><img src="${img.preview}" alt=""><div class="remove-image" onclick="removeImage(${i})"><i class="fas fa-times"></i></div></div>`).join('');
+    }
+    function removeImage(index) { selectedImages.splice(index, 1); renderImagePreviews(); }
+    function resetPropertyForm() { document.getElementById('propertyForm').reset(); selectedImages = []; renderImagePreviews(); }
+
+    async function uploadImages() {
+      const urls = [];
+      for (let i = 0; i < selectedImages.length; i++) {
+        const img = selectedImages[i];
+        const fileName = `properties/${Date.now()}_${i}_${img.file.name}`;
+        const ref = storage.ref(fileName);
+        await ref.put(img.file);
+        urls.push(await ref.getDownloadURL());
+      }
+      return urls;
     }
 
-    async function rejectUser(id) {
-      await db.collection('users').doc(id).update({ status: 'rejected' });
-      showAdminTab('pending');
-    }
-
-    async function deleteUser(id) {
-      if (!confirm('¿Eliminar este usuario?')) return;
-      await db.collection('users').doc(id).delete();
-      showAdminTab('users');
-    }
-
-    async function deleteProperty(id) {
-      if (!confirm('¿Eliminar esta propiedad?')) return;
-      await db.collection('properties').doc(id).delete();
-      showAdminTab('properties');
-    }
-
-    // New Property
     async function handleNewProperty(e) {
       e.preventDefault();
+      if (!currentUser) { alert('Debes iniciar sesión para publicar una propiedad'); return; }
+      if (selectedImages.length === 0) { alert('Debes subir al menos una imagen'); return; }
       const btn = document.getElementById('propertyBtn');
       const error = document.getElementById('propertyError');
-      
-      btn.disabled = true;
-      btn.textContent = 'Publicando...';
-      error.classList.add('hidden');
-
+      btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Subiendo imágenes...'; error.classList.add('hidden');
       try {
+        const imageUrls = await uploadImages();
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
         await db.collection('properties').add({
           title: document.getElementById('propTitle').value,
           location: document.getElementById('propLocation').value,
@@ -1532,28 +1544,23 @@
           bathrooms: parseInt(document.getElementById('propBathrooms').value) || 0,
           totalArea: parseInt(document.getElementById('propTotalArea').value) || 0,
           commonExpenses: parseInt(document.getElementById('propExpenses').value) || 0,
-          images: [document.getElementById('propImage').value],
+          images: imageUrls,
           description: document.getElementById('propDescription').value,
-          ownerWhatsapp: document.getElementById('propWhatsapp').value,
-          views: 0,
+          ownerWhatsapp: document.getElementById('propWhatsapp').value || userProfile.whatsapp,
           ownerId: currentUser.uid,
+          ownerName: userProfile.name,
+          views: 0,
           createdAt: new Date().toISOString()
         });
-
         closeModal('propertyModal');
-        e.target.reset();
-        alert('¡Propiedad publicada!');
-      } catch (err) {
-        error.textContent = err.message;
-        error.classList.remove('hidden');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Publicar Propiedad';
-      }
+        resetPropertyForm();
+        alert('¡Propiedad publicada exitosamente!');
+      } catch (err) { error.textContent = 'Error: ' + err.message; error.classList.remove('hidden'); }
+      finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Publicar Propiedad'; }
     }
 
-    // Initialize
     loadProperties();
+    setTimeout(handleHash, 500);
   </script>
 </body>
 </html>
