@@ -79,10 +79,29 @@
     }
     .nav a:hover { background: var(--gray-100); }
     .btn-primary {
-      background: linear-gradient(135deg, var(--accent), var(--gold));
+      background: linear-gradient(135deg, var(--accent), var(--gold)) !important;
       color: var(--white) !important;
     }
     .btn-primary:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .btn-secondary {
+      background: var(--white) !important;
+      color: var(--accent) !important;
+      border: 2px solid var(--accent) !important;
+    }
+    .btn-secondary:hover { background: var(--accent) !important; color: var(--white) !important; }
+    .nav .btn-primary {
+      background: var(--accent) !important;
+      color: var(--white) !important;
+    }
+    .nav .btn-secondary {
+      background: transparent !important;
+      color: var(--accent) !important;
+      border: 2px solid var(--accent) !important;
+    }
+    .nav .btn-secondary:hover {
+      background: var(--accent) !important;
+      color: var(--white) !important;
+    }
     .user-info {
       display: flex;
       align-items: center;
@@ -137,6 +156,34 @@
     .hero-stat { text-align: center; }
     .hero-stat-number { font-size: 36px; font-weight: 700; font-family: 'Playfair Display', serif; }
     .hero-stat-label { font-size: 14px; opacity: 0.8; }
+    .hero-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      margin-bottom: 40px;
+      flex-wrap: wrap;
+    }
+    .hero-btn {
+      padding: 16px 32px;
+      border-radius: var(--radius-lg);
+      font-size: 18px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.3s;
+    }
+    .hero-btn-primary {
+      background: var(--gold);
+      color: var(--primary);
+    }
+    .hero-btn-primary:hover { background: #d4ad2b; transform: translateY(-3px); box-shadow: 0 10px 30px rgba(201,162,39,0.4); }
+    .hero-btn-secondary {
+      background: rgba(255,255,255,0.15);
+      color: var(--white);
+      border: 2px solid var(--white);
+    }
+    .hero-btn-secondary:hover { background: var(--white); color: var(--primary); }
 
     /* Filtros */
     .filters {
@@ -631,14 +678,20 @@
     /* Responsive */
     @media (max-width: 768px) {
       .header-content { flex-wrap: wrap; gap: 16px; }
-      .nav { width: 100%; justify-content: center; }
-      .hero h1 { font-size: 32px; }
+      .nav { width: 100%; justify-content: center; flex-wrap: wrap; }
+      .nav a, .nav button { padding: 10px 14px; font-size: 13px; }
+      .hero h1 { font-size: 28px; }
+      .hero p { font-size: 16px; padding: 0 10px; }
+      .hero-buttons { padding: 0 20px; }
+      .hero-btn { padding: 14px 24px; font-size: 16px; width: 100%; justify-content: center; }
       .hero-stats { flex-wrap: wrap; gap: 24px; }
       .filters-row { grid-template-columns: 1fr; }
       .properties-grid { grid-template-columns: 1fr; }
       .form-row { grid-template-columns: 1fr; }
       .detail-features { grid-template-columns: repeat(2, 1fr); }
       .footer-content { flex-direction: column; gap: 20px; text-align: center; }
+      .user-info { padding: 6px 12px; }
+      .user-info span:not(.admin-badge) { display: none; }
     }
 
     /* Loading */
@@ -673,6 +726,7 @@
         <nav class="nav" id="nav-guest">
           <a href="#" onclick="showHome()">Inicio</a>
           <a href="#propiedades">Propiedades</a>
+          <button class="btn-secondary" onclick="openModal('registerModal')">Registrarse</button>
           <button class="btn-primary" onclick="openModal('loginModal')">Iniciar Sesión</button>
         </nav>
         <nav class="nav hidden" id="nav-user">
@@ -697,6 +751,17 @@
       <div class="container">
         <h1>Encuentra la propiedad<br><span>de tus sueños</span></h1>
         <p>Explora nuestra amplia selección de propiedades en venta y alquiler. Encuentra tu hogar ideal con nosotros.</p>
+        
+        <!-- Botones de acción grandes -->
+        <div class="hero-buttons" id="heroButtons">
+          <button class="hero-btn hero-btn-primary" onclick="openModal('registerModal')">
+            <i class="fas fa-user-plus"></i> Crear Cuenta
+          </button>
+          <button class="hero-btn hero-btn-secondary" onclick="openModal('loginModal')">
+            <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+          </button>
+        </div>
+        
         <div class="hero-stats">
           <div class="hero-stat">
             <div class="hero-stat-number" id="statTotal">0</div>
@@ -1060,10 +1125,12 @@
       const adminBadge = document.getElementById('adminBadge');
       const adminBtn = document.getElementById('adminBtn');
       const userAvatar = document.getElementById('userAvatar');
+      const heroButtons = document.getElementById('heroButtons');
 
       if (currentUser && userProfile) {
         navGuest.classList.add('hidden');
         navUser.classList.remove('hidden');
+        heroButtons.classList.add('hidden');
         userName.textContent = userProfile.name || 'Usuario';
         
         if (userProfile.profilePhoto) {
@@ -1080,6 +1147,7 @@
       } else {
         navGuest.classList.remove('hidden');
         navUser.classList.add('hidden');
+        heroButtons.classList.remove('hidden');
       }
     }
 
