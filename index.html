@@ -103,7 +103,7 @@
 
     .properties-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 28px; margin-bottom: 60px; }
 
-    .property-card { background: var(--white); border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-sm); transition: all 0.3s; cursor: pointer; }
+    .property-card { background: var(--white); border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-sm); transition: all 0.3s; cursor: pointer; position: relative; }
     .property-card:hover { transform: translateY(-8px); box-shadow: var(--shadow-lg); }
     .card-image { position: relative; height: 220px; overflow: hidden; }
     .card-image img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
@@ -115,6 +115,12 @@
     .badge-ph { background: var(--gold); color: var(--white); }
     .badge-currency { background: var(--primary); color: var(--white); }
     .badge-garage { background: #6c5ce7; color: var(--white); }
+    .card-actions { position: absolute; top: 16px; right: 16px; display: flex; gap: 8px; opacity: 0; transition: opacity 0.3s; }
+    .property-card:hover .card-actions { opacity: 1; }
+    .card-action-btn { width: 36px; height: 36px; border-radius: 50%; background: var(--white); color: var(--gray-700); display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 0.3s; box-shadow: var(--shadow-sm); }
+    .card-action-btn:hover { transform: scale(1.1); }
+    .card-action-btn.edit:hover { background: #3498db; color: white; }
+    .card-action-btn.delete:hover { background: var(--danger); color: white; }
     .card-owner { position: absolute; bottom: 12px; left: 12px; display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); border-radius: var(--radius-full); color: var(--white); font-size: 12px; cursor: pointer; transition: all 0.3s; }
     .card-owner:hover { background: rgba(0,0,0,0.8); }
     .card-owner img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
@@ -180,8 +186,11 @@
 
     .profile-header { background: linear-gradient(135deg, var(--primary), var(--secondary)); padding: 60px 0; color: var(--white); margin-bottom: 40px; }
     .profile-header-content { display: flex; align-items: center; gap: 32px; }
+    .profile-avatar-container { position: relative; }
     .profile-avatar { width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--gold)); display: flex; align-items: center; justify-content: center; font-size: 48px; font-weight: 700; color: var(--white); border: 4px solid rgba(255,255,255,0.3); overflow: hidden; flex-shrink: 0; }
     .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .profile-avatar-edit { position: absolute; bottom: 0; right: 0; width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: var(--white); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; border: 3px solid var(--white); }
+    .profile-avatar-edit:hover { transform: scale(1.1); background: var(--accent-hover); }
     .profile-info h1 { color: var(--white); margin-bottom: 8px; }
     .profile-info p { opacity: 0.8; margin-bottom: 16px; }
     .profile-stats { display: flex; gap: 32px; }
@@ -223,8 +232,11 @@
     .detail-feature strong { display: block; font-size: 18px; color: var(--primary); }
     .detail-feature span { font-size: 12px; color: var(--gray-500); }
     .detail-description { margin-bottom: 24px; color: var(--gray-600); line-height: 1.8; }
-    .detail-whatsapp { width: 100%; padding: 16px; background: #25D366; color: var(--white); border-radius: var(--radius-md); font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.3s; }
+    .detail-actions { display: flex; gap: 12px; margin-bottom: 24px; }
+    .detail-whatsapp { flex: 1; padding: 16px; background: #25D366; color: var(--white); border-radius: var(--radius-md); font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.3s; }
     .detail-whatsapp:hover { background: #128C7E; }
+    .detail-edit-btn { padding: 16px 24px; background: #3498db; color: var(--white); border-radius: var(--radius-md); font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.3s; }
+    .detail-edit-btn:hover { background: #2980b9; }
 
     .comments-section { border-top: 1px solid var(--gray-200); padding-top: 24px; margin-top: 24px; }
     .comments-section h3 { margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
@@ -306,6 +318,7 @@
       .user-info span:not(.admin-badge) { display: none; }
       .detail-gallery { height: 280px; }
       .detail-header { flex-direction: column; }
+      .detail-actions { flex-direction: column; }
       .profile-avatar { width: 100px; height: 100px; font-size: 36px; }
       .comment-form { flex-direction: column; }
       .guest-name-input { flex: none !important; width: 100% !important; }
@@ -371,7 +384,7 @@
     <section class="container" id="propiedades">
       <div class="section-header">
         <div><h2 class="section-title">Propiedades Disponibles</h2><p class="section-subtitle" id="propertiesCount">Cargando...</p></div>
-        <button class="btn-new-property hidden" id="btnNewProperty" onclick="openModal('propertyModal')"><i class="fas fa-plus"></i><span>Nueva Propiedad</span></button>
+        <button class="btn-new-property hidden" id="btnNewProperty" onclick="openPropertyModal()"><i class="fas fa-plus"></i><span>Nueva Propiedad</span></button>
       </div>
       <div id="propertiesLoading" class="loading"><div class="spinner"></div></div>
       <div class="properties-grid" id="propertiesGrid"></div>
@@ -382,7 +395,13 @@
     <div class="profile-header">
       <div class="container">
         <div class="profile-header-content">
-          <div class="profile-avatar" id="profileAvatar">U</div>
+          <div class="profile-avatar-container">
+            <div class="profile-avatar" id="profileAvatar">U</div>
+            <div class="profile-avatar-edit hidden" id="profileAvatarEdit" onclick="document.getElementById('profilePhotoInput').click()">
+              <i class="fas fa-camera"></i>
+            </div>
+            <input type="file" id="profilePhotoInput" accept="image/*" style="display: none;" onchange="handleProfilePhotoChange(event)">
+          </div>
           <div class="profile-info">
             <h1 id="profileName">Usuario</h1>
             <p id="profileEmail">email@ejemplo.com</p>
@@ -403,7 +422,7 @@
     <div class="container">
       <div class="section-header">
         <div><h2 class="section-title">Propiedades de <span id="profileNameTitle">Usuario</span></h2><p class="section-subtitle" id="profilePropertiesSubtitle">0 propiedades</p></div>
-        <button class="btn-new-property hidden" id="btnNewPropertyProfile" onclick="openModal('propertyModal')"><i class="fas fa-plus"></i><span>Nueva Propiedad</span></button>
+        <button class="btn-new-property hidden" id="btnNewPropertyProfile" onclick="openPropertyModal()"><i class="fas fa-plus"></i><span>Nueva Propiedad</span></button>
       </div>
       <div class="properties-grid" id="profilePropertiesGrid"></div>
       <div style="text-align: center; margin-top: 20px;"><button class="btn-secondary" onclick="showHome()" style="padding: 12px 24px;"><i class="fas fa-arrow-left"></i> Volver al inicio</button></div>
@@ -414,7 +433,7 @@
     <section class="admin-panel container">
       <div class="admin-header">
         <div><h1>Panel de Administración</h1><p style="color: var(--gray-500);">Gestiona usuarios y propiedades</p></div>
-        <button class="btn-new-property" onclick="openModal('propertyModal')"><i class="fas fa-plus"></i><span>Nueva Propiedad</span></button>
+        <button class="btn-new-property" onclick="openPropertyModal()"><i class="fas fa-plus"></i><span>Nueva Propiedad</span></button>
       </div>
       <div class="admin-tabs">
         <button class="admin-tab active" onclick="showAdminTab('pending')" id="tabPending"><i class="fas fa-clock"></i> Pendientes <span id="pendingCount"></span></button>
@@ -430,11 +449,7 @@
     <div class="container">
       <div class="footer-content">
         <div class="footer-logo"><i class="fas fa-building"></i> Mi Cartera Inmobiliaria</div>
-        <div class="footer-links">
-          <a href="#"><i class="fab fa-facebook"></i></a>
-          <a href="#"><i class="fab fa-instagram"></i></a>
-          <a href="#"><i class="fab fa-whatsapp"></i></a>
-        </div>
+        <div class="footer-links"><a href="#"><i class="fab fa-facebook"></i></a><a href="#"><i class="fab fa-instagram"></i></a><a href="#"><i class="fab fa-whatsapp"></i></a></div>
       </div>
       <div class="footer-bottom">Página creada por Anibal Malave © 2026</div>
     </div>
@@ -449,10 +464,7 @@
         <form onsubmit="handleLogin(event)">
           <div class="form-group"><label>Correo Electrónico</label><input type="email" id="loginEmail" required placeholder="tu@email.com"></div>
           <div class="form-group"><label>Contraseña</label><input type="password" id="loginPassword" required placeholder="••••••••"></div>
-          <div class="checkbox-group">
-            <input type="checkbox" id="rememberMe">
-            <label for="rememberMe">Recordar mi usuario</label>
-          </div>
+          <div class="checkbox-group"><input type="checkbox" id="rememberMe"><label for="rememberMe">Recordar mi usuario</label></div>
           <button type="submit" class="btn-submit" id="loginBtn">Iniciar Sesión</button>
         </form>
       </div>
@@ -475,9 +487,7 @@
             <div class="form-group"><label>Contraseña *</label><input type="password" id="registerPassword" required minlength="6" placeholder="Mínimo 6 caracteres"></div>
             <div class="form-group"><label>Confirmar *</label><input type="password" id="registerConfirm" required placeholder="Repetir"></div>
           </div>
-          <p style="font-size: 13px; color: var(--gray-500); margin-bottom: 20px; padding: 12px; background: rgba(201,162,39,0.1); border-radius: 8px;">
-            <i class="fas fa-info-circle" style="color: var(--gold);"></i> Tu cuenta quedará <strong>pendiente</strong> hasta que el administrador la apruebe.
-          </p>
+          <p style="font-size: 13px; color: var(--gray-500); margin-bottom: 20px; padding: 12px; background: rgba(201,162,39,0.1); border-radius: 8px;"><i class="fas fa-info-circle" style="color: var(--gold);"></i> Tu cuenta quedará <strong>pendiente</strong> hasta que el administrador la apruebe.</p>
           <button type="submit" class="btn-submit" id="registerBtn">Crear Cuenta</button>
         </form>
       </div>
@@ -506,7 +516,10 @@
         </div>
         <div class="detail-features" id="detailFeatures"></div>
         <p class="detail-description" id="detailDescription"></p>
-        <button class="detail-whatsapp" id="detailWhatsapp"><i class="fab fa-whatsapp"></i> Contactar por WhatsApp</button>
+        <div class="detail-actions">
+          <button class="detail-whatsapp" id="detailWhatsapp"><i class="fab fa-whatsapp"></i> Contactar por WhatsApp</button>
+          <button class="detail-edit-btn hidden" id="detailEditBtn" onclick="editCurrentProperty()"><i class="fas fa-edit"></i> Editar</button>
+        </div>
         <div class="comments-section">
           <h3><i class="fas fa-comments"></i> Comentarios</h3>
           <div class="comment-form">
@@ -524,46 +537,25 @@
   <!-- Property Modal -->
   <div class="modal" id="propertyModal">
     <div class="modal-content" style="max-width: 650px;">
-      <div class="modal-header"><h2>Nueva Propiedad</h2><button class="modal-close" onclick="closeModal('propertyModal')"><i class="fas fa-times"></i></button></div>
+      <div class="modal-header"><h2 id="propertyModalTitle">Nueva Propiedad</h2><button class="modal-close" onclick="closeModal('propertyModal')"><i class="fas fa-times"></i></button></div>
       <div class="modal-body">
         <div id="propertyError" class="form-error hidden"></div>
-        <form onsubmit="handleNewProperty(event)" id="propertyForm">
+        <form onsubmit="handleSaveProperty(event)" id="propertyForm">
+          <input type="hidden" id="editingPropertyId" value="">
           <div class="form-group"><label>Título *</label><input type="text" id="propTitle" required placeholder="Ej: Apartamento moderno"></div>
-          
-          <!-- Ubicación Uruguay -->
           <div class="form-row">
-            <div class="form-group">
-              <label>Departamento *</label>
-              <select id="propDepartamento" required onchange="updateCiudades()">
-                <option value="">Seleccionar...</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Ciudad/Barrio *</label>
-              <select id="propCiudad" required>
-                <option value="">Primero selecciona departamento</option>
-              </select>
-            </div>
+            <div class="form-group"><label>Departamento *</label><select id="propDepartamento" required onchange="updateCiudades()"><option value="">Seleccionar...</option></select></div>
+            <div class="form-group"><label>Ciudad/Barrio *</label><select id="propCiudad" required><option value="">Primero selecciona departamento</option></select></div>
           </div>
-          
           <div class="form-group"><label>Dirección (opcional)</label><input type="text" id="propDireccion" placeholder="Ej: Av. 18 de Julio 1234"></div>
-          
           <div class="form-row-3">
             <div class="form-group"><label>Precio *</label><input type="number" id="propPrice" required placeholder="150000"></div>
             <div class="form-group"><label>Moneda</label><select id="propCurrency"><option value="USD">USD</option><option value="UYU">UYU</option></select></div>
           </div>
-          
           <div class="form-row">
-            <div class="form-group">
-              <label>Tipo de Operación</label>
-              <select id="propType" onchange="togglePropertyType()"><option value="sale">Venta</option><option value="rent">Alquiler</option></select>
-            </div>
-            <div class="form-group" id="propertyTypeGroup">
-              <label>Tipo de Propiedad</label>
-              <select id="propPropertyType"><option value="common">Padrón Común</option><option value="ph">PH</option></select>
-            </div>
+            <div class="form-group"><label>Tipo de Operación</label><select id="propType" onchange="togglePropertyType()"><option value="sale">Venta</option><option value="rent">Alquiler</option></select></div>
+            <div class="form-group" id="propertyTypeGroup"><label>Tipo de Propiedad</label><select id="propPropertyType"><option value="common">Padrón Común</option><option value="ph">PH</option></select></div>
           </div>
-          
           <div class="form-row">
             <div class="form-group"><label>Habitaciones</label><input type="number" id="propBedrooms" placeholder="3" min="0"></div>
             <div class="form-group"><label>Baños</label><input type="number" id="propBathrooms" placeholder="2" min="0"></div>
@@ -572,26 +564,15 @@
             <div class="form-group"><label>Área Total m²</label><input type="number" id="propTotalArea" placeholder="100"></div>
             <div class="form-group"><label>Gastos Comunes</label><input type="number" id="propExpenses" placeholder="150"></div>
           </div>
-          
-          <div class="form-group">
-            <label>¿Tiene Garaje?</label>
-            <select id="propGarage">
-              <option value="no">No</option>
-              <option value="yes">Sí</option>
-            </select>
-          </div>
-          
+          <div class="form-group"><label>¿Tiene Garaje?</label><select id="propGarage"><option value="no">No</option><option value="yes">Sí</option></select></div>
           <div class="form-group">
             <label>Fotos * <small style="color: var(--gray-500); font-weight: normal;">(arrastra para reordenar)</small></label>
             <div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()">
-              <i class="fas fa-cloud-upload-alt"></i>
-              <p>Haz clic o arrastra imágenes</p>
-              <small>JPG, PNG, WebP - máx 500KB c/u</small>
+              <i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP</small>
             </div>
             <input type="file" id="imageInput" multiple accept="image/*" style="display: none;" onchange="handleImageSelect(event)">
             <div class="image-preview-grid" id="imagePreviewGrid"></div>
           </div>
-          
           <div class="form-group"><label>Descripción</label><textarea id="propDescription" rows="3" placeholder="Describe la propiedad..."></textarea></div>
           <div class="form-group"><label>WhatsApp de Contacto</label><input type="tel" id="propWhatsapp" placeholder="+598 99 123 456"></div>
           <button type="submit" class="btn-submit" id="propertyBtn"><i class="fas fa-check"></i> Publicar Propiedad</button>
@@ -619,7 +600,6 @@
     const db = firebase.firestore();
     const ADMIN_EMAIL = "fabricio9061@gmail.com";
 
-    // Uruguay Data
     const uruguayData = {
       "Montevideo": ["Ciudad Vieja", "Centro", "Cordón", "Tres Cruces", "La Unión", "La Figurita", "Villa Muñoz", "Goes", "Pocitos", "Punta Carretas", "Malvín", "Buceo", "Parque Batlle", "Carrasco", "Prado", "Cerro", "La Teja", "Paso de la Arena", "Colón", "Sayago", "Peñarol", "Manga", "Piedras Blancas", "Maroñas", "La Blanqueada", "Parque Rodó", "Aguada", "Reducto", "Bella Vista", "Atahualpa", "Jacinto Vera", "La Comercial", "Brazo Oriental", "Capurro", "Belvedere", "Nuevo París", "Casavalle", "Borro", "Flor de Maroñas", "Jardines del Hipódromo", "Las Canteras", "Malvín Norte", "Unión", "Villa Española", "Aires Puros"],
       "Canelones": ["Ciudad de la Costa", "Las Piedras", "Pando", "Canelones", "Santa Lucía", "Progreso", "Sauce", "Tala", "Atlántida", "Salinas", "Parque del Plata", "La Paz", "San Ramón", "Barros Blancos", "Toledo", "Joaquín Suárez", "Solymar", "Shangrilá", "El Pinar", "Neptunia", "Pinamar", "Lagomar"],
@@ -652,33 +632,22 @@
     let selectedImages = [];
     let draggedImageIndex = null;
 
-    // Init departamentos
     function initDepartamentos() {
       const select = document.getElementById('propDepartamento');
       select.innerHTML = '<option value="">Seleccionar...</option>';
-      Object.keys(uruguayData).sort().forEach(dep => {
-        select.innerHTML += `<option value="${dep}">${dep}</option>`;
-      });
+      Object.keys(uruguayData).sort().forEach(dep => { select.innerHTML += `<option value="${dep}">${dep}</option>`; });
     }
 
     function updateCiudades() {
       const dep = document.getElementById('propDepartamento').value;
       const ciudadSelect = document.getElementById('propCiudad');
       ciudadSelect.innerHTML = '<option value="">Seleccionar...</option>';
-      if (dep && uruguayData[dep]) {
-        uruguayData[dep].forEach(ciudad => {
-          ciudadSelect.innerHTML += `<option value="${ciudad}">${ciudad}</option>`;
-        });
-      }
+      if (dep && uruguayData[dep]) { uruguayData[dep].forEach(ciudad => { ciudadSelect.innerHTML += `<option value="${ciudad}">${ciudad}</option>`; }); }
     }
 
-    // Load remembered email
     function loadRememberedUser() {
       const remembered = localStorage.getItem('rememberedEmail');
-      if (remembered) {
-        document.getElementById('loginEmail').value = remembered;
-        document.getElementById('rememberMe').checked = true;
-      }
+      if (remembered) { document.getElementById('loginEmail').value = remembered; document.getElementById('rememberMe').checked = true; }
     }
 
     async function loadUsers() {
@@ -694,17 +663,11 @@
           userProfile = doc.data();
           if (userProfile.status === 'approved' || userProfile.email.toLowerCase() === ADMIN_EMAIL) {
             currentUser = user;
+            allUsers[user.uid] = userProfile;
             updateUI();
-          } else {
-            auth.signOut();
-            alert('Tu cuenta está pendiente de aprobación');
-          }
+          } else { auth.signOut(); alert('Tu cuenta está pendiente de aprobación'); }
         }
-      } else {
-        currentUser = null;
-        userProfile = null;
-        updateUI();
-      }
+      } else { currentUser = null; userProfile = null; updateUI(); }
     });
 
     function updateUI() {
@@ -727,13 +690,8 @@
         userName.textContent = userProfile.name || 'Usuario';
         const initial = (userProfile.name || 'U').charAt(0).toUpperCase();
         userAvatar.innerHTML = userProfile.profilePhoto ? `<img src="${userProfile.profilePhoto}" alt="">` : initial;
-        if (userProfile.email.toLowerCase() === ADMIN_EMAIL) {
-          adminBadge.classList.remove('hidden');
-          adminBtn.classList.remove('hidden');
-        } else {
-          adminBadge.classList.add('hidden');
-          adminBtn.classList.add('hidden');
-        }
+        if (userProfile.email.toLowerCase() === ADMIN_EMAIL) { adminBadge.classList.remove('hidden'); adminBtn.classList.remove('hidden'); }
+        else { adminBadge.classList.add('hidden'); adminBtn.classList.add('hidden'); }
       } else {
         navGuest.classList.remove('hidden');
         navUser.classList.add('hidden');
@@ -743,24 +701,57 @@
       }
     }
 
-    function openModal(id) {
-      document.getElementById(id).classList.add('active');
-      if (id === 'propertyModal') {
-        resetPropertyForm();
-        if (userProfile && userProfile.whatsapp) {
-          document.getElementById('propWhatsapp').value = userProfile.whatsapp;
-        }
-      }
-      if (id === 'loginModal') {
-        loadRememberedUser();
-      }
-    }
+    function openModal(id) { document.getElementById(id).classList.add('active'); if (id === 'loginModal') loadRememberedUser(); }
     function closeModal(id) { document.getElementById(id).classList.remove('active'); }
     function switchModal(from, to) { closeModal(from); setTimeout(() => openModal(to), 200); }
 
+    function openPropertyModal(propertyId = null) {
+      resetPropertyForm();
+      if (propertyId) {
+        const p = properties.find(prop => prop.id === propertyId);
+        if (p) { loadPropertyForEdit(p); }
+      } else {
+        if (userProfile && userProfile.whatsapp) document.getElementById('propWhatsapp').value = userProfile.whatsapp;
+      }
+      openModal('propertyModal');
+    }
+
+    function loadPropertyForEdit(p) {
+      document.getElementById('propertyModalTitle').textContent = 'Editar Propiedad';
+      document.getElementById('propertyBtn').innerHTML = '<i class="fas fa-save"></i> Guardar Cambios';
+      document.getElementById('editingPropertyId').value = p.id;
+      document.getElementById('propTitle').value = p.title || '';
+      document.getElementById('propDepartamento').value = p.departamento || '';
+      updateCiudades();
+      setTimeout(() => { document.getElementById('propCiudad').value = p.ciudad || ''; }, 100);
+      document.getElementById('propDireccion').value = p.direccion || '';
+      document.getElementById('propPrice').value = p.price || '';
+      document.getElementById('propCurrency').value = p.currency || 'USD';
+      document.getElementById('propType').value = p.type || 'sale';
+      togglePropertyType();
+      document.getElementById('propPropertyType').value = p.propertyType || 'common';
+      document.getElementById('propBedrooms').value = p.bedrooms || '';
+      document.getElementById('propBathrooms').value = p.bathrooms || '';
+      document.getElementById('propTotalArea').value = p.totalArea || '';
+      document.getElementById('propExpenses').value = p.commonExpenses || '';
+      document.getElementById('propGarage').value = p.garage || 'no';
+      document.getElementById('propDescription').value = p.description || '';
+      document.getElementById('propWhatsapp').value = p.ownerWhatsapp || '';
+      if (p.images && p.images.length > 0) {
+        selectedImages = p.images.map(img => ({ preview: img, existing: true }));
+        renderImagePreviews();
+      }
+    }
+
+    function editCurrentProperty() {
+      if (currentDetailProperty) {
+        closeModal('detailModal');
+        openPropertyModal(currentDetailProperty.id);
+      }
+    }
+
     function togglePropertyType() {
-      const type = document.getElementById('propType').value;
-      document.getElementById('propertyTypeGroup').style.display = type === 'rent' ? 'none' : 'block';
+      document.getElementById('propertyTypeGroup').style.display = document.getElementById('propType').value === 'rent' ? 'none' : 'block';
     }
 
     async function handleLogin(e) {
@@ -769,26 +760,14 @@
       const error = document.getElementById('loginError');
       const email = document.getElementById('loginEmail').value;
       const remember = document.getElementById('rememberMe').checked;
-      
       btn.disabled = true; btn.textContent = 'Iniciando...'; error.classList.add('hidden');
-      
       try {
         await auth.signInWithEmailAndPassword(email, document.getElementById('loginPassword').value);
-        
-        // Save or remove remembered email
-        if (remember) {
-          localStorage.setItem('rememberedEmail', email);
-        } else {
-          localStorage.removeItem('rememberedEmail');
-        }
-        
+        if (remember) localStorage.setItem('rememberedEmail', email); else localStorage.removeItem('rememberedEmail');
         closeModal('loginModal');
-        document.getElementById('loginEmail').value = '';
-        document.getElementById('loginPassword').value = '';
-      } catch (err) {
-        error.textContent = 'Correo o contraseña incorrectos';
-        error.classList.remove('hidden');
-      } finally { btn.disabled = false; btn.textContent = 'Iniciar Sesión'; }
+        document.getElementById('loginEmail').value = ''; document.getElementById('loginPassword').value = '';
+      } catch (err) { error.textContent = 'Correo o contraseña incorrectos'; error.classList.remove('hidden'); }
+      finally { btn.disabled = false; btn.textContent = 'Iniciar Sesión'; }
     }
 
     async function handleRegister(e) {
@@ -801,28 +780,35 @@
       const whatsapp = document.getElementById('registerWhatsapp').value;
       const password = document.getElementById('registerPassword').value;
       const confirm = document.getElementById('registerConfirm').value;
-
       if (password !== confirm) { error.textContent = 'Las contraseñas no coinciden'; error.classList.remove('hidden'); return; }
       btn.disabled = true; btn.textContent = 'Creando...'; error.classList.add('hidden'); success.classList.add('hidden');
       try {
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         const isAdmin = email.toLowerCase() === ADMIN_EMAIL;
-        await db.collection('users').doc(userCredential.user.uid).set({
-          uid: userCredential.user.uid, email, name, whatsapp, status: isAdmin ? 'approved' : 'pending', createdAt: new Date().toISOString()
-        });
+        await db.collection('users').doc(userCredential.user.uid).set({ uid: userCredential.user.uid, email, name, whatsapp, status: isAdmin ? 'approved' : 'pending', createdAt: new Date().toISOString() });
         await auth.signOut();
         document.getElementById('registerForm').reset();
         success.textContent = isAdmin ? '¡Cuenta admin creada!' : '¡Cuenta creada! Espera aprobación.';
         success.classList.remove('hidden');
-      } catch (err) {
-        error.textContent = err.code === 'auth/email-already-in-use' ? 'Este correo ya está registrado' : err.message;
-        error.classList.remove('hidden');
-      } finally { btn.disabled = false; btn.textContent = 'Crear Cuenta'; }
+      } catch (err) { error.textContent = err.code === 'auth/email-already-in-use' ? 'Este correo ya está registrado' : err.message; error.classList.remove('hidden'); }
+      finally { btn.disabled = false; btn.textContent = 'Crear Cuenta'; }
     }
 
-    function logout() { 
-      auth.signOut(); 
-      showHome(); 
+    function logout() { auth.signOut(); showHome(); }
+
+    // Profile Photo
+    async function handleProfilePhotoChange(e) {
+      const file = e.target.files[0];
+      if (!file || !currentUser) return;
+      try {
+        const compressed = await compressImage(file, 300, 0.8);
+        await db.collection('users').doc(currentUser.uid).update({ profilePhoto: compressed });
+        userProfile.profilePhoto = compressed;
+        allUsers[currentUser.uid].profilePhoto = compressed;
+        updateUI();
+        document.getElementById('profileAvatar').innerHTML = `<img src="${compressed}" alt="">`;
+        alert('¡Foto de perfil actualizada!');
+      } catch (err) { alert('Error al actualizar foto'); }
     }
 
     function loadProperties() {
@@ -834,17 +820,11 @@
     }
 
     function getUserInfo(userId) { return allUsers[userId] || { name: 'Usuario', profilePhoto: null }; }
+    function formatPrice(price, currency) { return `${currency === 'UYU' ? '$U' : 'US$'} ${(price || 0).toLocaleString()}`; }
+    function getLocationString(p) { return p.ciudad && p.departamento ? `${p.ciudad}, ${p.departamento}` : p.location || 'Uruguay'; }
 
-    function formatPrice(price, currency) {
-      const symbol = currency === 'UYU' ? '$U' : 'US$';
-      return `${symbol} ${(price || 0).toLocaleString()}`;
-    }
-
-    function getLocationString(p) {
-      if (p.ciudad && p.departamento) {
-        return `${p.ciudad}, ${p.departamento}`;
-      }
-      return p.location || 'Uruguay';
+    function canEditProperty(p) {
+      return currentUser && (currentUser.uid === p.ownerId || userProfile?.email?.toLowerCase() === ADMIN_EMAIL);
     }
 
     function renderProperties(props, targetGrid = 'propertiesGrid') {
@@ -853,15 +833,13 @@
       const count = document.getElementById('propertiesCount');
       if (loading) loading.classList.add('hidden');
       if (count) count.textContent = `${props.length} propiedades encontradas`;
-      if (props.length === 0) {
-        grid.innerHTML = '<p style="text-align: center; color: var(--gray-500); grid-column: 1/-1; padding: 60px;">No hay propiedades disponibles</p>';
-        return;
-      }
+      if (props.length === 0) { grid.innerHTML = '<p style="text-align: center; color: var(--gray-500); grid-column: 1/-1; padding: 60px;">No hay propiedades disponibles</p>'; return; }
       grid.innerHTML = props.map(p => {
         const owner = getUserInfo(p.ownerId);
         const ownerInitial = (owner.name || 'U').charAt(0).toUpperCase();
         const currency = p.currency || 'USD';
         const location = getLocationString(p);
+        const canEdit = canEditProperty(p);
         return `
           <div class="property-card" onclick="openDetail('${p.id}')">
             <div class="card-image">
@@ -872,6 +850,10 @@
                 ${currency === 'UYU' ? '<span class="badge badge-currency">UYU</span>' : ''}
                 ${p.garage === 'yes' ? '<span class="badge badge-garage"><i class="fas fa-car"></i></span>' : ''}
               </div>
+              ${canEdit ? `<div class="card-actions">
+                <button class="card-action-btn edit" onclick="event.stopPropagation(); openPropertyModal('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button>
+                <button class="card-action-btn delete" onclick="event.stopPropagation(); deleteProperty('${p.id}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+              </div>` : ''}
               <div class="card-owner" onclick="event.stopPropagation(); showProfile('${p.ownerId}')">
                 ${owner.profilePhoto ? `<img src="${owner.profilePhoto}" alt="">` : `<div class="card-owner-initial">${ownerInitial}</div>`}
                 <span>${owner.name || 'Usuario'}</span>
@@ -935,7 +917,7 @@
       if (images.length > 1) {
         thumbsContainer.innerHTML = images.map((img, i) => `<div class="detail-thumb ${i === 0 ? 'active' : ''}" onclick="setDetailImage(${i})"><img src="${img}" alt=""></div>`).join('');
         thumbsContainer.style.display = 'flex';
-      } else { thumbsContainer.style.display = 'none'; }
+      } else thumbsContainer.style.display = 'none';
       const owner = getUserInfo(p.ownerId);
       const ownerInitial = (owner.name || 'U').charAt(0).toUpperCase();
       document.getElementById('detailOwnerName').textContent = owner.name || 'Usuario';
@@ -952,6 +934,7 @@
         ${p.garage === 'yes' ? `<div class="detail-feature"><i class="fas fa-car"></i><strong>Sí</strong><span>Garaje</span></div>` : ''}
         ${p.commonExpenses ? `<div class="detail-feature"><i class="fas fa-dollar-sign"></i><strong>${p.commonExpenses}</strong><span>Gastos</span></div>` : ''}`;
       document.getElementById('detailWhatsapp').onclick = () => contactWhatsapp(id);
+      document.getElementById('detailEditBtn').classList.toggle('hidden', !canEditProperty(p));
       loadComments(id);
       openModal('detailModal');
     }
@@ -987,16 +970,9 @@
       if (!text || !currentDetailProperty) return;
       let userName, userPhoto, isGuest;
       if (currentUser && userProfile) { userName = userProfile.name; userPhoto = userProfile.profilePhoto || null; isGuest = false; }
-      else {
-        const guestName = document.getElementById('guestName').value.trim();
-        if (!guestName) { alert('Ingresa tu nombre'); return; }
-        userName = guestName; userPhoto = null; isGuest = true;
-      }
-      try {
-        await db.collection('properties').doc(currentDetailProperty.id).collection('comments').add({ userId: currentUser?.uid || null, userName, userPhoto, text, isGuest, createdAt: new Date().toISOString() });
-        input.value = '';
-        loadComments(currentDetailProperty.id);
-      } catch (err) { alert('Error'); }
+      else { const guestName = document.getElementById('guestName').value.trim(); if (!guestName) { alert('Ingresa tu nombre'); return; } userName = guestName; userPhoto = null; isGuest = true; }
+      try { await db.collection('properties').doc(currentDetailProperty.id).collection('comments').add({ userId: currentUser?.uid || null, userName, userPhoto, text, isGuest, createdAt: new Date().toISOString() }); input.value = ''; loadComments(currentDetailProperty.id); }
+      catch (err) { alert('Error'); }
     }
 
     function contactWhatsapp(id) {
@@ -1004,8 +980,7 @@
       if (!p) return;
       const owner = getUserInfo(p.ownerId);
       const phone = (p.ownerWhatsapp || owner.whatsapp || '59899000000').replace(/\D/g, '');
-      const currency = p.currency || 'USD';
-      const message = `Hola, me interesa: ${p.title} - ${formatPrice(p.price, currency)} en ${getLocationString(p)}`;
+      const message = `Hola, me interesa: ${p.title} - ${formatPrice(p.price, p.currency || 'USD')} en ${getLocationString(p)}`;
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
     }
 
@@ -1013,8 +988,7 @@
       document.getElementById('mainContent').classList.remove('hidden');
       document.getElementById('adminPanel').classList.add('hidden');
       document.getElementById('profilePage').classList.add('hidden');
-      currentProfileUserId = null;
-      window.location.hash = '';
+      currentProfileUserId = null; window.location.hash = '';
     }
 
     async function showProfile(userId) {
@@ -1027,13 +1001,14 @@
       document.getElementById('profileEmail').textContent = userData.email || '';
       const initial = (userData.name || 'U').charAt(0).toUpperCase();
       document.getElementById('profileAvatar').innerHTML = userData.profilePhoto ? `<img src="${userData.profilePhoto}" alt="">` : initial;
+      const isOwnProfile = currentUser && currentUser.uid === userId;
+      document.getElementById('profileAvatarEdit').classList.toggle('hidden', !isOwnProfile);
       const userProperties = properties.filter(p => p.ownerId === userId);
       const totalViews = userProperties.reduce((sum, p) => sum + (p.views || 0), 0);
       document.getElementById('profilePropertiesCount').textContent = userProperties.length;
       document.getElementById('profileViewsCount').textContent = totalViews;
       document.getElementById('profilePropertiesSubtitle').textContent = `${userProperties.length} propiedades`;
-      const btnNewPropertyProfile = document.getElementById('btnNewPropertyProfile');
-      btnNewPropertyProfile.classList.toggle('hidden', !(currentUser && currentUser.uid === userId));
+      document.getElementById('btnNewPropertyProfile').classList.toggle('hidden', !isOwnProfile);
       renderProperties(userProperties, 'profilePropertiesGrid');
       document.getElementById('mainContent').classList.add('hidden');
       document.getElementById('adminPanel').classList.add('hidden');
@@ -1041,35 +1016,13 @@
     }
 
     function showMyProfile() { if (currentUser) showProfile(currentUser.uid); }
+    function getProfileLink() { return `${window.location.origin}${window.location.pathname}#perfil/${currentProfileUserId}`; }
+    function copyProfileLink() { navigator.clipboard.writeText(getProfileLink()).then(() => { alert('¡Enlace copiado!'); }); }
+    function shareProfileWhatsapp() { const user = allUsers[currentProfileUserId] || { name: 'este usuario' }; window.open(`https://wa.me/?text=${encodeURIComponent(`Mira las propiedades de ${user.name}: ${getProfileLink()}`)}`, '_blank'); }
+    function shareProfileFacebook() { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getProfileLink())}`, '_blank'); }
+    function shareProfileTwitter() { const user = allUsers[currentProfileUserId] || { name: 'este usuario' }; window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Mira las propiedades de ${user.name}`)}&url=${encodeURIComponent(getProfileLink())}`, '_blank'); }
 
-    function getProfileLink() {
-      return `${window.location.origin}${window.location.pathname}#perfil/${currentProfileUserId}`;
-    }
-
-    function copyProfileLink() {
-      navigator.clipboard.writeText(getProfileLink()).then(() => { alert('¡Enlace copiado!'); });
-    }
-
-    function shareProfileWhatsapp() {
-      const user = allUsers[currentProfileUserId] || { name: 'este usuario' };
-      const message = `Mira las propiedades de ${user.name}: ${getProfileLink()}`;
-      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
-    }
-
-    function shareProfileFacebook() {
-      window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getProfileLink())}`, '_blank');
-    }
-
-    function shareProfileTwitter() {
-      const user = allUsers[currentProfileUserId] || { name: 'este usuario' };
-      const text = `Mira las propiedades de ${user.name} en Mi Cartera Inmobiliaria`;
-      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(getProfileLink())}`, '_blank');
-    }
-
-    function handleHash() {
-      const hash = window.location.hash;
-      if (hash.startsWith('#perfil/')) { showProfile(hash.replace('#perfil/', '')); }
-    }
+    function handleHash() { const hash = window.location.hash; if (hash.startsWith('#perfil/')) showProfile(hash.replace('#perfil/', '')); }
     window.addEventListener('hashchange', handleHash);
 
     function showAdmin() {
@@ -1089,11 +1042,8 @@
         const snapshot = await db.collection('users').where('status', '==', 'pending').get();
         const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         document.getElementById('pendingCount').textContent = users.length > 0 ? `(${users.length})` : '';
-        if (users.length === 0) {
-          content.innerHTML = `<div class="empty-state"><i class="fas fa-check-circle" style="color: var(--success);"></i><h3>Sin pendientes</h3></div>`;
-        } else {
-          content.innerHTML = users.map(u => `<div class="user-card"><div class="user-card-avatar"><i class="fas fa-user"></i></div><div class="user-card-info"><h4>${u.name}</h4><p>${u.email}</p><small>WhatsApp: ${u.whatsapp || '-'}</small></div><div class="user-card-actions"><button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button><button class="btn-reject" onclick="rejectUser('${u.id}')"><i class="fas fa-times"></i></button></div></div>`).join('');
-        }
+        content.innerHTML = users.length === 0 ? `<div class="empty-state"><i class="fas fa-check-circle" style="color: var(--success);"></i><h3>Sin pendientes</h3></div>`
+          : users.map(u => `<div class="user-card"><div class="user-card-avatar"><i class="fas fa-user"></i></div><div class="user-card-info"><h4>${u.name}</h4><p>${u.email}</p><small>WhatsApp: ${u.whatsapp || '-'}</small></div><div class="user-card-actions"><button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button><button class="btn-reject" onclick="rejectUser('${u.id}')"><i class="fas fa-times"></i></button></div></div>`).join('');
       } else if (tab === 'users') {
         const snapshot = await db.collection('users').get();
         const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -1102,7 +1052,7 @@
         content.innerHTML = properties.length === 0 ? '<div class="empty-state"><i class="fas fa-building"></i><h3>Sin propiedades</h3></div>'
           : properties.map(p => {
             const owner = getUserInfo(p.ownerId);
-            return `<div class="user-card"><div class="user-card-avatar" style="border-radius: 8px;"><img src="${p.images?.[0] || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=100'}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;"></div><div class="user-card-info"><h4>${p.title}</h4><p>${formatPrice(p.price, p.currency || 'USD')} - ${getLocationString(p)}</p><small>${owner.name}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="openDetail('${p.id}')"><i class="fas fa-eye"></i></button><button class="btn-reject" onclick="deleteProperty('${p.id}')"><i class="fas fa-trash"></i></button></div></div>`;
+            return `<div class="user-card"><div class="user-card-avatar" style="border-radius: 8px;"><img src="${p.images?.[0] || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=100'}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;"></div><div class="user-card-info"><h4>${p.title}</h4><p>${formatPrice(p.price, p.currency || 'USD')} - ${getLocationString(p)}</p><small>${owner.name}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="openPropertyModal('${p.id}')"><i class="fas fa-edit"></i></button><button class="btn-reject" onclick="deleteProperty('${p.id}')"><i class="fas fa-trash"></i></button></div></div>`;
           }).join('');
       }
     }
@@ -1110,7 +1060,7 @@
     async function approveUser(id) { await db.collection('users').doc(id).update({ status: 'approved' }); allUsers[id] = { ...allUsers[id], status: 'approved' }; showAdminTab('pending'); }
     async function rejectUser(id) { await db.collection('users').doc(id).update({ status: 'rejected' }); showAdminTab('pending'); }
     async function deleteUser(id) { if (!confirm('¿Eliminar?')) return; await db.collection('users').doc(id).delete(); delete allUsers[id]; showAdminTab('users'); }
-    async function deleteProperty(id) { if (!confirm('¿Eliminar?')) return; await db.collection('properties').doc(id).delete(); }
+    async function deleteProperty(id) { if (!confirm('¿Eliminar esta propiedad?')) return; await db.collection('properties').doc(id).delete(); }
 
     // Image Upload
     const uploadArea = document.getElementById('imageUploadArea');
@@ -1119,7 +1069,7 @@
     uploadArea.addEventListener('drop', (e) => { e.preventDefault(); uploadArea.classList.remove('dragover'); addImagesToPreview(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))); });
 
     function handleImageSelect(e) { addImagesToPreview(Array.from(e.target.files)); e.target.value = ''; }
-    
+
     function compressImage(file, maxWidth = 800, quality = 0.7) {
       return new Promise((resolve) => {
         const reader = new FileReader();
@@ -1138,22 +1088,18 @@
         reader.readAsDataURL(file);
       });
     }
-    
+
     async function addImagesToPreview(files) {
-      for (const file of files) {
-        const compressed = await compressImage(file);
-        selectedImages.push({ preview: compressed });
-        renderImagePreviews();
-      }
+      for (const file of files) { const compressed = await compressImage(file); selectedImages.push({ preview: compressed }); renderImagePreviews(); }
     }
-    
+
     function renderImagePreviews() {
       document.getElementById('imagePreviewGrid').innerHTML = selectedImages.map((img, i) => `
         <div class="image-preview-item ${i === 0 ? 'main' : ''}" draggable="true" ondragstart="handleDragStart(event, ${i})" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropImage(event, ${i})" ondragend="handleDragEnd(event)">
           <img src="${img.preview}" alt=""><div class="drag-handle"><i class="fas fa-grip-vertical"></i></div><div class="remove-image" onclick="event.stopPropagation(); removeImage(${i})"><i class="fas fa-times"></i></div>
         </div>`).join('');
     }
-    
+
     function handleDragStart(e, index) { draggedImageIndex = index; e.target.classList.add('dragging'); }
     function handleDragOver(e) { e.preventDefault(); }
     function handleDragEnter(e) { e.preventDefault(); if (e.target.closest('.image-preview-item')) e.target.closest('.image-preview-item').classList.add('drag-over'); }
@@ -1171,34 +1117,40 @@
     }
     function handleDragEnd(e) { e.target.classList.remove('dragging'); draggedImageIndex = null; document.querySelectorAll('.image-preview-item').forEach(item => item.classList.remove('drag-over')); }
     function removeImage(index) { selectedImages.splice(index, 1); renderImagePreviews(); }
-    
-    function resetPropertyForm() { 
-      document.getElementById('propertyForm').reset(); 
-      selectedImages = []; 
-      renderImagePreviews(); 
+
+    function resetPropertyForm() {
+      document.getElementById('propertyForm').reset();
+      document.getElementById('editingPropertyId').value = '';
+      document.getElementById('propertyModalTitle').textContent = 'Nueva Propiedad';
+      document.getElementById('propertyBtn').innerHTML = '<i class="fas fa-check"></i> Publicar Propiedad';
+      selectedImages = [];
+      renderImagePreviews();
       togglePropertyType();
       document.getElementById('propCiudad').innerHTML = '<option value="">Primero selecciona departamento</option>';
     }
 
-    async function handleNewProperty(e) {
+    async function handleSaveProperty(e) {
       e.preventDefault();
       if (!currentUser) { alert('Debes iniciar sesión'); return; }
       if (selectedImages.length === 0) { alert('Sube al menos una imagen'); return; }
-      
+
       const btn = document.getElementById('propertyBtn');
       const error = document.getElementById('propertyError');
-      btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; error.classList.add('hidden');
+      const editingId = document.getElementById('editingPropertyId').value;
       
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+      error.classList.add('hidden');
+
       try {
         const imageUrls = selectedImages.map(img => img.preview);
         const type = document.getElementById('propType').value;
         const departamento = document.getElementById('propDepartamento').value;
         const ciudad = document.getElementById('propCiudad').value;
-        
-        await db.collection('properties').add({
+
+        const propertyData = {
           title: document.getElementById('propTitle').value,
-          departamento,
-          ciudad,
+          departamento, ciudad,
           direccion: document.getElementById('propDireccion').value,
           location: `${ciudad}, ${departamento}`,
           price: parseInt(document.getElementById('propPrice').value),
@@ -1213,25 +1165,32 @@
           images: imageUrls,
           description: document.getElementById('propDescription').value,
           ownerWhatsapp: document.getElementById('propWhatsapp').value || userProfile.whatsapp,
-          ownerId: currentUser.uid,
-          ownerName: userProfile.name,
-          views: 0,
-          createdAt: new Date().toISOString()
-        });
-        
+          updatedAt: new Date().toISOString()
+        };
+
+        if (editingId) {
+          await db.collection('properties').doc(editingId).update(propertyData);
+          alert('¡Propiedad actualizada!');
+        } else {
+          propertyData.ownerId = currentUser.uid;
+          propertyData.ownerName = userProfile.name;
+          propertyData.views = 0;
+          propertyData.createdAt = new Date().toISOString();
+          await db.collection('properties').add(propertyData);
+          alert('¡Propiedad publicada!');
+        }
+
         closeModal('propertyModal');
         resetPropertyForm();
-        alert('¡Propiedad publicada!');
-      } catch (err) { 
-        error.textContent = 'Error: ' + err.message; 
-        error.classList.remove('hidden'); 
-      } finally { 
-        btn.disabled = false; 
-        btn.innerHTML = '<i class="fas fa-check"></i> Publicar Propiedad'; 
+      } catch (err) {
+        error.textContent = 'Error: ' + err.message;
+        error.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = editingId ? '<i class="fas fa-save"></i> Guardar Cambios' : '<i class="fas fa-check"></i> Publicar Propiedad';
       }
     }
 
-    // Init
     initDepartamentos();
     loadProperties();
     setTimeout(handleHash, 500);
