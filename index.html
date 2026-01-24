@@ -230,6 +230,11 @@
     .image-preview-item .drag-handle { position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; background: rgba(0,0,0,0.5); color: var(--white); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; opacity: 0; transition: all 0.3s; }
     .image-preview-item:hover .drag-handle { opacity: 1; }
 
+    .upload-progress { margin-top: 16px; }
+    .upload-progress-bar { height: 8px; background: var(--gray-200); border-radius: 4px; overflow: hidden; }
+    .upload-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--gold)); transition: width 0.3s; }
+    .upload-progress-text { font-size: 12px; color: var(--gray-500); margin-top: 6px; text-align: center; }
+
     .profile-header { background: linear-gradient(135deg, var(--primary), var(--secondary)); padding: 60px 0; color: var(--white); margin-bottom: 40px; }
     .profile-header-content { display: flex; align-items: center; gap: 32px; }
     .profile-avatar-container { position: relative; }
@@ -677,12 +682,16 @@
           </div>
           <div class="form-group"><label>¿Tiene Garaje?</label><select id="propGarage"><option value="no">No</option><option value="yes">Sí</option></select></div>
           <div class="form-group">
-            <label>Fotos * <small style="color: var(--gray-500); font-weight: normal;">(arrastra para reordenar)</small></label>
+            <label>Fotos * <small style="color: var(--gray-500); font-weight: normal;">(arrastra para reordenar, máx 5MB cada una)</small></label>
             <div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()">
-              <i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP</small>
+              <i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small>
             </div>
             <input type="file" id="imageInput" multiple accept="image/*" style="display: none;" onchange="handleImageSelect(event)">
             <div class="image-preview-grid" id="imagePreviewGrid"></div>
+            <div class="upload-progress hidden" id="uploadProgress">
+              <div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div>
+              <div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div>
+            </div>
           </div>
           <div class="form-group"><label>Descripción</label><textarea id="propDescription" rows="3" placeholder="Describe la propiedad..."></textarea></div>
           <div class="form-group"><label>WhatsApp de Contacto</label><input type="tel" id="propWhatsapp" placeholder="+598 99 123 456"></div>
@@ -695,6 +704,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 
   <script>
     const firebaseConfig = {
@@ -709,6 +719,7 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
+    const storage = firebase.storage();
     const ADMIN_EMAIL = "fabricio9061@gmail.com";
     const CONTACT_WHATSAPP = "59899000000";
 
@@ -744,7 +755,6 @@
     let selectedImages = [];
     let draggedImageIndex = null;
     let notifications = [];
-    let unsubscribeNotifications = null;
     let notificationCheckInterval = null;
 
     function initDepartamentos() {
@@ -771,56 +781,109 @@
     }
     loadUsers();
 
-    // Toast notifications
     function showToast(title, message, icon = 'fa-bell') {
       const container = document.getElementById('toastContainer');
       const toast = document.createElement('div');
       toast.className = 'toast';
-      toast.innerHTML = `
-        <div class="toast-icon"><i class="fas ${icon}"></i></div>
-        <div class="toast-content"><strong>${title}</strong><p>${message}</p></div>
-      `;
+      toast.innerHTML = `<div class="toast-icon"><i class="fas ${icon}"></i></div><div class="toast-content"><strong>${title}</strong><p>${message}</p></div>`;
       container.appendChild(toast);
       setTimeout(() => { toast.classList.add('hiding'); setTimeout(() => toast.remove(), 300); }, 5000);
     }
 
-    // Request browser notification permission
     function requestNotificationPermission() {
       if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission();
       }
     }
 
-    // Send browser notification
     function sendBrowserNotification(title, body) {
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(title, { body, icon: 'https://cdn-icons-png.flaticon.com/512/1946/1946488.png' });
       }
     }
 
-    // ==================== NOTIFICATIONS SYSTEM - SIMPLIFIED ====================
+    // ==================== FIREBASE STORAGE FUNCTIONS ====================
     
-    // Load notifications manually (without complex index)
+    // Upload a single image to Firebase Storage
+    async function uploadImageToStorage(file, propertyId, index) {
+      const fileName = `${Date.now()}_${index}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+      const storageRef = storage.ref(`properties/${propertyId}/${fileName}`);
+      
+      // Compress image before upload
+      const compressedBlob = await compressImageToBlob(file, 1200, 0.8);
+      
+      const uploadTask = await storageRef.put(compressedBlob);
+      const downloadURL = await uploadTask.ref.getDownloadURL();
+      return downloadURL;
+    }
+
+    // Upload profile photo to Firebase Storage
+    async function uploadProfilePhoto(file, userId) {
+      const fileName = `profile_${Date.now()}.jpg`;
+      const storageRef = storage.ref(`users/${userId}/${fileName}`);
+      
+      const compressedBlob = await compressImageToBlob(file, 400, 0.8);
+      
+      const uploadTask = await storageRef.put(compressedBlob);
+      const downloadURL = await uploadTask.ref.getDownloadURL();
+      return downloadURL;
+    }
+
+    // Compress image and return as Blob (for Storage upload)
+    function compressImageToBlob(file, maxWidth = 1200, quality = 0.8) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width, height = img.height;
+            if (width > maxWidth) { height = (height * maxWidth) / width; width = maxWidth; }
+            canvas.width = width; canvas.height = height;
+            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+            canvas.toBlob(resolve, 'image/jpeg', quality);
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Compress for preview (base64)
+    function compressImageForPreview(file, maxWidth = 200) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width, height = img.height;
+            if (width > maxWidth) { height = (height * maxWidth) / width; width = maxWidth; }
+            canvas.width = width; canvas.height = height;
+            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.6));
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // ==================== NOTIFICATIONS ====================
+    
     async function loadNotifications() {
       if (!currentUser) return;
       
       try {
-        // Simple query without orderBy to avoid index requirement
         const snapshot = await db.collection('notifications')
           .where('ownerId', '==', currentUser.uid)
           .get();
         
-        // Sort in JavaScript
         const newNotifications = snapshot.docs
           .map(doc => ({ id: doc.id, ...doc.data() }))
-          .sort((a, b) => {
-            const dateA = new Date(a.createdAt || 0);
-            const dateB = new Date(b.createdAt || 0);
-            return dateB - dateA;
-          })
+          .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
           .slice(0, 50);
         
-        // Check for new notifications
         const oldIds = new Set(notifications.map(n => n.id));
         const brandNew = newNotifications.filter(n => !oldIds.has(n.id) && !n.read);
         
@@ -833,27 +896,18 @@
         
         notifications = newNotifications;
         renderNotifications();
-        
       } catch (error) {
         console.error('Error loading notifications:', error);
       }
     }
 
-    // Start polling for notifications (simpler than onSnapshot with complex index)
     function startNotificationPolling() {
       if (!currentUser) return;
-      
-      // Load immediately
       loadNotifications();
-      
-      // Then poll every 10 seconds
-      if (notificationCheckInterval) {
-        clearInterval(notificationCheckInterval);
-      }
+      if (notificationCheckInterval) clearInterval(notificationCheckInterval);
       notificationCheckInterval = setInterval(loadNotifications, 10000);
     }
 
-    // Stop polling
     function stopNotificationPolling() {
       if (notificationCheckInterval) {
         clearInterval(notificationCheckInterval);
@@ -868,7 +922,6 @@
       
       const unreadCount = notifications.filter(n => !n.read).length;
       
-      // Update badge
       if (unreadCount > 0) {
         badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
         badge.classList.remove('hidden');
@@ -878,7 +931,6 @@
         bell.classList.remove('has-unread');
       }
 
-      // Render list
       if (notifications.length === 0) {
         list.innerHTML = '<div class="notification-empty"><i class="fas fa-bell-slash"></i><p>No tienes consultas</p></div>';
         return;
@@ -905,7 +957,7 @@
     }
 
     function formatTimeAgo(timestamp) {
-      const date = typeof timestamp === 'string' ? new Date(timestamp) : new Date(timestamp);
+      const date = new Date(timestamp);
       const seconds = Math.floor((new Date() - date) / 1000);
       if (seconds < 60) return 'Ahora';
       const minutes = Math.floor(seconds / 60);
@@ -921,11 +973,7 @@
       e.stopPropagation();
       const dropdown = document.getElementById('notificationDropdown');
       dropdown.classList.toggle('active');
-      
-      // Reload notifications when opening
-      if (dropdown.classList.contains('active')) {
-        loadNotifications();
-      }
+      if (dropdown.classList.contains('active')) loadNotifications();
     }
 
     document.addEventListener('click', (e) => {
@@ -937,13 +985,10 @@
     });
 
     async function handleNotificationClick(notificationId, propertyId) {
-      // Close dropdown
       document.getElementById('notificationDropdown').classList.remove('active');
       
-      // Mark as read
       try {
         await db.collection('notifications').doc(notificationId).update({ read: true });
-        // Update local state
         const notification = notifications.find(n => n.id === notificationId);
         if (notification) notification.read = true;
         renderNotifications();
@@ -951,7 +996,6 @@
         console.error('Error marking notification as read:', err);
       }
       
-      // Open property (without counting view since it's the owner)
       openDetail(propertyId, true);
     }
 
@@ -961,22 +1005,17 @@
       if (unread.length === 0) return;
       
       try {
-        // Update each notification
-        const promises = unread.map(n => 
-          db.collection('notifications').doc(n.id).update({ read: true })
-        );
+        const promises = unread.map(n => db.collection('notifications').doc(n.id).update({ read: true }));
         await Promise.all(promises);
-        
-        // Update local state
         notifications.forEach(n => n.read = true);
         renderNotifications();
-        
         showToast('Listo', 'Todas las consultas marcadas como leídas', 'fa-check');
       } catch (err) {
         console.error('Error marking all as read:', err);
       }
     }
-    // ==================== END NOTIFICATIONS ====================
+
+    // ==================== AUTH ====================
 
     auth.onAuthStateChanged(async (user) => {
       if (user) {
@@ -1076,7 +1115,7 @@
       document.getElementById('propDescription').value = p.description || '';
       document.getElementById('propWhatsapp').value = p.ownerWhatsapp || '';
       if (p.images && p.images.length > 0) {
-        selectedImages = p.images.map(img => ({ preview: img, existing: true }));
+        selectedImages = p.images.map(url => ({ preview: url, url: url, existing: true }));
         renderImagePreviews();
       }
     }
@@ -1137,15 +1176,20 @@
     async function handleProfilePhotoChange(e) {
       const file = e.target.files[0];
       if (!file || !currentUser) return;
+      
       try {
-        const compressed = await compressImage(file, 300, 0.8);
-        await db.collection('users').doc(currentUser.uid).update({ profilePhoto: compressed });
-        userProfile.profilePhoto = compressed;
-        allUsers[currentUser.uid].profilePhoto = compressed;
+        showToast('Subiendo foto...', 'Por favor espera', 'fa-spinner');
+        const photoURL = await uploadProfilePhoto(file, currentUser.uid);
+        await db.collection('users').doc(currentUser.uid).update({ profilePhoto: photoURL });
+        userProfile.profilePhoto = photoURL;
+        allUsers[currentUser.uid].profilePhoto = photoURL;
         updateUI();
-        document.getElementById('profileAvatar').innerHTML = `<img src="${compressed}" alt="">`;
+        document.getElementById('profileAvatar').innerHTML = `<img src="${photoURL}" alt="">`;
         showToast('Perfil actualizado', 'Tu foto ha sido actualizada', 'fa-check');
-      } catch (err) { alert('Error al actualizar foto'); }
+      } catch (err) { 
+        console.error('Error uploading profile photo:', err);
+        alert('Error al actualizar foto: ' + err.message); 
+      }
     }
 
     function loadProperties() {
@@ -1240,7 +1284,6 @@
       renderProperties(filtered);
     }
 
-    // View counting - only count if viewer is NOT the property owner
     async function openDetail(id, skipViewCount = false) {
       const p = properties.find(prop => prop.id === id);
       if (!p) return;
@@ -1248,7 +1291,6 @@
       currentDetailProperty = p;
       currentDetailImageIndex = 0;
       
-      // Count view ONLY if not owner and not skipped
       const isOwner = currentUser && currentUser.uid === p.ownerId;
       
       if (!skipViewCount && !isOwner) {
@@ -1291,7 +1333,6 @@
       
       document.getElementById('detailWhatsapp').onclick = () => contactWhatsapp(id);
       
-      // Instagram button
       const instagramBtn = document.getElementById('detailInstagram');
       if (owner.instagram && owner.instagram.includes('instagram.com')) {
         instagramBtn.classList.remove('hidden');
@@ -1301,8 +1342,6 @@
       }
       
       document.getElementById('detailEditBtn').classList.toggle('hidden', !canEditProperty(p));
-      
-      // Comment forms
       document.getElementById('commentFormGuest').classList.toggle('hidden', !!currentUser);
       document.getElementById('commentFormUser').classList.toggle('hidden', !currentUser);
       
@@ -1391,11 +1430,8 @@
           createdAt: new Date().toISOString()
         };
         
-        // Add comment to property subcollection
         await db.collection('properties').doc(currentDetailProperty.id).collection('comments').add(commentData);
-        console.log('Comment added successfully');
         
-        // Create notification for property owner (if not self)
         const isOwner = currentUser && currentUser.uid === currentDetailProperty.ownerId;
         
         if (!isOwner) {
@@ -1412,10 +1448,8 @@
           };
           
           await db.collection('notifications').add(notificationData);
-          console.log('Notification created successfully for owner:', currentDetailProperty.ownerId);
         }
         
-        // Clear inputs
         if (currentUser) {
           document.getElementById('commentInputUser').value = '';
         } else {
@@ -1472,7 +1506,6 @@
       const isOwnProfile = currentUser && currentUser.uid === userId;
       document.getElementById('profileAvatarEdit').classList.toggle('hidden', !isOwnProfile);
       
-      // Instagram button
       const instagramBtn = document.getElementById('profileInstagramBtn');
       if (userData.instagram && userData.instagram.includes('instagram.com')) {
         instagramBtn.classList.remove('hidden');
@@ -1555,6 +1588,8 @@
     async function deleteUser(id) { if (!confirm('¿Eliminar?')) return; await db.collection('users').doc(id).delete(); delete allUsers[id]; showAdminTab('users'); }
     async function deleteProperty(id) { if (!confirm('¿Eliminar esta propiedad?')) return; await db.collection('properties').doc(id).delete(); }
 
+    // ==================== IMAGE HANDLING ====================
+    
     const uploadArea = document.getElementById('imageUploadArea');
     uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
     uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('dragover'); });
@@ -1562,27 +1597,16 @@
 
     function handleImageSelect(e) { addImagesToPreview(Array.from(e.target.files)); e.target.value = ''; }
 
-    function compressImage(file, maxWidth = 800, quality = 0.7) {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            let width = img.width, height = img.height;
-            if (width > maxWidth) { height = (height * maxWidth) / width; width = maxWidth; }
-            canvas.width = width; canvas.height = height;
-            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', quality));
-          };
-          img.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-
     async function addImagesToPreview(files) {
-      for (const file of files) { const compressed = await compressImage(file); selectedImages.push({ preview: compressed }); renderImagePreviews(); }
+      for (const file of files) {
+        if (file.size > 5 * 1024 * 1024) {
+          alert(`La imagen ${file.name} excede 5MB`);
+          continue;
+        }
+        const preview = await compressImageForPreview(file);
+        selectedImages.push({ preview, file, existing: false });
+        renderImagePreviews();
+      }
     }
 
     function renderImagePreviews() {
@@ -1619,6 +1643,18 @@
       renderImagePreviews();
       togglePropertyType();
       document.getElementById('propCiudad').innerHTML = '<option value="">Primero selecciona departamento</option>';
+      document.getElementById('uploadProgress').classList.add('hidden');
+    }
+
+    function updateUploadProgress(current, total) {
+      const progress = document.getElementById('uploadProgress');
+      const fill = document.getElementById('uploadProgressFill');
+      const text = document.getElementById('uploadProgressText');
+      
+      progress.classList.remove('hidden');
+      const percent = Math.round((current / total) * 100);
+      fill.style.width = `${percent}%`;
+      text.textContent = `Subiendo imagen ${current} de ${total}...`;
     }
 
     async function handleSaveProperty(e) {
@@ -1635,7 +1671,29 @@
       error.classList.add('hidden');
 
       try {
-        const imageUrls = selectedImages.map(img => img.preview);
+        // Generate property ID if new
+        const propertyId = editingId || db.collection('properties').doc().id;
+        
+        // Upload images to Storage
+        const imageUrls = [];
+        const imagesToUpload = selectedImages.filter(img => !img.existing);
+        const existingImages = selectedImages.filter(img => img.existing).map(img => img.url);
+        
+        let uploadedCount = 0;
+        const totalToUpload = imagesToUpload.length;
+        
+        for (let i = 0; i < selectedImages.length; i++) {
+          const img = selectedImages[i];
+          if (img.existing) {
+            imageUrls.push(img.url);
+          } else {
+            uploadedCount++;
+            updateUploadProgress(uploadedCount, totalToUpload);
+            const url = await uploadImageToStorage(img.file, propertyId, i);
+            imageUrls.push(url);
+          }
+        }
+
         const type = document.getElementById('propType').value;
         const departamento = document.getElementById('propDepartamento').value;
         const ciudad = document.getElementById('propCiudad').value;
@@ -1668,18 +1726,20 @@
           propertyData.ownerName = userProfile.name;
           propertyData.views = 0;
           propertyData.createdAt = new Date().toISOString();
-          await db.collection('properties').add(propertyData);
+          await db.collection('properties').doc(propertyId).set(propertyData);
           showToast('Propiedad publicada', 'Tu propiedad ya está visible', 'fa-home');
         }
 
         closeModal('propertyModal');
         resetPropertyForm();
       } catch (err) {
+        console.error('Error saving property:', err);
         error.textContent = 'Error: ' + err.message;
         error.classList.remove('hidden');
       } finally {
         btn.disabled = false;
         btn.innerHTML = editingId ? '<i class="fas fa-save"></i> Guardar Cambios' : '<i class="fas fa-check"></i> Publicar Propiedad';
+        document.getElementById('uploadProgress').classList.add('hidden');
       }
     }
 
