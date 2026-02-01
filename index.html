@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mi Cartera Inmobiliaria</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#e94560">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
     :root{--primary:#1a1a2e;--primary-light:#16213e;--secondary:#0f3460;--accent:#e94560;--accent-hover:#d63d56;--gold:#c9a227;--white:#fff;--off-white:#f8f9fa;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#868e96;--gray-700:#495057;--success:#2ecc71;--danger:#e74c3c;--reserved:#9b59b6;--sold:#e74c3c;--shadow-sm:0 2px 8px rgba(0,0,0,.08);--shadow-md:0 4px 16px rgba(0,0,0,.12);--shadow-lg:0 8px 32px rgba(0,0,0,.16);--radius-sm:8px;--radius-md:12px;--radius-lg:16px;--radius-xl:24px;--radius-full:50px}
@@ -193,10 +197,43 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
   <script>
     const firebaseConfig = {apiKey:"AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",authDomain:"mi-cartera-inmobiliaria.firebaseapp.com",projectId:"mi-cartera-inmobiliaria",storageBucket:"mi-cartera-inmobiliaria.firebasestorage.app",messagingSenderId:"923595024127",appId:"1:923595024127:web:b7104adcba6387a5a84eca"};
     firebase.initializeApp(firebaseConfig);
     const auth=firebase.auth(),db=firebase.firestore(),storage=firebase.storage(),ADMIN_EMAIL="fabricio9061@gmail.com";
+    
+    // FCM - Push Notifications
+    let messaging=null;
+    try{messaging=firebase.messaging()}catch(e){console.log('FCM no soportado en este navegador')}
+    
+    // IMPORTANTE: Reemplazar con tu VAPID Key de Firebase Console
+    const VAPID_KEY='TU_VAPID_KEY_AQUI';
+    
+    async function setupFCM(){
+      if(!messaging||!currentUser||VAPID_KEY==='TU_VAPID_KEY_AQUI')return;
+      try{
+        const permission=await Notification.requestPermission();
+        if(permission!=='granted'){console.log('Notificaciones denegadas');return}
+        const reg=await navigator.serviceWorker.register('firebase-messaging-sw.js');
+        const token=await messaging.getToken({vapidKey:VAPID_KEY,serviceWorkerRegistration:reg});
+        if(token){
+          const userRef=db.collection('users').doc(currentUser.uid);
+          const doc=await userRef.get();
+          const currentToken=doc.data()?.fcmToken;
+          if(currentToken!==token){
+            await userRef.update({fcmToken:token,fcmTokenUpdatedAt:new Date().toISOString()});
+            console.log('FCM Token guardado')
+          }
+        }
+      }catch(err){console.error('Error configurando FCM:',err)}
+    }
+    
+    // Notificaciones en primer plano (app abierta)
+    if(messaging){messaging.onMessage(payload=>{
+      const n=payload.notification||{};const d=payload.data||{};
+      showToast(n.title||'Recordatorio',n.body||'Tienes un evento próximo','fa-bell');
+    })}
     
     const uruguayData={"Montevideo":["Aguada","Aires Puros","Atahualpa","Bañados de Carrasco","Barrio Sur","Bella Italia","Bella Vista","Belvedere","Brazo Oriental","Buceo","Capurro","Carrasco","Carrasco Norte","Casabó","Casavalle","Centro","Cerrito de la Victoria","Cerro","Ciudad Vieja","Colón","Conciliación","Cordón","Flor de Maroñas","Goes","Ituzaingó","Jacinto Vera","Jardines del Hipódromo","La Blanqueada","La Comercial","La Figurita","La Paloma","La Teja","Larrañaga","Las Acacias","Las Canteras","Lezica","Malvín","Malvín Norte","Manga","Maroñas","Melilla","Mercado Modelo","Nuevo París","Palermo","Parque Batlle","Parque Rodó","Paso de la Arena","Paso de las Duranas","Paso Molino","Peñarol","Piedras Blancas","Pocitos","Pocitos Nuevo","Prado","Punta Carretas","Punta Gorda","Punta Rieles","Reducto","Sayago","Toledo Chico","Tres Cruces","Tres Ombúes","Unión","Villa Dolores","Villa Española","Villa García","Villa Muñoz","Vista Linda"].sort(),"Canelones":["Ciudad de la Costa","Las Piedras","Pando","Canelones","Santa Lucía","Progreso","Atlántida","Salinas","Parque del Plata","Solymar","Shangrilá","El Pinar","Lagomar","La Floresta"],"Maldonado":["Maldonado","Punta del Este","San Carlos","Piriápolis","Pan de Azúcar","La Barra","José Ignacio","Manantiales","Punta Ballena"],"Colonia":["Colonia del Sacramento","Carmelo","Juan Lacaze","Nueva Helvecia","Rosario","Nueva Palmira"],"Salto":["Salto","Daymán","Termas del Daymán","Termas del Arapey"],"Paysandú":["Paysandú","Guichón","Termas de Guaviyú"],"Río Negro":["Fray Bentos","Young"],"Soriano":["Mercedes","Dolores"],"San José":["San José de Mayo","Ciudad del Plata","Libertad"],"Florida":["Florida","Sarandí Grande"],"Flores":["Trinidad"],"Durazno":["Durazno","Sarandí del Yí"],"Tacuarembó":["Tacuarembó","Paso de los Toros"],"Rivera":["Rivera","Tranqueras"],"Artigas":["Artigas","Bella Unión"],"Cerro Largo":["Melo","Río Branco"],"Lavalleja":["Minas"],"Rocha":["Rocha","Chuy","Castillos","La Paloma","La Pedrera","Cabo Polonio","Punta del Diablo"],"Treinta y Tres":["Treinta y Tres","Vergara"]};
     
@@ -264,7 +301,7 @@
     async function markAllAsRead(e){e.stopPropagation();const u=notifications.filter(n=>!n.read);if(u.length===0)return;try{const p=u.map(n=>db.collection('notifications').doc(n.id).update({read:true}));await Promise.all(p);notifications.forEach(n=>n.read=true);renderNotifications();showToast('Listo','Todas las consultas marcadas como leídas','fa-check')}catch(e){console.error('Error marking all as read:',e)}}
     
     // Auth
-    auth.onAuthStateChanged(async u=>{if(u){const d=await db.collection('users').doc(u.uid).get();if(d.exists){userProfile=d.data();if(userProfile.status==='approved'||userProfile.email.toLowerCase()===ADMIN_EMAIL){currentUser=u;allUsers[u.uid]=userProfile;updateUI();requestNotificationPermission();startNotificationPolling();loadVisits();startVisitReminderCheck()}else{auth.signOut();alert('Tu cuenta está pendiente de aprobación')}}}else{currentUser=null;userProfile=null;notifications=[];visits=[];stopNotificationPolling();if(visitReminderInterval)clearInterval(visitReminderInterval);updateUI()}});
+    auth.onAuthStateChanged(async u=>{if(u){const d=await db.collection('users').doc(u.uid).get();if(d.exists){userProfile=d.data();if(userProfile.status==='approved'||userProfile.email.toLowerCase()===ADMIN_EMAIL){currentUser=u;allUsers[u.uid]=userProfile;updateUI();requestNotificationPermission();setupFCM();startNotificationPolling();loadVisits();startVisitReminderCheck()}else{auth.signOut();alert('Tu cuenta está pendiente de aprobación')}}}else{currentUser=null;userProfile=null;notifications=[];visits=[];stopNotificationPolling();if(visitReminderInterval)clearInterval(visitReminderInterval);updateUI()}});
     function updateUI(){const ng=document.getElementById('nav-guest'),nu=document.getElementById('nav-user'),un=document.getElementById('userName'),ab=document.getElementById('adminBadge'),abt=document.getElementById('adminBtn'),ua=document.getElementById('userAvatar'),hb=document.getElementById('heroButtons'),bnp=document.getElementById('btnNewProperty');if(currentUser&&userProfile){ng.classList.add('hidden');nu.classList.remove('hidden');hb.classList.add('hidden');bnp.classList.remove('hidden');un.textContent=userProfile.name||'Usuario';const i=(userProfile.name||'U').charAt(0).toUpperCase();ua.innerHTML=userProfile.profilePhoto?`<img src="${userProfile.profilePhoto}" alt="">`:i;if(userProfile.email.toLowerCase()===ADMIN_EMAIL){ab.classList.remove('hidden');abt.classList.remove('hidden')}else{ab.classList.add('hidden');abt.classList.add('hidden')}}else{ng.classList.remove('hidden');nu.classList.add('hidden');hb.classList.remove('hidden');bnp.classList.add('hidden')}}
     function openModal(i){document.getElementById(i).classList.add('active');if(i==='loginModal')loadRememberedUser()}
     function closeModal(i){document.getElementById(i).classList.remove('active')}
