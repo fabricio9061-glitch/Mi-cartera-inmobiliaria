@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Propiedad | MALAVE</title>
+  <meta name="description" content="Propiedad en MALAVE Inmobiliaria">
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <meta property="og:title" content="Propiedad | MALAVE" id="ogTitle">
+  <meta property="og:description" content="Propiedad en MALAVE Inmobiliaria" id="ogDescription">
+  <meta property="og:image" content="icon-512.png" id="ogImage">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#243447">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body{background:var(--gray-50)}
+    .pp-header{background:var(--white);box-shadow:var(--shadow-sm);position:sticky;top:0;z-index:100}
+    .pp-header-inner{max-width:1200px;margin:0 auto;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+    .pp-back{display:inline-flex;align-items:center;gap:8px;color:var(--gray-600);font-size:14px;font-weight:500;padding:9px 18px;border:1px solid var(--gray-300);border-radius:var(--radius-full);transition:all .25s}
+    .pp-back:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .pp-container{max-width:1200px;margin:0 auto;padding:32px 24px 60px}
+    /* Galería */
+    .pp-gallery{margin-bottom:32px}
+    .pp-gallery-main{position:relative;height:480px;border-radius:var(--radius-xl);overflow:hidden;background:var(--gray-200)}
+    .pp-gallery-main img{width:100%;height:100%;object-fit:cover;cursor:zoom-in}
+    .pp-gallery-badges{position:absolute;top:18px;left:18px;display:flex;gap:8px;flex-wrap:wrap;z-index:5}
+    .pp-zoom-hint{position:absolute;bottom:16px;right:16px;background:rgba(15,20,28,.6);color:#fff;padding:8px 16px;border-radius:var(--radius-full);font-size:13px;display:flex;align-items:center;gap:7px;pointer-events:none;backdrop-filter:blur(4px)}
+    .pp-gnav{position:absolute;top:50%;transform:translateY(-50%);width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.9);color:var(--primary);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;z-index:5;border:none;font-size:18px;box-shadow:var(--shadow-md)}
+    .pp-gnav:hover{background:#fff;transform:translateY(-50%) scale(1.06)}
+    .pp-gnav.prev{left:18px}.pp-gnav.next{right:18px}
+    .pp-thumbs{display:flex;gap:10px;margin-top:14px;overflow-x:auto;padding-bottom:6px}
+    .pp-thumb{width:96px;height:72px;border-radius:var(--radius-md);overflow:hidden;cursor:pointer;flex-shrink:0;border:2px solid transparent;opacity:.65;transition:all .2s}
+    .pp-thumb img{width:100%;height:100%;object-fit:cover}
+    .pp-thumb.active{border-color:var(--gold);opacity:1}
+    .pp-thumb:hover{opacity:1}
+    /* Cuerpo en 2 columnas */
+    .pp-body{display:grid;grid-template-columns:1fr 360px;gap:40px;align-items:start}
+    .pp-main h1{font-family:'Cormorant Garamond',serif;font-size:34px;font-weight:700;color:var(--primary);line-height:1.2;margin-bottom:12px}
+    .pp-location{display:flex;align-items:center;gap:8px;color:var(--gray-500);font-size:16px;margin-bottom:28px}
+    .pp-location i{color:var(--gold)}
+    .pp-section-title{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:600;color:var(--primary);margin:32px 0 16px;padding-bottom:10px;border-bottom:1px solid var(--gray-200)}
+    .pp-features{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px}
+    .pp-feature{display:flex;align-items:center;gap:12px;background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:16px}
+    .pp-feature-icon{width:44px;height:44px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+    .pp-feature-val{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--primary);line-height:1}
+    .pp-feature-lbl{font-size:12px;color:var(--gray-500);margin-top:2px}
+    .pp-description{color:var(--gray-700);font-size:16px;line-height:1.8;white-space:pre-line}
+    /* Sidebar */
+    .pp-sidebar{position:sticky;top:96px;display:flex;flex-direction:column;gap:20px}
+    .pp-price-card{background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius-xl);padding:28px;box-shadow:var(--shadow-sm)}
+    .pp-price-old{color:var(--gray-400);text-decoration:line-through;font-size:18px;margin-bottom:4px}
+    .pp-price{font-family:'Cormorant Garamond',serif;font-size:38px;font-weight:700;color:var(--primary);line-height:1.1}
+    .pp-price span{font-size:18px;color:var(--gray-500);font-family:'Jost',sans-serif}
+    .pp-price-drop{display:inline-block;margin-top:10px;background:var(--success);color:#fff;padding:5px 14px;border-radius:var(--radius-full);font-size:13px;font-weight:600}
+    .pp-agent-card{background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius-xl);padding:24px;box-shadow:var(--shadow-sm)}
+    .pp-agent-top{display:flex;align-items:center;gap:14px;margin-bottom:18px;cursor:pointer}
+    .pp-agent-avatar{width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--primary-light));color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;overflow:hidden;flex-shrink:0}
+    .pp-agent-avatar img{width:100%;height:100%;object-fit:cover}
+    .pp-agent-name{font-family:'Jost',sans-serif;font-size:17px;font-weight:600;color:var(--primary)}
+    .pp-agent-role{font-size:13px;color:var(--gray-500)}
+    .pp-btn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:14px;border-radius:var(--radius-full);font-family:'Jost',sans-serif;font-size:15px;font-weight:500;cursor:pointer;transition:all .25s;border:none;margin-top:10px}
+    .pp-btn-wa{background:#25D366;color:#fff}
+    .pp-btn-wa:hover{background:#1ebe5a;transform:translateY(-2px)}
+    .pp-btn-share{background:transparent;color:var(--primary);border:1px solid var(--gray-300)}
+    .pp-btn-share:hover{background:var(--gray-100)}
+    .pp-btn-profile{background:transparent;color:var(--gray-600);font-size:13px;padding:8px}
+    .pp-btn-profile:hover{color:var(--primary)}
+    /* Loading / error */
+    .pp-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;color:var(--gray-400)}
+    .pp-spinner{width:48px;height:48px;border:4px solid var(--gray-200);border-top-color:var(--primary);border-radius:50%;animation:ppspin 1s linear infinite;margin-bottom:20px}
+    @keyframes ppspin{to{transform:rotate(360deg)}}
+    .pp-error{text-align:center;padding:100px 20px;color:var(--gray-400)}
+    .pp-error i{font-size:64px;margin-bottom:24px;opacity:.4}
+    .pp-error h2{font-family:'Cormorant Garamond',serif;font-size:30px;color:var(--gray-600);margin-bottom:12px}
+    .pp-error a{display:inline-block;margin-top:20px;background:var(--primary);color:#fff;padding:12px 28px;border-radius:var(--radius-full);font-weight:500}
+    @media(max-width:900px){
+      .pp-body{grid-template-columns:1fr;gap:28px}
+      .pp-sidebar{position:static;order:-1}
+      .pp-gallery-main{height:300px}
+      .pp-main h1{font-size:27px}
+    }
+  </style>
+</head>
+<body>
+  <header class="pp-header">
+    <div class="pp-header-inner">
+      <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
+      <a href="index.html#propiedades" class="pp-back"><i class="fas fa-arrow-left"></i> Volver a propiedades</a>
+    </div>
+  </header>
+
+  <div id="ppLoading" class="pp-loading"><div class="pp-spinner"></div><p>Cargando propiedad...</p></div>
+
+  <div id="ppError" class="pp-error" style="display:none">
+    <i class="fas fa-house-circle-exclamation"></i>
+    <h2>Propiedad no encontrada</h2>
+    <p>Esta propiedad no existe o fue eliminada.</p>
+    <a href="index.html#propiedades"><i class="fas fa-arrow-left"></i> Ver todas las propiedades</a>
+  </div>
+
+  <main id="ppContent" class="pp-container" style="display:none">
+    <div class="pp-gallery">
+      <div class="pp-gallery-main">
+        <div class="pp-gallery-badges" id="ppBadges"></div>
+        <img id="ppMainImg" src="" alt="" onclick="ppOpenLightbox(ppCurrentImg)">
+        <div class="pp-zoom-hint"><i class="fas fa-expand"></i> Ampliar</div>
+        <button class="pp-gnav prev" id="ppPrev" onclick="ppPrevImg()"><i class="fas fa-chevron-left"></i></button>
+        <button class="pp-gnav next" id="ppNext" onclick="ppNextImg()"><i class="fas fa-chevron-right"></i></button>
+      </div>
+      <div class="pp-thumbs" id="ppThumbs"></div>
+    </div>
+
+    <div class="pp-body">
+      <div class="pp-main">
+        <h1 id="ppTitle"></h1>
+        <div class="pp-location"><i class="fas fa-map-marker-alt"></i><span id="ppLocation"></span></div>
+        <div class="pp-section-title">Características</div>
+        <div class="pp-features" id="ppFeatures"></div>
+        <div id="ppDescWrap" style="display:none">
+          <div class="pp-section-title">Descripción</div>
+          <div class="pp-description" id="ppDescription"></div>
+        </div>
+      </div>
+
+      <aside class="pp-sidebar">
+        <div class="pp-price-card">
+          <div class="pp-price-old" id="ppPriceOld" style="display:none"></div>
+          <div class="pp-price" id="ppPrice"></div>
+          <div class="pp-price-drop" id="ppPriceDrop" style="display:none"></div>
+        </div>
+        <div class="pp-agent-card">
+          <div class="pp-agent-top" id="ppAgentTop">
+            <div class="pp-agent-avatar" id="ppAgentAvatar"></div>
+            <div><div class="pp-agent-name" id="ppAgentName"></div><div class="pp-agent-role">Agente inmobiliario</div></div>
+          </div>
+          <button class="pp-btn pp-btn-wa" id="ppContactBtn" onclick="ppContact()"><i class="fab fa-whatsapp"></i> Contactar por WhatsApp</button>
+          <button class="pp-btn pp-btn-share" onclick="ppShare()"><i class="fas fa-share-alt"></i> Compartir</button>
+          <button class="pp-btn pp-btn-profile" id="ppProfileBtn" onclick="ppViewProfile()"><i class="fas fa-user"></i> Ver perfil del agente</button>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="footer"><div class="container"><div class="footer-content"><div class="footer-logo"><img src="iso-malave-white.png" alt="" class="footer-iso"><img src="texto-malave-white.png" alt="MALAVE" class="footer-text"></div><div class="footer-links"><a href="https://www.instagram.com/mal_ave_/" target="_blank" title="Instagram"><i class="fab fa-instagram"></i></a><a href="https://wa.me/59894533006" target="_blank" title="WhatsApp"><i class="fab fa-whatsapp"></i></a></div></div><div class="footer-bottom">Página creada por Anibal Malave © 2026</div></div></footer>
+
+  <div class="lightbox" id="ppLightbox" onclick="ppCloseLightbox()">
+    <button class="lightbox-close" onclick="event.stopPropagation();ppCloseLightbox()"><i class="fas fa-times"></i></button>
+    <button class="lightbox-nav prev" onclick="event.stopPropagation();ppLbPrev()"><i class="fas fa-chevron-left"></i></button>
+    <img class="lightbox-img" id="ppLightboxImg" src="" alt="" onclick="event.stopPropagation()">
+    <button class="lightbox-nav next" onclick="event.stopPropagation();ppLbNext()"><i class="fas fa-chevron-right"></i></button>
+    <div class="lightbox-counter" id="ppLightboxCounter"></div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let property = null, agent = null, images = [], ppCurrentImg = 0;
+
+    function getId() {
+      const u = new URLSearchParams(window.location.search);
+      return u.get('id') || (window.location.hash.includes('propiedad/') ? window.location.hash.split('propiedad/')[1] : null);
+    }
+    function formatPrice(p, c) { return `${c==='UYU'?'$U':'US$'} ${(p||0).toLocaleString()}` }
+    function getLocationString(p) { return p.ciudad && p.departamento ? `${p.ciudad}, ${p.departamento}` : p.location || 'Uruguay' }
+
+    function showError() {
+      document.getElementById('ppLoading').style.display = 'none';
+      document.getElementById('ppContent').style.display = 'none';
+      document.getElementById('ppError').style.display = 'block';
+    }
+
+    async function load() {
+      const id = getId();
+      if (!id) { showError(); return }
+      try {
+        const doc = await db.collection('properties').doc(id).get();
+        if (!doc.exists) { showError(); return }
+        property = { id: doc.id, ...doc.data() };
+        if (property.ownerId) {
+          try { const ad = await db.collection('users').doc(property.ownerId).get(); if (ad.exists) agent = ad.data() } catch (e) {}
+        }
+        render();
+        countView(id);
+      } catch (e) { console.error('Error:', e); showError() }
+    }
+
+    function countView(id) {
+      const key = 'viewed_' + id;
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, '1');
+        db.collection('properties').doc(id).update({ views: firebase.firestore.FieldValue.increment(1) }).catch(() => {});
+      }
+    }
+
+    function render() {
+      const p = property, c = p.currency || 'USD';
+      images = p.images && p.images.length ? p.images : ['https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200'];
+      const hop = p.previousPrice && p.previousPrice > p.price, pdp = hop ? Math.round((1 - p.price / p.previousPrice) * 100) : 0;
+      const st = p.status || 'available';
+
+      // Título y meta
+      document.title = p.title + ' | MALAVE';
+      document.getElementById('ogTitle').content = p.title + ' | MALAVE';
+      document.getElementById('ogDescription').content = `${formatPrice(p.price,c)}${p.type==='rent'?'/mes':''} · ${getLocationString(p)}`;
+      if (images[0]) document.getElementById('ogImage').content = images[0];
+
+      // Galería
+      document.getElementById('ppMainImg').src = images[0];
+      const navShow = images.length > 1;
+      document.getElementById('ppPrev').style.display = navShow ? 'flex' : 'none';
+      document.getElementById('ppNext').style.display = navShow ? 'flex' : 'none';
+      document.getElementById('ppThumbs').innerHTML = images.length > 1 ? images.map((img, i) =>
+        `<div class="pp-thumb ${i===0?'active':''}" onclick="ppSetImg(${i})"><img src="${img}" alt=""></div>`).join('') : '';
+
+      // Badges
+      const stLabels = { reserved: 'RESERVADA', sold: 'VENDIDA', rented: 'ALQUILADA', archived: 'ARCHIVADA' };
+      document.getElementById('ppBadges').innerHTML =
+        `${p.featured&&st==='available'?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}` +
+        `<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>` +
+        `${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}` +
+        `${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}` +
+        `${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}` +
+        `${stLabels[st]?`<span class="badge badge-${st}">${stLabels[st]}</span>`:''}`;
+
+      // Título, ubicación
+      document.getElementById('ppTitle').textContent = p.title;
+      document.getElementById('ppLocation').textContent = getLocationString(p) + (p.direccion ? ` · ${p.direccion}` : '');
+
+      // Precio
+      if (hop) { const o = document.getElementById('ppPriceOld'); o.textContent = formatPrice(p.previousPrice, c); o.style.display = 'block'; const d = document.getElementById('ppPriceDrop'); d.textContent = `¡${pdp}% de descuento!`; d.style.display = 'inline-block' }
+      document.getElementById('ppPrice').innerHTML = `${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}`;
+
+      // Características
+      const feats = [];
+      if (p.bedrooms) feats.push(['fa-bed', p.bedrooms, 'Dormitorios']);
+      if (p.bathrooms) feats.push(['fa-bath', p.bathrooms, 'Baños']);
+      if (p.totalArea) feats.push(['fa-expand', p.totalArea + ' m²', 'Sup. total']);
+      if (p.builtArea) feats.push(['fa-home', p.builtArea + ' m²', 'Edificado']);
+      if (p.garage === 'yes') feats.push(['fa-car', 'Sí', 'Garaje']);
+      if (p.commonExpenses) feats.push(['fa-dollar-sign', '$' + p.commonExpenses, 'Gastos com.']);
+      document.getElementById('ppFeatures').innerHTML = feats.map(f =>
+        `<div class="pp-feature"><div class="pp-feature-icon"><i class="fas ${f[0]}"></i></div><div><div class="pp-feature-val">${f[1]}</div><div class="pp-feature-lbl">${f[2]}</div></div></div>`).join('');
+
+      // Descripción
+      if (p.description) { document.getElementById('ppDescWrap').style.display = 'block'; document.getElementById('ppDescription').textContent = p.description }
+
+      // Agente
+      const an = (agent && agent.name) || p.ownerName || 'Agente';
+      document.getElementById('ppAgentName').textContent = an;
+      const av = document.getElementById('ppAgentAvatar');
+      if (agent && agent.profilePhoto) av.innerHTML = `<img src="${agent.profilePhoto}" alt="">`;
+      else av.textContent = an.charAt(0).toUpperCase();
+
+      document.getElementById('ppLoading').style.display = 'none';
+      document.getElementById('ppContent').style.display = 'block';
+    }
+
+    // Galería principal
+    function ppSetImg(i) { ppCurrentImg = i; document.getElementById('ppMainImg').src = images[i]; document.querySelectorAll('.pp-thumb').forEach((t, idx) => t.classList.toggle('active', idx === i)) }
+    function ppPrevImg() { ppCurrentImg = (ppCurrentImg - 1 + images.length) % images.length; ppSetImg(ppCurrentImg) }
+    function ppNextImg() { ppCurrentImg = (ppCurrentImg + 1) % images.length; ppSetImg(ppCurrentImg) }
+
+    // Lightbox
+    function ppOpenLightbox(i) { ppCurrentImg = i; document.getElementById('ppLightboxImg').src = images[i]; ppLbCounter(); document.getElementById('ppLightbox').classList.add('active'); document.body.style.overflow = 'hidden' }
+    function ppCloseLightbox() { document.getElementById('ppLightbox').classList.remove('active'); document.body.style.overflow = '' }
+    function ppLbNext() { ppCurrentImg = (ppCurrentImg + 1) % images.length; document.getElementById('ppLightboxImg').src = images[ppCurrentImg]; ppSetImg(ppCurrentImg); ppLbCounter() }
+    function ppLbPrev() { ppCurrentImg = (ppCurrentImg - 1 + images.length) % images.length; document.getElementById('ppLightboxImg').src = images[ppCurrentImg]; ppSetImg(ppCurrentImg); ppLbCounter() }
+    function ppLbCounter() { const c = document.getElementById('ppLightboxCounter'); c.textContent = `${ppCurrentImg+1} / ${images.length}`; c.style.display = images.length > 1 ? 'block' : 'none' }
+    document.addEventListener('keydown', e => {
+      if (!document.getElementById('ppLightbox').classList.contains('active')) return;
+      if (e.key === 'Escape') ppCloseLightbox(); else if (e.key === 'ArrowRight') ppLbNext(); else if (e.key === 'ArrowLeft') ppLbPrev();
+    });
+
+    // Contacto / compartir / perfil
+    function ppContact() {
+      const ph = ((property.ownerWhatsapp) || (agent && agent.whatsapp) || '59894533006').replace(/\D/g, '');
+      const m = `Hola, me interesa: ${property.title} - ${formatPrice(property.price, property.currency||'USD')} en ${getLocationString(property)}`;
+      window.open(`https://wa.me/${ph}?text=${encodeURIComponent(m)}`, '_blank');
+    }
+    function ppShare() {
+      const url = window.location.href;
+      if (navigator.share) { navigator.share({ title: property.title, url }).catch(() => {}) }
+      else { navigator.clipboard.writeText(url).then(() => alert('Enlace copiado al portapapeles')) }
+    }
+    function ppViewProfile() { if (property.ownerId) window.open('index.html#perfil/' + property.ownerId, '_blank') }
+
+    load();
+  </script>
+</body>
+</html>

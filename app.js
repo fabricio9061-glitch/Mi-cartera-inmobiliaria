@@ -1,0 +1,2054 @@
+  const firebaseConfig = {
+    apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+    authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+    projectId: "mi-cartera-inmobiliaria",
+    storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+    messagingSenderId: "923595024127",
+    appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth(),
+    db = firebase.firestore(),
+    storage = firebase.storage(),
+    ADMIN_EMAIL = "fabricio9061@gmail.com";
+
+  // FCM - Push Notifications
+  let messaging = null;
+  try {
+    messaging = firebase.messaging()
+  } catch (e) {
+    console.log('FCM no soportado en este navegador')
+  }
+
+  // IMPORTANTE: Reemplazar con tu VAPID Key de Firebase Console
+  const VAPID_KEY = 'BK8DjPgkooF91Ou9js1FOaX9VtJwVDqFaXpGePoYosqWcmpy5MBrtW0YauhWjWpYP1yUVvM9IzT4toFYLdEI8Ko';
+
+  async function setupFCM() {
+    if (!messaging || !currentUser) return;
+    try {
+      // 1. Verificar soporte de Service Worker
+      if (!('serviceWorker' in navigator)) {
+        console.log('Service Workers no soportados');
+        return;
+      }
+
+      // 2. Solicitar permiso de notificaciones
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        console.log('Permiso de notificaciones denegado');
+        showToast('Notificaciones', 'Habilita las notificaciones para recibir recordatorios', 'fa-bell');
+        return;
+      }
+
+      // 3. Registrar Service Worker
+      const reg = await navigator.serviceWorker.register('firebase-messaging-sw.js');
+      console.log('Service Worker registrado:', reg.scope);
+
+      // 4. Esperar a que el SW esté activo
+      await navigator.serviceWorker.ready;
+
+      // 5. Obtener token FCM
+      const token = await messaging.getToken({
+        vapidKey: VAPID_KEY,
+        serviceWorkerRegistration: reg
+      });
+
+      if (token) {
+        console.log('FCM Token obtenido:', token.substring(0, 20) + '...');
+
+        // 6. Guardar token en Firestore
+        const userRef = db.collection('users').doc(currentUser.uid);
+        const doc = await userRef.get();
+        const currentToken = doc.data()?.fcmToken;
+
+        if (currentToken !== token) {
+          await userRef.update({
+            fcmToken: token,
+            fcmTokenUpdatedAt: new Date().toISOString(),
+            notificationsEnabled: true,
+            deviceInfo: {
+              userAgent: navigator.userAgent,
+              platform: navigator.platform,
+              language: navigator.language
+            }
+          });
+          console.log('FCM Token guardado en Firestore');
+          showToast('Notificaciones activadas', 'Recibirás alertas de tus eventos', 'fa-bell');
+        }
+      } else {
+        console.log('No se pudo obtener token FCM');
+      }
+    } catch (err) {
+      console.error('Error configurando FCM:', err);
+      // No mostrar error al usuario, las notificaciones locales seguirán funcionando
+    }
+  }
+
+  // Escuchar notificaciones en primer plano
+  if (messaging) {
+    messaging.onMessage(payload => {
+      console.log('Notificación recibida en primer plano:', payload);
+      const n = payload.notification || {};
+      const d = payload.data || {};
+      showToast(n.title || d.title || 'Recordatorio', n.body || d.body || 'Tienes un evento próximo', 'fa-bell');
+      // También mostrar notificación nativa si está en primer plano
+      if (Notification.permission === 'granted') {
+        new Notification(n.title || 'Recordatorio', {
+          body: n.body || 'Tienes un evento próximo',
+          icon: 'https://cdn-icons-png.flaticon.com/512/1946/1946488.png',
+          badge: 'https://cdn-icons-png.flaticon.com/128/1946/1946488.png',
+          vibrate: [200, 100, 200]
+        });
+      }
+    });
+  }
+
+  // Escuchar mensajes del Service Worker (cuando hace clic en notificación)
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', event => {
+      console.log('Mensaje del SW:', event.data);
+      if (event.data?.action === 'openCalendar') {
+        openCalendarModal();
+      }
+    });
+  }
+
+  // Función para enviar notificación de prueba (para debug)
+  async function testNotification() {
+    if (Notification.permission === 'granted') {
+      new Notification('🔔 Notificación de prueba', {
+        body: '¡Las notificaciones están funcionando correctamente!',
+        icon: 'https://cdn-icons-png.flaticon.com/512/1946/1946488.png',
+        vibrate: [200, 100, 200, 100, 200]
+      });
+      showToast('Test exitoso', 'Las notificaciones locales funcionan', 'fa-check');
+    } else {
+      const perm = await Notification.requestPermission();
+      if (perm === 'granted') testNotification();
+      else showToast('Permiso denegado', 'Habilita las notificaciones en tu navegador', 'fa-exclamation-triangle');
+    }
+  }
+
+  const uruguayData = {
+    "Montevideo": ["Aguada", "Aires Puros", "Atahualpa", "Bañados de Carrasco", "Barrio Sur", "Bella Italia", "Bella Vista", "Belvedere", "Brazo Oriental", "Buceo", "Capurro", "Carrasco", "Carrasco Norte", "Casabó", "Casavalle", "Centro", "Cerrito de la Victoria", "Cerro", "Ciudad Vieja", "Colón", "Conciliación", "Cordón", "Flor de Maroñas", "Goes", "Ituzaingó", "Jacinto Vera", "Jardines del Hipódromo", "La Blanqueada", "La Comercial", "La Figurita", "La Paloma", "La Teja", "Larrañaga", "Las Acacias", "Las Canteras", "Lezica", "Malvín", "Malvín Norte", "Manga", "Maroñas", "Melilla", "Mercado Modelo", "Nuevo París", "Palermo", "Parque Batlle", "Parque Rodó", "Paso de la Arena", "Paso de las Duranas", "Paso Molino", "Peñarol", "Piedras Blancas", "Pocitos", "Pocitos Nuevo", "Prado", "Punta Carretas", "Punta Gorda", "Punta Rieles", "Reducto", "Sayago", "Toledo Chico", "Tres Cruces", "Tres Ombúes", "Unión", "Villa Dolores", "Villa Española", "Villa García", "Villa Muñoz", "Vista Linda"].sort(),
+    "Canelones": ["Ciudad de la Costa", "Las Piedras", "Pando", "Canelones", "Santa Lucía", "Progreso", "Atlántida", "Salinas", "Parque del Plata", "Solymar", "Shangrilá", "El Pinar", "Lagomar", "La Floresta"],
+    "Maldonado": ["Maldonado", "Punta del Este", "San Carlos", "Piriápolis", "Pan de Azúcar", "La Barra", "José Ignacio", "Manantiales", "Punta Ballena"],
+    "Colonia": ["Colonia del Sacramento", "Carmelo", "Juan Lacaze", "Nueva Helvecia", "Rosario", "Nueva Palmira"],
+    "Salto": ["Salto", "Daymán", "Termas del Daymán", "Termas del Arapey"],
+    "Paysandú": ["Paysandú", "Guichón", "Termas de Guaviyú"],
+    "Río Negro": ["Fray Bentos", "Young"],
+    "Soriano": ["Mercedes", "Dolores"],
+    "San José": ["San José de Mayo", "Ciudad del Plata", "Libertad"],
+    "Florida": ["Florida", "Sarandí Grande"],
+    "Flores": ["Trinidad"],
+    "Durazno": ["Durazno", "Sarandí del Yí"],
+    "Tacuarembó": ["Tacuarembó", "Paso de los Toros"],
+    "Rivera": ["Rivera", "Tranqueras"],
+    "Artigas": ["Artigas", "Bella Unión"],
+    "Cerro Largo": ["Melo", "Río Branco"],
+    "Lavalleja": ["Minas"],
+    "Rocha": ["Rocha", "Chuy", "Castillos", "La Paloma", "La Pedrera", "Cabo Polonio", "Punta del Diablo"],
+    "Treinta y Tres": ["Treinta y Tres", "Vergara"]
+  };
+
+  let currentUser = null,
+    userProfile = null,
+    properties = [],
+    allUsers = {},
+    currentDetailProperty = null,
+    currentDetailImageIndex = 0,
+    currentProfileUserId = null,
+    selectedImages = [],
+    draggedImageIndex = null,
+    notifications = [],
+    notificationCheckInterval = null,
+    visits = [],
+    currentCalendarDate = null,
+    selectedCalendarDate = null,
+    visitReminderInterval = null,
+    selectedEventType = 'visit';
+
+  const eventTypeLabels = {
+    visit: 'Visita',
+    meeting: 'Reunión',
+    delivery: 'Entrega',
+    review: 'Revisión',
+    other: 'Otro'
+  };
+
+  // Zona horaria Uruguay - enfoque robusto con Intl API
+  function getUruguayNow() {
+    const s = new Date().toLocaleString('en-US', {
+      timeZone: 'America/Montevideo'
+    });
+    return new Date(s)
+  }
+
+  function getUruguayToday() {
+    const d = getUruguayNow();
+    d.setHours(0, 0, 0, 0);
+    return d
+  }
+
+  function formatDateToISO(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`
+  }
+
+  function parseEventDateTime(dateStr, timeStr) {
+    const p = dateStr.split('-'),
+      t = timeStr.split(':');
+    return new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]), parseInt(t[0]), parseInt(t[1]), 0)
+  }
+
+  function hoursUntilEvent(dateStr, timeStr) {
+    const now = getUruguayNow(),
+      evt = parseEventDateTime(dateStr, timeStr);
+    return (evt.getTime() - now.getTime()) / (1e3 * 60 * 60)
+  }
+
+  function initDepartamentos() {
+    const s = document.getElementById('propDepartamento');
+    s.innerHTML = '<option value="">Seleccionar...</option>';
+    Object.keys(uruguayData).sort().forEach(d => {
+      s.innerHTML += `<option value="${d}">${d}</option>`
+    })
+  }
+
+  function updateCiudades() {
+    const d = document.getElementById('propDepartamento').value,
+      c = document.getElementById('propCiudad');
+    c.innerHTML = '<option value="">Seleccionar...</option>';
+    if (d && uruguayData[d]) uruguayData[d].forEach(ciudad => {
+      c.innerHTML += `<option value="${ciudad}">${ciudad}</option>`
+    })
+  }
+
+  function loadRememberedUser() {
+    const r = localStorage.getItem('rememberedEmail');
+    if (r) {
+      document.getElementById('loginEmail').value = r;
+      document.getElementById('rememberMe').checked = true
+    }
+  }
+  async function loadUsers() {
+    const s = await db.collection('users').get();
+    s.docs.forEach(d => {
+      allUsers[d.id] = d.data()
+    })
+  }
+  loadUsers();
+
+  function showToast(t, m, i = 'fa-bell') {
+    const c = document.getElementById('toastContainer'),
+      toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `<div class="toast-icon"><i class="fas ${i}"></i></div><div class="toast-content"><strong>${t}</strong><p>${m}</p></div>`;
+    c.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add('hiding');
+      setTimeout(() => toast.remove(), 300)
+    }, 5000)
+  }
+
+  function requestNotificationPermission() {
+    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission()
+  }
+
+  function sendBrowserNotification(t, b, tag = 'notification') {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const notif = new Notification(t, {
+        body: b,
+        icon: 'https://cdn-icons-png.flaticon.com/512/1946/1946488.png',
+        badge: 'https://cdn-icons-png.flaticon.com/128/1946/1946488.png',
+        tag: tag,
+        renotify: true,
+        vibrate: [200, 100, 200]
+      });
+      notif.onclick = () => window.focus();
+    }
+  }
+
+  async function uploadImageToStorage(f, p, i) {
+    const n = `${Date.now()}_${i}_${f.name.replace(/[^a-zA-Z0-9.]/g,'_')}`,
+      r = storage.ref(`properties/${p}/${n}`),
+      b = await compressImageToBlob(f, 1200, .8),
+      u = await r.put(b);
+    return await u.ref.getDownloadURL()
+  }
+  async function uploadProfilePhoto(f, u) {
+    const n = `profile_${Date.now()}.jpg`,
+      r = storage.ref(`users/${u}/${n}`),
+      b = await compressImageToBlob(f, 400, .8),
+      up = await r.put(b);
+    return await up.ref.getDownloadURL()
+  }
+
+  function compressImageToBlob(f, m = 1200, q = .8) {
+    return new Promise(r => {
+      const rd = new FileReader();
+      rd.onload = e => {
+        const i = new Image();
+        i.onload = () => {
+          const c = document.createElement('canvas');
+          let w = i.width,
+            h = i.height;
+          if (w > m) {
+            h = (h * m) / w;
+            w = m
+          }
+          c.width = w;
+          c.height = h;
+          c.getContext('2d').drawImage(i, 0, 0, w, h);
+          c.toBlob(r, 'image/jpeg', q)
+        };
+        i.src = e.target.result
+      };
+      rd.readAsDataURL(f)
+    })
+  }
+
+  function compressImageForPreview(f, m = 200) {
+    return new Promise(r => {
+      const rd = new FileReader();
+      rd.onload = e => {
+        const i = new Image();
+        i.onload = () => {
+          const c = document.createElement('canvas');
+          let w = i.width,
+            h = i.height;
+          if (w > m) {
+            h = (h * m) / w;
+            w = m
+          }
+          c.width = w;
+          c.height = h;
+          c.getContext('2d').drawImage(i, 0, 0, w, h);
+          r(c.toDataURL('image/jpeg', .6))
+        };
+        i.src = e.target.result
+      };
+      rd.readAsDataURL(f)
+    })
+  }
+
+  function selectStatus(s) {
+    document.querySelectorAll('.status-option').forEach(o => o.classList.remove('active'));
+    document.querySelector(`.status-option.${s}`).classList.add('active');
+    document.getElementById('propStatus').value = s
+  }
+
+  // User Dropdown
+  function toggleUserDropdown(e) {
+    e.stopPropagation();
+    const d = document.getElementById('userDropdown');
+    d.classList.toggle('active')
+  }
+  document.addEventListener('click', e => {
+    const d = document.getElementById('userDropdown'),
+      ui = document.querySelector('.user-info');
+    if (d && ui && !ui.contains(e.target)) d.classList.remove('active')
+  });
+
+  // Event Type Selection
+  function selectEventType(type) {
+    selectedEventType = type;
+    document.querySelectorAll('.event-type-option').forEach(o => o.classList.remove('active'));
+    document.querySelector(`.event-type-option[data-type="${type}"]`).classList.add('active');
+    document.getElementById('eventType').value = type
+  }
+
+  // Calendar Functions
+  function openCalendarModal() {
+    currentCalendarDate = getUruguayToday();
+    selectedCalendarDate = getUruguayToday();
+    loadVisits();
+    renderCalendar();
+    openModal('calendarModal')
+  }
+  async function loadVisits() {
+    if (!currentUser) return;
+    try {
+      const s = await db.collection('visits').where('userId', '==', currentUser.uid).get();
+      visits = s.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+      renderCalendar();
+      renderVisitsList();
+      checkVisitReminders()
+    } catch (e) {
+      console.error('Error loading visits:', e)
+    }
+  }
+
+  function renderCalendar() {
+    const g = document.getElementById('calendarGrid'),
+      l = document.getElementById('calendarMonth'),
+      y = currentCalendarDate.getFullYear(),
+      m = currentCalendarDate.getMonth(),
+      mn = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    l.textContent = `${mn[m]} ${y}`;
+    const f = new Date(y, m, 1),
+      sd = new Date(f);
+    sd.setDate(sd.getDate() - f.getDay());
+    const t = getUruguayToday(),
+      todayISO = formatDateToISO(t),
+      selISO = formatDateToISO(selectedCalendarDate);
+    let h = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map(d => `<div class="calendar-day-header">${d}</div>`).join('');
+    const cd = new Date(sd);
+    for (let i = 0; i < 42; i++) {
+      const ds = formatDateToISO(cd),
+        om = cd.getMonth() !== m,
+        it = ds === todayISO,
+        is = ds === selISO,
+        he = visits.some(v => v.date === ds);
+      let c = 'calendar-day';
+      if (om) c += ' other-month';
+      if (it) c += ' today';
+      if (is) c += ' selected';
+      if (he) c += ' has-events';
+      h += `<div class="${c}" onclick="selectDate('${ds}')">${cd.getDate()}</div>`;
+      cd.setDate(cd.getDate() + 1)
+    }
+    g.innerHTML = h
+  }
+
+  function changeMonth(d) {
+    currentCalendarDate.setMonth(currentCalendarDate.getMonth() + d);
+    renderCalendar()
+  }
+
+  function selectDate(ds) {
+    const parts = ds.split('-');
+    selectedCalendarDate = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+    renderCalendar();
+    renderVisitsList();
+    const o = {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long'
+    };
+    document.getElementById('selectedDateTitle').textContent = selectedCalendarDate.toLocaleDateString('es-UY', o)
+  }
+
+  function renderVisitsList() {
+    const c = document.getElementById('visitsList'),
+      ds = formatDateToISO(selectedCalendarDate),
+      dv = visits.filter(v => v.date === ds).sort((a, b) => a.time.localeCompare(b.time));
+    if (dv.length === 0) {
+      c.innerHTML = '<div class="no-visits"><i class="fas fa-calendar-check"></i><p>No hay eventos programados</p></div>';
+      return
+    }
+    c.innerHTML = dv.map(v => {
+      const p = v.propertyId ? properties.find(pr => pr.id === v.propertyId) : null;
+      const h = hoursUntilEvent(v.date, v.time),
+        iu = h > 0;
+      const evType = v.eventType || 'visit';
+      const evLabel = eventTypeLabels[evType] || 'Evento';
+      const title = v.title || (p ? p.title : 'Evento');
+      const reminderInfo = v.reminder24h || v.reminder2h ? `<p style="font-size:11px;color:var(--gold);margin-top:4px"><i class="fas fa-bell"></i> Recordatorio${v.reminded24h?' · 24h ✓':''}${v.reminded2h?' · 2h ✓':''}</p>` : '';
+      return `<div class="visit-item ${iu?'upcoming':''} event-type-${evType}"><span class="event-type-badge ${evType}">${evLabel}</span><h4>${title}</h4>${p?`<p><i class="fas fa-home"></i> ${p.title}</p>`:''}${v.clientName?`<p><i class="fas fa-user"></i> ${v.clientName}</p>`:''}${v.clientPhone?`<p><i class="fas fa-phone"></i> ${v.clientPhone}</p>`:''}<div class="visit-time"><i class="fas fa-clock"></i> ${v.time}</div>${reminderInfo}${v.notes?`<p style="font-style:italic;margin-top:8px">"${v.notes}"</p>`:''}<div class="visit-actions"><button class="btn-edit" onclick="editVisit('${v.id}')"><i class="fas fa-edit"></i></button><button class="btn-reject" onclick="deleteVisit('${v.id}')"><i class="fas fa-trash"></i></button>${v.clientPhone?`<button class="btn-approve" onclick="window.open('https://wa.me/${v.clientPhone.replace(/\\D/g,'')}','_blank')"><i class="fab fa-whatsapp"></i></button>`:''}</div></div>`
+    }).join('')
+  }
+
+  function openVisitModal(pi = null) {
+    document.getElementById('visitForm').reset();
+    document.getElementById('editingVisitId').value = '';
+    document.getElementById('visitModalTitle').textContent = 'Nuevo Evento';
+    selectEventType('visit');
+    const s = document.getElementById('visitProperty');
+    const up = properties.filter(p => p.ownerId === currentUser?.uid);
+    s.innerHTML = '<option value="">-- Sin propiedad asociada --</option>' + up.map(p => `<option value="${p.id}"${p.id===pi?' selected':''}>${p.title}</option>`).join('');
+    const today = selectedCalendarDate || getUruguayToday();
+    document.getElementById('visitDate').value = formatDateToISO(today);
+    document.getElementById('visitTitle').value = '';
+    document.getElementById('visitClient').value = '';
+    document.getElementById('visitPhone').value = '';
+    document.getElementById('reminder24h').checked = true;
+    document.getElementById('reminder2h').checked = true;
+    openModal('visitModal')
+  }
+
+  async function handleSaveVisit(e) {
+    e.preventDefault();
+    if (!currentUser) {
+      alert('Debes iniciar sesión');
+      return
+    }
+    const ei = document.getElementById('editingVisitId').value;
+    const pi = document.getElementById('visitProperty').value || null;
+    const title = document.getElementById('visitTitle').value.trim();
+    const vdate = document.getElementById('visitDate').value;
+    const vtime = document.getElementById('visitTime').value;
+    if (!title) {
+      alert('Ingresa un título o descripción para el evento');
+      return
+    }
+    if (!vdate || !vtime) {
+      alert('Ingresa fecha y hora');
+      return
+    }
+    const vd = {
+      userId: currentUser.uid,
+      propertyId: pi,
+      eventType: document.getElementById('eventType').value || 'visit',
+      title: title,
+      clientName: document.getElementById('visitClient').value || '',
+      clientPhone: document.getElementById('visitPhone').value || '',
+      date: vdate,
+      time: vtime,
+      reminder24h: document.getElementById('reminder24h').checked,
+      reminder2h: document.getElementById('reminder2h').checked,
+      notes: document.getElementById('visitNotes').value || '',
+      updatedAt: new Date().toISOString()
+    };
+    try {
+      if (ei) {
+        await db.collection('visits').doc(ei).update(vd);
+        showToast('Evento actualizado', 'Los cambios han sido guardados', 'fa-calendar-check')
+      } else {
+        vd.createdAt = new Date().toISOString();
+        vd.reminded24h = false;
+        vd.reminded2h = false;
+        await db.collection('visits').add(vd);
+        showToast('Evento agendado', 'Se te recordará antes del evento', 'fa-calendar-check')
+      }
+      closeModal('visitModal');
+      loadVisits()
+    } catch (err) {
+      console.error('Error saving visit:', err);
+      alert('Error al guardar: ' + err.message)
+    }
+  }
+
+  async function editVisit(vi) {
+    const v = visits.find(vt => vt.id === vi);
+    if (!v) return;
+    document.getElementById('editingVisitId').value = vi;
+    document.getElementById('visitModalTitle').textContent = 'Editar Evento';
+    selectEventType(v.eventType || 'visit');
+    document.getElementById('visitProperty').value = v.propertyId || '';
+    document.getElementById('visitTitle').value = v.title || '';
+    document.getElementById('visitClient').value = v.clientName || '';
+    document.getElementById('visitPhone').value = v.clientPhone || '';
+    document.getElementById('visitDate').value = v.date;
+    document.getElementById('visitTime').value = v.time;
+    document.getElementById('reminder24h').checked = v.reminder24h;
+    document.getElementById('reminder2h').checked = v.reminder2h;
+    document.getElementById('visitNotes').value = v.notes || '';
+    openModal('visitModal')
+  }
+  async function deleteVisit(vi) {
+    if (!confirm('¿Eliminar este evento?')) return;
+    try {
+      await db.collection('visits').doc(vi).delete();
+      showToast('Evento eliminado', '', 'fa-trash');
+      loadVisits()
+    } catch (e) {
+      console.error('Error deleting visit:', e)
+    }
+  }
+
+  function checkVisitReminders() {
+    const now = getUruguayNow();
+    visits.forEach(async v => {
+      const h = hoursUntilEvent(v.date, v.time);
+      if (h < 0 || h > 25) return; // Ignorar eventos pasados o muy lejanos
+
+      const evLabel = eventTypeLabels[v.eventType || 'visit'] || 'Evento';
+      const title = v.title || evLabel;
+      const detail = v.clientName ? ` - ${v.clientName}` : '';
+
+      try {
+        // RECORDATORIO 24H
+        if (v.reminder24h && !v.reminded24h && h <= 24 && h > 2) {
+          const notifTitle = '📅 Recordatorio - Mañana';
+          const notifBody = `${title}${detail} · ${v.date} a las ${v.time}`;
+
+          // Toast en la app
+          showToast(notifTitle, notifBody, 'fa-calendar-alt');
+
+          // Notificación del sistema (funciona aunque la pestaña esté en segundo plano)
+          if (Notification.permission === 'granted') {
+            const notif = new Notification(notifTitle, {
+              body: notifBody,
+              icon: 'https://cdn-icons-png.flaticon.com/512/1946/1946488.png',
+              badge: 'https://cdn-icons-png.flaticon.com/128/1946/1946488.png',
+              tag: 'reminder-24h-' + v.id,
+              renotify: true,
+              requireInteraction: true,
+              vibrate: [200, 100, 200]
+            });
+            notif.onclick = () => {
+              window.focus();
+              openCalendarModal()
+            };
+          }
+
+          await db.collection('visits').doc(v.id).update({
+            reminded24h: true
+          });
+          v.reminded24h = true;
+          console.log('Recordatorio 24h enviado:', title);
+        }
+
+        // RECORDATORIO 2H
+        if (v.reminder2h && !v.reminded2h && h <= 2 && h > 0) {
+          const mins = Math.round(h * 60);
+          const notifTitle = `⏰ ¡Evento en ${mins} minutos!`;
+          const notifBody = `${title}${detail} a las ${v.time}`;
+
+          // Toast en la app
+          showToast(notifTitle, notifBody, 'fa-clock');
+
+          // Notificación del sistema
+          if (Notification.permission === 'granted') {
+            const notif = new Notification(notifTitle, {
+              body: notifBody,
+              icon: 'https://cdn-icons-png.flaticon.com/512/1946/1946488.png',
+              badge: 'https://cdn-icons-png.flaticon.com/128/1946/1946488.png',
+              tag: 'reminder-2h-' + v.id,
+              renotify: true,
+              requireInteraction: true,
+              vibrate: [200, 100, 200, 100, 200],
+              actions: [{
+                action: 'open',
+                title: 'Ver agenda'
+              }]
+            });
+            notif.onclick = () => {
+              window.focus();
+              openCalendarModal()
+            };
+          }
+
+          await db.collection('visits').doc(v.id).update({
+            reminded2h: true
+          });
+          v.reminded2h = true;
+          console.log('Recordatorio 2h enviado:', title);
+        }
+      } catch (err) {
+        console.error('Error en recordatorio para', v.id, ':', err);
+      }
+    });
+  }
+
+  function startVisitReminderCheck() {
+    if (visitReminderInterval) clearInterval(visitReminderInterval);
+    checkVisitReminders();
+    visitReminderInterval = setInterval(checkVisitReminders, 60000)
+  }
+
+  // Notifications
+  async function loadNotifications() {
+    if (!currentUser) return;
+    try {
+      const s = await db.collection('notifications').where('ownerId', '==', currentUser.uid).get();
+      const nn = s.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      })).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)).slice(0, 50);
+      const oi = new Set(notifications.map(n => n.id)),
+        bn = nn.filter(n => !oi.has(n.id) && !n.read);
+      if (bn.length > 0 && notifications.length > 0) bn.forEach(n => {
+        showToast('Nueva consulta', `${n.userName} consultó sobre "${n.propertyTitle}"`, 'fa-comment');
+        sendBrowserNotification('Nueva consulta', `${n.userName} consultó sobre "${n.propertyTitle}"`)
+      });
+      notifications = nn;
+      renderNotifications()
+    } catch (e) {
+      console.error('Error loading notifications:', e)
+    }
+  }
+
+  function startNotificationPolling() {
+    if (!currentUser) return;
+    loadNotifications();
+    if (notificationCheckInterval) clearInterval(notificationCheckInterval);
+    notificationCheckInterval = setInterval(loadNotifications, 10000)
+  }
+
+  function stopNotificationPolling() {
+    if (notificationCheckInterval) {
+      clearInterval(notificationCheckInterval);
+      notificationCheckInterval = null
+    }
+  }
+
+  function renderNotifications() {
+    const b = document.getElementById('notificationBadge'),
+      be = document.getElementById('notificationBell'),
+      l = document.getElementById('notificationList'),
+      uc = notifications.filter(n => !n.read).length;
+    if (uc > 0) {
+      b.textContent = uc > 99 ? '99+' : uc;
+      b.classList.remove('hidden');
+      be.classList.add('has-unread')
+    } else {
+      b.classList.add('hidden');
+      be.classList.remove('has-unread')
+    }
+    if (notifications.length === 0) {
+      l.innerHTML = '<div class="notification-empty"><i class="fas fa-bell-slash"></i><p>No tienes consultas</p></div>';
+      return
+    }
+    l.innerHTML = notifications.map(n => {
+      const i = (n.userName || 'A').charAt(0).toUpperCase(),
+        ts = n.createdAt ? formatTimeAgo(n.createdAt) : '';
+      return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar">${n.userPhoto?`<img src="${n.userPhoto}" alt="">`:i}</div><div class="notification-body"><p><strong>${n.userName}</strong> consultó sobre <strong>${n.propertyTitle}</strong></p><div class="notification-message">"${(n.text||'').substring(0,100)}${(n.text||'').length>100?'...':''}"</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span>${n.userPhone?`<a href="https://wa.me/${n.userPhone.replace(/\D/g,'')}" target="_blank" class="notification-phone" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i> ${n.userPhone}</a>`:''}</div></div></div>`
+    }).join('')
+  }
+
+  function formatTimeAgo(t) {
+    const d = new Date(t),
+      s = Math.floor((new Date() - d) / 1000);
+    if (s < 60) return 'Ahora';
+    const m = Math.floor(s / 60);
+    if (m < 60) return `Hace ${m} min`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `Hace ${h}h`;
+    const dy = Math.floor(h / 24);
+    if (dy < 7) return `Hace ${dy} días`;
+    return d.toLocaleDateString('es')
+  }
+
+  function toggleNotifications(e) {
+    e.stopPropagation();
+    const d = document.getElementById('notificationDropdown');
+    const o = document.getElementById('notificationOverlay');
+    const isOpen = d.classList.toggle('active');
+    o.classList.toggle('active', isOpen);
+    if (isOpen) loadNotifications()
+  }
+
+  function closeNotifications() {
+    document.getElementById('notificationDropdown').classList.remove('active');
+    document.getElementById('notificationOverlay').classList.remove('active')
+  }
+  document.addEventListener('click', e => {
+    const d = document.getElementById('notificationDropdown'),
+      b = document.getElementById('notificationBell');
+    if (d && b && !d.contains(e.target) && !b.contains(e.target)) d.classList.remove('active')
+  });
+  async function handleNotificationClick(ni, pi) {
+    closeNotifications();
+    try {
+      await db.collection('notifications').doc(ni).update({
+        read: true
+      });
+      const n = notifications.find(nt => nt.id === ni);
+      if (n) n.read = true;
+      renderNotifications()
+    } catch (e) {
+      console.error('Error marking notification as read:', e)
+    }
+    openDetail(pi, true)
+  }
+  async function markAllAsRead(e) {
+    e.stopPropagation();
+    const u = notifications.filter(n => !n.read);
+    if (u.length === 0) return;
+    try {
+      const p = u.map(n => db.collection('notifications').doc(n.id).update({
+        read: true
+      }));
+      await Promise.all(p);
+      notifications.forEach(n => n.read = true);
+      renderNotifications();
+      showToast('Listo', 'Todas las consultas marcadas como leídas', 'fa-check')
+    } catch (e) {
+      console.error('Error marking all as read:', e)
+    }
+  }
+
+  // Auth
+  auth.onAuthStateChanged(async u => {
+    if (u) {
+      const d = await db.collection('users').doc(u.uid).get();
+      if (d.exists) {
+        userProfile = d.data();
+        if (userProfile.status === 'approved' || userProfile.email.toLowerCase() === ADMIN_EMAIL) {
+          currentUser = u;
+          allUsers[u.uid] = userProfile;
+          updateUI();
+          requestNotificationPermission();
+          setupFCM();
+          startNotificationPolling();
+          loadVisits();
+          startVisitReminderCheck()
+        } else {
+          auth.signOut();
+          alert('Tu cuenta está pendiente de aprobación')
+        }
+      }
+    } else {
+      currentUser = null;
+      userProfile = null;
+      notifications = [];
+      visits = [];
+      stopNotificationPolling();
+      if (visitReminderInterval) clearInterval(visitReminderInterval);
+      updateUI()
+    }
+  });
+
+  function updateUI() {
+    const ng = document.getElementById('nav-guest'),
+      nu = document.getElementById('nav-user'),
+      un = document.getElementById('userName'),
+      ab = document.getElementById('adminBadge'),
+      abt = document.getElementById('adminBtn'),
+      ua = document.getElementById('userAvatar'),
+      hb = document.getElementById('heroButtons'),
+      bnp = document.getElementById('btnNewProperty');
+    if (currentUser && userProfile) {
+      ng.classList.add('hidden');
+      nu.classList.remove('hidden');
+      hb.classList.add('hidden');
+      bnp.classList.remove('hidden');
+      un.textContent = userProfile.name || 'Usuario';
+      const i = (userProfile.name || 'U').charAt(0).toUpperCase();
+      ua.innerHTML = userProfile.profilePhoto ? `<img src="${userProfile.profilePhoto}" alt="">` : i;
+      if (userProfile.email.toLowerCase() === ADMIN_EMAIL) {
+        ab.classList.remove('hidden');
+        abt.classList.remove('hidden')
+      } else {
+        ab.classList.add('hidden');
+        abt.classList.add('hidden')
+      }
+      loadClients()
+    } else {
+      ng.classList.remove('hidden');
+      nu.classList.add('hidden');
+      hb.classList.remove('hidden');
+      bnp.classList.add('hidden');
+      clients = []
+    }
+  }
+
+  function openModal(i) {
+    document.getElementById(i).classList.add('active');
+    if (i === 'loginModal') loadRememberedUser()
+  }
+
+  function closeModal(i) {
+    document.getElementById(i).classList.remove('active')
+  }
+
+  function switchModal(f, t) {
+    closeModal(f);
+    setTimeout(() => openModal(t), 200)
+  }
+
+  function openPropertyModal(pi = null) {
+    resetPropertyForm();
+    if (pi) {
+      const p = properties.find(pr => pr.id === pi);
+      if (p) loadPropertyForEdit(p)
+    } else {
+      if (userProfile && userProfile.whatsapp) document.getElementById('propWhatsapp').value = userProfile.whatsapp
+    }
+    openModal('propertyModal')
+  }
+
+  function loadPropertyForEdit(p) {
+    document.getElementById('propertyModalTitle').textContent = 'Editar Propiedad';
+    document.getElementById('propertyBtn').innerHTML = '<i class="fas fa-save"></i> Guardar Cambios';
+    document.getElementById('editingPropertyId').value = p.id;
+    document.getElementById('previousPrice').value = p.price || '';
+    document.getElementById('propTitle').value = p.title || '';
+    document.getElementById('propDepartamento').value = p.departamento || '';
+    updateCiudades();
+    setTimeout(() => {
+      document.getElementById('propCiudad').value = p.ciudad || ''
+    }, 100);
+    document.getElementById('propDireccion').value = p.direccion || '';
+    document.getElementById('propPrice').value = p.price || '';
+    document.getElementById('propCurrency').value = p.currency || 'USD';
+    document.getElementById('propType').value = p.type || 'sale';
+    togglePropertyType();
+    document.getElementById('propPropertyType').value = p.propertyType || 'common';
+    document.getElementById('propBedrooms').value = p.bedrooms || '';
+    document.getElementById('propBathrooms').value = p.bathrooms || '';
+    document.getElementById('propTotalArea').value = p.totalArea || '';
+    document.getElementById('propBuiltArea').value = p.builtArea || '';
+    document.getElementById('propExpenses').value = p.commonExpenses || '';
+    document.getElementById('propGarage').value = p.garage || 'no';
+    document.getElementById('propDescription').value = p.description || '';
+    document.getElementById('propWhatsapp').value = p.ownerWhatsapp || '';
+    selectStatus(p.status || 'available');
+    if (p.images && p.images.length > 0) {
+      selectedImages = p.images.map(url => ({
+        preview: url,
+        url: url,
+        existing: true
+      }));
+      renderImagePreviews()
+    }
+  }
+
+  function editCurrentProperty() {
+    if (currentDetailProperty) {
+      closeModal('detailModal');
+      openPropertyFormTab(currentDetailProperty.id)
+    }
+  }
+
+  function togglePropertyType() {
+    document.getElementById('propertyTypeGroup').style.display = document.getElementById('propType').value === 'rent' ? 'none' : 'block'
+  }
+  async function handleLogin(e) {
+    e.preventDefault();
+    const b = document.getElementById('loginBtn'),
+      er = document.getElementById('loginError'),
+      em = document.getElementById('loginEmail').value,
+      r = document.getElementById('rememberMe').checked;
+    b.disabled = true;
+    b.textContent = 'Iniciando...';
+    er.classList.add('hidden');
+    try {
+      await auth.signInWithEmailAndPassword(em, document.getElementById('loginPassword').value);
+      if (r) localStorage.setItem('rememberedEmail', em);
+      else localStorage.removeItem('rememberedEmail');
+      closeModal('loginModal');
+      document.getElementById('loginEmail').value = '';
+      document.getElementById('loginPassword').value = ''
+    } catch (err) {
+      er.textContent = 'Correo o contraseña incorrectos';
+      er.classList.remove('hidden')
+    } finally {
+      b.disabled = false;
+      b.textContent = 'Iniciar Sesión'
+    }
+  }
+  async function handleRegister(e) {
+    e.preventDefault();
+    const b = document.getElementById('registerBtn'),
+      er = document.getElementById('registerError'),
+      su = document.getElementById('registerSuccess'),
+      nm = document.getElementById('registerName').value,
+      em = document.getElementById('registerEmail').value,
+      wh = document.getElementById('registerWhatsapp').value,
+      ig = document.getElementById('registerInstagram').value.trim(),
+      pw = document.getElementById('registerPassword').value,
+      cf = document.getElementById('registerConfirm').value;
+    if (pw !== cf) {
+      er.textContent = 'Las contraseñas no coinciden';
+      er.classList.remove('hidden');
+      return
+    }
+    b.disabled = true;
+    b.textContent = 'Creando...';
+    er.classList.add('hidden');
+    su.classList.add('hidden');
+    try {
+      const uc = await auth.createUserWithEmailAndPassword(em, pw);
+      const ia = em.toLowerCase() === ADMIN_EMAIL;
+      const ud = {
+        uid: uc.user.uid,
+        email: em,
+        name: nm,
+        whatsapp: wh,
+        status: ia ? 'approved' : 'pending',
+        createdAt: new Date().toISOString()
+      };
+      if (ig && ig.includes('instagram.com')) ud.instagram = ig;
+      await db.collection('users').doc(uc.user.uid).set(ud);
+      await auth.signOut();
+      document.getElementById('registerForm').reset();
+      su.textContent = ia ? '¡Cuenta admin creada!' : '¡Cuenta creada! Espera aprobación.';
+      su.classList.remove('hidden')
+    } catch (err) {
+      er.textContent = err.code === 'auth/email-already-in-use' ? 'Este correo ya está registrado' : err.message;
+      er.classList.remove('hidden')
+    } finally {
+      b.disabled = false;
+      b.textContent = 'Crear Cuenta'
+    }
+  }
+
+  function logout() {
+    auth.signOut();
+    showHome();
+    document.getElementById('userDropdown').classList.remove('active')
+  }
+  async function handleProfilePhotoChange(e) {
+    const f = e.target.files[0];
+    if (!f || !currentUser) return;
+    try {
+      showToast('Subiendo foto...', 'Por favor espera', 'fa-spinner');
+      const pu = await uploadProfilePhoto(f, currentUser.uid);
+      await db.collection('users').doc(currentUser.uid).update({
+        profilePhoto: pu
+      });
+      userProfile.profilePhoto = pu;
+      allUsers[currentUser.uid].profilePhoto = pu;
+      updateUI();
+      document.getElementById('profileAvatar').innerHTML = `<img src="${pu}" alt="">`;
+      showToast('Perfil actualizado', 'Tu foto ha sido actualizada', 'fa-check')
+    } catch (err) {
+      console.error('Error uploading profile photo:', err);
+      alert('Error al actualizar foto: ' + err.message)
+    }
+  }
+
+  // Properties
+  function loadProperties() {
+    db.collection('properties').orderBy('createdAt', 'desc').onSnapshot(s => {
+      properties = s.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+      renderProperties(properties);
+      updateStats()
+    })
+  }
+
+  function getUserInfo(ui) {
+    return allUsers[ui] || {
+      name: 'Usuario',
+      profilePhoto: null
+    }
+  }
+
+  function formatPrice(p, c) {
+    return `${c==='UYU'?'$U':'US$'} ${(p||0).toLocaleString()}`
+  }
+
+  function getLocationString(p) {
+    return p.ciudad && p.departamento ? `${p.ciudad}, ${p.departamento}` : p.location || 'Uruguay'
+  }
+
+  function canEditProperty(p) {
+    return currentUser && (currentUser.uid === p.ownerId || userProfile?.email?.toLowerCase() === ADMIN_EMAIL)
+  }
+
+  function renderProperties(ps, tg = 'propertiesGrid') {
+    const g = document.getElementById(tg),
+      ld = document.getElementById('propertiesLoading'),
+      ct = document.getElementById('propertiesCount');
+    if (ld) ld.classList.add('hidden');
+    if (ct) ct.textContent = `${ps.length} propiedades encontradas`;
+    if (ps.length === 0) {
+      g.innerHTML = '<p style="text-align:center;color:var(--gray-500);grid-column:1/-1;padding:60px">No hay propiedades disponibles</p>';
+      return
+    }
+    // Ordenar: 1) Destacadas disponibles, 2) Disponibles, 3) Reservadas/Vendidas/Alquiladas, 4) Archivadas
+    const statusPriority = {
+      available: 1,
+      reserved: 2,
+      sold: 3,
+      rented: 4,
+      archived: 5
+    };
+    const sorted = [...ps].sort((a, b) => {
+      const stA = a.status || 'available',
+        stB = b.status || 'available';
+      const prioA = statusPriority[stA] || 1,
+        prioB = statusPriority[stB] || 1;
+      const aFeat = a.featured && stA === 'available' ? 0 : 1;
+      const bFeat = b.featured && stB === 'available' ? 0 : 1;
+      if (aFeat !== bFeat) return aFeat - bFeat;
+      if (prioA !== prioB) return prioA - prioB;
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
+    g.innerHTML = sorted.map(p => {
+      const o = getUserInfo(p.ownerId),
+        oi = (o.name || 'U').charAt(0).toUpperCase(),
+        c = p.currency || 'USD',
+        l = getLocationString(p),
+        ce = canEditProperty(p),
+        hi = o.instagram && o.instagram.includes('instagram.com'),
+        st = p.status || 'available',
+        hop = p.previousPrice && p.previousPrice > p.price,
+        pdp = hop ? Math.round((1 - p.price / p.previousPrice) * 100) : 0,
+        isFeatured = p.featured && st === 'available';
+      const stLabels = {
+        reserved: 'RESERVADA',
+        sold: 'VENDIDA',
+        rented: 'ALQUILADA',
+        archived: 'ARCHIVADA'
+      };
+      const stLabel = stLabels[st] || '';
+      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${p.title}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button><button class="btn-feature ${p.featured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${p.featured?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button><button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${o.profilePhoto}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${o.name||'Usuario'}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${p.title}</h3><div class="card-location"><i class="fas fa-map-marker-alt"></i>${l}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${o.instagram}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
+    }).join('')
+  }
+
+  function updateStats() {
+    const av = properties.filter(p => !p.status || p.status === 'available' || p.status === 'reserved');
+    document.getElementById('statTotal').textContent = av.length;
+    document.getElementById('statSale').textContent = av.filter(p => p.type === 'sale').length;
+    document.getElementById('statRent').textContent = av.filter(p => p.type === 'rent').length
+  }
+
+  function filterProperties() {
+    const s = document.getElementById('filterSearch').value.toLowerCase(),
+      t = document.getElementById('filterType').value,
+      b = parseInt(document.getElementById('filterBedrooms').value) || 0,
+      mp = parseInt(document.getElementById('filterPrice').value) || Infinity;
+    const f = properties.filter(p => {
+      const l = getLocationString(p).toLowerCase();
+      if (s && !p.title.toLowerCase().includes(s) && !l.includes(s)) return false;
+      if (t && p.type !== t) return false;
+      if (b && (p.bedrooms || 0) < b) return false;
+      if (p.price > mp) return false;
+      return true
+    });
+    renderProperties(f)
+  }
+
+  // Profile Functions
+  function renderSocialLinks(ud) {
+    let html = '';
+    if (ud.instagram && ud.instagram.includes('instagram.com')) {
+      html += `<a href="${ud.instagram}" target="_blank" class="profile-social-link instagram" title="Instagram"><i class="fab fa-instagram"></i></a>`
+    }
+    if (ud.facebook && ud.facebook.includes('facebook.com')) {
+      html += `<a href="${ud.facebook}" target="_blank" class="profile-social-link facebook" title="Facebook"><i class="fab fa-facebook-f"></i></a>`
+    }
+    if (ud.linkedin && ud.linkedin.includes('linkedin.com')) {
+      html += `<a href="${ud.linkedin}" target="_blank" class="profile-social-link linkedin" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>`
+    }
+    if (ud.twitter && (ud.twitter.includes('twitter.com') || ud.twitter.includes('x.com'))) {
+      html += `<a href="${ud.twitter}" target="_blank" class="profile-social-link twitter" title="Twitter/X"><i class="fab fa-twitter"></i></a>`
+    }
+    if (ud.tiktok && ud.tiktok.includes('tiktok.com')) {
+      html += `<a href="${ud.tiktok}" target="_blank" class="profile-social-link tiktok" title="TikTok"><i class="fab fa-tiktok"></i></a>`
+    }
+    if (ud.youtube && ud.youtube.includes('youtube.com')) {
+      html += `<a href="${ud.youtube}" target="_blank" class="profile-social-link youtube" title="YouTube"><i class="fab fa-youtube"></i></a>`
+    }
+    if (ud.website) {
+      html += `<a href="${ud.website}" target="_blank" class="profile-social-link" title="Sitio Web"><i class="fas fa-globe"></i></a>`
+    }
+    return html
+  }
+
+  async function showProfile(ui) {
+    currentProfileUserId = ui;
+    window.location.hash = `perfil/${ui}`;
+    let ud = allUsers[ui];
+    if (!ud) {
+      const d = await db.collection('users').doc(ui).get();
+      ud = d.exists ? d.data() : {
+        name: 'Usuario',
+        email: ''
+      };
+      allUsers[ui] = ud
+    }
+    document.getElementById('profileName').textContent = ud.name || 'Usuario';
+    document.getElementById('profileNameTitle').textContent = ud.name || 'Usuario';
+    document.getElementById('profileEmail').textContent = ud.email || '';
+    document.getElementById('profileBio').textContent = ud.bio || '';
+    document.getElementById('profileBio').style.display = ud.bio ? 'block' : 'none';
+    const i = (ud.name || 'U').charAt(0).toUpperCase();
+    document.getElementById('profileAvatar').innerHTML = ud.profilePhoto ? `<img src="${ud.profilePhoto}" alt="">` : i;
+    const ip = currentUser && currentUser.uid === ui;
+    document.getElementById('profileAvatarEdit').classList.toggle('hidden', !ip);
+    document.getElementById('btnEditProfile').classList.toggle('hidden', !ip);
+    const wab = document.getElementById('btnContactWhatsapp');
+    if (wab) wab.classList.toggle('hidden', ip || !ud.whatsapp);
+    document.getElementById('profileSocialLinks').innerHTML = renderSocialLinks(ud);
+    const up = properties.filter(p => p.ownerId === ui),
+      tv = up.reduce((s, p) => s + (p.views || 0), 0);
+    document.getElementById('profilePropertiesCount').textContent = up.length;
+    document.getElementById('profileViewsCount').textContent = tv;
+    document.getElementById('profilePropertiesSubtitle').textContent = `${up.length} propiedades`;
+    document.getElementById('btnNewPropertyProfile').classList.toggle('hidden', !ip);
+    renderProperties(up, 'profilePropertiesGrid');
+    document.getElementById('mainContent').classList.add('hidden');
+    document.getElementById('adminPanel').classList.add('hidden');
+    document.getElementById('crmPage').classList.add('hidden');
+    document.getElementById('profilePage').classList.remove('hidden')
+  }
+
+  function showMyProfile() {
+    if (currentUser) {
+      showProfile(currentUser.uid);
+      document.getElementById('userDropdown').classList.remove('active')
+    }
+  }
+
+  function getProfileLink() {
+    return `${window.location.origin}${window.location.pathname}#perfil/${currentProfileUserId}`
+  }
+
+  function copyProfileLink() {
+    navigator.clipboard.writeText(getProfileLink()).then(() => {
+      showToast('Enlace copiado', 'El enlace ha sido copiado', 'fa-link')
+    })
+  }
+
+  function shareProfileWhatsapp() {
+    const u = allUsers[currentProfileUserId] || {
+      name: 'este usuario'
+    };
+    window.open(`https://wa.me/?text=${encodeURIComponent(`Mira las propiedades de ${u.name}: ${getProfileLink()}`)}`, '_blank')
+  }
+
+  function contactAgentWhatsapp() {
+    const u = allUsers[currentProfileUserId];
+    if (!u || !u.whatsapp) return;
+    const ph = u.whatsapp.replace(/\D/g, '');
+    window.open(`https://wa.me/${ph}?text=${encodeURIComponent(`Hola ${u.name||''}, vi tu perfil en MALAVE y me gustaría consultarte.`)}`, '_blank')
+  }
+
+  function handleHash() {
+    const h = window.location.hash;
+    if (h.startsWith('#perfil/')) {
+      showProfile(h.replace('#perfil/', ''))
+    } else if (h.startsWith('#propiedad/')) {
+      const pid = h.replace('#propiedad/', '');
+      if (properties.length > 0) {
+        openDetail(pid)
+      } else {
+        const checkProps = setInterval(() => {
+          if (properties.length > 0) {
+            clearInterval(checkProps);
+            openDetail(pid)
+          }
+        }, 200);
+        setTimeout(() => clearInterval(checkProps), 5000)
+      }
+    }
+  }
+  window.addEventListener('hashchange', handleHash);
+
+  // Edit Profile
+  function openEditProfileModal() {
+    if (!currentUser || !userProfile) return;
+    document.getElementById('editProfileError').classList.add('hidden');
+    document.getElementById('editProfileSuccess').classList.add('hidden');
+    document.getElementById('editName').value = userProfile.name || '';
+    document.getElementById('editBio').value = userProfile.bio || '';
+    document.getElementById('editWhatsapp').value = userProfile.whatsapp || '';
+    document.getElementById('editInstagram').value = userProfile.instagram || '';
+    document.getElementById('editFacebook').value = userProfile.facebook || '';
+    document.getElementById('editLinkedin').value = userProfile.linkedin || '';
+    document.getElementById('editTwitter').value = userProfile.twitter || '';
+    document.getElementById('editTiktok').value = userProfile.tiktok || '';
+    document.getElementById('editYoutube').value = userProfile.youtube || '';
+    document.getElementById('editWebsite').value = userProfile.website || '';
+    document.getElementById('userDropdown').classList.remove('active');
+    openModal('editProfileModal')
+  }
+
+  async function handleSaveProfile(e) {
+    e.preventDefault();
+    if (!currentUser) return;
+    const b = document.getElementById('editProfileBtn'),
+      er = document.getElementById('editProfileError'),
+      su = document.getElementById('editProfileSuccess');
+    b.disabled = true;
+    b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+    er.classList.add('hidden');
+    su.classList.add('hidden');
+    try {
+      const updateData = {
+        name: document.getElementById('editName').value.trim(),
+        bio: document.getElementById('editBio').value.trim(),
+        whatsapp: document.getElementById('editWhatsapp').value.trim(),
+        instagram: document.getElementById('editInstagram').value.trim(),
+        facebook: document.getElementById('editFacebook').value.trim(),
+        linkedin: document.getElementById('editLinkedin').value.trim(),
+        twitter: document.getElementById('editTwitter').value.trim(),
+        tiktok: document.getElementById('editTiktok').value.trim(),
+        youtube: document.getElementById('editYoutube').value.trim(),
+        website: document.getElementById('editWebsite').value.trim(),
+        updatedAt: new Date().toISOString()
+      };
+      await db.collection('users').doc(currentUser.uid).update(updateData);
+      Object.assign(userProfile, updateData);
+      allUsers[currentUser.uid] = userProfile;
+      updateUI();
+      if (currentProfileUserId === currentUser.uid) {
+        showProfile(currentUser.uid)
+      }
+      su.textContent = '¡Perfil actualizado correctamente!';
+      su.classList.remove('hidden');
+      showToast('Perfil actualizado', 'Tus datos han sido guardados', 'fa-check');
+      setTimeout(() => closeModal('editProfileModal'), 1500)
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      er.textContent = 'Error al guardar: ' + err.message;
+      er.classList.remove('hidden')
+    } finally {
+      b.disabled = false;
+      b.innerHTML = '<i class="fas fa-save"></i> Guardar Cambios'
+    }
+  }
+
+  // Abre la propiedad en una pestaña nueva, en su página dedicada
+  function openPropertyTab(id) {
+    window.open('propiedad.html?id=' + id, '_blank');
+  }
+
+  // Abre el formulario de crear/editar propiedad en una pestaña nueva
+  function openPropertyFormTab(id) {
+    window.open(id ? 'propiedad-form.html?id=' + id : 'propiedad-form.html', '_blank');
+  }
+
+  // Detail View
+  async function openDetail(id, sc = false) {
+    const p = properties.find(pr => pr.id === id);
+    if (!p) return;
+    currentDetailProperty = p;
+    currentDetailImageIndex = 0;
+    const io = currentUser && currentUser.uid === p.ownerId;
+    if (!sc && !io) db.collection('properties').doc(id).update({
+      views: firebase.firestore.FieldValue.increment(1)
+    }).catch(e => console.log('Error counting view:', e));
+    const im = p.images?.length ? p.images : ['https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'];
+    document.getElementById('detailImage').src = im[0];
+    document.getElementById('detailTitle').textContent = p.title;
+    document.getElementById('detailLocation').textContent = getLocationString(p) + (p.direccion ? ` - ${p.direccion}` : '');
+    const c = p.currency || 'USD',
+      hop = p.previousPrice && p.previousPrice > p.price,
+      pdp = hop ? Math.round((1 - p.price / p.previousPrice) * 100) : 0;
+    document.getElementById('detailPrice').textContent = `${formatPrice(p.price,c)}${p.type==='rent'?'/mes':''}`;
+    const ope = document.getElementById('detailPriceOld'),
+      pde = document.getElementById('detailPriceDrop');
+    if (hop) {
+      ope.textContent = formatPrice(p.previousPrice, c);
+      ope.classList.remove('hidden');
+      pde.textContent = `¡${pdp}% de descuento!`;
+      pde.classList.remove('hidden')
+    } else {
+      ope.classList.add('hidden');
+      pde.classList.add('hidden')
+    }
+    document.getElementById('detailDescription').textContent = p.description || 'Sin descripción.';
+    const so = document.getElementById('detailStatusOverlay'),
+      sr = document.getElementById('detailStatusRibbon'),
+      st = p.status || 'available';
+    const stLabels = {
+      reserved: 'RESERVADA',
+      sold: 'VENDIDA',
+      rented: 'ALQUILADA',
+      archived: 'ARCHIVADA'
+    };
+    if (st !== 'available' && stLabels[st]) {
+      so.className = `detail-status-overlay ${st}`;
+      sr.className = `status-ribbon ${st}`;
+      sr.textContent = stLabels[st];
+      so.classList.remove('hidden')
+    } else {
+      so.classList.add('hidden')
+    }
+    const tc = document.getElementById('detailThumbnails');
+    if (im.length > 1) {
+      tc.innerHTML = im.map((img, i) => `<div class="detail-thumb ${i===0?'active':''}" onclick="setDetailImage(${i})"><img src="${img}" alt=""></div>`).join('');
+      tc.style.display = 'flex'
+    } else tc.style.display = 'none';
+    const o = getUserInfo(p.ownerId),
+      oi = (o.name || 'U').charAt(0).toUpperCase();
+    document.getElementById('detailOwnerName').textContent = o.name || 'Usuario';
+    document.getElementById('detailOwnerAvatar').innerHTML = o.profilePhoto ? `<img src="${o.profilePhoto}" alt="">` : oi;
+    document.getElementById('detailBadges').innerHTML = `${p.featured&&st==='available'?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}${st==='reserved'?'<span class="badge badge-reserved">RESERVADA</span>':''}${st==='sold'?'<span class="badge badge-sold">VENDIDA</span>':''}${st==='rented'?'<span class="badge badge-rented">ALQUILADA</span>':''}${st==='archived'?'<span class="badge badge-archived">ARCHIVADA</span>':''}`;
+    document.getElementById('detailFeatures').innerHTML = `${p.bedrooms?`<div class="detail-feature"><i class="fas fa-bed"></i><strong>${p.bedrooms}</strong><span>Dormitorios</span></div>`:''}${p.bathrooms?`<div class="detail-feature"><i class="fas fa-bath"></i><strong>${p.bathrooms}</strong><span>Baños</span></div>`:''}${p.totalArea?`<div class="detail-feature"><i class="fas fa-expand"></i><strong>${p.totalArea}</strong><span>m² Total</span></div>`:''}${p.builtArea?`<div class="detail-feature"><i class="fas fa-home"></i><strong>${p.builtArea}</strong><span>m² Edificado</span></div>`:''}${p.garage==='yes'?`<div class="detail-feature"><i class="fas fa-car"></i><strong>Sí</strong><span>Garaje</span></div>`:''}${p.commonExpenses?`<div class="detail-feature"><i class="fas fa-dollar-sign"></i><strong>${p.commonExpenses}</strong><span>Gastos</span></div>`:''}`;
+    document.getElementById('detailWhatsapp').onclick = () => contactWhatsapp(id);
+    const ib = document.getElementById('detailInstagram');
+    if (o.instagram && o.instagram.includes('instagram.com')) {
+      ib.classList.remove('hidden');
+      ib.onclick = () => window.open(o.instagram, '_blank')
+    } else {
+      ib.classList.add('hidden')
+    }
+    document.getElementById('detailEditBtn').classList.toggle('hidden', !canEditProperty(p));
+    document.getElementById('commentFormGuest').classList.toggle('hidden', !!currentUser);
+    document.getElementById('commentFormUser').classList.toggle('hidden', !currentUser);
+    loadComments(id);
+    openModal('detailModal')
+  }
+
+  function setDetailImage(i) {
+    if (!currentDetailProperty?.images?.length) return;
+    currentDetailImageIndex = i;
+    document.getElementById('detailImage').src = currentDetailProperty.images[i];
+    document.querySelectorAll('.detail-thumb').forEach((t, idx) => t.classList.toggle('active', idx === i))
+  }
+
+  function prevDetailImage() {
+    if (!currentDetailProperty?.images?.length) return;
+    currentDetailImageIndex = (currentDetailImageIndex - 1 + currentDetailProperty.images.length) % currentDetailProperty.images.length;
+    setDetailImage(currentDetailImageIndex)
+  }
+
+  function nextDetailImage() {
+    if (!currentDetailProperty?.images?.length) return;
+    currentDetailImageIndex = (currentDetailImageIndex + 1) % currentDetailProperty.images.length;
+    setDetailImage(currentDetailImageIndex)
+  }
+
+  function openLightbox(i) {
+    if (!currentDetailProperty?.images?.length) return;
+    currentDetailImageIndex = i;
+    document.getElementById('lightboxImg').src = currentDetailProperty.images[i];
+    updateLightboxCounter();
+    document.getElementById('lightbox').classList.add('active');
+    document.body.style.overflow = 'hidden'
+  }
+
+  function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('active');
+    document.body.style.overflow = ''
+  }
+
+  function lightboxNext() {
+    if (!currentDetailProperty?.images?.length) return;
+    currentDetailImageIndex = (currentDetailImageIndex + 1) % currentDetailProperty.images.length;
+    document.getElementById('lightboxImg').src = currentDetailProperty.images[currentDetailImageIndex];
+    setDetailImage(currentDetailImageIndex);
+    updateLightboxCounter()
+  }
+
+  function lightboxPrev() {
+    if (!currentDetailProperty?.images?.length) return;
+    currentDetailImageIndex = (currentDetailImageIndex - 1 + currentDetailProperty.images.length) % currentDetailProperty.images.length;
+    document.getElementById('lightboxImg').src = currentDetailProperty.images[currentDetailImageIndex];
+    setDetailImage(currentDetailImageIndex);
+    updateLightboxCounter()
+  }
+
+  function updateLightboxCounter() {
+    const c = document.getElementById('lightboxCounter');
+    if (c && currentDetailProperty?.images?.length) {
+      c.textContent = `${currentDetailImageIndex + 1} / ${currentDetailProperty.images.length}`;
+      c.style.display = currentDetailProperty.images.length > 1 ? 'block' : 'none'
+    }
+  }
+
+  document.addEventListener('keydown', e => {
+    const lb = document.getElementById('lightbox');
+    if (!lb || !lb.classList.contains('active')) return;
+    if (e.key === 'Escape') closeLightbox();
+    else if (e.key === 'ArrowRight') lightboxNext();
+    else if (e.key === 'ArrowLeft') lightboxPrev()
+  });
+
+  function viewOwnerProfile() {
+    if (currentDetailProperty) {
+      closeModal('detailModal');
+      showProfile(currentDetailProperty.ownerId)
+    }
+  }
+
+  // Comments
+  async function loadComments(pi) {
+    const c = document.getElementById('commentsList');
+    c.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    const io = currentUser && currentDetailProperty && currentUser.uid === currentDetailProperty.ownerId;
+    try {
+      const s = await db.collection('properties').doc(pi).collection('comments').orderBy('createdAt', 'desc').get();
+      const cm = s.docs.map(d => d.data());
+      if (cm.length === 0) {
+        c.innerHTML = '<div class="no-comments"><i class="fas fa-comment-slash"></i><p>Sé el primero en consultar</p></div>';
+        return
+      }
+      c.innerHTML = cm.map(co => {
+        const i = (co.userName || 'A').charAt(0).toUpperCase(),
+          t = co.createdAt ? new Date(co.createdAt).toLocaleDateString('es') : '',
+          sp = io && co.userPhone;
+        return `<div class="comment-item"><div class="comment-avatar">${co.userPhoto?`<img src="${co.userPhoto}" alt="">`:i}</div><div class="comment-content"><div class="comment-header"><span class="comment-author">${co.userName||'Anónimo'}</span>${co.isGuest?'<span class="comment-guest-badge">Invitado</span>':''}<span class="comment-time">${t}</span></div><p class="comment-text">${co.text}</p>${sp?`<div class="comment-contact"><i class="fab fa-whatsapp"></i> Contacto: <a href="https://wa.me/${co.userPhone.replace(/\D/g,'')}" target="_blank">${co.userPhone}</a></div>`:''}</div></div>`
+      }).join('')
+    } catch (e) {
+      console.error('Error loading comments:', e);
+      c.innerHTML = '<p style="color:var(--danger)">Error al cargar consultas</p>'
+    }
+  }
+  async function addComment() {
+    let tx, un, up, uph, ig;
+    if (currentUser && userProfile) {
+      tx = document.getElementById('commentInputUser').value.trim();
+      un = userProfile.name;
+      up = userProfile.whatsapp || '';
+      uph = userProfile.profilePhoto || null;
+      ig = false
+    } else {
+      tx = document.getElementById('commentInput').value.trim();
+      un = document.getElementById('guestName').value.trim();
+      up = document.getElementById('guestPhone').value.trim();
+      uph = null;
+      ig = true;
+      if (!un) {
+        alert('Por favor ingresa tu nombre');
+        return
+      }
+      if (!up) {
+        alert('Por favor ingresa tu WhatsApp');
+        return
+      }
+    }
+    if (!tx || !currentDetailProperty) {
+      alert('Por favor escribe tu consulta');
+      return
+    }
+    try {
+      const cd = {
+        userId: currentUser?.uid || null,
+        userName: un,
+        userPhone: up,
+        userPhoto: uph,
+        text: tx,
+        isGuest: ig,
+        createdAt: new Date().toISOString()
+      };
+      await db.collection('properties').doc(currentDetailProperty.id).collection('comments').add(cd);
+      const io = currentUser && currentUser.uid === currentDetailProperty.ownerId;
+      if (!io) {
+        const nd = {
+          ownerId: currentDetailProperty.ownerId,
+          propertyId: currentDetailProperty.id,
+          propertyTitle: currentDetailProperty.title,
+          userName: un,
+          userPhone: up,
+          userPhoto: uph,
+          text: tx,
+          read: false,
+          createdAt: new Date().toISOString()
+        };
+        await db.collection('notifications').add(nd)
+      }
+      if (currentUser) {
+        document.getElementById('commentInputUser').value = ''
+      } else {
+        document.getElementById('commentInput').value = ''
+      }
+      loadComments(currentDetailProperty.id);
+      showToast('Consulta enviada', 'Tu mensaje ha sido enviado al propietario', 'fa-check')
+    } catch (e) {
+      console.error('Error adding comment:', e);
+      alert('Error al enviar consulta: ' + e.message)
+    }
+  }
+
+  function contactWhatsapp(id) {
+    const p = properties.find(pr => pr.id === id);
+    if (!p) return;
+    const o = getUserInfo(p.ownerId),
+      ph = (p.ownerWhatsapp || o.whatsapp || '59899000000').replace(/\D/g, ''),
+      m = `Hola, me interesa: ${p.title} - ${formatPrice(p.price,p.currency||'USD')} en ${getLocationString(p)}`;
+    window.open(`https://wa.me/${ph}?text=${encodeURIComponent(m)}`, '_blank')
+  }
+
+  function showHome() {
+    document.getElementById('mainContent').classList.remove('hidden');
+    document.getElementById('adminPanel').classList.add('hidden');
+    document.getElementById('profilePage').classList.add('hidden');
+    document.getElementById('crmPage').classList.add('hidden');
+    currentProfileUserId = null;
+    window.location.hash = ''
+  }
+
+  // Admin
+  function showAdmin() {
+    if (!currentUser || userProfile?.email?.toLowerCase() !== ADMIN_EMAIL) return;
+    document.getElementById('mainContent').classList.add('hidden');
+    document.getElementById('profilePage').classList.add('hidden');
+    document.getElementById('crmPage').classList.add('hidden');
+    document.getElementById('adminPanel').classList.remove('hidden');
+    showAdminTab('pending')
+  }
+  async function showAdminTab(tb) {
+    document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(`tab${tb.charAt(0).toUpperCase()+tb.slice(1)}`).classList.add('active');
+    const c = document.getElementById('adminContent');
+    c.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    try {
+      if (tb === 'pending') {
+        console.log('Buscando usuarios pendientes...');
+        const s = await db.collection('users').where('status', '==', 'pending').get();
+        console.log('Encontrados:', s.docs.length);
+        const us = s.docs.map(d => ({
+          id: d.id,
+          ...d.data()
+        }));
+        document.getElementById('pendingCount').textContent = us.length > 0 ? `(${us.length})` : '';
+        c.innerHTML = us.length === 0 ? `<div class="empty-state"><i class="fas fa-check-circle" style="color:var(--success)"></i><h3>Sin pendientes</h3><p style="color:var(--gray-500);margin-top:8px">No hay usuarios esperando aprobación</p></div>` : us.map(u => `<div class="user-card"><div class="user-card-avatar"><i class="fas fa-user"></i></div><div class="user-card-info"><h4>${u.name||'Sin nombre'}</h4><p>${u.email||''}</p><small>WhatsApp: ${u.whatsapp||'-'}</small><br><small style="color:var(--gray-400)">Registrado: ${u.createdAt?new Date(u.createdAt).toLocaleDateString('es-UY'):'N/A'}</small></div><div class="user-card-actions"><button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i> Aprobar</button><button class="btn-reject" onclick="rejectUser('${u.id}')"><i class="fas fa-times"></i> Rechazar</button></div></div>`).join('')
+      } else if (tb === 'users') {
+        const s = await db.collection('users').get();
+        const us = s.docs.map(d => ({
+          id: d.id,
+          ...d.data()
+        }));
+        c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${u.profilePhoto}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${u.name||'Sin nombre'} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${u.email||''}</p><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="showProfile('${u.id}')"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
+      } else if (tb === 'properties') {
+        c.innerHTML = properties.length === 0 ? '<div class="empty-state"><i class="fas fa-building"></i><h3>Sin propiedades</h3></div>' : properties.map(p => {
+          const o = getUserInfo(p.ownerId),
+            st = p.status || 'available',
+            stLabels = {
+              available: '✓ Disponible',
+              reserved: '⏳ Reservada',
+              sold: '✗ Vendida',
+              rented: '🔑 Alquilada',
+              archived: '📦 Archivada'
+            },
+            stt = stLabels[st] || '✓ Disponible',
+            isFeat = p.featured;
+          return `<div class="user-card ${isFeat?'featured-admin':''}"><div class="user-card-avatar" style="border-radius:8px"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=100'}" style="width:100%;height:100%;object-fit:cover;border-radius:8px"></div><div class="user-card-info"><h4>${isFeat?'<i class="fas fa-star" style="color:#f1c40f"></i> ':''} ${p.title}</h4><p>${formatPrice(p.price,p.currency||'USD')} - ${getLocationString(p)}</p><small>${o.name} | <i class="fas fa-eye"></i> ${p.views||0} | ${stt}</small></div><div class="user-card-actions"><button class="btn-feature-admin ${isFeat?'active':''}" onclick="toggleFeatured('${p.id}')" title="${isFeat?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button><button class="btn-edit" onclick="openPropertyFormTab('${p.id}')"><i class="fas fa-edit"></i></button><button class="btn-reject" onclick="deleteProperty('${p.id}')"><i class="fas fa-trash"></i></button></div></div>`
+        }).join('')
+      }
+    } catch (err) {
+      console.error('Error panel admin:', err);
+      c.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i><h3>Error al cargar</h3><p style="color:var(--gray-500);margin-top:8px">${err.message}</p></div>`
+    }
+  }
+  async function approveUser(id) {
+    await db.collection('users').doc(id).update({
+      status: 'approved'
+    });
+    allUsers[id] = {
+      ...allUsers[id],
+      status: 'approved'
+    };
+    showAdminTab('pending');
+    showToast('Usuario aprobado', 'El usuario ya puede acceder', 'fa-user-check')
+  }
+  async function rejectUser(id) {
+    await db.collection('users').doc(id).update({
+      status: 'rejected'
+    });
+    showAdminTab('pending')
+  }
+  async function deleteUser(id) {
+    if (!confirm('¿Eliminar?')) return;
+    await db.collection('users').doc(id).delete();
+    delete allUsers[id];
+    showAdminTab('users')
+  }
+  async function deleteProperty(id) {
+    if (!confirm('¿Eliminar esta propiedad?')) return;
+    await db.collection('properties').doc(id).delete()
+  }
+  async function toggleFeatured(id) {
+    try {
+      const p = properties.find(pr => pr.id === id);
+      if (!p) return;
+      const newVal = !p.featured;
+      await db.collection('properties').doc(id).update({
+        featured: newVal
+      });
+      showToast(newVal ? 'Propiedad destacada' : 'Destacado removido', newVal ? 'La propiedad aparecerá primero' : 'La propiedad volvió al orden normal', 'fa-star')
+    } catch (err) {
+      console.error('Error toggling featured:', err);
+      alert('Error al cambiar destacado')
+    }
+  }
+  // Funciones de compartir
+  let currentShareProperty = null;
+
+  function openShareModal(id) {
+    const p = properties.find(pr => pr.id === id);
+    if (!p) return;
+    currentShareProperty = p;
+    const url = `${window.location.origin}${window.location.pathname}#propiedad/${id}`;
+    document.getElementById('shareTitle').textContent = p.title;
+    document.getElementById('sharePrice').textContent = formatPrice(p.price, p.currency || 'USD') + (p.type === 'rent' ? '/mes' : '');
+    document.getElementById('shareLocation').textContent = getLocationString(p);
+    document.getElementById('shareUrlInput').value = url;
+    openModal('shareModal')
+  }
+
+  function getShareText() {
+    if (!currentShareProperty) return '';
+    const p = currentShareProperty;
+    return `${p.type==='sale'?'🏠 EN VENTA':'🔑 EN ALQUILER'}: ${p.title}\n💰 ${formatPrice(p.price,p.currency||'USD')}${p.type==='rent'?'/mes':''}\n📍 ${getLocationString(p)}\n${p.bedrooms?`🛏 ${p.bedrooms} dormitorios `:''} ${p.bathrooms?`🚿 ${p.bathrooms} baños`:''}\n`
+  }
+
+  function shareToWhatsApp() {
+    const url = document.getElementById('shareUrlInput').value;
+    const text = encodeURIComponent(getShareText() + '\n' + url);
+    window.open(`https://wa.me/?text=${text}`, '_blank')
+  }
+
+  function shareToFacebook() {
+    const url = encodeURIComponent(document.getElementById('shareUrlInput').value);
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank')
+  }
+
+  function shareToTwitter() {
+    const url = document.getElementById('shareUrlInput').value;
+    const text = encodeURIComponent(getShareText());
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(url)}`, '_blank')
+  }
+
+  function copyShareLink() {
+    const input = document.getElementById('shareUrlInput');
+    input.select();
+    input.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(input.value).then(() => {
+      showToast('Enlace copiado', 'El link está listo para compartir', 'fa-link')
+    }).catch(() => {
+      document.execCommand('copy');
+      showToast('Enlace copiado', 'El link está listo para compartir', 'fa-link')
+    })
+  }
+  // Limpiar notificaciones
+  async function clearAllNotifications(e) {
+    e.stopPropagation();
+    if (!currentUser) return;
+    if (!confirm('¿Eliminar todas las consultas?')) return;
+    try {
+      const snap = await db.collection('notifications').where('ownerId', '==', currentUser.uid).get();
+      if (snap.empty) {
+        showToast('Sin consultas', 'No hay consultas para eliminar', 'fa-info-circle');
+        return
+      }
+      const batch = db.batch();
+      snap.docs.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      notifications = [];
+      renderNotifications();
+      showToast('Bandeja limpia', 'Todas las consultas fueron eliminadas', 'fa-trash')
+    } catch (err) {
+      console.error('Error clearing notifications:', err);
+      showToast('Error', 'No se pudieron eliminar: ' + err.message, 'fa-exclamation-circle')
+    }
+  }
+
+  // Image Handling
+  const uploadArea = document.getElementById('imageUploadArea');
+  uploadArea.addEventListener('dragover', e => {
+    e.preventDefault();
+    uploadArea.classList.add('dragover')
+  });
+  uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('dragover')
+  });
+  uploadArea.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    addImagesToPreview(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')))
+  });
+
+  function handleImageSelect(e) {
+    addImagesToPreview(Array.from(e.target.files));
+    e.target.value = ''
+  }
+  async function addImagesToPreview(fs) {
+    for (const f of fs) {
+      if (f.size > 5 * 1024 * 1024) {
+        alert(`La imagen ${f.name} excede 5MB`);
+        continue
+      }
+      const pr = await compressImageForPreview(f);
+      selectedImages.push({
+        preview: pr,
+        file: f,
+        existing: false
+      });
+      renderImagePreviews()
+    }
+  }
+
+  function renderImagePreviews() {
+    document.getElementById('imagePreviewGrid').innerHTML = selectedImages.map((im, i) => `<div class="image-preview-item ${i===0?'main':''}" draggable="true" ondragstart="handleDragStart(event,${i})" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropImage(event,${i})" ondragend="handleDragEnd(event)"><img src="${im.preview}" alt=""><div class="drag-handle"><i class="fas fa-grip-vertical"></i></div><div class="remove-image" onclick="event.stopPropagation();removeImage(${i})"><i class="fas fa-times"></i></div></div>`).join('')
+  }
+
+  function handleDragStart(e, i) {
+    draggedImageIndex = i;
+    e.target.classList.add('dragging')
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault()
+  }
+
+  function handleDragEnter(e) {
+    e.preventDefault();
+    if (e.target.closest('.image-preview-item')) e.target.closest('.image-preview-item').classList.add('drag-over')
+  }
+
+  function handleDragLeave(e) {
+    if (e.target.closest('.image-preview-item')) e.target.closest('.image-preview-item').classList.remove('drag-over')
+  }
+
+  function handleDropImage(e, ti) {
+    e.preventDefault();
+    const it = e.target.closest('.image-preview-item');
+    if (it) it.classList.remove('drag-over');
+    if (draggedImageIndex !== null && draggedImageIndex !== ti) {
+      const di = selectedImages[draggedImageIndex];
+      selectedImages.splice(draggedImageIndex, 1);
+      selectedImages.splice(ti, 0, di);
+      renderImagePreviews()
+    }
+  }
+
+  function handleDragEnd(e) {
+    e.target.classList.remove('dragging');
+    draggedImageIndex = null;
+    document.querySelectorAll('.image-preview-item').forEach(it => it.classList.remove('drag-over'))
+  }
+
+  function removeImage(i) {
+    selectedImages.splice(i, 1);
+    renderImagePreviews()
+  }
+
+  function resetPropertyForm() {
+    document.getElementById('propertyForm').reset();
+    document.getElementById('editingPropertyId').value = '';
+    document.getElementById('previousPrice').value = '';
+    document.getElementById('propertyModalTitle').textContent = 'Nueva Propiedad';
+    document.getElementById('propertyBtn').innerHTML = '<i class="fas fa-check"></i> Publicar Propiedad';
+    selectedImages = [];
+    renderImagePreviews();
+    togglePropertyType();
+    selectStatus('available');
+    document.getElementById('propCiudad').innerHTML = '<option value="">Primero selecciona departamento</option>';
+    document.getElementById('uploadProgress').classList.add('hidden')
+  }
+
+  function updateUploadProgress(c, t) {
+    const p = document.getElementById('uploadProgress'),
+      f = document.getElementById('uploadProgressFill'),
+      tx = document.getElementById('uploadProgressText');
+    p.classList.remove('hidden');
+    const pc = Math.round((c / t) * 100);
+    f.style.width = `${pc}%`;
+    tx.textContent = `Subiendo imagen ${c} de ${t}...`
+  }
+
+  async function handleSaveProperty(e) {
+    e.preventDefault();
+    if (!currentUser) {
+      alert('Debes iniciar sesión');
+      return
+    }
+    if (selectedImages.length === 0) {
+      alert('Sube al menos una imagen');
+      return
+    }
+    const b = document.getElementById('propertyBtn'),
+      er = document.getElementById('propertyError'),
+      ei = document.getElementById('editingPropertyId').value,
+      pp = document.getElementById('previousPrice').value;
+    b.disabled = true;
+    b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+    er.classList.add('hidden');
+    try {
+      const pi = ei || db.collection('properties').doc().id,
+        iu = [];
+      const itu = selectedImages.filter(im => !im.existing);
+      let uc = 0;
+      const tt = itu.length;
+      for (let i = 0; i < selectedImages.length; i++) {
+        const im = selectedImages[i];
+        if (im.existing) {
+          iu.push(im.url)
+        } else {
+          uc++;
+          updateUploadProgress(uc, tt);
+          const url = await uploadImageToStorage(im.file, pi, i);
+          iu.push(url)
+        }
+      }
+      const ty = document.getElementById('propType').value,
+        dp = document.getElementById('propDepartamento').value,
+        cd = document.getElementById('propCiudad').value,
+        np = parseInt(document.getElementById('propPrice').value);
+      const pd = {
+        title: document.getElementById('propTitle').value,
+        departamento: dp,
+        ciudad: cd,
+        direccion: document.getElementById('propDireccion').value,
+        location: `${cd}, ${dp}`,
+        price: np,
+        currency: document.getElementById('propCurrency').value,
+        type: ty,
+        propertyType: ty === 'sale' ? document.getElementById('propPropertyType').value : 'common',
+        bedrooms: parseInt(document.getElementById('propBedrooms').value) || 0,
+        bathrooms: parseInt(document.getElementById('propBathrooms').value) || 0,
+        totalArea: parseInt(document.getElementById('propTotalArea').value) || 0,
+        builtArea: parseInt(document.getElementById('propBuiltArea').value) || 0,
+        commonExpenses: parseInt(document.getElementById('propExpenses').value) || 0,
+        garage: document.getElementById('propGarage').value,
+        status: document.getElementById('propStatus').value,
+        images: iu,
+        description: document.getElementById('propDescription').value,
+        ownerWhatsapp: document.getElementById('propWhatsapp').value || userProfile.whatsapp,
+        updatedAt: new Date().toISOString()
+      };
+      if (ei && pp && parseInt(pp) !== np) {
+        pd.previousPrice = parseInt(pp);
+        pd.priceChangedAt = new Date().toISOString()
+      }
+      if (ei) {
+        await db.collection('properties').doc(ei).update(pd);
+        showToast('Propiedad actualizada', 'Los cambios han sido guardados', 'fa-check')
+      } else {
+        pd.ownerId = currentUser.uid;
+        pd.ownerName = userProfile.name;
+        pd.views = 0;
+        pd.createdAt = new Date().toISOString();
+        await db.collection('properties').doc(pi).set(pd);
+        showToast('Propiedad publicada', 'Tu propiedad ya está visible', 'fa-home')
+      }
+      closeModal('propertyModal');
+      resetPropertyForm()
+    } catch (err) {
+      console.error('Error saving property:', err);
+      er.textContent = 'Error: ' + err.message;
+      er.classList.remove('hidden')
+    } finally {
+      b.disabled = false;
+      b.innerHTML = "<i class=\"fas fa-check\"></i> Publicar Propiedad"
+    }
+  }
+  let clients = [];
+
+  function isAdminUser() {
+    return !!(userProfile && userProfile.email && userProfile.email.toLowerCase() === ADMIN_EMAIL)
+  }
+  async function loadClients() {
+    if (!currentUser) {
+      clients = [];
+      return
+    }
+    try {
+      let q;
+      if (isAdminUser()) {
+        q = await db.collection('clients').get()
+      } else {
+        q = await db.collection('clients').where('ownerId', '==', currentUser.uid).get()
+      }
+      clients = q.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+      renderClients()
+    } catch (e) {
+      console.error('Error cargando clientes:', e)
+    }
+  }
+
+  function showCRM() {
+    if (!currentUser) {
+      openModal('loginModal');
+      return
+    }
+    document.getElementById('mainContent').classList.add('hidden');
+    document.getElementById('adminPanel').classList.add('hidden');
+    document.getElementById('profilePage').classList.add('hidden');
+    document.getElementById('crmPage').classList.remove('hidden');
+    window.location.hash = 'clientes';
+    const sub = document.getElementById('crmSubtitle');
+    if (sub) sub.textContent = isAdminUser() ? 'Todos los clientes de la inmobiliaria' : 'Gestiona tus clientes y prospectos';
+    loadClients()
+  }
+
+  function renderClients() {
+    const g = document.getElementById('crmGrid');
+    if (!g) return;
+    const term = (document.getElementById('clientSearch').value || '').toLowerCase(),
+      sf = document.getElementById('clientStatusFilter').value,
+      inf = document.getElementById('clientInterestFilter').value;
+    const st = {
+      total: clients.length,
+      nuevo: clients.filter(c => c.status === 'nuevo').length,
+      activo: clients.filter(c => c.status === 'activo').length,
+      cerrado: clients.filter(c => c.status === 'cerrado').length
+    };
+    const se = document.getElementById('crmStats');
+    if (se) se.innerHTML = `<div class="crm-stat"><div class="crm-stat-num">${st.total}</div><div class="crm-stat-label">Total clientes</div></div><div class="crm-stat"><div class="crm-stat-num">${st.nuevo}</div><div class="crm-stat-label">Nuevos</div></div><div class="crm-stat"><div class="crm-stat-num">${st.activo}</div><div class="crm-stat-label">Activos</div></div><div class="crm-stat"><div class="crm-stat-num">${st.cerrado}</div><div class="crm-stat-label">Cerrados</div></div>`;
+    let list = clients.filter(c => {
+      const m = !term || (c.name || '').toLowerCase().includes(term) || (c.phone || '').includes(term) || (c.email || '').toLowerCase().includes(term);
+      return m && (!sf || c.status === sf) && (!inf || c.interest === inf)
+    });
+    list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    if (list.length === 0) {
+      g.innerHTML = `<div class="crm-empty" style="grid-column:1/-1"><i class="fas fa-user-friends"></i><h3>${clients.length===0?'Aún no tienes clientes':'Sin resultados'}</h3><p>${clients.length===0?'Agrega tu primer cliente con el botón Nuevo Cliente':'Probá con otros filtros de búsqueda'}</p></div>`;
+      return
+    }
+    const il = {
+      comprar: '<i class="fas fa-key"></i> Quiere comprar',
+      alquilar: '<i class="fas fa-home"></i> Busca alquilar',
+      vender: '<i class="fas fa-tag"></i> Quiere vender'
+    };
+    g.innerHTML = list.map(c => {
+      const ini = (c.name || '?').charAt(0).toUpperCase(),
+        ph = (c.phone || '').replace(/\D/g, ''),
+        so = isAdminUser() && c.ownerName;
+      return `<div class="client-card"><div class="client-card-top"><div class="client-avatar">${ini}</div><div class="client-card-name"><h3>${c.name||'Sin nombre'}</h3>${so?`<div class="client-owner"><i class="fas fa-user-tie"></i> ${c.ownerName}</div>`:''}</div><span class="client-status ${c.status||'nuevo'}">${c.status||'nuevo'}</span></div>${c.interest&&il[c.interest]?`<div class="client-interest-tag">${il[c.interest]}</div>`:''}<div class="client-meta"><div class="client-meta-row"><i class="fas fa-phone"></i> ${c.phone||'—'}</div>${c.email?`<div class="client-meta-row"><i class="fas fa-envelope"></i> ${c.email}</div>`:''}${c.budget?`<div class="client-meta-row"><i class="fas fa-coins"></i> ${c.budget}</div>`:''}</div>${c.notes?`<div class="client-notes-preview">${c.notes}</div>`:''}<div class="client-actions">${ph?`<a class="ca-wa" href="https://wa.me/${ph}" target="_blank"><i class="fab fa-whatsapp"></i> WhatsApp</a>`:''}<button class="ca-edit" onclick="openClientModal('${c.id}')"><i class="fas fa-edit"></i> Editar</button><button class="ca-del" onclick="deleteClient('${c.id}')"><i class="fas fa-trash"></i></button></div></div>`
+    }).join('')
+  }
+
+  function openClientModal(id) {
+    const f = document.getElementById('clientForm');
+    f.reset();
+    document.getElementById('editingClientId').value = id || '';
+    document.getElementById('clientError').classList.add('hidden');
+    document.getElementById('clientModalTitle').textContent = id ? 'Editar Cliente' : 'Nuevo Cliente';
+    if (id) {
+      const c = clients.find(x => x.id === id);
+      if (c) {
+        document.getElementById('clientName').value = c.name || '';
+        document.getElementById('clientPhone').value = c.phone || '';
+        document.getElementById('clientEmail').value = c.email || '';
+        document.getElementById('clientInterest').value = c.interest || '';
+        document.getElementById('clientStatus').value = c.status || 'nuevo';
+        document.getElementById('clientBudget').value = c.budget || '';
+        document.getElementById('clientNotes').value = c.notes || ''
+      }
+    }
+    openModal('clientModal')
+  }
+  async function handleSaveClient(e) {
+    e.preventDefault();
+    if (!currentUser) return;
+    const b = document.getElementById('clientBtn'),
+      er = document.getElementById('clientError'),
+      id = document.getElementById('editingClientId').value;
+    b.disabled = true;
+    b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+    er.classList.add('hidden');
+    try {
+      const data = {
+        name: document.getElementById('clientName').value.trim(),
+        phone: document.getElementById('clientPhone').value.trim(),
+        email: document.getElementById('clientEmail').value.trim(),
+        interest: document.getElementById('clientInterest').value,
+        status: document.getElementById('clientStatus').value,
+        budget: document.getElementById('clientBudget').value.trim(),
+        notes: document.getElementById('clientNotes').value.trim(),
+        updatedAt: new Date().toISOString()
+      };
+      if (id) {
+        await db.collection('clients').doc(id).update(data);
+        showToast('Cliente actualizado', 'Los cambios se guardaron', 'fa-user-check')
+      } else {
+        data.ownerId = currentUser.uid;
+        data.ownerName = userProfile.name || '';
+        data.createdAt = new Date().toISOString();
+        await db.collection('clients').add(data);
+        showToast('Cliente agregado', 'Nuevo cliente registrado', 'fa-user-plus')
+      }
+      closeModal('clientModal');
+      await loadClients()
+    } catch (err) {
+      console.error('Error guardando cliente:', err);
+      er.textContent = 'Error: ' + err.message;
+      er.classList.remove('hidden')
+    } finally {
+      b.disabled = false;
+      b.innerHTML = '<i class="fas fa-save"></i> Guardar Cliente'
+    }
+  }
+  async function deleteClient(id) {
+    if (!confirm('¿Eliminar este cliente? Esta acción no se puede deshacer.')) return;
+    try {
+      await db.collection('clients').doc(id).delete();
+      showToast('Cliente eliminado', '', 'fa-trash');
+      await loadClients()
+    } catch (err) {
+      alert('Error al eliminar: ' + err.message)
+    }
+  }
+  initDepartamentos();
+  loadProperties();
+  handleHash();

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestionar propiedad | MALAVE</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <meta name="theme-color" content="#243447">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body{background:var(--gray-50)}
+    .ppf-header{background:var(--white);box-shadow:var(--shadow-sm);position:sticky;top:0;z-index:100}
+    .ppf-header-inner{max-width:760px;margin:0 auto;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+    .ppf-back{display:inline-flex;align-items:center;gap:8px;color:var(--gray-600);font-size:14px;font-weight:500;padding:9px 18px;border:1px solid var(--gray-300);border-radius:var(--radius-full);transition:all .25s;cursor:pointer;background:none}
+    .ppf-back:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .ppf-wrap{max-width:760px;margin:0 auto;padding:32px 24px 60px}
+    .ppf-card{background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius-xl);padding:36px;box-shadow:var(--shadow-sm)}
+    .ppf-card h1{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:700;color:var(--primary);margin-bottom:8px}
+    .ppf-card .ppf-sub{color:var(--gray-500);margin-bottom:28px}
+    .ppf-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;color:var(--gray-500);padding:40px 20px}
+    .ppf-state i{font-size:60px;margin-bottom:22px;opacity:.4}
+    .ppf-state h2{font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--gray-700);margin-bottom:10px}
+    .ppf-state a{display:inline-block;margin-top:20px;background:var(--primary);color:#fff;padding:12px 28px;border-radius:var(--radius-full);font-weight:500}
+    .ppf-spinner{width:48px;height:48px;border:4px solid var(--gray-200);border-top-color:var(--primary);border-radius:50%;animation:ppfspin 1s linear infinite;margin-bottom:20px}
+    @keyframes ppfspin{to{transform:rotate(360deg)}}
+    @media(max-width:640px){.ppf-card{padding:22px}}
+  </style>
+</head>
+<body>
+  <header class="ppf-header">
+    <div class="ppf-header-inner">
+      <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
+      <button class="ppf-back" onclick="goBack()"><i class="fas fa-arrow-left"></i> Volver</button>
+    </div>
+  </header>
+
+  <div id="ppfLoading" class="ppf-state"><div class="ppf-spinner"></div><p>Verificando sesión...</p></div>
+
+  <div id="ppfAuth" class="ppf-state" style="display:none">
+    <i class="fas fa-lock"></i>
+    <h2 id="ppfAuthTitle">Acceso para agentes</h2>
+    <p id="ppfAuthMsg">Iniciá sesión para gestionar propiedades.</p>
+    <a href="index.html"><i class="fas fa-arrow-left"></i> Ir al inicio</a>
+  </div>
+
+  <div id="ppfErr" class="ppf-state" style="display:none">
+    <i class="fas fa-triangle-exclamation"></i>
+    <h2>No disponible</h2>
+    <p id="ppfErrMsg"></p>
+    <a href="index.html"><i class="fas fa-arrow-left"></i> Ir al inicio</a>
+  </div>
+
+  <div class="ppf-wrap" id="ppfFormWrap" style="display:none">
+    <div class="ppf-card">
+      <h1 id="ppfTitle">Nueva propiedad</h1>
+      <p class="ppf-sub">Completá los datos de la propiedad. Los campos con * son obligatorios.</p>
+      <div id="propertyError" class="form-error hidden"></div>
+      <form onsubmit="handleSaveProperty(event)" id="propertyForm">
+        <input type="hidden" id="editingPropertyId" value=""><input type="hidden" id="previousPrice" value="">
+        <div class="form-group"><label>Título *</label><input type="text" id="propTitle" required placeholder="Ej: Apartamento moderno"></div>
+        <div class="form-row"><div class="form-group"><label>Departamento *</label><select id="propDepartamento" required onchange="updateCiudades()"><option value="">Seleccionar...</option></select></div><div class="form-group"><label>Ciudad/Barrio *</label><select id="propCiudad" required><option value="">Primero selecciona departamento</option></select></div></div>
+        <div class="form-group"><label>Dirección (opcional)</label><input type="text" id="propDireccion" placeholder="Ej: Av. 18 de Julio 1234"></div>
+        <div class="form-row-3"><div class="form-group"><label>Precio *</label><input type="number" id="propPrice" required placeholder="150000"></div><div class="form-group"><label>Moneda</label><select id="propCurrency"><option value="USD">USD</option><option value="UYU">UYU</option></select></div></div>
+        <div class="form-row"><div class="form-group"><label>Tipo de Operación</label><select id="propType" onchange="togglePropertyType()"><option value="sale">Venta</option><option value="rent">Alquiler</option></select></div><div class="form-group" id="propertyTypeGroup"><label>Tipo de Propiedad</label><select id="propPropertyType"><option value="common">Padrón Común</option><option value="ph">PH</option></select></div></div>
+        <div class="form-row-4"><div class="form-group"><label>Habitaciones</label><input type="number" id="propBedrooms" placeholder="3" min="0"></div><div class="form-group"><label>Baños</label><input type="number" id="propBathrooms" placeholder="2" min="0"></div><div class="form-group"><label>Área Total m² *</label><input type="number" id="propTotalArea" required placeholder="100"></div><div class="form-group"><label>Área Edificada m² *</label><input type="number" id="propBuiltArea" required placeholder="80"></div></div>
+        <div class="form-row"><div class="form-group"><label>Gastos Comunes</label><input type="number" id="propExpenses" placeholder="150"></div><div class="form-group"><label>¿Tiene Garaje?</label><select id="propGarage"><option value="no">No</option><option value="yes">Sí</option></select></div></div>
+        <div class="form-group"><label>Estado de la Propiedad</label><div class="status-selector" id="statusSelector"><div class="status-option available active" onclick="selectStatus('available')"><i class="fas fa-check-circle"></i> Disponible</div><div class="status-option reserved" onclick="selectStatus('reserved')"><i class="fas fa-clock"></i> Reservada</div><div class="status-option sold" onclick="selectStatus('sold')"><i class="fas fa-handshake"></i> Vendida</div><div class="status-option rented" onclick="selectStatus('rented')"><i class="fas fa-key"></i> Alquilada</div><div class="status-option archived" onclick="selectStatus('archived')"><i class="fas fa-archive"></i> Archivada</div></div><input type="hidden" id="propStatus" value="available"></div>
+        <div class="form-group"><label>Fotos * <small style="color:var(--gray-500);font-weight:normal">(arrastra para reordenar, máx 5MB cada una)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div></div>
+        <div class="form-group"><label>Descripción</label><textarea id="propDescription" rows="3" placeholder="Describe la propiedad..."></textarea></div>
+        <div class="form-group"><label>WhatsApp de Contacto</label><input type="tel" id="propWhatsapp" placeholder="+598 99 123 456"></div>
+        <button type="submit" class="btn-submit" id="propertyBtn"><i class="fas fa-check"></i> Publicar Propiedad</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth(), db = firebase.firestore(), storage = firebase.storage();
+    const ADMIN_EMAIL = "fabricio9061@gmail.com";
+
+    let currentUser = null, userProfile = null, selectedImages = [], draggedImageIndex = null, editingProperty = null;
+
+    const uruguayData = {
+      "Montevideo": ["Aguada", "Aires Puros", "Atahualpa", "Bañados de Carrasco", "Barrio Sur", "Bella Italia", "Bella Vista", "Belvedere", "Brazo Oriental", "Buceo", "Capurro", "Carrasco", "Carrasco Norte", "Casabó", "Casavalle", "Centro", "Cerrito de la Victoria", "Cerro", "Ciudad Vieja", "Colón", "Conciliación", "Cordón", "Flor de Maroñas", "Goes", "Ituzaingó", "Jacinto Vera", "Jardines del Hipódromo", "La Blanqueada", "La Comercial", "La Figurita", "La Paloma", "La Teja", "Larrañaga", "Las Acacias", "Las Canteras", "Lezica", "Malvín", "Malvín Norte", "Manga", "Maroñas", "Melilla", "Mercado Modelo", "Nuevo París", "Palermo", "Parque Batlle", "Parque Rodó", "Paso de la Arena", "Paso de las Duranas", "Paso Molino", "Peñarol", "Piedras Blancas", "Pocitos", "Pocitos Nuevo", "Prado", "Punta Carretas", "Punta Gorda", "Punta Rieles", "Reducto", "Sayago", "Toledo Chico", "Tres Cruces", "Tres Ombúes", "Unión", "Villa Dolores", "Villa Española", "Villa García", "Villa Muñoz", "Vista Linda"].sort(),
+      "Canelones": ["Ciudad de la Costa", "Las Piedras", "Pando", "Canelones", "Santa Lucía", "Progreso", "Atlántida", "Salinas", "Parque del Plata", "Solymar", "Shangrilá", "El Pinar", "Lagomar", "La Floresta"],
+      "Maldonado": ["Maldonado", "Punta del Este", "San Carlos", "Piriápolis", "Pan de Azúcar", "La Barra", "José Ignacio", "Manantiales", "Punta Ballena"],
+      "Colonia": ["Colonia del Sacramento", "Carmelo", "Juan Lacaze", "Nueva Helvecia", "Rosario", "Nueva Palmira"],
+      "Salto": ["Salto", "Daymán", "Termas del Daymán", "Termas del Arapey"],
+      "Paysandú": ["Paysandú", "Guichón", "Termas de Guaviyú"],
+      "Río Negro": ["Fray Bentos", "Young"],
+      "Soriano": ["Mercedes", "Dolores"],
+      "San José": ["San José de Mayo", "Ciudad del Plata", "Libertad"],
+      "Florida": ["Florida", "Sarandí Grande"],
+      "Flores": ["Trinidad"],
+      "Durazno": ["Durazno", "Sarandí del Yí"],
+      "Tacuarembó": ["Tacuarembó", "Paso de los Toros"],
+      "Rivera": ["Rivera", "Tranqueras"],
+      "Artigas": ["Artigas", "Bella Unión"],
+      "Cerro Largo": ["Melo", "Río Branco"],
+      "Lavalleja": ["Minas"],
+      "Rocha": ["Rocha", "Chuy", "Castillos", "La Paloma", "La Pedrera", "Cabo Polonio", "Punta del Diablo"],
+      "Treinta y Tres": ["Treinta y Tres", "Vergara"]
+    };
+
+    function goBack() {
+      if (editingProperty) window.location.href = 'propiedad.html?id=' + editingProperty.id;
+      else window.location.href = 'index.html';
+    }
+
+    function showState(which, opts = {}) {
+      ['ppfLoading', 'ppfAuth', 'ppfErr', 'ppfFormWrap'].forEach(id => document.getElementById(id).style.display = 'none');
+      document.getElementById(which).style.display = which === 'ppfFormWrap' ? 'block' : 'flex';
+      if (which === 'ppfAuth') { if (opts.title) document.getElementById('ppfAuthTitle').textContent = opts.title; if (opts.msg) document.getElementById('ppfAuthMsg').textContent = opts.msg }
+      if (which === 'ppfErr' && opts.msg) document.getElementById('ppfErrMsg').textContent = opts.msg;
+    }
+
+    function initDepartamentos() {
+      const s = document.getElementById('propDepartamento');
+      s.innerHTML = '<option value="">Seleccionar...</option>';
+      Object.keys(uruguayData).sort().forEach(d => { s.innerHTML += `<option value="${d}">${d}</option>` })
+    }
+    function updateCiudades() {
+      const d = document.getElementById('propDepartamento').value, c = document.getElementById('propCiudad');
+      c.innerHTML = '<option value="">Seleccionar...</option>';
+      if (d && uruguayData[d]) uruguayData[d].forEach(ciudad => { c.innerHTML += `<option value="${ciudad}">${ciudad}</option>` })
+    }
+    function selectStatus(s) {
+      document.querySelectorAll('.status-option').forEach(o => o.classList.remove('active'));
+      document.querySelector(`.status-option.${s}`).classList.add('active');
+      document.getElementById('propStatus').value = s
+    }
+    function togglePropertyType() {
+      document.getElementById('propertyTypeGroup').style.display = document.getElementById('propType').value === 'rent' ? 'none' : 'block'
+    }
+    function compressImageForPreview(f, m = 200) {
+      return new Promise(r => { const rd = new FileReader(); rd.onload = e => { const i = new Image(); i.onload = () => { const c = document.createElement('canvas'); let w = i.width, h = i.height; if (w > m) { h = (h * m) / w; w = m } c.width = w; c.height = h; c.getContext('2d').drawImage(i, 0, 0, w, h); r(c.toDataURL('image/jpeg', .6)) }; i.src = e.target.result }; rd.readAsDataURL(f) })
+    }
+    function compressImageToBlob(f, m = 1200, q = .8) {
+      return new Promise(r => { const rd = new FileReader(); rd.onload = e => { const i = new Image(); i.onload = () => { const c = document.createElement('canvas'); let w = i.width, h = i.height; if (w > m) { h = (h * m) / w; w = m } c.width = w; c.height = h; c.getContext('2d').drawImage(i, 0, 0, w, h); c.toBlob(r, 'image/jpeg', q) }; i.src = e.target.result }; rd.readAsDataURL(f) })
+    }
+    async function uploadImageToStorage(f, p, i) {
+      const n = `${Date.now()}_${i}_${f.name.replace(/[^a-zA-Z0-9.]/g,'_')}`, r = storage.ref(`properties/${p}/${n}`), b = await compressImageToBlob(f, 1200, .8), u = await r.put(b);
+      return await u.ref.getDownloadURL()
+    }
+    async function addImagesToPreview(fs) {
+      for (const f of fs) { if (f.size > 5 * 1024 * 1024) { alert(`La imagen ${f.name} excede 5MB`); continue } const pr = await compressImageForPreview(f); selectedImages.push({ preview: pr, file: f, existing: false }); renderImagePreviews() }
+    }
+    function handleImageSelect(e) { addImagesToPreview(Array.from(e.target.files)); e.target.value = '' }
+    function renderImagePreviews() {
+      document.getElementById('imagePreviewGrid').innerHTML = selectedImages.map((im, i) => `<div class="image-preview-item ${i===0?'main':''}" draggable="true" ondragstart="handleDragStart(event,${i})" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropImage(event,${i})" ondragend="handleDragEnd(event)"><img src="${im.preview}" alt=""><div class="drag-handle"><i class="fas fa-grip-vertical"></i></div><div class="remove-image" onclick="event.stopPropagation();removeImage(${i})"><i class="fas fa-times"></i></div></div>`).join('')
+    }
+    function removeImage(i) { selectedImages.splice(i, 1); renderImagePreviews() }
+    function handleDragStart(e, i) { draggedImageIndex = i; e.target.classList.add('dragging') }
+    function handleDragOver(e) { e.preventDefault() }
+    function handleDragEnter(e) { e.preventDefault(); if (e.target.closest('.image-preview-item')) e.target.closest('.image-preview-item').classList.add('drag-over') }
+    function handleDragLeave(e) { if (e.target.closest('.image-preview-item')) e.target.closest('.image-preview-item').classList.remove('drag-over') }
+    function handleDropImage(e, ti) { e.preventDefault(); const it = e.target.closest('.image-preview-item'); if (it) it.classList.remove('drag-over'); if (draggedImageIndex !== null && draggedImageIndex !== ti) { const di = selectedImages[draggedImageIndex]; selectedImages.splice(draggedImageIndex, 1); selectedImages.splice(ti, 0, di); renderImagePreviews() } }
+    function handleDragEnd(e) { e.target.classList.remove('dragging'); draggedImageIndex = null; document.querySelectorAll('.image-preview-item').forEach(it => it.classList.remove('drag-over')) }
+    function updateUploadProgress(c, t) {
+      const p = document.getElementById('uploadProgress'), f = document.getElementById('uploadProgressFill'), tx = document.getElementById('uploadProgressText');
+      p.classList.remove('hidden'); const pc = Math.round((c / t) * 100); f.style.width = `${pc}%`; tx.textContent = `Subiendo imagen ${c} de ${t}...`
+    }
+    function showToast(t, m, i = 'fa-bell') {
+      const c = document.getElementById('toastContainer'), toast = document.createElement('div');
+      toast.className = 'toast'; toast.innerHTML = `<div class="toast-icon"><i class="fas ${i}"></i></div><div class="toast-content"><strong>${t}</strong><p>${m}</p></div>`;
+      c.appendChild(toast); setTimeout(() => { toast.classList.add('hiding'); setTimeout(() => toast.remove(), 300) }, 5000)
+    }
+    function loadPropertyForEdit(p) {
+      document.getElementById('ppfTitle').textContent = 'Editar propiedad';
+      document.getElementById('propertyBtn').innerHTML = '<i class="fas fa-save"></i> Guardar Cambios';
+      document.getElementById('editingPropertyId').value = p.id;
+      document.getElementById('previousPrice').value = p.price || '';
+      document.getElementById('propTitle').value = p.title || '';
+      document.getElementById('propDepartamento').value = p.departamento || '';
+      updateCiudades();
+      setTimeout(() => { document.getElementById('propCiudad').value = p.ciudad || '' }, 100);
+      document.getElementById('propDireccion').value = p.direccion || '';
+      document.getElementById('propPrice').value = p.price || '';
+      document.getElementById('propCurrency').value = p.currency || 'USD';
+      document.getElementById('propType').value = p.type || 'sale';
+      togglePropertyType();
+      document.getElementById('propPropertyType').value = p.propertyType || 'common';
+      document.getElementById('propBedrooms').value = p.bedrooms || '';
+      document.getElementById('propBathrooms').value = p.bathrooms || '';
+      document.getElementById('propTotalArea').value = p.totalArea || '';
+      document.getElementById('propBuiltArea').value = p.builtArea || '';
+      document.getElementById('propExpenses').value = p.commonExpenses || '';
+      document.getElementById('propGarage').value = p.garage || 'no';
+      document.getElementById('propDescription').value = p.description || '';
+      document.getElementById('propWhatsapp').value = p.ownerWhatsapp || '';
+      selectStatus(p.status || 'available');
+      if (p.images && p.images.length > 0) { selectedImages = p.images.map(url => ({ preview: url, url: url, existing: true })); renderImagePreviews() }
+    }
+    async function handleSaveProperty(e) {
+      e.preventDefault();
+      if (!currentUser) { alert('Debes iniciar sesión'); return }
+      if (selectedImages.length === 0) { alert('Sube al menos una imagen'); return }
+      const b = document.getElementById('propertyBtn'), er = document.getElementById('propertyError'), ei = document.getElementById('editingPropertyId').value, pp = document.getElementById('previousPrice').value;
+      b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; er.classList.add('hidden');
+      try {
+        const pi = ei || db.collection('properties').doc().id, iu = [];
+        const itu = selectedImages.filter(im => !im.existing); let uc = 0; const tt = itu.length;
+        for (let i = 0; i < selectedImages.length; i++) {
+          const im = selectedImages[i];
+          if (im.existing) { iu.push(im.url) } else { uc++; updateUploadProgress(uc, tt); const url = await uploadImageToStorage(im.file, pi, i); iu.push(url) }
+        }
+        const ty = document.getElementById('propType').value, dp = document.getElementById('propDepartamento').value, cd = document.getElementById('propCiudad').value, np = parseInt(document.getElementById('propPrice').value);
+        const pd = {
+          title: document.getElementById('propTitle').value, departamento: dp, ciudad: cd, direccion: document.getElementById('propDireccion').value, location: `${cd}, ${dp}`,
+          price: np, currency: document.getElementById('propCurrency').value, type: ty, propertyType: ty === 'sale' ? document.getElementById('propPropertyType').value : 'common',
+          bedrooms: parseInt(document.getElementById('propBedrooms').value) || 0, bathrooms: parseInt(document.getElementById('propBathrooms').value) || 0,
+          totalArea: parseInt(document.getElementById('propTotalArea').value) || 0, builtArea: parseInt(document.getElementById('propBuiltArea').value) || 0,
+          commonExpenses: parseInt(document.getElementById('propExpenses').value) || 0, garage: document.getElementById('propGarage').value, status: document.getElementById('propStatus').value,
+          images: iu, description: document.getElementById('propDescription').value, ownerWhatsapp: document.getElementById('propWhatsapp').value || userProfile.whatsapp, updatedAt: new Date().toISOString()
+        };
+        if (ei && pp && parseInt(pp) !== np) { pd.previousPrice = parseInt(pp); pd.priceChangedAt = new Date().toISOString() }
+        if (ei) {
+          await db.collection('properties').doc(ei).update(pd);
+          showToast('Propiedad actualizada', 'Redirigiendo...', 'fa-check');
+        } else {
+          pd.ownerId = currentUser.uid; pd.ownerName = userProfile.name; pd.views = 0; pd.createdAt = new Date().toISOString();
+          await db.collection('properties').doc(pi).set(pd);
+          showToast('Propiedad publicada', 'Redirigiendo...', 'fa-home');
+        }
+        setTimeout(() => { window.location.href = 'propiedad.html?id=' + (ei || pi) }, 1200);
+      } catch (err) {
+        console.error('Error saving property:', err);
+        er.textContent = 'Error: ' + err.message; er.classList.remove('hidden');
+        b.disabled = false; b.innerHTML = ei ? '<i class="fas fa-save"></i> Guardar Cambios' : '<i class="fas fa-check"></i> Publicar Propiedad'
+      }
+    }
+
+    // Arranque: verificar sesión y modo (crear/editar)
+    auth.onAuthStateChanged(async u => {
+      if (!u) { showState('ppfAuth'); return }
+      currentUser = u;
+      try { const d = await db.collection('users').doc(u.uid).get(); userProfile = d.exists ? d.data() : {} } catch (e) { userProfile = {} }
+      const isAdmin = (userProfile.email || u.email || '').toLowerCase() === ADMIN_EMAIL;
+      if (userProfile.status !== 'approved' && !isAdmin) { showState('ppfAuth', { title: 'Cuenta pendiente', msg: 'Tu cuenta está pendiente de aprobación.' }); return }
+      initDepartamentos();
+      const id = new URLSearchParams(location.search).get('id');
+      if (id) {
+        try {
+          const pd = await db.collection('properties').doc(id).get();
+          if (!pd.exists) { showState('ppfErr', { msg: 'La propiedad no existe o fue eliminada.' }); return }
+          const p = { id: pd.id, ...pd.data() };
+          if (p.ownerId !== u.uid && !isAdmin) { showState('ppfErr', { msg: 'No tenés permiso para editar esta propiedad.' }); return }
+          editingProperty = p;
+          showState('ppfFormWrap');
+          loadPropertyForEdit(p);
+        } catch (e) { console.error(e); showState('ppfErr', { msg: 'Error al cargar la propiedad.' }) }
+      } else {
+        showState('ppfFormWrap');
+        document.getElementById('ppfTitle').textContent = 'Nueva propiedad';
+        if (userProfile.whatsapp) document.getElementById('propWhatsapp').value = userProfile.whatsapp;
+        selectStatus('available');
+      }
+    });
+  </script>
+</body>
+</html>
