@@ -234,7 +234,7 @@
     }
   }
   async function loadUsers() {
-    const s = await db.collection('users').get();
+    const s = await db.collection('users').where('status', '==', 'approved').get();
     s.docs.forEach(d => {
       allUsers[d.id] = d.data()
     })
