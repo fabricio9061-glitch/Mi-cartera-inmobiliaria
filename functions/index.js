@@ -117,21 +117,43 @@ async function getValidToken() {
 // =====================================================================
 // Helper: arma el aviso de Mercado Libre a partir de la propiedad
 // =====================================================================
-async function buildItem(p, token) {
-  // Intentar predecir la categoría a partir del título
-  let categoryId = null;
+// Busca la categoría correcta dentro de Inmuebles (MLU1459), navegando el árbol
+// hasta una categoría hoja, según el tipo de propiedad y la operación.
+async function getRealEstateCategory(p, token) {
+  const typeMap = { house: "casas", common: "apartamento", ph: "apartamento" };
+  const want = typeMap[p.propertyType] || "casas";
+  const opWord = p.type === "rent" ? "alquiler" : "venta";
+  const headers = { Authorization: `Bearer ${token}` };
   try {
-    const q = encodeURIComponent(p.title || "inmueble");
-    const dd = await axios.get(`${API}/sites/${SITE}/domain_discovery/search?limit=1&q=${q}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (Array.isArray(dd.data) && dd.data[0]?.category_id) categoryId = dd.data[0].category_id;
+    const root = await axios.get(`${API}/categories/MLU1459`, { headers });
+    const children = root.data.children_categories || [];
+    let cat =
+      children.find((c) => c.name.toLowerCase().includes(want)) ||
+      children.find((c) => c.name.toLowerCase().includes("casas")) ||
+      children[0];
+    if (!cat) return null;
+    let catId = cat.id;
+    // Bajar hasta una categoría hoja (sin subcategorías). Si hay subcategorías de
+    // venta/alquiler, elegir la que corresponda a la operación.
+    for (let i = 0; i < 4; i++) {
+      const cr = await axios.get(`${API}/categories/${catId}`, { headers });
+      const sub = cr.data.children_categories || [];
+      if (sub.length === 0) break;
+      const next = sub.find((c) => c.name.toLowerCase().includes(opWord)) || sub[0];
+      catId = next.id;
+    }
+    return catId;
   } catch (e) {
-    logger.warn("No se pudo predecir categoría:", e.response?.data || e.message);
+    logger.warn("Error obteniendo categoría de inmuebles:", e.response?.data || e.message);
+    return null;
   }
-  // Fallback a las categorías configuradas
+}
+
+async function buildItem(p, token) {
+  // Elegir la categoría correcta dentro de Inmuebles (MLU1459)
+  let categoryId = await getRealEstateCategory(p, token);
   if (!categoryId) categoryId = p.type === "rent" ? CAT_RENT : CAT_SALE;
-  if (!categoryId) throw new Error("No se pudo determinar la categoría de Mercado Libre. Definí ML_CAT_SALE / ML_CAT_RENT en .env.");
+  if (!categoryId) throw new Error("No se pudo determinar la categoría de inmuebles de Mercado Libre.");
 
   const operation = p.type === "rent" ? "Alquiler" : "Venta";
   const propTypeMap = { common: "Apartamento", ph: "PH", house: "Casa" };
