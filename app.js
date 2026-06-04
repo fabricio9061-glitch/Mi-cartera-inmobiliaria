@@ -239,7 +239,7 @@
       allUsers[d.id] = d.data()
     })
   }
-  loadUsers();
+  const _usersReady = loadUsers();
 
   function showToast(t, m, i = 'fa-bell') {
     const c = document.getElementById('toastContainer'),
@@ -1015,6 +1015,18 @@
     }
   }
 
+  // Datos del agente dueño de una propiedad. Usa el perfil cargado (allUsers) y,
+  // si no está disponible, cae en los datos guardados en la propiedad.
+  function getOwnerInfo(p) {
+    const u = allUsers[p.ownerId] || {};
+    return {
+      ...u,
+      name: u.name || p.ownerName || 'Usuario',
+      profilePhoto: u.profilePhoto || p.ownerPhoto || null,
+      whatsapp: u.whatsapp || p.ownerWhatsapp || null
+    }
+  }
+
   function formatPrice(p, c) {
     return `${c==='UYU'?'$U':'US$'} ${(p||0).toLocaleString()}`
   }
@@ -1057,7 +1069,7 @@
       return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     });
     g.innerHTML = sorted.map(p => {
-      const o = getUserInfo(p.ownerId),
+      const o = getOwnerInfo(p),
         oi = (o.name || 'U').charAt(0).toUpperCase(),
         c = p.currency || 'USD',
         l = getLocationString(p),
@@ -1344,7 +1356,7 @@
       tc.innerHTML = im.map((img, i) => `<div class="detail-thumb ${i===0?'active':''}" onclick="setDetailImage(${i})"><img src="${img}" alt=""></div>`).join('');
       tc.style.display = 'flex'
     } else tc.style.display = 'none';
-    const o = getUserInfo(p.ownerId),
+    const o = getOwnerInfo(p),
       oi = (o.name || 'U').charAt(0).toUpperCase();
     document.getElementById('detailOwnerName').textContent = o.name || 'Usuario';
     document.getElementById('detailOwnerAvatar').innerHTML = o.profilePhoto ? `<img src="${o.profilePhoto}" alt="">` : oi;
@@ -1529,7 +1541,7 @@
   function contactWhatsapp(id) {
     const p = properties.find(pr => pr.id === id);
     if (!p) return;
-    const o = getUserInfo(p.ownerId),
+    const o = getOwnerInfo(p),
       ph = (p.ownerWhatsapp || o.whatsapp || '59899000000').replace(/\D/g, ''),
       m = `Hola, me interesa: ${p.title} - ${formatPrice(p.price,p.currency||'USD')} en ${getLocationString(p)}`;
     window.open(`https://wa.me/${ph}?text=${encodeURIComponent(m)}`, '_blank')
@@ -1578,7 +1590,7 @@
         c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${u.profilePhoto}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${u.name||'Sin nombre'} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${u.email||''}</p><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="showProfile('${u.id}')"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
       } else if (tb === 'properties') {
         c.innerHTML = properties.length === 0 ? '<div class="empty-state"><i class="fas fa-building"></i><h3>Sin propiedades</h3></div>' : properties.map(p => {
-          const o = getUserInfo(p.ownerId),
+          const o = getOwnerInfo(p),
             st = p.status || 'available',
             stLabels = {
               available: '✓ Disponible',
@@ -2050,5 +2062,5 @@
     }
   }
   initDepartamentos();
-  loadProperties();
+  _usersReady.catch(() => {}).then(() => loadProperties());
   handleHash();
