@@ -69,6 +69,42 @@
         <div class="form-group"><label>Estado de la Propiedad</label><div class="status-selector" id="statusSelector"><div class="status-option available active" onclick="selectStatus('available')"><i class="fas fa-check-circle"></i> Disponible</div><div class="status-option reserved" onclick="selectStatus('reserved')"><i class="fas fa-clock"></i> Reservada</div><div class="status-option sold" onclick="selectStatus('sold')"><i class="fas fa-handshake"></i> Vendida</div><div class="status-option rented" onclick="selectStatus('rented')"><i class="fas fa-key"></i> Alquilada</div><div class="status-option archived" onclick="selectStatus('archived')"><i class="fas fa-archive"></i> Archivada</div></div><input type="hidden" id="propStatus" value="available"></div>
         <div class="form-group"><label>Fotos * <small style="color:var(--gray-500);font-weight:normal">(arrastra para reordenar, máx 5MB cada una)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div></div>
         <div class="form-group"><label>Descripción</label><textarea id="propDescription" rows="3" placeholder="Describe la propiedad..."></textarea></div>
+
+        <style>
+          .ppf-acc{border:1px solid #e5e7eb;border-radius:8px;margin:10px 0;overflow:hidden}
+          .ppf-acc>summary{cursor:pointer;padding:12px 14px;font-weight:600;background:#f9fafb;list-style:none;display:flex;justify-content:space-between;align-items:center}
+          .ppf-acc>summary::-webkit-details-marker{display:none}
+          .ppf-acc>summary::after{content:'\25BE';transition:transform .2s}
+          .ppf-acc[open]>summary::after{transform:rotate(180deg)}
+          .feat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:8px 14px;padding:14px}
+          .feat-item{display:flex;align-items:center;gap:8px;font-size:.92rem;cursor:pointer}
+          .feat-item input{width:auto;margin:0;flex:0 0 auto}
+          .ppf-sec-title{font-size:1rem;font-weight:700;margin:20px 0 8px;color:#243447;border-top:1px solid #eee;padding-top:16px}
+        </style>
+
+        <div class="ppf-sec-title">Características</div>
+        <div class="form-row-4">
+          <div class="form-group"><label>Cocheras</label><input type="number" id="propCocheras" min="0" placeholder="1"></div>
+          <div class="form-group"><label>Ambientes</label><input type="number" id="propAmbientes" min="0" placeholder="4"></div>
+          <div class="form-group"><label>Antig&uuml;edad (a&ntilde;os)</label><input type="number" id="propAntiguedad" min="0" placeholder="10"></div>
+          <div class="form-group"><label>Cantidad de pisos</label><input type="number" id="propPisos" min="0" placeholder="2"></div>
+        </div>
+        <div class="form-row-4">
+          <div class="form-group"><label>Bodegas/Dep&oacute;sitos</label><input type="number" id="propBodegas" min="0" placeholder="0"></div>
+          <div class="form-group"><label>N&uacute;mero de puerta</label><input type="text" id="propNumeroPuerta" placeholder="1234"></div>
+          <div class="form-group"><label>Tipo de casa</label><select id="propTipoCasa"><option value="">Elegir...</option><option>Casa</option><option>D&uacute;plex</option><option>Chalet</option><option>Casa de pueblo</option><option>Caba&ntilde;a</option><option>Apartamento</option></select></div>
+          <div class="form-group"><label>Orientaci&oacute;n</label><select id="propOrientacion"><option value="">Elegir...</option><option>Norte</option><option>Sur</option><option>Este</option><option>Oeste</option><option>Noreste</option><option>Noroeste</option><option>Sureste</option><option>Suroeste</option></select></div>
+        </div>
+        <div class="form-group"><label>C&oacute;digo interno de la propiedad</label><input type="text" id="propCodigoInterno" placeholder="Ej: CASA-001"></div>
+
+        <div class="ppf-sec-title">Equipamiento y caracter&iacute;sticas adicionales</div>
+        <p style="font-size:.85rem;color:#6b7280;margin:-2px 0 6px">Tild&aacute; lo que tenga la propiedad. Toc&aacute; cada secci&oacute;n para desplegarla.</p>
+        <details class="ppf-acc"><summary>Servicios</summary><div class="feat-grid" id="feat-servicios"></div></details>
+        <details class="ppf-acc"><summary>Comodidades y equipamiento</summary><div class="feat-grid" id="feat-comodidades"></div></details>
+        <details class="ppf-acc"><summary>Seguridad</summary><div class="feat-grid" id="feat-seguridad"></div><div class="form-group" style="padding:0 14px 14px;margin:0"><label>Tipo de seguridad</label><input type="text" id="propTipoSeguridad" placeholder="Ej: vigilancia 24 hs, garita"></div></details>
+        <details class="ppf-acc"><summary>Ambientes</summary><div class="feat-grid" id="feat-ambientes"></div></details>
+        <details class="ppf-acc"><summary>Condiciones especiales</summary><div class="feat-grid"><label class="feat-item"><input type="checkbox" id="propAmoblado"> Amoblado</label></div></details>
+
         <div class="form-group"><label>WhatsApp de Contacto</label><input type="tel" id="propWhatsapp" placeholder="+598 99 123 456"></div>
         <button type="submit" class="btn-submit" id="propertyBtn"><i class="fas fa-check"></i> Publicar Propiedad</button>
       </form>
@@ -205,8 +241,56 @@
       document.getElementById('propDescription').value = p.description || '';
       document.getElementById('propWhatsapp').value = p.ownerWhatsapp || '';
       selectStatus(p.status || 'available');
+      fillFeatures(p);
       if (p.images && p.images.length > 0) { selectedImages = p.images.map(url => ({ preview: url, url: url, existing: true })); renderImagePreviews() }
     }
+    // ---- Características adicionales (servicios, comodidades, seguridad, ambientes) ----
+    const FEATURE_GROUPS = {
+      servicios: [['internet','Acceso a internet'],['gasNatural','Gas natural'],['lineaTelefonica','Línea telefónica'],['aireAcondicionado','Aire acondicionado'],['calefaccion','Calefacción'],['grupoElectrogeno','Grupo electrógeno'],['energiaSolar','Energía solar'],['conexionLavarropas','Conexión lavarropas'],['aguaCorriente','Agua corriente'],['caldera','Caldera']],
+      comodidades: [['chimenea','Chimenea'],['gimnasio','Gimnasio'],['jacuzzi','Jacuzzi'],['estacionamientoVisitas','Estac. visitas'],['areaCine','Área de cine'],['areaJuegos','Área de juegos'],['areaVerde','Área verde'],['ascensor','Ascensor'],['canchaBasquet','Cancha de básquet'],['canchaFutbol','Cancha de fútbol'],['canchaPaddle','Cancha de paddle'],['canchaTenis','Cancha de tenis'],['canchaPolideportiva','Cancha polideportiva'],['salonFiestas','Salón de fiestas'],['sauna','Sauna'],['heladera','Heladera']],
+      seguridad: [['alarma','Alarma'],['portonAutomatico','Portón automático'],['camaras','Cámaras de seguridad'],['barrioCerrado','Barrio cerrado'],['accesoControlado','Acceso controlado']],
+      ambientes: [['altillo','Altillo'],['balcon','Balcón'],['cocina','Cocina'],['comedor','Comedor'],['dormitorioSuite','Dormitorio en suite'],['estudio','Estudio'],['living','Living'],['patio','Patio'],['placards','Placards'],['cuartoJuegos','Cuarto de juegos'],['lavadero','Lavadero'],['vestidor','Vestidor'],['dormitorioServicio','Dorm. de servicio'],['jardin','Jardín'],['parrillero','Parrillero'],['piscina','Piscina'],['terraza','Terraza'],['banoSocial','Baño social'],['desayunador','Desayunador']]
+    };
+    function renderFeatureGroups() {
+      Object.keys(FEATURE_GROUPS).forEach(g => {
+        const cont = document.getElementById('feat-' + g);
+        if (cont) cont.innerHTML = FEATURE_GROUPS[g].map(([k, l]) => `<label class="feat-item"><input type="checkbox" id="feat-${g}-${k}"> ${l}</label>`).join('');
+      });
+    }
+    function collectFeatures() {
+      const gv = id => document.getElementById(id);
+      const f = {
+        cocheras: parseInt(gv('propCocheras').value) || 0,
+        ambientes: parseInt(gv('propAmbientes').value) || 0,
+        antiguedad: parseInt(gv('propAntiguedad').value) || 0,
+        pisos: parseInt(gv('propPisos').value) || 0,
+        bodegas: parseInt(gv('propBodegas').value) || 0,
+        numeroPuerta: gv('propNumeroPuerta').value || '',
+        tipoCasa: gv('propTipoCasa').value || '',
+        orientacion: gv('propOrientacion').value || '',
+        codigoInterno: gv('propCodigoInterno').value || '',
+        tipoSeguridad: gv('propTipoSeguridad').value || '',
+        amoblado: gv('propAmoblado').checked
+      };
+      Object.keys(FEATURE_GROUPS).forEach(g => {
+        f[g] = {};
+        FEATURE_GROUPS[g].forEach(([k]) => { f[g][k] = !!gv(`feat-${g}-${k}`)?.checked });
+      });
+      return f;
+    }
+    function fillFeatures(p) {
+      const f = p.features || {};
+      const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v };
+      setV('propCocheras', f.cocheras || ''); setV('propAmbientes', f.ambientes || ''); setV('propAntiguedad', f.antiguedad || '');
+      setV('propPisos', f.pisos || ''); setV('propBodegas', f.bodegas || ''); setV('propNumeroPuerta', f.numeroPuerta || '');
+      setV('propTipoCasa', f.tipoCasa || ''); setV('propOrientacion', f.orientacion || ''); setV('propCodigoInterno', f.codigoInterno || '');
+      setV('propTipoSeguridad', f.tipoSeguridad || '');
+      const am = document.getElementById('propAmoblado'); if (am) am.checked = !!f.amoblado;
+      Object.keys(FEATURE_GROUPS).forEach(g => {
+        FEATURE_GROUPS[g].forEach(([k]) => { const el = document.getElementById(`feat-${g}-${k}`); if (el) el.checked = !!(f[g] && f[g][k]) });
+      });
+    }
+
     async function handleSaveProperty(e) {
       e.preventDefault();
       if (!currentUser) { alert('Debes iniciar sesión'); return }
@@ -227,7 +311,8 @@
           bedrooms: parseInt(document.getElementById('propBedrooms').value) || 0, bathrooms: parseInt(document.getElementById('propBathrooms').value) || 0,
           totalArea: parseInt(document.getElementById('propTotalArea').value) || 0, builtArea: parseInt(document.getElementById('propBuiltArea').value) || 0,
           commonExpenses: parseInt(document.getElementById('propExpenses').value) || 0, garage: document.getElementById('propGarage').value, status: document.getElementById('propStatus').value,
-          images: iu, description: document.getElementById('propDescription').value, ownerWhatsapp: document.getElementById('propWhatsapp').value || userProfile.whatsapp, updatedAt: new Date().toISOString()
+          images: iu, description: document.getElementById('propDescription').value, ownerWhatsapp: document.getElementById('propWhatsapp').value || userProfile.whatsapp, updatedAt: new Date().toISOString(),
+          features: collectFeatures()
         };
         if (ei && pp && parseInt(pp) !== np) { pd.previousPrice = parseInt(pp); pd.priceChangedAt = new Date().toISOString() }
         if (ei) {
@@ -254,6 +339,7 @@
       const isAdmin = (userProfile.email || u.email || '').toLowerCase() === ADMIN_EMAIL;
       if (userProfile.status !== 'approved' && !isAdmin) { showState('ppfAuth', { title: 'Cuenta pendiente', msg: 'Tu cuenta está pendiente de aprobación.' }); return }
       initDepartamentos();
+      renderFeatureGroups();
       const id = new URLSearchParams(location.search).get('id');
       if (id) {
         try {

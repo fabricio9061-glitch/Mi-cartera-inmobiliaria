@@ -115,6 +115,88 @@ async function getValidToken() {
 }
 
 // =====================================================================
+// DIAGNÓSTICO — abrí esta URL en el navegador para ver, en texto claro,
+// por qué Mercado Libre no te deja publicar.
+// =====================================================================
+exports.diagnosticoML = onRequest(async (req, res) => {
+  try {
+    const token = await getValidToken();
+    const headers = { Authorization: `Bearer ${token}` };
+
+    const me = (await axios.get(`${API}/users/me`, { headers })).data;
+    const userId = me.id;
+
+    let addresses = [];
+    try {
+      addresses = (await axios.get(`${API}/users/${userId}/addresses`, { headers })).data || [];
+    } catch (e) {
+      addresses = [{ error: JSON.stringify(e.response?.data || e.message) }];
+    }
+
+    const list = me.status?.list || {};
+    const puede = list.allow === true;
+    const motivos = list.codes || [];
+
+    const traducir = (c) => {
+      const map = {
+        address_pending: "Falta completar la dirección de tu cuenta (calle, número, ciudad y departamento).",
+        phone_pending: "Falta verificar tu número de teléfono.",
+        phone_number_pending: "Falta verificar tu número de teléfono.",
+        identification_pending: "Falta validar tu identidad (documento de identidad).",
+        identification_no_score: "Tu identidad necesita validación adicional.",
+        identification_min_length_not_satisfied: "El número de documento cargado está incompleto.",
+        rejected_by_regulations: "Tu cuenta necesita completar la validación de datos (KYC) de Mercado Libre.",
+        billing_pending: "Faltan completar datos de facturación.",
+        user_not_allowed_to_list_in_category:
+          "Tu cuenta no está habilitada para publicar en esta categoría (puede requerir activación de Mercado Libre).",
+      };
+      return map[c] || c;
+    };
+
+    const motivosHtml = motivos.length
+      ? motivos.map((c) => `<li><b>${c}</b><br><span style="color:#555">${traducir(c)}</span></li>`).join("")
+      : '<li class="ok">Mercado Libre no reporta ningún impedimento explícito.</li>';
+
+    const dirHtml =
+      Array.isArray(addresses) && addresses.length
+        ? addresses
+            .map((a) => {
+              if (a.error) return `<li class="no">Error al leer direcciones: ${a.error}</li>`;
+              return `<li>
+                Calle: <b>${a.address_line || a.street_name || "(vacío)"}</b><br>
+                Ciudad: <b>${a.city?.name || "(vacío)"}</b><br>
+                Estado/Depto: <b>${a.state?.name || "(vacío)"}</b><br>
+                Código postal: <b>${a.zip_code || "(vacío)"}</b>
+              </li>`;
+            })
+            .join("")
+        : '<li class="no">Tu cuenta NO tiene ninguna dirección guardada.</li>';
+
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.send(`<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>body{font-family:system-ui,Arial,sans-serif;max-width:720px;margin:24px auto;padding:0 16px;line-height:1.5;color:#222}
+      h1{font-size:20px}h2{font-size:16px;margin-top:24px}li{margin:8px 0}
+      .ok{color:#0a7a0a;font-weight:bold}.no{color:#b00020;font-weight:bold}
+      .box{background:#f6f6f6;border-radius:8px;padding:12px 16px}
+      pre{white-space:pre-wrap;font-size:12px}</style></head><body>
+      <h1>Diagnóstico de tu cuenta de Mercado Libre</h1>
+      <div class="box">
+        <p>Cuenta: <b>${me.nickname || ""}</b> (ID ${userId})</p>
+        <p>¿Puede publicar avisos?: <span class="${puede ? "ok" : "no"}">${puede ? "SÍ ✅" : "NO ❌"}</span></p>
+      </div>
+      <h2>Motivos por los que Mercado Libre bloquea la publicación</h2>
+      <ul>${motivosHtml}</ul>
+      <h2>Direcciones guardadas en tu cuenta</h2>
+      <ul>${dirHtml}</ul>
+      <h2>Estado general (técnico)</h2>
+      <div class="box"><pre>${JSON.stringify(me.status || {}, null, 2)}</pre></div>
+      </body></html>`);
+  } catch (e) {
+    res.status(500).send("Error en el diagnóstico: " + JSON.stringify(e.response?.data || e.message));
+  }
+});
+
+// =====================================================================
 // Helper: arma el aviso de Mercado Libre a partir de la propiedad
 // =====================================================================
 // Busca la categoría correcta dentro de Inmuebles (MLU1459), navegando el árbol
