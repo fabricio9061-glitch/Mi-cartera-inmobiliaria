@@ -91,8 +91,21 @@
         <div class="ppf-sec-title"><i class="fas fa-ruler-combined"></i> Características</div>
         <div class="ppf-sec">
           <div class="form-row-4"><div class="form-group"><label>Habitaciones</label><input type="number" id="propBedrooms" placeholder="3" min="0"></div><div class="form-group"><label>Baños</label><input type="number" id="propBathrooms" placeholder="2" min="0"></div><div class="form-group"><label>Cocheras</label><input type="number" id="propCocheras" placeholder="1" min="0"></div><div class="form-group"><label>Ambientes</label><input type="number" id="propAmbientes" placeholder="4" min="0"></div></div>
-          <div class="form-row-4"><div class="form-group"><label>Área Total m² *</label><input type="number" id="propTotalArea" required placeholder="100"></div><div class="form-group"><label>Área Edificada m² *</label><input type="number" id="propBuiltArea" required placeholder="80"></div><div class="form-group"><label>Antigüedad (años)</label><input type="number" id="propAntiguedad" min="0" placeholder="10"></div><div class="form-group"><label>Cantidad de pisos</label><input type="number" id="propPisos" min="0" placeholder="2"></div></div>
-          <div class="form-row-4"><div class="form-group"><label>Bodegas/Depósitos</label><input type="number" id="propBodegas" min="0" placeholder="0"></div><div class="form-group"><label>Tipo de casa</label><select id="propTipoCasa"><option value="">Elegir...</option><option>Casa</option><option>Dúplex</option><option>Chalet</option><option>Casa de pueblo</option><option>Cabaña</option><option>Apartamento</option></select></div><div class="form-group"><label>Orientación</label><select id="propOrientacion"><option value="">Elegir...</option><option>Norte</option><option>Sur</option><option>Este</option><option>Oeste</option><option>Noreste</option><option>Noroeste</option><option>Sureste</option><option>Suroeste</option></select></div><div class="form-group"><label>Código interno</label><input type="text" id="propCodigoInterno" placeholder="CASA-001"></div></div>
+          <div class="form-row-4"><div class="form-group"><label>Área Total m² *</label><input type="number" id="propTotalArea" required placeholder="100"></div><div class="form-group"><label>Área Edificada m² *</label><input type="number" id="propBuiltArea" required placeholder="80"></div><div class="form-group"><label>Sup. terreno m²</label><input type="number" id="propSuperficieTerreno" min="0" placeholder="200"></div><div class="form-group"><label>Antigüedad (años)</label><input type="number" id="propAntiguedad" min="0" placeholder="10"></div></div>
+          <div class="form-row-4"><div class="form-group"><label>Cantidad de pisos</label><input type="number" id="propPisos" min="0" placeholder="2"></div><div class="form-group"><label>Bodegas/Depósitos</label><input type="number" id="propBodegas" min="0" placeholder="0"></div><div class="form-group"><label>Tipo de casa</label><select id="propTipoCasa"><option value="">Elegir...</option><option>Casa</option><option>Dúplex</option><option>Chalet</option><option>Casa de pueblo</option><option>Cabaña</option><option>Apartamento</option></select></div><div class="form-group"><label>Orientación</label><select id="propOrientacion"><option value="">Elegir...</option><option>Norte</option><option>Sur</option><option>Este</option><option>Oeste</option><option>Noreste</option><option>Noroeste</option><option>Sureste</option><option>Suroeste</option></select></div></div>
+          <div class="form-group"><label>Código interno</label><input type="text" id="propCodigoInterno" placeholder="CASA-001"></div>
+        </div>
+
+        <div id="rentFieldsGroup" style="display:none">
+          <div class="ppf-sec-title"><i class="fas fa-file-signature"></i> Condiciones del alquiler</div>
+          <div class="ppf-sec">
+            <div class="form-row"><div class="form-group"><label>Disponible desde</label><input type="date" id="propDisponibleDesde"></div><div class="form-group"><label>Factor multiplicador de renta</label><input type="number" step="0.01" min="0" id="propFactorRenta" placeholder="Ej: 1"></div></div>
+            <div class="feat-grid" style="padding:6px 0 2px">
+              <label class="feat-item"><input type="checkbox" id="propAdmiteMascotas"> Admite mascotas</label>
+              <label class="feat-item"><input type="checkbox" id="propSoloFamilias"> Solo familias</label>
+              <label class="feat-item"><input type="checkbox" id="propUsoComercial"> Uso comercial</label>
+            </div>
+          </div>
         </div>
 
         <div class="ppf-sec-title"><i class="fas fa-couch"></i> Equipamiento y comodidades</div>
@@ -189,7 +202,9 @@
       document.getElementById('propStatus').value = s
     }
     function togglePropertyType() {
-      document.getElementById('propertyTypeGroup').style.display = document.getElementById('propType').value === 'rent' ? 'none' : 'block'
+      const isRent = document.getElementById('propType').value === 'rent';
+      // El tipo de propiedad (Padrón Común/PH) aplica tanto a venta como a alquiler: siempre visible.
+      const rf = document.getElementById('rentFieldsGroup'); if (rf) rf.style.display = isRent ? 'block' : 'none';
     }
     function compressImageForPreview(f, m = 200) {
       return new Promise(r => { const rd = new FileReader(); rd.onload = e => { const i = new Image(); i.onload = () => { const c = document.createElement('canvas'); let w = i.width, h = i.height; if (w > m) { h = (h * m) / w; w = m } c.width = w; c.height = h; c.getContext('2d').drawImage(i, 0, 0, w, h); r(c.toDataURL('image/jpeg', .6)) }; i.src = e.target.result }; rd.readAsDataURL(f) })
@@ -247,13 +262,14 @@
       document.getElementById('propDescription').value = p.description || '';
       document.getElementById('propWhatsapp').value = p.ownerWhatsapp || '';
       selectStatus(p.status || 'available');
+      togglePropertyType();
       fillFeatures(p);
       if (p.images && p.images.length > 0) { selectedImages = p.images.map(url => ({ preview: url, url: url, existing: true })); renderImagePreviews() }
     }
     // ---- Características adicionales (servicios, comodidades, seguridad, ambientes) ----
     const FEATURE_GROUPS = {
-      servicios: [['internet','Acceso a internet'],['gasNatural','Gas natural'],['lineaTelefonica','Línea telefónica'],['aireAcondicionado','Aire acondicionado'],['calefaccion','Calefacción'],['grupoElectrogeno','Grupo electrógeno'],['energiaSolar','Energía solar'],['conexionLavarropas','Conexión lavarropas'],['aguaCorriente','Agua corriente'],['caldera','Caldera']],
-      comodidades: [['chimenea','Chimenea'],['gimnasio','Gimnasio'],['jacuzzi','Jacuzzi'],['estacionamientoVisitas','Estac. visitas'],['areaCine','Área de cine'],['areaJuegos','Área de juegos'],['areaVerde','Área verde'],['ascensor','Ascensor'],['canchaBasquet','Cancha de básquet'],['canchaFutbol','Cancha de fútbol'],['canchaPaddle','Cancha de paddle'],['canchaTenis','Cancha de tenis'],['canchaPolideportiva','Cancha polideportiva'],['salonFiestas','Salón de fiestas'],['sauna','Sauna'],['heladera','Heladera']],
+      servicios: [['internet','Acceso a internet'],['gasNatural','Gas natural'],['lineaTelefonica','Línea telefónica'],['aireAcondicionado','Aire acondicionado'],['calefaccion','Calefacción'],['grupoElectrogeno','Grupo electrógeno'],['energiaSolar','Energía solar'],['conexionLavarropas','Conexión lavarropas'],['aguaCorriente','Agua corriente'],['caldera','Caldera'],['tvCable','TV por cable'],['tvSatelital','TV satelital'],['jardinero','Jardinero']],
+      comodidades: [['chimenea','Chimenea'],['gimnasio','Gimnasio'],['jacuzzi','Jacuzzi'],['estacionamientoVisitas','Estac. visitas'],['areaCine','Área de cine'],['areaJuegos','Área de juegos'],['areaVerde','Área verde'],['ascensor','Ascensor'],['canchaBasquet','Cancha de básquet'],['canchaFutbol','Cancha de fútbol'],['canchaPaddle','Cancha de paddle'],['canchaTenis','Cancha de tenis'],['canchaPolideportiva','Cancha polideportiva'],['salonFiestas','Salón de fiestas'],['sauna','Sauna'],['heladera','Heladera'],['cisterna','Cisterna']],
       seguridad: [['alarma','Alarma'],['portonAutomatico','Portón automático'],['camaras','Cámaras de seguridad'],['barrioCerrado','Barrio cerrado'],['accesoControlado','Acceso controlado']],
       ambientes: [['altillo','Altillo'],['balcon','Balcón'],['cocina','Cocina'],['comedor','Comedor'],['dormitorioSuite','Dormitorio en suite'],['estudio','Estudio'],['living','Living'],['patio','Patio'],['placards','Placards'],['cuartoJuegos','Cuarto de juegos'],['lavadero','Lavadero'],['vestidor','Vestidor'],['dormitorioServicio','Dorm. de servicio'],['jardin','Jardín'],['parrillero','Parrillero'],['piscina','Piscina'],['terraza','Terraza'],['banoSocial','Baño social'],['desayunador','Desayunador']]
     };
@@ -267,7 +283,7 @@
       const gv = id => document.getElementById(id);
       const f = {
         cocheras: parseInt(gv('propCocheras').value) || 0,
-        ambientes: parseInt(gv('propAmbientes').value) || 0,
+        cantidadAmbientes: parseInt(gv('propAmbientes').value) || 0,
         antiguedad: parseInt(gv('propAntiguedad').value) || 0,
         pisos: parseInt(gv('propPisos').value) || 0,
         bodegas: parseInt(gv('propBodegas').value) || 0,
@@ -276,7 +292,13 @@
         orientacion: gv('propOrientacion').value || '',
         codigoInterno: gv('propCodigoInterno').value || '',
         tipoSeguridad: gv('propTipoSeguridad').value || '',
-        amoblado: gv('propAmoblado').checked
+        superficieTerreno: parseInt(gv('propSuperficieTerreno').value) || 0,
+        amoblado: gv('propAmoblado').checked,
+        disponibleDesde: gv('propDisponibleDesde').value || '',
+        factorRenta: parseFloat(gv('propFactorRenta').value) || 0,
+        admiteMascotas: gv('propAdmiteMascotas').checked,
+        soloFamilias: gv('propSoloFamilias').checked,
+        usoComercial: gv('propUsoComercial').checked
       };
       Object.keys(FEATURE_GROUPS).forEach(g => {
         f[g] = {};
@@ -287,11 +309,12 @@
     function fillFeatures(p) {
       const f = p.features || {};
       const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v };
-      setV('propCocheras', f.cocheras || ''); setV('propAmbientes', f.ambientes || ''); setV('propAntiguedad', f.antiguedad || '');
+      setV('propCocheras', f.cocheras || ''); setV('propAmbientes', f.cantidadAmbientes || ''); setV('propAntiguedad', f.antiguedad || '');
       setV('propPisos', f.pisos || ''); setV('propBodegas', f.bodegas || ''); setV('propNumeroPuerta', f.numeroPuerta || '');
       setV('propTipoCasa', f.tipoCasa || ''); setV('propOrientacion', f.orientacion || ''); setV('propCodigoInterno', f.codigoInterno || '');
-      setV('propTipoSeguridad', f.tipoSeguridad || '');
-      const am = document.getElementById('propAmoblado'); if (am) am.checked = !!f.amoblado;
+      setV('propTipoSeguridad', f.tipoSeguridad || ''); setV('propSuperficieTerreno', f.superficieTerreno || ''); setV('propDisponibleDesde', f.disponibleDesde || ''); setV('propFactorRenta', f.factorRenta || '');
+      const setC = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v };
+      setC('propAmoblado', f.amoblado); setC('propAdmiteMascotas', f.admiteMascotas); setC('propSoloFamilias', f.soloFamilias); setC('propUsoComercial', f.usoComercial);
       Object.keys(FEATURE_GROUPS).forEach(g => {
         FEATURE_GROUPS[g].forEach(([k]) => { const el = document.getElementById(`feat-${g}-${k}`); if (el) el.checked = !!(f[g] && f[g][k]) });
       });
@@ -362,6 +385,7 @@
         document.getElementById('ppfTitle').textContent = 'Nueva propiedad';
         if (userProfile.whatsapp) document.getElementById('propWhatsapp').value = userProfile.whatsapp;
         selectStatus('available');
+        togglePropertyType();
       }
     });
   </script>

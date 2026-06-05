@@ -91,7 +91,7 @@
     <div class="crm-stats-row" id="crmStats"></div>
     <div class="crm-toolbar">
       <div class="crm-search"><i class="fas fa-search"></i><input type="text" id="clientSearch" placeholder="Buscar por nombre, teléfono o email..." oninput="renderClients()"></div>
-      <select class="crm-filter" id="clientStatusFilter" onchange="renderClients()"><option value="">Todos los estados</option><option value="nuevo">Nuevo</option><option value="contactado">Contactado</option><option value="activo">Activo</option><option value="cerrado">Cerrado</option><option value="perdido">Perdido</option></select>
+      <select class="crm-filter" id="clientStatusFilter" onchange="renderClients()"><option value="">Todos los estados</option><option value="nuevo">Nuevo</option><option value="contactado">Contactado</option><option value="seguimiento">En seguimiento</option><option value="visita">Visita agendada</option><option value="negociacion">En negociación</option><option value="cerrado">Cerrado</option><option value="perdido">Perdido</option></select>
       <select class="crm-filter" id="clientInterestFilter" onchange="renderClients()"><option value="">Todo interés</option><option value="comprar">Comprar</option><option value="alquilar">Alquilar</option><option value="vender">Vender</option></select>
     </div>
     <div class="crm-grid" id="crmGrid"></div>
@@ -142,8 +142,9 @@
   <div class="modal" id="clientModal"><div class="modal-content" style="max-width:540px"><div class="modal-header"><h2 id="clientModalTitle">Nuevo Cliente</h2><button class="modal-close" onclick="closeModal('clientModal')"><i class="fas fa-times"></i></button></div><div class="modal-body"><form onsubmit="handleSaveClient(event)" id="clientForm"><input type="hidden" id="editingClientId" value="">
     <div class="form-group"><label>Nombre completo *</label><input type="text" id="clientName" required placeholder="Ej: María González"></div>
     <div class="form-row"><div class="form-group"><label>Teléfono / WhatsApp *</label><input type="tel" id="clientPhone" required placeholder="099123456"></div><div class="form-group"><label>Email</label><input type="email" id="clientEmail" placeholder="cliente@email.com"></div></div>
-    <div class="form-row"><div class="form-group"><label>Interés</label><select id="clientInterest"><option value="">No especificado</option><option value="comprar">Comprar</option><option value="alquilar">Alquilar</option><option value="vender">Vender</option></select></div><div class="form-group"><label>Estado</label><select id="clientStatus"><option value="nuevo">Nuevo</option><option value="contactado">Contactado</option><option value="activo">Activo</option><option value="cerrado">Cerrado</option><option value="perdido">Perdido</option></select></div></div>
+    <div class="form-row"><div class="form-group"><label>Interés</label><select id="clientInterest"><option value="">No especificado</option><option value="comprar">Comprar</option><option value="alquilar">Alquilar</option><option value="vender">Vender</option></select></div><div class="form-group"><label>Estado</label><select id="clientStatus"><option value="nuevo">Nuevo</option><option value="contactado">Contactado</option><option value="seguimiento">En seguimiento</option><option value="visita">Visita agendada</option><option value="negociacion">En negociación</option><option value="cerrado">Cerrado</option><option value="perdido">Perdido</option></select></div></div>
     <div class="form-group"><label>Presupuesto (opcional)</label><input type="text" id="clientBudget" placeholder="Ej: USD 120.000 o $40.000/mes"></div>
+    <div class="form-group"><label>Link (opcional)</label><input type="url" id="clientLink" placeholder="Pegá cualquier link: una propiedad, Maps, Drive..."></div>
     <div class="form-group"><label>Notas</label><textarea id="clientNotes" rows="4" placeholder="Preferencias, zona buscada, observaciones..."></textarea></div>
     <p class="error-message hidden" id="clientError"></p>
     <button type="submit" class="btn-primary" id="clientBtn" style="width:100%;padding:14px;margin-top:8px"><i class="fas fa-save"></i> Guardar Cliente</button>
@@ -202,6 +203,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
   <div class="modal share-modal" id="shareModal"><div class="modal-content"><div class="modal-header"><h2><i class="fas fa-share-alt" style="color:var(--accent)"></i> Compartir Propiedad</h2><button class="modal-close" onclick="closeModal('shareModal')"><i class="fas fa-times"></i></button></div><div class="modal-body">
     <div class="share-preview" id="sharePreview" style="margin-bottom:20px;padding:16px;background:var(--gray-50);border-radius:var(--radius-md)"><h4 id="shareTitle" style="margin-bottom:8px"></h4><p id="sharePrice" style="color:var(--accent);font-weight:600;margin-bottom:4px"></p><p id="shareLocation" style="font-size:13px;color:var(--gray-500)"></p></div>
     <div class="share-options">

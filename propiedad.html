@@ -46,6 +46,14 @@
     .pp-feature-icon{width:44px;height:44px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
     .pp-feature-val{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--primary);line-height:1}
     .pp-feature-lbl{font-size:12px;color:var(--gray-500);margin-top:2px}
+    .pp-amen-group{margin-top:26px}
+    .pp-amen-group h4{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--primary);margin:0 0 12px;font-weight:700}
+    .pp-chips{display:flex;flex-wrap:wrap;gap:9px}
+    .pp-chip{display:inline-flex;align-items:center;gap:7px;background:var(--gray-50,#f9fafb);border:1px solid var(--gray-200,#e5e7eb);border-radius:999px;padding:8px 15px;font-size:13.5px;color:var(--gray-700,#374151)}
+    .pp-chip i{color:#16a34a;font-size:11px}
+    .pp-extra{display:flex;flex-wrap:wrap;gap:10px 30px}
+    .pp-extra div{font-size:14.5px;color:var(--gray-600,#4b5563)}
+    .pp-extra b{color:var(--primary)}
     .pp-description{color:var(--gray-700);font-size:16px;line-height:1.8;white-space:pre-line}
     /* Sidebar */
     .pp-sidebar{position:sticky;top:96px;display:flex;flex-direction:column;gap:20px}
@@ -118,6 +126,7 @@
         <div class="pp-location"><i class="fas fa-map-marker-alt"></i><span id="ppLocation"></span></div>
         <div class="pp-section-title">Características</div>
         <div class="pp-features" id="ppFeatures"></div>
+        <div id="ppAmenities"></div>
         <div id="ppDescWrap" style="display:none">
           <div class="pp-section-title">Descripción</div>
           <div class="pp-description" id="ppDescription"></div>
@@ -205,6 +214,51 @@
       }
     }
 
+    function formatDate(d) {
+      if (!d) return '';
+      const parts = String(d).split('-');
+      return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : d;
+    }
+    const AMEN_GROUPS = {
+      servicios: { titulo: 'Servicios', items: {internet:'Acceso a internet',gasNatural:'Gas natural',lineaTelefonica:'Línea telefónica',aireAcondicionado:'Aire acondicionado',calefaccion:'Calefacción',grupoElectrogeno:'Grupo electrógeno',energiaSolar:'Energía solar',conexionLavarropas:'Conexión lavarropas',aguaCorriente:'Agua corriente',caldera:'Caldera',tvCable:'TV por cable',tvSatelital:'TV satelital',jardinero:'Jardinero'} },
+      comodidades: { titulo: 'Comodidades y equipamiento', items: {chimenea:'Chimenea',gimnasio:'Gimnasio',jacuzzi:'Jacuzzi',estacionamientoVisitas:'Estacionamiento para visitas',areaCine:'Área de cine',areaJuegos:'Área de juegos',areaVerde:'Área verde',ascensor:'Ascensor',canchaBasquet:'Cancha de básquet',canchaFutbol:'Cancha de fútbol',canchaPaddle:'Cancha de paddle',canchaTenis:'Cancha de tenis',canchaPolideportiva:'Cancha polideportiva',salonFiestas:'Salón de fiestas',sauna:'Sauna',heladera:'Heladera',cisterna:'Cisterna'} },
+      seguridad: { titulo: 'Seguridad', items: {alarma:'Alarma',portonAutomatico:'Portón automático',camaras:'Cámaras de seguridad',barrioCerrado:'Barrio cerrado',accesoControlado:'Acceso controlado'} },
+      ambientes: { titulo: 'Ambientes', items: {altillo:'Altillo',balcon:'Balcón',cocina:'Cocina',comedor:'Comedor',dormitorioSuite:'Dormitorio en suite',estudio:'Estudio',living:'Living',patio:'Patio',placards:'Placards',cuartoJuegos:'Cuarto de juegos',lavadero:'Lavadero',vestidor:'Vestidor',dormitorioServicio:'Dormitorio de servicio',jardin:'Jardín',parrillero:'Parrillero',piscina:'Piscina',terraza:'Terraza',banoSocial:'Baño social',desayunador:'Desayunador'} }
+    };
+    function chips(arr) {
+      return `<div class="pp-chips">` + arr.map(l => `<span class="pp-chip"><i class="fas fa-check"></i> ${l}</span>`).join('') + `</div>`;
+    }
+    function renderAmenities(p) {
+      const f = p.features || {};
+      let html = '';
+      const extra = [];
+      if (f.tipoCasa) extra.push(['Tipo', f.tipoCasa]);
+      if (f.orientacion) extra.push(['Orientación', f.orientacion]);
+      if (f.bodegas) extra.push(['Bodegas/Depósitos', f.bodegas]);
+      if (f.numeroPuerta) extra.push(['N° puerta', f.numeroPuerta]);
+      if (f.codigoInterno) extra.push(['Código', f.codigoInterno]);
+      if (extra.length) html += `<div class="pp-amen-group"><h4>Datos adicionales</h4><div class="pp-extra">` + extra.map(([l,v]) => `<div>${l}: <b>${v}</b></div>`).join('') + `</div></div>`;
+      if (p.type === 'rent') {
+        const rent = [];
+        if (f.disponibleDesde) rent.push('Disponible desde ' + formatDate(f.disponibleDesde));
+        if (f.factorRenta) rent.push('Factor de renta: ' + f.factorRenta);
+        if (f.admiteMascotas) rent.push('Admite mascotas');
+        if (f.soloFamilias) rent.push('Solo familias');
+        if (f.usoComercial) rent.push('Uso comercial');
+        if (rent.length) html += `<div class="pp-amen-group"><h4>Condiciones del alquiler</h4>${chips(rent)}</div>`;
+      }
+      Object.keys(AMEN_GROUPS).forEach(key => {
+        const data = f[key] || {};
+        const items = AMEN_GROUPS[key].items;
+        const activos = Object.keys(items).filter(k => data[k]).map(k => items[k]);
+        if (activos.length) html += `<div class="pp-amen-group"><h4>${AMEN_GROUPS[key].titulo}</h4>${chips(activos)}</div>`;
+      });
+      const otros = [];
+      if (f.amoblado) otros.push('Amoblado');
+      if (f.tipoSeguridad) otros.push('Tipo de seguridad: ' + f.tipoSeguridad);
+      if (otros.length) html += `<div class="pp-amen-group"><h4>Otros</h4>${chips(otros)}</div>`;
+      document.getElementById('ppAmenities').innerHTML = html;
+    }
     function render() {
       const p = property, c = p.currency || 'USD';
       images = p.images && p.images.length ? p.images : ['https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200'];
@@ -245,17 +299,24 @@
 
       // Características
       const feats = [];
+      const ft = p.features || {};
       if (p.bedrooms) feats.push(['fa-bed', p.bedrooms, 'Dormitorios']);
       if (p.bathrooms) feats.push(['fa-bath', p.bathrooms, 'Baños']);
+      if (ft.cocheras) feats.push(['fa-car', ft.cocheras, ft.cocheras == 1 ? 'Cochera' : 'Cocheras']);
+      if (ft.cantidadAmbientes) feats.push(['fa-th-large', ft.cantidadAmbientes, 'Ambientes']);
       if (p.totalArea) feats.push(['fa-expand', p.totalArea + ' m²', 'Sup. total']);
       if (p.builtArea) feats.push(['fa-home', p.builtArea + ' m²', 'Edificado']);
-      if (p.garage === 'yes') feats.push(['fa-car', 'Sí', 'Garaje']);
+      if (ft.superficieTerreno) feats.push(['fa-vector-square', ft.superficieTerreno + ' m²', 'Terreno']);
+      if (ft.antiguedad) feats.push(['fa-clock', ft.antiguedad + (ft.antiguedad == 1 ? ' año' : ' años'), 'Antigüedad']);
+      if (ft.pisos) feats.push(['fa-layer-group', ft.pisos, ft.pisos == 1 ? 'Piso' : 'Pisos']);
       if (p.commonExpenses) feats.push(['fa-dollar-sign', '$' + p.commonExpenses, 'Gastos com.']);
       document.getElementById('ppFeatures').innerHTML = feats.map(f =>
         `<div class="pp-feature"><div class="pp-feature-icon"><i class="fas ${f[0]}"></i></div><div><div class="pp-feature-val">${f[1]}</div><div class="pp-feature-lbl">${f[2]}</div></div></div>`).join('');
 
       // Descripción
       if (p.description) { document.getElementById('ppDescWrap').style.display = 'block'; document.getElementById('ppDescription').textContent = p.description }
+
+      renderAmenities(p);
 
       // Agente
       const an = (agent && agent.name) || p.ownerName || 'Agente';

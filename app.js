@@ -1954,6 +1954,14 @@
     loadClients()
   }
 
+  function normalizePhone(raw) {
+    let d = String(raw || '').replace(/[^\d+]/g, '');
+    if (d.startsWith('+')) d = d.slice(1);
+    if (d.startsWith('598')) d = d.slice(3);
+    d = d.replace(/^0+/, '');
+    return d ? '+598' + d : '';
+  }
+  const CLIENT_STATUS = { nuevo: 'Nuevo', contactado: 'Contactado', seguimiento: 'En seguimiento', visita: 'Visita agendada', negociacion: 'En negociación', cerrado: 'Cerrado', perdido: 'Perdido' };
   function renderClients() {
     const g = document.getElementById('crmGrid');
     if (!g) return;
@@ -1963,11 +1971,11 @@
     const st = {
       total: clients.length,
       nuevo: clients.filter(c => c.status === 'nuevo').length,
-      activo: clients.filter(c => c.status === 'activo').length,
+      proceso: clients.filter(c => ['contactado', 'seguimiento', 'visita', 'negociacion'].includes(c.status)).length,
       cerrado: clients.filter(c => c.status === 'cerrado').length
     };
     const se = document.getElementById('crmStats');
-    if (se) se.innerHTML = `<div class="crm-stat"><div class="crm-stat-num">${st.total}</div><div class="crm-stat-label">Total clientes</div></div><div class="crm-stat"><div class="crm-stat-num">${st.nuevo}</div><div class="crm-stat-label">Nuevos</div></div><div class="crm-stat"><div class="crm-stat-num">${st.activo}</div><div class="crm-stat-label">Activos</div></div><div class="crm-stat"><div class="crm-stat-num">${st.cerrado}</div><div class="crm-stat-label">Cerrados</div></div>`;
+    if (se) se.innerHTML = `<div class="crm-stat"><div class="crm-stat-num">${st.total}</div><div class="crm-stat-label">Total clientes</div></div><div class="crm-stat"><div class="crm-stat-num">${st.nuevo}</div><div class="crm-stat-label">Nuevos</div></div><div class="crm-stat"><div class="crm-stat-num">${st.proceso}</div><div class="crm-stat-label">En proceso</div></div><div class="crm-stat"><div class="crm-stat-num">${st.cerrado}</div><div class="crm-stat-label">Cerrados</div></div>`;
     let list = clients.filter(c => {
       const m = !term || (c.name || '').toLowerCase().includes(term) || (c.phone || '').includes(term) || (c.email || '').toLowerCase().includes(term);
       return m && (!sf || c.status === sf) && (!inf || c.interest === inf)
@@ -1986,7 +1994,7 @@
       const ini = (c.name || '?').charAt(0).toUpperCase(),
         ph = (c.phone || '').replace(/\D/g, ''),
         so = isAdminUser() && c.ownerName;
-      return `<div class="client-card"><div class="client-card-top"><div class="client-avatar">${ini}</div><div class="client-card-name"><h3>${c.name||'Sin nombre'}</h3>${so?`<div class="client-owner"><i class="fas fa-user-tie"></i> ${c.ownerName}</div>`:''}</div><span class="client-status ${c.status||'nuevo'}">${c.status||'nuevo'}</span></div>${c.interest&&il[c.interest]?`<div class="client-interest-tag">${il[c.interest]}</div>`:''}<div class="client-meta"><div class="client-meta-row"><i class="fas fa-phone"></i> ${c.phone||'—'}</div>${c.email?`<div class="client-meta-row"><i class="fas fa-envelope"></i> ${c.email}</div>`:''}${c.budget?`<div class="client-meta-row"><i class="fas fa-coins"></i> ${c.budget}</div>`:''}</div>${c.notes?`<div class="client-notes-preview">${c.notes}</div>`:''}<div class="client-actions">${ph?`<a class="ca-wa" href="https://wa.me/${ph}" target="_blank"><i class="fab fa-whatsapp"></i> WhatsApp</a>`:''}<button class="ca-edit" onclick="openClientModal('${c.id}')"><i class="fas fa-edit"></i> Editar</button><button class="ca-del" onclick="deleteClient('${c.id}')"><i class="fas fa-trash"></i></button></div></div>`
+      return `<div class="client-card"><div class="client-card-top"><div class="client-avatar">${ini}</div><div class="client-card-name"><h3>${c.name||'Sin nombre'}</h3>${so?`<div class="client-owner"><i class="fas fa-user-tie"></i> ${c.ownerName}</div>`:''}</div><span class="client-status ${c.status||'nuevo'}">${CLIENT_STATUS[c.status]||c.status||'Nuevo'}</span></div>${c.interest&&il[c.interest]?`<div class="client-interest-tag">${il[c.interest]}</div>`:''}<div class="client-meta"><div class="client-meta-row"><i class="fas fa-phone"></i> ${c.phone||'—'}</div>${c.email?`<div class="client-meta-row"><i class="fas fa-envelope"></i> ${c.email}</div>`:''}${c.budget?`<div class="client-meta-row"><i class="fas fa-coins"></i> ${c.budget}</div>`:''}${c.link?`<div class="client-meta-row"><i class="fas fa-link"></i> <a href="${c.link}" target="_blank" rel="noopener" style="color:var(--primary)">Ver link</a></div>`:''}</div>${c.notes?`<div class="client-notes-preview">${c.notes}</div>`:''}<div class="client-actions">${ph?`<a class="ca-wa" href="https://wa.me/${ph}" target="_blank"><i class="fab fa-whatsapp"></i> WhatsApp</a>`:''}<button class="ca-edit" onclick="openClientModal('${c.id}')"><i class="fas fa-edit"></i> Editar</button><button class="ca-del" onclick="deleteClient('${c.id}')"><i class="fas fa-trash"></i></button></div></div>`
     }).join('')
   }
 
@@ -2005,6 +2013,7 @@
         document.getElementById('clientInterest').value = c.interest || '';
         document.getElementById('clientStatus').value = c.status || 'nuevo';
         document.getElementById('clientBudget').value = c.budget || '';
+        document.getElementById('clientLink').value = c.link || '';
         document.getElementById('clientNotes').value = c.notes || ''
       }
     }
@@ -2016,17 +2025,43 @@
     const b = document.getElementById('clientBtn'),
       er = document.getElementById('clientError'),
       id = document.getElementById('editingClientId').value;
+    const phone = normalizePhone(document.getElementById('clientPhone').value);
+    er.classList.add('hidden');
+
+    // Chequeo de número duplicado (salvo que ya se haya avisado para este mismo número)
+    if (phone && window._dupOkFor !== phone) {
+      b.disabled = true;
+      b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
+      try {
+        const res = await firebase.functions().httpsCallable('checkClientPhone')({ phone, excludeId: id || null });
+        if (res.data && res.data.exists) {
+          const d = res.data;
+          er.innerHTML = (d.isOwn
+            ? `Ya tenés a este cliente cargado: <b>${d.clientName}</b>.`
+            : `⚠️ Este número ya lo tiene cargado el agente <b>${d.ownerName}</b> (cliente: ${d.clientName}).`)
+            + ' Tocá <b>"Guardar igual"</b> para registrarlo de todos modos.';
+          er.classList.remove('hidden');
+          window._dupOkFor = phone;
+          b.disabled = false;
+          b.innerHTML = '<i class="fas fa-save"></i> Guardar igual';
+          return;
+        }
+      } catch (err) {
+        console.warn('No se pudo verificar duplicado:', err);
+      }
+    }
+
     b.disabled = true;
     b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-    er.classList.add('hidden');
     try {
       const data = {
         name: document.getElementById('clientName').value.trim(),
-        phone: document.getElementById('clientPhone').value.trim(),
+        phone: phone || document.getElementById('clientPhone').value.trim(),
         email: document.getElementById('clientEmail').value.trim(),
         interest: document.getElementById('clientInterest').value,
         status: document.getElementById('clientStatus').value,
         budget: document.getElementById('clientBudget').value.trim(),
+        link: document.getElementById('clientLink').value.trim(),
         notes: document.getElementById('clientNotes').value.trim(),
         updatedAt: new Date().toISOString()
       };
@@ -2040,6 +2075,7 @@
         await db.collection('clients').add(data);
         showToast('Cliente agregado', 'Nuevo cliente registrado', 'fa-user-plus')
       }
+      window._dupOkFor = null;
       closeModal('clientModal');
       await loadClients()
     } catch (err) {

@@ -10,7 +10,7 @@
  * Los tokens se guardan en Firestore: ml_config/tokens
  */
 
-const { onRequest } = require("firebase-functions/v2/https");
+const { onRequest, onCall } = require("firebase-functions/v2/https");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const logger = require("firebase-functions/logger");
@@ -18,6 +18,40 @@ const admin = require("firebase-admin");
 const axios = require("axios");
 
 admin.initializeApp();
+
+// =====================================================================
+// CRM — Chequeo de teléfono duplicado entre clientes de TODOS los agentes.
+// Se ejecuta en el backend para poder ver clientes de otros agentes sin
+// exponer sus datos al frontend (solo devuelve nombre del agente y del cliente).
+// =====================================================================
+function normalizarTel(raw) {
+  let d = String(raw || "").replace(/[^\d+]/g, "");
+  if (d.startsWith("+")) d = d.slice(1);
+  if (d.startsWith("598")) d = d.slice(3);
+  d = d.replace(/^0+/, "");
+  return d ? "+598" + d : "";
+}
+
+exports.checkClientPhone = onCall(async (request) => {
+  const phone = normalizarTel(request.data && request.data.phone);
+  const uid = request.auth && request.auth.uid;
+  const excludeId = (request.data && request.data.excludeId) || null;
+  if (!phone || !uid) return { exists: false };
+  const snap = await admin.firestore().collection("clients").get();
+  for (const doc of snap.docs) {
+    if (doc.id === excludeId) continue;
+    const c = doc.data();
+    if (normalizarTel(c.phone) === phone) {
+      return {
+        exists: true,
+        isOwn: c.ownerId === uid,
+        ownerName: c.ownerName || "otro agente",
+        clientName: c.name || "un cliente",
+      };
+    }
+  }
+  return { exists: false };
+});
 const db = admin.firestore();
 setGlobalOptions({ region: "us-central1", maxInstances: 10 });
 
