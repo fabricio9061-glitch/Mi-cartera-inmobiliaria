@@ -236,33 +236,97 @@ exports.diagnosticoML = onRequest(async (req, res) => {
 // Busca la categoría correcta dentro de Inmuebles (MLU1459), navegando el árbol
 // hasta una categoría hoja, según el tipo de propiedad y la operación.
 async function getRealEstateCategory(p, token) {
-  const typeMap = { house: "casas", common: "apartamento", ph: "apartamento" };
-  const want = typeMap[p.propertyType] || "casas";
+  // El tipo de inmueble real (casa, apartamento, terreno...). Para propiedades viejas
+  // sin este dato, lo aproximamos desde el padrón (PH suele ser apartamento).
+  const ret = p.realEstateType || (p.propertyType === "ph" ? "apartamento" : "casa");
+  const typeMap = { casa: "casas", apartamento: "apartamento", terreno: "terreno", local: "local", oficina: "oficina", galpon: "galp", campo: "campo" };
+  const want = typeMap[ret] || "casas";
   const opWord = p.type === "rent" ? "alquiler" : "venta";
+  // Evitamos categorías de emprendimientos/proyectos: exigen atributos de desarrollo
+  // (DEVELOPMENT_NAME, UNIT_NAME, MODEL_NAME) que no aplican a una propiedad individual.
+  const avoid = ["emprendimiento", "proyecto", "pozo", "desarrollo", "loteo"];
+  const isAvoided = (name) => avoid.some((w) => (name || "").toLowerCase().includes(w));
   const headers = { Authorization: `Bearer ${token}` };
   try {
     const root = await axios.get(`${API}/categories/MLU1459`, { headers });
-    const children = root.data.children_categories || [];
+    const children = (root.data.children_categories || []).filter((c) => !isAvoided(c.name));
     let cat =
       children.find((c) => c.name.toLowerCase().includes(want)) ||
       children.find((c) => c.name.toLowerCase().includes("casas")) ||
       children[0];
     if (!cat) return null;
     let catId = cat.id;
+    let catName = cat.name;
     // Bajar hasta una categoría hoja (sin subcategorías). Si hay subcategorías de
-    // venta/alquiler, elegir la que corresponda a la operación.
-    for (let i = 0; i < 4; i++) {
+    // venta/alquiler, elegir la de la operación; siempre esquivando emprendimientos.
+    for (let i = 0; i < 5; i++) {
       const cr = await axios.get(`${API}/categories/${catId}`, { headers });
-      const sub = cr.data.children_categories || [];
+      const sub = (cr.data.children_categories || []).filter((c) => !isAvoided(c.name));
       if (sub.length === 0) break;
       const next = sub.find((c) => c.name.toLowerCase().includes(opWord)) || sub[0];
       catId = next.id;
+      catName = next.name;
     }
+    logger.info(`Categoría ML elegida: ${catId} (${catName}) para ${ret}/${opWord}`);
     return catId;
   } catch (e) {
     logger.warn("Error obteniendo categoría de inmuebles:", e.response?.data || e.message);
     return null;
   }
+}
+
+// Condición que acepta la categoría (los inmuebles suelen exigir "new").
+async function pickCondition(categoryId, token) {
+  try {
+    const r = await axios.get(`${API}/categories/${categoryId}`, { headers: { Authorization: `Bearer ${token}` } });
+    const conds = (r.data.settings && r.data.settings.item_conditions) || [];
+    if (conds.includes("new")) return "new";
+    if (conds.length) return conds[0];
+  } catch (e) { /* usar el valor por defecto */ }
+  return "new";
+}
+
+// Valor razonable para un atributo obligatorio que no mapeamos explícitamente.
+function defaultAttrValue(a, p) {
+  const id = a.id;
+  const numMap = {
+    BEDROOMS: p.bedrooms, ROOMS: p.bedrooms,
+    FULL_BATHROOMS: p.bathrooms, BATHROOMS: p.bathrooms,
+    PARKING_LOTS: p.garage === "yes" ? 1 : 0,
+    TOTAL_AREA: p.totalArea, COVERED_AREA: p.builtArea, MAINTENANCE_FEE: p.commonExpenses,
+  };
+  if (id in numMap && numMap[id] != null && numMap[id] !== "") {
+    return { id, value_name: String(numMap[id]) };
+  }
+  // Atributo de lista: tomar el primer valor permitido.
+  if (Array.isArray(a.values) && a.values.length) {
+    return { id, value_id: a.values[0].id };
+  }
+  const vt = a.value_type;
+  if (vt === "number" || vt === "number_unit") return { id, value_name: "0" };
+  if (vt === "boolean") return null;
+  // Texto libre (p. ej. nombres de emprendimiento/unidad cuando la categoría los pide).
+  return { id, value_name: (p.title || "Consultar").slice(0, 40) };
+}
+
+// Completa los atributos OBLIGATORIOS de la categoría que falten, leyéndolos en vivo
+// desde ML. Así la publicación no falla aunque la categoría pida atributos nuevos.
+async function fillRequiredAttributes(categoryId, p, baseAttributes, token) {
+  const out = baseAttributes.slice();
+  const have = new Set(out.map((a) => a.id));
+  try {
+    const r = await axios.get(`${API}/categories/${categoryId}/attributes`, { headers: { Authorization: `Bearer ${token}` } });
+    for (const a of r.data || []) {
+      const tags = a.tags || {};
+      if (!(tags.required || tags.catalog_required)) continue;
+      if (have.has(a.id)) continue;
+      const v = defaultAttrValue(a, p);
+      if (v) { out.push(v); have.add(a.id); }
+    }
+  } catch (e) {
+    logger.warn(`No se pudieron leer atributos de la categoría ${categoryId}:`, e.response?.data || e.message);
+  }
+  return out;
 }
 
 async function buildItem(p, token) {
@@ -272,10 +336,11 @@ async function buildItem(p, token) {
   if (!categoryId) throw new Error("No se pudo determinar la categoría de inmuebles de Mercado Libre.");
 
   const operation = p.type === "rent" ? "Alquiler" : "Venta";
-  const propTypeMap = { common: "Apartamento", ph: "PH", house: "Casa" };
-  const propType = propTypeMap[p.propertyType] || "Apartamento";
+  const ret = p.realEstateType || (p.propertyType === "ph" ? "apartamento" : "casa");
+  const propTypeMap = { casa: "Casa", apartamento: "Apartamento", terreno: "Terreno", local: "Local comercial", oficina: "Oficina", galpon: "Galpón", campo: "Campo" };
+  const propType = propTypeMap[ret] || "Casa";
 
-  const attributes = [
+  let attributes = [
     { id: "OPERATION", value_name: operation },
     { id: "PROPERTY_TYPE", value_name: propType },
   ];
@@ -284,6 +349,10 @@ async function buildItem(p, token) {
   if (p.totalArea) attributes.push({ id: "TOTAL_AREA", value_name: `${p.totalArea} m²` });
   if (p.builtArea) attributes.push({ id: "COVERED_AREA", value_name: `${p.builtArea} m²` });
 
+  // Completar cualquier atributo obligatorio que la categoría exija y no tengamos.
+  attributes = await fillRequiredAttributes(categoryId, p, attributes, token);
+
+  const condition = await pickCondition(categoryId, token);
   const pictures = (p.images || []).slice(0, 12).map((url) => ({ source: url }));
 
   return {
@@ -294,13 +363,15 @@ async function buildItem(p, token) {
     available_quantity: 1,
     buying_mode: "classified",
     listing_type_id: "silver",
-    condition: "not_specified",
+    condition,
+    channels: ["marketplace"],
     description: { plain_text: p.description || p.title || "" },
     pictures,
     location: {
       address_line: p.direccion || "",
-      neighborhood: { name: p.ciudad || "" },
+      country: { id: "UY", name: "Uruguay" },
       state: { name: p.departamento || "" },
+      city: { name: p.ciudad || "" },
     },
     attributes,
   };

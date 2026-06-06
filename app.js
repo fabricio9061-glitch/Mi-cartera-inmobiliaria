@@ -1932,6 +1932,12 @@
         id: d.id,
         ...d.data()
       }));
+      try {
+        const ps = await db.collection('properties').get();
+        const counts = {};
+        ps.docs.forEach(d => { const cid = d.data().clientId; if (cid) counts[cid] = (counts[cid] || 0) + 1 });
+        clients.forEach(c => { c._propCount = counts[c.id] || 0 })
+      } catch (e) { console.warn('No se pudo contar propiedades por cliente', e) }
       renderClients()
     } catch (e) {
       console.error('Error cargando clientes:', e)
@@ -1993,7 +1999,7 @@
       const ini = (c.name || '?').charAt(0).toUpperCase(),
         ph = (c.phoneNormalized || c.phone || '').replace(/\D/g, ''),
         so = c.createdByName || c.ownerName;
-      return `<div class="client-card" onclick="showClientProfile('${c.id}')" style="cursor:pointer"><div class="client-card-top"><div class="client-avatar">${ini}</div><div class="client-card-name"><h3>${c.name||'Sin nombre'}</h3>${so?`<div class="client-owner"><i class="fas fa-user-tie"></i> ${c.createdByName||c.ownerName}</div>`:''}</div><span class="client-status ${c.status||'nuevo'}">${CLIENT_STATUS[c.status]||c.status||'Nuevo'}</span></div>${c.interest&&il[c.interest]?`<div class="client-interest-tag">${il[c.interest]}</div>`:''}<div class="client-meta"><div class="client-meta-row"><i class="fas fa-phone"></i> ${c.phoneNormalized||((c.areaCode||'')+(c.phone||''))||'—'}</div>${c.email?`<div class="client-meta-row"><i class="fas fa-envelope"></i> ${c.email}</div>`:''}${c.budget?`<div class="client-meta-row"><i class="fas fa-coins"></i> ${c.budget}</div>`:''}${c.link?`<div class="client-meta-row"><i class="fas fa-link"></i> <a href="${c.link}" target="_blank" rel="noopener" style="color:var(--primary)" onclick="event.stopPropagation()">Ver link</a></div>`:''}</div>${c.notes?`<div class="client-notes-preview">${c.notes}</div>`:''}<div class="client-actions">${ph?`<a class="ca-wa" href="https://wa.me/${ph}" target="_blank" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i> WhatsApp</a>`:''}<button class="ca-edit" onclick="event.stopPropagation();openClientModal('${c.id}')"><i class="fas fa-edit"></i> Editar</button><button class="ca-del" onclick="event.stopPropagation();deleteClient('${c.id}')"><i class="fas fa-trash"></i></button></div></div>`
+      return `<div class="client-card" onclick="showClientProfile('${c.id}')" style="cursor:pointer"><div class="client-card-top"><div class="client-avatar">${ini}</div><div class="client-card-name"><h3>${c.name||'Sin nombre'}</h3>${so?`<div class="client-owner"><i class="fas fa-user-tie"></i> ${c.createdByName||c.ownerName}</div>`:''}<div style="font-size:.74rem;color:var(--gray-500,#999);margin-top:3px"><i class="fas fa-home"></i> ${(c._propCount||0)>0?`${c._propCount} propiedad${c._propCount===1?'':'es'}`:'Sin propiedades'}</div></div><span class="client-status ${c.status||'nuevo'}">${CLIENT_STATUS[c.status]||c.status||'Nuevo'}</span></div>${c.interest&&il[c.interest]?`<div class="client-interest-tag">${il[c.interest]}</div>`:''}<div class="client-meta"><div class="client-meta-row"><i class="fas fa-phone"></i> ${c.phoneNormalized||((c.areaCode||'')+(c.phone||''))||'—'}</div>${c.email?`<div class="client-meta-row"><i class="fas fa-envelope"></i> ${c.email}</div>`:''}${c.budget?`<div class="client-meta-row"><i class="fas fa-coins"></i> ${c.budget}</div>`:''}${c.link?`<div class="client-meta-row"><i class="fas fa-link"></i> <a href="${c.link}" target="_blank" rel="noopener" style="color:var(--primary)" onclick="event.stopPropagation()">Ver link</a></div>`:''}</div>${c.notes?`<div class="client-notes-preview">${c.notes}</div>`:''}<div class="client-actions">${ph?`<a class="ca-wa" href="https://wa.me/${ph}" target="_blank" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i> WhatsApp</a>`:''}<button class="ca-edit" onclick="event.stopPropagation();openClientModal('${c.id}')"><i class="fas fa-edit"></i> Editar</button><button class="ca-del" onclick="event.stopPropagation();deleteClient('${c.id}')"><i class="fas fa-trash"></i></button></div></div>`
     }).join('')
   }
 
@@ -2034,7 +2040,7 @@
       props.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
       cnt.textContent = props.length === 0 ? 'Sin propiedades aún' : `${props.length} propiedad${props.length === 1 ? '' : 'es'}`;
       if (props.length === 0) {
-        grid.innerHTML = `<div class="crm-empty" style="grid-column:1/-1"><i class="fas fa-home"></i><h3>Todavía no hay propiedades</h3><p>Agregá la primera con el botón "Agregar propiedad"</p></div>`;
+        grid.innerHTML = `<p style="grid-column:1/-1;color:var(--gray-500,#999);padding:6px 2px;font-size:.92rem">Este cliente todavía no tiene propiedades. Agregá una con el botón de arriba.</p>`;
         return
       }
       grid.innerHTML = props.map(p => {
