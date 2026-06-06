@@ -10,7 +10,7 @@
  * Los tokens se guardan en Firestore: ml_config/tokens
  */
 
-const { onRequest, onCall } = require("firebase-functions/v2/https");
+const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const logger = require("firebase-functions/logger");
@@ -418,5 +418,115 @@ exports.publicarEnML = onDocumentCreated("properties/{id}", async (event) => {
       mlError: typeof detail === "string" ? detail : JSON.stringify(detail),
       mlErrorAt: new Date().toISOString(),
     });
+  }
+});
+
+// =====================================================================
+// 4) GESTIÓN del aviso desde el panel del agente (requieren login).
+//    - estadoML:      estado, nivel y qué falta para mejorar la calidad.
+//    - republicarML:  reactiva el aviso (o lo vuelve a crear si estaba cerrado).
+//    - bajaML:        da de baja (cierra) el aviso en Mercado Libre.
+// =====================================================================
+exports.estadoML = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión para ver el estado.");
+  const propertyId = request.data && request.data.propertyId;
+  if (!propertyId) throw new HttpsError("invalid-argument", "Falta el id de la propiedad.");
+  const doc = await admin.firestore().collection("properties").doc(propertyId).get();
+  if (!doc.exists) throw new HttpsError("not-found", "La propiedad no existe.");
+  const p = doc.data();
+  if (!p.mlItemId) return { publicado: false };
+  const token = await getValidToken();
+  const headers = { Authorization: `Bearer ${token}` };
+  let item;
+  try {
+    const r = await axios.get(`${API}/items/${p.mlItemId}`, { headers });
+    item = r.data;
+  } catch (e) {
+    return { publicado: true, mlItemId: p.mlItemId, error: "No se pudo leer el aviso en Mercado Libre (puede haber sido eliminado)." };
+  }
+  let health = item.health != null ? item.health : null;
+  let actions = [];
+  try {
+    const h = await axios.get(`${API}/items/${p.mlItemId}/health/actions`, { headers });
+    if (h.data.health != null) health = h.data.health;
+    actions = (h.data.actions || []).map((a) => a.id || a.name).filter(Boolean);
+  } catch (e) { /* algunos avisos no exponen health/actions todavía */ }
+  return {
+    publicado: true,
+    mlItemId: p.mlItemId,
+    status: item.status,
+    subStatus: item.sub_status || [],
+    listingType: item.listing_type_id || "",
+    permalink: item.permalink || p.mlPermalink || "",
+    health,
+    actions,
+  };
+});
+
+exports.republicarML = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión para republicar.");
+  const propertyId = request.data && request.data.propertyId;
+  if (!propertyId) throw new HttpsError("invalid-argument", "Falta el id de la propiedad.");
+  const ref = admin.firestore().collection("properties").doc(propertyId);
+  const doc = await ref.get();
+  if (!doc.exists) throw new HttpsError("not-found", "La propiedad no existe.");
+  const p = doc.data();
+  const token = await getValidToken();
+  const headers = { Authorization: `Bearer ${token}`, "content-type": "application/json" };
+  // Si ya hay aviso, intentar reactivarlo según su estado actual.
+  if (p.mlItemId) {
+    try {
+      const r = await axios.get(`${API}/items/${p.mlItemId}`, { headers });
+      const st = r.data.status;
+      if (st === "active") return { ok: true, yaActivo: true, mlItemId: p.mlItemId, permalink: r.data.permalink || "" };
+      if (st === "paused") {
+        await axios.put(`${API}/items/${p.mlItemId}`, { status: "active" }, { headers });
+        await ref.update({ mlStatus: "active" });
+        return { ok: true, reactivado: true, mlItemId: p.mlItemId, permalink: r.data.permalink || "" };
+      }
+      // closed u otro estado: se recrea más abajo.
+    } catch (e) { /* no se pudo leer; se recrea */ }
+  }
+  // Crear un aviso nuevo.
+  try {
+    const item = await buildItem(p, token);
+    const r = await axios.post(`${API}/items`, item, { headers });
+    await ref.update({
+      mlItemId: r.data.id,
+      mlPermalink: r.data.permalink || "",
+      mlStatus: r.data.status || "active",
+      mlError: admin.firestore.FieldValue.delete(),
+      mlErrorAt: admin.firestore.FieldValue.delete(),
+      mlRepublishedAt: new Date().toISOString(),
+    });
+    return { ok: true, recreado: true, mlItemId: r.data.id, permalink: r.data.permalink || "" };
+  } catch (e) {
+    const detail = e.response?.data || e.message;
+    logger.error(`Error republicando ${propertyId}:`, JSON.stringify(detail));
+    throw new HttpsError("internal", typeof detail === "string" ? detail : (detail.message || "No se pudo republicar."));
+  }
+});
+
+exports.bajaML = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión para dar de baja.");
+  const propertyId = request.data && request.data.propertyId;
+  if (!propertyId) throw new HttpsError("invalid-argument", "Falta el id de la propiedad.");
+  const ref = admin.firestore().collection("properties").doc(propertyId);
+  const doc = await ref.get();
+  if (!doc.exists) throw new HttpsError("not-found", "La propiedad no existe.");
+  const p = doc.data();
+  if (!p.mlItemId) throw new HttpsError("failed-precondition", "Esta propiedad no está publicada en Mercado Libre.");
+  const token = await getValidToken();
+  const headers = { Authorization: `Bearer ${token}`, "content-type": "application/json" };
+  try {
+    // Mercado Libre exige pausar antes de cerrar.
+    try { await axios.put(`${API}/items/${p.mlItemId}`, { status: "paused" }, { headers }); } catch (e) { /* puede ya estar pausado */ }
+    await axios.put(`${API}/items/${p.mlItemId}`, { status: "closed" }, { headers });
+    await ref.update({ mlStatus: "closed", mlBajaAt: new Date().toISOString() });
+    return { ok: true };
+  } catch (e) {
+    const detail = e.response?.data || e.message;
+    logger.error(`Error dando de baja ${propertyId}:`, JSON.stringify(detail));
+    throw new HttpsError("internal", typeof detail === "string" ? detail : (detail.message || "No se pudo dar de baja."));
   }
 });

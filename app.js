@@ -830,6 +830,85 @@
     }
   }
 
+  let mlModalPropId = null;
+  async function openMLModal(propertyId) {
+    mlModalPropId = propertyId;
+    openModal('mlModal');
+    const body = document.getElementById('mlModalBody');
+    body.innerHTML = '<div style="text-align:center;padding:30px"><i class="fas fa-spinner fa-spin" style="font-size:1.6rem;color:var(--gray-400,#aaa)"></i><p style="margin-top:10px;color:var(--gray-500,#888)">Consultando Mercado Libre...</p></div>';
+    try {
+      const res = await firebase.functions().httpsCallable('estadoML')({ propertyId });
+      if (mlModalPropId === propertyId) renderMLStatus(res.data)
+    } catch (e) {
+      body.innerHTML = `<p style="color:#c0392b;padding:10px">No se pudo consultar el estado: ${e.message || e}</p>`
+    }
+  }
+  function mlListingTypeName(lt) {
+    const m = { free: 'Gratuita', bronze: 'Bronce', silver: 'Plata', gold: 'Oro', gold_special: 'Clásica', gold_pro: 'Premium', gold_premium: 'Premium' };
+    return m[lt] || lt || '—'
+  }
+  function mlStatusName(st) {
+    const m = { active: 'Activa', paused: 'Pausada', closed: 'Finalizada', under_review: 'En revisión', inactive: 'Inactiva' };
+    return m[st] || st || '—'
+  }
+  function mlActionText(a) {
+    const m = {
+      technical_specification: 'Completá más características del inmueble (ficha técnica).',
+      pictures: 'Agregá más fotos o mejorá su calidad.',
+      picture_quality: 'Mejorá la calidad de las fotos.',
+      description: 'Ampliá la descripción del aviso.',
+      title: 'Mejorá el título del aviso.',
+      video: 'Agregá un video al aviso.',
+      product_identifiers: 'Completá los identificadores del producto.',
+      variations: 'Agregá variaciones al aviso.',
+      buybox: 'Sumá el aviso al catálogo.',
+      premium: 'Subí el aviso a un nivel superior para más exposición.',
+      installments_free: 'Subí el aviso a un nivel superior para más exposición.'
+    };
+    return m[a] || a.replace(/_/g, ' ')
+  }
+  function renderMLStatus(d) {
+    const body = document.getElementById('mlModalBody');
+    if (!d.publicado) {
+      body.innerHTML = `<p style="color:var(--gray-600,#555);margin-bottom:16px">Esta propiedad todavía <strong>no está publicada</strong> en Mercado Libre.</p><button class="btn-primary" style="width:100%" onclick="republicarPropiedad()"><i class="fas fa-upload"></i> Publicar en Mercado Libre</button>`;
+      return
+    }
+    if (d.error) {
+      body.innerHTML = `<p style="color:#c0392b;margin-bottom:16px">${d.error}</p><button class="btn-primary" style="width:100%" onclick="republicarPropiedad()"><i class="fas fa-redo"></i> Volver a publicar</button>`;
+      return
+    }
+    const hp = d.health != null ? Math.round(d.health * 100) : null;
+    const hc = hp == null ? '#999' : (hp >= 70 ? '#27ae60' : hp >= 40 ? '#f39c12' : '#e74c3c');
+    const sc = d.status === 'active' ? '#27ae60' : (d.status === 'closed' ? '#e74c3c' : '#f39c12');
+    const acc = (d.actions || []).map(a => `<li style="margin:6px 0;color:var(--gray-700,#444)"><i class="fas fa-arrow-up" style="color:var(--accent);margin-right:8px"></i>${mlActionText(a)}</li>`).join('');
+    body.innerHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"><div style="flex:1;min-width:110px;background:var(--gray-50,#f7f7f7);border-radius:10px;padding:12px"><div style="font-size:.76rem;color:var(--gray-500,#888)">Estado</div><div style="font-weight:700;color:${sc}">${mlStatusName(d.status)}</div></div><div style="flex:1;min-width:110px;background:var(--gray-50,#f7f7f7);border-radius:10px;padding:12px"><div style="font-size:.76rem;color:var(--gray-500,#888)">Tipo de aviso</div><div style="font-weight:700">${mlListingTypeName(d.listingType)}</div></div>${hp!=null?`<div style="flex:1;min-width:110px;background:var(--gray-50,#f7f7f7);border-radius:10px;padding:12px"><div style="font-size:.76rem;color:var(--gray-500,#888)">Calidad</div><div style="font-weight:700;color:${hc}">${hp}%</div></div>`:''}</div>${acc?`<div style="margin-bottom:16px"><div style="font-weight:600;margin-bottom:6px">Para mejorar el aviso:</div><ul style="list-style:none;padding:0;margin:0">${acc}</ul></div>`:`<p style="color:#27ae60;margin-bottom:16px"><i class="fas fa-check-circle"></i> El aviso está completo, sin mejoras pendientes.</p>`}<div style="display:flex;gap:8px;flex-wrap:wrap">${d.permalink?`<a href="${d.permalink}" target="_blank" rel="noopener" class="btn-secondary" style="flex:1;text-align:center;text-decoration:none"><i class="fas fa-external-link-alt"></i> Ver aviso</a>`:''}${d.status==='active'?`<button class="btn-secondary" style="flex:1" onclick="bajaPropiedad()"><i class="fas fa-circle-pause"></i> Dar de baja</button>`:`<button class="btn-primary" style="flex:1" onclick="republicarPropiedad()"><i class="fas fa-redo"></i> Republicar</button>`}</div>`
+  }
+  async function republicarPropiedad() {
+    if (!mlModalPropId) return;
+    const id = mlModalPropId, body = document.getElementById('mlModalBody');
+    body.innerHTML = '<div style="text-align:center;padding:30px"><i class="fas fa-spinner fa-spin" style="font-size:1.6rem;color:var(--gray-400,#aaa)"></i><p style="margin-top:10px;color:var(--gray-500,#888)">Publicando en Mercado Libre...</p></div>';
+    try {
+      await firebase.functions().httpsCallable('republicarML')({ propertyId: id });
+      showToast('Mercado Libre', 'El aviso quedó activo', 'fa-tag');
+      openMLModal(id)
+    } catch (e) {
+      body.innerHTML = `<p style="color:#c0392b;padding:10px">No se pudo publicar: ${e.message || e}</p><button class="btn-secondary" style="width:100%;margin-top:10px" onclick="openMLModal('${id}')">Reintentar</button>`
+    }
+  }
+  async function bajaPropiedad() {
+    if (!mlModalPropId) return;
+    if (!confirm('¿Dar de baja este aviso en Mercado Libre? Vas a poder volver a publicarlo después.')) return;
+    const id = mlModalPropId, body = document.getElementById('mlModalBody');
+    body.innerHTML = '<div style="text-align:center;padding:30px"><i class="fas fa-spinner fa-spin" style="font-size:1.6rem;color:var(--gray-400,#aaa)"></i><p style="margin-top:10px;color:var(--gray-500,#888)">Dando de baja...</p></div>';
+    try {
+      await firebase.functions().httpsCallable('bajaML')({ propertyId: id });
+      showToast('Mercado Libre', 'El aviso se dio de baja', 'fa-tag');
+      openMLModal(id)
+    } catch (e) {
+      body.innerHTML = `<p style="color:#c0392b;padding:10px">No se pudo dar de baja: ${e.message || e}</p>`
+    }
+  }
+
   function openModal(i) {
     document.getElementById(i).classList.add('active');
     if (i === 'loginModal') loadRememberedUser()
@@ -1086,7 +1165,7 @@
         archived: 'ARCHIVADA'
       };
       const stLabel = stLabels[st] || '';
-      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${p.title}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button><button class="btn-feature ${p.featured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${p.featured?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button><button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${o.profilePhoto}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${o.name||'Usuario'}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${p.title}</h3><div class="card-location"><i class="fas fa-map-marker-alt"></i>${l}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${o.instagram}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
+      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${p.title}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button><button class="card-action-btn" onclick="event.stopPropagation();openMLModal('${p.id}')" title="Mercado Libre" style="background:#fff159;color:#2d3277"><i class="fas fa-tag"></i></button><button class="btn-feature ${p.featured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${p.featured?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button><button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${o.profilePhoto}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${o.name||'Usuario'}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${p.title}</h3><div class="card-location"><i class="fas fa-map-marker-alt"></i>${l}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${o.instagram}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
     }).join('')
   }
 
@@ -1175,6 +1254,7 @@
     document.getElementById('mainContent').classList.add('hidden');
     document.getElementById('adminPanel').classList.add('hidden');
     document.getElementById('crmPage').classList.add('hidden');
+    document.getElementById('clientProfilePage')?.classList.add('hidden');
     document.getElementById('profilePage').classList.remove('hidden')
   }
 
@@ -1555,6 +1635,7 @@
     document.getElementById('adminPanel').classList.add('hidden');
     document.getElementById('profilePage').classList.add('hidden');
     document.getElementById('crmPage').classList.add('hidden');
+    document.getElementById('clientProfilePage')?.classList.add('hidden');
     currentProfileUserId = null;
     window.location.hash = ''
   }
@@ -1565,6 +1646,7 @@
     document.getElementById('mainContent').classList.add('hidden');
     document.getElementById('profilePage').classList.add('hidden');
     document.getElementById('crmPage').classList.add('hidden');
+    document.getElementById('clientProfilePage')?.classList.add('hidden');
     document.getElementById('adminPanel').classList.remove('hidden');
     showAdminTab('pending')
   }
@@ -1952,6 +2034,7 @@
     document.getElementById('mainContent').classList.add('hidden');
     document.getElementById('adminPanel').classList.add('hidden');
     document.getElementById('profilePage').classList.add('hidden');
+    document.getElementById('clientProfilePage')?.classList.add('hidden');
     document.getElementById('crmPage').classList.remove('hidden');
     window.location.hash = 'clientes';
     const sub = document.getElementById('crmSubtitle');
