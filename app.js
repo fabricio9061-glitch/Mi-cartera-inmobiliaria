@@ -909,6 +909,93 @@
     }
   }
 
+  // ===== Cuentas de portales: credenciales compartidas de la inmobiliaria =====
+  let portalAccounts = [];
+  async function openPortalAccounts() {
+    document.getElementById('userDropdown')?.classList.remove('active');
+    if (!currentUser) { openModal('loginModal'); return }
+    openModal('portalAccountsModal');
+    document.getElementById('btnAddPortal').classList.toggle('hidden', !isAdminUser());
+    const list = document.getElementById('portalAccountsList');
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray-500,#888)"><i class="fas fa-spinner fa-spin"></i></div>';
+    try {
+      const q = await db.collection('portalAccounts').get();
+      portalAccounts = q.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderPortalAccounts()
+    } catch (e) {
+      list.innerHTML = '<p style="color:#c0392b">No se pudieron cargar las cuentas.</p>'
+    }
+  }
+  function renderPortalAccounts() {
+    const list = document.getElementById('portalAccountsList'), admin = isAdminUser();
+    const escA = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    const escH = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    if (!portalAccounts.length) {
+      list.innerHTML = `<p style="color:var(--gray-500,#888);text-align:center;padding:16px">Todavía no hay cuentas cargadas.${admin ? ' Agregá la primera con el botón de abajo.' : ''}</p>`;
+      return
+    }
+    list.innerHTML = portalAccounts.map(a => `<div style="border:1px solid var(--gray-200,#eee);border-radius:12px;padding:14px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px"><strong style="font-size:1.02rem">${escH(a.name) || 'Portal'}</strong>${a.url ? `<a href="${escA(a.url)}" target="_blank" rel="noopener" class="btn-secondary" style="padding:5px 10px;font-size:.8rem;text-decoration:none;white-space:nowrap"><i class="fas fa-external-link-alt"></i> Abrir</a>` : ''}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.76rem;color:var(--gray-500,#888);min-width:74px">Usuario</span><code id="user-${a.id}" data-val="${escA(a.user)}" style="flex:1;background:var(--gray-50,#f5f5f5);padding:6px 8px;border-radius:6px;font-size:.85rem;overflow:hidden;text-overflow:ellipsis">${escH(a.user)}</code><button class="btn-secondary" style="padding:6px 9px" onclick="copyText(document.getElementById('user-${a.id}').dataset.val,event)" title="Copiar"><i class="fas fa-copy"></i></button></div>
+      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:.76rem;color:var(--gray-500,#888);min-width:74px">Contraseña</span><code id="pass-${a.id}" data-val="${escA(a.password)}" style="flex:1;background:var(--gray-50,#f5f5f5);padding:6px 8px;border-radius:6px;font-size:.85rem">••••••••</code><button class="btn-secondary" style="padding:6px 9px" onclick="togglePortalPass('${a.id}')" title="Mostrar/ocultar"><i class="fas fa-eye"></i></button><button class="btn-secondary" style="padding:6px 9px" onclick="copyText(document.getElementById('pass-${a.id}').dataset.val,event)" title="Copiar"><i class="fas fa-copy"></i></button></div>
+      ${a.notes ? `<p style="font-size:.82rem;color:var(--gray-600,#666);margin-top:8px">${escH(a.notes)}</p>` : ''}
+      ${admin ? `<div style="display:flex;gap:8px;margin-top:10px"><button class="btn-secondary" style="flex:1;font-size:.8rem" onclick="openEditPortal('${a.id}')"><i class="fas fa-edit"></i> Editar</button><button class="btn-secondary" style="flex:1;font-size:.8rem;color:#c0392b" onclick="deletePortalAccount('${a.id}')"><i class="fas fa-trash"></i> Eliminar</button></div>` : ''}
+    </div>`).join('')
+  }
+  function togglePortalPass(id) {
+    const el = document.getElementById('pass-' + id);
+    if (!el) return;
+    el.textContent = el.textContent === '••••••••' ? (el.dataset.val || '') : '••••••••'
+  }
+  function copyText(t, ev) {
+    if (navigator.clipboard) navigator.clipboard.writeText(t).then(() => {
+      if (ev && ev.currentTarget) { const i = ev.currentTarget.querySelector('i'); if (i) { const o = i.className; i.className = 'fas fa-check'; setTimeout(() => { i.className = o }, 1200) } }
+    }).catch(() => {})
+  }
+  function openEditPortal(id) {
+    if (!isAdminUser()) return;
+    const a = id ? portalAccounts.find(x => x.id === id) : null;
+    document.getElementById('portalEditId').value = id || '';
+    document.getElementById('editPortalTitle').textContent = a ? 'Editar cuenta' : 'Nueva cuenta';
+    document.getElementById('portalName').value = a ? (a.name || '') : '';
+    document.getElementById('portalUrl').value = a ? (a.url || '') : '';
+    document.getElementById('portalUser').value = a ? (a.user || '') : '';
+    document.getElementById('portalPass').value = a ? (a.password || '') : '';
+    document.getElementById('portalNotes').value = a ? (a.notes || '') : '';
+    openModal('editPortalModal')
+  }
+  async function savePortalAccount() {
+    if (!isAdminUser()) return;
+    const id = document.getElementById('portalEditId').value;
+    const data = {
+      name: document.getElementById('portalName').value.trim(),
+      url: document.getElementById('portalUrl').value.trim(),
+      user: document.getElementById('portalUser').value.trim(),
+      password: document.getElementById('portalPass').value,
+      notes: document.getElementById('portalNotes').value.trim(),
+      updatedAt: new Date().toISOString()
+    };
+    if (!data.name) { alert('Poné un nombre para el portal.'); return }
+    try {
+      if (id) await db.collection('portalAccounts').doc(id).update(data);
+      else await db.collection('portalAccounts').add(data);
+      closeModal('editPortalModal');
+      openPortalAccounts()
+    } catch (e) {
+      alert('No se pudo guardar: ' + (e.message || e))
+    }
+  }
+  async function deletePortalAccount(id) {
+    if (!isAdminUser()) return;
+    if (!confirm('¿Eliminar esta cuenta de portal?')) return;
+    try {
+      await db.collection('portalAccounts').doc(id).delete();
+      openPortalAccounts()
+    } catch (e) {
+      alert('No se pudo eliminar: ' + (e.message || e))
+    }
+  }
+
   function openModal(i) {
     document.getElementById(i).classList.add('active');
     if (i === 'loginModal') loadRememberedUser()
