@@ -809,7 +809,7 @@
       ng.classList.add('hidden');
       nu.classList.remove('hidden');
       hb.classList.add('hidden');
-      bnp.classList.remove('hidden');
+      bnp?.classList.remove('hidden');
       un.textContent = userProfile.name || 'Usuario';
       const i = (userProfile.name || 'U').charAt(0).toUpperCase();
       ua.innerHTML = userProfile.profilePhoto ? `<img src="${userProfile.profilePhoto}" alt="">` : i;
@@ -825,7 +825,7 @@
       ng.classList.remove('hidden');
       nu.classList.add('hidden');
       hb.classList.remove('hidden');
-      bnp.classList.add('hidden');
+      bnp?.classList.add('hidden');
       clients = []
     }
   }
@@ -1170,7 +1170,7 @@
     document.getElementById('profilePropertiesCount').textContent = up.length;
     document.getElementById('profileViewsCount').textContent = tv;
     document.getElementById('profilePropertiesSubtitle').textContent = `${up.length} propiedades`;
-    document.getElementById('btnNewPropertyProfile').classList.toggle('hidden', !ip);
+    document.getElementById('btnNewPropertyProfile')?.classList.toggle('hidden', !ip);
     renderProperties(up, 'profilePropertiesGrid');
     document.getElementById('mainContent').classList.add('hidden');
     document.getElementById('adminPanel').classList.add('hidden');
@@ -1300,8 +1300,11 @@
   }
 
   // Abre el formulario de crear/editar propiedad en una pestaña nueva
-  function openPropertyFormTab(id) {
-    window.open(id ? 'propiedad-form.html?id=' + id : 'propiedad-form.html', '_blank');
+  function openPropertyFormTab(id, clientId) {
+    let url = 'propiedad-form.html';
+    if (id) url += '?id=' + encodeURIComponent(id);
+    else if (clientId) url += '?clientId=' + encodeURIComponent(clientId);
+    window.open(url, '_blank');
   }
 
   // Detail View
@@ -1923,12 +1926,8 @@
       return
     }
     try {
-      let q;
-      if (isAdminUser()) {
-        q = await db.collection('clients').get()
-      } else {
-        q = await db.collection('clients').where('ownerId', '==', currentUser.uid).get()
-      }
+      // CRM compartido: todos los agentes ven todos los clientes de la inmobiliaria
+      const q = await db.collection('clients').get();
       clients = q.docs.map(d => ({
         id: d.id,
         ...d.data()
@@ -1977,7 +1976,7 @@
     const se = document.getElementById('crmStats');
     if (se) se.innerHTML = `<div class="crm-stat"><div class="crm-stat-num">${st.total}</div><div class="crm-stat-label">Total clientes</div></div><div class="crm-stat"><div class="crm-stat-num">${st.nuevo}</div><div class="crm-stat-label">Nuevos</div></div><div class="crm-stat"><div class="crm-stat-num">${st.proceso}</div><div class="crm-stat-label">En proceso</div></div><div class="crm-stat"><div class="crm-stat-num">${st.cerrado}</div><div class="crm-stat-label">Cerrados</div></div>`;
     let list = clients.filter(c => {
-      const m = !term || (c.name || '').toLowerCase().includes(term) || (c.phone || '').includes(term) || (c.email || '').toLowerCase().includes(term);
+      const m = !term || (c.name || '').toLowerCase().includes(term) || (c.phone || '').includes(term) || (c.phoneNormalized || '').includes(term) || (c.email || '').toLowerCase().includes(term);
       return m && (!sf || c.status === sf) && (!inf || c.interest === inf)
     });
     list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
@@ -1992,12 +1991,63 @@
     };
     g.innerHTML = list.map(c => {
       const ini = (c.name || '?').charAt(0).toUpperCase(),
-        ph = (c.phone || '').replace(/\D/g, ''),
-        so = isAdminUser() && c.ownerName;
-      return `<div class="client-card"><div class="client-card-top"><div class="client-avatar">${ini}</div><div class="client-card-name"><h3>${c.name||'Sin nombre'}</h3>${so?`<div class="client-owner"><i class="fas fa-user-tie"></i> ${c.ownerName}</div>`:''}</div><span class="client-status ${c.status||'nuevo'}">${CLIENT_STATUS[c.status]||c.status||'Nuevo'}</span></div>${c.interest&&il[c.interest]?`<div class="client-interest-tag">${il[c.interest]}</div>`:''}<div class="client-meta"><div class="client-meta-row"><i class="fas fa-phone"></i> ${c.phone||'—'}</div>${c.email?`<div class="client-meta-row"><i class="fas fa-envelope"></i> ${c.email}</div>`:''}${c.budget?`<div class="client-meta-row"><i class="fas fa-coins"></i> ${c.budget}</div>`:''}${c.link?`<div class="client-meta-row"><i class="fas fa-link"></i> <a href="${c.link}" target="_blank" rel="noopener" style="color:var(--primary)">Ver link</a></div>`:''}</div>${c.notes?`<div class="client-notes-preview">${c.notes}</div>`:''}<div class="client-actions">${ph?`<a class="ca-wa" href="https://wa.me/${ph}" target="_blank"><i class="fab fa-whatsapp"></i> WhatsApp</a>`:''}<button class="ca-edit" onclick="openClientModal('${c.id}')"><i class="fas fa-edit"></i> Editar</button><button class="ca-del" onclick="deleteClient('${c.id}')"><i class="fas fa-trash"></i></button></div></div>`
+        ph = (c.phoneNormalized || c.phone || '').replace(/\D/g, ''),
+        so = c.createdByName || c.ownerName;
+      return `<div class="client-card" onclick="showClientProfile('${c.id}')" style="cursor:pointer"><div class="client-card-top"><div class="client-avatar">${ini}</div><div class="client-card-name"><h3>${c.name||'Sin nombre'}</h3>${so?`<div class="client-owner"><i class="fas fa-user-tie"></i> ${c.createdByName||c.ownerName}</div>`:''}</div><span class="client-status ${c.status||'nuevo'}">${CLIENT_STATUS[c.status]||c.status||'Nuevo'}</span></div>${c.interest&&il[c.interest]?`<div class="client-interest-tag">${il[c.interest]}</div>`:''}<div class="client-meta"><div class="client-meta-row"><i class="fas fa-phone"></i> ${c.phoneNormalized||((c.areaCode||'')+(c.phone||''))||'—'}</div>${c.email?`<div class="client-meta-row"><i class="fas fa-envelope"></i> ${c.email}</div>`:''}${c.budget?`<div class="client-meta-row"><i class="fas fa-coins"></i> ${c.budget}</div>`:''}${c.link?`<div class="client-meta-row"><i class="fas fa-link"></i> <a href="${c.link}" target="_blank" rel="noopener" style="color:var(--primary)" onclick="event.stopPropagation()">Ver link</a></div>`:''}</div>${c.notes?`<div class="client-notes-preview">${c.notes}</div>`:''}<div class="client-actions">${ph?`<a class="ca-wa" href="https://wa.me/${ph}" target="_blank" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i> WhatsApp</a>`:''}<button class="ca-edit" onclick="event.stopPropagation();openClientModal('${c.id}')"><i class="fas fa-edit"></i> Editar</button><button class="ca-del" onclick="event.stopPropagation();deleteClient('${c.id}')"><i class="fas fa-trash"></i></button></div></div>`
     }).join('')
   }
 
+  let currentClientProfileId = null;
+  async function showClientProfile(id) {
+    const c = clients.find(x => x.id === id);
+    if (!c) { showCRM(); return }
+    currentClientProfileId = id;
+    document.getElementById('mainContent').classList.add('hidden');
+    document.getElementById('adminPanel').classList.add('hidden');
+    document.getElementById('profilePage').classList.add('hidden');
+    document.getElementById('crmPage').classList.add('hidden');
+    document.getElementById('clientProfilePage').classList.remove('hidden');
+    window.scrollTo(0, 0);
+    document.getElementById('cpAvatar').textContent = (c.name || '?').charAt(0).toUpperCase();
+    document.getElementById('cpName').textContent = c.name || 'Cliente';
+    const stEl = document.getElementById('cpStatus');
+    stEl.textContent = CLIENT_STATUS[c.status] || 'Nuevo';
+    stEl.className = 'client-status ' + (c.status || 'nuevo');
+    const phoneFull = c.phoneNormalized || ((c.areaCode || '') + (c.phone || ''));
+    const meta = [];
+    if (phoneFull) meta.push(`<i class="fas fa-phone"></i> ${phoneFull}`);
+    if (c.email) meta.push(`<i class="fas fa-envelope"></i> ${c.email}`);
+    if (c.createdByName || c.ownerName) meta.push(`<i class="fas fa-user-tie"></i> Creado por ${c.createdByName || c.ownerName}`);
+    if (c.createdAt) meta.push(`<i class="fas fa-calendar"></i> ${new Date(c.createdAt).toLocaleDateString('es-UY')}`);
+    document.getElementById('cpMeta').innerHTML = meta.join(' &nbsp;·&nbsp; ');
+    const wa = document.getElementById('cpWhatsapp'), ph = (phoneFull || '').replace(/\D/g, '');
+    if (ph) { wa.href = 'https://wa.me/' + ph; wa.style.display = '' } else { wa.style.display = 'none' }
+    document.getElementById('cpNotes').innerHTML = c.notes ? `<div class="client-notes-preview">${c.notes}</div>` : '';
+    renderClientProfileProperties(id)
+  }
+  async function renderClientProfileProperties(clientId) {
+    const grid = document.getElementById('cpPropsGrid'), cnt = document.getElementById('cpPropsCount');
+    grid.innerHTML = '<div class="crm-empty" style="grid-column:1/-1"><i class="fas fa-spinner fa-spin"></i><p>Cargando propiedades...</p></div>';
+    try {
+      const q = await db.collection('properties').where('clientId', '==', clientId).get();
+      const props = q.docs.map(d => ({ id: d.id, ...d.data() }));
+      props.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      cnt.textContent = props.length === 0 ? 'Sin propiedades aún' : `${props.length} propiedad${props.length === 1 ? '' : 'es'}`;
+      if (props.length === 0) {
+        grid.innerHTML = `<div class="crm-empty" style="grid-column:1/-1"><i class="fas fa-home"></i><h3>Todavía no hay propiedades</h3><p>Agregá la primera con el botón "Agregar propiedad"</p></div>`;
+        return
+      }
+      grid.innerHTML = props.map(p => {
+        const img = p.images && p.images[0] ? p.images[0] : 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400';
+        const agent = p.ownerName || 'Agente';
+        return `<div class="property-card" onclick="openPropertyTab('${p.id}')" style="cursor:pointer"><div class="card-image"><img src="${img}" alt="${p.title||''}" loading="lazy"></div><div class="card-content"><div class="card-price">${formatPrice(p.price, p.currency||'USD')}${p.type==='rent'?'<span>/mes</span>':''}</div><h3 class="card-title">${p.title||'Propiedad'}</h3><div class="card-location"><i class="fas fa-map-marker-alt"></i> ${getLocationString(p)}</div><div class="client-meta-row" style="margin-top:8px;color:var(--gray-500,#777)"><i class="fas fa-user-tie"></i> Cargada por ${agent}</div></div><div class="card-footer"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span><button class="ca-edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')"><i class="fas fa-edit"></i> Editar</button></div></div>`
+      }).join('')
+    } catch (e) {
+      console.error('Error cargando propiedades del cliente:', e);
+      cnt.textContent = '';
+      grid.innerHTML = `<div class="crm-empty" style="grid-column:1/-1"><i class="fas fa-exclamation-triangle"></i><p>No se pudieron cargar las propiedades.</p></div>`
+    }
+  }
   function openClientModal(id) {
     const f = document.getElementById('clientForm');
     f.reset();
@@ -2008,7 +2058,10 @@
       const c = clients.find(x => x.id === id);
       if (c) {
         document.getElementById('clientName').value = c.name || '';
-        document.getElementById('clientPhone').value = c.phone || '';
+        let _ac = c.areaCode || '+598', _loc = c.phone || '';
+        if (!c.areaCode && _loc) { const m = _loc.replace(/\D/g, ''); _loc = m.startsWith('598') ? m.slice(3) : m.replace(/^0+/, ''); }
+        document.getElementById('clientAreaCode').value = _ac;
+        document.getElementById('clientPhone').value = _loc;
         document.getElementById('clientEmail').value = c.email || '';
         document.getElementById('clientInterest').value = c.interest || '';
         document.getElementById('clientStatus').value = c.status || 'nuevo';
@@ -2025,29 +2078,19 @@
     const b = document.getElementById('clientBtn'),
       er = document.getElementById('clientError'),
       id = document.getElementById('editingClientId').value;
-    const phone = normalizePhone(document.getElementById('clientPhone').value);
+    const areaCode = document.getElementById('clientAreaCode').value || '+598';
+    const local = String(document.getElementById('clientPhone').value || '').replace(/\D/g, '').replace(/^0+/, '');
+    const phoneFull = local ? areaCode + local : '';
     er.classList.add('hidden');
 
-    // Chequeo de número duplicado (salvo que ya se haya avisado para este mismo número)
-    if (phone && window._dupOkFor !== phone) {
-      b.disabled = true;
-      b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
-      try {
-        const res = await firebase.functions().httpsCallable('checkClientPhone')({ phone, excludeId: id || null });
-        if (res.data && res.data.exists) {
-          const d = res.data;
-          er.innerHTML = (d.isOwn
-            ? `Ya tenés a este cliente cargado: <b>${d.clientName}</b>.`
-            : `⚠️ Este número ya lo tiene cargado el agente <b>${d.ownerName}</b> (cliente: ${d.clientName}).`)
-            + ' Tocá <b>"Guardar igual"</b> para registrarlo de todos modos.';
-          er.classList.remove('hidden');
-          window._dupOkFor = phone;
-          b.disabled = false;
-          b.innerHTML = '<i class="fas fa-save"></i> Guardar igual';
-          return;
-        }
-      } catch (err) {
-        console.warn('No se pudo verificar duplicado:', err);
+    // CRM compartido: un número = un solo cliente. Si ya existe, te llevo a su ficha.
+    if (phoneFull && !id) {
+      const dup = clients.find(c => (c.phoneNormalized || normalizePhone(c.phone)) === phoneFull);
+      if (dup) {
+        er.innerHTML = `Este número ya está cargado como <b>${dup.name || 'un cliente'}</b>${dup.createdByName ? ` (lo creó ${dup.createdByName})` : ''}. Te abro su ficha para que trabajes sobre ese.`;
+        er.classList.remove('hidden');
+        setTimeout(() => openClientModal(dup.id), 1400);
+        return;
       }
     }
 
@@ -2056,7 +2099,9 @@
     try {
       const data = {
         name: document.getElementById('clientName').value.trim(),
-        phone: phone || document.getElementById('clientPhone').value.trim(),
+        areaCode: areaCode,
+        phone: local,
+        phoneNormalized: phoneFull,
         email: document.getElementById('clientEmail').value.trim(),
         interest: document.getElementById('clientInterest').value,
         status: document.getElementById('clientStatus').value,
@@ -2069,13 +2114,12 @@
         await db.collection('clients').doc(id).update(data);
         showToast('Cliente actualizado', 'Los cambios se guardaron', 'fa-user-check')
       } else {
-        data.ownerId = currentUser.uid;
-        data.ownerName = userProfile.name || '';
+        data.createdBy = currentUser.uid;
+        data.createdByName = userProfile.name || '';
         data.createdAt = new Date().toISOString();
         await db.collection('clients').add(data);
         showToast('Cliente agregado', 'Nuevo cliente registrado', 'fa-user-plus')
       }
-      window._dupOkFor = null;
       closeModal('clientModal');
       await loadClients()
     } catch (err) {

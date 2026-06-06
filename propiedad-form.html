@@ -77,7 +77,7 @@
         <div class="ppf-sec-title"><i class="fas fa-home"></i> Datos principales</div>
         <div class="ppf-sec">
           <div class="form-group"><label>Título *</label><input type="text" id="propTitle" required placeholder="Ej: Casa en Pocitos con jardín"></div>
-          <div class="form-row"><div class="form-group"><label>Tipo de Operación</label><select id="propType" onchange="togglePropertyType()"><option value="sale">Venta</option><option value="rent">Alquiler</option></select></div><div class="form-group" id="propertyTypeGroup"><label>Tipo de Propiedad</label><select id="propPropertyType"><option value="common">Padrón Común</option><option value="ph">PH</option></select></div></div>
+          <div class="form-row-3"><div class="form-group"><label>Tipo de Operación</label><select id="propType" onchange="togglePropertyType()"><option value="sale">Venta</option><option value="rent">Alquiler</option></select></div><div class="form-group"><label>Tipo de inmueble</label><select id="propRealEstateType"><option value="casa">Casa</option><option value="apartamento">Apartamento</option><option value="terreno">Terreno</option><option value="local">Local comercial</option><option value="oficina">Oficina</option><option value="galpon">Galpón / Depósito</option><option value="campo">Campo / Chacra</option></select></div><div class="form-group" id="propertyTypeGroup"><label>Tipo de padrón</label><select id="propPropertyType"><option value="common">Padrón Común</option><option value="ph">PH</option></select></div></div>
           <div class="form-row-3"><div class="form-group"><label>Precio *</label><input type="number" id="propPrice" required placeholder="150000"></div><div class="form-group"><label>Moneda</label><select id="propCurrency"><option value="USD">USD</option><option value="UYU">UYU</option></select></div><div class="form-group"><label>Gastos Comunes</label><input type="number" id="propExpenses" placeholder="150"></div></div>
           <div class="form-group"><label>Estado de la Propiedad</label><div class="status-selector" id="statusSelector"><div class="status-option available active" onclick="selectStatus('available')"><i class="fas fa-check-circle"></i> Disponible</div><div class="status-option reserved" onclick="selectStatus('reserved')"><i class="fas fa-clock"></i> Reservada</div><div class="status-option sold" onclick="selectStatus('sold')"><i class="fas fa-handshake"></i> Vendida</div><div class="status-option rented" onclick="selectStatus('rented')"><i class="fas fa-key"></i> Alquilada</div><div class="status-option archived" onclick="selectStatus('archived')"><i class="fas fa-archive"></i> Archivada</div></div><input type="hidden" id="propStatus" value="available"></div>
         </div>
@@ -150,7 +150,7 @@
     const auth = firebase.auth(), db = firebase.firestore(), storage = firebase.storage();
     const ADMIN_EMAIL = "fabricio9061@gmail.com";
 
-    let currentUser = null, userProfile = null, selectedImages = [], draggedImageIndex = null, editingProperty = null;
+    let currentUser = null, userProfile = null, selectedImages = [], draggedImageIndex = null, editingProperty = null, formClientId = null;
 
     const uruguayData = {
       "Montevideo": ["Aguada", "Aires Puros", "Atahualpa", "Bañados de Carrasco", "Barrio Sur", "Bella Italia", "Bella Vista", "Belvedere", "Brazo Oriental", "Buceo", "Capurro", "Carrasco", "Carrasco Norte", "Casabó", "Casavalle", "Centro", "Cerrito de la Victoria", "Cerro", "Ciudad Vieja", "Colón", "Conciliación", "Cordón", "Flor de Maroñas", "Goes", "Ituzaingó", "Jacinto Vera", "Jardines del Hipódromo", "La Blanqueada", "La Comercial", "La Figurita", "La Paloma", "La Teja", "Larrañaga", "Las Acacias", "Las Canteras", "Lezica", "Malvín", "Malvín Norte", "Manga", "Maroñas", "Melilla", "Mercado Modelo", "Nuevo París", "Palermo", "Parque Batlle", "Parque Rodó", "Paso de la Arena", "Paso de las Duranas", "Paso Molino", "Peñarol", "Piedras Blancas", "Pocitos", "Pocitos Nuevo", "Prado", "Punta Carretas", "Punta Gorda", "Punta Rieles", "Reducto", "Sayago", "Toledo Chico", "Tres Cruces", "Tres Ombúes", "Unión", "Villa Dolores", "Villa Española", "Villa García", "Villa Muñoz", "Vista Linda"].sort(),
@@ -254,6 +254,7 @@
       document.getElementById('propType').value = p.type || 'sale';
       togglePropertyType();
       document.getElementById('propPropertyType').value = p.propertyType || 'common';
+      document.getElementById('propRealEstateType').value = p.realEstateType || 'casa';
       document.getElementById('propBedrooms').value = p.bedrooms || '';
       document.getElementById('propBathrooms').value = p.bathrooms || '';
       document.getElementById('propTotalArea').value = p.totalArea || '';
@@ -336,7 +337,7 @@
         const ty = document.getElementById('propType').value, dp = document.getElementById('propDepartamento').value, cd = document.getElementById('propCiudad').value, np = parseInt(document.getElementById('propPrice').value);
         const pd = {
           title: document.getElementById('propTitle').value, departamento: dp, ciudad: cd, direccion: document.getElementById('propDireccion').value, location: `${cd}, ${dp}`,
-          price: np, currency: document.getElementById('propCurrency').value, type: ty, propertyType: ty === 'sale' ? document.getElementById('propPropertyType').value : 'common',
+          price: np, currency: document.getElementById('propCurrency').value, type: ty, propertyType: ty === 'sale' ? document.getElementById('propPropertyType').value : 'common', realEstateType: document.getElementById('propRealEstateType').value, clientId: formClientId || null,
           bedrooms: parseInt(document.getElementById('propBedrooms').value) || 0, bathrooms: parseInt(document.getElementById('propBathrooms').value) || 0,
           totalArea: parseInt(document.getElementById('propTotalArea').value) || 0, builtArea: parseInt(document.getElementById('propBuiltArea').value) || 0,
           commonExpenses: parseInt(document.getElementById('propExpenses').value) || 0, garage: (parseInt(document.getElementById('propCocheras').value) || 0) > 0 ? 'yes' : 'no', status: document.getElementById('propStatus').value,
@@ -370,6 +371,7 @@
       initDepartamentos();
       renderFeatureGroups();
       const id = new URLSearchParams(location.search).get('id');
+      const clientIdParam = new URLSearchParams(location.search).get('clientId');
       if (id) {
         try {
           const pd = await db.collection('properties').doc(id).get();
@@ -377,6 +379,7 @@
           const p = { id: pd.id, ...pd.data() };
           if (p.ownerId !== u.uid && !isAdmin) { showState('ppfErr', { msg: 'No tenés permiso para editar esta propiedad.' }); return }
           editingProperty = p;
+          formClientId = p.clientId || null;
           showState('ppfFormWrap');
           loadPropertyForEdit(p);
         } catch (e) { console.error(e); showState('ppfErr', { msg: 'Error al cargar la propiedad.' }) }
@@ -386,6 +389,13 @@
         if (userProfile.whatsapp) document.getElementById('propWhatsapp').value = userProfile.whatsapp;
         selectStatus('available');
         togglePropertyType();
+        if (clientIdParam) {
+          formClientId = clientIdParam;
+          try {
+            const cd = await db.collection('clients').doc(clientIdParam).get();
+            if (cd.exists) document.getElementById('ppfTitle').textContent = 'Nueva propiedad de ' + (cd.data().name || 'cliente');
+          } catch (e) {}
+        }
       }
     });
   </script>

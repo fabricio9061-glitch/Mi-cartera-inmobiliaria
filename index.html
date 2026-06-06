@@ -63,7 +63,7 @@
       <button class="filter-btn" onclick="filterProperties()"><i class="fas fa-search"></i> Buscar</button>
     </div></div></section>
     <section class="container" id="propiedades">
-      <div class="section-header"><div><h2 class="section-title">Propiedades Disponibles</h2><p class="section-subtitle" id="propertiesCount">Cargando...</p></div><button class="btn-new-property hidden" id="btnNewProperty" onclick="openPropertyFormTab()"><i class="fas fa-plus"></i><span>Nueva Propiedad</span></button></div>
+      <div class="section-header"><div><h2 class="section-title">Propiedades Disponibles</h2><p class="section-subtitle" id="propertiesCount">Cargando...</p></div></div>
       <div id="propertiesLoading" class="loading"><div class="spinner"></div></div>
       <div class="properties-grid" id="propertiesGrid"></div>
     </section>
@@ -77,11 +77,11 @@
         <div class="profile-share"><button class="profile-btn profile-btn-whatsapp hidden" id="btnContactWhatsapp" onclick="contactAgentWhatsapp()"><i class="fab fa-whatsapp"></i> Contactar</button><button class="profile-btn" onclick="copyProfileLink()"><i class="fas fa-link"></i> Copiar enlace</button><button class="profile-btn" onclick="shareProfileWhatsapp()"><i class="fas fa-share-alt"></i> Compartir</button><button class="profile-btn profile-btn-edit hidden" id="btnEditProfile" onclick="openEditProfileModal()"><i class="fas fa-edit"></i> Editar Perfil</button></div>
       </div>
     </div></div></div>
-    <div class="container"><div class="section-header"><div><h2 class="section-title">Propiedades de <span id="profileNameTitle">Usuario</span></h2><p class="section-subtitle" id="profilePropertiesSubtitle">0 propiedades</p></div><button class="btn-new-property hidden" id="btnNewPropertyProfile" onclick="openPropertyFormTab()"><i class="fas fa-plus"></i><span>Nueva Propiedad</span></button></div><div class="properties-grid" id="profilePropertiesGrid"></div><div style="text-align:center;margin-top:20px"><button class="btn-secondary" onclick="showHome()" style="padding:12px 24px"><i class="fas fa-arrow-left"></i> Volver al inicio</button></div></div>
+    <div class="container"><div class="section-header"><div><h2 class="section-title">Propiedades de <span id="profileNameTitle">Usuario</span></h2><p class="section-subtitle" id="profilePropertiesSubtitle">0 propiedades</p></div></div><div class="properties-grid" id="profilePropertiesGrid"></div><div style="text-align:center;margin-top:20px"><button class="btn-secondary" onclick="showHome()" style="padding:12px 24px"><i class="fas fa-arrow-left"></i> Volver al inicio</button></div></div>
   </main>
 
   <main id="adminPanel" class="hidden"><section class="admin-panel container">
-    <div class="admin-header"><div><h1>Panel de Administración</h1><p style="color:var(--gray-500)">Gestiona usuarios y propiedades</p></div><button class="btn-new-property" onclick="openPropertyFormTab()"><i class="fas fa-plus"></i><span>Nueva Propiedad</span></button></div>
+    <div class="admin-header"><div><h1>Panel de Administración</h1><p style="color:var(--gray-500)">Gestiona usuarios y propiedades</p></div></div>
     <div class="admin-tabs"><button class="admin-tab active" onclick="showAdminTab('pending')" id="tabPending"><i class="fas fa-clock"></i> Pendientes <span id="pendingCount"></span></button><button class="admin-tab" onclick="showAdminTab('users')" id="tabUsers"><i class="fas fa-users"></i> Usuarios</button><button class="admin-tab" onclick="showAdminTab('properties')" id="tabProperties"><i class="fas fa-building"></i> Propiedades</button></div>
     <div class="admin-content" id="adminContent"></div><button style="margin-top:24px" class="btn-secondary" onclick="showHome()"><i class="fas fa-arrow-left"></i> Volver</button>
   </section></main>
@@ -96,6 +96,24 @@
     </div>
     <div class="crm-grid" id="crmGrid"></div>
     <button style="margin-top:28px" class="btn-secondary" onclick="showHome()"><i class="fas fa-arrow-left"></i> Volver</button>
+  </section></main>
+
+  <main id="clientProfilePage" class="hidden"><section class="crm-panel container">
+    <button class="btn-secondary" style="margin-bottom:18px" onclick="showCRM()"><i class="fas fa-arrow-left"></i> Volver a Clientes</button>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:#fff;border:1px solid var(--gray-200,#ececec);border-radius:14px;padding:20px 22px">
+      <div class="client-avatar" id="cpAvatar" style="width:64px;height:64px;min-width:64px;font-size:1.6rem">?</div>
+      <div style="flex:1;min-width:180px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1 id="cpName" style="margin:0;font-size:1.5rem">Cliente</h1><span class="client-status nuevo" id="cpStatus">Nuevo</span></div>
+        <div id="cpMeta" style="color:var(--gray-500,#777);margin-top:8px;font-size:.92rem;line-height:1.8"></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a id="cpWhatsapp" class="ca-wa" href="#" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> WhatsApp</a>
+        <button class="ca-edit" onclick="openClientModal(currentClientProfileId)"><i class="fas fa-edit"></i> Editar</button>
+      </div>
+    </div>
+    <div id="cpNotes" style="margin-top:14px"></div>
+    <div class="section-header" style="margin-top:26px"><div><h2 class="section-title">Propiedades de este cliente</h2><p class="section-subtitle" id="cpPropsCount">—</p></div><button class="btn-new-client" onclick="openPropertyFormTab(null, currentClientProfileId)"><i class="fas fa-plus"></i> Agregar propiedad</button></div>
+    <div class="properties-grid" id="cpPropsGrid"></div>
   </section></main>
 
   <footer class="footer"><div class="container"><div class="footer-content"><div class="footer-logo"><img src="iso-malave-white.png" alt="" class="footer-iso"><img src="texto-malave-white.png" alt="MALAVE" class="footer-text"></div><div class="footer-links"><a href="https://www.instagram.com/mal_ave_/" target="_blank" title="Instagram"><i class="fab fa-instagram"></i></a><a href="https://wa.me/59894533006" target="_blank" title="WhatsApp"><i class="fab fa-whatsapp"></i></a></div></div><div class="footer-bottom">Página creada por Anibal Malave © 2026</div></div></footer>
@@ -141,7 +159,7 @@
 
   <div class="modal" id="clientModal"><div class="modal-content" style="max-width:540px"><div class="modal-header"><h2 id="clientModalTitle">Nuevo Cliente</h2><button class="modal-close" onclick="closeModal('clientModal')"><i class="fas fa-times"></i></button></div><div class="modal-body"><form onsubmit="handleSaveClient(event)" id="clientForm"><input type="hidden" id="editingClientId" value="">
     <div class="form-group"><label>Nombre completo *</label><input type="text" id="clientName" required placeholder="Ej: María González"></div>
-    <div class="form-row"><div class="form-group"><label>Teléfono / WhatsApp *</label><input type="tel" id="clientPhone" required placeholder="099123456"></div><div class="form-group"><label>Email</label><input type="email" id="clientEmail" placeholder="cliente@email.com"></div></div>
+    <div class="form-row"><div class="form-group"><label>Teléfono / WhatsApp *</label><div style="display:flex;gap:8px"><select id="clientAreaCode" style="max-width:120px"><option value="+598">UY +598</option><option value="+54">AR +54</option><option value="+55">BR +55</option><option value="+1">US +1</option><option value="+34">ES +34</option><option value="+56">CL +56</option><option value="+595">PY +595</option><option value="+51">PE +51</option></select><input type="tel" id="clientPhone" required placeholder="99 123 456" style="flex:1"></div></div><div class="form-group"><label>Email</label><input type="email" id="clientEmail" placeholder="cliente@email.com"></div></div>
     <div class="form-row"><div class="form-group"><label>Interés</label><select id="clientInterest"><option value="">No especificado</option><option value="comprar">Comprar</option><option value="alquilar">Alquilar</option><option value="vender">Vender</option></select></div><div class="form-group"><label>Estado</label><select id="clientStatus"><option value="nuevo">Nuevo</option><option value="contactado">Contactado</option><option value="seguimiento">En seguimiento</option><option value="visita">Visita agendada</option><option value="negociacion">En negociación</option><option value="cerrado">Cerrado</option><option value="perdido">Perdido</option></select></div></div>
     <div class="form-group"><label>Presupuesto (opcional)</label><input type="text" id="clientBudget" placeholder="Ej: USD 120.000 o $40.000/mes"></div>
     <div class="form-group"><label>Link (opcional)</label><input type="url" id="clientLink" placeholder="Pegá cualquier link: una propiedad, Maps, Drive..."></div>
