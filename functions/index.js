@@ -383,16 +383,30 @@ async function buildItem(p, token) {
 exports.publicarEnML = onDocumentCreated("properties/{id}", async (event) => {
   const snap = event.data;
   if (!snap) return;
-  const p = snap.data();
   const id = event.params.id;
+  const ref = snap.ref;
 
-  // Publicar solo si está disponible y no se publicó antes
-  if (p.status && p.status !== "available") {
-    logger.info(`Propiedad ${id} no está disponible (${p.status}); no se publica.`);
+  // Reclamo atómico: garantiza UNA sola publicación por propiedad, aunque el
+  // evento de creación se entregue más de una vez (Eventarc entrega "al menos
+  // una vez", que es lo que estaba generando los avisos duplicados).
+  let p;
+  try {
+    p = await db.runTransaction(async (tx) => {
+      const fresh = await tx.get(ref);
+      if (!fresh.exists) return null;
+      const data = fresh.data();
+      if (data.status && data.status !== "available") return null; // no disponible
+      if (data.mlItemId || data.mlPublishing) return null;          // ya publicada o en curso
+      tx.update(ref, { mlPublishing: true });                       // tomamos el lock
+      return data;
+    });
+  } catch (e) {
+    logger.error(`No se pudo reclamar la publicación de ${id}:`, e.message);
     return;
   }
-  if (p.mlItemId) {
-    logger.info(`Propiedad ${id} ya tiene aviso en ML (${p.mlItemId}).`);
+
+  if (!p) {
+    logger.info(`Propiedad ${id}: ya publicada o en proceso; no se duplica.`);
     return;
   }
 
@@ -402,10 +416,11 @@ exports.publicarEnML = onDocumentCreated("properties/{id}", async (event) => {
     const r = await axios.post(`${API}/items`, item, {
       headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
     });
-    await snap.ref.update({
+    await ref.update({
       mlItemId: r.data.id,
       mlPermalink: r.data.permalink || "",
       mlStatus: r.data.status || "active",
+      mlPublishing: admin.firestore.FieldValue.delete(),
       mlError: admin.firestore.FieldValue.delete(),
       mlPublishedAt: new Date().toISOString(),
     });
@@ -413,8 +428,9 @@ exports.publicarEnML = onDocumentCreated("properties/{id}", async (event) => {
   } catch (e) {
     const detail = e.response?.data || e.message;
     logger.error(`Error publicando ${id} en ML:`, JSON.stringify(detail));
-    // Guardamos el error en la propiedad para poder revisarlo y ajustar
-    await snap.ref.update({
+    // Liberamos el lock para poder reintentar (manualmente o al editar la propiedad).
+    await ref.update({
+      mlPublishing: admin.firestore.FieldValue.delete(),
       mlError: typeof detail === "string" ? detail : JSON.stringify(detail),
       mlErrorAt: new Date().toISOString(),
     });
