@@ -329,6 +329,25 @@ async function fillRequiredAttributes(categoryId, p, baseAttributes, token) {
   return out;
 }
 
+// Saca el ID de un video de YouTube desde cualquier formato de link.
+function extractYouTubeId(url) {
+  if (!url) return null;
+  const m = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/))([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+// La descripción se carga en un paso aparte: Mercado Libre NO la toma del POST del item.
+async function setItemDescription(itemId, text, token) {
+  if (!text) return;
+  try {
+    await axios.post(`${API}/items/${itemId}/description`, { plain_text: text }, {
+      headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+    });
+  } catch (e) {
+    logger.warn(`No se pudo cargar la descripción de ${itemId}:`, e.response?.data || e.message);
+  }
+}
+
 async function buildItem(p, token) {
   // Elegir la categoría correcta dentro de Inmuebles (MLU1459)
   let categoryId = await getRealEstateCategory(p, token);
@@ -362,10 +381,11 @@ async function buildItem(p, token) {
     currency_id: p.currency || "USD",
     available_quantity: 1,
     buying_mode: "classified",
-    listing_type_id: "silver",
+    listing_type_id: "free",
     condition,
     channels: ["marketplace"],
     description: { plain_text: p.description || p.title || "" },
+    video_id: extractYouTubeId(p.videoUrl),
     pictures,
     location: {
       address_line: p.direccion || "",
@@ -416,6 +436,7 @@ exports.publicarEnML = onDocumentCreated("properties/{id}", async (event) => {
     const r = await axios.post(`${API}/items`, item, {
       headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
     });
+    await setItemDescription(r.data.id, p.description, token);
     await ref.update({
       mlItemId: r.data.id,
       mlPermalink: r.data.permalink || "",
@@ -494,19 +515,24 @@ exports.republicarML = onCall(async (request) => {
     try {
       const r = await axios.get(`${API}/items/${p.mlItemId}`, { headers });
       const st = r.data.status;
-      if (st === "active") return { ok: true, yaActivo: true, mlItemId: p.mlItemId, permalink: r.data.permalink || "" };
       if (st === "paused") {
         await axios.put(`${API}/items/${p.mlItemId}`, { status: "active" }, { headers });
         await ref.update({ mlStatus: "active" });
         return { ok: true, reactivado: true, mlItemId: p.mlItemId, permalink: r.data.permalink || "" };
       }
-      // closed u otro estado: se recrea más abajo.
+      if (st !== "closed") {
+        // active, payment_required, under_review, etc.: el aviso YA existe; no recrear (evita duplicados).
+        await ref.update({ mlStatus: st });
+        return { ok: true, yaExiste: true, status: st, mlItemId: p.mlItemId, permalink: r.data.permalink || "" };
+      }
+      // closed: se recrea más abajo.
     } catch (e) { /* no se pudo leer; se recrea */ }
   }
   // Crear un aviso nuevo.
   try {
     const item = await buildItem(p, token);
     const r = await axios.post(`${API}/items`, item, { headers });
+    await setItemDescription(r.data.id, p.description, token);
     await ref.update({
       mlItemId: r.data.id,
       mlPermalink: r.data.permalink || "",

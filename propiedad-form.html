@@ -124,6 +124,7 @@
         <div class="ppf-sec-title"><i class="fas fa-align-left"></i> Descripción y contacto</div>
         <div class="ppf-sec">
           <div class="form-group"><label>Descripción</label><textarea id="propDescription" rows="3" placeholder="Describe la propiedad..."></textarea></div>
+          <div class="form-group"><label>Video de YouTube (opcional)</label><input type="url" id="propVideo" placeholder="https://www.youtube.com/watch?v=..."></div>
           <div class="form-group" style="margin:0"><label>WhatsApp de Contacto</label><input type="tel" id="propWhatsapp" placeholder="+598 99 123 456"></div>
         </div>
         <button type="submit" class="btn-submit" id="propertyBtn"><i class="fas fa-check"></i> Publicar Propiedad</button>
@@ -261,6 +262,7 @@
       document.getElementById('propBuiltArea').value = p.builtArea || '';
       document.getElementById('propExpenses').value = p.commonExpenses || '';
       document.getElementById('propDescription').value = p.description || '';
+      document.getElementById('propVideo').value = p.videoUrl || '';
       document.getElementById('propWhatsapp').value = p.ownerWhatsapp || '';
       selectStatus(p.status || 'available');
       togglePropertyType();
@@ -341,7 +343,7 @@
           bedrooms: parseInt(document.getElementById('propBedrooms').value) || 0, bathrooms: parseInt(document.getElementById('propBathrooms').value) || 0,
           totalArea: parseInt(document.getElementById('propTotalArea').value) || 0, builtArea: parseInt(document.getElementById('propBuiltArea').value) || 0,
           commonExpenses: parseInt(document.getElementById('propExpenses').value) || 0, garage: (parseInt(document.getElementById('propCocheras').value) || 0) > 0 ? 'yes' : 'no', status: document.getElementById('propStatus').value,
-          images: iu, description: document.getElementById('propDescription').value, ownerWhatsapp: document.getElementById('propWhatsapp').value || userProfile.whatsapp, updatedAt: new Date().toISOString(),
+          images: iu, description: document.getElementById('propDescription').value, videoUrl: document.getElementById('propVideo').value || '', ownerWhatsapp: document.getElementById('propWhatsapp').value || userProfile.whatsapp, updatedAt: new Date().toISOString(),
           features: collectFeatures()
         };
         if (ei && pp && parseInt(pp) !== np) { pd.previousPrice = parseInt(pp); pd.priceChangedAt = new Date().toISOString() }
