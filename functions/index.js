@@ -386,27 +386,27 @@ exports.publicarEnML = onDocumentCreated("properties/{id}", async (event) => {
   const id = event.params.id;
   const ref = snap.ref;
 
-  // Reclamo atómico: garantiza UNA sola publicación por propiedad, aunque el
-  // evento de creación se entregue más de una vez (Eventarc entrega "al menos
-  // una vez", que es lo que estaba generando los avisos duplicados).
-  let p;
+  // Reclamo atómico para NO publicar dos veces. Cloud Functions puede entregar el
+  // mismo evento más de una vez (o ejecutarlo en paralelo); sin esto, dos ejecuciones
+  // verían mlItemId vacío a la vez y crearían DOS avisos en Mercado Libre.
+  let p = null;
   try {
-    p = await db.runTransaction(async (tx) => {
+    await admin.firestore().runTransaction(async (tx) => {
       const fresh = await tx.get(ref);
-      if (!fresh.exists) return null;
-      const data = fresh.data();
-      if (data.status && data.status !== "available") return null; // no disponible
-      if (data.mlItemId || data.mlPublishing) return null;          // ya publicada o en curso
-      tx.update(ref, { mlPublishing: true });                       // tomamos el lock
-      return data;
+      if (!fresh.exists) return;
+      const d = fresh.data();
+      if (d.status && d.status !== "available") return; // no disponible
+      if (d.mlItemId) return;                            // ya publicada
+      if (d.mlPublishing) return;                        // otra ejecución la está publicando
+      tx.update(ref, { mlPublishing: true });
+      p = d;
     });
   } catch (e) {
-    logger.error(`No se pudo reclamar la publicación de ${id}:`, e.message);
+    logger.error(`No se pudo reservar la publicación de ${id}:`, e.message);
     return;
   }
-
   if (!p) {
-    logger.info(`Propiedad ${id}: ya publicada o en proceso; no se duplica.`);
+    logger.info(`Propiedad ${id}: no se publica (ya publicada, en curso o no disponible).`);
     return;
   }
 
@@ -420,19 +420,19 @@ exports.publicarEnML = onDocumentCreated("properties/{id}", async (event) => {
       mlItemId: r.data.id,
       mlPermalink: r.data.permalink || "",
       mlStatus: r.data.status || "active",
-      mlPublishing: admin.firestore.FieldValue.delete(),
       mlError: admin.firestore.FieldValue.delete(),
+      mlPublishing: admin.firestore.FieldValue.delete(),
       mlPublishedAt: new Date().toISOString(),
     });
     logger.info(`Propiedad ${id} publicada en ML: ${r.data.id} (${r.data.permalink})`);
   } catch (e) {
     const detail = e.response?.data || e.message;
     logger.error(`Error publicando ${id} en ML:`, JSON.stringify(detail));
-    // Liberamos el lock para poder reintentar (manualmente o al editar la propiedad).
+    // Guardamos el error y liberamos el candado para poder reintentar
     await ref.update({
-      mlPublishing: admin.firestore.FieldValue.delete(),
       mlError: typeof detail === "string" ? detail : JSON.stringify(detail),
       mlErrorAt: new Date().toISOString(),
+      mlPublishing: admin.firestore.FieldValue.delete(),
     });
   }
 });
