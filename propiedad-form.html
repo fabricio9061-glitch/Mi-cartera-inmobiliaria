@@ -88,33 +88,14 @@
           <div class="form-row"><div class="form-group"><label>Dirección (opcional)</label><input type="text" id="propDireccion" placeholder="Ej: Av. 18 de Julio"></div><div class="form-group"><label>Número de puerta</label><input type="text" id="propNumeroPuerta" placeholder="1234"></div></div>
         </div>
 
-        <div class="ppf-sec-title"><i class="fas fa-ruler-combined"></i> Características</div>
+        <div class="ppf-sec-title"><i class="fas fa-ruler-combined"></i> Datos principales</div>
         <div class="ppf-sec">
-          <div class="form-row-4"><div class="form-group"><label>Habitaciones</label><input type="number" id="propBedrooms" placeholder="3" min="0"></div><div class="form-group"><label>Baños</label><input type="number" id="propBathrooms" placeholder="2" min="0"></div><div class="form-group"><label>Cocheras</label><input type="number" id="propCocheras" placeholder="1" min="0"></div><div class="form-group"><label>Ambientes</label><input type="number" id="propAmbientes" placeholder="4" min="0"></div></div>
-          <div class="form-row-4"><div class="form-group"><label>Área Total m² *</label><input type="number" id="propTotalArea" required placeholder="100"></div><div class="form-group"><label>Área Edificada m² *</label><input type="number" id="propBuiltArea" required placeholder="80"></div><div class="form-group"><label>Sup. terreno m²</label><input type="number" id="propSuperficieTerreno" min="0" placeholder="200"></div><div class="form-group"><label>Antigüedad (años)</label><input type="number" id="propAntiguedad" min="0" placeholder="10"></div></div>
-          <div class="form-row-4"><div class="form-group"><label>Cantidad de pisos</label><input type="number" id="propPisos" min="0" placeholder="2"></div><div class="form-group"><label>Bodegas/Depósitos</label><input type="number" id="propBodegas" min="0" placeholder="0"></div><div class="form-group"><label>Tipo de casa</label><select id="propTipoCasa"><option value="">Elegir...</option><option>Casa</option><option>Dúplex</option><option>Chalet</option><option>Casa de pueblo</option><option>Cabaña</option><option>Apartamento</option></select></div><div class="form-group"><label>Orientación</label><select id="propOrientacion"><option value="">Elegir...</option><option>Norte</option><option>Sur</option><option>Este</option><option>Oeste</option><option>Noreste</option><option>Noroeste</option><option>Sureste</option><option>Suroeste</option></select></div></div>
-          <div class="form-group"><label>Código interno</label><input type="text" id="propCodigoInterno" placeholder="CASA-001"></div>
+          <div class="form-row-4"><div class="form-group"><label>Dormitorios *</label><input type="number" id="propBedrooms" placeholder="3" min="0"></div><div class="form-group"><label>Baños *</label><input type="number" id="propBathrooms" placeholder="2" min="0"></div><div class="form-group"><label>Superficie total m² *</label><input type="number" id="propTotalArea" required placeholder="100"></div><div class="form-group"><label>Área privada m² *</label><input type="number" id="propBuiltArea" required placeholder="80"></div></div>
         </div>
 
-        <div id="rentFieldsGroup" style="display:none">
-          <div class="ppf-sec-title"><i class="fas fa-file-signature"></i> Condiciones del alquiler</div>
-          <div class="ppf-sec">
-            <div class="form-row"><div class="form-group"><label>Disponible desde</label><input type="date" id="propDisponibleDesde"></div><div class="form-group"><label>Factor multiplicador de renta</label><input type="number" step="0.01" min="0" id="propFactorRenta" placeholder="Ej: 1"></div></div>
-            <div class="feat-grid" style="padding:6px 0 2px">
-              <label class="feat-item"><input type="checkbox" id="propAdmiteMascotas"> Admite mascotas</label>
-              <label class="feat-item"><input type="checkbox" id="propSoloFamilias"> Solo familias</label>
-              <label class="feat-item"><input type="checkbox" id="propUsoComercial"> Uso comercial</label>
-            </div>
-          </div>
-        </div>
-
-        <div class="ppf-sec-title"><i class="fas fa-couch"></i> Equipamiento y comodidades</div>
-        <p style="font-size:.85rem;color:#6b7280;margin:-4px 0 8px">Tildá lo que tenga la propiedad. Tocá cada sección para desplegarla.</p>
-        <details class="ppf-acc"><summary>Servicios</summary><div class="feat-grid" id="feat-servicios"></div></details>
-        <details class="ppf-acc"><summary>Comodidades y equipamiento</summary><div class="feat-grid" id="feat-comodidades"></div></details>
-        <details class="ppf-acc"><summary>Seguridad</summary><div class="feat-grid" id="feat-seguridad"></div><div class="form-group" style="padding:0 14px 14px;margin:0"><label>Tipo de seguridad</label><input type="text" id="propTipoSeguridad" placeholder="Ej: vigilancia 24 hs, garita"></div></details>
-        <details class="ppf-acc"><summary>Ambientes</summary><div class="feat-grid" id="feat-ambientes"></div></details>
-        <details class="ppf-acc"><summary>Condiciones especiales</summary><div class="feat-grid"><label class="feat-item"><input type="checkbox" id="propAmoblado"> Amoblado</label></div></details>
+        <div class="ppf-sec-title"><i class="fas fa-clipboard-list"></i> Ficha técnica</div>
+        <p style="font-size:.85rem;color:#6b7280;margin:-4px 0 8px">Son los mismos campos que pide Mercado Libre. Completá o tildá lo que tenga la propiedad; se sincroniza igual al publicar y al editar.</p>
+        <div id="fichaTecnica"></div>
 
         <div class="ppf-sec-title"><i class="fas fa-camera"></i> Fotos</div>
         <div class="ppf-sec">
@@ -266,60 +247,136 @@
       document.getElementById('propWhatsapp').value = p.ownerWhatsapp || '';
       selectStatus(p.status || 'available');
       togglePropertyType();
-      fillFeatures(p);
+      fillFicha(p);
       if (p.images && p.images.length > 0) { selectedImages = p.images.map(url => ({ preview: url, url: url, existing: true })); renderImagePreviews() }
     }
     // ---- Características adicionales (servicios, comodidades, seguridad, ambientes) ----
-    const FEATURE_GROUPS = {
-      servicios: [['internet','Acceso a internet'],['gasNatural','Gas natural'],['lineaTelefonica','Línea telefónica'],['aireAcondicionado','Aire acondicionado'],['calefaccion','Calefacción'],['grupoElectrogeno','Grupo electrógeno'],['energiaSolar','Energía solar'],['conexionLavarropas','Conexión lavarropas'],['aguaCorriente','Agua corriente'],['caldera','Caldera'],['tvCable','TV por cable'],['tvSatelital','TV satelital'],['jardinero','Jardinero']],
-      comodidades: [['chimenea','Chimenea'],['gimnasio','Gimnasio'],['jacuzzi','Jacuzzi'],['estacionamientoVisitas','Estac. visitas'],['areaCine','Área de cine'],['areaJuegos','Área de juegos'],['areaVerde','Área verde'],['ascensor','Ascensor'],['canchaBasquet','Cancha de básquet'],['canchaFutbol','Cancha de fútbol'],['canchaPaddle','Cancha de paddle'],['canchaTenis','Cancha de tenis'],['canchaPolideportiva','Cancha polideportiva'],['salonFiestas','Salón de fiestas'],['sauna','Sauna'],['heladera','Heladera'],['cisterna','Cisterna']],
-      seguridad: [['alarma','Alarma'],['portonAutomatico','Portón automático'],['camaras','Cámaras de seguridad'],['barrioCerrado','Barrio cerrado'],['accesoControlado','Acceso controlado']],
-      ambientes: [['altillo','Altillo'],['balcon','Balcón'],['cocina','Cocina'],['comedor','Comedor'],['dormitorioSuite','Dormitorio en suite'],['estudio','Estudio'],['living','Living'],['patio','Patio'],['placards','Placards'],['cuartoJuegos','Cuarto de juegos'],['lavadero','Lavadero'],['vestidor','Vestidor'],['dormitorioServicio','Dorm. de servicio'],['jardin','Jardín'],['parrillero','Parrillero'],['piscina','Piscina'],['terraza','Terraza'],['banoSocial','Baño social'],['desayunador','Desayunador']]
+    // Ficha técnica de Mercado Libre como fuente de verdad. Cada campo usa el ID
+    // EXACTO del atributo de ML, así lo que se carga acá es lo que se publica.
+    // type: 'num' número | 'list' desplegable | 'date'/'text' texto | (sin type) checkbox Sí/No.
+    const ML_FICHA = {
+      "Ambientes y superficies": [
+        { id: "ROOMS", label: "Ambientes", type: "num" },
+        { id: "PARKING_LOTS", label: "Cocheras", type: "num" },
+        { id: "WAREHOUSES", label: "Bodegas", type: "num" },
+        { id: "BALCONY_AREA", label: "Superficie de balcón (m²)", type: "num" },
+        { id: "UNIT_FLOOR", label: "Piso de la unidad", type: "num" },
+        { id: "APARTMENTS_PER_FLOOR", label: "Apartamentos por piso", type: "num" },
+        { id: "FLOORS", label: "Cantidad de pisos", type: "num" },
+        { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
+        { id: "APARTMENT_PROPERTY_SUBTYPE", label: "Tipo de departamento", type: "list", options: ["Departamento", "Monoambiente", "Dúplex", "Tríplex", "Penthhouse", "Loft", "Semi piso", "Piso", "Ph"] },
+        { id: "DISPOSITION", label: "Disposición", type: "list", options: ["Frente", "Contrafrente", "Interno", "Lateral"] },
+        { id: "FACING", label: "Orientación", type: "list", options: ["Norte", "Sur", "Este", "Oeste"] },
+      ],
+      "Comodidades y amenities": [
+        { id: "HAS_INTERNET_ACCESS", label: "Acceso a internet" },
+        { id: "HAS_AIR_CONDITIONING", label: "Aire acondicionado" },
+        { id: "HAS_HEATING", label: "Calefacción" },
+        { id: "HAS_LIFT", label: "Ascensor" },
+        { id: "HAS_GYM", label: "Gimnasio" },
+        { id: "HAS_SWIMMING_POOL", label: "Piscina" },
+        { id: "HAS_JACUZZI", label: "Jacuzzi" },
+        { id: "HAS_GUEST_PARKING", label: "Estacionamiento para visitas" },
+        { id: "HAS_PLAYGROUND", label: "Área de juegos infantiles" },
+        { id: "HAS_PARTY_ROOM", label: "Salón de fiestas" },
+        { id: "HAS_MULTIPURPOSE_ROOM", label: "Salón de usos múltiples" },
+        { id: "HAS_BUSINESS_CENTER", label: "Cowork" },
+        { id: "HAS_TENNIS_COURT", label: "Cancha de tenis" },
+        { id: "HAS_INDOOR_FIREPLACE", label: "Chimenea" },
+        { id: "HAS_COMMON_LAUNDRY", label: "Área de lavandería" },
+        { id: "HAS_FRONT_DESK", label: "Recepción" },
+        { id: "HAS_SECURITY", label: "Circuito de cámaras de seguridad" },
+      ],
+      "Ambientes": [
+        { id: "HAS_BALCONY", label: "Balcón" },
+        { id: "HAS_TERRACE", label: "Terraza" },
+        { id: "HAS_ROOF_GARDEN", label: "Azotea" },
+        { id: "HAS_KITCHEN", label: "Cocina" },
+        { id: "HAS_DINNING_ROOM", label: "Comedor" },
+        { id: "HAS_LIVING_ROOM", label: "Living" },
+        { id: "HAS_STUDY", label: "Estudio" },
+        { id: "HAS_BEDROOM_SUITE", label: "Dormitorio en suite" },
+        { id: "HAS_MAID_ROOM", label: "Dormitorio de servicio" },
+        { id: "HAS_GARDEN", label: "Jardín" },
+        { id: "HAS_PATIO", label: "Patio" },
+        { id: "HAS_GRILL", label: "Parrillero" },
+        { id: "HAS_PLAYROOM", label: "Cuarto de juegos" },
+        { id: "HAS_HALF_BATH", label: "Baño social" },
+        { id: "HAS_DRESSING_ROOM", label: "Vestidor" },
+      ],
+      "Características adicionales": [
+        { id: "FURNISHED", label: "Amoblado" },
+        { id: "HAS_NATURAL_GAS", label: "Gas natural" },
+        { id: "HAS_TAP_WATER", label: "Agua corriente" },
+        { id: "HAS_TELEPHONE_LINE", label: "Línea telefónica" },
+        { id: "PROFESSIONAL_USE_ALLOWED", label: "Uso comercial" },
+        { id: "IS_SUITABLE_FOR_PETS", label: "Admite mascotas" },
+        { id: "IN_GATED_COMMUNITY", label: "En barrio cerrado" },
+      ],
+      "Equipamiento y otros": [
+        { id: "HAS_SAUNA", label: "Sauna" },
+        { id: "HAS_BREAKFAST_BAR", label: "Desayunador" },
+        { id: "HAS_FRIDGE", label: "Heladera" },
+        { id: "HAS_CABLE_TV", label: "TV por cable" },
+        { id: "WITH_SATELITE_TV", label: "TV satelital" },
+        { id: "HAS_CINEMA_HALL", label: "Área de cine" },
+        { id: "HAS_BOILER", label: "Caldera a gas/eléctrica" },
+        { id: "HAS_ELECTRIC_GENERATOR", label: "Grupo electrógeno" },
+        { id: "WITH_SOLAR_ENERGY", label: "Energía solar" },
+        { id: "WITH_LAUNDRY_CONNECTION", label: "Conexión para lavarropas" },
+        { id: "HAS_LAUNDRY", label: "Lavadero" },
+        { id: "HAS_CLOSETS", label: "Placards" },
+        { id: "WITH_GREEN_AREA", label: "Área verde" },
+        { id: "HAS_MULTIPLE_USE_COURT", label: "Cancha de usos múltiples" },
+        { id: "WITH_SOCCER_FIELD", label: "Cancha de fútbol" },
+        { id: "HAS_BASKETBALL_COURT", label: "Cancha de básquetbol" },
+        { id: "HAS_PADDLE_COURT", label: "Cancha de paddle" },
+      ],
+      "Seguridad y disponibilidad": [
+        { id: "SECURITY_TYPE", label: "Tipo de seguridad", type: "list", options: ["24 horas", "Diurno", "Nocturno", "Virtual"] },
+        { id: "AVAILABLE", label: "Disponible desde", type: "date" },
+        { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
+      ],
     };
-    function renderFeatureGroups() {
-      Object.keys(FEATURE_GROUPS).forEach(g => {
-        const cont = document.getElementById('feat-' + g);
-        if (cont) cont.innerHTML = FEATURE_GROUPS[g].map(([k, l]) => `<label class="feat-item"><input type="checkbox" id="feat-${g}-${k}"> ${l}</label>`).join('');
-      });
+    const ML_FICHA_FIELDS = Object.values(ML_FICHA).flat();
+    function renderFicha() {
+      const wrap = document.getElementById('fichaTecnica');
+      if (!wrap) return;
+      wrap.innerHTML = Object.keys(ML_FICHA).map((grupo, i) => {
+        const campos = ML_FICHA[grupo];
+        const inputs = campos.filter(c => c.type);
+        const bools = campos.filter(c => !c.type);
+        let html = '';
+        if (inputs.length) {
+          html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:8px">' + inputs.map(c => {
+            if (c.type === 'list') return `<div class="form-group"><label>${c.label}</label><select id="fc-${c.id}"><option value="">Elegir...</option>${c.options.map(o => `<option>${o}</option>`).join('')}</select></div>`;
+            const t = c.type === 'date' ? 'date' : (c.type === 'text' ? 'text' : 'number');
+            return `<div class="form-group"><label>${c.label}</label><input type="${t}" id="fc-${c.id}" ${t === 'number' ? 'min="0"' : ''}></div>`;
+          }).join('') + '</div>';
+        }
+        if (bools.length) html += '<div class="feat-grid">' + bools.map(c => `<label class="feat-item"><input type="checkbox" id="fc-${c.id}"> ${c.label}</label>`).join('') + '</div>';
+        return `<details class="ppf-acc"${i === 0 ? ' open' : ''}><summary>${grupo}</summary><div style="padding:12px">${html}</div></details>`;
+      }).join('');
     }
-    function collectFeatures() {
-      const gv = id => document.getElementById(id);
-      const f = {
-        cocheras: parseInt(gv('propCocheras').value) || 0,
-        cantidadAmbientes: parseInt(gv('propAmbientes').value) || 0,
-        antiguedad: parseInt(gv('propAntiguedad').value) || 0,
-        pisos: parseInt(gv('propPisos').value) || 0,
-        bodegas: parseInt(gv('propBodegas').value) || 0,
-        numeroPuerta: gv('propNumeroPuerta').value || '',
-        tipoCasa: gv('propTipoCasa').value || '',
-        orientacion: gv('propOrientacion').value || '',
-        codigoInterno: gv('propCodigoInterno').value || '',
-        tipoSeguridad: gv('propTipoSeguridad').value || '',
-        superficieTerreno: parseInt(gv('propSuperficieTerreno').value) || 0,
-        amoblado: gv('propAmoblado').checked,
-        disponibleDesde: gv('propDisponibleDesde').value || '',
-        factorRenta: parseFloat(gv('propFactorRenta').value) || 0,
-        admiteMascotas: gv('propAdmiteMascotas').checked,
-        soloFamilias: gv('propSoloFamilias').checked,
-        usoComercial: gv('propUsoComercial').checked
-      };
-      Object.keys(FEATURE_GROUPS).forEach(g => {
-        f[g] = {};
-        FEATURE_GROUPS[g].forEach(([k]) => { f[g][k] = !!gv(`feat-${g}-${k}`)?.checked });
+    function collectFicha() {
+      const ficha = {};
+      ML_FICHA_FIELDS.forEach(c => {
+        const el = document.getElementById('fc-' + c.id);
+        if (!el) return;
+        if (!c.type) { if (el.checked) ficha[c.id] = true; }                       // checkbox Sí/No
+        else if (c.type === 'num') { const n = parseFloat(el.value); if (!isNaN(n)) ficha[c.id] = n; }
+        else { if (el.value) ficha[c.id] = el.value; }                             // lista / texto / fecha
       });
-      return f;
+      return ficha;
     }
-    function fillFeatures(p) {
-      const f = p.features || {};
-      const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v };
-      setV('propCocheras', f.cocheras || ''); setV('propAmbientes', f.cantidadAmbientes || ''); setV('propAntiguedad', f.antiguedad || '');
-      setV('propPisos', f.pisos || ''); setV('propBodegas', f.bodegas || ''); setV('propNumeroPuerta', f.numeroPuerta || '');
-      setV('propTipoCasa', f.tipoCasa || ''); setV('propOrientacion', f.orientacion || ''); setV('propCodigoInterno', f.codigoInterno || '');
-      setV('propTipoSeguridad', f.tipoSeguridad || ''); setV('propSuperficieTerreno', f.superficieTerreno || ''); setV('propDisponibleDesde', f.disponibleDesde || ''); setV('propFactorRenta', f.factorRenta || '');
-      const setC = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v };
-      setC('propAmoblado', f.amoblado); setC('propAdmiteMascotas', f.admiteMascotas); setC('propSoloFamilias', f.soloFamilias); setC('propUsoComercial', f.usoComercial);
-      Object.keys(FEATURE_GROUPS).forEach(g => {
-        FEATURE_GROUPS[g].forEach(([k]) => { const el = document.getElementById(`feat-${g}-${k}`); if (el) el.checked = !!(f[g] && f[g][k]) });
+    function fillFicha(p) {
+      const ficha = p.ficha || {};
+      ML_FICHA_FIELDS.forEach(c => {
+        const el = document.getElementById('fc-' + c.id);
+        if (!el) return;
+        const v = ficha[c.id];
+        if (!c.type) el.checked = !!v;
+        else el.value = (v != null ? v : '');
       });
     }
 
@@ -337,14 +394,15 @@
           if (im.existing) { iu.push(im.url) } else { uc++; updateUploadProgress(uc, tt); const url = await uploadImageToStorage(im.file, pi, i); iu.push(url) }
         }
         const ty = document.getElementById('propType').value, dp = document.getElementById('propDepartamento').value, cd = document.getElementById('propCiudad').value, np = parseInt(document.getElementById('propPrice').value);
+        const ficha = collectFicha();
         const pd = {
           title: document.getElementById('propTitle').value, departamento: dp, ciudad: cd, direccion: document.getElementById('propDireccion').value, location: `${cd}, ${dp}`,
           price: np, currency: document.getElementById('propCurrency').value, type: ty, propertyType: ty === 'sale' ? document.getElementById('propPropertyType').value : 'common', realEstateType: document.getElementById('propRealEstateType').value, clientId: formClientId || null,
           bedrooms: parseInt(document.getElementById('propBedrooms').value) || 0, bathrooms: parseInt(document.getElementById('propBathrooms').value) || 0,
           totalArea: parseInt(document.getElementById('propTotalArea').value) || 0, builtArea: parseInt(document.getElementById('propBuiltArea').value) || 0,
-          commonExpenses: parseInt(document.getElementById('propExpenses').value) || 0, garage: (parseInt(document.getElementById('propCocheras').value) || 0) > 0 ? 'yes' : 'no', status: document.getElementById('propStatus').value,
+          commonExpenses: parseInt(document.getElementById('propExpenses').value) || 0, garage: (ficha.PARKING_LOTS || 0) > 0 ? 'yes' : 'no', status: document.getElementById('propStatus').value,
           images: iu, description: document.getElementById('propDescription').value, videoUrl: document.getElementById('propVideo').value || '', ownerWhatsapp: document.getElementById('propWhatsapp').value || userProfile.whatsapp, updatedAt: new Date().toISOString(),
-          features: collectFeatures()
+          ficha
         };
         if (ei && pp && parseInt(pp) !== np) { pd.previousPrice = parseInt(pp); pd.priceChangedAt = new Date().toISOString() }
         if (ei) {
@@ -371,7 +429,7 @@
       const isAdmin = (userProfile.email || u.email || '').toLowerCase() === ADMIN_EMAIL;
       if (userProfile.status !== 'approved' && !isAdmin) { showState('ppfAuth', { title: 'Cuenta pendiente', msg: 'Tu cuenta está pendiente de aprobación.' }); return }
       initDepartamentos();
-      renderFeatureGroups();
+      renderFicha();
       const id = new URLSearchParams(location.search).get('id');
       const clientIdParam = new URLSearchParams(location.search).get('clientId');
       if (id) {

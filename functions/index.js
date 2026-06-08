@@ -355,35 +355,15 @@ function norm(s) {
 }
 
 // Cada comodidad del formulario apuntando a su atributo booleano en Mercado Libre.
-const FEATURE_ATTR_MAP = {
-  // servicios
-  internet: "HAS_INTERNET_ACCESS", gasNatural: "HAS_NATURAL_GAS", lineaTelefonica: "HAS_TELEPHONE_LINE",
-  aireAcondicionado: "HAS_AIR_CONDITIONING", calefaccion: "HAS_HEATING", grupoElectrogeno: "HAS_ELECTRIC_GENERATOR",
-  energiaSolar: "WITH_SOLAR_ENERGY", conexionLavarropas: "WITH_LAUNDRY_CONNECTION", aguaCorriente: "HAS_TAP_WATER",
-  caldera: "HAS_BOILER", tvCable: "HAS_CABLE_TV", tvSatelital: "WITH_SATELITE_TV",
-  // comodidades
-  chimenea: "HAS_INDOOR_FIREPLACE", gimnasio: "HAS_GYM", jacuzzi: "HAS_JACUZZI", estacionamientoVisitas: "HAS_GUEST_PARKING",
-  areaCine: "HAS_CINEMA_HALL", areaJuegos: "HAS_PLAYGROUND", areaVerde: "WITH_GREEN_AREA", ascensor: "HAS_LIFT",
-  canchaBasquet: "HAS_BASKETBALL_COURT", canchaFutbol: "WITH_SOCCER_FIELD", canchaPaddle: "HAS_PADDLE_COURT",
-  canchaTenis: "HAS_TENNIS_COURT", canchaPolideportiva: "HAS_MULTIPLE_USE_COURT", salonFiestas: "HAS_PARTY_ROOM",
-  sauna: "HAS_SAUNA", heladera: "HAS_FRIDGE", cisterna: "HAS_CISTERN",
-  // seguridad
-  camaras: "HAS_SECURITY", barrioCerrado: "IN_GATED_COMMUNITY",
-  // ambientes
-  balcon: "HAS_BALCONY", cocina: "HAS_KITCHEN", comedor: "HAS_DINNING_ROOM", dormitorioSuite: "HAS_BEDROOM_SUITE",
-  estudio: "HAS_STUDY", living: "HAS_LIVING_ROOM", patio: "HAS_PATIO", placards: "HAS_CLOSETS",
-  cuartoJuegos: "HAS_PLAYROOM", lavadero: "HAS_LAUNDRY", vestidor: "HAS_DRESSING_ROOM", dormitorioServicio: "HAS_MAID_ROOM",
-  jardin: "HAS_GARDEN", parrillero: "HAS_GRILL", piscina: "HAS_SWIMMING_POOL", terraza: "HAS_TERRACE",
-  banoSocial: "HAS_HALF_BATH", desayunador: "HAS_BREAKFAST_BAR",
-};
-
-// Mapea los datos del formulario (numéricos, listas, gastos comunes y comodidades)
-// a atributos de Mercado Libre, validando contra los atributos reales de la
-// categoría. Defensivo: si un atributo no existe en la categoría, no se manda.
+// Mapea la ficha técnica de la propiedad (p.ficha, con los IDs de atributos de ML)
+// a los atributos del item, validando contra los atributos REALES de la categoría y
+// usando el tipo de cada atributo para darle el formato correcto. Defensivo: si un
+// atributo no existe en la categoría o el valor no matchea, simplemente no se manda.
 async function addFeatureAttributes(categoryId, p, baseAttributes, token) {
   const out = baseAttributes.slice();
   const have = new Set(out.map((a) => a.id));
-  const f = p.features || {};
+  const ficha = p.ficha || {};
+  if (!Object.keys(ficha).length) return out;
   let catAttrs = [];
   try {
     const r = await axios.get(`${API}/categories/${categoryId}/attributes`, { headers: { Authorization: `Bearer ${token}` } });
@@ -394,56 +374,31 @@ async function addFeatureAttributes(categoryId, p, baseAttributes, token) {
   }
   const byId = {};
   catAttrs.forEach((a) => { byId[a.id] = a; });
-  const add = (id, value) => {
-    if (!byId[id] || have.has(id)) return;
-    out.push({ id, ...value });
-    have.add(id);
-  };
-  // value_id del "Sí" del atributo (todos usan el mismo, pero lo buscamos por las dudas).
-  const yes = (id) => {
-    const v = ((byId[id] || {}).values || []).find((x) => /^s[ií]$/.test(norm(x.name)));
-    return v ? v.id : "242085";
-  };
 
-  // Numéricos simples
-  if (f.cantidadAmbientes) add("ROOMS", { value_name: String(f.cantidadAmbientes) });
-  if (f.cocheras) add("PARKING_LOTS", { value_name: String(f.cocheras) });
-  if (f.pisos) add("FLOORS", { value_name: String(f.pisos) });
-  if (f.bodegas) add("WAREHOUSES", { value_name: String(f.bodegas) });
-  // Numéricos con unidad
-  if (f.antiguedad) add("PROPERTY_AGE", { value_struct: { number: Number(f.antiguedad), unit: "años" } });
-  if (p.commonExpenses) add("MAINTENANCE_FEE", { value_struct: { number: Number(p.commonExpenses), unit: p.currency === "USD" ? "USD" : "UYU" } });
-
-  // Texto
-  if (f.codigoInterno) add("PROPERTY_CODE", { value_name: String(f.codigoInterno) });
-  if (f.disponibleDesde) add("AVAILABLE", { value_name: String(f.disponibleDesde) });
-
-  // Listas: matcheamos el valor del formulario con los valores válidos de ML.
-  const addList = (id, formVal) => {
-    if (!formVal || !byId[id]) return;
-    const t = norm(formVal);
-    const vals = byId[id].values || [];
-    const v = vals.find((x) => norm(x.name) === t) || vals.find((x) => norm(x.name).includes(t) || t.includes(norm(x.name)));
-    if (v) add(id, { value_id: v.id });
-  };
-  addList("FACING", f.orientacion);
-  addList("APARTMENT_PROPERTY_SUBTYPE", f.tipoCasa);
-  addList("SECURITY_TYPE", f.tipoSeguridad);
-
-  // Booleanos sueltos
-  if (f.amoblado) add("FURNISHED", { value_id: yes("FURNISHED") });
-  if (f.admiteMascotas) add("IS_SUITABLE_FOR_PETS", { value_id: yes("IS_SUITABLE_FOR_PETS") });
-  if (f.usoComercial) add("PROFESSIONAL_USE_ALLOWED", { value_id: yes("PROFESSIONAL_USE_ALLOWED") });
-
-  // Comodidades de los grupos -> atributos booleanos
-  ["servicios", "comodidades", "seguridad", "ambientes"].forEach((g) => {
-    const grp = f[g] || {};
-    Object.keys(grp).forEach((k) => {
-      const attrId = FEATURE_ATTR_MAP[k];
-      if (grp[k] && attrId) add(attrId, { value_id: yes(attrId) });
-    });
-  });
-
+  for (const [id, val] of Object.entries(ficha)) {
+    const attr = byId[id];
+    if (!attr || have.has(id) || val === "" || val == null) continue;
+    const vt = attr.value_type;
+    if (vt === "boolean") {
+      if (val === true || val === "true" || val === 1) {
+        const si = (attr.values || []).find((x) => /^s[ií]$/.test(norm(x.name)));
+        out.push({ id, value_id: si ? si.id : "242085" });
+        have.add(id);
+      }
+    } else if (vt === "list") {
+      const t = norm(val);
+      const vals = attr.values || [];
+      const v = vals.find((x) => norm(x.name) === t) || vals.find((x) => norm(x.name).includes(t) || t.includes(norm(x.name)));
+      if (v) { out.push({ id, value_id: v.id }); have.add(id); }
+    } else if (vt === "number_unit") {
+      const unit = (attr.allowed_units && attr.allowed_units[0] && attr.allowed_units[0].id) || attr.default_unit || "";
+      const num = Number(val);
+      if (!isNaN(num)) { out.push({ id, value_struct: { number: num, unit } }); have.add(id); }
+    } else {
+      out.push({ id, value_name: String(val) }); // number o string
+      have.add(id);
+    }
+  }
   return out;
 }
 
@@ -496,6 +451,7 @@ async function buildItem(p, token) {
   if (p.bathrooms) attributes.push({ id: "FULL_BATHROOMS", value_name: String(p.bathrooms) });
   if (p.totalArea) attributes.push({ id: "TOTAL_AREA", value_name: `${p.totalArea} m²` });
   if (p.builtArea) attributes.push({ id: "COVERED_AREA", value_name: `${p.builtArea} m²` });
+  if (p.commonExpenses) attributes.push({ id: "MAINTENANCE_FEE", value_struct: { number: Number(p.commonExpenses), unit: p.currency === "USD" ? "USD" : "UYU" } });
 
   // Mapear todos los datos del formulario (ambientes, cocheras, antigüedad, pisos,
   // bodegas, orientación, tipo, seguridad, gastos comunes y todas las comodidades)
@@ -601,7 +557,7 @@ exports.publicarEnML = onDocumentCreated("properties/{id}", async (event) => {
 // Campos de CONTENIDO de la propiedad. Si cambia alguno, hay que re-sincronizar.
 // Los metadatos internos (mlItemId, mlStatus, mlSyncedAt, mlError, mlPublishing...)
 // quedan fuera a propósito: así nuestras propias escrituras NO disparan un bucle.
-const CONTENT_FIELDS = ["title", "price", "currency", "description", "videoUrl", "images", "departamento", "ciudad", "direccion", "bedrooms", "bathrooms", "totalArea", "builtArea", "commonExpenses", "garage", "type", "propertyType", "realEstateType", "ownerWhatsapp", "ownerName", "features"];
+const CONTENT_FIELDS = ["title", "price", "currency", "description", "videoUrl", "images", "departamento", "ciudad", "direccion", "bedrooms", "bathrooms", "totalArea", "builtArea", "commonExpenses", "garage", "type", "propertyType", "realEstateType", "ownerWhatsapp", "ownerName", "ficha"];
 function contentChanged(before, after) {
   if (!before) return true;
   return CONTENT_FIELDS.some((f) => JSON.stringify(before[f]) !== JSON.stringify(after[f]));
