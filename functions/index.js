@@ -348,6 +348,43 @@ async function setItemDescription(itemId, text, token) {
   }
 }
 
+// Normaliza texto para comparar: separa camelCase, saca acentos y pasa a minúsculas.
+function norm(s) {
+  return String(s || "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+// Mapea las comodidades marcadas en el formulario a atributos Sí/No de la categoría,
+// buscándolos por nombre contra los atributos reales de ML. Es defensivo: si no
+// encuentra coincidencia, no agrega nada (no puede romper la publicación).
+async function addFeatureAttributes(categoryId, p, baseAttributes, token) {
+  const out = baseAttributes.slice();
+  const have = new Set(out.map((a) => a.id));
+  const f = p.features || {};
+  const marcadas = [];
+  ["servicios", "comodidades", "seguridad", "ambientes"].forEach((g) => {
+    const grp = f[g] || {};
+    Object.keys(grp).forEach((k) => { if (grp[k]) marcadas.push(norm(k)); });
+  });
+  if (f.amoblado) marcadas.push("amoblado", "amueblado");
+  if (f.admiteMascotas) marcadas.push("mascotas", "admite mascotas");
+  if (!marcadas.length) return out;
+  try {
+    const r = await axios.get(`${API}/categories/${categoryId}/attributes`, { headers: { Authorization: `Bearer ${token}` } });
+    for (const a of r.data || []) {
+      if (have.has(a.id) || !Array.isArray(a.values) || !a.values.length) continue;
+      const siVal = a.values.find((v) => /^s[ií]$/.test(norm(v.name)));
+      if (!siVal) continue;
+      const nombre = norm(a.name);
+      const match = marcadas.some((m) => m && (nombre === m || nombre.includes(m) || m.includes(nombre)));
+      if (match) { out.push({ id: a.id, value_id: siVal.id }); have.add(a.id); }
+    }
+  } catch (e) {
+    logger.warn(`No se pudieron mapear comodidades en ${categoryId}:`, e.response?.data || e.message);
+  }
+  return out;
+}
+
 async function buildItem(p, token) {
   // Elegir la categoría correcta dentro de Inmuebles (MLU1459)
   let categoryId = await getRealEstateCategory(p, token);
@@ -368,8 +405,16 @@ async function buildItem(p, token) {
   if (p.totalArea) attributes.push({ id: "TOTAL_AREA", value_name: `${p.totalArea} m²` });
   if (p.builtArea) attributes.push({ id: "COVERED_AREA", value_name: `${p.builtArea} m²` });
 
+  // Datos numéricos del formulario. Si la categoría no acepta alguno, ML lo ignora.
+  const f = p.features || {};
+  if (f.cantidadAmbientes) attributes.push({ id: "ROOMS", value_name: String(f.cantidadAmbientes) });
+  if (f.cocheras) attributes.push({ id: "PARKING_LOTS", value_name: String(f.cocheras) });
+  if (f.antiguedad) attributes.push({ id: "PROPERTY_AGE", value_name: String(f.antiguedad) });
+
   // Completar cualquier atributo obligatorio que la categoría exija y no tengamos.
   attributes = await fillRequiredAttributes(categoryId, p, attributes, token);
+  // Sumar las comodidades marcadas (piscina, gimnasio, parrillero, etc.).
+  attributes = await addFeatureAttributes(categoryId, p, attributes, token);
 
   const condition = await pickCondition(categoryId, token);
   const pictures = (p.images || []).slice(0, 12).map((url) => ({ source: url }));
@@ -392,6 +437,11 @@ async function buildItem(p, token) {
       country: { id: "UY", name: "Uruguay" },
       state: { name: p.departamento || "" },
       city: { name: p.ciudad || "" },
+    },
+    seller_contact: {
+      contact: p.ownerName || "Inmobiliaria Malavé",
+      phone: String(p.ownerWhatsapp || "").replace(/\D/g, "").replace(/^598/, ""),
+      email: "inmobiliariamalave@gmail.com",
     },
     attributes,
   };
