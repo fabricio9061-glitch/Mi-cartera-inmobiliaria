@@ -13,9 +13,16 @@
     ADMIN_EMAIL = "fabricio9061@gmail.com";
 
   // FCM - Push Notifications
+  // Se inicializa en una app de Firebase APARTE a propósito: el SDK de Cloud
+  // Functions intenta sacar el token de push de la misma app para adjuntarlo a
+  // cada llamada, y en navegadores como Brave u Opera eso falla con
+  // "Registration failed - push service error" y rompe la llamada. Aislando
+  // Messaging en otra app, las llamadas a las funciones (estado/republicar/baja
+  // de ML) dejan de verse afectadas.
   let messaging = null;
   try {
-    messaging = firebase.messaging()
+    const msgApp = firebase.apps.find((a) => a.name === 'messaging') || firebase.initializeApp(firebaseConfig, 'messaging');
+    messaging = msgApp.messaging()
   } catch (e) {
     console.log('FCM no soportado en este navegador')
   }
@@ -848,7 +855,7 @@
     return m[lt] || lt || '—'
   }
   function mlStatusName(st) {
-    const m = { active: 'Activa', paused: 'Pausada', closed: 'Finalizada', under_review: 'En revisión', inactive: 'Inactiva' };
+    const m = { active: 'Activa', paused: 'Pausada', closed: 'Finalizada', under_review: 'En revisión', inactive: 'Inactiva', payment_required: 'Pendiente de pago' };
     return m[st] || st || '—'
   }
   function mlActionText(a) {

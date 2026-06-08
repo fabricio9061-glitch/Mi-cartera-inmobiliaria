@@ -55,6 +55,8 @@
     .pp-extra div{font-size:14.5px;color:var(--gray-600,#4b5563)}
     .pp-extra b{color:var(--primary)}
     .pp-description{color:var(--gray-700);font-size:16px;line-height:1.8;white-space:pre-line}
+    .pp-video{position:relative;width:100%;padding-bottom:56.25%;border-radius:var(--radius-xl);overflow:hidden;background:#000;margin-top:8px}
+    .pp-video iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
     /* Sidebar */
     .pp-sidebar{position:sticky;top:96px;display:flex;flex-direction:column;gap:20px}
     .pp-price-card{background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius-xl);padding:28px;box-shadow:var(--shadow-sm)}
@@ -131,6 +133,10 @@
           <div class="pp-section-title">Descripción</div>
           <div class="pp-description" id="ppDescription"></div>
         </div>
+        <div id="ppVideoWrap" style="display:none">
+          <div class="pp-section-title">Video</div>
+          <div class="pp-video"><iframe id="ppVideoFrame" src="" title="Video de la propiedad" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+        </div>
       </div>
 
       <aside class="pp-sidebar">
@@ -177,6 +183,11 @@
     const db = firebase.firestore();
 
     let property = null, agent = null, images = [], ppCurrentImg = 0;
+    function extractYouTubeId(url) {
+      if (!url) return null;
+      const m = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/))([A-Za-z0-9_-]{11})/);
+      return m ? m[1] : null;
+    }
 
     function getId() {
       const u = new URLSearchParams(window.location.search);
@@ -315,6 +326,10 @@
 
       // Descripción
       if (p.description) { document.getElementById('ppDescWrap').style.display = 'block'; document.getElementById('ppDescription').textContent = p.description }
+
+      // Video de YouTube
+      const ytId = extractYouTubeId(p.videoUrl);
+      if (ytId) { document.getElementById('ppVideoWrap').style.display = 'block'; document.getElementById('ppVideoFrame').src = `https://www.youtube.com/embed/${ytId}`; }
 
       renderAmenities(p);
 
