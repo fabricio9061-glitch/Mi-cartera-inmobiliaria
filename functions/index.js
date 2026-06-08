@@ -354,34 +354,96 @@ function norm(s) {
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 }
 
-// Mapea las comodidades marcadas en el formulario a atributos Sí/No de la categoría,
-// buscándolos por nombre contra los atributos reales de ML. Es defensivo: si no
-// encuentra coincidencia, no agrega nada (no puede romper la publicación).
+// Cada comodidad del formulario apuntando a su atributo booleano en Mercado Libre.
+const FEATURE_ATTR_MAP = {
+  // servicios
+  internet: "HAS_INTERNET_ACCESS", gasNatural: "HAS_NATURAL_GAS", lineaTelefonica: "HAS_TELEPHONE_LINE",
+  aireAcondicionado: "HAS_AIR_CONDITIONING", calefaccion: "HAS_HEATING", grupoElectrogeno: "HAS_ELECTRIC_GENERATOR",
+  energiaSolar: "WITH_SOLAR_ENERGY", conexionLavarropas: "WITH_LAUNDRY_CONNECTION", aguaCorriente: "HAS_TAP_WATER",
+  caldera: "HAS_BOILER", tvCable: "HAS_CABLE_TV", tvSatelital: "WITH_SATELITE_TV",
+  // comodidades
+  chimenea: "HAS_INDOOR_FIREPLACE", gimnasio: "HAS_GYM", jacuzzi: "HAS_JACUZZI", estacionamientoVisitas: "HAS_GUEST_PARKING",
+  areaCine: "HAS_CINEMA_HALL", areaJuegos: "HAS_PLAYGROUND", areaVerde: "WITH_GREEN_AREA", ascensor: "HAS_LIFT",
+  canchaBasquet: "HAS_BASKETBALL_COURT", canchaFutbol: "WITH_SOCCER_FIELD", canchaPaddle: "HAS_PADDLE_COURT",
+  canchaTenis: "HAS_TENNIS_COURT", canchaPolideportiva: "HAS_MULTIPLE_USE_COURT", salonFiestas: "HAS_PARTY_ROOM",
+  sauna: "HAS_SAUNA", heladera: "HAS_FRIDGE", cisterna: "HAS_CISTERN",
+  // seguridad
+  camaras: "HAS_SECURITY", barrioCerrado: "IN_GATED_COMMUNITY",
+  // ambientes
+  balcon: "HAS_BALCONY", cocina: "HAS_KITCHEN", comedor: "HAS_DINNING_ROOM", dormitorioSuite: "HAS_BEDROOM_SUITE",
+  estudio: "HAS_STUDY", living: "HAS_LIVING_ROOM", patio: "HAS_PATIO", placards: "HAS_CLOSETS",
+  cuartoJuegos: "HAS_PLAYROOM", lavadero: "HAS_LAUNDRY", vestidor: "HAS_DRESSING_ROOM", dormitorioServicio: "HAS_MAID_ROOM",
+  jardin: "HAS_GARDEN", parrillero: "HAS_GRILL", piscina: "HAS_SWIMMING_POOL", terraza: "HAS_TERRACE",
+  banoSocial: "HAS_HALF_BATH", desayunador: "HAS_BREAKFAST_BAR",
+};
+
+// Mapea los datos del formulario (numéricos, listas, gastos comunes y comodidades)
+// a atributos de Mercado Libre, validando contra los atributos reales de la
+// categoría. Defensivo: si un atributo no existe en la categoría, no se manda.
 async function addFeatureAttributes(categoryId, p, baseAttributes, token) {
   const out = baseAttributes.slice();
   const have = new Set(out.map((a) => a.id));
   const f = p.features || {};
-  const marcadas = [];
-  ["servicios", "comodidades", "seguridad", "ambientes"].forEach((g) => {
-    const grp = f[g] || {};
-    Object.keys(grp).forEach((k) => { if (grp[k]) marcadas.push(norm(k)); });
-  });
-  if (f.amoblado) marcadas.push("amoblado", "amueblado");
-  if (f.admiteMascotas) marcadas.push("mascotas", "admite mascotas");
-  if (!marcadas.length) return out;
+  let catAttrs = [];
   try {
     const r = await axios.get(`${API}/categories/${categoryId}/attributes`, { headers: { Authorization: `Bearer ${token}` } });
-    for (const a of r.data || []) {
-      if (have.has(a.id) || !Array.isArray(a.values) || !a.values.length) continue;
-      const siVal = a.values.find((v) => /^s[ií]$/.test(norm(v.name)));
-      if (!siVal) continue;
-      const nombre = norm(a.name);
-      const match = marcadas.some((m) => m && (nombre === m || nombre.includes(m) || m.includes(nombre)));
-      if (match) { out.push({ id: a.id, value_id: siVal.id }); have.add(a.id); }
-    }
+    catAttrs = r.data || [];
   } catch (e) {
-    logger.warn(`No se pudieron mapear comodidades en ${categoryId}:`, e.response?.data || e.message);
+    logger.warn(`No se pudo leer atributos de ${categoryId}:`, e.response?.data || e.message);
+    return out;
   }
+  const byId = {};
+  catAttrs.forEach((a) => { byId[a.id] = a; });
+  const add = (id, value) => {
+    if (!byId[id] || have.has(id)) return;
+    out.push({ id, ...value });
+    have.add(id);
+  };
+  // value_id del "Sí" del atributo (todos usan el mismo, pero lo buscamos por las dudas).
+  const yes = (id) => {
+    const v = ((byId[id] || {}).values || []).find((x) => /^s[ií]$/.test(norm(x.name)));
+    return v ? v.id : "242085";
+  };
+
+  // Numéricos simples
+  if (f.cantidadAmbientes) add("ROOMS", { value_name: String(f.cantidadAmbientes) });
+  if (f.cocheras) add("PARKING_LOTS", { value_name: String(f.cocheras) });
+  if (f.pisos) add("FLOORS", { value_name: String(f.pisos) });
+  if (f.bodegas) add("WAREHOUSES", { value_name: String(f.bodegas) });
+  // Numéricos con unidad
+  if (f.antiguedad) add("PROPERTY_AGE", { value_struct: { number: Number(f.antiguedad), unit: "años" } });
+  if (p.commonExpenses) add("MAINTENANCE_FEE", { value_struct: { number: Number(p.commonExpenses), unit: p.currency === "USD" ? "USD" : "UYU" } });
+
+  // Texto
+  if (f.codigoInterno) add("PROPERTY_CODE", { value_name: String(f.codigoInterno) });
+  if (f.disponibleDesde) add("AVAILABLE", { value_name: String(f.disponibleDesde) });
+
+  // Listas: matcheamos el valor del formulario con los valores válidos de ML.
+  const addList = (id, formVal) => {
+    if (!formVal || !byId[id]) return;
+    const t = norm(formVal);
+    const vals = byId[id].values || [];
+    const v = vals.find((x) => norm(x.name) === t) || vals.find((x) => norm(x.name).includes(t) || t.includes(norm(x.name)));
+    if (v) add(id, { value_id: v.id });
+  };
+  addList("FACING", f.orientacion);
+  addList("APARTMENT_PROPERTY_SUBTYPE", f.tipoCasa);
+  addList("SECURITY_TYPE", f.tipoSeguridad);
+
+  // Booleanos sueltos
+  if (f.amoblado) add("FURNISHED", { value_id: yes("FURNISHED") });
+  if (f.admiteMascotas) add("IS_SUITABLE_FOR_PETS", { value_id: yes("IS_SUITABLE_FOR_PETS") });
+  if (f.usoComercial) add("PROFESSIONAL_USE_ALLOWED", { value_id: yes("PROFESSIONAL_USE_ALLOWED") });
+
+  // Comodidades de los grupos -> atributos booleanos
+  ["servicios", "comodidades", "seguridad", "ambientes"].forEach((g) => {
+    const grp = f[g] || {};
+    Object.keys(grp).forEach((k) => {
+      const attrId = FEATURE_ATTR_MAP[k];
+      if (grp[k] && attrId) add(attrId, { value_id: yes(attrId) });
+    });
+  });
+
   return out;
 }
 
@@ -405,16 +467,13 @@ async function buildItem(p, token) {
   if (p.totalArea) attributes.push({ id: "TOTAL_AREA", value_name: `${p.totalArea} m²` });
   if (p.builtArea) attributes.push({ id: "COVERED_AREA", value_name: `${p.builtArea} m²` });
 
-  // Datos numéricos del formulario. Si la categoría no acepta alguno, ML lo ignora.
-  const f = p.features || {};
-  if (f.cantidadAmbientes) attributes.push({ id: "ROOMS", value_name: String(f.cantidadAmbientes) });
-  if (f.cocheras) attributes.push({ id: "PARKING_LOTS", value_name: String(f.cocheras) });
-  if (f.antiguedad) attributes.push({ id: "PROPERTY_AGE", value_name: String(f.antiguedad) });
-
-  // Completar cualquier atributo obligatorio que la categoría exija y no tengamos.
-  attributes = await fillRequiredAttributes(categoryId, p, attributes, token);
-  // Sumar las comodidades marcadas (piscina, gimnasio, parrillero, etc.).
+  // Mapear todos los datos del formulario (ambientes, cocheras, antigüedad, pisos,
+  // bodegas, orientación, tipo, seguridad, gastos comunes y todas las comodidades)
+  // a sus atributos de Mercado Libre. Va ANTES del relleno de obligatorios para que,
+  // por ejemplo, las cocheras lleven el número real y no el 1/0 por defecto.
   attributes = await addFeatureAttributes(categoryId, p, attributes, token);
+  // Completar cualquier atributo obligatorio que la categoría exija y todavía falte.
+  attributes = await fillRequiredAttributes(categoryId, p, attributes, token);
 
   const condition = await pickCondition(categoryId, token);
   const pictures = (p.images || []).slice(0, 12).map((url) => ({ source: url }));
