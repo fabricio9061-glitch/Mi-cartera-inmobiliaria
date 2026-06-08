@@ -11,7 +11,7 @@
  */
 
 const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
@@ -447,6 +447,36 @@ async function addFeatureAttributes(categoryId, p, baseAttributes, token) {
   return out;
 }
 
+// Normaliza un teléfono uruguayo a dígitos nacionales (sin +598 ni 0 inicial).
+function parsePhone(raw) {
+  return String(raw || "").replace(/\D/g, "").replace(/^598/, "").replace(/^0/, "");
+}
+
+// Arma el contacto del aviso SIEMPRE con el número del agente. Si la propiedad no
+// trae el WhatsApp, lo busca en el perfil del agente (users/{ownerId}).
+async function buildSellerContact(p) {
+  // La fuente de verdad del contacto es el perfil del agente dueño (ownerId), para
+  // que el teléfono SIEMPRE sea el del agente correspondiente y no haya inconsistencias.
+  let tel = "";
+  let nombre = p.ownerName || "";
+  if (p.ownerId) {
+    try {
+      const u = await admin.firestore().doc(`users/${p.ownerId}`).get();
+      const d = u.exists ? u.data() : {};
+      tel = parsePhone(d.whatsapp || d.phone);
+      nombre = d.name || nombre;
+    } catch (e) { logger.warn("No se pudo leer el perfil del agente:", e.message); }
+  }
+  if (!tel) tel = parsePhone(p.ownerWhatsapp); // respaldo si el perfil no tiene número
+  return {
+    contact: nombre || "Inmobiliaria Malavé",
+    area_code: "",
+    phone: tel,
+    country_code: "598",
+    email: "inmobiliariamalave@gmail.com",
+  };
+}
+
 async function buildItem(p, token) {
   // Elegir la categoría correcta dentro de Inmuebles (MLU1459)
   let categoryId = await getRealEstateCategory(p, token);
@@ -497,11 +527,7 @@ async function buildItem(p, token) {
       state: { name: p.departamento || "" },
       city: { name: p.ciudad || "" },
     },
-    seller_contact: {
-      contact: p.ownerName || "Inmobiliaria Malavé",
-      phone: String(p.ownerWhatsapp || "").replace(/\D/g, "").replace(/^598/, ""),
-      email: "inmobiliariamalave@gmail.com",
-    },
+    seller_contact: await buildSellerContact(p),
     attributes,
   };
 }
@@ -563,6 +589,56 @@ exports.publicarEnML = onDocumentCreated("properties/{id}", async (event) => {
       mlError: typeof detail === "string" ? detail : JSON.stringify(detail),
       mlErrorAt: new Date().toISOString(),
       mlPublishing: admin.firestore.FieldValue.delete(),
+    });
+  }
+});
+
+// =====================================================================
+// 3b) SINCRONIZACIÓN al EDITAR una propiedad ya publicada.
+//     Actualiza en Mercado Libre el aviso existente (PUT) con los datos nuevos.
+// =====================================================================
+
+// Campos de CONTENIDO de la propiedad. Si cambia alguno, hay que re-sincronizar.
+// Los metadatos internos (mlItemId, mlStatus, mlSyncedAt, mlError, mlPublishing...)
+// quedan fuera a propósito: así nuestras propias escrituras NO disparan un bucle.
+const CONTENT_FIELDS = ["title", "price", "currency", "description", "videoUrl", "images", "departamento", "ciudad", "direccion", "bedrooms", "bathrooms", "totalArea", "builtArea", "commonExpenses", "garage", "type", "propertyType", "realEstateType", "ownerWhatsapp", "ownerName", "features"];
+function contentChanged(before, after) {
+  if (!before) return true;
+  return CONTENT_FIELDS.some((f) => JSON.stringify(before[f]) !== JSON.stringify(after[f]));
+}
+
+exports.sincronizarEdicionML = onDocumentUpdated("properties/{id}", async (event) => {
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+  const ref = event.data.after.ref;
+  const id = event.params.id;
+
+  if (!after || !after.mlItemId) return;        // todavía no está publicada en ML
+  if (after.mlPublishing) return;               // se está creando en este momento
+  if (after.mlStatus === "closed") return;      // aviso dado de baja
+  if (!contentChanged(before, after)) return;   // solo cambiaron metadatos de ML -> nada que sincronizar
+
+  try {
+    const token = await getValidToken();
+    const item = await buildItem(after, token);
+    // En un aviso ya creado no se pueden cambiar estos campos; se quitan del PUT.
+    const { category_id, listing_type_id, buying_mode, condition, channels, available_quantity, description, ...updatable } = item;
+    await axios.put(`${API}/items/${after.mlItemId}`, updatable, {
+      headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+    });
+    await setItemDescription(after.mlItemId, after.description, token);
+    await ref.update({
+      mlSyncedAt: new Date().toISOString(),
+      mlError: admin.firestore.FieldValue.delete(),
+      mlErrorAt: admin.firestore.FieldValue.delete(),
+    });
+    logger.info(`Propiedad ${id} sincronizada con ML (${after.mlItemId}).`);
+  } catch (e) {
+    const detail = e.response?.data || e.message;
+    logger.error(`Error sincronizando ${id} con ML:`, JSON.stringify(detail));
+    await ref.update({
+      mlError: typeof detail === "string" ? detail : JSON.stringify(detail),
+      mlErrorAt: new Date().toISOString(),
     });
   }
 });
