@@ -452,12 +452,27 @@ async function pickCondition(categoryId, token) {
 // =====================================================================
 const LISTING_TYPE_PREF = (process.env.ML_LISTING_TYPE || "free,bronze,silver,gold,gold_premium")
   .split(",").map((s) => s.trim()).filter(Boolean);
-const _ltCache = new Map(); // categoryId -> { at, id } (cache de 10 min por instancia)
+const _ltCache = new Map();   // categoryId -> { at, lista } (cache de 10 min por instancia)
+const _ltVetados = new Map(); // categoryId -> Map(tipo -> timestamp) de tipos rechazados por ML
 
-async function pickListingType(categoryId, token) {
+// Marca un tipo como rechazado por ML para esa categoría durante 6 horas
+// (p. ej. "free" en MLU1467) para no volver a tropezar con él en cada publicación.
+function vetarListingType(categoryId, tipo) {
+  if (!_ltVetados.has(categoryId)) _ltVetados.set(categoryId, new Map());
+  _ltVetados.get(categoryId).set(tipo, Date.now());
+  _ltCache.delete(categoryId);
+}
+
+// Lista ORDENADA de tipos de publicación para intentar en esta categoría:
+// 1° la preferencia que esté disponible para la cuenta, 2° el resto de lo
+// disponible, 3° el resto de la preferencia (por si la consulta falla o viene
+// incompleta: ML a veces informa "free" a nivel cuenta aunque la categoría lo
+// rechace). Se excluyen los tipos con cupo agotado (remaining_listings = 0)
+// y los vetados recientemente.
+async function listingTypesDisponibles(categoryId, token) {
   const c = _ltCache.get(categoryId);
-  if (c && Date.now() - c.at < 10 * 60 * 1000) return c.id;
-  let elegido = LISTING_TYPE_PREF[0] || "free";
+  if (c && Date.now() - c.at < 10 * 60 * 1000) return c.lista;
+  let ids = [];
   try {
     const t = (await TOKENS_DOC.get()).data() || {};
     if (t.user_id) {
@@ -465,17 +480,31 @@ async function pickListingType(categoryId, token) {
         headers: { Authorization: `Bearer ${token}` },
       });
       const lista = (r.data && r.data.available) || (Array.isArray(r.data) ? r.data : []);
-      const ids = lista.map((x) => x.id).filter(Boolean);
-      const pref = LISTING_TYPE_PREF.find((id) => ids.includes(id));
-      if (pref) elegido = pref;
-      else if (ids.length) elegido = ids[0];
-      logger.info(`Listing type para ${categoryId}: ${elegido} (disponibles: ${ids.join(", ") || "ninguno informado"})`);
+      ids = lista
+        .filter((x) => x && x.id && x.remaining_listings !== 0) // 0 = cupo agotado; null = sin límite informado
+        .map((x) => x.id);
+      logger.info(`Listing types disponibles en ${categoryId}: ${ids.join(", ") || "ninguno informado"}`);
     }
   } catch (e) {
     logger.warn(`No se pudieron consultar los listing types de ${categoryId}:`, e.response?.data || e.message);
   }
-  _ltCache.set(categoryId, { at: Date.now(), id: elegido });
-  return elegido;
+  const orden = [
+    ...LISTING_TYPE_PREF.filter((t) => ids.includes(t)),
+    ...ids.filter((t) => !LISTING_TYPE_PREF.includes(t)),
+    ...LISTING_TYPE_PREF.filter((t) => !ids.includes(t)),
+  ];
+  const vetos = _ltVetados.get(categoryId);
+  const sinVetados = orden.filter((t) => {
+    const ts = vetos && vetos.get(t);
+    return !(ts && Date.now() - ts < 6 * 60 * 60 * 1000);
+  });
+  const final = [...new Set(sinVetados.length ? sinVetados : orden)];
+  _ltCache.set(categoryId, { at: Date.now(), lista: final });
+  return final;
+}
+
+async function pickListingType(categoryId, token) {
+  return (await listingTypesDisponibles(categoryId, token))[0] || "free";
 }
 
 // Valor razonable para un atributo obligatorio que no mapeamos explícitamente.
@@ -819,9 +848,30 @@ async function crearAvisoML(ref, id, extra = {}) {
   try {
     const token = await getValidToken();
     const item = await buildItem(p, token);
-    const r = await axios.post(`${API}/items`, item, {
-      headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
-    });
+    const headers = { Authorization: `Bearer ${token}`, "content-type": "application/json" };
+    // Si ML rechaza el tipo de publicación ("Listing type X is not available for
+    // category..."), se reintenta EN EL MOMENTO con el siguiente tipo disponible
+    // (free -> bronze -> silver -> gold) y el rechazado queda vetado 6 horas.
+    const candidatos = await listingTypesDisponibles(item.category_id, token);
+    const tipos = [...new Set([item.listing_type_id, ...candidatos])].slice(0, 4);
+    let r = null;
+    for (let i = 0; i < tipos.length; i++) {
+      item.listing_type_id = tipos[i];
+      try {
+        r = await axios.post(`${API}/items`, item, { headers });
+        break;
+      } catch (e2) {
+        const txt = JSON.stringify(e2.response?.data || e2.message || "");
+        const errorDeTipo = /listing[ _]?type/i.test(txt) && /not available|run out/i.test(txt);
+        if (errorDeTipo && i < tipos.length - 1) {
+          vetarListingType(item.category_id, tipos[i]);
+          logger.warn(`Listing type "${tipos[i]}" rechazado en ${item.category_id}; reintentando con "${tipos[i + 1]}".`);
+          await registrarLog(id, "publicar (cambio de listing type)", false, `"${tipos[i]}" no disponible en ${item.category_id} -> probando "${tipos[i + 1]}"`);
+          continue;
+        }
+        throw e2; // otro error, o no quedan tipos para probar: lo maneja el catch general
+      }
+    }
     await setItemDescription(r.data.id, p.description, token);
     await ref.update({
       mlItemId: r.data.id,
@@ -1123,7 +1173,18 @@ exports.estadoML = onCall(async (request) => {
   if (!doc.exists) throw new HttpsError("not-found", "La propiedad no existe.");
   const p = doc.data();
   await exigirAgente(request, p);
-  if (!p.mlItemId) return { publicado: false, error: p.mlError ? resumirErrorML(safeParse(p.mlError)) : undefined };
+  if (!p.mlItemId) {
+    // El error guardado es del ÚLTIMO intento: se antepone la fecha para que se
+    // note en el modal si el mensaje es viejo (anterior a la última corrección).
+    let err;
+    if (p.mlError) {
+      const cuando = p.mlErrorAt
+        ? new Date(p.mlErrorAt).toLocaleString("es-UY", { timeZone: "America/Montevideo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+        : "";
+      err = (cuando ? `[Último intento ${cuando}] ` : "") + resumirErrorML(safeParse(p.mlError));
+    }
+    return { publicado: false, error: err };
+  }
   const token = await getValidToken();
   const headers = { Authorization: `Bearer ${token}` };
   let item;
