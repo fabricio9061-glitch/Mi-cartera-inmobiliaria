@@ -810,6 +810,45 @@ async function buildItem(p, token) {
 }
 
 // =====================================================================
+// RESCATE — busca un aviso NUESTRO ya creado para esta propiedad que quedó
+// sin vincular en Firestore. Pasa cuando ML crea el aviso pero lo devuelve
+// dentro de una respuesta de error (quirk real de la API: el "error" trae el
+// item entero), o cuando una ejecución murió antes de guardar el mlItemId.
+// Fuentes: 1) un id de item dentro del último mlError guardado,
+//          2) el SKU (los avisos nuevos llevan seller_custom_field = id de la
+//             propiedad, lo que vuelve la publicación idempotente).
+// Si lo encuentra (no cerrado y de nuestra cuenta), se ADOPTA en vez de
+// crear un duplicado.
+// =====================================================================
+async function rescatarAvisoPerdido(p, propertyId, token) {
+  const headers = { Authorization: `Bearer ${token}` };
+  let userId = null;
+  try { userId = ((await TOKENS_DOC.get()).data() || {}).user_id || null; } catch (e) { /* sin user_id igual sirve la vía 1 */ }
+  // 1) ¿El último error guardado contiene un id de aviso? (caso MLU695091061)
+  const m = String(p.mlError || "").match(/MLU\d{6,}/);
+  if (m) {
+    try {
+      const it = (await axios.get(`${API}/items/${m[0]}`, { headers })).data;
+      if (it && it.status !== "closed" && (!userId || String(it.seller_id) === String(userId))) return it;
+    } catch (e) { /* no existe o no es nuestro: seguir */ }
+  }
+  // 2) Por SKU = id de la propiedad
+  if (userId) {
+    try {
+      const r = await axios.get(`${API}/users/${userId}/items/search?seller_sku=${encodeURIComponent(propertyId)}`, { headers });
+      const ids = (r.data && r.data.results) || [];
+      for (const itemId of ids) {
+        try {
+          const it = (await axios.get(`${API}/items/${itemId}`, { headers })).data;
+          if (it && it.status !== "closed") return it;
+        } catch (e) { /* probar el siguiente */ }
+      }
+    } catch (e) { /* el filtro por SKU puede no estar disponible: no es grave */ }
+  }
+  return null;
+}
+
+// =====================================================================
 // NÚCLEO DE PUBLICACIÓN — un único camino para crear el aviso, usado por:
 //   - publicarEnML (al crear la propiedad)
 //   - sincronizarEdicionML (reintento automático si la publicación había fallado)
@@ -849,27 +888,48 @@ async function crearAvisoML(ref, id, extra = {}) {
     const token = await getValidToken();
     const item = await buildItem(p, token);
     const headers = { Authorization: `Bearer ${token}`, "content-type": "application/json" };
-    // Si ML rechaza el tipo de publicación ("Listing type X is not available for
-    // category..."), se reintenta EN EL MOMENTO con el siguiente tipo disponible
-    // (free -> bronze -> silver -> gold) y el rechazado queda vetado 6 horas.
-    const candidatos = await listingTypesDisponibles(item.category_id, token);
-    const tipos = [...new Set([item.listing_type_id, ...candidatos])].slice(0, 4);
     let r = null;
-    for (let i = 0; i < tipos.length; i++) {
-      item.listing_type_id = tipos[i];
-      try {
-        r = await axios.post(`${API}/items`, item, { headers });
-        break;
-      } catch (e2) {
-        const txt = JSON.stringify(e2.response?.data || e2.message || "");
-        const errorDeTipo = /listing[ _]?type/i.test(txt) && /not available|run out/i.test(txt);
-        if (errorDeTipo && i < tipos.length - 1) {
-          vetarListingType(item.category_id, tipos[i]);
-          logger.warn(`Listing type "${tipos[i]}" rechazado en ${item.category_id}; reintentando con "${tipos[i + 1]}".`);
-          await registrarLog(id, "publicar (cambio de listing type)", false, `"${tipos[i]}" no disponible en ${item.category_id} -> probando "${tipos[i + 1]}"`);
-          continue;
+
+    // ¿Quedó un aviso ya creado y sin vincular de un intento anterior? Adoptarlo.
+    const perdido = await rescatarAvisoPerdido(p, id, token);
+    if (perdido) {
+      r = { data: perdido };
+      logger.info(`Propiedad ${id}: se recuperó el aviso existente ${perdido.id} en vez de crear un duplicado.`);
+      await registrarLog(id, "publicar (aviso existente recuperado)", true, perdido.id);
+    } else {
+      // SKU = id de la propiedad: vuelve idempotente la publicación y permite
+      // rescatar el aviso si alguna vez se pierde el vínculo.
+      item.seller_custom_field = id;
+      // Si ML rechaza el tipo de publicación ("Listing type X is not available for
+      // category..."), se reintenta EN EL MOMENTO con el siguiente tipo disponible
+      // (free -> bronze -> silver -> gold) y el rechazado queda vetado 6 horas.
+      const candidatos = await listingTypesDisponibles(item.category_id, token);
+      const tipos = [...new Set([item.listing_type_id, ...candidatos])].slice(0, 4);
+      for (let i = 0; i < tipos.length; i++) {
+        item.listing_type_id = tipos[i];
+        try {
+          r = await axios.post(`${API}/items`, item, { headers });
+          break;
+        } catch (e2) {
+          const data = e2.response?.data;
+          // Quirk real de ML: a veces el "error" trae EL AVISO YA CREADO adentro.
+          // Si el cuerpo tiene un id de item, el aviso existe: se adopta como éxito.
+          if (data && typeof data === "object" && /^MLU\d+/.test(String(data.id || ""))) {
+            r = { data };
+            logger.warn(`El POST devolvió error pero el aviso ${data.id} quedó creado; se adopta.`);
+            await registrarLog(id, "publicar (aviso creado dentro de respuesta de error)", true, data.id);
+            break;
+          }
+          const txt = JSON.stringify(data || e2.message || "");
+          const errorDeTipo = /listing[ _]?type/i.test(txt) && /not available|run out/i.test(txt);
+          if (errorDeTipo && i < tipos.length - 1) {
+            vetarListingType(item.category_id, tipos[i]);
+            logger.warn(`Listing type "${tipos[i]}" rechazado en ${item.category_id}; reintentando con "${tipos[i + 1]}".`);
+            await registrarLog(id, "publicar (cambio de listing type)", false, `"${tipos[i]}" no disponible en ${item.category_id} -> probando "${tipos[i + 1]}"`);
+            continue;
+          }
+          throw e2; // otro error, o no quedan tipos para probar: lo maneja el catch general
         }
-        throw e2; // otro error, o no quedan tipos para probar: lo maneja el catch general
       }
     }
     await setItemDescription(r.data.id, p.description, token);
@@ -885,7 +945,12 @@ async function crearAvisoML(ref, id, extra = {}) {
       ...extra,
     });
     logger.info(`Propiedad ${id} publicada en ML: ${r.data.id} (${r.data.permalink})`);
-    await registrarLog(id, "publicar", true, `${r.data.id} ${r.data.permalink || ""}`);
+    await registrarLog(id, "publicar", true, `${r.data.id} ${r.data.permalink || ""} [${r.data.listing_type_id || item.listing_type_id || ""}] ${r.data.status || ""}`);
+    // Tipo de publicación pago sin abonar: el aviso existe pero no se ve hasta pagarlo.
+    if ((r.data.status || "") === "payment_required") {
+      await notificarErrorML(p, id, "Aviso creado pero pendiente de pago en Mercado Libre",
+        `Quedó con tipo de publicación "${r.data.listing_type_id || item.listing_type_id}". Para activarlo, pagalo desde tu cuenta de Mercado Libre (sección Publicaciones).`);
+    }
     return { ok: true, mlItemId: r.data.id, permalink: r.data.permalink || "" };
   } catch (e) {
     const detail = e.response?.data || e.message;
