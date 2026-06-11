@@ -874,10 +874,18 @@
     };
     return m[a] || a.replace(/_/g, ' ')
   }
+  // Selector del tipo de aviso: gratuita por defecto cuando existe; los tipos
+  // pagos los elige el agente a mano y se abonan en Mercado Libre.
+  function mlTypeSelector(tipos) {
+    const lista = (tipos && tipos.length ? tipos : ['free', 'bronze', 'silver', 'gold']);
+    const opts = lista.map(t => `<option value="${t}">${mlListingTypeName(t)}${t === 'free' ? ' — sin costo' : ' — paga (se abona en Mercado Libre)'}</option>`).join('');
+    const aviso = lista.includes('free') ? '' : `<p style="font-size:.78rem;color:#b26a00;margin:6px 0 0"><i class="fas fa-circle-info"></i> Mercado Libre no ofrece publicación gratuita en esta categoría.</p>`;
+    return `<div style="margin-bottom:14px"><div style="font-size:.8rem;color:var(--gray-500,#888);margin-bottom:6px">Tipo de aviso</div><select id="mlTipoAviso" style="width:100%;padding:10px;border:1px solid var(--gray-300,#ddd);border-radius:8px;font-family:inherit;font-size:.95rem">${opts}</select>${aviso}</div>`;
+  }
   function renderMLStatus(d) {
     const body = document.getElementById('mlModalBody');
     if (!d.publicado) {
-      body.innerHTML = `<p style="color:var(--gray-600,#555);margin-bottom:16px">Esta propiedad todavía <strong>no está publicada</strong> en Mercado Libre.</p><button class="btn-primary" style="width:100%" onclick="republicarPropiedad()"><i class="fas fa-upload"></i> Publicar en Mercado Libre</button>`;
+      body.innerHTML = `<p style="color:var(--gray-600,#555);margin-bottom:16px">Esta propiedad todavía <strong>no está publicada</strong> en Mercado Libre.</p>${d.error ? `<p style="color:#c0392b;font-size:.85rem;margin-bottom:14px">${d.error}</p>` : ''}${mlTypeSelector(d.tiposDisponibles)}<button class="btn-primary" style="width:100%" onclick="republicarPropiedad()"><i class="fas fa-upload"></i> Publicar en Mercado Libre</button>`;
       return
     }
     if (d.error) {
@@ -888,15 +896,23 @@
     const hc = hp == null ? '#999' : (hp >= 70 ? '#27ae60' : hp >= 40 ? '#f39c12' : '#e74c3c');
     const sc = d.status === 'active' ? '#27ae60' : (d.status === 'closed' ? '#e74c3c' : '#f39c12');
     const acc = (d.actions || []).map(a => `<li style="margin:6px 0;color:var(--gray-700,#444)"><i class="fas fa-arrow-up" style="color:var(--accent);margin-right:8px"></i>${mlActionText(a)}</li>`).join('');
-    body.innerHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"><div style="flex:1;min-width:110px;background:var(--gray-50,#f7f7f7);border-radius:10px;padding:12px"><div style="font-size:.76rem;color:var(--gray-500,#888)">Estado</div><div style="font-weight:700;color:${sc}">${mlStatusName(d.status)}</div></div><div style="flex:1;min-width:110px;background:var(--gray-50,#f7f7f7);border-radius:10px;padding:12px"><div style="font-size:.76rem;color:var(--gray-500,#888)">Tipo de aviso</div><div style="font-weight:700">${mlListingTypeName(d.listingType)}</div></div>${hp!=null?`<div style="flex:1;min-width:110px;background:var(--gray-50,#f7f7f7);border-radius:10px;padding:12px"><div style="font-size:.76rem;color:var(--gray-500,#888)">Calidad</div><div style="font-weight:700;color:${hc}">${hp}%</div></div>`:''}</div>${acc?`<div style="margin-bottom:16px"><div style="font-weight:600;margin-bottom:6px">Para mejorar el aviso:</div><ul style="list-style:none;padding:0;margin:0">${acc}</ul></div>`:`<p style="color:#27ae60;margin-bottom:16px"><i class="fas fa-check-circle"></i> El aviso está completo, sin mejoras pendientes.</p>`}<div style="display:flex;gap:8px;flex-wrap:wrap">${d.permalink?`<a href="${d.permalink}" target="_blank" rel="noopener" class="btn-secondary" style="flex:1;text-align:center;text-decoration:none"><i class="fas fa-external-link-alt"></i> Ver aviso</a>`:''}${d.status==='active'?`<button class="btn-secondary" style="flex:1" onclick="bajaPropiedad()"><i class="fas fa-circle-pause"></i> Dar de baja</button>`:`<button class="btn-primary" style="flex:1" onclick="republicarPropiedad()"><i class="fas fa-redo"></i> Republicar</button>`}</div>`
+    const pagoHint = d.status === 'payment_required' ? `<p style="background:#fff7e6;border:1px solid #ffe2b0;border-radius:10px;padding:10px 12px;font-size:.85rem;color:#8a5a00;margin-bottom:16px;line-height:1.5"><i class="fas fa-circle-info"></i> El aviso está creado pero Mercado Libre exige pagar el tipo <strong>${mlListingTypeName(d.listingType)}</strong> para activarlo: se abona desde tu cuenta de ML (sección Publicaciones). Si no querés pagarlo, dale <strong>Dar de baja</strong> y volvé a publicarlo eligiendo otro tipo. Mientras no lo pagues, no se cobra nada.</p>` : '';
+    const selTipo = d.status === 'closed' ? mlTypeSelector(d.tiposDisponibles) : '';
+    const botones = [];
+    if (d.permalink) botones.push(`<a href="${d.permalink}" target="_blank" rel="noopener" class="btn-secondary" style="flex:1;text-align:center;text-decoration:none"><i class="fas fa-external-link-alt"></i> Ver aviso</a>`);
+    if (d.status === 'paused' || d.status === 'closed') botones.push(`<button class="btn-primary" style="flex:1" onclick="republicarPropiedad()"><i class="fas fa-redo"></i> Republicar</button>`);
+    if (d.status !== 'closed') botones.push(`<button class="btn-secondary" style="flex:1;color:#c0392b" onclick="bajaPropiedad()"><i class="fas fa-circle-stop"></i> Dar de baja</button>`);
+    body.innerHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"><div style="flex:1;min-width:110px;background:var(--gray-50,#f7f7f7);border-radius:10px;padding:12px"><div style="font-size:.76rem;color:var(--gray-500,#888)">Estado</div><div style="font-weight:700;color:${sc}">${mlStatusName(d.status)}</div></div><div style="flex:1;min-width:110px;background:var(--gray-50,#f7f7f7);border-radius:10px;padding:12px"><div style="font-size:.76rem;color:var(--gray-500,#888)">Tipo de aviso</div><div style="font-weight:700">${mlListingTypeName(d.listingType)}</div></div>${hp!=null?`<div style="flex:1;min-width:110px;background:var(--gray-50,#f7f7f7);border-radius:10px;padding:12px"><div style="font-size:.76rem;color:var(--gray-500,#888)">Calidad</div><div style="font-weight:700;color:${hc}">${hp}%</div></div>`:''}</div>${pagoHint}${acc?`<div style="margin-bottom:16px"><div style="font-weight:600;margin-bottom:6px">Para mejorar el aviso:</div><ul style="list-style:none;padding:0;margin:0">${acc}</ul></div>`:`<p style="color:#27ae60;margin-bottom:16px"><i class="fas fa-check-circle"></i> El aviso está completo, sin mejoras pendientes.</p>`}${selTipo}<div style="display:flex;gap:8px;flex-wrap:wrap">${botones.join('')}</div>`
   }
   async function republicarPropiedad() {
     if (!mlModalPropId) return;
+    const sel = document.getElementById('mlTipoAviso');
+    const listingType = sel ? sel.value : null;
     const id = mlModalPropId, body = document.getElementById('mlModalBody');
     body.innerHTML = '<div style="text-align:center;padding:30px"><i class="fas fa-spinner fa-spin" style="font-size:1.6rem;color:var(--gray-400,#aaa)"></i><p style="margin-top:10px;color:var(--gray-500,#888)">Publicando en Mercado Libre...</p></div>';
     try {
-      await firebase.functions().httpsCallable('republicarML')({ propertyId: id });
-      showToast('Mercado Libre', 'El aviso quedó activo', 'fa-tag');
+      await firebase.functions().httpsCallable('republicarML')({ propertyId: id, listingType });
+      showToast('Mercado Libre', 'El aviso se envió a Mercado Libre', 'fa-tag');
       openMLModal(id)
     } catch (e) {
       body.innerHTML = `<p style="color:#c0392b;padding:10px">No se pudo publicar: ${e.message || e}</p><button class="btn-secondary" style="width:100%;margin-top:10px" onclick="openMLModal('${id}')">Reintentar</button>`

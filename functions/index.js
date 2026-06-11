@@ -450,9 +450,17 @@ async function pickCondition(categoryId, token) {
 // con ML_LISTING_TYPE, ej: "free,bronze,silver"). Ojo: los tipos pagos pueden
 // tener costo por aviso; el tipo usado queda guardado en mlListingType.
 // =====================================================================
-const LISTING_TYPE_PREF = (process.env.ML_LISTING_TYPE || "free,bronze,silver,gold,gold_premium")
-  .split(",").map((s) => s.trim()).filter(Boolean);
-const _ltCache = new Map();   // categoryId -> { at, lista } (cache de 10 min por instancia)
+// =====================================================================
+// Tipo de publicación.
+// REGLA DE LA CASA: la publicación AUTOMÁTICA usa SOLO los tipos permitidos
+// en ML_LISTING_TYPE del .env (por defecto "free": gratuita y nada más).
+// Los tipos PAGOS (bronce/plata/oro) nunca se eligen solos: el agente los
+// elige a mano desde el selector del botón de Mercado Libre de la propiedad.
+// =====================================================================
+const TIPOS_AVISO_VALIDOS = ["free", "bronze", "silver", "gold", "gold_premium"];
+const LISTING_TYPE_PREF = (process.env.ML_LISTING_TYPE || "free")
+  .split(",").map((s) => s.trim()).filter((s) => TIPOS_AVISO_VALIDOS.includes(s));
+const _ltCache = new Map();   // categoryId -> { at, ids } disponibles de la cuenta (cache 10 min)
 const _ltVetados = new Map(); // categoryId -> Map(tipo -> timestamp) de tipos rechazados por ML
 
 // Marca un tipo como rechazado por ML para esa categoría durante 6 horas
@@ -460,18 +468,18 @@ const _ltVetados = new Map(); // categoryId -> Map(tipo -> timestamp) de tipos r
 function vetarListingType(categoryId, tipo) {
   if (!_ltVetados.has(categoryId)) _ltVetados.set(categoryId, new Map());
   _ltVetados.get(categoryId).set(tipo, Date.now());
-  _ltCache.delete(categoryId);
+}
+function estaVetado(categoryId, tipo) {
+  const ts = _ltVetados.get(categoryId) && _ltVetados.get(categoryId).get(tipo);
+  return !!(ts && Date.now() - ts < 6 * 60 * 60 * 1000);
 }
 
-// Lista ORDENADA de tipos de publicación para intentar en esta categoría:
-// 1° la preferencia que esté disponible para la cuenta, 2° el resto de lo
-// disponible, 3° el resto de la preferencia (por si la consulta falla o viene
-// incompleta: ML a veces informa "free" a nivel cuenta aunque la categoría lo
-// rechace). Se excluyen los tipos con cupo agotado (remaining_listings = 0)
-// y los vetados recientemente.
-async function listingTypesDisponibles(categoryId, token) {
+// Tipos que la CUENTA tiene disponibles en esta categoría según ML, excluyendo
+// cupo agotado (remaining_listings = 0), ordenados de barato a caro. Esta lista
+// también alimenta el selector manual del modal de Mercado Libre.
+async function listingTypesCuenta(categoryId, token) {
   const c = _ltCache.get(categoryId);
-  if (c && Date.now() - c.at < 10 * 60 * 1000) return c.lista;
+  if (c && Date.now() - c.at < 10 * 60 * 1000) return c.ids;
   let ids = [];
   try {
     const t = (await TOKENS_DOC.get()).data() || {};
@@ -483,24 +491,27 @@ async function listingTypesDisponibles(categoryId, token) {
       ids = lista
         .filter((x) => x && x.id && x.remaining_listings !== 0) // 0 = cupo agotado; null = sin límite informado
         .map((x) => x.id);
-      logger.info(`Listing types disponibles en ${categoryId}: ${ids.join(", ") || "ninguno informado"}`);
+      ids = [...TIPOS_AVISO_VALIDOS.filter((t2) => ids.includes(t2)), ...ids.filter((t2) => !TIPOS_AVISO_VALIDOS.includes(t2))];
+      logger.info(`Listing types de la cuenta en ${categoryId}: ${ids.join(", ") || "ninguno informado"}`);
     }
   } catch (e) {
     logger.warn(`No se pudieron consultar los listing types de ${categoryId}:`, e.response?.data || e.message);
   }
+  _ltCache.set(categoryId, { at: Date.now(), ids });
+  return ids;
+}
+
+// Candidatos para la publicación AUTOMÁTICA: únicamente los permitidos en
+// ML_LISTING_TYPE (primero los confirmados por la cuenta), sin los vetados.
+// Un tipo pago jamás entra acá salvo que lo agregues vos al .env.
+async function listingTypesDisponibles(categoryId, token) {
+  const cuenta = await listingTypesCuenta(categoryId, token);
   const orden = [
-    ...LISTING_TYPE_PREF.filter((t) => ids.includes(t)),
-    ...ids.filter((t) => !LISTING_TYPE_PREF.includes(t)),
-    ...LISTING_TYPE_PREF.filter((t) => !ids.includes(t)),
+    ...LISTING_TYPE_PREF.filter((t) => cuenta.includes(t)),
+    ...LISTING_TYPE_PREF.filter((t) => !cuenta.includes(t)),
   ];
-  const vetos = _ltVetados.get(categoryId);
-  const sinVetados = orden.filter((t) => {
-    const ts = vetos && vetos.get(t);
-    return !(ts && Date.now() - ts < 6 * 60 * 60 * 1000);
-  });
-  const final = [...new Set(sinVetados.length ? sinVetados : orden)];
-  _ltCache.set(categoryId, { at: Date.now(), lista: final });
-  return final;
+  const sinVetados = orden.filter((t) => !estaVetado(categoryId, t));
+  return [...new Set(sinVetados.length ? sinVetados : orden)];
 }
 
 async function pickListingType(categoryId, token) {
@@ -860,7 +871,7 @@ async function rescatarAvisoPerdido(p, propertyId, token) {
 // El candado tiene vencimiento (mlPublishingAt + 3 min): si una ejecución muere
 // sin liberarlo, la propiedad no queda bloqueada para siempre.
 // =====================================================================
-async function crearAvisoML(ref, id, extra = {}) {
+async function crearAvisoML(ref, id, extra = {}, opciones = {}) {
   const LOCK_MS = 3 * 60 * 1000;
   let p = null;
   try {
@@ -900,11 +911,16 @@ async function crearAvisoML(ref, id, extra = {}) {
       // SKU = id de la propiedad: vuelve idempotente la publicación y permite
       // rescatar el aviso si alguna vez se pierde el vínculo.
       item.seller_custom_field = id;
-      // Si ML rechaza el tipo de publicación ("Listing type X is not available for
-      // category..."), se reintenta EN EL MOMENTO con el siguiente tipo disponible
-      // (free -> bronze -> silver -> gold) y el rechazado queda vetado 6 horas.
-      const candidatos = await listingTypesDisponibles(item.category_id, token);
-      const tipos = [...new Set([item.listing_type_id, ...candidatos])].slice(0, 4);
+      // Tipos a intentar: si el agente eligió uno A MANO en el modal, SOLO ese
+      // (sin fallback). En automático, SOLO los permitidos del .env (por defecto,
+      // gratuita y nada más): un tipo pago jamás se elige solo.
+      let tipos;
+      if (opciones.listingType) {
+        tipos = [opciones.listingType];
+      } else {
+        const candidatos = await listingTypesDisponibles(item.category_id, token);
+        tipos = [...new Set([item.listing_type_id, ...candidatos])].slice(0, 4);
+      }
       for (let i = 0; i < tipos.length; i++) {
         item.listing_type_id = tipos[i];
         try {
@@ -922,13 +938,22 @@ async function crearAvisoML(ref, id, extra = {}) {
           }
           const txt = JSON.stringify(data || e2.message || "");
           const errorDeTipo = /listing[ _]?type/i.test(txt) && /not available|run out/i.test(txt);
-          if (errorDeTipo && i < tipos.length - 1) {
+          if (errorDeTipo) {
             vetarListingType(item.category_id, tipos[i]);
-            logger.warn(`Listing type "${tipos[i]}" rechazado en ${item.category_id}; reintentando con "${tipos[i + 1]}".`);
-            await registrarLog(id, "publicar (cambio de listing type)", false, `"${tipos[i]}" no disponible en ${item.category_id} -> probando "${tipos[i + 1]}"`);
-            continue;
+            if (i < tipos.length - 1) {
+              logger.warn(`Listing type "${tipos[i]}" rechazado en ${item.category_id}; reintentando con "${tipos[i + 1]}".`);
+              await registrarLog(id, "publicar (cambio de listing type)", false, `"${tipos[i]}" no disponible en ${item.category_id} -> probando "${tipos[i + 1]}"`);
+              continue;
+            }
+            // No quedan tipos permitidos para probar: error claro y accionable.
+            const msj = opciones.listingType
+              ? `Mercado Libre no acepta el tipo de aviso "${opciones.listingType}" en esta categoría (${item.category_id}). Elegí otro tipo desde el botón de Mercado Libre.`
+              : (tipos.length === 1 && tipos[0] === "free"
+                ? `Mercado Libre no ofrece publicación GRATUITA en esta categoría (${item.category_id}) o se agotó el cupo. Abrí el botón de Mercado Libre de la propiedad y elegí el tipo de aviso para publicarla.`
+                : `Mercado Libre no aceptó ninguno de los tipos automáticos (${tipos.join(", ")}) en ${item.category_id}. Elegí el tipo a mano desde el botón de Mercado Libre.`);
+            throw new Error(msj);
           }
-          throw e2; // otro error, o no quedan tipos para probar: lo maneja el catch general
+          throw e2; // otro tipo de error: lo maneja el catch general
         }
       }
     }
@@ -1248,7 +1273,18 @@ exports.estadoML = onCall(async (request) => {
         : "";
       err = (cuando ? `[Último intento ${cuando}] ` : "") + resumirErrorML(safeParse(p.mlError));
     }
-    return { publicado: false, error: err };
+    // Tipos de aviso que la cuenta puede usar en la categoría de esta propiedad,
+    // para que el selector del modal muestre opciones REALES (mejor esfuerzo).
+    let tiposDisponibles = null;
+    try {
+      const token = await getValidToken();
+      const cat = await getRealEstateCategory(p, token);
+      if (cat) {
+        const cuenta = await listingTypesCuenta(cat, token);
+        if (cuenta && cuenta.length) tiposDisponibles = cuenta;
+      }
+    } catch (e) { /* sin token o sin categoría: el modal usa la lista fija */ }
+    return { publicado: false, error: err, tiposDisponibles };
   }
   const token = await getValidToken();
   const headers = { Authorization: `Bearer ${token}` };
@@ -1286,6 +1322,9 @@ function safeParse(s) {
 exports.republicarML = onCall(async (request) => {
   const propertyId = request.data && request.data.propertyId;
   if (!propertyId) throw new HttpsError("invalid-argument", "Falta el id de la propiedad.");
+  // Tipo de aviso elegido A MANO por el agente en el modal (opcional).
+  const ltRaw = request.data && request.data.listingType;
+  const listingType = TIPOS_AVISO_VALIDOS.includes(ltRaw) ? ltRaw : null;
   const ref = admin.firestore().collection("properties").doc(propertyId);
   const doc = await ref.get();
   if (!doc.exists) throw new HttpsError("not-found", "La propiedad no existe.");
@@ -1293,34 +1332,49 @@ exports.republicarML = onCall(async (request) => {
   await exigirAgente(request, p);
   const token = await getValidToken();
   const headers = { Authorization: `Bearer ${token}`, "content-type": "application/json" };
-  // Si ya hay aviso, intentar reactivarlo según su estado actual.
+  // Si ya hay aviso, decidir según su estado y el tipo elegido.
   if (p.mlItemId) {
+    let recrear = false;
     try {
       const r = await axios.get(`${API}/items/${p.mlItemId}`, { headers });
       const st = r.data.status;
-      if (st === "paused") {
+      const tipoActual = r.data.listing_type_id;
+      if (st === "closed") {
+        recrear = true; // se recrea más abajo
+      } else if (listingType && listingType !== tipoActual) {
+        // El agente eligió OTRO tipo de aviso: se cierra el actual (sin costo si
+        // estaba pendiente de pago) y se crea uno nuevo con el tipo elegido.
+        try {
+          try { await axios.put(`${API}/items/${p.mlItemId}`, { status: "paused" }, { headers }); } catch (e) { /* puede ya estar pausado */ }
+          await axios.put(`${API}/items/${p.mlItemId}`, { status: "closed" }, { headers });
+          await registrarLog(propertyId, "baja para cambiar tipo de aviso", true, `${p.mlItemId}: ${tipoActual} -> ${listingType}`);
+        } catch (e) {
+          await registrarLog(propertyId, "baja para cambiar tipo de aviso", false, `${p.mlItemId}: ${resumirErrorML(e.response?.data || e.message)}`);
+        }
+        recrear = true;
+      } else if (st === "paused") {
         await axios.put(`${API}/items/${p.mlItemId}`, { status: "active" }, { headers });
         await ref.update({ mlStatus: "active" });
         await registrarLog(propertyId, "republicar (reactivado)", true, p.mlItemId);
         return { ok: true, reactivado: true, mlItemId: p.mlItemId, permalink: r.data.permalink || "" };
-      }
-      if (st !== "closed") {
-        // active, payment_required, under_review, etc.: el aviso YA existe; no recrear (evita duplicados).
+      } else {
+        // active, payment_required, under_review...: el aviso YA existe con ese
+        // mismo tipo; no se recrea (evita duplicados).
         await ref.update({ mlStatus: st });
         return { ok: true, yaExiste: true, status: st, mlItemId: p.mlItemId, permalink: r.data.permalink || "" };
       }
-      // closed: se recrea más abajo.
-    } catch (e) { /* no se pudo leer; se recrea */ }
-    // El aviso anterior quedó cerrado o ilegible: limpiar la referencia para crear uno nuevo.
-    await ref.update({
-      mlItemId: admin.firestore.FieldValue.delete(),
-      mlStatus: admin.firestore.FieldValue.delete(),
-      mlPermalink: admin.firestore.FieldValue.delete(),
-    });
+    } catch (e) { recrear = true; /* no se pudo leer; se recrea */ }
+    if (recrear) {
+      await ref.update({
+        mlItemId: admin.firestore.FieldValue.delete(),
+        mlStatus: admin.firestore.FieldValue.delete(),
+        mlPermalink: admin.firestore.FieldValue.delete(),
+      });
+    }
   }
-  // Crear un aviso nuevo, pasando por el MISMO candado que la publicación
-  // automática (un doble clic en el botón ya no puede crear dos avisos).
-  const res = await crearAvisoML(ref, propertyId, { mlRepublishedAt: new Date().toISOString() });
+  // Crear el aviso, pasando por el MISMO candado que la publicación automática
+  // (un doble clic en el botón ya no puede crear dos avisos).
+  const res = await crearAvisoML(ref, propertyId, { mlRepublishedAt: new Date().toISOString() }, { listingType });
   if (res.ok) return { ok: true, recreado: true, mlItemId: res.mlItemId, permalink: res.permalink };
   if (res.omitido) throw new HttpsError("failed-precondition", "La propiedad no está Disponible o ya hay una publicación en curso.");
   throw new HttpsError("internal", res.error || "No se pudo republicar.");
