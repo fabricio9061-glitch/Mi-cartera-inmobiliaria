@@ -442,6 +442,42 @@ async function pickCondition(categoryId, token) {
   return "new";
 }
 
+// =====================================================================
+// Tipo de publicación — "free" tiene CUPO limitado y no existe en todas las
+// categorías ("Listing type free is not available for category MLU1467").
+// Se consulta a ML qué tipos tiene disponibles ESTA cuenta en ESTA categoría
+// y se elige el primero según el orden de preferencia (configurable en .env
+// con ML_LISTING_TYPE, ej: "free,bronze,silver"). Ojo: los tipos pagos pueden
+// tener costo por aviso; el tipo usado queda guardado en mlListingType.
+// =====================================================================
+const LISTING_TYPE_PREF = (process.env.ML_LISTING_TYPE || "free,bronze,silver,gold,gold_premium")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+const _ltCache = new Map(); // categoryId -> { at, id } (cache de 10 min por instancia)
+
+async function pickListingType(categoryId, token) {
+  const c = _ltCache.get(categoryId);
+  if (c && Date.now() - c.at < 10 * 60 * 1000) return c.id;
+  let elegido = LISTING_TYPE_PREF[0] || "free";
+  try {
+    const t = (await TOKENS_DOC.get()).data() || {};
+    if (t.user_id) {
+      const r = await axios.get(`${API}/users/${t.user_id}/available_listing_types?category_id=${categoryId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const lista = (r.data && r.data.available) || (Array.isArray(r.data) ? r.data : []);
+      const ids = lista.map((x) => x.id).filter(Boolean);
+      const pref = LISTING_TYPE_PREF.find((id) => ids.includes(id));
+      if (pref) elegido = pref;
+      else if (ids.length) elegido = ids[0];
+      logger.info(`Listing type para ${categoryId}: ${elegido} (disponibles: ${ids.join(", ") || "ninguno informado"})`);
+    }
+  } catch (e) {
+    logger.warn(`No se pudieron consultar los listing types de ${categoryId}:`, e.response?.data || e.message);
+  }
+  _ltCache.set(categoryId, { at: Date.now(), id: elegido });
+  return elegido;
+}
+
 // Valor razonable para un atributo obligatorio que no mapeamos explícitamente.
 function defaultAttrValue(a, p) {
   const id = a.id;
@@ -454,7 +490,10 @@ function defaultAttrValue(a, p) {
   if (id in numMap && numMap[id] != null && numMap[id] !== "") {
     if (a.value_type === "number_unit") {
       const unit = (a.allowed_units && a.allowed_units[0] && a.allowed_units[0].id) || a.default_unit || "";
-      return { id, value_struct: { number: Number(numMap[id]), unit } };
+      const num = Number(numMap[id]);
+      // value_name "80 m²" en vez de value_struct: cuando la unidad viene vacía,
+      // ML descarta el atributo ("value_id and value_name are null...").
+      return { id, value_name: unit ? `${num} ${unit}` : String(num) };
     }
     return { id, value_name: String(numMap[id]) };
   }
@@ -562,7 +601,9 @@ async function addFeatureAttributes(categoryId, p, baseAttributes, token, catAtt
     } else if (vt === "number_unit") {
       const unit = (attr.allowed_units && attr.allowed_units[0] && attr.allowed_units[0].id) || attr.default_unit || "";
       const num = Number(val);
-      if (!isNaN(num)) { out.push({ id, value_struct: { number: num, unit } }); have.add(id); }
+      // value_name "5 m²" en vez de value_struct: con la unidad vacía ML descartaba el
+      // atributo (el caso BALCONY_AREA: "value_id and value_name are null... not sent").
+      if (!isNaN(num)) { out.push({ id, value_name: unit ? `${num} ${unit}` : String(num) }); have.add(id); }
     } else {
       out.push({ id, value_name: String(val) }); // number o string
       have.add(id);
@@ -727,7 +768,7 @@ async function buildItem(p, token) {
     currency_id: p.currency || "USD",
     available_quantity: 1,
     buying_mode: "classified",
-    listing_type_id: "free",
+    listing_type_id: await pickListingType(categoryId, token),
     condition,
     channels: ["marketplace"],
     description: { plain_text: p.description || p.title || "" },
@@ -786,6 +827,7 @@ async function crearAvisoML(ref, id, extra = {}) {
       mlItemId: r.data.id,
       mlPermalink: r.data.permalink || "",
       mlStatus: r.data.status || "active",
+      mlListingType: r.data.listing_type_id || item.listing_type_id || "",
       mlError: admin.firestore.FieldValue.delete(),
       mlErrorAt: admin.firestore.FieldValue.delete(),
       mlPublishing: admin.firestore.FieldValue.delete(),

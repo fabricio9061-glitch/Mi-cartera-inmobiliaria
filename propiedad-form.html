@@ -8,10 +8,11 @@
   <meta name="theme-color" content="#243447">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="styles.css">
   <style>
     body{background:var(--gray-50)}
-    .ppf-header{background:var(--white);box-shadow:var(--shadow-sm);position:sticky;top:0;z-index:100}
+    .ppf-header{background:var(--white);box-shadow:var(--shadow-sm);position:sticky;top:0;z-index:1000}
     .ppf-header-inner{max-width:760px;margin:0 auto;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
     .ppf-back{display:inline-flex;align-items:center;gap:8px;color:var(--gray-600);font-size:14px;font-weight:500;padding:9px 18px;border:1px solid var(--gray-300);border-radius:var(--radius-full);transition:all .25s;cursor:pointer;background:none}
     .ppf-back:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
@@ -55,14 +56,16 @@
   <div class="ppf-wrap" id="ppfFormWrap" style="display:none">
     <div class="ppf-card">
       <h1 id="ppfTitle">Nueva propiedad</h1>
-      <p class="ppf-sub">Completá los datos de la propiedad. Los campos con * son obligatorios.</p>
+      <p class="ppf-sub">El recorrido es el mismo que el de Mercado Libre: lo que completás acá es lo que se publica. Los campos con * son obligatorios.</p>
       <div id="propertyError" class="form-error hidden"></div>
       <form onsubmit="handleSaveProperty(event)" id="propertyForm">
         <input type="hidden" id="editingPropertyId" value=""><input type="hidden" id="previousPrice" value="">
         <style>
-          .ppf-sec-title{font-size:1.05rem;font-weight:700;margin:22px 0 10px;color:#243447;display:flex;align-items:center;gap:9px}
-          .ppf-sec-title:first-of-type{margin-top:2px}
-          .ppf-sec-title i{color:#243447;opacity:.55;font-size:.95rem}
+          .ppf-step{display:flex;align-items:flex-start;gap:11px;margin:26px 0 10px}
+          .ppf-step:first-of-type{margin-top:2px}
+          .ppf-step .num{width:28px;height:28px;border-radius:50%;background:#ffe600;color:#243447;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex:0 0 auto;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+          .ppf-step h3{font-size:1.05rem;font-weight:700;color:#243447;margin:2px 0 0;line-height:1.25}
+          .ppf-step small{display:block;color:#6b7280;font-weight:400;font-size:.8rem;margin-top:2px}
           .ppf-sec{border:1px solid #eef0f2;border-radius:10px;padding:16px 16px 4px;margin-bottom:6px;background:#fff}
           .ppf-acc{border:1px solid #e5e7eb;border-radius:8px;margin:10px 0;overflow:hidden}
           .ppf-acc>summary{cursor:pointer;padding:12px 14px;font-weight:600;background:#f9fafb;list-style:none;display:flex;justify-content:space-between;align-items:center}
@@ -72,42 +75,61 @@
           .feat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:8px 14px;padding:14px}
           .feat-item{display:flex;align-items:center;gap:8px;font-size:.92rem;cursor:pointer}
           .feat-item input{width:auto;margin:0;flex:0 0 auto}
+          .btn-mapa{background:#243447;color:#fff;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;font-family:inherit;font-size:.9rem;display:inline-flex;align-items:center;gap:8px;margin-bottom:12px}
+          .btn-mapa:hover{opacity:.92}
+          #propMapa{height:320px;border-radius:10px;border:1px solid #e5e7eb;position:relative;z-index:0;margin-bottom:6px}
+          .ubicacion-estado{font-size:.86rem;color:#6b7280;margin:6px 0 12px;line-height:1.5}
+          .ubicacion-estado .ok{color:#0a7a0a;font-weight:600}
+          .ubicacion-estado a{color:#b00020;cursor:pointer;text-decoration:underline}
+          .titulo-counter{font-size:.78rem;color:#9ca3af;text-align:right;margin-top:-12px;margin-bottom:14px}
         </style>
 
-        <div class="ppf-sec-title"><i class="fas fa-home"></i> Datos principales</div>
+        <div class="ppf-step"><div class="num">1</div><div><h3>¿Qué vas a publicar?</h3><small>Operación y tipo de inmueble, igual que el primer paso de Mercado Libre.</small></div></div>
         <div class="ppf-sec">
-          <div class="form-group"><label>Título *</label><input type="text" id="propTitle" required placeholder="Ej: Casa en Pocitos con jardín"></div>
           <div class="form-row-3"><div class="form-group"><label>Tipo de Operación</label><select id="propType" onchange="togglePropertyType()"><option value="sale">Venta</option><option value="rent">Alquiler</option></select></div><div class="form-group"><label>Tipo de inmueble</label><select id="propRealEstateType"><option value="casa">Casa</option><option value="apartamento">Apartamento</option><option value="terreno">Terreno</option><option value="local">Local comercial</option><option value="oficina">Oficina</option><option value="galpon">Galpón / Depósito</option><option value="campo">Campo / Chacra</option></select></div><div class="form-group" id="propertyTypeGroup"><label>Tipo de padrón</label><select id="propPropertyType"><option value="common">Padrón Común</option><option value="ph">PH</option></select></div></div>
-          <div class="form-row-3"><div class="form-group"><label>Precio *</label><input type="number" id="propPrice" required placeholder="150000"></div><div class="form-group"><label>Moneda</label><select id="propCurrency"><option value="USD">USD</option><option value="UYU">UYU</option></select></div><div class="form-group"><label>Gastos Comunes</label><input type="number" id="propExpenses" placeholder="150"></div></div>
-          <div class="form-group"><label>Estado de la Propiedad</label><div class="status-selector" id="statusSelector"><div class="status-option available active" onclick="selectStatus('available')"><i class="fas fa-check-circle"></i> Disponible</div><div class="status-option reserved" onclick="selectStatus('reserved')"><i class="fas fa-clock"></i> Reservada</div><div class="status-option sold" onclick="selectStatus('sold')"><i class="fas fa-handshake"></i> Vendida</div><div class="status-option rented" onclick="selectStatus('rented')"><i class="fas fa-key"></i> Alquilada</div><div class="status-option archived" onclick="selectStatus('archived')"><i class="fas fa-archive"></i> Archivada</div></div><input type="hidden" id="propStatus" value="available"></div>
         </div>
 
-        <div class="ppf-sec-title"><i class="fas fa-map-marker-alt"></i> Ubicación</div>
+        <div class="ppf-step"><div class="num">2</div><div><h3>Ubicación</h3><small>Buscá la dirección y ajustá el pin: las coordenadas y el barrio viajan a Mercado Libre y mejoran cómo aparece el aviso en el mapa.</small></div></div>
         <div class="ppf-sec">
           <div class="form-row"><div class="form-group"><label>Departamento *</label><select id="propDepartamento" required onchange="updateCiudades()"><option value="">Seleccionar...</option></select></div><div class="form-group"><label>Ciudad/Barrio *</label><select id="propCiudad" required><option value="">Primero selecciona departamento</option></select></div></div>
-          <div class="form-row"><div class="form-group"><label>Dirección (opcional)</label><input type="text" id="propDireccion" placeholder="Ej: Av. 18 de Julio"></div><div class="form-group"><label>Número de puerta</label><input type="text" id="propNumeroPuerta" placeholder="1234"></div></div>
+          <div class="form-row"><div class="form-group"><label>Calle</label><input type="text" id="propDireccion" placeholder="Ej: Av. 18 de Julio"></div><div class="form-group"><label>Número</label><input type="text" id="propNumeroPuerta" placeholder="1234"></div></div>
+          <button type="button" class="btn-mapa" onclick="buscarEnMapa()"><i class="fas fa-magnifying-glass-location"></i> Ubicar en el mapa</button>
+          <div id="propMapa"></div>
+          <div class="ubicacion-estado" id="ubicacionEstado"></div>
         </div>
 
-        <div class="ppf-sec-title"><i class="fas fa-ruler-combined"></i> Datos principales</div>
+        <div class="ppf-step"><div class="num">3</div><div><h3>Características principales</h3><small>Dormitorios, baños y superficies.</small></div></div>
         <div class="ppf-sec">
           <div class="form-row-4"><div class="form-group"><label>Dormitorios *</label><input type="number" id="propBedrooms" placeholder="3" min="0"></div><div class="form-group"><label>Baños *</label><input type="number" id="propBathrooms" placeholder="2" min="0"></div><div class="form-group"><label>Superficie total m² *</label><input type="number" id="propTotalArea" required placeholder="100"></div><div class="form-group"><label>Área privada m² *</label><input type="number" id="propBuiltArea" required placeholder="80"></div></div>
         </div>
 
-        <div class="ppf-sec-title"><i class="fas fa-clipboard-list"></i> Ficha técnica</div>
-        <p style="font-size:.85rem;color:#6b7280;margin:-4px 0 8px">Son los mismos campos que pide Mercado Libre. Completá o tildá lo que tenga la propiedad; se sincroniza igual al publicar y al editar.</p>
+        <div class="ppf-step"><div class="num">4</div><div><h3>Ficha técnica</h3><small>Son los mismos campos que pide Mercado Libre. Completá o tildá lo que tenga la propiedad; se sincroniza igual al publicar y al editar.</small></div></div>
         <div id="fichaTecnica"></div>
 
-        <div class="ppf-sec-title"><i class="fas fa-camera"></i> Fotos</div>
+        <div class="ppf-step"><div class="num">5</div><div><h3>Fotos y video</h3><small>La primera foto es la portada del aviso. Arrastrá para reordenar.</small></div></div>
         <div class="ppf-sec">
-          <div class="form-group" style="margin:0"><label>Fotos * <small style="color:var(--gray-500);font-weight:normal">(arrastrá para reordenar, máx 5MB cada una)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div></div>
+          <div class="form-group"><label>Fotos * <small style="color:var(--gray-500);font-weight:normal">(arrastrá para reordenar, máx 5MB cada una)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div></div>
+          <div class="form-group"><label>Video de YouTube (opcional)</label><input type="url" id="propVideo" placeholder="https://www.youtube.com/watch?v=..."></div>
         </div>
 
-        <div class="ppf-sec-title"><i class="fas fa-align-left"></i> Descripción y contacto</div>
+        <div class="ppf-step"><div class="num">6</div><div><h3>Título y descripción</h3><small>Mercado Libre corta el título en 60 caracteres: contá lo importante primero.</small></div></div>
         <div class="ppf-sec">
-          <div class="form-group"><label>Descripción</label><textarea id="propDescription" rows="3" placeholder="Describe la propiedad..."></textarea></div>
-          <div class="form-group"><label>Video de YouTube (opcional)</label><input type="url" id="propVideo" placeholder="https://www.youtube.com/watch?v=..."></div>
-          <div class="form-group" style="margin:0"><label>WhatsApp de Contacto</label><input type="tel" id="propWhatsapp" placeholder="+598 99 123 456"></div>
+          <div class="form-group"><label>Título *</label><input type="text" id="propTitle" required maxlength="60" placeholder="Ej: Casa en Pocitos con jardín" oninput="actualizarContadorTitulo()"></div>
+          <div class="titulo-counter"><span id="tituloCount">0</span>/60</div>
+          <div class="form-group"><label>Descripción</label><textarea id="propDescription" rows="4" placeholder="Describe la propiedad..."></textarea></div>
         </div>
+
+        <div class="ppf-step"><div class="num">7</div><div><h3>Precio</h3><small>Los gastos comunes se publican en la misma moneda elegida.</small></div></div>
+        <div class="ppf-sec">
+          <div class="form-row-3"><div class="form-group"><label>Precio *</label><input type="number" id="propPrice" required placeholder="150000"></div><div class="form-group"><label>Moneda</label><select id="propCurrency"><option value="USD">USD</option><option value="UYU">UYU</option></select></div><div class="form-group"><label>Gastos Comunes</label><input type="number" id="propExpenses" placeholder="150"></div></div>
+        </div>
+
+        <div class="ppf-step"><div class="num">8</div><div><h3>Contacto y estado</h3><small>El aviso siempre sale con el WhatsApp del perfil del agente dueño; este campo es solo para usar otro número puntual.</small></div></div>
+        <div class="ppf-sec">
+          <div class="form-group"><label>WhatsApp de Contacto (opcional)</label><input type="tel" id="propWhatsapp" placeholder="+598 99 123 456"></div>
+          <div class="form-group"><label>Estado de la Propiedad</label><div class="status-selector" id="statusSelector"><div class="status-option available active" onclick="selectStatus('available')"><i class="fas fa-check-circle"></i> Disponible</div><div class="status-option reserved" onclick="selectStatus('reserved')"><i class="fas fa-clock"></i> Reservada</div><div class="status-option sold" onclick="selectStatus('sold')"><i class="fas fa-handshake"></i> Vendida</div><div class="status-option rented" onclick="selectStatus('rented')"><i class="fas fa-key"></i> Alquilada</div><div class="status-option archived" onclick="selectStatus('archived')"><i class="fas fa-archive"></i> Archivada</div></div><input type="hidden" id="propStatus" value="available"></div>
+        </div>
+
         <button type="submit" class="btn-submit" id="propertyBtn"><i class="fas fa-check"></i> Publicar Propiedad</button>
       </form>
     </div>
@@ -119,6 +141,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
@@ -188,6 +211,81 @@
       // El tipo de propiedad (Padrón Común/PH) aplica tanto a venta como a alquiler: siempre visible.
       const rf = document.getElementById('rentFieldsGroup'); if (rf) rf.style.display = isRent ? 'block' : 'none';
     }
+    function actualizarContadorTitulo() {
+      document.getElementById('tituloCount').textContent = (document.getElementById('propTitle').value || '').length;
+    }
+
+    // ================= MAPA (Leaflet + OpenStreetMap, sin API key) =================
+    // El pin guarda lat/lng en la propiedad; el backend las manda a Mercado Libre
+    // junto con calle, número y barrio (detectado automáticamente al fijar el pin).
+    let mapa = null, mapaPin = null;
+    const ubicacionState = { lat: null, lng: null, barrio: '' };
+
+    function initMapa() {
+      if (mapa) { setTimeout(() => mapa.invalidateSize(), 150); return }
+      mapa = L.map('propMapa', { scrollWheelZoom: false }).setView([-34.9011, -56.1645], 12);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(mapa);
+      mapa.on('click', e => setPin(e.latlng.lat, e.latlng.lng, true));
+      setTimeout(() => mapa.invalidateSize(), 200);
+      actualizarEstadoUbicacion();
+    }
+    function setPin(lat, lng, conReverse) {
+      ubicacionState.lat = Math.round(lat * 1e6) / 1e6;
+      ubicacionState.lng = Math.round(lng * 1e6) / 1e6;
+      if (!mapaPin) {
+        mapaPin = L.marker([lat, lng], { draggable: true }).addTo(mapa);
+        mapaPin.on('dragend', () => { const p = mapaPin.getLatLng(); setPin(p.lat, p.lng, true) });
+      } else mapaPin.setLatLng([lat, lng]);
+      if (mapa.getZoom() < 15) mapa.setView([lat, lng], 16); else mapa.panTo([lat, lng]);
+      actualizarEstadoUbicacion();
+      if (conReverse) reverseGeocode(lat, lng);
+    }
+    function quitarPin() {
+      if (mapaPin) { mapa.removeLayer(mapaPin); mapaPin = null }
+      ubicacionState.lat = null; ubicacionState.lng = null; ubicacionState.barrio = '';
+      actualizarEstadoUbicacion();
+    }
+    function actualizarEstadoUbicacion() {
+      const el = document.getElementById('ubicacionEstado');
+      if (!el) return;
+      if (ubicacionState.lat != null) {
+        el.innerHTML = `<span class="ok"><i class="fas fa-location-dot"></i> Pin fijado</span> (${ubicacionState.lat}, ${ubicacionState.lng})` +
+          (ubicacionState.barrio ? ` · Barrio detectado: <b>${ubicacionState.barrio}</b>` : '') +
+          ` · Arrastrá el pin para ajustar · <a onclick="quitarPin()">quitar pin</a>`;
+      } else {
+        el.innerHTML = `<i class="far fa-hand-pointer"></i> Tocá el mapa o usá "Ubicar en el mapa" para fijar el pin. No es obligatorio, pero mejora mucho la ubicación del aviso en Mercado Libre.`;
+      }
+    }
+    async function buscarEnMapa() {
+      const calle = document.getElementById('propDireccion').value.trim();
+      const numero = document.getElementById('propNumeroPuerta').value.trim();
+      const ciudad = document.getElementById('propCiudad').value;
+      const depto = document.getElementById('propDepartamento').value;
+      if (!depto && !ciudad && !calle) { showToast('Falta la dirección', 'Elegí al menos departamento y ciudad/barrio antes de buscar.', 'fa-map-pin'); return }
+      const q = [[calle, numero].filter(Boolean).join(' '), ciudad, depto, 'Uruguay'].filter(Boolean).join(', ');
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=uy&accept-language=es&q=${encodeURIComponent(q)}`);
+        const j = await r.json();
+        if (!j || !j.length) { showToast('Sin resultados', 'No se encontró esa dirección. Tocá el mapa para fijar el pin a mano.', 'fa-map-pin'); return }
+        mapa.setView([+j[0].lat, +j[0].lon], calle ? 17 : 14);
+        setPin(+j[0].lat, +j[0].lon, true);
+      } catch (e) { showToast('Mapa', 'No se pudo buscar la dirección. Probá de nuevo o fijá el pin a mano.', 'fa-triangle-exclamation') }
+    }
+    async function reverseGeocode(lat, lng) {
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=es&lat=${lat}&lon=${lng}`);
+        const j = await r.json();
+        const a = (j && j.address) || {};
+        ubicacionState.barrio = a.neighbourhood || a.suburb || a.quarter || ubicacionState.barrio || '';
+        // Solo completa los campos vacíos: nunca pisa lo que el agente escribió.
+        const ce = document.getElementById('propDireccion'), ne = document.getElementById('propNumeroPuerta');
+        if (a.road && !ce.value.trim()) ce.value = a.road;
+        if (a.house_number && !ne.value.trim()) ne.value = a.house_number;
+        actualizarEstadoUbicacion();
+      } catch (e) { /* sin reverse no pasa nada: el pin ya quedó fijado */ }
+    }
+    // ================= FIN MAPA =================
+
     function compressImageForPreview(f, m = 200) {
       return new Promise(r => { const rd = new FileReader(); rd.onload = e => { const i = new Image(); i.onload = () => { const c = document.createElement('canvas'); let w = i.width, h = i.height; if (w > m) { h = (h * m) / w; w = m } c.width = w; c.height = h; c.getContext('2d').drawImage(i, 0, 0, w, h); r(c.toDataURL('image/jpeg', .6)) }; i.src = e.target.result }; rd.readAsDataURL(f) })
     }
@@ -227,10 +325,16 @@
       document.getElementById('editingPropertyId').value = p.id;
       document.getElementById('previousPrice').value = p.price || '';
       document.getElementById('propTitle').value = p.title || '';
+      actualizarContadorTitulo();
       document.getElementById('propDepartamento').value = p.departamento || '';
       updateCiudades();
       setTimeout(() => { document.getElementById('propCiudad').value = p.ciudad || '' }, 100);
-      document.getElementById('propDireccion').value = p.direccion || '';
+      const ub = p.ubicacion || {};
+      document.getElementById('propDireccion').value = ub.calle || p.direccion || '';
+      document.getElementById('propNumeroPuerta').value = ub.numero || '';
+      ubicacionState.barrio = ub.barrio || '';
+      if (ub.lat != null && ub.lng != null) { mapa.setView([ub.lat, ub.lng], 16); setPin(ub.lat, ub.lng, false) }
+      else actualizarEstadoUbicacion();
       document.getElementById('propPrice').value = p.price || '';
       document.getElementById('propCurrency').value = p.currency || 'USD';
       document.getElementById('propType').value = p.type || 'sale';
@@ -395,8 +499,20 @@
         }
         const ty = document.getElementById('propType').value, dp = document.getElementById('propDepartamento').value, cd = document.getElementById('propCiudad').value, np = parseInt(document.getElementById('propPrice').value);
         const ficha = collectFicha();
+        // Ubicación estructurada: lo que consume el backend para mandarle a ML los IDs
+        // oficiales, el barrio y las coordenadas. Se mantienen también los campos de
+        // siempre (departamento, ciudad, direccion, location) para el resto de la app.
+        const ubicacion = {
+          calle: document.getElementById('propDireccion').value.trim(),
+          numero: document.getElementById('propNumeroPuerta').value.trim(),
+          barrio: ubicacionState.barrio || (dp === 'Montevideo' ? cd : ''),
+          ciudad: cd,
+          departamento: dp,
+        };
+        if (ubicacionState.lat != null && ubicacionState.lng != null) { ubicacion.lat = ubicacionState.lat; ubicacion.lng = ubicacionState.lng }
+        ubicacion.direccionVisible = [ubicacion.calle, ubicacion.numero].filter(Boolean).join(' ');
         const pd = {
-          title: document.getElementById('propTitle').value, departamento: dp, ciudad: cd, direccion: document.getElementById('propDireccion').value, location: `${cd}, ${dp}`,
+          title: document.getElementById('propTitle').value, departamento: dp, ciudad: cd, direccion: ubicacion.direccionVisible, ubicacion, location: `${cd}, ${dp}`,
           price: np, currency: document.getElementById('propCurrency').value, type: ty, propertyType: ty === 'sale' ? document.getElementById('propPropertyType').value : 'common', realEstateType: document.getElementById('propRealEstateType').value, clientId: formClientId || null,
           bedrooms: parseInt(document.getElementById('propBedrooms').value) || 0, bathrooms: parseInt(document.getElementById('propBathrooms').value) || 0,
           totalArea: parseInt(document.getElementById('propTotalArea').value) || 0, builtArea: parseInt(document.getElementById('propBuiltArea').value) || 0,
@@ -441,14 +557,17 @@
           editingProperty = p;
           formClientId = p.clientId || null;
           showState('ppfFormWrap');
+          initMapa();
           loadPropertyForEdit(p);
         } catch (e) { console.error(e); showState('ppfErr', { msg: 'Error al cargar la propiedad.' }) }
       } else {
         showState('ppfFormWrap');
+        initMapa();
         document.getElementById('ppfTitle').textContent = 'Nueva propiedad';
         if (userProfile.whatsapp) document.getElementById('propWhatsapp').value = userProfile.whatsapp;
         selectStatus('available');
         togglePropertyType();
+        actualizarEstadoUbicacion();
         if (clientIdParam) {
           formClientId = clientIdParam;
           try {
