@@ -821,6 +821,49 @@ async function buildItem(p, token) {
 }
 
 // =====================================================================
+// CIERRE — cierra (o elimina) un aviso en Mercado Libre contemplando el caso
+// especial de "pendiente de pago": ML no le acepta cambios de estado
+// ("Cannot update item ... [status:payment_required]"). El procedimiento
+// oficial para esos avisos es marcarlos como eliminados (PUT deleted:"true"),
+// reintentando si ML devuelve el conflicto de "optimistic locking".
+// Devuelve: { ok:true } cerrado · { ok:true, eliminado:true } impago eliminado
+//           { ok:false, impago:true } no se pudo ni eliminar (se abandona)
+//           { ok:false, error } cualquier otro error real.
+// =====================================================================
+async function cerrarAvisoEnML(itemId, headers) {
+  let st = "";
+  try { st = ((await axios.get(`${API}/items/${itemId}`, { headers })).data || {}).status || ""; } catch (e) { /* se intenta igual */ }
+  if (st === "closed") return { ok: true }; // ya estaba cerrado
+  if (st !== "payment_required") {
+    try {
+      // Mercado Libre exige pausar antes de cerrar.
+      try { await axios.put(`${API}/items/${itemId}`, { status: "paused" }, { headers }); } catch (e) { /* puede ya estar pausado */ }
+      await axios.put(`${API}/items/${itemId}`, { status: "closed" }, { headers });
+      return { ok: true };
+    } catch (e) {
+      const txt = JSON.stringify(e.response?.data || e.message || "");
+      if (!/payment_required/i.test(txt)) return { ok: false, error: e };
+      // El estado real era pendiente de pago: seguir por la vía de eliminación.
+    }
+  }
+  for (let intento = 0; intento < 3; intento++) {
+    try {
+      await axios.put(`${API}/items/${itemId}`, { deleted: "true" }, { headers });
+      return { ok: true, eliminado: true };
+    } catch (e) {
+      const txt = JSON.stringify(e.response?.data || e.message || "");
+      if (/optimistic locking|conflict/i.test(txt) && intento < 2) {
+        await new Promise((r) => setTimeout(r, 3000)); // ML pide esperar unos segundos
+        continue;
+      }
+      logger.warn(`No se pudo eliminar el aviso impago ${itemId}:`, txt.slice(0, 300));
+      return { ok: false, impago: true, error: e };
+    }
+  }
+  return { ok: false, impago: true };
+}
+
+// =====================================================================
 // RESCATE — busca un aviso NUESTRO ya creado para esta propiedad que quedó
 // sin vincular en Firestore. Pasa cuando ML crea el aviso pero lo devuelve
 // dentro de una respuesta de error (quirk real de la API: el "error" trae el
@@ -835,9 +878,11 @@ async function rescatarAvisoPerdido(p, propertyId, token) {
   const headers = { Authorization: `Bearer ${token}` };
   let userId = null;
   try { userId = ((await TOKENS_DOC.get()).data() || {}).user_id || null; } catch (e) { /* sin user_id igual sirve la vía 1 */ }
+  // Avisos abandonados a propósito (impagos que ML descarta solo): no readoptar.
+  const abandonados = new Set(Array.isArray(p.mlAbandonados) ? p.mlAbandonados : []);
   // 1) ¿El último error guardado contiene un id de aviso? (caso MLU695091061)
   const m = String(p.mlError || "").match(/MLU\d{6,}/);
-  if (m) {
+  if (m && !abandonados.has(m[0])) {
     try {
       const it = (await axios.get(`${API}/items/${m[0]}`, { headers })).data;
       if (it && it.status !== "closed" && (!userId || String(it.seller_id) === String(userId))) return it;
@@ -849,6 +894,7 @@ async function rescatarAvisoPerdido(p, propertyId, token) {
       const r = await axios.get(`${API}/users/${userId}/items/search?seller_sku=${encodeURIComponent(propertyId)}`, { headers });
       const ids = (r.data && r.data.results) || [];
       for (const itemId of ids) {
+        if (abandonados.has(itemId)) continue; // abandonado a propósito (impago)
         try {
           const it = (await axios.get(`${API}/items/${itemId}`, { headers })).data;
           if (it && it.status !== "closed") return it;
@@ -1073,12 +1119,33 @@ exports.sincronizarEdicionML = onDocumentUpdated("properties/{id}", async (event
       mlStatusActual = live.status;
 
       if (objetivo === "closed" && live.status !== "closed") {
-        // Mercado Libre exige pausar antes de cerrar.
-        try { await axios.put(`${API}/items/${after.mlItemId}`, { status: "paused" }, { headers }); } catch (e) { /* puede ya estar pausado */ }
-        await axios.put(`${API}/items/${after.mlItemId}`, { status: "closed" }, { headers });
-        await ref.update({ mlStatus: "closed", mlBajaAt: new Date().toISOString() });
-        await registrarLog(id, `estado ${stAfter} -> cerrado en ML`, true, after.mlItemId);
-        return; // cerrado: no hay contenido que sincronizar
+        const cierre = await cerrarAvisoEnML(after.mlItemId, headers);
+        if (cierre.ok && cierre.eliminado) {
+          // Impago eliminado: ya no existe en ML; se limpia el vínculo.
+          await ref.update({
+            mlItemId: admin.firestore.FieldValue.delete(),
+            mlStatus: admin.firestore.FieldValue.delete(),
+            mlPermalink: admin.firestore.FieldValue.delete(),
+            mlBajaAt: new Date().toISOString(),
+          });
+          await registrarLog(id, `estado ${stAfter} -> impago eliminado en ML`, true, after.mlItemId);
+        } else if (cierre.ok) {
+          await ref.update({ mlStatus: "closed", mlBajaAt: new Date().toISOString() });
+          await registrarLog(id, `estado ${stAfter} -> cerrado en ML`, true, after.mlItemId);
+        } else if (cierre.impago) {
+          // Ni cerrar ni eliminar: se abandona (ML lo descarta solo al vencer, sin costo).
+          await ref.update({
+            mlItemId: admin.firestore.FieldValue.delete(),
+            mlStatus: admin.firestore.FieldValue.delete(),
+            mlPermalink: admin.firestore.FieldValue.delete(),
+            mlAbandonados: admin.firestore.FieldValue.arrayUnion(after.mlItemId),
+            mlBajaAt: new Date().toISOString(),
+          });
+          await registrarLog(id, `estado ${stAfter} (impago abandonado)`, true, after.mlItemId);
+        } else {
+          throw cierre.error; // lo toma el catch de este bloque de estado
+        }
+        return; // dado de baja: no hay contenido que sincronizar
       }
 
       if (objetivo === "paused") {
@@ -1186,10 +1253,16 @@ exports.cerrarMLAlBorrar = onDocumentDeleted("properties/{id}", async (event) =>
         return;
       }
     } catch (e) { /* si no se puede leer, se intenta cerrar igual */ }
-    try { await axios.put(`${API}/items/${p.mlItemId}`, { status: "paused" }, { headers }); } catch (e) { /* puede ya estar pausado */ }
-    await axios.put(`${API}/items/${p.mlItemId}`, { status: "closed" }, { headers });
-    logger.info(`Propiedad ${id} borrada: aviso ${p.mlItemId} cerrado en ML.`);
-    await registrarLog(id, "cerrar al borrar", true, p.mlItemId);
+    const cierre = await cerrarAvisoEnML(p.mlItemId, headers);
+    if (cierre.ok) {
+      logger.info(`Propiedad ${id} borrada: aviso ${p.mlItemId} ${cierre.eliminado ? "eliminado (impago)" : "cerrado"} en ML.`);
+      await registrarLog(id, "cerrar al borrar", true, `${p.mlItemId}${cierre.eliminado ? " (impago eliminado)" : ""}`);
+    } else if (cierre.impago) {
+      // Impago que no se pudo eliminar: ML lo descarta solo al vencer, sin costo.
+      await registrarLog(id, "cerrar al borrar (impago abandonado)", true, p.mlItemId);
+    } else {
+      throw cierre.error;
+    }
   } catch (e) {
     const detail = e.response?.data || e.message;
     const resumen = resumirErrorML(detail);
@@ -1342,14 +1415,17 @@ exports.republicarML = onCall(async (request) => {
       if (st === "closed") {
         recrear = true; // se recrea más abajo
       } else if (listingType && listingType !== tipoActual) {
-        // El agente eligió OTRO tipo de aviso: se cierra el actual (sin costo si
-        // estaba pendiente de pago) y se crea uno nuevo con el tipo elegido.
-        try {
-          try { await axios.put(`${API}/items/${p.mlItemId}`, { status: "paused" }, { headers }); } catch (e) { /* puede ya estar pausado */ }
-          await axios.put(`${API}/items/${p.mlItemId}`, { status: "closed" }, { headers });
-          await registrarLog(propertyId, "baja para cambiar tipo de aviso", true, `${p.mlItemId}: ${tipoActual} -> ${listingType}`);
-        } catch (e) {
-          await registrarLog(propertyId, "baja para cambiar tipo de aviso", false, `${p.mlItemId}: ${resumirErrorML(e.response?.data || e.message)}`);
+        // El agente eligió OTRO tipo de aviso: se cierra (o elimina, si está
+        // impago) el actual y se crea uno nuevo con el tipo elegido.
+        const cierre = await cerrarAvisoEnML(p.mlItemId, headers);
+        if (cierre.ok) {
+          await registrarLog(propertyId, "baja para cambiar tipo de aviso", true, `${p.mlItemId}: ${tipoActual} -> ${listingType}${cierre.eliminado ? " (impago eliminado)" : ""}`);
+        } else if (cierre.impago) {
+          await ref.update({ mlAbandonados: admin.firestore.FieldValue.arrayUnion(p.mlItemId) });
+          await registrarLog(propertyId, "baja para cambiar tipo de aviso (impago abandonado)", true, p.mlItemId);
+        } else {
+          const d2 = cierre.error && (cierre.error.response?.data || cierre.error.message);
+          throw new HttpsError("internal", "No se pudo cerrar el aviso actual para cambiar el tipo: " + resumirErrorML(d2));
         }
         recrear = true;
       } else if (st === "paused") {
@@ -1363,7 +1439,7 @@ exports.republicarML = onCall(async (request) => {
         await ref.update({ mlStatus: st });
         return { ok: true, yaExiste: true, status: st, mlItemId: p.mlItemId, permalink: r.data.permalink || "" };
       }
-    } catch (e) { recrear = true; /* no se pudo leer; se recrea */ }
+    } catch (e) { if (e instanceof HttpsError) throw e; recrear = true; /* no se pudo leer; se recrea */ }
     if (recrear) {
       await ref.update({
         mlItemId: admin.firestore.FieldValue.delete(),
@@ -1391,17 +1467,39 @@ exports.bajaML = onCall(async (request) => {
   if (!p.mlItemId) throw new HttpsError("failed-precondition", "Esta propiedad no está publicada en Mercado Libre.");
   const token = await getValidToken();
   const headers = { Authorization: `Bearer ${token}`, "content-type": "application/json" };
-  try {
-    // Mercado Libre exige pausar antes de cerrar.
-    try { await axios.put(`${API}/items/${p.mlItemId}`, { status: "paused" }, { headers }); } catch (e) { /* puede ya estar pausado */ }
-    await axios.put(`${API}/items/${p.mlItemId}`, { status: "closed" }, { headers });
+  const cierre = await cerrarAvisoEnML(p.mlItemId, headers);
+  if (cierre.ok && cierre.eliminado) {
+    // Impago eliminado: ya no existe en ML; la propiedad queda libre para republicar.
+    await ref.update({
+      mlItemId: admin.firestore.FieldValue.delete(),
+      mlStatus: admin.firestore.FieldValue.delete(),
+      mlPermalink: admin.firestore.FieldValue.delete(),
+      mlBajaAt: new Date().toISOString(),
+    });
+    await registrarLog(propertyId, "baja (impago eliminado)", true, p.mlItemId);
+    return { ok: true, eliminado: true };
+  }
+  if (cierre.ok) {
     await ref.update({ mlStatus: "closed", mlBajaAt: new Date().toISOString() });
     await registrarLog(propertyId, "baja manual", true, p.mlItemId);
     return { ok: true };
-  } catch (e) {
-    const detail = e.response?.data || e.message;
-    logger.error(`Error dando de baja ${propertyId}:`, JSON.stringify(detail));
-    await registrarLog(propertyId, "baja manual", false, resumirErrorML(detail));
-    throw new HttpsError("internal", typeof detail === "string" ? detail : (detail.message || "No se pudo dar de baja."));
   }
+  if (cierre.impago) {
+    // Ni cerrar ni eliminar lo dejó ML: se abandona. Los avisos impagos se
+    // descartan solos al vencer, sin costo. Queda anotado para que el rescate
+    // no lo readopte, y la propiedad queda libre al instante.
+    await ref.update({
+      mlItemId: admin.firestore.FieldValue.delete(),
+      mlStatus: admin.firestore.FieldValue.delete(),
+      mlPermalink: admin.firestore.FieldValue.delete(),
+      mlAbandonados: admin.firestore.FieldValue.arrayUnion(p.mlItemId),
+      mlBajaAt: new Date().toISOString(),
+    });
+    await registrarLog(propertyId, "baja (impago abandonado)", true, `${p.mlItemId}: ML lo descarta solo al vencer, sin costo`);
+    return { ok: true, abandonado: true };
+  }
+  const detail = cierre.error && (cierre.error.response?.data || cierre.error.message);
+  logger.error(`Error dando de baja ${propertyId}:`, JSON.stringify(detail));
+  await registrarLog(propertyId, "baja manual", false, resumirErrorML(detail));
+  throw new HttpsError("internal", typeof detail === "string" ? detail : ((detail && detail.message) || "No se pudo dar de baja."));
 });
