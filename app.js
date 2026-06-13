@@ -348,16 +348,27 @@
   }
 
   // User Dropdown
-  function toggleUserDropdown(e) {
-    e.stopPropagation();
-    const d = document.getElementById('userDropdown');
-    d.classList.toggle('active')
+  function openSideMenu() {
+    if (!currentUser) { openModal('loginModal'); return; }
+    // Volcar datos del usuario en la cabecera del panel
+    const av = document.getElementById('mvSideAv');
+    if (av) av.innerHTML = (userProfile && userProfile.profilePhoto) ? `<img src="${userProfile.profilePhoto}" alt="">` : '<i class="fas fa-user"></i>';
+    const nm = document.getElementById('mvSideName'); if (nm) nm.textContent = (userProfile && userProfile.name) || 'Usuario';
+    const rl = document.getElementById('mvSideRole'); if (rl) rl.textContent = isAdminUser() ? 'Administrador' : 'Agente';
+    document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !isAdminUser());
+    document.getElementById('mvSide')?.classList.add('open');
+    document.getElementById('mvSideOverlay')?.classList.add('open');
+    document.getElementById('mvSide')?.setAttribute('aria-hidden', 'false');
   }
-  document.addEventListener('click', e => {
-    const d = document.getElementById('userDropdown'),
-      ui = document.querySelector('.user-info');
-    if (d && ui && !ui.contains(e.target)) d.classList.remove('active')
-  });
+  function closeSideMenu() {
+    document.getElementById('mvSide')?.classList.remove('open');
+    document.getElementById('mvSideOverlay')?.classList.remove('open');
+    document.getElementById('mvSide')?.setAttribute('aria-hidden', 'true');
+  }
+  function mvTasador() {
+    showToast('Tasador', 'La herramienta de tasación estará disponible muy pronto.', 'fa-calculator');
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSideMenu(); });
 
   // Event Type Selection
   function selectEventType(type) {
@@ -955,20 +966,42 @@
     const escH = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     if (!portalAccounts.length) {
       list.innerHTML = `<p style="color:var(--gray-500,#888);text-align:center;padding:16px">Todavía no hay cuentas cargadas.${admin ? ' Agregá la primera con el botón de abajo.' : ''}</p>`;
-      return
+      return;
     }
-    list.innerHTML = portalAccounts.map(a => `<div style="border:1px solid var(--gray-200,#eee);border-radius:12px;padding:14px;margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px"><strong style="font-size:1.02rem">${escH(a.name) || 'Portal'}</strong>${a.url ? `<a href="${escA(a.url)}" target="_blank" rel="noopener" class="btn-secondary" style="padding:5px 10px;font-size:.8rem;text-decoration:none;white-space:nowrap"><i class="fas fa-external-link-alt"></i> Abrir</a>` : ''}</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.76rem;color:var(--gray-500,#888);min-width:74px">Usuario</span><code id="user-${a.id}" data-val="${escA(a.user)}" style="flex:1;background:var(--gray-50,#f5f5f5);padding:6px 8px;border-radius:6px;font-size:.85rem;overflow:hidden;text-overflow:ellipsis">${escH(a.user)}</code><button class="btn-secondary" style="padding:6px 9px" onclick="copyText(document.getElementById('user-${a.id}').dataset.val,event)" title="Copiar"><i class="fas fa-copy"></i></button></div>
-      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:.76rem;color:var(--gray-500,#888);min-width:74px">Contraseña</span><code id="pass-${a.id}" data-val="${escA(a.password)}" style="flex:1;background:var(--gray-50,#f5f5f5);padding:6px 8px;border-radius:6px;font-size:.85rem">••••••••</code><button class="btn-secondary" style="padding:6px 9px" onclick="togglePortalPass('${a.id}')" title="Mostrar/ocultar"><i class="fas fa-eye"></i></button><button class="btn-secondary" style="padding:6px 9px" onclick="copyText(document.getElementById('pass-${a.id}').dataset.val,event)" title="Copiar"><i class="fas fa-copy"></i></button></div>
+    // Ícono por defecto según categoría (SVG mask para el encabezado de cada grupo)
+    const CATS = [
+      { key: 'portal', label: 'Portales inmobiliarios', ic: 'M3 9l9-7 9 7v11a1 1 0 01-1 1h-5v-7H9v7H4a1 1 0 01-1-1z' },
+      { key: 'herramienta', label: 'Herramientas', ic: 'M14 6l-1-1a3 3 0 00-4 4l1 1-6 6v3h3l6-6 1 1a3 3 0 004-4z' },
+      { key: 'otro', label: 'Otros', ic: 'M4 6h16M4 12h16M4 18h16' }
+    ];
+    const iconFor = a => {
+      const c = a.category || 'portal';
+      if (c === 'herramienta') return 'fa-toolbox';
+      if (c === 'otro') return 'fa-circle-nodes';
+      return 'fa-building';
+    };
+    const card = a => `<div class="mv-pa-card">
+      <div class="mv-pa-top"><div class="mv-pa-ic"><i class="fas ${iconFor(a)}"></i></div>
+        <div class="mv-pa-name"><strong>${escH(a.name) || 'Cuenta'}</strong><span>${escH(a.subtitle || (a.category === 'herramienta' ? 'Herramienta' : a.category === 'otro' ? 'Cuenta' : 'Portal inmobiliario'))}</span></div>
+        ${a.url ? `<a href="${escA(a.url)}" target="_blank" rel="noopener" class="mv-pa-open"><i class="fas fa-external-link-alt"></i> Abrir</a>` : ''}</div>
+      <div class="mv-pa-row"><label>Usuario</label><code id="user-${a.id}" data-val="${escA(a.user)}">${escH(a.user) || '—'}</code><button class="mv-pa-mini" onclick="copyText(document.getElementById('user-${a.id}').dataset.val,event)" title="Copiar"><i class="fas fa-copy"></i></button></div>
+      <div class="mv-pa-row"><label>Contraseña</label><code id="pass-${a.id}" data-val="${escA(a.password)}">••••••••••</code><button class="mv-pa-mini" onclick="togglePortalPass('${a.id}')" title="Mostrar/ocultar"><i class="fas fa-eye"></i></button><button class="mv-pa-mini" onclick="copyText(document.getElementById('pass-${a.id}').dataset.val,event)" title="Copiar"><i class="fas fa-copy"></i></button></div>
       ${a.notes ? `<p style="font-size:.82rem;color:var(--gray-600,#666);margin-top:8px">${escH(a.notes)}</p>` : ''}
-      ${admin ? `<div style="display:flex;gap:8px;margin-top:10px"><button class="btn-secondary" style="flex:1;font-size:.8rem" onclick="openEditPortal('${a.id}')"><i class="fas fa-edit"></i> Editar</button><button class="btn-secondary" style="flex:1;font-size:.8rem;color:#c0392b" onclick="deletePortalAccount('${a.id}')"><i class="fas fa-trash"></i> Eliminar</button></div>` : ''}
-    </div>`).join('')
+      ${admin ? `<div class="mv-pa-actions"><button class="ed" onclick="openEditPortal('${a.id}')"><i class="fas fa-edit"></i> Editar</button><button class="de" onclick="deletePortalAccount('${a.id}')"><i class="fas fa-trash"></i> Eliminar</button></div>` : ''}
+    </div>`;
+    let html = '';
+    CATS.forEach(cat => {
+      const items = portalAccounts.filter(a => (a.category || 'portal') === cat.key);
+      if (!items.length) return;
+      html += `<div class="mv-pa-cat" style="--mv-cat-ic:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='${cat.ic}'/%3E%3C/svg%3E&quot;)">${cat.label}</div>`;
+      html += items.map(card).join('');
+    });
+    list.innerHTML = html;
   }
   function togglePortalPass(id) {
     const el = document.getElementById('pass-' + id);
     if (!el) return;
-    el.textContent = el.textContent === '••••••••' ? (el.dataset.val || '') : '••••••••'
+    const masked = '•'.repeat(10); el.textContent = (el.textContent === masked) ? (el.dataset.val || '') : masked
   }
   function copyText(t, ev) {
     if (navigator.clipboard) navigator.clipboard.writeText(t).then(() => {
@@ -980,6 +1013,7 @@
     const a = id ? portalAccounts.find(x => x.id === id) : null;
     document.getElementById('portalEditId').value = id || '';
     document.getElementById('editPortalTitle').textContent = a ? 'Editar cuenta' : 'Nueva cuenta';
+    document.getElementById('portalCategory').value = a ? (a.category || 'portal') : 'portal';
     document.getElementById('portalName').value = a ? (a.name || '') : '';
     document.getElementById('portalUrl').value = a ? (a.url || '') : '';
     document.getElementById('portalUser').value = a ? (a.user || '') : '';
@@ -991,6 +1025,7 @@
     if (!isAdminUser()) return;
     const id = document.getElementById('portalEditId').value;
     const data = {
+      category: document.getElementById('portalCategory').value,
       name: document.getElementById('portalName').value.trim(),
       url: document.getElementById('portalUrl').value.trim(),
       user: document.getElementById('portalUser').value.trim(),

@@ -141,20 +141,11 @@
       <div class="notification-bell" id="notificationBell" onclick="toggleNotifications(event)"><i class="fas fa-bell"></i><span class="notification-badge hidden" id="notificationBadge">0</span></div>
       <div class="notification-overlay" id="notificationOverlay" onclick="closeNotifications()"></div>
       <div class="notification-dropdown" id="notificationDropdown"><div class="notification-header"><h3><i class="fas fa-comments"></i> Consultas</h3><div class="notification-actions"><button onclick="markAllAsRead(event)"><i class="fas fa-check-double"></i> Leídas</button><button class="btn-clear" onclick="clearAllNotifications(event)"><i class="fas fa-trash"></i> Limpiar</button></div></div><div class="notification-list" id="notificationList"><div class="notification-empty"><i class="fas fa-bell-slash"></i><p>No tienes consultas</p></div></div></div>
-      <div class="user-info" onclick="toggleUserDropdown(event)">
+      <div class="user-info" onclick="openSideMenu()">
         <div class="user-avatar" id="userAvatar"><i class="fas fa-user"></i></div>
         <span id="userName">Usuario</span>
         <span class="admin-badge hidden" id="adminBadge">Admin</span>
-        <div class="user-dropdown" id="userDropdown">
-          <div class="user-dropdown-item" onclick="showMyProfile()"><i class="fas fa-user"></i> Mi Perfil</div>
-          <div class="user-dropdown-item" onclick="openEditProfileModal()"><i class="fas fa-edit"></i> Editar Perfil</div>
-          <div class="user-dropdown-item" onclick="openCalendarModal()"><i class="fas fa-calendar-alt"></i> Mi Agenda</div>
-          <div class="user-dropdown-item" onclick="showCRM()"><i class="fas fa-address-book"></i> Clientes</div>
-          <div class="user-dropdown-item" onclick="openPortalAccounts()"><i class="fas fa-key"></i> Cuentas de portales</div>
-          <div class="user-dropdown-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</div>
-        </div>
       </div>
-      <button class="btn-primary hidden" id="adminBtn" onclick="showAdmin()">Panel Admin</button>
     </nav>
   </div></div></header>
 
@@ -373,8 +364,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
   <div class="modal" id="mlModal"><div class="modal-content"><div class="modal-header"><h2><i class="fas fa-tag" style="color:#ffd400"></i> Mercado Libre</h2><button class="modal-close" onclick="closeModal('mlModal')"><i class="fas fa-times"></i></button></div><div class="modal-body" id="mlModalBody"></div></div></div>
-  <div class="modal" id="portalAccountsModal"><div class="modal-content"><div class="modal-header"><h2><i class="fas fa-key" style="color:var(--accent)"></i> Cuentas de portales</h2><button class="modal-close" onclick="closeModal('portalAccountsModal')"><i class="fas fa-times"></i></button></div><div class="modal-body"><p style="color:var(--gray-500,#888);font-size:.88rem;margin-bottom:14px">Usuarios y contraseñas de las cuentas oficiales de la inmobiliaria. Copialos y publicá en cada portal.</p><div id="portalAccountsList"></div><button class="btn-secondary hidden" id="btnAddPortal" style="margin-top:14px;width:100%" onclick="openEditPortal()"><i class="fas fa-plus"></i> Agregar cuenta</button></div></div></div>
-  <div class="modal" id="editPortalModal"><div class="modal-content"><div class="modal-header"><h2 id="editPortalTitle">Nueva cuenta</h2><button class="modal-close" onclick="closeModal('editPortalModal')"><i class="fas fa-times"></i></button></div><div class="modal-body"><input type="hidden" id="portalEditId"><div class="form-group"><label>Nombre del portal</label><input type="text" id="portalName" placeholder="Ej: InfoCasas"></div><div class="form-group"><label>Link del portal</label><input type="url" id="portalUrl" placeholder="https://www.infocasas.com.uy"></div><div class="form-group"><label>Usuario</label><input type="text" id="portalUser" placeholder="usuario o email"></div><div class="form-group"><label>Contraseña</label><input type="text" id="portalPass" placeholder="contraseña de la cuenta"></div><div class="form-group"><label>Notas (opcional)</label><textarea id="portalNotes" rows="2" placeholder="Ej: cuenta plan premium, vence en marzo"></textarea></div><button class="btn-submit" onclick="savePortalAccount()"><i class="fas fa-save"></i> Guardar</button></div></div></div>
+  <div class="modal" id="portalAccountsModal"><div class="modal-content"><div class="modal-header"><h2><i class="fas fa-key" style="color:var(--accent)"></i> Cuentas y herramientas</h2><button class="modal-close" onclick="closeModal('portalAccountsModal')"><i class="fas fa-times"></i></button></div><div class="modal-body"><p style="color:var(--gray-500,#888);font-size:.88rem;margin-bottom:14px">Usuarios y contraseñas de las cuentas oficiales de la inmobiliaria. Copialos y publicá en cada portal.</p><div id="portalAccountsList"></div><button class="btn-secondary hidden" id="btnAddPortal" style="margin-top:14px;width:100%" onclick="openEditPortal()"><i class="fas fa-plus"></i> Agregar cuenta</button></div></div></div>
+  <div class="modal" id="editPortalModal"><div class="modal-content"><div class="modal-header"><h2 id="editPortalTitle">Nueva cuenta</h2><button class="modal-close" onclick="closeModal('editPortalModal')"><i class="fas fa-times"></i></button></div><div class="modal-body"><input type="hidden" id="portalEditId"><div class="form-group"><label>Categoría</label><select id="portalCategory"><option value="portal">Portal inmobiliario</option><option value="herramienta">Herramienta (Canva, ChatGPT...)</option><option value="otro">Otro</option></select></div><div class="form-group"><label>Nombre</label><input type="text" id="portalName" placeholder="Ej: InfoCasas, Canva, ChatGPT"></div><div class="form-group"><label>Link del portal</label><input type="url" id="portalUrl" placeholder="https://www.infocasas.com.uy"></div><div class="form-group"><label>Usuario</label><input type="text" id="portalUser" placeholder="usuario o email"></div><div class="form-group"><label>Contraseña</label><input type="text" id="portalPass" placeholder="contraseña de la cuenta"></div><div class="form-group"><label>Notas (opcional)</label><textarea id="portalNotes" rows="2" placeholder="Ej: cuenta plan premium, vence en marzo"></textarea></div><button class="btn-submit" onclick="savePortalAccount()"><i class="fas fa-save"></i> Guardar</button></div></div></div>
   <div class="modal share-modal" id="shareModal"><div class="modal-content"><div class="modal-header"><h2><i class="fas fa-share-alt" style="color:var(--accent)"></i> Compartir Propiedad</h2><button class="modal-close" onclick="closeModal('shareModal')"><i class="fas fa-times"></i></button></div><div class="modal-body">
     <div class="share-preview" id="sharePreview" style="margin-bottom:20px;padding:16px;background:var(--gray-50);border-radius:var(--radius-md)"><h4 id="shareTitle" style="margin-bottom:8px"></h4><p id="sharePrice" style="color:var(--accent);font-weight:600;margin-bottom:4px"></p><p id="shareLocation" style="font-size:13px;color:var(--gray-500)"></p></div>
     <div class="share-options">
@@ -428,5 +419,74 @@
     }
   </script>
   <script src="app.js?v=20260612"></script>
+  <!-- ====== MENÚ LATERAL DERECHO ====== -->
+  <div class="mv-side-overlay" id="mvSideOverlay" onclick="closeSideMenu()"></div>
+  <aside class="mv-side" id="mvSide" aria-hidden="true">
+    <div class="mv-side-head">
+      <div class="mv-side-user">
+        <div class="mv-side-av" id="mvSideAv"><i class="fas fa-user"></i></div>
+        <div><strong id="mvSideName">Usuario</strong><span id="mvSideRole">Agente</span></div>
+      </div>
+      <button class="mv-side-close" onclick="closeSideMenu()" aria-label="Cerrar"><i class="fas fa-times"></i></button>
+    </div>
+    <nav class="mv-side-nav">
+      <button class="mv-side-item" onclick="closeSideMenu();showMyProfile()"><i class="fas fa-user"></i> Mi Perfil</button>
+      <button class="mv-side-item" onclick="closeSideMenu();openEditProfileModal()"><i class="fas fa-edit"></i> Editar Perfil</button>
+      <button class="mv-side-item" onclick="closeSideMenu();openCalendarModal()"><i class="fas fa-calendar-alt"></i> Mi Agenda</button>
+      <button class="mv-side-item" onclick="closeSideMenu();showCRM()"><i class="fas fa-address-book"></i> Clientes</button>
+      <button class="mv-side-item" onclick="closeSideMenu();openPortalAccounts()"><i class="fas fa-key"></i> Cuentas y herramientas</button>
+      <button class="mv-side-item" onclick="mvTasador()"><i class="fas fa-calculator"></i> Tasador <span class="mv-soon">Próximamente</span></button>
+      <button class="mv-side-item mv-side-admin hidden" id="mvSideAdmin" onclick="closeSideMenu();showAdmin()"><i class="fas fa-shield-halved"></i> Panel de Administración</button>
+      <div class="mv-side-sep"></div>
+      <button class="mv-side-item mv-side-out" onclick="closeSideMenu();logout()"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
+    </nav>
+  </aside>
+  <style>
+    .mv-side-overlay{ position:fixed; inset:0; background:rgba(16,29,48,.5); opacity:0; visibility:hidden; transition:opacity .25s; z-index:3000; }
+    .mv-side-overlay.open{ opacity:1; visibility:visible; }
+    .mv-side{ position:fixed; top:0; right:0; height:100%; width:330px; max-width:88vw; background:#fff; box-shadow:-12px 0 40px rgba(16,29,48,.18); transform:translateX(100%); transition:transform .3s cubic-bezier(.4,0,.2,1); z-index:3001; display:flex; flex-direction:column; }
+    .mv-side.open{ transform:translateX(0); }
+    .mv-side-head{ background:linear-gradient(120deg,#101d30,var(--primary,#16273f)); color:#fff; padding:22px 20px; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .mv-side-user{ display:flex; align-items:center; gap:13px; }
+    .mv-side-av{ width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,.12); border:1px solid rgba(201,162,39,.6); display:flex; align-items:center; justify-content:center; font-size:1.2rem; overflow:hidden; flex:0 0 auto; }
+    .mv-side-av img{ width:100%; height:100%; object-fit:cover; }
+    .mv-side-user strong{ display:block; font-size:1.02rem; line-height:1.2; }
+    .mv-side-user span{ display:block; font-size:.78rem; color:rgba(255,255,255,.65); margin-top:3px; }
+    .mv-side-close{ background:rgba(255,255,255,.1); border:none; color:#fff; width:34px; height:34px; border-radius:50%; cursor:pointer; font-size:1rem; flex:0 0 auto; transition:background .2s; }
+    .mv-side-close:hover{ background:rgba(255,255,255,.22); }
+    .mv-side-nav{ padding:14px 12px; overflow-y:auto; flex:1; }
+    .mv-side-item{ width:100%; display:flex; align-items:center; gap:13px; background:none; border:none; text-align:left; padding:13px 14px; border-radius:11px; font-family:inherit; font-size:.96rem; color:var(--gray-700,#374151); cursor:pointer; transition:background .18s, color .18s; }
+    .mv-side-item:hover{ background:var(--gray-50,#f5f6f8); }
+    .mv-side-item i{ width:22px; text-align:center; color:var(--accent,#C9A227); font-size:1rem; }
+    .mv-side-admin{ color:var(--primary,#16273f); font-weight:600; }
+    .mv-side-admin i{ color:var(--primary,#16273f); }
+    .mv-side-out{ color:#c0392b; }
+    .mv-side-out i{ color:#c0392b; }
+    .mv-side-sep{ height:1px; background:var(--gray-200,#eceef1); margin:10px 12px; }
+    .mv-soon{ margin-left:auto; font-size:.66rem; letter-spacing:.03em; background:var(--gray-100,#eef0f3); color:var(--gray-500,#8a8a8a); padding:3px 9px; border-radius:999px; font-weight:600; text-transform:uppercase; }
+    /* Cuentas y herramientas: categorías y tarjetas */
+    .mv-pa-cat{ margin:18px 0 10px; font-size:.74rem; letter-spacing:.12em; text-transform:uppercase; color:var(--gray-500,#8a8a8a); font-weight:600; display:flex; align-items:center; gap:9px; }
+    .mv-pa-cat::before{ content:''; width:22px; height:22px; border-radius:7px; background:var(--primary,#16273f); display:inline-block; -webkit-mask:var(--mv-cat-ic) center/14px no-repeat; mask:var(--mv-cat-ic) center/14px no-repeat; }
+    .mv-pa-cat:first-child{ margin-top:4px; }
+    .mv-pa-card{ border:1px solid var(--gray-200,#eceef1); border-radius:14px; padding:15px 16px; margin-bottom:12px; }
+    .mv-pa-top{ display:flex; align-items:center; gap:12px; margin-bottom:13px; }
+    .mv-pa-ic{ width:42px; height:42px; border-radius:11px; background:var(--primary,#16273f); color:#fff; display:flex; align-items:center; justify-content:center; font-size:1.05rem; flex:0 0 auto; }
+    .mv-pa-name{ flex:1; min-width:0; }
+    .mv-pa-name strong{ display:block; font-size:1.02rem; color:var(--primary,#16273f); }
+    .mv-pa-name span{ display:block; font-size:.76rem; color:var(--gray-500,#8a8a8a); }
+    .mv-pa-row{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+    .mv-pa-row label{ font-size:.72rem; color:var(--gray-500,#8a8a8a); min-width:70px; }
+    .mv-pa-row code{ flex:1; background:var(--gray-50,#f5f6f8); padding:9px 11px; border-radius:9px; font-size:.86rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border:1px solid var(--gray-100,#eef0f3); }
+    .mv-pa-mini{ width:38px; height:38px; border:1px solid var(--gray-200,#e3e6ea); background:#fff; border-radius:9px; cursor:pointer; color:var(--gray-600,#555); font-size:.9rem; flex:0 0 auto; transition:all .18s; }
+    .mv-pa-mini:hover{ border-color:var(--accent,#C9A227); color:var(--accent,#C9A227); }
+    .mv-pa-open{ padding:7px 13px; font-size:.82rem; text-decoration:none; white-space:nowrap; border:1px solid var(--gray-200,#e3e6ea); border-radius:9px; color:var(--primary,#16273f); display:inline-flex; align-items:center; gap:7px; transition:all .18s; }
+    .mv-pa-open:hover{ border-color:var(--accent,#C9A227); color:var(--accent,#C9A227); }
+    .mv-pa-actions{ display:flex; gap:8px; margin-top:11px; }
+    .mv-pa-actions button{ flex:1; font-size:.82rem; padding:9px; border-radius:9px; border:1px solid var(--gray-200,#e3e6ea); background:#fff; cursor:pointer; font-family:inherit; transition:all .18s; }
+    .mv-pa-actions .ed:hover{ border-color:var(--accent,#C9A227); color:var(--accent,#C9A227); }
+    .mv-pa-actions .de{ color:#c0392b; }
+    .mv-pa-actions .de:hover{ background:#fff0ee; border-color:#e3a9a2; }
+    @media (max-width:560px){ .mv-side-head{ padding:18px 16px; } .mv-side-item{ font-size:1rem; padding:14px; } }
+  </style>
 </body>
 </html>

@@ -73,6 +73,9 @@ const AUTH_DOMAIN = process.env.ML_AUTH_DOMAIN || "https://auth.mercadolibre.com
 const CAT_SALE = process.env.ML_CAT_SALE || "";
 const CAT_RENT = process.env.ML_CAT_RENT || "";
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "fabricio9061@gmail.com").toLowerCase();
+// Datos de la inmobiliaria que se muestran como contacto en los avisos de ML.
+const NOMBRE_INMOBILIARIA = process.env.ML_NOMBRE_INMOBILIARIA || "Inmobiliaria Malavé";
+const EMAIL_INMOBILIARIA = process.env.ML_EMAIL_INMOBILIARIA || "inmobiliariamalave@gmail.com";
 
 const API = "https://api.mercadolibre.com";
 const TOKENS_DOC = db.collection("ml_config").doc("tokens");
@@ -658,28 +661,25 @@ function parsePhone(raw) {
   return String(raw || "").replace(/\D/g, "").replace(/^598/, "").replace(/^0/, "");
 }
 
-// Arma el contacto del aviso SIEMPRE con el número del agente. Si la propiedad no
-// trae el WhatsApp, lo busca en el perfil del agente (users/{ownerId}).
+// Arma el contacto del aviso. El NOMBRE de contacto es SIEMPRE la inmobiliaria
+// (para que en Mercado Libre nunca aparezca el nombre del agente); el TELÉFONO,
+// en cambio, es el del agente dueño, para que cada consulta le llegue a él.
 async function buildSellerContact(p) {
-  // La fuente de verdad del contacto es el perfil del agente dueño (ownerId), para
-  // que el teléfono SIEMPRE sea el del agente correspondiente y no haya inconsistencias.
   let tel = "";
-  let nombre = p.ownerName || "";
   if (p.ownerId) {
     try {
       const u = await admin.firestore().doc(`users/${p.ownerId}`).get();
       const d = u.exists ? u.data() : {};
-      tel = parsePhone(d.whatsapp || d.phone);
-      nombre = d.name || nombre;
+      tel = parsePhone(d.whatsapp || d.phone); // teléfono del agente dueño
     } catch (e) { logger.warn("No se pudo leer el perfil del agente:", e.message); }
   }
   if (!tel) tel = parsePhone(p.ownerWhatsapp); // respaldo si el perfil no tiene número
   return {
-    contact: nombre || "Inmobiliaria Malavé",
+    contact: NOMBRE_INMOBILIARIA, // SIEMPRE la inmobiliaria, nunca el agente
     area_code: "",
     phone: tel,
     country_code: "598",
-    email: "inmobiliariamalave@gmail.com",
+    email: EMAIL_INMOBILIARIA,
   };
 }
 
