@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Malave Academy | MALAVE</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <meta name="theme-color" content="#243447">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body{ background:var(--gray-50,#f5f6f8); }
+    .tp-header{ background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.08); position:sticky; top:0; z-index:1000; }
+    .tp-header-inner{ max-width:1100px; margin:0 auto; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+    .tp-back{ display:inline-flex; align-items:center; gap:8px; color:var(--gray-600,#555); font-size:14px; font-weight:500; padding:9px 18px; border:1px solid var(--gray-300,#ddd); border-radius:999px; cursor:pointer; background:none; text-decoration:none; transition:all .25s; }
+    .tp-back:hover{ background:var(--primary,#16273f); color:#fff; border-color:var(--primary,#16273f); }
+    .tp-wrap{ max-width:1100px; margin:0 auto; padding:32px 24px 70px; }
+    .tp-state{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; text-align:center; color:var(--gray-500,#888); padding:40px 20px; }
+    .tp-state i{ font-size:56px; margin-bottom:20px; opacity:.4; }
+    .tp-state h2{ font-family:'Cormorant Garamond',serif; font-size:26px; color:var(--gray-700,#444); margin-bottom:10px; }
+    .tp-state a{ display:inline-block; margin-top:18px; background:var(--primary,#16273f); color:#fff; padding:11px 26px; border-radius:999px; text-decoration:none; }
+    .tp-spinner{ width:46px; height:46px; border:4px solid var(--gray-200,#eee); border-top-color:var(--primary,#16273f); border-radius:50%; animation:tpspin 1s linear infinite; margin-bottom:18px; }
+    @keyframes tpspin{ to{ transform:rotate(360deg); } }
+    .aca-hero{ background:linear-gradient(120deg,#0c1726,var(--primary,#16273f)); border-radius:18px; padding:34px 30px; margin-bottom:26px; display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+    .aca-hero-ic{ width:64px; height:64px; border-radius:15px; background:rgba(201,162,39,.15); border:1px solid #C9A227; color:#C9A227; display:flex; align-items:center; justify-content:center; font-size:1.7rem; flex:0 0 auto; }
+    .aca-hero h1{ font-family:'Cormorant Garamond',serif; font-size:2.1rem; color:#fff; margin:0; font-weight:700; }
+    .aca-hero p{ color:rgba(255,255,255,.72); margin:5px 0 0; font-size:.95rem; max-width:560px; }
+    .aca-hero .pa-add{ margin-left:auto; }
+    .pa-add{ background:#C9A227; color:#16273f; border:none; border-radius:11px; padding:11px 20px; font-family:inherit; font-size:.92rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:filter .15s; }
+    .pa-add:hover{ filter:brightness(1.08); }
+    .pa-search-row{ display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap; }
+    .pa-search{ flex:1; min-width:220px; position:relative; }
+    .pa-search i{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--gray-400,#aaa); }
+    .pa-search input{ width:100%; padding:12px 14px 12px 40px; border:1px solid var(--gray-200,#e3e6ea); border-radius:11px; font-family:inherit; font-size:.95rem; }
+    .pa-search input:focus{ outline:none; border-color:#C9A227; }
+    .pa-filter{ border:1px solid var(--gray-200,#e3e6ea); border-radius:11px; padding:12px 14px; font-family:inherit; font-size:.95rem; background:#fff; }
+    .aca-cat{ margin:22px 0 12px; font-size:.82rem; letter-spacing:.08em; text-transform:uppercase; color:var(--primary,#16273f); font-weight:700; display:flex; align-items:center; gap:9px; }
+    .aca-cat i{ color:#C9A227; }
+    .aca-cat:first-child{ margin-top:0; }
+    .aca-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:16px; }
+    .aca-card{ background:#fff; border:1px solid var(--gray-200,#eceef1); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; }
+    .aca-thumb{ position:relative; aspect-ratio:16/9; background:var(--gray-100,#eef0f3); overflow:hidden; cursor:pointer; }
+    .aca-thumb img{ width:100%; height:100%; object-fit:cover; }
+    .aca-thumb .play{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(16,29,48,.3); color:#fff; font-size:2.6rem; transition:background .2s; }
+    .aca-thumb:hover .play{ background:rgba(16,29,48,.5); }
+    .aca-thumb .badge{ position:absolute; top:10px; left:10px; background:rgba(16,29,48,.85); color:#fff; font-size:.7rem; padding:4px 10px; border-radius:99px; display:inline-flex; align-items:center; gap:6px; }
+    .aca-thumb.doc-thumb{ display:flex; align-items:center; justify-content:center; }
+    .aca-thumb.doc-thumb i{ font-size:3rem; }
+    .aca-body{ padding:15px 16px; display:flex; flex-direction:column; gap:8px; flex:1; }
+    .aca-body strong{ font-size:1rem; color:var(--primary,#16273f); line-height:1.3; }
+    .aca-body p{ font-size:.83rem; color:var(--gray-600,#555); line-height:1.5; margin:0; flex:1; }
+    .aca-actions{ display:flex; gap:8px; margin-top:6px; }
+    .aca-open{ flex:1; background:var(--primary,#16273f); color:#fff; border:none; border-radius:9px; padding:9px; font-family:inherit; font-size:.84rem; cursor:pointer; text-decoration:none; text-align:center; display:inline-flex; align-items:center; justify-content:center; gap:7px; transition:filter .15s; }
+    .aca-open:hover{ filter:brightness(1.1); }
+    .aca-admin{ display:flex; gap:6px; }
+    .aca-admin button{ background:#fff; border:1px solid var(--gray-200,#e3e6ea); border-radius:9px; padding:9px 11px; cursor:pointer; font-size:.82rem; color:var(--gray-600,#555); transition:all .15s; }
+    .aca-admin button:hover{ border-color:#C9A227; color:#C9A227; }
+    .aca-admin button.de:hover{ border-color:#e3a9a2; color:#c0392b; background:#fff0ee; }
+    .pa-empty{ grid-column:1/-1; text-align:center; padding:40px; color:var(--gray-500,#888); }
+    .pa-modal{ position:fixed; inset:0; background:rgba(16,29,48,.55); display:none; align-items:center; justify-content:center; z-index:2000; padding:20px; }
+    .pa-modal.open{ display:flex; }
+    .pa-modal-box{ background:#fff; border-radius:16px; width:100%; max-width:500px; max-height:90vh; overflow-y:auto; padding:24px; }
+    .pa-modal-box h2{ font-family:'Cormorant Garamond',serif; font-size:1.4rem; color:var(--primary,#16273f); margin:0 0 18px; }
+    .pa-fg{ margin-bottom:14px; }
+    .pa-fg label{ display:block; font-size:.82rem; color:var(--gray-600,#555); margin-bottom:6px; }
+    .pa-fg input, .pa-fg select, .pa-fg textarea{ width:100%; padding:11px 12px; border:1px solid var(--gray-200,#e3e6ea); border-radius:10px; font-family:inherit; font-size:.92rem; }
+    .pa-fg input[type=file]{ padding:9px; }
+    .pa-fg input:focus, .pa-fg select:focus, .pa-fg textarea:focus{ outline:none; border-color:#C9A227; }
+    .pa-fg small{ color:var(--gray-400,#aaa); font-size:.78rem; }
+    .seg{ display:flex; gap:8px; }
+    .seg button{ flex:1; padding:11px; border:1px solid var(--gray-200,#e3e6ea); background:#fff; border-radius:10px; cursor:pointer; font-family:inherit; font-size:.88rem; color:var(--gray-600,#555); transition:all .15s; }
+    .seg button.on{ background:var(--primary,#16273f); color:#fff; border-color:var(--primary,#16273f); }
+    .pa-save{ width:100%; background:var(--primary,#16273f); color:#fff; border:none; border-radius:11px; padding:13px; font-family:inherit; font-size:.95rem; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:9px; }
+    .pa-save:disabled{ opacity:.6; cursor:not-allowed; }
+    .pa-prog{ height:6px; background:var(--gray-200,#eee); border-radius:99px; overflow:hidden; margin-top:10px; display:none; }
+    .pa-prog.show{ display:block; }
+    .pa-prog-bar{ height:100%; width:0; background:#C9A227; transition:width .2s; }
+    .vid-modal{ position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:2500; padding:20px; }
+    .vid-modal.open{ display:flex; }
+    .vid-box{ width:100%; max-width:900px; }
+    .vid-box .vid-frame{ position:relative; aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden; }
+    .vid-box iframe{ width:100%; height:100%; border:0; }
+    .vid-close{ background:none; border:none; color:#fff; font-size:1.6rem; cursor:pointer; float:right; margin-bottom:10px; }
+    .toast-container{ position:fixed; bottom:20px; right:20px; z-index:3000; }
+    @media (max-width:560px){ .aca-hero h1{ font-size:1.7rem; } .aca-grid{ grid-template-columns:1fr; } .aca-hero .pa-add{ margin-left:0; width:100%; justify-content:center; } }
+  </style>
+</head>
+<body>
+  <header class="tp-header">
+    <div class="tp-header-inner">
+      <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
+      <a href="index.html" class="tp-back"><i class="fas fa-arrow-left"></i> Volver</a>
+    </div>
+  </header>
+
+  <div id="tpLoading" class="tp-state"><div class="tp-spinner"></div><p>Verificando sesion...</p></div>
+  <div id="tpAuth" class="tp-state" style="display:none">
+    <i class="fas fa-lock"></i>
+    <h2 id="tpAuthTitle">Acceso para agentes</h2>
+    <p id="tpAuthMsg">Inicia sesion para acceder a la formacion.</p>
+    <a href="index.html"><i class="fas fa-arrow-left"></i> Ir al inicio</a>
+  </div>
+
+  <div class="tp-wrap" id="tpContent" style="display:none">
+    <div class="aca-hero">
+      <div class="aca-hero-ic"><i class="fas fa-graduation-cap"></i></div>
+      <div><h1>Malave Academy</h1><p>Formacion para el equipo: guias, flyers, material descargable y videos para potenciar tus ventas y tu conocimiento del mercado.</p></div>
+      <button class="pa-add" id="acaAddBtn" style="display:none" onclick="openAcaModal()"><i class="fas fa-plus"></i> Agregar contenido</button>
+    </div>
+    <div class="pa-search-row">
+      <div class="pa-search"><i class="fas fa-search"></i><input type="text" id="acaSearch" placeholder="Buscar material..." oninput="renderAca()"></div>
+      <select class="pa-filter" id="acaFilter" onchange="renderAca()"><option value="">Todas las categorias</option><option value="ventas">Tecnicas de venta</option><option value="captacion">Captacion</option><option value="legal">Legal y contratos</option><option value="marketing">Marketing</option><option value="otro">Otros</option></select>
+    </div>
+    <div id="acaList"></div>
+  </div>
+
+  <div class="pa-modal" id="acaModal">
+    <div class="pa-modal-box">
+      <h2 id="acaModalTitle">Agregar contenido</h2>
+      <input type="hidden" id="acaEditId">
+      <div class="pa-fg"><label>Tipo de contenido</label><div class="seg"><button type="button" id="segVideo" class="on" onclick="setAcaTipo('video')"><i class="fab fa-youtube"></i> Video (enlace)</button><button type="button" id="segArchivo" onclick="setAcaTipo('archivo')"><i class="fas fa-file-arrow-up"></i> Flyer / PDF</button></div></div>
+      <div class="pa-fg"><label>Categoria</label><select id="acaCategory"><option value="ventas">Tecnicas de venta</option><option value="captacion">Captacion</option><option value="legal">Legal y contratos</option><option value="marketing">Marketing</option><option value="otro">Otros</option></select></div>
+      <div class="pa-fg"><label>Titulo</label><input type="text" id="acaName" placeholder="Ej: Como cerrar una venta en la primera visita"></div>
+      <div class="pa-fg"><label>Descripcion (opcional)</label><textarea id="acaDesc" rows="2" placeholder="De que trata este material..."></textarea></div>
+      <div class="pa-fg" id="acaVideoFg"><label>Enlace de YouTube</label><input type="url" id="acaVideoUrl" placeholder="https://www.youtube.com/watch?v=..."><small>Pega el link del video (puede ser "no listado" para que solo lo vea el equipo).</small></div>
+      <div class="pa-fg" id="acaFileFg" style="display:none"><label>Archivo <small id="acaFileHint">(PDF o imagen)</small></label><input type="file" id="acaFile" accept=".pdf,image/*"></div>
+      <div class="pa-prog" id="acaProg"><div class="pa-prog-bar" id="acaProgBar"></div></div>
+      <button class="pa-save" id="acaSaveBtn" onclick="saveAca()"><i class="fas fa-save"></i> Guardar</button>
+    </div>
+  </div>
+
+  <div class="vid-modal" id="vidModal">
+    <div class="vid-box"><button class="vid-close" onclick="closeVid()"><i class="fas fa-times"></i></button><div class="vid-frame" id="vidFrame"></div></div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth(), db = firebase.firestore(), storage = firebase.storage();
+    const ADMIN_EMAIL = "fabricio9061@gmail.com";
+    let esAdmin = false, items = [], acaTipo = 'video';
+
+    function tpShow(which) {
+      ['tpLoading', 'tpAuth', 'tpContent'].forEach(id => document.getElementById(id).style.display = 'none');
+      document.getElementById(which).style.display = which === 'tpContent' ? 'block' : 'flex';
+    }
+    const escH = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const escA = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    const CAT_LABELS = { ventas: ['Tecnicas de venta', 'fa-handshake'], captacion: ['Captacion', 'fa-bullseye'], legal: ['Legal y contratos', 'fa-scale-balanced'], marketing: ['Marketing', 'fa-bullhorn'], otro: ['Otros', 'fa-folder'] };
+
+    function ytId(url) {
+      if (!url) return null;
+      const m = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/))([A-Za-z0-9_-]{11})/);
+      return m ? m[1] : null;
+    }
+
+    function renderAca() {
+      const list = document.getElementById('acaList');
+      const term = (document.getElementById('acaSearch').value || '').toLowerCase().trim();
+      const filt = document.getElementById('acaFilter').value || '';
+      let its = items.slice();
+      if (filt) its = its.filter(x => (x.category || 'otro') === filt);
+      if (term) its = its.filter(x => ((x.name || '') + ' ' + (x.description || '')).toLowerCase().includes(term));
+      if (!its.length) { list.innerHTML = `<p class="pa-empty">No hay material que coincida.${esAdmin && !items.length ? ' Agregá el primero con el boton de arriba.' : ''}</p>`; return; }
+      const card = x => {
+        let thumb;
+        if (x.type === 'video') {
+          const vid = x.videoId || ytId(x.videoUrl);
+          thumb = `<div class="aca-thumb" onclick="playVid('${vid}')"><img src="https://img.youtube.com/vi/${vid}/hqdefault.jpg" alt="" loading="lazy"><span class="badge"><i class="fab fa-youtube"></i> Video</span><div class="play"><i class="fas fa-circle-play"></i></div></div>`;
+        } else {
+          const isImg = ['jpg','jpeg','png','webp','gif'].includes((x.ext || '').toLowerCase());
+          thumb = isImg
+            ? `<div class="aca-thumb" onclick="window.open('${escA(x.url)}','_blank')"><img src="${escA(x.url)}" alt="" loading="lazy"><span class="badge"><i class="fas fa-image"></i> Flyer</span></div>`
+            : `<div class="aca-thumb doc-thumb" style="color:#c0392b" onclick="window.open('${escA(x.url)}','_blank')"><i class="fas fa-file-pdf"></i><span class="badge"><i class="fas fa-file-pdf"></i> PDF</span></div>`;
+        }
+        const action = x.type === 'video'
+          ? `<button class="aca-open" onclick="playVid('${x.videoId || ytId(x.videoUrl)}')"><i class="fas fa-play"></i> Ver video</button>`
+          : `<a class="aca-open" href="${escA(x.url)}" target="_blank" rel="noopener"><i class="fas fa-download"></i> Abrir</a>`;
+        return `<div class="aca-card">${thumb}<div class="aca-body"><strong>${escH(x.name) || 'Material'}</strong>${x.description ? `<p>${escH(x.description)}</p>` : '<p></p>'}<div class="aca-actions">${action}${esAdmin ? `<div class="aca-admin"><button onclick="openAcaModal('${x.id}')" title="Editar"><i class="fas fa-edit"></i></button><button class="de" onclick="deleteAca('${x.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div>` : ''}</div></div></div>`;
+      };
+      let html = '';
+      Object.keys(CAT_LABELS).forEach(k => {
+        const sub = its.filter(x => (x.category || 'otro') === k);
+        if (!sub.length) return;
+        const [lbl, ic] = CAT_LABELS[k];
+        if (!filt) html += `<div class="aca-cat"><i class="fas ${ic}"></i> ${lbl}</div>`;
+        html += '<div class="aca-grid">' + sub.map(card).join('') + '</div>';
+      });
+      list.innerHTML = html;
+    }
+
+    function playVid(id) {
+      if (!id) return;
+      document.getElementById('vidFrame').innerHTML = `<iframe src="https://www.youtube.com/embed/${id}?autoplay=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+      document.getElementById('vidModal').classList.add('open');
+    }
+    function closeVid() { document.getElementById('vidModal').classList.remove('open'); document.getElementById('vidFrame').innerHTML = ''; }
+    document.getElementById('vidModal').addEventListener('click', e => { if (e.target.id === 'vidModal') closeVid(); });
+
+    function setAcaTipo(t) {
+      acaTipo = t;
+      document.getElementById('segVideo').classList.toggle('on', t === 'video');
+      document.getElementById('segArchivo').classList.toggle('on', t === 'archivo');
+      document.getElementById('acaVideoFg').style.display = t === 'video' ? 'block' : 'none';
+      document.getElementById('acaFileFg').style.display = t === 'archivo' ? 'block' : 'none';
+    }
+    function openAcaModal(id) {
+      if (!esAdmin) return;
+      const x = id ? items.find(i => i.id === id) : null;
+      document.getElementById('acaEditId').value = id || '';
+      document.getElementById('acaModalTitle').textContent = x ? 'Editar contenido' : 'Agregar contenido';
+      document.getElementById('acaCategory').value = x ? (x.category || 'otro') : 'ventas';
+      document.getElementById('acaName').value = x ? (x.name || '') : '';
+      document.getElementById('acaDesc').value = x ? (x.description || '') : '';
+      document.getElementById('acaVideoUrl').value = x && x.type === 'video' ? (x.videoUrl || '') : '';
+      document.getElementById('acaFile').value = '';
+      setAcaTipo(x ? (x.type || 'video') : 'video');
+      document.getElementById('acaFileHint').textContent = x && x.type === 'archivo' ? '(opcional: vacio = conservar el actual)' : '(PDF o imagen)';
+      document.getElementById('acaProg').classList.remove('show');
+      document.getElementById('acaProgBar').style.width = '0';
+      document.getElementById('acaModal').classList.add('open');
+    }
+    function closeAcaModal() { document.getElementById('acaModal').classList.remove('open'); }
+    document.getElementById('acaModal').addEventListener('click', e => { if (e.target.id === 'acaModal') closeAcaModal(); });
+
+    async function saveAca() {
+      if (!esAdmin) return;
+      const id = document.getElementById('acaEditId').value;
+      const name = document.getElementById('acaName').value.trim();
+      const category = document.getElementById('acaCategory').value;
+      const description = document.getElementById('acaDesc').value.trim();
+      if (!name) { showToast('Falta el titulo', 'Poné un titulo al material.', 'fa-circle-exclamation'); return; }
+      const btn = document.getElementById('acaSaveBtn'); btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+      try {
+        const data = { name, category, description, type: acaTipo, updatedAt: new Date().toISOString() };
+        if (acaTipo === 'video') {
+          const url = document.getElementById('acaVideoUrl').value.trim();
+          const vid = ytId(url);
+          if (!vid) { showToast('Enlace invalido', 'Pega un enlace valido de YouTube.', 'fa-circle-exclamation'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Guardar'; return; }
+          data.videoUrl = url; data.videoId = vid;
+        } else {
+          const file = document.getElementById('acaFile').files[0];
+          if (!id && !file) { showToast('Falta el archivo', 'Elegí un flyer o PDF.', 'fa-circle-exclamation'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Guardar'; return; }
+          if (file) {
+            const ext = (file.name.split('.').pop() || '').toLowerCase();
+            const path = `academy/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            const ref = storage.ref(path);
+            const prog = document.getElementById('acaProg'), bar = document.getElementById('acaProgBar');
+            prog.classList.add('show');
+            const task = ref.put(file);
+            await new Promise((res, rej) => { task.on('state_changed', s => { bar.style.width = (s.bytesTransferred / s.totalBytes * 100) + '%'; }, rej, res); });
+            data.url = await task.snapshot.ref.getDownloadURL();
+            data.storagePath = path; data.ext = ext;
+          }
+        }
+        if (id) await db.collection('academy').doc(id).update(data);
+        else { data.createdAt = new Date().toISOString(); await db.collection('academy').add(data); }
+        closeAcaModal();
+        await loadAca();
+        showToast('Guardado', 'El material se guardó correctamente.', 'fa-check');
+      } catch (e) {
+        showToast('Error', 'No se pudo guardar: ' + (e.message || e), 'fa-triangle-exclamation');
+      } finally {
+        btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Guardar';
+      }
+    }
+    async function deleteAca(id) {
+      if (!esAdmin) return;
+      const x = items.find(i => i.id === id);
+      if (!confirm('¿Eliminar "' + (x ? x.name : 'este material') + '"?')) return;
+      try {
+        if (x && x.storagePath) { try { await storage.ref(x.storagePath).delete(); } catch (e) {} }
+        await db.collection('academy').doc(id).delete();
+        await loadAca();
+      } catch (e) { showToast('Error', 'No se pudo eliminar: ' + (e.message || e), 'fa-triangle-exclamation'); }
+    }
+    async function loadAca() {
+      const list = document.getElementById('acaList');
+      list.innerHTML = '<div class="pa-empty"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem"></i></div>';
+      try {
+        const q = await db.collection('academy').get();
+        items = q.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+        renderAca();
+      } catch (e) { list.innerHTML = '<p class="pa-empty" style="color:#c0392b">No se pudo cargar el material.</p>'; }
+    }
+    function showToast(t, m, i = 'fa-bell') {
+      const c = document.getElementById('toastContainer'), toast = document.createElement('div');
+      toast.className = 'toast'; toast.innerHTML = `<div class="toast-icon"><i class="fas ${i}"></i></div><div class="toast-content"><strong>${t}</strong><p>${m}</p></div>`;
+      c.appendChild(toast); setTimeout(() => { toast.classList.add('hiding'); setTimeout(() => toast.remove(), 300); }, 4000);
+    }
+
+    auth.onAuthStateChanged(async u => {
+      if (!u) { tpShow('tpAuth'); return; }
+      let prof = {};
+      try { const d = await db.collection('users').doc(u.uid).get(); prof = d.exists ? d.data() : {}; } catch (e) { prof = {}; }
+      esAdmin = (prof.email || u.email || '').toLowerCase() === ADMIN_EMAIL;
+      if (prof.status !== 'approved' && !esAdmin) {
+        document.getElementById('tpAuthTitle').textContent = 'Cuenta pendiente';
+        document.getElementById('tpAuthMsg').textContent = 'Tu cuenta esta pendiente de aprobacion.';
+        tpShow('tpAuth'); return;
+      }
+      document.getElementById('acaAddBtn').style.display = esAdmin ? 'inline-flex' : 'none';
+      tpShow('tpContent');
+      loadAca();
+    });
+  </script>
+</body>
+</html>
