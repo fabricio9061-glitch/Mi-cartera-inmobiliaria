@@ -2457,8 +2457,6 @@ function mvToggleFav(ev, id) {
   b.innerHTML = '<i class="' + (on ? 'fas' : 'far') + ' fa-heart"></i>';
 }
 function mvSetHeroPhoto(ps) {
-  const img = document.getElementById('heroPhoto');
-  if (!img || img.dataset.set) return;
-  const dest = (ps || []).find(p => p.featured && p.images && p.images[0]) || (ps || []).find(p => p.images && p.images[0]);
-  if (dest) { img.src = dest.images[0]; img.dataset.set = '1'; img.onload = function(){ img.classList.add('show'); }; }
+  // La imagen del hero ahora es una foto fija profesional definida en index.html
+  // (antes tomaba la primera propiedad y no se integraba bien). No se toca.
 }
