@@ -37,10 +37,15 @@
     .mv-stat-num{ font-family:'Cormorant Garamond',serif; font-size:1.7rem; font-weight:700; color:#fff; line-height:1; }
     .mv-stat-lbl{ color: rgba(255,255,255,.62); font-size:.8rem; margin-top:3px; }
     .mv-stat-sep{ width:1px; height:38px; background: rgba(255,255,255,.16); }
-    .mv-hero-media{ position:relative; align-self:stretch; z-index:1; }
-    .mv-hero-media::after{ content:''; position:absolute; inset:0; background:linear-gradient(100deg, var(--mvNavy) 0%, rgba(22,39,63,.55) 32%, rgba(22,39,63,.12) 62%, transparent 100%); z-index:2; pointer-events:none; }
+    .mv-hero-media{ position:relative; align-self:stretch; z-index:1; overflow:hidden; }
+    /* Difumina los CUATRO bordes con una sombra interior del color del fondo:
+       método robusto que funciona en todos los navegadores (no depende de mask-composite). */
+    .mv-hero-media::after{ content:''; position:absolute; inset:0; z-index:3; pointer-events:none;
+      box-shadow: inset 70px 0 70px -20px var(--mvNavy), inset -60px 0 55px -30px var(--mvNavy),
+                  inset 0 60px 55px -30px var(--mvNavy), inset 0 -60px 55px -30px var(--mvNavy);
+      background: linear-gradient(100deg, var(--mvNavy) 0%, rgba(22,39,63,.35) 34%, transparent 64%); }
     .mv-hero-media img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; transition:opacity .8s ease;
-      -webkit-mask-image: linear-gradient(to right, transparent 0, #000 45%); mask-image: linear-gradient(to right, transparent 0, #000 45%); }
+      -webkit-mask-image: linear-gradient(to right, transparent 0, #000 40%); mask-image: linear-gradient(to right, transparent 0, #000 40%); }
     .mv-hero-media img.show{ opacity:1; }
     .mv-hero-deco{ position:absolute; left:-14px; top:50%; transform:translateY(-50%); width:120px; opacity:.8; z-index:1; pointer-events:none; }
     .mv-search-wrap{ position:relative; z-index:5; margin-top:-46px; }
