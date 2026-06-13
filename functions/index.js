@@ -124,7 +124,8 @@ async function getAdminUser() {
   } catch (e) {
     logger.warn("No se pudo buscar al admin:", e.message);
   }
-  _adminCache = { at: Date.now(), data };
+  if (data) _adminCache = { at: Date.now(), data };
+  else logger.warn(`No se encontró al admin (${ADMIN_EMAIL}) en la colección users.`);
   return data;
 }
 
@@ -1283,7 +1284,11 @@ exports.notificarNuevoUsuario = onDocumentCreated("users/{uid}", async (event) =
   const d = snap.data();
   if (!d || d.status !== "pending") return; // el admin se crea aprobado; no auto-notificarse
   const adm = await getAdminUser();
-  if (!adm || adm.uid === event.params.uid) return;
+  if (!adm) {
+    await registrarLog("", "nuevo usuario pendiente SIN notificar", false, `No se encontró al admin (${ADMIN_EMAIL}) en users; revisá el email del perfil del admin.`);
+    return;
+  }
+  if (adm.uid === event.params.uid) return;
   const nombre = d.name || d.email || "Alguien";
   await crearNotificacion(
     adm,

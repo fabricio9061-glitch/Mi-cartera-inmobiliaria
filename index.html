@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="styles.css">
   <style>
     /* ============ INICIO V2 (mockup) — autocontenido, no pisa styles.css ============ */
-    :root{ --mvNavy: var(--primary, #16273f); --mvGold: var(--accent, #C9A227); }
+    :root{ --mvNavy: var(--primary, #16273f); --mvGold: #C9A227; }
     .mv-hero{ background: linear-gradient(115deg, #101d30 0%, var(--mvNavy) 60%); position:relative; overflow:hidden; padding:0; }
     .mv-hero-grid{ display:grid; grid-template-columns: 1.05fr .95fr; align-items:center; gap:24px; position:relative; min-height:480px; }
     .mv-hero-copy{ padding:72px 0 96px; position:relative; z-index:2; }
@@ -107,6 +107,27 @@
       .mv-search{ padding:16px 14px; }
       .mv-search-btn{ width:100%; justify-content:center; }
     }
+    /* ---- Afinado móvil ---- */
+    @media (max-width: 860px){ .mv-navx{ display:none; } }
+    @media (max-width: 560px){
+      .mv-hero-copy{ padding:46px 0 62px; }
+      .mv-hero-copy h1{ font-size:2.15rem; }
+      .mv-hero-deco{ display:none; }
+      .mv-hero-stats{ gap:14px; }
+      .mv-stat{ gap:9px; }
+      .mv-stat-ic{ width:40px; height:40px; font-size:.9rem; }
+      .mv-stat-num{ font-size:1.4rem; }
+      .mv-search-wrap{ margin-top:-30px; }
+      .mv-why{ margin-top:40px; }
+      .mv-why-title{ font-size:1.5rem; }
+      .mv-why-cards{ grid-template-columns:1fr 1fr; }
+      .mv-testi{ padding:20px 16px; }
+      .mv-foot-grid{ gap:22px; padding:30px 0 20px; }
+    }
+    /* Campanita: el velo y el panel SIEMPRE por encima de las secciones nuevas.
+       El velo cierra al tocarlo y el panel de consultas queda clickeable. */
+    .notification-overlay{ z-index: 1900 !important; }
+    .notification-dropdown{ z-index: 2000 !important; }
     @media (prefers-reduced-motion: reduce){ .mv-hero-media img, .mv-why-card, .mv-search-btn{ transition:none; } }
   </style>
 </head>
@@ -114,8 +135,8 @@
   <div class="toast-container" id="toastContainer"></div>
   <header class="header"><div class="container"><div class="header-content">
     <div class="logo" onclick="showHome()"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></div>
-    <nav class="nav" id="nav-guest"><a href="#" onclick="showHome()">Inicio</a><a href="#propiedades">Propiedades</a><a href="#propiedades" onclick="mvFiltrar('rent')">Alquiler</a><a href="#propiedades" onclick="mvFiltrar('sale')">Venta</a><a href="#porque">Nosotros</a><a href="#contacto">Contacto</a><button class="agent-access" onclick="openModal('loginModal')" title="Acceso para agentes"><i class="fas fa-lock"></i> Acceso agentes</button></nav>
-    <nav class="nav hidden" id="nav-user"><a href="#" onclick="showHome()">Inicio</a><a href="#propiedades">Propiedades</a><a href="#propiedades" onclick="mvFiltrar('rent')">Alquiler</a><a href="#propiedades" onclick="mvFiltrar('sale')">Venta</a>
+    <nav class="nav" id="nav-guest"><a href="#" onclick="showHome()">Inicio</a><a href="#propiedades">Propiedades</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('rent')">Alquiler</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('sale')">Venta</a><a class="mv-navx" href="#porque">Nosotros</a><a class="mv-navx" href="#contacto">Contacto</a><button class="agent-access" onclick="openModal('loginModal')" title="Acceso para agentes"><i class="fas fa-lock"></i> Acceso agentes</button></nav>
+    <nav class="nav hidden" id="nav-user"><a href="#" onclick="showHome()">Inicio</a><a href="#propiedades">Propiedades</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('rent')">Alquiler</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('sale')">Venta</a>
       <div class="calendar-btn" id="calendarBtn" onclick="openCalendarModal()" title="Mi Agenda"><i class="fas fa-calendar-alt"></i></div>
       <div class="notification-bell" id="notificationBell" onclick="toggleNotifications(event)"><i class="fas fa-bell"></i><span class="notification-badge hidden" id="notificationBadge">0</span></div>
       <div class="notification-overlay" id="notificationOverlay" onclick="closeNotifications()"></div>
@@ -238,10 +259,10 @@
       <div class="mv-foot-brand">
         <div class="footer-logo"><img src="iso-malave-white.png" alt="" class="footer-iso"><img src="texto-malave-white.png" alt="MALAVE" class="footer-text"></div>
         <p>Conectamos personas con lugares extraordinarios.</p>
-        <div class="mv-foot-social"><a href="https://www.instagram.com/mal_ave_/" target="_blank" title="Instagram"><i class="fab fa-instagram"></i></a><a href="https://wa.me/59894533006" target="_blank" title="WhatsApp"><i class="fab fa-whatsapp"></i></a></div>
+        <div class="mv-foot-social"><a href="https://www.instagram.com/malave.inmobiliaria/" target="_blank" title="Instagram"><i class="fab fa-instagram"></i></a><a href="https://wa.me/59894029297" target="_blank" title="WhatsApp"><i class="fab fa-whatsapp"></i></a></div>
       </div>
       <div class="mv-foot-col"><h4>Navegación</h4><a href="#" onclick="showHome()">Inicio</a><a href="#propiedades">Propiedades</a><a href="#propiedades" onclick="mvFiltrar('rent')">Alquiler</a><a href="#propiedades" onclick="mvFiltrar('sale')">Venta</a><a href="#contacto">Contacto</a></div>
-      <div class="mv-foot-col"><h4>Contacto</h4><span><i class="fas fa-location-dot"></i> Montevideo, Uruguay</span><a href="https://wa.me/59894533006" target="_blank"><i class="fab fa-whatsapp"></i> +598 94 533 006</a><a href="mailto:inmobiliariamalave@gmail.com"><i class="far fa-envelope"></i> hola@malave.uy</a></div>
+      <div class="mv-foot-col"><h4>Contacto</h4><span><i class="fas fa-location-dot"></i> Montevideo, Uruguay</span><a href="https://wa.me/59894029297" target="_blank"><i class="fab fa-whatsapp"></i> +598 94 029 297</a><a href="mailto:inmobiliariamalave@gmail.com"><i class="far fa-envelope"></i> inmobiliariamalave@gmail.com</a></div>
       <div class="mv-foot-col mv-news"><h4>Newsletter</h4><p>Recibí las mejores oportunidades en tu correo.</p><form class="mv-news-form" onsubmit="mvNewsletter(event)"><input type="email" id="mvNewsEmail" required placeholder="Tu email"><button type="submit" title="Suscribirme"><i class="fas fa-arrow-right"></i></button></form></div>
     </div>
     <div class="footer-bottom">© 2026 MALAVE. Todos los derechos reservados. · Página creada por Anibal Malave</div>
