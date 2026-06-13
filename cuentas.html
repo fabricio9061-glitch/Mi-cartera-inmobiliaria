@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cuentas y herramientas | MALAVE</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <meta name="theme-color" content="#243447">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body{ background:var(--gray-50,#f5f6f8); }
+    .tp-header{ background:#fff; box-shadow:var(--shadow-sm,0 1px 3px rgba(0,0,0,.08)); position:sticky; top:0; z-index:1000; }
+    .tp-header-inner{ max-width:1080px; margin:0 auto; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+    .tp-back{ display:inline-flex; align-items:center; gap:8px; color:var(--gray-600,#555); font-size:14px; font-weight:500; padding:9px 18px; border:1px solid var(--gray-300,#ddd); border-radius:999px; cursor:pointer; background:none; text-decoration:none; transition:all .25s; }
+    .tp-back:hover{ background:var(--primary,#16273f); color:#fff; border-color:var(--primary,#16273f); }
+    .tp-wrap{ max-width:1080px; margin:0 auto; padding:32px 24px 70px; }
+    .tp-state{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; text-align:center; color:var(--gray-500,#888); padding:40px 20px; }
+    .tp-state i{ font-size:56px; margin-bottom:20px; opacity:.4; }
+    .tp-state h2{ font-family:'Cormorant Garamond',serif; font-size:26px; color:var(--gray-700,#444); margin-bottom:10px; }
+    .tp-state a{ display:inline-block; margin-top:18px; background:var(--primary,#16273f); color:#fff; padding:11px 26px; border-radius:999px; text-decoration:none; }
+    .tp-spinner{ width:46px; height:46px; border:4px solid var(--gray-200,#eee); border-top-color:var(--primary,#16273f); border-radius:50%; animation:tpspin 1s linear infinite; margin-bottom:18px; }
+    @keyframes tpspin{ to{ transform:rotate(360deg); } }
+
+    .pa-page-head{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
+    .pa-page-ic{ width:56px; height:56px; border-radius:15px; background:linear-gradient(135deg,#101d30,var(--primary,#16273f)); color:#C9A227; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex:0 0 auto; }
+    .pa-page-title{ font-family:'Cormorant Garamond',serif; font-size:2rem; color:var(--primary,#16273f); margin:0; font-weight:700; }
+    .pa-page-sub{ color:var(--gray-500,#8a8a8a); margin:4px 0 0; font-size:.92rem; max-width:560px; }
+    .pa-add{ margin-left:auto; background:var(--primary,#16273f); color:#fff; border:none; border-radius:11px; padding:11px 20px; font-family:inherit; font-size:.92rem; cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:transform .15s; }
+    .pa-add:hover{ transform:translateY(-1px); }
+    .pa-search-row{ display:flex; gap:12px; margin-bottom:22px; flex-wrap:wrap; }
+    .pa-search{ flex:1; min-width:220px; position:relative; }
+    .pa-search i{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--gray-400,#aaa); }
+    .pa-search input{ width:100%; padding:12px 14px 12px 40px; border:1px solid var(--gray-200,#e3e6ea); border-radius:11px; font-family:inherit; font-size:.95rem; }
+    .pa-search input:focus{ outline:none; border-color:#C9A227; }
+    .pa-filter{ border:1px solid var(--gray-200,#e3e6ea); border-radius:11px; padding:12px 14px; font-family:inherit; font-size:.95rem; background:#fff; }
+    #paList{ display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:16px; align-items:start; }
+    .pa-cat{ grid-column:1/-1; margin:14px 0 2px; font-size:.74rem; letter-spacing:.12em; text-transform:uppercase; color:var(--gray-500,#8a8a8a); font-weight:600; }
+    .pa-cat:first-child{ margin-top:0; }
+    .pa-card{ border:1px solid var(--gray-200,#eceef1); border-radius:14px; padding:15px 16px; background:#fff; }
+    .pa-top{ display:flex; align-items:center; gap:12px; margin-bottom:13px; }
+    .pa-ic{ width:42px; height:42px; border-radius:11px; background:var(--primary,#16273f); color:#fff; display:flex; align-items:center; justify-content:center; font-size:1.05rem; flex:0 0 auto; }
+    .pa-name{ flex:1; min-width:0; }
+    .pa-name strong{ display:block; font-size:1.02rem; color:var(--primary,#16273f); }
+    .pa-name span{ display:block; font-size:.76rem; color:var(--gray-500,#8a8a8a); }
+    .pa-row{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+    .pa-row label{ font-size:.72rem; color:var(--gray-500,#8a8a8a); min-width:70px; }
+    .pa-row code{ flex:1; background:var(--gray-50,#f5f6f8); padding:9px 11px; border-radius:9px; font-size:.86rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border:1px solid #eef0f3; }
+    .pa-mini{ width:38px; height:38px; border:1px solid var(--gray-200,#e3e6ea); background:#fff; border-radius:9px; cursor:pointer; color:var(--gray-600,#555); font-size:.9rem; flex:0 0 auto; transition:all .18s; }
+    .pa-mini:hover{ border-color:#C9A227; color:#C9A227; }
+    .pa-open{ padding:7px 13px; font-size:.82rem; text-decoration:none; white-space:nowrap; border:1px solid var(--gray-200,#e3e6ea); border-radius:9px; color:var(--primary,#16273f); display:inline-flex; align-items:center; gap:7px; transition:all .18s; }
+    .pa-open:hover{ border-color:#C9A227; color:#C9A227; }
+    .pa-actions{ display:flex; gap:8px; margin-top:11px; }
+    .pa-actions button{ flex:1; font-size:.82rem; padding:9px; border-radius:9px; border:1px solid var(--gray-200,#e3e6ea); background:#fff; cursor:pointer; font-family:inherit; transition:all .18s; }
+    .pa-actions .ed:hover{ border-color:#C9A227; color:#C9A227; }
+    .pa-actions .de{ color:#c0392b; }
+    .pa-actions .de:hover{ background:#fff0ee; border-color:#e3a9a2; }
+    .pa-empty{ grid-column:1/-1; text-align:center; padding:40px; color:var(--gray-500,#888); }
+
+    .pa-modal{ position:fixed; inset:0; background:rgba(16,29,48,.55); display:none; align-items:center; justify-content:center; z-index:2000; padding:20px; }
+    .pa-modal.open{ display:flex; }
+    .pa-modal-box{ background:#fff; border-radius:16px; width:100%; max-width:460px; max-height:90vh; overflow-y:auto; padding:24px; }
+    .pa-modal-box h2{ font-family:'Cormorant Garamond',serif; font-size:1.4rem; color:var(--primary,#16273f); margin:0 0 18px; }
+    .pa-fg{ margin-bottom:14px; }
+    .pa-fg label{ display:block; font-size:.82rem; color:var(--gray-600,#555); margin-bottom:6px; }
+    .pa-fg input, .pa-fg select, .pa-fg textarea{ width:100%; padding:11px 12px; border:1px solid var(--gray-200,#e3e6ea); border-radius:10px; font-family:inherit; font-size:.92rem; }
+    .pa-fg input:focus, .pa-fg select:focus, .pa-fg textarea:focus{ outline:none; border-color:#C9A227; }
+    .pa-save{ width:100%; background:var(--primary,#16273f); color:#fff; border:none; border-radius:11px; padding:13px; font-family:inherit; font-size:.95rem; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:9px; }
+    .toast-container{ position:fixed; bottom:20px; right:20px; z-index:3000; }
+    @media (max-width:560px){
+      .pa-page-title{ font-size:1.6rem; }
+      #paList{ grid-template-columns:1fr; }
+      .pa-add{ margin-left:0; width:100%; justify-content:center; }
+    }
+  </style>
+</head>
+<body>
+  <header class="tp-header">
+    <div class="tp-header-inner">
+      <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
+      <a href="index.html" class="tp-back"><i class="fas fa-arrow-left"></i> Volver</a>
+    </div>
+  </header>
+
+  <div id="tpLoading" class="tp-state"><div class="tp-spinner"></div><p>Verificando sesión...</p></div>
+  <div id="tpAuth" class="tp-state" style="display:none">
+    <i class="fas fa-lock"></i>
+    <h2 id="tpAuthTitle">Acceso para agentes</h2>
+    <p id="tpAuthMsg">Iniciá sesión para ver las cuentas y herramientas.</p>
+    <a href="index.html"><i class="fas fa-arrow-left"></i> Ir al inicio</a>
+  </div>
+
+  <div class="tp-wrap" id="tpContent" style="display:none">
+    <div class="pa-page-head">
+      <div class="pa-page-ic"><i class="fas fa-key"></i></div>
+      <div><h1 class="pa-page-title">Cuentas y herramientas</h1><p class="pa-page-sub">Usuarios y contraseñas de las cuentas oficiales de la inmobiliaria: portales, herramientas de diseño e IA, y más.</p></div>
+      <button class="pa-add" id="paAddBtn" style="display:none" onclick="openEditPortal()"><i class="fas fa-plus"></i> Agregar cuenta</button>
+    </div>
+    <div class="pa-search-row">
+      <div class="pa-search"><i class="fas fa-search"></i><input type="text" id="paSearch" placeholder="Buscar cuenta o herramienta..." oninput="renderPortales()"></div>
+      <select class="pa-filter" id="paFilter" onchange="renderPortales()"><option value="">Todas las categorías</option><option value="portal">Portales inmobiliarios</option><option value="herramienta">Herramientas</option><option value="otro">Otros</option></select>
+    </div>
+    <div id="paList"></div>
+  </div>
+
+  <!-- Modal alta/edición (solo admin) -->
+  <div class="pa-modal" id="paModal">
+    <div class="pa-modal-box">
+      <h2 id="paModalTitle">Nueva cuenta</h2>
+      <input type="hidden" id="portalEditId">
+      <div class="pa-fg"><label>Categoría</label><select id="portalCategory"><option value="portal">Portal inmobiliario</option><option value="herramienta">Herramienta (Canva, ChatGPT...)</option><option value="otro">Otro</option></select></div>
+      <div class="pa-fg"><label>Nombre</label><input type="text" id="portalName" placeholder="Ej: InfoCasas, Canva, ChatGPT"></div>
+      <div class="pa-fg"><label>Subtítulo (opcional)</label><input type="text" id="portalSubtitle" placeholder="Ej: Plan premium / Cuenta de diseño"></div>
+      <div class="pa-fg"><label>Link (opcional)</label><input type="url" id="portalUrl" placeholder="https://..."></div>
+      <div class="pa-fg"><label>Usuario</label><input type="text" id="portalUser" placeholder="usuario o email"></div>
+      <div class="pa-fg"><label>Contraseña</label><input type="text" id="portalPass" placeholder="contraseña de la cuenta"></div>
+      <div class="pa-fg"><label>Notas (opcional)</label><textarea id="portalNotes" rows="2" placeholder="Ej: vence en marzo, la usa todo el equipo"></textarea></div>
+      <button class="pa-save" onclick="savePortalAccount()"><i class="fas fa-save"></i> Guardar</button>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth(), db = firebase.firestore();
+    const ADMIN_EMAIL = "fabricio9061@gmail.com";
+    let esAdmin = false, portalAccounts = [];
+
+    function tpShow(which) {
+      ['tpLoading', 'tpAuth', 'tpContent'].forEach(id => document.getElementById(id).style.display = 'none');
+      document.getElementById(which).style.display = which === 'tpContent' ? 'block' : 'flex';
+    }
+    const escA = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    const escH = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    function renderPortales() {
+      const list = document.getElementById('paList');
+      const term = (document.getElementById('paSearch').value || '').toLowerCase().trim();
+      const filt = document.getElementById('paFilter').value || '';
+      let items = portalAccounts.slice();
+      if (filt) items = items.filter(a => (a.category || 'portal') === filt);
+      if (term) items = items.filter(a => ((a.name || '') + ' ' + (a.user || '') + ' ' + (a.notes || '')).toLowerCase().includes(term));
+      if (!items.length) { list.innerHTML = `<p class="pa-empty">No hay cuentas que coincidan.${esAdmin && !portalAccounts.length ? ' Agregá la primera con el botón de arriba.' : ''}</p>`; return; }
+      const iconFor = a => { const c = a.category || 'portal'; return c === 'herramienta' ? 'fa-toolbox' : c === 'otro' ? 'fa-circle-nodes' : 'fa-building'; };
+      const CATS = [{ key: 'portal', label: 'Portales inmobiliarios' }, { key: 'herramienta', label: 'Herramientas' }, { key: 'otro', label: 'Otros' }];
+      const card = a => `<div class="pa-card">
+        <div class="pa-top"><div class="pa-ic"><i class="fas ${iconFor(a)}"></i></div>
+          <div class="pa-name"><strong>${escH(a.name) || 'Cuenta'}</strong><span>${escH(a.subtitle || (a.category === 'herramienta' ? 'Herramienta' : a.category === 'otro' ? 'Cuenta' : 'Portal inmobiliario'))}</span></div>
+          ${a.url ? `<a href="${escA(a.url)}" target="_blank" rel="noopener" class="pa-open"><i class="fas fa-external-link-alt"></i> Abrir</a>` : ''}</div>
+        <div class="pa-row"><label>Usuario</label><code id="user-${a.id}" data-val="${escA(a.user)}">${escH(a.user) || '—'}</code><button class="pa-mini" onclick="copyText(document.getElementById('user-${a.id}').dataset.val,event)" title="Copiar"><i class="fas fa-copy"></i></button></div>
+        <div class="pa-row"><label>Contraseña</label><code id="pass-${a.id}" data-val="${escA(a.password)}">${'•'.repeat(10)}</code><button class="pa-mini" onclick="togglePass('${a.id}')" title="Mostrar/ocultar"><i class="fas fa-eye"></i></button><button class="pa-mini" onclick="copyText(document.getElementById('pass-${a.id}').dataset.val,event)" title="Copiar"><i class="fas fa-copy"></i></button></div>
+        ${a.notes ? `<p style="font-size:.82rem;color:var(--gray-600,#666);margin-top:8px">${escH(a.notes)}</p>` : ''}
+        ${esAdmin ? `<div class="pa-actions"><button class="ed" onclick="openEditPortal('${a.id}')"><i class="fas fa-edit"></i> Editar</button><button class="de" onclick="deletePortalAccount('${a.id}')"><i class="fas fa-trash"></i> Eliminar</button></div>` : ''}
+      </div>`;
+      let html = '';
+      CATS.forEach(cat => {
+        const sub = items.filter(a => (a.category || 'portal') === cat.key);
+        if (!sub.length) return;
+        if (!filt) html += `<div class="pa-cat">${cat.label}</div>`;
+        html += sub.map(card).join('');
+      });
+      list.innerHTML = html;
+    }
+    function togglePass(id) {
+      const el = document.getElementById('pass-' + id); if (!el) return;
+      const m = '•'.repeat(10); el.textContent = (el.textContent === m) ? (el.dataset.val || '') : m;
+    }
+    function copyText(t, ev) {
+      if (navigator.clipboard) navigator.clipboard.writeText(t).then(() => {
+        if (ev && ev.currentTarget) { const i = ev.currentTarget.querySelector('i'); if (i) { const o = i.className; i.className = 'fas fa-check'; setTimeout(() => { i.className = o; }, 1200); } }
+      }).catch(() => {});
+    }
+    function openEditPortal(id) {
+      if (!esAdmin) return;
+      const a = id ? portalAccounts.find(x => x.id === id) : null;
+      document.getElementById('portalEditId').value = id || '';
+      document.getElementById('paModalTitle').textContent = a ? 'Editar cuenta' : 'Nueva cuenta';
+      document.getElementById('portalCategory').value = a ? (a.category || 'portal') : 'portal';
+      document.getElementById('portalName').value = a ? (a.name || '') : '';
+      document.getElementById('portalSubtitle').value = a ? (a.subtitle || '') : '';
+      document.getElementById('portalUrl').value = a ? (a.url || '') : '';
+      document.getElementById('portalUser').value = a ? (a.user || '') : '';
+      document.getElementById('portalPass').value = a ? (a.password || '') : '';
+      document.getElementById('portalNotes').value = a ? (a.notes || '') : '';
+      document.getElementById('paModal').classList.add('open');
+    }
+    function closePaModal() { document.getElementById('paModal').classList.remove('open'); }
+    document.getElementById('paModal').addEventListener('click', e => { if (e.target.id === 'paModal') closePaModal(); });
+    async function savePortalAccount() {
+      if (!esAdmin) return;
+      const id = document.getElementById('portalEditId').value;
+      const data = {
+        category: document.getElementById('portalCategory').value,
+        name: document.getElementById('portalName').value.trim(),
+        subtitle: document.getElementById('portalSubtitle').value.trim(),
+        url: document.getElementById('portalUrl').value.trim(),
+        user: document.getElementById('portalUser').value.trim(),
+        password: document.getElementById('portalPass').value,
+        notes: document.getElementById('portalNotes').value.trim(),
+        updatedAt: new Date().toISOString()
+      };
+      if (!data.name) { showToast('Falta el nombre', 'Poné un nombre para la cuenta.', 'fa-circle-exclamation'); return; }
+      try {
+        if (id) await db.collection('portalAccounts').doc(id).update(data);
+        else await db.collection('portalAccounts').add(data);
+        closePaModal();
+        await loadPortales();
+        showToast('Guardado', 'La cuenta se guardó correctamente.', 'fa-check');
+      } catch (e) { showToast('Error', 'No se pudo guardar: ' + (e.message || e), 'fa-triangle-exclamation'); }
+    }
+    async function deletePortalAccount(id) {
+      if (!esAdmin) return;
+      if (!confirm('¿Eliminar esta cuenta?')) return;
+      try {
+        await db.collection('portalAccounts').doc(id).delete();
+        await loadPortales();
+      } catch (e) { showToast('Error', 'No se pudo eliminar: ' + (e.message || e), 'fa-triangle-exclamation'); }
+    }
+    async function loadPortales() {
+      const list = document.getElementById('paList');
+      list.innerHTML = '<div class="pa-empty"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem"></i></div>';
+      try {
+        const q = await db.collection('portalAccounts').get();
+        portalAccounts = q.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderPortales();
+      } catch (e) { list.innerHTML = '<p class="pa-empty" style="color:#c0392b">No se pudieron cargar las cuentas.</p>'; }
+    }
+    function showToast(t, m, i = 'fa-bell') {
+      const c = document.getElementById('toastContainer'), toast = document.createElement('div');
+      toast.className = 'toast'; toast.innerHTML = `<div class="toast-icon"><i class="fas ${i}"></i></div><div class="toast-content"><strong>${t}</strong><p>${m}</p></div>`;
+      c.appendChild(toast); setTimeout(() => { toast.classList.add('hiding'); setTimeout(() => toast.remove(), 300); }, 4000);
+    }
+
+    auth.onAuthStateChanged(async u => {
+      if (!u) { tpShow('tpAuth'); return; }
+      let prof = {};
+      try { const d = await db.collection('users').doc(u.uid).get(); prof = d.exists ? d.data() : {}; } catch (e) { prof = {}; }
+      esAdmin = (prof.email || u.email || '').toLowerCase() === ADMIN_EMAIL;
+      if (prof.status !== 'approved' && !esAdmin) {
+        document.getElementById('tpAuthTitle').textContent = 'Cuenta pendiente';
+        document.getElementById('tpAuthMsg').textContent = 'Tu cuenta está pendiente de aprobación.';
+        tpShow('tpAuth'); return;
+      }
+      document.getElementById('paAddBtn').style.display = esAdmin ? 'inline-flex' : 'none';
+      tpShow('tpContent');
+      loadPortales();
+    });
+  </script>
+</body>
+</html>

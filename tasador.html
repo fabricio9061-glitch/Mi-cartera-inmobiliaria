@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tasador | MALAVE</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <meta name="theme-color" content="#243447">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body{ background:var(--gray-50,#f5f6f8); }
+    .tp-header{ background:#fff; box-shadow:var(--shadow-sm,0 1px 3px rgba(0,0,0,.08)); position:sticky; top:0; z-index:1000; }
+    .tp-header-inner{ max-width:1080px; margin:0 auto; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+    .tp-back{ display:inline-flex; align-items:center; gap:8px; color:var(--gray-600,#555); font-size:14px; font-weight:500; padding:9px 18px; border:1px solid var(--gray-300,#ddd); border-radius:999px; cursor:pointer; background:none; text-decoration:none; transition:all .25s; }
+    .tp-back:hover{ background:var(--primary,#16273f); color:#fff; border-color:var(--primary,#16273f); }
+    .tp-wrap{ max-width:1080px; margin:0 auto; padding:32px 24px 70px; }
+    .tp-state{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; text-align:center; color:var(--gray-500,#888); padding:40px 20px; }
+    .tp-state i{ font-size:56px; margin-bottom:20px; opacity:.4; }
+    .tp-state h2{ font-family:'Cormorant Garamond',serif; font-size:26px; color:var(--gray-700,#444); margin-bottom:10px; }
+    .tp-state a{ display:inline-block; margin-top:18px; background:var(--primary,#16273f); color:#fff; padding:11px 26px; border-radius:999px; text-decoration:none; }
+    .tp-spinner{ width:46px; height:46px; border:4px solid var(--gray-200,#eee); border-top-color:var(--primary,#16273f); border-radius:50%; animation:tpspin 1s linear infinite; margin-bottom:18px; }
+    @keyframes tpspin{ to{ transform:rotate(360deg); } }
+
+    .tas-soon-banner{ background:#fff7e6; border:1px solid #ffe2b0; color:#8a5a00; border-radius:12px; padding:12px 16px; font-size:.88rem; margin-bottom:20px; display:flex; align-items:center; gap:10px; }
+    .pa-page-head{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
+    .pa-page-ic{ width:56px; height:56px; border-radius:15px; background:linear-gradient(135deg,#101d30,var(--primary,#16273f)); color:#C9A227; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex:0 0 auto; }
+    .pa-page-title{ font-family:'Cormorant Garamond',serif; font-size:2rem; color:var(--primary,#16273f); margin:0; font-weight:700; }
+    .pa-page-sub{ color:var(--gray-500,#8a8a8a); margin:4px 0 0; font-size:.92rem; max-width:560px; }
+    .mv-soon{ font-size:.66rem; letter-spacing:.03em; background:#eef0f3; color:#8a8a8a; padding:3px 9px; border-radius:999px; font-weight:600; text-transform:uppercase; vertical-align:middle; }
+
+    .tas-grid{ display:grid; grid-template-columns:1fr 1.3fr; gap:18px; align-items:start; }
+    .tas-card{ background:#fff; border:1px solid var(--gray-200,#e3e6ea); border-radius:16px; padding:22px; }
+    .tas-h3{ font-size:1.05rem; color:var(--primary,#16273f); margin:0 0 16px; display:flex; align-items:center; gap:10px; }
+    .tas-h3 small{ color:var(--gray-400,#aaa); font-weight:400; font-size:.82rem; }
+    .tas-step{ width:26px; height:26px; border-radius:50%; background:#C9A227; color:#fff; display:flex; align-items:center; justify-content:center; font-size:.85rem; font-weight:700; flex:0 0 auto; }
+    .tas-fields{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .tas-f label{ display:block; font-size:.76rem; color:var(--gray-500,#8a8a8a); margin-bottom:6px; }
+    .tas-f input{ width:100%; padding:10px 11px; border:1px solid var(--gray-200,#e3e6ea); border-radius:9px; font-family:inherit; font-size:.92rem; }
+    .tas-f input:focus{ outline:none; border-color:#C9A227; }
+    .tas-hint{ font-size:.8rem; color:var(--gray-500,#8a8a8a); line-height:1.55; margin:14px 0 0; }
+    .tas-ant-head{ display:grid; grid-template-columns:1fr 1fr 1fr 1.3fr 1.1fr; gap:8px; font-size:.72rem; color:var(--gray-500,#8a8a8a); padding:0 2px 8px; font-weight:600; }
+    .tas-ant-row{ display:grid; grid-template-columns:1fr 1fr 1fr 1.3fr 1.1fr; gap:8px; margin-bottom:8px; }
+    .tas-ant-row input, .tas-ant-row select{ width:100%; padding:9px; border:1px solid var(--gray-200,#e3e6ea); border-radius:8px; font-family:inherit; font-size:.88rem; }
+    .tas-ant-row input:focus, .tas-ant-row select:focus{ outline:none; border-color:#C9A227; }
+    .tas-result{ background:linear-gradient(135deg,#101d30,var(--primary,#16273f)); color:#fff; border-radius:16px; padding:26px; margin-top:18px; transition:box-shadow .3s; }
+    .tas-result.ok{ box-shadow:0 14px 40px rgba(16,29,48,.25); }
+    .tas-res-main{ display:flex; flex-direction:column; align-items:center; padding-bottom:18px; border-bottom:1px solid rgba(255,255,255,.12); }
+    .tas-res-label{ font-size:.82rem; color:rgba(255,255,255,.6); letter-spacing:.05em; text-transform:uppercase; }
+    .tas-res-value{ font-family:'Cormorant Garamond',serif; font-size:3rem; font-weight:700; color:#C9A227; line-height:1.1; margin-top:6px; transition:opacity .2s; }
+    .tas-res-sub{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:18px; text-align:center; }
+    .tas-res-sub span{ display:block; font-size:.76rem; color:rgba(255,255,255,.6); margin-bottom:4px; }
+    .tas-res-sub strong{ font-size:1.1rem; }
+    .tas-res-msg{ text-align:center; color:rgba(255,255,255,.7); font-size:.86rem; margin:18px 0 0; }
+    @media (max-width:860px){ .tas-grid{ grid-template-columns:1fr; } }
+    @media (max-width:560px){
+      .pa-page-title{ font-size:1.6rem; }
+      .tas-fields{ grid-template-columns:1fr 1fr; }
+      .tas-res-value{ font-size:2.4rem; }
+      .tas-res-sub{ grid-template-columns:1fr; gap:10px; }
+      .tas-ant-head{ display:none; }
+      .tas-ant-row{ grid-template-columns:1fr 1fr; gap:7px; padding:10px; border:1px solid #eef0f3; border-radius:10px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="tp-header">
+    <div class="tp-header-inner">
+      <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
+      <a href="index.html" class="tp-back"><i class="fas fa-arrow-left"></i> Volver</a>
+    </div>
+  </header>
+
+  <div id="tpLoading" class="tp-state"><div class="tp-spinner"></div><p>Verificando sesión...</p></div>
+  <div id="tpAuth" class="tp-state" style="display:none">
+    <i class="fas fa-lock"></i>
+    <h2 id="tpAuthTitle">Acceso para agentes</h2>
+    <p id="tpAuthMsg">Iniciá sesión para usar el tasador.</p>
+    <a href="index.html"><i class="fas fa-arrow-left"></i> Ir al inicio</a>
+  </div>
+
+  <div class="tp-wrap" id="tpContent" style="display:none">
+    <div class="tas-soon-banner"><i class="fas fa-flask"></i> Herramienta en fase de pruebas. Los resultados son orientativos y no sustituyen una tasación profesional.</div>
+    <div class="pa-page-head">
+      <div class="pa-page-ic"><i class="fas fa-calculator"></i></div>
+      <div><h1 class="pa-page-title">Tasador <span class="mv-soon">Beta</span></h1><p class="pa-page-sub">Estimá el valor de un inmueble por el método de regresión, comparándolo con antecedentes de la zona.</p></div>
+    </div>
+    <div class="tas-grid">
+      <div class="tas-card">
+        <h3 class="tas-h3"><span class="tas-step">1</span> Inmueble a tasar</h3>
+        <div class="tas-fields">
+          <div class="tas-f"><label>m² construidos</label><input type="number" id="tasM2" placeholder="99" oninput="calcTasador()"></div>
+          <div class="tas-f"><label>Construcción (1–5)</label><input type="number" id="tasCons" min="1" max="5" placeholder="3" oninput="calcTasador()"></div>
+          <div class="tas-f"><label>Ubicación (1–5)</label><input type="number" id="tasUbi" min="1" max="5" placeholder="3" oninput="calcTasador()"></div>
+        </div>
+        <p class="tas-hint">Asigná a la construcción y a la ubicación un valor del 1 (peor) al 5 (mejor). Si recién empezás, usá del 1 al 3 y reservá los valores altos para diferencias muy notorias.</p>
+      </div>
+      <div class="tas-card">
+        <h3 class="tas-h3"><span class="tas-step">2</span> Antecedentes de la zona <small>(exactamente 4, y deben ser distintos entre sí)</small></h3>
+        <div class="tas-ant-head"><span>m²</span><span>Const.</span><span>Ubic.</span><span>Valor m² (USD)</span><span>Tipo</span></div>
+        <div id="tasAntList"></div>
+        <p class="tas-hint">Para los inmuebles aún <b>en oferta</b> (no vendidos), elegí "Oferta": el sistema asume que se venderá un 15% por debajo del precio publicado (asimilador 0.85).</p>
+      </div>
+    </div>
+    <div class="tas-result" id="tasResult">
+      <div class="tas-res-main"><span class="tas-res-label">Valor estimado del m²</span><span class="tas-res-value" id="tasResValue">—</span></div>
+      <div class="tas-res-sub">
+        <div><span>Valor total estimado</span><strong id="tasResTotal">—</strong></div>
+        <div><span>Rango (90% confianza)</span><strong id="tasResRange">—</strong></div>
+        <div><span>Incertidumbre</span><strong id="tasResUnc">—</strong></div>
+      </div>
+      <p class="tas-res-msg" id="tasResMsg">Completá el inmueble y los 4 antecedentes para ver la estimación en tiempo real.</p>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth(), db = firebase.firestore();
+    const ADMIN_EMAIL = "fabricio9061@gmail.com";
+
+    function tpShow(which) {
+      ['tpLoading', 'tpAuth', 'tpContent'].forEach(id => document.getElementById(id).style.display = 'none');
+      document.getElementById(which).style.display = which === 'tpContent' ? 'block' : 'flex';
+    }
+
+    // ===== Motor de tasación (regresión polinomial, réplica de tasador.xlsx) =====
+    const TAS_ASIM_OFERTA = 0.85;
+    let tasAntecedentes = [
+      { m2: '', cons: '', ubi: '', valor: '', tipo: 'venta' },
+      { m2: '', cons: '', ubi: '', valor: '', tipo: 'venta' },
+      { m2: '', cons: '', ubi: '', valor: '', tipo: 'venta' },
+      { m2: '', cons: '', ubi: '', valor: '', tipo: 'oferta' },
+    ];
+    function renderTasAntecedentes() {
+      document.getElementById('tasAntList').innerHTML = tasAntecedentes.map((a, i) => `<div class="tas-ant-row">
+        <input type="number" placeholder="m²" value="${a.m2}" oninput="tasSet(${i},'m2',this.value)">
+        <input type="number" min="1" max="5" placeholder="1-5" value="${a.cons}" oninput="tasSet(${i},'cons',this.value)">
+        <input type="number" min="1" max="5" placeholder="1-5" value="${a.ubi}" oninput="tasSet(${i},'ubi',this.value)">
+        <input type="number" placeholder="USD/m²" value="${a.valor}" oninput="tasSet(${i},'valor',this.value)">
+        <select onchange="tasSet(${i},'tipo',this.value)"><option value="venta" ${a.tipo==='venta'?'selected':''}>Vendido</option><option value="oferta" ${a.tipo==='oferta'?'selected':''}>Oferta</option></select>
+      </div>`).join('');
+    }
+    function tasSet(i, campo, val) { tasAntecedentes[i][campo] = val; calcTasador(); }
+
+    // Inversa de matriz NxN por Gauss-Jordan (null si es singular)
+    function tasInvert(M) {
+      const n = M.length;
+      const A = M.map((row, i) => row.concat(Array.from({ length: n }, (_, j) => (i === j ? 1 : 0))));
+      for (let col = 0; col < n; col++) {
+        let piv = col;
+        for (let r = col + 1; r < n; r++) if (Math.abs(A[r][col]) > Math.abs(A[piv][col])) piv = r;
+        if (Math.abs(A[piv][col]) < 1e-12) return null;
+        [A[col], A[piv]] = [A[piv], A[col]];
+        const d = A[col][col];
+        for (let j = 0; j < 2 * n; j++) A[col][j] /= d;
+        for (let r = 0; r < n; r++) {
+          if (r === col) continue;
+          const f = A[r][col];
+          for (let j = 0; j < 2 * n; j++) A[r][j] -= f * A[col][j];
+        }
+      }
+      return A.map(row => row.slice(n));
+    }
+    function calcTasador() {
+      const num = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+      const bM2 = num(document.getElementById('tasM2').value);
+      const bCons = num(document.getElementById('tasCons').value);
+      const bUbi = num(document.getElementById('tasUbi').value);
+      const res = document.getElementById('tasResult');
+      const setMsg = t => { document.getElementById('tasResMsg').textContent = t; };
+      const clearOut = () => {
+        document.getElementById('tasResValue').textContent = '—';
+        document.getElementById('tasResTotal').textContent = '—';
+        document.getElementById('tasResRange').textContent = '—';
+        document.getElementById('tasResUnc').textContent = '—';
+        res.classList.remove('ok');
+      };
+      const ants = tasAntecedentes.map(a => ({ m2: num(a.m2), cons: num(a.cons), ubi: num(a.ubi), valor: num(a.valor), tipo: a.tipo }));
+      if (ants.some(a => a.m2 === null || a.cons === null || a.ubi === null || a.valor === null)) {
+        clearOut(); setMsg('Completá el inmueble y los 4 antecedentes (m², construcción, ubicación y valor del m²) para ver la estimación en tiempo real.'); return;
+      }
+      if (bM2 === null || bCons === null || bUbi === null) { clearOut(); setMsg('Completá los datos del inmueble a tasar.'); return; }
+      const A = ants.map(a => [1, a.m2, a.cons, a.ubi]);
+      const Y = ants.map(a => a.tipo === 'oferta' ? a.valor * TAS_ASIM_OFERTA : a.valor);
+      const inv = tasInvert(A);
+      if (!inv) { clearOut(); setMsg('Los antecedentes son incongruentes (matriz singular): tienen que ser distintos entre sí. Cambiá m², construcción o ubicación para que no se repitan combinaciones idénticas.'); return; }
+      const K = inv.map(row => row.reduce((s, v, j) => s + v * Y[j], 0));
+      const valorTasado = K[0] + K[1] * bM2 + K[2] * bCons + K[3] * bUbi;
+      if (!isFinite(valorTasado) || valorTasado <= 0) { clearOut(); setMsg('El resultado no es válido con estos datos. Revisá los antecedentes.'); return; }
+      const estim = ants.map(a => K[0] + K[1] * a.m2 + K[2] * a.cons + K[3] * a.ubi);
+      const mean = estim.reduce((s, v) => s + v, 0) / estim.length;
+      const variance = estim.reduce((s, v) => s + (v - mean) ** 2, 0) / (estim.length - 1);
+      const stdev = Math.sqrt(Math.max(variance, 0));
+      const incert = 0.01 + 0.03 + (stdev * 1.177) / mean;
+      const minV = mean - incert * mean, maxV = mean + incert * mean;
+      const fmt = n => 'USD ' + Math.round(n).toLocaleString('es-UY');
+      document.getElementById('tasResValue').textContent = fmt(valorTasado);
+      document.getElementById('tasResTotal').textContent = fmt(valorTasado * bM2);
+      document.getElementById('tasResRange').textContent = fmt(minV) + ' – ' + fmt(maxV);
+      document.getElementById('tasResUnc').textContent = (incert * 100).toFixed(1) + '%';
+      res.classList.add('ok');
+      setMsg(incert > 0.051
+        ? '⚠️ La incertidumbre supera el 5,1%: los antecedentes son dispares. Buscá comparables más parecidos entre sí para una estimación más confiable.'
+        : 'Estimación orientativa basada en los 4 antecedentes cargados. El valor por m² es el dato principal.');
+    }
+
+    auth.onAuthStateChanged(async u => {
+      if (!u) { tpShow('tpAuth'); return; }
+      let prof = {};
+      try { const d = await db.collection('users').doc(u.uid).get(); prof = d.exists ? d.data() : {}; } catch (e) { prof = {}; }
+      const isAdmin = (prof.email || u.email || '').toLowerCase() === ADMIN_EMAIL;
+      if (prof.status !== 'approved' && !isAdmin) {
+        document.getElementById('tpAuthTitle').textContent = 'Cuenta pendiente';
+        document.getElementById('tpAuthMsg').textContent = 'Tu cuenta está pendiente de aprobación.';
+        tpShow('tpAuth'); return;
+      }
+      tpShow('tpContent');
+      renderTasAntecedentes();
+      calcTasador();
+    });
+  </script>
+</body>
+</html>
