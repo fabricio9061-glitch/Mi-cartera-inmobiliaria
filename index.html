@@ -130,6 +130,56 @@
     .notification-dropdown{ z-index: 2000 !important; }
     @media (prefers-reduced-motion: reduce){ .mv-hero-media img, .mv-why-card, .mv-search-btn{ transition:none; } }
   </style>
+  <style>
+    /* ===== Páginas Cuentas/herramientas y Tasador ===== */
+    .pa-page-head{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
+    .pa-page-ic{ width:56px; height:56px; border-radius:15px; background:linear-gradient(135deg,#101d30,var(--primary,#16273f)); color:var(--accent,#C9A227); display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex:0 0 auto; }
+    .pa-page-title{ font-family:'Cormorant Garamond',serif; font-size:2rem; color:var(--primary,#16273f); margin:0; font-weight:700; }
+    .pa-page-sub{ color:var(--gray-500,#8a8a8a); margin:4px 0 0; font-size:.92rem; max-width:560px; }
+    .pa-page-head .btn-new-client{ margin-left:auto; }
+    .pa-search-row{ display:flex; gap:12px; margin-bottom:22px; flex-wrap:wrap; }
+    .pa-search{ flex:1; min-width:220px; position:relative; }
+    .pa-search i{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--gray-400,#aaa); }
+    .pa-search input{ width:100%; padding:12px 14px 12px 40px; border:1px solid var(--gray-200,#e3e6ea); border-radius:11px; font-family:inherit; font-size:.95rem; }
+    .pa-search input:focus{ outline:none; border-color:var(--accent,#C9A227); }
+    .pa-filter{ border:1px solid var(--gray-200,#e3e6ea); border-radius:11px; padding:12px 14px; font-family:inherit; font-size:.95rem; background:#fff; }
+    #portalAccountsPageList{ display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:16px; align-items:start; }
+    #portalAccountsPageList .mv-pa-cat{ grid-column:1/-1; }
+    /* Tasador */
+    .tas-soon-banner{ background:#fff7e6; border:1px solid #ffe2b0; color:#8a5a00; border-radius:12px; padding:12px 16px; font-size:.88rem; margin-bottom:20px; display:flex; align-items:center; gap:10px; }
+    .tas-grid{ display:grid; grid-template-columns:1fr 1.3fr; gap:18px; align-items:start; }
+    .tas-card{ background:#fff; border:1px solid var(--gray-200,#e3e6ea); border-radius:16px; padding:22px; }
+    .tas-h3{ font-size:1.05rem; color:var(--primary,#16273f); margin:0 0 16px; display:flex; align-items:center; gap:10px; }
+    .tas-h3 small{ color:var(--gray-400,#aaa); font-weight:400; font-size:.82rem; }
+    .tas-step{ width:26px; height:26px; border-radius:50%; background:var(--accent,#C9A227); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.85rem; font-weight:700; flex:0 0 auto; }
+    .tas-fields{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .tas-f label{ display:block; font-size:.76rem; color:var(--gray-500,#8a8a8a); margin-bottom:6px; }
+    .tas-f input{ width:100%; padding:10px 11px; border:1px solid var(--gray-200,#e3e6ea); border-radius:9px; font-family:inherit; font-size:.92rem; }
+    .tas-f input:focus{ outline:none; border-color:var(--accent,#C9A227); }
+    .tas-hint{ font-size:.8rem; color:var(--gray-500,#8a8a8a); line-height:1.55; margin:14px 0 0; }
+    .tas-ant-head{ display:grid; grid-template-columns:1fr 1fr 1fr 1.3fr 1.1fr; gap:8px; font-size:.72rem; color:var(--gray-500,#8a8a8a); padding:0 2px 8px; font-weight:600; }
+    .tas-ant-row{ display:grid; grid-template-columns:1fr 1fr 1fr 1.3fr 1.1fr; gap:8px; margin-bottom:8px; }
+    .tas-ant-row input, .tas-ant-row select{ width:100%; padding:9px; border:1px solid var(--gray-200,#e3e6ea); border-radius:8px; font-family:inherit; font-size:.88rem; }
+    .tas-ant-row input:focus, .tas-ant-row select:focus{ outline:none; border-color:var(--accent,#C9A227); }
+    .tas-result{ background:linear-gradient(135deg,#101d30,var(--primary,#16273f)); color:#fff; border-radius:16px; padding:26px; margin-top:18px; }
+    .tas-res-main{ display:flex; flex-direction:column; align-items:center; padding-bottom:18px; border-bottom:1px solid rgba(255,255,255,.12); }
+    .tas-res-label{ font-size:.82rem; color:rgba(255,255,255,.6); letter-spacing:.05em; text-transform:uppercase; }
+    .tas-res-value{ font-family:'Cormorant Garamond',serif; font-size:3rem; font-weight:700; color:var(--accent,#C9A227); line-height:1.1; margin-top:6px; }
+    .tas-res-sub{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:18px; text-align:center; }
+    .tas-res-sub span{ display:block; font-size:.76rem; color:rgba(255,255,255,.6); margin-bottom:4px; }
+    .tas-res-sub strong{ font-size:1.1rem; }
+    .tas-res-msg{ text-align:center; color:rgba(255,255,255,.7); font-size:.86rem; margin:18px 0 0; }
+    @media (max-width:860px){ .tas-grid{ grid-template-columns:1fr; } }
+    @media (max-width:560px){
+      .pa-page-title{ font-size:1.6rem; }
+      #portalAccountsPageList{ grid-template-columns:1fr; }
+      .tas-fields{ grid-template-columns:1fr 1fr; }
+      .tas-res-value{ font-size:2.4rem; }
+      .tas-res-sub{ grid-template-columns:1fr; gap:10px; }
+      .tas-ant-head{ display:none; }
+      .tas-ant-row{ grid-template-columns:1fr 1fr; gap:7px; padding:10px; border:1px solid var(--gray-100,#eef0f3); border-radius:10px; }
+    }
+  </style>
 </head>
 <body>
   <div class="toast-container" id="toastContainer"></div>
@@ -225,6 +275,55 @@
     </div>
     <div class="crm-grid" id="crmGrid"></div>
     <button style="margin-top:28px" class="btn-secondary" onclick="showHome()"><i class="fas fa-arrow-left"></i> Volver</button>
+  </section></main>
+
+  <!-- ====== PÁGINA: CUENTAS Y HERRAMIENTAS ====== -->
+  <main id="portalAccountsPage" class="hidden"><section class="container" style="padding-top:32px;padding-bottom:60px">
+    <button class="btn-secondary" style="margin-bottom:18px" onclick="showHome()"><i class="fas fa-arrow-left"></i> Volver</button>
+    <div class="pa-page-head">
+      <div class="pa-page-ic"><i class="fas fa-key"></i></div>
+      <div><h1 class="pa-page-title">Cuentas y herramientas</h1><p class="pa-page-sub">Usuarios y contraseñas de las cuentas oficiales de la inmobiliaria: portales, herramientas de diseño e IA, y más.</p></div>
+      <button class="btn-new-client hidden" id="paPageAdd" onclick="openEditPortal()"><i class="fas fa-plus"></i> Agregar cuenta</button>
+    </div>
+    <div class="pa-search-row"><div class="pa-search"><i class="fas fa-search"></i><input type="text" id="paSearch" placeholder="Buscar cuenta o herramienta..." oninput="renderPortalAccountsPage()"></div>
+      <select class="pa-filter" id="paFilter" onchange="renderPortalAccountsPage()"><option value="">Todas las categorías</option><option value="portal">Portales inmobiliarios</option><option value="herramienta">Herramientas</option><option value="otro">Otros</option></select></div>
+    <div id="portalAccountsPageList"></div>
+  </section></main>
+
+  <!-- ====== PÁGINA: TASADOR ====== -->
+  <main id="tasadorPage" class="hidden"><section class="container" style="padding-top:32px;padding-bottom:60px">
+    <button class="btn-secondary" style="margin-bottom:18px" onclick="showHome()"><i class="fas fa-arrow-left"></i> Volver</button>
+    <div class="tas-soon-banner"><i class="fas fa-flask"></i> Herramienta en fase de pruebas. Los resultados son orientativos y no sustituyen una tasación profesional.</div>
+    <div class="pa-page-head">
+      <div class="pa-page-ic"><i class="fas fa-calculator"></i></div>
+      <div><h1 class="pa-page-title">Tasador <span class="mv-soon">Beta</span></h1><p class="pa-page-sub">Estimá el valor de un inmueble por el método de regresión, comparándolo con antecedentes de la zona.</p></div>
+    </div>
+    <div class="tas-grid">
+      <div class="tas-card">
+        <h3 class="tas-h3"><span class="tas-step">1</span> Inmueble a tasar</h3>
+        <div class="tas-fields">
+          <div class="tas-f"><label>m² construidos</label><input type="number" id="tasM2" placeholder="99" oninput="calcTasador()"></div>
+          <div class="tas-f"><label>Construcción (1–5)</label><input type="number" id="tasCons" min="1" max="5" placeholder="3" oninput="calcTasador()"></div>
+          <div class="tas-f"><label>Ubicación (1–5)</label><input type="number" id="tasUbi" min="1" max="5" placeholder="3" oninput="calcTasador()"></div>
+        </div>
+        <p class="tas-hint">Asigná a la construcción y a la ubicación un valor del 1 (peor) al 5 (mejor). Si recién empezás, usá del 1 al 3 y reservá los valores altos para diferencias muy notorias.</p>
+      </div>
+      <div class="tas-card">
+        <h3 class="tas-h3"><span class="tas-step">2</span> Antecedentes de la zona <small>(exactamente 4)</small></h3>
+        <div class="tas-ant-head"><span>m²</span><span>Const.</span><span>Ubic.</span><span>Valor m² (USD)</span><span>Tipo</span></div>
+        <div id="tasAntList"></div>
+        <p class="tas-hint">Para los inmuebles aún <b>en oferta</b> (no vendidos), elegí "Oferta": el sistema asume que se venderá un 15% por debajo del precio publicado (asimilador 0.85).</p>
+      </div>
+    </div>
+    <div class="tas-result" id="tasResult">
+      <div class="tas-res-main"><span class="tas-res-label">Valor estimado del m²</span><span class="tas-res-value" id="tasResValue">—</span></div>
+      <div class="tas-res-sub">
+        <div><span>Valor total estimado</span><strong id="tasResTotal">—</strong></div>
+        <div><span>Rango (90% confianza)</span><strong id="tasResRange">—</strong></div>
+        <div><span>Incertidumbre</span><strong id="tasResUnc">—</strong></div>
+      </div>
+      <p class="tas-res-msg" id="tasResMsg">Completá el inmueble y los 4 antecedentes para ver la estimación.</p>
+    </div>
   </section></main>
 
   <main id="clientProfilePage" class="hidden"><section class="crm-panel container">
@@ -431,11 +530,10 @@
     </div>
     <nav class="mv-side-nav">
       <button class="mv-side-item" onclick="closeSideMenu();showMyProfile()"><i class="fas fa-user"></i> Mi Perfil</button>
-      <button class="mv-side-item" onclick="closeSideMenu();openEditProfileModal()"><i class="fas fa-edit"></i> Editar Perfil</button>
       <button class="mv-side-item" onclick="closeSideMenu();openCalendarModal()"><i class="fas fa-calendar-alt"></i> Mi Agenda</button>
       <button class="mv-side-item" onclick="closeSideMenu();showCRM()"><i class="fas fa-address-book"></i> Clientes</button>
-      <button class="mv-side-item" onclick="closeSideMenu();openPortalAccounts()"><i class="fas fa-key"></i> Cuentas y herramientas</button>
-      <button class="mv-side-item" onclick="mvTasador()"><i class="fas fa-calculator"></i> Tasador <span class="mv-soon">Próximamente</span></button>
+      <button class="mv-side-item" onclick="closeSideMenu();showPortalAccounts()"><i class="fas fa-key"></i> Cuentas y herramientas</button>
+      <button class="mv-side-item" onclick="closeSideMenu();showTasador()"><i class="fas fa-calculator"></i> Tasador <span class="mv-soon">Próximamente</span></button>
       <button class="mv-side-item mv-side-admin hidden" id="mvSideAdmin" onclick="closeSideMenu();showAdmin()"><i class="fas fa-shield-halved"></i> Panel de Administración</button>
       <div class="mv-side-sep"></div>
       <button class="mv-side-item mv-side-out" onclick="closeSideMenu();logout()"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
