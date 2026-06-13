@@ -3272,11 +3272,40 @@
     }
 
     @media(max-width:768px) {
-        .nav {
-            width: 100%;
-            justify-content: center;
+        /* ===== HEADER: una sola fila compacta, sin desbordes ===== */
+        .header-content {
+            flex-wrap: nowrap;
             gap: 8px;
-            flex-wrap: wrap
+            padding: 10px 0
+        }
+
+        .logo-img {
+            height: 30px
+        }
+
+        .logo-text {
+            height: 16px;
+            margin-top: 3px
+        }
+
+        .nav {
+            width: auto;
+            justify-content: flex-end;
+            gap: 6px;
+            flex-wrap: nowrap;
+            flex: 0 0 auto
+        }
+
+        /* En celular se navega por el menú lateral: ocultamos los enlaces de texto */
+        #nav-guest a,
+        #nav-user a {
+            display: none
+        }
+
+        /* El botón de acceso solo lo ve el visitante (no logueado) */
+        #nav-guest .agent-access {
+            padding: 8px 13px;
+            font-size: 12px
         }
 
         .nav a {
@@ -3394,11 +3423,30 @@
         }
 
         .user-info {
-            gap: 8px
+            gap: 6px;
+            padding: 4px 8px 4px 4px;
+            flex: 0 0 auto
         }
 
         .user-info span:not(.admin-badge) {
             display: none
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px
+        }
+
+        .admin-badge {
+            font-size: 10px;
+            padding: 3px 8px
+        }
+
+        .calendar-btn,
+        .notification-bell {
+            width: 38px;
+            height: 38px;
+            flex: 0 0 auto
         }
 
         .user-dropdown {
@@ -3415,6 +3463,113 @@
 
         .logo {
             font-size: 20px
+        }
+
+        /* ===== HERO v2 en celular: foto como banda superior, stats en fila ===== */
+        .mv-hero-grid {
+            display: block
+        }
+
+        .mv-hero-copy {
+            padding: 24px 0 22px;
+            position: relative;
+            z-index: 1
+        }
+
+        .mv-hero-copy h1 {
+            font-size: 30px
+        }
+
+        .mv-hero-copy>p {
+            font-size: 15px
+        }
+
+        .mv-hero-deco {
+            display: none
+        }
+
+        .mv-hero-media {
+            display: block;
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 52%;
+            height: 220px;
+            z-index: 0
+        }
+
+        .mv-hero-media::after {
+            background: linear-gradient(90deg, var(--primary) 0%, rgba(36, 52, 71, .4) 40%, transparent 80%), linear-gradient(to bottom, transparent 55%, var(--primary) 100%)
+        }
+
+        .mv-hero-media img {
+            -webkit-mask-image: linear-gradient(to right, transparent 0, #000 55%);
+            mask-image: linear-gradient(to right, transparent 0, #000 55%)
+        }
+
+        /* Stats: fila horizontal de 3 píldoras parejas */
+        .mv-hero-stats {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            gap: 8px;
+            margin-top: 16px
+        }
+
+        .mv-stat {
+            flex: 1 1 0;
+            min-width: 0;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 7px;
+            background: rgba(255, 255, 255, .06);
+            border: 1px solid rgba(255, 255, 255, .14);
+            border-radius: 14px;
+            padding: 12px 6px
+        }
+
+        .mv-stat-sep {
+            display: none
+        }
+
+        .mv-stat-ic {
+            width: 34px;
+            height: 34px;
+            font-size: 14px
+        }
+
+        .mv-stat-num {
+            font-size: 21px
+        }
+
+        .mv-stat-lbl {
+            font-size: 10.5px;
+            line-height: 1.15
+        }
+
+        /* Buscador: campos apilados y botón dorado a lo ancho */
+        .mv-search {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 13px;
+            padding: 18px 16px
+        }
+
+        .mv-field,
+        .mv-field.grow {
+            flex: 1 1 100%;
+            width: 100%
+        }
+
+        .mv-search-btn {
+            width: 100%;
+            justify-content: center;
+            background: var(--gold);
+            color: #fff;
+            font-weight: 600;
+            padding: 15px;
+            font-size: 16px
         }
 
         .detail-modal .modal-content {
