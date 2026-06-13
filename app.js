@@ -1387,6 +1387,15 @@
     document.getElementById('profileEmail').textContent = ud.email || '';
     document.getElementById('profileBio').textContent = ud.bio || '';
     document.getElementById('profileBio').style.display = ud.bio ? 'block' : 'none';
+    // Campos nuevos del perfil v2 (con valores por defecto elegantes si están vacíos)
+    const rol = ud.role || 'Asesor Inmobiliario';
+    document.getElementById('profileRole').textContent = rol.toUpperCase();
+    document.getElementById('profileLocation').textContent = ud.location || 'Montevideo, Uruguay';
+    const ael = document.getElementById('profileAboutText');
+    if (ael) {
+      const about = ud.about || ud.bio || '';
+      ael.innerHTML = about ? about.split(/\n+/).filter(Boolean).map(p => `<p>${p.replace(/</g, '&lt;')}</p>`).join('') : '<p style="color:var(--gray-400,#aaa)">Este asesor todavía no agregó una descripción.</p>';
+    }
     const i = (ud.name || 'U').charAt(0).toUpperCase();
     document.getElementById('profileAvatar').innerHTML = ud.profilePhoto ? `<img src="${ud.profilePhoto}" alt="">` : i;
     const ip = currentUser && currentUser.uid === ui;
@@ -1394,19 +1403,46 @@
     document.getElementById('btnEditProfile').classList.toggle('hidden', !ip);
     const wab = document.getElementById('btnContactWhatsapp');
     if (wab) wab.classList.toggle('hidden', ip || !ud.whatsapp);
+    const emw = document.getElementById('profileEmailWrap');
+    if (emw) emw.style.display = ud.email ? 'inline-flex' : 'none';
     document.getElementById('profileSocialLinks').innerHTML = renderSocialLinks(ud);
     const up = properties.filter(p => p.ownerId === ui),
       tv = up.reduce((s, p) => s + (p.views || 0), 0);
     document.getElementById('profilePropertiesCount').textContent = up.length;
     document.getElementById('profileViewsCount').textContent = tv;
+    const salesEl = document.getElementById('profileSalesCount');
+    if (salesEl) salesEl.textContent = (ud.salesCount != null ? ud.salesCount : up.filter(p => ['sold', 'rented'].includes(p.status)).length);
     document.getElementById('profilePropertiesSubtitle').textContent = `${up.length} propiedades`;
     document.getElementById('btnNewPropertyProfile')?.classList.toggle('hidden', !ip);
+    renderProfileTestimonials(ud);
     renderProperties(up, 'profilePropertiesGrid');
     document.getElementById('mainContent').classList.add('hidden');
     document.getElementById('adminPanel').classList.add('hidden');
     document.getElementById('crmPage').classList.add('hidden');
     document.getElementById('clientProfilePage')?.classList.add('hidden');
     document.getElementById('profilePage').classList.remove('hidden')
+  }
+
+  // Testimonios del perfil: usa ud.testimonials si existen; si no, uno por defecto.
+  let pf2TestiIdx = 0, pf2TestiTimer = null;
+  function renderProfileTestimonials(ud) {
+    const cont = document.getElementById('pf2TestiText');
+    if (!cont) return;
+    let list = Array.isArray(ud.testimonials) && ud.testimonials.length ? ud.testimonials : [
+      { t: 'Nos acompañó en todo el proceso con profesionalismo y cercanía. Encontramos justo lo que buscábamos. 100% recomendable.', n: 'Valeria G.', r: 'Compradora en Punta Carretas' }
+    ];
+    clearInterval(pf2TestiTimer); pf2TestiIdx = 0;
+    const show = j => {
+      const x = list[j]; if (!x) return; pf2TestiIdx = j;
+      document.getElementById('pf2TestiText').textContent = '"' + (x.t || x.text || '') + '"';
+      document.getElementById('pf2TestiName').textContent = x.n || x.name || '';
+      document.getElementById('pf2TestiRole').textContent = x.r || x.role || '';
+      document.getElementById('pf2TestiAv').textContent = (x.n || x.name || 'C').trim().charAt(0).toUpperCase();
+      document.getElementById('pf2TestiDots').innerHTML = list.map((_, k) => `<span class="${k === j ? 'on' : ''}" onclick="pf2GoTesti(${k})"></span>`).join('');
+    };
+    window.pf2GoTesti = show;
+    show(0);
+    if (list.length > 1) pf2TestiTimer = setInterval(() => show((pf2TestiIdx + 1) % list.length), 7000);
   }
 
   function showMyProfile() {
@@ -1467,7 +1503,9 @@
     document.getElementById('editProfileError').classList.add('hidden');
     document.getElementById('editProfileSuccess').classList.add('hidden');
     document.getElementById('editName').value = userProfile.name || '';
+    document.getElementById('editLocation').value = userProfile.location || '';
     document.getElementById('editBio').value = userProfile.bio || '';
+    document.getElementById('editAbout').value = userProfile.about || '';
     document.getElementById('editWhatsapp').value = userProfile.whatsapp || '';
     document.getElementById('editInstagram').value = userProfile.instagram || '';
     document.getElementById('editFacebook').value = userProfile.facebook || '';
@@ -1493,7 +1531,9 @@
     try {
       const updateData = {
         name: document.getElementById('editName').value.trim(),
+        location: document.getElementById('editLocation').value.trim(),
         bio: document.getElementById('editBio').value.trim(),
+        about: document.getElementById('editAbout').value.trim(),
         whatsapp: document.getElementById('editWhatsapp').value.trim(),
         instagram: document.getElementById('editInstagram').value.trim(),
         facebook: document.getElementById('editFacebook').value.trim(),
@@ -1824,7 +1864,7 @@
           id: d.id,
           ...d.data()
         }));
-        c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${u.profilePhoto}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${u.name||'Sin nombre'} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${u.email||''}</p><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="showProfile('${u.id}')"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
+        c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${u.profilePhoto}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${u.name||'Sin nombre'} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${u.email||''}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${u.role||'Asesor Inmobiliario'}</small><br><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="setUserRole('${u.id}')" title="Asignar cargo"><i class="fas fa-id-badge"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
       } else if (tb === 'properties') {
         c.innerHTML = properties.length === 0 ? '<div class="empty-state"><i class="fas fa-building"></i><h3>Sin propiedades</h3></div>' : properties.map(p => {
           const o = getOwnerInfo(p),
@@ -1844,6 +1884,23 @@
     } catch (err) {
       console.error('Error panel admin:', err);
       c.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i><h3>Error al cargar</h3><p style="color:var(--gray-500);margin-top:8px">${err.message}</p></div>`
+    }
+  }
+  // El cargo/título es oficial de la inmobiliaria: SOLO el admin lo asigna.
+  async function setUserRole(id) {
+    if (!isAdminUser()) { showToast('Solo administradores', 'Solo el administrador puede asignar cargos.', 'fa-lock'); return; }
+    const actual = (allUsers[id] && allUsers[id].role) || '';
+    const nuevo = prompt('Cargo / título para este agente (aparece en su perfil):\nEj: CEO, Asesor Inmobiliario, Asesora Senior, Corredor Público', actual || 'Asesor Inmobiliario');
+    if (nuevo === null) return; // canceló
+    const role = nuevo.trim();
+    try {
+      await db.collection('users').doc(id).update({ role: role });
+      if (allUsers[id]) allUsers[id].role = role;
+      if (currentProfileUserId === id) showProfile(id); // refrescar si está abierto su perfil
+      showAdminTab('users');
+      showToast('Cargo actualizado', role ? `Ahora figura como "${role}".` : 'Se quitó el cargo.', 'fa-id-badge');
+    } catch (e) {
+      showToast('Error', 'No se pudo guardar el cargo: ' + (e.message || e), 'fa-triangle-exclamation');
     }
   }
   async function approveUser(id) {

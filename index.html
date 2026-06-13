@@ -199,15 +199,135 @@
   </main>
 
   <main id="profilePage" class="hidden">
-    <div class="profile-header"><div class="container"><div class="profile-header-content">
-      <div class="profile-avatar-container"><div class="profile-avatar" id="profileAvatar">U</div><div class="profile-avatar-edit hidden" id="profileAvatarEdit" onclick="document.getElementById('profilePhotoInput').click()"><i class="fas fa-camera"></i></div><input type="file" id="profilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhotoChange(event)"></div>
-      <div class="profile-info"><h1 id="profileName">Usuario</h1><p id="profileEmail"></p><p class="profile-bio" id="profileBio"></p><div class="profile-stats"><div class="profile-stat"><div class="profile-stat-number" id="profilePropertiesCount">0</div><div class="profile-stat-label">Propiedades</div></div><div class="profile-stat"><div class="profile-stat-number" id="profileViewsCount">0</div><div class="profile-stat-label">Vistas totales</div></div></div>
-        <div class="profile-social-links" id="profileSocialLinks"></div>
-        <div class="profile-share"><button class="profile-btn profile-btn-whatsapp hidden" id="btnContactWhatsapp" onclick="contactAgentWhatsapp()"><i class="fab fa-whatsapp"></i> Contactar</button><button class="profile-btn" onclick="copyProfileLink()"><i class="fas fa-link"></i> Copiar enlace</button><button class="profile-btn" onclick="shareProfileWhatsapp()"><i class="fas fa-share-alt"></i> Compartir</button><button class="profile-btn profile-btn-edit hidden" id="btnEditProfile" onclick="openEditProfileModal()"><i class="fas fa-edit"></i> Editar Perfil</button></div>
+    <div class="pf2-hero">
+      <div class="container pf2-hero-inner">
+        <div class="profile-avatar-container pf2-av-wrap">
+          <div class="profile-avatar pf2-avatar" id="profileAvatar">U</div>
+          <div class="profile-avatar-edit pf2-av-edit hidden" id="profileAvatarEdit" onclick="document.getElementById('profilePhotoInput').click()"><i class="fas fa-camera"></i></div>
+          <input type="file" id="profilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhotoChange(event)">
+        </div>
+        <div class="pf2-info">
+          <div class="pf2-role" id="profileRole">ASESOR INMOBILIARIO</div>
+          <h1 id="profileName" class="pf2-name">Usuario</h1>
+          <p class="pf2-bio" id="profileBio"></p>
+          <div class="pf2-meta">
+            <span class="pf2-meta-item" id="profileEmailWrap"><i class="far fa-envelope"></i> <span id="profileEmail"></span></span>
+            <span class="pf2-meta-item" id="profileLocationWrap"><i class="fas fa-location-dot"></i> <span id="profileLocation">Montevideo, Uruguay</span></span>
+          </div>
+          <div class="pf2-stats">
+            <div class="pf2-stat"><div class="pf2-stat-ic"><i class="fas fa-house"></i></div><div><div class="pf2-stat-num" id="profilePropertiesCount">0</div><div class="pf2-stat-lbl">Propiedades<br>publicadas</div></div></div>
+            <div class="pf2-stat"><div class="pf2-stat-ic"><i class="fas fa-tag"></i></div><div><div class="pf2-stat-num" id="profileSalesCount">0</div><div class="pf2-stat-lbl">Ventas<br>realizadas</div></div></div>
+            <div class="pf2-stat"><div class="pf2-stat-ic"><i class="fas fa-eye"></i></div><div><div class="pf2-stat-num" id="profileViewsCount">0</div><div class="pf2-stat-lbl">Visitas<br>este mes</div></div></div>
+          </div>
+          <div class="pf2-actions">
+            <button class="pf2-btn pf2-btn-primary hidden" id="btnContactWhatsapp" onclick="contactAgentWhatsapp()"><i class="fab fa-whatsapp"></i> Contactar</button>
+            <button class="pf2-btn pf2-btn-ghost" onclick="shareProfileWhatsapp()"><i class="fas fa-share-nodes"></i> Compartir perfil</button>
+            <button class="pf2-btn pf2-btn-ghost" onclick="copyProfileLink()"><i class="fas fa-link"></i> Copiar enlace</button>
+            <button class="pf2-btn pf2-btn-ghost pf2-btn-edit hidden" id="btnEditProfile" onclick="openEditProfileModal()"><i class="fas fa-pen"></i> Editar perfil</button>
+          </div>
+          <div class="profile-social-links pf2-social" id="profileSocialLinks"></div>
+        </div>
       </div>
-    </div></div></div>
-    <div class="container"><div class="section-header"><div><h2 class="section-title">Propiedades de <span id="profileNameTitle">Usuario</span></h2><p class="section-subtitle" id="profilePropertiesSubtitle">0 propiedades</p></div></div><div class="properties-grid" id="profilePropertiesGrid"></div><div style="text-align:center;margin-top:20px"><button class="btn-secondary" onclick="showHome()" style="padding:12px 24px"><i class="fas fa-arrow-left"></i> Volver al inicio</button></div></div>
+    </div>
+
+    <div class="container">
+      <div class="section-header mv-sec-head" style="margin-top:42px">
+        <div><h2 class="section-title">Propiedades destacadas</h2><p class="section-subtitle" id="profilePropertiesSubtitle">0 propiedades</p></div>
+        <span style="display:none" id="profileNameTitle">Usuario</span>
+      </div>
+      <div class="properties-grid" id="profilePropertiesGrid"></div>
+      <button class="hidden" id="btnNewPropertyProfile" onclick="openPropertyFormTab()"></button>
+
+      <div class="pf2-cols">
+        <div class="pf2-about">
+          <h2 class="pf2-h2">Sobre mí</h2>
+          <div class="pf2-about-text" id="profileAboutText"></div>
+          <div class="pf2-services">
+            <div class="pf2-service"><i class="fas fa-house-user"></i><span>Asesoramiento Personalizado</span></div>
+            <div class="pf2-service"><i class="fas fa-chart-line"></i><span>Análisis de Mercado</span></div>
+            <div class="pf2-service"><i class="fas fa-bullhorn"></i><span>Marketing Inmobiliario</span></div>
+            <div class="pf2-service"><i class="fas fa-handshake"></i><span>Negociación Efectiva</span></div>
+          </div>
+        </div>
+        <div class="pf2-testi-wrap">
+          <h2 class="pf2-h2">Testimonios</h2>
+          <div class="pf2-testi">
+            <i class="fas fa-quote-left pf2-testi-q"></i>
+            <p id="pf2TestiText"></p>
+            <div class="pf2-testi-who"><div class="pf2-testi-av" id="pf2TestiAv">V</div><div><strong id="pf2TestiName"></strong><span id="pf2TestiRole"></span></div><div class="pf2-testi-stars">★★★★★</div></div>
+            <div class="pf2-testi-dots" id="pf2TestiDots"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="text-align:center;margin:36px 0 60px"><button class="btn-secondary" onclick="showHome()" style="padding:12px 24px"><i class="fas fa-arrow-left"></i> Volver al inicio</button></div>
+    </div>
   </main>
+
+  <style>
+    /* ===== Perfil v2 (mockup) ===== */
+    .pf2-hero{ background:linear-gradient(120deg,#0c1726 0%,var(--primary,#16273f) 70%); position:relative; overflow:hidden; }
+    .pf2-hero::after{ content:''; position:absolute; top:0; right:0; width:48%; height:100%; background:url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=900&q=70') center/cover; opacity:.13; -webkit-mask-image:linear-gradient(to right,transparent,#000); mask-image:linear-gradient(to right,transparent,#000); pointer-events:none; }
+    .pf2-hero-inner{ display:grid; grid-template-columns:auto 1fr; gap:40px; align-items:center; padding:54px 24px; position:relative; z-index:1; }
+    .pf2-av-wrap{ position:relative; width:230px; height:230px; flex:0 0 auto; }
+    .pf2-avatar{ width:230px; height:230px; border-radius:50%; border:3px solid var(--accent,#C9A227); overflow:hidden; font-size:4rem; color:#fff; background:rgba(255,255,255,.08); display:flex; align-items:center; justify-content:center; }
+    .pf2-avatar img{ width:100%; height:100%; object-fit:cover; }
+    .pf2-av-edit{ position:absolute; bottom:14px; right:14px; width:46px; height:46px; border-radius:50%; background:var(--primary,#16273f); border:2px solid var(--accent,#C9A227); color:var(--accent,#C9A227); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1rem; }
+    .pf2-role{ color:var(--accent,#C9A227); font-size:.82rem; letter-spacing:.18em; font-weight:600; text-transform:uppercase; margin-bottom:8px; }
+    .pf2-name{ font-family:'Cormorant Garamond',serif; font-size:clamp(2.4rem,4.5vw,3.6rem); color:#fff; font-weight:700; line-height:1.05; margin:0 0 14px; }
+    .pf2-bio{ color:rgba(255,255,255,.8); font-size:.98rem; line-height:1.6; max-width:560px; margin:0 0 18px; }
+    .pf2-meta{ display:flex; gap:26px; flex-wrap:wrap; margin-bottom:24px; }
+    .pf2-meta-item{ color:rgba(255,255,255,.75); font-size:.9rem; display:inline-flex; align-items:center; gap:9px; }
+    .pf2-meta-item i{ color:var(--accent,#C9A227); }
+    .pf2-stats{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom:24px; }
+    .pf2-stat{ display:flex; align-items:center; gap:13px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); border-radius:13px; padding:14px 20px; min-width:170px; }
+    .pf2-stat-ic{ width:42px; height:42px; border-radius:10px; border:1px solid var(--accent,#C9A227); color:var(--accent,#C9A227); display:flex; align-items:center; justify-content:center; font-size:1.05rem; flex:0 0 auto; }
+    .pf2-stat-num{ font-family:'Cormorant Garamond',serif; font-size:1.9rem; font-weight:700; color:#fff; line-height:1; }
+    .pf2-stat-lbl{ color:rgba(255,255,255,.6); font-size:.72rem; line-height:1.25; margin-top:3px; }
+    .pf2-actions{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+    .pf2-btn{ border:none; border-radius:999px; padding:12px 24px; font-family:inherit; font-size:.92rem; font-weight:500; cursor:pointer; display:inline-flex; align-items:center; gap:9px; transition:all .2s; }
+    .pf2-btn-primary{ background:var(--accent,#C9A227); color:var(--primary,#16273f); }
+    .pf2-btn-primary:hover{ filter:brightness(1.08); transform:translateY(-1px); }
+    .pf2-btn-ghost{ background:transparent; color:#fff; border:1px solid rgba(255,255,255,.3); }
+    .pf2-btn-ghost:hover{ border-color:var(--accent,#C9A227); color:var(--accent,#C9A227); }
+    .pf2-social{ display:flex; gap:10px; }
+    .pf2-social a{ width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); color:#fff; display:flex; align-items:center; justify-content:center; transition:all .2s; text-decoration:none; }
+    .pf2-social a:hover{ border-color:var(--accent,#C9A227); color:var(--accent,#C9A227); }
+    .pf2-cols{ display:grid; grid-template-columns:1.4fr 1fr; gap:26px; margin-top:46px; align-items:start; }
+    .pf2-h2{ font-family:'Cormorant Garamond',serif; font-size:1.7rem; color:var(--primary,#16273f); font-weight:700; margin:0 0 18px; }
+    .pf2-about-text{ color:var(--gray-600,#555); font-size:.95rem; line-height:1.7; }
+    .pf2-about-text p{ margin:0 0 14px; }
+    .pf2-services{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-top:26px; }
+    .pf2-service{ text-align:center; }
+    .pf2-service i{ font-size:1.7rem; color:var(--accent,#C9A227); margin-bottom:10px; display:block; }
+    .pf2-service span{ font-size:.78rem; color:var(--primary,#16273f); font-weight:500; line-height:1.3; display:block; }
+    .pf2-testi{ background:#faf6ec; border:1px solid #efe5cd; border-radius:16px; padding:26px; }
+    .pf2-testi-q{ color:var(--accent,#C9A227); font-size:1.5rem; margin-bottom:14px; }
+    .pf2-testi p{ font-family:'Cormorant Garamond',serif; font-size:1.08rem; line-height:1.55; color:var(--primary,#16273f); margin:0 0 18px; }
+    .pf2-testi-who{ display:flex; align-items:center; gap:12px; }
+    .pf2-testi-av{ width:46px; height:46px; border-radius:50%; background:var(--primary,#16273f); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:600; overflow:hidden; flex:0 0 auto; }
+    .pf2-testi-av img{ width:100%; height:100%; object-fit:cover; }
+    .pf2-testi-who strong{ display:block; color:var(--primary,#16273f); font-size:.92rem; }
+    .pf2-testi-who span{ display:block; color:var(--gray-500,#8a8a8a); font-size:.78rem; }
+    .pf2-testi-stars{ margin-left:auto; color:var(--accent,#C9A227); font-size:.9rem; letter-spacing:1px; }
+    .pf2-testi-dots{ display:flex; gap:7px; margin-top:18px; }
+    .pf2-testi-dots span{ width:8px; height:8px; border-radius:50%; background:var(--gray-300,#ddd); cursor:pointer; transition:background .2s; }
+    .pf2-testi-dots span.on{ background:var(--accent,#C9A227); }
+    @media (max-width:900px){
+      .pf2-hero-inner{ grid-template-columns:1fr; justify-items:center; text-align:center; gap:24px; padding:40px 24px; }
+      .pf2-meta, .pf2-stats, .pf2-actions, .pf2-social{ justify-content:center; }
+      .pf2-cols{ grid-template-columns:1fr; }
+      .pf2-hero::after{ display:none; }
+    }
+    @media (max-width:560px){
+      .pf2-av-wrap, .pf2-avatar{ width:160px; height:160px; }
+      .pf2-avatar{ font-size:2.8rem; }
+      .pf2-stat{ min-width:0; flex:1 1 100%; }
+      .pf2-services{ grid-template-columns:1fr 1fr; gap:18px; }
+      .pf2-btn{ flex:1 1 100%; justify-content:center; }
+    }
+  </style>
+
 
   <main id="adminPanel" class="hidden"><section class="admin-panel container">
     <div class="admin-header"><div><h1>Panel de Administración</h1><p style="color:var(--gray-500)">Gestiona usuarios y propiedades</p></div></div>
@@ -336,7 +456,9 @@
     <div id="editProfileSuccess" class="form-success hidden"></div>
     <form onsubmit="handleSaveProfile(event)" id="editProfileForm">
       <div class="form-group"><label>Nombre Completo *</label><input type="text" id="editName" required placeholder="Tu nombre"></div>
-      <div class="form-group"><label>Bio / Descripción</label><textarea id="editBio" rows="2" placeholder="Cuéntanos sobre ti..."></textarea><small>Esta descripción aparecerá en tu perfil público</small></div>
+      <div class="form-group"><label><i class="fas fa-location-dot" style="color:var(--gold,#C9A227)"></i> Ubicación</label><input type="text" id="editLocation" placeholder="Ej: Montevideo, Uruguay"></div>
+      <div class="form-group"><label>Bio / Descripción corta</label><textarea id="editBio" rows="2" placeholder="Frase breve que aparece bajo tu nombre..."></textarea><small>Aparece bajo tu nombre en el encabezado del perfil</small></div>
+      <div class="form-group"><label>Sobre mí (texto largo)</label><textarea id="editAbout" rows="4" placeholder="Contá tu experiencia, enfoque y especialidades. Podés usar varios párrafos."></textarea><small>Aparece en la sección "Sobre mí" de tu perfil</small></div>
       <div class="form-group"><label><i class="fab fa-whatsapp" style="color:#25D366"></i> WhatsApp *</label><input type="tel" id="editWhatsapp" required placeholder="+598 99 123 456"></div>
       <div class="form-group"><label><i class="fab fa-instagram" style="color:#E4405F"></i> Instagram</label><input type="url" id="editInstagram" placeholder="https://instagram.com/tu_usuario"></div>
       <div class="form-group"><label><i class="fab fa-facebook" style="color:#1877F2"></i> Facebook</label><input type="url" id="editFacebook" placeholder="https://facebook.com/tu_usuario"></div>
