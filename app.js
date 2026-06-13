@@ -824,25 +824,25 @@
       hb = document.getElementById('heroButtons'),
       bnp = document.getElementById('btnNewProperty');
     if (currentUser && userProfile) {
-      ng.classList.add('hidden');
-      nu.classList.remove('hidden');
-      hb.classList.add('hidden');
+      ng?.classList.add('hidden');
+      nu?.classList.remove('hidden');
+      hb?.classList.add('hidden');
       bnp?.classList.remove('hidden');
-      un.textContent = userProfile.name || 'Usuario';
+      if (un) un.textContent = userProfile.name || 'Usuario';
       const i = (userProfile.name || 'U').charAt(0).toUpperCase();
-      ua.innerHTML = userProfile.profilePhoto ? `<img src="${userProfile.profilePhoto}" alt="">` : i;
-      if (userProfile.email.toLowerCase() === ADMIN_EMAIL) {
-        ab.classList.remove('hidden');
-        abt.classList.remove('hidden')
+      if (ua) ua.innerHTML = userProfile.profilePhoto ? `<img src="${userProfile.profilePhoto}" alt="">` : i;
+      if ((userProfile.email || '').toLowerCase() === ADMIN_EMAIL) {
+        ab?.classList.remove('hidden');
+        abt?.classList.remove('hidden')
       } else {
-        ab.classList.add('hidden');
-        abt.classList.add('hidden')
+        ab?.classList.add('hidden');
+        abt?.classList.add('hidden')
       }
       loadClients()
     } else {
-      ng.classList.remove('hidden');
-      nu.classList.add('hidden');
-      hb.classList.remove('hidden');
+      ng?.classList.remove('hidden');
+      nu?.classList.add('hidden');
+      hb?.classList.remove('hidden');
       bnp?.classList.add('hidden');
       clients = []
     }
