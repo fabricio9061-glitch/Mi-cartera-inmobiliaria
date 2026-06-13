@@ -138,6 +138,49 @@
     .notification-overlay{ z-index: 1900 !important; }
     .notification-dropdown{ z-index: 2000 !important; }
     @media (prefers-reduced-motion: reduce){ .mv-hero-media img, .mv-why-card, .mv-search-btn{ transition:none; } }
+
+    /* ============================================================
+       AJUSTES SOLO PARA CELULAR (<=768px). No afectan la vista de PC.
+       Replican el mockup móvil: header en una fila, foto del hero visible
+       al lado del título, stats en píldoras y buscador a lo ancho.
+       ============================================================ */
+    @media (max-width: 768px){
+      /* -- Header compacto en una sola fila -- */
+      .header .header-content{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:nowrap; padding:10px 0; }
+      .logo-img{ height:30px; } .logo-text{ height:18px; }
+      /* Ocultar los enlaces de texto del nav en celular (se usa el menú lateral) */
+      #nav-guest a, #nav-user a{ display:none !important; }
+      #nav-guest .agent-access{ display:inline-flex !important; padding:8px 12px; font-size:.8rem; }
+      .nav{ display:flex !important; align-items:center; gap:8px; margin:0; padding:0; background:none; box-shadow:none; position:static; flex-direction:row; width:auto; }
+      /* Botones de agenda y campana más chicos y alineados */
+      .calendar-btn, .notification-bell{ width:40px; height:40px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+      .user-info{ padding:4px 8px 4px 4px; gap:6px; flex:0 0 auto; }
+      .user-info #userName{ display:none; }            /* en móvil solo foto + Admin, como el mockup */
+      .user-info .user-avatar{ width:34px; height:34px; }
+      .user-info .admin-badge{ font-size:.7rem; padding:3px 9px; }
+
+      /* -- Hero: foto VISIBLE al lado del texto (no se oculta) -- */
+      .mv-hero-grid{ grid-template-columns:1.25fr .75fr !important; min-height:0; gap:0; align-items:stretch; }
+      .mv-hero-copy{ padding:30px 0 26px !important; }
+      .mv-hero-copy h1{ font-size:2rem; }
+      .mv-hero-copy > p{ font-size:.9rem; }
+      .mv-hero-deco{ display:none; }
+      .mv-hero-media{ display:block !important; }       /* anula el display:none anterior */
+      .mv-hero-media::after{ background:linear-gradient(90deg, var(--mvNavy) 0%, rgba(22,39,63,.55) 30%, transparent 72%); }
+      .mv-hero-media img{ -webkit-mask-image:linear-gradient(to right, transparent 0, #000 48%); mask-image:linear-gradient(to right, transparent 0, #000 48%); }
+
+      /* -- Stats en píldoras, en columna, ocupando el ancho -- */
+      .mv-hero-stats{ flex-direction:column; gap:10px; margin-top:18px; }
+      .mv-stat{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); border-radius:14px; padding:12px 16px; width:100%; gap:12px; }
+      .mv-stat-sep{ display:none; }
+      .mv-stat-num{ font-size:1.4rem; }
+
+      /* -- Buscador: campos apilados y botón dorado a lo ancho -- */
+      .mv-search{ flex-direction:column; align-items:stretch; gap:14px; padding:18px 16px; }
+      .mv-field, .mv-field.grow{ flex:1 1 100%; width:100%; }
+      .mv-search-btn{ width:100%; justify-content:center; background:#C9A227; color:#16273f; font-weight:600; padding:15px; font-size:1rem; }
+      .mv-search-btn i{ color:#16273f; }
+    }
   </style>
 </head>
 <body>
