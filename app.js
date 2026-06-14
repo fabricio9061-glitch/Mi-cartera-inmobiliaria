@@ -185,10 +185,17 @@
 
   // Zona horaria Uruguay - enfoque robusto con Intl API
   function getUruguayNow() {
-    const s = new Date().toLocaleString('en-US', {
-      timeZone: 'America/Montevideo'
-    });
-    return new Date(s)
+    try {
+      const s = new Date().toLocaleString('en-US', {
+        timeZone: 'America/Montevideo'
+      });
+      const d = new Date(s);
+      // Safari/iOS a veces no puede parsear ese formato -> Invalid Date.
+      if (isNaN(d.getTime())) return new Date();
+      return d;
+    } catch (e) {
+      return new Date();
+    }
   }
 
   function getUruguayToday() {
@@ -403,6 +410,9 @@
   }
 
   function renderCalendar() {
+    if (!currentCalendarDate || isNaN(currentCalendarDate.getTime && currentCalendarDate.getTime())) {
+      currentCalendarDate = getUruguayToday() || new Date();
+    }
     const g = document.getElementById('calendarGrid'),
       l = document.getElementById('calendarMonth'),
       y = currentCalendarDate.getFullYear(),
