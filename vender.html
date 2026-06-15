@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vendé tu propiedad con MALAVE</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root{
+      --navy:#16273f; --navy-2:#243447; --navy-light:#32465f;
+      --gold:#c9a961; --gold-2:#C9A227; --gold-hover:#b8954a;
+      --gray-50:#f7f8fa; --gray-100:#eef0f3; --gray-300:#ccd1d8; --gray-500:#8a8a8a; --gray-700:#4a4a4a;
+      --white:#ffffff;
+    }
+    *{ margin:0; padding:0; box-sizing:border-box; }
+    body{ font-family:'Inter',sans-serif; color:var(--navy); background:var(--white); line-height:1.6; }
+    h1,h2,h3{ font-family:'Cormorant Garamond',serif; }
+    a{ text-decoration:none; color:inherit; }
+    .wrap{ max-width:1180px; margin:0 auto; padding:0 24px; }
+
+    /* ===== Header ===== */
+    .header{ position:sticky; top:0; z-index:100; background:rgba(255,255,255,.96); backdrop-filter:blur(8px); border-bottom:1px solid var(--gray-100); }
+    .header-in{ display:flex; align-items:center; justify-content:space-between; height:70px; }
+    .logo{ display:flex; align-items:center; gap:12px; cursor:pointer; }
+    .logo-img{ height:38px; } .logo-text{ height:20px; }
+    .header-cta{ display:flex; align-items:center; gap:14px; }
+    .back-link{ color:var(--gray-700); font-size:.9rem; font-weight:500; display:inline-flex; align-items:center; gap:7px; transition:color .2s; }
+    .back-link:hover{ color:var(--navy); }
+    .btn-wa-sm{ background:#25D366; color:#fff; padding:9px 16px; border-radius:8px; font-size:.85rem; font-weight:600; display:inline-flex; align-items:center; gap:8px; }
+
+    /* ===== Hero ===== */
+    .hero{ position:relative; background:linear-gradient(115deg, #101d30 0%, var(--navy) 60%); overflow:hidden; color:#fff; }
+    .hero::after{ content:''; position:absolute; inset:0; background:
+      radial-gradient(circle at 80% 20%, rgba(201,162,39,.10), transparent 45%); pointer-events:none; }
+    .hero-in{ position:relative; z-index:2; padding:80px 0 90px; max-width:720px; }
+    .hero-badge{ display:inline-flex; align-items:center; gap:8px; background:rgba(201,162,39,.14); border:1px solid rgba(201,162,39,.3); color:var(--gold); padding:7px 16px; border-radius:30px; font-size:.82rem; font-weight:500; letter-spacing:.5px; margin-bottom:24px; }
+    .hero h1{ font-size:3.4rem; line-height:1.1; font-weight:700; margin-bottom:8px; }
+    .hero h1 .gold{ color:var(--gold); }
+    .hero-rule{ width:70px; height:3px; background:var(--gold); margin:24px 0; }
+    .hero p{ font-size:1.15rem; color:#c8cdd4; font-weight:300; max-width:560px; margin-bottom:34px; }
+    .hero-actions{ display:flex; gap:14px; flex-wrap:wrap; }
+    .btn{ display:inline-flex; align-items:center; justify-content:center; gap:10px; padding:15px 30px; border-radius:10px; font-size:1rem; font-weight:600; cursor:pointer; border:none; font-family:inherit; transition:transform .15s, box-shadow .2s, background .2s; }
+    .btn-gold{ background:var(--gold-2); color:#16273f; }
+    .btn-gold:hover{ background:var(--gold-hover); transform:translateY(-2px); box-shadow:0 8px 22px rgba(201,162,39,.28); }
+    .btn-wa{ background:#25D366; color:#fff; }
+    .btn-wa:hover{ background:#1eb858; transform:translateY(-2px); box-shadow:0 8px 22px rgba(37,211,102,.3); }
+    .btn-ghost{ background:transparent; color:#fff; border:1px solid rgba(255,255,255,.25); }
+    .btn-ghost:hover{ background:rgba(255,255,255,.08); }
+
+    /* skyline decorativo */
+    .hero-skyline{ position:absolute; bottom:0; left:0; right:0; z-index:1; opacity:.08; line-height:0; }
+
+    /* ===== Beneficios ===== */
+    .section{ padding:80px 0; }
+    .section-head{ text-align:center; max-width:640px; margin:0 auto 56px; }
+    .section-head .kicker{ color:var(--gold-2); font-size:.85rem; font-weight:600; letter-spacing:2px; text-transform:uppercase; margin-bottom:12px; }
+    .section-head h2{ font-size:2.6rem; font-weight:700; line-height:1.15; margin-bottom:14px; }
+    .section-head p{ color:var(--gray-500); font-size:1.05rem; }
+    .benefits{ display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
+    .benefit{ background:var(--white); border:1px solid var(--gray-100); border-radius:16px; padding:32px 28px; transition:transform .2s, box-shadow .2s, border-color .2s; }
+    .benefit:hover{ transform:translateY(-4px); box-shadow:0 14px 36px rgba(16,39,63,.10); border-color:rgba(201,162,39,.4); }
+    .benefit-ic{ width:56px; height:56px; border-radius:14px; background:linear-gradient(135deg, var(--navy), var(--navy-light)); display:flex; align-items:center; justify-content:center; margin-bottom:20px; }
+    .benefit-ic i{ font-size:1.4rem; color:var(--gold); }
+    .benefit h3{ font-size:1.5rem; font-weight:600; margin-bottom:10px; }
+    .benefit p{ color:var(--gray-500); font-size:.96rem; }
+    .benefit .free{ display:inline-block; margin-top:14px; background:rgba(201,162,39,.12); color:var(--gold-hover); font-size:.74rem; font-weight:600; padding:4px 12px; border-radius:20px; letter-spacing:.5px; }
+
+    /* ===== Banda destacado ===== */
+    .highlight{ background:var(--navy); color:#fff; border-radius:24px; padding:50px 48px; display:flex; align-items:center; gap:40px; position:relative; overflow:hidden; }
+    .highlight::after{ content:''; position:absolute; top:-40%; right:-10%; width:380px; height:380px; background:radial-gradient(circle, rgba(201,162,39,.16), transparent 70%); }
+    .highlight-ic{ flex:0 0 auto; width:90px; height:90px; border-radius:50%; background:rgba(201,162,39,.16); display:flex; align-items:center; justify-content:center; position:relative; z-index:2; }
+    .highlight-ic i{ font-size:2.2rem; color:var(--gold); }
+    .highlight-tx{ position:relative; z-index:2; }
+    .highlight-tx h3{ font-size:2rem; font-weight:700; margin-bottom:8px; }
+    .highlight-tx p{ color:#c8cdd4; font-size:1.05rem; font-weight:300; }
+
+    /* ===== Pasos ===== */
+    .steps{ display:grid; grid-template-columns:repeat(3,1fr); gap:30px; margin-top:10px; }
+    .step{ text-align:center; position:relative; }
+    .step-num{ width:60px; height:60px; border-radius:50%; background:var(--gold-2); color:#16273f; font-family:'Cormorant Garamond',serif; font-size:1.8rem; font-weight:700; display:flex; align-items:center; justify-content:center; margin:0 auto 18px; }
+    .step h3{ font-size:1.4rem; font-weight:600; margin-bottom:8px; }
+    .step p{ color:var(--gray-500); font-size:.95rem; }
+
+    /* ===== Formulario / contacto ===== */
+    .contact{ background:var(--gray-50); }
+    .contact-grid{ display:grid; grid-template-columns:1fr 1.1fr; gap:48px; align-items:center; }
+    .contact-left h2{ font-size:2.4rem; font-weight:700; line-height:1.15; margin-bottom:16px; }
+    .contact-left p{ color:var(--gray-700); font-size:1.05rem; margin-bottom:28px; }
+    .contact-info{ display:flex; flex-direction:column; gap:16px; }
+    .ci-item{ display:flex; align-items:center; gap:14px; }
+    .ci-ic{ width:46px; height:46px; border-radius:12px; background:var(--white); border:1px solid var(--gray-100); display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+    .ci-ic i{ color:var(--gold-2); font-size:1.1rem; }
+    .ci-item b{ display:block; font-size:.78rem; color:var(--gray-500); text-transform:uppercase; letter-spacing:.5px; font-weight:600; }
+    .ci-item span{ font-size:1.02rem; color:var(--navy); font-weight:500; }
+    .form-card{ background:var(--white); border:1px solid var(--gray-100); border-radius:20px; padding:36px; box-shadow:0 18px 50px rgba(16,39,63,.08); }
+    .form-card h3{ font-size:1.7rem; font-weight:600; margin-bottom:6px; }
+    .form-card .sub{ color:var(--gray-500); font-size:.95rem; margin-bottom:24px; }
+    .fg{ margin-bottom:16px; }
+    .fg label{ display:block; font-size:.85rem; font-weight:600; color:var(--gray-700); margin-bottom:6px; }
+    .fg label .req{ color:#c0392b; }
+    .fg input, .fg select, .fg textarea{ width:100%; padding:12px 14px; border:1px solid var(--gray-300); border-radius:10px; font-family:inherit; font-size:.95rem; color:var(--navy); background:var(--white); transition:border-color .2s, box-shadow .2s; }
+    .fg input:focus, .fg select:focus, .fg textarea:focus{ outline:none; border-color:var(--gold-2); box-shadow:0 0 0 3px rgba(201,162,39,.12); }
+    .fg textarea{ resize:vertical; min-height:90px; }
+    .fg-row{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .form-submit{ width:100%; background:var(--gold-2); color:#16273f; padding:15px; border:none; border-radius:10px; font-size:1rem; font-weight:600; cursor:pointer; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:10px; transition:background .2s; margin-top:6px; }
+    .form-submit:hover{ background:var(--gold-hover); }
+    .form-submit:disabled{ opacity:.6; cursor:not-allowed; }
+    .form-note{ font-size:.8rem; color:var(--gray-500); text-align:center; margin-top:14px; }
+    .form-ok{ text-align:center; padding:30px 10px; }
+    .form-ok .ic{ width:70px; height:70px; border-radius:50%; background:rgba(37,211,102,.12); display:flex; align-items:center; justify-content:center; margin:0 auto 18px; }
+    .form-ok .ic i{ font-size:2rem; color:#1eb858; }
+    .form-ok h3{ margin-bottom:8px; }
+    .form-ok p{ color:var(--gray-500); }
+
+    /* ===== Footer ===== */
+    .footer{ background:var(--navy); color:#fff; padding:50px 0 30px; }
+    .footer-in{ display:flex; justify-content:space-between; align-items:flex-start; gap:30px; flex-wrap:wrap; }
+    .footer-logo img.iso{ height:40px; margin-bottom:14px; display:block; }
+    .footer-logo img.txt{ height:20px; opacity:.9; }
+    .footer-col h4{ font-family:'Inter',sans-serif; font-size:.8rem; text-transform:uppercase; letter-spacing:1px; color:var(--gold); margin-bottom:14px; font-weight:600; }
+    .footer-col a, .footer-col p{ display:block; color:#c8cdd4; font-size:.92rem; margin-bottom:8px; }
+    .footer-col a:hover{ color:#fff; }
+    .footer-bottom{ border-top:1px solid rgba(255,255,255,.1); margin-top:36px; padding-top:20px; text-align:center; color:#8a93a0; font-size:.82rem; }
+
+    /* WhatsApp flotante */
+    .wa-float{ position:fixed; bottom:24px; right:24px; width:60px; height:60px; border-radius:50%; background:#25D366; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 24px rgba(37,211,102,.4); z-index:200; transition:transform .2s; }
+    .wa-float:hover{ transform:scale(1.08); }
+    .wa-float i{ color:#fff; font-size:1.8rem; }
+
+    /* Toast */
+    .toast{ position:fixed; bottom:30px; left:50%; transform:translateX(-50%) translateY(120px); background:var(--navy); color:#fff; padding:14px 22px; border-radius:12px; font-size:.92rem; box-shadow:0 12px 30px rgba(0,0,0,.25); z-index:300; transition:transform .3s; display:flex; align-items:center; gap:10px; }
+    .toast.show{ transform:translateX(-50%) translateY(0); }
+    .toast i{ color:var(--gold); }
+
+    /* ===== Responsive ===== */
+    @media (max-width:900px){
+      .benefits{ grid-template-columns:1fr 1fr; }
+      .steps{ grid-template-columns:1fr; gap:24px; }
+      .contact-grid{ grid-template-columns:1fr; gap:32px; }
+      .highlight{ flex-direction:column; text-align:center; gap:24px; padding:40px 28px; }
+    }
+    @media (max-width:600px){
+      .hero-in{ padding:54px 0 64px; }
+      .hero h1{ font-size:2.4rem; }
+      .hero p{ font-size:1rem; }
+      .section{ padding:56px 0; }
+      .section-head{ margin-bottom:38px; }
+      .section-head h2{ font-size:2rem; }
+      .benefits{ grid-template-columns:1fr; }
+      .header-cta .back-link span{ display:none; }
+      .btn-wa-sm span{ display:none; }
+      .fg-row{ grid-template-columns:1fr; }
+      .form-card{ padding:26px 20px; }
+      .footer-in{ flex-direction:column; gap:24px; }
+      .hero-actions .btn{ width:100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="wrap header-in">
+      <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
+      <div class="header-cta">
+        <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i><span>Volver al inicio</span></a>
+        <a href="#" id="waHeader" class="btn-wa-sm"><i class="fab fa-whatsapp"></i><span>WhatsApp</span></a>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap hero-in">
+      <div class="hero-badge"><i class="fas fa-star"></i> Vendé con la inmobiliaria que invierte en tu propiedad</div>
+      <h1>¿Querés vender<br>tu <span class="gold">propiedad</span>?</h1>
+      <div class="hero-rule"></div>
+      <p>En MALAVE nos encargamos de todo para que tu propiedad se venda al mejor precio y en el menor tiempo. Vos solo tenés que contactarnos.</p>
+      <div class="hero-actions">
+        <a href="#contacto" class="btn btn-gold"><i class="fas fa-paper-plane"></i> Quiero vender</a>
+        <a href="#" id="waHero" class="btn btn-wa"><i class="fab fa-whatsapp"></i> Hablar por WhatsApp</a>
+      </div>
+    </div>
+    <div class="hero-skyline" id="heroSkyline"></div>
+  </section>
+
+  <!-- BENEFICIOS -->
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="kicker">Por qué elegirnos</div>
+        <h2>Todo lo que hacemos por tu propiedad</h2>
+        <p>No solo la publicamos. Invertimos en mostrarla de la mejor manera para que se destaque entre todas las demás.</p>
+      </div>
+      <div class="benefits">
+        <div class="benefit">
+          <div class="benefit-ic"><i class="fas fa-calculator"></i></div>
+          <h3>Tasación gratuita</h3>
+          <p>Determinamos el valor justo de mercado de tu propiedad con un análisis profesional, sin costo ni compromiso.</p>
+          <span class="free">SIN COSTO</span>
+        </div>
+        <div class="benefit">
+          <div class="benefit-ic"><i class="fas fa-camera"></i></div>
+          <h3>Fotos y video profesionales</h3>
+          <p>Producción profesional de fotografía y video que resalta cada espacio y genera más interés en los compradores.</p>
+        </div>
+        <div class="benefit">
+          <div class="benefit-ic"><i class="fas fa-bullhorn"></i></div>
+          <h3>Pagamos el destacado</h3>
+          <p>Publicamos y pagamos el destacado de tu propiedad en todos los portales inmobiliarios importantes del país.</p>
+          <span class="free">LO PAGAMOS NOSOTROS</span>
+        </div>
+        <div class="benefit">
+          <div class="benefit-ic"><i class="fas fa-vr-cardboard"></i></div>
+          <h3>Tour 360°</h3>
+          <p>Recorrido virtual interactivo para que los interesados conozcan cada rincón desde su casa, a cualquier hora.</p>
+        </div>
+        <div class="benefit">
+          <div class="benefit-ic"><i class="fas fa-helicopter"></i></div>
+          <h3>Foto y video con dron</h3>
+          <p>Tomas aéreas que muestran la propiedad, el entorno y la ubicación desde una perspectiva única.</p>
+        </div>
+        <div class="benefit">
+          <div class="benefit-ic"><i class="fas fa-couch"></i></div>
+          <h3>Amueblamiento virtual</h3>
+          <p>Mostramos los ambientes amueblados digitalmente para que los compradores imaginen el potencial del espacio.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BANDA DESTACADO -->
+  <section class="section" style="padding-top:0;">
+    <div class="wrap">
+      <div class="highlight">
+        <div class="highlight-ic"><i class="fas fa-sack-dollar"></i></div>
+        <div class="highlight-tx">
+          <h3>Vos no pagás la difusión</h3>
+          <p>Nosotros invertimos en destacar tu propiedad en los principales portales del país. Tu propiedad se ve más, y vos no ponés un peso en publicidad.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PASOS -->
+  <section class="section" style="padding-top:0;">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="kicker">Es muy simple</div>
+        <h2>Vender con nosotros en 3 pasos</h2>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h3>Contactanos</h3>
+          <p>Completá el formulario o escribinos por WhatsApp. Te respondemos a la brevedad.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h3>Tasamos y producimos</h3>
+          <p>Tasamos tu propiedad sin costo y hacemos la producción profesional: fotos, video, dron y tour 360°.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h3>La vendemos</h3>
+          <p>Publicamos con destacado pago en todos los portales y gestionamos la venta hasta el cierre.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACTO + FORM -->
+  <section class="section contact" id="contacto">
+    <div class="wrap">
+      <div class="contact-grid">
+        <div class="contact-left">
+          <h2>Empecemos hoy mismo</h2>
+          <p>Dejanos tus datos y un asesor de MALAVE se contacta con vos para coordinar la tasación gratuita de tu propiedad.</p>
+          <div class="contact-info">
+            <div class="ci-item">
+              <div class="ci-ic"><i class="fab fa-whatsapp"></i></div>
+              <div><b>WhatsApp</b><span>094 029 297</span></div>
+            </div>
+            <div class="ci-item">
+              <div class="ci-ic"><i class="fas fa-envelope"></i></div>
+              <div><b>Email</b><span>inmobiliariamalave@gmail.com</span></div>
+            </div>
+            <div class="ci-item">
+              <div class="ci-ic"><i class="fas fa-location-dot"></i></div>
+              <div><b>Ubicación</b><span>Montevideo, Uruguay</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-card" id="formCard">
+          <h3>Contanos sobre tu propiedad</h3>
+          <p class="sub">Completá el formulario y te contactamos para coordinar la tasación gratis.</p>
+          <div id="formFields">
+            <div class="fg">
+              <label>Nombre y apellido <span class="req">*</span></label>
+              <input type="text" id="fNombre" placeholder="Tu nombre">
+            </div>
+            <div class="fg-row">
+              <div class="fg">
+                <label>Teléfono <span class="req">*</span></label>
+                <input type="tel" id="fTel" placeholder="099 123 456">
+              </div>
+              <div class="fg">
+                <label>Email</label>
+                <input type="email" id="fEmail" placeholder="tu@email.com">
+              </div>
+            </div>
+            <div class="fg-row">
+              <div class="fg">
+                <label>Tipo de propiedad</label>
+                <select id="fTipo">
+                  <option value="">Seleccioná...</option>
+                  <option>Casa</option>
+                  <option>Apartamento</option>
+                  <option>Terreno</option>
+                  <option>Local comercial</option>
+                  <option>Campo / Chacra</option>
+                  <option>Otro</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label>Zona / Barrio</label>
+                <input type="text" id="fZona" placeholder="Ej: Pocitos">
+              </div>
+            </div>
+            <div class="fg">
+              <label>Mensaje (opcional)</label>
+              <textarea id="fMsg" placeholder="Contanos algo más sobre tu propiedad..."></textarea>
+            </div>
+            <button class="form-submit" id="btnSubmit" onclick="enviarLead()"><i class="fas fa-paper-plane"></i> Enviar y solicitar tasación</button>
+            <p class="form-note">Al enviar, un asesor de MALAVE se contactará con vos. Tus datos no se comparten con terceros.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="wrap footer-in">
+      <div class="footer-logo">
+        <img src="iso-malave-white.png" alt="" class="iso">
+        <img src="texto-malave-white.png" alt="MALAVE" class="txt">
+      </div>
+      <div class="footer-col">
+        <h4>Contacto</h4>
+        <a href="#" id="waFooter"><i class="fab fa-whatsapp"></i> 094 029 297</a>
+        <a href="mailto:inmobiliariamalave@gmail.com">inmobiliariamalave@gmail.com</a>
+        <p>Montevideo, Uruguay</p>
+      </div>
+      <div class="footer-col">
+        <h4>Enlaces</h4>
+        <a href="index.html">Inicio</a>
+        <a href="index.html">Ver propiedades</a>
+        <a href="#contacto">Vender mi propiedad</a>
+      </div>
+    </div>
+    <div class="wrap">
+      <div class="footer-bottom">© <span id="year"></span> MALAVE Inmobiliaria · Operador inmobiliario (Ley N.º 20.380) · Conectamos propiedades con personas</div>
+    </div>
+  </footer>
+
+  <!-- WhatsApp flotante -->
+  <a href="#" id="waFloat" class="wa-float" title="Escribinos por WhatsApp"><i class="fab fa-whatsapp"></i></a>
+
+  <div class="toast" id="toast"><i class="fas fa-circle-check"></i><span id="toastMsg"></span></div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script>
+    // ===== Config WhatsApp =====
+    var WA_NUMBER = '59894029297'; // 094 029 297 en formato internacional
+    var WA_MSG = encodeURIComponent('Hola MALAVE, quiero vender mi propiedad y me gustaría coordinar una tasación.');
+    var waLink = 'https://wa.me/' + WA_NUMBER + '?text=' + WA_MSG;
+    ['waHeader','waHero','waFooter','waFloat'].forEach(function(id){
+      var el = document.getElementById(id); if (el) el.href = waLink;
+    });
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // ===== Skyline decorativo del hero =====
+    document.getElementById('heroSkyline').innerHTML =
+      '<svg viewBox="0 0 1180 140" width="100%" height="140" preserveAspectRatio="xMidYMax meet">' +
+      '<g fill="#ffffff">' +
+      '<rect x="40" y="70" width="50" height="70"/><rect x="110" y="45" width="42" height="95"/>' +
+      '<polygon points="170,140 170,40 196,22 222,40 222,140"/><rect x="240" y="60" width="54" height="80"/>' +
+      '<rect x="310" y="80" width="40" height="60"/><rect x="365" y="50" width="48" height="90"/>' +
+      '<polygon points="430,140 430,38 456,20 482,38 482,140"/><rect x="500" y="64" width="50" height="76"/>' +
+      '<rect x="566" y="54" width="44" height="86"/><rect x="626" y="74" width="46" height="66"/>' +
+      '<polygon points="690,140 690,42 716,24 742,42 742,140"/><rect x="760" y="58" width="48" height="82"/>' +
+      '<rect x="824" y="48" width="44" height="92"/><rect x="884" y="70" width="50" height="70"/>' +
+      '<polygon points="950,140 950,40 976,22 1002,40 1002,140"/><rect x="1020" y="60" width="48" height="80"/>' +
+      '<rect x="1086" y="72" width="54" height="68"/>' +
+      '</g></svg>';
+
+    // ===== Firebase init =====
+    var firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
+    firebase.initializeApp(firebaseConfig);
+    var db = firebase.firestore();
+
+    function showToast(msg){
+      var t = document.getElementById('toast');
+      document.getElementById('toastMsg').textContent = msg;
+      t.classList.add('show');
+      setTimeout(function(){ t.classList.remove('show'); }, 3500);
+    }
+
+    function enviarLead(){
+      var nombre = document.getElementById('fNombre').value.trim();
+      var tel = document.getElementById('fTel').value.trim();
+      var email = document.getElementById('fEmail').value.trim();
+      var tipo = document.getElementById('fTipo').value;
+      var zona = document.getElementById('fZona').value.trim();
+      var msg = document.getElementById('fMsg').value.trim();
+
+      // Validar obligatorios
+      var faltan = [];
+      if (!nombre) faltan.push(['fNombre','nombre']);
+      if (!tel) faltan.push(['fTel','teléfono']);
+      if (faltan.length){
+        faltan.forEach(function(f){
+          var el = document.getElementById(f[0]);
+          el.style.borderColor = '#c0392b';
+          el.addEventListener('input', function(){ el.style.borderColor=''; }, {once:true});
+        });
+        document.getElementById(faltan[0][0]).focus();
+        showToast('Completá tu nombre y teléfono para enviar.');
+        return;
+      }
+
+      var btn = document.getElementById('btnSubmit');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+
+      db.collection('leadsVenta').add({
+        nombre: nombre, telefono: tel, email: email,
+        tipo: tipo, zona: zona, mensaje: msg,
+        origen: 'pagina-vender',
+        estado: 'nuevo',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(function(){
+        document.getElementById('formFields').innerHTML =
+          '<div class="form-ok">' +
+            '<div class="ic"><i class="fas fa-check"></i></div>' +
+            '<h3>¡Recibimos tu solicitud!</h3>' +
+            '<p>Un asesor de MALAVE se va a contactar con vos a la brevedad para coordinar la tasación gratuita.</p>' +
+            '<a href="' + waLink + '" class="btn btn-wa" style="margin-top:20px;display:inline-flex;"><i class="fab fa-whatsapp"></i> O escribinos ahora por WhatsApp</a>' +
+          '</div>';
+      }).catch(function(e){
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar y solicitar tasación';
+        showToast('No se pudo enviar. Probá por WhatsApp o reintentá.');
+      });
+    }
+  </script>
+</body>
+</html>

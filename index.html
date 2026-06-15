@@ -66,6 +66,21 @@
     .mv-fav:hover{ transform:scale(1.1); }
     .mv-fav.on{ color:#d3382f; }
     .mv-why{ margin-top:56px; margin-bottom:26px; }
+    /* Banner Vendé tu propiedad */
+    .mv-sell-banner{ display:flex; align-items:center; justify-content:space-between; gap:30px; background:linear-gradient(115deg, #101d30 0%, var(--mvNavy) 65%); border-radius:20px; padding:34px 40px; margin-top:50px; position:relative; overflow:hidden; text-decoration:none; transition:transform .2s, box-shadow .2s; }
+    .mv-sell-banner:hover{ transform:translateY(-3px); box-shadow:0 16px 40px rgba(16,29,48,.22); }
+    .mv-sell-banner::after{ content:''; position:absolute; top:-50%; right:-5%; width:340px; height:340px; background:radial-gradient(circle, rgba(201,162,39,.16), transparent 70%); pointer-events:none; }
+    .mv-sell-banner-tx{ position:relative; z-index:2; max-width:640px; }
+    .mv-sell-kicker{ display:inline-flex; align-items:center; gap:7px; color:#C9A227; font-size:.8rem; font-weight:600; letter-spacing:1px; text-transform:uppercase; margin-bottom:8px; }
+    .mv-sell-banner-tx h2{ font-family:'Cormorant Garamond',serif; font-size:2rem; color:#fff; font-weight:700; margin:0 0 8px; }
+    .mv-sell-banner-tx p{ color:#c8cdd4; font-size:.96rem; margin:0; font-weight:300; }
+    .mv-sell-btn{ position:relative; z-index:2; flex:0 0 auto; background:#C9A227; color:#16273f; padding:14px 26px; border-radius:10px; font-size:.95rem; font-weight:600; display:inline-flex; align-items:center; gap:10px; white-space:nowrap; transition:background .2s; }
+    .mv-sell-banner:hover .mv-sell-btn{ background:#b8954a; }
+    @media (max-width:768px){
+      .mv-sell-banner{ flex-direction:column; align-items:flex-start; text-align:left; padding:26px 22px; gap:20px; }
+      .mv-sell-banner-tx h2{ font-size:1.6rem; }
+      .mv-sell-btn{ width:100%; justify-content:center; }
+    }
     .mv-why-title{ font-family:'Cormorant Garamond',serif; font-size:1.8rem; color:var(--mvNavy); font-weight:700; margin:0 0 6px; }
     .mv-why .mv-hero-rule{ margin-bottom:24px; }
     .mv-why-grid{ display:grid; grid-template-columns: 2.1fr 1fr; gap:18px; align-items:stretch; }
@@ -167,7 +182,7 @@
   <div class="toast-container" id="toastContainer"></div>
   <header class="header"><div class="container"><div class="header-content">
     <div class="logo" onclick="showHome()"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></div>
-    <nav class="nav" id="nav-guest"><a href="#" onclick="showHome()">Inicio</a><a href="#propiedades">Propiedades</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('rent')">Alquiler</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('sale')">Venta</a><a class="mv-navx" href="#porque">Nosotros</a><a class="mv-navx" href="#contacto">Contacto</a><button class="agent-access" onclick="openModal('loginModal')" title="Acceso para agentes"><i class="fas fa-lock"></i> Acceso agentes</button></nav>
+    <nav class="nav" id="nav-guest"><a href="#" onclick="showHome()">Inicio</a><a href="#propiedades">Propiedades</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('rent')">Alquiler</a><a class="mv-navx" href="#porque" onclick="mvFiltrar('sale')">Venta</a><a class="mv-navx" href="#porque">Nosotros</a><a class="mv-navx" href="#contacto">Contacto</a><a href="vender.html" class="mv-sell-link" style="color:#C9A227;font-weight:600;">Vendé tu propiedad</a><button class="agent-access" onclick="openModal('loginModal')" title="Acceso para agentes"><i class="fas fa-lock"></i> Acceso agentes</button></nav>
     <nav class="nav hidden" id="nav-user"><a href="#" onclick="showHome()">Inicio</a><a href="#propiedades">Propiedades</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('rent')">Alquiler</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('sale')">Venta</a>
       <div class="calendar-btn" id="calendarBtn" onclick="openCalendarModal()" title="Mi Agenda"><i class="fas fa-calendar-alt"></i></div>
       <div class="notification-bell" id="notificationBell" onclick="toggleNotifications(event)"><i class="fas fa-bell"></i><span class="notification-badge hidden" id="notificationBadge">0</span></div>
@@ -211,6 +226,18 @@
       <div id="propertiesLoading" class="loading"><div class="spinner"></div></div>
       <div class="properties-grid" id="propertiesGrid"></div>
     </section>
+
+    <section class="container">
+      <a href="vender.html" class="mv-sell-banner">
+        <div class="mv-sell-banner-tx">
+          <span class="mv-sell-kicker"><i class="fas fa-star"></i> ¿Sos propietario?</span>
+          <h2>¿Querés vender tu propiedad?</h2>
+          <p>Tasación gratuita, fotos y video profesionales, tour 360°, dron y amueblamiento virtual. Y nosotros pagamos el destacado en todos los portales.</p>
+        </div>
+        <span class="mv-sell-btn">Conocé los beneficios <i class="fas fa-arrow-right"></i></span>
+      </a>
+    </section>
+
     <section class="container mv-why" id="porque">
       <h2 class="mv-why-title">¿Por qué elegir MALAVE?</h2><div class="mv-hero-rule"></div>
       <div class="mv-why-grid">
