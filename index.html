@@ -90,7 +90,10 @@
     .mv-why-card i{ font-size:1.7rem; color:var(--mvGold); margin-bottom:12px; display:block; }
     .mv-why-card h3{ font-size:.95rem; color:var(--mvNavy); margin:0 0 8px; font-weight:600; }
     .mv-why-card p{ font-size:.8rem; color:var(--gray-500,#8a8a8a); line-height:1.55; margin:0; }
-    .mv-testi{ background:#faf6ec; border:1px solid #efe5cd; border-radius:14px; padding:24px 22px; display:flex; flex-direction:column; }
+    .mv-testi{ background:#faf6ec; border:1px solid #efe5cd; border-radius:14px; padding:24px 22px; display:flex; flex-direction:column; position:relative; }
+    .mv-testi-tag{ position:absolute; top:14px; right:14px; background:rgba(138,138,138,.14); color:#8a8a8a; font-size:.66rem; font-weight:600; padding:3px 9px; border-radius:20px; letter-spacing:.5px; text-transform:uppercase; }
+    .mv-testi-add{ margin-top:14px; align-self:flex-start; background:none; border:1px solid var(--mvGold,#c9a961); color:var(--mvNavy,#16273f); padding:8px 16px; border-radius:8px; font-family:inherit; font-size:.82rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; transition:background .2s,color .2s; }
+    .mv-testi-add:hover{ background:var(--mvGold,#c9a961); color:#fff; }
     .mv-testi-quote{ color:var(--mvGold); font-size:1.5rem; margin-bottom:12px; }
     .mv-testi > p{ font-family:'Cormorant Garamond',serif; font-size:1.08rem; line-height:1.55; color:var(--mvNavy); margin:0 0 18px; flex:1; }
     .mv-testi-who{ display:flex; align-items:center; gap:11px; }
@@ -249,9 +252,11 @@
         </div>
         <div class="mv-testi">
           <i class="fas fa-quote-left mv-testi-quote"></i>
+          <span id="mvTestiTag" class="mv-testi-tag" style="display:none;">Ejemplo</span>
           <p id="mvTestiText"></p>
           <div class="mv-testi-who"><div class="mv-testi-av" id="mvTestiAv">M</div><div><strong id="mvTestiName"></strong><span id="mvTestiRole"></span></div></div>
           <div class="mv-testi-dots" id="mvTestiDots"></div>
+          <button class="mv-testi-add" onclick="abrirTestimonioModal('home')"><i class="fas fa-pen"></i> Dejá tu testimonio</button>
         </div>
       </div>
     </section>
@@ -312,9 +317,11 @@
           <h2 class="pf2-h2">Testimonios</h2>
           <div class="pf2-testi">
             <i class="fas fa-quote-left pf2-testi-q"></i>
+            <span id="pf2TestiTag" class="mv-testi-tag" style="display:none;">Ejemplo</span>
             <p id="pf2TestiText"></p>
             <div class="pf2-testi-who"><div class="pf2-testi-av" id="pf2TestiAv">V</div><div><strong id="pf2TestiName"></strong><span id="pf2TestiRole"></span></div><div class="pf2-testi-stars">★★★★★</div></div>
             <div class="pf2-testi-dots" id="pf2TestiDots"></div>
+            <button class="mv-testi-add" id="pf2TestiAdd" style="display:none;"><i class="fas fa-pen"></i> Dejá tu testimonio</button>
           </div>
         </div>
       </div>
@@ -363,7 +370,7 @@
     .pf2-service{ text-align:center; }
     .pf2-service i{ font-size:1.7rem; color:var(--accent,#C9A227); margin-bottom:10px; display:block; }
     .pf2-service span{ font-size:.78rem; color:var(--primary,#16273f); font-weight:500; line-height:1.3; display:block; }
-    .pf2-testi{ background:#faf6ec; border:1px solid #efe5cd; border-radius:16px; padding:26px; }
+    .pf2-testi{ background:#faf6ec; border:1px solid #efe5cd; border-radius:16px; padding:26px; position:relative; }
     .pf2-testi-q{ color:var(--accent,#C9A227); font-size:1.5rem; margin-bottom:14px; }
     .pf2-testi p{ font-family:'Cormorant Garamond',serif; font-size:1.08rem; line-height:1.55; color:var(--primary,#16273f); margin:0 0 18px; }
     .pf2-testi-who{ display:flex; align-items:center; gap:12px; }
@@ -393,7 +400,7 @@
 
   <main id="adminPanel" class="hidden"><section class="admin-panel container">
     <div class="admin-header"><div><h1>Panel de Administración</h1><p style="color:var(--gray-500)">Gestiona usuarios y propiedades</p></div></div>
-    <div class="admin-tabs"><button class="admin-tab active" onclick="showAdminTab('pending')" id="tabPending"><i class="fas fa-clock"></i> Pendientes <span id="pendingCount"></span></button><button class="admin-tab" onclick="showAdminTab('users')" id="tabUsers"><i class="fas fa-users"></i> Usuarios</button><button class="admin-tab" onclick="showAdminTab('properties')" id="tabProperties"><i class="fas fa-building"></i> Propiedades</button></div>
+    <div class="admin-tabs"><button class="admin-tab active" onclick="showAdminTab('pending')" id="tabPending"><i class="fas fa-clock"></i> Pendientes <span id="pendingCount"></span></button><button class="admin-tab" onclick="showAdminTab('users')" id="tabUsers"><i class="fas fa-users"></i> Usuarios</button><button class="admin-tab" onclick="showAdminTab('properties')" id="tabProperties"><i class="fas fa-building"></i> Propiedades</button><button class="admin-tab" onclick="showAdminTab('testimonials')" id="tabTestimonials"><i class="fas fa-comment-dots"></i> Testimonios <span id="testiPendCount"></span></button></div>
     <div class="admin-content" id="adminContent"></div><button style="margin-top:24px" class="btn-secondary" onclick="showHome()"><i class="fas fa-arrow-left"></i> Volver</button>
   </section></main>
 
@@ -562,22 +569,45 @@
   </div></div></div>
   <script>
     // ===== Inicio v2: testimonios, accesos rapidos y newsletter =====
-    const MV_TESTIMONIOS = [ // EDITA aca los testimonios reales de tus clientes
-      { t: 'Encontré exactamente lo que buscaba. El equipo de MALAVE fue profesional, cercano y me acompañó en todo momento.', n: 'Mercedes L.', r: 'Compradora en Punta del Este' },
-      { t: 'Publicaron mi apartamento y en dos semanas ya estaba alquilado. Comunicación clara de principio a fin.', n: 'Rodrigo F.', r: 'Propietario en Pocitos' },
-      { t: 'Me mostraron solo propiedades que encajaban con lo que pedí. Cero vueltas, pura eficiencia.', n: 'Valentina S.', r: 'Inquilina en Malvín' }
+    // Testimonios de EJEMPLO (se muestran con etiqueta "Ejemplo"). Los reales aprobados
+    // se cargan desde Firestore (coleccion 'testimonials', target:'home', approved:true).
+    const MV_TESTIMONIOS_EJEMPLO = [
+      { t: 'Encontré exactamente lo que buscaba. El equipo de MALAVE fue profesional, cercano y me acompañó en todo momento.', n: 'Mercedes L.', r: 'Compradora en Punta del Este', ejemplo: true },
+      { t: 'Publicaron mi apartamento y en dos semanas ya estaba alquilado. Comunicación clara de principio a fin.', n: 'Rodrigo F.', r: 'Propietario en Pocitos', ejemplo: true },
+      { t: 'Me mostraron solo propiedades que encajaban con lo que pedí. Cero vueltas, pura eficiencia.', n: 'Valentina S.', r: 'Inquilina en Malvín', ejemplo: true }
     ];
+    let MV_TESTIMONIOS = MV_TESTIMONIOS_EJEMPLO.slice();
     let mvTestiIdx = 0, mvTestiTimer = null;
+
+    // Carga testimonios reales aprobados y los combina con los de ejemplo
+    function mvCargarTestimonios() {
+      if (typeof db === 'undefined') return;
+      db.collection('testimonials')
+        .where('target', '==', 'home')
+        .where('approved', '==', true)
+        .get()
+        .then(function(snap){
+          var reales = [];
+          snap.forEach(function(d){ var x = d.data(); reales.push({ t: x.text, n: x.name, r: x.role || 'Cliente', ejemplo: false }); });
+          // Reales primero, luego ejemplos para completar
+          MV_TESTIMONIOS = reales.concat(MV_TESTIMONIOS_EJEMPLO);
+          mvTestiIdx = 0;
+          if (document.getElementById('mvTestiText')) mvShowTesti(0);
+        })
+        .catch(function(){ /* si falla, quedan los de ejemplo */ });
+    }
     function mvShowTesti(i) {
       const x = MV_TESTIMONIOS[i]; if (!x) return; mvTestiIdx = i;
       document.getElementById('mvTestiText').textContent = x.t;
       document.getElementById('mvTestiName').textContent = x.n;
       document.getElementById('mvTestiRole').textContent = x.r;
+      var tag = document.getElementById('mvTestiTag');
+      if (tag) tag.style.display = x.ejemplo ? 'inline-block' : 'none';
       document.getElementById('mvTestiAv').textContent = (x.n.trim()[0] || 'M');
       document.getElementById('mvTestiDots').innerHTML = MV_TESTIMONIOS.map((_, j) => '<span class="' + (j === i ? 'on' : '') + '" onclick="mvShowTesti(' + j + ');mvTestiAuto()"></span>').join('');
     }
     function mvTestiAuto() { clearInterval(mvTestiTimer); mvTestiTimer = setInterval(function(){ mvShowTesti((mvTestiIdx + 1) % MV_TESTIMONIOS.length); }, 7000); }
-    document.addEventListener('DOMContentLoaded', function(){ if (document.getElementById('mvTestiText')) { mvShowTesti(0); mvTestiAuto(); } });
+    document.addEventListener('DOMContentLoaded', function(){ if (document.getElementById('mvTestiText')) { mvShowTesti(0); mvTestiAuto(); mvCargarTestimonios(); } });
     function mvFiltrar(tipo) {
       const s = document.getElementById('filterType'); if (s) s.value = tipo;
       if (typeof filterProperties === 'function') filterProperties();
@@ -601,8 +631,48 @@
         if (typeof showToast === 'function') showToast('Newsletter', 'No se pudo guardar tu email. Probá de nuevo en un rato.', 'fa-triangle-exclamation');
       }
     }
+
+    // ===== Testimonios de clientes (envio publico, queda pendiente de aprobacion) =====
+    var testiTarget = 'home', testiAgentId = '', testiAgentName = '';
+    function abrirTestimonioModal(target, agentId, agentName) {
+      testiTarget = target || 'home';
+      testiAgentId = agentId || '';
+      testiAgentName = agentName || '';
+      var sub = document.getElementById('testiModalSub');
+      if (sub) sub.textContent = testiTarget === 'agent' && testiAgentName
+        ? 'Tu experiencia con ' + testiAgentName + '. Se publicará una vez aprobada.'
+        : 'Contanos tu experiencia con MALAVE. Se publicará una vez aprobada.';
+      ['testiNombre','testiRol','testiTexto'].forEach(function(id){ var e = document.getElementById(id); if (e) e.value=''; });
+      var m = document.getElementById('testimonioModal'); if (m) m.classList.add('open');
+    }
+    function cerrarTestimonioModal(){ var m = document.getElementById('testimonioModal'); if (m) m.classList.remove('open'); }
+    function enviarTestimonio(){
+      var nombre = (document.getElementById('testiNombre').value||'').trim();
+      var rol = (document.getElementById('testiRol').value||'').trim();
+      var texto = (document.getElementById('testiTexto').value||'').trim();
+      if (!nombre || !texto){
+        if (typeof showToast === 'function') showToast('Faltan datos', 'Completá tu nombre y tu testimonio.', 'fa-circle-exclamation');
+        return;
+      }
+      var btn = document.getElementById('testiEnviarBtn');
+      btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+      var data = {
+        name: nombre, role: rol, text: texto,
+        target: testiTarget, approved: false,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      if (testiTarget === 'agent'){ data.agentId = testiAgentId; data.agentName = testiAgentName; }
+      db.collection('testimonials').add(data).then(function(){
+        cerrarTestimonioModal();
+        btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar testimonio';
+        if (typeof showToast === 'function') showToast('¡Gracias!', 'Tu testimonio fue enviado y será revisado antes de publicarse.', 'fa-circle-check');
+      }).catch(function(){
+        btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar testimonio';
+        if (typeof showToast === 'function') showToast('Error', 'No se pudo enviar. Probá de nuevo.', 'fa-triangle-exclamation');
+      });
+    }
   </script>
-  <script src="app.js?v=20260614c"></script>
+  <script src="app.js?v=20260614d"></script>
   <!-- ====== MENÚ LATERAL DERECHO ====== -->
   <div class="mv-side-overlay" id="mvSideOverlay" onclick="closeSideMenu()"></div>
   <aside class="mv-side" id="mvSide" aria-hidden="true">
@@ -673,6 +743,36 @@
     .mv-pa-actions .de{ color:#c0392b; }
     .mv-pa-actions .de:hover{ background:#fff0ee; border-color:#e3a9a2; }
     @media (max-width:560px){ .mv-side-head{ padding:18px 16px; } .mv-side-item{ font-size:1rem; padding:14px; } }
+  </style>
+  <!-- ===== Modal: dejar testimonio ===== -->
+  <div class="testi-modal" id="testimonioModal">
+    <div class="testi-modal-card">
+      <button class="testi-modal-close" onclick="cerrarTestimonioModal()"><i class="fas fa-times"></i></button>
+      <h3>Dejá tu testimonio</h3>
+      <p id="testiModalSub">Contanos tu experiencia con MALAVE. Se publicará una vez aprobada.</p>
+      <div class="testi-fg"><label>Tu nombre <span style="color:#c0392b">*</span></label><input type="text" id="testiNombre" placeholder="Ej: María González"></div>
+      <div class="testi-fg"><label>¿Quién sos? <small>(opcional)</small></label><input type="text" id="testiRol" placeholder="Ej: Compradora en Pocitos"></div>
+      <div class="testi-fg"><label>Tu testimonio <span style="color:#c0392b">*</span></label><textarea id="testiTexto" placeholder="Contanos cómo fue tu experiencia..."></textarea></div>
+      <button class="testi-enviar" id="testiEnviarBtn" onclick="enviarTestimonio()"><i class="fas fa-paper-plane"></i> Enviar testimonio</button>
+    </div>
+  </div>
+  <style>
+    .testi-modal{ position:fixed; inset:0; background:rgba(16,29,48,.55); display:none; align-items:center; justify-content:center; z-index:4000; padding:20px; }
+    .testi-modal.open{ display:flex; }
+    .testi-modal-card{ background:#fff; border-radius:18px; padding:32px; max-width:480px; width:100%; position:relative; box-shadow:0 24px 60px rgba(0,0,0,.3); }
+    .testi-modal-card h3{ font-family:'Cormorant Garamond',serif; font-size:1.8rem; color:#16273f; margin:0 0 6px; }
+    .testi-modal-card > p{ color:#8a8a8a; font-size:.92rem; margin:0 0 22px; }
+    .testi-modal-close{ position:absolute; top:18px; right:18px; width:34px; height:34px; border-radius:50%; background:#f0f1f3; border:none; cursor:pointer; color:#8a8a8a; font-size:1rem; }
+    .testi-modal-close:hover{ background:#e4e6e9; }
+    .testi-fg{ margin-bottom:16px; }
+    .testi-fg label{ display:block; font-size:.85rem; font-weight:600; color:#4a4a4a; margin-bottom:6px; }
+    .testi-fg label small{ color:#aaa; font-weight:400; }
+    .testi-fg input, .testi-fg textarea{ width:100%; padding:12px 14px; border:1px solid #ccd1d8; border-radius:10px; font-family:inherit; font-size:.95rem; color:#16273f; }
+    .testi-fg input:focus, .testi-fg textarea:focus{ outline:none; border-color:#C9A227; box-shadow:0 0 0 3px rgba(201,162,39,.12); }
+    .testi-fg textarea{ resize:vertical; min-height:100px; }
+    .testi-enviar{ width:100%; background:#C9A227; color:#16273f; padding:14px; border:none; border-radius:10px; font-size:1rem; font-weight:600; cursor:pointer; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:10px; }
+    .testi-enviar:hover{ background:#b8954a; }
+    .testi-enviar:disabled{ opacity:.6; cursor:not-allowed; }
   </style>
 </body>
 </html>

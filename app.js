@@ -1425,7 +1425,7 @@
     if (salesEl) salesEl.textContent = (ud.salesCount != null ? ud.salesCount : up.filter(p => ['sold', 'rented'].includes(p.status)).length);
     document.getElementById('profilePropertiesSubtitle').textContent = `${up.length} propiedades`;
     document.getElementById('btnNewPropertyProfile')?.classList.toggle('hidden', !ip);
-    renderProfileTestimonials(ud);
+    renderProfileTestimonials(ud, ui);
     renderProperties(up, 'profilePropertiesGrid');
     document.getElementById('mainContent').classList.add('hidden');
     document.getElementById('adminPanel').classList.add('hidden');
@@ -1434,26 +1434,54 @@
     document.getElementById('profilePage').classList.remove('hidden')
   }
 
-  // Testimonios del perfil: usa ud.testimonials si existen; si no, uno por defecto.
+  // Testimonios del perfil: reales aprobados (Firestore) + ejemplo (etiquetado).
   let pf2TestiIdx = 0, pf2TestiTimer = null;
-  function renderProfileTestimonials(ud) {
+  const PF2_TESTI_EJEMPLO = [
+    { t: 'Nos acompañó en todo el proceso con profesionalismo y cercanía. Encontramos justo lo que buscábamos. 100% recomendable.', n: 'Valeria G.', r: 'Compradora en Punta Carretas', ejemplo: true }
+  ];
+  function renderProfileTestimonials(ud, agentId) {
     const cont = document.getElementById('pf2TestiText');
     if (!cont) return;
-    let list = Array.isArray(ud.testimonials) && ud.testimonials.length ? ud.testimonials : [
-      { t: 'Nos acompañó en todo el proceso con profesionalismo y cercanía. Encontramos justo lo que buscábamos. 100% recomendable.', n: 'Valeria G.', r: 'Compradora en Punta Carretas' }
-    ];
-    clearInterval(pf2TestiTimer); pf2TestiIdx = 0;
-    const show = j => {
-      const x = list[j]; if (!x) return; pf2TestiIdx = j;
-      document.getElementById('pf2TestiText').textContent = '"' + (x.t || x.text || '') + '"';
-      document.getElementById('pf2TestiName').textContent = x.n || x.name || '';
-      document.getElementById('pf2TestiRole').textContent = x.r || x.role || '';
-      document.getElementById('pf2TestiAv').textContent = (x.n || x.name || 'C').trim().charAt(0).toUpperCase();
-      document.getElementById('pf2TestiDots').innerHTML = list.map((_, k) => `<span class="${k === j ? 'on' : ''}" onclick="pf2GoTesti(${k})"></span>`).join('');
+    // Base: ejemplo (siempre disponible para no dejar vacio)
+    let list = PF2_TESTI_EJEMPLO.slice();
+    const pintar = () => {
+      clearInterval(pf2TestiTimer); pf2TestiIdx = 0;
+      const show = j => {
+        const x = list[j]; if (!x) return; pf2TestiIdx = j;
+        document.getElementById('pf2TestiText').textContent = '"' + (x.t || x.text || '') + '"';
+        document.getElementById('pf2TestiName').textContent = x.n || x.name || '';
+        document.getElementById('pf2TestiRole').textContent = x.r || x.role || '';
+        document.getElementById('pf2TestiAv').textContent = (x.n || x.name || 'C').trim().charAt(0).toUpperCase();
+        const tag = document.getElementById('pf2TestiTag');
+        if (tag) tag.style.display = x.ejemplo ? 'inline-block' : 'none';
+        document.getElementById('pf2TestiDots').innerHTML = list.map((_, k) => `<span class="${k === j ? 'on' : ''}" onclick="pf2GoTesti(${k})"></span>`).join('');
+      };
+      window.pf2GoTesti = show;
+      show(0);
+      if (list.length > 1) pf2TestiTimer = setInterval(() => show((pf2TestiIdx + 1) % list.length), 7000);
     };
-    window.pf2GoTesti = show;
-    show(0);
-    if (list.length > 1) pf2TestiTimer = setInterval(() => show((pf2TestiIdx + 1) % list.length), 7000);
+    pintar();
+    // Cargar reales aprobados de este agente y combinarlos adelante
+    if (agentId && typeof db !== 'undefined') {
+      db.collection('testimonials')
+        .where('target', '==', 'agent')
+        .where('agentId', '==', agentId)
+        .where('approved', '==', true)
+        .get()
+        .then(snap => {
+          const reales = [];
+          snap.forEach(d => { const x = d.data(); reales.push({ t: x.text, n: x.name, r: x.role || 'Cliente', ejemplo: false }); });
+          if (reales.length) { list = reales.concat(PF2_TESTI_EJEMPLO); pintar(); }
+        })
+        .catch(() => {});
+    }
+    // Boton "dejar testimonio" para este agente
+    const addBtn = document.getElementById('pf2TestiAdd');
+    if (addBtn) {
+      const nombreAg = (ud && (ud.name || ud.displayName)) || 'este agente';
+      addBtn.onclick = () => { if (typeof window.abrirTestimonioModal === 'function') window.abrirTestimonioModal('agent', agentId || '', nombreAg); };
+      addBtn.style.display = agentId ? 'inline-flex' : 'none';
+    }
   }
 
   function showMyProfile() {
@@ -1891,12 +1919,51 @@
             isFeat = p.featured;
           return `<div class="user-card ${isFeat?'featured-admin':''}"><div class="user-card-avatar" style="border-radius:8px"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=100'}" style="width:100%;height:100%;object-fit:cover;border-radius:8px"></div><div class="user-card-info"><h4>${isFeat?'<i class="fas fa-star" style="color:#f1c40f"></i> ':''} ${p.title}</h4><p>${formatPrice(p.price,p.currency||'USD')} - ${getLocationString(p)}</p><small>${o.name} | <i class="fas fa-eye"></i> ${p.views||0} | ${stt}</small></div><div class="user-card-actions"><button class="btn-feature-admin ${isFeat?'active':''}" onclick="toggleFeatured('${p.id}')" title="${isFeat?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button><button class="btn-edit" onclick="openPropertyFormTab('${p.id}')"><i class="fas fa-edit"></i></button><button class="btn-reject" onclick="deleteProperty('${p.id}')"><i class="fas fa-trash"></i></button></div></div>`
         }).join('')
+      } else if (tb === 'testimonials') {
+        const s = await db.collection('testimonials').get();
+        const ts = s.docs.map(d => ({ id: d.id, ...d.data() }));
+        ts.sort((a,b) => (a.approved===b.approved) ? 0 : (a.approved ? 1 : -1));
+        const pend = ts.filter(t => !t.approved);
+        const pc = document.getElementById('testiPendCount'); if (pc) pc.textContent = pend.length ? `(${pend.length})` : '';
+        if (ts.length === 0) {
+          c.innerHTML = '<div class="empty-state"><i class="fas fa-comment-dots"></i><h3>Sin testimonios</h3><p style="color:var(--gray-500);margin-top:8px">Cuando un cliente deje un testimonio, aparecerá acá para que lo apruebes.</p></div>';
+        } else {
+          c.innerHTML = ts.map(t => {
+            const donde = t.target === 'agent' ? `Perfil de ${t.agentName || 'agente'}` : 'Inicio';
+            const estado = t.approved
+              ? '<span style="color:var(--success)">✓ Publicado</span>'
+              : '<span style="color:var(--gold,#C9A227)">⏳ Pendiente</span>';
+            return `<div class="user-card"><div class="user-card-avatar"><i class="fas fa-quote-left"></i></div><div class="user-card-info"><h4>${t.name||'Anónimo'} ${t.role?`<small style="color:var(--gray-500);font-weight:normal">· ${t.role}</small>`:''}</h4><p style="font-style:italic">"${(t.text||'').slice(0,160)}${(t.text||'').length>160?'…':''}"</p><small style="color:var(--gray-400)"><i class="fas fa-map-pin"></i> ${donde} · ${estado}</small></div><div class="user-card-actions">${!t.approved?`<button class="btn-approve" onclick="approveTestimonial('${t.id}')" title="Aprobar y publicar"><i class="fas fa-check"></i></button>`:`<button class="btn-edit" onclick="unpublishTestimonial('${t.id}')" title="Despublicar"><i class="fas fa-eye-slash"></i></button>`}<button class="btn-reject" onclick="deleteTestimonial('${t.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div></div>`;
+          }).join('');
+        }
       }
     } catch (err) {
       console.error('Error panel admin:', err);
       c.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i><h3>Error al cargar</h3><p style="color:var(--gray-500);margin-top:8px">${err.message}</p></div>`
     }
   }
+
+  // ===== Moderación de testimonios (solo admin) =====
+  async function approveTestimonial(id) {
+    if (!isAdminUser()) return;
+    try { await db.collection('testimonials').doc(id).update({ approved: true }); showToast('Publicado', 'El testimonio ya se muestra en el sitio.', 'fa-check'); showAdminTab('testimonials'); }
+    catch (e) { showToast('Error', 'No se pudo aprobar.', 'fa-triangle-exclamation'); }
+  }
+  async function unpublishTestimonial(id) {
+    if (!isAdminUser()) return;
+    try { await db.collection('testimonials').doc(id).update({ approved: false }); showToast('Despublicado', 'El testimonio dejó de mostrarse.', 'fa-eye-slash'); showAdminTab('testimonials'); }
+    catch (e) { showToast('Error', 'No se pudo despublicar.', 'fa-triangle-exclamation'); }
+  }
+  async function deleteTestimonial(id) {
+    if (!isAdminUser()) return;
+    if (!confirm('¿Eliminar este testimonio definitivamente?')) return;
+    try { await db.collection('testimonials').doc(id).delete(); showToast('Eliminado', 'El testimonio fue borrado.', 'fa-trash'); showAdminTab('testimonials'); }
+    catch (e) { showToast('Error', 'No se pudo eliminar.', 'fa-triangle-exclamation'); }
+  }
+  window.approveTestimonial = approveTestimonial;
+  window.unpublishTestimonial = unpublishTestimonial;
+  window.deleteTestimonial = deleteTestimonial;
+
   // El cargo/título es oficial de la inmobiliaria: SOLO el admin lo asigna.
   async function setUserRole(id) {
     if (!isAdminUser()) { showToast('Solo administradores', 'Solo el administrador puede asignar cargos.', 'fa-lock'); return; }
