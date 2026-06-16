@@ -74,7 +74,7 @@ const CAT_SALE = process.env.ML_CAT_SALE || "";
 const CAT_RENT = process.env.ML_CAT_RENT || "";
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "fabricio9061@gmail.com").toLowerCase();
 // Datos de la inmobiliaria que se muestran como contacto en los avisos de ML.
-const NOMBRE_INMOBILIARIA = process.env.ML_NOMBRE_INMOBILIARIA || "Inmobiliaria Malavé";
+const NOMBRE_INMOBILIARIA = process.env.ML_NOMBRE_INMOBILIARIA || "Inmobiliaria Malave";
 const EMAIL_INMOBILIARIA = process.env.ML_EMAIL_INMOBILIARIA || "inmobiliariamalave@gmail.com";
 
 const API = "https://api.mercadolibre.com";
@@ -533,7 +533,13 @@ function defaultAttrValue(a, p) {
   };
   if (id in numMap && numMap[id] != null && numMap[id] !== "") {
     if (a.value_type === "number_unit") {
-      const unit = (a.allowed_units && a.allowed_units[0] && a.allowed_units[0].id) || a.default_unit || "";
+      let unit = (a.allowed_units && a.allowed_units[0] && a.allowed_units[0].id) || a.default_unit || "";
+      // MAINTENANCE_FEE: unidad = moneda de la propiedad (USD/UYU), no la primera unidad.
+      if (id === "MAINTENANCE_FEE" && a.allowed_units && a.allowed_units.length) {
+        const wanted = (p && p.currency === "UYU") ? "UYU" : "USD";
+        const match = a.allowed_units.find((u) => u.id === wanted || norm(u.name) === norm(wanted));
+        if (match) unit = match.id;
+      }
       const num = Number(numMap[id]);
       // value_name "80 m²" en vez de value_struct: cuando la unidad viene vacía,
       // ML descarta el atributo ("value_id and value_name are null...").
@@ -643,7 +649,14 @@ async function addFeatureAttributes(categoryId, p, baseAttributes, token, catAtt
       const v = vals.find((x) => norm(x.name) === t) || vals.find((x) => norm(x.name).includes(t) || t.includes(norm(x.name)));
       if (v) { out.push({ id, value_id: v.id }); have.add(id); }
     } else if (vt === "number_unit") {
-      const unit = (attr.allowed_units && attr.allowed_units[0] && attr.allowed_units[0].id) || attr.default_unit || "";
+      let unit = (attr.allowed_units && attr.allowed_units[0] && attr.allowed_units[0].id) || attr.default_unit || "";
+      // MAINTENANCE_FEE (gastos comunes): la unidad es una MONEDA. Hay que usar la
+      // moneda de la propiedad (USD/UYU) si la categoría la permite, no la primera unidad.
+      if (id === "MAINTENANCE_FEE" && attr.allowed_units && attr.allowed_units.length) {
+        const wanted = (p && p.currency === "UYU") ? "UYU" : "USD";
+        const match = attr.allowed_units.find((u) => u.id === wanted || norm(u.name) === norm(wanted));
+        if (match) unit = match.id;
+      }
       const num = Number(val);
       // value_name "5 m²" en vez de value_struct: con la unidad vacía ML descartaba el
       // atributo (el caso BALCONY_AREA: "value_id and value_name are null... not sent").
@@ -782,7 +795,16 @@ async function buildItem(p, token) {
   if (p.bathrooms) attributes.push({ id: "FULL_BATHROOMS", value_name: String(p.bathrooms) });
   if (p.totalArea) attributes.push({ id: "TOTAL_AREA", value_name: `${p.totalArea} m²` });
   if (p.builtArea) attributes.push({ id: "COVERED_AREA", value_name: `${p.builtArea} m²` });
-  if (p.commonExpenses) attributes.push({ id: "MAINTENANCE_FEE", value_struct: { number: Number(p.commonExpenses), unit: p.currency === "USD" ? "USD" : "UYU" } });
+  // MAINTENANCE_FEE: NO lo forzamos acá con value_struct (ML lo descartaba en algunas
+  // categorías). Lo dejamos para addFeatureAttributes/fillRequiredAttributes, que leen
+  // la unidad real (allowed_units) de la categoría y usan el formato value_name correcto.
+  // Lo metemos en la ficha para que esos pasos lo procesen igual que el resto.
+  if (p.commonExpenses != null && p.commonExpenses !== "" && Number(p.commonExpenses) > 0) {
+    p.ficha = p.ficha || {};
+    if (p.ficha.MAINTENANCE_FEE == null || p.ficha.MAINTENANCE_FEE === "") {
+      p.ficha.MAINTENANCE_FEE = Number(p.commonExpenses);
+    }
+  }
 
   // Los atributos de la categoría se leen UNA sola vez y se comparten entre el
   // mapeo de la ficha y el relleno de obligatorios (antes eran dos llamadas).

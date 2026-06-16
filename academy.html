@@ -140,6 +140,10 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (window.pdfjsLib) { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
+  </script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
@@ -185,7 +189,9 @@
           const isImg = ['jpg','jpeg','png','webp','gif'].includes((x.ext || '').toLowerCase());
           thumb = isImg
             ? `<div class="aca-thumb" onclick="window.open('${escA(x.url)}','_blank')"><img src="${escA(x.url)}" alt="" loading="lazy"><span class="badge"><i class="fas fa-image"></i> Flyer</span></div>`
-            : `<div class="aca-thumb doc-thumb" style="color:#c0392b" onclick="window.open('${escA(x.url)}','_blank')"><i class="fas fa-file-pdf"></i><span class="badge"><i class="fas fa-file-pdf"></i> PDF</span></div>`;
+            : (x.thumbUrl
+              ? `<div class="aca-thumb" onclick="window.open('${escA(x.url)}','_blank')"><img src="${escA(x.thumbUrl)}" alt="${escH(x.name)}" loading="lazy"><span class="badge"><i class="fas fa-file-pdf"></i> PDF</span></div>`
+              : `<div class="aca-thumb doc-thumb" style="color:#c0392b" onclick="window.open('${escA(x.url)}','_blank')"><i class="fas fa-file-pdf"></i><span class="badge"><i class="fas fa-file-pdf"></i> PDF</span></div>`);
         }
         const action = x.type === 'video'
           ? `<button class="aca-open" onclick="playVid('${x.videoId || ytId(x.videoUrl)}')"><i class="fas fa-play"></i> Ver video</button>`
@@ -201,6 +207,22 @@
         html += '<div class="aca-grid">' + sub.map(card).join('') + '</div>';
       });
       list.innerHTML = html;
+    }
+
+    // ===== Generar miniatura (primera pagina del PDF -> JPEG blob) =====
+    async function generarMiniaturaPDF(file) {
+      const buf = await file.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+      const page = await pdf.getPage(1);
+      const baseViewport = page.getViewport({ scale: 1 });
+      const scale = 600 / baseViewport.width;
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      return await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.82));
     }
 
     function playVid(id) {
@@ -265,6 +287,20 @@
             await new Promise((res, rej) => { task.on('state_changed', s => { bar.style.width = (s.bytesTransferred / s.totalBytes * 100) + '%'; }, rej, res); });
             data.url = await task.snapshot.ref.getDownloadURL();
             data.storagePath = path; data.ext = ext;
+            data.size = file.size;
+            if (ext === 'pdf' && window.pdfjsLib) {
+              try {
+                bar.style.width = '100%';
+                const thumbBlob = await generarMiniaturaPDF(file);
+                if (thumbBlob) {
+                  const thumbPath = path.replace(/\.pdf$/i, '') + '_thumb.jpg';
+                  const thumbRef = storage.ref(thumbPath);
+                  await thumbRef.put(thumbBlob);
+                  data.thumbUrl = await thumbRef.getDownloadURL();
+                  data.thumbPath = thumbPath;
+                }
+              } catch (thumbErr) { console.warn('No se pudo generar miniatura:', thumbErr); }
+            }
           }
         }
         if (id) await db.collection('academy').doc(id).update(data);
@@ -284,6 +320,7 @@
       if (!confirm('¿Eliminar "' + (x ? x.name : 'este material') + '"?')) return;
       try {
         if (x && x.storagePath) { try { await storage.ref(x.storagePath).delete(); } catch (e) {} }
+        if (x && x.thumbPath) { try { await storage.ref(x.thumbPath).delete(); } catch (e) {} }
         await db.collection('academy').doc(id).delete();
         await loadAca();
       } catch (e) { showToast('Error', 'No se pudo eliminar: ' + (e.message || e), 'fa-triangle-exclamation'); }

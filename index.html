@@ -91,7 +91,7 @@
     .mv-why-card h3{ font-size:.95rem; color:var(--mvNavy); margin:0 0 8px; font-weight:600; }
     .mv-why-card p{ font-size:.8rem; color:var(--gray-500,#8a8a8a); line-height:1.55; margin:0; }
     .mv-testi{ background:#faf6ec; border:1px solid #efe5cd; border-radius:14px; padding:24px 22px; display:flex; flex-direction:column; position:relative; }
-    .mv-testi-tag{ position:absolute; top:14px; right:14px; background:rgba(138,138,138,.14); color:#8a8a8a; font-size:.66rem; font-weight:600; padding:3px 9px; border-radius:20px; letter-spacing:.5px; text-transform:uppercase; }
+    .mv-testi-tag{ position:absolute; top:16px; right:16px; background:none; color:#cfd3d8; font-size:.6rem; font-weight:400; padding:0; border-radius:0; letter-spacing:.5px; text-transform:lowercase; opacity:.7; }
     .mv-testi-add{ margin-top:14px; align-self:flex-start; background:none; border:1px solid var(--mvGold,#c9a961); color:var(--mvNavy,#16273f); padding:8px 16px; border-radius:8px; font-family:inherit; font-size:.82rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; transition:background .2s,color .2s; }
     .mv-testi-add:hover{ background:var(--mvGold,#c9a961); color:#fff; }
     .mv-testi-quote{ color:var(--mvGold); font-size:1.5rem; margin-bottom:12px; }
@@ -187,7 +187,7 @@
     <div class="logo" onclick="showHome()"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></div>
     <nav class="nav" id="nav-guest"><a href="#" onclick="showHome()">Inicio</a><a href="#propiedades">Propiedades</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('rent')">Alquiler</a><a class="mv-navx" href="#porque" onclick="mvFiltrar('sale')">Venta</a><a class="mv-navx" href="#porque">Nosotros</a><a class="mv-navx" href="#contacto">Contacto</a><a href="vender.html" class="mv-sell-link" style="color:#C9A227;font-weight:600;">Vendé tu propiedad</a><button class="agent-access" onclick="openModal('loginModal')" title="Acceso para agentes"><i class="fas fa-lock"></i> Acceso agentes</button></nav>
     <nav class="nav hidden" id="nav-user"><a href="#" onclick="showHome()">Inicio</a><a href="#propiedades">Propiedades</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('rent')">Alquiler</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('sale')">Venta</a>
-      <div class="calendar-btn" id="calendarBtn" onclick="openCalendarModal()" title="Mi Agenda"><i class="fas fa-calendar-alt"></i></div>
+      <a class="calendar-btn" id="calendarBtn" href="agenda.html" title="Mi Agenda"><i class="fas fa-calendar-alt"></i></a>
       <div class="notification-bell" id="notificationBell" onclick="toggleNotifications(event)"><i class="fas fa-bell"></i><span class="notification-badge hidden" id="notificationBadge">0</span></div>
       <div class="notification-overlay" id="notificationOverlay" onclick="closeNotifications()"></div>
       <div class="notification-dropdown" id="notificationDropdown"><div class="notification-header"><h3><i class="fas fa-comments"></i> Consultas</h3><div class="notification-actions"><button onclick="markAllAsRead(event)"><i class="fas fa-check-double"></i> Leídas</button><button class="btn-clear" onclick="clearAllNotifications(event)"><i class="fas fa-trash"></i> Limpiar</button></div></div><div class="notification-list" id="notificationList"><div class="notification-empty"><i class="fas fa-bell-slash"></i><p>No tienes consultas</p></div></div></div>
@@ -252,7 +252,6 @@
         </div>
         <div class="mv-testi">
           <i class="fas fa-quote-left mv-testi-quote"></i>
-          <span id="mvTestiTag" class="mv-testi-tag" style="display:none;">Ejemplo</span>
           <p id="mvTestiText"></p>
           <div class="mv-testi-who"><div class="mv-testi-av" id="mvTestiAv">M</div><div><strong id="mvTestiName"></strong><span id="mvTestiRole"></span></div></div>
           <div class="mv-testi-dots" id="mvTestiDots"></div>
@@ -317,7 +316,6 @@
           <h2 class="pf2-h2">Testimonios</h2>
           <div class="pf2-testi">
             <i class="fas fa-quote-left pf2-testi-q"></i>
-            <span id="pf2TestiTag" class="mv-testi-tag" style="display:none;">Ejemplo</span>
             <p id="pf2TestiText"></p>
             <div class="pf2-testi-who"><div class="pf2-testi-av" id="pf2TestiAv">V</div><div><strong id="pf2TestiName"></strong><span id="pf2TestiRole"></span></div><div class="pf2-testi-stars">★★★★★</div></div>
             <div class="pf2-testi-dots" id="pf2TestiDots"></div>
@@ -601,8 +599,6 @@
       document.getElementById('mvTestiText').textContent = x.t;
       document.getElementById('mvTestiName').textContent = x.n;
       document.getElementById('mvTestiRole').textContent = x.r;
-      var tag = document.getElementById('mvTestiTag');
-      if (tag) tag.style.display = x.ejemplo ? 'inline-block' : 'none';
       document.getElementById('mvTestiAv').textContent = (x.n.trim()[0] || 'M');
       document.getElementById('mvTestiDots').innerHTML = MV_TESTIMONIOS.map((_, j) => '<span class="' + (j === i ? 'on' : '') + '" onclick="mvShowTesti(' + j + ');mvTestiAuto()"></span>').join('');
     }
@@ -685,11 +681,11 @@
     </div>
     <nav class="mv-side-nav">
       <button class="mv-side-item" onclick="closeSideMenu();showMyProfile()"><i class="fas fa-user"></i> Mi Perfil</button>
-      <button class="mv-side-item" onclick="closeSideMenu();openCalendarModal()"><i class="fas fa-calendar-alt"></i> Mi Agenda</button>
-      <button class="mv-side-item" onclick="closeSideMenu();showCRM()"><i class="fas fa-address-book"></i> Clientes</button>
+      <a class="mv-side-item" href="agenda.html"><i class="fas fa-calendar-alt"></i> Mi Agenda</a>
+      <a class="mv-side-item" href="clientes.html"><i class="fas fa-address-book"></i> Clientes</a>
       <a class="mv-side-item" href="cuentas.html"><i class="fas fa-key"></i> Cuentas y herramientas</a>
-      <a class="mv-side-item" href="tasador.html"><i class="fas fa-calculator"></i> Tasador <span class="mv-soon">Beta</span></a>
-      <a class="mv-side-item" href="gastos.html"><i class="fas fa-file-invoice-dollar"></i> Calculadora de gastos <span class="mv-soon">Beta</span></a>
+      <a class="mv-side-item" href="tasador.html"><i class="fas fa-calculator"></i> Tasador</a>
+      <a class="mv-side-item" href="gastos.html"><i class="fas fa-file-invoice-dollar"></i> Calculadora de gastos</a>
       <a class="mv-side-item" href="documentos.html"><i class="fas fa-folder-open"></i> Documentos</a>
       <a class="mv-side-item" href="academy.html"><i class="fas fa-graduation-cap"></i> Malavé Academy</a>
       <button class="mv-side-item mv-side-admin hidden" id="mvSideAdmin" onclick="closeSideMenu();showAdmin()"><i class="fas fa-shield-halved"></i> Panel de Administración</button>

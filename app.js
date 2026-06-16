@@ -1909,6 +1909,8 @@
           const o = getOwnerInfo(p),
             st = p.status || 'available',
             stLabels = {
+              tasacion: '⏳ Pendiente de tasación',
+              tasado: '📋 Tasado',
               available: '✓ Disponible',
               reserved: '⏳ Reservada',
               sold: '✗ Vendida',
@@ -2005,7 +2007,8 @@
     showAdminTab('users')
   }
   async function deleteProperty(id) {
-    if (!confirm('¿Eliminar esta propiedad?')) return;
+    if (!isAdminUser()) { showToast('Solo administradores', 'Solo el administrador puede eliminar propiedades. Como agente, podés archivarla.', 'fa-lock'); return; }
+    if (!confirm('¿Eliminar esta propiedad DEFINITIVAMENTE? Esta acción no se puede deshacer. Si solo querés ocultarla, archivala en su lugar.')) return;
     await db.collection('properties').doc(id).delete()
   }
   async function toggleFeatured(id) {

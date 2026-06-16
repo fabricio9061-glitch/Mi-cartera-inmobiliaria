@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clientes · MALAVE</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root{
+      --navy:#16273f; --navy-2:#243447; --primary:#16273f;
+      --gold:#c9a961; --gold-2:#C9A227; --gold-hover:#b8954a;
+      --gray-50:#f7f8fa; --gray-100:#eef0f3; --gray-200:#e3e6ea; --gray-300:#ccd1d8; --gray-400:#aab0b8; --gray-500:#8a8a8a; --gray-600:#555; --gray-700:#4a4a4a;
+      --white:#fff; --success:#1e7d4f; --danger:#c0392b;
+    }
+    *{ margin:0; padding:0; box-sizing:border-box; }
+    html,body{ overflow-x:hidden; }
+    body{ font-family:'Inter',sans-serif; color:var(--navy); background:var(--gray-50); line-height:1.6; }
+    h1,h2,h3{ font-family:'Cormorant Garamond',serif; }
+    a{ text-decoration:none; color:inherit; }
+    .wrap{ max-width:1180px; margin:0 auto; padding:0 20px; }
+
+    /* Header */
+    .header{ background:#fff; border-bottom:1px solid var(--gray-100); position:sticky; top:0; z-index:50; }
+    .header-in{ display:flex; align-items:center; justify-content:space-between; height:64px; }
+    .logo{ display:flex; align-items:center; gap:11px; cursor:pointer; }
+    .logo-img{ height:34px; } .logo-text{ height:18px; }
+    .back-link{ color:var(--gray-700); font-size:.9rem; font-weight:500; display:inline-flex; align-items:center; gap:7px; }
+    .back-link:hover{ color:var(--navy); }
+
+    /* Estados */
+    .state{ min-height:60vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:40px 20px; color:var(--gray-500); }
+    .state i{ font-size:2.4rem; color:var(--gold-2); margin-bottom:14px; }
+    .state h2{ font-size:1.5rem; color:var(--navy); margin-bottom:6px; }
+    .spinner{ width:40px; height:40px; border:3px solid var(--gray-200); border-top-color:var(--gold-2); border-radius:50%; animation:spin .8s linear infinite; margin-bottom:14px; }
+    @keyframes spin{ to{ transform:rotate(360deg); } }
+
+    /* Page head */
+    .page-wrap{ padding:30px 0 60px; }
+    .crm-header{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:24px; }
+    .crm-header h1{ font-size:2.2rem; font-weight:700; margin-bottom:2px; }
+    .crm-header p{ color:var(--gray-500); font-size:.95rem; }
+    .btn-new{ background:var(--navy); color:#fff; border:none; border-radius:11px; padding:13px 20px; font-family:inherit; font-size:.95rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:9px; transition:background .2s; }
+    .btn-new:hover{ background:var(--navy-2); }
+
+    /* Stats */
+    .crm-stats{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom:22px; }
+    .crm-stat{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:18px 22px; min-width:140px; flex:1; box-shadow:0 1px 3px rgba(16,39,63,.04); }
+    .crm-stat-num{ font-family:'Cormorant Garamond',serif; font-size:34px; font-weight:700; color:var(--primary); line-height:1; }
+    .crm-stat-label{ font-size:13px; color:var(--gray-500); margin-top:4px; }
+
+    /* Toolbar */
+    .crm-toolbar{ display:flex; gap:12px; margin-bottom:22px; flex-wrap:wrap; align-items:center; }
+    .crm-search{ flex:1; min-width:220px; position:relative; }
+    .crm-search i{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--gray-400); }
+    .crm-search input{ width:100%; padding:12px 14px 12px 40px; border:1px solid var(--gray-300); border-radius:11px; font-family:inherit; font-size:.95rem; }
+    .crm-search input:focus{ outline:none; border-color:var(--gold-2); box-shadow:0 0 0 3px rgba(201,162,39,.12); }
+    .crm-filter{ border:1px solid var(--gray-300); border-radius:11px; padding:12px 14px; font-family:inherit; font-size:.95rem; background:#fff; }
+    .crm-filter:focus{ outline:none; border-color:var(--gold-2); }
+
+    /* Grid de clientes */
+    .crm-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr)); gap:16px; }
+    .client-card{ background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:18px; transition:transform .15s, box-shadow .15s; }
+    .client-card:hover{ transform:translateY(-3px); box-shadow:0 12px 30px rgba(16,39,63,.1); }
+    .client-card-top{ display:flex; align-items:flex-start; gap:12px; margin-bottom:12px; }
+    .client-avatar{ width:46px; height:46px; border-radius:50%; background:var(--navy); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1.1rem; flex:0 0 auto; }
+    .client-card-name{ flex:1; min-width:0; }
+    .client-card-name h3{ font-family:'Inter'; font-size:1.05rem; font-weight:600; color:var(--navy); }
+    .client-owner{ font-size:.74rem; color:var(--gold-hover); margin-top:2px; }
+    .client-status{ font-size:.7rem; font-weight:600; padding:4px 11px; border-radius:20px; white-space:nowrap; flex:0 0 auto; }
+    .client-status.nuevo{ background:#e8f0fe; color:#2563eb; }
+    .client-status.contactado{ background:#e0f2f1; color:#0891b2; }
+    .client-status.seguimiento{ background:#fef3c7; color:#b45309; }
+    .client-status.visita{ background:#ede9fe; color:#7c3aed; }
+    .client-status.negociacion{ background:#fce7f3; color:#be185d; }
+    .client-status.cartera{ background:#e0e7ff; color:#4338ca; }
+    .client-status.cerrado{ background:#dcfce7; color:#15803d; }
+    .client-status.perdido{ background:#fee2e2; color:#b91c1c; }
+    .client-interest-tag{ display:inline-block; font-size:.76rem; color:var(--gray-600); background:var(--gray-50); border:1px solid var(--gray-100); border-radius:8px; padding:4px 10px; margin-bottom:10px; }
+    .client-meta{ display:flex; flex-direction:column; gap:5px; margin-bottom:10px; }
+    .client-meta-row{ font-size:.84rem; color:var(--gray-600); display:flex; align-items:center; gap:8px; }
+    .client-meta-row i{ width:14px; color:var(--gray-400); }
+    .client-notes-preview{ font-size:.82rem; color:var(--gray-600); font-style:italic; background:var(--gray-50); border-radius:8px; padding:8px 11px; margin-bottom:10px; }
+    .client-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+    .client-actions a, .client-actions button{ font-size:.82rem; padding:8px 12px; border-radius:9px; border:1px solid var(--gray-200); background:#fff; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:6px; transition:all .15s; color:var(--navy); text-decoration:none; }
+    .ca-wa{ color:#1eb858 !important; } .ca-wa:hover{ border-color:#1eb858; background:#f0fdf4; }
+    .ca-edit:hover{ border-color:var(--gold-2); color:var(--gold-2); }
+    .ca-del{ color:var(--danger) !important; } .ca-del:hover{ border-color:#e3a9a2; background:#fff0ee; }
+    .ca-archive{ color:var(--gray-600) !important; } .ca-archive:hover{ border-color:var(--gold-2); color:var(--gold-2) !important; background:#fffdf6; }
+    .client-card.archived{ opacity:.6; background:var(--gray-50); }
+    .client-card.archived::after{ content:'Archivado'; position:absolute; }
+    .client-archived-tag{ display:inline-block; font-size:.66rem; font-weight:600; color:var(--gray-500); background:var(--gray-100); padding:3px 9px; border-radius:20px; margin-left:8px; }
+    .crm-empty{ grid-column:1/-1; text-align:center; padding:50px 20px; color:var(--gray-500); }
+    .crm-empty i{ font-size:2.4rem; color:var(--gray-300); margin-bottom:12px; }
+    .crm-empty h3{ color:var(--navy); margin-bottom:6px; }
+
+    /* Modal */
+    .modal{ position:fixed; inset:0; background:rgba(16,29,48,.55); display:none; align-items:center; justify-content:center; z-index:2000; padding:18px; }
+    .modal.open{ display:flex; }
+    .modal-box{ background:#fff; border-radius:18px; width:100%; max-width:540px; max-height:92vh; overflow-y:auto; padding:26px; }
+    .modal-box h2{ font-size:1.5rem; color:var(--navy); margin-bottom:18px; }
+    .modal-close{ float:right; width:34px; height:34px; border-radius:50%; background:#f0f1f3; border:none; cursor:pointer; color:var(--gray-500); }
+    .fg{ margin-bottom:14px; }
+    .fg label{ display:block; font-size:.84rem; font-weight:600; color:var(--gray-700); margin-bottom:6px; }
+    .fg label .req{ color:var(--danger); }
+    .fg input, .fg select, .fg textarea{ width:100%; padding:11px 13px; border:1px solid var(--gray-300); border-radius:10px; font-family:inherit; font-size:.93rem; color:var(--navy); }
+    .fg input:focus, .fg select:focus, .fg textarea:focus{ outline:none; border-color:var(--gold-2); box-shadow:0 0 0 3px rgba(201,162,39,.12); }
+    .fg textarea{ resize:vertical; min-height:70px; }
+    .fg-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .phone-row{ display:grid; grid-template-columns:90px 1fr; gap:10px; }
+    .modal-error{ background:#fff0ee; border:1px solid #e3a9a2; color:#b91c1c; border-radius:10px; padding:11px 14px; font-size:.86rem; margin-bottom:14px; }
+    .modal-error.hidden{ display:none; }
+    .modal-save{ width:100%; background:var(--navy); color:#fff; border:none; border-radius:11px; padding:13px; font-family:inherit; font-size:.95rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:9px; margin-top:4px; }
+    .modal-save:hover{ background:var(--navy-2); }
+    .modal-save:disabled{ opacity:.6; cursor:not-allowed; }
+    .cp-editor-note{ background:var(--gray-50); border:1px solid var(--gray-100); border-radius:10px; padding:11px 14px; font-size:.82rem; color:var(--gray-600); margin-bottom:16px; display:flex; align-items:flex-start; gap:9px; line-height:1.5; }
+    .cp-editor-note i{ color:var(--gold-2); margin-top:2px; }
+
+    /* Toast */
+    .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(120px); background:var(--navy); color:#fff; padding:14px 22px; border-radius:12px; font-size:.92rem; box-shadow:0 12px 30px rgba(0,0,0,.25); z-index:3000; transition:transform .3s; display:flex; align-items:center; gap:10px; }
+    .toast.show{ transform:translateX(-50%) translateY(0); }
+    .toast i{ color:var(--gold); }
+
+    /* ===== Perfil del cliente ===== */
+    .cp-hero{ background:linear-gradient(115deg, #101d30 0%, var(--navy) 65%); color:#fff; padding:24px 0 30px; }
+    .cp-back{ background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.18); color:#fff; padding:9px 16px; border-radius:9px; font-family:inherit; font-size:.88rem; font-weight:500; cursor:pointer; display:inline-flex; align-items:center; gap:8px; margin-bottom:22px; transition:background .2s; }
+    .cp-back:hover{ background:rgba(255,255,255,.18); }
+    .cp-hero-main{ display:flex; align-items:flex-start; gap:20px; flex-wrap:wrap; }
+    .cp-avatar{ width:84px; height:84px; border-radius:50%; background:rgba(201,162,39,.18); border:2px solid var(--gold); color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Cormorant Garamond',serif; font-size:2.4rem; font-weight:700; flex:0 0 auto; }
+    .cp-hero-info{ flex:1; min-width:0; }
+    .cp-name-row{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:8px; }
+    .cp-name-row h1{ font-size:2rem; font-weight:700; margin:0; }
+    .cp-meta{ color:#c8cdd4; font-size:.9rem; margin-bottom:16px; line-height:1.9; }
+    .cp-meta i{ margin-right:6px; color:var(--gold); }
+    .cp-hero-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+    .cp-btn{ padding:10px 18px; border-radius:9px; font-family:inherit; font-size:.9rem; font-weight:600; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:8px; text-decoration:none; transition:all .18s; }
+    .cp-btn-wa{ background:#25D366; color:#fff; } .cp-btn-wa:hover{ background:#1eb858; }
+    .cp-btn-edit{ background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.2); } .cp-btn-edit:hover{ background:rgba(255,255,255,.2); }
+    .cp-body{ padding:28px 20px 60px; }
+    .cp-grid{ display:grid; grid-template-columns:1fr 1.2fr; gap:22px; align-items:start; }
+    .cp-card{ background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:22px; margin-bottom:18px; }
+    .cp-card h3{ font-family:'Inter'; font-size:1.05rem; font-weight:600; color:var(--navy); margin-bottom:16px; display:flex; align-items:center; gap:9px; }
+    .cp-card h3 i{ color:var(--gold-2); }
+    .cp-fields{ display:flex; flex-direction:column; gap:0; }
+    .cp-field{ display:flex; justify-content:space-between; gap:14px; padding:10px 0; border-bottom:1px solid var(--gray-100); font-size:.9rem; }
+    .cp-field:last-child{ border-bottom:none; }
+    .cp-field .k{ color:var(--gray-500); font-weight:500; flex:0 0 auto; }
+    .cp-field .v{ color:var(--navy); font-weight:500; text-align:right; word-break:break-word; }
+    .cp-field .v a{ color:var(--primary); }
+    .cp-notes{ font-size:.92rem; color:var(--gray-700); white-space:pre-wrap; line-height:1.7; }
+    .cp-notes.empty{ color:var(--gray-400); font-style:italic; }
+    .cp-add-prop{ background:var(--gold-2); color:#16273f; font-size:.82rem; font-weight:600; padding:8px 14px; border-radius:9px; text-decoration:none; display:inline-flex; align-items:center; gap:7px; transition:background .2s; white-space:nowrap; }
+    .cp-add-prop:hover{ background:var(--gold-hover); }
+    .cp-note-add{ margin-bottom:18px; }
+    .cp-note-add textarea{ width:100%; padding:11px 13px; border:1px solid var(--gray-300); border-radius:10px; font-family:inherit; font-size:.9rem; color:var(--navy); resize:vertical; min-height:64px; }
+    .cp-note-add textarea:focus{ outline:none; border-color:var(--gold-2); box-shadow:0 0 0 3px rgba(201,162,39,.12); }
+    .cp-note-btn{ margin-top:8px; background:var(--navy); color:#fff; border:none; border-radius:9px; padding:9px 16px; font-family:inherit; font-size:.85rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:background .2s; }
+    .cp-note-btn:hover{ background:var(--navy-2); }
+    .cp-note-btn:disabled{ opacity:.6; cursor:not-allowed; }
+    .cp-notes-list{ display:flex; flex-direction:column; gap:12px; }
+    .cp-note-item{ background:var(--gray-50); border:1px solid var(--gray-100); border-left:3px solid var(--gold); border-radius:10px; padding:12px 14px; }
+    .cp-note-text{ font-size:.9rem; color:var(--gray-700); line-height:1.6; white-space:pre-wrap; margin-bottom:8px; }
+    .cp-note-foot{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .cp-note-author{ font-size:.78rem; color:var(--navy); font-weight:600; display:flex; align-items:center; gap:6px; }
+    .cp-note-author i{ color:var(--gold-hover); }
+    .cp-note-date{ font-size:.74rem; color:var(--gray-400); }
+    .cp-note-del{ background:none; border:none; color:var(--gray-400); cursor:pointer; font-size:.78rem; padding:2px 6px; border-radius:6px; transition:all .15s; }
+    .cp-note-del:hover{ color:var(--danger); background:#fff0ee; }
+    .cp-notes-empty{ color:var(--gray-400); font-style:italic; font-size:.88rem; padding:6px 2px; }
+    .cp-props-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+    .cp-props-head h3{ margin-bottom:0; }
+    .cp-props-count{ font-size:.82rem; color:var(--gray-500); }
+    .cp-props-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr)); gap:14px; }
+    .cp-prop-soon{ color:var(--gray-400); font-size:.9rem; padding:8px 2px; grid-column:1/-1; }
+    .cp-prop-card{ display:flex; flex-direction:column; border:1px solid var(--gray-200); border-radius:14px; overflow:hidden; background:#fff; transition:transform .15s, box-shadow .15s; text-decoration:none; color:inherit; }
+    .cp-prop-card:hover{ transform:translateY(-3px); box-shadow:0 12px 28px rgba(16,39,63,.12); }
+    .cp-prop-card:hover .cp-prop-open{ background:var(--gold-2); color:#16273f; }
+    .cp-prop-img{ position:relative; height:130px; background:var(--gray-100); }
+    .cp-prop-img img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .cp-prop-badge{ position:absolute; top:8px; left:8px; font-size:.62rem; font-weight:700; padding:3px 9px; border-radius:20px; color:#fff; letter-spacing:.5px; }
+    .cp-prop-badge.sale{ background:#2563eb; } .cp-prop-badge.rent{ background:#0891b2; }
+    .cp-prop-status{ position:absolute; top:8px; right:8px; font-size:.62rem; font-weight:700; padding:3px 9px; border-radius:20px; background:rgba(16,39,63,.82); color:#fff; }
+    .cp-prop-info{ padding:12px 13px; flex:1; }
+    .cp-prop-price{ font-weight:700; color:var(--navy); font-size:1.02rem; }
+    .cp-prop-price span{ font-size:.76rem; font-weight:400; color:var(--gray-500); }
+    .cp-prop-title{ font-size:.9rem; color:var(--gray-700); margin:4px 0 6px; font-weight:600; line-height:1.3; }
+    .cp-prop-loc, .cp-prop-agent{ font-size:.78rem; color:var(--gray-500); display:flex; align-items:center; gap:6px; margin-top:3px; }
+    .cp-prop-loc i, .cp-prop-agent i{ color:var(--gray-400); width:12px; }
+    .cp-prop-open{ background:var(--gray-50); border-top:1px solid var(--gray-100); padding:9px; text-align:center; font-size:.82rem; font-weight:600; color:var(--navy); display:flex; align-items:center; justify-content:center; gap:7px; transition:all .15s; }
+    /* Gestiones */
+    .cp-gestion-card{ border:1px solid var(--gray-200); border-radius:14px; padding:14px; background:#fff; }
+    .cp-gestion-top{ display:flex; gap:12px; margin-bottom:10px; }
+    .cp-gestion-img{ width:64px; height:64px; border-radius:10px; object-fit:cover; flex:0 0 auto; background:var(--gray-100); }
+    .cp-gestion-main{ flex:1; min-width:0; }
+    .cp-gestion-title{ font-size:.92rem; font-weight:600; color:var(--navy); line-height:1.3; margin-bottom:3px; }
+    .cp-gestion-price{ font-size:.84rem; color:var(--gray-600); font-weight:600; margin-bottom:6px; }
+    .cp-gestion-meta{ display:flex; flex-wrap:wrap; gap:8px 14px; font-size:.78rem; color:var(--gray-500); margin-bottom:8px; }
+    .cp-gestion-meta i{ color:var(--gray-400); margin-right:4px; }
+    .cp-gestion-link{ display:inline-flex; align-items:center; gap:6px; font-size:.8rem; color:var(--primary); font-weight:500; margin-bottom:10px; }
+    .cp-gestion-actions{ display:flex; gap:7px; flex-wrap:wrap; border-top:1px solid var(--gray-100); padding-top:10px; }
+    .cp-g-btn{ font-size:.8rem; padding:7px 11px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:6px; color:var(--navy); text-decoration:none; transition:all .15s; }
+    .cp-g-btn:hover{ border-color:var(--gold-2); color:var(--gold-2); }
+    .cp-g-del{ color:var(--danger); } .cp-g-del:hover{ border-color:#e3a9a2; background:#fff0ee; color:var(--danger); }
+    .cp-migrar-aviso{ background:rgba(201,162,39,.08); border:1px solid rgba(201,162,39,.25); border-radius:10px; padding:10px 13px; font-size:.8rem; color:var(--gray-700); margin:4px 0 4px; display:flex; align-items:flex-start; gap:8px; }
+    .cp-migrar-aviso i{ color:var(--gold-2); margin-top:2px; }
+    .cp-gestion-estados{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:4px 0 12px; }
+    .cp-g-estado label{ display:block; font-size:.72rem; color:var(--gray-500); margin-bottom:4px; font-weight:500; }
+    .cp-g-estado select{ width:100%; padding:8px 10px; border:1px solid var(--gray-300); border-radius:8px; font-family:inherit; font-size:.82rem; color:var(--navy); background:#fff; cursor:pointer; }
+    .cp-g-estado select:focus{ outline:none; border-color:var(--gold-2); }
+    .cp-g-estado select.cp-g-estado-prop{ background:var(--gray-50); }
+    .cp-g-estado small{ display:block; font-size:.68rem; color:var(--gray-400); margin-top:4px; }
+    .cp-g-noprop{ font-size:.78rem; color:var(--gray-400); padding:8px 0; }
+    .hist-list{ display:flex; flex-direction:column; gap:0; max-height:60vh; overflow-y:auto; }
+    .hist-item{ display:flex; gap:12px; padding:12px 2px; border-bottom:1px solid var(--gray-100); }
+    .hist-item:last-child{ border-bottom:none; }
+    .hist-ic{ width:32px; height:32px; border-radius:50%; background:var(--gray-50); border:1px solid var(--gray-100); display:flex; align-items:center; justify-content:center; flex:0 0 auto; color:var(--gold-hover); font-size:.8rem; }
+    .hist-body{ flex:1; min-width:0; }
+    .hist-text{ font-size:.9rem; color:var(--navy); margin-bottom:3px; }
+    .hist-meta{ font-size:.76rem; color:var(--gray-500); }
+    .hist-meta i{ color:var(--gray-400); margin-right:3px; }
+
+    @media (max-width:768px){
+      .crm-grid{ grid-template-columns:1fr; }
+      .crm-stat{ min-width:calc(50% - 7px); }
+      .cp-grid{ grid-template-columns:1fr; }
+    }
+    @media (max-width:560px){
+      .wrap{ padding:0 16px; }
+      .crm-header h1{ font-size:1.7rem; }
+      .btn-new{ width:100%; justify-content:center; }
+      .crm-toolbar{ flex-direction:column; align-items:stretch; }
+      .crm-search{ min-width:0; width:100%; }
+      .crm-filter{ width:100%; }
+      .crm-stat{ padding:15px 16px; }
+      .crm-stat-num{ font-size:30px; }
+      .fg-row{ grid-template-columns:1fr; gap:0; }
+      .back-link span{ display:none; }
+      .cp-name-row h1{ font-size:1.6rem; }
+      .cp-avatar{ width:66px; height:66px; font-size:1.9rem; }
+      .cp-hero-actions{ width:100%; }
+      .cp-btn{ flex:1; justify-content:center; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="wrap header-in">
+      <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
+      <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i><span>Volver al inicio</span></a>
+    </div>
+  </header>
+
+  <!-- Estados -->
+  <div id="cLoading" class="state"><div class="spinner"></div><p>Verificando sesión...</p></div>
+  <div id="cAuth" class="state" style="display:none">
+    <i class="fas fa-lock"></i>
+    <h2>Acceso para agentes</h2>
+    <p>Iniciá sesión en el inicio para ver y gestionar los clientes.</p>
+    <a href="index.html" class="btn-new" style="margin-top:18px">Ir al inicio</a>
+  </div>
+
+  <!-- Contenido -->
+  <div id="cContent" style="display:none">
+    <div class="wrap page-wrap">
+      <div class="crm-header">
+        <div><h1>Clientes</h1><p id="crmSubtitle">Gestiona tus clientes y prospectos</p></div>
+        <button class="btn-new" onclick="openClientModal()"><i class="fas fa-plus"></i> Nuevo Cliente</button>
+      </div>
+
+      <div class="crm-stats" id="crmStats"></div>
+
+      <div class="crm-toolbar">
+        <div class="crm-search"><i class="fas fa-search"></i><input type="text" id="clientSearch" placeholder="Buscar por nombre, teléfono o email..." oninput="renderClients()"></div>
+        <select class="crm-filter" id="clientStatusFilter" onchange="renderClients()">
+          <option value="">Todos los estados</option>
+          <option value="nuevo">Nuevo</option><option value="contactado">Contactado</option>
+          <option value="seguimiento">En seguimiento</option><option value="visita">Visita agendada</option>
+          <option value="negociacion">En negociación</option><option value="cartera">En cartera</option><option value="cerrado">Cerrado</option><option value="perdido">Perdido</option>
+        </select>
+        <select class="crm-filter" id="clientInterestFilter" onchange="renderClients()">
+          <option value="">Todo interés</option>
+          <option value="comprar">Comprar</option><option value="alquilar">Alquilar</option><option value="vender">Vender</option>
+        </select>
+        <select class="crm-filter" id="clientArchivedFilter" onchange="renderClients()">
+          <option value="active">Activos</option>
+          <option value="archived">Archivados</option>
+          <option value="all">Todos</option>
+        </select>
+      </div>
+
+      <div class="crm-grid" id="crmGrid"></div>
+    </div>
+  </div>
+
+  <!-- Perfil del cliente (pantalla completa) -->
+  <div id="cProfile" style="display:none">
+    <div class="cp-hero">
+      <div class="wrap">
+        <button class="cp-back" onclick="closeProfile()"><i class="fas fa-arrow-left"></i> Volver a Clientes</button>
+        <div class="cp-hero-main">
+          <div class="cp-avatar" id="cpAvatar">?</div>
+          <div class="cp-hero-info">
+            <div class="cp-name-row">
+              <h1 id="cpName">Cliente</h1>
+              <span class="client-status" id="cpStatus">Nuevo</span>
+            </div>
+            <div class="cp-meta" id="cpMeta"></div>
+            <div class="cp-hero-actions">
+              <a class="cp-btn cp-btn-wa" id="cpWhatsapp" target="_blank"><i class="fab fa-whatsapp"></i> WhatsApp</a>
+              <button class="cp-btn cp-btn-edit" id="cpEditBtn"><i class="fas fa-edit"></i> Editar cliente</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="wrap cp-body">
+      <div class="cp-grid">
+        <div class="cp-col">
+          <div class="cp-card">
+            <h3><i class="fas fa-id-card"></i> Datos del cliente</h3>
+            <div class="cp-fields" id="cpFields"></div>
+          </div>
+          <div class="cp-card" id="cpNotesCard">
+            <h3><i class="fas fa-note-sticky"></i> Notas del seguimiento</h3>
+            <div class="cp-note-add">
+              <textarea id="cpNewNote" placeholder="Escribí una nota... (quedará firmada con tu nombre y la fecha)"></textarea>
+              <button class="cp-note-btn" id="cpAddNoteBtn" onclick="agregarNota()"><i class="fas fa-paper-plane"></i> Agregar nota</button>
+            </div>
+            <div id="cpNotesList" class="cp-notes-list"></div>
+          </div>
+        </div>
+        <div class="cp-col">
+          <div class="cp-card">
+            <div class="cp-props-head">
+              <h3><i class="fas fa-handshake"></i> Gestiones del cliente</h3>
+              <button class="cp-add-prop" id="cpAddGestion" onclick="openGestionModal()"><i class="fas fa-plus"></i> Nueva gestión</button>
+            </div>
+            <div id="cpPropsCount" class="cp-props-count" style="margin-bottom:14px"></div>
+            <div id="cpGestionesGrid" class="cp-props-grid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal cliente -->
+  <div class="modal" id="clientModal">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeClientModal()"><i class="fas fa-times"></i></button>
+      <h2 id="clientModalTitle">Nuevo Cliente</h2>
+      <input type="hidden" id="editingClientId">
+      <div class="modal-error hidden" id="clientError"></div>
+      <div class="fg"><label>Nombre <span class="req">*</span></label><input type="text" id="clientName" placeholder="Nombre y apellido"></div>
+      <div class="fg">
+        <label>Teléfono</label>
+        <div class="phone-row">
+          <input type="text" id="clientAreaCode" value="+598">
+          <input type="tel" id="clientPhone" placeholder="99 123 456">
+        </div>
+      </div>
+      <div class="fg"><label>Email</label><input type="email" id="clientEmail" placeholder="cliente@email.com"></div>
+      <div class="cp-editor-note"><i class="fas fa-circle-info"></i> El interés, presupuesto, link y estado se cargan en cada propiedad del cliente (seguimiento).</div>
+      <button class="modal-save" id="clientBtn" onclick="handleSaveClient(event)"><i class="fas fa-save"></i> Guardar Cliente</button>
+    </div>
+  </div>
+
+  <!-- Modal gestión -->
+  <div class="modal" id="gestionModal">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeGestionModal()"><i class="fas fa-times"></i></button>
+      <h2 id="gestionModalTitle">Nueva gestión</h2>
+      <input type="hidden" id="editingGestionId">
+      <div class="modal-error hidden" id="gestionError"></div>
+
+      <!-- Al crear: se crea la propiedad del cliente directamente -->
+      <div id="gestionNewBlock">
+        <div class="cp-editor-note"><i class="fas fa-circle-info"></i> Vas a crear la propiedad de este cliente. Se publicará en el inicio y quedará asociada como gestión. Después podés ajustar el estado del seguimiento.</div>
+        <a class="modal-save" id="gestionCreateProp" href="#" style="text-decoration:none"><i class="fas fa-plus"></i> Crear la propiedad de este cliente</a>
+      </div>
+
+      <!-- Al editar: se muestran los datos de seguimiento de la gestión -->
+      <div id="gestionEditBlock" style="display:none">
+        <div class="fg"><label>Propiedad</label><input type="text" id="gestionPropName" disabled style="background:var(--gray-50)"></div>
+        <div class="fg-row">
+          <div class="fg"><label>Estado de la gestión</label>
+            <select id="gestionEstado">
+              <option value="nuevo">Nuevo</option><option value="contactado">Contactado</option>
+              <option value="seguimiento">En seguimiento</option><option value="visita">Visita agendada</option>
+              <option value="negociacion">En negociación</option><option value="cartera">En cartera</option><option value="cerrado">Cerrado</option><option value="perdido">Perdido</option>
+            </select>
+          </div>
+          <div class="fg"><label>Interés</label>
+            <select id="gestionInteres">
+              <option value="">Sin especificar</option>
+              <option value="comprar">Comprar</option><option value="alquilar">Alquilar</option><option value="vender">Vender</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg-row">
+          <div class="fg"><label>Presupuesto</label><input type="text" id="gestionPresupuesto" placeholder="Ej: USD 150.000"></div>
+          <div class="fg"><label>Link (opcional)</label><input type="text" id="gestionLink" placeholder="https://..."></div>
+        </div>
+        <button class="modal-save" id="gestionBtn" onclick="handleSaveGestion(event)"><i class="fas fa-save"></i> Guardar gestión</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"><i class="fas fa-circle-check"></i><span id="toastMsg"></span></div>
+
+  <!-- Modal historial -->
+  <div class="modal" id="historialModal">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeHistorial()"><i class="fas fa-times"></i></button>
+      <h2><i class="fas fa-clock-rotate-left" style="color:var(--gold-2);font-size:1.1rem;margin-right:8px"></i>Historial de la gestión</h2>
+      <div id="historialList" class="hist-list"></div>
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script>
+    var firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
+    firebase.initializeApp(firebaseConfig);
+    var auth = firebase.auth();
+    var db = firebase.firestore();
+    var ADMIN_EMAIL = "fabricio9061@gmail.com";
+
+    var CLIENT_STATUS = { nuevo:'Nuevo', contactado:'Contactado', seguimiento:'En seguimiento', visita:'Visita agendada', negociacion:'En negociación', cerrado:'Cerrado', perdido:'Perdido' };
+    var INTEREST_LABELS = { comprar:'<i class="fas fa-key"></i> Quiere comprar', alquilar:'<i class="fas fa-home"></i> Busca alquilar', vender:'<i class="fas fa-tag"></i> Quiere vender' };
+
+    var currentUser = null, userProfile = null, isAdmin = false;
+    var clients = [];
+
+    function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function escA(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+    function showToast(msg){ var t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); },3000); }
+    function normalizePhone(raw){ var d=String(raw||'').replace(/[^\d+]/g,''); if(d.startsWith('+'))d=d.slice(1); if(d.startsWith('598'))d=d.slice(3); d=d.replace(/^0+/,''); return d?'+598'+d:''; }
+
+    // ===== Auth =====
+    auth.onAuthStateChanged(function(user){
+      if (!user){
+        document.getElementById('cLoading').style.display='none';
+        document.getElementById('cContent').style.display='none';
+        document.getElementById('cAuth').style.display='flex';
+        return;
+      }
+      currentUser = user;
+      isAdmin = (user.email||'').toLowerCase() === ADMIN_EMAIL;
+      // Cargar perfil del usuario (para createdByName)
+      db.collection('users').doc(user.uid).get().then(function(d){
+        userProfile = d.exists ? d.data() : { email:user.email };
+        document.getElementById('cLoading').style.display='none';
+        document.getElementById('cAuth').style.display='none';
+        document.getElementById('cContent').style.display='block';
+        document.getElementById('crmSubtitle').textContent = isAdmin ? 'Todos los clientes de la inmobiliaria' : 'Gestiona tus clientes y prospectos';
+        loadClients();
+      }).catch(function(){
+        userProfile = { email:user.email };
+        document.getElementById('cLoading').style.display='none';
+        document.getElementById('cContent').style.display='block';
+        loadClients();
+      });
+    });
+
+    // ===== Carga de clientes (CRM compartido: todos ven todos) =====
+    function loadClients(){
+      db.collection('clients').get().then(function(q){
+        clients = q.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
+        // Contar propiedades por cliente
+        db.collection('properties').get().then(function(ps){
+          var counts = {};
+          ps.docs.forEach(function(d){ var cid=d.data().clientId; if(cid) counts[cid]=(counts[cid]||0)+1; });
+          clients.forEach(function(c){ c._propCount = counts[c.id]||0; });
+          renderClients();
+        }).catch(function(){ renderClients(); });
+      }).catch(function(e){ console.error('Error cargando clientes:', e); renderClients(); });
+    }
+
+    // ===== Render lista + stats =====
+    function renderClients(){
+      var term = (document.getElementById('clientSearch').value||'').toLowerCase();
+      var sf = document.getElementById('clientStatusFilter').value;
+      var inf = document.getElementById('clientInterestFilter').value;
+
+      var st = {
+        total: clients.length,
+        nuevo: clients.filter(function(c){ return c.status==='nuevo'; }).length,
+        proceso: clients.filter(function(c){ return ['contactado','seguimiento','visita','negociacion'].indexOf(c.status)>=0; }).length,
+        cerrado: clients.filter(function(c){ return c.status==='cerrado'; }).length
+      };
+      document.getElementById('crmStats').innerHTML =
+        '<div class="crm-stat"><div class="crm-stat-num">'+st.total+'</div><div class="crm-stat-label">Total clientes</div></div>' +
+        '<div class="crm-stat"><div class="crm-stat-num">'+st.nuevo+'</div><div class="crm-stat-label">Nuevos</div></div>' +
+        '<div class="crm-stat"><div class="crm-stat-num">'+st.proceso+'</div><div class="crm-stat-label">En proceso</div></div>' +
+        '<div class="crm-stat"><div class="crm-stat-num">'+st.cerrado+'</div><div class="crm-stat-label">Cerrados</div></div>';
+
+      var arf = document.getElementById('clientArchivedFilter').value;
+      var list = clients.filter(function(c){
+        var m = !term || (c.name||'').toLowerCase().indexOf(term)>=0 || (c.phone||'').indexOf(term)>=0 || (c.phoneNormalized||'').indexOf(term)>=0 || (c.email||'').toLowerCase().indexOf(term)>=0;
+        var archMatch = arf==='all' ? true : (arf==='archived' ? !!c.archived : !c.archived);
+        return m && archMatch && (!sf || c.status===sf) && (!inf || c.interest===inf);
+      });
+      list.sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
+
+      var g = document.getElementById('crmGrid');
+      if (!list.length){
+        g.innerHTML = '<div class="crm-empty"><i class="fas fa-user-friends"></i><h3>'+(clients.length===0?'Aún no hay clientes':'Sin resultados')+'</h3><p>'+(clients.length===0?'Agregá el primero con el botón Nuevo Cliente':'Probá con otros filtros')+'</p></div>';
+        return;
+      }
+      g.innerHTML = list.map(function(c){
+        var ini = (c.name||'?').charAt(0).toUpperCase();
+        var ph = (c.phoneNormalized || c.phone || '').replace(/\D/g,'');
+        var owner = c.createdByName || c.ownerName;
+        var phoneDisp = c.phoneNormalized || ((c.areaCode||'')+(c.phone||'')) || '—';
+        return '<div class="client-card'+(c.archived?' archived':'')+'" onclick="showClientProfile(\''+c.id+'\')" style="cursor:pointer;position:relative">' +
+          '<div class="client-card-top">' +
+            '<div class="client-avatar">'+esc(ini)+'</div>' +
+            '<div class="client-card-name">' +
+              '<h3>'+esc(c.name||'Sin nombre')+(c.archived?'<span class="client-archived-tag">Archivado</span>':'')+'</h3>' +
+              (owner?'<div class="client-owner"><i class="fas fa-user-tie"></i> '+esc(owner)+'</div>':'') +
+              '<div style="font-size:.74rem;color:var(--gray-500);margin-top:3px"><i class="fas fa-home"></i> '+((c._propCount||0)>0?(c._propCount+' propiedad'+(c._propCount===1?'':'es')):'Sin propiedades')+'</div>' +
+            '</div>' +
+            '<span class="client-status '+(c.status||'nuevo')+'">'+(CLIENT_STATUS[c.status]||'Nuevo')+'</span>' +
+          '</div>' +
+          (c.interest&&INTEREST_LABELS[c.interest]?'<div class="client-interest-tag">'+INTEREST_LABELS[c.interest]+'</div>':'') +
+          '<div class="client-meta">' +
+            '<div class="client-meta-row"><i class="fas fa-phone"></i> '+esc(phoneDisp)+'</div>' +
+            (c.email?'<div class="client-meta-row"><i class="fas fa-envelope"></i> '+esc(c.email)+'</div>':'') +
+            (c.budget?'<div class="client-meta-row"><i class="fas fa-coins"></i> '+esc(c.budget)+'</div>':'') +
+            (c.link?'<div class="client-meta-row"><i class="fas fa-link"></i> <a href="'+escA(c.link)+'" target="_blank" rel="noopener" style="color:var(--primary)" onclick="event.stopPropagation()">Ver link</a></div>':'') +
+          '</div>' +
+          (c.notes?'<div class="client-notes-preview">'+esc(c.notes)+'</div>':'') +
+          '<div class="client-actions">' +
+            (ph?'<a class="ca-wa" href="https://wa.me/'+ph+'" target="_blank" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i> WhatsApp</a>':'') +
+            '<button class="ca-edit" onclick="event.stopPropagation();openClientModal(\''+c.id+'\')"><i class="fas fa-edit"></i> Editar</button>' +
+            '<button class="ca-archive" onclick="event.stopPropagation();archiveClient(\''+c.id+'\','+(c.archived?'false':'true')+')" title="'+(c.archived?'Desarchivar':'Archivar')+'"><i class="fas fa-'+(c.archived?'box-open':'box-archive')+'"></i></button>' +
+            (isAdmin?'<button class="ca-del" onclick="event.stopPropagation();deleteClient(\''+c.id+'\')" title="Eliminar definitivamente"><i class="fas fa-trash"></i></button>':'') +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    // ===== Perfil del cliente (pantalla completa) =====
+    var currentProfileId = null;
+    function showClientProfile(id){
+      var c = clients.find(function(x){ return x.id===id; });
+      if (!c){ return; }
+      currentProfileId = id;
+      document.getElementById('cContent').style.display = 'none';
+      document.getElementById('cProfile').style.display = 'block';
+      window.scrollTo(0,0);
+
+      document.getElementById('cpAvatar').textContent = (c.name||'?').charAt(0).toUpperCase();
+      document.getElementById('cpName').textContent = c.name||'Cliente';
+      // El estado ahora es por gestión, no del cliente: ocultamos el badge general del encabezado.
+      var stEl = document.getElementById('cpStatus');
+      stEl.style.display = 'none';
+
+      var phoneFull = c.phoneNormalized || ((c.areaCode||'')+(c.phone||''));
+      var meta = [];
+      if (phoneFull) meta.push('<i class="fas fa-phone"></i> '+esc(phoneFull));
+      if (c.email) meta.push('<i class="fas fa-envelope"></i> '+esc(c.email));
+      if (c.createdByName||c.ownerName) meta.push('<i class="fas fa-user-tie"></i> Creado por '+esc(c.createdByName||c.ownerName));
+      if (c.createdAt) meta.push('<i class="fas fa-calendar"></i> '+new Date(c.createdAt).toLocaleDateString('es-UY'));
+      document.getElementById('cpMeta').innerHTML = meta.join(' &nbsp;·&nbsp; ');
+
+      var wa = document.getElementById('cpWhatsapp');
+      var ph = (phoneFull||'').replace(/\D/g,'');
+      if (ph){ wa.href = 'https://wa.me/'+ph; wa.style.display=''; } else { wa.style.display='none'; }
+      document.getElementById('cpEditBtn').onclick = function(){ openClientModal(id); };
+
+      // Campos: SOLO datos de la persona. El interés/estado/presupuesto/link viven en cada gestión.
+      var fields = [];
+      fields.push(['Teléfono', phoneFull ? esc(phoneFull) : '—']);
+      fields.push(['Email', c.email ? esc(c.email) : '—']);
+      document.getElementById('cpFields').innerHTML = fields.map(function(f){
+        return '<div class="cp-field"><span class="k">'+f[0]+'</span><span class="v">'+f[1]+'</span></div>';
+      }).join('');
+
+      // Notas: historial firmado (subcoleccion)
+      cargarNotas(id);
+
+      // Gestiones del cliente: primero cargamos las propiedades (para el selector y las tarjetas), luego las gestiones
+      cargarPropiedadesSelect().then(function(){ renderGestiones(id); });
+    }
+    function closeProfile(){
+      document.getElementById('cProfile').style.display = 'none';
+      document.getElementById('cContent').style.display = 'block';
+      currentProfileId = null;
+    }
+    // ===== Propiedades del cliente (Etapa 3) =====
+    function fmtPrice(p, c){ return (c==='UYU'?'$U':'US$') + ' ' + (p||0).toLocaleString('es-UY'); }
+    function locStr(p){ return (p.ciudad && p.departamento) ? (p.ciudad+', '+p.departamento) : (p.location||'Uruguay'); }
+    var PROP_STATUS = { tasacion:'Pendiente de tasación', tasado:'Tasado', available:'Disponible', reserved:'Reservada', sold:'Vendida', rented:'Alquilada' };
+    var GESTION_ESTADO = { nuevo:'Nuevo', contactado:'Contactado', seguimiento:'En seguimiento', visita:'Visita agendada', negociacion:'En negociación', cartera:'En cartera', cerrado:'Cerrado', perdido:'Perdido' };
+    var GESTION_INTERES = { comprar:'Comprar', alquilar:'Alquilar', vender:'Vender' };
+    var allProperties = []; // cache de propiedades para el selector
+
+    function renderGestiones(clientId){
+      var cnt = document.getElementById('cpPropsCount');
+      var grid = document.getElementById('cpGestionesGrid');
+      grid.innerHTML = '<div class="cp-prop-soon"><i class="fas fa-spinner fa-spin"></i> Cargando gestiones...</div>';
+      db.collection('gestiones').where('clientId','==',clientId).get().then(function(q){
+        var gestiones = q.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
+        gestiones.sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
+        // Propiedades viejas asociadas por clientId que TODAVÍA no son gestión (para migrar)
+        var idsConGestion = {};
+        gestiones.forEach(function(g){ if(g.propertyId) idsConGestion[g.propertyId]=true; });
+        var viejas = allProperties.filter(function(p){ return p.clientId===clientId && !idsConGestion[p.id]; });
+
+        var total = gestiones.length + viejas.length;
+        cnt.textContent = total===0 ? 'Sin gestiones aún' : (total+' '+(total===1?'gestión':'gestiones'));
+        if (!total){
+          grid.innerHTML = '<div class="cp-prop-soon">Este cliente todavía no tiene gestiones. Agregá una con "Nueva gestión" para asociar una propiedad y seguir su estado.</div>';
+          return;
+        }
+        var html = gestiones.map(function(g){ return gestionCard(g); }).join('');
+        // Propiedades viejas: mostrarlas con botón para convertirlas en gestión
+        if (viejas.length){
+          html += '<div class="cp-migrar-aviso"><i class="fas fa-circle-info"></i> '+viejas.length+' propiedad'+(viejas.length===1?'':'es')+' asociada'+(viejas.length===1?'':'s')+' antes del cambio. Convertila'+(viejas.length===1?'':'s')+' en gestión para seguir su estado.</div>';
+          html += viejas.map(function(p){ return propViejaCard(p); }).join('');
+        }
+        grid.innerHTML = html;
+      }).catch(function(e){
+        console.error('Error cargando gestiones:', e);
+        cnt.textContent = '';
+        grid.innerHTML = '<div class="cp-prop-soon">No se pudieron cargar las gestiones.</div>';
+      });
+    }
+
+    function propViejaCard(p){
+      var img = (p.images && p.images[0]) ? p.images[0] : 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400';
+      return '<div class="cp-gestion-card" style="border-style:dashed">' +
+        '<div class="cp-gestion-top">' +
+          '<img class="cp-gestion-img" src="'+escA(img)+'" alt="" loading="lazy">' +
+          '<div class="cp-gestion-main">' +
+            '<div class="cp-gestion-title">'+esc(p.title||'Propiedad')+'</div>' +
+            '<div class="cp-gestion-price">'+fmtPrice(p.price, p.currency||'USD')+'</div>' +
+            '<span class="client-archived-tag">Sin gestión</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="cp-gestion-actions">' +
+          '<a class="cp-g-btn" href="propiedad.html?id='+p.id+'" target="_blank" rel="noopener"><i class="fas fa-up-right-from-square"></i> Ver</a>' +
+          '<button class="cp-g-btn" style="border-color:var(--gold-2);color:var(--gold-2)" onclick="convertirEnGestion(\''+p.id+'\')"><i class="fas fa-arrow-right-arrow-left"></i> Convertir en gestión</button>' +
+        '</div>' +
+      '</div>';
+    }
+
+    function convertirEnGestion(propId){
+      var prop = allProperties.find(function(p){ return p.id===propId; });
+      var cli = clients.find(function(c){ return c.id===currentProfileId; });
+      if (!prop || !cli || !currentUser) return;
+      if (!confirm('¿Convertir "'+(prop.title||'esta propiedad')+'" en una gestión de '+(cli.name||'este cliente')+'?')) return;
+      // La propiedad ya existe: solo creamos el registro de gestión, tomando los datos viejos del cliente si los tenía.
+      db.collection('gestiones').add({
+        clientId: currentProfileId,
+        clientName: cli.name || '',
+        propertyId: propId,
+        propertyTitle: prop.title || '',
+        estadoGestion: cli.status || 'nuevo',
+        interes: cli.interest || (prop.type === 'rent' ? 'alquilar' : 'vender'),
+        presupuesto: cli.budget || '',
+        link: cli.link || '',
+        agentId: currentUser.uid,
+        agentName: (userProfile && userProfile.name) || currentUser.email || 'Agente',
+        createdBy: currentUser.uid,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }).then(function(){
+        showToast('Propiedad convertida en gestión');
+        renderGestiones(currentProfileId);
+      }).catch(function(e){ showToast('No se pudo convertir'); console.error(e); });
+    }
+
+    function gestionCard(g){
+      var prop = allProperties.find(function(p){ return p.id===g.propertyId; });
+      var interes = g.interes ? (GESTION_INTERES[g.interes]||'') : '';
+      var precio = prop ? fmtPrice(prop.price, prop.currency||'USD') : '';
+      var titulo = g.propertyTitle || (prop ? prop.title : 'Propiedad');
+      var puedeBorrar = (currentUser && g.createdBy === currentUser.uid) || isAdmin;
+      var estadoProp = prop ? (prop.status || 'available') : 'available';
+
+      // Selector "Avance con el cliente" (estado de la gestión)
+      var optsGestion = Object.keys(GESTION_ESTADO).map(function(k){
+        return '<option value="'+k+'"'+(g.estadoGestion===k?' selected':'')+'>'+GESTION_ESTADO[k]+'</option>';
+      }).join('');
+      // Selector "Estado de la propiedad" (compartido) — solo si la propiedad existe
+      var optsProp = ['tasacion','tasado','available','reserved','sold','rented'].map(function(k){
+        return '<option value="'+k+'"'+(estadoProp===k?' selected':'')+'>'+PROP_STATUS[k]+'</option>';
+      }).join('');
+
+      return '<div class="cp-gestion-card">' +
+        '<div class="cp-gestion-top">' +
+          '<img class="cp-gestion-img" src="'+escA(img(prop))+'" alt="" loading="lazy">' +
+          '<div class="cp-gestion-main">' +
+            '<div class="cp-gestion-title">'+esc(titulo)+'</div>' +
+            (precio?'<div class="cp-gestion-price">'+precio+'</div>':'') +
+          '</div>' +
+        '</div>' +
+        '<div class="cp-gestion-estados">' +
+          '<div class="cp-g-estado">' +
+            '<label>Avance con el cliente</label>' +
+            '<select onchange="cambiarEstadoGestion(\''+g.id+'\', this.value)">'+optsGestion+'</select>' +
+            '<small>propio de esta gestión</small>' +
+          '</div>' +
+          '<div class="cp-g-estado">' +
+            '<label>Estado de la propiedad</label>' +
+            (prop
+              ? '<select class="cp-g-estado-prop" onchange="cambiarEstadoPropiedad(\''+g.propertyId+'\', this.value)">'+optsProp+'</select><small>compartido por todos</small>'
+              : '<div class="cp-g-noprop">Propiedad no encontrada</div>') +
+          '</div>' +
+        '</div>' +
+        '<div class="cp-gestion-meta">' +
+          (interes?'<span><i class="fas fa-bullseye"></i> '+interes+'</span>':'') +
+          (g.presupuesto?'<span><i class="fas fa-coins"></i> '+esc(g.presupuesto)+'</span>':'') +
+          '<span><i class="fas fa-user-tie"></i> '+esc(g.agentName||'Agente')+'</span>' +
+        '</div>' +
+        (g.link?'<a class="cp-gestion-link" href="'+escA(g.link)+'" target="_blank" rel="noopener"><i class="fas fa-link"></i> Ver link</a>':'') +
+        '<div class="cp-gestion-actions">' +
+          (prop?'<a class="cp-g-btn" href="propiedad.html?id='+g.propertyId+'" target="_blank" rel="noopener"><i class="fas fa-up-right-from-square"></i> Ver propiedad</a>':'') +
+          '<button class="cp-g-btn" onclick="openGestionModal(\''+g.id+'\')"><i class="fas fa-edit"></i> Editar</button>' +
+          ((g.historial && g.historial.length)?'<button class="cp-g-btn" onclick="verHistorial(\''+g.id+'\')"><i class="fas fa-clock-rotate-left"></i> Historial</button>':'') +
+          (puedeBorrar?'<button class="cp-g-btn cp-g-del" onclick="borrarGestion(\''+g.id+'\')"><i class="fas fa-trash"></i></button>':'') +
+        '</div>' +
+      '</div>';
+    }
+    function img(prop){ return (prop && prop.images && prop.images[0]) ? prop.images[0] : 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400'; }
+
+    // Cambiar el avance de la gestión (rápido, desde la tarjeta)
+    function cambiarEstadoGestion(gestionId, nuevo){
+      var quien = (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente';
+      var entrada = { tipo:'avance', valor: GESTION_ESTADO[nuevo]||nuevo, autor: quien, fecha: new Date().toISOString() };
+      db.collection('gestiones').doc(gestionId).update({
+        estadoGestion: nuevo,
+        updatedAt: new Date().toISOString(),
+        historial: firebase.firestore.FieldValue.arrayUnion(entrada)
+      })
+        .then(function(){ showToast('Avance actualizado'); if(currentProfileId) renderGestiones(currentProfileId); })
+        .catch(function(e){ showToast('No se pudo actualizar'); console.error(e); });
+    }
+    // Cambiar el estado de la PROPIEDAD (afecta a todas las gestiones de esa propiedad)
+    function cambiarEstadoPropiedad(propId, nuevo){
+      db.collection('properties').doc(propId).update({ status: nuevo })
+        .then(function(){
+          // actualizar cache local
+          var p = allProperties.find(function(x){ return x.id===propId; });
+          if (p) p.status = nuevo;
+          showToast('Estado de la propiedad actualizado');
+          // Registrar en el historial de las gestiones de esa propiedad que esté abiertas
+          var quien = (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente';
+          var entrada = { tipo:'propiedad', valor: PROP_STATUS[nuevo]||nuevo, autor: quien, fecha: new Date().toISOString() };
+          if (currentProfileId){
+            db.collection('gestiones').where('clientId','==',currentProfileId).where('propertyId','==',propId).get().then(function(q){
+              q.docs.forEach(function(d){
+                db.collection('gestiones').doc(d.id).update({ historial: firebase.firestore.FieldValue.arrayUnion(entrada) }).catch(function(){});
+              });
+            }).catch(function(){});
+          }
+        })
+        .catch(function(e){ showToast('No se pudo actualizar la propiedad'); console.error(e); });
+    }
+
+    // ===== Modal de gestión =====
+    function cargarPropiedadesSelect(){
+      // Carga todas las propiedades una vez para el selector y las tarjetas
+      return db.collection('properties').get().then(function(q){
+        allProperties = q.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
+        allProperties.sort(function(a,b){ return (a.title||'').localeCompare(b.title||''); });
+      }).catch(function(e){ console.error('Error cargando propiedades:', e); });
+    }
+
+    function openGestionModal(gestionId){
+      document.getElementById('editingGestionId').value = gestionId || '';
+      document.getElementById('gestionError').classList.add('hidden');
+      var newBlock = document.getElementById('gestionNewBlock');
+      var editBlock = document.getElementById('gestionEditBlock');
+      if (gestionId){
+        // EDITAR: mostrar campos de seguimiento, ocultar el bloque de crear
+        document.getElementById('gestionModalTitle').textContent = 'Editar gestión';
+        newBlock.style.display = 'none';
+        editBlock.style.display = 'block';
+        document.getElementById('gestionEstado').value = 'nuevo';
+        document.getElementById('gestionInteres').value = '';
+        document.getElementById('gestionPresupuesto').value = '';
+        document.getElementById('gestionLink').value = '';
+        document.getElementById('gestionPropName').value = '';
+        db.collection('gestiones').doc(gestionId).get().then(function(d){
+          if (d.exists){
+            var g = d.data();
+            document.getElementById('gestionPropName').value = g.propertyTitle || 'Propiedad';
+            document.getElementById('gestionEstado').value = g.estadoGestion || 'nuevo';
+            document.getElementById('gestionInteres').value = g.interes || '';
+            document.getElementById('gestionPresupuesto').value = g.presupuesto || '';
+            document.getElementById('gestionLink').value = g.link || '';
+          }
+        });
+      } else {
+        // NUEVA: mostrar botón para crear la propiedad del cliente
+        document.getElementById('gestionModalTitle').textContent = 'Nueva gestión';
+        newBlock.style.display = 'block';
+        editBlock.style.display = 'none';
+        document.getElementById('gestionCreateProp').href = 'propiedad-form.html?clientId=' + encodeURIComponent(currentProfileId);
+      }
+      document.getElementById('gestionModal').classList.add('open');
+    }
+    function closeGestionModal(){ document.getElementById('gestionModal').classList.remove('open'); }
+
+    function handleSaveGestion(e){
+      e.preventDefault();
+      if (!currentProfileId || !currentUser) return;
+      var er = document.getElementById('gestionError');
+      var b = document.getElementById('gestionBtn');
+      var id = document.getElementById('editingGestionId').value;
+      er.classList.add('hidden');
+      if (!id) return; // la creación se hace desde el formulario de propiedad
+
+      b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+      var data = {
+        estadoGestion: document.getElementById('gestionEstado').value,
+        interes: document.getElementById('gestionInteres').value,
+        presupuesto: document.getElementById('gestionPresupuesto').value.trim(),
+        link: document.getElementById('gestionLink').value.trim(),
+        updatedAt: new Date().toISOString()
+      };
+      db.collection('gestiones').doc(id).update(data).then(function(){
+        closeGestionModal();
+        showToast('Gestión actualizada');
+        renderGestiones(currentProfileId);
+      }).catch(function(err){
+        er.textContent = 'Error: ' + err.message; er.classList.remove('hidden');
+      }).finally(function(){
+        b.disabled = false; b.innerHTML = '<i class="fas fa-save"></i> Guardar gestión';
+      });
+    }
+
+    function borrarGestion(id){
+      if (!confirm('¿Eliminar esta gestión? (No borra la propiedad, solo la quita del seguimiento de este cliente.)')) return;
+      db.collection('gestiones').doc(id).delete().then(function(){
+        showToast('Gestión eliminada');
+        renderGestiones(currentProfileId);
+      }).catch(function(e){ showToast('No se pudo eliminar'); console.error(e); });
+    }
+
+    // ===== Historial de la gestión (trazabilidad) =====
+    function verHistorial(gestionId){
+      var list = document.getElementById('historialList');
+      list.innerHTML = '<div class="cp-notes-empty">Cargando historial...</div>';
+      document.getElementById('historialModal').classList.add('open');
+      db.collection('gestiones').doc(gestionId).get().then(function(d){
+        if (!d.exists){ list.innerHTML = '<div class="cp-notes-empty">No se encontró la gestión.</div>'; return; }
+        var g = d.data();
+        var h = (g.historial || []).slice().sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||''); });
+        // Entrada base: creación de la gestión
+        var creada = g.createdAt ? { tipo:'creada', valor:'', autor: g.agentName||'Agente', fecha: g.createdAt } : null;
+        if (creada) h.push(creada);
+        if (!h.length){ list.innerHTML = '<div class="cp-notes-empty">Todavía no hay cambios registrados.</div>'; return; }
+        list.innerHTML = h.map(function(e){
+          var fecha = e.fecha ? new Date(e.fecha).toLocaleString('es-UY', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+          var icono, texto;
+          if (e.tipo==='creada'){ icono='fa-plus'; texto='Gestión creada'; }
+          else if (e.tipo==='propiedad'){ icono='fa-home'; texto='Estado de la propiedad → <b>'+esc(e.valor)+'</b>'; }
+          else { icono='fa-arrow-trend-up'; texto='Avance → <b>'+esc(e.valor)+'</b>'; }
+          return '<div class="hist-item">' +
+            '<div class="hist-ic"><i class="fas '+icono+'"></i></div>' +
+            '<div class="hist-body">' +
+              '<div class="hist-text">'+texto+'</div>' +
+              '<div class="hist-meta"><i class="fas fa-user-tie"></i> '+esc(e.autor||'Agente')+' &nbsp;·&nbsp; '+fecha+'</div>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+      }).catch(function(e){ list.innerHTML = '<div class="cp-notes-empty">No se pudo cargar el historial.</div>'; console.error(e); });
+    }
+    function closeHistorial(){ document.getElementById('historialModal').classList.remove('open'); }
+
+    // ===== Notas (historial firmado, subcoleccion clients/{id}/notes) =====
+    function cargarNotas(clientId){
+      var list = document.getElementById('cpNotesList');
+      list.innerHTML = '<div class="cp-notes-empty">Cargando notas...</div>';
+      // Tambien mostramos la nota vieja (campo notes) si existe, como primera entrada historica
+      var c = clients.find(function(x){ return x.id===clientId; });
+      db.collection('clients').doc(clientId).collection('notes').orderBy('createdAt','desc').get().then(function(snap){
+        var notas = snap.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
+        var html = '';
+        notas.forEach(function(n){
+          var fecha = n.createdAt ? new Date(n.createdAt).toLocaleString('es-UY', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+          var puedeBorrar = (currentUser && n.authorId === currentUser.uid) || isAdmin;
+          html += '<div class="cp-note-item">' +
+            '<div class="cp-note-text">'+esc(n.text)+'</div>' +
+            '<div class="cp-note-foot">' +
+              '<span class="cp-note-author"><i class="fas fa-user-tie"></i> '+esc(n.authorName||'Agente')+'</span>' +
+              '<span style="display:flex;align-items:center;gap:8px"><span class="cp-note-date">'+fecha+'</span>' +
+              (puedeBorrar?'<button class="cp-note-del" onclick="borrarNota(\''+clientId+'\',\''+n.id+'\')"><i class="fas fa-trash"></i></button>':'') +
+              '</span>' +
+            '</div>' +
+          '</div>';
+        });
+        // Nota antigua (si habia algo en el campo notes original y no hay notas nuevas que la reemplacen)
+        if (c && c.notes){
+          html += '<div class="cp-note-item" style="border-left-color:var(--gray-300)">' +
+            '<div class="cp-note-text">'+esc(c.notes)+'</div>' +
+            '<div class="cp-note-foot"><span class="cp-note-author" style="color:var(--gray-500)"><i class="fas fa-clock-rotate-left" style="color:var(--gray-400)"></i> Nota anterior</span></div>' +
+          '</div>';
+        }
+        list.innerHTML = html || '<div class="cp-notes-empty">Todavía no hay notas. Agregá la primera arriba.</div>';
+      }).catch(function(e){
+        console.error('Error cargando notas:', e);
+        list.innerHTML = '<div class="cp-notes-empty">No se pudieron cargar las notas.</div>';
+      });
+    }
+
+    function agregarNota(){
+      if (!currentProfileId || !currentUser) return;
+      var ta = document.getElementById('cpNewNote');
+      var texto = ta.value.trim();
+      if (!texto){ showToast('Escribí algo en la nota'); return; }
+      var btn = document.getElementById('cpAddNoteBtn');
+      btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Agregando...';
+      db.collection('clients').doc(currentProfileId).collection('notes').add({
+        text: texto,
+        authorId: currentUser.uid,
+        authorName: (userProfile && userProfile.name) || currentUser.email || 'Agente',
+        createdAt: new Date().toISOString()
+      }).then(function(){
+        ta.value = '';
+        showToast('Nota agregada');
+        cargarNotas(currentProfileId);
+      }).catch(function(e){
+        showToast('No se pudo agregar la nota'); console.error(e);
+      }).finally(function(){
+        btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Agregar nota';
+      });
+    }
+
+    function borrarNota(clientId, noteId){
+      if (!confirm('¿Eliminar esta nota?')) return;
+      db.collection('clients').doc(clientId).collection('notes').doc(noteId).delete().then(function(){
+        showToast('Nota eliminada');
+        cargarNotas(clientId);
+      }).catch(function(e){ showToast('No se pudo eliminar'); console.error(e); });
+    }
+
+    // ===== Modal crear/editar =====
+    function openClientModal(id){
+      document.getElementById('editingClientId').value = id || '';
+      document.getElementById('clientError').classList.add('hidden');
+      document.getElementById('clientModalTitle').textContent = id ? 'Editar Cliente' : 'Nuevo Cliente';
+      document.getElementById('clientName').value = '';
+      document.getElementById('clientEmail').value = '';
+      document.getElementById('clientPhone').value = '';
+      document.getElementById('clientAreaCode').value = '+598';
+      if (id){
+        var c = clients.find(function(x){ return x.id===id; });
+        if (c){
+          document.getElementById('clientName').value = c.name||'';
+          var ac = c.areaCode||'+598', loc = c.phone||'';
+          if (!c.areaCode && loc){ var m=loc.replace(/\D/g,''); loc = m.startsWith('598')?m.slice(3):m.replace(/^0+/,''); }
+          document.getElementById('clientAreaCode').value = ac;
+          document.getElementById('clientPhone').value = loc;
+          document.getElementById('clientEmail').value = c.email||'';
+        }
+      }
+      document.getElementById('clientModal').classList.add('open');
+    }
+    function closeClientModal(){ document.getElementById('clientModal').classList.remove('open'); }
+
+    function handleSaveClient(e){
+      e.preventDefault();
+      if (!currentUser) return;
+      var b = document.getElementById('clientBtn');
+      var er = document.getElementById('clientError');
+      var id = document.getElementById('editingClientId').value;
+      var name = document.getElementById('clientName').value.trim();
+      var areaCode = document.getElementById('clientAreaCode').value || '+598';
+      var local = String(document.getElementById('clientPhone').value||'').replace(/\D/g,'').replace(/^0+/,'');
+      var phoneFull = local ? areaCode+local : '';
+      er.classList.add('hidden');
+
+      if (!name){ er.textContent='Ingresá el nombre del cliente.'; er.classList.remove('hidden'); return; }
+
+      // Anti-duplicado por teléfono (solo al crear)
+      if (phoneFull && !id){
+        var dup = clients.find(function(c){ return (c.phoneNormalized || normalizePhone(c.phone)) === phoneFull; });
+        if (dup){
+          er.innerHTML = 'Este número ya está cargado como <b>'+esc(dup.name||'un cliente')+'</b>'+(dup.createdByName?' (lo creó '+esc(dup.createdByName)+')':'')+'. Te abro su ficha.';
+          er.classList.remove('hidden');
+          setTimeout(function(){ openClientModal(dup.id); }, 1400);
+          return;
+        }
+      }
+
+      b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+      var data = {
+        name: name, areaCode: areaCode, phone: local, phoneNormalized: phoneFull,
+        email: document.getElementById('clientEmail').value.trim(),
+        updatedAt: new Date().toISOString()
+      };
+
+      var op;
+      if (id){
+        // Editar: solo datos personales. No tocar interest/status/budget/link (son de la gestión, se preservan).
+        op = db.collection('clients').doc(id).update(data);
+      } else {
+        data.status = 'nuevo'; // estado base del cliente (el detalle va por gestión)
+        data.createdBy = currentUser.uid;
+        data.createdByName = (userProfile && userProfile.name) || '';
+        data.createdAt = new Date().toISOString();
+        op = db.collection('clients').add(data);
+      }
+      op.then(function(){
+        closeClientModal();
+        showToast(id ? 'Cliente actualizado' : 'Cliente agregado');
+        loadClients();
+        // Si el perfil de este cliente está abierto, refrescarlo
+        if (id && currentProfileId === id){
+          setTimeout(function(){
+            // esperar a que loadClients actualice el array
+            db.collection('clients').doc(id).get().then(function(d){
+              if (d.exists){
+                var idx = clients.findIndex(function(x){ return x.id===id; });
+                if (idx>=0) clients[idx] = Object.assign({ id:id }, d.data(), { _propCount: clients[idx]._propCount });
+                if (document.getElementById('cProfile').style.display === 'block') showClientProfile(id);
+              }
+            });
+          }, 300);
+        }
+      }).catch(function(err){
+        er.textContent = 'Error: ' + err.message; er.classList.remove('hidden');
+      }).finally(function(){
+        b.disabled = false; b.innerHTML = '<i class="fas fa-save"></i> Guardar Cliente';
+      });
+    }
+
+    function archiveClient(id, archive){
+      db.collection('clients').doc(id).update({ archived: archive }).then(function(){
+        showToast(archive ? 'Cliente archivado' : 'Cliente desarchivado');
+        loadClients();
+      }).catch(function(e){ showToast('No se pudo archivar'); console.error(e); });
+    }
+
+    function deleteClient(id){
+      if (!isAdmin){ showToast('Solo el administrador puede eliminar clientes. Podés archivarlo.'); return; }
+      if (!confirm('¿Eliminar este cliente DEFINITIVAMENTE? Esta acción no se puede deshacer. Si solo querés ocultarlo, archivalo en su lugar.')) return;
+      db.collection('clients').doc(id).delete().then(function(){
+        showToast('Cliente eliminado');
+        if (currentProfileId === id) closeProfile();
+        loadClients();
+      }).catch(function(e){ showToast('No se pudo eliminar'); console.error(e); });
+    }
+  </script>
+</body>
+</html>

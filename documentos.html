@@ -38,6 +38,14 @@
     .doc-cat:first-child{ margin-top:0; }
     .doc-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; }
     .doc-card{ background:#fff; border:1px solid var(--gray-200,#eceef1); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:12px; }
+    .doc-thumb{ position:relative; width:calc(100% + 36px); margin:-18px -18px 2px; height:180px; background:#f0f1f3; border-radius:14px 14px 0 0; overflow:hidden; cursor:pointer; display:flex; align-items:center; justify-content:center; border-bottom:1px solid var(--gray-100,#eef0f3); }
+    .doc-thumb.doc-thumb-static{ cursor:default; }
+    .doc-thumb img{ width:100%; height:100%; object-fit:cover; object-position:top center; display:block; }
+    .doc-thumb-ph{ display:flex; flex-direction:column; align-items:center; gap:6px; color:var(--gray-400,#aab0b8); }
+    .doc-thumb-ph i{ font-size:2.6rem; }
+    .doc-thumb-ph span{ font-size:.72rem; font-weight:700; letter-spacing:1px; }
+    .doc-thumb-eye{ position:absolute; top:10px; right:10px; width:32px; height:32px; border-radius:8px; background:rgba(22,39,63,.78); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.82rem; opacity:0; transition:opacity .18s; }
+    .doc-thumb:hover .doc-thumb-eye{ opacity:1; }
     .doc-top{ display:flex; align-items:center; gap:13px; }
     .doc-ic{ width:48px; height:48px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex:0 0 auto; color:#fff; }
     .doc-ic.pdf{ background:#c0392b; } .doc-ic.img{ background:#2980b9; } .doc-ic.doc{ background:#2c5aa0; } .doc-ic.xls{ background:#27865a; } .doc-ic.other{ background:var(--primary,#16273f); }
@@ -52,6 +60,27 @@
     .doc-admin button{ background:#fff; border:1px solid var(--gray-200,#e3e6ea); border-radius:9px; padding:10px 12px; cursor:pointer; font-size:.85rem; color:var(--gray-600,#555); transition:all .15s; }
     .doc-admin button:hover{ border-color:#C9A227; color:#C9A227; }
     .doc-admin button.de:hover{ border-color:#e3a9a2; color:#c0392b; background:#fff0ee; }
+    .doc-preview{ flex:1; background:#fff; color:var(--primary,#16273f); border:1px solid var(--gray-200,#e3e6ea); border-radius:9px; padding:10px; font-family:inherit; font-size:.86rem; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; transition:all .15s; }
+    .doc-preview:hover{ border-color:#C9A227; color:#C9A227; }
+    /* Modal vista previa */
+    .doc-preview-modal{ position:fixed; inset:0; background:rgba(16,29,48,.7); display:none; align-items:center; justify-content:center; z-index:2500; padding:20px; }
+    .doc-preview-modal.open{ display:flex; }
+    .doc-preview-box{ background:#fff; border-radius:16px; width:100%; max-width:900px; height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,.4); }
+    .doc-preview-head{ display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--gray-200,#eceef1); flex:0 0 auto; }
+    .doc-preview-head span{ font-weight:600; color:var(--primary,#16273f); font-size:.95rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .doc-preview-head-actions{ display:flex; gap:8px; flex:0 0 auto; }
+    .dpv-open, .dpv-close{ width:36px; height:36px; border-radius:9px; border:1px solid var(--gray-200,#e3e6ea); background:#fff; cursor:pointer; color:var(--gray-600,#555); display:inline-flex; align-items:center; justify-content:center; font-size:.9rem; text-decoration:none; transition:all .15s; }
+    .dpv-open:hover{ border-color:#C9A227; color:#C9A227; }
+    .dpv-close:hover{ border-color:#e3a9a2; color:#c0392b; background:#fff0ee; }
+    .doc-preview-body{ flex:1; background:#525659; position:relative; display:flex; flex-direction:column; min-height:0; }
+    .dpv-frame{ width:100%; height:100%; border:none; flex:1; }
+    .dpv-img{ max-width:100%; max-height:100%; margin:auto; object-fit:contain; }
+    .dpv-fallback{ position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.6); color:#fff; font-size:.8rem; text-align:center; padding:8px; }
+    .dpv-fallback a{ color:#f0c14b; }
+    @media (max-width:560px){
+      .doc-preview-modal{ padding:0; }
+      .doc-preview-box{ height:100vh; max-width:100%; border-radius:0; }
+    }
     .pa-empty{ grid-column:1/-1; text-align:center; padding:40px; color:var(--gray-500,#888); }
     .pa-modal{ position:fixed; inset:0; background:rgba(16,29,48,.55); display:none; align-items:center; justify-content:center; z-index:2000; padding:20px; }
     .pa-modal.open{ display:flex; }
@@ -120,6 +149,10 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (window.pdfjsLib) { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
+  </script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
@@ -162,11 +195,25 @@
       if (!items.length) { list.innerHTML = `<p class="pa-empty">No hay documentos que coincidan.${esAdmin && !docs.length ? ' Subi el primero con el boton de arriba.' : ''}</p>`; return; }
       const card = d => {
         const [cls, ic] = iconFor(d.ext);
+        const ext = (d.ext || '').toLowerCase();
+        const isImg = ['jpg','jpeg','png','gif','webp'].indexOf(ext) >= 0;
+        const previa = (ext === 'pdf' || isImg);
+        // Imagen de portada: miniatura del PDF, o la imagen misma, o ícono de respaldo
+        const thumb = d.thumbUrl ? escA(d.thumbUrl) : (isImg && d.url ? escA(d.url) : '');
+        const thumbHtml = previa
+          ? `<div class="doc-thumb" onclick="previewDoc('${d.id}')" title="Ver documento">${
+              thumb
+                ? `<img src="${thumb}" alt="${escH(d.name)}" loading="lazy">`
+                : `<div class="doc-thumb-ph"><i class="fas ${ic}"></i><span>${(d.ext||'').toUpperCase()}</span></div>`
+            }</div>`
+          : `<div class="doc-thumb doc-thumb-static"><div class="doc-thumb-ph"><i class="fas ${ic}"></i><span>${(d.ext||'').toUpperCase()}</span></div></div>`;
         return `<div class="doc-card">
+          ${thumbHtml}
           <div class="doc-top"><div class="doc-ic ${cls}"><i class="fas ${ic}"></i></div>
             <div class="doc-name"><strong>${escH(d.name) || 'Documento'}</strong><span>${(d.ext || '').toUpperCase()}${d.size ? ' &middot; ' + fmtSize(d.size) : ''}${d.createdAt ? ' &middot; ' + new Date(d.createdAt).toLocaleDateString('es-UY') : ''}</span></div></div>
           ${d.description ? `<p class="doc-desc">${escH(d.description)}</p>` : ''}
           <div class="doc-actions">
+            ${previa ? `<button class="doc-preview" onclick="previewDoc('${d.id}')"><i class="fas fa-eye"></i> Vista previa</button>` : ''}
             <a class="doc-dl" href="${escA(d.url)}" target="_blank" rel="noopener"><i class="fas fa-download"></i> Descargar</a>
             ${esAdmin ? `<div class="doc-admin"><button onclick="openDocModal('${d.id}')" title="Editar datos"><i class="fas fa-edit"></i></button><button class="de" onclick="deleteDoc('${d.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div>` : ''}
           </div>
@@ -225,6 +272,20 @@
           data.storagePath = path;
           data.ext = ext;
           data.size = file.size;
+          // Generar miniatura de la primera pagina (solo PDF)
+          if (ext === 'pdf' && window.pdfjsLib) {
+            try {
+              bar.style.width = '100%';
+              const thumbBlob = await generarMiniaturaPDF(file);
+              if (thumbBlob) {
+                const thumbPath = path.replace(/\.pdf$/i, '') + '_thumb.jpg';
+                const thumbRef = storage.ref(thumbPath);
+                await thumbRef.put(thumbBlob);
+                data.thumbUrl = await thumbRef.getDownloadURL();
+                data.thumbPath = thumbPath;
+              }
+            } catch (thumbErr) { console.warn('No se pudo generar miniatura:', thumbErr); }
+          }
         }
         if (id) {
           await db.collection('documentos').doc(id).update(data);
@@ -242,12 +303,56 @@
       }
     }
 
+    // ===== Generar miniatura (primera pagina del PDF -> JPEG blob) =====
+    async function generarMiniaturaPDF(file) {
+      const buf = await file.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+      const page = await pdf.getPage(1);
+      const baseViewport = page.getViewport({ scale: 1 });
+      // Escalar para que el ancho sea ~600px (buena calidad, peso bajo)
+      const targetW = 600;
+      const scale = targetW / baseViewport.width;
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      return await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.82));
+    }
+
+    // ===== Vista previa de documentos (PDF e imagenes) =====
+    function previewDoc(id) {
+      const d = docs.find(x => x.id === id);
+      if (!d || !d.url) return;
+      const ext = (d.ext || '').toLowerCase();
+      const body = document.getElementById('docPreviewBody');
+      document.getElementById('docPreviewName').textContent = d.name || 'Vista previa';
+      document.getElementById('docPreviewOpen').href = d.url;
+      if (['jpg','jpeg','png','gif','webp'].indexOf(ext) >= 0) {
+        body.innerHTML = '<img src="' + escA(d.url) + '" alt="' + escH(d.name) + '" class="dpv-img">';
+      } else {
+        // PDF: visor embebido. #toolbar=0 oculta la barra nativa cuando el navegador lo soporta.
+        body.innerHTML = '<iframe class="dpv-frame" src="' + escA(d.url) + '#toolbar=1&navpanes=0" title="' + escH(d.name) + '"></iframe>' +
+          '<div class="dpv-fallback">Si la vista previa no carga, <a href="' + escA(d.url) + '" target="_blank" rel="noopener">abrila en una pestaña nueva</a>.</div>';
+      }
+      document.getElementById('docPreviewModal').classList.add('open');
+    }
+    function closePreview() {
+      document.getElementById('docPreviewModal').classList.remove('open');
+      document.getElementById('docPreviewBody').innerHTML = '';
+    }
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closePreview(); });
+
     async function deleteDoc(id) {
       if (!esAdmin) return;
       const d = docs.find(x => x.id === id);
       if (!confirm('¿Eliminar "' + (d ? d.name : 'este documento') + '"?')) return;
       try {
         if (d && d.storagePath) { try { await storage.ref(d.storagePath).delete(); } catch (e) {} }
+        if (d && d.thumbPath) { try { await storage.ref(d.thumbPath).delete(); } catch (e) {} }
         await db.collection('documentos').doc(id).delete();
         await loadDocs();
       } catch (e) { showToast('Error', 'No se pudo eliminar: ' + (e.message || e), 'fa-triangle-exclamation'); }
@@ -283,5 +388,18 @@
       loadDocs();
     });
   </script>
+  <!-- Modal vista previa -->
+  <div class="doc-preview-modal" id="docPreviewModal">
+    <div class="doc-preview-box">
+      <div class="doc-preview-head">
+        <span id="docPreviewName">Vista previa</span>
+        <div class="doc-preview-head-actions">
+          <a id="docPreviewOpen" href="#" target="_blank" rel="noopener" class="dpv-open" title="Abrir en pestaña nueva"><i class="fas fa-up-right-from-square"></i></a>
+          <button onclick="closePreview()" class="dpv-close" title="Cerrar"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+      <div class="doc-preview-body" id="docPreviewBody"></div>
+    </div>
+  </div>
 </body>
 </html>
