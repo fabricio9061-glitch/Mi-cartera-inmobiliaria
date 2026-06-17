@@ -478,11 +478,23 @@
     function loadClients(){
       db.collection('clients').get().then(function(q){
         clients = q.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
-        // Contar propiedades por cliente
-        db.collection('properties').get().then(function(ps){
-          var counts = {};
-          ps.docs.forEach(function(d){ var cid=d.data().clientId; if(cid) counts[cid]=(counts[cid]||0)+1; });
-          clients.forEach(function(c){ c._propCount = counts[c.id]||0; });
+        // Contar gestiones por cliente: gestiones reales + propiedades viejas (clientId) que aún no son gestión
+        Promise.all([
+          db.collection('gestiones').get().catch(function(){ return { docs:[] }; }),
+          db.collection('properties').get().catch(function(){ return { docs:[] }; })
+        ]).then(function(res){
+          var gSnap = res[0], pSnap = res[1];
+          var gestPorCliente = {}; // clientId -> set de propertyId con gestión
+          gSnap.docs.forEach(function(d){
+            var g = d.data();
+            if (g.clientId){ (gestPorCliente[g.clientId] = gestPorCliente[g.clientId] || {})[g.propertyId||('g'+d.id)] = true; }
+          });
+          // Sumar propiedades viejas con clientId que todavía no tienen gestión
+          pSnap.docs.forEach(function(d){
+            var cid = d.data().clientId;
+            if (cid){ var set = gestPorCliente[cid] = gestPorCliente[cid] || {}; if(!set[d.id]) set[d.id]=true; }
+          });
+          clients.forEach(function(c){ c._gestionCount = gestPorCliente[c.id] ? Object.keys(gestPorCliente[c.id]).length : 0; });
           renderClients();
         }).catch(function(){ renderClients(); });
       }).catch(function(e){ console.error('Error cargando clientes:', e); renderClients(); });
@@ -524,24 +536,21 @@
         var ph = (c.phoneNormalized || c.phone || '').replace(/\D/g,'');
         var owner = c.createdByName || c.ownerName;
         var phoneDisp = c.phoneNormalized || ((c.areaCode||'')+(c.phone||'')) || '—';
+        var nGest = c._gestionCount || 0;
+        var gestLabel = nGest>0 ? (nGest+' gestión'+(nGest===1?'':'es')) : 'Sin gestiones';
         return '<div class="client-card'+(c.archived?' archived':'')+'" onclick="showClientProfile(\''+c.id+'\')" style="cursor:pointer;position:relative">' +
           '<div class="client-card-top">' +
             '<div class="client-avatar">'+esc(ini)+'</div>' +
             '<div class="client-card-name">' +
               '<h3>'+esc(c.name||'Sin nombre')+(c.archived?'<span class="client-archived-tag">Archivado</span>':'')+'</h3>' +
               (owner?'<div class="client-owner"><i class="fas fa-user-tie"></i> '+esc(owner)+'</div>':'') +
-              '<div style="font-size:.74rem;color:var(--gray-500);margin-top:3px"><i class="fas fa-home"></i> '+((c._propCount||0)>0?(c._propCount+' propiedad'+(c._propCount===1?'':'es')):'Sin propiedades')+'</div>' +
+              '<div style="font-size:.74rem;color:var(--gray-500);margin-top:3px"><i class="fas fa-handshake"></i> '+gestLabel+'</div>' +
             '</div>' +
-            '<span class="client-status '+(c.status||'nuevo')+'">'+(CLIENT_STATUS[c.status]||'Nuevo')+'</span>' +
           '</div>' +
-          (c.interest&&INTEREST_LABELS[c.interest]?'<div class="client-interest-tag">'+INTEREST_LABELS[c.interest]+'</div>':'') +
           '<div class="client-meta">' +
             '<div class="client-meta-row"><i class="fas fa-phone"></i> '+esc(phoneDisp)+'</div>' +
             (c.email?'<div class="client-meta-row"><i class="fas fa-envelope"></i> '+esc(c.email)+'</div>':'') +
-            (c.budget?'<div class="client-meta-row"><i class="fas fa-coins"></i> '+esc(c.budget)+'</div>':'') +
-            (c.link?'<div class="client-meta-row"><i class="fas fa-link"></i> <a href="'+escA(c.link)+'" target="_blank" rel="noopener" style="color:var(--primary)" onclick="event.stopPropagation()">Ver link</a></div>':'') +
           '</div>' +
-          (c.notes?'<div class="client-notes-preview">'+esc(c.notes)+'</div>':'') +
           '<div class="client-actions">' +
             (ph?'<a class="ca-wa" href="https://wa.me/'+ph+'" target="_blank" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i> WhatsApp</a>':'') +
             '<button class="ca-edit" onclick="event.stopPropagation();openClientModal(\''+c.id+'\')"><i class="fas fa-edit"></i> Editar</button>' +

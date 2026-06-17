@@ -395,7 +395,30 @@
       var bCons = num(document.getElementById('tasCons').value);
       var bUbi = num(document.getElementById('tasUbi').value);
       var res = document.getElementById('tasResult');
-      function setMsg(t) { document.getElementById('tasResMsg').textContent = t; }
+      function setMsg(t, level) {
+        var el = document.getElementById('tasResMsg');
+        el.textContent = t;
+        // Reseteo de estilos para que el cambio entre estados sea limpio en tiempo real
+        el.style.color = '';
+        el.style.fontWeight = '';
+        el.style.background = '';
+        el.style.border = '';
+        el.style.borderRadius = '';
+        el.style.padding = '';
+        el.style.marginTop = '';
+        if (level === 'danger') {            // incongruencia (K negativa): alerta roja bien visible
+          el.style.color = '#ffd2d2';
+          el.style.fontWeight = '700';
+          el.style.background = 'rgba(231,76,60,.16)';
+          el.style.border = '1px solid rgba(231,76,60,.75)';
+          el.style.borderRadius = '10px';
+          el.style.padding = '12px 14px';
+          el.style.marginTop = '12px';
+        } else if (level === 'warn') {        // incertidumbre alta: aviso amarillo
+          el.style.color = '#ffd98a';
+          el.style.fontWeight = '600';
+        }
+      }
       function clearOut() {
         ['tasResValue','tasResRange','tasResUnc'].forEach(function(id){ document.getElementById(id).innerHTML = '&mdash;'; });
         document.getElementById('tasResUncSub').textContent = '';
@@ -415,9 +438,27 @@
       var inv = tasInvert(A);
       if (!inv) { clearOut(); setMsg('Los antecedentes son incongruentes (matriz singular): tienen que ser distintos entre si. Cambia m2, construccion o ubicacion para que no se repitan combinaciones identicas.'); return; }
       var K = inv.map(function(row){ return row.reduce(function(s, v, j){ return s + v * Y[j]; }, 0); });
+      // ===== Chequeo de coherencia de antecedentes (regla del Excel) =====
+      // K0 (la primera) puede ser negativa sin problema. Pero si K1, K2 o K3 son
+      // negativas, hay una incongruencia: algun antecedente contradice a los demas
+      // (ej: mas m2 o mejor ubicacion pero menor valor). Se avisa cual.
+      var kNombres = ['', 'm² (K₁)', 'construcción (K₂)', 'ubicación (K₃)'];
+      var kNegativas = [];
+      for (var ki = 1; ki <= 3; ki++){ if (K[ki] < 0) kNegativas.push(kNombres[ki]); }
+      // Mensaje de incongruencia (se usa tanto si el valor es calculable como si no lo es)
+      var msgIncong = kNegativas.length
+        ? '⚠ Antecedentes incongruentes: el coeficiente de ' + kNegativas.join(' y ') + ' dio negativo. Esto pasa cuando un antecedente contradice a los demás (por ejemplo, una propiedad con más ' + (kNegativas.length===1?kNegativas[0].split(' ')[0]:'atributos') + ' pero menor valor). Revisá los 4 antecedentes y ajustá el que esté fuera de línea. No vas a poder exportar el PDF hasta corregirlo.'
+        : '';
       // Valor por proyeccion directa (referencia)
       var proj = K[0] + K[1]*bM2 + K[2]*bCons + K[3]*bUbi;
-      if (!isFinite(proj) || proj <= 0) { clearOut(); setMsg('El resultado no es valido con estos datos. Revisa los antecedentes.'); return; }
+      if (!isFinite(proj) || proj <= 0) {
+        clearOut();
+        // Si la causa de fondo es una K negativa, mostramos la alerta de incongruencia
+        // (mas util que el generico "no valido"). El PDF ya queda bloqueado por clearOut().
+        if (kNegativas.length) setMsg(msgIncong, 'danger');
+        else setMsg('El resultado no es valido con estos datos. Revisa los antecedentes.');
+        return;
+      }
       // ===== Metodo del Excel: ajustar cada comparable hacia el inmueble a tasar =====
       // Para cada antecedente i: ci = (1 + K1*(m2_t - m2_i)/Vi) * (1 + K2*(cons_t - cons_i)/Vi) * (1 + K3*(ubi_t - ubi_i)/Vi)
       // bi = Vi_asimilado * ci ;  valor = promedio(bi) ;  s = desviacion muestral(bi)
@@ -444,16 +485,25 @@
       document.getElementById('tasModelN').textContent = '4 comparables';
       document.getElementById('tasModelDisp').textContent = dispPct.toFixed(1) + '%';
       res.classList.add('ok');
-      document.getElementById('tasExportBtn').disabled = false;
       drawChart(bs, valorTasado);
+      var expBtn = document.getElementById('tasExportBtn');
       ultimoResultado = {
         inmueble: { m2:bM2, cons:bCons, ubi:bUbi, dorm:document.getElementById('tasDorm').value, bath:document.getElementById('tasBath').value },
         antecedentes: ants, valorM2: valorTasado, valorTotal: valorTasado, minV: minV, maxV: maxV, incert: incert*100, dispPct: dispPct,
-        _bs: bs, _K: K
+        _bs: bs, _K: K, _kNegativas: kNegativas
       };
-      setMsg(incert > 0.051
-        ? 'La incertidumbre supera el 5,1%: los antecedentes son dispares. Busca comparables mas parecidos entre si para una estimacion mas confiable.'
-        : 'Tasacion basada en los 4 antecedentes cargados mediante analisis comparativo de mercado.');
+      if (kNegativas.length){
+        // Incongruencia: bloquear la exportacion a PDF y mostrar alerta roja en vivo.
+        expBtn.disabled = true;
+        expBtn.title = 'No se puede exportar: hay antecedentes incongruentes (coeficiente negativo en ' + kNegativas.join(' y ') + '). Corregi los antecedentes para generar el informe.';
+        setMsg(msgIncong, 'danger');
+      } else {
+        expBtn.disabled = false;
+        expBtn.title = '';
+        setMsg(incert > 0.051
+          ? 'La incertidumbre supera el 5,1%: los antecedentes son dispares. Busca comparables mas parecidos entre si para una estimacion mas confiable.'
+          : 'Tasacion basada en los 4 antecedentes cargados mediante analisis comparativo de mercado.');
+      }
     }
 
     function drawChart(adj, est) {
@@ -569,6 +619,11 @@
     function exportarPDF() {
       if (!ultimoResultado) return;
       var r = ultimoResultado;
+      // Blindaje: no exportar si los antecedentes son incongruentes (K negativa).
+      if (r._kNegativas && r._kNegativas.length) {
+        showToast('No se puede exportar', 'Hay antecedentes incongruentes (coeficiente negativo en ' + r._kNegativas.join(' y ') + '). Corregi los antecedentes antes de generar el informe.', 'fa-circle-exclamation');
+        return;
+      }
       var rep = getReportData();
       // Validar campos obligatorios para el informe
       var faltan = [];

@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Propiedades compartidas · MALAVE</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root{
+      --navy:#16273f; --navy-2:#243447; --primary:#16273f;
+      --gold:#c9a961; --gold-2:#C9A227; --gold-hover:#b8954a;
+      --gray-50:#f7f8fa; --gray-100:#eef0f3; --gray-200:#e3e6ea; --gray-300:#ccd1d8; --gray-400:#aab0b8; --gray-500:#8a8a8a; --gray-600:#555; --gray-700:#4a4a4a;
+      --white:#fff; --success:#1e7d4f; --danger:#c0392b;
+    }
+    *{ margin:0; padding:0; box-sizing:border-box; }
+    html,body{ overflow-x:hidden; }
+    body{ font-family:'Inter',sans-serif; color:var(--navy); background:var(--gray-50); line-height:1.6; }
+    h1,h2,h3{ font-family:'Cormorant Garamond',serif; }
+    a{ text-decoration:none; color:inherit; }
+    .wrap{ max-width:1080px; margin:0 auto; padding:0 20px; }
+
+    .header{ background:#fff; border-bottom:1px solid var(--gray-100); position:sticky; top:0; z-index:50; }
+    .header-in{ display:flex; align-items:center; justify-content:space-between; height:64px; }
+    .logo{ display:flex; align-items:center; gap:11px; cursor:pointer; }
+    .logo-img{ height:34px; } .logo-text{ height:18px; }
+    .back-link{ color:var(--gray-700); font-size:.9rem; font-weight:500; display:inline-flex; align-items:center; gap:7px; }
+    .back-link:hover{ color:var(--navy); }
+
+    .state{ min-height:60vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:40px 20px; color:var(--gray-500); }
+    .state i{ font-size:2.4rem; color:var(--gold-2); margin-bottom:14px; }
+    .state h2{ font-size:1.5rem; color:var(--navy); margin-bottom:6px; }
+    .spinner{ width:40px; height:40px; border:3px solid var(--gray-200); border-top-color:var(--gold-2); border-radius:50%; animation:spin .8s linear infinite; margin-bottom:14px; }
+    @keyframes spin{ to{ transform:rotate(360deg); } }
+
+    .page-hero{ background:linear-gradient(115deg, #101d30 0%, var(--navy) 65%); color:#fff; padding:28px 0; }
+    .page-hero-in{ display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+    .page-hero-ic{ width:56px; height:56px; border-radius:14px; background:rgba(201,162,39,.16); display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+    .page-hero-ic i{ font-size:1.45rem; color:var(--gold); }
+    .page-hero h1{ font-size:1.85rem; font-weight:700; margin:0; }
+    .page-hero p{ color:#c8cdd4; font-size:.9rem; font-weight:300; margin-top:2px; max-width:640px; }
+
+    .page-wrap{ padding:26px 0 60px; }
+    .intro-note{ background:#fff; border:1px solid var(--gray-200); border-left:3px solid var(--gold-2); border-radius:12px; padding:14px 18px; font-size:.88rem; color:var(--gray-700); margin-bottom:22px; display:flex; align-items:flex-start; gap:10px; line-height:1.55; }
+    .intro-note i{ color:var(--gold-2); margin-top:2px; }
+
+    .toolbar{ display:flex; justify-content:space-between; align-items:center; gap:14px; margin-bottom:20px; flex-wrap:wrap; }
+    .toolbar h2{ font-size:1.5rem; font-weight:700; }
+    .btn-new{ background:var(--navy); color:#fff; border:none; border-radius:11px; padding:12px 20px; font-family:inherit; font-size:.93rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:9px; transition:background .2s; }
+    .btn-new:hover{ background:var(--navy-2); }
+
+    .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr)); gap:18px; }
+    .card{ background:#fff; border:1px solid var(--gray-200); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; }
+    .card-img{ height:170px; background:var(--gray-100); position:relative; }
+    .card-img img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .card-img .ph{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:var(--gray-300); font-size:2rem; }
+    .card-img .count{ position:absolute; bottom:8px; right:8px; background:rgba(16,39,63,.8); color:#fff; font-size:.72rem; padding:3px 9px; border-radius:20px; }
+    .card-tag{ position:absolute; top:8px; left:8px; background:var(--gold-2); color:#16273f; font-size:.66rem; font-weight:700; padding:3px 10px; border-radius:20px; letter-spacing:.5px; }
+    .card-body{ padding:15px 16px; flex:1; display:flex; flex-direction:column; }
+    .card-price{ font-size:1.1rem; font-weight:700; color:var(--navy); }
+    .card-title{ font-size:.95rem; font-weight:600; color:var(--gray-700); margin:3px 0 7px; line-height:1.3; }
+    .card-meta{ font-size:.8rem; color:var(--gray-500); display:flex; flex-direction:column; gap:3px; margin-bottom:10px; }
+    .card-meta i{ width:14px; color:var(--gray-400); margin-right:5px; }
+    .card-actions{ display:flex; gap:8px; margin-top:auto; flex-wrap:wrap; }
+    .card-actions a, .card-actions button{ flex:1; font-size:.82rem; padding:9px 10px; border-radius:9px; border:1px solid var(--gray-200); background:#fff; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; justify-content:center; gap:6px; color:var(--navy); text-decoration:none; transition:all .15s; white-space:nowrap; }
+    .a-link{ background:var(--navy); color:#fff; border-color:var(--navy); } .a-link:hover{ background:var(--navy-2); }
+    .a-ficha{ background:var(--gold-2); color:#16273f !important; border-color:var(--gold-2) !important; font-weight:600; } .a-ficha:hover{ background:var(--gold-hover); }
+    .a-wa{ color:#1eb858 !important; } .a-wa:hover{ border-color:#1eb858; background:#f0fdf4; }
+    .a-ed:hover{ border-color:var(--gold-2); color:var(--gold-2); }
+    .a-del{ flex:0 0 auto !important; color:var(--danger) !important; } .a-del:hover{ border-color:#e3a9a2; background:#fff0ee; }
+    .empty{ grid-column:1/-1; text-align:center; padding:50px 20px; color:var(--gray-500); }
+    .empty i{ font-size:2.4rem; color:var(--gray-300); margin-bottom:12px; }
+
+    .modal{ position:fixed; inset:0; background:rgba(16,29,48,.55); display:none; align-items:center; justify-content:center; z-index:2000; padding:18px; }
+    .modal.open{ display:flex; }
+    .modal-box{ background:#fff; border-radius:18px; width:100%; max-width:540px; max-height:92vh; overflow-y:auto; padding:26px; }
+    .modal-box h2{ font-size:1.5rem; color:var(--navy); margin-bottom:18px; }
+    .modal-close{ float:right; width:34px; height:34px; border-radius:50%; background:#f0f1f3; border:none; cursor:pointer; color:var(--gray-500); }
+    .fg{ margin-bottom:14px; }
+    .fg label{ display:block; font-size:.84rem; font-weight:600; color:var(--gray-700); margin-bottom:6px; }
+    .fg label .req{ color:var(--danger); }
+    .fg input, .fg select, .fg textarea{ width:100%; padding:11px 13px; border:1px solid var(--gray-300); border-radius:10px; font-family:inherit; font-size:.93rem; color:var(--navy); }
+    .fg input:focus, .fg select:focus, .fg textarea:focus{ outline:none; border-color:var(--gold-2); box-shadow:0 0 0 3px rgba(201,162,39,.12); }
+    .fg-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .modal-error{ background:#fff0ee; border:1px solid #e3a9a2; color:#b91c1c; border-radius:10px; padding:11px 14px; font-size:.86rem; margin-bottom:14px; }
+    .modal-error.hidden{ display:none; }
+    .modal-save{ width:100%; background:var(--navy); color:#fff; border:none; border-radius:11px; padding:13px; font-family:inherit; font-size:.95rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:9px; margin-top:4px; }
+    .modal-save:hover{ background:var(--navy-2); }
+    .modal-save:disabled{ opacity:.6; cursor:not-allowed; }
+
+    /* Subida de fotos */
+    .photo-drop{ border:2px dashed var(--gray-300); border-radius:12px; padding:20px; text-align:center; cursor:pointer; transition:all .15s; color:var(--gray-500); }
+    .photo-drop:hover{ border-color:var(--gold-2); background:#fffdf6; }
+    .photo-drop i{ font-size:1.6rem; color:var(--gold-2); margin-bottom:6px; }
+    .photo-prev{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .photo-prev .pp{ position:relative; width:70px; height:70px; border-radius:9px; overflow:hidden; border:1px solid var(--gray-200); }
+    .photo-prev .pp img{ width:100%; height:100%; object-fit:cover; }
+    .photo-prev .pp button{ position:absolute; top:2px; right:2px; width:20px; height:20px; border-radius:50%; background:rgba(192,57,43,.9); color:#fff; border:none; cursor:pointer; font-size:.65rem; display:flex; align-items:center; justify-content:center; }
+    .up-bar{ height:5px; background:var(--gray-100); border-radius:3px; overflow:hidden; margin-top:8px; display:none; }
+    .up-bar.show{ display:block; }
+    .up-bar > div{ height:100%; background:var(--gold-2); width:0; transition:width .25s; }
+
+    .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(120px); background:var(--navy); color:#fff; padding:14px 22px; border-radius:12px; font-size:.92rem; box-shadow:0 12px 30px rgba(0,0,0,.25); z-index:3000; transition:transform .3s; display:flex; align-items:center; gap:10px; }
+    .toast.show{ transform:translateX(-50%) translateY(0); }
+    .toast i{ color:var(--gold); }
+
+    @media (max-width:560px){
+      .wrap{ padding:0 16px; }
+      .page-hero h1{ font-size:1.5rem; }
+      .grid{ grid-template-columns:1fr; }
+      .btn-new{ width:100%; justify-content:center; }
+      .toolbar{ flex-direction:column; align-items:stretch; }
+      .fg-row{ grid-template-columns:1fr; gap:0; }
+      .back-link span{ display:none; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="wrap header-in">
+      <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
+      <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i><span>Volver al inicio</span></a>
+    </div>
+  </header>
+
+  <div id="cLoading" class="state"><div class="spinner"></div><p>Verificando sesión...</p></div>
+  <div id="cAuth" class="state" style="display:none">
+    <i class="fas fa-lock"></i>
+    <h2>Acceso para agentes</h2>
+    <p>Iniciá sesión en el inicio para gestionar propiedades compartidas.</p>
+    <a href="index.html" class="btn-new" style="margin-top:18px">Ir al inicio</a>
+  </div>
+
+  <div id="cContent" style="display:none">
+    <section class="page-hero">
+      <div class="wrap page-hero-in">
+        <div class="page-hero-ic"><i class="fas fa-handshake-angle"></i></div>
+        <div>
+          <h1>Propiedades compartidas</h1>
+          <p>Propiedades que te comparten otras inmobiliarias para trabajar en conjunto. Es una herramienta interna: no se publican en tu página ni en Mercado Libre, las usás para gestionar y pasarle el link a tu cliente.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="wrap page-wrap">
+      <div class="intro-note">
+        <i class="fas fa-circle-info"></i>
+        <span>Cargá acá las propiedades que te comparten con acuerdo. Subí solo las fotos que te hayan pasado. Estas fichas son privadas del equipo y no aparecen en tu catálogo público.</span>
+      </div>
+
+      <div class="toolbar">
+        <h2>Mis compartidas</h2>
+        <button class="btn-new" onclick="openModal()"><i class="fas fa-plus"></i> Agregar compartida</button>
+      </div>
+
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal" id="propModal">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+      <h2 id="modalTitle">Agregar propiedad compartida</h2>
+      <input type="hidden" id="editingId">
+      <div class="modal-error hidden" id="modalError"></div>
+
+      <div class="fg"><label>Título <span class="req">*</span></label><input type="text" id="fTitle" placeholder="Ej: Apartamento 2 dorm en Pocitos"></div>
+      <div class="fg-row">
+        <div class="fg"><label>Precio</label><input type="text" id="fPrice" placeholder="Ej: USD 145.000"></div>
+        <div class="fg"><label>Zona / ubicación</label><input type="text" id="fZona" placeholder="Ej: Pocitos, Montevideo"></div>
+      </div>
+      <div class="fg"><label>Link original de Mercado Libre <span class="req">*</span></label><input type="url" id="fLink" placeholder="https://articulo.mercadolibre.com.uy/..."></div>
+      <div class="fg"><label>Inmobiliaria que la comparte</label><input type="text" id="fAgencia" placeholder="Nombre de la inmobiliaria / colega"></div>
+      <div class="fg-row">
+        <div class="fg"><label>Contacto a mostrar al cliente</label><input type="text" id="fContactName" placeholder="Ej: Anibal Malave"></div>
+        <div class="fg"><label>WhatsApp de contacto</label><input type="tel" id="fContactPhone" placeholder="099 123 456"></div>
+      </div>
+      <div class="fg"><label>Notas internas</label><textarea id="fNotes" placeholder="Comisión acordada, condiciones, etc. (uso interno)"></textarea></div>
+
+      <div style="border-top:1px solid var(--gray-200);margin:18px 0 16px;padding-top:16px;">
+        <div style="font-size:.8rem;font-weight:700;color:var(--gold-2);letter-spacing:.5px;margin-bottom:4px;"><i class="fas fa-file-lines"></i> DATOS PARA LA FICHA TÉCNICA</div>
+        <div style="font-size:.78rem;color:var(--gray-500);margin-bottom:14px;">Completá esto para generar la ficha PDF estilo presentación. Es opcional, pero cuanto más cargues, más completa sale.</div>
+      </div>
+      <div class="fg-row">
+        <div class="fg"><label>Dormitorios</label><input type="number" id="fDorm" min="0" placeholder="Ej: 2"></div>
+        <div class="fg"><label>Baños</label><input type="number" id="fBanos" min="0" placeholder="Ej: 1"></div>
+      </div>
+      <div class="fg-row">
+        <div class="fg"><label>m² edificados</label><input type="number" id="fM2Edif" min="0" placeholder="Ej: 120"></div>
+        <div class="fg"><label>m² de terreno</label><input type="number" id="fM2Terr" min="0" placeholder="Ej: 180"></div>
+      </div>
+      <div class="fg-row">
+        <div class="fg"><label>Garaje (cantidad)</label><input type="number" id="fGaraje" min="0" placeholder="Ej: 1 (0 = sin garaje)"></div>
+        <div class="fg"><label>Dirección exacta (para la ficha)</label><input type="text" id="fDireccion" placeholder="Ej: Juan Molina, La Teja"></div>
+      </div>
+      <div class="fg"><label>Otras características (separadas por coma)</label><input type="text" id="fExtras" placeholder="Ej: Jardín, Parrillero, Terraza"></div>
+      <div class="fg"><label>Destacados (uno por línea)</label><textarea id="fDestacados" placeholder="Precio muy accesible&#10;Próxima a servicios&#10;Ideal para familia"></textarea></div>
+      <div class="fg"><label>Comentario profesional</label><textarea id="fComentario" placeholder="Tu comentario sobre la propiedad para el cliente"></textarea></div>
+      <div style="font-size:.76rem;color:var(--gray-500);margin:-6px 0 14px;"><i class="fas fa-circle-info"></i> Para el cliente y la fecha de la ficha, se usan al generarla (te lo pregunta en el momento).</div>
+
+      <div class="fg">
+        <label>Fotos (las que te compartieron)</label>
+        <div class="photo-drop" onclick="document.getElementById('fPhotos').click()">
+          <i class="fas fa-cloud-arrow-up"></i>
+          <div>Tocá para subir fotos</div>
+          <div style="font-size:.76rem;color:var(--gray-400);margin-top:3px">Solo las imágenes que te hayan pasado</div>
+        </div>
+        <input type="file" id="fPhotos" accept="image/*" multiple style="display:none" onchange="onPhotosSelected(event)">
+        <div class="up-bar" id="upBar"><div id="upBarFill"></div></div>
+        <div class="photo-prev" id="photoPrev"></div>
+      </div>
+
+      <button class="modal-save" id="saveBtn" onclick="handleSave(event)"><i class="fas fa-save"></i> Guardar</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"><i class="fas fa-circle-check"></i><span id="toastMsg"></span></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="malave-logos.js"></script>
+  <script src="ficha-pdf.js"></script>
+  <script>
+    var firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
+    firebase.initializeApp(firebaseConfig);
+    var auth = firebase.auth();
+    var db = firebase.firestore();
+    var storage = firebase.storage();
+    var ADMIN_EMAIL = "fabricio9061@gmail.com";
+
+    var currentUser = null, userProfile = null, isAdmin = false;
+    var items = [];
+    var pendingPhotos = []; // {url, path} ya subidas para el item en edición/creación
+
+    function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function escA(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+    function showToast(msg){ var t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); },3000); }
+
+    auth.onAuthStateChanged(function(user){
+      if (!user){
+        document.getElementById('cLoading').style.display='none';
+        document.getElementById('cContent').style.display='none';
+        document.getElementById('cAuth').style.display='flex';
+        return;
+      }
+      currentUser = user;
+      isAdmin = (user.email||'').toLowerCase() === ADMIN_EMAIL;
+      db.collection('users').doc(user.uid).get().then(function(d){
+        userProfile = d.exists ? d.data() : { email:user.email };
+        document.getElementById('cLoading').style.display='none';
+        document.getElementById('cAuth').style.display='none';
+        document.getElementById('cContent').style.display='block';
+        loadItems();
+      }).catch(function(){
+        userProfile = { email:user.email };
+        document.getElementById('cLoading').style.display='none';
+        document.getElementById('cContent').style.display='block';
+        loadItems();
+      });
+    });
+
+    function loadItems(){
+      db.collection('compartidas').get().then(function(q){
+        items = q.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
+        items.sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
+        render();
+      }).catch(function(e){ console.error(e); render(); });
+    }
+
+    function render(){
+      var g = document.getElementById('grid');
+      if (!items.length){
+        g.innerHTML = '<div class="empty"><i class="fas fa-handshake-angle"></i><h3>Sin propiedades compartidas</h3><p>Agregá la primera con el botón de arriba.</p></div>';
+        return;
+      }
+      g.innerHTML = items.map(function(it){
+        var fotos = it.photos || [];
+        var img0 = fotos[0] ? fotos[0].url : '';
+        var ph = (it.contactPhone||'').replace(/\D/g,'');
+        return '<div class="card">' +
+          '<div class="card-img">' +
+            (img0 ? '<img src="'+escA(img0)+'" alt="" loading="lazy">' : '<div class="ph"><i class="fas fa-image"></i></div>') +
+            '<span class="card-tag">COMPARTIDA</span>' +
+            (fotos.length>1 ? '<span class="count"><i class="fas fa-images"></i> '+fotos.length+'</span>' : '') +
+          '</div>' +
+          '<div class="card-body">' +
+            '<div class="card-price">'+esc(it.price||'Consultar')+'</div>' +
+            '<div class="card-title">'+esc(it.title||'Propiedad')+'</div>' +
+            '<div class="card-meta">' +
+              (it.zona?'<span><i class="fas fa-map-marker-alt"></i>'+esc(it.zona)+'</span>':'') +
+              (it.agencia?'<span><i class="fas fa-building"></i>Comparte: '+esc(it.agencia)+'</span>':'') +
+              (it.contactName?'<span><i class="fas fa-user-tie"></i>Contacto: '+esc(it.contactName)+'</span>':'') +
+              (it.notes?'<span><i class="fas fa-note-sticky"></i>'+esc(it.notes)+'</span>':'') +
+            '</div>' +
+            '<div class="card-actions">' +
+              '<button class="a-ficha" onclick="generarFicha(\''+it.id+'\')"><i class="fas fa-file-pdf"></i> Ficha PDF</button>' +
+              (it.link?'<a class="a-link" href="'+escA(it.link)+'" target="_blank" rel="noopener"><i class="fas fa-up-right-from-square"></i> Abrir aviso</a>':'') +
+              (it.link&&ph?'<a class="a-wa" href="https://wa.me/'+ph+'?text='+encodeURIComponent('Hola! Te comparto esta propiedad: '+(it.link||''))+'" target="_blank"><i class="fab fa-whatsapp"></i> Pasar</a>':'') +
+              '<button class="a-ed" onclick="openModal(\''+it.id+'\')"><i class="fas fa-edit"></i></button>' +
+              '<button class="a-del" onclick="del(\''+it.id+'\')"><i class="fas fa-trash"></i></button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    function openModal(id){
+      document.getElementById('editingId').value = id || '';
+      document.getElementById('modalError').classList.add('hidden');
+      document.getElementById('modalTitle').textContent = id ? 'Editar propiedad compartida' : 'Agregar propiedad compartida';
+      ['fTitle','fPrice','fZona','fLink','fAgencia','fContactName','fContactPhone','fNotes','fDorm','fBanos','fM2Edif','fM2Terr','fGaraje','fDireccion','fExtras','fDestacados','fComentario'].forEach(function(f){ document.getElementById(f).value=''; });
+      pendingPhotos = [];
+      // Prefijar contacto con el del agente logueado
+      if (!id){
+        document.getElementById('fContactName').value = (userProfile && userProfile.name) || '';
+        document.getElementById('fContactPhone').value = (userProfile && (userProfile.whatsapp || userProfile.phone)) || '';
+      }
+      if (id){
+        var it = items.find(function(x){ return x.id===id; });
+        if (it){
+          document.getElementById('fTitle').value = it.title||'';
+          document.getElementById('fPrice').value = it.price||'';
+          document.getElementById('fZona').value = it.zona||'';
+          document.getElementById('fLink').value = it.link||'';
+          document.getElementById('fAgencia').value = it.agencia||'';
+          document.getElementById('fContactName').value = it.contactName||'';
+          document.getElementById('fContactPhone').value = it.contactPhone||'';
+          document.getElementById('fNotes').value = it.notes||'';
+          document.getElementById('fDorm').value = it.dormitorios||'';
+          document.getElementById('fBanos').value = it.banos||'';
+          document.getElementById('fM2Edif').value = it.m2Edificado||'';
+          document.getElementById('fM2Terr').value = it.m2Terreno||'';
+          document.getElementById('fGaraje').value = it.garaje||'';
+          document.getElementById('fDireccion').value = it.direccion||'';
+          document.getElementById('fExtras').value = (it.extras||[]).join(', ');
+          document.getElementById('fDestacados').value = (it.destacados||[]).join('\n');
+          document.getElementById('fComentario').value = it.comentario||'';
+          pendingPhotos = (it.photos||[]).slice();
+        }
+      }
+      renderPhotoPrev();
+      document.getElementById('propModal').classList.add('open');
+    }
+    function closeModal(){ document.getElementById('propModal').classList.remove('open'); }
+
+    function renderPhotoPrev(){
+      document.getElementById('photoPrev').innerHTML = pendingPhotos.map(function(p, i){
+        return '<div class="pp"><img src="'+escA(p.url)+'"><button onclick="quitarFoto('+i+')"><i class="fas fa-times"></i></button></div>';
+      }).join('');
+    }
+    function quitarFoto(i){
+      var p = pendingPhotos[i];
+      // borrar de storage si tiene path
+      if (p && p.path){ storage.ref(p.path).delete().catch(function(){}); }
+      pendingPhotos.splice(i,1);
+      renderPhotoPrev();
+    }
+
+    async function onPhotosSelected(e){
+      var files = Array.from(e.target.files||[]);
+      if (!files.length) return;
+      var bar = document.getElementById('upBar'), fill = document.getElementById('upBarFill');
+      bar.classList.add('show');
+      for (var i=0;i<files.length;i++){
+        var file = files[i];
+        try {
+          var path = 'compartidas/' + currentUser.uid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2) + '_' + file.name.replace(/[^\w.\-]/g,'_');
+          var ref = storage.ref(path);
+          await ref.put(file);
+          var url = await ref.getDownloadURL();
+          pendingPhotos.push({ url:url, path:path });
+          fill.style.width = Math.round(((i+1)/files.length)*100) + '%';
+          renderPhotoPrev();
+        } catch(err){ console.error('Error subiendo foto:', err); showToast('No se pudo subir una foto'); }
+      }
+      setTimeout(function(){ bar.classList.remove('show'); fill.style.width='0'; }, 600);
+      e.target.value = '';
+    }
+
+    function handleSave(e){
+      e.preventDefault();
+      if (!currentUser) return;
+      var er = document.getElementById('modalError');
+      var b = document.getElementById('saveBtn');
+      var id = document.getElementById('editingId').value;
+      var title = document.getElementById('fTitle').value.trim();
+      var link = document.getElementById('fLink').value.trim();
+      er.classList.add('hidden');
+      if (!title){ er.textContent='Ingresá un título.'; er.classList.remove('hidden'); return; }
+      if (!link){ er.textContent='Pegá el link original de Mercado Libre.'; er.classList.remove('hidden'); return; }
+
+      b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+      var data = {
+        title: title,
+        price: document.getElementById('fPrice').value.trim(),
+        zona: document.getElementById('fZona').value.trim(),
+        link: link,
+        agencia: document.getElementById('fAgencia').value.trim(),
+        contactName: document.getElementById('fContactName').value.trim(),
+        contactPhone: document.getElementById('fContactPhone').value.trim(),
+        notes: document.getElementById('fNotes').value.trim(),
+        dormitorios: parseInt(document.getElementById('fDorm').value)||0,
+        banos: parseInt(document.getElementById('fBanos').value)||0,
+        m2Edificado: parseInt(document.getElementById('fM2Edif').value)||0,
+        m2Terreno: parseInt(document.getElementById('fM2Terr').value)||0,
+        garaje: parseInt(document.getElementById('fGaraje').value)||0,
+        direccion: document.getElementById('fDireccion').value.trim(),
+        extras: document.getElementById('fExtras').value.split(',').map(function(s){return s.trim();}).filter(Boolean),
+        destacados: document.getElementById('fDestacados').value.split('\n').map(function(s){return s.trim();}).filter(Boolean),
+        comentario: document.getElementById('fComentario').value.trim(),
+        photos: pendingPhotos,
+        updatedAt: new Date().toISOString()
+      };
+      var op;
+      if (id){
+        op = db.collection('compartidas').doc(id).update(data);
+      } else {
+        data.createdBy = currentUser.uid;
+        data.createdByName = (userProfile && userProfile.name) || '';
+        data.createdAt = new Date().toISOString();
+        op = db.collection('compartidas').add(data);
+      }
+      op.then(function(){
+        closeModal();
+        showToast(id ? 'Actualizada' : 'Propiedad compartida agregada');
+        loadItems();
+      }).catch(function(err){
+        er.textContent = 'Error: ' + err.message; er.classList.remove('hidden');
+      }).finally(function(){
+        b.disabled = false; b.innerHTML = '<i class="fas fa-save"></i> Guardar';
+      });
+    }
+
+    async function generarFicha(id){
+      var it = items.find(function(x){ return x.id===id; });
+      if (!it){ return; }
+      // Pedir datos opcionales de la ficha (cliente y rango), prellenando si hay
+      var cliente = prompt('¿Para qué cliente es la ficha? (opcional, se muestra en el encabezado)', '');
+      if (cliente === null) return; // canceló
+      var rango = prompt('Rango de inversión a mostrar (opcional). Ej: USD 90.000', it.price || '');
+      if (rango === null) rango = '';
+
+      showToast('Generando ficha PDF...');
+      try {
+        await window.generarFichaPropiedad({
+          title: it.title,
+          price: it.price,
+          zona: it.zona,
+          direccion: it.direccion || it.zona,
+          dormitorios: it.dormitorios,
+          banos: it.banos,
+          m2Edificado: it.m2Edificado,
+          m2Terreno: it.m2Terreno,
+          garaje: it.garaje,
+          extras: it.extras || [],
+          destacados: it.destacados || [],
+          comentario: it.comentario,
+          photos: (it.photos||[]).map(function(p){ return p.url; }),
+          clienteNombre: cliente.trim(),
+          rangoInversion: rango.trim()
+        });
+      } catch(e){ console.error(e); showToast('No se pudo generar la ficha'); }
+    }
+
+    function del(id){
+      if (!confirm('¿Eliminar esta propiedad compartida? Se borrarán también sus fotos.')) return;
+      var it = items.find(function(x){ return x.id===id; });
+      // borrar fotos de storage
+      if (it && it.photos){ it.photos.forEach(function(p){ if(p.path){ storage.ref(p.path).delete().catch(function(){}); } }); }
+      db.collection('compartidas').doc(id).delete().then(function(){
+        showToast('Eliminada');
+        loadItems();
+      }).catch(function(e){ showToast('No se pudo eliminar'); console.error(e); });
+    }
+  </script>
+</body>
+</html>
