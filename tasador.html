@@ -449,16 +449,6 @@
       var msgIncong = kNegativas.length
         ? '⚠ Antecedentes incongruentes: el coeficiente de ' + kNegativas.join(' y ') + ' dio negativo. Esto pasa cuando un antecedente contradice a los demás (por ejemplo, una propiedad con más ' + (kNegativas.length===1?kNegativas[0].split(' ')[0]:'atributos') + ' pero menor valor). Revisá los 4 antecedentes y ajustá el que esté fuera de línea. No vas a poder exportar el PDF hasta corregirlo.'
         : '';
-      // Valor por proyeccion directa (referencia)
-      var proj = K[0] + K[1]*bM2 + K[2]*bCons + K[3]*bUbi;
-      if (!isFinite(proj) || proj <= 0) {
-        clearOut();
-        // Si la causa de fondo es una K negativa, mostramos la alerta de incongruencia
-        // (mas util que el generico "no valido"). El PDF ya queda bloqueado por clearOut().
-        if (kNegativas.length) setMsg(msgIncong, 'danger');
-        else setMsg('El resultado no es valido con estos datos. Revisa los antecedentes.');
-        return;
-      }
       // ===== Metodo del Excel: ajustar cada comparable hacia el inmueble a tasar =====
       // Para cada antecedente i: ci = (1 + K1*(m2_t - m2_i)/Vi) * (1 + K2*(cons_t - cons_i)/Vi) * (1 + K3*(ubi_t - ubi_i)/Vi)
       // bi = Vi_asimilado * ci ;  valor = promedio(bi) ;  s = desviacion muestral(bi)
@@ -478,10 +468,19 @@
       // Dispersion: que tan separados estan los comparables ajustados (en %)
       var dispPct = meanB ? (sDev / meanB) * 100 : 0;
       var minV = valorTasado - incert*valorTasado, maxV = valorTasado + incert*valorTasado;
+      // Solo se ocultan los numeros si son literalmente incalculables (NaN / infinito,
+      // p.ej. algun valor en 0). Si dan negativos, se muestran igual (como en el Excel).
+      if (!isFinite(valorTasado) || !isFinite(incert)) {
+        clearOut();
+        if (kNegativas.length) setMsg(msgIncong, 'danger');
+        else setMsg('El resultado no es valido con estos datos (revisa que ningun valor este en 0).');
+        return;
+      }
+      // Se muestran los numeros SIEMPRE, aunque sean negativos.
       document.getElementById('tasResValue').textContent = fmt(valorTasado);
       document.getElementById('tasResRange').textContent = fmt(minV) + ' - ' + fmt(maxV);
-      document.getElementById('tasResUnc').textContent = '+/- ' + (incert*100).toFixed(1) + ' %';
-      document.getElementById('tasResUncSub').textContent = incert > 0.051 ? 'Nivel alto' : 'Nivel medio';
+      document.getElementById('tasResUnc').textContent = (incert < 0 ? '' : '+/- ') + (incert*100).toFixed(1) + ' %';
+      document.getElementById('tasResUncSub').textContent = Math.abs(incert) > 0.051 ? 'Nivel alto' : 'Nivel medio';
       document.getElementById('tasModelN').textContent = '4 comparables';
       document.getElementById('tasModelDisp').textContent = dispPct.toFixed(1) + '%';
       res.classList.add('ok');
@@ -492,11 +491,15 @@
         antecedentes: ants, valorM2: valorTasado, valorTotal: valorTasado, minV: minV, maxV: maxV, incert: incert*100, dispPct: dispPct,
         _bs: bs, _K: K, _kNegativas: kNegativas
       };
-      if (kNegativas.length){
-        // Incongruencia: bloquear la exportacion a PDF y mostrar alerta roja en vivo.
+      // Incongruente si alguna K (salvo la primera) es negativa, o si el valor estimado dio <= 0.
+      var incongruente = kNegativas.length > 0 || valorTasado <= 0;
+      if (incongruente){
+        // Se muestran los numeros, pero se bloquea el PDF y se avisa en rojo.
         expBtn.disabled = true;
-        expBtn.title = 'No se puede exportar: hay antecedentes incongruentes (coeficiente negativo en ' + kNegativas.join(' y ') + '). Corregi los antecedentes para generar el informe.';
-        setMsg(msgIncong, 'danger');
+        expBtn.title = 'No se puede exportar: los antecedentes son incongruentes. Corregi los antecedentes para generar el informe.';
+        setMsg(kNegativas.length
+          ? msgIncong
+          : '⚠ Resultado incongruente: el valor estimado dio negativo, lo que significa que los antecedentes se contradicen entre sí. Revisá los 4 antecedentes y ajustá el que esté fuera de línea. No vas a poder exportar el PDF hasta corregirlo.', 'danger');
       } else {
         expBtn.disabled = false;
         expBtn.title = '';
