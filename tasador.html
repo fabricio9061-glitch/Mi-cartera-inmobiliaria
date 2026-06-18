@@ -395,29 +395,11 @@
       var bCons = num(document.getElementById('tasCons').value);
       var bUbi = num(document.getElementById('tasUbi').value);
       var res = document.getElementById('tasResult');
-      function setMsg(t, level) {
+      function setMsg(t, warn) {
         var el = document.getElementById('tasResMsg');
         el.textContent = t;
-        // Reseteo de estilos para que el cambio entre estados sea limpio en tiempo real
-        el.style.color = '';
-        el.style.fontWeight = '';
-        el.style.background = '';
-        el.style.border = '';
-        el.style.borderRadius = '';
-        el.style.padding = '';
-        el.style.marginTop = '';
-        if (level === 'danger') {            // incongruencia (K negativa): alerta roja bien visible
-          el.style.color = '#ffd2d2';
-          el.style.fontWeight = '700';
-          el.style.background = 'rgba(231,76,60,.16)';
-          el.style.border = '1px solid rgba(231,76,60,.75)';
-          el.style.borderRadius = '10px';
-          el.style.padding = '12px 14px';
-          el.style.marginTop = '12px';
-        } else if (level === 'warn') {        // incertidumbre alta: aviso amarillo
-          el.style.color = '#ffd98a';
-          el.style.fontWeight = '600';
-        }
+        el.style.color = warn ? '#ffd98a' : '';
+        el.style.fontWeight = warn ? '600' : '';
       }
       function clearOut() {
         ['tasResValue','tasResRange','tasResUnc'].forEach(function(id){ document.getElementById(id).innerHTML = '&mdash;'; });
@@ -445,10 +427,9 @@
       var kNombres = ['', 'm² (K₁)', 'construcción (K₂)', 'ubicación (K₃)'];
       var kNegativas = [];
       for (var ki = 1; ki <= 3; ki++){ if (K[ki] < 0) kNegativas.push(kNombres[ki]); }
-      // Mensaje de incongruencia (se usa tanto si el valor es calculable como si no lo es)
-      var msgIncong = kNegativas.length
-        ? '⚠ Antecedentes incongruentes: el coeficiente de ' + kNegativas.join(' y ') + ' dio negativo. Esto pasa cuando un antecedente contradice a los demás (por ejemplo, una propiedad con más ' + (kNegativas.length===1?kNegativas[0].split(' ')[0]:'atributos') + ' pero menor valor). Revisá los 4 antecedentes y ajustá el que esté fuera de línea. No vas a poder exportar el PDF hasta corregirlo.'
-        : '';
+      // Valor por proyeccion directa (referencia)
+      var proj = K[0] + K[1]*bM2 + K[2]*bCons + K[3]*bUbi;
+      if (!isFinite(proj) || proj <= 0) { clearOut(); setMsg('El resultado no es valido con estos datos. Revisa los antecedentes.'); return; }
       // ===== Metodo del Excel: ajustar cada comparable hacia el inmueble a tasar =====
       // Para cada antecedente i: ci = (1 + K1*(m2_t - m2_i)/Vi) * (1 + K2*(cons_t - cons_i)/Vi) * (1 + K3*(ubi_t - ubi_i)/Vi)
       // bi = Vi_asimilado * ci ;  valor = promedio(bi) ;  s = desviacion muestral(bi)
@@ -468,41 +449,23 @@
       // Dispersion: que tan separados estan los comparables ajustados (en %)
       var dispPct = meanB ? (sDev / meanB) * 100 : 0;
       var minV = valorTasado - incert*valorTasado, maxV = valorTasado + incert*valorTasado;
-      // Solo se ocultan los numeros si son literalmente incalculables (NaN / infinito,
-      // p.ej. algun valor en 0). Si dan negativos, se muestran igual (como en el Excel).
-      if (!isFinite(valorTasado) || !isFinite(incert)) {
-        clearOut();
-        if (kNegativas.length) setMsg(msgIncong, 'danger');
-        else setMsg('El resultado no es valido con estos datos (revisa que ningun valor este en 0).');
-        return;
-      }
-      // Se muestran los numeros SIEMPRE, aunque sean negativos.
       document.getElementById('tasResValue').textContent = fmt(valorTasado);
       document.getElementById('tasResRange').textContent = fmt(minV) + ' - ' + fmt(maxV);
-      document.getElementById('tasResUnc').textContent = (incert < 0 ? '' : '+/- ') + (incert*100).toFixed(1) + ' %';
-      document.getElementById('tasResUncSub').textContent = Math.abs(incert) > 0.051 ? 'Nivel alto' : 'Nivel medio';
+      document.getElementById('tasResUnc').textContent = '+/- ' + (incert*100).toFixed(1) + ' %';
+      document.getElementById('tasResUncSub').textContent = incert > 0.051 ? 'Nivel alto' : 'Nivel medio';
       document.getElementById('tasModelN').textContent = '4 comparables';
       document.getElementById('tasModelDisp').textContent = dispPct.toFixed(1) + '%';
       res.classList.add('ok');
+      document.getElementById('tasExportBtn').disabled = false;
       drawChart(bs, valorTasado);
-      var expBtn = document.getElementById('tasExportBtn');
       ultimoResultado = {
         inmueble: { m2:bM2, cons:bCons, ubi:bUbi, dorm:document.getElementById('tasDorm').value, bath:document.getElementById('tasBath').value },
         antecedentes: ants, valorM2: valorTasado, valorTotal: valorTasado, minV: minV, maxV: maxV, incert: incert*100, dispPct: dispPct,
         _bs: bs, _K: K, _kNegativas: kNegativas
       };
-      // Incongruente si alguna K (salvo la primera) es negativa, o si el valor estimado dio <= 0.
-      var incongruente = kNegativas.length > 0 || valorTasado <= 0;
-      if (incongruente){
-        // Se muestran los numeros, pero se bloquea el PDF y se avisa en rojo.
-        expBtn.disabled = true;
-        expBtn.title = 'No se puede exportar: los antecedentes son incongruentes. Corregi los antecedentes para generar el informe.';
-        setMsg(kNegativas.length
-          ? msgIncong
-          : '⚠ Resultado incongruente: el valor estimado dio negativo, lo que significa que los antecedentes se contradicen entre sí. Revisá los 4 antecedentes y ajustá el que esté fuera de línea. No vas a poder exportar el PDF hasta corregirlo.', 'danger');
+      if (kNegativas.length){
+        setMsg('⚠ Antecedentes incongruentes: el coeficiente de ' + kNegativas.join(' y ') + ' dio negativo. Esto pasa cuando un antecedente contradice a los demás (por ejemplo, una propiedad con más ' + (kNegativas.length===1?kNegativas[0].split(' ')[0]:'atributos') + ' pero menor valor). Revisá los 4 antecedentes y ajustá el que esté fuera de línea para una tasación confiable.', true);
       } else {
-        expBtn.disabled = false;
-        expBtn.title = '';
         setMsg(incert > 0.051
           ? 'La incertidumbre supera el 5,1%: los antecedentes son dispares. Busca comparables mas parecidos entre si para una estimacion mas confiable.'
           : 'Tasacion basada en los 4 antecedentes cargados mediante analisis comparativo de mercado.');
@@ -622,11 +585,6 @@
     function exportarPDF() {
       if (!ultimoResultado) return;
       var r = ultimoResultado;
-      // Blindaje: no exportar si los antecedentes son incongruentes (K negativa).
-      if (r._kNegativas && r._kNegativas.length) {
-        showToast('No se puede exportar', 'Hay antecedentes incongruentes (coeficiente negativo en ' + r._kNegativas.join(' y ') + '). Corregi los antecedentes antes de generar el informe.', 'fa-circle-exclamation');
-        return;
-      }
       var rep = getReportData();
       // Validar campos obligatorios para el informe
       var faltan = [];

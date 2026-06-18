@@ -108,7 +108,7 @@
 
         <div class="ppf-step"><div class="num">5</div><div><h3>Fotos y video</h3><small>La primera foto es la portada del aviso. Arrastrá para reordenar.</small></div></div>
         <div class="ppf-sec">
-          <div class="form-group"><label>Fotos * <small style="color:var(--gray-500);font-weight:normal">(arrastrá para reordenar, máx 5MB cada una)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div></div>
+          <div class="form-group"><label>Fotos * <small style="color:var(--gray-500);font-weight:normal">(arrastrá para reordenar, máx 5MB cada una)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div><div style="font-size:.8rem;color:var(--gray-500);margin-top:8px"><i class="fas fa-shield-halved" style="color:var(--gold-2)"></i> A cada foto se le agrega automáticamente la marca de agua MALAVE (logo centrado y tenue) al guardar.</div></div>
           <div class="form-group"><label>Video de YouTube (opcional)</label><input type="url" id="propVideo" placeholder="https://www.youtube.com/watch?v=..."></div>
         </div>
 
@@ -144,6 +144,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="malave-logos.js"></script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
@@ -293,8 +294,35 @@
     function compressImageForPreview(f, m = 200) {
       return new Promise(r => { const rd = new FileReader(); rd.onload = e => { const i = new Image(); i.onload = () => { const c = document.createElement('canvas'); let w = i.width, h = i.height; if (w > m) { h = (h * m) / w; w = m } c.width = w; c.height = h; c.getContext('2d').drawImage(i, 0, 0, w, h); r(c.toDataURL('image/jpeg', .6)) }; i.src = e.target.result }; rd.readAsDataURL(f) })
     }
+    // Logo de marca de agua (se carga una vez)
+    var _wmLogo = null, _wmLogoReady = false;
+    (function preloadWatermark(){
+      try {
+        if (typeof MALAVE_LOGO_ISO === 'undefined') return;
+        var im = new Image();
+        im.onload = function(){ _wmLogo = im; _wmLogoReady = true; };
+        im.onerror = function(){ _wmLogoReady = false; };
+        im.src = MALAVE_LOGO_ISO; // versión clara, se ve bien sobre fotos
+      } catch(e){ _wmLogoReady = false; }
+    })();
+
+    function dibujarMarcaAgua(ctx, w, h){
+      if (!_wmLogoReady || !_wmLogo) return; // si no cargó el logo, la foto va sin marca
+      try {
+        // Logo centrado, ancho ~38% de la imagen, opacidad 12%
+        var targetW = w * 0.38;
+        var ratio = _wmLogo.naturalHeight / _wmLogo.naturalWidth || 1;
+        var targetH = targetW * ratio;
+        var x = (w - targetW) / 2, y = (h - targetH) / 2;
+        ctx.save();
+        ctx.globalAlpha = 0.12;
+        ctx.drawImage(_wmLogo, x, y, targetW, targetH);
+        ctx.restore();
+      } catch(e){ /* si falla, la foto queda sin marca */ }
+    }
+
     function compressImageToBlob(f, m = 1200, q = .8) {
-      return new Promise(r => { const rd = new FileReader(); rd.onload = e => { const i = new Image(); i.onload = () => { const c = document.createElement('canvas'); let w = i.width, h = i.height; if (w > m) { h = (h * m) / w; w = m } c.width = w; c.height = h; c.getContext('2d').drawImage(i, 0, 0, w, h); c.toBlob(r, 'image/jpeg', q) }; i.src = e.target.result }; rd.readAsDataURL(f) })
+      return new Promise(r => { const rd = new FileReader(); rd.onload = e => { const i = new Image(); i.onload = () => { const c = document.createElement('canvas'); let w = i.width, h = i.height; if (w > m) { h = (h * m) / w; w = m } c.width = w; c.height = h; const ctx = c.getContext('2d'); ctx.drawImage(i, 0, 0, w, h); dibujarMarcaAgua(ctx, w, h); c.toBlob(r, 'image/jpeg', q) }; i.src = e.target.result }; rd.readAsDataURL(f) })
     }
     async function uploadImageToStorage(f, p, i) {
       const n = `${Date.now()}_${i}_${f.name.replace(/[^a-zA-Z0-9.]/g,'_')}`, r = storage.ref(`properties/${p}/${n}`), b = await compressImageToBlob(f, 1200, .8), u = await r.put(b);
