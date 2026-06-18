@@ -400,8 +400,8 @@ async function getRealEstateCategory(p, token) {
   // sin este dato, lo aproximamos desde el padrón (PH suele ser apartamento).
   const ret = p.realEstateType || (p.propertyType === "ph" ? "apartamento" : "casa");
   // Mapa fijo de categorías de Inmuebles (MLU1459), verificado contra el árbol de ML.
-  // Si el tipo es conocido, devolvemos la categoría hoja directo: es determinístico y no
-  // depende del nombre ni del predictor. Los tipos desconocidos caen a la navegación.
+  // Lo usamos como punto de partida (determinístico, sin depender del nombre/predictor);
+  // después igual bajamos hasta la hoja. Los tipos desconocidos caen a la navegación.
   const CAT_MLU = {
     casa: "MLU1466",        // Casas
     apartamento: "MLU1472", // Apartamentos
@@ -414,10 +414,6 @@ async function getRealEstateCategory(p, token) {
     cochera: "MLU50636",    // Cocheras
     habitacion: "MLU211280" // Habitaciones
   };
-  if (CAT_MLU[ret]) {
-    logger.info(`Categoría ML (mapa fijo): ${CAT_MLU[ret]} para ${ret}`);
-    return CAT_MLU[ret];
-  }
   const typeMap = { casa: "casas", apartamento: "apartamento", terreno: "terreno", local: "local", oficina: "oficina", galpon: "galp", campo: "campo" };
   const want = typeMap[ret] || "casas";
   const opWord = p.type === "rent" ? "alquiler" : "venta";
@@ -427,18 +423,27 @@ async function getRealEstateCategory(p, token) {
   const isAvoided = (name) => avoid.some((w) => (name || "").toLowerCase().includes(w));
   const headers = { Authorization: `Bearer ${token}` };
   try {
-    const root = await axios.get(`${API}/categories/MLU1459`, { headers });
-    const children = (root.data.children_categories || []).filter((c) => !isAvoided(c.name));
-    let cat =
-      children.find((c) => c.name.toLowerCase().includes(want)) ||
-      children.find((c) => c.name.toLowerCase().includes("casas")) ||
-      children[0];
-    if (!cat) return null;
-    let catId = cat.id;
-    let catName = cat.name;
-    // Bajar hasta una categoría hoja (sin subcategorías). Si hay subcategorías de
-    // venta/alquiler, elegir la de la operación; siempre esquivando emprendimientos.
-    for (let i = 0; i < 5; i++) {
+    // Punto de partida: el mapa fijo si el tipo es conocido; si no, navegar desde MLU1459.
+    let catId, catName;
+    if (CAT_MLU[ret]) {
+      catId = CAT_MLU[ret];
+      catName = ret;
+    } else {
+      const root = await axios.get(`${API}/categories/MLU1459`, { headers });
+      const children = (root.data.children_categories || []).filter((c) => !isAvoided(c.name));
+      const cat =
+        children.find((c) => c.name.toLowerCase().includes(want)) ||
+        children.find((c) => c.name.toLowerCase().includes("casas")) ||
+        children[0];
+      if (!cat) return null;
+      catId = cat.id;
+      catName = cat.name;
+    }
+    // IMPORTANTE: ML exige publicar en una categoría HOJA. Bajamos hasta una sin
+    // subcategorías, eligiendo la de la operación (venta/alquiler) y esquivando
+    // emprendimientos. Para Apartamentos/Casas (ya son hoja) el bucle no hace nada;
+    // para Locales/Oficinas/Terrenos baja al nivel correcto (p. ej. MLU1478 no es hoja).
+    for (let i = 0; i < 6; i++) {
       const cr = await axios.get(`${API}/categories/${catId}`, { headers });
       const sub = (cr.data.children_categories || []).filter((c) => !isAvoided(c.name));
       if (sub.length === 0) break;
