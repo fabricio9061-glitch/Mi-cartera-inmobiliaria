@@ -399,6 +399,25 @@ async function getRealEstateCategory(p, token) {
   // El tipo de inmueble real (casa, apartamento, terreno...). Para propiedades viejas
   // sin este dato, lo aproximamos desde el padrón (PH suele ser apartamento).
   const ret = p.realEstateType || (p.propertyType === "ph" ? "apartamento" : "casa");
+  // Mapa fijo de categorías de Inmuebles (MLU1459), verificado contra el árbol de ML.
+  // Si el tipo es conocido, devolvemos la categoría hoja directo: es determinístico y no
+  // depende del nombre ni del predictor. Los tipos desconocidos caen a la navegación.
+  const CAT_MLU = {
+    casa: "MLU1466",        // Casas
+    apartamento: "MLU1472", // Apartamentos
+    terreno: "MLU1493",     // Terrenos y Lotes
+    local: "MLU1478",       // Locales
+    oficina: "MLU50633",    // Oficinas
+    galpon: "MLU455466",    // Depósitos y Galpones
+    campo: "MLU1496",       // Campos
+    chacra: "MLU50547",     // Chacras
+    cochera: "MLU50636",    // Cocheras
+    habitacion: "MLU211280" // Habitaciones
+  };
+  if (CAT_MLU[ret]) {
+    logger.info(`Categoría ML (mapa fijo): ${CAT_MLU[ret]} para ${ret}`);
+    return CAT_MLU[ret];
+  }
   const typeMap = { casa: "casas", apartamento: "apartamento", terreno: "terreno", local: "local", oficina: "oficina", galpon: "galp", campo: "campo" };
   const want = typeMap[ret] || "casas";
   const opWord = p.type === "rent" ? "alquiler" : "venta";
@@ -568,6 +587,7 @@ async function fillRequiredAttributes(categoryId, p, baseAttributes, token, catA
     const data = catAttrs || (await axios.get(`${API}/categories/${categoryId}/attributes`, { headers: { Authorization: `Bearer ${token}` } })).data;
     for (const a of data || []) {
       const tags = a.tags || {};
+      if (tags.read_only || tags.fixed || tags.hidden) continue; // la categoría lo fija: no se envía
       if (!(tags.required || tags.catalog_required)) continue;
       if (have.has(a.id)) continue;
       const v = defaultAttrValue(a, p);
@@ -776,6 +796,33 @@ async function resolveMLLocation(p, token) {
   }
 }
 
+// Ajusta el atributo PROPERTY_TYPE según la categoría de Mercado Libre:
+//  - Si la categoría lo fija (read_only/fixed/hidden o trae un valor por defecto), NO se
+//    envía: ML lo descarta y da "Validation error ... category fixed-value" (caso "Local").
+//  - Si la categoría tiene lista cerrada de valores, se manda el value_id correcto (antes
+//    iba el nombre con id nulo -> "(null:Local comercial)", que ML rechazaba).
+//  - Si es de texto libre, se deja el value_name.
+function reconcilePropertyType(attributes, catAttrs) {
+  const idx = attributes.findIndex((a) => a.id === "PROPERTY_TYPE");
+  if (idx === -1) return attributes;
+  if (!Array.isArray(catAttrs)) return attributes; // sin datos de categoría: dejamos lo que había
+  const attr = catAttrs.find((a) => a.id === "PROPERTY_TYPE");
+  const tags = (attr && attr.tags) || {};
+  if (!attr || tags.read_only || tags.fixed || tags.hidden || attr.value_id || attr.default_value) {
+    attributes.splice(idx, 1); // la categoría lo fija -> no enviarlo
+    return attributes;
+  }
+  const vals = attr.values || [];
+  if (vals.length) {
+    const want = norm(attributes[idx].value_name);
+    const hit = vals.find((v) => norm(v.name) === want) ||
+                vals.find((v) => norm(v.name).includes(want) || want.includes(norm(v.name)));
+    if (hit) attributes[idx] = { id: "PROPERTY_TYPE", value_id: hit.id, value_name: hit.name };
+    else attributes.splice(idx, 1); // lista cerrada sin coincidencia -> mejor no forzarlo
+  }
+  return attributes;
+}
+
 async function buildItem(p, token) {
   // Elegir la categoría correcta dentro de Inmuebles (MLU1459)
   let categoryId = await getRealEstateCategory(p, token);
@@ -812,6 +859,12 @@ async function buildItem(p, token) {
   try {
     catAttrs = (await axios.get(`${API}/categories/${categoryId}/attributes`, { headers: { Authorization: `Bearer ${token}` } })).data || [];
   } catch (e) { catAttrs = null; }
+
+  // PROPERTY_TYPE según la categoría: en las que lo fijan (p. ej. "Local", "Oficina")
+  // ML lo rechaza si se lo enviás, así que ahí lo quitamos; si la categoría tiene una
+  // lista cerrada de valores, mandamos el value_id correcto en vez de un nombre con id
+  // nulo (que ML descartaba -> "(null:Local comercial)").
+  attributes = reconcilePropertyType(attributes, catAttrs);
 
   // Mapear todos los datos del formulario (ambientes, cocheras, antigüedad, pisos,
   // bodegas, orientación, tipo, seguridad, gastos comunes y todas las comodidades)
