@@ -289,6 +289,7 @@
           <option value="archived">Archivados</option>
           <option value="all">Todos</option>
         </select>
+        <button type="button" class="crm-filter" id="misClientesBtn" onclick="toggleMisClientes()" style="cursor:pointer;white-space:nowrap"><i class="fas fa-user"></i> Mis clientes</button>
       </div>
 
       <div class="crm-grid" id="crmGrid"></div>
@@ -361,7 +362,8 @@
           <input type="tel" id="clientPhone" placeholder="99 123 456">
         </div>
       </div>
-      <div class="fg"><label>Email</label><input type="email" id="clientEmail" placeholder="cliente@email.com"></div>
+      <div class="fg"><label>Email <span style="font-weight:400;color:var(--gray-500)">(opcional)</span></label><input type="email" id="clientEmail" placeholder="cliente@email.com"></div>
+      <div class="fg"><label>Nota / Observación <span style="font-weight:400;color:var(--gray-500)">(opcional)</span></label><textarea id="clientNotes" rows="3" placeholder="Lo que quieras recordar: ej. no quiere inmobiliaria, llamar el lunes, busca 2 dormitorios en Pocitos..." style="width:100%;font-family:inherit;padding:11px 13px;border:1px solid var(--gray-300);border-radius:11px;font-size:.95rem;resize:vertical"></textarea></div>
       <div class="cp-editor-note"><i class="fas fa-circle-info"></i> El interés, presupuesto, link y estado se cargan en cada propiedad del cliente (seguimiento).</div>
       <button class="modal-save" id="clientBtn" onclick="handleSaveClient(event)"><i class="fas fa-save"></i> Guardar Cliente</button>
     </div>
@@ -442,6 +444,7 @@
 
     var currentUser = null, userProfile = null, isAdmin = false;
     var clients = [];
+    var misClientesOnly = false;
 
     function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     function escA(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
@@ -522,7 +525,8 @@
       var list = clients.filter(function(c){
         var m = !term || (c.name||'').toLowerCase().indexOf(term)>=0 || (c.phone||'').indexOf(term)>=0 || (c.phoneNormalized||'').indexOf(term)>=0 || (c.email||'').toLowerCase().indexOf(term)>=0;
         var archMatch = arf==='all' ? true : (arf==='archived' ? !!c.archived : !c.archived);
-        return m && archMatch && (!sf || c.status===sf) && (!inf || c.interest===inf);
+        var mio = !misClientesOnly || (currentUser && c.createdBy === currentUser.uid);
+        return m && archMatch && mio && (!sf || c.status===sf) && (!inf || c.interest===inf);
       });
       list.sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
 
@@ -549,8 +553,9 @@
           '</div>' +
           '<div class="client-meta">' +
             '<div class="client-meta-row"><i class="fas fa-phone"></i> '+esc(phoneDisp)+'</div>' +
-            (c.email?'<div class="client-meta-row"><i class="fas fa-envelope"></i> '+esc(c.email)+'</div>':'') +
+            (c.email?'<div class="client-meta-row"><i class="fas fa-'+(c.email.indexOf('@')<0?'pen':'envelope')+'"></i> '+esc(c.email)+'</div>':'') +
           '</div>' +
+          (c.notes?'<div style="margin-top:6px;font-size:.82rem;color:var(--gray-600);background:var(--gray-50);border-radius:8px;padding:7px 10px;line-height:1.4"><i class="fas fa-pen" style="opacity:.6;margin-right:5px"></i>'+esc(c.notes)+'</div>':'') +
           '<div class="client-actions">' +
             (ph?'<a class="ca-wa" href="https://wa.me/'+ph+'" target="_blank" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i> WhatsApp</a>':'') +
             '<button class="ca-edit" onclick="event.stopPropagation();openClientModal(\''+c.id+'\')"><i class="fas fa-edit"></i> Editar</button>' +
@@ -969,6 +974,7 @@
       document.getElementById('clientEmail').value = '';
       document.getElementById('clientPhone').value = '';
       document.getElementById('clientAreaCode').value = '+598';
+      document.getElementById('clientNotes').value = '';
       if (id){
         var c = clients.find(function(x){ return x.id===id; });
         if (c){
@@ -977,7 +983,11 @@
           if (!c.areaCode && loc){ var m=loc.replace(/\D/g,''); loc = m.startsWith('598')?m.slice(3):m.replace(/^0+/,''); }
           document.getElementById('clientAreaCode').value = ac;
           document.getElementById('clientPhone').value = loc;
-          document.getElementById('clientEmail').value = c.email||'';
+          // Si en "email" quedó cargada una nota (sin @), la pasamos a Notas
+          var em = c.email||'', nt = c.notes||'';
+          if (em && em.indexOf('@')<0){ nt = nt ? (nt+' — '+em) : em; em=''; }
+          document.getElementById('clientEmail').value = em;
+          document.getElementById('clientNotes').value = nt;
         }
       }
       document.getElementById('clientModal').classList.add('open');
@@ -1010,9 +1020,13 @@
       }
 
       b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+      var em = document.getElementById('clientEmail').value.trim();
+      var nt = document.getElementById('clientNotes').value.trim();
+      // Si en "email" se cargó una nota (sin @), la pasamos a Notas
+      if (em && em.indexOf('@')<0){ nt = nt ? (nt+' — '+em) : em; em=''; }
       var data = {
         name: name, areaCode: areaCode, phone: local, phoneNormalized: phoneFull,
-        email: document.getElementById('clientEmail').value.trim(),
+        email: em, notes: nt,
         updatedAt: new Date().toISOString()
       };
 
@@ -1051,6 +1065,17 @@
       });
     }
 
+    function toggleMisClientes(){
+      misClientesOnly = !misClientesOnly;
+      var b = document.getElementById('misClientesBtn');
+      if (b){
+        b.style.background = misClientesOnly ? 'var(--primary)' : '';
+        b.style.color = misClientesOnly ? '#fff' : '';
+        b.style.borderColor = misClientesOnly ? 'var(--primary)' : '';
+        b.innerHTML = misClientesOnly ? '<i class="fas fa-user-check"></i> Mis clientes' : '<i class="fas fa-user"></i> Mis clientes';
+      }
+      renderClients();
+    }
     function archiveClient(id, archive){
       db.collection('clients').doc(id).update({ archived: archive }).then(function(){
         showToast(archive ? 'Cliente archivado' : 'Cliente desarchivado');

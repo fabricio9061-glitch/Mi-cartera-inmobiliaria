@@ -864,13 +864,71 @@
     mlModalPropId = propertyId;
     openModal('mlModal');
     const body = document.getElementById('mlModalBody');
-    body.innerHTML = '<div style="text-align:center;padding:30px"><i class="fas fa-spinner fa-spin" style="font-size:1.6rem;color:var(--gray-400,#aaa)"></i><p style="margin-top:10px;color:var(--gray-500,#888)">Consultando Mercado Libre...</p></div>';
+    ensureMLStyles();
+    body.innerHTML = '<div class="ml-ui"><div class="ml-loading"><div class="sp"></div><p>Consultando Mercado Libre...</p></div></div>';
     try {
       const res = await firebase.functions().httpsCallable('estadoML')({ propertyId });
       if (mlModalPropId === propertyId) renderMLStatus(res.data)
     } catch (e) {
-      body.innerHTML = `<p style="color:#c0392b;padding:10px">No se pudo consultar el estado: ${e.message || e}</p>`
+      body.innerHTML = `<div class="ml-ui"><div class="ml-err">No se pudo consultar el estado: ${e.message || e}</div></div>`
     }
+  }
+  // Estilos del modal de Mercado Libre (se inyectan una sola vez).
+  function ensureMLStyles() {
+    if (document.getElementById('mlUiStyles')) return;
+    const s = document.createElement('style');
+    s.id = 'mlUiStyles';
+    s.textContent = `
+      .ml-ui{ font-family:inherit; color:#16273f; }
+      .ml-hero{ display:flex; align-items:center; gap:18px; background:linear-gradient(135deg,#16273f,#22395b); border-radius:16px; padding:18px 20px; }
+      .ml-hero-info{ flex:1; min-width:0; }
+      .ml-pill{ display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:.8rem; padding:5px 12px; border-radius:999px; background:rgba(255,255,255,.1); }
+      .ml-pill .dot{ width:8px; height:8px; border-radius:50%; background:currentColor; box-shadow:0 0 0 3px rgba(255,255,255,.15); }
+      .ml-hero h4{ margin:10px 0 2px; font-size:1.16rem; color:#fff; font-weight:700; }
+      .ml-hero .sub{ font-size:.8rem; color:#aeb8c6; }
+      .ml-ring{ flex:0 0 auto; position:relative; width:64px; height:64px; }
+      .ml-ring .pct{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:.85rem; font-weight:800; color:#fff; }
+      .ml-section{ margin-top:14px; }
+      .ml-note{ display:flex; align-items:flex-start; gap:10px; border-radius:12px; padding:12px 14px; font-size:.89rem; line-height:1.5; }
+      .ml-note.ok{ background:#eaf7f0; color:#157a52; }
+      .ml-note.ok i{ color:#1e9e6a; margin-top:2px; }
+      .ml-note.warn{ background:#fff6e8; color:#8a5a00; border:1px solid #ffe2b0; }
+      .ml-note.warn i{ color:#e0892a; margin-top:2px; }
+      .ml-improve-title{ font-weight:700; font-size:.92rem; margin:4px 2px 8px; color:#16273f; }
+      .ml-improve{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px; }
+      .ml-improve li{ display:flex; align-items:flex-start; gap:10px; background:#f6f8fa; border-radius:10px; padding:10px 12px; font-size:.86rem; color:#3a4658; }
+      .ml-improve li i{ color:#C9A227; margin-top:3px; }
+      .ml-label{ font-size:.74rem; letter-spacing:.04em; color:#8a93a0; font-weight:600; text-transform:uppercase; margin-bottom:7px; }
+      .ml-select{ width:100%; padding:12px 13px; border:1.5px solid #e2e6ea; border-radius:11px; font-family:inherit; font-size:.95rem; color:#16273f; background:#fff; }
+      .ml-select:focus{ outline:none; border-color:#C9A227; }
+      .ml-btns{ display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+      .ml-btn{ flex:1; min-width:130px; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:13px 16px; border-radius:12px; font-family:inherit; font-size:.92rem; font-weight:700; cursor:pointer; border:1.5px solid transparent; text-decoration:none; transition:transform .06s, background .2s, border-color .2s; }
+      .ml-btn:active{ transform:translateY(1px); }
+      .ml-btn-primary{ background:#C9A227; color:#16273f; }
+      .ml-btn-primary:hover{ background:#b8941f; }
+      .ml-btn-ghost{ background:#fff; border-color:#dce0e5; color:#16273f; }
+      .ml-btn-ghost:hover{ border-color:#16273f; }
+      .ml-btn-danger{ background:#fff; border-color:#f0c7c7; color:#c0392b; }
+      .ml-btn-danger:hover{ background:#fdeced; }
+      .ml-empty{ text-align:center; padding:8px 4px 4px; }
+      .ml-empty-ic{ width:72px; height:72px; border-radius:50%; margin:0 auto 14px; display:flex; align-items:center; justify-content:center; font-size:1.7rem; background:linear-gradient(135deg,#16273f,#22395b); color:#ffd400; }
+      .ml-empty h4{ font-size:1.12rem; margin:0 0 6px; color:#16273f; }
+      .ml-empty p{ font-size:.9rem; color:#6a7280; margin:0; line-height:1.5; }
+      .ml-err{ background:#fdeced; color:#c0392b; border-radius:10px; padding:11px 14px; font-size:.86rem; line-height:1.45; margin:12px 0; }
+      .ml-loading{ text-align:center; padding:40px 20px; }
+      .ml-loading .sp{ width:46px; height:46px; border-radius:50%; border:3px solid #eef0f3; border-top-color:#C9A227; margin:0 auto 14px; animation:mlspin .8s linear infinite; }
+      .ml-loading p{ color:#8a93a0; font-size:.9rem; margin:0; }
+      @keyframes mlspin{ to{ transform:rotate(360deg); } }
+    `;
+    document.head.appendChild(s);
+  }
+  // Anillo circular de calidad del aviso.
+  function mlRing(pct, color) {
+    const r = 26, c = 2 * Math.PI * r, off = c * (1 - pct / 100);
+    return `<div class="ml-ring"><svg width="64" height="64" viewBox="0 0 64 64">` +
+      `<circle cx="32" cy="32" r="${r}" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="6"/>` +
+      `<circle cx="32" cy="32" r="${r}" fill="none" stroke="${color}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 32 32)"/>` +
+      `</svg><div class="pct">${pct}%</div></div>`;
   }
   function mlListingTypeName(lt) {
     const m = { free: 'Gratuita', bronze: 'Bronce', silver: 'Plata', gold: 'Oro', gold_special: 'Clásica', gold_pro: 'Premium', gold_premium: 'Premium' };
@@ -901,56 +959,64 @@
   function mlTypeSelector(tipos) {
     const lista = (tipos && tipos.length ? tipos : ['free', 'bronze', 'silver', 'gold']);
     const opts = lista.map(t => `<option value="${t}">${mlListingTypeName(t)}${t === 'free' ? ' — sin costo' : ' — paga (se abona en Mercado Libre)'}</option>`).join('');
-    const aviso = lista.includes('free') ? '' : `<p style="font-size:.78rem;color:#b26a00;margin:6px 0 0"><i class="fas fa-circle-info"></i> Mercado Libre no ofrece publicación gratuita en esta categoría.</p>`;
-    return `<div style="margin-bottom:14px"><div style="font-size:.8rem;color:var(--gray-500,#888);margin-bottom:6px">Tipo de aviso</div><select id="mlTipoAviso" style="width:100%;padding:10px;border:1px solid var(--gray-300,#ddd);border-radius:8px;font-family:inherit;font-size:.95rem">${opts}</select>${aviso}</div>`;
+    const aviso = lista.includes('free') ? '' : `<div class="ml-note warn" style="margin-top:8px"><i class="fas fa-circle-info"></i><div>Mercado Libre no ofrece publicación gratuita en esta categoría.</div></div>`;
+    return `<div class="ml-label">Tipo de aviso</div><select id="mlTipoAviso" class="ml-select">${opts}</select>${aviso}`;
   }
   function renderMLStatus(d) {
+    ensureMLStyles();
     const body = document.getElementById('mlModalBody');
     if (!d.publicado) {
-      body.innerHTML = `<p style="color:var(--gray-600,#555);margin-bottom:16px">Esta propiedad todavía <strong>no está publicada</strong> en Mercado Libre.</p>${d.error ? `<p style="color:#c0392b;font-size:.85rem;margin-bottom:14px">${d.error}</p>` : ''}${mlTypeSelector(d.tiposDisponibles)}<button class="btn-primary" style="width:100%" onclick="republicarPropiedad()"><i class="fas fa-upload"></i> Publicar en Mercado Libre</button>`;
+      body.innerHTML = `<div class="ml-ui"><div class="ml-empty"><div class="ml-empty-ic"><i class="fas fa-tag"></i></div><h4>Todavía no está publicada</h4><p>Esta propiedad aún no está en Mercado Libre.</p></div>${d.error ? `<div class="ml-err">${d.error}</div>` : ''}<div class="ml-section">${mlTypeSelector(d.tiposDisponibles)}</div><div class="ml-btns"><button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-upload"></i> Publicar en Mercado Libre</button></div></div>`;
       return
     }
     if (d.error) {
-      body.innerHTML = `<p style="color:#c0392b;margin-bottom:16px">${d.error}</p><button class="btn-primary" style="width:100%" onclick="republicarPropiedad()"><i class="fas fa-redo"></i> Volver a publicar</button>`;
+      body.innerHTML = `<div class="ml-ui"><div class="ml-err">${d.error}</div><div class="ml-btns"><button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-rotate-right"></i> Volver a publicar</button></div></div>`;
       return
     }
     const hp = d.health != null ? Math.round(d.health * 100) : null;
-    const hc = hp == null ? '#999' : (hp >= 70 ? '#27ae60' : hp >= 40 ? '#f39c12' : '#e74c3c');
-    const sc = d.status === 'active' ? '#27ae60' : (d.status === 'closed' ? '#e74c3c' : '#f39c12');
-    const acc = (d.actions || []).map(a => `<li style="margin:6px 0;color:var(--gray-700,#444)"><i class="fas fa-arrow-up" style="color:var(--accent);margin-right:8px"></i>${mlActionText(a)}</li>`).join('');
-    const pagoHint = d.status === 'payment_required' ? `<p style="background:#fff7e6;border:1px solid #ffe2b0;border-radius:10px;padding:10px 12px;font-size:.85rem;color:#8a5a00;margin-bottom:16px;line-height:1.5"><i class="fas fa-circle-info"></i> El aviso está creado pero Mercado Libre exige pagar el tipo <strong>${mlListingTypeName(d.listingType)}</strong> para activarlo: se abona desde tu cuenta de ML (sección Publicaciones). Si no querés pagarlo, dale <strong>Dar de baja</strong> y volvé a publicarlo eligiendo otro tipo. Mientras no lo pagues, no se cobra nada.</p>` : '';
-    const selTipo = d.status === 'closed' ? mlTypeSelector(d.tiposDisponibles) : '';
+    const ringColor = hp == null ? '#aeb8c6' : (hp >= 70 ? '#3ddc97' : hp >= 40 ? '#f5b54a' : '#ff7a7a');
+    const stColors = { active: '#3ddc97', paused: '#f5b54a', closed: '#ff7a7a', under_review: '#f5b54a', inactive: '#aeb8c6', payment_required: '#f5b54a' };
+    const pillColor = stColors[d.status] || '#aeb8c6';
+    const hero = `<div class="ml-hero">${hp != null ? mlRing(hp, ringColor) : ''}<div class="ml-hero-info"><span class="ml-pill" style="color:${pillColor}"><span class="dot"></span>${mlStatusName(d.status)}</span><h4>${mlListingTypeName(d.listingType)}</h4><div class="sub">${hp != null ? 'Calidad del aviso ' + hp + '%' : 'Aviso publicado en Mercado Libre'}</div></div></div>`;
+    const pagoHint = d.status === 'payment_required' ? `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-circle-info"></i><div>El aviso está creado pero Mercado Libre exige pagar el tipo <strong>${mlListingTypeName(d.listingType)}</strong> para activarlo (se abona desde tu cuenta de ML, sección Publicaciones). Si no querés pagarlo, dale <strong>Dar de baja</strong> y volvé a publicarlo eligiendo otro tipo. Mientras no lo pagues, no se cobra nada.</div></div></div>` : '';
+    const acc = (d.actions || []).map(a => `<li><i class="fas fa-arrow-up"></i><span>${mlActionText(a)}</span></li>`).join('');
+    const improve = acc
+      ? `<div class="ml-section"><div class="ml-improve-title">Para mejorar el aviso</div><ul class="ml-improve">${acc}</ul></div>`
+      : `<div class="ml-section"><div class="ml-note ok"><i class="fas fa-circle-check"></i><div>El aviso está completo, sin mejoras pendientes.</div></div></div>`;
+    const selTipo = d.status === 'closed' ? `<div class="ml-section">${mlTypeSelector(d.tiposDisponibles)}</div>` : '';
     const botones = [];
-    if (d.permalink) botones.push(`<a href="${d.permalink}" target="_blank" rel="noopener" class="btn-secondary" style="flex:1;text-align:center;text-decoration:none"><i class="fas fa-external-link-alt"></i> Ver aviso</a>`);
-    if (d.status === 'paused' || d.status === 'closed') botones.push(`<button class="btn-primary" style="flex:1" onclick="republicarPropiedad()"><i class="fas fa-redo"></i> Republicar</button>`);
-    if (d.status !== 'closed') botones.push(`<button class="btn-secondary" style="flex:1;color:#c0392b" onclick="bajaPropiedad()"><i class="fas fa-circle-stop"></i> Dar de baja</button>`);
-    body.innerHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"><div style="flex:1;min-width:110px;background:var(--gray-50,#f7f7f7);border-radius:10px;padding:12px"><div style="font-size:.76rem;color:var(--gray-500,#888)">Estado</div><div style="font-weight:700;color:${sc}">${mlStatusName(d.status)}</div></div><div style="flex:1;min-width:110px;background:var(--gray-50,#f7f7f7);border-radius:10px;padding:12px"><div style="font-size:.76rem;color:var(--gray-500,#888)">Tipo de aviso</div><div style="font-weight:700">${mlListingTypeName(d.listingType)}</div></div>${hp!=null?`<div style="flex:1;min-width:110px;background:var(--gray-50,#f7f7f7);border-radius:10px;padding:12px"><div style="font-size:.76rem;color:var(--gray-500,#888)">Calidad</div><div style="font-weight:700;color:${hc}">${hp}%</div></div>`:''}</div>${pagoHint}${acc?`<div style="margin-bottom:16px"><div style="font-weight:600;margin-bottom:6px">Para mejorar el aviso:</div><ul style="list-style:none;padding:0;margin:0">${acc}</ul></div>`:`<p style="color:#27ae60;margin-bottom:16px"><i class="fas fa-check-circle"></i> El aviso está completo, sin mejoras pendientes.</p>`}${selTipo}<div style="display:flex;gap:8px;flex-wrap:wrap">${botones.join('')}</div>`
+    if (d.permalink) botones.push(`<a href="${d.permalink}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost"><i class="fas fa-external-link-alt"></i> Ver aviso</a>`);
+    if (d.status === 'paused' || d.status === 'closed') botones.push(`<button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-rotate-right"></i> Republicar</button>`);
+    if (d.status !== 'closed') botones.push(`<button class="ml-btn ml-btn-danger" onclick="bajaPropiedad()"><i class="fas fa-circle-stop"></i> Dar de baja</button>`);
+    body.innerHTML = `<div class="ml-ui">${hero}${pagoHint}${improve}${selTipo}<div class="ml-btns">${botones.join('')}</div></div>`
   }
   async function republicarPropiedad() {
     if (!mlModalPropId) return;
     const sel = document.getElementById('mlTipoAviso');
     const listingType = sel ? sel.value : null;
     const id = mlModalPropId, body = document.getElementById('mlModalBody');
-    body.innerHTML = '<div style="text-align:center;padding:30px"><i class="fas fa-spinner fa-spin" style="font-size:1.6rem;color:var(--gray-400,#aaa)"></i><p style="margin-top:10px;color:var(--gray-500,#888)">Publicando en Mercado Libre...</p></div>';
+    ensureMLStyles();
+    body.innerHTML = '<div class="ml-ui"><div class="ml-loading"><div class="sp"></div><p>Publicando en Mercado Libre...</p></div></div>';
     try {
       await firebase.functions().httpsCallable('republicarML')({ propertyId: id, listingType });
       showToast('Mercado Libre', 'El aviso se envió a Mercado Libre', 'fa-tag');
       openMLModal(id)
     } catch (e) {
-      body.innerHTML = `<p style="color:#c0392b;padding:10px">No se pudo publicar: ${e.message || e}</p><button class="btn-secondary" style="width:100%;margin-top:10px" onclick="openMLModal('${id}')">Reintentar</button>`
+      body.innerHTML = `<div class="ml-ui"><div class="ml-err">No se pudo publicar: ${e.message || e}</div><div class="ml-btns"><button class="ml-btn ml-btn-ghost" onclick="openMLModal('${id}')"><i class="fas fa-rotate-right"></i> Reintentar</button></div></div>`
     }
   }
   async function bajaPropiedad() {
     if (!mlModalPropId) return;
     if (!confirm('¿Dar de baja este aviso en Mercado Libre? Vas a poder volver a publicarlo después.')) return;
     const id = mlModalPropId, body = document.getElementById('mlModalBody');
-    body.innerHTML = '<div style="text-align:center;padding:30px"><i class="fas fa-spinner fa-spin" style="font-size:1.6rem;color:var(--gray-400,#aaa)"></i><p style="margin-top:10px;color:var(--gray-500,#888)">Dando de baja...</p></div>';
+    ensureMLStyles();
+    body.innerHTML = '<div class="ml-ui"><div class="ml-loading"><div class="sp"></div><p>Dando de baja...</p></div></div>';
     try {
       await firebase.functions().httpsCallable('bajaML')({ propertyId: id });
       showToast('Mercado Libre', 'El aviso se dio de baja', 'fa-tag');
       openMLModal(id)
     } catch (e) {
-      body.innerHTML = `<p style="color:#c0392b;padding:10px">No se pudo dar de baja: ${e.message || e}</p>`
+      body.innerHTML = `<div class="ml-ui"><div class="ml-err">No se pudo dar de baja: ${e.message || e}</div></div>`
     }
   }
 

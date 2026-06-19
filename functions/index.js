@@ -703,22 +703,34 @@ function parsePhone(raw) {
 // (para que en Mercado Libre nunca aparezca el nombre del agente); el TELÉFONO,
 // en cambio, es el del agente dueño, para que cada consulta le llegue a él.
 async function buildSellerContact(p) {
-  let tel = "";
+  let tel = "";        // teléfono del agente dueño (del perfil)
+  let waPerfil = "";   // whatsapp del perfil del agente
   if (p.ownerId) {
     try {
       const u = await admin.firestore().doc(`users/${p.ownerId}`).get();
       const d = u.exists ? u.data() : {};
       tel = parsePhone(d.whatsapp || d.phone); // teléfono del agente dueño
+      waPerfil = parsePhone(d.whatsapp || d.phone);
     } catch (e) { logger.warn("No se pudo leer el perfil del agente:", e.message); }
   }
   if (!tel) tel = parsePhone(p.ownerWhatsapp); // respaldo si el perfil no tiene número
-  return {
+  // WhatsApp del aviso: el "WhatsApp de Contacto" puntual si se cargó; si no, el del perfil.
+  const wa = parsePhone(p.ownerWhatsapp) || waPerfil || tel;
+  const sc = {
     contact: NOMBRE_INMOBILIARIA, // SIEMPRE la inmobiliaria, nunca el agente
     area_code: "",
     phone: tel,
     country_code: "598",
     email: EMAIL_INMOBILIARIA,
   };
+  // Botón de WhatsApp del aviso: Mercado Libre guarda el número de WhatsApp en
+  // country_code2 / area_code2 / phone2 (con un número válido aparece el botón).
+  if (wa) {
+    sc.country_code2 = "598";
+    sc.area_code2 = "598";
+    sc.phone2 = wa;
+  }
+  return sc;
 }
 
 // =====================================================================
