@@ -111,6 +111,16 @@
     .ev-actions .a-ed:hover{ border-color:var(--gold-2); color:var(--gold-2); }
     .ev-actions .a-del:hover{ border-color:#e3a9a2; color:var(--danger); background:#fff0ee; }
     .ev-actions .a-wa:hover{ border-color:#25D366; color:#25D366; }
+    /* Eventos finalizados (ya pasaron) */
+    .ev-item.done{ opacity:.6; background:var(--gray-50); border-left-color:var(--gray-300); }
+    .ev-item.done h4{ color:var(--gray-600); }
+    .ev-item.done .ev-badge{ background:var(--gray-400); }
+    .ev-done-tag{ display:inline-flex; align-items:center; gap:4px; font-size:.66rem; font-weight:700; color:var(--gray-500); text-transform:uppercase; letter-spacing:.5px; margin-left:7px; vertical-align:middle; }
+    .ev-done-tag i{ color:var(--success); }
+    /* Botón de recordatorios */
+    .remind-btn{ width:100%; margin-top:8px; padding:9px 12px; border:1px solid var(--gray-200); background:#fff; border-radius:10px; cursor:pointer; font-family:inherit; font-size:.82rem; font-weight:600; color:var(--gray-600); display:inline-flex; align-items:center; justify-content:center; gap:7px; transition:all .18s; }
+    .remind-btn:hover{ border-color:var(--gold-2); color:var(--gold-2); }
+    .remind-btn.on{ border-color:#bfe6cd; background:#eef9f1; color:var(--success); }
 
     /* Modal */
     .modal{ position:fixed; inset:0; background:rgba(16,29,48,.55); display:none; align-items:center; justify-content:center; z-index:2000; padding:18px; }
@@ -218,6 +228,7 @@
           <h2 id="dayTitle">Día</h2>
           <div class="day-sub" id="daySub"></div>
           <button class="btn btn-gold" onclick="openEvent()"><i class="fas fa-plus"></i> Nuevo evento</button>
+          <button class="remind-btn" id="remindBtn" onclick="activarRecordatorios()"><i class="fas fa-bell-slash"></i> Activar recordatorios</button>
           <div class="ev-list" id="evList"></div>
         </div>
       </div>
@@ -306,6 +317,8 @@
         document.getElementById('agHeroSub').textContent='Agenda de todo el equipo';
       }
       cargarVisitas();
+      refreshRemindBtn();
+      startReminders();
     });
 
     // ===== Carga de visitas (segun rol) =====
@@ -389,8 +402,10 @@
         var ownerLine = (isAdmin && v.userId && v.userId!==currentUser.uid && usersMap[v.userId])
           ? '<div class="ev-owner"><i class="fas fa-user-tie"></i> '+esc(usersMap[v.userId])+'</div>' : '';
         var waBtn = v.clientPhone ? '<button class="a-wa" onclick="waOpen(\''+esc(v.clientPhone)+'\')" title="WhatsApp"><i class="fab fa-whatsapp"></i></button>' : '';
-        return '<div class="ev-item t-'+t+'">' +
+        var past = isPast(v);
+        return '<div class="ev-item t-'+t+(past?' done':'')+'">' +
           '<span class="ev-badge b-'+t+'">'+label+'</span>' +
+          (past?'<span class="ev-done-tag"><i class="fas fa-circle-check"></i> Finalizado</span>':'') +
           '<h4>'+esc(v.title||'Evento')+'</h4>' +
           (v.clientName?'<div class="ev-meta"><i class="fas fa-user"></i> '+esc(v.clientName)+'</div>':'') +
           (v.clientPhone?'<div class="ev-meta"><i class="fas fa-phone"></i> '+esc(v.clientPhone)+'</div>':'') +
@@ -407,6 +422,103 @@
     }
 
     function waOpen(phone){ window.open('https://wa.me/'+phone.replace(/\D/g,''),'_blank'); }
+
+    // ===== Fecha/hora de un evento + si ya pasó =====
+    function eventDateTime(v){
+      var parts = String(v.date||'').split('-');
+      if (parts.length<3) return null;
+      var hm = String(v.time||'23:59').split(':');
+      return new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10), parseInt(hm[0],10)||0, parseInt(hm[1],10)||0, 0, 0);
+    }
+    function isPast(v){ var d=eventDateTime(v); return d ? (d.getTime() < Date.now()) : false; }
+
+    // ===== Recordatorios 1h antes (mientras la app está abierta) =====
+    var REMIND_MIN = 60;            // minutos antes del evento
+    var remindTimer = null;
+    var audioCtx = null;
+
+    function unlockAudio(){
+      try{
+        if (!audioCtx){ var AC = window.AudioContext || window.webkitAudioContext; if (AC) audioCtx = new AC(); }
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      }catch(e){}
+    }
+    document.addEventListener('click', unlockAudio, { once:true });
+
+    function beep(){
+      try{
+        unlockAudio();
+        if (!audioCtx) return;
+        [880, 1175].forEach(function(f,i){
+          var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+          o.type='sine'; o.frequency.value=f;
+          var t0 = audioCtx.currentTime + i*0.22;
+          g.gain.setValueAtTime(0.0001, t0);
+          g.gain.exponentialRampToValueAtTime(0.28, t0+0.03);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0+0.2);
+          o.connect(g); g.connect(audioCtx.destination);
+          o.start(t0); o.stop(t0+0.22);
+        });
+      }catch(e){}
+    }
+
+    function reminderKey(v){ return 'malave_remind_'+(v.id||'')+'_'+(v.date||'')+'_'+(v.time||''); }
+    function firedAlready(v){ try{ return localStorage.getItem(reminderKey(v))==='1'; }catch(e){ return false; } }
+    function markFired(v){ try{ localStorage.setItem(reminderKey(v),'1'); }catch(e){} }
+
+    function fireReminder(v){
+      markFired(v);
+      beep();
+      var body = (v.time?('A las '+v.time):'') + (v.clientName?(' · '+v.clientName):'');
+      if (('Notification' in window) && Notification.permission==='granted'){
+        try{
+          var n = new Notification('⏰ ' + (v.title||'Evento') + ' en 1 hora', { body: body, tag: reminderKey(v) });
+          n.onclick = function(){ window.focus(); try{ n.close(); }catch(e){} };
+        }catch(e){}
+      }
+      showToast('⏰ En 1 hora: ' + (v.title||'Evento') + (v.time?(' ('+v.time+')'):''));
+    }
+
+    function checkReminders(){
+      var now = Date.now();
+      (visits||[]).forEach(function(v){
+        if (v.userId && currentUser && v.userId !== currentUser.uid) return; // solo eventos propios
+        var d = eventDateTime(v);
+        if (!d) return;
+        var ev = d.getTime();
+        var start = ev - REMIND_MIN*60000;
+        if (now >= start && now < ev && !firedAlready(v)) fireReminder(v);
+      });
+    }
+
+    function startReminders(){
+      if (remindTimer) return;
+      checkReminders();
+      remindTimer = setInterval(checkReminders, 30000); // revisa cada 30s
+    }
+
+    function refreshRemindBtn(){
+      var b = document.getElementById('remindBtn');
+      if (!b) return;
+      var granted = ('Notification' in window) && Notification.permission==='granted';
+      if (granted){ b.classList.add('on'); b.innerHTML = '<i class="fas fa-bell"></i> Recordatorios activos'; }
+      else { b.classList.remove('on'); b.innerHTML = '<i class="fas fa-bell-slash"></i> Activar recordatorios'; }
+    }
+
+    function activarRecordatorios(){
+      unlockAudio();
+      beep(); // sonido de prueba para confirmar que anda
+      if ('Notification' in window){
+        if (Notification.permission==='granted'){ /* listo */ }
+        else if (Notification.permission!=='denied'){
+          Notification.requestPermission().then(function(){ refreshRemindBtn(); });
+        } else {
+          showToast('Las notificaciones están bloqueadas. Activalas en el 🔒 de la barra del navegador.');
+        }
+      }
+      startReminders();
+      refreshRemindBtn();
+    }
 
     // ===== Modal evento =====
     function openEvent(id){
