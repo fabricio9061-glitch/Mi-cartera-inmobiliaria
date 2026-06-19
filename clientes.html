@@ -522,10 +522,12 @@
         '<div class="crm-stat"><div class="crm-stat-num">'+st.cerrado+'</div><div class="crm-stat-label">Cerrados</div></div>';
 
       var arf = document.getElementById('clientArchivedFilter').value;
+      var miNombreLC = ((userProfile && userProfile.name) || '').trim().toLowerCase();
       var list = clients.filter(function(c){
         var m = !term || (c.name||'').toLowerCase().indexOf(term)>=0 || (c.phone||'').indexOf(term)>=0 || (c.phoneNormalized||'').indexOf(term)>=0 || (c.email||'').toLowerCase().indexOf(term)>=0;
         var archMatch = arf==='all' ? true : (arf==='archived' ? !!c.archived : !c.archived);
-        var mio = !misClientesOnly || (currentUser && c.createdBy === currentUser.uid);
+        var duenoLC = (c.createdByName || c.ownerName || c.agentName || '').trim().toLowerCase();
+        var mio = !misClientesOnly || (currentUser && (c.createdBy === currentUser.uid || c.agentId === currentUser.uid)) || (!!miNombreLC && duenoLC === miNombreLC);
         return m && archMatch && mio && (!sf || c.status===sf) && (!inf || c.interest===inf);
       });
       list.sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
