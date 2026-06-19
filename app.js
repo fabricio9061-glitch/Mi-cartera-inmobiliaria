@@ -1969,7 +1969,7 @@
           id: d.id,
           ...d.data()
         }));
-        c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${u.profilePhoto}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${u.name||'Sin nombre'} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${u.email||''}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${u.role||'Asesor Inmobiliario'}</small><br><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="setUserRole('${u.id}')" title="Asignar cargo"><i class="fas fa-id-badge"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
+        c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${u.profilePhoto}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${u.name||'Sin nombre'} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${u.email||''}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${u.role||'Asesor Inmobiliario'}</small>${u.commissionSale!=null||u.commissionRent!=null||u.commissionPct!=null?`<br><small style="color:#8a6d12"><i class="fas fa-percent"></i> Venta: ${u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:'—')}% · Alq: ${u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:'—')}%</small>`:''}<br><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="setUserRole('${u.id}')" title="Asignar cargo"><i class="fas fa-id-badge"></i></button><button class="btn-edit" onclick="setUserComision('${u.id}')" title="Comisión del agente"><i class="fas fa-percent"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
       } else if (tb === 'properties') {
         c.innerHTML = properties.length === 0 ? '<div class="empty-state"><i class="fas fa-building"></i><h3>Sin propiedades</h3></div>' : properties.map(p => {
           const o = getOwnerInfo(p),
@@ -2047,6 +2047,28 @@
       showToast('Cargo actualizado', role ? `Ahora figura como "${role}".` : 'Se quitó el cargo.', 'fa-id-badge');
     } catch (e) {
       showToast('Error', 'No se pudo guardar el cargo: ' + (e.message || e), 'fa-triangle-exclamation');
+    }
+  }
+  // La comision del agente (% de la comision que cobra la inmobiliaria): SOLO el admin la fija.
+  async function setUserComision(id) {
+    if (!isAdminUser()) { showToast('Solo administradores', 'Solo el administrador puede fijar la comisión.', 'fa-lock'); return; }
+    const u = allUsers[id] || {};
+    const curV = (u.commissionSale != null && u.commissionSale !== '') ? u.commissionSale : ((u.commissionPct != null && u.commissionPct !== '') ? u.commissionPct : '');
+    const curA = (u.commissionRent != null && u.commissionRent !== '') ? u.commissionRent : ((u.commissionPct != null && u.commissionPct !== '') ? u.commissionPct : '');
+    const sv = prompt('Comisión en VENTA para este agente (% de la comisión que cobra MALAVE).\nEj: 40 = se lleva el 40% de la comisión.', curV);
+    if (sv === null) return;
+    const av = prompt('Comisión en ALQUILER para este agente (% de la comisión que cobra MALAVE).', curA);
+    if (av === null) return;
+    const pctV = parseFloat(String(sv).trim().replace(',', '.'));
+    const pctA = parseFloat(String(av).trim().replace(',', '.'));
+    if (isNaN(pctV) || pctV < 0 || pctV > 100 || isNaN(pctA) || pctA < 0 || pctA > 100) { showToast('Valor inválido', 'Ingresá números entre 0 y 100 en las dos.', 'fa-triangle-exclamation'); return; }
+    try {
+      await db.collection('users').doc(id).update({ commissionSale: pctV, commissionRent: pctA });
+      if (allUsers[id]) { allUsers[id].commissionSale = pctV; allUsers[id].commissionRent = pctA; }
+      showAdminTab('users');
+      showToast('Comisión actualizada', `${u.name || 'El agente'}: venta ${pctV}% · alquiler ${pctA}%.`, 'fa-percent');
+    } catch (e) {
+      showToast('Error', 'No se pudo guardar la comisión: ' + (e.message || e), 'fa-triangle-exclamation');
     }
   }
   async function approveUser(id) {

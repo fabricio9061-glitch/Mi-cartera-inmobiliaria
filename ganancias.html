@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mis ganancias · MALAVE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <style>
+    :root{ --primary:#16273f; --navy:#16273f; --gold:#C9A227; --gold-2:#C9A227; --gray-50:#f7f8fa; --gray-100:#eef0f3; --gray-200:#e3e6ea; --gray-300:#d3d8de; --gray-400:#9aa3ad; --gray-500:#6b7480; --gray-600:#555; --gray-700:#444; --success:#1e7d4f; --danger:#c0392b; }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{ font-family:'Inter',sans-serif; background:var(--gray-50); color:#1d2733; line-height:1.5; }
+    h1,h2,h3{ font-family:'Cormorant Garamond',serif; }
+    .gh-header{ background:#fff; border-bottom:1px solid var(--gray-200); padding:16px 24px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; }
+    .gh-logo{ display:flex; align-items:center; gap:10px; font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:700; color:var(--primary); letter-spacing:.12em; }
+    .gh-back{ color:var(--gray-500); text-decoration:none; font-size:.9rem; display:inline-flex; align-items:center; gap:7px; }
+    .gh-back:hover{ color:var(--primary); }
+    .wrap{ max-width:760px; margin:0 auto; padding:32px 20px 60px; }
+    .gh-title{ font-size:2.1rem; color:var(--primary); }
+    .gh-sub{ color:var(--gray-500); margin-top:4px; margin-bottom:26px; }
+    .state{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:40px 24px; text-align:center; color:var(--gray-500); }
+    .state i{ font-size:2rem; color:var(--gold); margin-bottom:12px; }
+    .state h3{ color:var(--primary); font-size:1.4rem; margin-bottom:6px; }
+    .state a{ color:var(--gold); font-weight:600; text-decoration:none; }
+    .card{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:24px; margin-bottom:18px; }
+    .card h2{ font-size:1.35rem; color:var(--primary); margin-bottom:4px; }
+    .card .ch-sub{ color:var(--gray-500); font-size:.85rem; margin-bottom:18px; }
+    label{ display:block; font-size:.82rem; font-weight:600; color:var(--gray-700); margin-bottom:6px; }
+    label .hint{ font-weight:400; color:var(--gray-400); }
+    select, input{ width:100%; border:1px solid var(--gray-300); border-radius:11px; padding:12px 13px; font-family:inherit; font-size:.95rem; background:#fff; color:#1d2733; }
+    select:focus, input:focus{ outline:none; border-color:var(--gold); }
+    .field{ margin-bottom:16px; }
+    .row-2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .prop-meta{ display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+    .chip{ font-size:.78rem; font-weight:600; padding:5px 11px; border-radius:999px; background:var(--gray-100); color:var(--gray-600); }
+    .chip.op{ background:rgba(201,162,39,.14); color:#8a6d12; }
+    .chip.price{ background:rgba(22,39,63,.08); color:var(--primary); }
+    .note{ font-size:.82rem; color:var(--gray-500); background:var(--gray-50); border-left:3px solid var(--gold); padding:9px 12px; border-radius:0 8px 8px 0; margin-top:6px; }
+    .note.warn{ border-color:#e0a800; color:#8a6d12; background:#fff9e9; }
+    .iva-row{ display:flex; align-items:center; gap:10px; cursor:pointer; font-weight:600; color:var(--gray-700); margin-bottom:4px; }
+    .iva-row input{ width:18px; height:18px; accent-color:var(--gold); cursor:pointer; }
+    .iva-hint{ font-size:.78rem; color:var(--gray-400); }
+    /* resultados */
+    .res-line{ display:flex; align-items:center; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--gray-100); font-size:.92rem; color:var(--gray-700); }
+    .res-line small{ color:var(--gray-400); font-size:.78rem; }
+    .res-line .v{ font-weight:600; color:var(--primary); }
+    .res-take{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px; border-radius:12px; margin-top:14px; background:linear-gradient(135deg,#16273f,#1f3556); color:#fff; }
+    .res-take .lbl{ font-size:.9rem; opacity:.85; }
+    .res-take .lbl b{ display:block; font-size:1rem; opacity:1; margin-top:2px; }
+    .res-take .big{ font-size:1.9rem; font-weight:800; }
+    .res-second{ display:flex; align-items:center; justify-content:space-between; padding:13px 16px; border:1px dashed var(--gray-300); border-radius:11px; margin-top:10px; font-size:.9rem; color:var(--gray-600); }
+    .res-second .v{ font-weight:700; color:var(--primary); }
+    .placeholder{ text-align:center; color:var(--gray-400); padding:24px 0; font-size:.9rem; }
+    .foot-note{ font-size:.78rem; color:var(--gray-400); margin-top:18px; line-height:1.6; }
+    @media (max-width:560px){ .gh-title{ font-size:1.7rem; } .row-2{ grid-template-columns:1fr; } .res-take{ flex-direction:column; align-items:flex-start; gap:6px; } .res-take .big{ font-size:1.6rem; } }
+  </style>
+</head>
+<body>
+  <header class="gh-header">
+    <div class="gh-logo"><i class="fas fa-building" style="color:var(--gold)"></i> MALAVE</div>
+    <a class="gh-back" href="index.html"><i class="fas fa-arrow-left"></i> Volver al inicio</a>
+  </header>
+
+  <div class="wrap">
+    <h1 class="gh-title">Mis ganancias</h1>
+    <p class="gh-sub">Elegí una propiedad tuya y mirá cuánto te queda de comisión, con y sin IVA.</p>
+
+    <div id="loadingState" class="state"><i class="fas fa-spinner fa-spin"></i><h3>Cargando...</h3></div>
+    <div id="guestState" class="state" style="display:none"><i class="fas fa-lock"></i><h3>Acceso para agentes</h3><p>Iniciá sesión para ver tus ganancias. <a href="index.html">Ir al inicio</a></p></div>
+    <div id="pendingState" class="state" style="display:none"><i class="fas fa-clock"></i><h3>Cuenta pendiente</h3><p>Tu cuenta todavía no fue aprobada por el administrador.</p></div>
+    <div id="emptyState" class="state" style="display:none"><i class="fas fa-house-circle-xmark"></i><h3>Sin propiedades</h3><p>Todavía no tenés propiedades cargadas a tu nombre.</p></div>
+
+    <div id="tool" style="display:none">
+      <div class="card">
+        <h2>1. Propiedad</h2>
+        <div class="ch-sub">Tus propiedades cargadas en el sistema.</div>
+        <div class="field">
+          <label>Elegí una propiedad</label>
+          <select id="propSelect" onchange="onPropChange()"></select>
+        </div>
+        <div class="prop-meta" id="propMeta" style="display:none"></div>
+      </div>
+
+      <div class="card">
+        <h2>2. Comisión</h2>
+        <div class="ch-sub">Ajustá si hace falta. Los valores vienen con lo habitual cargado.</div>
+
+        <div id="saleInputs">
+          <div class="row-2">
+            <div class="field">
+              <label>Comisión de la inmobiliaria <span class="hint">(% del precio)</span></label>
+              <input type="number" id="rateInput" value="3" min="0" step="0.1" oninput="calc()">
+            </div>
+            <div class="field">
+              <label>¿A cuántas partes le cobrás?</label>
+              <select id="partesSelect" onchange="calc()">
+                <option value="1">Una parte (solo comprador o vendedor)</option>
+                <option value="2">Ambas partes (comprador y vendedor)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div id="rentInputs" style="display:none">
+          <div class="field">
+            <label>Comisión de la inmobiliaria <span class="hint">(meses de alquiler)</span></label>
+            <input type="number" id="mesesInput" value="1" min="0" step="0.5" oninput="calc()">
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Tu comisión <span class="hint">(% de lo que cobra MALAVE)</span></label>
+          <input type="number" id="tuComInput" min="0" max="100" step="1" oninput="calc()">
+          <div class="note warn" id="noComNote" style="display:none">Tu comisión no está configurada. Pedile al admin que te la asigne en el panel. Mientras tanto, podés escribirla a mano acá arriba.</div>
+        </div>
+
+        <div class="field" style="margin-bottom:0">
+          <label class="iva-row"><input type="checkbox" id="ivaToggle" checked onchange="calc()"> <span>Cobrar IVA (22%)</span></label>
+          <div class="iva-hint">Destildalo si en esta operación no se cobra IVA.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>3. Resultado</h2>
+        <div class="ch-sub" id="resCurr"></div>
+        <div id="resBody"><div class="placeholder">Elegí una propiedad para ver el cálculo.</div></div>
+        <p class="foot-note">Cálculo orientativo. Tanto la comisión como el IVA se ajustan según cada operación: la comisión de la inmobiliaria y tu porcentaje son editables, y el IVA (22%) se suma solo si lo dejás activado.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
+    firebase.initializeApp(firebaseConfig);
+    var auth = firebase.auth();
+    var db = firebase.firestore();
+    var ADMIN_EMAIL = "fabricio9061@gmail.com";
+
+    var myProps = [], selectedProp = null, myComSale = null, myComRent = null;
+
+    function show(id){ ['loadingState','guestState','pendingState','emptyState','tool'].forEach(function(s){ document.getElementById(s).style.display = (s===id)?'':'none'; }); }
+    function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+    function fmt(n, cur){ if(!isFinite(n)) n=0; var s = Math.round(n).toLocaleString('es-UY'); return (cur==='UYU'?'$U ':'US$ ') + s; }
+
+    auth.onAuthStateChanged(async function(u){
+      if(!u){ show('guestState'); return; }
+      try{
+        var d = await db.collection('users').doc(u.uid).get();
+        var prof = d.exists ? d.data() : {};
+        var isAdmin = (prof.email||u.email||'').toLowerCase() === ADMIN_EMAIL;
+        if(prof.status !== 'approved' && !isAdmin){ show('pendingState'); return; }
+        var _fb = (prof.commissionPct != null && prof.commissionPct !== '') ? Number(prof.commissionPct) : null;
+        myComSale = (prof.commissionSale != null && prof.commissionSale !== '') ? Number(prof.commissionSale) : _fb;
+        myComRent = (prof.commissionRent != null && prof.commissionRent !== '') ? Number(prof.commissionRent) : _fb;
+        await loadProps(u.uid);
+      }catch(e){ show('guestState'); }
+    });
+
+    async function loadProps(uid){
+      try{
+        var snap = await db.collection('properties').get();
+        myProps = [];
+        snap.forEach(function(doc){
+          var p = doc.data(); p.id = doc.id;
+          var agents = p.agents || [];
+          if(p.ownerId === uid || agents.indexOf(uid) >= 0) myProps.push(p);
+        });
+      }catch(e){ myProps = []; }
+
+      if(!myProps.length){ show('emptyState'); return; }
+
+      myProps.sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
+      var sel = document.getElementById('propSelect');
+      sel.innerHTML = '<option value="">— Elegí una propiedad —</option>' + myProps.map(function(p){
+        var op = p.type === 'rent' ? 'Alquiler' : 'Venta';
+        return '<option value="'+p.id+'">'+esc(p.title || 'Propiedad sin título')+' — '+fmt(Number(p.price)||0, p.currency)+' ('+op+')</option>';
+      }).join('');
+
+      // la comisión se precarga al elegir la propiedad (depende de venta/alquiler)
+      document.getElementById('noComNote').style.display = 'none';
+
+      show('tool');
+    }
+
+    function onPropChange(){
+      var id = document.getElementById('propSelect').value;
+      selectedProp = myProps.find(function(p){ return p.id === id; }) || null;
+      var meta = document.getElementById('propMeta');
+      if(!selectedProp){
+        meta.style.display = 'none';
+        document.getElementById('resBody').innerHTML = '<div class="placeholder">Elegí una propiedad para ver el cálculo.</div>';
+        document.getElementById('resCurr').textContent = '';
+        return;
+      }
+      var isRent = selectedProp.type === 'rent';
+      document.getElementById('saleInputs').style.display = isRent ? 'none' : 'block';
+      document.getElementById('rentInputs').style.display = isRent ? 'block' : 'none';
+      meta.style.display = 'flex';
+      meta.innerHTML =
+        '<span class="chip op">'+(isRent?'Alquiler':'Venta')+'</span>' +
+        '<span class="chip price">'+(isRent?'Alquiler mensual: ':'Precio: ')+fmt(Number(selectedProp.price)||0, selectedProp.currency)+'</span>' +
+        (selectedProp.realEstateType?'<span class="chip">'+esc(selectedProp.realEstateType)+'</span>':'');
+      var myCom = isRent ? myComRent : myComSale;
+      var tu = document.getElementById('tuComInput');
+      tu.value = (myCom != null) ? myCom : '';
+      var note = document.getElementById('noComNote');
+      note.textContent = 'Tu comisión de ' + (isRent ? 'alquiler' : 'venta') + ' no está configurada. Pedile al admin que te la asigne, o escribila a mano acá arriba.';
+      note.style.display = (myCom != null) ? 'none' : 'block';
+      calc();
+    }
+
+    function calc(){
+      if(!selectedProp){ return; }
+      var price = Number(selectedProp.price) || 0;
+      var cur = selectedProp.currency || 'USD';
+      var isRent = selectedProp.type === 'rent';
+      document.getElementById('resCurr').textContent = 'Montos en ' + (cur==='UYU'?'pesos uruguayos':'dólares') + '.';
+
+      var base, detalle;
+      if(isRent){
+        var meses = Number(document.getElementById('mesesInput').value) || 0;
+        base = price * meses;
+        detalle = (meses===1?'1 mes':((meses%1===0?meses:meses)+' meses')) + ' de alquiler';
+      } else {
+        var rate = Number(document.getElementById('rateInput').value) || 0;
+        var partes = Number(document.getElementById('partesSelect').value) || 1;
+        base = price * (rate/100) * partes;
+        detalle = rate + '% ' + (partes===2 ? '× 2 partes' : 'de una parte');
+      }
+
+      var ivaOn = document.getElementById('ivaToggle').checked;
+      var iva = ivaOn ? base * 0.22 : 0;
+      var conIva = base + iva;
+      var pct = Number(document.getElementById('tuComInput').value) || 0;
+      var tuSinIva = base * (pct/100);
+      var tuConIva = conIva * (pct/100);
+
+      var html = '<div class="res-line"><span>Comisión de la inmobiliaria <small>'+esc(detalle)+'</small></span><span class="v">'+fmt(base,cur)+'</span></div>';
+      if(ivaOn){
+        html += '<div class="res-line"><span>IVA <small>22%</small></span><span class="v">'+fmt(iva,cur)+'</span></div>';
+        html += '<div class="res-line"><span>Comisión con IVA</span><span class="v">'+fmt(conIva,cur)+'</span></div>';
+      }
+      html += '<div class="res-take"><div class="lbl">Lo que te queda a vos'+(ivaOn?' <b>(sin IVA)</b>':'')+'<br><small style="opacity:.7">'+pct+'% de la comisión</small></div><div class="big">'+fmt(tuSinIva,cur)+'</div></div>';
+      if(ivaOn){
+        html += '<div class="res-second"><span>Tu parte calculada sobre el total <b>con IVA</b></span><span class="v">'+fmt(tuConIva,cur)+'</span></div>';
+      }
+      document.getElementById('resBody').innerHTML = html;
+    }
+  </script>
+</body>
+</html>
