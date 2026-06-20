@@ -90,17 +90,25 @@
         <div class="ch-sub">Ajustá si hace falta. Los valores vienen con lo habitual cargado.</div>
 
         <div id="saleInputs">
-          <div class="row-2">
+          <div class="field">
+            <label>¿A cuántas partes le cobrás?</label>
+            <select id="partesSelect" onchange="onPartesChange()">
+              <option value="1">Una parte (comprador o vendedor)</option>
+              <option value="2">Ambas partes (comprador y vendedor)</option>
+            </select>
+          </div>
+          <div class="field" id="oneRateField">
+            <label>Comisión de la inmobiliaria <span class="hint">(% del precio)</span></label>
+            <input type="number" id="rateInput" value="3" min="0" step="0.1" oninput="calc()">
+          </div>
+          <div class="row-2" id="twoRateFields" style="display:none">
             <div class="field">
-              <label>Comisión de la inmobiliaria <span class="hint">(% del precio)</span></label>
-              <input type="number" id="rateInput" value="3" min="0" step="0.1" oninput="calc()">
+              <label>Comisión al comprador <span class="hint">(% del precio)</span></label>
+              <input type="number" id="rateBuyerInput" value="3" min="0" step="0.1" oninput="calc()">
             </div>
             <div class="field">
-              <label>¿A cuántas partes le cobrás?</label>
-              <select id="partesSelect" onchange="calc()">
-                <option value="1">Una parte (solo comprador o vendedor)</option>
-                <option value="2">Ambas partes (comprador y vendedor)</option>
-              </select>
+              <label>Comisión al vendedor <span class="hint">(% del precio)</span></label>
+              <input type="number" id="rateSellerInput" value="3" min="0" step="0.1" oninput="calc()">
             </div>
           </div>
         </div>
@@ -206,6 +214,11 @@
       var isRent = selectedProp.type === 'rent';
       document.getElementById('saleInputs').style.display = isRent ? 'none' : 'block';
       document.getElementById('rentInputs').style.display = isRent ? 'block' : 'none';
+      if(!isRent){
+        var _both = document.getElementById('partesSelect').value === '2';
+        document.getElementById('oneRateField').style.display = _both ? 'none' : 'block';
+        document.getElementById('twoRateFields').style.display = _both ? 'grid' : 'none';
+      }
       meta.style.display = 'flex';
       meta.innerHTML =
         '<span class="chip op">'+(isRent?'Alquiler':'Venta')+'</span>' +
@@ -220,6 +233,12 @@
       calc();
     }
 
+    function onPartesChange(){
+      var both = document.getElementById('partesSelect').value === '2';
+      document.getElementById('oneRateField').style.display = both ? 'none' : 'block';
+      document.getElementById('twoRateFields').style.display = both ? 'grid' : 'none';
+      calc();
+    }
     function calc(){
       if(!selectedProp){ return; }
       var price = Number(selectedProp.price) || 0;
@@ -233,10 +252,16 @@
         base = price * meses;
         detalle = (meses===1?'1 mes':((meses%1===0?meses:meses)+' meses')) + ' de alquiler';
       } else {
-        var rate = Number(document.getElementById('rateInput').value) || 0;
-        var partes = Number(document.getElementById('partesSelect').value) || 1;
-        base = price * (rate/100) * partes;
-        detalle = rate + '% ' + (partes===2 ? '× 2 partes' : 'de una parte');
+        if(document.getElementById('partesSelect').value === '2'){
+          var rb = Number(document.getElementById('rateBuyerInput').value) || 0;
+          var rs = Number(document.getElementById('rateSellerInput').value) || 0;
+          base = price * (rb/100) + price * (rs/100);
+          detalle = 'comprador ' + rb + '% + vendedor ' + rs + '%';
+        } else {
+          var rate = Number(document.getElementById('rateInput').value) || 0;
+          base = price * (rate/100);
+          detalle = rate + '% de una parte';
+        }
       }
 
       var ivaOn = document.getElementById('ivaToggle').checked;

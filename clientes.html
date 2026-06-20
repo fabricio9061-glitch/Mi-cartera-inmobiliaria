@@ -242,6 +242,20 @@
       .cp-hero-actions{ width:100%; }
       .cp-btn{ flex:1; justify-content:center; }
     }
+    /* Links del cliente */
+    .link-add-row{ display:flex; gap:8px; }
+    .link-add-row input{ flex:1; }
+    .link-add-btn{ flex:none; width:44px; border:1px solid var(--navy,#16273f); background:var(--navy,#16273f); color:#fff; border-radius:11px; cursor:pointer; font-size:.95rem; }
+    .link-add-btn:hover{ filter:brightness(1.15); }
+    .links-list{ margin-top:8px; display:flex; flex-direction:column; gap:6px; }
+    .link-item{ display:flex; align-items:center; gap:8px; background:var(--gray-50,#f7f8fa); border:1px solid var(--gray-200,#e3e6ea); border-radius:9px; padding:7px 10px; font-size:.82rem; }
+    .link-item .fa-link{ color:var(--gold,#C9A227); flex:none; }
+    .link-item a{ color:var(--navy,#16273f); text-decoration:none; word-break:break-all; flex:1; }
+    .link-item a:hover{ text-decoration:underline; }
+    .link-del{ flex:none; border:none; background:transparent; color:var(--gray-400,#9aa3ad); cursor:pointer; font-size:.9rem; padding:2px 4px; line-height:1; }
+    .link-del:hover{ color:var(--danger,#c0392b); }
+    .client-meta-row.link-row a{ color:var(--gold,#C9A227); text-decoration:none; }
+    .client-meta-row.link-row a:hover{ text-decoration:underline; }
   </style>
 </head>
 <body>
@@ -273,7 +287,7 @@
       <div class="crm-stats" id="crmStats"></div>
 
       <div class="crm-toolbar">
-        <div class="crm-search"><i class="fas fa-search"></i><input type="text" id="clientSearch" placeholder="Buscar por nombre, teléfono o email..." oninput="renderClients()"></div>
+        <div class="crm-search"><i class="fas fa-search"></i><input type="text" id="clientSearch" placeholder="Buscar por nombre o teléfono..." oninput="renderClients()"></div>
         <select class="crm-filter" id="clientStatusFilter" onchange="renderClients()">
           <option value="">Todos los estados</option>
           <option value="nuevo">Nuevo</option><option value="contactado">Contactado</option>
@@ -362,7 +376,15 @@
           <input type="tel" id="clientPhone" placeholder="99 123 456">
         </div>
       </div>
-      <div class="fg"><label>Email <span style="font-weight:400;color:var(--gray-500)">(opcional)</span></label><input type="email" id="clientEmail" placeholder="cliente@email.com"></div>
+      <div class="fg">
+        <label>Links de propiedades <span style="font-weight:400;color:var(--gray-500)">(opcional)</span></label>
+        <div style="font-size:.78rem;color:var(--gray-500);margin:-2px 0 8px">Pegá el link por el que el cliente vio la propiedad (MercadoLibre, InfoCasas, etc.). Podés agregar varios.</div>
+        <div class="link-add-row">
+          <input type="url" id="clientLinkInput" placeholder="https://..." onkeydown="if(event.key==='Enter'){event.preventDefault();addClientLink();}">
+          <button type="button" class="link-add-btn" onclick="addClientLink()"><i class="fas fa-plus"></i></button>
+        </div>
+        <div id="clientLinksList" class="links-list"></div>
+      </div>
       <div class="fg"><label>Nota / Observación <span style="font-weight:400;color:var(--gray-500)">(opcional)</span></label><textarea id="clientNotes" rows="3" placeholder="Lo que quieras recordar: ej. no quiere inmobiliaria, llamar el lunes, busca 2 dormitorios en Pocitos..." style="width:100%;font-family:inherit;padding:11px 13px;border:1px solid var(--gray-300);border-radius:11px;font-size:.95rem;resize:vertical"></textarea></div>
       <div class="cp-editor-note"><i class="fas fa-circle-info"></i> El interés, presupuesto, link y estado se cargan en cada propiedad del cliente (seguimiento).</div>
       <button class="modal-save" id="clientBtn" onclick="handleSaveClient(event)"><i class="fas fa-save"></i> Guardar Cliente</button>
@@ -524,7 +546,7 @@
       var arf = document.getElementById('clientArchivedFilter').value;
       var miNombreLC = ((userProfile && userProfile.name) || '').trim().toLowerCase();
       var list = clients.filter(function(c){
-        var m = !term || (c.name||'').toLowerCase().indexOf(term)>=0 || (c.phone||'').indexOf(term)>=0 || (c.phoneNormalized||'').indexOf(term)>=0 || (c.email||'').toLowerCase().indexOf(term)>=0;
+        var m = !term || (c.name||'').toLowerCase().indexOf(term)>=0 || (c.phone||'').indexOf(term)>=0 || (c.phoneNormalized||'').indexOf(term)>=0;
         var archMatch = arf==='all' ? true : (arf==='archived' ? !!c.archived : !c.archived);
         var duenoLC = (c.createdByName || c.ownerName || c.agentName || '').trim().toLowerCase();
         var mio = !misClientesOnly || (currentUser && (c.createdBy === currentUser.uid || c.agentId === currentUser.uid)) || (!!miNombreLC && duenoLC === miNombreLC);
@@ -555,7 +577,8 @@
           '</div>' +
           '<div class="client-meta">' +
             '<div class="client-meta-row"><i class="fas fa-phone"></i> '+esc(phoneDisp)+'</div>' +
-            (c.email?'<div class="client-meta-row"><i class="fas fa-'+(c.email.indexOf('@')<0?'pen':'envelope')+'"></i> '+esc(c.email)+'</div>':'') +
+            ((c.links&&c.links.length)?'<div class="client-meta-row link-row"><i class="fas fa-link"></i> '+c.links.map(function(l,i){return '<a href="'+escA(l)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">'+(c.links.length>1?('Propiedad '+(i+1)):'Ver propiedad')+'</a>';}).join(' · ')+'</div>':'') +
+            ((c.email&&c.email.indexOf('@')<0)?'<div class="client-meta-row"><i class="fas fa-pen"></i> '+esc(c.email)+'</div>':'') +
           '</div>' +
           (c.notes?'<div style="margin-top:6px;font-size:.82rem;color:var(--gray-600);background:var(--gray-50);border-radius:8px;padding:7px 10px;line-height:1.4"><i class="fas fa-pen" style="opacity:.6;margin-right:5px"></i>'+esc(c.notes)+'</div>':'') +
           '<div class="client-actions">' +
@@ -587,7 +610,6 @@
       var phoneFull = c.phoneNormalized || ((c.areaCode||'')+(c.phone||''));
       var meta = [];
       if (phoneFull) meta.push('<i class="fas fa-phone"></i> '+esc(phoneFull));
-      if (c.email) meta.push('<i class="fas fa-envelope"></i> '+esc(c.email));
       if (c.createdByName||c.ownerName) meta.push('<i class="fas fa-user-tie"></i> Creado por '+esc(c.createdByName||c.ownerName));
       if (c.createdAt) meta.push('<i class="fas fa-calendar"></i> '+new Date(c.createdAt).toLocaleDateString('es-UY'));
       document.getElementById('cpMeta').innerHTML = meta.join(' &nbsp;·&nbsp; ');
@@ -600,7 +622,8 @@
       // Campos: SOLO datos de la persona. El interés/estado/presupuesto/link viven en cada gestión.
       var fields = [];
       fields.push(['Teléfono', phoneFull ? esc(phoneFull) : '—']);
-      fields.push(['Email', c.email ? esc(c.email) : '—']);
+      var linksHtml = (c.links && c.links.length) ? c.links.map(function(l){ return '<a href="'+escA(l)+'" target="_blank" rel="noopener" style="color:var(--gold,#C9A227);text-decoration:none;word-break:break-all">'+esc(l)+'</a>'; }).join('<br>') : '—';
+      fields.push(['Links', linksHtml]);
       document.getElementById('cpFields').innerHTML = fields.map(function(f){
         return '<div class="cp-field"><span class="k">'+f[0]+'</span><span class="v">'+f[1]+'</span></div>';
       }).join('');
@@ -967,13 +990,42 @@
       }).catch(function(e){ showToast('No se pudo eliminar'); console.error(e); });
     }
 
+    // ===== Links del cliente (form) =====
+    var clientLinks = [];
+    function normalizeClientUrl(v){
+      v = String(v||'').trim();
+      if (!v) return '';
+      if (/^(javascript|data|vbscript):/i.test(v)) return '';
+      if (!/^https?:\/\//i.test(v)) v = 'https://' + v.replace(/^\/+/, '');
+      return v;
+    }
+    function renderClientLinks(){
+      var box = document.getElementById('clientLinksList');
+      if (!box) return;
+      box.innerHTML = clientLinks.map(function(l,i){
+        return '<div class="link-item"><i class="fas fa-link"></i><a href="'+escA(l)+'" target="_blank" rel="noopener">'+esc(l)+'</a><button type="button" class="link-del" onclick="removeClientLink('+i+')" title="Quitar"><i class="fas fa-times"></i></button></div>';
+      }).join('');
+    }
+    function addClientLink(){
+      var inp = document.getElementById('clientLinkInput');
+      var v = normalizeClientUrl(inp.value);
+      if (!v){ inp.focus(); return; }
+      clientLinks.push(v);
+      inp.value = '';
+      renderClientLinks();
+      inp.focus();
+    }
+    function removeClientLink(i){
+      clientLinks.splice(i,1);
+      renderClientLinks();
+    }
     // ===== Modal crear/editar =====
     function openClientModal(id){
       document.getElementById('editingClientId').value = id || '';
       document.getElementById('clientError').classList.add('hidden');
       document.getElementById('clientModalTitle').textContent = id ? 'Editar Cliente' : 'Nuevo Cliente';
       document.getElementById('clientName').value = '';
-      document.getElementById('clientEmail').value = '';
+      clientLinks = []; renderClientLinks(); document.getElementById('clientLinkInput').value = '';
       document.getElementById('clientPhone').value = '';
       document.getElementById('clientAreaCode').value = '+598';
       document.getElementById('clientNotes').value = '';
@@ -985,11 +1037,9 @@
           if (!c.areaCode && loc){ var m=loc.replace(/\D/g,''); loc = m.startsWith('598')?m.slice(3):m.replace(/^0+/,''); }
           document.getElementById('clientAreaCode').value = ac;
           document.getElementById('clientPhone').value = loc;
-          // Si en "email" quedó cargada una nota (sin @), la pasamos a Notas
-          var em = c.email||'', nt = c.notes||'';
-          if (em && em.indexOf('@')<0){ nt = nt ? (nt+' — '+em) : em; em=''; }
-          document.getElementById('clientEmail').value = em;
-          document.getElementById('clientNotes').value = nt;
+          clientLinks = Array.isArray(c.links) ? c.links.slice() : [];
+          renderClientLinks();
+          document.getElementById('clientNotes').value = c.notes||'';
         }
       }
       document.getElementById('clientModal').classList.add('open');
@@ -1022,13 +1072,10 @@
       }
 
       b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-      var em = document.getElementById('clientEmail').value.trim();
       var nt = document.getElementById('clientNotes').value.trim();
-      // Si en "email" se cargó una nota (sin @), la pasamos a Notas
-      if (em && em.indexOf('@')<0){ nt = nt ? (nt+' — '+em) : em; em=''; }
       var data = {
         name: name, areaCode: areaCode, phone: local, phoneNormalized: phoneFull,
-        email: em, notes: nt,
+        links: clientLinks.slice(), notes: nt,
         updatedAt: new Date().toISOString()
       };
 
