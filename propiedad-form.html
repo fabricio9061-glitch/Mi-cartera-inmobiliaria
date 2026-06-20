@@ -86,7 +86,7 @@
 
         <div class="ppf-step"><div class="num">1</div><div><h3>¿Qué vas a publicar?</h3><small>Operación y tipo de inmueble, igual que el primer paso de Mercado Libre.</small></div></div>
         <div class="ppf-sec">
-          <div class="form-row-3"><div class="form-group"><label>Tipo de Operación</label><select id="propType" onchange="togglePropertyType()"><option value="sale">Venta</option><option value="rent">Alquiler</option></select></div><div class="form-group"><label>Tipo de inmueble</label><select id="propRealEstateType"><option value="casa">Casa</option><option value="apartamento">Apartamento</option><option value="terreno">Terreno</option><option value="local">Local comercial</option><option value="oficina">Oficina</option><option value="galpon">Galpón / Depósito</option><option value="campo">Campo / Chacra</option></select></div><div class="form-group" id="propertyTypeGroup"><label>Tipo de padrón</label><select id="propPropertyType"><option value="common">Padrón Común</option><option value="ph">PH</option></select></div></div>
+          <div class="form-row-3"><div class="form-group"><label>Tipo de Operación</label><select id="propType" onchange="togglePropertyType()"><option value="sale">Venta</option><option value="rent">Alquiler</option></select></div><div class="form-group"><label>Tipo de inmueble</label><select id="propRealEstateType" onchange="updateSubtypeByType()"><option value="casa">Casa</option><option value="apartamento">Apartamento</option><option value="terreno">Terreno</option><option value="local">Local comercial</option><option value="oficina">Oficina</option><option value="galpon">Galpón / Depósito</option><option value="campo">Campo / Chacra</option></select></div><div class="form-group" id="propertyTypeGroup"><label>Tipo de padrón</label><select id="propPropertyType"><option value="common">Padrón Común</option><option value="ph">PH</option></select></div></div>
         </div>
 
         <div class="ppf-step"><div class="num">2</div><div><h3>Ubicación</h3><small>Buscá la dirección y ajustá el pin: las coordenadas y el barrio viajan a Mercado Libre y mejoran cómo aparece el aviso en el mapa.</small></div></div>
@@ -384,6 +384,7 @@
       selectStatus(p.status || 'available');
       togglePropertyType();
       fillFicha(p);
+      updateSubtypeByType();
       if (p.images && p.images.length > 0) { selectedImages = p.images.map(url => ({ preview: url, url: url, existing: true })); renderImagePreviews() }
     }
     // ---- Características adicionales (servicios, comodidades, seguridad, ambientes) ----
@@ -400,7 +401,7 @@
         { id: "APARTMENTS_PER_FLOOR", label: "Apartamentos por piso", type: "num" },
         { id: "FLOORS", label: "Cantidad de pisos", type: "num" },
         { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
-        { id: "APARTMENT_PROPERTY_SUBTYPE", label: "Tipo de departamento", type: "list", options: ["Departamento", "Monoambiente", "Dúplex", "Tríplex", "Penthhouse", "Loft", "Semi piso", "Piso", "Ph"] },
+        { id: "APARTMENT_PROPERTY_SUBTYPE", label: "Tipo de departamento", type: "list", options: ["Departamento", "Monoambiente", "Dúplex", "Tríplex", "Penthouse", "Loft", "Semi piso", "Piso", "Ph"] },
         { id: "DISPOSITION", label: "Disposición", type: "list", options: ["Frente", "Contrafrente", "Interno", "Lateral"] },
         { id: "FACING", label: "Orientación", type: "list", options: ["Norte", "Sur", "Este", "Oeste"] },
       ],
@@ -475,6 +476,16 @@
       ],
     };
     const ML_FICHA_FIELDS = Object.values(ML_FICHA).flat();
+    // El subtipo "Tipo de departamento" es un atributo de ML que solo aplica a apartamentos.
+    function updateSubtypeByType() {
+      var ret = document.getElementById('propRealEstateType').value;
+      var el = document.getElementById('fc-APARTMENT_PROPERTY_SUBTYPE');
+      if (!el) return;
+      var g = el.closest('.form-group');
+      var show = (ret === 'apartamento');
+      if (g) g.style.display = show ? '' : 'none';
+      if (!show) el.value = '';
+    }
     function renderFicha() {
       const wrap = document.getElementById('fichaTecnica');
       if (!wrap) return;
@@ -606,6 +617,7 @@
       if (userProfile.status !== 'approved' && !isAdmin) { showState('ppfAuth', { title: 'Cuenta pendiente', msg: 'Tu cuenta está pendiente de aprobación.' }); return }
       initDepartamentos();
       renderFicha();
+      updateSubtypeByType();
       const id = new URLSearchParams(location.search).get('id');
       const clientIdParam = new URLSearchParams(location.search).get('clientId');
       if (id) {
