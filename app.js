@@ -364,6 +364,7 @@
     const nm = document.getElementById('mvSideName'); if (nm) nm.textContent = (userProfile && userProfile.name) || 'Usuario';
     const rl = document.getElementById('mvSideRole'); if (rl) rl.textContent = isAdminUser() ? 'Administrador' : 'Agente';
     document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !isAdminUser());
+    document.getElementById('mvSideRevisiones')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSide')?.classList.add('open');
     document.getElementById('mvSideOverlay')?.classList.add('open');
     document.getElementById('mvSide')?.setAttribute('aria-hidden', 'false');

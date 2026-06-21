@@ -107,6 +107,14 @@
     .tas-report-grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     .tas-report-body .tas-f{ margin-bottom:11px; }
     @media (max-width:760px){ .tas-report-cols{ grid-template-columns:1fr; gap:18px; } }
+  
+    /* Toast */
+    #mvToastWrap{ position:fixed; right:16px; bottom:16px; z-index:99999; display:flex; flex-direction:column; gap:10px; max-width:360px; }
+    .mv-toast{ display:flex; gap:10px; align-items:flex-start; background:#1c1c1c; color:#fff; border:1px solid rgba(201,162,39,.4); border-left:4px solid var(--gold,#c9a227); border-radius:12px; padding:12px 14px; box-shadow:0 8px 24px rgba(0,0,0,.35); opacity:0; transform:translateY(10px); transition:opacity .25s, transform .25s; font-size:.9rem; }
+    .mv-toast.show{ opacity:1; transform:translateY(0); }
+    .mv-toast > i{ color:var(--gold,#c9a227); margin-top:2px; }
+    .mv-toast-t{ font-weight:700; margin-bottom:2px; }
+    .mv-toast-m{ opacity:.85; line-height:1.35; }
   </style>
 </head>
 <body>
@@ -128,7 +136,7 @@
   <div class="tp-wrap" id="tpContent" style="display:none">
     <div class="pa-page-head">
       <div class="pa-page-ic"><i class="fas fa-calculator"></i></div>
-      <div><h1 class="pa-page-title">Tasador <span class="mv-soon">Beta</span></h1><p class="pa-page-sub">Estima el valor de un inmueble por el metodo de regresion, comparandolo con antecedentes de la zona.</p></div>
+      <div><h1 class="pa-page-title">Tasador</h1><p class="pa-page-sub">Estima el valor de un inmueble por el metodo de regresion, comparandolo con antecedentes de la zona.</p></div>
     </div>
 
     <div class="tas-grid">
@@ -164,6 +172,11 @@
       <div class="tas-res-cell"><span class="tas-res-label">Rango (90% confianza)</span><strong id="tasResRange">&mdash;</strong><span class="sub">valor de la propiedad</span></div>
       <div class="tas-res-cell"><span class="tas-res-label">Incertidumbre</span><strong id="tasResUnc">&mdash;</strong><span class="sub" id="tasResUncSub"></span></div>
       <p class="tas-res-msg" id="tasResMsg">Completa el inmueble y los 4 antecedentes para ver la estimacion en tiempo real.</p>
+    </div>
+
+    <div style="text-align:center; margin:16px 0 4px">
+      <button type="button" id="tasGuardarBtn" class="tas-export" style="background:var(--gold,#c9a227); color:#1a1a1a; border-color:var(--gold,#c9a227)" onclick="guardarTasacion()"><i class="fas fa-floppy-disk"></i> Guardar tasación</button>
+      <div style="font-size:.78rem; opacity:.7; margin-top:6px">Queda registrada para que el administrador la revise.</div>
     </div>
 
     <div class="tas-card tas-report" style="margin-top:18px">
@@ -248,7 +261,7 @@
     const auth = firebase.auth(), db = firebase.firestore();
     const ADMIN_EMAIL = "fabricio9061@gmail.com";
     const LS_KEY = "malaveTasador";
-    let agenteNombre = '', agenteEmail = '';
+    let agenteNombre = '', agenteEmail = '', agenteUid = '';
 
     function tpShow(which) {
       ['tpLoading', 'tpAuth', 'tpContent'].forEach(id => document.getElementById(id).style.display = 'none');
@@ -899,6 +912,52 @@
       });
     }
 
+    function showToast(title, msg, icon) {
+      try {
+        var c = document.getElementById('mvToastWrap');
+        if (!c) { c = document.createElement('div'); c.id = 'mvToastWrap'; document.body.appendChild(c); }
+        var t = document.createElement('div'); t.className = 'mv-toast';
+        t.innerHTML = '<i class="fas ' + (icon || 'fa-circle-info') + '"></i><div><div class="mv-toast-t"></div><div class="mv-toast-m"></div></div>';
+        t.querySelector('.mv-toast-t').textContent = title || '';
+        t.querySelector('.mv-toast-m').textContent = msg || '';
+        c.appendChild(t);
+        setTimeout(function(){ t.classList.add('show'); }, 10);
+        setTimeout(function(){ t.classList.remove('show'); setTimeout(function(){ t.remove(); }, 300); }, 4200);
+      } catch (e) { alert((title ? title + ': ' : '') + (msg || '')); }
+    }
+
+    async function guardarTasacion() {
+      if (!agenteUid) { showToast('Iniciá sesión', 'Necesitás estar logueado para guardar.', 'fa-triangle-exclamation'); return; }
+      if (!ultimoResultado) { showToast('Faltan datos', 'Completá el inmueble y los 4 antecedentes para ver el resultado antes de guardar.', 'fa-circle-exclamation'); return; }
+      var rv = function(id){ var e = document.getElementById(id); return e ? (e.value || '').trim() : ''; };
+      var r = ultimoResultado;
+      var rec = {
+        id: 'tas_' + Date.now(),
+        tipo: 'tasacion',
+        fecha: new Date().toISOString(),
+        agenteUid: agenteUid, agenteNombre: agenteNombre || agenteEmail || 'Agente', agenteEmail: agenteEmail || '',
+        datos: {
+          m2: r.inmueble.m2, construccion: r.inmueble.cons, ubicacion: r.inmueble.ubi,
+          dormitorios: r.inmueble.dorm || '', banos: r.inmueble.bath || '',
+          antecedentes: (r.antecedentes || []).length,
+          cliente: rv('repCliNombre'), tipoInm: rv('repInmTipo'), direccion: rv('repInmDir'),
+          barrio: rv('repInmBarrio'), departamento: rv('repInmDepto'), padron: rv('repInmPadron')
+        },
+        resultado: { valor: Math.round(r.valorTotal || 0), min: Math.round(r.minV || 0), max: Math.round(r.maxV || 0), incertidumbre: +((r.incert || 0).toFixed(1)) },
+        revisado: false
+      };
+      var btn = document.getElementById('tasGuardarBtn');
+      if (btn) { btn.disabled = true; }
+      try {
+        await db.collection('users').doc(agenteUid).set({ tasaciones: firebase.firestore.FieldValue.arrayUnion(rec) }, { merge: true });
+        showToast('Guardada', 'La tasación quedó registrada para revisión.', 'fa-circle-check');
+      } catch (e) {
+        console.warn('guardarTasacion', e);
+        var msg = (e && e.code === 'permission-denied') ? 'No tenés permiso para escribir tu perfil. Avisá al admin.' : ('Error: ' + ((e && e.message) || e));
+        showToast('No se pudo guardar', msg, 'fa-triangle-exclamation');
+      } finally { if (btn) { btn.disabled = false; } }
+    }
+
     auth.onAuthStateChanged(async function(u) {
       if (!u) { tpShow('tpAuth'); return; }
       var prof = {};
@@ -906,6 +965,7 @@
       var isAdmin = (prof.email || u.email || '').toLowerCase() === ADMIN_EMAIL;
       agenteNombre = prof.name || u.displayName || '';
       agenteEmail = prof.email || u.email || '';
+      agenteUid = u.uid;
       if (prof.status !== 'approved' && !isAdmin) {
         document.getElementById('tpAuthTitle').textContent = 'Cuenta pendiente';
         document.getElementById('tpAuthMsg').textContent = 'Tu cuenta esta pendiente de aprobacion.';

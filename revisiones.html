@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Revisiones · MALAVÉ</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root{ --gold:#c9a227; --ink:#1c1c1c; --bg:#f4f5f7; --line:#e4e6ea; }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--ink); padding:20px; }
+    .wrap{ max-width:920px; margin:0 auto; }
+    .top{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+    .top h1{ font-size:1.5rem; display:flex; align-items:center; gap:10px; }
+    .top h1 i{ color:var(--gold); }
+    .back{ color:#666; text-decoration:none; font-size:.9rem; display:inline-flex; align-items:center; gap:6px; }
+    .back:hover{ color:var(--ink); }
+    .btn{ border:none; cursor:pointer; border-radius:10px; padding:9px 14px; font-size:.88rem; font-weight:600; display:inline-flex; align-items:center; gap:7px; }
+    .btn-ghost{ background:#fff; border:1px solid var(--line); color:#444; }
+    .btn-ghost:hover{ background:#fafafa; }
+    .countbar{ background:#fff; border:1px solid var(--line); border-left:4px solid #2ecc71; border-radius:12px; padding:12px 16px; font-weight:700; display:flex; align-items:center; gap:9px; margin-bottom:16px; color:#27ae60; }
+    .countbar.alert{ border-left-color:var(--gold); color:#9a7d12; background:#fffdf5; }
+    .filters{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+    .filters select{ border:1px solid var(--line); border-radius:10px; padding:9px 12px; font-size:.88rem; background:#fff; color:#333; }
+    .card{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+    .card-h{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+    .tipo{ font-size:.78rem; font-weight:700; padding:4px 10px; border-radius:20px; display:inline-flex; align-items:center; gap:6px; }
+    .who{ font-weight:700; font-size:.95rem; }
+    .when{ color:#999; font-size:.82rem; }
+    .badge{ margin-left:auto; font-size:.72rem; font-weight:700; padding:4px 10px; border-radius:20px; }
+    .badge.pend{ background:#fff4e0; color:#b9770f; }
+    .badge.ok{ background:#e7f7ec; color:#1f9d54; }
+    .card-b{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+    .kv-group h4{ font-size:.72rem; text-transform:uppercase; letter-spacing:.5px; color:#999; margin-bottom:8px; }
+    .kv{ display:flex; justify-content:space-between; gap:12px; padding:5px 0; border-bottom:1px dashed #eee; font-size:.88rem; }
+    .kv:last-child{ border-bottom:none; }
+    .kv span{ color:#777; }
+    .kv b{ color:var(--ink); text-align:right; }
+    .kv-empty{ color:#bbb; font-size:.85rem; }
+    .card-f{ margin-top:14px; padding-top:12px; border-top:1px solid var(--line); text-align:right; }
+    .mark{ background:#27ae60; color:#fff; border:none; cursor:pointer; border-radius:9px; padding:8px 14px; font-size:.85rem; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+    .mark:hover{ background:#229954; }
+    .empty{ text-align:center; color:#999; padding:40px 20px; background:#fff; border:1px solid var(--line); border-radius:14px; }
+    #mvToastWrap{ position:fixed; right:16px; bottom:16px; z-index:99999; display:flex; flex-direction:column; gap:10px; max-width:360px; }
+    .mv-toast{ display:flex; gap:10px; align-items:flex-start; background:var(--ink); color:#fff; border-left:4px solid var(--gold); border-radius:12px; padding:12px 14px; box-shadow:0 8px 24px rgba(0,0,0,.3); opacity:0; transform:translateY(10px); transition:.25s; font-size:.9rem; }
+    .mv-toast.show{ opacity:1; transform:translateY(0); }
+    .mv-toast.err{ border-left-color:#e74c3c; }
+    @media(max-width:640px){ .card-b{ grid-template-columns:1fr; gap:12px; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1><i class="fas fa-clipboard-check"></i> Revisiones</h1>
+      <div style="display:flex; gap:10px; align-items:center">
+        <a class="back" href="index.html"><i class="fas fa-arrow-left"></i> Volver</a>
+        <button class="btn btn-ghost" onclick="cargar()"><i class="fas fa-rotate-right"></i> Actualizar</button>
+      </div>
+    </div>
+
+    <div id="loadingState" class="empty"><i class="fas fa-spinner fa-spin"></i> Cargando…</div>
+    <div id="authState" class="empty" style="display:none"><i class="fas fa-lock" style="font-size:1.6rem; color:#ccc; display:block; margin-bottom:10px"></i><span id="authMsg">Esta sección es solo para el administrador.</span></div>
+
+    <div id="content" style="display:none">
+      <div id="countBar" class="countbar"></div>
+      <div class="filters">
+        <select id="fTipo" onchange="setFiltro('tipo', this.value)">
+          <option value="todas">Todos los tipos</option>
+          <option value="tasacion">Tasaciones</option>
+          <option value="gastos">Gastos y comisiones</option>
+          <option value="terreno">Cálculo de terrenos</option>
+        </select>
+        <select id="fEstado" onchange="setFiltro('estado', this.value)">
+          <option value="todas">Todos</option>
+          <option value="pend">Sin revisar</option>
+          <option value="rev">Revisadas</option>
+        </select>
+      </div>
+      <div id="list"></div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
+    const ADMIN_EMAIL = "fabricio9061@gmail.com";
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // Cada tipo de cálculo y dónde se guarda en el doc del usuario.
+    const TIPOS = {
+      tasacion: { field: 'tasaciones',   label: 'Tasación',            icon: 'fa-calculator',          color: '#c9a227' },
+      gastos:   { field: 'calcGastos',   label: 'Gastos y comisiones', icon: 'fa-file-invoice-dollar', color: '#2e86de' },
+      terreno:  { field: 'calcTerrenos', label: 'Cálculo de terreno',  icon: 'fa-mountain-sun',        color: '#27ae60' }
+    };
+    const LBL = {
+      m2:'m² construidos', construccion:'Construcción (1-5)', ubicacion:'Ubicación (1-5)', dormitorios:'Dormitorios', banos:'Baños', antecedentes:'Comparables',
+      cliente:'Cliente', tipoInm:'Tipo inmueble', direccion:'Dirección', barrio:'Barrio', departamento:'Departamento', padron:'Padrón',
+      valor:'Valor estimado', min:'Mínimo', max:'Máximo', incertidumbre:'Incertidumbre',
+      operacion:'Operación', precio:'Precio', moneda:'Moneda', comision:'Comisión', honorarios:'Honorarios', iva:'IVA', total:'Total',
+      area:'Superficie', precioM2:'Precio m²', costo:'Costo', utilidad:'Utilidad'
+    };
+    const MONEY = new Set(['valor','min','max','precio','comision','honorarios','iva','total','precioM2','costo','utilidad']);
+
+    let allRecords = [];
+    let fTipo = 'todas', fEstado = 'todas';
+
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+    function fmtFecha(iso){ if(!iso) return ''; const d=new Date(iso); if(isNaN(d.getTime())) return iso; return d.toLocaleString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+    function show(id){ ['loadingState','authState','content'].forEach(x=>{ const e=document.getElementById(x); if(e) e.style.display = x===id?'block':'none'; }); }
+    function toast(msg, err){
+      let c=document.getElementById('mvToastWrap'); if(!c){ c=document.createElement('div'); c.id='mvToastWrap'; document.body.appendChild(c); }
+      const t=document.createElement('div'); t.className='mv-toast'+(err?' err':''); t.textContent=msg; c.appendChild(t);
+      setTimeout(()=>t.classList.add('show'),10); setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); },3500);
+    }
+
+    function renderKV(obj){
+      if(!obj || typeof obj!=='object') return '<div class="kv-empty">—</div>';
+      const rows = Object.keys(obj).map(k=>{
+        let v = obj[k];
+        if(v==='' || v===null || v===undefined) return '';
+        if(MONEY.has(k)) v = 'US$ ' + Number(v).toLocaleString('es-UY');
+        else if(k==='incertidumbre') v = v + ' %';
+        return '<div class="kv"><span>'+esc(LBL[k]||k)+'</span><b>'+esc(String(v))+'</b></div>';
+      }).filter(Boolean).join('');
+      return rows || '<div class="kv-empty">—</div>';
+    }
+
+    function cardHTML(r){
+      const t = TIPOS[r.tipo] || { label:r.tipo, icon:'fa-file', color:'#888' };
+      const badge = r.revisado ? '<span class="badge ok">Revisada</span>' : '<span class="badge pend">Sin revisar</span>';
+      const btn = r.revisado ? '' : '<button class="mark" onclick="marcar(\''+r._uid+'\',\''+r._field+'\',\''+esc(r.id)+'\')"><i class="fas fa-check"></i> Marcar revisada</button>';
+      return '<div class="card">'
+        + '<div class="card-h">'
+        +   '<span class="tipo" style="background:'+t.color+'22; color:'+t.color+'"><i class="fas '+t.icon+'"></i> '+esc(t.label)+'</span>'
+        +   '<span class="who">'+esc(r._agente)+'</span>'
+        +   '<span class="when">'+esc(fmtFecha(r.fecha))+'</span>'
+        +   badge
+        + '</div>'
+        + '<div class="card-b">'
+        +   '<div class="kv-group"><h4>Datos</h4>'+renderKV(r.datos)+'</div>'
+        +   '<div class="kv-group"><h4>Resultado</h4>'+renderKV(r.resultado)+'</div>'
+        + '</div>'
+        + (btn ? '<div class="card-f">'+btn+'</div>' : '')
+        + '</div>';
+    }
+
+    function render(){
+      const recs = allRecords.filter(r =>
+        (fTipo==='todas' || r.tipo===fTipo) &&
+        (fEstado==='todas' || (fEstado==='pend' ? !r.revisado : r.revisado))
+      );
+      const pend = allRecords.filter(r=>!r.revisado).length;
+      const cb = document.getElementById('countBar');
+      cb.className = 'countbar' + (pend>0 ? ' alert' : '');
+      cb.innerHTML = pend>0
+        ? '<i class="fas fa-bell"></i> '+pend+' '+(pend===1?'cálculo sin revisar':'cálculos sin revisar')
+        : '<i class="fas fa-circle-check"></i> No hay nada pendiente de revisar';
+      const list = document.getElementById('list');
+      if(!recs.length){ list.innerHTML = '<div class="empty">No hay registros para mostrar con este filtro.</div>'; return; }
+      list.innerHTML = recs.map(cardHTML).join('');
+    }
+
+    function setFiltro(cual, val){ if(cual==='tipo') fTipo=val; else fEstado=val; render(); }
+
+    async function cargar(){
+      show('content');
+      const list = document.getElementById('list');
+      list.innerHTML = '<div class="empty"><i class="fas fa-spinner fa-spin"></i> Cargando…</div>';
+      try{
+        const q = await db.collection('users').get();
+        allRecords = [];
+        q.docs.forEach(d=>{
+          const u = d.data();
+          Object.keys(TIPOS).forEach(tipo=>{
+            const arr = u[TIPOS[tipo].field];
+            if(Array.isArray(arr)) arr.forEach(rec=>{
+              allRecords.push(Object.assign({}, rec, {
+                _uid: d.id, _field: TIPOS[tipo].field,
+                tipo: rec.tipo || tipo,
+                _agente: rec.agenteNombre || u.name || u.email || 'Agente'
+              }));
+            });
+          });
+        });
+        allRecords.sort((a,b)=> String(b.fecha||'').localeCompare(String(a.fecha||'')));
+        render();
+      }catch(e){
+        list.innerHTML = '<div class="empty" style="color:#c0392b">No se pudieron cargar los datos. '+esc(e.message||e)+'</div>';
+      }
+    }
+
+    async function marcar(uid, field, id){
+      try{
+        const ref = db.collection('users').doc(uid);
+        const d = await ref.get();
+        const arr = (d.exists && Array.isArray(d.data()[field])) ? d.data()[field] : [];
+        const nuevo = arr.map(x => (x && x.id===id) ? Object.assign({}, x, { revisado:true }) : x);
+        await ref.update({ [field]: nuevo });
+        allRecords.forEach(r=>{ if(r._uid===uid && r._field===field && r.id===id) r.revisado=true; });
+        render();
+        toast('Marcada como revisada');
+      }catch(e){
+        toast('No se pudo marcar: ' + (e.message||e), true);
+      }
+    }
+
+    auth.onAuthStateChanged(async u=>{
+      if(!u){ show('authState'); document.getElementById('authMsg').textContent='Tenés que iniciar sesión.'; return; }
+      let prof = {};
+      try{ const d = await db.collection('users').doc(u.uid).get(); prof = d.exists ? d.data() : {}; }catch(e){}
+      const isAdmin = (prof.email || u.email || '').toLowerCase() === ADMIN_EMAIL;
+      if(!isAdmin){ show('authState'); document.getElementById('authMsg').textContent='Esta sección es solo para el administrador.'; return; }
+      cargar();
+    });
+  </script>
+</body>
+</html>

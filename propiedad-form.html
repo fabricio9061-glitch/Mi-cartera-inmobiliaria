@@ -401,7 +401,8 @@
         { id: "APARTMENTS_PER_FLOOR", label: "Apartamentos por piso", type: "num" },
         { id: "FLOORS", label: "Cantidad de pisos", type: "num" },
         { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
-        { id: "APARTMENT_PROPERTY_SUBTYPE", label: "Tipo de departamento", type: "list", options: ["Departamento", "Monoambiente", "Dúplex", "Tríplex", "Penthouse", "Loft", "Semi piso", "Piso", "Ph"] },
+        { id: "HOUSE_PROPERTY_SUBTYPE", label: "Tipo de casa", type: "list", options: ["Casa", "Cabaña", "Chalet", "Dúplex", "Ph", "Tríplex"] },
+        { id: "APARTMENT_PROPERTY_SUBTYPE", label: "Tipo de departamento", type: "list", options: ["Departamento", "Monoambiente", "Dúplex", "Tríplex", "Penthhouse", "Loft", "Semi piso", "Piso", "Ph"] },
         { id: "DISPOSITION", label: "Disposición", type: "list", options: ["Frente", "Contrafrente", "Interno", "Lateral"] },
         { id: "FACING", label: "Orientación", type: "list", options: ["Norte", "Sur", "Este", "Oeste"] },
       ],
@@ -479,12 +480,16 @@
     // El subtipo "Tipo de departamento" es un atributo de ML que solo aplica a apartamentos.
     function updateSubtypeByType() {
       var ret = document.getElementById('propRealEstateType').value;
-      var el = document.getElementById('fc-APARTMENT_PROPERTY_SUBTYPE');
-      if (!el) return;
-      var g = el.closest('.form-group');
-      var show = (ret === 'apartamento');
-      if (g) g.style.display = show ? '' : 'none';
-      if (!show) el.value = '';
+      // En ML solo Casa y Apartamento tienen subtipo: mostramos el que corresponde y vaciamos el resto.
+      var map = { casa: 'HOUSE_PROPERTY_SUBTYPE', apartamento: 'APARTMENT_PROPERTY_SUBTYPE' };
+      ['HOUSE_PROPERTY_SUBTYPE', 'APARTMENT_PROPERTY_SUBTYPE'].forEach(function(id) {
+        var el = document.getElementById('fc-' + id);
+        if (!el) return;
+        var g = el.closest('.form-group');
+        var show = (map[ret] === id);
+        if (g) g.style.display = show ? '' : 'none';
+        if (!show) el.value = '';
+      });
     }
     function renderFicha() {
       const wrap = document.getElementById('fichaTecnica');
