@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapa de cierres · MALAVÉ</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root{ --gold:#c9a227; --ink:#1c1c1c; --bg:#f4f5f7; --line:#e4e6ea; --venta:#27ae60; --alq:#2e86de; }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--ink); padding:18px; }
+    .wrap{ max-width:960px; margin:0 auto; }
+    .top{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .top h1{ font-size:1.5rem; display:flex; align-items:center; gap:10px; }
+    .top h1 i{ color:var(--gold); }
+    .top-actions{ display:flex; gap:10px; align-items:center; }
+    .back{ color:#666; text-decoration:none; font-size:.9rem; display:inline-flex; align-items:center; gap:6px; }
+    .back:hover{ color:var(--ink); }
+    .btn{ border:none; cursor:pointer; border-radius:10px; padding:10px 16px; font-size:.9rem; font-weight:600; display:inline-flex; align-items:center; gap:7px; }
+    .btn-gold{ background:var(--gold); color:#1a1a1a; }
+    .btn-gold:hover{ filter:brightness(1.05); }
+    .btn-ghost{ background:#fff; border:1px solid var(--line); color:#444; }
+    .toolbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+    .chips{ display:flex; gap:6px; background:#fff; border:1px solid var(--line); border-radius:12px; padding:4px; }
+    .chip{ border:none; background:transparent; cursor:pointer; border-radius:9px; padding:7px 14px; font-size:.86rem; font-weight:600; color:#666; }
+    .chip.active{ background:var(--ink); color:#fff; }
+    .legend{ display:flex; gap:14px; align-items:center; font-size:.82rem; color:#666; margin-left:auto; }
+    .legend span{ display:inline-flex; align-items:center; gap:6px; }
+    .dot{ width:12px; height:12px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px #ddd; }
+    #mapaCierres{ height:460px; border-radius:14px; border:1px solid var(--line); overflow:hidden; z-index:1; }
+    .count{ font-size:.9rem; color:#777; margin:16px 0 10px; font-weight:600; }
+    .cierre-card{ background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:10px; display:flex; align-items:center; gap:14px; cursor:pointer; transition:.15s; }
+    .cierre-card:hover{ border-color:var(--gold); box-shadow:0 2px 8px rgba(0,0,0,.06); }
+    .tag{ font-size:.72rem; font-weight:700; padding:4px 10px; border-radius:20px; flex:0 0 auto; }
+    .cc-main{ flex:1; min-width:0; }
+    .cc-price{ font-weight:700; font-size:1.02rem; }
+    .cc-sub{ font-size:.88rem; color:#444; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cc-meta{ font-size:.8rem; color:#888; margin-top:2px; }
+    .cc-date{ font-size:.8rem; color:#999; flex:0 0 auto; }
+    .empty{ text-align:center; color:#999; padding:36px 20px; background:#fff; border:1px solid var(--line); border-radius:14px; }
+    /* Modal */
+    .overlay{ position:fixed; inset:0; background:rgba(16,29,48,.5); display:none; align-items:center; justify-content:center; z-index:4000; padding:16px; }
+    .overlay.open{ display:flex; }
+    .modal{ background:#fff; border-radius:16px; width:560px; max-width:100%; max-height:92vh; overflow:auto; padding:22px; }
+    .modal h2{ font-size:1.2rem; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
+    .modal h2 i{ color:var(--gold); }
+    .modal .sub{ font-size:.85rem; color:#888; margin-bottom:16px; }
+    .fg{ margin-bottom:14px; }
+    .fg label{ display:block; font-size:.82rem; font-weight:600; color:#444; margin-bottom:5px; }
+    .fg select, .fg input{ width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:.92rem; }
+    .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .reg-info{ background:#faf8f0; border:1px solid #ecd9a0; border-radius:10px; padding:10px 12px; font-size:.85rem; line-height:1.5; color:#5a4a12; margin-bottom:14px; }
+    .tipo-toggle{ display:flex; gap:8px; }
+    .tipo-toggle label{ flex:1; border:1px solid var(--line); border-radius:10px; padding:10px; text-align:center; cursor:pointer; font-weight:600; font-size:.9rem; }
+    .tipo-toggle input{ display:none; }
+    .tipo-toggle input:checked + span{ color:#fff; }
+    .tipo-toggle label:has(input[value="venta"]:checked){ background:var(--venta); border-color:var(--venta); }
+    .tipo-toggle label:has(input[value="alquiler"]:checked){ background:var(--alq); border-color:var(--alq); }
+    #regMapa{ height:220px; border-radius:10px; border:1px solid var(--line); overflow:hidden; margin-top:6px; }
+    .reg-hint{ font-size:.78rem; color:#999; margin-top:6px; }
+    .modal-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+    #mvToastWrap{ position:fixed; right:16px; bottom:16px; z-index:99999; display:flex; flex-direction:column; gap:10px; max-width:360px; }
+    .mv-toast{ background:var(--ink); color:#fff; border-left:4px solid var(--gold); border-radius:12px; padding:12px 14px; box-shadow:0 8px 24px rgba(0,0,0,.3); opacity:0; transform:translateY(10px); transition:.25s; font-size:.9rem; }
+    .mv-toast.show{ opacity:1; transform:translateY(0); }
+    .mv-toast.err{ border-left-color:#e74c3c; }
+    @media(max-width:560px){ #mapaCierres{ height:340px; } .grid2{ grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1><i class="fas fa-map-location-dot"></i> Mapa de cierres</h1>
+      <div class="top-actions">
+        <a class="back" href="index.html"><i class="fas fa-arrow-left"></i> Volver</a>
+        <button class="btn btn-gold" id="btnReg" onclick="openReg()" style="display:none"><i class="fas fa-plus"></i> Registrar cierre</button>
+      </div>
+    </div>
+
+    <div id="loadingState" class="empty"><i class="fas fa-spinner fa-spin"></i> Cargando…</div>
+    <div id="authState" class="empty" style="display:none"><i class="fas fa-lock" style="font-size:1.6rem;color:#ccc;display:block;margin-bottom:10px"></i><span id="authMsg">Tenés que iniciar sesión.</span></div>
+
+    <div id="content" style="display:none">
+      <div class="toolbar">
+        <div class="chips">
+          <button class="chip active" id="chip-todos" onclick="setFiltro('todos')">Todos</button>
+          <button class="chip" id="chip-venta" onclick="setFiltro('venta')">Ventas</button>
+          <button class="chip" id="chip-alquiler" onclick="setFiltro('alquiler')">Alquileres</button>
+        </div>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--venta)"></i> Venta</span>
+          <span><i class="dot" style="background:var(--alq)"></i> Alquiler</span>
+        </div>
+      </div>
+      <div id="mapaCierres"></div>
+      <div class="count" id="count"></div>
+      <div id="lista"></div>
+    </div>
+  </div>
+
+  <!-- Modal registrar cierre -->
+  <div class="overlay" id="regModal">
+    <div class="modal">
+      <h2><i class="fas fa-handshake"></i> Registrar cierre</h2>
+      <div class="sub">Elegí una propiedad tuya. Quedan guardados su ubicación, características y el precio del cierre para usarlos después al tasar.</div>
+
+      <div class="fg">
+        <label>Propiedad</label>
+        <select id="regProp" onchange="onPropSelect()"></select>
+      </div>
+      <div id="regInfo"></div>
+
+      <div class="fg">
+        <label>Tipo de cierre</label>
+        <div class="tipo-toggle">
+          <label><input type="radio" name="regTipo" value="venta" checked><span>Venta</span></label>
+          <label><input type="radio" name="regTipo" value="alquiler"><span>Alquiler</span></label>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="fg"><label>Precio de cierre</label><input type="number" id="regPrecio" placeholder="0"></div>
+        <div class="fg"><label>Moneda</label><select id="regMoneda"><option value="USD">US$</option><option value="UYU">$U</option></select></div>
+      </div>
+      <div class="grid2">
+        <div class="fg"><label>Fecha del cierre</label><input type="date" id="regFecha"></div>
+        <div class="fg"><label>&nbsp;</label><div style="font-size:.78rem;color:#999;padding-top:10px">El alquiler es por mes.</div></div>
+      </div>
+      <div class="grid2">
+        <div class="fg"><label>Construcción (1-5) <small style="color:#aaa">opcional</small></label><input type="number" id="regCons" min="1" max="5" placeholder="3"></div>
+        <div class="fg"><label>Ubicación (1-5) <small style="color:#aaa">opcional</small></label><input type="number" id="regUbi" min="1" max="5" placeholder="3"></div>
+      </div>
+
+      <div class="fg">
+        <label>Ubicación en el mapa</label>
+        <div id="regMapa"></div>
+        <div class="reg-hint">Si la propiedad ya tiene ubicación, aparece marcada. Tocá el mapa o arrastrá el pin para ajustarla.</div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeReg()">Cancelar</button>
+        <button class="btn btn-gold" id="regSave" onclick="guardarCierre()"><i class="fas fa-floppy-disk"></i> Guardar cierre</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
+    const ADMIN_EMAIL = "fabricio9061@gmail.com";
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    const COL = { venta: '#27ae60', alquiler: '#2e86de' };
+    let curUser = null, curProfile = {}, isAdmin = false;
+    let allProps = [], cierres = [], editableProps = [], vista = [];
+    let filtro = 'todos';
+    let map = null, capa = [];
+    let regMap = null, regPin = null, regLatLng = null, selProp = null;
+
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+    function fmtMoney(v, m){ return (m==='UYU' ? '$U ' : 'US$ ') + Number(v||0).toLocaleString('es-UY'); }
+    function fmtFecha(s){ if(!s) return ''; const d=new Date(s); if(isNaN(d.getTime())) return s; return d.toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+    function show(id){ ['loadingState','authState','content'].forEach(x=>{ const e=document.getElementById(x); if(e) e.style.display = x===id?'block':'none'; }); }
+    function toast(msg, err){
+      let c=document.getElementById('mvToastWrap'); if(!c){ c=document.createElement('div'); c.id='mvToastWrap'; document.body.appendChild(c); }
+      const t=document.createElement('div'); t.className='mv-toast'+(err?' err':''); t.textContent=msg; c.appendChild(t);
+      setTimeout(()=>t.classList.add('show'),10); setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); },3800);
+    }
+    function tipoDeProp(p){ return p.type==='rent' ? 'alquiler' : 'venta'; }
+
+    function coleccionar(){
+      cierres = allProps.filter(p => p.cierre && p.cierre.lat != null && p.cierre.lng != null);
+    }
+
+    function initMap(){
+      if(map){ setTimeout(()=>map.invalidateSize(),150); return; }
+      map = L.map('mapaCierres', { scrollWheelZoom:false }).setView([-34.9011,-56.1645], 11);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(map);
+      setTimeout(()=>map.invalidateSize(),200);
+    }
+
+    function popupHTML(p){
+      const c = p.cierre;
+      let s = '<div style="min-width:180px">';
+      s += '<div style="font-weight:700;color:'+(COL[c.tipo]||'#333')+'">'+(c.tipo==='venta'?'Venta':'Alquiler')+' · '+fmtMoney(c.precio,c.moneda)+'</div>';
+      s += '<div style="font-size:.85rem;margin-top:4px">'+esc(p.title||'Propiedad')+'</div>';
+      s += '<div style="font-size:.8rem;color:#666;margin-top:4px">';
+      if(c.m2) s += c.m2+' m² · ';
+      s += esc(c.realEstateType||'');
+      if(c.dormitorios||c.banos) s += '<br>'+(c.dormitorios||0)+' dorm · '+(c.banos||0)+' baños';
+      if(c.barrio) s += '<br>📍 '+esc(c.barrio);
+      if(c.fecha) s += '<br>📅 '+fmtFecha(c.fecha);
+      s += '</div></div>';
+      return s;
+    }
+
+    function renderMapa(){
+      capa.forEach(m=>map.removeLayer(m)); capa=[];
+      const pts=[];
+      vista.forEach(p=>{
+        const c=p.cierre; const color=COL[c.tipo]||'#888';
+        const mk = L.circleMarker([c.lat,c.lng], { radius:9, color:'#fff', weight:2, fillColor:color, fillOpacity:0.9 });
+        mk.bindPopup(popupHTML(p));
+        mk.addTo(map); capa.push(mk);
+        pts.push([c.lat,c.lng]);
+      });
+      if(pts.length){ try{ map.fitBounds(pts, { padding:[40,40], maxZoom:15 }); }catch(e){} }
+    }
+
+    function cardHTML(p, idx){
+      const c=p.cierre;
+      let meta = (c.m2?c.m2+' m² · ':'') + esc(c.realEstateType||'');
+      if(c.barrio) meta += ' · ' + esc(c.barrio);
+      return '<div class="cierre-card" onclick="focusCierre('+idx+')">'
+        + '<span class="tag" style="background:'+COL[c.tipo]+'22;color:'+COL[c.tipo]+'">'+(c.tipo==='venta'?'Venta':'Alquiler')+'</span>'
+        + '<div class="cc-main"><div class="cc-price">'+fmtMoney(c.precio,c.moneda)+'</div>'
+        + '<div class="cc-sub">'+esc(p.title||'Propiedad')+'</div>'
+        + '<div class="cc-meta">'+meta+'</div></div>'
+        + '<div class="cc-date">'+fmtFecha(c.fecha)+'</div></div>';
+    }
+
+    function renderLista(){
+      const wrap=document.getElementById('lista');
+      document.getElementById('count').textContent = vista.length + (vista.length===1?' cierre registrado':' cierres registrados');
+      if(!vista.length){ wrap.innerHTML='<div class="empty">Todavía no hay cierres con este filtro. Tocá “Registrar cierre” para sumar el primero.</div>'; return; }
+      wrap.innerHTML = vista.map((p,i)=>cardHTML(p,i)).join('');
+    }
+
+    function refrescar(){
+      vista = cierres.filter(p => filtro==='todos' || p.cierre.tipo===filtro)
+        .sort((a,b)=> String(b.cierre.fecha||'').localeCompare(String(a.cierre.fecha||'')));
+      renderMapa(); renderLista();
+    }
+
+    function setFiltro(f){
+      filtro=f;
+      ['todos','venta','alquiler'].forEach(x=>document.getElementById('chip-'+x).classList.toggle('active', x===f));
+      refrescar();
+    }
+
+    function focusCierre(i){
+      const p=vista[i]; if(!p) return;
+      map.setView([p.cierre.lat, p.cierre.lng], 16);
+      if(capa[i]) capa[i].openPopup();
+      document.getElementById('mapaCierres').scrollIntoView({ behavior:'smooth', block:'center' });
+    }
+
+    // ---- Registrar cierre ----
+    function llenarPicker(){
+      const sel=document.getElementById('regProp');
+      const opts = editableProps.map(p=>{
+        const dir = p.direccion || (p.ubicacion && p.ubicacion.barrio) || p.barrio || p.location || '';
+        return '<option value="'+p.id+'">'+esc((p.title || '(sin título)') + (dir ? ' — ' + dir : ''))+'</option>';
+      }).join('');
+      sel.innerHTML = '<option value="">— Elegí una propiedad —</option>' + opts;
+    }
+
+    function initRegMap(){
+      if(regMap){ setTimeout(()=>regMap.invalidateSize(),100); return; }
+      regMap = L.map('regMapa').setView([-34.9011,-56.1645], 11);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(regMap);
+      regMap.on('click', e=> setRegPin(e.latlng.lat, e.latlng.lng));
+      setTimeout(()=>regMap.invalidateSize(),120);
+    }
+    function setRegPin(lat,lng){
+      regLatLng = { lat: Math.round(lat*1e6)/1e6, lng: Math.round(lng*1e6)/1e6 };
+      if(!regPin){
+        regPin = L.marker([lat,lng], { draggable:true }).addTo(regMap);
+        regPin.on('dragend', ()=>{ const p=regPin.getLatLng(); setRegPin(p.lat,p.lng); });
+      } else regPin.setLatLng([lat,lng]);
+      if(regMap.getZoom()<14) regMap.setView([lat,lng],15); else regMap.panTo([lat,lng]);
+    }
+
+    function openReg(){
+      selProp=null; regLatLng=null;
+      document.getElementById('regProp').value='';
+      document.getElementById('regInfo').innerHTML='';
+      document.getElementById('regPrecio').value='';
+      document.getElementById('regPrecio').placeholder='0';
+      document.getElementById('regCons').value='';
+      document.getElementById('regUbi').value='';
+      document.getElementById('regFecha').value = new Date().toISOString().slice(0,10);
+      document.querySelector('input[name="regTipo"][value="venta"]').checked = true;
+      if(regPin && regMap){ regMap.removeLayer(regPin); regPin=null; }
+      document.getElementById('regModal').classList.add('open');
+      setTimeout(()=>{ initRegMap(); }, 60);
+    }
+    function closeReg(){ document.getElementById('regModal').classList.remove('open'); }
+
+    function onPropSelect(){
+      const id=document.getElementById('regProp').value;
+      selProp = editableProps.find(p=>p.id===id) || null;
+      const info=document.getElementById('regInfo');
+      if(!selProp){ info.innerHTML=''; return; }
+      const p=selProp;
+      const tt = document.querySelector('input[name="regTipo"][value="'+tipoDeProp(p)+'"]');
+      if(tt) tt.checked = true;
+      document.getElementById('regMoneda').value = p.currency || 'USD';
+      const m2 = p.builtArea || p.totalArea || 0;
+      info.innerHTML = '<div class="reg-info"><b>'+esc(p.title||'Propiedad')+'</b><br>'
+        + (m2?m2+' m² · ':'') + esc(p.realEstateType||'') + ' · ' + (p.bedrooms||0) + ' dorm · ' + (p.bathrooms||0) + ' baños<br>'
+        + 'Precio publicado: ' + fmtMoney(p.price, p.currency) + '</div>';
+      const lat = p.ubicacion && p.ubicacion.lat, lng = p.ubicacion && p.ubicacion.lng;
+      if(lat!=null && lng!=null){ setRegPin(lat,lng); }
+    }
+
+    async function guardarCierre(){
+      if(!selProp){ toast('Elegí una propiedad', true); return; }
+      const tipo = (document.querySelector('input[name="regTipo"]:checked')||{}).value || tipoDeProp(selProp);
+      const precio = parseFloat(document.getElementById('regPrecio').value);
+      if(!precio || precio<=0){ toast('Poné el precio de cierre', true); return; }
+      if(!regLatLng){ toast('Marcá la ubicación en el mapa', true); return; }
+      const moneda = document.getElementById('regMoneda').value || 'USD';
+      const fecha = document.getElementById('regFecha').value || new Date().toISOString().slice(0,10);
+      const cons = parseInt(document.getElementById('regCons').value) || null;
+      const ubi = parseInt(document.getElementById('regUbi').value) || null;
+      const p = selProp;
+      const cierre = {
+        tipo, precio, moneda, fecha,
+        construccion: cons, ubicacionScore: ubi,
+        lat: regLatLng.lat, lng: regLatLng.lng,
+        m2: p.builtArea || p.totalArea || 0, dormitorios: p.bedrooms || 0, banos: p.bathrooms || 0,
+        realEstateType: p.realEstateType || '', barrio: (p.ubicacion && p.ubicacion.barrio) || p.barrio || '',
+        precioPublicado: p.price || 0,
+        agenteUid: curUser.uid, agenteNombre: curProfile.name || curUser.email || 'Agente',
+        registradoEl: new Date().toISOString()
+      };
+      const btn=document.getElementById('regSave'); btn.disabled=true;
+      try{
+        const upd = { cierre: cierre, status: (tipo==='venta' ? 'sold' : 'rented'), updatedAt: new Date().toISOString() };
+        upd['ubicacion.lat'] = regLatLng.lat;
+        upd['ubicacion.lng'] = regLatLng.lng;
+        await db.collection('properties').doc(p.id).update(upd);
+        p.cierre = cierre; p.status = upd.status;
+        if(!p.ubicacion) p.ubicacion = {};
+        p.ubicacion.lat = regLatLng.lat; p.ubicacion.lng = regLatLng.lng;
+        coleccionar(); refrescar();
+        toast('Cierre registrado ✓');
+        closeReg();
+      }catch(e){
+        console.warn('guardarCierre', e);
+        toast(e && e.code==='permission-denied' ? 'No tenés permiso para editar esta propiedad.' : ('No se pudo guardar: ' + (e.message||e)), true);
+      }finally{ btn.disabled=false; }
+    }
+
+    async function cargar(){
+      try{
+        const q = await db.collection('properties').get();
+        allProps = q.docs.map(d=>({ id:d.id, ...d.data() }));
+        editableProps = allProps.filter(p => isAdmin || p.ownerId===curUser.uid || (Array.isArray(p.agents) && p.agents.indexOf(curUser.uid)>=0));
+        coleccionar();
+        show('content');
+        document.getElementById('btnReg').style.display = '';
+        initMap();
+        llenarPicker();
+        refrescar();
+      }catch(e){
+        show('content');
+        document.getElementById('lista').innerHTML = '<div class="empty" style="color:#c0392b">No se pudieron cargar las propiedades. '+esc(e.message||e)+'</div>';
+      }
+    }
+
+    auth.onAuthStateChanged(async u=>{
+      if(!u){ show('authState'); document.getElementById('authMsg').textContent='Tenés que iniciar sesión.'; return; }
+      curUser=u;
+      try{ const d=await db.collection('users').doc(u.uid).get(); curProfile=d.exists?d.data():{}; }catch(e){ curProfile={}; }
+      isAdmin = (curProfile.email || u.email || '').toLowerCase() === ADMIN_EMAIL;
+      if(curProfile.status!=='approved' && !isAdmin){ show('authState'); document.getElementById('authMsg').textContent='Tu cuenta está pendiente de aprobación.'; return; }
+      cargar();
+    });
+  </script>
+</body>
+</html>
