@@ -116,6 +116,7 @@
     let fTipo = 'todas', fEstado = 'todas';
 
     function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+    function toList(v){ if(Array.isArray(v)) return v; if(v && typeof v==='object') return Object.values(v); return []; }
     function fmtFecha(iso){ if(!iso) return ''; const d=new Date(iso); if(isNaN(d.getTime())) return iso; return d.toLocaleString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
     function show(id){ ['loadingState','authState','content'].forEach(x=>{ const e=document.getElementById(x); if(e) e.style.display = x===id?'block':'none'; }); }
     function toast(msg, err){
@@ -183,8 +184,8 @@
         q.docs.forEach(d=>{
           const u = d.data();
           Object.keys(TIPOS).forEach(tipo=>{
-            const arr = u[TIPOS[tipo].field];
-            if(Array.isArray(arr)) arr.forEach(rec=>{
+            const arr = toList(u[TIPOS[tipo].field]);
+            arr.forEach(rec=>{
               allRecords.push(Object.assign({}, rec, {
                 _uid: d.id, _field: TIPOS[tipo].field,
                 tipo: rec.tipo || tipo,
@@ -204,8 +205,14 @@
       try{
         const ref = db.collection('users').doc(uid);
         const d = await ref.get();
-        const arr = (d.exists && Array.isArray(d.data()[field])) ? d.data()[field] : [];
-        const nuevo = arr.map(x => (x && x.id===id) ? Object.assign({}, x, { revisado:true }) : x);
+        const cur = d.exists ? d.data()[field] : null;
+        let nuevo;
+        if (Array.isArray(cur)) {
+          nuevo = cur.map(x => (x && x.id===id) ? Object.assign({}, x, { revisado:true }) : x);
+        } else if (cur && typeof cur==='object') {
+          nuevo = Object.assign({}, cur);
+          Object.keys(nuevo).forEach(k => { if (nuevo[k] && (nuevo[k].id===id || k===id)) nuevo[k] = Object.assign({}, nuevo[k], { revisado:true }); });
+        } else { return; }
         await ref.update({ [field]: nuevo });
         allRecords.forEach(r=>{ if(r._uid===uid && r._field===field && r.id===id) r.revisado=true; });
         render();

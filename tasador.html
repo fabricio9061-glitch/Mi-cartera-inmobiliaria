@@ -174,9 +174,8 @@
       <p class="tas-res-msg" id="tasResMsg">Completa el inmueble y los 4 antecedentes para ver la estimacion en tiempo real.</p>
     </div>
 
-    <div style="text-align:center; margin:16px 0 4px">
-      <button type="button" id="tasGuardarBtn" class="tas-export" style="background:var(--gold,#c9a227); color:#1a1a1a; border-color:var(--gold,#c9a227)" onclick="guardarTasacion()"><i class="fas fa-floppy-disk"></i> Guardar tasación</button>
-      <div style="font-size:.78rem; opacity:.7; margin-top:6px">Queda registrada para que el administrador la revise.</div>
+    <div style="text-align:center; margin:14px 0 4px">
+      <span id="tasAutoSave" style="font-size:.82rem; opacity:.7"></span>
     </div>
 
     <div class="tas-card tas-report" style="margin-top:18px">
@@ -261,7 +260,7 @@
     const auth = firebase.auth(), db = firebase.firestore();
     const ADMIN_EMAIL = "fabricio9061@gmail.com";
     const LS_KEY = "malaveTasador";
-    let agenteNombre = '', agenteEmail = '', agenteUid = '';
+    let agenteNombre = '', agenteEmail = '', agenteUid = '', sesionTasId = 'tas_' + Date.now();
 
     function tpShow(which) {
       ['tpLoading', 'tpAuth', 'tpContent'].forEach(id => document.getElementById(id).style.display = 'none');
@@ -342,6 +341,8 @@
       renderTasAntecedentes(); calcTasador();
     }
     function resetTasador() {
+      sesionTasId = 'tas_' + Date.now();
+      var _s = document.getElementById('tasAutoSave'); if (_s) { _s.textContent = ''; _s.style.color = ''; }
       tasAntecedentes = [
         { m2: '', cons: '', ubi: '', valor: '', tipo: 'venta', asim: 1 },
         { m2: '', cons: '', ubi: '', valor: '', tipo: 'venta', asim: 1 },
@@ -903,6 +904,7 @@
           }
         });
         pdf.save('Informe_Tasacion_MALAVE_' + now.toISOString().slice(0,10) + '.pdf');
+        guardarTasacion();
         wrap.remove(); styleEl.remove();
         btn.disabled = false; btn.innerHTML = prevHTML;
       }).catch(function(e){
@@ -927,12 +929,12 @@
     }
 
     async function guardarTasacion() {
-      if (!agenteUid) { showToast('Iniciá sesión', 'Necesitás estar logueado para guardar.', 'fa-triangle-exclamation'); return; }
-      if (!ultimoResultado) { showToast('Faltan datos', 'Completá el inmueble y los 4 antecedentes para ver el resultado antes de guardar.', 'fa-circle-exclamation'); return; }
+      if (!agenteUid || !ultimoResultado) return;
+      var s = document.getElementById('tasAutoSave');
       var rv = function(id){ var e = document.getElementById(id); return e ? (e.value || '').trim() : ''; };
       var r = ultimoResultado;
       var rec = {
-        id: 'tas_' + Date.now(),
+        id: sesionTasId,
         tipo: 'tasacion',
         fecha: new Date().toISOString(),
         agenteUid: agenteUid, agenteNombre: agenteNombre || agenteEmail || 'Agente', agenteEmail: agenteEmail || '',
@@ -946,16 +948,14 @@
         resultado: { valor: Math.round(r.valorTotal || 0), min: Math.round(r.minV || 0), max: Math.round(r.maxV || 0), incertidumbre: +((r.incert || 0).toFixed(1)) },
         revisado: false
       };
-      var btn = document.getElementById('tasGuardarBtn');
-      if (btn) { btn.disabled = true; }
+      if (s) { s.textContent = 'Guardando…'; s.style.color = ''; }
       try {
-        await db.collection('users').doc(agenteUid).set({ tasaciones: firebase.firestore.FieldValue.arrayUnion(rec) }, { merge: true });
-        showToast('Guardada', 'La tasación quedó registrada para revisión.', 'fa-circle-check');
+        await db.collection('users').doc(agenteUid).set({ tasaciones: { [sesionTasId]: rec } }, { merge: true });
+        if (s) { s.textContent = 'Tasación guardada para revisión ✓ ' + new Date().toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }); s.style.color = ''; }
       } catch (e) {
-        console.warn('guardarTasacion', e);
-        var msg = (e && e.code === 'permission-denied') ? 'No tenés permiso para escribir tu perfil. Avisá al admin.' : ('Error: ' + ((e && e.message) || e));
-        showToast('No se pudo guardar', msg, 'fa-triangle-exclamation');
-      } finally { if (btn) { btn.disabled = false; } }
+        console.warn('autosave tasacion', e);
+        if (s) { s.textContent = (e && e.code === 'permission-denied') ? 'No se pudo guardar (revisá permisos del perfil)' : 'No se pudo guardar automáticamente'; s.style.color = '#c0392b'; }
+      }
     }
 
     auth.onAuthStateChanged(async function(u) {
