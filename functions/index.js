@@ -1472,6 +1472,32 @@ exports.estadoML = onCall(async (request) => {
     if (h.data.health != null) health = h.data.health;
     actions = (h.data.actions || []).map((a) => a.id || a.name).filter(Boolean);
   } catch (e) { /* algunos avisos no exponen health/actions todavía */ }
+  // Interacción del aviso: visitas (últimos 30 días) y preguntas.
+  let visitas = null;
+  try {
+    const v = await axios.get(`${API}/items/${p.mlItemId}/visits/time_window`, { headers, params: { last: 30, unit: "day" } });
+    if (v.data && v.data.total_visits != null) visitas = v.data.total_visits;
+  } catch (e) { /* visitas no disponibles para este aviso */ }
+  let preguntas = null;
+  try {
+    const qt = await axios.get(`${API}/questions/search`, { headers, params: { item: p.mlItemId, api_version: 4 } });
+    const total = (qt.data && qt.data.total != null) ? qt.data.total : ((qt.data && qt.data.questions) ? qt.data.questions.length : 0);
+    let sinResponder = null;
+    try {
+      const qu = await axios.get(`${API}/questions/search`, { headers, params: { item: p.mlItemId, status: "UNANSWERED", api_version: 4 } });
+      if (qu.data && qu.data.total != null) sinResponder = qu.data.total;
+    } catch (e2) { /* sin desglose de no respondidas */ }
+    preguntas = { total: total, sinResponder: sinResponder };
+  } catch (e) { /* preguntas no disponibles para este aviso */ }
+  // Contactos por WhatsApp del aviso en Mercado Libre (últimos 30 días).
+  let contactosWa = null;
+  try {
+    const cw = await axios.get(`${API}/items/contacts/whatsapp/time_window`, { headers, params: { ids: p.mlItemId, unit: "day", last: 30 } });
+    if (cw.data) {
+      if (cw.data.total != null) contactosWa = cw.data.total;
+      else if (Array.isArray(cw.data.results)) contactosWa = cw.data.results.reduce((s, r) => s + (r.total || 0), 0);
+    }
+  } catch (e) { /* contactos de WhatsApp no disponibles para este aviso */ }
   return {
     publicado: true,
     mlItemId: p.mlItemId,
@@ -1481,6 +1507,9 @@ exports.estadoML = onCall(async (request) => {
     permalink: item.permalink || p.mlPermalink || "",
     health,
     actions,
+    visitas: visitas,
+    preguntas: preguntas,
+    contactosWhatsapp: contactosWa,
   };
 });
 
