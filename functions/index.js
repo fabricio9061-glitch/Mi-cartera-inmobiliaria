@@ -1472,32 +1472,43 @@ exports.estadoML = onCall(async (request) => {
     if (h.data.health != null) health = h.data.health;
     actions = (h.data.actions || []).map((a) => a.id || a.name).filter(Boolean);
   } catch (e) { /* algunos avisos no exponen health/actions todavía */ }
-  // Interacción del aviso: visitas (últimos 30 días) y preguntas.
-  let visitas = null;
-  try {
-    const v = await axios.get(`${API}/items/${p.mlItemId}/visits/time_window`, { headers, params: { last: 30, unit: "day" } });
-    if (v.data && v.data.total_visits != null) visitas = v.data.total_visits;
-  } catch (e) { /* visitas no disponibles para este aviso */ }
-  let preguntas = null;
-  try {
-    const qt = await axios.get(`${API}/questions/search`, { headers, params: { item: p.mlItemId, api_version: 4 } });
-    const total = (qt.data && qt.data.total != null) ? qt.data.total : ((qt.data && qt.data.questions) ? qt.data.questions.length : 0);
-    let sinResponder = null;
-    try {
-      const qu = await axios.get(`${API}/questions/search`, { headers, params: { item: p.mlItemId, status: "UNANSWERED", api_version: 4 } });
-      if (qu.data && qu.data.total != null) sinResponder = qu.data.total;
-    } catch (e2) { /* sin desglose de no respondidas */ }
-    preguntas = { total: total, sinResponder: sinResponder };
-  } catch (e) { /* preguntas no disponibles para este aviso */ }
-  // Contactos por WhatsApp del aviso en Mercado Libre (últimos 30 días).
-  let contactosWa = null;
-  try {
-    const cw = await axios.get(`${API}/items/contacts/whatsapp/time_window`, { headers, params: { ids: p.mlItemId, unit: "day", last: 30 } });
-    if (cw.data) {
-      if (cw.data.total != null) contactosWa = cw.data.total;
-      else if (Array.isArray(cw.data.results)) contactosWa = cw.data.results.reduce((s, r) => s + (r.total || 0), 0);
+  // Interacción del aviso (estadísticas de Inmuebles de ML), últimos 30 días.
+  const _hasta = new Date().toISOString();
+  const _desde = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const _total = (data) => {
+    if (data == null) return null;
+    if (typeof data === "number") return data;
+    if (data.total != null) return data.total;
+    if (data.total_visits != null) return data.total_visits;
+    if (data.quantity != null) return data.quantity;
+    for (const k of ["results", "visits_detail", "detail", "contacts"]) {
+      if (Array.isArray(data[k])) return data[k].reduce((s, r) => s + ((r && (r.total != null ? r.total : r.quantity)) || 0), 0);
     }
-  } catch (e) { /* contactos de WhatsApp no disponibles para este aviso */ }
+    return null;
+  };
+  const _fetchTotal = async (intentos) => {
+    for (const it of intentos) {
+      try {
+        const r = await axios.get(`${API}${it.url}`, { headers, params: it.params });
+        const t = _total(r.data);
+        if (t != null) return t;
+      } catch (e) { logger.warn(`[estadoML] ${it.url}: ${e.response ? e.response.status : e.message}`); }
+    }
+    return null;
+  };
+  const visitas = await _fetchTotal([
+    { url: `/items/${p.mlItemId}/visits/time_window`, params: { last: 30, unit: "day" } },
+  ]);
+  const _pregTotal = await _fetchTotal([
+    { url: `/items/${p.mlItemId}/contacts/questions/time_window`, params: { last: 30, unit: "day" } },
+    { url: `/items/${p.mlItemId}/contacts/questions`, params: { date_from: _desde, date_to: _hasta } },
+  ]);
+  const preguntas = _pregTotal != null ? { total: _pregTotal, sinResponder: null } : null;
+  const contactosWa = await _fetchTotal([
+    { url: `/items/${p.mlItemId}/contacts/whatsapp/time_window`, params: { last: 30, unit: "day" } },
+    { url: `/items/${p.mlItemId}/contacts/whatsapp`, params: { date_from: _desde, date_to: _hasta } },
+    { url: `/items/contacts/whatsapp/time_window`, params: { ids: p.mlItemId, last: 30, unit: "day" } },
+  ]);
   return {
     publicado: true,
     mlItemId: p.mlItemId,
