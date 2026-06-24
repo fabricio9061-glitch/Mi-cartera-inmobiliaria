@@ -83,6 +83,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
@@ -141,6 +142,7 @@
       const t = TIPOS[r.tipo] || { label:r.tipo, icon:'fa-file', color:'#888' };
       const badge = r.revisado ? '<span class="badge ok">Revisada</span>' : '<span class="badge pend">Sin revisar</span>';
       const btn = r.revisado ? '' : '<button class="mark" onclick="marcar(\''+r._uid+'\',\''+r._field+'\',\''+esc(r.id)+'\')"><i class="fas fa-check"></i> Marcar revisada</button>';
+      const verPdf = r.pdfUrl ? '<a href="'+r.pdfUrl+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:7px;background:#16273f;color:#fff;border-radius:10px;padding:9px 14px;font-size:.88rem;font-weight:600;text-decoration:none"><i class="fas fa-file-pdf"></i> Ver PDF</a>' : '';
       return '<div class="card">'
         + '<div class="card-h">'
         +   '<span class="tipo" style="background:'+t.color+'22; color:'+t.color+'"><i class="fas '+t.icon+'"></i> '+esc(t.label)+'</span>'
@@ -152,7 +154,7 @@
         +   '<div class="kv-group"><h4>Datos</h4>'+renderKV(r.datos)+'</div>'
         +   '<div class="kv-group"><h4>Resultado</h4>'+renderKV(r.resultado)+'</div>'
         + '</div>'
-        + (btn ? '<div class="card-f">'+btn+'</div>' : '')
+        + ((btn||verPdf) ? '<div class="card-f">'+verPdf+btn+'</div>' : '')
         + '</div>';
     }
 
@@ -208,13 +210,14 @@
         const cur = d.exists ? d.data()[field] : null;
         let nuevo;
         if (Array.isArray(cur)) {
-          nuevo = cur.map(x => (x && x.id===id) ? Object.assign({}, x, { revisado:true }) : x);
+          nuevo = cur.map(x => (x && x.id===id) ? Object.assign({}, x, { revisado:true, pdfUrl:'' }) : x);
         } else if (cur && typeof cur==='object') {
           nuevo = Object.assign({}, cur);
-          Object.keys(nuevo).forEach(k => { if (nuevo[k] && (nuevo[k].id===id || k===id)) nuevo[k] = Object.assign({}, nuevo[k], { revisado:true }); });
+          Object.keys(nuevo).forEach(k => { if (nuevo[k] && (nuevo[k].id===id || k===id)) nuevo[k] = Object.assign({}, nuevo[k], { revisado:true, pdfUrl:'' }); });
         } else { return; }
         await ref.update({ [field]: nuevo });
-        allRecords.forEach(r=>{ if(r._uid===uid && r._field===field && r.id===id) r.revisado=true; });
+        try { await firebase.storage().ref('tasacionesPDF/' + id + '.pdf').delete(); } catch(e){}
+        allRecords.forEach(r=>{ if(r._uid===uid && r._field===field && r.id===id){ r.revisado=true; r.pdfUrl=''; } });
         render();
         toast('Marcada como revisada');
       }catch(e){

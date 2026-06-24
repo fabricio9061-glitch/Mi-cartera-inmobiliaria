@@ -245,6 +245,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script>
@@ -283,10 +284,10 @@
       return d;
     }
     let tasAntecedentes = [
-      { m2: '', cons: '', ubi: '', valor: '', tipo: 'venta', asim: 1 },
-      { m2: '', cons: '', ubi: '', valor: '', tipo: 'venta', asim: 1 },
       { m2: '', cons: '', ubi: '', valor: '', tipo: 'oferta', asim: DEF_ASIM },
-      { m2: '', cons: '', ubi: '', valor: '', tipo: 'venta', asim: 1 }
+      { m2: '', cons: '', ubi: '', valor: '', tipo: 'oferta', asim: DEF_ASIM },
+      { m2: '', cons: '', ubi: '', valor: '', tipo: 'oferta', asim: DEF_ASIM },
+      { m2: '', cons: '', ubi: '', valor: '', tipo: 'oferta', asim: DEF_ASIM }
     ];
 
     function renderTasAntecedentes() {
@@ -344,14 +345,15 @@
       sesionTasId = 'tas_' + Date.now();
       var _s = document.getElementById('tasAutoSave'); if (_s) { _s.textContent = ''; _s.style.color = ''; }
       tasAntecedentes = [
-        { m2: '', cons: '', ubi: '', valor: '', tipo: 'venta', asim: 1 },
-        { m2: '', cons: '', ubi: '', valor: '', tipo: 'venta', asim: 1 },
         { m2: '', cons: '', ubi: '', valor: '', tipo: 'oferta', asim: DEF_ASIM },
-        { m2: '', cons: '', ubi: '', valor: '', tipo: 'venta', asim: 1 }
+        { m2: '', cons: '', ubi: '', valor: '', tipo: 'oferta', asim: DEF_ASIM },
+        { m2: '', cons: '', ubi: '', valor: '', tipo: 'oferta', asim: DEF_ASIM },
+        { m2: '', cons: '', ubi: '', valor: '', tipo: 'oferta', asim: DEF_ASIM }
       ];
       ['tasM2','tasCons','tasUbi','tasDorm','tasBath'].forEach(function(id){ document.getElementById(id).value = ''; });
       document.getElementById('tasDefAsim').value = DEF_ASIM;
       try { localStorage.removeItem(LS_KEY); } catch (e) {}
+      REPORT_FIELDS.forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
       renderTasAntecedentes(); calcTasador();
     }
 
@@ -904,7 +906,14 @@
           }
         });
         pdf.save('Informe_Tasacion_MALAVE_' + now.toISOString().slice(0,10) + '.pdf');
-        guardarTasacion();
+        // Copia del PDF para revisión (se borra cuando el admin la marca revisada)
+        try {
+          var _ref = firebase.storage().ref('tasacionesPDF/' + sesionTasId + '.pdf');
+          _ref.put(pdf.output('blob'), { contentType: 'application/pdf' })
+            .then(function(){ return _ref.getDownloadURL(); })
+            .then(function(url){ guardarTasacion(url); })
+            .catch(function(e){ console.warn('subir PDF revisión', e); guardarTasacion(); });
+        } catch (e) { guardarTasacion(); }
         wrap.remove(); styleEl.remove();
         btn.disabled = false; btn.innerHTML = prevHTML;
       }).catch(function(e){
@@ -928,7 +937,7 @@
       } catch (e) { alert((title ? title + ': ' : '') + (msg || '')); }
     }
 
-    async function guardarTasacion() {
+    async function guardarTasacion(pdfUrl) {
       if (!agenteUid || !ultimoResultado) return;
       var s = document.getElementById('tasAutoSave');
       var rv = function(id){ var e = document.getElementById(id); return e ? (e.value || '').trim() : ''; };
@@ -946,7 +955,8 @@
           barrio: rv('repInmBarrio'), departamento: rv('repInmDepto'), padron: rv('repInmPadron')
         },
         resultado: { valor: Math.round(r.valorTotal || 0), min: Math.round(r.minV || 0), max: Math.round(r.maxV || 0), incertidumbre: +((r.incert || 0).toFixed(1)) },
-        revisado: false
+        revisado: false,
+        pdfUrl: pdfUrl || ''
       };
       if (s) { s.textContent = 'Guardando…'; s.style.color = ''; }
       try {
