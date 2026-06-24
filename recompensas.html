@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recompensas · MALAVÉ</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root{ --gold:#c9a227; --ink:#1c1c1c; --bg:#f4f5f7; --line:#e4e6ea; --navy:#16273f; }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--ink); padding:20px; }
+    .wrap{ max-width:960px; margin:0 auto; }
+    .top{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+    .top h1{ font-size:1.5rem; display:flex; align-items:center; gap:10px; }
+    .top h1 i{ color:var(--gold); }
+    .back{ color:#666; text-decoration:none; font-size:.9rem; display:inline-flex; align-items:center; gap:6px; }
+    .back:hover{ color:var(--ink); }
+    .btn{ border:none; cursor:pointer; border-radius:10px; padding:9px 14px; font-size:.88rem; font-weight:600; display:inline-flex; align-items:center; gap:7px; }
+    .btn-ghost{ background:#fff; border:1px solid var(--line); color:#444; }
+    .btn-ghost:hover{ background:#fafafa; }
+    .btn-gold{ background:var(--gold); color:#fff; }
+    .btn-gold:hover{ filter:brightness(.95); }
+    .btn-gold:disabled{ background:#d8d2bd; cursor:not-allowed; }
+    .btn-green{ background:#27ae60; color:#fff; }
+    .btn-red{ background:#e74c3c; color:#fff; }
+    .btn-sm{ padding:6px 11px; font-size:.8rem; }
+
+    /* Saldo */
+    .saldo{ background:linear-gradient(135deg,#16273f,#22364f); color:#fff; border-radius:18px; padding:22px 24px; margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; }
+    .saldo .pts{ font-size:2.6rem; font-weight:800; line-height:1; }
+    .saldo .lbl{ font-size:.8rem; opacity:.75; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+    .saldo .sub{ font-size:.82rem; opacity:.7; margin-top:6px; }
+    .saldo .ring{ width:64px; height:64px; border-radius:50%; background:rgba(201,162,39,.18); display:flex; align-items:center; justify-content:center; font-size:1.7rem; color:var(--gold); }
+
+    /* Tabs */
+    .tabs{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+    .tab{ background:#fff; border:1px solid var(--line); border-radius:10px; padding:9px 14px; font-size:.86rem; font-weight:600; color:#555; cursor:pointer; }
+    .tab.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
+
+    /* Catálogo */
+    .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
+    .rcard{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; display:flex; flex-direction:column; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+    .rcard .ic{ font-size:1.7rem; margin-bottom:10px; }
+    .rcard .cat{ font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; padding:3px 9px; border-radius:20px; align-self:flex-start; margin-bottom:8px; }
+    .cat-electronica{ background:#eaf2ff; color:#2e6fd6; } .ic-electronica{ color:#2e6fd6; }
+    .cat-viaje{ background:#e7f7ec; color:#1f9d54; } .ic-viaje{ color:#1f9d54; }
+    .cat-dinero{ background:#fff4e0; color:#b9770f; } .ic-dinero{ color:#b9770f; }
+    .rcard h3{ font-size:1rem; margin-bottom:4px; }
+    .rcard .desc{ font-size:.84rem; color:#777; margin-bottom:12px; flex:1; }
+    .rcard .cost{ font-weight:800; color:var(--navy); font-size:1.1rem; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+    .rcard .cost i{ color:var(--gold); }
+    .rcard .stock{ font-size:.74rem; color:#999; margin-top:-8px; margin-bottom:10px; }
+
+    /* Listas / cards admin */
+    .card{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+    .row{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .row .grow{ flex:1; min-width:160px; }
+    .pill{ font-size:.72rem; font-weight:700; padding:4px 10px; border-radius:20px; }
+    .pill-pend{ background:#fff4e0; color:#b9770f; } .pill-aprob{ background:#eaf2ff; color:#2e6fd6; }
+    .pill-entreg{ background:#e7f7ec; color:#1f9d54; } .pill-rech{ background:#fdecea; color:#c0392b; }
+    .field{ margin-bottom:12px; }
+    .field label{ display:block; font-size:.8rem; font-weight:600; color:#555; margin-bottom:5px; }
+    .field input, .field select, .field textarea{ width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:.9rem; font-family:inherit; }
+    .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .rank-row{ display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px dashed #eee; }
+    .rank-row:last-child{ border-bottom:none; }
+    .rank-pos{ width:28px; height:28px; border-radius:50%; background:#f0f1f3; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.85rem; color:#777; }
+    .rank-pos.top{ background:var(--gold); color:#fff; }
+    .empty{ text-align:center; color:#999; padding:36px 20px; background:#fff; border:1px solid var(--line); border-radius:14px; }
+    h2.sec{ font-size:1.05rem; margin:18px 0 10px; }
+    .hint{ font-size:.82rem; color:#888; margin-bottom:14px; }
+
+    #mvToastWrap{ position:fixed; right:16px; bottom:16px; z-index:99999; display:flex; flex-direction:column; gap:10px; max-width:360px; }
+    .mv-toast{ display:flex; gap:10px; align-items:flex-start; background:var(--ink); color:#fff; border-left:4px solid var(--gold); border-radius:12px; padding:12px 14px; box-shadow:0 8px 24px rgba(0,0,0,.3); opacity:0; transform:translateY(10px); transition:.25s; font-size:.9rem; }
+    .mv-toast.show{ opacity:1; transform:translateY(0); }
+    .mv-toast.err{ border-left-color:#e74c3c; }
+    @media(max-width:560px){ .grid2{ grid-template-columns:1fr; } .saldo .pts{ font-size:2.1rem; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1><i class="fas fa-trophy"></i> Recompensas</h1>
+      <div style="display:flex; gap:10px; align-items:center">
+        <a class="back" href="index.html"><i class="fas fa-arrow-left"></i> Volver</a>
+        <button class="btn btn-ghost" onclick="cargar()"><i class="fas fa-rotate-right"></i> Actualizar</button>
+      </div>
+    </div>
+
+    <div id="loadingState" class="empty"><i class="fas fa-spinner fa-spin"></i> Cargando…</div>
+    <div id="authState" class="empty" style="display:none"><i class="fas fa-lock" style="font-size:1.6rem; color:#ccc; display:block; margin-bottom:10px"></i><span id="authMsg">Tenés que iniciar sesión.</span></div>
+
+    <div id="content" style="display:none">
+      <div class="saldo">
+        <div>
+          <div class="lbl">Tus puntos</div>
+          <div class="pts" id="sPts">0</div>
+          <div class="sub" id="sSub">Ganás puntos por cada cierre confirmado.</div>
+        </div>
+        <div class="ring"><i class="fas fa-coins"></i></div>
+      </div>
+
+      <div class="tabs" id="tabs"></div>
+
+      <div id="panel"></div>
+    </div>
+  </div>
+
+  <div id="mvToastWrap"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
+    const ADMIN_EMAIL = "fabricio9061@gmail.com";
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+    function show(id){ ['loadingState','authState','content'].forEach(x=>document.getElementById(x).style.display = (x===id?'':'none')); }
+    function toast(msg, err){ const w=document.getElementById('mvToastWrap'); const t=document.createElement('div'); t.className='mv-toast'+(err?' err':''); t.innerHTML='<i class="fas fa-'+(err?'circle-exclamation':'circle-check')+'" style="margin-top:2px"></i><div>'+esc(msg)+'</div>'; w.appendChild(t); requestAnimationFrame(()=>t.classList.add('show')); setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); },3500); }
+    function nf(n){ return (Math.round(n)||0).toLocaleString('es-UY'); }
+
+    const CATS = {
+      electronica: { label:'Electrónica', icon:'fa-laptop' },
+      viaje:       { label:'Viaje',       icon:'fa-plane' },
+      dinero:      { label:'Dinero',      icon:'fa-money-bill-wave' }
+    };
+
+    let curUser=null, curProfile={}, isAdmin=false;
+    let cfg = { puntosPor100:1, valorPunto:0.05, dolarPesos:40 };
+    let cierresConf=[];   // {agenteUid, agenteNombre, precio, moneda}
+    let catalogo=[];      // recompensas
+    let canjes=[];        // mis canjes (o todos si admin)
+    let tab='catalogo';
+    let editId=null;      // edición de recompensa (admin)
+
+    // ---------- Puntos ----------
+    function montoUSD(c){ const p = Number(c.precio)||0; return (c.moneda==='UYU') ? (cfg.dolarPesos>0 ? p/cfg.dolarPesos : 0) : p; }
+    function puntosCierre(c){ return Math.floor(montoUSD(c)/100) * (Number(cfg.puntosPor100)||1); }
+    function puntosGanados(uid){ return cierresConf.filter(c=>c.agenteUid===uid).reduce((s,c)=>s+puntosCierre(c),0); }
+    function puntosGastados(uid){ return canjes.filter(x=>x.agenteUid===uid && x.status!=='rechazado').reduce((s,x)=>s+(Number(x.costoPuntos)||0),0); }
+    function saldo(uid){ return puntosGanados(uid) - puntosGastados(uid); }
+
+    // ---------- Carga ----------
+    async function cargar(){
+      show('loadingState');
+      try{
+        // Config
+        try{ const cd = await db.collection('config').doc('recompensas').get(); if(cd.exists){ cfg = Object.assign(cfg, cd.data()); } }catch(e){}
+        // Catálogo
+        const rs = await db.collection('recompensas').get();
+        catalogo = rs.docs.map(d=>Object.assign({ id:d.id }, d.data())).sort((a,b)=>(a.costoPuntos||0)-(b.costoPuntos||0));
+        // Cierres confirmados -> puntos
+        const ps = await db.collection('properties').where('cierreConfirmado','==',true).get();
+        cierresConf = ps.docs.map(d=>d.data()).filter(p=>p.cierre).map(p=>({
+          agenteUid: p.cierre.agenteUid||'', agenteNombre: p.cierre.agenteNombre||'Agente',
+          precio: p.cierre.precio, moneda: p.cierre.moneda, tipo: p.cierre.tipo
+        }));
+        // Canjes
+        if(isAdmin){
+          const cs = await db.collection('canjes').get();
+          canjes = cs.docs.map(d=>Object.assign({ id:d.id }, d.data()));
+        } else {
+          const cs = await db.collection('canjes').where('agenteUid','==',curUser.uid).get();
+          canjes = cs.docs.map(d=>Object.assign({ id:d.id }, d.data()));
+        }
+        renderTabs(); renderSaldo(); renderPanel();
+        show('content');
+      }catch(e){
+        console.warn('cargar recompensas', e);
+        show('content');
+        document.getElementById('panel').innerHTML = '<div class="empty" style="color:#c0392b">No se pudieron cargar las recompensas. '+esc(e.message||e)+'</div>';
+      }
+    }
+
+    function renderSaldo(){
+      const s = saldo(curUser.uid);
+      document.getElementById('sPts').textContent = nf(s);
+      const val = s * (Number(cfg.valorPunto)||0);
+      document.getElementById('sSub').innerHTML = 'Ganados: <b>'+nf(puntosGanados(curUser.uid))+'</b> · Canjeados: <b>'+nf(puntosGastados(curUser.uid))+'</b>' + (val>0?' · ≈ US$ '+nf(val):'');
+    }
+
+    function renderTabs(){
+      const base = [['catalogo','Catálogo','fa-gift'],['miscanjes','Mis canjes','fa-receipt']];
+      const adm = [['gcanjes','Canjes','fa-clipboard-list'],['gcatalogo','Catálogo (admin)','fa-boxes-stacked'],['ranking','Ranking','fa-ranking-star'],['config','Configurar','fa-gear']];
+      const all = isAdmin ? base.concat(adm) : base;
+      document.getElementById('tabs').innerHTML = all.map(t=>'<div class="tab'+(tab===t[0]?' active':'')+'" onclick="setTab(\''+t[0]+'\')"><i class="fas '+t[2]+'"></i> '+t[1]+'</div>').join('');
+    }
+    function setTab(t){ tab=t; editId=null; renderTabs(); renderPanel(); }
+
+    function renderPanel(){
+      if(tab==='catalogo') return renderCatalogo();
+      if(tab==='miscanjes') return renderMisCanjes();
+      if(tab==='gcanjes') return renderGestionCanjes();
+      if(tab==='gcatalogo') return renderGestionCatalogo();
+      if(tab==='ranking') return renderRanking();
+      if(tab==='config') return renderConfig();
+    }
+
+    // ---------- Catálogo (asesor) ----------
+    function renderCatalogo(){
+      const p = document.getElementById('panel');
+      if(!catalogo.length){ p.innerHTML='<div class="empty">Todavía no hay recompensas cargadas.'+(isAdmin?' Andá a "Catálogo (admin)" para sumar la primera.':'')+'</div>'; return; }
+      const s = saldo(curUser.uid);
+      p.innerHTML = '<div class="grid">' + catalogo.map(r=>{
+        const cat = CATS[r.categoria] ? r.categoria : 'electronica';
+        const stockOut = (r.stock!=null && Number(r.stock)<=0);
+        const noPlata = s < (Number(r.costoPuntos)||0);
+        const dis = stockOut || noPlata;
+        const img = r.imagen ? '<img src="'+esc(r.imagen)+'" alt="" style="width:100%;height:120px;object-fit:cover;border-radius:10px;margin-bottom:10px">' : '<div class="ic ic-'+cat+'"><i class="fas '+CATS[cat].icon+'"></i></div>';
+        return '<div class="rcard">'
+          + img
+          + '<span class="cat cat-'+cat+'">'+CATS[cat].label+'</span>'
+          + '<h3>'+esc(r.nombre||'Recompensa')+'</h3>'
+          + '<div class="desc">'+esc(r.descripcion||'')+'</div>'
+          + '<div class="cost"><i class="fas fa-coins"></i> '+nf(r.costoPuntos)+' pts</div>'
+          + (r.stock!=null ? '<div class="stock">'+(stockOut?'Sin stock':('Quedan '+nf(r.stock)))+'</div>' : '')
+          + '<button class="btn btn-gold" '+(dis?'disabled':'')+' onclick="canjear(\''+r.id+'\')">'+(stockOut?'Agotado':(noPlata?'Te faltan puntos':'<i class=\'fas fa-gift\'></i> Canjear'))+'</button>'
+          + '</div>';
+      }).join('') + '</div>';
+    }
+
+    async function canjear(id){
+      const r = catalogo.find(x=>x.id===id); if(!r) return;
+      if(saldo(curUser.uid) < (Number(r.costoPuntos)||0)){ toast('No te alcanzan los puntos.', true); return; }
+      if(r.stock!=null && Number(r.stock)<=0){ toast('Esa recompensa no tiene stock.', true); return; }
+      if(!confirm('¿Canjear "'+(r.nombre||'')+'" por '+nf(r.costoPuntos)+' puntos? Queda pendiente de que el admin lo confirme.')) return;
+      try{
+        await db.collection('canjes').add({
+          agenteUid: curUser.uid, agenteNombre: curProfile.name || curUser.email || 'Agente',
+          recompensaId: r.id, recompensaNombre: r.nombre||'', categoria: r.categoria||'',
+          costoPuntos: Number(r.costoPuntos)||0, status:'pendiente',
+          fecha: new Date().toISOString()
+        });
+        toast('¡Canje solicitado! Te avisamos cuando se confirme.');
+        cargar();
+      }catch(e){ console.warn('canjear',e); toast('No se pudo canjear: '+(e.message||e), true); }
+    }
+
+    // ---------- Mis canjes ----------
+    function pill(st){
+      const m = { pendiente:['pend','Pendiente'], aprobado:['aprob','Aprobado'], entregado:['entreg','Entregado'], rechazado:['rech','Rechazado'] };
+      const x = m[st]||['pend',st]; return '<span class="pill pill-'+x[0]+'">'+x[1]+'</span>';
+    }
+    function renderMisCanjes(){
+      const mine = canjes.filter(c=>c.agenteUid===curUser.uid).sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||'')));
+      const p = document.getElementById('panel');
+      if(!mine.length){ p.innerHTML='<div class="empty">Todavía no canjeaste nada. Mirá el catálogo 🎁</div>'; return; }
+      p.innerHTML = mine.map(c=>'<div class="card"><div class="row">'
+        + '<div class="grow"><b>'+esc(c.recompensaNombre||'Recompensa')+'</b><div style="font-size:.82rem;color:#888;margin-top:3px">'+nf(c.costoPuntos)+' pts · '+fmtF(c.fecha)+'</div></div>'
+        + pill(c.status)
+        + '</div></div>').join('');
+    }
+    function fmtF(s){ if(!s) return ''; try{ return new Date(s).toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'}); }catch(e){ return s; } }
+
+    // ---------- ADMIN: gestionar canjes ----------
+    function renderGestionCanjes(){
+      const p = document.getElementById('panel');
+      const list = canjes.slice().sort((a,b)=>{ const o={pendiente:0,aprobado:1,entregado:2,rechazado:3}; return (o[a.status]-o[b.status]) || String(b.fecha||'').localeCompare(String(a.fecha||'')); });
+      const pend = canjes.filter(c=>c.status==='pendiente').length;
+      let html = '<div class="hint">'+(pend?('Hay <b>'+pend+'</b> canje(s) pendiente(s).'):'No hay canjes pendientes.')+'</div>';
+      if(!list.length){ p.innerHTML='<div class="empty">Todavía no hay canjes.</div>'; return; }
+      html += list.map(c=>'<div class="card"><div class="row">'
+        + '<div class="grow"><b>'+esc(c.agenteNombre||'Agente')+'</b> canjeó <b>'+esc(c.recompensaNombre||'')+'</b>'
+        +   '<div style="font-size:.82rem;color:#888;margin-top:3px">'+nf(c.costoPuntos)+' pts · '+fmtF(c.fecha)+'</div></div>'
+        + pill(c.status)
+        + '</div>'
+        + (c.status==='pendiente'
+            ? '<div class="row" style="margin-top:12px;justify-content:flex-end">'
+              + '<button class="btn btn-green btn-sm" onclick="setCanje(\''+c.id+'\',\'aprobado\')"><i class="fas fa-check"></i> Aprobar</button>'
+              + '<button class="btn btn-red btn-sm" onclick="setCanje(\''+c.id+'\',\'rechazado\')"><i class="fas fa-xmark"></i> Rechazar</button>'
+              + '</div>'
+            : (c.status==='aprobado'
+                ? '<div class="row" style="margin-top:12px;justify-content:flex-end"><button class="btn btn-gold btn-sm" onclick="setCanje(\''+c.id+'\',\'entregado\')"><i class="fas fa-box"></i> Marcar entregado</button></div>'
+                : ''))
+        + '</div>').join('');
+      p.innerHTML = html;
+    }
+    async function setCanje(id, status){
+      try{
+        await db.collection('canjes').doc(id).update({ status:status });
+        const c = canjes.find(x=>x.id===id); if(c) c.status=status;
+        renderSaldo(); renderPanel();
+        toast('Canje '+status+'.');
+      }catch(e){ console.warn('setCanje',e); toast('No se pudo actualizar: '+(e.message||e), true); }
+    }
+
+    // ---------- ADMIN: gestionar catálogo ----------
+    function renderGestionCatalogo(){
+      const p = document.getElementById('panel');
+      const ed = editId ? catalogo.find(r=>r.id===editId) : null;
+      let html = '<div class="card"><h2 class="sec" style="margin-top:0">'+(ed?'Editar recompensa':'Agregar recompensa')+'</h2>'
+        + '<div class="field"><label>Nombre</label><input id="fNombre" value="'+esc(ed?ed.nombre:'')+'" placeholder="Ej: Smart TV 50\""></div>'
+        + '<div class="grid2">'
+        +   '<div class="field"><label>Categoría</label><select id="fCat">'+Object.keys(CATS).map(k=>'<option value="'+k+'"'+(ed&&ed.categoria===k?' selected':'')+'>'+CATS[k].label+'</option>').join('')+'</select></div>'
+        +   '<div class="field"><label>Costo en puntos</label><input id="fCosto" type="number" min="0" value="'+(ed?ed.costoPuntos:'')+'"></div>'
+        + '</div>'
+        + '<div class="field"><label>Descripción</label><textarea id="fDesc" rows="2" placeholder="Detalle de la recompensa">'+esc(ed?ed.descripcion:'')+'</textarea></div>'
+        + '<div class="grid2">'
+        +   '<div class="field"><label>Stock (opcional, vacío = ilimitado)</label><input id="fStock" type="number" min="0" value="'+(ed&&ed.stock!=null?ed.stock:'')+'"></div>'
+        +   '<div class="field"><label>Imagen URL (opcional)</label><input id="fImg" value="'+esc(ed?ed.imagen:'')+'" placeholder="https://..."></div>'
+        + '</div>'
+        + '<div class="row" style="justify-content:flex-end">'
+        +   (ed?'<button class="btn btn-ghost" onclick="cancelEdit()">Cancelar</button>':'')
+        +   '<button class="btn btn-gold" onclick="guardarRecompensa()"><i class="fas fa-save"></i> '+(ed?'Guardar cambios':'Agregar')+'</button>'
+        + '</div></div>';
+
+      html += '<h2 class="sec">Catálogo actual</h2>';
+      if(!catalogo.length){ html += '<div class="empty">Sin recompensas todavía.</div>'; }
+      else html += catalogo.map(r=>'<div class="card"><div class="row">'
+        + '<div class="grow"><b>'+esc(r.nombre||'')+'</b> <span class="cat cat-'+(CATS[r.categoria]?r.categoria:'electronica')+'">'+(CATS[r.categoria]?CATS[r.categoria].label:'-')+'</span>'
+        +   '<div style="font-size:.82rem;color:#888;margin-top:3px">'+nf(r.costoPuntos)+' pts'+(r.stock!=null?(' · stock '+nf(r.stock)):'')+'</div></div>'
+        + '<button class="btn btn-ghost btn-sm" onclick="editar(\''+r.id+'\')"><i class="fas fa-pen"></i></button>'
+        + '<button class="btn btn-red btn-sm" onclick="borrarRecompensa(\''+r.id+'\')"><i class="fas fa-trash"></i></button>'
+        + '</div></div>').join('');
+      p.innerHTML = html;
+    }
+    function editar(id){ editId=id; renderPanel(); window.scrollTo({top:0,behavior:'smooth'}); }
+    function cancelEdit(){ editId=null; renderPanel(); }
+    async function guardarRecompensa(){
+      const nombre=document.getElementById('fNombre').value.trim();
+      const categoria=document.getElementById('fCat').value;
+      const costoPuntos=parseInt(document.getElementById('fCosto').value)||0;
+      const descripcion=document.getElementById('fDesc').value.trim();
+      const stockRaw=document.getElementById('fStock').value;
+      const stock = stockRaw==='' ? null : (parseInt(stockRaw)||0);
+      const imagen=document.getElementById('fImg').value.trim();
+      if(!nombre){ toast('Poné un nombre.', true); return; }
+      if(costoPuntos<=0){ toast('El costo en puntos tiene que ser mayor a 0.', true); return; }
+      const data={ nombre, categoria, costoPuntos, descripcion, stock, imagen, activo:true };
+      try{
+        if(editId){ await db.collection('recompensas').doc(editId).set(data, { merge:true }); toast('Recompensa actualizada.'); }
+        else{ await db.collection('recompensas').add(data); toast('Recompensa agregada.'); }
+        editId=null; cargar();
+      }catch(e){ console.warn('guardarRecompensa',e); toast('No se pudo guardar: '+(e.message||e), true); }
+    }
+    async function borrarRecompensa(id){
+      const r = catalogo.find(x=>x.id===id);
+      if(!confirm('¿Borrar "'+(r&&r.nombre||'')+'" del catálogo?')) return;
+      try{ await db.collection('recompensas').doc(id).delete(); toast('Recompensa borrada.'); cargar(); }
+      catch(e){ console.warn('borrarRecompensa',e); toast('No se pudo borrar: '+(e.message||e), true); }
+    }
+
+    // ---------- ADMIN: ranking ----------
+    function renderRanking(){
+      const p = document.getElementById('panel');
+      const map = {};
+      cierresConf.forEach(c=>{ if(!c.agenteUid) return; if(!map[c.agenteUid]) map[c.agenteUid]={ nombre:c.agenteNombre, uid:c.agenteUid }; });
+      let rows = Object.values(map).map(a=>({ nombre:a.nombre, ganados:puntosGanados(a.uid), saldo:saldo(a.uid) }))
+        .sort((a,b)=>b.ganados-a.ganados);
+      if(!rows.length){ p.innerHTML='<div class="empty">Todavía no hay cierres confirmados para rankear.</div>'; return; }
+      p.innerHTML = '<div class="card"><div class="hint" style="margin-bottom:6px">Por puntos ganados (cierres confirmados).</div>'
+        + rows.map((r,i)=>'<div class="rank-row">'
+          + '<div class="rank-pos'+(i<3?' top':'')+'">'+(i+1)+'</div>'
+          + '<div class="grow"><b>'+esc(r.nombre)+'</b></div>'
+          + '<div style="text-align:right"><div style="font-weight:800;color:var(--navy)">'+nf(r.ganados)+' pts</div><div style="font-size:.76rem;color:#999">disponibles: '+nf(r.saldo)+'</div></div>'
+          + '</div>').join('') + '</div>';
+    }
+
+    // ---------- ADMIN: config ----------
+    function renderConfig(){
+      const p = document.getElementById('panel');
+      p.innerHTML = '<div class="card"><h2 class="sec" style="margin-top:0">Configuración de puntos</h2>'
+        + '<div class="hint">Definí cómo se generan los puntos. Los puntos se calculan por bloques completos de US$100 (ej: US$350 → 3 puntos).</div>'
+        + '<div class="field"><label>Puntos por cada US$100</label><input id="cP100" type="number" min="0" step="0.1" value="'+(cfg.puntosPor100)+'"></div>'
+        + '<div class="field"><label>Cotización del dólar (en pesos) — para cierres en UYU</label><input id="cDolar" type="number" min="1" value="'+(cfg.dolarPesos)+'"></div>'
+        + '<div class="field"><label>Valor aprox. de 1 punto (US$) — solo para mostrar el valor estimado</label><input id="cVal" type="number" min="0" step="0.01" value="'+(cfg.valorPunto)+'"></div>'
+        + '<div class="row" style="justify-content:flex-end"><button class="btn btn-gold" onclick="guardarConfig()"><i class="fas fa-save"></i> Guardar configuración</button></div>'
+        + '</div>';
+    }
+    async function guardarConfig(){
+      const c = {
+        puntosPor100: parseFloat(document.getElementById('cP100').value)||1,
+        dolarPesos: parseFloat(document.getElementById('cDolar').value)||40,
+        valorPunto: parseFloat(document.getElementById('cVal').value)||0
+      };
+      try{ await db.collection('config').doc('recompensas').set(c, { merge:true }); cfg=Object.assign(cfg,c); toast('Configuración guardada.'); renderSaldo(); }
+      catch(e){ console.warn('guardarConfig',e); toast('No se pudo guardar: '+(e.message||e), true); }
+    }
+
+    // ---------- Auth ----------
+    auth.onAuthStateChanged(async u=>{
+      if(!u){ show('authState'); document.getElementById('authMsg').textContent='Tenés que iniciar sesión.'; return; }
+      curUser=u;
+      try{ const d=await db.collection('users').doc(u.uid).get(); curProfile=d.exists?d.data():{}; }catch(e){ curProfile={}; }
+      isAdmin = (curProfile.email || u.email || '').toLowerCase() === ADMIN_EMAIL;
+      if(curProfile.status!=='approved' && !isAdmin){ show('authState'); document.getElementById('authMsg').textContent='Tu cuenta está pendiente de aprobación.'; return; }
+      cargar();
+    });
+  </script>
+</body>
+</html>

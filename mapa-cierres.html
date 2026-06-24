@@ -202,7 +202,14 @@
       if(c.dormitorios||c.banos) s += '<br>'+(c.dormitorios||0)+' dorm · '+(c.banos||0)+' baños';
       if(c.barrio) s += '<br>📍 '+esc(c.barrio);
       if(c.fecha) s += '<br>📅 '+fmtFecha(c.fecha);
-      s += '</div></div>';
+      s += '</div>';
+      var conf = p.cierreConfirmado === true;
+      s += '<div style="margin-top:7px;border-top:1px solid #eee;padding-top:6px">' + (conf
+        ? '<span style="font-size:.72rem;font-weight:700;color:#27ae60">&#10003; Confirmado</span>'
+        : '<span style="font-size:.72rem;font-weight:700;color:#C9A227">Pendiente de confirmar</span>'
+          + (isAdmin ? ' <button onclick="confirmarCierre(\''+p.id+'\')" style="margin-left:6px;border:none;background:#27ae60;color:#fff;border-radius:7px;padding:4px 9px;font-size:.72rem;font-weight:600;cursor:pointer">Confirmar</button>' : '')
+      ) + '</div>';
+      s += '</div>';
       return s;
     }
 
@@ -227,7 +234,9 @@
         + '<span class="tag" style="background:'+COL[c.tipo]+'22;color:'+COL[c.tipo]+'">'+(c.tipo==='venta'?'Venta':'Alquiler')+'</span>'
         + '<div class="cc-main"><div class="cc-price">'+fmtMoney(c.precio,c.moneda)+'</div>'
         + '<div class="cc-sub">'+esc(p.title||'Propiedad')+'</div>'
-        + '<div class="cc-meta">'+meta+'</div></div>'
+        + '<div class="cc-meta">'+meta+'</div>'
+        + (p.cierreConfirmado===true ? '<div style="font-size:.72rem;font-weight:700;color:#27ae60;margin-top:3px">&#10003; Confirmado</div>' : '<div style="font-size:.72rem;font-weight:700;color:#C9A227;margin-top:3px">Pendiente'+(isAdmin?' <button onclick="event.stopPropagation();confirmarCierre(\''+p.id+'\')" style="margin-left:4px;border:none;background:#27ae60;color:#fff;border-radius:6px;padding:3px 8px;font-size:.7rem;font-weight:600;cursor:pointer">Confirmar</button>':'')+'</div>')
+        + '</div>'
         + '<div class="cc-date">'+fmtFecha(c.fecha)+'</div></div>';
     }
 
@@ -255,6 +264,21 @@
       map.setView([p.cierre.lat, p.cierre.lng], 16);
       if(capa[i]) capa[i].openPopup();
       document.getElementById('mapaCierres').scrollIntoView({ behavior:'smooth', block:'center' });
+    }
+
+    async function confirmarCierre(id){
+      if(!isAdmin) return;
+      const p = cierres.find(x=>x.id===id) || allProps.find(x=>x.id===id);
+      if(!p) return;
+      try{
+        await db.collection('properties').doc(id).update({ cierreConfirmado: true, updatedAt: new Date().toISOString() });
+        p.cierreConfirmado = true;
+        refrescar();
+        toast('Cierre confirmado \u2713');
+      }catch(e){
+        console.warn('confirmarCierre', e);
+        toast(e && e.code==='permission-denied' ? 'Solo el admin puede confirmar cierres.' : ('No se pudo confirmar: '+(e.message||e)), true);
+      }
     }
 
     // ---- Registrar cierre ----
