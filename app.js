@@ -364,6 +364,7 @@
     if (av) av.innerHTML = (userProfile && userProfile.profilePhoto) ? `<img src="${userProfile.profilePhoto}" alt="">` : '<i class="fas fa-user"></i>';
     const nm = document.getElementById('mvSideName'); if (nm) nm.textContent = (userProfile && userProfile.name) || 'Usuario';
     const rl = document.getElementById('mvSideRole'); if (rl) rl.textContent = isAdminUser() ? 'Administrador' : 'Agente';
+    document.getElementById('mvSideAdminGroup')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSideRevisiones')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSideSolicitudes')?.classList.toggle('hidden', !isAdminUser());
@@ -375,6 +376,93 @@
     document.getElementById('mvSide')?.classList.remove('open');
     document.getElementById('mvSideOverlay')?.classList.remove('open');
     document.getElementById('mvSide')?.setAttribute('aria-hidden', 'true');
+  }
+
+  // ===== Tour guiado para nuevos agentes =====
+  var TOUR_STEPS = null, tourIdx = 0;
+  function buildTourSteps(){
+    var steps = [
+      { sel:null, t:'¡Bienvenido a MALAVÉ! 👋', d:'Te muestro en un minuto las herramientas del menú. Podés saltarlo cuando quieras.' },
+      { sel:'a[href="agenda.html"]', t:'Mi Agenda', d:'Agendá visitas, reuniones y entregas. Podés vincular un cliente y una propiedad a cada evento.' },
+      { sel:'a[href="clientes.html"]', t:'Clientes', d:'Tu cartera de clientes. Cargá prospectos, seguí gestiones y mirá su actividad.' },
+      { sel:'a[href="recompensas.html"]', t:'Recompensas', d:'Sumás puntos por cada operación cerrada y los canjeás por premios.' },
+      { sel:'a[href="tasador.html"]', t:'Tasador', d:'Calculá el valor estimado de una propiedad con comparables.' },
+      { sel:'a[href="mapa-cierres.html"]', t:'Mapa de cierres', d:'Mirá en el mapa las ventas y alquileres cerrados del equipo.' },
+      { sel:'a[href="gastos.html"]', t:'Gastos y comisiones', d:'Calculá comisiones, gastos e impuestos de una operación.' },
+      { sel:'a[href="ganancias.html"]', t:'Mis ganancias', d:'Cuánto ganás según tu comisión en cada operación.' },
+      { sel:'a[href="documentos.html"]', t:'Recursos', d:'Documentos, cuentas de portales y la Academy con capacitaciones.' },
+      { sel:null, t:'¡Listo! 🎉', d:'Abrí el menú ☰ cuando quieras. Podés volver a ver este recorrido tocando "Tutorial" en el menú.' }
+    ];
+    return steps.filter(function(s){ return !s.sel || document.querySelector(s.sel); });
+  }
+  function ensureTourEls(){
+    if (document.getElementById('tourBlock')) return;
+    var css = document.createElement('style');
+    css.textContent = '#tourBlock{position:fixed;inset:0;z-index:4999;display:none}'
+      + '#tourHole{position:fixed;z-index:5000;border-radius:10px;pointer-events:none;display:none;box-shadow:0 0 0 9999px rgba(16,29,48,.72);transition:all .25s ease}'
+      + '#tourTip{position:fixed;z-index:5001;display:none;width:280px;max-width:86vw;background:#fff;border-radius:14px;padding:16px 18px;box-shadow:0 18px 50px rgba(16,29,48,.4)}'
+      + '#tourTip h4{margin:0 0 6px;font-size:1.05rem;color:#16273f}'
+      + '#tourTip p{margin:0;font-size:.88rem;color:#555;line-height:1.5}'
+      + '#tourTip .tour-step{font-size:.72rem;color:#9aa3ad;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}'
+      + '#tourTip .tour-actions{display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:10px}'
+      + '#tourTip .tour-skip{background:none;border:none;color:#9aa3ad;font-size:.85rem;cursor:pointer;padding:6px}'
+      + '#tourTip .tour-next{background:var(--primary,#16273f);color:#fff;border:none;border-radius:9px;padding:9px 18px;font-size:.88rem;font-weight:600;cursor:pointer}';
+    document.head.appendChild(css);
+    ['tourBlock','tourHole','tourTip'].forEach(function(id){ var e=document.createElement('div'); e.id=id; document.body.appendChild(e); });
+  }
+  function startTour(){
+    if (!currentUser) return;
+    ensureTourEls();
+    TOUR_STEPS = buildTourSteps();
+    if (!TOUR_STEPS.length) return;
+    tourIdx = 0;
+    document.getElementById('tourBlock').style.display='block';
+    document.getElementById('tourHole').style.display='block';
+    document.getElementById('tourTip').style.display='block';
+    openSideMenu();
+    setTimeout(showTourStep, 380);
+  }
+  function endTour(){
+    ['tourBlock','tourHole','tourTip'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; });
+    try { if (currentUser) localStorage.setItem('mvTourSeen_'+currentUser.uid, '1'); } catch(e){}
+  }
+  function nextTourStep(){ if (tourIdx >= TOUR_STEPS.length-1){ endTour(); return; } tourIdx++; showTourStep(); }
+  function showTourStep(){
+    var step = TOUR_STEPS[tourIdx];
+    var hole = document.getElementById('tourHole'), tip = document.getElementById('tourTip');
+    var last = tourIdx === TOUR_STEPS.length-1;
+    tip.innerHTML = '<div class="tour-step">Paso '+(tourIdx+1)+' de '+TOUR_STEPS.length+'</div>'
+      + '<h4>'+step.t+'</h4><p>'+step.d+'</p>'
+      + '<div class="tour-actions"><button class="tour-skip" onclick="endTour()">Saltar</button>'
+      + '<button class="tour-next" onclick="nextTourStep()">'+(last?'Terminar':'Siguiente')+'</button></div>';
+    var target = step.sel ? document.querySelector(step.sel) : null;
+    if (target){
+      try { target.scrollIntoView({ block:'center' }); } catch(e){}
+      setTimeout(function(){ positionTour(target, hole, tip); }, 60);
+    } else {
+      hole.style.transform='none'; hole.style.width='0'; hole.style.height='0';
+      hole.style.left='50%'; hole.style.top='50%';
+      tip.style.transform='translate(-50%,-50%)'; tip.style.left='50%'; tip.style.top='50%';
+    }
+  }
+  function positionTour(target, hole, tip){
+    var r = target.getBoundingClientRect(), pad = 6;
+    hole.style.transform='none';
+    hole.style.left=(r.left-pad)+'px'; hole.style.top=(r.top-pad)+'px';
+    hole.style.width=(r.width+pad*2)+'px'; hole.style.height=(r.height+pad*2)+'px';
+    var tipH = tip.offsetHeight || 150, tipW = tip.offsetWidth || 280;
+    var vh = window.innerHeight, vw = window.innerWidth, top, left;
+    if (r.bottom + tipH + 16 < vh){ top = r.bottom + 12; }
+    else if (r.top - tipH - 16 > 0){ top = r.top - tipH - 12; }
+    else { top = Math.max(12, (vh - tipH)/2); }
+    left = Math.max(12, Math.min(r.left + r.width/2 - tipW/2, vw - tipW - 12));
+    tip.style.transform='none'; tip.style.left=left+'px'; tip.style.top=top+'px';
+  }
+  function maybeStartTour(){
+    if (!currentUser) return;
+    var seen = false;
+    try { seen = localStorage.getItem('mvTourSeen_'+currentUser.uid) === '1'; } catch(e){}
+    if (!seen) setTimeout(startTour, 1200);
   }
   function mvTasador() {
     showToast('Tasador', 'La herramienta de tasación estará disponible muy pronto.', 'fa-calculator');
@@ -811,7 +899,8 @@
           setupFCM();
           startNotificationPolling();
           loadVisits();
-          startVisitReminderCheck()
+          startVisitReminderCheck();
+          maybeStartTour()
         } else {
           auth.signOut();
           alert('Tu cuenta está pendiente de aprobación')
