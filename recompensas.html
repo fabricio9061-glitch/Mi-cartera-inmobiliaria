@@ -243,7 +243,10 @@
         const cat = CATS[r.categoria] ? r.categoria : 'electronica';
         const stockOut = (r.stock!=null && Number(r.stock)<=0);
         const noPlata = s < (Number(r.costoPuntos)||0);
-        const dis = stockOut || noPlata;
+        const misVeces = canjes.filter(c=>c.recompensaId===r.id && c.agenteUid===curUser.uid && c.status!=='rechazado').length;
+        const limite = (r.limitePorAgente!=null && Number(r.limitePorAgente)>0) ? Number(r.limitePorAgente) : null;
+        const limiteAlcanzado = limite!=null && misVeces >= limite;
+        const dis = stockOut || noPlata || limiteAlcanzado;
         const img = r.imagen ? '<img src="'+esc(r.imagen)+'" alt="" style="width:100%;height:auto;display:block;border-radius:10px;margin-bottom:10px">' : '<div class="ic ic-'+cat+'"><i class="fas '+CATS[cat].icon+'"></i></div>';
         return '<div class="rcard">'
           + img
@@ -253,7 +256,8 @@
           + ((r.descripcion && r.descripcion.length>110) ? '<button class="desc-btn" onclick="toggleDesc(\''+r.id+'\',this)">Leer más</button>' : '')
           + '<div class="cost"><i class="fas fa-coins"></i> '+nf(r.costoPuntos)+' pts</div>'
           + (r.stock!=null ? '<div class="stock">'+(stockOut?'Sin stock':('Quedan '+nf(r.stock)))+'</div>' : '')
-          + '<button class="btn btn-gold" '+(dis?'disabled':'')+' onclick="canjear(\''+r.id+'\')">'+(stockOut?'Agotado':(noPlata?'Te faltan puntos':'<i class=\'fas fa-gift\'></i> Canjear'))+'</button>'
+          + (limite!=null ? '<div class="stock">Por agente: '+misVeces+'/'+limite+'</div>' : '')
+          + '<button class="btn btn-gold" '+(dis?'disabled':'')+' onclick="canjear(\''+r.id+'\')">'+(stockOut?'Agotado':(limiteAlcanzado?(limite===1?'Ya lo canjeaste':'Límite alcanzado'):(noPlata?'Te faltan puntos':'<i class=\'fas fa-gift\'></i> Canjear')))+'</button>'
           + '</div>';
       }).join('') + '</div>';
     }
@@ -262,6 +266,9 @@
       const r = catalogo.find(x=>x.id===id); if(!r) return;
       if(saldo(curUser.uid) < (Number(r.costoPuntos)||0)){ toast('No te alcanzan los puntos.', true); return; }
       if(r.stock!=null && Number(r.stock)<=0){ toast('Esa recompensa no tiene stock.', true); return; }
+      const _mv = canjes.filter(c=>c.recompensaId===r.id && c.agenteUid===curUser.uid && c.status!=='rechazado').length;
+      const _lim = (r.limitePorAgente!=null && Number(r.limitePorAgente)>0) ? Number(r.limitePorAgente) : null;
+      if(_lim!=null && _mv >= _lim){ toast(_lim===1?'Ya canjeaste esta recompensa.':'Alcanzaste el límite de esta recompensa.', true); return; }
       if(!confirm('¿Canjear "'+(r.nombre||'')+'" por '+nf(r.costoPuntos)+' puntos? Queda pendiente de que el admin lo confirme.')) return;
       try{
         await db.collection('canjes').add({
@@ -317,7 +324,17 @@
     async function setCanje(id, status){
       try{
         await db.collection('canjes').doc(id).update({ status:status });
-        const c = canjes.find(x=>x.id===id); if(c) c.status=status;
+        const c = canjes.find(x=>x.id===id);
+        if(c){
+          c.status=status;
+          if(status==='aprobado' && c.recompensaId){
+            const rec = catalogo.find(x=>x.id===c.recompensaId);
+            if(rec && rec.stock!=null){
+              await db.collection('recompensas').doc(c.recompensaId).update({ stock: firebase.firestore.FieldValue.increment(-1) });
+              rec.stock = Math.max(0, (Number(rec.stock)||0) - 1);
+            }
+          }
+        }
         renderSaldo(); renderPanel();
         toast('Canje '+status+'.');
       }catch(e){ console.warn('setCanje',e); toast('No se pudo actualizar: '+(e.message||e), true); }
@@ -334,7 +351,8 @@
         +   '<div class="field"><label>Costo en puntos</label><input id="fCosto" type="number" min="0" value="'+(ed?ed.costoPuntos:'')+'"></div>'
         + '</div>'
         + '<div class="field"><label>Descripción</label><textarea id="fDesc" rows="2" placeholder="Detalle de la recompensa">'+esc(ed?ed.descripcion:'')+'</textarea></div>'
-        + '<div class="field"><label>Stock (opcional, vacío = ilimitado)</label><input id="fStock" type="number" min="0" value="'+(ed&&ed.stock!=null?ed.stock:'')+'"></div>'
+        + '<div class="field"><label>Stock total (opcional, vacío = ilimitado)</label><input id="fStock" type="number" min="0" value="'+(ed&&ed.stock!=null?ed.stock:'')+'"></div>'
+        + '<div class="field"><label>Límite por agente (opcional, vacío = sin límite)</label><input id="fLimite" type="number" min="1" placeholder="Ej: 1 = una vez por agente" value="'+(ed&&ed.limitePorAgente!=null?ed.limitePorAgente:'')+'"></div>'
         + '<div class="field"><label>Imagen</label>'
         +   '<div id="fImgPreview" style="margin-bottom:8px;'+((ed&&ed.imagen)?'':'display:none')+'">'+((ed&&ed.imagen)?'<img src="'+esc(ed.imagen)+'" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px">':'')+'</div>'
         +   '<input type="file" accept="image/*" id="fImgFile" onchange="subirImagenRecompensa(this)" style="margin-bottom:8px;width:100%">'
@@ -349,7 +367,7 @@
       if(!catalogo.length){ html += '<div class="empty">Sin recompensas todavía.</div>'; }
       else html += catalogo.map(r=>'<div class="card"><div class="row">'
         + '<div class="grow"><b>'+esc(r.nombre||'')+'</b> <span class="cat cat-'+(CATS[r.categoria]?r.categoria:'electronica')+'">'+(CATS[r.categoria]?CATS[r.categoria].label:'-')+'</span>'
-        +   '<div style="font-size:.82rem;color:#888;margin-top:3px">'+nf(r.costoPuntos)+' pts'+(r.stock!=null?(' · stock '+nf(r.stock)):'')+'</div></div>'
+        +   '<div style="font-size:.82rem;color:#888;margin-top:3px">'+nf(r.costoPuntos)+' pts'+(r.stock!=null?(' · stock '+nf(r.stock)):'')+(r.limitePorAgente?(' · máx '+r.limitePorAgente+'/agente'):'')+'</div></div>'
         + '<button class="btn btn-ghost btn-sm" onclick="editar(\''+r.id+'\')"><i class="fas fa-pen"></i></button>'
         + '<button class="btn btn-red btn-sm" onclick="borrarRecompensa(\''+r.id+'\')"><i class="fas fa-trash"></i></button>'
         + '</div></div>').join('');
@@ -401,10 +419,12 @@
       const descripcion=document.getElementById('fDesc').value.trim();
       const stockRaw=document.getElementById('fStock').value;
       const stock = stockRaw==='' ? null : (parseInt(stockRaw)||0);
+      const limRaw=document.getElementById('fLimite').value;
+      const limitePorAgente = limRaw==='' ? null : (parseInt(limRaw)||null);
       const imagen=document.getElementById('fImg').value.trim();
       if(!nombre){ toast('Poné un nombre.', true); return; }
       if(costoPuntos<=0){ toast('El costo en puntos tiene que ser mayor a 0.', true); return; }
-      const data={ nombre, categoria, costoPuntos, descripcion, stock, imagen, activo:true };
+      const data={ nombre, categoria, costoPuntos, descripcion, stock, limitePorAgente, imagen, activo:true };
       try{
         if(editId){ await db.collection('recompensas').doc(editId).set(data, { merge:true }); toast('Recompensa actualizada.'); }
         else{ await db.collection('recompensas').add(data); toast('Recompensa agregada.'); }
