@@ -256,9 +256,15 @@
         <div class="fg"><label>Fecha <span class="req">*</span></label><input type="date" id="evDate"></div>
         <div class="fg"><label>Hora <span class="req">*</span></label><input type="time" id="evTime"></div>
       </div>
+      <div class="fg"><label>Vincular cliente <span style="font-weight:normal;color:var(--gray-500);font-size:.8rem">(opcional)</span></label>
+        <select id="evClientSel" onchange="onPickClient()"><option value="">— Sin vincular —</option></select>
+      </div>
       <div class="fg-row">
         <div class="fg"><label>Cliente</label><input type="text" id="evClient" placeholder="Nombre"></div>
         <div class="fg"><label>Teléfono</label><input type="tel" id="evPhone" placeholder="099 123 456"></div>
+      </div>
+      <div class="fg"><label>Vincular propiedad <span style="font-weight:normal;color:var(--gray-500);font-size:.8rem">(opcional)</span></label>
+        <select id="evPropSel"><option value="">— Sin vincular —</option></select>
       </div>
       <div class="fg"><label>Notas</label><textarea id="evNotes" placeholder="Detalles adicionales..."></textarea></div>
       <button class="modal-save" onclick="saveEvent()"><i class="fas fa-check"></i> Guardar evento</button>
@@ -317,9 +323,54 @@
         document.getElementById('agHeroSub').textContent='Agenda de todo el equipo';
       }
       cargarVisitas();
+      cargarVinculables();
       refreshRemindBtn();
       startReminders();
     });
+
+    // ===== Clientes y propiedades para vincular =====
+    var agClients = [], agProps = [];
+    function cargarVinculables(){
+      db.collection('clients').get().then(function(s){
+        agClients = s.docs.map(function(d){ var x=d.data(); x.id=d.id; return x; })
+          .filter(function(c){ return !c.archived; })
+          .sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
+        fillClientSel();
+      }).catch(function(e){ console.warn('clients', e); });
+      db.collection('properties').get().then(function(s){
+        agProps = s.docs.map(function(d){ var x=d.data(); x.id=d.id; return x; })
+          .filter(function(p){ return !p.cierreConfirmado; })
+          .sort(function(a,b){ return (a.title||'').localeCompare(b.title||''); });
+        fillPropSel();
+      }).catch(function(e){ console.warn('properties', e); });
+    }
+    function fillClientSel(){
+      var sel = document.getElementById('evClientSel'); if(!sel) return;
+      var cur = sel.value;
+      sel.innerHTML = '<option value="">— Sin vincular —</option>' + agClients.map(function(c){
+        return '<option value="'+c.id+'">'+esc(c.name||'Sin nombre')+(c.phone?(' · '+esc(c.phone)):'')+'</option>';
+      }).join('');
+      sel.value = cur;
+    }
+    function fillPropSel(){
+      var sel = document.getElementById('evPropSel'); if(!sel) return;
+      var cur = sel.value;
+      sel.innerHTML = '<option value="">— Sin vincular —</option>' + agProps.map(function(p){
+        var u = p.ubicacion || {};
+        var loc = (u.barrio || u.ciudad) ? (' · '+esc(u.barrio||u.ciudad)) : '';
+        return '<option value="'+p.id+'">'+esc(p.title||('Propiedad '+p.id))+loc+'</option>';
+      }).join('');
+      sel.value = cur;
+    }
+    function onPickClient(){
+      var sel = document.getElementById('evClientSel');
+      var c = agClients.find(function(x){ return x.id===sel.value; });
+      if (c){
+        document.getElementById('evClient').value = c.name||'';
+        var ph = c.phoneNormalized || ((c.areaCode||'')+(c.phone||'')) || c.phone || '';
+        if (ph) document.getElementById('evPhone').value = ph;
+      }
+    }
 
     // ===== Carga de visitas (segun rol) =====
     function cargarVisitas(){
@@ -408,6 +459,7 @@
           (past?'<span class="ev-done-tag"><i class="fas fa-circle-check"></i> Finalizado</span>':'') +
           '<h4>'+esc(v.title||'Evento')+'</h4>' +
           (v.clientName?'<div class="ev-meta"><i class="fas fa-user"></i> '+esc(v.clientName)+'</div>':'') +
+          (v.propertyTitle?'<div class="ev-meta"><i class="fas fa-building"></i> '+esc(v.propertyTitle)+'</div>':'') +
           (v.clientPhone?'<div class="ev-meta"><i class="fas fa-phone"></i> '+esc(v.clientPhone)+'</div>':'') +
           (v.notes?'<div class="ev-meta"><i class="fas fa-note-sticky"></i> '+esc(v.notes)+'</div>':'') +
           '<div class="ev-time"><i class="fas fa-clock"></i> '+esc(v.time||'')+'</div>' +
@@ -533,6 +585,8 @@
           document.getElementById('evTime').value = v.time||'';
           document.getElementById('evClient').value = v.clientName||'';
           document.getElementById('evPhone').value = v.clientPhone||'';
+          document.getElementById('evClientSel').value = v.clientId||'';
+          document.getElementById('evPropSel').value = v.propertyId||'';
           document.getElementById('evNotes').value = v.notes||'';
         }
       } else {
@@ -542,6 +596,8 @@
         document.getElementById('evTime').value = '';
         document.getElementById('evClient').value = '';
         document.getElementById('evPhone').value = '';
+        document.getElementById('evClientSel').value = '';
+        document.getElementById('evPropSel').value = '';
         document.getElementById('evNotes').value = '';
       }
       document.getElementById('eventModal').classList.add('open');
@@ -557,6 +613,12 @@
       var client = document.getElementById('evClient').value.trim();
       var phone = document.getElementById('evPhone').value.trim();
       var notes = document.getElementById('evNotes').value.trim();
+      var clientId = (document.getElementById('evClientSel')||{}).value || '';
+      var propertyId = (document.getElementById('evPropSel')||{}).value || '';
+      var _po = agProps.find(function(p){ return p.id===propertyId; });
+      var propertyTitle = _po ? (_po.title||'') : '';
+      var _co = agClients.find(function(c){ return c.id===clientId; });
+      if (_co && !client) client = _co.name||'';
 
       if (!title){ showToast('Ingresá un título para el evento'); return; }
       if (!date || !time){ showToast('Ingresá fecha y hora'); return; }
@@ -565,6 +627,7 @@
         userId: currentUser.uid,
         eventType: type, title: title,
         clientName: client, clientPhone: phone,
+        clientId: clientId, propertyId: propertyId, propertyTitle: propertyTitle,
         date: date, time: time, notes: notes,
         updatedAt: new Date().toISOString()
       };

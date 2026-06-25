@@ -1696,6 +1696,43 @@
   }
 
   // Detail View
+  let visitsCache = null;
+  const EVP_LAB = { visit:['visita','visitas'], meeting:['reunión','reuniones'], delivery:['entrega','entregas'], review:['revisión','revisiones'], other:['evento','eventos'] };
+  const EVP_ICO = { visit:'home', meeting:'handshake', delivery:'box', review:'clipboard-check', other:'star' };
+  async function getVisitsForProperty(id) {
+    if (visitsCache === null) {
+      try {
+        const q = isAdminUser() ? db.collection('visits') : db.collection('visits').where('userId', '==', currentUser.uid);
+        const s = await q.get();
+        visitsCache = s.docs.map(d => d.data());
+      } catch (e) { console.warn('No se pudieron cargar eventos:', e); visitsCache = []; }
+    }
+    return visitsCache.filter(v => v.propertyId === id);
+  }
+  async function renderPropEventCount(id) {
+    let host = document.getElementById('detailEventStats');
+    if (!host) {
+      const feat = document.getElementById('detailFeatures');
+      if (!feat || !feat.parentNode) return;
+      host = document.createElement('div');
+      host.id = 'detailEventStats';
+      host.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin:14px 0';
+      feat.parentNode.insertBefore(host, feat.nextSibling);
+    }
+    host.style.display = 'none';
+    host.innerHTML = '';
+    let evs = [];
+    try { evs = await getVisitsForProperty(id); } catch (e) { return; }
+    if (!evs.length) return;
+    const counts = {};
+    evs.forEach(v => { const t = v.eventType || 'other'; counts[t] = (counts[t] || 0) + 1; });
+    const chips = ['visit','meeting','delivery','review','other'].filter(t => counts[t]).map(t => {
+      const n = counts[t], lab = EVP_LAB[t] || ['evento','eventos'];
+      return `<span style="background:#f3f4f6;color:#374151;font-size:.78rem;font-weight:600;padding:5px 11px;border-radius:20px;white-space:nowrap"><i class="fas fa-${EVP_ICO[t]||'star'}" style="color:var(--accent,#C9A227);margin-right:5px"></i>${n} ${n===1?lab[0]:lab[1]}</span>`;
+    });
+    host.innerHTML = `<span style="width:100%;font-size:.74rem;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.3px"><i class="fas fa-calendar-check"></i> Agenda de esta propiedad</span>` + chips.join('');
+    host.style.display = 'flex';
+  }
   async function openDetail(id, sc = false) {
     const p = properties.find(pr => pr.id === id);
     if (!p) return;
@@ -1765,6 +1802,7 @@
     document.getElementById('commentFormGuest').classList.toggle('hidden', !!currentUser);
     document.getElementById('commentFormUser').classList.toggle('hidden', !currentUser);
     loadComments(id);
+    renderPropEventCount(id);
     openModal('detailModal')
   }
 

@@ -134,6 +134,9 @@
     .cp-name-row h1{ font-size:2rem; font-weight:700; margin:0; }
     .cp-meta{ color:#c8cdd4; font-size:.9rem; margin-bottom:16px; line-height:1.9; }
     .cp-meta i{ margin-right:6px; color:var(--gold); }
+    .cp-ev{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+    .cp-ev-chip{ background:rgba(255,255,255,.13); color:#fff; font-size:.8rem; font-weight:600; padding:5px 11px; border-radius:20px; white-space:nowrap; }
+    .cp-ev-chip i{ color:var(--gold); margin-right:5px; }
     .cp-hero-actions{ display:flex; gap:10px; flex-wrap:wrap; }
     .cp-btn{ padding:10px 18px; border-radius:9px; font-family:inherit; font-size:.9rem; font-weight:600; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:8px; text-decoration:none; transition:all .18s; }
     .cp-btn-wa{ background:#25D366; color:#fff; } .cp-btn-wa:hover{ background:#1eb858; }
@@ -303,7 +306,7 @@
           <option value="archived">Archivados</option>
           <option value="all">Todos</option>
         </select>
-        <button type="button" class="crm-filter" id="misClientesBtn" onclick="toggleMisClientes()" style="cursor:pointer;white-space:nowrap"><i class="fas fa-user"></i> Mis clientes</button>
+        <button type="button" class="crm-filter" id="misClientesBtn" onclick="toggleMisClientes()" style="cursor:pointer;white-space:nowrap;background:var(--primary);color:#fff;border-color:var(--primary)"><i class="fas fa-users"></i> Todos los clientes</button>
       </div>
 
       <div class="crm-grid" id="crmGrid"></div>
@@ -323,6 +326,7 @@
               <span class="client-status" id="cpStatus">Nuevo</span>
             </div>
             <div class="cp-meta" id="cpMeta"></div>
+            <div class="cp-ev" id="cpEvents" style="display:none"></div>
             <div class="cp-hero-actions">
               <a class="cp-btn cp-btn-wa" id="cpWhatsapp" target="_blank"><i class="fab fa-whatsapp"></i> WhatsApp</a>
               <button class="cp-btn cp-btn-edit" id="cpEditBtn"><i class="fas fa-edit"></i> Editar cliente</button>
@@ -466,7 +470,7 @@
 
     var currentUser = null, userProfile = null, isAdmin = false;
     var clients = [];
-    var misClientesOnly = false;
+    var misClientesOnly = true;
 
     function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     function escA(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
@@ -483,13 +487,14 @@
       }
       currentUser = user;
       isAdmin = (user.email||'').toLowerCase() === ADMIN_EMAIL;
+      loadVisits();
       // Cargar perfil del usuario (para createdByName)
       db.collection('users').doc(user.uid).get().then(function(d){
         userProfile = d.exists ? d.data() : { email:user.email };
         document.getElementById('cLoading').style.display='none';
         document.getElementById('cAuth').style.display='none';
         document.getElementById('cContent').style.display='block';
-        document.getElementById('crmSubtitle').textContent = isAdmin ? 'Todos los clientes de la inmobiliaria' : 'Gestiona tus clientes y prospectos';
+        document.getElementById('crmSubtitle').textContent = 'Tus clientes';
         loadClients();
       }).catch(function(){
         userProfile = { email:user.email };
@@ -548,11 +553,14 @@
       var list = clients.filter(function(c){
         var m = !term || (c.name||'').toLowerCase().indexOf(term)>=0 || (c.phone||'').indexOf(term)>=0 || (c.phoneNormalized||'').indexOf(term)>=0;
         var archMatch = arf==='all' ? true : (arf==='archived' ? !!c.archived : !c.archived);
-        var duenoLC = (c.createdByName || c.ownerName || c.agentName || '').trim().toLowerCase();
-        var mio = !misClientesOnly || (currentUser && (c.createdBy === currentUser.uid || c.agentId === currentUser.uid)) || (!!miNombreLC && duenoLC === miNombreLC);
+        var mio = !misClientesOnly || esMio(c);
         return m && archMatch && mio && (!sf || c.status===sf) && (!inf || c.interest===inf);
       });
-      list.sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
+      list.sort(function(a,b){
+        var am = esMio(a) ? 0 : 1, bm = esMio(b) ? 0 : 1;
+        if (am !== bm) return am - bm;
+        return (b.createdAt||'').localeCompare(a.createdAt||'');
+      });
 
       var g = document.getElementById('crmGrid');
       if (!list.length){
@@ -593,6 +601,31 @@
 
     // ===== Perfil del cliente (pantalla completa) =====
     var currentProfileId = null;
+    var allVisits = [];
+    var EV_LAB = { visit:['visita','visitas'], meeting:['reunión','reuniones'], delivery:['entrega','entregas'], review:['revisión','revisiones'], other:['evento','eventos'] };
+    var EV_ICO = { visit:'home', meeting:'handshake', delivery:'box', review:'clipboard-check', other:'star' };
+    function loadVisits(){
+      if (!currentUser) return;
+      var q = isAdmin ? db.collection('visits') : db.collection('visits').where('userId','==',currentUser.uid);
+      q.get().then(function(s){
+        allVisits = s.docs.map(function(d){ return d.data(); });
+        if (currentProfileId) renderEventStats(currentProfileId);
+      }).catch(function(e){ console.warn('No se pudieron cargar eventos:', e); });
+    }
+    function renderEventStats(clientId){
+      var el = document.getElementById('cpEvents');
+      if (!el) return;
+      var evs = allVisits.filter(function(v){ return v.clientId===clientId; });
+      if (!evs.length){ el.style.display='none'; el.innerHTML=''; return; }
+      var counts = {};
+      evs.forEach(function(v){ var t=v.eventType||'other'; counts[t]=(counts[t]||0)+1; });
+      var parts = ['visit','meeting','delivery','review','other'].filter(function(t){ return counts[t]; }).map(function(t){
+        var n=counts[t], lab=EV_LAB[t]||['evento','eventos'];
+        return '<span class="cp-ev-chip"><i class="fas fa-'+(EV_ICO[t]||'star')+'"></i> '+n+' '+(n===1?lab[0]:lab[1])+'</span>';
+      });
+      el.innerHTML = parts.join('');
+      el.style.display = 'flex';
+    }
     function showClientProfile(id){
       var c = clients.find(function(x){ return x.id===id; });
       if (!c){ return; }
@@ -613,6 +646,7 @@
       if (c.createdByName||c.ownerName) meta.push('<i class="fas fa-user-tie"></i> Creado por '+esc(c.createdByName||c.ownerName));
       if (c.createdAt) meta.push('<i class="fas fa-calendar"></i> '+new Date(c.createdAt).toLocaleDateString('es-UY'));
       document.getElementById('cpMeta').innerHTML = meta.join(' &nbsp;·&nbsp; ');
+      renderEventStats(id);
 
       var wa = document.getElementById('cpWhatsapp');
       var ph = (phoneFull||'').replace(/\D/g,'');
@@ -1114,15 +1148,29 @@
       });
     }
 
-    function toggleMisClientes(){
-      misClientesOnly = !misClientesOnly;
+    function esMio(c){
+      if (currentUser && (c.createdBy === currentUser.uid || c.agentId === currentUser.uid)) return true;
+      var miNombreLC = ((userProfile && userProfile.name) || '').trim().toLowerCase();
+      var duenoLC = (c.createdByName || c.ownerName || c.agentName || '').trim().toLowerCase();
+      return !!miNombreLC && duenoLC === miNombreLC;
+    }
+    function updateMisBtn(){
       var b = document.getElementById('misClientesBtn');
       if (b){
-        b.style.background = misClientesOnly ? 'var(--primary)' : '';
-        b.style.color = misClientesOnly ? '#fff' : '';
-        b.style.borderColor = misClientesOnly ? 'var(--primary)' : '';
-        b.innerHTML = misClientesOnly ? '<i class="fas fa-user-check"></i> Mis clientes' : '<i class="fas fa-user"></i> Mis clientes';
+        if (misClientesOnly){
+          b.innerHTML = '<i class="fas fa-users"></i> Todos los clientes';
+          b.style.background = 'var(--primary)'; b.style.color = '#fff'; b.style.borderColor = 'var(--primary)';
+        } else {
+          b.innerHTML = '<i class="fas fa-user"></i> Mis clientes';
+          b.style.background = ''; b.style.color = ''; b.style.borderColor = '';
+        }
       }
+      var s = document.getElementById('crmSubtitle');
+      if (s) s.textContent = misClientesOnly ? 'Tus clientes' : 'Todos los clientes de la inmobiliaria';
+    }
+    function toggleMisClientes(){
+      misClientesOnly = !misClientesOnly;
+      updateMisBtn();
       renderClients();
     }
     function archiveClient(id, archive){
