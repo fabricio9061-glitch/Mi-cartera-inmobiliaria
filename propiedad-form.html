@@ -333,7 +333,7 @@
     }
     function handleImageSelect(e) { addImagesToPreview(Array.from(e.target.files)); e.target.value = '' }
     function renderImagePreviews() {
-      document.getElementById('imagePreviewGrid').innerHTML = selectedImages.map((im, i) => `<div class="image-preview-item ${i===0?'main':''}" draggable="true" ondragstart="handleDragStart(event,${i})" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropImage(event,${i})" ondragend="handleDragEnd(event)"><img src="${im.preview}" alt=""><div class="drag-handle"><i class="fas fa-grip-vertical"></i></div><div class="remove-image" onclick="event.stopPropagation();removeImage(${i})"><i class="fas fa-times"></i></div></div>`).join('')
+      document.getElementById('imagePreviewGrid').innerHTML = selectedImages.map((im, i) => `<div class="image-preview-item ${i===0?'main':''}" data-idx="${i}" draggable="true" ondragstart="handleDragStart(event,${i})" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropImage(event,${i})" ondragend="handleDragEnd(event)"><img src="${im.preview}" alt=""><div class="drag-handle" style="opacity:1;touch-action:none" ontouchstart="imgTouchStart(event,${i})"><i class="fas fa-grip-vertical"></i></div><div class="remove-image" onclick="event.stopPropagation();removeImage(${i})"><i class="fas fa-times"></i></div></div>`).join('')
     }
     function removeImage(i) { selectedImages.splice(i, 1); renderImagePreviews() }
     function handleDragStart(e, i) { draggedImageIndex = i; e.target.classList.add('dragging') }
@@ -342,6 +342,62 @@
     function handleDragLeave(e) { if (e.target.closest('.image-preview-item')) e.target.closest('.image-preview-item').classList.remove('drag-over') }
     function handleDropImage(e, ti) { e.preventDefault(); const it = e.target.closest('.image-preview-item'); if (it) it.classList.remove('drag-over'); if (draggedImageIndex !== null && draggedImageIndex !== ti) { const di = selectedImages[draggedImageIndex]; selectedImages.splice(draggedImageIndex, 1); selectedImages.splice(ti, 0, di); renderImagePreviews() } }
     function handleDragEnd(e) { e.target.classList.remove('dragging'); draggedImageIndex = null; document.querySelectorAll('.image-preview-item').forEach(it => it.classList.remove('drag-over')) }
+
+    // ---- Reordenar fotos en CELULAR (el drag de HTML5 no funciona con el dedo) ----
+    let tDragIdx = null, tGhost = null, tDragEl = null;
+    function imgTouchStart(e, i) {
+      const item = e.target.closest('.image-preview-item');
+      if (!item) return;
+      tDragIdx = i; tDragEl = item;
+      item.classList.add('dragging');
+      const img = item.querySelector('img');
+      const r = item.getBoundingClientRect();
+      tGhost = document.createElement('div');
+      tGhost.style.cssText = 'position:fixed;z-index:99999;width:' + r.width + 'px;height:' + r.height + 'px;border-radius:12px;overflow:hidden;pointer-events:none;opacity:.9;box-shadow:0 10px 30px rgba(0,0,0,.4);transform:translate(-50%,-50%)';
+      tGhost.innerHTML = '<img src="' + (img ? img.src : '') + '" style="width:100%;height:100%;object-fit:cover">';
+      document.body.appendChild(tGhost);
+      const t = e.touches[0];
+      tGhost.style.left = t.clientX + 'px';
+      tGhost.style.top = t.clientY + 'px';
+      document.addEventListener('touchmove', imgTouchMove, { passive: false });
+      document.addEventListener('touchend', imgTouchEnd);
+    }
+    function imgTouchMove(e) {
+      if (tDragIdx === null) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      if (tGhost) { tGhost.style.left = t.clientX + 'px'; tGhost.style.top = t.clientY + 'px'; }
+      const margin = 90;
+      if (t.clientY < margin) window.scrollBy(0, -14);
+      else if (t.clientY > window.innerHeight - margin) window.scrollBy(0, 14);
+      if (tGhost) tGhost.style.display = 'none';
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      if (tGhost) tGhost.style.display = '';
+      const over = (el && el.closest) ? el.closest('.image-preview-item') : null;
+      document.querySelectorAll('.image-preview-item').forEach(it => it.classList.remove('drag-over'));
+      if (over && over !== tDragEl) over.classList.add('drag-over');
+    }
+    function imgTouchEnd(e) {
+      document.removeEventListener('touchmove', imgTouchMove, { passive: false });
+      document.removeEventListener('touchend', imgTouchEnd);
+      const t = (e.changedTouches && e.changedTouches[0]) || null;
+      let ti = null;
+      if (t) {
+        if (tGhost) tGhost.style.display = 'none';
+        const el = document.elementFromPoint(t.clientX, t.clientY);
+        const over = (el && el.closest) ? el.closest('.image-preview-item') : null;
+        if (over && over.dataset.idx != null) ti = parseInt(over.dataset.idx);
+      }
+      if (tGhost) { tGhost.remove(); tGhost = null; }
+      if (tDragIdx !== null && ti !== null && ti !== tDragIdx) {
+        const di = selectedImages[tDragIdx];
+        selectedImages.splice(tDragIdx, 1);
+        selectedImages.splice(ti, 0, di);
+        renderImagePreviews();
+      }
+      document.querySelectorAll('.image-preview-item').forEach(it => it.classList.remove('drag-over', 'dragging'));
+      tDragIdx = null; tDragEl = null;
+    }
     function updateUploadProgress(c, t) {
       const p = document.getElementById('uploadProgress'), f = document.getElementById('uploadProgressFill'), tx = document.getElementById('uploadProgressText');
       p.classList.remove('hidden'); const pc = Math.round((c / t) * 100); f.style.width = `${pc}%`; tx.textContent = `Subiendo imagen ${c} de ${t}...`

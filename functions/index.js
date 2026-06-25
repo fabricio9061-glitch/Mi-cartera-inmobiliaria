@@ -658,6 +658,20 @@ async function addFeatureAttributes(categoryId, p, baseAttributes, token, catAtt
   const byId = {};
   attrsData.forEach((a) => { byId[a.id] = a; });
 
+  // === DIAGNÓSTICO TEMPORAL (sacar después de revisar) ===========================
+  // Imprime en los logs de Functions: (1) TODOS los atributos booleanos/lista que ML
+  // acepta para esta categoría (id=nombre) y (2) los IDs de la ficha que ML NO reconoce
+  // (esos son los que "no se marcan"). Con esto alineamos el formulario sin adivinar.
+  try {
+    const _bl = attrsData
+      .filter((a) => a.value_type === "boolean" || a.value_type === "list")
+      .map((a) => `${a.id}=${a.name}`);
+    logger.info(`[ATRIBUTOS ${categoryId}] (${_bl.length}) ${_bl.join(" | ")}`);
+    const _drop = Object.keys(ficha).filter((id) => !byId[id]);
+    logger.info(`[FICHA-DESCARTADOS ${categoryId}] ${_drop.join(", ") || "(ninguno)"}`);
+  } catch (_e) {}
+  // ===============================================================================
+
   for (const [id, val] of Object.entries(ficha)) {
     const attr = byId[id];
     if (!attr || have.has(id) || val === "" || val == null) continue;
