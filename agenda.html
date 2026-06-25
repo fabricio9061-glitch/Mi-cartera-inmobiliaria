@@ -323,25 +323,30 @@
         document.getElementById('agHeroSub').textContent='Agenda de todo el equipo';
       }
       cargarVisitas();
-      cargarVinculables();
+      db.collection('users').doc(user.uid).get().then(function(d){ agProfile = d.exists ? d.data() : {}; cargarVinculables(); }).catch(function(){ agProfile = {}; cargarVinculables(); });
       refreshRemindBtn();
       startReminders();
     });
 
     // ===== Clientes y propiedades para vincular =====
     var agClients = [], agProps = [];
+    var agProfile = null;
+    function esMioCliente(c){
+      if (currentUser && (c.createdBy === currentUser.uid || c.agentId === currentUser.uid)) return true;
+      var miNombreLC = ((agProfile && agProfile.name) || '').trim().toLowerCase();
+      var duenoLC = (c.createdByName || c.ownerName || c.agentName || '').trim().toLowerCase();
+      return !!miNombreLC && duenoLC === miNombreLC;
+    }
     function cargarVinculables(){
       db.collection('clients').get().then(function(s){
         agClients = s.docs.map(function(d){ var x=d.data(); x.id=d.id; return x; })
-          .filter(function(c){ return !c.archived; })
+          .filter(function(c){ return !c.archived && esMioCliente(c); })
           .sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
         fillClientSel();
       }).catch(function(e){ console.warn('clients', e); });
       db.collection('properties').get().then(function(s){
         agProps = s.docs.map(function(d){ var x=d.data(); x.id=d.id; return x; })
-          .filter(function(p){ return !p.cierreConfirmado; })
-          .sort(function(a,b){ return (a.title||'').localeCompare(b.title||''); });
-        fillPropSel();
+          .filter(function(p){ return !p.cierreConfirmado; });
       }).catch(function(e){ console.warn('properties', e); });
     }
     function fillClientSel(){
@@ -352,15 +357,32 @@
       }).join('');
       sel.value = cur;
     }
-    function fillPropSel(){
-      var sel = document.getElementById('evPropSel'); if(!sel) return;
-      var cur = sel.value;
-      sel.innerHTML = '<option value="">— Sin vincular —</option>' + agProps.map(function(p){
-        var u = p.ubicacion || {};
-        var loc = (u.barrio || u.ciudad) ? (' · '+esc(u.barrio||u.ciudad)) : '';
-        return '<option value="'+p.id+'">'+esc(p.title||('Propiedad '+p.id))+loc+'</option>';
-      }).join('');
-      sel.value = cur;
+    function ensureOption(sel, value, label){
+      if (!sel || !value) return;
+      if (!Array.prototype.some.call(sel.options, function(o){ return o.value===value; })){
+        var o = document.createElement('option');
+        o.value = value; o.textContent = (label||value);
+        sel.appendChild(o);
+      }
+    }
+    function fillPropSelForClient(clientId){
+      var sel = document.getElementById('evPropSel');
+      if (!sel) return Promise.resolve();
+      if (!clientId){ sel.innerHTML = '<option value="">— Elegí un cliente primero —</option>'; return Promise.resolve(); }
+      var ids = {};
+      agProps.forEach(function(p){ if (p.clientId===clientId) ids[p.id]=true; });
+      return db.collection('gestiones').where('clientId','==',clientId).get().then(function(gs){
+        gs.forEach(function(d){ var g=d.data(); if (g.propertyId) ids[g.propertyId]=true; });
+      }).catch(function(e){ console.warn('gestiones', e); }).then(function(){
+        var props = agProps.filter(function(p){ return ids[p.id]; })
+          .sort(function(a,b){ return (a.title||'').localeCompare(b.title||''); });
+        if (!props.length){ sel.innerHTML = '<option value="">— Este cliente no tiene propiedades —</option>'; return; }
+        sel.innerHTML = '<option value="">— Sin vincular —</option>' + props.map(function(p){
+          var u = p.ubicacion || {};
+          var loc = (u.barrio || u.ciudad) ? (' · '+esc(u.barrio||u.ciudad)) : '';
+          return '<option value="'+p.id+'">'+esc(p.title||('Propiedad '+p.id))+loc+'</option>';
+        }).join('');
+      });
     }
     function onPickClient(){
       var sel = document.getElementById('evClientSel');
@@ -370,6 +392,7 @@
         var ph = c.phoneNormalized || ((c.areaCode||'')+(c.phone||'')) || c.phone || '';
         if (ph) document.getElementById('evPhone').value = ph;
       }
+      fillPropSelForClient(sel.value);
     }
 
     // ===== Carga de visitas (segun rol) =====
@@ -585,8 +608,14 @@
           document.getElementById('evTime').value = v.time||'';
           document.getElementById('evClient').value = v.clientName||'';
           document.getElementById('evPhone').value = v.clientPhone||'';
-          document.getElementById('evClientSel').value = v.clientId||'';
-          document.getElementById('evPropSel').value = v.propertyId||'';
+          var csel = document.getElementById('evClientSel');
+          ensureOption(csel, v.clientId, v.clientName);
+          csel.value = v.clientId||'';
+          fillPropSelForClient(v.clientId||'').then(function(){
+            var psel = document.getElementById('evPropSel');
+            ensureOption(psel, v.propertyId, v.propertyTitle);
+            psel.value = v.propertyId||'';
+          });
           document.getElementById('evNotes').value = v.notes||'';
         }
       } else {
@@ -597,7 +626,7 @@
         document.getElementById('evClient').value = '';
         document.getElementById('evPhone').value = '';
         document.getElementById('evClientSel').value = '';
-        document.getElementById('evPropSel').value = '';
+        fillPropSelForClient('');
         document.getElementById('evNotes').value = '';
       }
       document.getElementById('eventModal').classList.add('open');

@@ -46,8 +46,10 @@
     .cat-viaje{ background:#e7f7ec; color:#1f9d54; } .ic-viaje{ color:#1f9d54; }
     .cat-dinero{ background:#fff4e0; color:#b9770f; } .ic-dinero{ color:#b9770f; }
     .rcard h3{ font-size:1rem; margin-bottom:4px; }
-    .rcard .desc{ font-size:.84rem; color:#777; margin-bottom:12px; flex:1; }
-    .rcard .cost{ font-weight:800; color:var(--navy); font-size:1.1rem; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+    .rcard .desc{ font-size:.84rem; color:#777; margin-bottom:6px; line-height:1.45; }
+    .rcard .desc.clamp{ display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+    .rcard .desc-btn{ background:none; border:none; color:var(--gold); font-size:.8rem; font-weight:700; cursor:pointer; padding:0; margin-bottom:12px; align-self:flex-start; }
+    .rcard .cost{ font-weight:800; color:var(--navy); font-size:1.1rem; margin:auto 0 12px; display:flex; align-items:center; gap:6px; }
     .rcard .cost i{ color:var(--gold); }
     .rcard .stock{ font-size:.74rem; color:#999; margin-top:-8px; margin-bottom:10px; }
 
@@ -111,6 +113,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
@@ -124,6 +127,7 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
+    const storage = firebase.storage();
 
     function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
     function show(id){ ['loadingState','authState','content'].forEach(x=>document.getElementById(x).style.display = (x===id?'':'none')); }
@@ -207,6 +211,12 @@
       if(tab==='config') return renderConfig();
     }
 
+    function toggleDesc(id, btn){
+      var d = document.getElementById('rdesc-'+id);
+      if(!d) return;
+      var expanded = !d.classList.toggle('clamp');
+      btn.textContent = expanded ? 'Leer menos' : 'Leer más';
+    }
     // ---------- Catálogo (asesor) ----------
     function renderCatalogo(){
       const p = document.getElementById('panel');
@@ -217,12 +227,13 @@
         const stockOut = (r.stock!=null && Number(r.stock)<=0);
         const noPlata = s < (Number(r.costoPuntos)||0);
         const dis = stockOut || noPlata;
-        const img = r.imagen ? '<img src="'+esc(r.imagen)+'" alt="" style="width:100%;height:120px;object-fit:cover;border-radius:10px;margin-bottom:10px">' : '<div class="ic ic-'+cat+'"><i class="fas '+CATS[cat].icon+'"></i></div>';
+        const img = r.imagen ? '<img src="'+esc(r.imagen)+'" alt="" style="width:100%;height:auto;display:block;border-radius:10px;margin-bottom:10px">' : '<div class="ic ic-'+cat+'"><i class="fas '+CATS[cat].icon+'"></i></div>';
         return '<div class="rcard">'
           + img
           + '<span class="cat cat-'+cat+'">'+CATS[cat].label+'</span>'
           + '<h3>'+esc(r.nombre||'Recompensa')+'</h3>'
-          + '<div class="desc">'+esc(r.descripcion||'')+'</div>'
+          + '<div class="desc clamp" id="rdesc-'+r.id+'">'+esc(r.descripcion||'')+'</div>'
+          + ((r.descripcion && r.descripcion.length>110) ? '<button class="desc-btn" onclick="toggleDesc(\''+r.id+'\',this)">Leer más</button>' : '')
           + '<div class="cost"><i class="fas fa-coins"></i> '+nf(r.costoPuntos)+' pts</div>'
           + (r.stock!=null ? '<div class="stock">'+(stockOut?'Sin stock':('Quedan '+nf(r.stock)))+'</div>' : '')
           + '<button class="btn btn-gold" '+(dis?'disabled':'')+' onclick="canjear(\''+r.id+'\')">'+(stockOut?'Agotado':(noPlata?'Te faltan puntos':'<i class=\'fas fa-gift\'></i> Canjear'))+'</button>'
@@ -306,10 +317,12 @@
         +   '<div class="field"><label>Costo en puntos</label><input id="fCosto" type="number" min="0" value="'+(ed?ed.costoPuntos:'')+'"></div>'
         + '</div>'
         + '<div class="field"><label>Descripción</label><textarea id="fDesc" rows="2" placeholder="Detalle de la recompensa">'+esc(ed?ed.descripcion:'')+'</textarea></div>'
-        + '<div class="grid2">'
-        +   '<div class="field"><label>Stock (opcional, vacío = ilimitado)</label><input id="fStock" type="number" min="0" value="'+(ed&&ed.stock!=null?ed.stock:'')+'"></div>'
-        +   '<div class="field"><label>Imagen URL (opcional)</label><input id="fImg" value="'+esc(ed?ed.imagen:'')+'" placeholder="https://..."></div>'
-        + '</div>'
+        + '<div class="field"><label>Stock (opcional, vacío = ilimitado)</label><input id="fStock" type="number" min="0" value="'+(ed&&ed.stock!=null?ed.stock:'')+'"></div>'
+        + '<div class="field"><label>Imagen</label>'
+        +   '<div id="fImgPreview" style="margin-bottom:8px;'+((ed&&ed.imagen)?'':'display:none')+'">'+((ed&&ed.imagen)?'<img src="'+esc(ed.imagen)+'" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px">':'')+'</div>'
+        +   '<input type="file" accept="image/*" id="fImgFile" onchange="subirImagenRecompensa(this)" style="margin-bottom:8px;width:100%">'
+        +   '<div id="fImgStatus" style="font-size:.8rem;color:#888;margin-bottom:6px"></div>'
+        +   '<input id="fImg" value="'+esc(ed?ed.imagen:'')+'" placeholder="…o pegá una URL" style="font-size:.85rem"></div>'
         + '<div class="row" style="justify-content:flex-end">'
         +   (ed?'<button class="btn btn-ghost" onclick="cancelEdit()">Cancelar</button>':'')
         +   '<button class="btn btn-gold" onclick="guardarRecompensa()"><i class="fas fa-save"></i> '+(ed?'Guardar cambios':'Agregar')+'</button>'
@@ -327,6 +340,43 @@
     }
     function editar(id){ editId=id; renderPanel(); window.scrollTo({top:0,behavior:'smooth'}); }
     function cancelEdit(){ editId=null; renderPanel(); }
+    async function subirImagenRecompensa(input){
+      const file = input.files && input.files[0];
+      if(!file) return;
+      const st = document.getElementById('fImgStatus');
+      if(st) st.textContent = 'Subiendo imagen…';
+      try{
+        const blob = await resizeImg(file, 800, 0.85);
+        const ref = storage.ref('recompensasIMG/'+Date.now()+'_'+Math.random().toString(36).slice(2)+'.jpg');
+        await ref.put(blob);
+        const url = await ref.getDownloadURL();
+        document.getElementById('fImg').value = url;
+        const pv = document.getElementById('fImgPreview');
+        if(pv){ pv.innerHTML = '<img src="'+url+'" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px">'; pv.style.display=''; }
+        if(st) st.textContent = '✓ Imagen lista';
+      }catch(e){
+        console.warn('subir imagen recompensa', e);
+        if(st) st.textContent = 'No se pudo subir: '+(e.message||e);
+        toast('No se pudo subir la imagen.', true);
+      }
+    }
+    function resizeImg(file, maxW, quality){
+      return new Promise(function(resolve, reject){
+        const img = new Image();
+        const u = URL.createObjectURL(file);
+        img.onload = function(){
+          URL.revokeObjectURL(u);
+          var w = img.width, hh = img.height;
+          if(w > maxW){ hh = Math.round(hh * maxW / w); w = maxW; }
+          const cv = document.createElement('canvas');
+          cv.width = w; cv.height = hh;
+          cv.getContext('2d').drawImage(img, 0, 0, w, hh);
+          cv.toBlob(function(bl){ bl ? resolve(bl) : reject(new Error('No se pudo procesar la imagen')); }, 'image/jpeg', quality);
+        };
+        img.onerror = function(){ URL.revokeObjectURL(u); reject(new Error('Imagen inválida')); };
+        img.src = u;
+      });
+    }
     async function guardarRecompensa(){
       const nombre=document.getElementById('fNombre').value.trim();
       const categoria=document.getElementById('fCat').value;
