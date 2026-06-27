@@ -112,10 +112,10 @@
           <div class="form-group"><label>Video de YouTube (opcional)</label><input type="url" id="propVideo" placeholder="https://www.youtube.com/watch?v=..."></div>
         </div>
 
-        <div class="ppf-step"><div class="num">6</div><div><h3>Título y descripción</h3><small>Mercado Libre corta el título en 60 caracteres: contá lo importante primero.</small></div></div>
+        <div class="ppf-step"><div class="num">6</div><div><h3>Título y descripción</h3><small>Mercado Libre permite hasta 200 caracteres: usá al menos 60 y sumá lo que la gente busca (tipo, barrio, dormitorios, extras).</small></div></div>
         <div class="ppf-sec">
-          <div class="form-group"><label>Título *</label><input type="text" id="propTitle" required maxlength="60" placeholder="Ej: Casa en Pocitos con jardín" oninput="actualizarContadorTitulo()"></div>
-          <div class="titulo-counter"><span id="tituloCount">0</span>/60</div>
+          <div class="form-group"><label>Título *</label><input type="text" id="propTitle" required maxlength="200" placeholder="Ej: Casa 3 dormitorios en Pocitos con jardín, parrillero y garaje doble" oninput="actualizarContadorTitulo()"></div>
+          <div class="titulo-counter"><span id="tituloCount">0</span>/200</div>
           <div class="form-group"><label>Descripción</label><textarea id="propDescription" rows="4" placeholder="Describe la propiedad..."></textarea></div>
         </div>
 
@@ -571,7 +571,7 @@
       ML_FICHA_FIELDS.forEach(c => {
         const el = document.getElementById('fc-' + c.id);
         if (!el) return;
-        if (!c.type) { if (el.checked) ficha[c.id] = true; }                       // checkbox Sí/No
+        if (!c.type) { ficha[c.id] = !!el.checked; }                              // checkbox: Sí (tildado) / No (sin tildar) — siempre se manda
         else if (c.type === 'num') { const n = parseFloat(el.value); if (!isNaN(n)) ficha[c.id] = n; }
         else { if (el.value) ficha[c.id] = el.value; }                             // lista / texto / fecha
       });

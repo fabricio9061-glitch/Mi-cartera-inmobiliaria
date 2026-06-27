@@ -663,10 +663,12 @@ async function addFeatureAttributes(categoryId, p, baseAttributes, token, catAtt
   // acepta para esta categoría (id=nombre) y (2) los IDs de la ficha que ML NO reconoce
   // (esos son los que "no se marcan"). Con esto alineamos el formulario sin adivinar.
   try {
-    const _bl = attrsData
-      .filter((a) => a.value_type === "boolean" || a.value_type === "list")
-      .map((a) => `${a.id}=${a.name}`);
-    logger.info(`[ATRIBUTOS ${categoryId}] (${_bl.length}) ${_bl.join(" | ")}`);
+    const _all = attrsData.map((a) => {
+      const req = (a.tags && (a.tags.required ? "*" : (a.tags.conditional_required ? "?" : ""))) || "";
+      const vals = (a.value_type === "list" && Array.isArray(a.values) && a.values.length) ? `{${a.values.map((v) => v.name).join("/")}}` : "";
+      return `${a.id}=${a.name}[${a.value_type}]${req}${vals}`;
+    });
+    logger.info(`[ATRIBUTOS ${categoryId}] (${_all.length}) ${_all.join(" | ")}`);
     const _drop = Object.keys(ficha).filter((id) => !byId[id]);
     logger.info(`[FICHA-DESCARTADOS ${categoryId}] ${_drop.join(", ") || "(ninguno)"}`);
   } catch (_e) {}
@@ -677,9 +679,17 @@ async function addFeatureAttributes(categoryId, p, baseAttributes, token, catAtt
     if (!attr || have.has(id) || val === "" || val == null) continue;
     const vt = attr.value_type;
     if (vt === "boolean") {
-      if (val === true || val === "true" || val === 1) {
-        const si = (attr.values || []).find((x) => /^s[ií]$/.test(norm(x.name)));
-        out.push({ id, value_id: si ? si.id : "242085" });
+      const siVal = val === true || val === "true" || val === 1;
+      const noVal = val === false || val === "false" || val === 0;
+      if (siVal || noVal) {
+        const vlist = attr.values || [];
+        if (siVal) {
+          const si = vlist.find((x) => /^s[ií]$/.test(norm(x.name)));
+          out.push({ id, value_id: si ? si.id : "242085" });
+        } else {
+          const no = vlist.find((x) => /^no$/.test(norm(x.name)));
+          out.push({ id, value_id: no ? no.id : "242084" });
+        }
         have.add(id);
       }
     } else if (vt === "list") {
@@ -891,6 +901,17 @@ async function buildItem(p, token) {
     catAttrs = (await axios.get(`${API}/categories/${categoryId}/attributes`, { headers: { Authorization: `Bearer ${token}` } })).data || [];
   } catch (e) { catAttrs = null; }
 
+  // Límites REALES de la categoría. Inmuebles permite títulos de hasta 200 y hasta
+  // 30 fotos; antes estaban hardcodeados en 60/12 y recortaban título y fotos.
+  let maxTitle = 60, maxPics = 12;
+  try {
+    const _cat = (await axios.get(`${API}/categories/${categoryId}`, { headers: { Authorization: `Bearer ${token}` } })).data || {};
+    if (_cat.settings) {
+      if (_cat.settings.max_title_length) maxTitle = _cat.settings.max_title_length;
+      if (_cat.settings.max_pictures_per_item) maxPics = _cat.settings.max_pictures_per_item;
+    }
+  } catch (e) { /* si falla, quedan los límites por defecto */ }
+
   // PROPERTY_TYPE según la categoría: en las que lo fijan (p. ej. "Local", "Oficina")
   // ML lo rechaza si se lo enviás, así que ahí lo quitamos; si la categoría tiene una
   // lista cerrada de valores, mandamos el value_id correcto en vez de un nombre con id
@@ -906,10 +927,10 @@ async function buildItem(p, token) {
   attributes = await fillRequiredAttributes(categoryId, p, attributes, token, catAttrs);
 
   const condition = await pickCondition(categoryId, token);
-  const pictures = (p.images || []).slice(0, 12).map((url) => ({ source: url }));
+  const pictures = (p.images || []).slice(0, maxPics).map((url) => ({ source: url }));
 
   return {
-    title: (p.title || "Propiedad").slice(0, 60),
+    title: (p.title || "Propiedad").slice(0, maxTitle),
     category_id: categoryId,
     price: p.price,
     currency_id: p.currency || "USD",
@@ -1486,6 +1507,57 @@ exports.estadoML = onCall(async (request) => {
     if (h.data.health != null) health = h.data.health;
     actions = (h.data.actions || []).map((a) => a.id || a.name).filter(Boolean);
   } catch (e) { /* algunos avisos no exponen health/actions todavía */ }
+  // Detalle de qué falta para subir la calidad: endpoint nuevo y agregado de ML
+  // (OJO: ruta singular /item/.../performance). Trae buckets/variables con título
+  // en español y estado COMPLETED/PENDING. Listamos solo lo PENDING.
+  let mejoras = [];
+  try {
+    const perf = await axios.get(`${API}/item/${p.mlItemId}/performance`, { headers });
+    const pd = perf.data || {};
+    if (health == null && pd.score != null) health = pd.score / 100;
+    const vistos = new Set();
+    (pd.buckets || []).forEach((b) => {
+      const vars = Array.isArray(b.variables) ? b.variables : [];
+      const pend = vars.filter((v) => v && v.status && String(v.status).toUpperCase() !== "COMPLETED");
+      if (pend.length) {
+        pend.forEach((v) => {
+          const titulo = String(v.title || v.key || "").trim();
+          if (titulo && !vistos.has(titulo)) { vistos.add(titulo); mejoras.push({ titulo, grupo: b.title || "" }); }
+        });
+      } else if (!vars.length && b.status && String(b.status).toUpperCase() !== "COMPLETED") {
+        const titulo = String(b.title || b.key || "").trim();
+        if (titulo && !vistos.has(titulo)) { vistos.add(titulo); mejoras.push({ titulo, grupo: "" }); }
+      }
+    });
+  } catch (e) { /* /performance puede no estar disponible para este aviso */ }
+  // QUÉ FALTA DE VERDAD: comparamos los atributos que ESTA categoría de ML ofrece
+  // contra los que el aviso ya tiene cargados. No depende del endpoint de calidad
+  // (que en avisos gratuitos/clasificados no da detalle). Además logueamos la lista
+  // COMPLETA de atributos de la categoría para alinear el formulario; esto se imprime
+  // cada vez que se ABRE el modal (no hace falta publicar para verlo en los logs).
+  let faltan = [];
+  try {
+    const catAttrs = (await axios.get(`${API}/categories/${item.category_id}/attributes`, { headers })).data || [];
+    logger.info(`[CAT ${item.category_id}] (${catAttrs.length}) ` + catAttrs.map((a) => {
+      const req = (a.tags && (a.tags.required ? "*" : (a.tags.conditional_required ? "?" : ""))) || "";
+      const vals = (a.value_type === "list" && Array.isArray(a.values) && a.values.length) ? `{${a.values.map((v) => v.name).join("/")}}` : "";
+      return `${a.id}=${a.name}[${a.value_type}]${req}${vals}`;
+    }).join(" | "));
+    const lleno = new Set();
+    (item.attributes || []).forEach((a) => {
+      const tiene = (a.value_name != null && String(a.value_name) !== "") || (a.value_id != null && String(a.value_id) !== "") || (Array.isArray(a.values) && a.values.length > 0);
+      if (tiene) lleno.add(a.id);
+    });
+    const noVa = new Set(["OPERATION", "PROPERTY_TYPE", "ITEM_CONDITION"]);
+    const reqM = [], optM = [];
+    catAttrs.forEach((a) => {
+      if (lleno.has(a.id) || noVa.has(a.id)) return;
+      const t = a.tags || {};
+      if (t.hidden || t.read_only || t.fixed) return;
+      (t.required || t.conditional_required ? reqM : optM).push(a.name);
+    });
+    faltan = reqM.map((n) => ({ nombre: n, req: true })).concat(optM.map((n) => ({ nombre: n, req: false })));
+  } catch (e) { logger.warn(`[estadoML faltan] ${e.response ? e.response.status : e.message}`); }
   // Interacción del aviso (estadísticas de Inmuebles de ML), últimos 30 días.
   const _hasta = new Date().toISOString();
   const _desde = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -1532,6 +1604,8 @@ exports.estadoML = onCall(async (request) => {
     permalink: item.permalink || p.mlPermalink || "",
     health,
     actions,
+    mejoras,
+    faltan,
     visitas: visitas,
     preguntas: preguntas,
     contactosWhatsapp: contactosWa,

@@ -1080,10 +1080,48 @@
     const _pregSR = (d.preguntas && d.preguntas.sinResponder) ? ` · ${d.preguntas.sinResponder} sin responder` : '';
     const interaccion = `<div class="ml-section"><div class="ml-stats"><div class="ml-stat"><i class="fas fa-eye" style="color:#1e9e6a"></i><div><div class="n">${_dash(d.visitas)}</div><div class="t">visitas · 30 días</div></div></div><div class="ml-stat"><i class="fas fa-circle-question" style="color:#2e86de"></i><div><div class="n">${_dash(_pregN)}</div><div class="t">preguntas${_pregSR}</div></div></div><div class="ml-stat"><i class="fab fa-whatsapp" style="color:#25d366"></i><div><div class="n">${_dash(d.contactosWhatsapp)}</div><div class="t">contactos WhatsApp · 30 días</div></div></div></div></div>`;
     const pagoHint = d.status === 'payment_required' ? `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-circle-info"></i><div>El aviso está creado pero Mercado Libre exige pagar el tipo <strong>${mlListingTypeName(d.listingType)}</strong> para activarlo (se abona desde tu cuenta de ML, sección Publicaciones). Si no querés pagarlo, dale <strong>Dar de baja</strong> y volvé a publicarlo eligiendo otro tipo. Mientras no lo pagues, no se cobra nada.</div></div></div>` : '';
-    const acc = (d.actions || []).map(a => `<li><i class="fas fa-arrow-up"></i><span>${mlActionText(a)}</span></li>`).join('');
-    const improve = acc
-      ? `<div class="ml-section"><div class="ml-improve-title">Para mejorar el aviso</div><ul class="ml-improve">${acc}</ul></div>`
-      : `<div class="ml-section"><div class="ml-note ok"><i class="fas fa-circle-check"></i><div>El aviso está completo, sin mejoras pendientes.</div></div></div>`;
+    // Qué falta para el 100%: lo MÁS confiable es comparar los atributos de la
+    // categoría contra los que el aviso tiene cargados (d.faltan, lo calcula el
+    // backend y NO depende de la calidad de ML). Si por algo no viene, caemos al
+    // detalle de /performance, después a /health, y por último a fotos/descripción.
+    let improve;
+    const _faltan = Array.isArray(d.faltan) ? d.faltan : [];
+    if (_faltan.length) {
+      const reqs = _faltan.filter(x => x && x.req).map(x => x.nombre);
+      const opts = _faltan.filter(x => x && !x.req).map(x => x.nombre);
+      const CAP = 14;
+      let h = '<div class="ml-section">';
+      if (reqs.length) {
+        h += '<div class="ml-improve-title">Datos obligatorios sin completar</div><ul class="ml-improve">'
+          + reqs.map(n => `<li><i class="fas fa-triangle-exclamation" style="color:#e8a33d"></i><span>${mvEsc(n)}</span></li>`).join('')
+          + '</ul>';
+      }
+      if (opts.length) {
+        const shown = opts.slice(0, CAP), rest = opts.length - shown.length;
+        h += `<div class="ml-improve-title"${reqs.length ? ' style="margin-top:10px"' : ''}>Completá estos datos para subir la calidad</div><ul class="ml-improve">`
+          + shown.map(n => `<li><i class="fas fa-arrow-up"></i><span>${mvEsc(n)}</span></li>`).join('')
+          + (rest > 0 ? `<li style="opacity:.65"><i class="fas fa-ellipsis-h"></i><span>y ${rest} dato${rest === 1 ? '' : 's'} m\u00e1s</span></li>` : '')
+          + '</ul>';
+      }
+      h += '<div style="font-size:.8rem;color:#8a7a45;margin-top:8px;line-height:1.4">Completalos en <strong>Editar propiedad</strong> y guard\u00e1: se actualizan solos en Mercado Libre.</div></div>';
+      improve = h;
+    } else {
+      let _mej = [];
+      const _vis = new Set();
+      if (d.mejoras && d.mejoras.length) {
+        d.mejoras.forEach(m => { const t = ((m && m.titulo) || '').trim(); if (t && !_vis.has(t)) { _vis.add(t); _mej.push(t); } });
+      } else if (d.actions && d.actions.length) {
+        d.actions.forEach(a => { const t = mlActionText(a); if (t && !_vis.has(t)) { _vis.add(t); _mej.push(t); } });
+      }
+      const acc = _mej.map(t => `<li><i class="fas fa-arrow-up"></i><span>${mvEsc(t)}</span></li>`).join('');
+      if (acc) {
+        improve = `<div class="ml-section"><div class="ml-improve-title">Para llegar al 100%, completá:</div><ul class="ml-improve">${acc}</ul></div>`;
+      } else if (hp != null && hp < 99) {
+        improve = `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-circle-info"></i><div>Sum\u00e1 <strong>m\u00e1s fotos</strong> (al menos 12) y una <strong>descripci\u00f3n</strong> m\u00e1s completa para subir la calidad.</div></div></div>`;
+      } else {
+        improve = `<div class="ml-section"><div class="ml-note ok"><i class="fas fa-circle-check"></i><div>El aviso est\u00e1 completo, sin mejoras pendientes.</div></div></div>`;
+      }
+    }
     const selTipo = d.status === 'closed' ? `<div class="ml-section">${mlTypeSelector(d.tiposDisponibles)}</div>` : '';
     const botones = [];
     if (d.permalink) botones.push(`<a href="${d.permalink}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost"><i class="fas fa-external-link-alt"></i> Ver aviso</a>`);
