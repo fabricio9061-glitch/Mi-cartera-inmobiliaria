@@ -390,6 +390,39 @@ exports.diagnosticoML = onRequest(async (req, res) => {
   }
 });
 
+// Diagnóstico: devuelve la ficha (atributos) de la categoría de un tipo de inmueble,
+// para alinear el formulario sin depender de publicaciones. Abrí en el navegador:
+//   /fichaCategoriaML?tipo=apartamento           (op opcional: venta|alquiler)
+//   /fichaCategoriaML?tipo=local&op=alquiler
+//   /fichaCategoriaML?cat=MLU1472                (categoría directa por ID)
+exports.fichaCategoriaML = onRequest(async (req, res) => {
+  res.set("Content-Type", "text/plain; charset=utf-8");
+  try {
+    const token = await getValidToken();
+    const headers = { Authorization: `Bearer ${token}` };
+    let catId = req.query.cat;
+    const tipo = req.query.tipo;
+    const op = req.query.op === "alquiler" ? "rent" : "sale";
+    if (!catId && tipo) {
+      catId = await getRealEstateCategory({ realEstateType: tipo, type: op }, token);
+    }
+    if (!catId) {
+      res.status(400).send("Pasá ?tipo=apartamento (o ?cat=MLU1472).\nTipos: casa, apartamento, terreno, local, oficina, galpon, campo.\nOpcional ?op=venta (o alquiler).");
+      return;
+    }
+    const cat = (await axios.get(`${API}/categories/${catId}`, { headers })).data || {};
+    const attrs = (await axios.get(`${API}/categories/${catId}/attributes`, { headers })).data || [];
+    const linea = attrs.map((a) => {
+      const r = (a.tags && (a.tags.required ? "*" : (a.tags.conditional_required ? "?" : ""))) || "";
+      const vals = (a.value_type === "list" && Array.isArray(a.values) && a.values.length) ? `{${a.values.map((v) => v.name).join("/")}}` : "";
+      return `${a.id}=${a.name}[${a.value_type}]${r}${vals}`;
+    }).join(" | ");
+    res.status(200).send(`[CAT ${catId}] ${cat.name || ""} (${attrs.length})\n\n${linea}`);
+  } catch (e) {
+    res.status(500).send("Error: " + (e.response ? JSON.stringify(e.response.data) : e.message));
+  }
+});
+
 // =====================================================================
 // Helper: arma el aviso de Mercado Libre a partir de la propiedad
 // =====================================================================
@@ -925,6 +958,13 @@ async function buildItem(p, token) {
   attributes = await addFeatureAttributes(categoryId, p, attributes, token, catAttrs);
   // Completar cualquier atributo obligatorio que la categoría exija y todavía falte.
   attributes = await fillRequiredAttributes(categoryId, p, attributes, token, catAttrs);
+
+  // Seguridad: no enviar atributos que la categoría no reconoce (ej.: dormitorios o
+  // área cubierta en un terreno). Evita rechazos de ML en tipos no residenciales.
+  if (Array.isArray(catAttrs) && catAttrs.length) {
+    const validos = new Set(catAttrs.map((a) => a.id));
+    attributes = attributes.filter((a) => a && validos.has(a.id));
+  }
 
   const condition = await pickCondition(categoryId, token);
   const pictures = (p.images || []).slice(0, maxPics).map((url) => ({ source: url }));
