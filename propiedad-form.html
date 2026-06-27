@@ -86,7 +86,7 @@
 
         <div class="ppf-step"><div class="num">1</div><div><h3>¿Qué vas a publicar?</h3><small>Operación y tipo de inmueble, igual que el primer paso de Mercado Libre.</small></div></div>
         <div class="ppf-sec">
-          <div class="form-row-3"><div class="form-group"><label>Tipo de Operación</label><select id="propType" onchange="togglePropertyType()"><option value="sale">Venta</option><option value="rent">Alquiler</option></select></div><div class="form-group"><label>Tipo de inmueble</label><select id="propRealEstateType" onchange="updateSubtypeByType()"><option value="casa">Casa</option><option value="apartamento">Apartamento</option><option value="terreno">Terreno</option><option value="local">Local comercial</option><option value="oficina">Oficina</option><option value="galpon">Galpón / Depósito</option><option value="campo">Campo / Chacra</option></select></div><div class="form-group" id="propertyTypeGroup"><label>Tipo de padrón</label><select id="propPropertyType"><option value="common">Padrón Común</option><option value="ph">PH</option></select></div></div>
+          <div class="form-row-3"><div class="form-group"><label>Tipo de Operación</label><select id="propType" onchange="togglePropertyType()"><option value="sale">Venta</option><option value="rent">Alquiler</option></select></div><div class="form-group"><label>Tipo de inmueble</label><select id="propRealEstateType" onchange="onTipoChange()"><option value="casa">Casa</option><option value="apartamento">Apartamento</option><option value="terreno">Terreno</option><option value="local">Local comercial</option><option value="oficina">Oficina</option><option value="galpon">Galpón / Depósito</option><option value="campo">Campo / Chacra</option></select></div><div class="form-group" id="propertyTypeGroup"><label>Tipo de padrón</label><select id="propPropertyType"><option value="common">Padrón Común</option><option value="ph">PH</option></select></div></div>
         </div>
 
         <div class="ppf-step"><div class="num">2</div><div><h3>Ubicación</h3><small>Buscá la dirección y ajustá el pin: las coordenadas y el barrio viajan a Mercado Libre y mejoran cómo aparece el aviso en el mapa.</small></div></div>
@@ -439,15 +439,105 @@
       document.getElementById('propWhatsapp').value = p.ownerWhatsapp || '';
       selectStatus(p.status || 'available');
       togglePropertyType();
+      renderFicha();
       fillFicha(p);
-      updateSubtypeByType();
       if (p.images && p.images.length > 0) { selectedImages = p.images.map(url => ({ preview: url, url: url, existing: true })); renderImagePreviews() }
     }
     // ---- Características adicionales (servicios, comodidades, seguridad, ambientes) ----
     // Ficha técnica de Mercado Libre como fuente de verdad. Cada campo usa el ID
     // EXACTO del atributo de ML, así lo que se carga acá es lo que se publica.
     // type: 'num' número | 'list' desplegable | 'date'/'text' texto | (sin type) checkbox Sí/No.
-    const ML_FICHA = {
+    const FICHA_CASA = {
+      "Características secundarias": [
+        { id: "PARKING_LOTS", label: "Cocheras", type: "num" },
+        { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
+        { id: "ROOMS", label: "Ambientes", type: "num" },
+        { id: "WAREHOUSES", label: "Bodegas", type: "num" },
+        { id: "FLOORS", label: "Cantidad de pisos", type: "num" },
+        { id: "LAND_AREA", label: "Superficie de terreno (m²)", type: "num" },
+        { id: "BALCONY_AREA", label: "Superficie de balcón (m²)", type: "num" },
+        { id: "HOUSE_NUMBER", label: "Número de la casa", type: "text" },
+        { id: "HOUSE_PROPERTY_SUBTYPE", label: "Tipo de casa", type: "list", options: ["Casa", "Cabaña", "Chalet", "Dúplex", "Ph", "Tríplex"] },
+        { id: "PROPERTY_OWNERSHIP", label: "Tipo de propiedad", type: "list", options: ["Casa sola", "Casa en condominio", "Casa en fraccionamiento"] },
+        { id: "FACING", label: "Orientación", type: "list", options: ["Norte", "Sur", "Este", "Oeste"] },
+        { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
+        { id: "AVAILABLE", label: "Disponible desde", type: "date" },
+      ],
+      "Servicios": [
+        { id: "HAS_INTERNET_ACCESS", label: "Acceso a internet" },
+        { id: "HAS_NATURAL_GAS", label: "Gas natural" },
+        { id: "HAS_TELEPHONE_LINE", label: "Línea telefónica" },
+        { id: "HAS_AIR_CONDITIONING", label: "Aire acondicionado" },
+        { id: "HAS_HEATING", label: "Calefacción" },
+        { id: "WITH_ELECTRIC_GENERATOR", label: "Grupo electrógeno" },
+        { id: "WITH_SOLAR_ENERGY", label: "Energía solar" },
+        { id: "WITH_LAUNDRY_CONNECTION", label: "Conexión para lavarropas" },
+        { id: "HAS_TAP_WATER", label: "Agua corriente" },
+        { id: "HAS_CISTERN", label: "Cisterna" },
+        { id: "HAS_BOILER", label: "Caldera a gas/eléctrica" },
+        { id: "HAS_CABLE_TV", label: "TV por cable" },
+        { id: "WITH_SATELITE_TV", label: "TV satelital" },
+      ],
+      "Comodidades y equipamiento": [
+        { id: "HAS_INDOOR_FIREPLACE", label: "Chimenea" },
+        { id: "HAS_GYM", label: "Gimnasio" },
+        { id: "HAS_JACUZZI", label: "Jacuzzi" },
+        { id: "HAS_GUEST_PARKING", label: "Estacionamiento para visitas" },
+        { id: "HAS_CINEMA_HALL", label: "Área de cine" },
+        { id: "WITH_PLAYGROUND", label: "Área de juegos infantiles" },
+        { id: "WITH_GREEN_AREA", label: "Área verde" },
+        { id: "HAS_LIFT", label: "Ascensor" },
+        { id: "WITH_BASKETBALL_COURT", label: "Cancha de básquetbol" },
+        { id: "WITH_SOCCER_FIELD", label: "Cancha de fútbol" },
+        { id: "WITH_PADDLE_COURT", label: "Cancha de paddle" },
+        { id: "WITH_TENNIS_COURT", label: "Cancha de tenis" },
+        { id: "WITH_MULTIPURPOSE_SPORT_COURT", label: "Cancha polideportiva" },
+        { id: "WITH_PARTY_ROOM", label: "Salón de fiestas" },
+        { id: "HAS_SAUNA", label: "Sauna" },
+        { id: "HAS_FRIDGE", label: "Heladera" },
+        { id: "WITH_BREAKFAST_BAR", label: "Desayunador" },
+        { id: "WITH_GARDENER", label: "Jardinero" },
+      ],
+      "Seguridad": [
+        { id: "HAS_ALARM", label: "Alarma" },
+        { id: "HAS_ELECTRIC_GATE_OPENER", label: "Portón automático" },
+        { id: "HAS_SECURITY", label: "Circuito de cámaras de seguridad" },
+        { id: "WITH_CONTROLLED_ACCESS", label: "Acceso controlado" },
+        { id: "IN_GATED_COMMUNITY", label: "En barrio cerrado" },
+        { id: "SECURITY_TYPE", label: "Tipo de seguridad", type: "list", options: ["24 horas", "Diurno", "Nocturno", "Virtual"] },
+      ],
+      "Ambientes": [
+        { id: "HAS_ATTIC", label: "Altillo" },
+        { id: "HAS_BALCONY", label: "Balcón" },
+        { id: "HAS_KITCHEN", label: "Cocina" },
+        { id: "HAS_DINNING_ROOM", label: "Comedor" },
+        { id: "HAS_BEDROOM_SUITE", label: "Dormitorio en suite" },
+        { id: "HAS_MAID_ROOM", label: "Dormitorio de servicio" },
+        { id: "HAS_STUDY", label: "Estudio" },
+        { id: "HAS_LIVING_ROOM", label: "Living" },
+        { id: "HAS_PATIO", label: "Patio" },
+        { id: "HAS_PLAYROOM", label: "Cuarto de juegos" },
+        { id: "HAS_LAUNDRY", label: "Lavadero" },
+        { id: "HAS_DRESSING_ROOM", label: "Vestidor" },
+        { id: "HAS_GARDEN", label: "Jardín" },
+        { id: "HAS_GRILL", label: "Parrillero" },
+        { id: "HAS_SWIMMING_POOL", label: "Piscina" },
+        { id: "HAS_TERRACE", label: "Terraza" },
+        { id: "HAS_HALF_BATH", label: "Baño social" },
+        { id: "HAS_CLOSETS", label: "Placards" },
+      ],
+      "Condiciones especiales": [
+        { id: "FURNISHED", label: "Amoblado" },
+        { id: "PROFESSIONAL_USE_ALLOWED", label: "Uso comercial" },
+        { id: "IS_SUITABLE_FOR_PETS", label: "Admite mascotas" },
+        { id: "ONLY_FAMILIES", label: "Solo familias" },
+        { id: "ENDORSEMENT_REQUIRED", label: "Requiere aval" },
+      ],
+    };
+    // Fallback para los tipos que todavía no relevé contra ML (apartamento, terreno,
+    // local, oficina, galpón, campo). El backend igual valida y descarta lo que no
+    // aplica a cada categoría. Con el log [CAT ...] de cada tipo armo su ficha exacta.
+    const FICHA_COMUN = {
       "Ambientes y superficies": [
         { id: "ROOMS", label: "Ambientes", type: "num" },
         { id: "PARKING_LOTS", label: "Cocheras", type: "num" },
@@ -458,7 +548,7 @@
         { id: "FLOORS", label: "Cantidad de pisos", type: "num" },
         { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
         { id: "HOUSE_PROPERTY_SUBTYPE", label: "Tipo de casa", type: "list", options: ["Casa", "Cabaña", "Chalet", "Dúplex", "Ph", "Tríplex"] },
-        { id: "APARTMENT_PROPERTY_SUBTYPE", label: "Tipo de departamento", type: "list", options: ["Departamento", "Monoambiente", "Dúplex", "Tríplex", "Penthhouse", "Loft", "Semi piso", "Piso", "Ph"] },
+        { id: "APARTMENT_PROPERTY_SUBTYPE", label: "Tipo de departamento", type: "list", options: ["Departamento", "Monoambiente", "Dúplex", "Tríplex", "Penthouse", "Loft", "Semipiso", "Piso", "Ph"] },
         { id: "DISPOSITION", label: "Disposición", type: "list", options: ["Frente", "Contrafrente", "Interno", "Lateral"] },
         { id: "FACING", label: "Orientación", type: "list", options: ["Norte", "Sur", "Este", "Oeste"] },
       ],
@@ -532,26 +622,19 @@
         { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
       ],
     };
-    const ML_FICHA_FIELDS = Object.values(ML_FICHA).flat();
-    // El subtipo "Tipo de departamento" es un atributo de ML que solo aplica a apartamentos.
-    function updateSubtypeByType() {
-      var ret = document.getElementById('propRealEstateType').value;
-      // En ML solo Casa y Apartamento tienen subtipo: mostramos el que corresponde y vaciamos el resto.
-      var map = { casa: 'HOUSE_PROPERTY_SUBTYPE', apartamento: 'APARTMENT_PROPERTY_SUBTYPE' };
-      ['HOUSE_PROPERTY_SUBTYPE', 'APARTMENT_PROPERTY_SUBTYPE'].forEach(function(id) {
-        var el = document.getElementById('fc-' + id);
-        if (!el) return;
-        var g = el.closest('.form-group');
-        var show = (map[ret] === id);
-        if (g) g.style.display = show ? '' : 'none';
-        if (!show) el.value = '';
-      });
+    // Ficha por tipo. 'casa' calcada del log real de ML (MLU1467). El resto usa la común.
+    const FICHA_TIPOS = { casa: FICHA_CASA };
+    function fichaActual() {
+      const t = (document.getElementById('propRealEstateType') || {}).value;
+      return FICHA_TIPOS[t] || FICHA_COMUN;
     }
+    function fichaCampos() { return Object.values(fichaActual()).flat(); }
     function renderFicha() {
       const wrap = document.getElementById('fichaTecnica');
       if (!wrap) return;
-      wrap.innerHTML = Object.keys(ML_FICHA).map((grupo, i) => {
-        const campos = ML_FICHA[grupo];
+      const FICHA = fichaActual();
+      wrap.innerHTML = Object.keys(FICHA).map((grupo, i) => {
+        const campos = FICHA[grupo];
         const inputs = campos.filter(c => c.type);
         const bools = campos.filter(c => !c.type);
         let html = '';
@@ -565,10 +648,29 @@
         if (bools.length) html += '<div class="feat-grid">' + bools.map(c => `<label class="feat-item"><input type="checkbox" id="fc-${c.id}"> ${c.label}</label>`).join('') + '</div>';
         return `<details class="ppf-acc"${i === 0 ? ' open' : ''}><summary>${grupo}</summary><div style="padding:12px">${html}</div></details>`;
       }).join('');
+      // Si la ficha común trae los dos subtipos, mostrar solo el del tipo actual.
+      var ret = (document.getElementById('propRealEstateType') || {}).value;
+      var smap = { casa: 'HOUSE_PROPERTY_SUBTYPE', apartamento: 'APARTMENT_PROPERTY_SUBTYPE' };
+      ['HOUSE_PROPERTY_SUBTYPE', 'APARTMENT_PROPERTY_SUBTYPE'].forEach(function (id) {
+        var el = document.getElementById('fc-' + id); if (!el) return;
+        var g = el.closest('.form-group'); var show = (smap[ret] === id);
+        if (g) g.style.display = show ? '' : 'none'; if (!show) el.value = '';
+      });
+    }
+    // Al cambiar el tipo de inmueble: re-dibuja la ficha de ese tipo y conserva lo cargado.
+    function onTipoChange() {
+      const prev = {};
+      document.querySelectorAll('#fichaTecnica [id^="fc-"]').forEach(el => {
+        const id = el.id.slice(3);
+        if (el.type === 'checkbox') prev[id] = el.checked;
+        else if (el.value !== '') prev[id] = el.value;
+      });
+      renderFicha();
+      fillFichaObj(prev);
     }
     function collectFicha() {
       const ficha = {};
-      ML_FICHA_FIELDS.forEach(c => {
+      fichaCampos().forEach(c => {
         const el = document.getElementById('fc-' + c.id);
         if (!el) return;
         if (!c.type) { ficha[c.id] = !!el.checked; }                              // checkbox: Sí (tildado) / No (sin tildar) — siempre se manda
@@ -577,9 +679,9 @@
       });
       return ficha;
     }
-    function fillFicha(p) {
-      const ficha = p.ficha || {};
-      ML_FICHA_FIELDS.forEach(c => {
+    function fillFichaObj(ficha) {
+      ficha = ficha || {};
+      fichaCampos().forEach(c => {
         const el = document.getElementById('fc-' + c.id);
         if (!el) return;
         const v = ficha[c.id];
@@ -587,6 +689,7 @@
         else el.value = (v != null ? v : '');
       });
     }
+    function fillFicha(p) { fillFichaObj((p || {}).ficha || {}); }
 
     async function handleSaveProperty(e) {
       e.preventDefault();
@@ -678,7 +781,6 @@
       if (userProfile.status !== 'approved' && !isAdmin) { showState('ppfAuth', { title: 'Cuenta pendiente', msg: 'Tu cuenta está pendiente de aprobación.' }); return }
       initDepartamentos();
       renderFicha();
-      updateSubtypeByType();
       const id = new URLSearchParams(location.search).get('id');
       const clientIdParam = new URLSearchParams(location.search).get('clientId');
       if (id) {
