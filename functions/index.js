@@ -1163,7 +1163,7 @@ async function crearAvisoML(ref, id, extra = {}, opciones = {}) {
             const msj = opciones.listingType
               ? `Mercado Libre no acepta el tipo de aviso "${opciones.listingType}" en esta categoría (${item.category_id}). Elegí otro tipo desde el botón de Mercado Libre.`
               : (tipos.length === 1 && tipos[0] === "free"
-                ? `Mercado Libre no ofrece publicación GRATUITA en esta categoría (${item.category_id}) o se agotó el cupo. Abrí el botón de Mercado Libre de la propiedad y elegí el tipo de aviso para publicarla.`
+                ? `Llegaste al límite de avisos gratis de Mercado Libre, o esta categoría no tiene opción gratuita. Es normal en inmuebles: para publicarla, elegí abajo un tipo de aviso pago.`
                 : `Mercado Libre no aceptó ninguno de los tipos automáticos (${tipos.join(", ")}) en ${item.category_id}. Elegí el tipo a mano desde el botón de Mercado Libre.`);
             throw new Error(msj);
           }
@@ -1589,6 +1589,8 @@ exports.estadoML = onCall(async (request) => {
       if (tiene) lleno.add(a.id);
     });
     const noVa = new Set(["OPERATION", "PROPERTY_TYPE", "ITEM_CONDITION"]);
+    // Casas/terrenos sin gastos comunes: 0 es lo correcto, no lo marcamos como faltante.
+    if (!(Number(p.commonExpenses) > 0)) noVa.add("MAINTENANCE_FEE");
     const reqM = [], optM = [];
     catAttrs.forEach((a) => {
       if (lleno.has(a.id) || noVa.has(a.id)) return;
@@ -1601,9 +1603,11 @@ exports.estadoML = onCall(async (request) => {
   // Interacción del aviso (estadísticas de Inmuebles de ML), últimos 30 días.
   const _hasta = new Date().toISOString();
   const _desde = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const _debug = []; // diagnóstico temporal: respuesta cruda de cada métrica
   const _total = (data) => {
     if (data == null) return null;
     if (typeof data === "number") return data;
+    if (Array.isArray(data)) return data.reduce((s, r) => s + ((r && r.total != null) ? r.total : 0), 0);
     if (data.total != null) return data.total;
     if (data.total_visits != null) return data.total_visits;
     if (data.quantity != null) return data.quantity;
@@ -1612,29 +1616,31 @@ exports.estadoML = onCall(async (request) => {
     }
     return null;
   };
-  const _fetchTotal = async (intentos) => {
+  const _fetchTotal = async (intentos, etiqueta) => {
     for (const it of intentos) {
       try {
         const r = await axios.get(`${API}${it.url}`, { headers, params: it.params });
+        logger.info(`[metricaML ${etiqueta || ""}] ${it.url} OK ${JSON.stringify(r.data).slice(0, 250)}`);
+        _debug.push(`${etiqueta || ""}: OK ${JSON.stringify(r.data).slice(0, 160)}`);
         const t = _total(r.data);
         if (t != null) return t;
-      } catch (e) { logger.warn(`[estadoML] ${it.url}: ${e.response ? e.response.status : e.message}`); }
+      } catch (e) { logger.warn(`[metricaML ${etiqueta || ""}] ${it.url} ERR ${e.response ? e.response.status : e.message}`); _debug.push(`${etiqueta || ""}: ERR ${e.response ? e.response.status : String(e.message || "").slice(0, 80)}`); }
     }
     return null;
   };
   const visitas = await _fetchTotal([
     { url: `/items/${p.mlItemId}/visits/time_window`, params: { last: 30, unit: "day" } },
-  ]);
+  ], "visitas");
   const _pregTotal = await _fetchTotal([
-    { url: `/items/${p.mlItemId}/contacts/questions/time_window`, params: { last: 30, unit: "day" } },
     { url: `/items/${p.mlItemId}/contacts/questions`, params: { date_from: _desde, date_to: _hasta } },
-  ]);
+    { url: `/items/${p.mlItemId}/contacts/questions/time_window`, params: { last: 30, unit: "day" } },
+  ], "preguntas");
   const preguntas = _pregTotal != null ? { total: _pregTotal, sinResponder: null } : null;
   const contactosWa = await _fetchTotal([
-    { url: `/items/${p.mlItemId}/contacts/whatsapp/time_window`, params: { last: 30, unit: "day" } },
     { url: `/items/${p.mlItemId}/contacts/whatsapp`, params: { date_from: _desde, date_to: _hasta } },
+    { url: `/items/${p.mlItemId}/contacts/whatsapp/time_window`, params: { last: 30, unit: "day" } },
     { url: `/items/contacts/whatsapp/time_window`, params: { ids: p.mlItemId, last: 30, unit: "day" } },
-  ]);
+  ], "whatsapp");
   return {
     publicado: true,
     mlItemId: p.mlItemId,
@@ -1649,6 +1655,7 @@ exports.estadoML = onCall(async (request) => {
     visitas: visitas,
     preguntas: preguntas,
     contactosWhatsapp: contactosWa,
+    debugMetricas: _debug,
   };
 });
 

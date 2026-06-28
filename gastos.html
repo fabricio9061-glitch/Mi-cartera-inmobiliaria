@@ -88,6 +88,10 @@
     .btn-gold{ background:var(--gold-2); color:#16273f; }
     .btn-gold:hover{ background:var(--gold-hover); }
     .btn-gold:disabled{ opacity:.6; cursor:not-allowed; }
+    .modo-toggle{ display:inline-flex; gap:6px; background:#eef0f2; border-radius:14px; padding:5px; margin-bottom:24px; }
+    .modo-btn{ border:none; background:none; font-family:inherit; font-size:.95rem; font-weight:600; color:#6a7280; padding:10px 24px; border-radius:10px; cursor:pointer; display:flex; align-items:center; gap:8px; transition:all .18s; }
+    .modo-btn.active{ background:#fff; color:var(--navy); box-shadow:0 2px 8px rgba(0,0,0,.09); }
+    .modo-btn i{ color:var(--gold-2); }
     .pdf-data{ margin-top:18px; border-top:1px solid var(--gray-100); padding-top:6px; }
     .pdf-data-toggle{ width:100%; display:flex; align-items:center; justify-content:space-between; background:none; border:none; padding:12px 0; font-family:inherit; font-size:.96rem; color:var(--navy); cursor:pointer; font-weight:600; }
     .pdf-data-toggle i.fa-file-pdf{ color:var(--gold-2); margin-right:8px; }
@@ -143,6 +147,11 @@
   </section>
 
   <div class="wrap">
+    <div class="modo-toggle">
+      <button type="button" id="btnModoV" class="modo-btn active" onclick="setModo('venta')"><i class="fas fa-store"></i> Vendedor</button>
+      <button type="button" id="btnModoC" class="modo-btn" onclick="setModo('compra')"><i class="fas fa-key"></i> Comprador</button>
+    </div>
+    <div id="modeVendedor">
     <div class="grid">
       <!-- DATOS -->
       <div class="card">
@@ -247,6 +256,92 @@
 
     <div class="note">
       <b>Importante:</b> esta calculadora es orientativa y los montos son estimados. El ITP requiere verificar que la cédula catastral esté vigente y cumpla la normativa (Ley 17.296); si no cumple, el valor catastral puede variar al actualizarla. Los honorarios, comisión y otros gastos pueden ajustarse según cada operación. Confirmá siempre con tu escribano y contador antes de cerrar.
+    </div>
+    </div>
+
+    <div id="modeComprador" style="display:none">
+    <div class="grid">
+      <div class="card">
+        <h2><span class="num">1</span> Datos de la compra</h2>
+        <p class="card-sub">Lo que paga el comprador. El cálculo se actualiza en tiempo real.</p>
+
+        <div class="fg">
+          <label>Precio de compra (USD)</label>
+          <div class="input-money"><span class="pre">US$</span><input type="number" id="cPrecio" value="145000" oninput="calcularC()"></div>
+        </div>
+
+        <div class="fg-row">
+          <div class="fg">
+            <label>Valor catastral (UYU) <span class="hint">(para el ITP)</span></label>
+            <div class="input-money"><span class="pre">$</span><input type="number" id="cCatUYU" value="1470564" oninput="calcularC()"></div>
+          </div>
+          <div class="fg">
+            <label>Tipo de cambio <span class="hint">(UYU&rarr;USD)</span></label>
+            <div class="input-money"><span class="pre">$</span><input type="number" id="cTC" value="40" oninput="calcularC()"></div>
+          </div>
+        </div>
+
+        <div class="fg-row">
+          <div class="fg">
+            <label>Comisión inmobiliaria <span class="hint">(% + IVA)</span></label>
+            <div class="input-money"><span class="pre" style="left:auto;right:13px">%</span><input type="number" id="cComPct" value="3" oninput="calcularC()" style="padding-left:14px;padding-right:30px"></div>
+          </div>
+          <div class="fg">
+            <label>Honorarios escribano <span class="hint">(% + IVA)</span></label>
+            <div class="input-money"><span class="pre" style="left:auto;right:13px">%</span><input type="number" id="cEscPct" value="3" oninput="calcularC()" style="padding-left:14px;padding-right:30px"></div>
+          </div>
+        </div>
+
+        <div class="fg-row">
+          <div class="fg">
+            <label>Gastos registrales y certificados (USD)</label>
+            <div class="input-money"><span class="pre">US$</span><input type="number" id="cGastos" value="500" oninput="calcularC()"></div>
+          </div>
+          <div class="fg">
+            <label>Monto financiado con hipoteca (USD) <span class="hint">(opcional)</span></label>
+            <div class="input-money"><span class="pre">US$</span><input type="number" id="cHip" value="0" oninput="calcularC()"></div>
+          </div>
+        </div>
+
+        <div class="pdf-data">
+          <button type="button" class="pdf-data-toggle" onclick="togglePdfDataC()">
+            <span><i class="fas fa-file-pdf"></i> Datos para el PDF <small>(obligatorios)</small></span>
+            <i class="fas fa-chevron-down" id="pdfChevronC"></i>
+          </button>
+          <div class="pdf-data-body" id="pdfDataBodyC" style="display:none">
+            <div class="fg"><label>Nombre del comprador <span style="color:var(--danger)">*</span></label><input type="text" id="cCompNombre" placeholder="Ej: Juan Pérez" oninput="this.style.borderColor=''"></div>
+            <div class="fg-row">
+              <div class="fg"><label>Padrón <span style="color:var(--danger)">*</span></label><input type="text" id="cPadron" placeholder="123.456" oninput="this.style.borderColor=''"></div>
+              <div class="fg"><label>Dirección <span style="color:var(--danger)">*</span></label><input type="text" id="cDireccion" placeholder="Av. Italia 1234" oninput="this.style.borderColor=''"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="result-card" id="resultCardC">
+        <h2>Gastos del comprador</h2>
+        <div class="res-line"><span>Precio de compra</span><span class="val" id="cPrecioR">—</span></div>
+        <div class="res-line"><span>Honorarios escribano <small id="cEscSub">3% + IVA</small></span><span class="val" id="cEscR">—</span></div>
+        <div class="res-line"><span>Comisión inmobiliaria <small id="cComSub">3% + IVA</small></span><span class="val" id="cComR">—</span></div>
+        <div class="res-line"><span>ITP <small>2% del valor catastral (USD)</small></span><span class="val" id="cITPR">—</span></div>
+        <div class="res-line"><span>Gastos registrales y certificados</span><span class="val" id="cGastosR">—</span></div>
+        <div class="res-line" id="cHipRow" style="display:none"><span>Gastos de hipoteca <small>1,5% del monto financiado</small></span><span class="val" id="cHipR">—</span></div>
+        <div class="res-total"><span>Total de gastos</span><span class="val" id="cTotalR">—</span></div>
+        <div class="res-liquid">
+          <div class="lbl">Costo total de la compra</div>
+          <div class="big" id="cCostoR">—</div>
+          <div class="pct" id="cPctR"></div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-gold" id="btnPdfC" onclick="descargarPDFC()"><i class="fas fa-file-pdf"></i> Descargar PDF</button>
+          <button class="btn btn-ghost" onclick="resetC()"><i class="fas fa-rotate-left"></i> Restablecer</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Importante:</b> calculadora orientativa. El honorario del escribano (lo elige y paga el comprador) y la comisión rondan el 3% + IVA cada uno. El ITP es el 2% del <b>valor catastral</b> (no del precio) y suele ser bastante menor al valor de mercado. Los gastos registrales, certificados e inscripción varían según la operación. Si hay hipoteca se suma ~1,5% sobre el monto financiado. Confirmá siempre con tu escribano antes de cerrar.
+    </div>
     </div>
   </div>
 
@@ -515,6 +610,219 @@
           pdf.addImage(canvas.toDataURL('image/jpeg',0.94), 'JPEG', 0, 0, pageW, Math.max(imgH, pageH));
         });
         pdf.save('Estimacion_Gastos_MALAVE_' + now.toISOString().slice(0,10) + '.pdf');
+        wrap.remove();
+        btn.disabled = false; btn.innerHTML = prev;
+      }).catch(function(e){
+        wrap.remove();
+        btn.disabled = false; btn.innerHTML = prev;
+        alert('No se pudo generar el PDF: ' + (e.message||e));
+      });
+    }
+
+    // ===== Modo comprador =====
+    function setModo(m){
+      var venta = m === 'venta';
+      document.getElementById('modeVendedor').style.display = venta ? 'block' : 'none';
+      document.getElementById('modeComprador').style.display = venta ? 'none' : 'block';
+      document.getElementById('btnModoV').classList.toggle('active', venta);
+      document.getElementById('btnModoC').classList.toggle('active', !venta);
+      var h = document.querySelector('.page-hero h1'), p = document.querySelector('.page-hero p');
+      if (venta){
+        h.textContent = 'Calculadora de gastos de venta';
+        p.textContent = 'Estimá los gastos de una venta y cuánto recibe el propietario, según ITP, IRPF, comisión y honorarios.';
+      } else {
+        h.textContent = 'Calculadora de gastos de compra';
+        p.textContent = 'Estimá cuánto paga el comprador: honorarios del escribano, comisión, ITP y gastos registrales.';
+        calcularC();
+      }
+    }
+    function togglePdfDataC(){
+      var b = document.getElementById('pdfDataBodyC'), btn = b.previousElementSibling;
+      var open = b.style.display === 'none';
+      b.style.display = open ? 'block' : 'none';
+      btn.classList.toggle('open', open);
+    }
+    function resetC(){
+      document.getElementById('cPrecio').value = 145000;
+      document.getElementById('cCatUYU').value = 1470564;
+      document.getElementById('cTC').value = 40;
+      document.getElementById('cComPct').value = 3;
+      document.getElementById('cEscPct').value = 3;
+      document.getElementById('cGastos').value = 500;
+      document.getElementById('cHip').value = 0;
+      calcularC();
+    }
+    function calcularC(){
+      var precio = num('cPrecio'), catUYU = num('cCatUYU'), tc = num('cTC');
+      var comPct = num('cComPct'), escPct = num('cEscPct'), gastos = num('cGastos'), hipMonto = num('cHip');
+      var catUSD = tc ? (catUYU/tc) : 0, itp = catUSD * 0.02;
+      var comBase = precio*(comPct/100), comIva = comBase*0.22, comision = comBase + comIva;
+      var escBase = precio*(escPct/100), escIva = escBase*0.22, escribano = escBase + escIva;
+      var hip = hipMonto * 0.015;
+      var totalGastos = escribano + comision + itp + gastos + hip;
+      var costoTotal = precio + totalGastos;
+      document.getElementById('cPrecioR').textContent = fmt(precio);
+      document.getElementById('cEscR').textContent = fmt(escribano);
+      document.getElementById('cEscSub').textContent = escPct+'% + IVA';
+      document.getElementById('cComR').textContent = fmt(comision);
+      document.getElementById('cComSub').textContent = comPct+'% + IVA';
+      document.getElementById('cITPR').textContent = fmt(itp);
+      document.getElementById('cGastosR').textContent = fmt(gastos);
+      document.getElementById('cHipRow').style.display = hip > 0 ? 'flex' : 'none';
+      document.getElementById('cHipR').textContent = fmt(hip);
+      document.getElementById('cTotalR').textContent = fmt(totalGastos);
+      document.getElementById('cCostoR').textContent = fmt(costoTotal);
+      document.getElementById('cPctR').textContent = precio ? ('Los gastos equivalen al '+((totalGastos/precio)*100).toFixed(1)+'% del precio') : '';
+    }
+    function descargarPDFC(){
+      var comp = (document.getElementById('cCompNombre').value||'').trim();
+      var padron = (document.getElementById('cPadron').value||'').trim();
+      var direccion = (document.getElementById('cDireccion').value||'').trim();
+      var faltan = [];
+      if (!comp) faltan.push('cCompNombre');
+      if (!padron) faltan.push('cPadron');
+      if (!direccion) faltan.push('cDireccion');
+      if (faltan.length){
+        var bd = document.getElementById('pdfDataBodyC');
+        if (bd.style.display === 'none'){ bd.style.display = 'block'; var tg = bd.previousElementSibling; if (tg) tg.classList.add('open'); }
+        faltan.forEach(function(id){ document.getElementById(id).style.borderColor = '#c0392b'; });
+        document.getElementById(faltan[0]).focus();
+        document.getElementById(faltan[0]).scrollIntoView({ behavior:'smooth', block:'center' });
+        alert('Para descargar el PDF tenés que completar: nombre del comprador, padrón y dirección.');
+        return;
+      }
+      var btn = document.getElementById('btnPdfC');
+      var prev = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+
+      var precio = num('cPrecio'), catUYU = num('cCatUYU'), tc = num('cTC');
+      var comPct = num('cComPct'), escPct = num('cEscPct'), gastos = num('cGastos'), hipMonto = num('cHip');
+      var catUSD = tc ? (catUYU/tc) : 0, itp = catUSD * 0.02;
+      var comBase = precio*(comPct/100), comIva = comBase*0.22, comision = comBase + comIva;
+      var escBase = precio*(escPct/100), escIva = escBase*0.22, escribano = escBase + escIva;
+      var hip = hipMonto * 0.015;
+      var totalGastos = escribano + comision + itp + gastos + hip;
+      var costoTotal = precio + totalGastos;
+
+      var now = new Date();
+      var fechaStr = now.toLocaleDateString('es-UY') + ', ' + now.toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'});
+
+      function row(label, sub, val, fuerte){
+        return '<tr>' +
+          '<td style="padding:9px 0;border-bottom:1px solid #eceef1;font-size:11px;color:#3a4150;">'+label+(sub?' <span style=\'color:#9aa0a8;font-size:9.5px;\'>'+sub+'</span>':'')+'</td>' +
+          '<td style="padding:9px 0;border-bottom:1px solid #eceef1;font-size:11px;text-align:right;font-weight:'+(fuerte?'bold':'600')+';color:#16273f;white-space:nowrap;">'+fmt(val)+'</td>' +
+        '</tr>';
+      }
+      var datos = [];
+      if (comp) datos.push(['Comprador', comp]);
+      if (padron) datos.push(['Padrón', padron]);
+      if (direccion) datos.push(['Dirección', direccion]);
+      var datosHTML = '<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">' + datos.map(function(d){
+        return '<tr><td style="padding:5px 0;font-size:11px;color:#6a7280;font-weight:600;width:130px;">'+esc(d[0])+':</td><td style="padding:5px 0;font-size:11px;color:#16273f;">'+esc(d[1])+'</td></tr>';
+      }).join('') + '</table>';
+
+      var inmLinea = [];
+      if (direccion) inmLinea.push(esc(direccion));
+      if (padron) inmLinea.push('Padrón ' + esc(padron));
+      var inmStr = inmLinea.length ? inmLinea.join(' · ') : 'Estimación de gastos de compra';
+
+      var portada =
+      '<div id="pdfCoverC" style="width:794px;height:1123px;margin:0;background:#fff;font-family:Helvetica,Arial,sans-serif;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;">' +
+        '<div style="height:10px;background:#16273f;"></div>' +
+        '<div style="height:4px;background:#c9a227;"></div>' +
+        '<div style="text-align:center;margin-top:90px;">' +
+          '<img src="' + LOGO_ISO_DARK + '" style="height:80px;"><br>' +
+          '<img src="' + LOGO_TXT_DARK + '" style="height:26px;margin-top:14px;">' +
+        '</div>' +
+        '<div style="text-align:center;margin-top:70px;padding:0 60px;">' +
+          '<div style="font-size:13px;letter-spacing:5px;color:#c9a227;font-weight:bold;">DOCUMENTO ORIENTATIVO</div>' +
+          '<div style="font-size:40px;color:#16273f;font-weight:bold;margin-top:16px;line-height:1.15;">Estimación de<br>gastos de compra</div>' +
+          '<div style="width:80px;height:3px;background:#c9a227;margin:26px auto;"></div>' +
+          '<div style="color:#6a7280;font-size:14px;letter-spacing:1px;max-width:480px;margin:0 auto;line-height:1.6;">' + inmStr + '</div>' +
+        '</div>' +
+        '<div style="margin:auto 90px 0;background:#f7f8fa;border:1px solid #e6e8ec;border-radius:16px;padding:26px 34px;">' +
+          (comp ? '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #e6e8ec;"><span style="font-size:11px;color:#8a8a8a;font-weight:600;">COMPRADOR</span><span style="font-size:12px;color:#16273f;font-weight:600;">' + esc(comp) + '</span></div>' : '') +
+          '<div style="display:flex;justify-content:space-between;padding:7px 0;"><span style="font-size:11px;color:#8a8a8a;font-weight:600;">FECHA DE EMISIÓN</span><span style="font-size:12px;color:#16273f;font-weight:600;">' + fechaStr + '</span></div>' +
+        '</div>' +
+        '<div style="margin-top:30px;padding:0 40px;opacity:.07;"><svg viewBox="0 0 714 90" width="100%" height="90" preserveAspectRatio="xMidYMax meet"><g fill="#16273f">' +
+          '<rect x="20" y="45" width="44" height="45"/><polygon points="84,90 84,24 108,8 132,24 132,90"/><rect x="150" y="36" width="48" height="54"/>' +
+          '<rect x="214" y="52" width="40" height="38"/><polygon points="272,90 272,22 296,6 320,22 320,90"/><rect x="340" y="40" width="46" height="50"/>' +
+          '<rect x="404" y="50" width="42" height="40"/><polygon points="462,90 462,26 486,10 510,26 510,90"/><rect x="530" y="36" width="48" height="54"/>' +
+          '<rect x="596" y="48" width="44" height="42"/><polygon points="656,90 656,24 680,8 704,24 704,90"/>' +
+        '</g></svg></div>' +
+        '<div style="background:#16273f;padding:22px 60px;display:flex;justify-content:space-between;align-items:center;">' +
+          '<div style="color:#c9a227;font-size:11px;font-weight:bold;">MALAVE INMOBILIARIA</div>' +
+          '<div style="color:#8a93a0;font-size:9px;">Operador inmobiliario · Ley N.º 20.380</div>' +
+        '</div>' +
+      '</div>';
+
+      var html =
+      '<div id="pdfDocC" style="width:794px;margin:0;background:#fff;font-family:Helvetica,Arial,sans-serif;color:#2c3340;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;min-height:1123px;">' +
+        '<div style="background:#16273f;padding:22px 40px;display:flex;align-items:center;gap:18px;">' +
+          '<div style="display:flex;flex-direction:column;align-items:center;gap:5px;">' +
+            '<img src="'+LOGO_ISO+'" style="height:42px;"><img src="'+LOGO_TXT+'" style="height:12px;">' +
+          '</div>' +
+          '<div style="flex:1;padding-left:14px;border-left:1px solid rgba(255,255,255,.18);">' +
+            '<div style="color:#fff;font-size:21px;font-weight:bold;letter-spacing:.5px;">ESTIMACIÓN DE GASTOS DE COMPRA</div>' +
+            '<div style="color:#c9a227;font-size:11px;letter-spacing:2px;margin-top:2px;">DOCUMENTO ORIENTATIVO</div>' +
+          '</div>' +
+          '<div style="text-align:right;color:#8a93a0;font-size:9px;">'+fechaStr+'</div>' +
+        '</div>' +
+        '<div style="padding:26px 40px;flex:1;">' +
+          '<div style="font-size:12px;font-weight:bold;color:#16273f;letter-spacing:.5px;border-bottom:2px solid #c9a227;padding-bottom:5px;margin-bottom:12px;">DATOS DEL INMUEBLE</div>' + datosHTML +
+          '<div style="font-size:12px;font-weight:bold;color:#16273f;letter-spacing:.5px;border-bottom:2px solid #c9a227;padding-bottom:5px;margin-bottom:8px;">DETALLE DE GASTOS DEL COMPRADOR</div>' +
+          '<table style="width:100%;border-collapse:collapse;">' +
+            '<tr><td style="padding:9px 0;border-bottom:2px solid #16273f;font-size:11px;color:#16273f;font-weight:bold;">Precio de compra</td><td style="padding:9px 0;border-bottom:2px solid #16273f;font-size:13px;text-align:right;font-weight:bold;color:#16273f;">'+fmt(precio)+'</td></tr>' +
+            row('Honorarios escribano', escPct+'% + IVA 22%', escribano) +
+            row('Comisión inmobiliaria', comPct+'% + IVA 22%', comision) +
+            row('ITP', '2% del valor catastral (USD)', itp) +
+            row('Gastos registrales y certificados', '', gastos) +
+            (hip > 0 ? row('Gastos de hipoteca', '1,5% del monto financiado', hip) : '') +
+            '<tr><td style="padding:12px 0 6px;font-size:12px;color:#c0392b;font-weight:bold;text-transform:uppercase;letter-spacing:.5px;">Total de gastos</td><td style="padding:12px 0 6px;font-size:15px;text-align:right;font-weight:bold;color:#c0392b;">'+fmt(totalGastos)+'</td></tr>' +
+          '</table>' +
+          '<div style="background:#16273f;border-radius:14px;padding:24px 28px;margin-top:22px;text-align:center;">' +
+            '<div style="color:#c9a227;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:600;">Costo total de la compra (estimado)</div>' +
+            '<div style="color:#fff;font-size:38px;font-weight:bold;margin-top:6px;">'+fmt(costoTotal)+'</div>' +
+            '<div style="color:#8a93a0;font-size:11px;margin-top:4px;">Precio + gastos. Los gastos equivalen al '+(precio?((totalGastos/precio)*100).toFixed(1):0)+'% del precio</div>' +
+          '</div>' +
+          '<div style="opacity:.06;margin-top:24px;"><svg viewBox="0 0 714 70" width="100%" height="70" preserveAspectRatio="xMidYMax meet"><g fill="#16273f">' +
+            '<rect x="20" y="35" width="40" height="35"/><polygon points="80,70 80,18 102,6 124,18 124,70"/><rect x="140" y="28" width="44" height="42"/>' +
+            '<rect x="200" y="40" width="36" height="30"/><polygon points="255,70 255,16 277,4 299,16 299,70"/><rect x="318" y="30" width="42" height="40"/>' +
+            '<rect x="378" y="38" width="38" height="32"/><polygon points="435,70 435,20 457,8 479,20 479,70"/><rect x="498" y="28" width="44" height="42"/>' +
+            '<rect x="558" y="36" width="40" height="34"/><polygon points="615,70 615,18 637,6 659,18 659,70"/><rect x="678" y="40" width="36" height="30"/>' +
+          '</g></svg></div>' +
+        '</div>' +
+        '<div style="padding:0 40px 18px;">' +
+          '<div style="background:#fff8e6;border-left:3px solid #c9a227;border-radius:8px;padding:13px 16px;font-size:9.5px;color:#6a7280;line-height:1.6;">' +
+            '<b style="color:#16273f;">Importante:</b> esta es una <b>estimación orientativa</b> de los gastos del comprador. El honorario del escribano (lo elige y paga el comprador) y la comisión inmobiliaria rondan el 3% + IVA cada uno. El ITP es el 2% del valor catastral (no del precio de compra). Los gastos registrales, certificados e inscripción varían según la operación, y si hay hipoteca se suma ~1,5% del monto financiado. Este documento no constituye una liquidación definitiva. Confirmá siempre los valores con tu escribano antes de cerrar.' +
+          '</div>' +
+        '</div>' +
+        '<div style="background:#16273f;padding:14px 40px;display:flex;justify-content:space-between;align-items:center;">' +
+          '<div><div style="color:#c9a227;font-size:10px;font-weight:bold;">MALAVE INMOBILIARIA</div>' +
+          '<div style="color:#cdd2d8;font-size:9px;margin-top:3px;">Tel: 094 029 297 &nbsp;·&nbsp; inmobiliariamalave@gmail.com &nbsp;·&nbsp; malaveinmobiliaria.com</div></div>' +
+          '<div style="color:#969ca4;font-size:8px;text-align:right;max-width:230px;">Operador inmobiliario (Ley N.º 20.380). Documento orientativo de gastos.</div>' +
+        '</div>' +
+      '</div>';
+
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'position:absolute;left:-9999px;top:0;';
+      wrap.innerHTML = portada + html;
+      document.body.appendChild(wrap);
+
+      var jsPDF = window.jspdf.jsPDF;
+      var pageW = 595.28, pageH = 841.89;
+      var pdf = new jsPDF({ unit:'pt', format:'a4', orientation:'portrait' });
+      var opts = { scale:2, useCORS:true, backgroundColor:'#ffffff', windowWidth:794 };
+
+      Promise.all([
+        html2canvas(document.getElementById('pdfCoverC'), opts),
+        html2canvas(document.getElementById('pdfDocC'), opts)
+      ]).then(function(canvases){
+        canvases.forEach(function(canvas, i){
+          if (i > 0) pdf.addPage();
+          var imgH = pageW * canvas.height / canvas.width;
+          pdf.addImage(canvas.toDataURL('image/jpeg',0.94), 'JPEG', 0, 0, pageW, Math.max(imgH, pageH));
+        });
+        pdf.save('Estimacion_Gastos_Compra_MALAVE_' + now.toISOString().slice(0,10) + '.pdf');
         wrap.remove();
         btn.disabled = false; btn.innerHTML = prev;
       }).catch(function(e){

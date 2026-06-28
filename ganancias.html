@@ -82,6 +82,28 @@
           <label>Elegí una propiedad</label>
           <select id="propSelect" onchange="onPropChange()"></select>
         </div>
+        <div id="manualBox" style="display:none; margin-top:10px">
+          <div style="display:flex; gap:10px; flex-wrap:wrap">
+            <div class="field" style="flex:1; min-width:140px; margin:0">
+              <label>Precio / valor</label>
+              <input type="number" id="manualPrice" min="0" step="1000" placeholder="Ej: 150000" oninput="onManualPrecio()">
+            </div>
+            <div class="field" style="flex:0 0 auto; margin:0">
+              <label>Moneda</label>
+              <select id="manualCurrency" onchange="onManualPrecio()">
+                <option value="USD">US$ (dólares)</option>
+                <option value="UYU">$U (pesos)</option>
+              </select>
+            </div>
+          </div>
+          <div class="field" style="margin-top:8px; margin-bottom:0">
+            <label>Operación</label>
+            <select id="manualOp" onchange="onManualOp()">
+              <option value="sale">Venta</option>
+              <option value="rent">Alquiler (mensual)</option>
+            </select>
+          </div>
+        </div>
         <div class="prop-meta" id="propMeta" style="display:none"></div>
       </div>
 
@@ -205,31 +227,60 @@
         });
       }catch(e){ myProps = []; }
 
-      if(!myProps.length){ show('emptyState'); return; }
-
       myProps.sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
       var sel = document.getElementById('propSelect');
-      sel.innerHTML = '<option value="">— Elegí una propiedad —</option>' + myProps.map(function(p){
+      var opts = '<option value="">— Elegí una propiedad —</option>' +
+                 '<option value="manual">✏️ Calcular un valor hipotético</option>';
+      opts += myProps.map(function(p){
         var op = p.type === 'rent' ? 'Alquiler' : 'Venta';
         return '<option value="'+p.id+'">'+esc(p.title || 'Propiedad sin título')+' — '+fmt(Number(p.price)||0, p.currency)+' ('+op+')</option>';
       }).join('');
+      sel.innerHTML = opts;
 
       // la comisión se precarga al elegir la propiedad (depende de venta/alquiler)
       document.getElementById('noComNote').style.display = 'none';
 
       show('tool');
+      // Si no hay propiedades cargadas, abrimos directo el modo hipotético.
+      if(!myProps.length){ sel.value = 'manual'; onPropChange(); }
     }
 
     function onPropChange(){
       var id = document.getElementById('propSelect').value;
+      var manualBox = document.getElementById('manualBox');
+      if(id === 'manual'){
+        manualBox.style.display = 'block';
+        selectedProp = leerManual();
+        aplicarSeleccion(true);
+        return;
+      }
+      manualBox.style.display = 'none';
       selectedProp = myProps.find(function(p){ return p.id === id; }) || null;
-      var meta = document.getElementById('propMeta');
       if(!selectedProp){
-        meta.style.display = 'none';
-        document.getElementById('resBody').innerHTML = '<div class="placeholder">Elegí una propiedad para ver el cálculo.</div>';
+        document.getElementById('propMeta').style.display = 'none';
+        document.getElementById('resBody').innerHTML = '<div class="placeholder">Elegí una propiedad o calculá un valor hipotético.</div>';
         document.getElementById('resCurr').textContent = '';
         return;
       }
+      aplicarSeleccion(true);
+    }
+
+    function leerManual(){
+      return {
+        manual: true,
+        title: 'Valor hipotético',
+        price: Number(document.getElementById('manualPrice').value) || 0,
+        currency: document.getElementById('manualCurrency').value,
+        type: document.getElementById('manualOp').value
+      };
+    }
+    // Precio/moneda: recalcula sin pisar la comisión que el usuario haya escrito.
+    function onManualPrecio(){ selectedProp = leerManual(); aplicarSeleccion(false); }
+    // Cambió venta/alquiler: sí precarga la comisión correspondiente.
+    function onManualOp(){ selectedProp = leerManual(); aplicarSeleccion(true); }
+
+    function aplicarSeleccion(precargarComision){
+      if(!selectedProp){ return; }
       var isRent = selectedProp.type === 'rent';
       document.getElementById('saleInputs').style.display = isRent ? 'none' : 'block';
       document.getElementById('rentInputs').style.display = isRent ? 'block' : 'none';
@@ -238,17 +289,20 @@
         document.getElementById('oneRateField').style.display = _both ? 'none' : 'block';
         document.getElementById('twoRateFields').style.display = _both ? 'grid' : 'none';
       }
+      var meta = document.getElementById('propMeta');
       meta.style.display = 'flex';
       meta.innerHTML =
         '<span class="chip op">'+(isRent?'Alquiler':'Venta')+'</span>' +
         '<span class="chip price">'+(isRent?'Alquiler mensual: ':'Precio: ')+fmt(Number(selectedProp.price)||0, selectedProp.currency)+'</span>' +
-        (selectedProp.realEstateType?'<span class="chip">'+esc(selectedProp.realEstateType)+'</span>':'');
-      var myCom = isRent ? myComRent : myComSale;
-      var tu = document.getElementById('tuComInput');
-      tu.value = (myCom != null) ? myCom : '';
-      var note = document.getElementById('noComNote');
-      note.textContent = 'Tu comisión de ' + (isRent ? 'alquiler' : 'venta') + ' no está configurada. Pedile al admin que te la asigne, o escribila a mano acá arriba.';
-      note.style.display = (myCom != null) ? 'none' : 'block';
+        (selectedProp.realEstateType?'<span class="chip">'+esc(selectedProp.realEstateType)+'</span>':'') +
+        (selectedProp.manual?'<span class="chip">Hipotético</span>':'');
+      if(precargarComision){
+        var myCom = isRent ? myComRent : myComSale;
+        document.getElementById('tuComInput').value = (myCom != null) ? myCom : '';
+        var note = document.getElementById('noComNote');
+        note.textContent = 'Tu comisión de ' + (isRent ? 'alquiler' : 'venta') + ' no está configurada. Pedile al admin que te la asigne, o escribila a mano acá arriba.';
+        note.style.display = (myCom != null) ? 'none' : 'block';
+      }
       calc();
     }
 
