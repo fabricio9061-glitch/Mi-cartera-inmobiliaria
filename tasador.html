@@ -235,8 +235,17 @@
           <li>El rango esta calculado al 90% de confianza.</li>
           <li>Revisa los antecedentes y ajusta los factores para mejorar la estimacion.</li>
         </ul></div>
-        <button class="tas-export" id="tasExportBtn" onclick="exportarPDF()" disabled><i class="fas fa-file-pdf"></i> Exportar calculo (PDF)</button>
+        <button class="tas-export" id="tasExportBtn" onclick="exportarPDF()" disabled><i class="fas fa-paper-plane"></i> Enviar a revisión</button>
       </div>
+    </div>
+
+    <div class="tas-card" style="margin-top:18px">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:6px">
+        <h3 class="tas-mini-h" style="margin:0"><i class="fas fa-folder-open"></i> Mis tasaciones</h3>
+        <button type="button" onclick="cargarMisTasaciones()" style="background:none; border:1px solid #e4e6ea; border-radius:8px; padding:6px 12px; font-size:.8rem; cursor:pointer; color:#555; display:inline-flex; align-items:center; gap:6px"><i class="fas fa-rotate-right"></i> Actualizar</button>
+      </div>
+      <p class="tas-hint" style="margin:0 0 12px">Cuando el administrador apruebe una tasación, vas a poder descargar el PDF desde acá.</p>
+      <div id="misTasaciones"><div style="color:#999; font-size:.85rem; padding:10px 0">Cargando…</div></div>
     </div>
 
     <p class="tas-saved"><i class="fas fa-lock"></i> Tus calculos se guardan automaticamente en este navegador. Podes volver y editarlos cuando quieras.</p>
@@ -905,8 +914,8 @@
             pdf.addImage(c.toDataURL('image/jpeg', 0.94), 'JPEG', (pageW - sW)/2, 0, sW, pageH);
           }
         });
-        pdf.save('Informe_Tasacion_MALAVE_' + now.toISOString().slice(0,10) + '.pdf');
-        // Copia del PDF para revisión (se borra cuando el admin la marca revisada)
+        // El agente NO descarga el PDF acá: se sube para revisión del admin, y
+        // recién cuando el admin la aprueba el agente puede descargarla.
         try {
           var _ref = firebase.storage().ref('tasacionesPDF/' + sesionTasId + '.pdf');
           _ref.put(pdf.output('blob'), { contentType: 'application/pdf' })
@@ -914,6 +923,7 @@
             .then(function(url){ guardarTasacion(url); })
             .catch(function(e){ console.warn('subir PDF revisión', e); guardarTasacion(); });
         } catch (e) { guardarTasacion(); }
+        showToast('Enviada a revisión', 'El administrador tiene que aprobarla. Cuando esté aprobada vas a poder descargar el PDF desde "Mis tasaciones".', 'fa-paper-plane');
         wrap.remove(); styleEl.remove();
         btn.disabled = false; btn.innerHTML = prevHTML;
       }).catch(function(e){
@@ -961,10 +971,43 @@
       if (s) { s.textContent = 'Guardando…'; s.style.color = ''; }
       try {
         await db.collection('users').doc(agenteUid).set({ tasaciones: { [sesionTasId]: rec } }, { merge: true });
-        if (s) { s.textContent = 'Tasación guardada para revisión ✓ ' + new Date().toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }); s.style.color = ''; }
+        if (s) { s.textContent = 'Enviada a revisión ✓ ' + new Date().toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }); s.style.color = ''; }
+        try { cargarMisTasaciones(); } catch (e) {}
       } catch (e) {
         console.warn('autosave tasacion', e);
         if (s) { s.textContent = (e && e.code === 'permission-denied') ? 'No se pudo guardar (revisá permisos del perfil)' : 'No se pudo guardar automáticamente'; s.style.color = '#c0392b'; }
+      }
+    }
+
+    function _mtEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
+    async function cargarMisTasaciones(){
+      var cont = document.getElementById('misTasaciones'); if(!cont || !agenteUid) return;
+      cont.innerHTML = '<div style="color:#999; font-size:.85rem; padding:10px 0">Cargando…</div>';
+      try{
+        var d = await db.collection('users').doc(agenteUid).get();
+        var data = d.exists ? d.data() : {};
+        var obj = data.tasaciones || {};
+        var arr = Array.isArray(obj) ? obj.slice() : Object.values(obj);
+        arr.sort(function(a,b){ return String((b&&b.fecha)||'').localeCompare(String((a&&a.fecha)||'')); });
+        if(!arr.length){ cont.innerHTML = '<div style="color:#999; font-size:.85rem; padding:10px 0">Todavía no enviaste ninguna tasación.</div>'; return; }
+        cont.innerHTML = arr.map(function(r){
+          var fecha = r.fecha ? new Date(r.fecha).toLocaleString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+          var cli = (r.datos && r.datos.cliente) ? r.datos.cliente : 'Sin cliente';
+          var val = (r.resultado && r.resultado.valor) ? ('US$ ' + Number(r.resultado.valor).toLocaleString('es-UY')) : '';
+          var aprob = !!r.revisado;
+          var estado = aprob
+            ? '<span style="background:#e8f7ee; color:#127a45; font-size:.72rem; font-weight:700; padding:4px 10px; border-radius:20px"><i class="fas fa-circle-check"></i> Aprobada</span>'
+            : '<span style="background:#fff6e3; color:#b9770f; font-size:.72rem; font-weight:700; padding:4px 10px; border-radius:20px"><i class="fas fa-clock"></i> En revisión</span>';
+          var accion = (aprob && r.pdfUrl)
+            ? '<a href="'+_mtEsc(r.pdfUrl)+'" target="_blank" rel="noopener" style="background:#16273f; color:#fff; border-radius:9px; padding:8px 13px; font-size:.82rem; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:7px"><i class="fas fa-download"></i> Descargar PDF</a>'
+            : '<span style="color:#9aa2ad; font-size:.8rem; display:inline-flex; align-items:center; gap:6px"><i class="fas fa-lock"></i> Pendiente de aprobación</span>';
+          return '<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:12px 0; border-bottom:1px solid #eef1f5">'
+            + '<div style="flex:1; min-width:160px"><div style="font-weight:600; font-size:.9rem">'+_mtEsc(cli)+(val?' · '+val:'')+'</div><div style="color:#9aa2ad; font-size:.78rem">'+_mtEsc(fecha)+'</div></div>'
+            + estado + accion
+            + '</div>';
+        }).join('');
+      }catch(e){
+        cont.innerHTML = '<div style="color:#c0392b; font-size:.85rem; padding:10px 0">No se pudieron cargar: '+_mtEsc(e.message||e)+'</div>';
       }
     }
 
@@ -985,6 +1028,7 @@
       cargarLocal();
       renderTasAntecedentes();
       calcTasador();
+      cargarMisTasaciones();
     });
   </script>
 </body>

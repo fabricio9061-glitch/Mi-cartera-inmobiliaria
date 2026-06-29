@@ -6,77 +6,185 @@
   <title>Revisiones · MALAVÉ</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
-    :root{ --gold:#c9a227; --ink:#1c1c1c; --bg:#f4f5f7; --line:#e4e6ea; }
+    :root{
+      --gold:#c9a227; --ink:#1f2733; --muted:#6b7480; --bg:#f3f5f8; --line:#e7eaef;
+      --green:#15a05a; --green-soft:#e8f7ee; --green-ink:#127a45;
+      --amber:#b9770f; --amber-soft:#fff6e3; --danger:#dc3545; --danger-soft:#fdecee;
+    }
     *{ box-sizing:border-box; margin:0; padding:0; }
-    body{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--ink); padding:20px; }
-    .wrap{ max-width:920px; margin:0 auto; }
-    .top{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
-    .top h1{ font-size:1.5rem; display:flex; align-items:center; gap:10px; }
-    .top h1 i{ color:var(--gold); }
-    .back{ color:#666; text-decoration:none; font-size:.9rem; display:inline-flex; align-items:center; gap:6px; }
+    body{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--ink); padding:22px 18px 60px; }
+    .wrap{ max-width:980px; margin:0 auto; }
+
+    /* Header */
+    .top{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:20px; }
+    .top-l{ display:flex; align-items:center; gap:14px; }
+    .top-ic{ width:48px; height:48px; border-radius:13px; background:rgba(201,162,39,.14); color:var(--gold); display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex:0 0 auto; }
+    .top h1{ font-size:1.55rem; font-weight:800; letter-spacing:-.02em; }
+    .top .sub{ color:var(--muted); font-size:.9rem; margin-top:2px; }
+    .top-r{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .back{ color:var(--muted); text-decoration:none; font-size:.9rem; display:inline-flex; align-items:center; gap:7px; padding:9px 6px; }
     .back:hover{ color:var(--ink); }
-    .btn{ border:none; cursor:pointer; border-radius:10px; padding:9px 14px; font-size:.88rem; font-weight:600; display:inline-flex; align-items:center; gap:7px; }
-    .btn-ghost{ background:#fff; border:1px solid var(--line); color:#444; }
-    .btn-ghost:hover{ background:#fafafa; }
-    .countbar{ background:#fff; border:1px solid var(--line); border-left:4px solid #2ecc71; border-radius:12px; padding:12px 16px; font-weight:700; display:flex; align-items:center; gap:9px; margin-bottom:16px; color:#27ae60; }
-    .countbar.alert{ border-left-color:var(--gold); color:#9a7d12; background:#fffdf5; }
-    .filters{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
-    .filters select{ border:1px solid var(--line); border-radius:10px; padding:9px 12px; font-size:.88rem; background:#fff; color:#333; }
-    .card{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,.04); }
-    .card-h{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
-    .tipo{ font-size:.78rem; font-weight:700; padding:4px 10px; border-radius:20px; display:inline-flex; align-items:center; gap:6px; }
-    .who{ font-weight:700; font-size:.95rem; }
-    .when{ color:#999; font-size:.82rem; }
-    .badge{ margin-left:auto; font-size:.72rem; font-weight:700; padding:4px 10px; border-radius:20px; }
-    .badge.pend{ background:#fff4e0; color:#b9770f; }
-    .badge.ok{ background:#e7f7ec; color:#1f9d54; }
-    .card-b{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
-    .kv-group h4{ font-size:.72rem; text-transform:uppercase; letter-spacing:.5px; color:#999; margin-bottom:8px; }
-    .kv{ display:flex; justify-content:space-between; gap:12px; padding:5px 0; border-bottom:1px dashed #eee; font-size:.88rem; }
+    .btn{ border:none; cursor:pointer; border-radius:11px; padding:10px 16px; font-size:.88rem; font-weight:600; display:inline-flex; align-items:center; gap:8px; transition:.15s; background:#fff; border:1px solid var(--line); color:#3a4350; }
+    .btn:hover{ background:#fafbfc; }
+    .btn-danger{ background:var(--danger-soft); border-color:#f6d6da; color:var(--danger); }
+    .btn-danger:hover{ background:#fbe2e5; }
+
+    /* Banner */
+    .banner{ position:relative; overflow:hidden; border-radius:16px; padding:20px 24px; margin-bottom:20px; display:flex; align-items:center; gap:16px; }
+    .banner.ok{ background:var(--green-soft); border:1px solid #cdeed8; }
+    .banner.alert{ background:var(--amber-soft); border:1px solid #f4e2b8; }
+    .banner-ic{ width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.15rem; flex:0 0 auto; color:#fff; }
+    .banner.ok .banner-ic{ background:var(--green); }
+    .banner.alert .banner-ic{ background:var(--gold); }
+    .banner h3{ font-size:1.05rem; font-weight:700; }
+    .banner.ok h3{ color:var(--green-ink); }
+    .banner.alert h3{ color:var(--amber); }
+    .banner p{ font-size:.86rem; color:var(--muted); margin-top:2px; }
+    .banner-art{ position:absolute; right:18px; top:50%; transform:translateY(-50%); font-size:4.4rem; opacity:.12; }
+    .banner.ok .banner-art{ color:var(--green); }
+    .banner.alert .banner-art{ color:var(--gold); }
+
+    /* Filters */
+    .filters{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
+    .sel{ position:relative; }
+    .sel i.lead{ position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:.82rem; pointer-events:none; }
+    .sel i.caret{ position:absolute; right:13px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:.72rem; pointer-events:none; }
+    .filters select{ -webkit-appearance:none; appearance:none; border:1px solid var(--line); border-radius:12px; padding:11px 34px 11px 36px; font-size:.9rem; background:#fff; color:#3a4350; cursor:pointer; font-family:inherit; min-width:190px; }
+    .filters select:focus{ outline:none; border-color:var(--gold); }
+
+    /* Card */
+    .card{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px 20px; margin-bottom:16px; box-shadow:0 1px 3px rgba(20,30,50,.04); }
+    .card-h{ display:flex; align-items:center; gap:11px; flex-wrap:wrap; }
+    .tipo{ font-size:.76rem; font-weight:700; padding:5px 11px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; }
+    .who{ font-weight:700; font-size:1rem; }
+    .when{ color:#9aa2ad; font-size:.82rem; }
+    .badge{ margin-left:auto; font-size:.74rem; font-weight:700; padding:5px 11px; border-radius:20px; display:inline-flex; align-items:center; gap:6px; }
+    .badge.pend{ background:var(--amber-soft); color:var(--amber); }
+    .badge.ok{ background:var(--green-soft); color:var(--green-ink); }
+    .kebab-wrap{ position:relative; }
+    .kebab{ background:none; border:none; cursor:pointer; color:#aab2bd; font-size:1rem; padding:6px 8px; border-radius:8px; }
+    .kebab:hover{ background:#f3f5f8; color:var(--ink); }
+    .menu{ position:absolute; right:0; top:34px; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 10px 30px rgba(20,30,50,.14); padding:6px; min-width:190px; z-index:30; display:none; }
+    .menu.open{ display:block; }
+    .menu button{ width:100%; text-align:left; background:none; border:none; cursor:pointer; font-family:inherit; font-size:.86rem; color:#3a4350; padding:9px 11px; border-radius:8px; display:flex; align-items:center; gap:9px; }
+    .menu button:hover{ background:#f3f5f8; }
+    .menu button.danger{ color:var(--danger); }
+    .menu button i{ width:15px; text-align:center; color:#8a929d; }
+    .menu button.danger i{ color:var(--danger); }
+
+    /* Metrics strip */
+    .metrics{ display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:8px; background:#f8fafb; border:1px solid #eef1f5; border-radius:13px; padding:14px 16px; margin-top:15px; }
+    .metric .lbl{ font-size:.68rem; text-transform:uppercase; letter-spacing:.6px; color:#9aa2ad; font-weight:700; display:flex; align-items:center; gap:5px; }
+    .metric .val{ font-size:1.02rem; font-weight:700; color:var(--ink); margin-top:5px; }
+    .metric.big .val{ font-size:1.5rem; font-weight:800; color:var(--green); letter-spacing:-.02em; }
+    .metric.unc .val{ color:var(--green); }
+
+    /* Features strip */
+    .feats{ display:flex; flex-wrap:wrap; gap:10px 26px; padding:14px 4px; border-bottom:1px solid var(--line); margin-top:4px; }
+    .feat{ display:flex; align-items:center; gap:10px; }
+    .feat .fic{ width:30px; height:30px; border-radius:9px; background:#f0f3f7; color:#5a6470; display:flex; align-items:center; justify-content:center; font-size:.82rem; flex:0 0 auto; }
+    .feat .ft b{ font-size:.92rem; font-weight:700; display:block; line-height:1.1; }
+    .feat .ft small{ font-size:.72rem; color:#9aa2ad; }
+
+    /* Details strip */
+    .dets{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:13px 18px; padding:15px 4px 4px; }
+    .det .dl{ font-size:.72rem; color:#9aa2ad; font-weight:600; margin-bottom:3px; }
+    .det .dv{ font-size:.9rem; font-weight:600; color:var(--ink); }
+    .stars i{ font-size:.78rem; color:#e2c45a; }
+    .stars i.off{ color:#dfe3e9; }
+
+    /* Expanded raw detail */
+    .more{ display:none; margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); }
+    .more.open{ display:block; }
+    .kvgrid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .kvg h4{ font-size:.7rem; text-transform:uppercase; letter-spacing:.5px; color:#9aa2ad; margin-bottom:7px; }
+    .kv{ display:flex; justify-content:space-between; gap:12px; padding:5px 0; border-bottom:1px dashed #eef1f5; font-size:.85rem; }
     .kv:last-child{ border-bottom:none; }
-    .kv span{ color:#777; }
+    .kv span{ color:#7c848f; }
     .kv b{ color:var(--ink); text-align:right; }
-    .kv-empty{ color:#bbb; font-size:.85rem; }
-    .card-f{ margin-top:14px; padding-top:12px; border-top:1px solid var(--line); text-align:right; }
-    .mark{ background:#27ae60; color:#fff; border:none; cursor:pointer; border-radius:9px; padding:8px 14px; font-size:.85rem; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
-    .mark:hover{ background:#229954; }
-    .empty{ text-align:center; color:#999; padding:40px 20px; background:#fff; border:1px solid var(--line); border-radius:14px; }
+
+    /* Footer */
+    .card-f{ display:flex; align-items:center; gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
+    .lnk{ display:inline-flex; align-items:center; gap:8px; border-radius:10px; padding:9px 15px; font-size:.86rem; font-weight:600; cursor:pointer; text-decoration:none; border:1px solid transparent; }
+    .lnk-green{ background:var(--green-soft); color:var(--green-ink); }
+    .lnk-green:hover{ background:#dcf2e4; }
+    .lnk-ghost{ background:#fff; border-color:var(--line); color:#3a4350; }
+    .lnk-ghost:hover{ background:#fafbfc; }
+    .lnk.disabled{ opacity:.5; cursor:not-allowed; }
+    .mark{ background:var(--green); color:#fff; border:none; cursor:pointer; border-radius:10px; padding:9px 15px; font-size:.86rem; font-weight:600; display:inline-flex; align-items:center; gap:7px; }
+    .mark:hover{ background:#128a4d; }
+    .trash{ margin-left:auto; background:var(--danger-soft); color:var(--danger); border:1px solid #f6d6da; cursor:pointer; border-radius:10px; width:38px; height:38px; display:inline-flex; align-items:center; justify-content:center; }
+    .trash:hover{ background:#fbe2e5; }
+
+    /* Pagination */
+    .pager{ display:flex; justify-content:center; align-items:center; gap:7px; margin-top:24px; flex-wrap:wrap; }
+    .pg{ min-width:38px; height:38px; border-radius:10px; border:1px solid var(--line); background:#fff; color:#3a4350; cursor:pointer; font-size:.88rem; font-weight:600; font-family:inherit; display:inline-flex; align-items:center; justify-content:center; padding:0 10px; }
+    .pg:hover:not(:disabled){ background:#fafbfc; }
+    .pg.active{ background:var(--green); color:#fff; border-color:var(--green); }
+    .pg:disabled{ opacity:.4; cursor:not-allowed; }
+    .pg.dots{ border:none; background:none; cursor:default; }
+
+    .empty{ text-align:center; color:#9aa2ad; padding:46px 20px; background:#fff; border:1px solid var(--line); border-radius:16px; }
+    .empty i{ font-size:1.7rem; display:block; margin-bottom:12px; color:#ccd2da; }
+
     #mvToastWrap{ position:fixed; right:16px; bottom:16px; z-index:99999; display:flex; flex-direction:column; gap:10px; max-width:360px; }
-    .mv-toast{ display:flex; gap:10px; align-items:flex-start; background:var(--ink); color:#fff; border-left:4px solid var(--gold); border-radius:12px; padding:12px 14px; box-shadow:0 8px 24px rgba(0,0,0,.3); opacity:0; transform:translateY(10px); transition:.25s; font-size:.9rem; }
+    .mv-toast{ display:flex; gap:10px; align-items:flex-start; background:var(--ink); color:#fff; border-left:4px solid var(--green); border-radius:12px; padding:12px 14px; box-shadow:0 8px 24px rgba(0,0,0,.3); opacity:0; transform:translateY(10px); transition:.25s; font-size:.9rem; }
     .mv-toast.show{ opacity:1; transform:translateY(0); }
-    .mv-toast.err{ border-left-color:#e74c3c; }
-    @media(max-width:640px){ .card-b{ grid-template-columns:1fr; gap:12px; } }
+    .mv-toast.err{ border-left-color:var(--danger); }
+
+    @media(max-width:680px){
+      .metrics{ grid-template-columns:1fr 1fr; }
+      .metric.big{ grid-column:1 / -1; }
+      .kvgrid{ grid-template-columns:1fr; }
+      .top-r{ width:100%; }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="top">
-      <h1><i class="fas fa-clipboard-check"></i> Revisiones</h1>
-      <div style="display:flex; gap:10px; align-items:center">
+      <div class="top-l">
+        <div class="top-ic"><i class="fas fa-clipboard-check"></i></div>
+        <div>
+          <h1>Revisiones</h1>
+          <div class="sub">Gestiona y revisa las tasaciones realizadas</div>
+        </div>
+      </div>
+      <div class="top-r">
         <a class="back" href="index.html"><i class="fas fa-arrow-left"></i> Volver</a>
-        <button class="btn btn-ghost" onclick="cargar()"><i class="fas fa-rotate-right"></i> Actualizar</button>
+        <button class="btn" onclick="cargar()"><i class="fas fa-rotate-right"></i> Actualizar</button>
+        <button class="btn btn-danger" onclick="limpiarRevisadas()"><i class="fas fa-trash-can"></i> Limpiar revisiones</button>
       </div>
     </div>
 
     <div id="loadingState" class="empty"><i class="fas fa-spinner fa-spin"></i> Cargando…</div>
-    <div id="authState" class="empty" style="display:none"><i class="fas fa-lock" style="font-size:1.6rem; color:#ccc; display:block; margin-bottom:10px"></i><span id="authMsg">Esta sección es solo para el administrador.</span></div>
+    <div id="authState" class="empty" style="display:none"><i class="fas fa-lock"></i><span id="authMsg">Esta sección es solo para el administrador.</span></div>
 
     <div id="content" style="display:none">
-      <div id="countBar" class="countbar"></div>
+      <div id="banner"></div>
       <div class="filters">
-        <select id="fTipo" onchange="setFiltro('tipo', this.value)">
-          <option value="todas">Todos los tipos</option>
-          <option value="tasacion">Tasaciones</option>
-          <option value="gastos">Gastos y comisiones</option>
-          <option value="terreno">Cálculo de terrenos</option>
-        </select>
-        <select id="fEstado" onchange="setFiltro('estado', this.value)">
-          <option value="todas">Todos</option>
-          <option value="pend">Sin revisar</option>
-          <option value="rev">Revisadas</option>
-        </select>
+        <div class="sel">
+          <i class="fas fa-filter lead"></i>
+          <select id="fTipo" onchange="setFiltro('tipo', this.value)">
+            <option value="todas">Todos los tipos</option>
+            <option value="tasacion">Tasaciones</option>
+            <option value="gastos">Gastos y comisiones</option>
+            <option value="terreno">Cálculo de terrenos</option>
+          </select>
+          <i class="fas fa-chevron-down caret"></i>
+        </div>
+        <div class="sel">
+          <i class="fas fa-list-check lead"></i>
+          <select id="fEstado" onchange="setFiltro('estado', this.value)">
+            <option value="todas">Todos</option>
+            <option value="pend">Sin revisar</option>
+            <option value="rev">Revisadas</option>
+          </select>
+          <i class="fas fa-chevron-down caret"></i>
+        </div>
       </div>
       <div id="list"></div>
+      <div id="pager" class="pager"></div>
     </div>
   </div>
 
@@ -98,14 +206,13 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // Cada tipo de cálculo y dónde se guarda en el doc del usuario.
     const TIPOS = {
       tasacion: { field: 'tasaciones',   label: 'Tasación',            icon: 'fa-calculator',          color: '#c9a227' },
       gastos:   { field: 'calcGastos',   label: 'Gastos y comisiones', icon: 'fa-file-invoice-dollar', color: '#2e86de' },
       terreno:  { field: 'calcTerrenos', label: 'Cálculo de terreno',  icon: 'fa-mountain-sun',        color: '#27ae60' }
     };
     const LBL = {
-      m2:'m² construidos', construccion:'Construcción (1-5)', ubicacion:'Ubicación (1-5)', dormitorios:'Dormitorios', banos:'Baños', antecedentes:'Comparables',
+      m2:'m² construidos', construccion:'Construcción', ubicacion:'Ubicación', dormitorios:'Dormitorios', banos:'Baños', antecedentes:'Comparables',
       cliente:'Cliente', tipoInm:'Tipo inmueble', direccion:'Dirección', barrio:'Barrio', departamento:'Departamento', padron:'Padrón',
       valor:'Valor estimado', min:'Mínimo', max:'Máximo', incertidumbre:'Incertidumbre',
       operacion:'Operación', precio:'Precio', moneda:'Moneda', comision:'Comisión', honorarios:'Honorarios', iva:'IVA', total:'Total',
@@ -115,48 +222,136 @@
 
     let allRecords = [];
     let fTipo = 'todas', fEstado = 'todas';
+    let page = 1;
+    const PAGE_SIZE = 5;
 
     function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
     function toList(v){ if(Array.isArray(v)) return v; if(v && typeof v==='object') return Object.values(v); return []; }
     function fmtFecha(iso){ if(!iso) return ''; const d=new Date(iso); if(isNaN(d.getTime())) return iso; return d.toLocaleString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+    function money(v){ return 'US$ ' + Number(v||0).toLocaleString('es-UY'); }
     function show(id){ ['loadingState','authState','content'].forEach(x=>{ const e=document.getElementById(x); if(e) e.style.display = x===id?'block':'none'; }); }
     function toast(msg, err){
       let c=document.getElementById('mvToastWrap'); if(!c){ c=document.createElement('div'); c.id='mvToastWrap'; document.body.appendChild(c); }
       const t=document.createElement('div'); t.className='mv-toast'+(err?' err':''); t.textContent=msg; c.appendChild(t);
       setTimeout(()=>t.classList.add('show'),10); setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); },3500);
     }
+    function stars(n){
+      n = Math.max(0, Math.min(5, Math.round(Number(n)||0)));
+      let h='<span class="stars">';
+      for(let i=1;i<=5;i++) h += '<i class="fas fa-star'+(i<=n?'':' off')+'"></i>';
+      return h + '</span>';
+    }
+    function num(v){ return (v===''||v==null) ? '—' : v; }
 
-    function renderKV(obj){
-      if(!obj || typeof obj!=='object') return '<div class="kv-empty">—</div>';
+    // ---- Detalle expandido (toda la data cruda) ----
+    function kvBlock(obj){
+      if(!obj || typeof obj!=='object') return '';
       const rows = Object.keys(obj).map(k=>{
         let v = obj[k];
         if(v==='' || v===null || v===undefined) return '';
-        if(MONEY.has(k)) v = 'US$ ' + Number(v).toLocaleString('es-UY');
+        if(MONEY.has(k)) v = money(v);
         else if(k==='incertidumbre') v = v + ' %';
         return '<div class="kv"><span>'+esc(LBL[k]||k)+'</span><b>'+esc(String(v))+'</b></div>';
       }).filter(Boolean).join('');
-      return rows || '<div class="kv-empty">—</div>';
+      return rows;
+    }
+
+    function cardTasacion(r){
+      const d = r.datos || {}, res = r.resultado || {};
+      const badge = r.revisado ? '<span class="badge ok"><i class="fas fa-circle-check"></i> Revisada</span>' : '<span class="badge pend"><i class="fas fa-clock"></i> Sin revisar</span>';
+      const metrics = '<div class="metrics">'
+        + '<div class="metric big"><div class="lbl">Valor estimado</div><div class="val">'+money(res.valor)+'</div></div>'
+        + '<div class="metric"><div class="lbl">Mínimo</div><div class="val">'+money(res.min)+'</div></div>'
+        + '<div class="metric"><div class="lbl">Máximo</div><div class="val">'+money(res.max)+'</div></div>'
+        + '<div class="metric unc"><div class="lbl">Incertidumbre</div><div class="val">'+(res.incertidumbre!=null?res.incertidumbre+' %':'—')+'</div></div>'
+        + '</div>';
+      const feats = '<div class="feats">'
+        + featItem('fa-up-right-and-down-left-from-center', num(d.m2)+' m²', 'Construidos')
+        + featItem('fa-house', num(d.tipoInm), 'Tipo inmueble')
+        + featItem('fa-bed', num(d.dormitorios), 'Dormitorios')
+        + featItem('fa-bath', num(d.banos), 'Baños')
+        + featItem('fa-location-dot', num(d.barrio), 'Barrio')
+        + '</div>';
+      const dets = '<div class="dets">'
+        + detItem('Cliente', esc(num(d.cliente)))
+        + detItem('Padrón', esc(num(d.padron)))
+        + detItem('Ubicación', esc(num(d.direccion)))
+        + detItem('Departamento', esc(num(d.departamento)))
+        + detItem('Comparables', esc(num(d.antecedentes)))
+        + detItem('Construcción', stars(d.construccion))
+        + detItem('Ubicación', stars(d.ubicacion))
+        + '</div>';
+      return metrics + feats + dets;
+    }
+    function featItem(ic, val, lbl){
+      return '<div class="feat"><div class="fic"><i class="fas '+ic+'"></i></div><div class="ft"><b>'+val+'</b><small>'+lbl+'</small></div></div>';
+    }
+    function detItem(lbl, val){
+      return '<div class="det"><div class="dl">'+lbl+'</div><div class="dv">'+val+'</div></div>';
+    }
+
+    function cardGenerico(r){
+      // Para gastos / terrenos: tira de métricas con lo que haya + detalle.
+      const res = r.resultado || {};
+      const keys = Object.keys(res).slice(0,4);
+      let mh = '<div class="metrics">';
+      keys.forEach((k,i)=>{
+        let v = res[k]; if(MONEY.has(k)) v = money(v); else if(k==='incertidumbre') v = v+' %';
+        mh += '<div class="metric'+(i===0?' big':'')+'"><div class="lbl">'+esc(LBL[k]||k)+'</div><div class="val">'+esc(String(v))+'</div></div>';
+      });
+      mh += '</div>';
+      return mh;
     }
 
     function cardHTML(r){
       const t = TIPOS[r.tipo] || { label:r.tipo, icon:'fa-file', color:'#888' };
-      const badge = r.revisado ? '<span class="badge ok">Revisada</span>' : '<span class="badge pend">Sin revisar</span>';
-      const btn = r.revisado ? '' : '<button class="mark" onclick="marcar(\''+r._uid+'\',\''+r._field+'\',\''+esc(r.id)+'\')"><i class="fas fa-check"></i> Marcar revisada</button>';
-      const verPdf = r.pdfUrl ? '<a href="'+r.pdfUrl+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:7px;background:#16273f;color:#fff;border-radius:10px;padding:9px 14px;font-size:.88rem;font-weight:600;text-decoration:none"><i class="fas fa-file-pdf"></i> Ver PDF</a>' : '';
-      return '<div class="card">'
+      const badge = r.revisado ? '<span class="badge ok"><i class="fas fa-circle-check"></i> Revisada</span>' : '<span class="badge pend"><i class="fas fa-clock"></i> Sin revisar</span>';
+      const cuerpo = r.tipo==='tasacion' ? cardTasacion(r) : cardGenerico(r);
+      const verInf = r.pdfUrl
+        ? '<a class="lnk lnk-green" href="'+esc(r.pdfUrl)+'" target="_blank" rel="noopener"><i class="fas fa-file-pdf"></i> Ver informe</a>'
+        : '<span class="lnk lnk-green disabled"><i class="fas fa-file-pdf"></i> Sin PDF</span>';
+      const toggleTxt = r.revisado ? '<i class="fas fa-rotate-left"></i> Volver a sin revisar' : '<i class="fas fa-check"></i> Marcar revisada';
+      const markBtn = r.revisado ? '' : '<button class="mark" onclick="marcar(\''+r._uid+'\',\''+r._field+'\',\''+esc(r.id)+'\',true)"><i class="fas fa-check"></i> Marcar revisada</button>';
+      return '<div class="card" id="card-'+esc(r.id)+'">'
         + '<div class="card-h">'
-        +   '<span class="tipo" style="background:'+t.color+'22; color:'+t.color+'"><i class="fas '+t.icon+'"></i> '+esc(t.label)+'</span>'
+        +   '<span class="tipo" style="background:'+t.color+'1f; color:'+t.color+'"><i class="fas '+t.icon+'"></i> '+esc(t.label)+'</span>'
         +   '<span class="who">'+esc(r._agente)+'</span>'
         +   '<span class="when">'+esc(fmtFecha(r.fecha))+'</span>'
         +   badge
+        +   '<div class="kebab-wrap">'
+        +     '<button class="kebab" onclick="toggleMenu(event,\''+esc(r.id)+'\')"><i class="fas fa-ellipsis-vertical"></i></button>'
+        +     '<div class="menu" id="menu-'+esc(r.id)+'">'
+        +       '<button onclick="marcar(\''+r._uid+'\',\''+r._field+'\',\''+esc(r.id)+'\','+(!r.revisado)+')">'+toggleTxt+'</button>'
+        +       '<button class="danger" onclick="eliminar(\''+r._uid+'\',\''+r._field+'\',\''+esc(r.id)+'\')"><i class="fas fa-trash"></i> Eliminar</button>'
+        +     '</div>'
+        +   '</div>'
         + '</div>'
-        + '<div class="card-b">'
-        +   '<div class="kv-group"><h4>Datos</h4>'+renderKV(r.datos)+'</div>'
-        +   '<div class="kv-group"><h4>Resultado</h4>'+renderKV(r.resultado)+'</div>'
+        + cuerpo
+        + '<div class="more" id="more-'+esc(r.id)+'"><div class="kvgrid">'
+        +   '<div class="kvg"><h4>Datos</h4>'+(kvBlock(r.datos)||'<div class="kv"><span>—</span></div>')+'</div>'
+        +   '<div class="kvg"><h4>Resultado</h4>'+(kvBlock(r.resultado)||'<div class="kv"><span>—</span></div>')+'</div>'
+        + '</div></div>'
+        + '<div class="card-f">'
+        +   verInf
+        +   '<button class="lnk lnk-ghost" onclick="toggleMore(\''+esc(r.id)+'\',this)"><i class="fas fa-list"></i> Ver detalles <i class="fas fa-chevron-down" style="font-size:.7rem"></i></button>'
+        +   markBtn
+        +   '<button class="trash" title="Eliminar" onclick="eliminar(\''+r._uid+'\',\''+r._field+'\',\''+esc(r.id)+'\')"><i class="fas fa-trash"></i></button>'
         + '</div>'
-        + ((btn||verPdf) ? '<div class="card-f">'+verPdf+btn+'</div>' : '')
         + '</div>';
     }
+
+    function toggleMore(id, btn){
+      const m = document.getElementById('more-'+id); if(!m) return;
+      const open = m.classList.toggle('open');
+      const chev = btn.querySelector('.fa-chevron-down, .fa-chevron-up');
+      if(chev){ chev.classList.toggle('fa-chevron-down', !open); chev.classList.toggle('fa-chevron-up', open); }
+    }
+    function toggleMenu(ev, id){
+      ev.stopPropagation();
+      document.querySelectorAll('.menu.open').forEach(m=>{ if(m.id!=='menu-'+id) m.classList.remove('open'); });
+      const m = document.getElementById('menu-'+id); if(m) m.classList.toggle('open');
+    }
+    document.addEventListener('click', ()=> document.querySelectorAll('.menu.open').forEach(m=>m.classList.remove('open')));
 
     function render(){
       const recs = allRecords.filter(r =>
@@ -164,22 +359,56 @@
         (fEstado==='todas' || (fEstado==='pend' ? !r.revisado : r.revisado))
       );
       const pend = allRecords.filter(r=>!r.revisado).length;
-      const cb = document.getElementById('countBar');
-      cb.className = 'countbar' + (pend>0 ? ' alert' : '');
-      cb.innerHTML = pend>0
-        ? '<i class="fas fa-bell"></i> '+pend+' '+(pend===1?'cálculo sin revisar':'cálculos sin revisar')
-        : '<i class="fas fa-circle-check"></i> No hay nada pendiente de revisar';
+      const b = document.getElementById('banner');
+      if(pend>0){
+        b.innerHTML = '<div class="banner alert"><div class="banner-ic"><i class="fas fa-bell"></i></div><div><h3>'+pend+' '+(pend===1?'tasación sin revisar':'tasaciones sin revisar')+'</h3><p>Revisá los informes pendientes para que los agentes puedan descargarlos.</p></div><i class="fas fa-clipboard-list banner-art"></i></div>';
+      } else {
+        b.innerHTML = '<div class="banner ok"><div class="banner-ic"><i class="fas fa-check"></i></div><div><h3>No hay nada pendiente de revisar</h3><p>Todas las revisiones están al día.</p></div><i class="fas fa-clipboard-check banner-art"></i></div>';
+      }
       const list = document.getElementById('list');
-      if(!recs.length){ list.innerHTML = '<div class="empty">No hay registros para mostrar con este filtro.</div>'; return; }
-      list.innerHTML = recs.map(cardHTML).join('');
+      const pager = document.getElementById('pager');
+      if(!recs.length){
+        list.innerHTML = '<div class="empty"><i class="fas fa-inbox"></i>No hay registros para mostrar con este filtro.</div>';
+        pager.innerHTML = ''; return;
+      }
+      const totalPages = Math.ceil(recs.length / PAGE_SIZE);
+      if(page > totalPages) page = totalPages;
+      if(page < 1) page = 1;
+      const start = (page-1)*PAGE_SIZE;
+      const slice = recs.slice(start, start+PAGE_SIZE);
+      list.innerHTML = slice.map(cardHTML).join('');
+      pager.innerHTML = pagerHTML(totalPages);
     }
 
-    function setFiltro(cual, val){ if(cual==='tipo') fTipo=val; else fEstado=val; render(); }
+    function pagerHTML(total){
+      if(total<=1) return '';
+      let h = '<button class="pg" onclick="goPage('+(page-1)+')" '+(page===1?'disabled':'')+'><i class="fas fa-chevron-left"></i></button>';
+      const win = [];
+      const add = (n)=>win.push(n);
+      add(1);
+      if(page>3) win.push('...');
+      for(let n=Math.max(2,page-1); n<=Math.min(total-1,page+1); n++) add(n);
+      if(page<total-2) win.push('...');
+      if(total>1) add(total);
+      // dedupe consecutive
+      const seen = new Set();
+      win.forEach(n=>{
+        if(n==='...'){ h += '<span class="pg dots">…</span>'; return; }
+        if(seen.has(n)) return; seen.add(n);
+        h += '<button class="pg'+(n===page?' active':'')+'" onclick="goPage('+n+')">'+n+'</button>';
+      });
+      h += '<button class="pg" onclick="goPage('+(page+1)+')" '+(page===total?'disabled':'')+'><i class="fas fa-chevron-right"></i></button>';
+      return h;
+    }
+    function goPage(n){ page = n; render(); window.scrollTo({top:0,behavior:'smooth'}); }
+
+    function setFiltro(cual, val){ if(cual==='tipo') fTipo=val; else fEstado=val; page=1; render(); }
 
     async function cargar(){
       show('content');
       const list = document.getElementById('list');
       list.innerHTML = '<div class="empty"><i class="fas fa-spinner fa-spin"></i> Cargando…</div>';
+      document.getElementById('pager').innerHTML = '';
       try{
         const q = await db.collection('users').get();
         allRecords = [];
@@ -197,31 +426,86 @@
           });
         });
         allRecords.sort((a,b)=> String(b.fecha||'').localeCompare(String(a.fecha||'')));
+        page = 1;
         render();
       }catch(e){
         list.innerHTML = '<div class="empty" style="color:#c0392b">No se pudieron cargar los datos. '+esc(e.message||e)+'</div>';
       }
     }
 
-    async function marcar(uid, field, id){
+    // Marcar/desmarcar revisada. IMPORTANTE: ya NO borra el PDF (el agente lo
+    // necesita para descargarlo una vez aprobado).
+    async function marcar(uid, field, id, valor){
       try{
         const ref = db.collection('users').doc(uid);
         const d = await ref.get();
         const cur = d.exists ? d.data()[field] : null;
         let nuevo;
         if (Array.isArray(cur)) {
-          nuevo = cur.map(x => (x && x.id===id) ? Object.assign({}, x, { revisado:true, pdfUrl:'' }) : x);
+          nuevo = cur.map(x => (x && x.id===id) ? Object.assign({}, x, { revisado:valor }) : x);
         } else if (cur && typeof cur==='object') {
           nuevo = Object.assign({}, cur);
-          Object.keys(nuevo).forEach(k => { if (nuevo[k] && (nuevo[k].id===id || k===id)) nuevo[k] = Object.assign({}, nuevo[k], { revisado:true, pdfUrl:'' }); });
+          Object.keys(nuevo).forEach(k => { if (nuevo[k] && (nuevo[k].id===id || k===id)) nuevo[k] = Object.assign({}, nuevo[k], { revisado:valor }); });
+        } else { return; }
+        await ref.update({ [field]: nuevo });
+        allRecords.forEach(r=>{ if(r._uid===uid && r._field===field && r.id===id){ r.revisado=valor; } });
+        render();
+        toast(valor ? 'Marcada como revisada · el agente ya puede descargarla' : 'Vuelta a sin revisar');
+      }catch(e){
+        toast('No se pudo actualizar: ' + (e.message||e), true);
+      }
+    }
+
+    async function eliminar(uid, field, id){
+      if(!confirm('¿Eliminar este registro? Se borra también su PDF y el agente no podrá descargarlo.')) return;
+      try{
+        const ref = db.collection('users').doc(uid);
+        const d = await ref.get();
+        const cur = d.exists ? d.data()[field] : null;
+        let nuevo;
+        if (Array.isArray(cur)) {
+          nuevo = cur.filter(x => !(x && x.id===id));
+        } else if (cur && typeof cur==='object') {
+          nuevo = Object.assign({}, cur);
+          Object.keys(nuevo).forEach(k => { if (nuevo[k] && (nuevo[k].id===id || k===id)) delete nuevo[k]; });
         } else { return; }
         await ref.update({ [field]: nuevo });
         try { await firebase.storage().ref('tasacionesPDF/' + id + '.pdf').delete(); } catch(e){}
-        allRecords.forEach(r=>{ if(r._uid===uid && r._field===field && r.id===id){ r.revisado=true; r.pdfUrl=''; } });
+        allRecords = allRecords.filter(r => !(r._uid===uid && r._field===field && r.id===id));
         render();
-        toast('Marcada como revisada');
+        toast('Registro eliminado');
       }catch(e){
-        toast('No se pudo marcar: ' + (e.message||e), true);
+        toast('No se pudo eliminar: ' + (e.message||e), true);
+      }
+    }
+
+    // Limpia (elimina) todas las revisiones YA revisadas + sus PDF.
+    async function limpiarRevisadas(){
+      const revs = allRecords.filter(r=>r.revisado);
+      if(!revs.length){ toast('No hay revisiones revisadas para limpiar'); return; }
+      if(!confirm('Esto elimina las '+revs.length+' revisión(es) ya revisadas y sus PDF de forma permanente. Asegurate de que los agentes ya las hayan descargado. ¿Continuar?')) return;
+      try{
+        // agrupar por usuario+campo
+        const porDoc = {};
+        revs.forEach(r=>{ const key = r._uid+'|'+r._field; (porDoc[key]=porDoc[key]||[]).push(r.id); });
+        for(const key of Object.keys(porDoc)){
+          const [uid, field] = key.split('|');
+          const ids = new Set(porDoc[key]);
+          const ref = db.collection('users').doc(uid);
+          const d = await ref.get();
+          const cur = d.exists ? d.data()[field] : null;
+          let nuevo;
+          if (Array.isArray(cur)) nuevo = cur.filter(x => !(x && ids.has(x.id)));
+          else if (cur && typeof cur==='object') { nuevo = Object.assign({}, cur); Object.keys(nuevo).forEach(k => { if (nuevo[k] && (ids.has(nuevo[k].id) || ids.has(k))) delete nuevo[k]; }); }
+          else continue;
+          await ref.update({ [field]: nuevo });
+          for(const id of ids){ try { await firebase.storage().ref('tasacionesPDF/' + id + '.pdf').delete(); } catch(e){} }
+        }
+        allRecords = allRecords.filter(r=>!r.revisado);
+        page = 1; render();
+        toast('Revisiones revisadas eliminadas');
+      }catch(e){
+        toast('No se pudo limpiar: ' + (e.message||e), true);
       }
     }
 
