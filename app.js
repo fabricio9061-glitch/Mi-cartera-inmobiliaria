@@ -1378,17 +1378,35 @@
       b.textContent = 'Iniciar Sesión'
     }
   }
+  // Traduce los códigos de error de Firebase Auth a mensajes claros.
+  function mensajeErrorAuth(err) {
+    switch (err && err.code) {
+      case 'auth/email-already-in-use': return 'Este correo ya está registrado.';
+      case 'auth/invalid-email': return 'El correo no es válido.';
+      case 'auth/weak-password': return 'La contraseña es muy débil (mínimo 6 caracteres).';
+      case 'auth/network-request-failed': return 'Falló la conexión. Revisá tu internet y reintentá.';
+      default: return (err && err.message) || 'No se pudo crear la cuenta.';
+    }
+  }
+
   async function handleRegister(e) {
     e.preventDefault();
     const b = document.getElementById('registerBtn'),
       er = document.getElementById('registerError'),
       su = document.getElementById('registerSuccess'),
-      nm = document.getElementById('registerName').value,
-      em = document.getElementById('registerEmail').value,
-      wh = document.getElementById('registerWhatsapp').value,
+      nm = document.getElementById('registerName').value.trim(),
+      em = document.getElementById('registerEmail').value.trim(),
+      wh = document.getElementById('registerWhatsapp').value.trim(),
       ig = document.getElementById('registerInstagram').value.trim(),
       pw = document.getElementById('registerPassword').value,
       cf = document.getElementById('registerConfirm').value;
+    er.classList.add('hidden');
+    su.classList.add('hidden');
+    if (!nm || !em) {
+      er.textContent = 'Completá tu nombre y correo.';
+      er.classList.remove('hidden');
+      return
+    }
     if (pw !== cf) {
       er.textContent = 'Las contraseñas no coinciden';
       er.classList.remove('hidden');
@@ -1396,10 +1414,23 @@
     }
     b.disabled = true;
     b.textContent = 'Creando...';
-    er.classList.add('hidden');
-    su.classList.add('hidden');
+
+    // PASO 1 — crear la cuenta de Firebase Auth.
+    let uc;
     try {
-      const uc = await auth.createUserWithEmailAndPassword(em, pw);
+      uc = await auth.createUserWithEmailAndPassword(em, pw);
+    } catch (err) {
+      er.textContent = mensajeErrorAuth(err);
+      er.classList.remove('hidden');
+      b.disabled = false;
+      b.textContent = 'Crear Cuenta';
+      return
+    }
+
+    // PASO 2 — escribir el perfil en Firestore. Si falla, NO dejamos la cuenta
+    // de Auth huérfana: la borramos para que el correo quede libre y se pueda
+    // volver a registrar sin el error "este correo ya está registrado".
+    try {
       const ia = em.toLowerCase() === ADMIN_EMAIL;
       const ud = {
         uid: uc.user.uid,
@@ -1416,7 +1447,12 @@
       su.textContent = ia ? '¡Cuenta admin creada!' : '¡Cuenta creada! Espera aprobación.';
       su.classList.remove('hidden')
     } catch (err) {
-      er.textContent = err.code === 'auth/email-already-in-use' ? 'Este correo ya está registrado' : err.message;
+      // Revertimos: borramos la cuenta recién creada (o al menos cerramos sesión).
+      try { await uc.user.delete(); }
+      catch (delErr) { try { await auth.signOut(); } catch (e2) {} }
+      console.error('Registro: falló la escritura del perfil en Firestore:', err);
+      er.textContent = 'No se pudo guardar tu perfil: ' + ((err && err.message) || err) +
+        '. Si el problema persiste, avisale al administrador. Probá de nuevo.';
       er.classList.remove('hidden')
     } finally {
       b.disabled = false;
