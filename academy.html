@@ -140,6 +140,46 @@
     .res-table td.sc-ok{ color:#1e7d4f; font-weight:700; }
     .res-table td.sc-no{ color:#c0392b; font-weight:700; }
     .res-empty{ color:var(--gray-500,#888); font-size:.88rem; padding:10px 0; }
+
+    /* ===== Rediseño "Para empezar" (estilo mockup) ===== */
+    body{ background:#f4f2ec; }
+    .aca-hero{ flex-direction:column; align-items:stretch; gap:22px; position:relative; overflow:hidden; }
+    .aca-hero-main{ display:flex; align-items:center; gap:20px; flex-wrap:wrap; position:relative; z-index:2; }
+    .aca-hero-tx{ flex:1; min-width:220px; }
+    .aca-hero-main .pa-add{ margin-left:auto; }
+    .aca-hero-badges{ display:flex; gap:14px 34px; flex-wrap:wrap; position:relative; z-index:2; border-top:1px solid rgba(255,255,255,.12); padding-top:18px; }
+    .ahb{ display:flex; align-items:center; gap:11px; }
+    .ahb-ic{ width:34px; height:34px; border-radius:9px; background:rgba(201,162,39,.14); border:1px solid rgba(201,162,39,.5); color:#C9A227; display:inline-flex; align-items:center; justify-content:center; font-size:.85rem; flex:none; }
+    .ahb-tx b{ color:#fff; font-size:.86rem; display:block; line-height:1.2; }
+    .ahb-tx small{ color:rgba(255,255,255,.6); font-size:.76rem; }
+    .aca-hero-art{ position:absolute; right:24px; top:50%; transform:translateY(-50%); width:240px; height:auto; opacity:.13; color:#C9A227; z-index:1; pointer-events:none; }
+    @media (max-width:760px){ .aca-hero-art{ display:none; } }
+
+    .start-grid{ counter-reset:sccount; }
+    .start-card{ counter-increment:sccount; position:relative; padding:24px 24px 20px; overflow:hidden; box-shadow:0 1px 3px rgba(20,30,50,.04); }
+    .start-card::before{ content:counter(sccount, decimal-leading-zero); position:absolute; top:12px; left:18px; font-family:'Cormorant Garamond',serif; font-size:2.7rem; font-weight:700; color:#16273f; opacity:.05; line-height:1; z-index:0; }
+    .start-card h3, .start-card .sc-body, .start-card .sc-more{ position:relative; z-index:1; }
+    .start-card h3{ padding-bottom:14px; margin-bottom:16px; border-bottom:1px solid rgba(201,162,39,.28); align-items:flex-start; }
+    .start-card h3 .si{ width:42px; height:42px; font-size:1.05rem; }
+    .start-card ul{ list-style:none; padding-left:0; margin:0; }
+    .start-card li{ position:relative; padding-left:27px; margin-bottom:11px; font-size:.9rem; color:var(--gray-700,#444); line-height:1.6; }
+    .start-card li:last-child{ margin-bottom:0; }
+    .start-card li::before{ content:"\f058"; font-family:"Font Awesome 6 Free"; font-weight:900; color:#C9A227; position:absolute; left:0; top:1px; font-size:.92rem; }
+    .start-card .sc-body{ position:relative; }
+    .start-card.sc-collapsible:not(.sc-open) .sc-body{ max-height:172px; overflow:hidden; }
+    .start-card.sc-collapsible:not(.sc-open) .sc-body::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:52px; background:linear-gradient(rgba(255,255,255,0), #fff); }
+    .sc-more{ margin-top:16px; background:#fff; border:1px solid rgba(201,162,39,.5); color:#b8901f; border-radius:999px; padding:9px 20px; font-family:inherit; font-size:.85rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:9px; transition:all .15s; }
+    .sc-more:hover{ background:#fdf8ec; }
+    .sc-more i{ font-size:.78rem; transition:transform .15s; }
+
+    .aca-tip{ display:flex; align-items:center; gap:14px; background:#fff; border:1px solid var(--gray-200,#eceef1); border-radius:14px; padding:16px 20px; margin-top:24px; box-shadow:0 1px 3px rgba(20,30,50,.04); }
+    .aca-tip-ic{ width:40px; height:40px; border-radius:50%; background:#16273f; color:#C9A227; display:flex; align-items:center; justify-content:center; flex:none; font-size:1rem; }
+    .aca-tip-tx{ font-size:.9rem; color:var(--gray-600,#555); line-height:1.5; }
+    .aca-tip-tx b{ color:#16273f; margin-right:7px; }
+    .tq-prog{ display:flex; justify-content:space-between; align-items:center; font-size:.82rem; color:var(--gray-600,#555); font-weight:600; margin-bottom:7px; }
+    .tq-progbar{ height:7px; background:#edeef1; border-radius:7px; overflow:hidden; margin-bottom:20px; }
+    .tq-progbar i{ display:block; height:100%; background:#C9A227; border-radius:7px; transition:width .3s ease; }
+    .tq-foot{ margin-top:20px; }
   </style>
 </head>
 <body>
@@ -160,9 +200,24 @@
 
   <div class="tp-wrap" id="tpContent" style="display:none">
     <div class="aca-hero">
-      <div class="aca-hero-ic"><i class="fas fa-graduation-cap"></i></div>
-      <div><h1>Malave Academy</h1><p>Formacion para el equipo: guias, flyers, material descargable y videos para potenciar tus ventas y tu conocimiento del mercado.</p></div>
-      <button class="pa-add" id="acaAddBtn" style="display:none" onclick="openAcaModal()"><i class="fas fa-plus"></i> Agregar contenido</button>
+      <div class="aca-hero-main">
+        <div class="aca-hero-ic"><i class="fas fa-graduation-cap"></i></div>
+        <div class="aca-hero-tx"><h1>Malave Academy</h1><p>Formación para el equipo: guías, flyers, material descargable y videos para potenciar tus ventas y tu conocimiento del mercado.</p></div>
+        <button class="pa-add" id="acaAddBtn" style="display:none" onclick="openAcaModal()"><i class="fas fa-plus"></i> Agregar contenido</button>
+      </div>
+      <div class="aca-hero-badges">
+        <div class="ahb"><span class="ahb-ic"><i class="fas fa-shield-halved"></i></span><div class="ahb-tx"><b>Contenido práctico</b><small>Aplicable al día a día</small></div></div>
+        <div class="ahb"><span class="ahb-ic"><i class="fas fa-arrows-rotate"></i></span><div class="ahb-tx"><b>Actualizado siempre</b><small>Información al día del mercado</small></div></div>
+        <div class="ahb"><span class="ahb-ic"><i class="fas fa-users"></i></span><div class="ahb-tx"><b>Hecho para tu equipo</b><small>Aprende, comparte y crece</small></div></div>
+      </div>
+      <svg class="aca-hero-art" viewBox="0 0 220 170" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+        <path d="M30 162 V70 L70 40 L110 70 V162 Z"/>
+        <path d="M110 162 V96 L146 70 L182 96 V162 Z"/>
+        <rect x="48" y="86" width="14" height="14"/><rect x="78" y="86" width="14" height="14"/>
+        <rect x="48" y="112" width="14" height="14"/><rect x="78" y="112" width="14" height="14"/>
+        <rect x="124" y="110" width="13" height="13"/><rect x="153" y="110" width="13" height="13"/>
+        <path d="M70 40 V24"/><circle cx="70" cy="20" r="3"/>
+      </svg>
     </div>
     <div class="aca-tabs">
       <button class="aca-tab" data-view="start" onclick="setView('start')"><i class="fas fa-flag-checkered"></i> Para empezar</button>
@@ -190,6 +245,17 @@
           </ul>
         </div>
         <div class="start-card">
+          <h3><span class="si"><i class="fas fa-file-invoice-dollar"></i></span> IRPF en alquileres (consejo para el propietario)</h3>
+          <ul>
+            <li><b>Quién paga:</b> el propietario tributa IRPF por la renta del alquiler. La tasa anual es 12%, pero en la práctica se paga como un anticipo/retención mensual del <b>10,5% del alquiler</b>.</li>
+            <li><b>Exoneración:</b> si el total de alquileres del propietario es menor a <b>40 BPC al año</b> (≈ $263.000 al año, ~$21.900 por mes en 2025), puede quedar exonerado. No es automático: hay que <b>tramitarlo en DGI</b>, levantar el secreto bancario y no tener otras rentas de capital mayores a 3 BPC al año.</li>
+            <li><b>El tope sube todos los años</b> porque la BPC se actualiza. El conocido "$20.000" era la equivalencia mensual de años anteriores; hoy es más alto.</li>
+            <li><b>Quién retiene:</b> si la inmobiliaria administra y cobra el alquiler (o la garantía es ANDA o CGN), <b>la inmobiliaria es la que retiene y paga</b> el 10,5% mensual a DGI. Si no hay agente de retención, el propio propietario hace los anticipos.</li>
+            <li><b>Varias propiedades:</b> se suma el total de alquileres tanto para el tope de exoneración como para calcular el impuesto.</li>
+            <li><b>Importante:</b> es orientativo y los topes cambian cada año. Confirmá siempre con un contador y en DGI antes de asesorar a un propietario.</li>
+          </ul>
+        </div>
+        <div class="start-card">
           <h3><span class="si"><i class="fas fa-star"></i></span> Buenas prácticas</h3>
           <ul>
             <li><b>Respondé rápido:</b> la velocidad de respuesta es lo que más define si se concreta.</li>
@@ -209,6 +275,7 @@
           </ul>
         </div>
       </div>
+      <div class="aca-tip"><span class="aca-tip-ic"><i class="fas fa-lightbulb"></i></span><div class="aca-tip-tx"><b>Tip</b>Esta información es una guía rápida. Ante dudas específicas, consultá siempre con un profesional.</div></div>
     </div>
 
     <div id="viewMaterial">
@@ -529,6 +596,25 @@
         ] }
     ];
 
+    function enhanceStartCards() {
+      document.querySelectorAll('#viewStart .start-card').forEach(function(card) {
+        if (card.dataset.enh) return; card.dataset.enh = '1';
+        var ul = card.querySelector('ul'); if (!ul) return;
+        var body = document.createElement('div'); body.className = 'sc-body';
+        card.insertBefore(body, ul); body.appendChild(ul);
+        if (body.scrollHeight > 200) {
+          card.classList.add('sc-collapsible');
+          var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'sc-more';
+          btn.innerHTML = 'Ver más <i class="fas fa-arrow-right"></i>';
+          btn.addEventListener('click', function() {
+            var open = card.classList.toggle('sc-open');
+            btn.innerHTML = open ? 'Ver menos <i class="fas fa-arrow-up"></i>' : 'Ver más <i class="fas fa-arrow-right"></i>';
+          });
+          card.appendChild(btn);
+        }
+      });
+    }
+
     function setView(v) {
       ['Start', 'Material', 'Tests'].forEach(s => {
         const el = document.getElementById('view' + s);
@@ -536,6 +622,7 @@
       });
       document.querySelectorAll('.aca-tab').forEach(b => b.classList.toggle('on', b.dataset.view === v));
       document.getElementById('acaAddBtn').style.display = (v === 'material' && esAdmin) ? 'inline-flex' : 'none';
+      if (v === 'start') enhanceStartCards();
       if (v === 'tests') { renderTests(); if (esAdmin) loadAdminResults(); }
     }
 
@@ -550,76 +637,94 @@
       const grid = document.getElementById('testGrid');
       grid.innerHTML = TESTS.map(t => {
         const st = statusFor(t.id);
-        const done = myResults[t.id];
-        const btnTxt = done ? '<i class="fas fa-rotate-right"></i> Reintentar' : '<i class="fas fa-play"></i> Hacer test';
-        return `<div class="test-card"><div class="tc-ic"><i class="fas ${t.icon}"></i></div><h3>${escH(t.title)}</h3><p>${escH(t.desc || '')}</p><div class="tc-meta"><span class="tc-q">${t.questions.length} preguntas · aprobás con ${PASS_PCT}%</span><span class="tc-status ${st.cls}">${st.txt}</span></div><button class="tc-btn" onclick="openTest('${t.id}')">${btnTxt}</button></div>`;
+        const res = myResults[t.id];
+        let btn;
+        if (res && res.passed) {
+          btn = `<button class="tc-btn" disabled style="background:#e8f7ee;color:#127a45;border:1px solid #cdeed8;cursor:default"><i class="fas fa-circle-check"></i> Aprobado</button>`;
+        } else if (res) {
+          btn = `<button class="tc-btn" onclick="openTest('${t.id}')"><i class="fas fa-rotate-right"></i> Reintentar</button>`;
+        } else {
+          btn = `<button class="tc-btn" onclick="openTest('${t.id}')"><i class="fas fa-play"></i> Hacer test</button>`;
+        }
+        return `<div class="test-card"><div class="tc-ic"><i class="fas ${t.icon}"></i></div><h3>${escH(t.title)}</h3><p>${escH(t.desc || '')}</p><div class="tc-meta"><span class="tc-q">${t.questions.length} preguntas · aprobás con ${PASS_PCT}%</span><span class="tc-status ${st.cls}">${st.txt}</span></div>${btn}</div>`;
       }).join('');
     }
 
-    function qBlock(q, qi) {
-      return `<div class="tq" id="tq${qi}"><div class="tq-q"><span>${qi + 1}.</span>${escH(q.q)}</div>` +
-        q.options.map((o, oi) => `<label class="topt" id="t${qi}_${oi}"><input type="radio" name="q${qi}" value="${oi}" onchange="pick(${qi},${oi})"> <span>${escH(o)}</span></label>`).join('') +
-        `<div class="tq-fb" id="fb${qi}" style="display:none"></div></div>`;
-    }
+    let curQ = 0;
     function openTest(id) {
       curTest = TESTS.find(t => t.id === id); if (!curTest) return;
-      curAnswers = {};
+      curAnswers = {}; curQ = 0;
       document.getElementById('testModalContent').innerHTML =
         `<div class="tm-head"><h2>${escH(curTest.title)}</h2><button class="vid-close" style="float:none;color:var(--gray-500,#888);font-size:1.3rem" onclick="closeTestModal()"><i class="fas fa-times"></i></button></div>` +
-        `<p style="color:var(--gray-600,#555);font-size:.88rem;margin:-6px 0 16px">Elegí una opción en cada pregunta. Aprobás con ${PASS_PCT}%.</p>` +
-        `<div id="tqList">${curTest.questions.map((q, qi) => qBlock(q, qi)).join('')}</div>` +
-        `<button class="pa-save" id="tSubmit" onclick="submitTest()"><i class="fas fa-check"></i> Enviar respuestas</button>`;
+        `<div id="tRunner"></div>`;
       document.getElementById('testModal').classList.add('open');
+      renderQuestion();
     }
-    function pick(qi, oi) {
-      curAnswers[qi] = oi;
-      const opts = document.querySelectorAll('#tq' + qi + ' .topt');
-      opts.forEach((el, i) => el.classList.toggle('sel', i === oi));
+    function renderQuestion() {
+      const total = curTest.questions.length;
+      const q = curTest.questions[curQ];
+      const ultima = curQ === total - 1;
+      const pct = Math.round(curQ / total * 100);
+      const labelBtn = ultima ? '<i class="fas fa-flag-checkered"></i> Finalizar' : 'Siguiente <i class="fas fa-arrow-right"></i>';
+      document.getElementById('tRunner').innerHTML =
+        `<div class="tq-prog"><span>Pregunta ${curQ + 1} de ${total}</span><span>${pct}%</span></div>` +
+        `<div class="tq-progbar"><i style="width:${pct}%"></i></div>` +
+        `<div class="tq" id="tqCur"><div class="tq-q">${escH(q.q)}</div>` +
+          q.options.map((o, oi) => `<label class="topt" id="topt${oi}"><input type="radio" name="qcur" value="${oi}" onchange="pickOne(${oi})"> <span>${escH(o)}</span></label>`).join('') +
+          `<div class="tq-fb" id="fbCur" style="display:none"></div>` +
+        `</div>` +
+        `<div class="tq-foot"><button class="pa-save" id="tNext" disabled onclick="siguienteQ()">${labelBtn}</button></div>`;
     }
-    async function submitTest() {
+    function pickOne(oi) {
+      if (curAnswers[curQ] != null) return;
+      const q = curTest.questions[curQ];
+      curAnswers[curQ] = oi;
+      document.querySelectorAll('#tqCur .topt').forEach((el, i) => {
+        const inp = el.querySelector('input'); if (inp) inp.disabled = true;
+        if (i === q.correct) el.classList.add('correct');
+        else if (i === oi) el.classList.add('wrong');
+      });
+      const fb = document.getElementById('fbCur');
+      if (fb && q.fb) { fb.style.display = 'block'; fb.textContent = (oi === q.correct ? '✓ ' : '✗ ') + q.fb; }
+      const next = document.getElementById('tNext'); if (next) next.disabled = false;
+    }
+    function siguienteQ() {
+      const total = curTest.questions.length;
+      if (curQ < total - 1) { curQ++; renderQuestion(); }
+      else { finalizarTest(); }
+    }
+    async function finalizarTest() {
       if (!curTest) return;
       const total = curTest.questions.length;
-      if (Object.keys(curAnswers).length < total) { showToast('Faltan respuestas', 'Respondé todas las preguntas.', 'fa-circle-exclamation'); return; }
       let correct = 0;
-      curTest.questions.forEach((q, qi) => {
-        const chosen = curAnswers[qi];
-        if (chosen === q.correct) correct++;
-        document.querySelectorAll('#tq' + qi + ' .topt').forEach((el, i) => {
-          el.classList.remove('sel');
-          const inp = el.querySelector('input'); if (inp) inp.disabled = true;
-          if (i === q.correct) el.classList.add('correct');
-          else if (i === chosen) el.classList.add('wrong');
-        });
-        const fb = document.getElementById('fb' + qi);
-        if (fb && q.fb) { fb.style.display = 'block'; fb.textContent = (chosen === q.correct ? '✓ ' : '✗ ') + q.fb; }
-      });
+      curTest.questions.forEach((q, qi) => { if (curAnswers[qi] === q.correct) correct++; });
       const score = Math.round(correct / total * 100);
       const passed = score >= PASS_PCT;
-      const head = document.createElement('div');
-      head.className = 'tres-head';
-      head.innerHTML = `<div class="tres-score ${passed ? 'ok' : 'no'}">${score}%</div><div class="tres-msg">${passed ? '¡Aprobaste! 🎉' : 'No alcanzó el ' + PASS_PCT + '%. Revisá las respuestas y reintentá.'} (${correct}/${total} correctas)</div>`;
-      const list = document.getElementById('tqList');
-      list.parentNode.insertBefore(head, list);
-      const btn = document.getElementById('tSubmit');
-      if (btn) btn.outerHTML = `<div style="display:flex;gap:10px"><button class="pa-save" style="background:#fff;color:var(--primary,#16273f);border:1px solid var(--gray-200,#e3e6ea)" onclick="closeTestModal()">Cerrar</button><button class="pa-save" onclick="openTest('${curTest.id}')"><i class="fas fa-rotate-right"></i> Reintentar</button></div>`;
+      const botones = passed
+        ? `<button class="pa-save" onclick="closeTestModal()"><i class="fas fa-check"></i> Cerrar</button>`
+        : `<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="pa-save" style="background:#fff;color:var(--primary,#16273f);border:1px solid var(--gray-200,#e3e6ea)" onclick="closeTestModal()">Cerrar</button><button class="pa-save" onclick="openTest('${curTest.id}')"><i class="fas fa-rotate-right"></i> Reintentar</button></div>`;
+      document.getElementById('tRunner').innerHTML =
+        `<div class="tres-head"><div class="tres-score ${passed ? 'ok' : 'no'}">${score}%</div><div class="tres-msg">${passed ? '¡Aprobaste! 🎉' : 'No alcanzó el ' + PASS_PCT + '%. Repasá el material y reintentá.'} (${correct}/${total} correctas)</div></div>` +
+        `<div class="tq-foot">${botones}</div>`;
       await saveResult(curTest, score, passed);
       renderTests();
     }
     async function saveResult(test, score, passed) {
-      if (!curUser) return;
+      if (!curUser) { showToast('No se pudo guardar', 'No detecté tu usuario. Recargá la página.', 'fa-triangle-exclamation'); return; }
+      const prev = myResults[test.id] || {};
+      const best = Math.max(score, prev.bestScore || 0);
+      const attempts = (prev.attempts || 0) + 1;
+      const entry = { testId: test.id, testTitle: test.title, bestScore: best, passed: best >= PASS_PCT, lastScore: score, attempts, updatedAt: new Date().toISOString() };
       try {
-        const ref = db.collection('academyResults').doc(curUser.uid + '_' + test.id);
-        const snap = await ref.get();
-        const prev = snap.exists ? snap.data() : null;
-        const best = Math.max(score, prev ? (prev.bestScore || 0) : 0);
-        const attempts = (prev ? (prev.attempts || 0) : 0) + 1;
-        await ref.set({
-          uid: curUser.uid, userName: curUser.name || curUser.email || 'Agente', userEmail: curUser.email || '',
-          testId: test.id, testTitle: test.title,
-          bestScore: best, passed: best >= PASS_PCT, lastScore: score, attempts, updatedAt: new Date().toISOString()
-        }, { merge: true });
+        // Lo guardamos en el propio doc del usuario (no necesita reglas nuevas de Firestore).
+        await db.collection('users').doc(curUser.uid).set({ academyResults: { [test.id]: entry } }, { merge: true });
         myResults[test.id] = { bestScore: best, passed: best >= PASS_PCT, attempts };
-      } catch (e) { console.warn('No se pudo guardar el resultado', e); }
+        showToast('Guardado', 'Tu resultado quedó registrado.', 'fa-circle-check');
+      } catch (e) {
+        console.warn('saveResult', e);
+        const msg = (e && e.code === 'permission-denied') ? 'No tenés permiso para escribir tu perfil. Avisame y lo ajustamos.' : ('Error: ' + ((e && e.message) || e));
+        showToast('No se pudo guardar', msg, 'fa-triangle-exclamation');
+      }
     }
     function closeTestModal() { document.getElementById('testModal').classList.remove('open'); }
     document.getElementById('testModal').addEventListener('click', e => { if (e.target.id === 'testModal') closeTestModal(); });
@@ -628,19 +733,27 @@
       myResults = {};
       if (!curUser) return;
       try {
-        const q = await db.collection('academyResults').where('uid', '==', curUser.uid).get();
-        q.docs.forEach(d => { const r = d.data(); myResults[r.testId] = { bestScore: r.bestScore || 0, passed: !!r.passed, attempts: r.attempts || 0 }; });
+        const d = await db.collection('users').doc(curUser.uid).get();
+        const ar = (d.exists && d.data().academyResults) || {};
+        Object.keys(ar).forEach(tid => { const r = ar[tid] || {}; myResults[tid] = { bestScore: r.bestScore || 0, passed: !!r.passed, attempts: r.attempts || 0 }; });
       } catch (e) {}
     }
     async function loadAdminResults() {
       const wrap = document.getElementById('resBody'); if (!wrap) return;
       wrap.innerHTML = '<div class="res-empty"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>';
       try {
-        const q = await db.collection('academyResults').get();
-        const rows = q.docs.map(d => d.data()).sort((a, b) => (a.userName || '').localeCompare(b.userName || '') || (a.testTitle || '').localeCompare(b.testTitle || ''));
+        const q = await db.collection('users').get();
+        const rows = [];
+        q.docs.forEach(d => {
+          const u = d.data();
+          const ar = u.academyResults || {};
+          const name = u.name || u.displayName || u.email || 'Agente';
+          Object.keys(ar).forEach(tid => { const r = ar[tid] || {}; rows.push({ userName: name, testTitle: r.testTitle || tid, bestScore: r.bestScore || 0, passed: !!r.passed, attempts: r.attempts || 0 }); });
+        });
+        rows.sort((a, b) => (a.userName || '').localeCompare(b.userName || '') || (a.testTitle || '').localeCompare(b.testTitle || ''));
         if (!rows.length) { wrap.innerHTML = '<div class="res-empty">Todavía no hay resultados. Cuando los agentes hagan los tests, los vas a ver acá.</div>'; return; }
         wrap.innerHTML = '<table class="res-table"><thead><tr><th>Agente</th><th>Test</th><th>Mejor</th><th>Estado</th><th>Intentos</th></tr></thead><tbody>' +
-          rows.map(r => `<tr><td>${escH(r.userName || 'Agente')}</td><td>${escH(r.testTitle || r.testId)}</td><td class="${r.passed ? 'sc-ok' : 'sc-no'}">${r.bestScore || 0}%</td><td>${r.passed ? 'Aprobado' : 'Pendiente'}</td><td>${r.attempts || 0}</td></tr>`).join('') +
+          rows.map(r => `<tr><td>${escH(r.userName || 'Agente')}</td><td>${escH(r.testTitle || '')}</td><td class="${r.passed ? 'sc-ok' : 'sc-no'}">${r.bestScore || 0}%</td><td>${r.passed ? 'Aprobado' : 'Pendiente'}</td><td>${r.attempts || 0}</td></tr>`).join('') +
           '</tbody></table>';
       } catch (e) { wrap.innerHTML = '<div class="res-empty" style="color:#c0392b">No se pudieron cargar los resultados.</div>'; }
     }
