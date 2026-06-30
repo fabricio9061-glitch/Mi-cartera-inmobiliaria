@@ -8,10 +8,34 @@
   };
   firebase.initializeApp(firebaseConfig);
   function mvEsc(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+  // Devuelve la URL solo si es http(s) y NO trae caracteres que permitan romper
+  // un atributo o una cadena JS (comillas, < > \ o espacios). Si no, '' .
+  // Sirve para meter URLs de usuario en href Y en onclick sin riesgo de XSS.
+  function safeUrl(u){ const s = String(u == null ? '' : u).trim(); return /^https?:\/\/[^\s'"<>\\]+$/i.test(s) ? s : ''; }
   const auth = firebase.auth(),
     db = firebase.firestore(),
     storage = firebase.storage(),
     ADMIN_EMAIL = "fabricio9061@gmail.com";
+
+  // ===== Rangos de la inmobiliaria (organigrama) =====
+  // 'grupo' arma los optgroups del selector; 'nivel' queda para permisos futuros.
+  // El COO (y el CEO) pueden ver la agenda de todo el equipo (ver agenda.html + reglas).
+  const RANKS = [
+    { key:'ceo',                grupo:'Dirección',   label:'CEO',                            nivel:100 },
+    { key:'coo',                grupo:'Dirección',   label:'COO — Director de Operaciones',  nivel:90 },
+    { key:'gerente_comercial',  grupo:'Comercial',   label:'Gerente Comercial',              nivel:80 },
+    { key:'lider_equipo',       grupo:'Comercial',   label:'Líder de Equipo',                nivel:70 },
+    { key:'asesor_elite',       grupo:'Comercial',   label:'Asesor Elite',                   nivel:60 },
+    { key:'asesor_senior',      grupo:'Comercial',   label:'Asesor Senior',                  nivel:50 },
+    { key:'asesor_semi_senior', grupo:'Comercial',   label:'Asesor Semi Senior',             nivel:40 },
+    { key:'asesor_junior',      grupo:'Comercial',   label:'Asesor Junior',                  nivel:30 },
+    { key:'coord_admin',        grupo:'Operaciones', label:'Coordinador Administrativo',     nivel:55 },
+    { key:'administracion',     grupo:'Operaciones', label:'Administración',                 nivel:45 },
+    { key:'marketing',          grupo:'Operaciones', label:'Marketing',                      nivel:45 },
+    { key:'procesos_calidad',   grupo:'Operaciones', label:'Procesos y Calidad',             nivel:45 },
+    { key:'finanzas',           grupo:'Finanzas',    label:'Finanzas',                       nivel:50 },
+  ];
+  function rankLabel(key){ const r = RANKS.find(x => x.key === key); return r ? r.label : ''; }
 
   // FCM - Push Notifications
   // Se inicializa en una app de Firebase APARTE a propósito: el SDK de Cloud
@@ -361,7 +385,7 @@
     if (!currentUser) { openModal('loginModal'); return; }
     // Volcar datos del usuario en la cabecera del panel
     const av = document.getElementById('mvSideAv');
-    if (av) av.innerHTML = (userProfile && userProfile.profilePhoto) ? `<img src="${userProfile.profilePhoto}" alt="">` : '<i class="fas fa-user"></i>';
+    if (av) av.innerHTML = (userProfile && userProfile.profilePhoto) ? `<img src="${safeUrl(userProfile.profilePhoto)}" alt="">` : '<i class="fas fa-user"></i>';
     const nm = document.getElementById('mvSideName'); if (nm) nm.textContent = (userProfile && userProfile.name) || 'Usuario';
     const rl = document.getElementById('mvSideRole'); if (rl) rl.textContent = isAdminUser() ? 'Administrador' : 'Agente';
     document.getElementById('mvSideAdminGroup')?.classList.toggle('hidden', !isAdminUser());
@@ -933,7 +957,7 @@
       bnp?.classList.remove('hidden');
       if (un) un.textContent = userProfile.name || 'Usuario';
       const i = (userProfile.name || 'U').charAt(0).toUpperCase();
-      if (ua) ua.innerHTML = userProfile.profilePhoto ? `<img src="${userProfile.profilePhoto}" alt="">` : i;
+      if (ua) ua.innerHTML = userProfile.profilePhoto ? `<img src="${safeUrl(userProfile.profilePhoto)}" alt="">` : i;
       if ((userProfile.email || '').toLowerCase() === ADMIN_EMAIL) {
         ab?.classList.remove('hidden');
         abt?.classList.remove('hidden')
@@ -1576,7 +1600,7 @@
         archived: 'ARCHIVADA'
       };
       const stLabel = stLabels[st] || '';
-      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${!ce?`<button class="mv-fav ${mvEsFav(p.id)?'on':''}" title="Guardar" onclick="mvToggleFav(event,'${p.id}')"><i class="${mvEsFav(p.id)?'fas':'far'} fa-heart"></i></button>`:''}${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button><button class="card-action-btn" onclick="event.stopPropagation();openMLModal('${p.id}')" title="Mercado Libre" style="background:#fff159;color:#2d3277"><i class="fas fa-tag"></i></button><button class="btn-feature ${p.featured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${p.featured?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button><button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${o.profilePhoto}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span>${ce?`<span class="card-views" title="Tocaron Contactar"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${p.contactClicks||0}</span>`:''}</div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${o.instagram}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
+      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${!ce?`<button class="mv-fav ${mvEsFav(p.id)?'on':''}" title="Guardar" onclick="mvToggleFav(event,'${p.id}')"><i class="${mvEsFav(p.id)?'fas':'far'} fa-heart"></i></button>`:''}${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button><button class="card-action-btn" onclick="event.stopPropagation();openMLModal('${p.id}')" title="Mercado Libre" style="background:#fff159;color:#2d3277"><i class="fas fa-tag"></i></button><button class="btn-feature ${p.featured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${p.featured?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button><button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${safeUrl(o.profilePhoto)}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span>${ce?`<span class="card-views" title="Tocaron Contactar"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${p.contactClicks||0}</span>`:''}</div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
     }).join('')
   }
 
@@ -1606,27 +1630,17 @@
   // Profile Functions
   function renderSocialLinks(ud) {
     let html = '';
-    if (ud.instagram && ud.instagram.includes('instagram.com')) {
-      html += `<a href="${ud.instagram}" target="_blank" class="profile-social-link instagram" title="Instagram"><i class="fab fa-instagram"></i></a>`
-    }
-    if (ud.facebook && ud.facebook.includes('facebook.com')) {
-      html += `<a href="${ud.facebook}" target="_blank" class="profile-social-link facebook" title="Facebook"><i class="fab fa-facebook-f"></i></a>`
-    }
-    if (ud.linkedin && ud.linkedin.includes('linkedin.com')) {
-      html += `<a href="${ud.linkedin}" target="_blank" class="profile-social-link linkedin" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>`
-    }
-    if (ud.twitter && (ud.twitter.includes('twitter.com') || ud.twitter.includes('x.com'))) {
-      html += `<a href="${ud.twitter}" target="_blank" class="profile-social-link twitter" title="Twitter/X"><i class="fab fa-twitter"></i></a>`
-    }
-    if (ud.tiktok && ud.tiktok.includes('tiktok.com')) {
-      html += `<a href="${ud.tiktok}" target="_blank" class="profile-social-link tiktok" title="TikTok"><i class="fab fa-tiktok"></i></a>`
-    }
-    if (ud.youtube && ud.youtube.includes('youtube.com')) {
-      html += `<a href="${ud.youtube}" target="_blank" class="profile-social-link youtube" title="YouTube"><i class="fab fa-youtube"></i></a>`
-    }
-    if (ud.website) {
-      html += `<a href="${ud.website}" target="_blank" class="profile-social-link" title="Sitio Web"><i class="fas fa-globe"></i></a>`
-    }
+    const link = (url, cls, title, icon) => {
+      const safe = safeUrl(url);
+      return safe ? `<a href="${safe}" target="_blank" rel="noopener noreferrer" class="profile-social-link ${cls}" title="${title}"><i class="${icon}"></i></a>` : '';
+    };
+    if (ud.instagram && ud.instagram.includes('instagram.com')) html += link(ud.instagram, 'instagram', 'Instagram', 'fab fa-instagram');
+    if (ud.facebook && ud.facebook.includes('facebook.com')) html += link(ud.facebook, 'facebook', 'Facebook', 'fab fa-facebook-f');
+    if (ud.linkedin && ud.linkedin.includes('linkedin.com')) html += link(ud.linkedin, 'linkedin', 'LinkedIn', 'fab fa-linkedin-in');
+    if (ud.twitter && (ud.twitter.includes('twitter.com') || ud.twitter.includes('x.com'))) html += link(ud.twitter, 'twitter', 'Twitter/X', 'fab fa-twitter');
+    if (ud.tiktok && ud.tiktok.includes('tiktok.com')) html += link(ud.tiktok, 'tiktok', 'TikTok', 'fab fa-tiktok');
+    if (ud.youtube && ud.youtube.includes('youtube.com')) html += link(ud.youtube, 'youtube', 'YouTube', 'fab fa-youtube');
+    if (ud.website) html += link(ud.website, '', 'Sitio Web', 'fas fa-globe');
     return html
   }
 
@@ -1657,7 +1671,7 @@
       ael.innerHTML = about ? about.split(/\n+/).filter(Boolean).map(p => `<p>${p.replace(/</g, '&lt;')}</p>`).join('') : '<p style="color:var(--gray-400,#aaa)">Este asesor todavía no agregó una descripción.</p>';
     }
     const i = (ud.name || 'U').charAt(0).toUpperCase();
-    document.getElementById('profileAvatar').innerHTML = ud.profilePhoto ? `<img src="${ud.profilePhoto}" alt="">` : i;
+    document.getElementById('profileAvatar').innerHTML = ud.profilePhoto ? `<img src="${safeUrl(ud.profilePhoto)}" alt="">` : i;
     const ip = currentUser && currentUser.uid === ui;
     document.getElementById('profileAvatarEdit').classList.toggle('hidden', !ip);
     document.getElementById('btnEditProfile').classList.toggle('hidden', !ip);
@@ -1958,7 +1972,7 @@
     const o = getOwnerInfo(p),
       oi = (o.name || 'U').charAt(0).toUpperCase();
     document.getElementById('detailOwnerName').textContent = o.name || 'Usuario';
-    document.getElementById('detailOwnerAvatar').innerHTML = o.profilePhoto ? `<img src="${o.profilePhoto}" alt="">` : oi;
+    document.getElementById('detailOwnerAvatar').innerHTML = o.profilePhoto ? `<img src="${safeUrl(o.profilePhoto)}" alt="">` : oi;
     document.getElementById('detailBadges').innerHTML = `${p.featured&&st==='available'?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}${st==='reserved'?'<span class="badge badge-reserved">RESERVADA</span>':''}${st==='sold'?'<span class="badge badge-sold">VENDIDA</span>':''}${st==='rented'?'<span class="badge badge-rented">ALQUILADA</span>':''}${st==='archived'?'<span class="badge badge-archived">ARCHIVADA</span>':''}`;
     document.getElementById('detailFeatures').innerHTML = `${p.bedrooms?`<div class="detail-feature"><i class="fas fa-bed"></i><strong>${p.bedrooms}</strong><span>Dormitorios</span></div>`:''}${p.bathrooms?`<div class="detail-feature"><i class="fas fa-bath"></i><strong>${p.bathrooms}</strong><span>Baños</span></div>`:''}${p.totalArea?`<div class="detail-feature"><i class="fas fa-expand"></i><strong>${p.totalArea}</strong><span>m² Total</span></div>`:''}${p.builtArea?`<div class="detail-feature"><i class="fas fa-home"></i><strong>${p.builtArea}</strong><span>m² Edificado</span></div>`:''}${p.garage==='yes'?`<div class="detail-feature"><i class="fas fa-car"></i><strong>Sí</strong><span>Garaje</span></div>`:''}${p.commonExpenses?`<div class="detail-feature"><i class="fas fa-dollar-sign"></i><strong>${p.commonExpenses}</strong><span>Gastos</span></div>`:''}`;
     document.getElementById('detailWhatsapp').onclick = () => contactWhatsapp(id);
@@ -2192,7 +2206,7 @@
           id: d.id,
           ...d.data()
         }));
-        c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${u.profilePhoto}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${mvEsc(u.role||'Asesor Inmobiliario')}</small>${u.commissionSale!=null||u.commissionRent!=null||u.commissionPct!=null?`<br><small style="color:#8a6d12"><i class="fas fa-percent"></i> Venta: ${u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:'—')}% · Alq: ${u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:'—')}%</small>`:''}<br><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="setUserRole('${u.id}')" title="Asignar cargo"><i class="fas fa-id-badge"></i></button><button class="btn-edit" onclick="setUserComision('${u.id}')" title="Comisión del agente"><i class="fas fa-percent"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
+        c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${safeUrl(u.profilePhoto)}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${mvEsc(u.role||'Asesor Inmobiliario')}</small>${u.commissionSale!=null||u.commissionRent!=null||u.commissionPct!=null?`<br><small style="color:#8a6d12"><i class="fas fa-percent"></i> Venta: ${u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:'—')}% · Alq: ${u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:'—')}%</small>`:''}<br><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="setUserRole('${u.id}')" title="Asignar cargo"><i class="fas fa-id-badge"></i></button><button class="btn-edit" onclick="setUserComision('${u.id}')" title="Comisión del agente"><i class="fas fa-percent"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
       } else if (tb === 'properties') {
         c.innerHTML = properties.length === 0 ? '<div class="empty-state"><i class="fas fa-building"></i><h3>Sin propiedades</h3></div>' : properties.map(p => {
           const o = getOwnerInfo(p),
@@ -2256,21 +2270,82 @@
   window.deleteTestimonial = deleteTestimonial;
 
   // El cargo/título es oficial de la inmobiliaria: SOLO el admin lo asigna.
-  async function setUserRole(id) {
+  // Asignar rango/cargo. El select usa el organigrama (RANKS); guarda 'rank' (clave,
+  // para permisos) y 'role' (etiqueta visible). La opción "Otro" deja un título libre.
+  function setUserRole(id) {
     if (!isAdminUser()) { showToast('Solo administradores', 'Solo el administrador puede asignar cargos.', 'fa-lock'); return; }
-    const actual = (allUsers[id] && allUsers[id].role) || '';
-    const nuevo = prompt('Cargo / título para este agente (aparece en su perfil):\nEj: CEO, Asesor Inmobiliario, Asesora Senior, Corredor Público', actual || 'Asesor Inmobiliario');
-    if (nuevo === null) return; // canceló
-    const role = nuevo.trim();
-    try {
-      await db.collection('users').doc(id).update({ role: role });
-      if (allUsers[id]) allUsers[id].role = role;
-      if (currentProfileUserId === id) showProfile(id); // refrescar si está abierto su perfil
-      showAdminTab('users');
-      showToast('Cargo actualizado', role ? `Ahora figura como "${role}".` : 'Se quitó el cargo.', 'fa-id-badge');
-    } catch (e) {
-      showToast('Error', 'No se pudo guardar el cargo: ' + (e.message || e), 'fa-triangle-exclamation');
+    const u = allUsers[id] || {};
+    const rankActual = u.rank || '';
+    const roleActual = u.role || '';
+    // Si el cargo guardado no es un rango conocido, lo tratamos como "Otro".
+    const esConocido = !!rankActual && RANKS.some(r => r.key === rankActual);
+
+    let modal = document.getElementById('rankModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'rankModal';
+      modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(16,39,63,.55);padding:20px';
+      // Optgroups por área del organigrama
+      const grupos = {};
+      RANKS.forEach(r => { (grupos[r.grupo] = grupos[r.grupo] || []).push(r); });
+      let opts = '<option value="">— Sin cargo —</option>';
+      Object.keys(grupos).forEach(g => {
+        opts += '<optgroup label="' + g + '">';
+        grupos[g].forEach(r => { opts += '<option value="' + r.key + '">' + r.label + '</option>'; });
+        opts += '</optgroup>';
+      });
+      opts += '<option value="__otro__">Otro (personalizado)…</option>';
+      modal.innerHTML =
+        '<div style="background:#fff;border-radius:16px;max-width:440px;width:100%;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.25)">' +
+          '<h3 style="font-family:\'Cormorant Garamond\',serif;font-size:1.5rem;color:#16273f;margin-bottom:4px"><i class="fas fa-id-badge" style="color:#C9A227;margin-right:8px"></i>Cargo del agente</h3>' +
+          '<p style="font-size:.85rem;color:#64748b;margin-bottom:16px">El cargo aparece en el perfil del agente. <b>El COO y el CEO</b> pueden ver la agenda de todo el equipo.</p>' +
+          '<label style="font-size:.8rem;font-weight:600;color:#16273f;display:block;margin-bottom:6px">Rango</label>' +
+          '<select id="rankSelect" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit;font-size:.95rem;background:#fff">' + opts + '</select>' +
+          '<div id="rankCustomWrap" style="display:none;margin-top:12px">' +
+            '<label style="font-size:.8rem;font-weight:600;color:#16273f;display:block;margin-bottom:6px">Título personalizado</label>' +
+            '<input id="rankCustom" type="text" placeholder="Ej: Corredor Público" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit;font-size:.95rem">' +
+          '</div>' +
+          '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px">' +
+            '<button id="rankCancel" style="padding:10px 18px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-family:inherit;font-weight:600;cursor:pointer">Cancelar</button>' +
+            '<button id="rankSave" style="padding:10px 18px;border-radius:9px;border:none;background:#16273f;color:#fff;font-family:inherit;font-weight:600;cursor:pointer">Guardar</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(modal);
+      const sel = modal.querySelector('#rankSelect');
+      const wrap = modal.querySelector('#rankCustomWrap');
+      sel.addEventListener('change', function(){ wrap.style.display = (sel.value === '__otro__') ? 'block' : 'none'; });
+      modal.querySelector('#rankCancel').addEventListener('click', function(){ modal.style.display = 'none'; });
+      modal.addEventListener('click', function(e){ if (e.target === modal) modal.style.display = 'none'; });
     }
+
+    const sel = modal.querySelector('#rankSelect');
+    const wrap = modal.querySelector('#rankCustomWrap');
+    const custom = modal.querySelector('#rankCustom');
+    if (esConocido) { sel.value = rankActual; wrap.style.display = 'none'; custom.value = ''; }
+    else if (roleActual) { sel.value = '__otro__'; wrap.style.display = 'block'; custom.value = roleActual; }
+    else { sel.value = ''; wrap.style.display = 'none'; custom.value = ''; }
+
+    const saveBtn = modal.querySelector('#rankSave');
+    saveBtn.onclick = async function(){
+      let rank = sel.value, role;
+      if (rank === '__otro__') { rank = ''; role = (custom.value || '').trim(); }
+      else if (rank === '') { role = ''; }
+      else { role = rankLabel(rank); }
+      saveBtn.disabled = true; saveBtn.textContent = 'Guardando...';
+      try {
+        await db.collection('users').doc(id).update({ rank: rank, role: role });
+        if (allUsers[id]) { allUsers[id].rank = rank; allUsers[id].role = role; }
+        modal.style.display = 'none';
+        if (currentProfileUserId === id) showProfile(id);
+        showAdminTab('users');
+        showToast('Cargo actualizado', role ? `Ahora figura como "${role}".` : 'Se quitó el cargo.', 'fa-id-badge');
+      } catch (e) {
+        showToast('Error', 'No se pudo guardar el cargo: ' + (e.message || e), 'fa-triangle-exclamation');
+      } finally {
+        saveBtn.disabled = false; saveBtn.textContent = 'Guardar';
+      }
+    };
+    modal.style.display = 'flex';
   }
   // La comision del agente (% de la comision que cobra la inmobiliaria): SOLO el admin la fija.
   async function setUserComision(id) {

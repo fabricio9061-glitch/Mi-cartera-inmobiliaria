@@ -1,0 +1,201 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null &&
+             request.auth.token.email.lower() == 'fabricio9061@gmail.com';
+    }
+
+    // ¿La cuenta está aprobada? (el admin siempre cuenta como aprobado).
+    // Antes el approval era solo del lado del navegador: un usuario 'pending' o
+    // 'rejected' con su token podía leer/editar datos por SDK. Ahora se exige acá.
+    function isApproved() {
+      return isAdmin() ||
+             (request.auth != null &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved');
+    }
+
+    // Rangos que ven/operan como "todo el equipo" (además del admin).
+    // El rank lo asigna SOLO el admin desde el panel.
+    function rangoVeTodo() {
+      return request.auth != null && (
+        isAdmin() ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rank in ['coo', 'ceo']
+      );
+    }
+
+    // ============ USERS ============
+    // La lectura sigue siendo pública a propósito: la web pública (propiedad.html)
+    // muestra nombre/foto/WhatsApp del agente del aviso.
+    match /users/{userId} {
+      allow read: if resource.data.status == 'approved'
+                  || (request.auth != null && request.auth.uid == userId)
+                  || isAdmin();
+      // Al registrarse, el usuario NO puede autoaprobarse ni asignarse cargo/rango.
+      allow create: if request.auth != null && request.auth.uid == userId
+                    && (isAdmin() ||
+                        (request.resource.data.status == 'pending'
+                         && request.resource.data.get('rank', '') == ''
+                         && request.resource.data.get('role', '') == ''));
+      // El propio usuario edita su perfil pero NO su estado, email, cargo ni rango.
+      allow update: if isAdmin()
+                    || (request.auth != null && request.auth.uid == userId
+                        && request.resource.data.status == resource.data.status
+                        && request.resource.data.email == resource.data.email
+                        && request.resource.data.get('role', '') == resource.data.get('role', '')
+                        && request.resource.data.get('rank', '') == resource.data.get('rank', ''));
+      allow delete: if isAdmin();
+
+      // Datos sensibles del agente (p. ej. comisiones): SOLO admin o el propio dueño.
+      match /privado/{doc} {
+        allow read: if isAdmin() || (request.auth != null && request.auth.uid == userId);
+        allow write: if isAdmin();
+      }
+    }
+
+    // ============ ADMIN DATA (comisiones, etc.) — SOLO admin ============
+    match /adminData/{doc} {
+      allow read, write: if isAdmin();
+    }
+
+    // ============ PROPERTIES ============
+    match /properties/{propertyId} {
+      allow read: if true;
+      allow create: if isApproved()
+                    && request.resource.data.ownerId == request.auth.uid;
+      allow update: if (isApproved()
+                        && (resource.data.ownerId == request.auth.uid
+                            || (resource.data.agents is list && request.auth.uid in resource.data.agents)
+                            || isAdmin())
+                        && !request.resource.data.diff(resource.data).affectedKeys()
+                             .hasAny(['ownerId', 'mlItemId', 'mlStatus', 'mlPermalink',
+                                      'mlPublishing', 'mlPublishingAt', 'cierreConfirmado']))
+                    || (isAdmin()
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cierreConfirmado', 'updatedAt']))
+                    || (request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['views', 'contactClicks']));
+      allow delete: if isAdmin();
+
+      // Comentarios públicos del aviso (web pública).
+      match /comments/{commentId} {
+        allow read, create: if true;
+        allow update, delete: if request.auth != null &&
+                              (resource.data.userId == request.auth.uid || isAdmin());
+      }
+    }
+
+    // ============ CLIENTS (CRM) — solo aprobados ============
+    match /clients/{clientId} {
+      allow read: if isApproved();
+      allow create: if isApproved();
+      allow update: if isApproved();
+      allow delete: if isAdmin();
+      match /notes/{noteId} {
+        allow read: if isApproved();
+        allow create: if isApproved();
+        allow update: if false;
+        allow delete: if isApproved() &&
+                      (resource.data.authorId == request.auth.uid || isAdmin());
+      }
+    }
+
+    // ============ GESTIONES — solo aprobados ============
+    match /gestiones/{gestionId} {
+      allow read: if isApproved();
+      allow create: if isApproved();
+      allow update: if isApproved();
+      allow delete: if isApproved() &&
+                    (resource.data.createdBy == request.auth.uid || isAdmin());
+    }
+
+    // ============ COMPARTIDAS — solo aprobados ============
+    match /compartidas/{id} {
+      allow read: if isApproved();
+      allow create: if isApproved();
+      allow update: if isApproved();
+      allow delete: if isApproved() &&
+                    (resource.data.createdBy == request.auth.uid || isAdmin());
+    }
+
+    // ============ PORTAL ACCOUNTS — solo aprobados leen, admin escribe ============
+    match /portalAccounts/{id} {
+      allow read: if isApproved();
+      allow write: if isAdmin();
+    }
+
+    // ============ NOTIFICATIONS ============
+    // Crear ya no es público (antes 'if true' permitía forjar notificaciones).
+    match /notifications/{notificationId} {
+      allow create: if request.auth != null;
+      allow read, update: if request.auth != null &&
+        (resource.data.ownerId == request.auth.uid ||
+         resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if request.auth != null &&
+        (resource.data.ownerId == request.auth.uid || isAdmin());
+    }
+
+    // ============ DOCUMENTOS Y ACADEMY — solo aprobados leen, admin escribe ============
+    match /documentos/{id} {
+      allow read: if isApproved();
+      allow write: if isAdmin();
+    }
+    match /academy/{id} {
+      allow read: if isApproved();
+      allow write: if isAdmin();
+    }
+
+    // ============ NEWSLETTER (web pública) ============
+    match /newsletter/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['email', 'createdAt']);
+      allow read, delete: if isAdmin();
+      allow update: if false;
+    }
+
+    // ============ VISITS (AGENDA) ============
+    // Cada agente aprobado ve las suyas. El COO/CEO (y admin) ven las de todos.
+    // Editar/borrar: solo el dueño del evento o el admin.
+    match /visits/{visitId} {
+      allow read: if (request.auth != null && resource.data.userId == request.auth.uid && isApproved())
+                  || rangoVeTodo();
+      allow create: if isApproved();
+      allow update, delete: if (request.auth != null && request.auth.uid == resource.data.userId && isApproved())
+                            || isAdmin();
+    }
+
+    // ============ LEADS DE VENTA (web pública) ============
+    match /leadsVenta/{leadId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ============ TESTIMONIOS (web pública) ============
+    match /testimonials/{testiId} {
+      allow read: if true;
+      allow create: if request.resource.data.approved == false;
+      allow update, delete: if isAdmin();
+    }
+
+    // ============ RECOMPENSAS (catálogo) — aprobados leen, admin escribe ============
+    match /recompensas/{id} {
+      allow read: if isApproved();
+      allow write: if isAdmin();
+    }
+
+    // ============ CANJES (pedidos de recompensa) ============
+    match /canjes/{id} {
+      allow read: if isApproved()
+                  && (resource.data.agenteUid == request.auth.uid || isAdmin());
+      allow create: if isApproved()
+                    && request.resource.data.agenteUid == request.auth.uid
+                    && request.resource.data.status == 'pendiente';
+      allow update, delete: if isAdmin();
+    }
+
+    // ============ CONFIG — aprobados leen, admin escribe ============
+    match /config/{doc} {
+      allow read: if isApproved();
+      allow write: if isAdmin();
+    }
+  }
+}

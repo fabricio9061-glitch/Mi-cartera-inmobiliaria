@@ -1,0 +1,91 @@
+// ============================================
+// REGLAS DE FIREBASE STORAGE — MALAVE
+// ============================================
+// Reemplazá TODO el contenido en Firebase Console -> Storage -> Rules -> Publicar
+// ============================================
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isLoggedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return request.auth != null &&
+             request.auth.token.email.lower() == 'fabricio9061@gmail.com';
+    }
+    // Límite de tamaño por archivo (25 MB) para no disparar costos.
+    function sizeOk() {
+      return request.resource.size < 25 * 1024 * 1024;
+    }
+    // Solo imágenes (evita subir HTML/JS y que quede hosteado en el dominio de Storage).
+    function esImagen() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    // ============================================
+    // FOTOS DE PERFIL DE LOS AGENTES
+    // La app las guarda en users/{uid}/  -> cada agente sube SOLO la suya, todos las ven
+    // (ESTE era el bloque que faltaba: por eso daba "unauthorized")
+    // ============================================
+    match /users/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isLoggedIn() && request.auth.uid == userId && sizeOk() && esImagen();
+    }
+    // ============================================
+    // FOTOS DE PROPIEDADES
+    // ============================================
+    match /properties/{allPaths=**} {
+      allow read: if true;                                  // las fotos se ven en la web pública
+      allow write: if isLoggedIn() && sizeOk() && esImagen();
+    }
+    // ============================================
+    // FOTOS DE PERFIL (carpeta vieja, por si quedó algo ahí)
+    // ============================================
+    match /profilePhotos/{allPaths=**} {
+      allow read: if true;
+      allow write: if isLoggedIn() && sizeOk() && esImagen();
+    }
+    // ============================================
+    // DOCUMENTOS OFICIALES — todos los logueados descargan, SOLO admin sube/borra
+    // ============================================
+    match /documentos/{allPaths=**} {
+      allow read: if isLoggedIn();
+      allow write: if isAdmin() && sizeOk();
+    }
+    // ============================================
+    // MALAVE ACADEMY — todos los logueados ven, SOLO admin sube/borra
+    // ============================================
+    match /academy/{allPaths=**} {
+      allow read: if isLoggedIn();
+      allow write: if isAdmin() && sizeOk();
+    }
+    // ============================================
+    // PROPIEDADES COMPARTIDAS — logueados ven y suben
+    // ============================================
+    match /compartidas/{allPaths=**} {
+      allow read: if isLoggedIn();
+      allow write: if isLoggedIn() && sizeOk();
+    }
+    // ============================================
+    // PDFs DE TASACIONES PARA REVISIÓN
+    // Copia temporal del informe. Se borra automáticamente cuando el admin
+    // marca la tasación como revisada. Logueados suben/leen/borran.
+    // ============================================
+    match /tasacionesPDF/{allPaths=**} {
+      allow read: if isLoggedIn();
+      allow write: if isLoggedIn() && sizeOk();
+    }
+    // ============================================
+    // IMÁGENES DE RECOMPENSAS — todos las ven, SOLO admin sube/borra
+    // ============================================
+    match /recompensasIMG/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && sizeOk() && esImagen();
+    }
+    // ============================================
+    // CUALQUIER OTRA RUTA — bloqueada por defecto
+    // ============================================
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
