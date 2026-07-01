@@ -108,7 +108,7 @@
 
         <div class="ppf-step"><div class="num">5</div><div><h3>Fotos y video</h3><small>La primera foto es la portada del aviso. Arrastrá para reordenar.</small></div></div>
         <div class="ppf-sec">
-          <div class="form-group"><label>Fotos * <small style="color:var(--gray-500);font-weight:normal">(arrastrá para reordenar, máx 5MB cada una)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div><div style="font-size:.8rem;color:var(--gray-500);margin-top:8px"><i class="fas fa-shield-halved" style="color:var(--gold-2)"></i> A cada foto se le agrega automáticamente la marca de agua MALAVE (logo centrado y tenue) al guardar.</div></div>
+          <div class="form-group"><label>Fotos * <small style="color:var(--gray-500);font-weight:normal">(mínimo 12 · arrastrá para reordenar · máx 5MB c/u)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div id="fotoCounter" style="margin-top:10px;font-size:.85rem;font-weight:600"><i class="fas fa-triangle-exclamation" style="color:#d97706"></i> <span style="color:#b45309">0 de 12 fotos</span> <span style="color:var(--gray-500);font-weight:normal">— faltan 12 para poder publicar</span></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div><div style="font-size:.8rem;color:var(--gray-500);margin-top:8px"><i class="fas fa-shield-halved" style="color:var(--gold-2)"></i> A cada foto se le agrega automáticamente la marca de agua MALAVE (logo centrado y tenue) al guardar.</div></div>
           <div class="form-group"><label>Video de YouTube (opcional)</label><input type="url" id="propVideo" placeholder="https://www.youtube.com/watch?v=..."></div>
         </div>
 
@@ -334,6 +334,16 @@
     function handleImageSelect(e) { addImagesToPreview(Array.from(e.target.files)); e.target.value = '' }
     function renderImagePreviews() {
       document.getElementById('imagePreviewGrid').innerHTML = selectedImages.map((im, i) => `<div class="image-preview-item ${i===0?'main':''}" data-idx="${i}" draggable="true" ondragstart="handleDragStart(event,${i})" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropImage(event,${i})" ondragend="handleDragEnd(event)"><img src="${im.preview}" alt=""><div class="drag-handle" style="opacity:1;touch-action:none" ontouchstart="imgTouchStart(event,${i})"><i class="fas fa-grip-vertical"></i></div><div class="remove-image" onclick="event.stopPropagation();removeImage(${i})"><i class="fas fa-times"></i></div></div>`).join('')
+      actualizarContadorFotos();
+    }
+    function actualizarContadorFotos() {
+      const el = document.getElementById('fotoCounter'); if (!el) return;
+      const n = selectedImages.length, min = 12;
+      if (n >= min) {
+        el.innerHTML = `<i class="fas fa-check-circle" style="color:#15803d"></i> <span style="color:#15803d">${n} fotos</span> <span style="color:var(--gray-500);font-weight:normal">— cumple el mínimo obligatorio (${min})</span>`;
+      } else {
+        el.innerHTML = `<i class="fas fa-triangle-exclamation" style="color:#d97706"></i> <span style="color:#b45309">${n} de ${min} fotos</span> <span style="color:var(--gray-500);font-weight:normal">— faltan ${min - n} para poder publicar</span>`;
+      }
     }
     function removeImage(i) { selectedImages.splice(i, 1); renderImagePreviews() }
     function handleDragStart(e, i) { draggedImageIndex = i; e.target.classList.add('dragging') }
@@ -955,7 +965,11 @@
     async function handleSaveProperty(e) {
       e.preventDefault();
       if (!currentUser) { alert('Debes iniciar sesión'); return }
-      if (selectedImages.length === 0) { alert('Sube al menos una imagen'); return }
+      if (selectedImages.length < 12) {
+        alert(`Se necesitan al menos 12 fotos para publicar el aviso. Tenés ${selectedImages.length} — subí ${12 - selectedImages.length} más.`);
+        const _up = document.getElementById('imageUploadArea'); if (_up) _up.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return
+      }
       const b = document.getElementById('propertyBtn'), er = document.getElementById('propertyError'), ei = document.getElementById('editingPropertyId').value, pp = document.getElementById('previousPrice').value;
       b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; er.classList.add('hidden');
       try {
