@@ -59,6 +59,12 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // ============ REFERIDOS (quién refirió a quién + %) — SOLO admin ============
+    // Doc id = uid del agente referido. Contiene referrerUid, pctSale, pctRent.
+    match /referidos/{referredUid} {
+      allow read, write: if isAdmin();
+    }
+
     // ============ PROPERTIES ============
     match /properties/{propertyId} {
       allow read: if true;

@@ -2241,11 +2241,161 @@
             return `<div class="user-card"><div class="user-card-avatar"><i class="fas fa-quote-left"></i></div><div class="user-card-info"><h4>${t.name||'Anónimo'} ${t.role?`<small style="color:var(--gray-500);font-weight:normal">· ${t.role}</small>`:''}</h4><p style="font-style:italic">"${(t.text||'').slice(0,160)}${(t.text||'').length>160?'…':''}"</p><small style="color:var(--gray-400)"><i class="fas fa-map-pin"></i> ${donde} · ${estado}</small></div><div class="user-card-actions">${!t.approved?`<button class="btn-approve" onclick="approveTestimonial('${t.id}')" title="Aprobar y publicar"><i class="fas fa-check"></i></button>`:`<button class="btn-edit" onclick="unpublishTestimonial('${t.id}')" title="Despublicar"><i class="fas fa-eye-slash"></i></button>`}<button class="btn-reject" onclick="deleteTestimonial('${t.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div></div>`;
           }).join('');
         }
+      } else if (tb === 'referidos') {
+        const [refSnap, cierresSnap] = await Promise.all([
+          db.collection('referidos').get(),
+          db.collection('properties').where('cierreConfirmado', '==', true).get()
+        ]);
+        const refDocs = {};
+        refSnap.docs.forEach(d => { refDocs[d.id] = d.data(); });
+        // Cierres confirmados agrupados por agente dueño
+        const cierresPorAgente = {};
+        cierresSnap.docs.forEach(d => {
+          const p = d.data();
+          if (!p.cierre || !p.ownerId) return;
+          (cierresPorAgente[p.ownerId] = cierresPorAgente[p.ownerId] || []).push(p.cierre);
+        });
+        const nom = uid => (allUsers[uid] && (allUsers[uid].name || allUsers[uid].email)) || 'Agente';
+        function gananciaReferido(agenteUid, pctSale, pctRent) {
+          const s = { USD: 0, UYU: 0 };
+          (cierresPorAgente[agenteUid] || []).forEach(cc => {
+            const pct = (cc.tipo === 'venta') ? Number(pctSale) : Number(pctRent);
+            if (!pct) return;
+            s[(cc.moneda === 'UYU') ? 'UYU' : 'USD'] += (Number(cc.precio) || 0) * pct / 100;
+          });
+          return s;
+        }
+        function fmtSums(s) {
+          const parts = [];
+          if (s.USD) parts.push('US$ ' + Math.round(s.USD).toLocaleString('es-UY'));
+          if (s.UYU) parts.push('$U ' + Math.round(s.UYU).toLocaleString('es-UY'));
+          return parts.length ? parts.join(' · ') : '—';
+        }
+        const agentes = Object.keys(allUsers)
+          .filter(uid => (allUsers[uid].email || '').toLowerCase() !== ADMIN_EMAIL)
+          .map(uid => Object.assign({ _uid: uid }, allUsers[uid]));
+        // Agrupar por referente
+        const porReferente = {};
+        Object.keys(refDocs).forEach(refUid => {
+          const r = refDocs[refUid];
+          if (!r.referrerUid) return;
+          (porReferente[r.referrerUid] = porReferente[r.referrerUid] || []).push({ uid: refUid, pctSale: r.pctSale, pctRent: r.pctRent });
+        });
+        const referentes = Object.keys(porReferente).map(refUid => {
+          const total = { USD: 0, UYU: 0 };
+          const hijos = porReferente[refUid].map(h => {
+            const g = gananciaReferido(h.uid, h.pctSale, h.pctRent);
+            total.USD += g.USD; total.UYU += g.UYU;
+            return Object.assign({}, h, { g });
+          });
+          return { refUid, hijos, total };
+        }).sort((a, b) => (b.total.USD + b.total.UYU) - (a.total.USD + a.total.UYU));
+
+        let html = '<div style="margin-bottom:10px;color:var(--gray-500);font-size:.85rem"><i class="fas fa-circle-info"></i> El referente gana el % indicado <b>del precio de cierre</b> de cada operación <b>confirmada</b> de su referido.</div>';
+        if (referentes.length) {
+          html += '<h3 style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;color:var(--navy,#16273f);margin:14px 0 10px"><i class="fas fa-trophy" style="color:#C9A227"></i> Referentes</h3>';
+          html += referentes.map(rf => {
+            const hijosHtml = rf.hijos.map(h => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--gray-100,#eee);font-size:.85rem"><span>${mvEsc(nom(h.uid))} <small style="color:var(--gray-400)">· ${h.pctSale || 0}% venta / ${h.pctRent || 0}% alq</small></span><span style="font-weight:600;color:#15803d">${fmtSums(h.g)}</span></div>`).join('');
+            return `<div class="user-card" style="flex-direction:column;align-items:stretch"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h4 style="margin:0"><i class="fas fa-user-tie" style="color:var(--accent,#C9A227)"></i> ${mvEsc(nom(rf.refUid))}</h4><span style="font-weight:700;color:#15803d">${fmtSums(rf.total)}</span></div><small style="color:var(--gray-500)">${rf.hijos.length} referido${rf.hijos.length === 1 ? '' : 's'}</small>${hijosHtml}</div>`;
+          }).join('');
+        }
+        html += '<h3 style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;color:var(--navy,#16273f);margin:22px 0 10px"><i class="fas fa-user-friends" style="color:#C9A227"></i> Asignar referente</h3>';
+        if (!agentes.length) {
+          html += '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin agentes</h3></div>';
+        } else {
+          html += agentes.sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(u => {
+            const r = refDocs[u._uid];
+            const linea = (r && r.referrerUid)
+              ? `<small style="color:var(--gray-600)"><i class="fas fa-arrow-left" style="color:#C9A227"></i> Referido por <b>${mvEsc(nom(r.referrerUid))}</b> · ${r.pctSale || 0}% venta / ${r.pctRent || 0}% alq</small>`
+              : '<small style="color:var(--gray-400)">Sin referente</small>';
+            return `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto ? `<img src="${safeUrl(u.profilePhoto)}" alt="">` : '<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name || 'Sin nombre')}</h4>${linea}</div><div class="user-card-actions"><button class="btn-edit" onclick="openReferidoModal('${u._uid}')" title="Editar referente"><i class="fas fa-user-friends"></i> ${(r && r.referrerUid) ? 'Editar' : 'Asignar'}</button></div></div>`;
+          }).join('');
+        }
+        c.innerHTML = html;
       }
     } catch (err) {
       console.error('Error panel admin:', err);
       c.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i><h3>Error al cargar</h3><p style="color:var(--gray-500);margin-top:8px">${err.message}</p></div>`
     }
+  }
+
+  // ===== Referidos (solo admin): asignar quién refirió a cada agente y el % =====
+  function openReferidoModal(agentId) {
+    if (!isAdminUser()) { showToast('Solo administradores', 'Solo el administrador gestiona referidos.', 'fa-lock'); return; }
+    const agente = allUsers[agentId] || {};
+    const posibles = Object.keys(allUsers)
+      .filter(uid => uid !== agentId)
+      .map(uid => Object.assign({ _uid: uid }, allUsers[uid]))
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    let modal = document.getElementById('referidoModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'referidoModal';
+      modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(16,39,63,.55);padding:20px';
+      modal.innerHTML =
+        '<div style="background:#fff;border-radius:16px;max-width:460px;width:100%;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.25)">' +
+          '<h3 style="font-family:\'Cormorant Garamond\',serif;font-size:1.5rem;color:#16273f;margin-bottom:4px"><i class="fas fa-user-friends" style="color:#C9A227;margin-right:8px"></i>Referente del agente</h3>' +
+          '<p id="refModalWho" style="font-size:.85rem;color:#64748b;margin-bottom:16px"></p>' +
+          '<label style="font-size:.8rem;font-weight:600;color:#16273f;display:block;margin-bottom:6px">¿Quién lo refirió?</label>' +
+          '<select id="refReferrer" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit;font-size:.95rem;background:#fff"></select>' +
+          '<div style="display:flex;gap:12px;margin-top:12px">' +
+            '<div style="flex:1"><label style="font-size:.8rem;font-weight:600;color:#16273f;display:block;margin-bottom:6px">% por venta</label><input id="refPctSale" type="number" min="0" max="100" step="0.1" placeholder="0" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit;font-size:.95rem"></div>' +
+            '<div style="flex:1"><label style="font-size:.8rem;font-weight:600;color:#16273f;display:block;margin-bottom:6px">% por alquiler</label><input id="refPctRent" type="number" min="0" max="100" step="0.1" placeholder="0" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit;font-size:.95rem"></div>' +
+          '</div>' +
+          '<p style="font-size:.75rem;color:#94a3b8;margin-top:8px">Se calcula sobre el precio de cierre de las operaciones confirmadas del referido.</p>' +
+          '<div style="display:flex;gap:10px;justify-content:space-between;margin-top:22px">' +
+            '<button id="refRemove" style="padding:10px 16px;border-radius:9px;border:1px solid #fecaca;background:#fff;color:#b91c1c;font-family:inherit;font-weight:600;cursor:pointer">Quitar</button>' +
+            '<div style="display:flex;gap:10px"><button id="refCancel" style="padding:10px 18px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-family:inherit;font-weight:600;cursor:pointer">Cancelar</button>' +
+            '<button id="refSave" style="padding:10px 18px;border-radius:9px;border:none;background:#16273f;color:#fff;font-family:inherit;font-weight:600;cursor:pointer">Guardar</button></div>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(modal);
+      modal.querySelector('#refCancel').addEventListener('click', () => { modal.style.display = 'none'; });
+      modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+    }
+    const sel = modal.querySelector('#refReferrer');
+    sel.innerHTML = '<option value="">— Sin referente —</option>' + posibles.map(u => `<option value="${u._uid}">${mvEsc(u.name || u.email || 'Agente')}</option>`).join('');
+    modal.querySelector('#refModalWho').innerHTML = 'Agente: <b>' + mvEsc(agente.name || agente.email || 'Agente') + '</b>';
+    modal.querySelector('#refPctSale').value = '';
+    modal.querySelector('#refPctRent').value = '';
+    sel.value = '';
+    db.collection('referidos').doc(agentId).get().then(d => {
+      const r = d.exists ? d.data() : {};
+      sel.value = r.referrerUid || '';
+      modal.querySelector('#refPctSale').value = (r.pctSale != null) ? r.pctSale : '';
+      modal.querySelector('#refPctRent').value = (r.pctRent != null) ? r.pctRent : '';
+    }).catch(() => {});
+    modal.querySelector('#refSave').onclick = async function () {
+      const referrerUid = sel.value;
+      const pctSale = parseFloat(modal.querySelector('#refPctSale').value) || 0;
+      const pctRent = parseFloat(modal.querySelector('#refPctRent').value) || 0;
+      if (!referrerUid) { showToast('Falta el referente', 'Elegí quién lo refirió (o usá Quitar).', 'fa-user-friends'); return; }
+      if (referrerUid === agentId) { showToast('No válido', 'Un agente no puede referirse a sí mismo.', 'fa-triangle-exclamation'); return; }
+      const btn = this; btn.disabled = true; btn.textContent = 'Guardando...';
+      try {
+        await db.collection('referidos').doc(agentId).set({
+          referredUid: agentId, referrerUid: referrerUid,
+          pctSale: pctSale, pctRent: pctRent, updatedAt: new Date().toISOString()
+        });
+        modal.style.display = 'none';
+        showAdminTab('referidos');
+        showToast('Referente guardado', 'Quedó registrado el referente y los porcentajes.', 'fa-check');
+      } catch (e) {
+        showToast('Error', 'No se pudo guardar: ' + (e.message || e), 'fa-triangle-exclamation');
+      } finally { btn.disabled = false; btn.textContent = 'Guardar'; }
+    };
+    modal.querySelector('#refRemove').onclick = async function () {
+      const btn = this; btn.disabled = true;
+      try {
+        await db.collection('referidos').doc(agentId).delete();
+        modal.style.display = 'none';
+        showAdminTab('referidos');
+        showToast('Referente quitado', 'El agente quedó sin referente.', 'fa-user-slash');
+      } catch (e) {
+        showToast('Error', 'No se pudo quitar: ' + (e.message || e), 'fa-triangle-exclamation');
+      } finally { btn.disabled = false; }
+    };
+    modal.style.display = 'flex';
   }
 
   // ===== Moderación de testimonios (solo admin) =====
