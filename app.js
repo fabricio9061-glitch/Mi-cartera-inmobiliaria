@@ -161,26 +161,26 @@
     }
   }
 
-  const uruguayData = {
-    "Montevideo": ["Aguada", "Aires Puros", "Atahualpa", "Bañados de Carrasco", "Barrio Sur", "Bella Italia", "Bella Vista", "Belvedere", "Brazo Oriental", "Buceo", "Capurro", "Carrasco", "Carrasco Norte", "Casabó", "Casavalle", "Centro", "Cerrito de la Victoria", "Cerro", "Ciudad Vieja", "Colón", "Conciliación", "Cordón", "Flor de Maroñas", "Goes", "Ituzaingó", "Jacinto Vera", "Jardines del Hipódromo", "La Blanqueada", "La Comercial", "La Figurita", "La Paloma", "La Teja", "Larrañaga", "Las Acacias", "Las Canteras", "Lezica", "Malvín", "Malvín Norte", "Manga", "Maroñas", "Melilla", "Mercado Modelo", "Nuevo París", "Palermo", "Parque Batlle", "Parque Rodó", "Paso de la Arena", "Paso de las Duranas", "Paso Molino", "Peñarol", "Piedras Blancas", "Pocitos", "Pocitos Nuevo", "Prado", "Punta Carretas", "Punta Gorda", "Punta Rieles", "Reducto", "Sayago", "Toledo Chico", "Tres Cruces", "Tres Ombúes", "Unión", "Villa Dolores", "Villa Española", "Villa García", "Villa Muñoz", "Vista Linda"].sort(),
-    "Canelones": ["Ciudad de la Costa", "Las Piedras", "Pando", "Canelones", "Santa Lucía", "Progreso", "Atlántida", "Salinas", "Parque del Plata", "Solymar", "Shangrilá", "El Pinar", "Lagomar", "La Floresta"],
-    "Maldonado": ["Maldonado", "Punta del Este", "San Carlos", "Piriápolis", "Pan de Azúcar", "La Barra", "José Ignacio", "Manantiales", "Punta Ballena"],
-    "Colonia": ["Colonia del Sacramento", "Carmelo", "Juan Lacaze", "Nueva Helvecia", "Rosario", "Nueva Palmira"],
-    "Salto": ["Salto", "Daymán", "Termas del Daymán", "Termas del Arapey"],
-    "Paysandú": ["Paysandú", "Guichón", "Termas de Guaviyú"],
-    "Río Negro": ["Fray Bentos", "Young"],
-    "Soriano": ["Mercedes", "Dolores"],
-    "San José": ["San José de Mayo", "Ciudad del Plata", "Libertad"],
-    "Florida": ["Florida", "Sarandí Grande"],
-    "Flores": ["Trinidad"],
-    "Durazno": ["Durazno", "Sarandí del Yí"],
-    "Tacuarembó": ["Tacuarembó", "Paso de los Toros"],
-    "Rivera": ["Rivera", "Tranqueras"],
-    "Artigas": ["Artigas", "Bella Unión"],
-    "Cerro Largo": ["Melo", "Río Branco"],
-    "Lavalleja": ["Minas"],
-    "Rocha": ["Rocha", "Chuy", "Castillos", "La Paloma", "La Pedrera", "Cabo Polonio", "Punta del Diablo"],
-    "Treinta y Tres": ["Treinta y Tres", "Vergara"]
+    const uruguayData = {
+    "Montevideo": ["Aguada", "Aires Puros", "Atahualpa", "Bañados de Carrasco", "Barrio Sur", "Bella Italia", "Bella Vista", "Belvedere", "Brazo Oriental", "Buceo", "Capurro", "Carrasco", "Carrasco Norte", "Casabó", "Casavalle", "Centro", "Cerrito de la Victoria", "Cerro", "Ciudad Vieja", "Colón", "Conciliación", "Cordón", "Flor de Maroñas", "Goes", "Ituzaingó", "Jacinto Vera", "Jardines del Hipódromo", "La Blanqueada", "La Comercial", "La Figurita", "La Paloma", "La Teja", "Larrañaga", "Las Acacias", "Las Canteras", "Lezica", "Malvín", "Malvín Norte", "Manga", "Maroñas", "Melilla", "Mercado Modelo", "Nuevo París", "Palermo", "Parque Batlle", "Parque Rodó", "Paso de la Arena", "Paso de las Duranas", "Paso Molino", "Peñarol", "Piedras Blancas", "Pocitos", "Pocitos Nuevo", "Prado", "Punta Carretas", "Punta Gorda", "Punta Rieles", "Reducto", "Sayago", "Toledo Chico", "Tres Cruces", "Tres Ombúes", "Unión", "Villa Dolores", "Villa Española", "Villa García", "Villa Muñoz", "Vista Linda"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Canelones": ["Las Piedras", "Pando", "Canelones", "Santa Lucía", "Progreso", "Atlántida", "Salinas", "Parque del Plata", "Solymar", "Shangrilá", "El Pinar", "Lagomar", "La Floresta", "Paso Carrasco", "Ciudad de la Costa", "San José de Carrasco", "Médanos de Solymar", "Colinas de Solymar", "Colonia Nicolich", "Barros Blancos", "Toledo", "Sauce", "Joaquín Suárez", "Suárez", "La Paz", "Las Toscas", "Pinamar", "Neptunia", "Marindia", "Villa Argentina", "Estación Atlántida", "Costa Azul", "Bello Horizonte", "San Luis", "La Tuna", "Cuchilla Alta", "Jaureguiberry", "Empalme Olmos", "Tala", "San Ramón", "Santa Rosa", "San Jacinto", "San Bautista", "Migues", "Montes", "Soca", "Aguas Corrientes", "Los Cerrillos", "Juanicó", "San Antonio", "El Bosque", "Villa Felicidad"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Maldonado": ["Maldonado", "Punta del Este", "San Carlos", "Piriápolis", "Pan de Azúcar", "Aiguá", "Solís", "Bella Vista", "Las Flores", "Playa Verde", "Playa Hermosa", "Playa Grande", "San Francisco", "Punta Colorada", "Punta Negra", "Gregorio Aznárez", "Cerros Azules", "Nueva Carrara", "Punta Ballena", "Solanas", "Sauce de Portezuelo", "Portezuelo", "Chihuahua", "Laguna del Sauce", "Pinares", "La Barra", "El Tesoro", "Manantiales", "El Chorro", "Montoya", "Balneario Buenos Aires", "La Juanita", "José Ignacio", "Santa Mónica", "Pueblo Edén", "Garzón", "Estación Las Flores", "Maldonado Nuevo", "Cerro Pelado", "La Capuera", "Ocean Park", "Las Grutas", "El Placer"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Colonia": ["Colonia del Sacramento", "Carmelo", "Juan Lacaze", "Nueva Helvecia", "Rosario", "Nueva Palmira", "Tarariras", "Colonia Valdense", "Ombúes de Lavalle", "Florencio Sánchez", "Conchillas", "Miguelete", "Colonia Cosmopolita"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Salto": ["Salto", "Daymán", "Termas del Daymán", "Termas del Arapey", "Belén", "Constitución"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Paysandú": ["Paysandú", "Guichón", "Termas de Guaviyú", "Quebracho", "Piedras Coloradas", "Chapicuy", "Porvenir"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Río Negro": ["Fray Bentos", "Young", "Nuevo Berlín", "San Javier"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Soriano": ["Mercedes", "Dolores", "Cardona", "José Enrique Rodó", "Palmitas", "Villa Soriano"].sort((a,b)=>a.localeCompare(b,'es')),
+    "San José": ["San José de Mayo", "Ciudad del Plata", "Libertad", "Rodríguez", "Ecilda Paullier", "Rafael Perazza", "Puntas de Valdez", "Delta del Tigre"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Florida": ["Florida", "Sarandí Grande", "Casupá", "Fray Marcos", "25 de Mayo", "25 de Agosto", "Cardal", "Capilla del Sauce"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Flores": ["Trinidad", "Ismael Cortinas"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Durazno": ["Durazno", "Sarandí del Yí", "Villa del Carmen", "Carmen", "La Paloma", "Blanquillo"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Tacuarembó": ["Tacuarembó", "Paso de los Toros", "San Gregorio de Polanco", "Ansina"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Rivera": ["Rivera", "Tranqueras", "Vichadero", "Minas de Corrales"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Artigas": ["Artigas", "Bella Unión", "Tomás Gomensoro", "Baltasar Brum"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Cerro Largo": ["Melo", "Río Branco", "Fraile Muerto", "Aceguá", "Tupambaé"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Lavalleja": ["Minas", "José Pedro Varela", "Solís de Mataojo", "Mariscala", "Batlle y Ordóñez", "Pirarajá"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Rocha": ["Rocha", "Chuy", "Castillos", "La Paloma", "La Pedrera", "Cabo Polonio", "Punta del Diablo", "Lascano", "Velázquez", "Aguas Dulces", "Barra de Valizas", "La Coronilla", "Punta Rubia"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Treinta y Tres": ["Treinta y Tres", "Vergara", "Santa Clara de Olimar", "Cerro Chato"].sort((a,b)=>a.localeCompare(b,'es'))
   };
 
   let currentUser = null,
