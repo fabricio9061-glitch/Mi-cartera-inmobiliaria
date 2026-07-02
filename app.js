@@ -390,8 +390,6 @@
     const rl = document.getElementById('mvSideRole'); if (rl) rl.textContent = isAdminUser() ? 'Administrador' : 'Agente';
     document.getElementById('mvSideAdminGroup')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !isAdminUser());
-    document.getElementById('mvSideRevisiones')?.classList.toggle('hidden', !isAdminUser());
-    document.getElementById('mvSideSolicitudes')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSide')?.classList.add('open');
     document.getElementById('mvSideOverlay')?.classList.add('open');
     document.getElementById('mvSide')?.setAttribute('aria-hidden', 'false');
@@ -2206,7 +2204,7 @@
           id: d.id,
           ...d.data()
         }));
-        c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${safeUrl(u.profilePhoto)}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${mvEsc(u.role||'Asesor Inmobiliario')}</small>${u.commissionSale!=null||u.commissionRent!=null||u.commissionPct!=null?`<br><small style="color:#8a6d12"><i class="fas fa-percent"></i> Venta: ${u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:'—')}% · Alq: ${u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:'—')}%</small>`:''}<br><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="setUserRole('${u.id}')" title="Asignar cargo"><i class="fas fa-id-badge"></i></button><button class="btn-edit" onclick="setUserComision('${u.id}')" title="Comisión del agente"><i class="fas fa-percent"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
+        c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${safeUrl(u.profilePhoto)}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${mvEsc(u.role||'Asesor Inmobiliario')}</small>${u.commissionSale!=null||u.commissionRent!=null||u.commissionPct!=null?`<br><small style="color:#8a6d12"><i class="fas fa-percent"></i> Venta: ${u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:'—')}% · Alq: ${u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:'—')}%</small>`:''}<br><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="setUserRole('${u.id}')" title="Asignar cargo"><i class="fas fa-id-badge"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
       } else if (tb === 'properties') {
         c.innerHTML = properties.length === 0 ? '<div class="empty-state"><i class="fas fa-building"></i><h3>Sin propiedades</h3></div>' : properties.map(p => {
           const o = getOwnerInfo(p),
@@ -2241,14 +2239,15 @@
             return `<div class="user-card"><div class="user-card-avatar"><i class="fas fa-quote-left"></i></div><div class="user-card-info"><h4>${t.name||'Anónimo'} ${t.role?`<small style="color:var(--gray-500);font-weight:normal">· ${t.role}</small>`:''}</h4><p style="font-style:italic">"${(t.text||'').slice(0,160)}${(t.text||'').length>160?'…':''}"</p><small style="color:var(--gray-400)"><i class="fas fa-map-pin"></i> ${donde} · ${estado}</small></div><div class="user-card-actions">${!t.approved?`<button class="btn-approve" onclick="approveTestimonial('${t.id}')" title="Aprobar y publicar"><i class="fas fa-check"></i></button>`:`<button class="btn-edit" onclick="unpublishTestimonial('${t.id}')" title="Despublicar"><i class="fas fa-eye-slash"></i></button>`}<button class="btn-reject" onclick="deleteTestimonial('${t.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div></div>`;
           }).join('');
         }
-      } else if (tb === 'referidos') {
-        const [refSnap, cierresSnap] = await Promise.all([
+      } else if (tb === 'comisiones') {
+        const [cfgSnap, refSnap, cierresSnap] = await Promise.all([
+          db.collection('adminData').doc('comisionesConfig').get(),
           db.collection('referidos').get(),
           db.collection('properties').where('cierreConfirmado', '==', true).get()
         ]);
+        const cfg = Object.assign({ agencyPctSale: 3, agencyMonthsRent: 1 }, cfgSnap.exists ? cfgSnap.data() : {});
         const refDocs = {};
         refSnap.docs.forEach(d => { refDocs[d.id] = d.data(); });
-        // Cierres confirmados agrupados por agente dueño
         const cierresPorAgente = {};
         cierresSnap.docs.forEach(d => {
           const p = d.data();
@@ -2256,25 +2255,99 @@
           (cierresPorAgente[p.ownerId] = cierresPorAgente[p.ownerId] || []).push(p.cierre);
         });
         const nom = uid => (allUsers[uid] && (allUsers[uid].name || allUsers[uid].email)) || 'Agente';
-        function gananciaReferido(agenteUid, pctSale, pctRent) {
-          const s = { USD: 0, UYU: 0 };
+        const num = v => { const n = Number(v); return isNaN(n) ? 0 : n; };
+        // Comisión de la inmobiliaria en UNA operación (base de toda la cadena).
+        // Usa lo negociado en ese cierre; si el cierre no lo tiene, cae al valor por defecto.
+        function comAgencia(cc) {
+          const price = num(cc.precio);
+          if (cc.tipo === 'venta') {
+            const pct = (cc.agencyPct != null) ? num(cc.agencyPct) : num(cfg.agencyPctSale);
+            return price * pct / 100;
+          }
+          const meses = (cc.agencyMonths != null) ? num(cc.agencyMonths) : num(cfg.agencyMonthsRent);
+          return price * meses;
+        }
+        const addTo = (s, cc, monto) => { s[(cc.moneda === 'UYU') ? 'UYU' : 'USD'] += monto; };
+        // Comisión que gana el AGENTE (su % de la comisión inmobiliaria)
+        function comAgente(agenteUid) {
+          const u = allUsers[agenteUid] || {}, s = { USD: 0, UYU: 0 };
           (cierresPorAgente[agenteUid] || []).forEach(cc => {
-            const pct = (cc.tipo === 'venta') ? Number(pctSale) : Number(pctRent);
-            if (!pct) return;
-            s[(cc.moneda === 'UYU') ? 'UYU' : 'USD'] += (Number(cc.precio) || 0) * pct / 100;
+            const pct = (cc.tipo === 'venta') ? num(u.commissionSale) : num(u.commissionRent);
+            if (pct) addTo(s, cc, comAgencia(cc) * pct / 100);
+          });
+          return s;
+        }
+        // Comisión que gana el REFERENTE (su % de la comisión del referido)
+        function comReferente(referidoUid, refPctSale, refPctRent) {
+          const u = allUsers[referidoUid] || {}, s = { USD: 0, UYU: 0 };
+          (cierresPorAgente[referidoUid] || []).forEach(cc => {
+            const agPct = (cc.tipo === 'venta') ? num(u.commissionSale) : num(u.commissionRent);
+            const rfPct = (cc.tipo === 'venta') ? num(refPctSale) : num(refPctRent);
+            if (agPct && rfPct) addTo(s, cc, comAgencia(cc) * agPct / 100 * rfPct / 100);
           });
           return s;
         }
         function fmtSums(s) {
           const parts = [];
-          if (s.USD) parts.push('US$ ' + Math.round(s.USD).toLocaleString('es-UY'));
-          if (s.UYU) parts.push('$U ' + Math.round(s.UYU).toLocaleString('es-UY'));
+          if (Math.round(s.USD)) parts.push('US$ ' + Math.round(s.USD).toLocaleString('es-UY'));
+          if (Math.round(s.UYU)) parts.push('$U ' + Math.round(s.UYU).toLocaleString('es-UY'));
           return parts.length ? parts.join(' · ') : '—';
         }
         const agentes = Object.keys(allUsers)
           .filter(uid => (allUsers[uid].email || '').toLowerCase() !== ADMIN_EMAIL)
-          .map(uid => Object.assign({ _uid: uid }, allUsers[uid]));
-        // Agrupar por referente
+          .map(uid => Object.assign({ _uid: uid }, allUsers[uid]))
+          .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+        let html = '';
+        html += `<style>
+          .com-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 18px}
+          @media(max-width:760px){.com-kpis{grid-template-columns:repeat(2,1fr)}}
+          .com-kpi{background:#fff;border:1px solid #e9e6dd;border-radius:12px;padding:13px 15px}
+          .com-kpi .n{font-size:1.55rem;font-weight:800;color:#16273f;line-height:1;font-variant-numeric:tabular-nums}
+          .com-kpi .l{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;font-weight:600;margin-top:5px}
+          .com-kpi.good .n{color:#15803d}.com-kpi.warn .n{color:#C9A227}
+          .com-sec{font-family:'Cormorant Garamond',serif;font-size:1.4rem;color:#16273f;margin:24px 0 12px;display:flex;align-items:center;gap:8px}
+          .com-tools{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+          .com-search{flex:1;min-width:190px;position:relative}
+          .com-search i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#b6bcc6;font-size:.85rem}
+          .com-search input{width:100%;padding:9px 12px 9px 32px;border:1px solid #e2ded3;border-radius:10px;font-family:inherit;font-size:.9rem;background:#fff}
+          .com-search input:focus{outline:none;border-color:#C9A227;box-shadow:0 0 0 3px rgba(201,162,39,.13)}
+          .com-chip{border:1px solid #e2ded3;background:#fff;border-radius:20px;padding:8px 15px;font-size:.82rem;font-weight:600;color:#6b7280;cursor:pointer;white-space:nowrap}
+          .com-chip.on{background:#16273f;color:#fff;border-color:#16273f}
+          .com-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+          @media(max-width:820px){.com-grid{grid-template-columns:1fr}}
+          .com-agent{background:#fff;border:1px solid #e9e6dd;border-radius:14px;padding:13px 14px;display:flex;gap:12px;align-items:flex-start;transition:border-color .15s, box-shadow .15s}
+          .com-agent:hover{border-color:#C9A227;box-shadow:0 3px 14px rgba(0,0,0,.05)}
+          .com-agent.nocom{background:#fffdf4;border-color:#efe3bd}
+          .com-av{width:46px;height:46px;border-radius:50%;overflow:hidden;flex:0 0 46px;background:#eef1f6;display:flex;align-items:center;justify-content:center;color:#9aa4b2}
+          .com-av img{width:100%;height:100%;object-fit:cover}
+          .com-body{flex:1;min-width:0}
+          .com-name{font-weight:700;color:#16273f;font-size:.98rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .com-rank{font-size:.72rem;color:#9aa4b2;margin-top:1px}
+          .com-pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+          .com-pill{font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:8px;background:#f2f0ea;color:#5b6472;display:inline-flex;align-items:center;gap:4px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+          .com-pill.sale{background:#eef4ff;color:#2b5cae}.com-pill.rent{background:#eafaf0;color:#1b7a45}
+          .com-pill.ref{background:#f7f1e2;color:#8a6d12}.com-pill.none{background:#fdf3d6;color:#8a6d12}
+          .com-earn{font-size:.76rem;color:#15803d;font-weight:600;margin-top:7px}
+          .com-edit{flex:0 0 auto;border:1px solid #dfe3ea;background:#fff;color:#16273f;border-radius:9px;padding:7px 11px;cursor:pointer;font-size:.85rem;align-self:center}
+          .com-edit:hover{background:#16273f;color:#fff;border-color:#16273f}
+          .com-refcard{background:#fff;border:1px solid #e9e6dd;border-radius:14px;padding:14px 16px;margin-bottom:10px}
+          .com-refhead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+          .com-refhead b{color:#16273f;font-size:1rem}
+          .com-refrow{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid #f0efe9;font-size:.85rem}
+          .com-empty{background:#fff;border:1px dashed #dcd8cd;border-radius:12px;padding:22px;text-align:center;color:#9aa4b2;font-size:.9rem}
+        </style>`;
+
+        // ---- Config de la inmobiliaria (por defecto) ----
+        html += `<div style="background:#0f1f33;color:#fff;border-radius:14px;padding:18px 20px;margin-bottom:18px"><div style="font-weight:600;margin-bottom:4px"><i class="fas fa-building" style="color:#C9A227"></i> Comisión de la inmobiliaria — por defecto</div><div style="font-size:.8rem;color:#aeb7c2;margin-bottom:14px">La comisión real se define <b>en cada cierre</b> (se negocia con el dueño). Esto es solo el valor por defecto para cierres que no tengan su propio dato.</div><div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end"><div><label style="font-size:.75rem;color:#aeb7c2;display:block;margin-bottom:5px">Venta (% del precio)</label><input id="cfgAgencyPctSale" type="number" min="0" max="100" step="0.1" value="${num(cfg.agencyPctSale)}" style="width:130px;padding:9px 11px;border:1px solid rgba(255,255,255,.2);border-radius:9px;background:rgba(255,255,255,.08);color:#fff;font-family:inherit"></div><div><label style="font-size:.75rem;color:#aeb7c2;display:block;margin-bottom:5px">Alquiler (meses de renta)</label><input id="cfgAgencyMonthsRent" type="number" min="0" step="0.1" value="${num(cfg.agencyMonthsRent)}" style="width:150px;padding:9px 11px;border:1px solid rgba(255,255,255,.2);border-radius:9px;background:rgba(255,255,255,.08);color:#fff;font-family:inherit"></div><button onclick="saveComisionesConfig()" style="padding:9px 18px;border-radius:9px;border:none;background:#C9A227;color:#0f1f33;font-family:inherit;font-weight:700;cursor:pointer">Guardar</button></div></div>`;
+
+        // ---- KPIs ----
+        const _conCom = agentes.filter(u => u.commissionSale != null || u.commissionRent != null).length;
+        const _conRef = agentes.filter(u => refDocs[u._uid] && refDocs[u._uid].referrerUid).length;
+        html += `<div class="com-kpis"><div class="com-kpi"><div class="n">${agentes.length}</div><div class="l">Agentes</div></div><div class="com-kpi good"><div class="n">${_conCom}</div><div class="l">Con comisión</div></div><div class="com-kpi ${_conCom < agentes.length ? 'warn' : ''}"><div class="n">${agentes.length - _conCom}</div><div class="l">Falta comisión</div></div><div class="com-kpi"><div class="n">${_conRef}</div><div class="l">Con referente</div></div></div>`;
+        html += `<div style="margin-bottom:6px;color:#94a3b8;font-size:.82rem"><i class="fas fa-circle-info"></i> Cadena: <b>precio</b> → comisión inmobiliaria → <b>comisión del agente</b> (% de esa) → <b>comisión del referente</b> (% de la del agente). Sobre cierres <b>confirmados</b>.</div>`;
+
+        // ---- Resumen de ganancias por referidos ----
         const porReferente = {};
         Object.keys(refDocs).forEach(refUid => {
           const r = refDocs[refUid];
@@ -2284,34 +2357,209 @@
         const referentes = Object.keys(porReferente).map(refUid => {
           const total = { USD: 0, UYU: 0 };
           const hijos = porReferente[refUid].map(h => {
-            const g = gananciaReferido(h.uid, h.pctSale, h.pctRent);
+            const g = comReferente(h.uid, h.pctSale, h.pctRent);
             total.USD += g.USD; total.UYU += g.UYU;
             return Object.assign({}, h, { g });
           });
           return { refUid, hijos, total };
         }).sort((a, b) => (b.total.USD + b.total.UYU) - (a.total.USD + a.total.UYU));
-
-        let html = '<div style="margin-bottom:10px;color:var(--gray-500);font-size:.85rem"><i class="fas fa-circle-info"></i> El referente gana el % indicado <b>del precio de cierre</b> de cada operación <b>confirmada</b> de su referido.</div>';
         if (referentes.length) {
-          html += '<h3 style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;color:var(--navy,#16273f);margin:14px 0 10px"><i class="fas fa-trophy" style="color:#C9A227"></i> Referentes</h3>';
+          html += '<div class="com-sec"><i class="fas fa-trophy" style="color:#C9A227"></i> Ganancias por referidos</div>';
           html += referentes.map(rf => {
-            const hijosHtml = rf.hijos.map(h => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--gray-100,#eee);font-size:.85rem"><span>${mvEsc(nom(h.uid))} <small style="color:var(--gray-400)">· ${h.pctSale || 0}% venta / ${h.pctRent || 0}% alq</small></span><span style="font-weight:600;color:#15803d">${fmtSums(h.g)}</span></div>`).join('');
-            return `<div class="user-card" style="flex-direction:column;align-items:stretch"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h4 style="margin:0"><i class="fas fa-user-tie" style="color:var(--accent,#C9A227)"></i> ${mvEsc(nom(rf.refUid))}</h4><span style="font-weight:700;color:#15803d">${fmtSums(rf.total)}</span></div><small style="color:var(--gray-500)">${rf.hijos.length} referido${rf.hijos.length === 1 ? '' : 's'}</small>${hijosHtml}</div>`;
+            const rows = rf.hijos.map(h => `<div class="com-refrow"><span>${mvEsc(nom(h.uid))} <small style="color:#aab">· ${num(h.pctSale)}% / ${num(h.pctRent)}% de su comisión</small></span><span style="font-weight:600;color:#15803d">${fmtSums(h.g)}</span></div>`).join('');
+            return `<div class="com-refcard"><div class="com-refhead"><b><i class="fas fa-user-tie" style="color:#C9A227"></i> ${mvEsc(nom(rf.refUid))}</b><span style="font-weight:700;color:#15803d">${fmtSums(rf.total)}</span></div><div style="font-size:.75rem;color:#9aa4b2;margin-top:2px">${rf.hijos.length} referido${rf.hijos.length === 1 ? '' : 's'}</div>${rows}</div>`;
           }).join('');
         }
-        html += '<h3 style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;color:var(--navy,#16273f);margin:22px 0 10px"><i class="fas fa-user-friends" style="color:#C9A227"></i> Asignar referente</h3>';
+
+        // ---- Comisión por agente ----
+        html += '<div class="com-sec"><i class="fas fa-users" style="color:#C9A227"></i> Comisión por agente</div>';
         if (!agentes.length) {
           html += '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin agentes</h3></div>';
         } else {
-          html += agentes.sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(u => {
+          html += `<div class="com-tools"><div class="com-search"><i class="fas fa-search"></i><input id="comSearch" type="text" placeholder="Buscar agente…" oninput="filtrarComisiones()"></div><button class="com-chip on" data-f="todos" onclick="setComFilter(this)">Todos</button><button class="com-chip" data-f="sincom" onclick="setComFilter(this)">Falta comisión</button><button class="com-chip" data-f="conref" onclick="setComFilter(this)">Con referente</button></div>`;
+          html += '<div class="com-grid" id="comGrid">';
+          html += agentes.map(u => {
             const r = refDocs[u._uid];
-            const linea = (r && r.referrerUid)
-              ? `<small style="color:var(--gray-600)"><i class="fas fa-arrow-left" style="color:#C9A227"></i> Referido por <b>${mvEsc(nom(r.referrerUid))}</b> · ${r.pctSale || 0}% venta / ${r.pctRent || 0}% alq</small>`
-              : '<small style="color:var(--gray-400)">Sin referente</small>';
-            return `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto ? `<img src="${safeUrl(u.profilePhoto)}" alt="">` : '<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name || 'Sin nombre')}</h4>${linea}</div><div class="user-card-actions"><button class="btn-edit" onclick="openReferidoModal('${u._uid}')" title="Editar referente"><i class="fas fa-user-friends"></i> ${(r && r.referrerUid) ? 'Editar' : 'Asignar'}</button></div></div>`;
+            const hasCom = (u.commissionSale != null || u.commissionRent != null);
+            const hasRef = !!(r && r.referrerUid);
+            const photo = u.profilePhoto ? `<img src="${safeUrl(u.profilePhoto)}" alt="">` : '<i class="fas fa-user"></i>';
+            const pills = hasCom
+              ? `<span class="com-pill sale">Venta ${u.commissionSale != null ? u.commissionSale : 0}%</span><span class="com-pill rent">Alq ${u.commissionRent != null ? u.commissionRent : 0}%</span>`
+              : '<span class="com-pill none"><i class="fas fa-triangle-exclamation"></i> Falta comisión</span>';
+            const refPill = hasRef ? `<span class="com-pill ref" title="Gana ${num(r.pctSale)}% venta / ${num(r.pctRent)}% alquiler de su comisión"><i class="fas fa-user-tie"></i> ${mvEsc(nom(r.referrerUid))}</span>` : '';
+            const ganado = comAgente(u._uid);
+            const earn = (Math.round(ganado.USD) || Math.round(ganado.UYU)) ? `<div class="com-earn"><i class="fas fa-sack-dollar"></i> Ganó ${fmtSums(ganado)}</div>` : '';
+            const rank = u.role ? `<div class="com-rank">${mvEsc(u.role)}</div>` : '';
+            return `<div class="com-agent ${hasCom ? '' : 'nocom'}" data-name="${mvEsc((u.name || '').toLowerCase())}" data-com="${hasCom ? 1 : 0}" data-ref="${hasRef ? 1 : 0}"><div class="com-av">${photo}</div><div class="com-body"><div class="com-name">${mvEsc(u.name || 'Sin nombre')}</div>${rank}<div class="com-pills">${pills}${refPill}</div>${earn}</div><button class="com-edit" onclick="openComisionAgente('${u._uid}')" title="Editar comisión y referente"><i class="fas fa-sliders-h"></i></button></div>`;
           }).join('');
+          html += '<div class="com-empty" id="comEmpty" style="display:none;grid-column:1/-1">No hay agentes con ese filtro.</div>';
+          html += '</div>';
         }
         c.innerHTML = html;
+      } else if (tb === 'solicitudes') {
+        try {
+          const snap = await db.collection('leadsVenta').get();
+          _solLeads = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+        } catch (e) {
+          c.innerHTML = '<div class="empty-state"><i class="fas fa-lock"></i><h3>No se pudieron cargar las solicitudes</h3><p>' + mvEsc(e.code === 'permission-denied' ? 'Sin permiso para leer "leadsVenta" (regla de Firestore).' : (e.message || e)) + '</p></div>';
+          return;
+        }
+        _solLeads.sort((a, b) => _solMs(b.createdAt) - _solMs(a.createdAt));
+        _solFiltro = 'nuevo';
+        c.innerHTML = `<style>
+          .sol-countbar{background:#fffdf5;border:1px solid #eee6cf;border-left:4px solid #C9A227;border-radius:12px;padding:12px 16px;font-weight:700;display:flex;align-items:center;gap:9px;margin-bottom:14px;color:#9a7d12}
+          .sol-countbar.none{border-left-color:#2ecc71;color:#27ae60;background:#fff;border-color:#e4e6ea}
+          .sol-toolrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+          .sol-chips{display:flex;gap:6px;background:#fff;border:1px solid #e4e6ea;border-radius:12px;padding:4px;width:fit-content;flex-wrap:wrap}
+          .sol-chip{border:none;background:transparent;cursor:pointer;border-radius:9px;padding:7px 14px;font-size:.85rem;font-weight:600;color:#666;font-family:inherit}
+          .sol-chip.active{background:#16273f;color:#fff}
+          .sol-refresh{border:1px solid #e4e6ea;background:#fff;color:#444;border-radius:10px;padding:8px 13px;cursor:pointer;font-family:inherit;font-size:.85rem;font-weight:600;display:inline-flex;align-items:center;gap:7px}
+          .sol-card{background:#fff;border:1px solid #e4e6ea;border-radius:14px;padding:16px;margin-bottom:12px}
+          .sol-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+          .sol-nombre{font-weight:700;font-size:1.05rem;color:#16273f}
+          .sol-when{color:#999;font-size:.82rem}
+          .sol-badge{margin-left:auto;font-size:.72rem;font-weight:700;padding:4px 10px;border-radius:20px}
+          .sol-badge.nuevo{background:#fff4e0;color:#b9770f}
+          .sol-badge.contactado{background:#e7f7ec;color:#1f9d54}
+          .sol-badge.archivado{background:#eef0f3;color:#888}
+          .sol-rows{display:flex;flex-direction:column;gap:7px}
+          .sol-row{display:flex;gap:10px;font-size:.9rem;align-items:flex-start}
+          .sol-row i{color:#C9A227;width:18px;text-align:center;margin-top:3px}
+          .sol-row .lbl{color:#888;min-width:74px}
+          .sol-row .val{color:#1c1c1c;flex:1}
+          .sol-row a{color:#2e86de;text-decoration:none}
+          .sol-msg{background:#f8f9fb;border:1px solid #e4e6ea;border-radius:10px;padding:10px 12px;font-size:.9rem;color:#444;margin-top:4px;line-height:1.5}
+          .sol-f{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid #e4e6ea;flex-wrap:wrap}
+          .sol-act{border:none;cursor:pointer;border-radius:9px;padding:8px 13px;font-size:.83rem;font-weight:600;display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:inherit}
+          .sol-act.wa{background:#25d366;color:#fff}
+          .sol-act.ok{background:#27ae60;color:#fff}
+          .sol-act.arch{background:#eef0f3;color:#666}
+          .sol-empty{text-align:center;color:#999;padding:40px 20px;background:#fff;border:1px solid #e4e6ea;border-radius:14px}
+        </style>
+        <div id="solCountBar" class="sol-countbar"></div>
+        <div class="sol-toolrow">
+          <div class="sol-chips">
+            <button class="sol-chip active" id="solChip-nuevo" onclick="solSetFiltro('nuevo')">Nuevas</button>
+            <button class="sol-chip" id="solChip-contactado" onclick="solSetFiltro('contactado')">Contactadas</button>
+            <button class="sol-chip" id="solChip-archivado" onclick="solSetFiltro('archivado')">Archivadas</button>
+            <button class="sol-chip" id="solChip-todos" onclick="solSetFiltro('todos')">Todas</button>
+          </div>
+          <button class="sol-refresh" onclick="showAdminTab('solicitudes')"><i class="fas fa-rotate-right"></i> Actualizar</button>
+        </div>
+        <div id="solLista"></div>`;
+        solRender();
+      } else if (tb === 'revisiones') {
+        try {
+          const q = await db.collection('users').get();
+          _revRecords = [];
+          q.docs.forEach(d => {
+            const u = d.data();
+            Object.keys(_REV_TIPOS).forEach(tipo => {
+              _revToList(u[_REV_TIPOS[tipo].field]).forEach(rec => {
+                _revRecords.push(Object.assign({}, rec, {
+                  _uid: d.id, _field: _REV_TIPOS[tipo].field,
+                  tipo: rec.tipo || tipo,
+                  _agente: rec.agenteNombre || u.name || u.email || 'Agente'
+                }));
+              });
+            });
+          });
+        } catch (e) {
+          c.innerHTML = '<div class="empty-state"><i class="fas fa-triangle-exclamation"></i><h3>No se pudieron cargar las revisiones</h3><p>' + mvEsc(e.message || e) + '</p></div>';
+          return;
+        }
+        _revRecords.sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')));
+        _revPage = 1; _revFTipo = 'todas'; _revFEstado = 'todas';
+        c.innerHTML = `<style>
+          .rev-toolrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+          .rev-filters{display:flex;gap:10px;flex-wrap:wrap}
+          .rev-sel{position:relative}
+          .rev-sel i.lead{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#6b7480;font-size:.8rem;pointer-events:none}
+          .rev-sel i.caret{position:absolute;right:13px;top:50%;transform:translateY(-50%);color:#6b7480;font-size:.7rem;pointer-events:none}
+          .rev-sel select{-webkit-appearance:none;appearance:none;border:1px solid #e7eaef;border-radius:12px;padding:10px 34px 10px 36px;font-size:.9rem;background:#fff;color:#3a4350;cursor:pointer;font-family:inherit;min-width:190px}
+          .rev-btn{border:1px solid #e7eaef;background:#fff;color:#3a4350;cursor:pointer;border-radius:11px;padding:9px 14px;font-size:.86rem;font-weight:600;display:inline-flex;align-items:center;gap:8px;font-family:inherit}
+          .rev-btn.danger{background:#fdecee;border-color:#f6d6da;color:#dc3545}
+          .rev-banner{position:relative;overflow:hidden;border-radius:16px;padding:18px 22px;margin-bottom:16px;display:flex;align-items:center;gap:14px}
+          .rev-banner.ok{background:#e8f7ee;border:1px solid #cdeed8}
+          .rev-banner.alert{background:#fff6e3;border:1px solid #f4e2b8}
+          .rev-banner .bic{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex:0 0 auto;color:#fff}
+          .rev-banner.ok .bic{background:#15a05a}
+          .rev-banner.alert .bic{background:#C9A227}
+          .rev-banner h3{font-size:1.02rem;font-weight:700;margin:0}
+          .rev-banner.ok h3{color:#127a45}
+          .rev-banner.alert h3{color:#b9770f}
+          .rev-banner p{font-size:.85rem;color:#6b7480;margin:2px 0 0}
+          .rev-banner .bart{position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:4rem;opacity:.12}
+          .rev-banner.ok .bart{color:#15a05a}
+          .rev-banner.alert .bart{color:#C9A227}
+          .rev-card{background:#fff;border:1px solid #e7eaef;border-radius:16px;padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(20,30,50,.04)}
+          .rev-h{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+          .rev-tipo{font-size:.76rem;font-weight:700;padding:5px 11px;border-radius:8px;display:inline-flex;align-items:center;gap:6px}
+          .rev-who{font-weight:700;font-size:1rem;color:#1f2733}
+          .rev-when{color:#9aa2ad;font-size:.82rem}
+          .rev-badge{margin-left:auto;font-size:.74rem;font-weight:700;padding:5px 11px;border-radius:20px;display:inline-flex;align-items:center;gap:6px}
+          .rev-badge.pend{background:#fff6e3;color:#b9770f}
+          .rev-badge.ok{background:#e8f7ee;color:#127a45}
+          .rev-kwrap{position:relative}
+          .rev-kebab{background:none;border:none;cursor:pointer;color:#aab2bd;font-size:1rem;padding:6px 8px;border-radius:8px}
+          .rev-kebab:hover{background:#f3f5f8;color:#1f2733}
+          .rev-menu{position:absolute;right:0;top:34px;background:#fff;border:1px solid #e7eaef;border-radius:12px;box-shadow:0 10px 30px rgba(20,30,50,.14);padding:6px;min-width:190px;z-index:30;display:none}
+          .rev-menu.open{display:block}
+          .rev-menu button{width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit;font-size:.86rem;color:#3a4350;padding:9px 11px;border-radius:8px;display:flex;align-items:center;gap:9px}
+          .rev-menu button:hover{background:#f3f5f8}
+          .rev-menu button.danger{color:#dc3545}
+          .rev-metrics{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:8px;background:#f8fafb;border:1px solid #eef1f5;border-radius:13px;padding:13px 15px;margin-top:14px}
+          .rev-metric .lbl{font-size:.66rem;text-transform:uppercase;letter-spacing:.6px;color:#9aa2ad;font-weight:700}
+          .rev-metric .val{font-size:1rem;font-weight:700;color:#1f2733;margin-top:5px}
+          .rev-metric.big .val{font-size:1.45rem;font-weight:800;color:#15a05a}
+          .rev-metric.unc .val{color:#15a05a}
+          .rev-feats{display:flex;flex-wrap:wrap;gap:10px 24px;padding:13px 4px;border-bottom:1px solid #e7eaef;margin-top:4px}
+          .rev-feat{display:flex;align-items:center;gap:10px}
+          .rev-feat .fic{width:30px;height:30px;border-radius:9px;background:#f0f3f7;color:#5a6470;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex:0 0 auto}
+          .rev-feat b{font-size:.9rem;font-weight:700;display:block;line-height:1.1}
+          .rev-feat small{font-size:.72rem;color:#9aa2ad}
+          .rev-dets{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px 18px;padding:14px 4px 4px}
+          .rev-det .dl{font-size:.72rem;color:#9aa2ad;font-weight:600;margin-bottom:3px}
+          .rev-det .dv{font-size:.9rem;font-weight:600;color:#1f2733}
+          .rev-stars i{font-size:.78rem;color:#e2c45a}
+          .rev-stars i.off{color:#dfe3e9}
+          .rev-more{display:none;margin-top:13px;padding-top:13px;border-top:1px dashed #e7eaef}
+          .rev-more.open{display:block}
+          .rev-kvgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+          .rev-kvg h4{font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;color:#9aa2ad;margin:0 0 7px}
+          .rev-kv{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px dashed #eef1f5;font-size:.85rem}
+          .rev-kv span{color:#7c848f}
+          .rev-kv b{color:#1f2733;text-align:right}
+          .rev-f{display:flex;align-items:center;gap:10px;margin-top:15px;padding-top:13px;border-top:1px solid #e7eaef;flex-wrap:wrap}
+          .rev-lnk{display:inline-flex;align-items:center;gap:8px;border-radius:10px;padding:9px 14px;font-size:.85rem;font-weight:600;cursor:pointer;text-decoration:none;border:1px solid transparent;font-family:inherit;background:#fff}
+          .rev-lnk.green{background:#e8f7ee;color:#127a45}
+          .rev-lnk.ghost{border-color:#e7eaef;color:#3a4350}
+          .rev-lnk.disabled{opacity:.5;cursor:not-allowed}
+          .rev-mark{background:#15a05a;color:#fff;border:none;cursor:pointer;border-radius:10px;padding:9px 14px;font-size:.85rem;font-weight:600;display:inline-flex;align-items:center;gap:7px;font-family:inherit}
+          .rev-trash{margin-left:auto;background:#fdecee;color:#dc3545;border:1px solid #f6d6da;cursor:pointer;border-radius:10px;width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center}
+          .rev-pager{display:flex;justify-content:center;align-items:center;gap:7px;margin-top:20px;flex-wrap:wrap}
+          .rev-pg{min-width:38px;height:38px;border-radius:10px;border:1px solid #e7eaef;background:#fff;color:#3a4350;cursor:pointer;font-size:.88rem;font-weight:600;font-family:inherit;display:inline-flex;align-items:center;justify-content:center;padding:0 10px}
+          .rev-pg.active{background:#15a05a;color:#fff;border-color:#15a05a}
+          .rev-pg:disabled{opacity:.4;cursor:not-allowed}
+          .rev-pg.dots{border:none;background:none;cursor:default}
+          .rev-empty{text-align:center;color:#9aa2ad;padding:42px 20px;background:#fff;border:1px solid #e7eaef;border-radius:16px}
+          .rev-empty i{font-size:1.6rem;display:block;margin-bottom:10px;color:#ccd2da}
+          @media(max-width:680px){.rev-metrics{grid-template-columns:1fr 1fr}.rev-metric.big{grid-column:1/-1}.rev-kvgrid{grid-template-columns:1fr}}
+        </style>
+        <div class="rev-toolrow">
+          <div class="rev-filters">
+            <div class="rev-sel"><i class="fas fa-filter lead"></i><select id="revFTipo" onchange="revSetFiltro('tipo', this.value)"><option value="todas">Todos los tipos</option><option value="tasacion">Tasaciones</option><option value="gastos">Gastos y comisiones</option><option value="terreno">Cálculo de terrenos</option></select><i class="fas fa-chevron-down caret"></i></div>
+            <div class="rev-sel"><i class="fas fa-list-check lead"></i><select id="revFEstado" onchange="revSetFiltro('estado', this.value)"><option value="todas">Todos</option><option value="pend">Sin revisar</option><option value="rev">Revisadas</option></select><i class="fas fa-chevron-down caret"></i></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="rev-btn" onclick="showAdminTab('revisiones')"><i class="fas fa-rotate-right"></i> Actualizar</button>
+            <button class="rev-btn danger" onclick="revLimpiarRevisadas()"><i class="fas fa-trash-can"></i> Limpiar revisadas</button>
+          </div>
+        </div>
+        <div id="revBanner"></div>
+        <div id="revList"></div>
+        <div id="revPager" class="rev-pager"></div>`;
+        revRender();
       }
     } catch (err) {
       console.error('Error panel admin:', err);
@@ -2319,81 +2567,405 @@
     }
   }
 
-  // ===== Referidos (solo admin): asignar quién refirió a cada agente y el % =====
-  function openReferidoModal(agentId) {
-    if (!isAdminUser()) { showToast('Solo administradores', 'Solo el administrador gestiona referidos.', 'fa-lock'); return; }
+  // ===== Comisiones (solo admin): config de la inmobiliaria + comisión y referente por agente =====
+  async function saveComisionesConfig() {
+    if (!isAdminUser()) return;
+    const agencyPctSale = parseFloat(document.getElementById('cfgAgencyPctSale').value) || 0;
+    const agencyMonthsRent = parseFloat(document.getElementById('cfgAgencyMonthsRent').value) || 0;
+    try {
+      await db.collection('adminData').doc('comisionesConfig').set({ agencyPctSale, agencyMonthsRent, updatedAt: new Date().toISOString() }, { merge: true });
+      showToast('Guardado', 'Comisión de la inmobiliaria actualizada.', 'fa-check');
+      showAdminTab('comisiones');
+    } catch (e) {
+      showToast('Error', 'No se pudo guardar: ' + (e.message || e), 'fa-triangle-exclamation');
+    }
+  }
+
+  function setComFilter(el){
+    const chips = el.parentElement.querySelectorAll('.com-chip');
+    chips.forEach(x => x.classList.toggle('on', x === el));
+    filtrarComisiones();
+  }
+  function filtrarComisiones(){
+    const inp = document.getElementById('comSearch');
+    const s = (inp ? inp.value : '').toLowerCase().trim();
+    const chip = document.querySelector('.com-chip.on');
+    const f = chip ? chip.getAttribute('data-f') : 'todos';
+    let visibles = 0;
+    document.querySelectorAll('.com-agent').forEach(el => {
+      const name = el.getAttribute('data-name') || '';
+      const hasCom = el.getAttribute('data-com') === '1';
+      const hasRef = el.getAttribute('data-ref') === '1';
+      let ok = name.indexOf(s) !== -1;
+      if (ok && f === 'sincom') ok = !hasCom;
+      if (ok && f === 'conref') ok = hasRef;
+      el.style.display = ok ? '' : 'none';
+      if (ok) visibles++;
+    });
+    const em = document.getElementById('comEmpty');
+    if (em) em.style.display = visibles ? 'none' : 'block';
+  }
+
+  // ===== Panel admin: Solicitudes de venta (leadsVenta) =====
+  let _solLeads = [], _solFiltro = 'nuevo';
+  const _SOL_TIPO_LBL = { casa: 'Casa', apartamento: 'Apartamento', terreno: 'Terreno', local: 'Local', oficina: 'Oficina', galpon: 'Galpón', campo: 'Campo', otro: 'Otro' };
+  function _solMs(v) { if (!v) return 0; if (typeof v === 'object' && typeof v.toDate === 'function') return v.toDate().getTime(); if (typeof v === 'object' && v.seconds) return v.seconds * 1000; const d = new Date(v); return isNaN(d.getTime()) ? 0 : d.getTime(); }
+  function _solFecha(v) { const ms = _solMs(v); return ms ? new Date(ms).toLocaleString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; }
+  function _solWa(tel) { let d = String(tel || '').replace(/\D/g, ''); if (!d) return ''; if (d.indexOf('598') === 0) return d; if (d.charAt(0) === '0') d = d.slice(1); if (d.length <= 9) return '598' + d; return d; }
+  function _solCard(l) {
+    const est = l.estado || 'nuevo';
+    const wa = _solWa(l.telefono);
+    let rows = '<div class="sol-row"><i class="fas fa-phone"></i><span class="lbl">Teléfono</span><span class="val">' + mvEsc(l.telefono || '—') + '</span></div>';
+    if (l.email) rows += '<div class="sol-row"><i class="fas fa-envelope"></i><span class="lbl">Email</span><span class="val"><a href="mailto:' + mvEsc(l.email) + '">' + mvEsc(l.email) + '</a></span></div>';
+    if (l.tipo) rows += '<div class="sol-row"><i class="fas fa-building"></i><span class="lbl">Quiere</span><span class="val">' + mvEsc(_SOL_TIPO_LBL[l.tipo] || l.tipo) + '</span></div>';
+    if (l.zona) rows += '<div class="sol-row"><i class="fas fa-location-dot"></i><span class="lbl">Zona</span><span class="val">' + mvEsc(l.zona) + '</span></div>';
+    if (l.mensaje) rows += '<div class="sol-row"><i class="fas fa-comment"></i><span class="lbl">Mensaje</span><span class="val"><div class="sol-msg">' + mvEsc(l.mensaje) + '</div></span></div>';
+    let foot = '';
+    if (wa) foot += '<a class="sol-act wa" href="https://wa.me/' + wa + '" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> WhatsApp</a>';
+    if (est !== 'contactado') foot += '<button class="sol-act ok" onclick="solMarcar(\'' + l.id + '\',\'contactado\')"><i class="fas fa-check"></i> Marcar contactada</button>';
+    if (est !== 'archivado') foot += '<button class="sol-act arch" onclick="solMarcar(\'' + l.id + '\',\'archivado\')"><i class="fas fa-box-archive"></i> Archivar</button>';
+    else foot += '<button class="sol-act arch" onclick="solMarcar(\'' + l.id + '\',\'nuevo\')"><i class="fas fa-rotate-left"></i> Reabrir</button>';
+    return '<div class="sol-card"><div class="sol-h"><span class="sol-nombre">' + mvEsc(l.nombre || '(sin nombre)') + '</span><span class="sol-when">' + mvEsc(_solFecha(l.createdAt)) + '</span><span class="sol-badge ' + est + '">' + (est === 'nuevo' ? 'Nueva' : est === 'contactado' ? 'Contactada' : 'Archivada') + '</span></div><div class="sol-rows">' + rows + '</div><div class="sol-f">' + foot + '</div></div>';
+  }
+  function solRender() {
+    const cb = document.getElementById('solCountBar'), list = document.getElementById('solLista');
+    if (!cb || !list) return;
+    const recs = _solLeads.filter(l => _solFiltro === 'todos' || (l.estado || 'nuevo') === _solFiltro);
+    const nuevas = _solLeads.filter(l => (l.estado || 'nuevo') === 'nuevo').length;
+    cb.className = 'sol-countbar' + (nuevas > 0 ? '' : ' none');
+    cb.innerHTML = nuevas > 0
+      ? '<i class="fas fa-bell"></i> ' + nuevas + (nuevas === 1 ? ' solicitud nueva sin contactar' : ' solicitudes nuevas sin contactar')
+      : '<i class="fas fa-circle-check"></i> No hay solicitudes nuevas pendientes';
+    list.innerHTML = recs.length ? recs.map(_solCard).join('') : '<div class="sol-empty">No hay solicitudes en esta categoría.</div>';
+  }
+  function solSetFiltro(f) {
+    _solFiltro = f;
+    ['nuevo', 'contactado', 'archivado', 'todos'].forEach(x => { const el = document.getElementById('solChip-' + x); if (el) el.classList.toggle('active', x === f); });
+    solRender();
+  }
+  async function solMarcar(id, estado) {
+    try {
+      await db.collection('leadsVenta').doc(id).update({ estado: estado });
+      const l = _solLeads.find(x => x.id === id); if (l) l.estado = estado;
+      solRender();
+      showToast('Solicitudes', estado === 'contactado' ? 'Marcada como contactada' : estado === 'archivado' ? 'Archivada' : 'Reabierta', 'fa-check');
+    } catch (e) { alert('No se pudo actualizar: ' + (e.message || e)); }
+  }
+
+  // ===== Panel admin: Revisiones (tasaciones / gastos / terrenos en users) =====
+  let _revRecords = [], _revFTipo = 'todas', _revFEstado = 'todas', _revPage = 1;
+  const _REV_PAGE_SIZE = 5;
+  const _REV_TIPOS = {
+    tasacion: { field: 'tasaciones', label: 'Tasación', icon: 'fa-calculator', color: '#c9a227' },
+    gastos: { field: 'calcGastos', label: 'Gastos y comisiones', icon: 'fa-file-invoice-dollar', color: '#2e86de' },
+    terreno: { field: 'calcTerrenos', label: 'Cálculo de terreno', icon: 'fa-mountain-sun', color: '#27ae60' }
+  };
+  const _REV_LBL = {
+    m2: 'm² construidos', construccion: 'Construcción', ubicacion: 'Ubicación', dormitorios: 'Dormitorios', banos: 'Baños', antecedentes: 'Comparables',
+    cliente: 'Cliente', tipoInm: 'Tipo inmueble', direccion: 'Dirección', barrio: 'Barrio', departamento: 'Departamento', padron: 'Padrón',
+    valor: 'Valor estimado', min: 'Mínimo', max: 'Máximo', incertidumbre: 'Incertidumbre',
+    operacion: 'Operación', precio: 'Precio', moneda: 'Moneda', comision: 'Comisión', honorarios: 'Honorarios', iva: 'IVA', total: 'Total',
+    area: 'Superficie', precioM2: 'Precio m²', costo: 'Costo', utilidad: 'Utilidad'
+  };
+  const _REV_MONEY = new Set(['valor', 'min', 'max', 'precio', 'comision', 'honorarios', 'iva', 'total', 'precioM2', 'costo', 'utilidad']);
+  function _revToList(v) { if (Array.isArray(v)) return v; if (v && typeof v === 'object') return Object.values(v); return []; }
+  function _revFecha(iso) { if (!iso) return ''; const d = new Date(iso); if (isNaN(d.getTime())) return iso; return d.toLocaleString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+  function _revMoney(v) { return 'US$ ' + Number(v || 0).toLocaleString('es-UY'); }
+  function _revStars(n) { n = Math.max(0, Math.min(5, Math.round(Number(n) || 0))); let h = '<span class="rev-stars">'; for (let i = 1; i <= 5; i++) h += '<i class="fas fa-star' + (i <= n ? '' : ' off') + '"></i>'; return h + '</span>'; }
+  function _revNum(v) { return (v === '' || v == null) ? '—' : v; }
+  function _revKv(obj) {
+    if (!obj || typeof obj !== 'object') return '';
+    return Object.keys(obj).map(k => {
+      let v = obj[k];
+      if (v === '' || v === null || v === undefined) return '';
+      if (_REV_MONEY.has(k)) v = _revMoney(v);
+      else if (k === 'incertidumbre') v = v + ' %';
+      return '<div class="rev-kv"><span>' + mvEsc(_REV_LBL[k] || k) + '</span><b>' + mvEsc(String(v)) + '</b></div>';
+    }).filter(Boolean).join('');
+  }
+  function _revFeat(ic, val, lbl) { return '<div class="rev-feat"><div class="fic"><i class="fas ' + ic + '"></i></div><div><b>' + val + '</b><small>' + lbl + '</small></div></div>'; }
+  function _revDet(lbl, val) { return '<div class="rev-det"><div class="dl">' + lbl + '</div><div class="dv">' + val + '</div></div>'; }
+  function _revCardTasacion(r) {
+    const d = r.datos || {}, res = r.resultado || {};
+    const metrics = '<div class="rev-metrics">'
+      + '<div class="rev-metric big"><div class="lbl">Valor estimado</div><div class="val">' + _revMoney(res.valor) + '</div></div>'
+      + '<div class="rev-metric"><div class="lbl">Mínimo</div><div class="val">' + _revMoney(res.min) + '</div></div>'
+      + '<div class="rev-metric"><div class="lbl">Máximo</div><div class="val">' + _revMoney(res.max) + '</div></div>'
+      + '<div class="rev-metric unc"><div class="lbl">Incertidumbre</div><div class="val">' + (res.incertidumbre != null ? res.incertidumbre + ' %' : '—') + '</div></div>'
+      + '</div>';
+    const feats = '<div class="rev-feats">'
+      + _revFeat('fa-up-right-and-down-left-from-center', _revNum(d.m2) + ' m²', 'Construidos')
+      + _revFeat('fa-house', _revNum(d.tipoInm), 'Tipo inmueble')
+      + _revFeat('fa-bed', _revNum(d.dormitorios), 'Dormitorios')
+      + _revFeat('fa-bath', _revNum(d.banos), 'Baños')
+      + _revFeat('fa-location-dot', _revNum(d.barrio), 'Barrio')
+      + '</div>';
+    const dets = '<div class="rev-dets">'
+      + _revDet('Cliente', mvEsc(_revNum(d.cliente)))
+      + _revDet('Padrón', mvEsc(_revNum(d.padron)))
+      + _revDet('Ubicación', mvEsc(_revNum(d.direccion)))
+      + _revDet('Departamento', mvEsc(_revNum(d.departamento)))
+      + _revDet('Comparables', mvEsc(_revNum(d.antecedentes)))
+      + _revDet('Construcción', _revStars(d.construccion))
+      + _revDet('Ubicación', _revStars(d.ubicacion))
+      + '</div>';
+    return metrics + feats + dets;
+  }
+  function _revCardGen(r) {
+    const res = r.resultado || {};
+    const keys = Object.keys(res).slice(0, 4);
+    let mh = '<div class="rev-metrics">';
+    keys.forEach((k, i) => {
+      let v = res[k]; if (_REV_MONEY.has(k)) v = _revMoney(v); else if (k === 'incertidumbre') v = v + ' %';
+      mh += '<div class="rev-metric' + (i === 0 ? ' big' : '') + '"><div class="lbl">' + mvEsc(_REV_LBL[k] || k) + '</div><div class="val">' + mvEsc(String(v)) + '</div></div>';
+    });
+    return mh + '</div>';
+  }
+  function _revCard(r) {
+    const t = _REV_TIPOS[r.tipo] || { label: r.tipo, icon: 'fa-file', color: '#888' };
+    const badge = r.revisado ? '<span class="rev-badge ok"><i class="fas fa-circle-check"></i> Revisada</span>' : '<span class="rev-badge pend"><i class="fas fa-clock"></i> Sin revisar</span>';
+    const cuerpo = r.tipo === 'tasacion' ? _revCardTasacion(r) : _revCardGen(r);
+    const pdfUrl = r.pdfUrl ? safeUrl(r.pdfUrl) : '';
+    const verInf = pdfUrl
+      ? '<a class="rev-lnk green" href="' + pdfUrl + '" target="_blank" rel="noopener"><i class="fas fa-file-pdf"></i> Ver informe</a>'
+      : '<span class="rev-lnk green disabled"><i class="fas fa-file-pdf"></i> Sin PDF</span>';
+    const toggleTxt = r.revisado ? '<i class="fas fa-rotate-left"></i> Volver a sin revisar' : '<i class="fas fa-check"></i> Marcar revisada';
+    const markBtn = r.revisado ? '' : '<button class="rev-mark" onclick="revMarcar(\'' + r._uid + '\',\'' + r._field + '\',\'' + mvEsc(r.id) + '\',true)"><i class="fas fa-check"></i> Marcar revisada</button>';
+    return '<div class="rev-card">'
+      + '<div class="rev-h">'
+      + '<span class="rev-tipo" style="background:' + t.color + '1f; color:' + t.color + '"><i class="fas ' + t.icon + '"></i> ' + mvEsc(t.label) + '</span>'
+      + '<span class="rev-who">' + mvEsc(r._agente) + '</span>'
+      + '<span class="rev-when">' + mvEsc(_revFecha(r.fecha)) + '</span>'
+      + badge
+      + '<div class="rev-kwrap">'
+      + '<button class="rev-kebab" onclick="revToggleMenu(event,\'' + mvEsc(r.id) + '\')"><i class="fas fa-ellipsis-vertical"></i></button>'
+      + '<div class="rev-menu" id="revMenu-' + mvEsc(r.id) + '">'
+      + '<button onclick="revMarcar(\'' + r._uid + '\',\'' + r._field + '\',\'' + mvEsc(r.id) + '\',' + (!r.revisado) + ')">' + toggleTxt + '</button>'
+      + '<button class="danger" onclick="revEliminar(\'' + r._uid + '\',\'' + r._field + '\',\'' + mvEsc(r.id) + '\')"><i class="fas fa-trash"></i> Eliminar</button>'
+      + '</div>'
+      + '</div>'
+      + '</div>'
+      + cuerpo
+      + '<div class="rev-more" id="revMore-' + mvEsc(r.id) + '"><div class="rev-kvgrid">'
+      + '<div class="rev-kvg"><h4>Datos</h4>' + (_revKv(r.datos) || '<div class="rev-kv"><span>—</span></div>') + '</div>'
+      + '<div class="rev-kvg"><h4>Resultado</h4>' + (_revKv(r.resultado) || '<div class="rev-kv"><span>—</span></div>') + '</div>'
+      + '</div></div>'
+      + '<div class="rev-f">'
+      + verInf
+      + '<button class="rev-lnk ghost" onclick="revToggleMore(\'' + mvEsc(r.id) + '\',this)"><i class="fas fa-list"></i> Ver detalles <i class="fas fa-chevron-down" style="font-size:.7rem"></i></button>'
+      + markBtn
+      + '<button class="rev-trash" title="Eliminar" onclick="revEliminar(\'' + r._uid + '\',\'' + r._field + '\',\'' + mvEsc(r.id) + '\')"><i class="fas fa-trash"></i></button>'
+      + '</div>'
+      + '</div>';
+  }
+  function revToggleMore(id, btn) {
+    const m = document.getElementById('revMore-' + id); if (!m) return;
+    const open = m.classList.toggle('open');
+    const chev = btn.querySelector('.fa-chevron-down, .fa-chevron-up');
+    if (chev) { chev.classList.toggle('fa-chevron-down', !open); chev.classList.toggle('fa-chevron-up', open); }
+  }
+  function revToggleMenu(ev, id) {
+    ev.stopPropagation();
+    document.querySelectorAll('.rev-menu.open').forEach(m => { if (m.id !== 'revMenu-' + id) m.classList.remove('open'); });
+    const m = document.getElementById('revMenu-' + id); if (m) m.classList.toggle('open');
+  }
+  document.addEventListener('click', () => document.querySelectorAll('.rev-menu.open').forEach(m => m.classList.remove('open')));
+  function revRender() {
+    const b = document.getElementById('revBanner'), list = document.getElementById('revList'), pager = document.getElementById('revPager');
+    if (!b || !list || !pager) return;
+    const recs = _revRecords.filter(r =>
+      (_revFTipo === 'todas' || r.tipo === _revFTipo) &&
+      (_revFEstado === 'todas' || (_revFEstado === 'pend' ? !r.revisado : r.revisado))
+    );
+    const pend = _revRecords.filter(r => !r.revisado).length;
+    if (pend > 0) {
+      b.innerHTML = '<div class="rev-banner alert"><div class="bic"><i class="fas fa-bell"></i></div><div><h3>' + pend + ' ' + (pend === 1 ? 'tasación sin revisar' : 'tasaciones sin revisar') + '</h3><p>Revisá los informes pendientes para que los agentes puedan descargarlos.</p></div><i class="fas fa-clipboard-list bart"></i></div>';
+    } else {
+      b.innerHTML = '<div class="rev-banner ok"><div class="bic"><i class="fas fa-check"></i></div><div><h3>No hay nada pendiente de revisar</h3><p>Todas las revisiones están al día.</p></div><i class="fas fa-clipboard-check bart"></i></div>';
+    }
+    if (!recs.length) {
+      list.innerHTML = '<div class="rev-empty"><i class="fas fa-inbox"></i>No hay registros para mostrar con este filtro.</div>';
+      pager.innerHTML = ''; return;
+    }
+    const totalPages = Math.ceil(recs.length / _REV_PAGE_SIZE);
+    if (_revPage > totalPages) _revPage = totalPages;
+    if (_revPage < 1) _revPage = 1;
+    const start = (_revPage - 1) * _REV_PAGE_SIZE;
+    list.innerHTML = recs.slice(start, start + _REV_PAGE_SIZE).map(_revCard).join('');
+    pager.innerHTML = _revPagerHTML(totalPages);
+  }
+  function _revPagerHTML(total) {
+    if (total <= 1) return '';
+    let h = '<button class="rev-pg" onclick="revGoPage(' + (_revPage - 1) + ')" ' + (_revPage === 1 ? 'disabled' : '') + '><i class="fas fa-chevron-left"></i></button>';
+    const win = [];
+    win.push(1);
+    if (_revPage > 3) win.push('...');
+    for (let n = Math.max(2, _revPage - 1); n <= Math.min(total - 1, _revPage + 1); n++) win.push(n);
+    if (_revPage < total - 2) win.push('...');
+    if (total > 1) win.push(total);
+    const seen = new Set();
+    win.forEach(n => {
+      if (n === '...') { h += '<span class="rev-pg dots">…</span>'; return; }
+      if (seen.has(n)) return; seen.add(n);
+      h += '<button class="rev-pg' + (n === _revPage ? ' active' : '') + '" onclick="revGoPage(' + n + ')">' + n + '</button>';
+    });
+    h += '<button class="rev-pg" onclick="revGoPage(' + (_revPage + 1) + ')" ' + (_revPage === total ? 'disabled' : '') + '><i class="fas fa-chevron-right"></i></button>';
+    return h;
+  }
+  function revGoPage(n) { _revPage = n; revRender(); const p = document.getElementById('adminPanel'); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  function revSetFiltro(cual, val) { if (cual === 'tipo') _revFTipo = val; else _revFEstado = val; _revPage = 1; revRender(); }
+  async function revMarcar(uid, field, id, valor) {
+    try {
+      const ref = db.collection('users').doc(uid);
+      const d = await ref.get();
+      const cur = d.exists ? d.data()[field] : null;
+      let nuevo;
+      if (Array.isArray(cur)) {
+        nuevo = cur.map(x => (x && x.id === id) ? Object.assign({}, x, { revisado: valor }) : x);
+      } else if (cur && typeof cur === 'object') {
+        nuevo = Object.assign({}, cur);
+        Object.keys(nuevo).forEach(k => { if (nuevo[k] && (nuevo[k].id === id || k === id)) nuevo[k] = Object.assign({}, nuevo[k], { revisado: valor }); });
+      } else { return; }
+      await ref.update({ [field]: nuevo });
+      _revRecords.forEach(r => { if (r._uid === uid && r._field === field && r.id === id) { r.revisado = valor; } });
+      revRender();
+      showToast('Revisiones', valor ? 'Marcada como revisada · el agente ya puede descargarla' : 'Vuelta a sin revisar', 'fa-check');
+    } catch (e) { alert('No se pudo actualizar: ' + (e.message || e)); }
+  }
+  async function revEliminar(uid, field, id) {
+    if (!confirm('¿Eliminar este registro? Se borra también su PDF y el agente no podrá descargarlo.')) return;
+    try {
+      const ref = db.collection('users').doc(uid);
+      const d = await ref.get();
+      const cur = d.exists ? d.data()[field] : null;
+      let nuevo;
+      if (Array.isArray(cur)) {
+        nuevo = cur.filter(x => !(x && x.id === id));
+      } else if (cur && typeof cur === 'object') {
+        nuevo = Object.assign({}, cur);
+        Object.keys(nuevo).forEach(k => { if (nuevo[k] && (nuevo[k].id === id || k === id)) delete nuevo[k]; });
+      } else { return; }
+      await ref.update({ [field]: nuevo });
+      try { await firebase.storage().ref('tasacionesPDF/' + id + '.pdf').delete(); } catch (e) { }
+      _revRecords = _revRecords.filter(r => !(r._uid === uid && r._field === field && r.id === id));
+      revRender();
+      showToast('Revisiones', 'Registro eliminado', 'fa-trash');
+    } catch (e) { alert('No se pudo eliminar: ' + (e.message || e)); }
+  }
+  async function revLimpiarRevisadas() {
+    const revs = _revRecords.filter(r => r.revisado);
+    if (!revs.length) { showToast('Revisiones', 'No hay revisiones revisadas para limpiar', 'fa-circle-info'); return; }
+    if (!confirm('Esto elimina las ' + revs.length + ' revisión(es) ya revisadas y sus PDF de forma permanente. Asegurate de que los agentes ya las hayan descargado. ¿Continuar?')) return;
+    try {
+      const porDoc = {};
+      revs.forEach(r => { const key = r._uid + '|' + r._field; (porDoc[key] = porDoc[key] || []).push(r.id); });
+      for (const key of Object.keys(porDoc)) {
+        const parts = key.split('|'); const uid = parts[0], field = parts[1];
+        const ids = new Set(porDoc[key]);
+        const ref = db.collection('users').doc(uid);
+        const d = await ref.get();
+        const cur = d.exists ? d.data()[field] : null;
+        let nuevo;
+        if (Array.isArray(cur)) nuevo = cur.filter(x => !(x && ids.has(x.id)));
+        else if (cur && typeof cur === 'object') { nuevo = Object.assign({}, cur); Object.keys(nuevo).forEach(k => { if (nuevo[k] && (ids.has(nuevo[k].id) || ids.has(k))) delete nuevo[k]; }); }
+        else continue;
+        await ref.update({ [field]: nuevo });
+        for (const id of ids) { try { await firebase.storage().ref('tasacionesPDF/' + id + '.pdf').delete(); } catch (e) { } }
+      }
+      _revRecords = _revRecords.filter(r => !r.revisado);
+      _revPage = 1; revRender();
+      showToast('Revisiones', 'Revisiones revisadas eliminadas', 'fa-check');
+    } catch (e) { alert('No se pudo limpiar: ' + (e.message || e)); }
+  }
+  function showAdminAt(tb) {
+    if (!currentUser || userProfile?.email?.toLowerCase() !== ADMIN_EMAIL) return;
+    document.getElementById('mainContent').classList.add('hidden');
+    document.getElementById('profilePage').classList.add('hidden');
+    document.getElementById('crmPage').classList.add('hidden');
+    document.getElementById('clientProfilePage')?.classList.add('hidden');
+    document.getElementById('adminPanel').classList.remove('hidden');
+    showAdminTab(tb);
+  }
+
+  function openComisionAgente(agentId) {
+    if (!isAdminUser()) { showToast('Solo administradores', 'Solo el administrador gestiona comisiones.', 'fa-lock'); return; }
     const agente = allUsers[agentId] || {};
     const posibles = Object.keys(allUsers)
       .filter(uid => uid !== agentId)
       .map(uid => Object.assign({ _uid: uid }, allUsers[uid]))
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    let modal = document.getElementById('referidoModal');
+    let modal = document.getElementById('comisionModal');
     if (!modal) {
       modal = document.createElement('div');
-      modal.id = 'referidoModal';
-      modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(16,39,63,.55);padding:20px';
+      modal.id = 'comisionModal';
+      modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(16,39,63,.55);padding:20px;overflow:auto';
       modal.innerHTML =
-        '<div style="background:#fff;border-radius:16px;max-width:460px;width:100%;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.25)">' +
-          '<h3 style="font-family:\'Cormorant Garamond\',serif;font-size:1.5rem;color:#16273f;margin-bottom:4px"><i class="fas fa-user-friends" style="color:#C9A227;margin-right:8px"></i>Referente del agente</h3>' +
-          '<p id="refModalWho" style="font-size:.85rem;color:#64748b;margin-bottom:16px"></p>' +
-          '<label style="font-size:.8rem;font-weight:600;color:#16273f;display:block;margin-bottom:6px">¿Quién lo refirió?</label>' +
-          '<select id="refReferrer" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit;font-size:.95rem;background:#fff"></select>' +
-          '<div style="display:flex;gap:12px;margin-top:12px">' +
-            '<div style="flex:1"><label style="font-size:.8rem;font-weight:600;color:#16273f;display:block;margin-bottom:6px">% por venta</label><input id="refPctSale" type="number" min="0" max="100" step="0.1" placeholder="0" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit;font-size:.95rem"></div>' +
-            '<div style="flex:1"><label style="font-size:.8rem;font-weight:600;color:#16273f;display:block;margin-bottom:6px">% por alquiler</label><input id="refPctRent" type="number" min="0" max="100" step="0.1" placeholder="0" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit;font-size:.95rem"></div>' +
+        '<div style="background:#fff;border-radius:16px;max-width:480px;width:100%;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.25);max-height:90vh;overflow:auto">' +
+          '<h3 style="font-family:\'Cormorant Garamond\',serif;font-size:1.5rem;color:#16273f;margin-bottom:4px"><i class="fas fa-percent" style="color:#C9A227;margin-right:8px"></i>Comisión del agente</h3>' +
+          '<p id="comWho" style="font-size:.85rem;color:#64748b;margin-bottom:18px"></p>' +
+          '<div style="font-weight:600;color:#16273f;margin-bottom:8px;font-size:.9rem">Comisión del agente <span style="font-weight:400;color:#94a3b8">(% de la comisión de la inmobiliaria)</span></div>' +
+          '<div style="display:flex;gap:12px">' +
+            '<div style="flex:1"><label style="font-size:.75rem;color:#64748b;display:block;margin-bottom:5px">Venta %</label><input id="comSale" type="number" min="0" max="100" step="0.1" placeholder="0" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit"></div>' +
+            '<div style="flex:1"><label style="font-size:.75rem;color:#64748b;display:block;margin-bottom:5px">Alquiler %</label><input id="comRent" type="number" min="0" max="100" step="0.1" placeholder="0" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit"></div>' +
           '</div>' +
-          '<p style="font-size:.75rem;color:#94a3b8;margin-top:8px">Se calcula sobre el precio de cierre de las operaciones confirmadas del referido.</p>' +
+          '<hr style="border:none;border-top:1px solid #eef2f7;margin:20px 0">' +
+          '<div style="font-weight:600;color:#16273f;margin-bottom:8px;font-size:.9rem">Referente <span style="font-weight:400;color:#94a3b8">(quién lo refirió y qué gana de su comisión)</span></div>' +
+          '<label style="font-size:.75rem;color:#64748b;display:block;margin-bottom:5px">¿Quién lo refirió?</label>' +
+          '<select id="comReferrer" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit;background:#fff"></select>' +
+          '<div style="display:flex;gap:12px;margin-top:12px">' +
+            '<div style="flex:1"><label style="font-size:.75rem;color:#64748b;display:block;margin-bottom:5px">Gana % (venta)</label><input id="comRefSale" type="number" min="0" max="100" step="0.1" placeholder="0" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit"></div>' +
+            '<div style="flex:1"><label style="font-size:.75rem;color:#64748b;display:block;margin-bottom:5px">Gana % (alquiler)</label><input id="comRefRent" type="number" min="0" max="100" step="0.1" placeholder="0" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit"></div>' +
+          '</div>' +
+          '<p style="font-size:.72rem;color:#94a3b8;margin-top:8px">El referente gana ese % de la comisión que le queda al agente en cada operación confirmada.</p>' +
           '<div style="display:flex;gap:10px;justify-content:space-between;margin-top:22px">' +
-            '<button id="refRemove" style="padding:10px 16px;border-radius:9px;border:1px solid #fecaca;background:#fff;color:#b91c1c;font-family:inherit;font-weight:600;cursor:pointer">Quitar</button>' +
-            '<div style="display:flex;gap:10px"><button id="refCancel" style="padding:10px 18px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-family:inherit;font-weight:600;cursor:pointer">Cancelar</button>' +
-            '<button id="refSave" style="padding:10px 18px;border-radius:9px;border:none;background:#16273f;color:#fff;font-family:inherit;font-weight:600;cursor:pointer">Guardar</button></div>' +
+            '<button id="comRemoveRef" style="padding:10px 14px;border-radius:9px;border:1px solid #fecaca;background:#fff;color:#b91c1c;font-family:inherit;font-weight:600;cursor:pointer">Quitar referente</button>' +
+            '<div style="display:flex;gap:10px"><button id="comCancel" style="padding:10px 18px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-family:inherit;font-weight:600;cursor:pointer">Cancelar</button>' +
+            '<button id="comSave" style="padding:10px 18px;border-radius:9px;border:none;background:#16273f;color:#fff;font-family:inherit;font-weight:600;cursor:pointer">Guardar</button></div>' +
           '</div>' +
         '</div>';
       document.body.appendChild(modal);
-      modal.querySelector('#refCancel').addEventListener('click', () => { modal.style.display = 'none'; });
+      modal.querySelector('#comCancel').addEventListener('click', () => { modal.style.display = 'none'; });
+      modal.querySelector('#comRemoveRef').addEventListener('click', () => {
+        modal.querySelector('#comReferrer').value = '';
+        modal.querySelector('#comRefSale').value = '';
+        modal.querySelector('#comRefRent').value = '';
+      });
       modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
     }
-    const sel = modal.querySelector('#refReferrer');
+    const sel = modal.querySelector('#comReferrer');
     sel.innerHTML = '<option value="">— Sin referente —</option>' + posibles.map(u => `<option value="${u._uid}">${mvEsc(u.name || u.email || 'Agente')}</option>`).join('');
-    modal.querySelector('#refModalWho').innerHTML = 'Agente: <b>' + mvEsc(agente.name || agente.email || 'Agente') + '</b>';
-    modal.querySelector('#refPctSale').value = '';
-    modal.querySelector('#refPctRent').value = '';
-    sel.value = '';
+    modal.querySelector('#comWho').innerHTML = 'Agente: <b>' + mvEsc(agente.name || agente.email || 'Agente') + '</b>';
+    modal.querySelector('#comSale').value = (agente.commissionSale != null) ? agente.commissionSale : '';
+    modal.querySelector('#comRent').value = (agente.commissionRent != null) ? agente.commissionRent : '';
+    sel.value = ''; modal.querySelector('#comRefSale').value = ''; modal.querySelector('#comRefRent').value = '';
     db.collection('referidos').doc(agentId).get().then(d => {
       const r = d.exists ? d.data() : {};
       sel.value = r.referrerUid || '';
-      modal.querySelector('#refPctSale').value = (r.pctSale != null) ? r.pctSale : '';
-      modal.querySelector('#refPctRent').value = (r.pctRent != null) ? r.pctRent : '';
+      modal.querySelector('#comRefSale').value = (r.pctSale != null) ? r.pctSale : '';
+      modal.querySelector('#comRefRent').value = (r.pctRent != null) ? r.pctRent : '';
     }).catch(() => {});
-    modal.querySelector('#refSave').onclick = async function () {
+    modal.querySelector('#comSave').onclick = async function () {
       const referrerUid = sel.value;
-      const pctSale = parseFloat(modal.querySelector('#refPctSale').value) || 0;
-      const pctRent = parseFloat(modal.querySelector('#refPctRent').value) || 0;
-      if (!referrerUid) { showToast('Falta el referente', 'Elegí quién lo refirió (o usá Quitar).', 'fa-user-friends'); return; }
       if (referrerUid === agentId) { showToast('No válido', 'Un agente no puede referirse a sí mismo.', 'fa-triangle-exclamation'); return; }
+      const commissionSale = parseFloat(modal.querySelector('#comSale').value) || 0;
+      const commissionRent = parseFloat(modal.querySelector('#comRent').value) || 0;
+      const pctSale = parseFloat(modal.querySelector('#comRefSale').value) || 0;
+      const pctRent = parseFloat(modal.querySelector('#comRefRent').value) || 0;
       const btn = this; btn.disabled = true; btn.textContent = 'Guardando...';
       try {
-        await db.collection('referidos').doc(agentId).set({
-          referredUid: agentId, referrerUid: referrerUid,
-          pctSale: pctSale, pctRent: pctRent, updatedAt: new Date().toISOString()
-        });
+        await db.collection('users').doc(agentId).update({ commissionSale, commissionRent });
+        if (allUsers[agentId]) { allUsers[agentId].commissionSale = commissionSale; allUsers[agentId].commissionRent = commissionRent; }
+        if (referrerUid) {
+          await db.collection('referidos').doc(agentId).set({ referredUid: agentId, referrerUid, pctSale, pctRent, updatedAt: new Date().toISOString() });
+        } else {
+          await db.collection('referidos').doc(agentId).delete().catch(() => {});
+        }
         modal.style.display = 'none';
-        showAdminTab('referidos');
-        showToast('Referente guardado', 'Quedó registrado el referente y los porcentajes.', 'fa-check');
+        showAdminTab('comisiones');
+        showToast('Guardado', 'Comisión y referente actualizados.', 'fa-check');
       } catch (e) {
         showToast('Error', 'No se pudo guardar: ' + (e.message || e), 'fa-triangle-exclamation');
       } finally { btn.disabled = false; btn.textContent = 'Guardar'; }
-    };
-    modal.querySelector('#refRemove').onclick = async function () {
-      const btn = this; btn.disabled = true;
-      try {
-        await db.collection('referidos').doc(agentId).delete();
-        modal.style.display = 'none';
-        showAdminTab('referidos');
-        showToast('Referente quitado', 'El agente quedó sin referente.', 'fa-user-slash');
-      } catch (e) {
-        showToast('Error', 'No se pudo quitar: ' + (e.message || e), 'fa-triangle-exclamation');
-      } finally { btn.disabled = false; }
     };
     modal.style.display = 'flex';
   }
