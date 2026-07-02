@@ -1775,3 +1775,138 @@ exports.bajaML = onCall(async (request) => {
   await registrarLog(propertyId, "baja manual", false, resumirErrorML(detail));
   throw new HttpsError("internal", typeof detail === "string" ? detail : ((detail && detail.message) || "No se pudo dar de baja."));
 });
+
+// ============================================================
+// FEED XML PARA INFOCASAS
+// InfoCasas lee esta URL periódicamente y sincroniza los avisos
+// (alta, edición y baja automáticas). Se incluyen todas las
+// propiedades activas con geolocalización, precio y fotos.
+// URL: https://us-central1-mi-cartera-inmobiliaria.cloudfunctions.net/feedInfocasas
+// ============================================================
+
+const IC_DEPTOS = { artigas: 1, canelones: 2, "cerro largo": 3, colonia: 4, durazno: 5, flores: 6, florida: 7, lavalleja: 8, maldonado: 9, montevideo: 10, paysandu: 11, "rio negro": 12, rivera: 13, rocha: 14, salto: 15, "san jose": 16, soriano: 17, tacuarembo: 18, "treinta y tres": 19 };
+
+// Zona por defecto de cada departamento (ciudad principal) cuando el barrio no matchea.
+const IC_ZONA_DEFAULT = { 1: 188, 2: 140, 3: 201, 4: 213, 5: 238, 6: 242, 7: 246, 8: 257, 9: 84, 10: 21, 11: 263, 12: 271, 13: 287, 14: 303, 15: 309, 16: 318, 17: 328, 18: 337, 19: 340 };
+
+// Zonas de InfoCasas (Anexo 3 del doc), claves normalizadas (minúsculas, sin acentos).
+const IC_ZONAS = {
+  10: { "buceo": 1, "parque batlle": 2, "parque rodo": 3, "pocitos": 4, "pocitos nuevo": 5, "puerto buceo": 6, "punta carretas": 7, "villa biarritz": 8, "villa dolores": 9, "banados de carrasco": 10, "barra de carrasco": 11, "barrios privados": 12, "carrasco": 13, "carrasco este": 14, "carrasco norte": 15, "malvin": 16, "parque miramar": 17, "punta gorda": 18, "aguada": 19, "barrio sur": 20, "centro": 21, "ciudad vieja": 22, "cordon": 23, "la comercial": 24, "palermo": 25, "puerto": 26, "tres cruces": 27, "villa munoz": 28, "aires puros": 29, "arroyo seco": 30, "atahualpa": 31, "bella vista": 32, "brazo oriental": 33, "capurro": 34, "capurro bella vista": 35, "cerrito": 36, "cerrito de la victoria": 36, "goes": 37, "jacinto vera": 38, "paso molino": 39, "prado": 40, "prado nueva savona": 41, "reducto": 42, "perez castellanos": 43, "la figurita": 44, "bella italia": 45, "bolivar": 46, "flor de maronas": 47, "ituzaingo": 48, "jardines del hipodromo": 49, "la blanqueada": 50, "larranaga": 51, "las canteras": 52, "malvin norte": 53, "manga": 54, "maronas": 55, "mercado modelo": 56, "piedras blancas": 57, "punta rieles": 58, "union": 59, "villa espanola": 60, "villa garcia manga rural": 61, "villa garcia": 61, "casavalle": 62, "colon": 63, "conciliacion": 64, "las acacias": 65, "lezica": 66, "melilla": 67, "penarol": 68, "penarol lavalleja": 69, "sayago": 70, "marconi": 71, "belvedere": 72, "casabo": 73, "casabo pajas blancas": 74, "cerro": 75, "la teja": 76, "nuevo paris": 77, "paso de la arena": 78, "tres ombues pblo victoria": 79, "tres ombues": 79, "la paloma tomkinson": 80, "pajas blancas": 81, "golf": 343, "la caleta": 347, "barrio san nicolas": 4753, "barrio parques": 4754, "los olivos": 4755, "zen pueblo jardin": 4756, "jardines de carrasco": 4757 },
+  2: { "atlantida": 136, "balneario argentino": 137, "barra de carrasco": 138, "paso carrasco": 138, "bello horizonte": 139, "canelones": 140, "ciudad de la costa": 141, "colinas de solymar": 142, "costa azul": 143, "cuchilla alta": 144, "el bosque": 145, "el pinar": 146, "empalme olmos": 147, "fortin de santa rosa": 148, "guazu vira": 149, "guazuvira": 149, "jaureguiberry": 150, "la floresta": 151, "la paz": 152, "la tuna": 153, "lagomar": 154, "las piedras": 155, "las toscas": 156, "lomas de solymar": 157, "los cerrillos": 158, "los titanes": 159, "marindia": 160, "medanos de solymar": 161, "migues": 162, "montes de solymar": 163, "neptunia": 164, "pando": 165, "parque de solymar": 166, "parque del plata": 167, "pinamar": 168, "pinares de solymar": 169, "progreso": 170, "salinas": 171, "san antonio": 172, "san cristobal": 173, "san jacinto": 174, "san luis": 175, "san ramon": 176, "santa ana": 177, "santa lucia": 178, "santa lucia del este": 179, "santa rosa": 180, "sauce": 181, "shangrila": 182, "solymar": 183, "tala": 184, "toledo": 185, "villa argentina": 186, "barrios privados": 187, "la tahona": 4736, "lomas de la tahona": 4737, "altos de la tahona": 4738, "vinedos de la tahona": 4739, "mirador de la tahona": 4740, "huertas de los horneros": 4741, "pilar de los horneros": 4742, "camino de los horneros": 4743, "la juana": 4744, "carlotta": 4745, "cumbres de carrasco": 4746, "colinas de carrasco": 4747, "las higueritas": 4748, "lomas de carrasco": 4749, "carmel": 4750, "haras del lago": 4751, "la asuncion": 4752, "san jose de carrasco": 345, "colonia nicolich": 355 },
+  9: { "aigua": 82, "gregorio aznares": 83, "gregorio aznarez": 83, "maldonado": 84, "pan de azucar": 85, "piriapolis": 86, "beaulieu": 87, "bella vista": 88, "cerro del toro": 90, "cerro san antonio": 91, "fuente venus": 92, "las flores": 93, "los angeles": 94, "playa grande": 95, "playa hermosa": 96, "playa verde": 97, "proa al mar": 99, "proa del mar": 99, "punta colorada": 101, "punta fria": 102, "punta negra": 103, "rinconada": 104, "san francisco": 105, "solis": 106, "portezuelo": 107, "punta ballena": 129, "lagunas del diario": 119, "laguna del diario": 2242, "laguna del sauce": 2243, "solanas": 344, "chihuahua": 2238, "ocean park": 2245, "sauce de portezuelo": 2251, "las cumbres": 2244, "el pejerrey": 2240, "la barra": 117, "la pastora": 118, "lugano": 121, "manantiales": 122, "montoya": 123, "punta piedras": 130, "balneario buenos aires": 2168, "punta del este": 124, "peninsula": 124, "pinares": 125, "playa brava": 126, "playa mansa": 127, "puerto": 128, "punta shopping": 131, "rincon del indio": 132, "roosevelt": 133, "san rafael": 134, "cantegril": 113, "golf": 115, "las delicias": 120, "beverly hills": 112, "arcobaleno": 110, "barrio cordoba": 111, "san carlos": 135, "jose ignacio": 2186, "arenas de jose ignacio": 2186, "la juanita": 2191, "laguna garzon": 2193, "pueblo garzon": 2195, "garzon": 2195, "san vicente": 2197, "santa monica": 2199 },
+  14: { "aguas dulces": 290, "barra de valizas": 291, "valizas": 650, "cabo polonio": 2181, "castillos": 294, "chuy": 295, "barra del chuy": 2176, "dieciocho de julio": 296, "18 de julio": 296, "rocha": 303, "lascano": 656, "la coronilla": 655, "la esmeralda": 653, "el palmar": 297, "vuelta del palmar": 297, "punta del diablo": 302, "la paloma": 2206, "costa azul": 646, "la aguada": 647, "arachania": 645, "antoniopolis": 644, "santa maria de rocha": 651, "la pedrera": 2219, "punta rubia": 649, "san antonio": 2224, "oceania del polonio": 648 },
+  1: { "artigas": 188, "baltasar brum": 189, "bella union": 190, "bernabe rivera": 191, "cuaro": 192, "javier de viana": 193, "pintadito": 194, "tomas gomensoro": 195, "topador": 196 },
+  3: { "acegua": 197, "cerro de las cuentas": 198, "fraile muerto": 199, "isidoro noblia": 200, "melo": 201, "rio branco": 202, "tres islas": 203 },
+  4: { "arrivillaga": 204, "artilleros": 205, "barker": 206, "blanca arena": 207, "boca del rosario": 208, "brisas del plata": 209, "carmelo": 210, "cerros de san juan": 211, "colonia cosmopolita": 212, "colonia del sacramento": 213, "colonia miguelete": 214, "colonia valdense": 215, "conchillas": 216, "cufre": 217, "el semillero": 218, "el solado": 219, "estanzuela": 220, "juan lacaze": 221, "la paz": 222, "los pinos": 223, "nueva helvecia": 224, "nueva palmira": 225, "ombues de lavalle": 226, "paraje minuano": 227, "paso minuano": 228, "paso antolin": 229, "pastoreo": 230, "playa azul": 231, "playa britopolis": 232, "playa parant": 233, "puerto ingles": 234, "rosario": 235, "santa regina": 236, "tarariras": 237 },
+  5: { "durazno": 238, "san jorge": 239, "santa bernardita": 240 },
+  6: { "san gregorio carrio": 241, "trinidad": 242 },
+  7: { "25 de agosto": 243, "veinticinco de agosto": 243, "cardal": 244, "cerro colorado": 245, "florida": 246, "fray marcos": 247, "independencia": 248, "la cruz": 249, "pintado": 250, "sarandi grande": 251 },
+  8: { "colon": 252, "illescas": 253, "jose pedro varela": 254, "la mariscala": 255, "maria albina": 256, "minas": 257, "piraraja": 258, "solis de mataojo": 259, "zapican": 260, "villa del cerro": 346, "villa serrana": 257 },
+  11: { "chapicuy": 261, "guaviyu": 262, "paysandu": 263, "piedra sola": 264, "quebracho": 265 },
+  12: { "algorta": 266, "andresito": 267, "barrio anglo": 268, "cardozo": 269, "carlos reyles": 270, "fray bentos": 271, "general borges": 272, "grecco": 273, "las canas": 274, "nuevo berlin": 275, "pueblo orgoroso": 276, "rincon del bonete": 277, "san javier": 278, "villa maria": 279, "young": 280 },
+  13: { "la pedrera": 281, "lagunon": 282, "mandubi": 283, "masoller": 284, "minas de corrales": 285, "paso campamento": 286, "rivera": 287, "santa teresa": 288, "tranqueras": 289 },
+  15: { "arenitas blancas": 304, "belen": 306, "colonia 18 de julio": 307, "constitucion": 308, "salto": 309, "termas del arapey": 310, "termas del dayman": 311 },
+  16: { "boca del cufre": 312, "delta del tigre": 313, "ecilda paullier": 314, "ituzaingo": 315, "libertad": 316, "playa pascual": 317, "san jose": 318, "san jose de mayo": 319, "scavino": 320, "villa rodriguez": 321, "ciudad del plata": 313 },
+  17: { "canada nieto": 322, "cardona": 323, "dolores": 324, "egana": 325, "florencio sanchez": 326, "jose enrique rodo": 327, "mercedes": 328, "palmitas": 329, "risso": 330, "santa catalina": 331 },
+  18: { "clara": 332, "paso bonilla": 333, "paso de los toros": 334, "paso del cerro": 335, "san gregorio de polanco": 336, "tacuarembo": 337, "villa ansina": 338 },
+  19: { "isla patrulla": 339, "treinta y tres": 340, "tupambae": 341, "vergara": 342 }
+};
+
+// realEstateType de la app -> tipoPropiedad de InfoCasas
+const IC_TIPO_PROP = { casa: 1, apartamento: 2, apto: 2, terreno: 3, local: 4, oficina: 5, campo: 6, chacra: 6, garaje: 8, cochera: 8, edificio: 10, hotel: 11, galpon: 12 };
+
+function icNorm(s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim(); }
+function icEsc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;"); }
+function icTag(t, v) { return (v === undefined || v === null || v === "") ? "" : `<${t}>${icEsc(v)}</${t}>`; }
+function icZona(depId, ciudad, barrio) {
+  const z = IC_ZONAS[depId] || {};
+  const b = icNorm(barrio), c = icNorm(ciudad);
+  if (b && z[b] != null) return z[b];
+  if (c && z[c] != null) return z[c];
+  return IC_ZONA_DEFAULT[depId] || null;
+}
+
+exports.feedInfocasas = onRequest(async (req, res) => {
+  try {
+    const [propsSnap, usersSnap, cfgSnap] = await Promise.all([
+      db.collection("properties").get(),
+      db.collection("users").get(),
+      db.collection("config").doc("recompensas").get(),
+    ]);
+    const dolar = Number((cfgSnap.exists && cfgSnap.data().dolarPesos) || 40) || 40;
+    const users = {}; usersSnap.docs.forEach((d) => { users[d.id] = d.data(); });
+
+    let out = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<xml>\n";
+    let n = 0, skip = 0;
+    propsSnap.docs.forEach((doc) => {
+      const p = doc.data();
+      // Mismas condiciones de "activa" que usa la web pública + no cerrada.
+      const activa = (!p.status || p.status === "available" || p.status === "reserved") && p.cierreConfirmado !== true;
+      if (!activa) return;
+      const u = p.ubicacion || {};
+      const lat = u.lat, lng = u.lng;
+      const price = Number(p.price) || 0;
+      const imgs = (p.images || []).filter(Boolean).slice(0, 15);
+      // InfoCasas no sincroniza sin geolocalización, sin precio o sin fotos.
+      if (lat == null || lng == null || !(price > 0) || !imgs.length) { skip++; return; }
+      const depId = IC_DEPTOS[icNorm(p.departamento || u.departamento)];
+      if (!depId) { skip++; return; }
+      const zona = icZona(depId, p.ciudad || u.ciudad, u.barrio);
+      const tipoProp = IC_TIPO_PROP[icNorm(p.realEstateType)] || 13;
+      const esVenta = p.type === "sale";
+
+      let x = "<propiedad>";
+      x += icTag("id", doc.id);
+      x += icTag("tipoPropiedad", tipoProp);
+      x += icTag("tipoOperacion", esVenta ? 1 : 2);
+      x += icTag("departamento", depId);
+      x += icTag("zona", zona);
+      if (tipoProp === 1 || tipoProp === 2) {
+        const b = Number(p.bedrooms);
+        if (!isNaN(b)) x += icTag("idDormitorios", b <= 0 ? 1 : b === 1 ? 2 : b === 2 ? 3 : b === 3 ? 4 : b === 4 ? 5 : 6);
+      }
+      const ba = Number(p.bathrooms) || 0;
+      if (ba > 0) x += icTag("idBanios", ba >= 3 ? 3 : ba);
+      const ta = Number(p.totalArea) || 0, ca = Number(p.builtArea) || 0;
+      if (ta > 0) x += icTag("m2", ta);
+      if (ca > 0) x += icTag("m2edificados", ca);
+      if ((tipoProp === 3 || tipoProp === 6) && ta > 0) x += icTag("m2terreno", ta);
+      if (tipoProp === 6 && ta >= 10000) x += icTag("hectareas", Math.round((ta / 10000) * 100) / 100);
+      const cocheras = Number((p.ficha && p.ficha.PARKING_LOTS) || 0) || (p.garage === "yes" ? 1 : 0);
+      if (cocheras > 0) x += icTag("garage", cocheras);
+      const gc = Number(p.commonExpenses) || 0;
+      if (gc > 0) { x += icTag("IDmonedagc", 2); x += icTag("gc", gc); }
+      if (esVenta) {
+        // InfoCasas solo acepta venta en USD: si el aviso está en pesos se convierte
+        // con la cotización configurada en config/recompensas (dolarPesos).
+        x += icTag("precioVenta", p.currency === "UYU" ? Math.round(price / dolar) : Math.round(price));
+      } else {
+        x += icTag("monedaAlquiler", p.currency === "UYU" ? 2 : 1);
+        x += icTag("precioAlquiler", Math.round(price));
+      }
+      x += icTag("titulo", p.title || "");
+      x += icTag("descripcion", p.description || "");
+      x += icTag("latitud", lat);
+      x += icTag("longitud", lng);
+      if (u.direccionVisible) { x += icTag("direccion", u.direccionVisible); x += icTag("mostrarDireccion", 0); }
+      const v = String(p.videoUrl || "");
+      if (/youtu\.?be/i.test(v)) x += icTag("youtube", v);
+      x += "<imagenes>" + imgs.map((im) => "<url>" + icEsc(im) + "</url>").join("") + "</imagenes>";
+      const ag = users[p.ownerId] || {};
+      const tel = p.ownerWhatsapp || ag.whatsapp || "";
+      if (ag.email || ag.name || tel) {
+        x += "<vendedor>" + icTag("email", ag.email || "") + icTag("nombre", ag.name || "") + icTag("telefono", tel) + "</vendedor>";
+      }
+      x += "</propiedad>";
+      out += x + "\n"; n++;
+    });
+    out += "</xml>";
+    logger.info(`[feedInfocasas] ${n} propiedades en el feed, ${skip} excluidas (cerradas o sin geo/precio/fotos).`);
+    res.set("Content-Type", "application/xml; charset=utf-8");
+    res.set("Cache-Control", "public, max-age=300");
+    res.status(200).send(out);
+  } catch (e) {
+    logger.error("[feedInfocasas]", e);
+    res.status(500).send("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><xml></xml>");
+  }
+});

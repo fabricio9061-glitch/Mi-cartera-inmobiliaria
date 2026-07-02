@@ -149,6 +149,7 @@
     let curUser=null, curProfile={}, isAdmin=false;
     let cfg = { puntosPor100:1, valorPunto:0.05, dolarPesos:40 };
     let cierresConf=[];   // {agenteUid, agenteNombre, precio, moneda}
+    let agentesCom={};    // uid -> {sale, rent} (% de comisión del agente)
     let catalogo=[];      // recompensas
     let canjes=[];        // mis canjes (o todos si admin)
     let tab='catalogo';
@@ -156,7 +157,22 @@
 
     // ---------- Puntos ----------
     function montoUSD(c){ const p = Number(c.precio)||0; return (c.moneda==='UYU') ? (cfg.dolarPesos>0 ? p/cfg.dolarPesos : 0) : p; }
-    function puntosCierre(c){ return Math.floor(montoUSD(c)/100) * (Number(cfg.puntosPor100)||1); }
+    // Comisión de la inmobiliaria de la operación (en US$). Usa lo negociado en el cierre; si no, el default.
+    const DEF_AGENCY_PCT_SALE = 3, DEF_AGENCY_MONTHS_RENT = 1;
+    function comAgenciaUSD(c){
+      const price = montoUSD(c);
+      return (c.tipo==='venta')
+        ? price * ((c.agencyPct!=null?Number(c.agencyPct):DEF_AGENCY_PCT_SALE)/100)
+        : price * (c.agencyMonths!=null?Number(c.agencyMonths):DEF_AGENCY_MONTHS_RENT);
+    }
+    // Lo que le queda al agente en el bolsillo (en US$) = su % de la comisión inmobiliaria.
+    function comisionAgenteUSD(c){
+      const com = agentesCom[c.agenteUid] || {};
+      const agentPct = (c.tipo==='venta') ? (Number(com.sale)||0) : (Number(com.rent)||0);
+      return comAgenciaUSD(c) * agentPct/100;
+    }
+    // Los puntos se ganan sobre la comisión del agente, no sobre el monto total.
+    function puntosCierre(c){ return Math.floor(comisionAgenteUSD(c)/100) * (Number(cfg.puntosPor100)||1); }
     function puntosGanados(uid){ return cierresConf.filter(c=>c.agenteUid===uid).reduce((s,c)=>s+puntosCierre(c),0); }
     function puntosGastados(uid){ return canjes.filter(x=>x.agenteUid===uid && x.status!=='rechazado').reduce((s,x)=>s+(Number(x.costoPuntos)||0),0); }
     function saldo(uid){ return puntosGanados(uid) - puntosGastados(uid); }
@@ -167,6 +183,8 @@
       try{
         // Config
         try{ const cd = await db.collection('config').doc('recompensas').get(); if(cd.exists){ cfg = Object.assign(cfg, cd.data()); } }catch(e){}
+        // Comisiones de los agentes (para calcular los puntos sobre lo que les queda)
+        try{ const us = await db.collection('users').where('status','==','approved').get(); us.docs.forEach(d=>{ const u=d.data(); agentesCom[d.id]={ sale:Number(u.commissionSale)||0, rent:Number(u.commissionRent)||0 }; }); }catch(e){}
         // Catálogo
         const rs = await db.collection('recompensas').get();
         catalogo = rs.docs.map(d=>Object.assign({ id:d.id }, d.data())).sort((a,b)=>(a.costoPuntos||0)-(b.costoPuntos||0));
@@ -174,7 +192,8 @@
         const ps = await db.collection('properties').where('cierreConfirmado','==',true).get();
         cierresConf = ps.docs.map(d=>d.data()).filter(p=>p.cierre).map(p=>({
           agenteUid: p.cierre.agenteUid||'', agenteNombre: p.cierre.agenteNombre||'Agente',
-          precio: p.cierre.precio, moneda: p.cierre.moneda, tipo: p.cierre.tipo
+          precio: p.cierre.precio, moneda: p.cierre.moneda, tipo: p.cierre.tipo,
+          agencyPct: p.cierre.agencyPct, agencyMonths: p.cierre.agencyMonths
         }));
         // Canjes
         if(isAdmin){
@@ -207,8 +226,8 @@
       const ej = Math.floor(350/100)*r;
       const pl = (n)=> n===1 ? 'punto' : 'puntos';
       el.innerHTML = '<div class="hi">💡</div><div class="ht"><b>¿Cómo ganás puntos?</b><br>'
-        + 'Por cada <b>US$100</b> de una venta o alquiler <b>cerrado y confirmado</b> por la inmobiliaria sumás <b>'+r+' '+pl(r)+'</b>. '
-        + 'Se cuentan solo los cientos completos: una operación de <b>US$350</b> da <b>'+ej+' '+pl(ej)+'</b> (los US$50 restantes no suman). '
+        + 'Por cada <b>US$100</b> de <b>tu comisión</b> (lo que te queda a vos) en una operación <b>cerrada y confirmada</b> sumás <b>'+r+' '+pl(r)+'</b>. '
+        + 'Se cuentan solo los cientos completos: si tu comisión en una operación es <b>US$350</b>, sumás <b>'+ej+' '+pl(ej)+'</b>. '
         + 'Las operaciones en pesos se convierten a dólares para el cálculo.</div>';
     }
     function renderTabs(){
@@ -458,8 +477,8 @@
     function renderConfig(){
       const p = document.getElementById('panel');
       p.innerHTML = '<div class="card"><h2 class="sec" style="margin-top:0">Configuración de puntos</h2>'
-        + '<div class="hint">Definí cómo se generan los puntos. Los puntos se calculan por bloques completos de US$100 (ej: US$350 → 3 puntos).</div>'
-        + '<div class="field"><label>Puntos por cada US$100</label><input id="cP100" type="number" min="0" step="0.1" value="'+(cfg.puntosPor100)+'"></div>'
+        + '<div class="hint">Definí cómo se generan los puntos. Se calculan sobre <b>la comisión del agente</b> (lo que le queda), por bloques completos de US$100 (ej: comisión de US$350 → 3 puntos).</div>'
+        + '<div class="field"><label>Puntos por cada US$100 de comisión</label><input id="cP100" type="number" min="0" step="0.1" value="'+(cfg.puntosPor100)+'"></div>'
         + '<div class="field"><label>Cotización del dólar (en pesos) — para cierres en UYU</label><input id="cDolar" type="number" min="1" value="'+(cfg.dolarPesos)+'"></div>'
         + '<div class="field"><label>Valor aprox. de 1 punto (US$) — solo para mostrar el valor estimado</label><input id="cVal" type="number" min="0" step="0.01" value="'+(cfg.valorPunto)+'"></div>'
         + '<div class="row" style="justify-content:flex-end"><button class="btn btn-gold" onclick="guardarConfig()"><i class="fas fa-save"></i> Guardar configuración</button></div>'

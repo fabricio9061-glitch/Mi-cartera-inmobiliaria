@@ -291,6 +291,17 @@
     var db = firebase.firestore();
     var ADMIN_EMAIL = "fabricio9061@gmail.com";
 
+    // Rangos que ven la agenda de TODO el equipo (además del admin).
+    var RANGOS_VEN_TODO = ['coo', 'ceo'];
+    var RANK_LABEL = {
+      ceo:'CEO', coo:'COO — Director de Operaciones', gerente_comercial:'Gerente Comercial',
+      lider_equipo:'Líder de Equipo', asesor_elite:'Asesor Elite', asesor_senior:'Asesor Senior',
+      asesor_semi_senior:'Asesor Semi Senior', asesor_junior:'Asesor Junior',
+      coord_admin:'Coordinador Administrativo', administracion:'Administración',
+      marketing:'Marketing', procesos_calidad:'Procesos y Calidad', finanzas:'Finanzas'
+    };
+    var puedeVerTodo = false;
+
     var EV_LABELS = { visit:'Visita', meeting:'Reunión', delivery:'Entrega', review:'Revisión', other:'Otro' };
     var currentUser = null, isAdmin = false;
     var visits = [];
@@ -316,14 +327,21 @@
       document.getElementById('agLoading').style.display='none';
       document.getElementById('agAuth').style.display='none';
       document.getElementById('agContent').style.display='block';
-      // Rol en la UI
-      if (isAdmin){
-        document.getElementById('agRoleTxt').textContent='Administrador';
-        document.getElementById('agRolePill').innerHTML='<i class="fas fa-shield-halved"></i> Administrador';
-        document.getElementById('agHeroSub').textContent='Agenda de todo el equipo';
-      }
-      cargarVisitas();
-      db.collection('users').doc(user.uid).get().then(function(d){ agProfile = d.exists ? d.data() : {}; cargarVinculables(); }).catch(function(){ agProfile = {}; cargarVinculables(); });
+      // Cargamos el perfil PRIMERO: necesitamos el rango para saber si ve toda la agenda.
+      db.collection('users').doc(user.uid).get().then(function(d){
+        agProfile = d.exists ? d.data() : {};
+        puedeVerTodo = isAdmin || RANGOS_VEN_TODO.indexOf(agProfile.rank) >= 0;
+        // Rótulo de rol en la UI
+        var rotulo = isAdmin ? 'Administrador' : (RANK_LABEL[agProfile.rank] || agProfile.role || 'Agente');
+        document.getElementById('agRoleTxt').textContent = rotulo;
+        document.getElementById('agRolePill').innerHTML = '<i class="fas fa-'+(puedeVerTodo?'shield-halved':'user')+'"></i> '+esc(rotulo);
+        if (puedeVerTodo) document.getElementById('agHeroSub').textContent = 'Agenda de todo el equipo';
+        cargarVisitas();
+        cargarVinculables();
+      }).catch(function(){
+        agProfile = {}; puedeVerTodo = isAdmin;
+        cargarVisitas(); cargarVinculables();
+      });
       refreshRemindBtn();
       startReminders();
     });
@@ -398,12 +416,12 @@
     // ===== Carga de visitas (segun rol) =====
     function cargarVisitas(){
       var ref = db.collection('visits');
-      // Agente: solo las suyas. Admin: todas.
-      var q = isAdmin ? ref.get() : ref.where('userId','==',currentUser.uid).get();
+      // Agente: solo las suyas. COO/CEO/Admin: todas.
+      var q = puedeVerTodo ? ref.get() : ref.where('userId','==',currentUser.uid).get();
       q.then(function(snap){
         visits = snap.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
-        // Si es admin, traer nombres de los agentes
-        if (isAdmin){
+        // Si ve todo, traemos los nombres de los agentes dueños de cada evento
+        if (puedeVerTodo){
           var ids = {};
           visits.forEach(function(v){ if (v.userId) ids[v.userId]=true; });
           var uids = Object.keys(ids);
@@ -473,10 +491,16 @@
       c.innerHTML = dv.map(function(v){
         var t = v.eventType || 'other';
         var label = EV_LABELS[t] || 'Evento';
-        var ownerLine = (isAdmin && v.userId && v.userId!==currentUser.uid && usersMap[v.userId])
+        var esPropio = !v.userId || v.userId === currentUser.uid;
+        var puedeEditar = isAdmin || esPropio; // el COO ve los ajenos pero no los edita
+        var ownerLine = (puedeVerTodo && v.userId && v.userId!==currentUser.uid && usersMap[v.userId])
           ? '<div class="ev-owner"><i class="fas fa-user-tie"></i> '+esc(usersMap[v.userId])+'</div>' : '';
         var waBtn = v.clientPhone ? '<button class="a-wa" onclick="waOpen(\''+esc(v.clientPhone)+'\')" title="WhatsApp"><i class="fab fa-whatsapp"></i></button>' : '';
         var past = isPast(v);
+        var acciones = (puedeEditar
+          ? '<button class="a-ed" onclick="openEvent(\''+v.id+'\')" title="Editar"><i class="fas fa-edit"></i></button>' +
+            '<button class="a-del" onclick="delEvent(\''+v.id+'\')" title="Eliminar"><i class="fas fa-trash"></i></button>'
+          : '') + waBtn;
         return '<div class="ev-item t-'+t+(past?' done':'')+'">' +
           '<span class="ev-badge b-'+t+'">'+label+'</span>' +
           (past?'<span class="ev-done-tag"><i class="fas fa-circle-check"></i> Finalizado</span>':'') +
@@ -487,11 +511,7 @@
           (v.notes?'<div class="ev-meta"><i class="fas fa-note-sticky"></i> '+esc(v.notes)+'</div>':'') +
           '<div class="ev-time"><i class="fas fa-clock"></i> '+esc(v.time||'')+'</div>' +
           ownerLine +
-          '<div class="ev-actions">' +
-            '<button class="a-ed" onclick="openEvent(\''+v.id+'\')" title="Editar"><i class="fas fa-edit"></i></button>' +
-            '<button class="a-del" onclick="delEvent(\''+v.id+'\')" title="Eliminar"><i class="fas fa-trash"></i></button>' +
-            waBtn +
-          '</div>' +
+          (acciones ? '<div class="ev-actions">'+acciones+'</div>' : '') +
         '</div>';
       }).join('');
     }
