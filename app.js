@@ -1017,6 +1017,13 @@
       .ml-stat i{ font-size:1.2rem; flex:0 0 auto; }
       .ml-stat .n{ font-weight:800; font-size:1.25rem; color:#16273f; line-height:1; }
       .ml-stat .t{ font-size:.76rem; color:#6a7280; margin-top:3px; }
+      .ml-chart{ margin-top:10px; background:#f6f8fa; border-radius:12px; padding:12px 14px; }
+      .ml-chart-head{ display:flex; justify-content:space-between; align-items:baseline; font-size:.82rem; font-weight:700; color:#16273f; margin-bottom:9px; }
+      .ml-chart-head small{ font-weight:600; color:#8a93a0; font-size:.72rem; }
+      .ml-chart-bars{ display:flex; align-items:flex-end; gap:2px; height:58px; }
+      .ml-bar{ flex:1; height:100%; display:flex; align-items:flex-end; min-width:0; }
+      .ml-bar-fill{ width:100%; background:#1e9e6a; border-radius:3px 3px 0 0; opacity:.8; min-height:3px; transition:opacity .12s; }
+      .ml-bar:hover .ml-bar-fill{ opacity:1; }
       .ml-label{ font-size:.74rem; letter-spacing:.04em; color:#8a93a0; font-weight:600; text-transform:uppercase; margin-bottom:7px; }
       .ml-select{ width:100%; padding:12px 13px; border:1.5px solid #e2e6ea; border-radius:11px; font-family:inherit; font-size:.95rem; color:#16273f; background:#fff; }
       .ml-select:focus{ outline:none; border-color:#C9A227; }
@@ -1106,7 +1113,20 @@
     const _dash = (v) => (v != null ? v : '—');
     const _pregN = (d.preguntas && d.preguntas.total != null) ? d.preguntas.total : null;
     const _pregSR = (d.preguntas && d.preguntas.sinResponder) ? ` · ${d.preguntas.sinResponder} sin responder` : '';
-    const interaccion = `<div class="ml-section"><div class="ml-stats"><div class="ml-stat"><i class="fas fa-eye" style="color:#1e9e6a"></i><div><div class="n">${_dash(d.visitas)}</div><div class="t">visitas · 30 días</div></div></div><div class="ml-stat"><i class="fas fa-circle-question" style="color:#2e86de"></i><div><div class="n">${_dash(_pregN)}</div><div class="t">preguntas${_pregSR}</div></div></div><div class="ml-stat"><i class="fab fa-whatsapp" style="color:#25d366"></i><div><div class="n">${_dash(d.contactosWhatsapp)}</div><div class="t">contactos WhatsApp · 30 días</div></div></div></div></div>`;
+    const _serie = Array.isArray(d.visitasSerie) ? d.visitasSerie : [];
+    let _chart = '';
+    if (_serie.length > 1 && _serie.some(x => (x.total || 0) > 0)) {
+      const _max = Math.max.apply(null, _serie.map(x => x.total || 0).concat([1]));
+      const _bars = _serie.map(x => {
+        const n = x.total || 0;
+        const h = Math.max(5, Math.round(n / _max * 100));
+        const dt = String(x.date || '').slice(0, 10);
+        const dd = dt.length === 10 ? dt.slice(8, 10) + '/' + dt.slice(5, 7) : '';
+        return `<div class="ml-bar" title="${dd}: ${n} visita${n === 1 ? '' : 's'}"><div class="ml-bar-fill" style="height:${h}%${n === 0 ? ';opacity:.25' : ''}"></div></div>`;
+      }).join('');
+      _chart = `<div class="ml-chart"><div class="ml-chart-head"><span><i class="fas fa-chart-column" style="color:#1e9e6a"></i> Visitas por día</span><small>últimos 30 días</small></div><div class="ml-chart-bars">${_bars}</div></div>`;
+    }
+    const interaccion = `<div class="ml-section"><div class="ml-stats"><div class="ml-stat"><i class="fas fa-eye" style="color:#1e9e6a"></i><div><div class="n">${_dash(d.visitas)}</div><div class="t">visitas · 30 días</div></div></div><div class="ml-stat"><i class="fas fa-circle-question" style="color:#2e86de"></i><div><div class="n">${_dash(_pregN)}</div><div class="t">preguntas${_pregSR}</div></div></div><div class="ml-stat"><i class="fab fa-whatsapp" style="color:#25d366"></i><div><div class="n">${_dash(d.contactosWhatsapp)}</div><div class="t">contactos WhatsApp · 30 días</div></div></div></div>${_chart}</div>`;
     const pagoHint = d.status === 'payment_required' ? `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-circle-info"></i><div>El aviso está creado pero Mercado Libre exige pagar el tipo <strong>${mlListingTypeName(d.listingType)}</strong> para activarlo (se abona desde tu cuenta de ML, sección Publicaciones). Si no querés pagarlo, dale <strong>Dar de baja</strong> y volvé a publicarlo eligiendo otro tipo. Mientras no lo pagues, no se cobra nada.</div></div></div>` : '';
     // Qué falta para el 100%: lo MÁS confiable es comparar los atributos de la
     // categoría contra los que el aviso tiene cargados (d.faltan, lo calcula el
@@ -1155,9 +1175,7 @@
     if (d.permalink) botones.push(`<a href="${d.permalink}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost"><i class="fas fa-external-link-alt"></i> Ver aviso</a>`);
     if (d.status === 'paused' || d.status === 'closed') botones.push(`<button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-rotate-right"></i> Republicar</button>`);
     if (d.status !== 'closed') botones.push(`<button class="ml-btn ml-btn-danger" onclick="bajaPropiedad()"><i class="fas fa-circle-stop"></i> Dar de baja</button>`);
-    const _dbg = Array.isArray(d.debugMetricas) ? d.debugMetricas : [];
-    const debugHtml = _dbg.length ? `<div class="ml-section" style="font-size:.68rem;color:#5a6573;font-family:monospace;word-break:break-all;background:#f3f4f6;border:1px dashed #c4ccd6;border-radius:8px;padding:8px"><div style="font-weight:bold;margin-bottom:4px;color:#16273f">debug métricas (temporal):</div>${_dbg.map(x => '<div>'+mvEsc(x)+'</div>').join('')}</div>` : '';
-    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}${debugHtml}${selTipo}<div class="ml-btns">${botones.join('')}</div></div>`
+    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}${selTipo}<div class="ml-btns">${botones.join('')}</div></div>`
   }
   async function republicarPropiedad() {
     if (!mlModalPropId) return;
