@@ -604,9 +604,12 @@ function defaultAttrValue(a, p) {
     }
     return { id, value_name: String(numMap[id]) };
   }
-  // Atributo de lista: tomar el primer valor permitido.
+  // Atributo de lista: preferir un valor NEUTRO (Otro / No informado / A definir)
+  // antes que inventar el primero de la lista (p. ej. LAND_ACCESS no debería
+  // afirmar "Asfalto" si el agente no lo cargó).
   if (Array.isArray(a.values) && a.values.length) {
-    return { id, value_id: a.values[0].id };
+    const neutro = a.values.find((v) => /^(otro|otra|no informado|a definir|sin definir|ninguno|ninguna)$/.test(norm(v.name)));
+    return { id, value_id: (neutro || a.values[0]).id };
   }
   const vt = a.value_type;
   if (vt === "number" || vt === "number_unit") return { id, value_name: "0" };
@@ -1846,6 +1849,16 @@ const IC_ZONAS = {
 // realEstateType de la app -> tipoPropiedad de InfoCasas
 const IC_TIPO_PROP = { casa: 1, apartamento: 2, apto: 2, terreno: 3, local: 4, oficina: 5, campo: 6, chacra: 6, garaje: 8, cochera: 8, edificio: 10, hotel: 11, galpon: 12 };
 
+// Comodidades de InfoCasas (Anexo 1 del spec): el MISMO amenity tiene un ID distinto
+// según el tipo de propiedad. Mapeo booleano de la ficha ML -> ID de IC por tipoProp.
+// _DEPOSITO se agrega aparte cuando la ficha trae WAREHOUSES > 0.
+const IC_COMODIDADES = {
+  1: { HAS_AIR_CONDITIONING: 39, HAS_ATTIC: 40, HAS_BALCONY: 41, HAS_HEATING: 45, HAS_MAID_ROOM: 49, HAS_INDOOR_FIREPLACE: 50, HAS_NATURAL_GAS: 52, HAS_GYM: 53, HAS_CABLE_TV: 54, HAS_JACUZZI: 55, HAS_GRILL: 59, HAS_SWIMMING_POOL: 60, HAS_CLOSETS: 62, HAS_PLAYROOM: 63, HAS_TERRACE: 66, HAS_DRESSING_ROOM: 68, FURNISHED: 69, HAS_GARDEN: 70, HAS_PATIO: 72, HAS_LAUNDRY: 74, HAS_SAUNA: 76, _DEPOSITO: 48 },
+  2: { HAS_BALCONY: 1, HAS_HEATING: 3, HAS_MAID_ROOM: 7, HAS_INDOOR_FIREPLACE: 8, HAS_JACUZZI: 10, HAS_GRILL: 13, HAS_CLOSETS: 15, HAS_TERRACE: 16, HAS_DRESSING_ROOM: 18, FURNISHED: 19, HAS_LIFT: 20, HAS_GYM: 23, HAS_COMMON_LAUNDRY: 25, HAS_SWIMMING_POOL: 27, HAS_PLAYROOM: 28, HAS_PARTY_ROOM: 29, HAS_CABLE_TV: 34, HAS_AIR_CONDITIONING: 36, HAS_NATURAL_GAS: 37, HAS_GARDEN: 71, HAS_PATIO: 73, HAS_LAUNDRY: 75, HAS_SAUNA: 77, _DEPOSITO: 6 },
+  4: { HAS_BALCONY: 79, HAS_HEATING: 81, HAS_GRILL: 91, HAS_TERRACE: 94, FURNISHED: 97, HAS_GARDEN: 98, HAS_PATIO: 99, HAS_LAUNDRY: 100, HAS_SAUNA: 101, _DEPOSITO: 84 },
+  5: { HAS_AIR_CONDITIONING: 103, HAS_ATTIC: 104, HAS_BALCONY: 105, HAS_HEATING: 109 },
+};
+
 function icNorm(s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim(); }
 function icEsc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;"); }
 function icTag(t, v) { return (v === undefined || v === null || v === "") ? "" : `<${t}>${icEsc(v)}</${t}>`; }
@@ -1898,6 +1911,24 @@ exports.feedInfocasas = onRequest(async (req, res) => {
       }
       const ba = Number(p.bathrooms) || 0;
       if (ba > 0) x += icTag("idBanios", ba >= 3 ? 3 : ba);
+      const F = p.ficha || {};
+      // Estado del inmueble (PROPERTY_CONDITION de la ficha -> ids del spec de IC).
+      // "Usado" va a 7 (a definir): no afirma un estado que el agente no declaró.
+      const IC_ESTADO = { "nuevo": 1, "renovado": 3, "buen estado": 4, "usado": 7, "en construccion": 8 };
+      const est = IC_ESTADO[icNorm(F.PROPERTY_CONDITION)];
+      if (est) x += icTag("estado", est);
+      // Comodidades tildadas en la ficha -> IDs de IC del tipo correspondiente.
+      const com = IC_COMODIDADES[tipoProp] || {};
+      const comIds = Object.keys(com).filter((k) => k !== "_DEPOSITO" && F[k] === true).map((k) => com[k]);
+      if ((Number(F.WAREHOUSES) || 0) > 0 && com._DEPOSITO) comIds.push(com._DEPOSITO);
+      if (comIds.length) x += icTag("comodidades", comIds.join(","));
+      // Seguridad (spec: 1 alarma, 2 cámaras CCTV, 4 portería 24hs, 5 portón eléctrico).
+      const seg = [];
+      if (F.HAS_ALARM === true) seg.push(1);
+      if (F.HAS_SECURITY === true) seg.push(2);
+      if (icNorm(F.SECURITY_TYPE) === "24 horas") seg.push(4);
+      if (F.HAS_ELECTRIC_GATE_OPENER === true) seg.push(5);
+      if (seg.length) x += icTag("seguridad", seg.join(","));
       const ta = Number(p.totalArea) || 0, ca = Number(p.builtArea) || 0;
       if (ta > 0) x += icTag("m2", ta);
       if (ca > 0) x += icTag("m2edificados", ca);
@@ -1906,6 +1937,20 @@ exports.feedInfocasas = onRequest(async (req, res) => {
       const terr = Number((p.ficha && p.ficha.LAND_AREA) || 0) || ((tipoProp === 1 || tipoProp === 3 || tipoProp === 6) ? ta : 0);
       if (terr > 0) x += icTag("m2terreno", terr);
       if (tipoProp === 6 && terr >= 10000) x += icTag("hectareas", Math.round((terr / 10000) * 100) / 100);
+      if (tipoProp === 2 && ca > 0) x += icTag("m2apto", ca);
+      const plantas = Number(F.FLOORS) || 0;
+      if (plantas > 0) x += icTag("plantas", plantas >= 3 ? 3 : plantas);
+      if (typeof F.UNIT_FLOOR === "number" && F.UNIT_FLOOR >= 0) x += icTag("piso", F.UNIT_FLOOR);
+      if ((Number(F.APARTMENTS_PER_FLOOR) || 0) > 0) x += icTag("aptosPorPiso", Number(F.APARTMENTS_PER_FLOOR));
+      const IC_ORIENT = { "norte": 3, "sur": 2, "este": 4, "oeste": 5 };
+      const ori = IC_ORIENT[icNorm(F.FACING)];
+      if (ori) x += icTag("orientacion", ori);
+      const IC_DISP = { "frente": 2, "contrafrente": 3, "interno": 4, "lateral": 5 };
+      const dis = IC_DISP[icNorm(F.DISPOSITION)];
+      if (dis) x += icTag("disposicion", dis);
+      if (typeof F.PROPERTY_AGE === "number" && F.PROPERTY_AGE >= 0 && F.PROPERTY_AGE <= 200) {
+        x += icTag("anioConstruccion", new Date().getFullYear() - Math.round(F.PROPERTY_AGE));
+      }
       const cocheras = Number((p.ficha && p.ficha.PARKING_LOTS) || 0) || (p.garage === "yes" ? 1 : 0);
       if (cocheras > 0) x += icTag("garage", cocheras);
       const gc = Number(p.commonExpenses) || 0;
@@ -1919,7 +1964,8 @@ exports.feedInfocasas = onRequest(async (req, res) => {
         x += icTag("precioAlquiler", Math.round(price));
       }
       x += icTag("titulo", p.title || "");
-      x += icTag("descripcion", p.description || "");
+      // El spec de IC no tiene tag de código propio: la referencia va en la descripción.
+      x += icTag("descripcion", (p.description || "") + (F.PROPERTY_CODE ? `\n\nRef.: ${F.PROPERTY_CODE}` : ""));
       x += icTag("latitud", lat);
       x += icTag("longitud", lng);
       if (u.direccionVisible) { x += icTag("direccion", u.direccionVisible); x += icTag("mostrarDireccion", 0); }

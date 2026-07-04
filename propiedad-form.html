@@ -108,7 +108,7 @@
 
         <div class="ppf-step"><div class="num">5</div><div><h3>Fotos y video</h3><small>La primera foto es la portada del aviso. Arrastrá para reordenar.</small></div></div>
         <div class="ppf-sec">
-          <div class="form-group"><label>Fotos * <small style="color:var(--gray-500);font-weight:normal">(mínimo 12 · arrastrá para reordenar · máx 5MB c/u)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div id="fotoCounter" style="margin-top:10px;font-size:.85rem;font-weight:600"><i class="fas fa-triangle-exclamation" style="color:#d97706"></i> <span style="color:#b45309">0 de 12 fotos</span> <span style="color:var(--gray-500);font-weight:normal">— faltan 12 para poder publicar</span></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div><div style="font-size:.8rem;color:var(--gray-500);margin-top:8px"><i class="fas fa-shield-halved" style="color:var(--gold-2)"></i> A cada foto se le agrega automáticamente la marca de agua MALAVE (logo centrado y tenue) al guardar.</div></div>
+          <div class="form-group"><label>Fotos * <small style="color:var(--gray-500);font-weight:normal">(arrastrá para reordenar, máx 5MB cada una)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div><div style="font-size:.8rem;color:var(--gray-500);margin-top:8px"><i class="fas fa-shield-halved" style="color:var(--gold-2)"></i> A cada foto se le agrega automáticamente la marca de agua MALAVE (logo centrado y tenue) al guardar.</div></div>
           <div class="form-group"><label>Video de YouTube (opcional)</label><input type="url" id="propVideo" placeholder="https://www.youtube.com/watch?v=..."></div>
         </div>
 
@@ -160,27 +160,27 @@
 
     let currentUser = null, userProfile = null, selectedImages = [], draggedImageIndex = null, editingProperty = null, formClientId = null;
 
-      const uruguayData = {
-    "Montevideo": ["Aguada", "Aires Puros", "Atahualpa", "Bañados de Carrasco", "Barrio Sur", "Bella Italia", "Bella Vista", "Belvedere", "Brazo Oriental", "Buceo", "Capurro", "Carrasco", "Carrasco Norte", "Casabó", "Casavalle", "Centro", "Cerrito de la Victoria", "Cerro", "Ciudad Vieja", "Colón", "Conciliación", "Cordón", "Flor de Maroñas", "Goes", "Ituzaingó", "Jacinto Vera", "Jardines del Hipódromo", "La Blanqueada", "La Comercial", "La Figurita", "La Paloma", "La Teja", "Larrañaga", "Las Acacias", "Las Canteras", "Lezica", "Malvín", "Malvín Norte", "Manga", "Maroñas", "Melilla", "Mercado Modelo", "Nuevo París", "Palermo", "Parque Batlle", "Parque Rodó", "Paso de la Arena", "Paso de las Duranas", "Paso Molino", "Peñarol", "Piedras Blancas", "Pocitos", "Pocitos Nuevo", "Prado", "Punta Carretas", "Punta Gorda", "Punta Rieles", "Reducto", "Sayago", "Toledo Chico", "Tres Cruces", "Tres Ombúes", "Unión", "Villa Dolores", "Villa Española", "Villa García", "Villa Muñoz", "Vista Linda"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Canelones": ["Las Piedras", "Pando", "Canelones", "Santa Lucía", "Progreso", "Atlántida", "Salinas", "Parque del Plata", "Solymar", "Shangrilá", "El Pinar", "Lagomar", "La Floresta", "Paso Carrasco", "Ciudad de la Costa", "San José de Carrasco", "Médanos de Solymar", "Colinas de Solymar", "Colonia Nicolich", "Barros Blancos", "Toledo", "Sauce", "Joaquín Suárez", "Suárez", "La Paz", "Las Toscas", "Pinamar", "Neptunia", "Marindia", "Villa Argentina", "Estación Atlántida", "Costa Azul", "Bello Horizonte", "San Luis", "La Tuna", "Cuchilla Alta", "Jaureguiberry", "Empalme Olmos", "Tala", "San Ramón", "Santa Rosa", "San Jacinto", "San Bautista", "Migues", "Montes", "Soca", "Aguas Corrientes", "Los Cerrillos", "Juanicó", "San Antonio", "El Bosque", "Villa Felicidad"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Maldonado": ["Maldonado", "Punta del Este", "San Carlos", "Piriápolis", "Pan de Azúcar", "Aiguá", "Solís", "Bella Vista", "Las Flores", "Playa Verde", "Playa Hermosa", "Playa Grande", "San Francisco", "Punta Colorada", "Punta Negra", "Gregorio Aznárez", "Cerros Azules", "Nueva Carrara", "Punta Ballena", "Solanas", "Sauce de Portezuelo", "Portezuelo", "Chihuahua", "Laguna del Sauce", "Pinares", "La Barra", "El Tesoro", "Manantiales", "El Chorro", "Montoya", "Balneario Buenos Aires", "La Juanita", "José Ignacio", "Santa Mónica", "Pueblo Edén", "Garzón", "Estación Las Flores", "Maldonado Nuevo", "Cerro Pelado", "La Capuera", "Ocean Park", "Las Grutas", "El Placer"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Colonia": ["Colonia del Sacramento", "Carmelo", "Juan Lacaze", "Nueva Helvecia", "Rosario", "Nueva Palmira", "Tarariras", "Colonia Valdense", "Ombúes de Lavalle", "Florencio Sánchez", "Conchillas", "Miguelete", "Colonia Cosmopolita"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Salto": ["Salto", "Daymán", "Termas del Daymán", "Termas del Arapey", "Belén", "Constitución"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Paysandú": ["Paysandú", "Guichón", "Termas de Guaviyú", "Quebracho", "Piedras Coloradas", "Chapicuy", "Porvenir"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Río Negro": ["Fray Bentos", "Young", "Nuevo Berlín", "San Javier"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Soriano": ["Mercedes", "Dolores", "Cardona", "José Enrique Rodó", "Palmitas", "Villa Soriano"].sort((a,b)=>a.localeCompare(b,'es')),
-    "San José": ["San José de Mayo", "Ciudad del Plata", "Libertad", "Rodríguez", "Ecilda Paullier", "Rafael Perazza", "Puntas de Valdez", "Delta del Tigre"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Florida": ["Florida", "Sarandí Grande", "Casupá", "Fray Marcos", "25 de Mayo", "25 de Agosto", "Cardal", "Capilla del Sauce"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Flores": ["Trinidad", "Ismael Cortinas"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Durazno": ["Durazno", "Sarandí del Yí", "Villa del Carmen", "Carmen", "La Paloma", "Blanquillo"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Tacuarembó": ["Tacuarembó", "Paso de los Toros", "San Gregorio de Polanco", "Ansina"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Rivera": ["Rivera", "Tranqueras", "Vichadero", "Minas de Corrales"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Artigas": ["Artigas", "Bella Unión", "Tomás Gomensoro", "Baltasar Brum"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Cerro Largo": ["Melo", "Río Branco", "Fraile Muerto", "Aceguá", "Tupambaé"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Lavalleja": ["Minas", "José Pedro Varela", "Solís de Mataojo", "Mariscala", "Batlle y Ordóñez", "Pirarajá"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Rocha": ["Rocha", "Chuy", "Castillos", "La Paloma", "La Pedrera", "Cabo Polonio", "Punta del Diablo", "Lascano", "Velázquez", "Aguas Dulces", "Barra de Valizas", "La Coronilla", "Punta Rubia"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Treinta y Tres": ["Treinta y Tres", "Vergara", "Santa Clara de Olimar", "Cerro Chato"].sort((a,b)=>a.localeCompare(b,'es'))
-  };
+    const uruguayData = {
+      "Montevideo": ["Aguada", "Aires Puros", "Atahualpa", "Bañados de Carrasco", "Barrio Sur", "Bella Italia", "Bella Vista", "Belvedere", "Brazo Oriental", "Buceo", "Capurro", "Carrasco", "Carrasco Norte", "Casabó", "Casavalle", "Centro", "Cerrito de la Victoria", "Cerro", "Ciudad Vieja", "Colón", "Conciliación", "Cordón", "Flor de Maroñas", "Goes", "Ituzaingó", "Jacinto Vera", "Jardines del Hipódromo", "La Blanqueada", "La Comercial", "La Figurita", "La Paloma", "La Teja", "Larrañaga", "Las Acacias", "Las Canteras", "Lezica", "Malvín", "Malvín Norte", "Manga", "Maroñas", "Melilla", "Mercado Modelo", "Nuevo París", "Palermo", "Parque Batlle", "Parque Rodó", "Paso de la Arena", "Paso de las Duranas", "Paso Molino", "Peñarol", "Piedras Blancas", "Pocitos", "Pocitos Nuevo", "Prado", "Punta Carretas", "Punta Gorda", "Punta Rieles", "Reducto", "Sayago", "Toledo Chico", "Tres Cruces", "Tres Ombúes", "Unión", "Villa Dolores", "Villa Española", "Villa García", "Villa Muñoz", "Vista Linda"].sort(),
+      "Canelones": ["Ciudad de la Costa", "Las Piedras", "Pando", "Canelones", "Santa Lucía", "Progreso", "Atlántida", "Salinas", "Parque del Plata", "Solymar", "Shangrilá", "El Pinar", "Lagomar", "La Floresta"],
+      "Maldonado": ["Maldonado", "Punta del Este", "San Carlos", "Piriápolis", "Pan de Azúcar", "Aiguá", "Solís", "Bella Vista", "Las Flores", "Playa Verde", "Playa Hermosa", "Playa Grande", "San Francisco", "Punta Colorada", "Punta Negra", "Gregorio Aznárez", "Cerros Azules", "Nueva Carrara", "Punta Ballena", "Solanas", "Sauce de Portezuelo", "Portezuelo", "Chihuahua", "Laguna del Sauce", "Pinares", "La Barra", "El Tesoro", "Manantiales", "El Chorro", "Montoya", "Balneario Buenos Aires", "La Juanita", "José Ignacio", "Santa Mónica", "Pueblo Edén", "Garzón", "Estación Las Flores"],
+      "Colonia": ["Colonia del Sacramento", "Carmelo", "Juan Lacaze", "Nueva Helvecia", "Rosario", "Nueva Palmira"],
+      "Salto": ["Salto", "Daymán", "Termas del Daymán", "Termas del Arapey"],
+      "Paysandú": ["Paysandú", "Guichón", "Termas de Guaviyú"],
+      "Río Negro": ["Fray Bentos", "Young"],
+      "Soriano": ["Mercedes", "Dolores"],
+      "San José": ["San José de Mayo", "Ciudad del Plata", "Libertad"],
+      "Florida": ["Florida", "Sarandí Grande"],
+      "Flores": ["Trinidad"],
+      "Durazno": ["Durazno", "Sarandí del Yí"],
+      "Tacuarembó": ["Tacuarembó", "Paso de los Toros"],
+      "Rivera": ["Rivera", "Tranqueras"],
+      "Artigas": ["Artigas", "Bella Unión"],
+      "Cerro Largo": ["Melo", "Río Branco"],
+      "Lavalleja": ["Minas"],
+      "Rocha": ["Rocha", "Chuy", "Castillos", "La Paloma", "La Pedrera", "Cabo Polonio", "Punta del Diablo"],
+      "Treinta y Tres": ["Treinta y Tres", "Vergara"]
+    };
 
     function goBack() {
       if (editingProperty) window.location.href = 'propiedad.html?id=' + editingProperty.id;
@@ -334,16 +334,6 @@
     function handleImageSelect(e) { addImagesToPreview(Array.from(e.target.files)); e.target.value = '' }
     function renderImagePreviews() {
       document.getElementById('imagePreviewGrid').innerHTML = selectedImages.map((im, i) => `<div class="image-preview-item ${i===0?'main':''}" data-idx="${i}" draggable="true" ondragstart="handleDragStart(event,${i})" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropImage(event,${i})" ondragend="handleDragEnd(event)"><img src="${im.preview}" alt=""><div class="drag-handle" style="opacity:1;touch-action:none" ontouchstart="imgTouchStart(event,${i})"><i class="fas fa-grip-vertical"></i></div><div class="remove-image" onclick="event.stopPropagation();removeImage(${i})"><i class="fas fa-times"></i></div></div>`).join('')
-      actualizarContadorFotos();
-    }
-    function actualizarContadorFotos() {
-      const el = document.getElementById('fotoCounter'); if (!el) return;
-      const n = selectedImages.length, min = 12;
-      if (n >= min) {
-        el.innerHTML = `<i class="fas fa-check-circle" style="color:#15803d"></i> <span style="color:#15803d">${n} fotos</span> <span style="color:var(--gray-500);font-weight:normal">— cumple el mínimo obligatorio (${min})</span>`;
-      } else {
-        el.innerHTML = `<i class="fas fa-triangle-exclamation" style="color:#d97706"></i> <span style="color:#b45309">${n} de ${min} fotos</span> <span style="color:var(--gray-500);font-weight:normal">— faltan ${min - n} para poder publicar</span>`;
-      }
     }
     function removeImage(i) { selectedImages.splice(i, 1); renderImagePreviews() }
     function handleDragStart(e, i) { draggedImageIndex = i; e.target.classList.add('dragging') }
@@ -471,6 +461,7 @@
         { id: "PROPERTY_OWNERSHIP", label: "Tipo de propiedad", type: "list", options: ["Casa sola", "Casa en condominio", "Casa en fraccionamiento"] },
         { id: "FACING", label: "Orientación", type: "list", options: ["Norte", "Sur", "Este", "Oeste"] },
         { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
+        { id: "CONTACT_SCHEDULE", label: "Horario de contacto", type: "text" },
         { id: "AVAILABLE", label: "Disponible desde", type: "date" },
       ],
       "Servicios": [
@@ -557,12 +548,13 @@
         { id: "BALCONY_AREA", label: "Superficie de balcón (m²)", type: "num" },
         { id: "APARTMENT_NUMBER", label: "Número del apartamento", type: "text" },
         { id: "TOWER_NUMBER", label: "Número de torre", type: "num" },
-        { id: "APARTMENT_PROPERTY_SUBTYPE", label: "Tipo de departamento", type: "list", options: ["Departamento", "Monoambiente", "Dúplex", "Tríplex", "Penthhouse", "Loft", "Semi piso", "Piso", "Ph"] },
+        { id: "APARTMENT_PROPERTY_SUBTYPE", label: "Tipo de departamento", type: "list", options: ["Departamento", "Monoambiente", "Dúplex", "Tríplex", "Penthouse", "Loft", "Semipiso", "Piso", "Ph"] },
         { id: "DISPOSITION", label: "Disposición", type: "list", options: ["Frente", "Contrafrente", "Interno", "Lateral"] },
         { id: "FACING", label: "Orientación", type: "list", options: ["Norte", "Sur", "Este", "Oeste"] },
         { id: "PROPERTY_CONDITION", label: "Estado del inmueble", type: "list", options: ["Nuevo", "Renovado", "Buen estado", "En construcción", "Usado", "No informado"] },
         { id: "VIEW_TYPE", label: "Tipo de vista", type: "list", options: ["Mar", "Cordillera", "Cerro", "Ciudad", "Río", "Valle", "Laguna", "Vista abierta", "Sin vista especial"] },
         { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
+        { id: "CONTACT_SCHEDULE", label: "Horario de contacto", type: "text" },
       ],
       "Servicios": [
         { id: "HAS_INTERNET_ACCESS", label: "Acceso a internet" },
@@ -663,6 +655,7 @@
         { id: "LOT_DISPOSITION", label: "Disposición del lote", type: "list", options: ["Perimetral", "Interno", "A rio", "A laguna", "Otro"] },
         { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
         { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
+        { id: "CONTACT_SCHEDULE", label: "Horario de contacto", type: "text" },
       ],
       "Servicios": [
         { id: "HAS_TAP_WATER", label: "Agua corriente" },
@@ -681,6 +674,7 @@
         { id: "FLOORS", label: "Cantidad de pisos", type: "num" },
         { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
         { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
+        { id: "CONTACT_SCHEDULE", label: "Horario de contacto", type: "text" },
       ],
       "Servicios e instalaciones": [
         { id: "HAS_INTERNET_ACCESS", label: "Acceso a internet" },
@@ -716,6 +710,7 @@
         { id: "FACING", label: "Orientación", type: "list", options: ["Norte", "Sur", "Este", "Oeste"] },
         { id: "DISPOSITION", label: "Disposición", type: "list", options: ["Frente", "Contrafrente", "Interno", "Lateral"] },
         { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
+        { id: "CONTACT_SCHEDULE", label: "Horario de contacto", type: "text" },
       ],
       "Servicios": [
         { id: "HAS_INTERNET_ACCESS", label: "Acceso a internet" },
@@ -757,6 +752,7 @@
         { id: "PLATFORM_TRAILERS", label: "Remolques de plataforma", type: "num" },
         { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
         { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
+        { id: "CONTACT_SCHEDULE", label: "Horario de contacto", type: "text" },
       ],
       "Servicios e instalaciones": [
         { id: "HAS_INTERNET_ACCESS", label: "Acceso a internet" },
@@ -788,6 +784,7 @@
         { id: "FARM_HOUSE_ROOMS_NUMBER", label: "Cantidad de habitaciones", type: "num" },
         { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
         { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
+        { id: "CONTACT_SCHEDULE", label: "Horario de contacto", type: "text" },
       ],
       "Servicios": [
         { id: "HAS_TAP_WATER", label: "Agua corriente" },
@@ -891,6 +888,7 @@
         { id: "SECURITY_TYPE", label: "Tipo de seguridad", type: "list", options: ["24 horas", "Diurno", "Nocturno", "Virtual"] },
         { id: "AVAILABLE", label: "Disponible desde", type: "date" },
         { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
+        { id: "CONTACT_SCHEDULE", label: "Horario de contacto", type: "text" },
       ],
     };
     // Ficha por tipo. 'casa' calcada del log real de ML (MLU1467). El resto usa la común.
@@ -927,6 +925,7 @@
         var g = el.closest('.form-group'); var show = (smap[ret] === id);
         if (g) g.style.display = show ? '' : 'none'; if (!show) el.value = '';
       });
+      ensureCodigo();
     }
     // Al cambiar el tipo de inmueble: re-dibuja la ficha de ese tipo y conserva lo cargado.
     function onTipoChange() {
@@ -959,17 +958,44 @@
         if (!c.type) el.checked = !!v;
         else el.value = (v != null ? v : '');
       });
+      ensureCodigo();
     }
     function fillFicha(p) { fillFichaObj((p || {}).ficha || {}); }
+
+    // ==== CÓDIGO DE PROPIEDAD AUTOMÁTICO ====
+    // Se genera solo (MAL- + 5 caracteres sin ambiguos tipo 0/O/1/I) y el campo queda
+    // de solo lectura. La unicidad REAL se verifica contra Firestore al guardar.
+    function genCodigo() {
+      var abc = '23456789ABCDEFGHJKMNPQRSTUVWXYZ', s = '';
+      for (var i = 0; i < 5; i++) s += abc[Math.floor(Math.random() * abc.length)];
+      return 'MAL-' + s;
+    }
+    function ensureCodigo() {
+      var el = document.getElementById('fc-PROPERTY_CODE');
+      if (!el) return;
+      el.readOnly = true;
+      el.style.background = '#f5f6f8';
+      if (!el.value) el.value = genCodigo();
+    }
+    // Devuelve un código que NO usa ninguna otra propiedad (se excluye la propia).
+    // Si el candidato choca, regenera y reintenta; la chance de chocar es ínfima.
+    async function codigoUnico(cand, selfId) {
+      for (var i = 0; i < 6; i++) {
+        if (!cand) cand = genCodigo();
+        try {
+          var q = await db.collection('properties').where('ficha.PROPERTY_CODE', '==', cand).limit(3).get();
+          var choca = q.docs.some(function (d) { return d.id !== selfId; });
+          if (!choca) return cand;
+        } catch (e) { return cand; } // si la consulta falla, no bloquea el guardado
+        cand = genCodigo();
+      }
+      return cand + '-' + Date.now().toString(36).slice(-3).toUpperCase();
+    }
 
     async function handleSaveProperty(e) {
       e.preventDefault();
       if (!currentUser) { alert('Debes iniciar sesión'); return }
-      if (selectedImages.length < 12) {
-        alert(`Se necesitan al menos 12 fotos para publicar el aviso. Tenés ${selectedImages.length} — subí ${12 - selectedImages.length} más.`);
-        const _up = document.getElementById('imageUploadArea'); if (_up) _up.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return
-      }
+      if (selectedImages.length === 0) { alert('Sube al menos una imagen'); return }
       const b = document.getElementById('propertyBtn'), er = document.getElementById('propertyError'), ei = document.getElementById('editingPropertyId').value, pp = document.getElementById('previousPrice').value;
       b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; er.classList.add('hidden');
       try {
@@ -981,6 +1007,9 @@
         }
         const ty = document.getElementById('propType').value, dp = document.getElementById('propDepartamento').value, cd = document.getElementById('propCiudad').value, np = parseInt(document.getElementById('propPrice').value);
         const ficha = collectFicha();
+        // Código de propiedad: garantizar que no se repita jamás con otra propiedad.
+        ficha.PROPERTY_CODE = await codigoUnico(ficha.PROPERTY_CODE, ei || pi);
+        var _ce = document.getElementById('fc-PROPERTY_CODE'); if (_ce) _ce.value = ficha.PROPERTY_CODE;
         // Ubicación estructurada: lo que consume el backend para mandarle a ML los IDs
         // oficiales, el barrio y las coordenadas. Se mantienen también los campos de
         // siempre (departamento, ciudad, direccion, location) para el resto de la app.
