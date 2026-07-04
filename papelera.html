@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Papelera · MALAVE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <style>
+    :root{ --primary:#16273f; --gold:#C9A227; --gray-50:#f7f8fa; --gray-100:#eef0f3; --gray-200:#e3e6ea; --gray-300:#d3d8de; --gray-400:#9aa3ad; --gray-500:#6b7480; --gray-600:#555; --success:#1e7d4f; --danger:#c0392b; }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{ font-family:'Inter',sans-serif; background:var(--gray-50); color:#1d2733; line-height:1.5; }
+    h1,h2,h3{ font-family:'Cormorant Garamond',serif; }
+    .gh-header{ background:#fff; border-bottom:1px solid var(--gray-200); padding:16px 24px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; }
+    .gh-logo{ display:flex; align-items:center; gap:10px; font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:700; color:var(--primary); letter-spacing:.12em; }
+    .gh-back{ color:var(--gray-500); text-decoration:none; font-size:.9rem; display:inline-flex; align-items:center; gap:7px; }
+    .wrap{ max-width:880px; margin:0 auto; padding:28px 18px 60px; }
+    .head h1{ font-size:2rem; color:var(--primary); }
+    .head p{ color:var(--gray-500); font-size:.92rem; margin-top:4px; }
+    .count{ display:inline-flex; align-items:center; gap:7px; background:#fff; border:1px solid var(--gray-200); border-radius:999px; padding:7px 14px; font-size:.85rem; color:var(--gray-600); margin-top:14px; }
+    .count b{ color:var(--primary); }
+    .state{ text-align:center; padding:70px 20px; color:var(--gray-500); }
+    .state i{ font-size:2.4rem; color:var(--gray-300); margin-bottom:14px; display:block; }
+    .state h3{ color:var(--primary); font-size:1.4rem; margin-bottom:6px; }
+    .cards{ display:flex; flex-direction:column; gap:14px; margin-top:22px; }
+    .card{ background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:16px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+    .thumb{ width:92px; height:70px; border-radius:11px; object-fit:cover; background:var(--gray-100); flex:none; }
+    .thumb.ph{ display:flex; align-items:center; justify-content:center; color:var(--gray-400); font-size:1.3rem; }
+    .info{ flex:1; min-width:220px; }
+    .info .t{ font-weight:600; color:var(--primary); font-size:1rem; }
+    .info .m{ color:var(--gray-500); font-size:.84rem; margin-top:3px; }
+    .info .m i{ width:15px; text-align:center; color:var(--gray-400); }
+    .chips{ display:flex; gap:7px; flex-wrap:wrap; margin-top:8px; }
+    .chip{ font-size:.72rem; font-weight:600; padding:3px 10px; border-radius:999px; background:var(--gray-100); color:var(--gray-600); }
+    .chip.op{ background:rgba(201,162,39,.12); color:#8a6d12; }
+    .chip.ml{ background:rgba(30,125,79,.10); color:var(--success); }
+    .price{ font-weight:700; color:var(--primary); font-size:1.05rem; white-space:nowrap; }
+    .acts{ display:flex; gap:9px; flex-wrap:wrap; }
+    .btn{ border:none; border-radius:10px; padding:10px 15px; font-family:inherit; font-size:.85rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
+    .btn-res{ background:var(--primary); color:#fff; }
+    .btn-res:hover{ background:#1f3556; }
+    .btn-del{ background:#fff; color:var(--danger); border:1px solid #ecc8c2; }
+    .btn-del:hover{ background:#fdf3f1; }
+    .btn:disabled{ opacity:.5; cursor:default; }
+    .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--primary); color:#fff; padding:13px 22px; border-radius:12px; font-size:.9rem; display:none; align-items:center; gap:10px; box-shadow:0 8px 30px rgba(22,39,63,.35); z-index:50; }
+    .toast.err{ background:var(--danger); }
+    @media (max-width:560px){ .card{ align-items:flex-start; } .price{ order:3; } .acts{ width:100%; } .acts .btn{ flex:1; justify-content:center; } }
+  </style>
+</head>
+<body>
+  <header class="gh-header">
+    <div class="gh-logo"><i class="fas fa-building" style="color:var(--gold)"></i> MALAVE</div>
+    <a class="gh-back" href="index.html"><i class="fas fa-arrow-left"></i> Volver al inicio</a>
+  </header>
+
+  <div class="wrap">
+    <div class="head">
+      <h1><i class="fas fa-trash-can" style="color:var(--gold); font-size:1.4rem"></i> Papelera</h1>
+      <p>Propiedades borradas. Podés restaurarlas (vuelven con el mismo ID y sus datos completos) o eliminarlas definitivamente.</p>
+      <div class="count" id="count" style="display:none"><i class="fas fa-box-archive"></i> <span></span></div>
+    </div>
+
+    <div id="loading" class="state"><i class="fas fa-circle-notch fa-spin"></i> Cargando…</div>
+    <div id="denied" class="state" style="display:none"><i class="fas fa-lock"></i><h3>Solo para el administrador</h3><p>Esta sección es exclusiva del admin de la inmobiliaria.</p></div>
+    <div id="empty" class="state" style="display:none"><i class="fas fa-check-circle"></i><h3>Papelera vacía</h3><p>Cuando se borre una propiedad, va a aparecer acá para poder restaurarla.</p></div>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <div class="toast" id="toast"><i class="fas fa-check-circle"></i><span id="toastTxt"></span></div>
+
+  <script>
+    var firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
+    firebase.initializeApp(firebaseConfig);
+    var auth = firebase.auth(), db = firebase.firestore();
+    var ADMIN_EMAIL = "fabricio9061@gmail.com";
+    var items = [];
+
+    function show(id){ ['loading','denied','empty'].forEach(function(x){ document.getElementById(x).style.display = (x===id)?'block':'none'; }); }
+    function toast(msg, err){
+      var t = document.getElementById('toast');
+      t.className = 'toast' + (err ? ' err' : '');
+      t.querySelector('i').className = err ? 'fas fa-triangle-exclamation' : 'fas fa-check-circle';
+      document.getElementById('toastTxt').textContent = msg;
+      t.style.display = 'flex';
+      clearTimeout(t._tm); t._tm = setTimeout(function(){ t.style.display='none'; }, 4200);
+    }
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    function fmt(n, cur){
+      var v = Number(n)||0;
+      return (cur==='UYU' ? '$U ' : 'US$ ') + v.toLocaleString('es-UY');
+    }
+    function fecha(iso){
+      if(!iso) return '—';
+      var d = new Date(iso);
+      if(isNaN(d)) return '—';
+      var dias = Math.floor((Date.now() - d.getTime()) / 86400000);
+      var rel = dias<=0 ? 'hoy' : (dias===1 ? 'ayer' : 'hace '+dias+' días');
+      return d.toLocaleDateString('es-UY', { day:'numeric', month:'short', year:'numeric' }) + ' · ' + rel;
+    }
+
+    auth.onAuthStateChanged(async function(u){
+      if(!u || (u.email||'').toLowerCase() !== ADMIN_EMAIL){ show('denied'); return; }
+      try{
+        var snap = await db.collection('papelera').orderBy('_borradaEl','desc').get();
+        items = snap.docs.map(function(d){ return { id: d.id, data: d.data() }; });
+        render();
+      }catch(e){
+        console.error(e);
+        show('denied');
+        toast('No se pudo leer la papelera: ' + (e.code||e.message) + '. Revisá las reglas de Firestore.', true);
+      }
+    });
+
+    function render(){
+      var box = document.getElementById('cards');
+      if(!items.length){ show('empty'); box.innerHTML=''; document.getElementById('count').style.display='none'; return; }
+      show(''); // oculta estados
+      var c = document.getElementById('count');
+      c.style.display = 'inline-flex';
+      c.querySelector('span').innerHTML = '<b>'+items.length+'</b>&nbsp;' + (items.length===1?'propiedad borrada':'propiedades borradas');
+      box.innerHTML = items.map(function(it){
+        var p = it.data;
+        var img = (Array.isArray(p.images) && p.images[0]) ? '<img class="thumb" src="'+esc(p.images[0])+'" alt="">' : '<div class="thumb ph"><i class="fas fa-image"></i></div>';
+        var lugar = [p.ciudad, p.departamento].filter(Boolean).join(', ');
+        var op = p.type==='rent' ? 'Alquiler' : (p.type==='sale' ? 'Venta' : (p.type||''));
+        return '<div class="card" id="card-'+esc(it.id)+'">'
+          + img
+          + '<div class="info">'
+          +   '<div class="t">'+esc(p.title||'(sin título)')+'</div>'
+          +   '<div class="m"><i class="fas fa-location-dot"></i> '+esc(lugar||'—')+' &nbsp;·&nbsp; <i class="fas fa-calendar-xmark"></i> Borrada: '+esc(fecha(p._borradaEl))+'</div>'
+          +   '<div class="chips">'
+          +     (op ? '<span class="chip op">'+esc(op)+'</span>' : '')
+          +     (p.mlItemId ? '<span class="chip ml"><i class="fas fa-tag"></i> ML: '+esc(p.mlItemId)+'</span>' : '')
+          +     ((p.cierre && p.cierre.gananciaAgente!=null) ? '<span class="chip">con cierre</span>' : '')
+          +   '</div>'
+          + '</div>'
+          + '<div class="price">'+fmt(p.price, p.currency)+'</div>'
+          + '<div class="acts">'
+          +   '<button class="btn btn-res" onclick="restaurar(\''+esc(it.id)+'\')"><i class="fas fa-rotate-left"></i> Restaurar</button>'
+          +   '<button class="btn btn-del" onclick="eliminar(\''+esc(it.id)+'\')"><i class="fas fa-xmark"></i> Eliminar definitivo</button>'
+          + '</div>'
+        + '</div>';
+      }).join('');
+    }
+
+    window.restaurar = async function(id){
+      var it = items.find(function(x){ return x.id===id; });
+      if(!it) return;
+      var msg = '¿Restaurar "'+(it.data.title||'esta propiedad')+'"?\n\nVuelve a la cartera con el mismo ID y todos sus datos.'
+        + (it.data.mlItemId
+            ? '\n\nMercado Libre: si su aviso sigue vivo se re-engancha solo; si estaba cerrado, se publica UNO NUEVO en Plata (pago).'
+            : '\n\nMercado Libre: se va a publicar un aviso nuevo en Plata (pago).');
+      if(!confirm(msg)) return;
+      var card = document.getElementById('card-'+id);
+      card.querySelectorAll('.btn').forEach(function(b){ b.disabled=true; });
+      try{
+        var data = Object.assign({}, it.data);
+        delete data._borradaEl;
+        data.updatedAt = new Date().toISOString();
+        await db.collection('properties').doc(id).set(data);
+        await db.collection('papelera').doc(id).delete();
+        items = items.filter(function(x){ return x.id!==id; });
+        render();
+        toast('Propiedad restaurada. Ya está de vuelta en la cartera.');
+      }catch(e){
+        console.error(e);
+        card.querySelectorAll('.btn').forEach(function(b){ b.disabled=false; });
+        toast('No se pudo restaurar: ' + (e.code||e.message), true);
+      }
+    };
+
+    window.eliminar = async function(id){
+      var it = items.find(function(x){ return x.id===id; });
+      if(!it) return;
+      if(!confirm('¿Eliminar DEFINITIVAMENTE "'+(it.data.title||'esta propiedad')+'"?\n\nNo se va a poder recuperar.')) return;
+      if(!confirm('Última confirmación: se borra para siempre. ¿Seguro?')) return;
+      try{
+        await db.collection('papelera').doc(id).delete();
+        items = items.filter(function(x){ return x.id!==id; });
+        render();
+        toast('Eliminada definitivamente.');
+      }catch(e){
+        console.error(e);
+        toast('No se pudo eliminar: ' + (e.code||e.message), true);
+      }
+    };
+  </script>
+</body>
+</html>

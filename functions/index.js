@@ -1218,6 +1218,20 @@ async function crearAvisoML(ref, id, extra = {}, opciones = {}) {
 exports.publicarEnML = onDocumentCreated("properties/{id}", async (event) => {
   const snap = event.data;
   if (!snap) return;
+  const p = snap.data() || {};
+  // RESTAURACIÓN desde la papelera: si el doc ya trae un aviso de ML, no se crea
+  // otro. Si ese aviso sigue vivo en ML se re-engancha tal cual; si quedó cerrado,
+  // se publica uno nuevo (ML no permite reabrir avisos cerrados).
+  if (p.mlItemId) {
+    try {
+      const token = await getValidToken();
+      const live = (await axios.get(`${API}/items/${p.mlItemId}`, { headers: { Authorization: `Bearer ${token}` } })).data;
+      if (live && live.status !== "closed") {
+        await registrarLog(event.params.id, "restaurar: aviso re-enganchado", true, `${p.mlItemId} (${live.status})`);
+        return;
+      }
+    } catch (e) { /* si el aviso no se puede leer, se publica de nuevo abajo */ }
+  }
   await crearAvisoML(snap.ref, event.params.id, { mlPublishedAt: new Date().toISOString() });
 });
 
@@ -1409,7 +1423,14 @@ exports.sincronizarEdicionML = onDocumentUpdated("properties/{id}", async (event
 exports.cerrarMLAlBorrar = onDocumentDeleted("properties/{id}", async (event) => {
   const p = event.data ? event.data.data() : null;
   const id = event.params.id;
-  if (!p || !p.mlItemId) return;
+  if (!p) return;
+  // PAPELERA: antes de tocar ML se guarda una copia entera del documento en
+  // 'papelera/{id}'. Desde papelera.html el admin puede restaurar la propiedad
+  // (vuelve con el mismo ID) o eliminarla definitivamente.
+  try {
+    await db.collection("papelera").doc(id).set(Object.assign({}, p, { _borradaEl: new Date().toISOString() }));
+  } catch (e) { logger.error(`No se pudo copiar ${id} a la papelera:`, e.message); }
+  if (!p.mlItemId) return;
   try {
     const token = await getValidToken();
     const headers = { Authorization: `Bearer ${token}`, "content-type": "application/json" };
@@ -1596,6 +1617,9 @@ exports.estadoML = onCall(async (request) => {
       if (lleno.has(a.id) || noVa.has(a.id)) return;
       const t = a.tags || {};
       if (t.hidden || t.read_only || t.fixed) return;
+      // Checkboxes (Sí/No): sin tildar significa que la propiedad NO lo tiene, no
+      // que falte completarlo. Solo se reclama un booleano si ML lo exige obligatorio.
+      if (a.value_type === "boolean" && !(t.required || t.conditional_required)) return;
       (t.required || t.conditional_required ? reqM : optM).push(a.name);
     });
     faltan = reqM.map((n) => ({ nombre: n, req: true })).concat(optM.map((n) => ({ nombre: n, req: false })));
