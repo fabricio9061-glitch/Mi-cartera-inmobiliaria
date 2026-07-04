@@ -54,6 +54,9 @@
     .res-take .big{ font-size:1.9rem; font-weight:800; }
     .res-second{ display:flex; align-items:center; justify-content:space-between; padding:13px 16px; border:1px dashed var(--gray-300); border-radius:11px; margin-top:10px; font-size:.9rem; color:var(--gray-600); }
     .res-second .v{ font-weight:700; color:var(--primary); }
+    .res-pts{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 16px; border-radius:11px; margin-top:10px; background:rgba(201,162,39,.10); border:1px solid rgba(201,162,39,.35); font-size:.9rem; color:#8a6d12; }
+    .res-pts small{ display:block; color:#a8925c; font-size:.75rem; font-weight:400; margin-top:2px; }
+    .res-pts .v{ font-weight:800; color:#8a6d12; white-space:nowrap; }
     .placeholder{ text-align:center; color:var(--gray-400); padding:24px 0; font-size:.9rem; }
     .foot-note{ font-size:.78rem; color:var(--gray-400); margin-top:18px; line-height:1.6; }
     @media (max-width:560px){ .gh-title{ font-size:1.7rem; } .row-2{ grid-template-columns:1fr; } .res-take{ flex-direction:column; align-items:flex-start; gap:6px; } .res-take .big{ font-size:1.6rem; } }
@@ -197,6 +200,9 @@
     var ADMIN_EMAIL = "fabricio9061@gmail.com";
 
     var myProps = [], selectedProp = null, myComSale = null, myComRent = null;
+    // Config de puntos (misma regla que Recompensas: bloques completos de US$100 del
+    // precio de la operación). Se pisa con config/recompensas apenas carga.
+    var cfgPts = { puntosPor100: 1, valorPunto: 0.05, dolarPesos: 40 };
 
     function show(id){ ['loadingState','guestState','pendingState','emptyState','tool'].forEach(function(s){ document.getElementById(s).style.display = (s===id)?'':'none'; }); }
     function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
@@ -212,6 +218,10 @@
         var _fb = (prof.commissionPct != null && prof.commissionPct !== '') ? Number(prof.commissionPct) : null;
         myComSale = (prof.commissionSale != null && prof.commissionSale !== '') ? Number(prof.commissionSale) : _fb;
         myComRent = (prof.commissionRent != null && prof.commissionRent !== '') ? Number(prof.commissionRent) : _fb;
+        // Config de puntos: no bloquea la carga; si llega después, recalcula sola.
+        db.collection('config').doc('recompensas').get().then(function(cp){
+          if(cp.exists){ cfgPts = Object.assign(cfgPts, cp.data()); if(selectedProp) calc(); }
+        }).catch(function(){});
         await loadProps(u.uid);
       }catch(e){ show('guestState'); }
     });
@@ -362,6 +372,14 @@
       if(ivaOn){
         html += '<div class="res-second"><span>Tu parte calculada sobre el total <b>con IVA</b></span><span class="v">'+fmt(tuConIva,cur)+'</span></div>';
       }
+      // Puntos de recompensa: misma cuenta que Recompensas — bloques completos de
+      // US$100 del precio de la operación (en pesos se convierte con dolarPesos).
+      var dolar = Number(cfgPts.dolarPesos) || 0;
+      var usdOp = (cur === 'UYU') ? (dolar > 0 ? price / dolar : 0) : price;
+      var pts = Math.floor(usdOp / 100) * (Number(cfgPts.puntosPor100) || 1);
+      var ptsVal = pts * (Number(cfgPts.valorPunto) || 0);
+      var ptsTxt = pts.toLocaleString('es-UY') + (pts === 1 ? ' punto' : ' puntos') + (ptsVal > 0 ? ' · ≈ US$ ' + Math.round(ptsVal).toLocaleString('es-UY') : '');
+      html += '<div class="res-pts"><div><i class="fas fa-coins"></i> <b>Puntos de recompensa</b><small>Se acreditan cuando la inmobiliaria confirma el cierre.</small></div><div class="v">'+ptsTxt+'</div></div>';
       document.getElementById('resBody').innerHTML = html;
     }
   </script>

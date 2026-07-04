@@ -514,12 +514,12 @@ async function pickCondition(categoryId, token) {
 // =====================================================================
 // Tipo de publicación.
 // REGLA DE LA CASA: la publicación AUTOMÁTICA usa SOLO los tipos permitidos
-// en ML_LISTING_TYPE del .env (por defecto "free": gratuita y nada más).
-// Los tipos PAGOS (bronce/plata/oro) nunca se eligen solos: el agente los
-// elige a mano desde el selector del botón de Mercado Libre de la propiedad.
+// en ML_LISTING_TYPE del .env (por defecto "silver": la cuenta inmobiliaria
+// no tiene avisos gratis, así que se publica directo en Plata). El agente
+// puede cambiar el tipo a mano desde el selector del botón de Mercado Libre.
 // =====================================================================
 const TIPOS_AVISO_VALIDOS = ["free", "bronze", "silver", "gold", "gold_premium"];
-const LISTING_TYPE_PREF = (process.env.ML_LISTING_TYPE || "free")
+const LISTING_TYPE_PREF = (process.env.ML_LISTING_TYPE || "silver")
   .split(",").map((s) => s.trim()).filter((s) => TIPOS_AVISO_VALIDOS.includes(s));
 const _ltCache = new Map();   // categoryId -> { at, ids } disponibles de la cuenta (cache 10 min)
 const _ltVetados = new Map(); // categoryId -> Map(tipo -> timestamp) de tipos rechazados por ML
@@ -576,7 +576,7 @@ async function listingTypesDisponibles(categoryId, token) {
 }
 
 async function pickListingType(categoryId, token) {
-  return (await listingTypesDisponibles(categoryId, token))[0] || "free";
+  return (await listingTypesDisponibles(categoryId, token))[0] || "silver";
 }
 
 // Valor razonable para un atributo obligatorio que no mapeamos explícitamente.
@@ -1603,7 +1603,6 @@ exports.estadoML = onCall(async (request) => {
   // Interacción del aviso (estadísticas de Inmuebles de ML), últimos 30 días.
   const _hasta = new Date().toISOString();
   const _desde = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const _debug = []; // diagnóstico temporal: respuesta cruda de cada métrica
   const _total = (data) => {
     if (data == null) return null;
     if (typeof data === "number") return data;
@@ -1616,21 +1615,29 @@ exports.estadoML = onCall(async (request) => {
     }
     return null;
   };
-  const _fetchTotal = async (intentos, etiqueta) => {
+  const _fetchTotal = async (intentos, etiqueta, onData) => {
     for (const it of intentos) {
       try {
         const r = await axios.get(`${API}${it.url}`, { headers, params: it.params });
         logger.info(`[metricaML ${etiqueta || ""}] ${it.url} OK ${JSON.stringify(r.data).slice(0, 250)}`);
-        _debug.push(`${etiqueta || ""}: OK ${JSON.stringify(r.data).slice(0, 160)}`);
         const t = _total(r.data);
-        if (t != null) return t;
-      } catch (e) { logger.warn(`[metricaML ${etiqueta || ""}] ${it.url} ERR ${e.response ? e.response.status : e.message}`); _debug.push(`${etiqueta || ""}: ERR ${e.response ? e.response.status : String(e.message || "").slice(0, 80)}`); }
+        if (t != null) { if (onData) { try { onData(r.data); } catch (e) { } } return t; }
+      } catch (e) {
+        const _st = e.response ? e.response.status : "";
+        const _body = e.response && e.response.data ? JSON.stringify(e.response.data).slice(0, 220) : String(e.message || "").slice(0, 120);
+        logger.warn(`[metricaML ${etiqueta || ""}] ${it.url} ERR ${_st} ${_body}`);
+      }
     }
     return null;
   };
+  let _visSerie = null;
   const visitas = await _fetchTotal([
     { url: `/items/${p.mlItemId}/visits/time_window`, params: { last: 30, unit: "day" } },
-  ], "visitas");
+  ], "visitas", (data) => {
+    if (data && Array.isArray(data.results)) {
+      _visSerie = data.results.map((r) => ({ date: r.date, total: Number(r.total) || 0 }));
+    }
+  });
   const _pregTotal = await _fetchTotal([
     { url: `/items/${p.mlItemId}/contacts/questions`, params: { date_from: _desde, date_to: _hasta } },
     { url: `/items/${p.mlItemId}/contacts/questions/time_window`, params: { last: 30, unit: "day" } },
@@ -1653,9 +1660,9 @@ exports.estadoML = onCall(async (request) => {
     mejoras,
     faltan,
     visitas: visitas,
+    visitasSerie: _visSerie,
     preguntas: preguntas,
     contactosWhatsapp: contactosWa,
-    debugMetricas: _debug,
   };
 });
 
@@ -1870,8 +1877,11 @@ exports.feedInfocasas = onRequest(async (req, res) => {
       const ta = Number(p.totalArea) || 0, ca = Number(p.builtArea) || 0;
       if (ta > 0) x += icTag("m2", ta);
       if (ca > 0) x += icTag("m2edificados", ca);
-      if ((tipoProp === 3 || tipoProp === 6) && ta > 0) x += icTag("m2terreno", ta);
-      if (tipoProp === 6 && ta >= 10000) x += icTag("hectareas", Math.round((ta / 10000) * 100) / 100);
+      // Metros del terreno: usa la "Superficie de terreno" de la ficha (LAND_AREA);
+      // si no está cargada, cae a la superficie total (casas, terrenos y campos).
+      const terr = Number((p.ficha && p.ficha.LAND_AREA) || 0) || ((tipoProp === 1 || tipoProp === 3 || tipoProp === 6) ? ta : 0);
+      if (terr > 0) x += icTag("m2terreno", terr);
+      if (tipoProp === 6 && terr >= 10000) x += icTag("hectareas", Math.round((terr / 10000) * 100) / 100);
       const cocheras = Number((p.ficha && p.ficha.PARKING_LOTS) || 0) || (p.garage === "yes" ? 1 : 0);
       if (cocheras > 0) x += icTag("garage", cocheras);
       const gc = Number(p.commonExpenses) || 0;
