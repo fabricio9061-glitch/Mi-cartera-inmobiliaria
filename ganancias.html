@@ -372,14 +372,14 @@
       if(ivaOn){
         html += '<div class="res-second"><span>Tu parte calculada sobre el total <b>con IVA</b></span><span class="v">'+fmt(tuConIva,cur)+'</span></div>';
       }
-      // Puntos de recompensa: misma cuenta que Recompensas — bloques completos de
-      // US$100 del precio de la operación (en pesos se convierte con dolarPesos).
+      // Puntos de recompensa: 1 punto por cada US$100 COMPLETOS que le quedan al
+      // agente (su comisión sin IVA; en pesos se convierte con dolarPesos).
       var dolar = Number(cfgPts.dolarPesos) || 0;
-      var usdOp = (cur === 'UYU') ? (dolar > 0 ? price / dolar : 0) : price;
-      var pts = Math.floor(usdOp / 100) * (Number(cfgPts.puntosPor100) || 1);
+      var usdBolsillo = (cur === 'UYU') ? (dolar > 0 ? tuSinIva / dolar : 0) : tuSinIva;
+      var pts = Math.floor(usdBolsillo / 100) * (Number(cfgPts.puntosPor100) || 1);
       var ptsVal = pts * (Number(cfgPts.valorPunto) || 0);
       var ptsTxt = pts.toLocaleString('es-UY') + (pts === 1 ? ' punto' : ' puntos') + (ptsVal > 0 ? ' · ≈ US$ ' + Math.round(ptsVal).toLocaleString('es-UY') : '');
-      html += '<div class="res-pts"><div><i class="fas fa-coins"></i> <b>Puntos de recompensa</b><small>Se acreditan cuando la inmobiliaria confirma el cierre.</small></div><div class="v">'+ptsTxt+'</div></div>';
+      html += '<div class="res-pts"><div><i class="fas fa-coins"></i> <b>Puntos de recompensa</b><small>1 punto por cada US$100 completos que te quedan a vos. Se acreditan al confirmarse el cierre.</small></div><div class="v">'+ptsTxt+'</div></div>';
       document.getElementById('resBody').innerHTML = html;
     }
   </script>
