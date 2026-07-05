@@ -183,6 +183,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="malave-logos.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -406,7 +407,11 @@
         wrap.style.cssText = 'position:fixed;left:-3000px;top:0;width:794px;background:#fff;font-family:Jost,Arial,sans-serif';
         wrap.innerHTML = '<div id="reciboPDF" style="width:794px;min-height:1123px;background:#fff;padding:56px 60px;box-sizing:border-box;position:relative">'
           + '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #C9A227;padding-bottom:18px">'
-          +   '<div style="display:flex;gap:14px;align-items:center"><img src="iso-malave.png" style="width:54px;height:54px;object-fit:contain"><div><div style="font-size:22px;font-weight:700;color:#16273f;letter-spacing:.14em">MALAVE</div><div style="font-size:12px;color:#6b7480">Inmobiliaria · Aníbal Malave</div></div></div>'
+          +   '<div style="display:flex;gap:14px;align-items:center">'
+          +     ((typeof MALAVE_LOGO_ISO !== 'undefined' && MALAVE_LOGO_ISO)
+                  ? '<img src="'+MALAVE_LOGO_ISO+'" style="width:54px;height:54px;object-fit:contain">'
+                  : '<div style="width:54px;height:54px;border-radius:12px;background:#16273f;color:#C9A227;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;font-family:Georgia,serif">M</div>')
+          +     '<div><div style="font-size:22px;font-weight:700;color:#16273f;letter-spacing:.14em">MALAVE</div><div style="font-size:12px;color:#6b7480">Inmobiliaria · Aníbal Malave</div></div></div>'
           +   '<div style="text-align:right"><div style="font-size:17px;font-weight:700;color:#16273f">RECIBO DE COMISIÓN</div><div style="font-size:12px;color:#6b7480;margin-top:3px">N° '+esc(code)+'</div><div style="font-size:12px;color:#6b7480">Emitido: '+hoy+'</div></div>'
           + '</div>'
           + '<table style="width:100%;border-collapse:collapse;margin-top:26px">'
