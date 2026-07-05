@@ -110,6 +110,12 @@
       </div>
       <div id="regInfo"></div>
 
+      <div class="fg" id="regAgenteWrap" style="display:none">
+        <label>Agente del cierre</label>
+        <select id="regAgente" onchange="onAgenteSelect()"></select>
+        <div style="font-size:.78rem;color:#999;margin-top:5px">El cierre, la ganancia y los puntos de Recompensas quedan a nombre de este agente (arranca en el dueño de la propiedad).</div>
+      </div>
+
       <div class="fg">
         <label>Tipo de cierre</label>
         <div class="tipo-toggle">
@@ -123,7 +129,7 @@
         <div class="fg"><label>Moneda</label><select id="regMoneda"><option value="USD">US$</option><option value="UYU">$U</option></select></div>
       </div>
       <div class="grid2">
-        <div class="fg"><label>Tu ganancia <small style="color:#aaa">(lo que te quedó, sin IVA)</small></label><input type="number" id="regGanancia" placeholder="0"></div>
+        <div class="fg"><label id="regGanLabel">Tu ganancia <small style="color:#aaa">(lo que te quedó, sin IVA)</small></label><input type="number" id="regGanancia" placeholder="0"></div>
         <div class="fg"><label>&nbsp;</label><div style="font-size:.78rem;color:#999;padding-top:10px">En la misma moneda del precio. De acá salen tus puntos de Recompensas; la podés calcular en "Mis ganancias".</div></div>
       </div>
       <div class="grid2">
@@ -286,6 +292,25 @@
     }
 
     // ---- Registrar cierre ----
+    let agentesList = [];
+    function llenarAgentes(defUid){
+      const wrap = document.getElementById('regAgenteWrap');
+      if(!isAdmin || !agentesList.length){ if(wrap) wrap.style.display='none'; return; }
+      wrap.style.display = '';
+      const sel = document.getElementById('regAgente');
+      sel.innerHTML = agentesList.map(a=>'<option value="'+esc(a.uid)+'">'+esc(a.name)+'</option>').join('');
+      if(defUid && agentesList.some(a=>a.uid===defUid)) sel.value = defUid;
+      else if(agentesList.some(a=>a.uid===curUser.uid)) sel.value = curUser.uid;
+      onAgenteSelect();
+    }
+    function onAgenteSelect(){
+      const sel = document.getElementById('regAgente'), lbl = document.getElementById('regGanLabel');
+      if(!lbl) return;
+      const esOtro = isAdmin && sel && sel.value && sel.value !== curUser.uid;
+      lbl.innerHTML = esOtro
+        ? 'Ganancia del agente <small style="color:#aaa">(lo que le quedó, sin IVA)</small>'
+        : 'Tu ganancia <small style="color:#aaa">(lo que te quedó, sin IVA)</small>';
+    }
     function llenarPicker(){
       const sel=document.getElementById('regProp');
       const opts = editableProps.map(p=>{
@@ -322,6 +347,7 @@
       document.getElementById('regUbi').value='';
       document.getElementById('regFecha').value = new Date().toISOString().slice(0,10);
       document.querySelector('input[name="regTipo"][value="venta"]').checked = true;
+      llenarAgentes(curUser.uid);
       if(regPin && regMap){ regMap.removeLayer(regPin); regPin=null; }
       document.getElementById('regModal').classList.add('open');
       setTimeout(()=>{ initRegMap(); }, 60);
@@ -337,6 +363,7 @@
       const tt = document.querySelector('input[name="regTipo"][value="'+tipoDeProp(p)+'"]');
       if(tt) tt.checked = true;
       document.getElementById('regMoneda').value = p.currency || 'USD';
+      if(isAdmin) llenarAgentes(p.ownerId || curUser.uid);
       const m2 = p.builtArea || p.totalArea || 0;
       info.innerHTML = '<div class="reg-info"><b>'+esc(p.title||'Propiedad')+'</b><br>'
         + (m2?m2+' m² · ':'') + esc(p.realEstateType||'') + ' · ' + (p.bedrooms||0) + ' dorm · ' + (p.bathrooms||0) + ' baños<br>'
@@ -351,7 +378,18 @@
       const precio = parseFloat(document.getElementById('regPrecio').value);
       if(!precio || precio<=0){ toast('Poné el precio de cierre', true); return; }
       const gan = parseFloat(document.getElementById('regGanancia').value);
-      if(isNaN(gan) || gan < 0){ toast('Poné tu ganancia: lo que te quedó del cierre (la podés calcular en Mis ganancias)', true); return; }
+      if(isNaN(gan) || gan < 0){ toast('Poné la ganancia del agente: lo que le quedó del cierre (se calcula en Mis ganancias)', true); return; }
+      // A nombre de quién queda el cierre: el admin puede registrarlo por un agente.
+      // Los puntos de Recompensas van al agente elegido, no a quien carga el cierre.
+      let cierreAgUid = curUser.uid, cierreAgNom = curProfile.name || curUser.email || 'Agente';
+      if(isAdmin){
+        const selAg = document.getElementById('regAgente');
+        if(selAg && selAg.value){
+          cierreAgUid = selAg.value;
+          const ag = agentesList.find(a=>a.uid===selAg.value);
+          if(ag) cierreAgNom = ag.name;
+        }
+      }
       if(!regLatLng){ toast('Marcá la ubicación en el mapa', true); return; }
       const moneda = document.getElementById('regMoneda').value || 'USD';
       const fecha = document.getElementById('regFecha').value || new Date().toISOString().slice(0,10);
@@ -366,7 +404,7 @@
         realEstateType: p.realEstateType || '', barrio: (p.ubicacion && p.ubicacion.barrio) || p.barrio || '',
         precioPublicado: p.price || 0,
         gananciaAgente: gan,
-        agenteUid: curUser.uid, agenteNombre: curProfile.name || curUser.email || 'Agente',
+        agenteUid: cierreAgUid, agenteNombre: cierreAgNom,
         registradoEl: new Date().toISOString()
       };
       const btn=document.getElementById('regSave'); btn.disabled=true;
@@ -392,6 +430,14 @@
         const q = await db.collection('properties').get();
         allProps = q.docs.map(d=>({ id:d.id, ...d.data() }));
         editableProps = allProps.filter(p => isAdmin || p.ownerId===curUser.uid || (Array.isArray(p.agents) && p.agents.indexOf(curUser.uid)>=0));
+        // El admin puede registrar cierres a nombre de cualquier agente aprobado.
+        if(isAdmin && !agentesList.length){
+          try{
+            const us = await db.collection('users').where('status','==','approved').get();
+            agentesList = us.docs.map(d=>({ uid:d.id, name:(d.data().name || d.data().email || 'Agente') }))
+              .sort((a,b)=>a.name.localeCompare(b.name));
+          }catch(e){ agentesList = []; }
+        }
         coleccionar();
         show('content');
         document.getElementById('btnReg').style.display = '';
