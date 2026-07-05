@@ -5,127 +5,212 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gestionar propiedad | MALAVE</title>
   <link rel="icon" type="image/png" href="iso-malave.png">
-  <meta name="theme-color" content="#243447">
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#16273f">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="styles.css">
   <style>
-    body{background:var(--gray-50)}
-    .ppf-header{background:var(--white);box-shadow:var(--shadow-sm);position:sticky;top:0;z-index:1000}
-    .ppf-header-inner{max-width:760px;margin:0 auto;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
-    .ppf-back{display:inline-flex;align-items:center;gap:8px;color:var(--gray-600);font-size:14px;font-weight:500;padding:9px 18px;border:1px solid var(--gray-300);border-radius:var(--radius-full);transition:all .25s;cursor:pointer;background:none}
-    .ppf-back:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
-    .ppf-wrap{max-width:760px;margin:0 auto;padding:32px 24px 60px}
-    .ppf-card{background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius-xl);padding:36px;box-shadow:var(--shadow-sm)}
-    .ppf-card h1{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:700;color:var(--primary);margin-bottom:8px}
-    .ppf-card .ppf-sub{color:var(--gray-500);margin-bottom:28px}
-    .ppf-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;color:var(--gray-500);padding:40px 20px}
-    .ppf-state i{font-size:60px;margin-bottom:22px;opacity:.4}
-    .ppf-state h2{font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--gray-700);margin-bottom:10px}
-    .ppf-state a{display:inline-block;margin-top:20px;background:var(--primary);color:#fff;padding:12px 28px;border-radius:var(--radius-full);font-weight:500}
-    .ppf-spinner{width:48px;height:48px;border:4px solid var(--gray-200);border-top-color:var(--primary);border-radius:50%;animation:ppfspin 1s linear infinite;margin-bottom:20px}
-    @keyframes ppfspin{to{transform:rotate(360deg)}}
-    @media(max-width:640px){.ppf-card{padding:22px}}
+    :root{ --ink:#16273f; --paper:#f4f5f7; --card:#fff; --line:#e5e8ec; --muted:#6b7480; --gold:#C9A227; --gold-soft:rgba(201,162,39,.12); --ml:#ffe600; --ic:#ff7a00; --ok:#1e7d4f; --bad:#c0392b; }
+    body{ background:var(--paper); }
+
+    /* ---- Header ---- */
+    .pf-header{ background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:1100; }
+    .pf-header-inner{ max-width:1120px; margin:0 auto; padding:13px 22px; display:flex; justify-content:space-between; align-items:center; gap:16px; }
+    .pf-back{ display:inline-flex; align-items:center; gap:8px; color:var(--muted); font-size:14px; font-weight:500; padding:8px 16px; border:1px solid var(--line); border-radius:999px; cursor:pointer; background:none; transition:all .2s; }
+    .pf-back:hover{ background:var(--ink); color:#fff; border-color:var(--ink); }
+
+    /* ---- Barra de calidad (la firma de la página) ---- */
+    .pf-cal{ background:var(--ink); color:#fff; position:sticky; top:61px; z-index:1090; box-shadow:0 6px 18px rgba(22,39,63,.18); }
+    .pf-cal-inner{ max-width:1120px; margin:0 auto; padding:10px 22px; display:grid; grid-template-columns:auto auto 1fr; gap:10px 26px; align-items:center; }
+    .pf-meter{ display:flex; align-items:center; gap:10px; min-width:210px; }
+    .pf-meter .dot{ width:10px; height:10px; border-radius:3px; flex:none; }
+    .pf-meter.ml .dot{ background:var(--ml); } .pf-meter.ic .dot{ background:var(--ic); }
+    .pf-meter .who{ font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:#c7cfdb; width:76px; flex:none; }
+    .pf-meter .bar{ flex:1; height:7px; background:rgba(255,255,255,.14); border-radius:99px; overflow:hidden; }
+    .pf-meter .bar i{ display:block; height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#8f7414,var(--gold)); transition:width .35s ease; }
+    .pf-meter.ic .bar i{ background:linear-gradient(90deg,#a24d00,var(--ic)); }
+    .pf-meter .pct{ font-variant-numeric:tabular-nums; font-weight:600; font-size:.92rem; width:44px; text-align:right; }
+    .pf-cal-hint{ font-size:.85rem; color:#dbe2ec; display:flex; align-items:center; gap:9px; min-width:0; }
+    .pf-cal-hint i{ color:var(--gold); flex:none; }
+    .pf-cal-hint span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    /* ---- Layout ---- */
+    .pf-shell{ max-width:1120px; margin:0 auto; padding:26px 22px 70px; display:grid; grid-template-columns:230px minmax(0,1fr); gap:26px; align-items:start; }
+    .pf-rail{ position:sticky; top:128px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px; }
+    .pf-rail a{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:9px; color:var(--muted); font-size:.86rem; font-weight:500; text-decoration:none; transition:background .15s; }
+    .pf-rail a:hover{ background:var(--paper); color:var(--ink); }
+    .pf-rail .tick{ width:19px; height:19px; border-radius:50%; border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:.6rem; color:transparent; flex:none; transition:all .2s; }
+    .pf-rail a.done .tick{ background:var(--ok); border-color:var(--ok); color:#fff; }
+    .pf-rail a.done{ color:var(--ink); }
+
+    .pf-main h1{ font-family:'Cormorant Garamond',serif; font-size:34px; font-weight:700; color:var(--ink); margin:0 0 4px; }
+    .pf-lede{ color:var(--muted); margin-bottom:22px; max-width:640px; }
+
+    /* ---- Secciones ---- */
+    .pf-sec{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px 24px 14px; margin-bottom:18px; scroll-margin-top:130px; }
+    .pf-sec-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:14px; }
+    .pf-sec-head .n{ font-family:'Cormorant Garamond',serif; font-size:1.5rem; font-weight:700; color:var(--gold); line-height:1; flex:none; min-width:22px; }
+    .pf-sec-head h3{ font-size:1.06rem; font-weight:600; color:var(--ink); margin:0; }
+    .pf-sec-head small{ display:block; color:var(--muted); font-weight:400; font-size:.82rem; margin-top:3px; }
+
+    /* ---- Ficha técnica ---- */
+    .fx-toolbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+    .fx-search{ flex:1; min-width:200px; position:relative; }
+    .fx-search i{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:.85rem; }
+    .fx-search input{ width:100%; padding:10px 12px 10px 34px; border:1px solid var(--line); border-radius:10px; font-family:inherit; font-size:.9rem; }
+    .fx-btn{ background:none; border:1px solid var(--line); border-radius:10px; padding:9px 13px; font-family:inherit; font-size:.82rem; color:var(--muted); cursor:pointer; }
+    .fx-btn:hover{ border-color:var(--ink); color:var(--ink); }
+    .fx-group{ border:1px solid var(--line); border-radius:12px; margin:10px 0; overflow:hidden; background:var(--card); }
+    .fx-group>summary{ cursor:pointer; padding:12px 15px; font-weight:600; color:var(--ink); background:#fafbfc; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:.94rem; }
+    .fx-group>summary::-webkit-details-marker{ display:none; }
+    .fx-group>summary .fx-count{ font-size:.74rem; font-weight:600; color:var(--muted); background:var(--paper); border:1px solid var(--line); border-radius:99px; padding:2px 9px; }
+    .fx-group>summary .fx-count.full{ color:var(--ok); border-color:rgba(30,125,79,.35); background:rgba(30,125,79,.07); }
+    .fx-group>summary::after{ content:'\25be'; color:#9ca3af; transition:transform .2s; margin-left:2px; }
+    .fx-group[open]>summary::after{ transform:rotate(180deg); }
+    .fx-body{ padding:14px 15px 6px; }
+    .fx-inputs{ display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:12px 14px; margin-bottom:10px; }
+    .fx-inputs .form-group{ margin-bottom:4px; }
+    .fx-help{ font-size:.72rem; color:var(--muted); line-height:1.35; margin-top:4px; }
+    .fx-req{ color:var(--bad); }
+    .fx-checks{ display:grid; grid-template-columns:repeat(auto-fill,minmax(185px,1fr)); gap:4px 12px; padding-bottom:8px; }
+    .fx-check{ display:flex; align-items:center; gap:9px; font-size:.9rem; color:#333; cursor:pointer; padding:6px 8px; border-radius:8px; transition:background .12s; }
+    .fx-check:hover{ background:var(--paper); }
+    .fx-check input{ width:16px; height:16px; margin:0; flex:none; accent-color:var(--gold); }
+    .fx-check.on{ color:var(--ink); font-weight:500; }
+    .fx-ic-badge{ font-size:.66rem; font-weight:700; letter-spacing:.05em; background:rgba(255,122,0,.12); color:#b35600; border-radius:5px; padding:2px 6px; }
+    .fx-hidden{ display:none !important; }
+    .fx-empty{ color:var(--muted); font-size:.86rem; padding:8px 2px 14px; display:none; }
+
+    .titulo-counter{ font-size:.78rem; color:#9ca3af; text-align:right; margin:-10px 0 12px; }
+    .ubicacion-estado{ font-size:.86rem; color:var(--muted); margin:8px 0 10px; line-height:1.5; }
+    .ubicacion-estado .ok{ color:var(--ok); font-weight:600; }
+    .ubicacion-estado a{ color:var(--bad); cursor:pointer; text-decoration:underline; }
+    .btn-mapa{ background:var(--ink); color:#fff; border:none; border-radius:9px; padding:10px 16px; cursor:pointer; font-family:inherit; font-size:.9rem; display:inline-flex; align-items:center; gap:8px; margin-bottom:12px; }
+    .btn-mapa:hover{ opacity:.92; }
+    #propMapa{ height:320px; border-radius:12px; border:1px solid var(--line); position:relative; z-index:0; margin-bottom:6px; }
+    .foto-counter{ font-size:.84rem; margin-top:8px; font-weight:500; }
+    .foto-counter .b{ font-variant-numeric:tabular-nums; }
+
+    .pf-state{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; text-align:center; color:var(--muted); padding:40px 20px; }
+    .pf-state i{ font-size:60px; margin-bottom:22px; opacity:.4; }
+    .pf-state h2{ font-family:'Cormorant Garamond',serif; font-size:28px; color:#3a4656; margin-bottom:10px; }
+    .pf-state a{ display:inline-block; margin-top:20px; background:var(--ink); color:#fff; padding:12px 28px; border-radius:999px; font-weight:500; }
+    .pf-spinner{ width:48px; height:48px; border:4px solid var(--line); border-top-color:var(--ink); border-radius:50%; animation:pfspin 1s linear infinite; margin-bottom:20px; }
+    @keyframes pfspin{ to{ transform:rotate(360deg); } }
+
+    @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation-duration:.01s !important; } }
+    @media (max-width:1020px){ .pf-shell{ grid-template-columns:1fr; } .pf-rail{ display:none; } }
+    @media (max-width:640px){
+      .pf-cal-inner{ grid-template-columns:1fr 1fr; gap:8px 14px; padding:9px 16px; }
+      .pf-meter{ min-width:0; } .pf-meter .who{ width:auto; }
+      .pf-cal-hint{ grid-column:1 / -1; font-size:.8rem; }
+      .pf-sec{ padding:16px 14px 8px; }
+      .pf-cal{ top:57px; }
+    }
   </style>
 </head>
 <body>
-  <header class="ppf-header">
-    <div class="ppf-header-inner">
+  <header class="pf-header">
+    <div class="pf-header-inner">
       <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
-      <button class="ppf-back" onclick="goBack()"><i class="fas fa-arrow-left"></i> Volver</button>
+      <button class="pf-back" onclick="goBack()"><i class="fas fa-arrow-left"></i> Volver</button>
     </div>
   </header>
 
-  <div id="ppfLoading" class="ppf-state"><div class="ppf-spinner"></div><p>Verificando sesión...</p></div>
+  <div class="pf-cal" id="pfCal" style="display:none">
+    <div class="pf-cal-inner">
+      <div class="pf-meter ml"><span class="dot"></span><span class="who">Mercado Libre</span><span class="bar"><i id="calMLbar"></i></span><span class="pct" id="calMLpct">0%</span></div>
+      <div class="pf-meter ic"><span class="dot"></span><span class="who">InfoCasas</span><span class="bar"><i id="calICbar"></i></span><span class="pct" id="calICpct">0%</span></div>
+      <div class="pf-cal-hint"><i class="fas fa-lightbulb"></i><span id="calHint">Completá el aviso para subir la calidad en los dos portales.</span></div>
+    </div>
+  </div>
 
-  <div id="ppfAuth" class="ppf-state" style="display:none">
+  <div id="ppfLoading" class="pf-state"><div class="pf-spinner"></div><p>Verificando sesión...</p></div>
+
+  <div id="ppfAuth" class="pf-state" style="display:none">
     <i class="fas fa-lock"></i>
     <h2 id="ppfAuthTitle">Acceso para agentes</h2>
     <p id="ppfAuthMsg">Iniciá sesión para gestionar propiedades.</p>
     <a href="index.html"><i class="fas fa-arrow-left"></i> Ir al inicio</a>
   </div>
 
-  <div id="ppfErr" class="ppf-state" style="display:none">
+  <div id="ppfErr" class="pf-state" style="display:none">
     <i class="fas fa-triangle-exclamation"></i>
     <h2>No disponible</h2>
     <p id="ppfErrMsg"></p>
     <a href="index.html"><i class="fas fa-arrow-left"></i> Ir al inicio</a>
   </div>
 
-  <div class="ppf-wrap" id="ppfFormWrap" style="display:none">
-    <div class="ppf-card">
+  <div class="pf-shell" id="ppfFormWrap" style="display:none">
+    <aside class="pf-rail" id="pfRail">
+      <a href="#sec1" data-rail="1"><span class="tick"><i class="fas fa-check"></i></span> Qué publicás</a>
+      <a href="#sec2" data-rail="2"><span class="tick"><i class="fas fa-check"></i></span> Ubicación</a>
+      <a href="#sec3" data-rail="3"><span class="tick"><i class="fas fa-check"></i></span> Características</a>
+      <a href="#sec4" data-rail="4"><span class="tick"><i class="fas fa-check"></i></span> Ficha técnica</a>
+      <a href="#sec5" data-rail="5"><span class="tick"><i class="fas fa-check"></i></span> Fotos y video</a>
+      <a href="#sec6" data-rail="6"><span class="tick"><i class="fas fa-check"></i></span> Título y descripción</a>
+      <a href="#sec7" data-rail="7"><span class="tick"><i class="fas fa-check"></i></span> Precio</a>
+      <a href="#sec8" data-rail="8"><span class="tick"><i class="fas fa-check"></i></span> Contacto</a>
+    </aside>
+
+    <div class="pf-main">
       <h1 id="ppfTitle">Nueva propiedad</h1>
-      <p class="ppf-sub">El recorrido es el mismo que el de Mercado Libre: lo que completás acá es lo que se publica. Los campos con * son obligatorios.</p>
+      <p class="pf-lede">Un solo formulario para los dos portales: lo que completás acá es lo que se publica en Mercado Libre y lo que viaja en el feed a InfoCasas. Los campos con <span class="fx-req">*</span> son obligatorios.</p>
       <div id="propertyError" class="form-error hidden"></div>
       <form onsubmit="handleSaveProperty(event)" id="propertyForm">
         <input type="hidden" id="editingPropertyId" value=""><input type="hidden" id="previousPrice" value="">
-        <style>
-          .ppf-step{display:flex;align-items:flex-start;gap:11px;margin:26px 0 10px}
-          .ppf-step:first-of-type{margin-top:2px}
-          .ppf-step .num{width:28px;height:28px;border-radius:50%;background:#ffe600;color:#243447;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex:0 0 auto;box-shadow:0 1px 2px rgba(0,0,0,.15)}
-          .ppf-step h3{font-size:1.05rem;font-weight:700;color:#243447;margin:2px 0 0;line-height:1.25}
-          .ppf-step small{display:block;color:#6b7280;font-weight:400;font-size:.8rem;margin-top:2px}
-          .ppf-sec{border:1px solid #eef0f2;border-radius:10px;padding:16px 16px 4px;margin-bottom:6px;background:#fff}
-          .ppf-acc{border:1px solid #e5e7eb;border-radius:8px;margin:10px 0;overflow:hidden}
-          .ppf-acc>summary{cursor:pointer;padding:12px 14px;font-weight:600;background:#f9fafb;list-style:none;display:flex;justify-content:space-between;align-items:center}
-          .ppf-acc>summary::-webkit-details-marker{display:none}
-          .ppf-acc>summary::after{content:'▾';transition:transform .2s;color:#9ca3af}
-          .ppf-acc[open]>summary::after{transform:rotate(180deg)}
-          .feat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:8px 14px;padding:14px}
-          .feat-item{display:flex;align-items:center;gap:8px;font-size:.92rem;cursor:pointer}
-          .feat-item input{width:auto;margin:0;flex:0 0 auto}
-          .btn-mapa{background:#243447;color:#fff;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;font-family:inherit;font-size:.9rem;display:inline-flex;align-items:center;gap:8px;margin-bottom:12px}
-          .btn-mapa:hover{opacity:.92}
-          #propMapa{height:320px;border-radius:10px;border:1px solid #e5e7eb;position:relative;z-index:0;margin-bottom:6px}
-          .ubicacion-estado{font-size:.86rem;color:#6b7280;margin:6px 0 12px;line-height:1.5}
-          .ubicacion-estado .ok{color:#0a7a0a;font-weight:600}
-          .ubicacion-estado a{color:#b00020;cursor:pointer;text-decoration:underline}
-          .titulo-counter{font-size:.78rem;color:#9ca3af;text-align:right;margin-top:-12px;margin-bottom:14px}
-        </style>
 
-        <div class="ppf-step"><div class="num">1</div><div><h3>¿Qué vas a publicar?</h3><small>Operación y tipo de inmueble, igual que el primer paso de Mercado Libre.</small></div></div>
-        <div class="ppf-sec">
+        <div class="pf-sec" id="sec1">
+          <div class="pf-sec-head"><span class="n">1</span><div><h3>¿Qué vas a publicar?</h3><small>Operación y tipo de inmueble: definen qué campos pide cada portal.</small></div></div>
           <div class="form-row-3"><div class="form-group"><label>Tipo de Operación</label><select id="propType" onchange="togglePropertyType()"><option value="sale">Venta</option><option value="rent">Alquiler</option></select></div><div class="form-group"><label>Tipo de inmueble</label><select id="propRealEstateType" onchange="onTipoChange()"><option value="casa">Casa</option><option value="apartamento">Apartamento</option><option value="terreno">Terreno</option><option value="local">Local comercial</option><option value="oficina">Oficina</option><option value="galpon">Galpón / Depósito</option><option value="campo">Campo / Chacra</option></select></div><div class="form-group" id="propertyTypeGroup"><label>Tipo de padrón</label><select id="propPropertyType"><option value="common">Padrón Común</option><option value="ph">PH</option></select></div></div>
         </div>
 
-        <div class="ppf-step"><div class="num">2</div><div><h3>Ubicación</h3><small>Buscá la dirección y ajustá el pin: las coordenadas y el barrio viajan a Mercado Libre y mejoran cómo aparece el aviso en el mapa.</small></div></div>
-        <div class="ppf-sec">
-          <div class="form-row"><div class="form-group"><label>Departamento *</label><select id="propDepartamento" required onchange="updateCiudades()"><option value="">Seleccionar...</option></select></div><div class="form-group"><label>Ciudad/Barrio *</label><select id="propCiudad" required><option value="">Primero selecciona departamento</option></select></div></div>
+        <div class="pf-sec" id="sec2">
+          <div class="pf-sec-head"><span class="n">2</span><div><h3>Ubicación</h3><small>El pin manda: sin coordenadas la propiedad no entra al feed de InfoCasas, y en ML mejora cómo aparece en el mapa.</small></div></div>
+          <div class="form-row"><div class="form-group"><label>Departamento <span class="fx-req">*</span></label><select id="propDepartamento" required onchange="updateCiudades()"><option value="">Seleccionar...</option></select></div><div class="form-group"><label>Ciudad/Barrio <span class="fx-req">*</span></label><select id="propCiudad" required><option value="">Primero selecciona departamento</option></select></div></div>
           <div class="form-row"><div class="form-group"><label>Calle</label><input type="text" id="propDireccion" placeholder="Ej: Av. 18 de Julio"></div><div class="form-group"><label>Número</label><input type="text" id="propNumeroPuerta" placeholder="1234"></div></div>
           <button type="button" class="btn-mapa" onclick="buscarEnMapa()"><i class="fas fa-magnifying-glass-location"></i> Ubicar en el mapa</button>
           <div id="propMapa"></div>
           <div class="ubicacion-estado" id="ubicacionEstado"></div>
         </div>
 
-        <div class="ppf-step"><div class="num">3</div><div><h3>Características principales</h3><small>Dormitorios, baños y superficies.</small></div></div>
-        <div class="ppf-sec">
-          <div class="form-row-4"><div class="form-group"><label>Dormitorios *</label><input type="number" id="propBedrooms" placeholder="3" min="0"></div><div class="form-group"><label>Baños *</label><input type="number" id="propBathrooms" placeholder="2" min="0"></div><div class="form-group"><label>Superficie total m² *</label><input type="number" id="propTotalArea" required placeholder="100"></div><div class="form-group"><label>Área privada m² *</label><input type="number" id="propBuiltArea" required placeholder="80"></div></div>
+        <div class="pf-sec" id="sec3">
+          <div class="pf-sec-head"><span class="n">3</span><div><h3>Características principales</h3><small>Dormitorios, baños y superficies: van directo a los dos portales.</small></div></div>
+          <div class="form-row-4"><div class="form-group"><label>Dormitorios <span class="fx-req">*</span></label><input type="number" id="propBedrooms" placeholder="3" min="0"></div><div class="form-group"><label>Baños <span class="fx-req">*</span></label><input type="number" id="propBathrooms" placeholder="2" min="0"></div><div class="form-group"><label>Superficie total m² <span class="fx-req">*</span></label><input type="number" id="propTotalArea" required placeholder="100"></div><div class="form-group"><label>Área privada m² <span class="fx-req">*</span></label><input type="number" id="propBuiltArea" required placeholder="80"></div></div>
         </div>
 
-        <div class="ppf-step"><div class="num">4</div><div><h3>Ficha técnica</h3><small>Son los mismos campos que pide Mercado Libre. Completá o tildá lo que tenga la propiedad; se sincroniza igual al publicar y al editar.</small></div></div>
-        <div id="fichaTecnica"></div>
+        <div class="pf-sec" id="sec4">
+          <div class="pf-sec-head"><span class="n">4</span><div><h3>Ficha técnica</h3><small>Todos los campos oficiales de Mercado Libre para este tipo de inmueble, más los extras de InfoCasas. Tildá y completá lo que la propiedad tenga: un checkbox sin tildar significa "no lo tiene".</small></div></div>
+          <div class="fx-toolbar">
+            <div class="fx-search"><i class="fas fa-magnifying-glass"></i><input type="text" id="fichaSearch" placeholder="Buscar un campo... (ej: parrillero, piscina, antigüedad)" oninput="filtrarFicha()"></div>
+            <button type="button" class="fx-btn" onclick="toggleGrupos(true)">Abrir todo</button>
+            <button type="button" class="fx-btn" onclick="toggleGrupos(false)">Cerrar todo</button>
+          </div>
+          <div id="fichaTecnica"></div>
+          <div class="fx-empty" id="fichaEmpty">Ningún campo coincide con la búsqueda.</div>
+        </div>
 
-        <div class="ppf-step"><div class="num">5</div><div><h3>Fotos y video</h3><small>La primera foto es la portada del aviso. Arrastrá para reordenar.</small></div></div>
-        <div class="ppf-sec">
-          <div class="form-group"><label>Fotos * <small style="color:var(--gray-500);font-weight:normal">(arrastrá para reordenar, máx 5MB cada una)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div><div style="font-size:.8rem;color:var(--gray-500);margin-top:8px"><i class="fas fa-shield-halved" style="color:var(--gold-2)"></i> A cada foto se le agrega automáticamente la marca de agua MALAVE (logo centrado y tenue) al guardar.</div></div>
+        <div class="pf-sec" id="sec5">
+          <div class="pf-sec-head"><span class="n">5</span><div><h3>Fotos y video</h3><small>La primera foto es la portada. InfoCasas necesita 3 como mínimo; la calidad de ML vuela con 10 o más.</small></div></div>
+          <div class="form-group"><label>Fotos <span class="fx-req">*</span> <small style="color:var(--muted);font-weight:normal">(arrastrá para reordenar, máx 5MB cada una)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div class="foto-counter" id="fotoCounter"></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div><div style="font-size:.8rem;color:var(--muted);margin-top:8px"><i class="fas fa-shield-halved" style="color:var(--gold)"></i> A cada foto se le agrega automáticamente la marca de agua MALAVE (logo centrado y tenue) al guardar.</div></div>
           <div class="form-group"><label>Video de YouTube (opcional)</label><input type="url" id="propVideo" placeholder="https://www.youtube.com/watch?v=..."></div>
         </div>
 
-        <div class="ppf-step"><div class="num">6</div><div><h3>Título y descripción</h3><small>Mercado Libre permite hasta 200 caracteres: usá al menos 60 y sumá lo que la gente busca (tipo, barrio, dormitorios, extras).</small></div></div>
-        <div class="ppf-sec">
-          <div class="form-group"><label>Título *</label><input type="text" id="propTitle" required maxlength="200" placeholder="Ej: Casa 3 dormitorios en Pocitos con jardín, parrillero y garaje doble" oninput="actualizarContadorTitulo()"></div>
+        <div class="pf-sec" id="sec6">
+          <div class="pf-sec-head"><span class="n">6</span><div><h3>Título y descripción</h3><small>ML permite hasta 200 caracteres de título: usá al menos 60 y sumá lo que la gente busca (tipo, barrio, dormitorios, extras). La descripción también viaja a InfoCasas con la Ref. del código.</small></div></div>
+          <div class="form-group"><label>Título <span class="fx-req">*</span></label><input type="text" id="propTitle" required maxlength="200" placeholder="Ej: Casa 3 dormitorios en Pocitos con jardín, parrillero y garaje doble" oninput="actualizarContadorTitulo()"></div>
           <div class="titulo-counter"><span id="tituloCount">0</span>/200</div>
-          <div class="form-group"><label>Descripción</label><textarea id="propDescription" rows="4" placeholder="Describe la propiedad..."></textarea></div>
+          <div class="form-group"><label>Descripción</label><textarea id="propDescription" rows="5" placeholder="Describe la propiedad..."></textarea></div>
         </div>
 
-        <div class="ppf-step"><div class="num">7</div><div><h3>Precio</h3><small>Los gastos comunes se publican en la misma moneda elegida.</small></div></div>
-        <div class="ppf-sec">
-          <div class="form-row-3"><div class="form-group"><label>Precio *</label><input type="number" id="propPrice" required placeholder="150000"></div><div class="form-group"><label>Moneda</label><select id="propCurrency"><option value="USD">USD</option><option value="UYU">UYU</option></select></div><div class="form-group"><label>Gastos Comunes</label><input type="number" id="propExpenses" placeholder="150"></div></div>
+        <div class="pf-sec" id="sec7">
+          <div class="pf-sec-head"><span class="n">7</span><div><h3>Precio</h3><small>Los gastos comunes se publican en la misma moneda elegida.</small></div></div>
+          <div class="form-row-3"><div class="form-group"><label>Precio <span class="fx-req">*</span></label><input type="number" id="propPrice" required placeholder="150000"></div><div class="form-group"><label>Moneda</label><select id="propCurrency"><option value="USD">USD</option><option value="UYU">UYU</option></select></div><div class="form-group"><label>Gastos Comunes</label><input type="number" id="propExpenses" placeholder="150"></div></div>
         </div>
 
-        <div class="ppf-step"><div class="num">8</div><div><h3>Contacto</h3><small>El aviso siempre sale con el WhatsApp del perfil del agente dueño; este campo es solo para usar otro número puntual.</small></div></div>
-        <div class="ppf-sec">
+        <div class="pf-sec" id="sec8">
+          <div class="pf-sec-head"><span class="n">8</span><div><h3>Contacto</h3><small>El aviso siempre sale con el WhatsApp del perfil del agente dueño; este campo es solo para usar otro número puntual.</small></div></div>
           <div class="form-group"><label>WhatsApp de Contacto (opcional)</label><input type="tel" id="propWhatsapp" placeholder="+598 99 123 456"></div>
         </div>
 
@@ -221,8 +306,6 @@
     }
 
     // ================= MAPA (Leaflet + OpenStreetMap, sin API key) =================
-    // El pin guarda lat/lng en la propiedad; el backend las manda a Mercado Libre
-    // junto con calle, número y barrio (detectado automáticamente al fijar el pin).
     let mapa = null, mapaPin = null;
     const ubicacionState = { lat: null, lng: null, barrio: '' };
 
@@ -407,6 +490,7 @@
       toast.className = 'toast'; toast.innerHTML = `<div class="toast-icon"><i class="fas ${i}"></i></div><div class="toast-content"><strong>${t}</strong><p>${m}</p></div>`;
       c.appendChild(toast); setTimeout(() => { toast.classList.add('hiding'); setTimeout(() => toast.remove(), 300) }, 5000)
     }
+
     function loadPropertyForEdit(p) {
       document.getElementById('ppfTitle').textContent = 'Editar propiedad';
       document.getElementById('propertyBtn').innerHTML = '<i class="fas fa-save"></i> Guardar Cambios';
@@ -443,491 +527,1998 @@
       fillFicha(p);
       if (p.images && p.images.length > 0) { selectedImages = p.images.map(url => ({ preview: url, url: url, existing: true })); renderImagePreviews() }
     }
-    // ---- Características adicionales (servicios, comodidades, seguridad, ambientes) ----
-    // Ficha técnica de Mercado Libre como fuente de verdad. Cada campo usa el ID
-    // EXACTO del atributo de ML, así lo que se carga acá es lo que se publica.
-    // type: 'num' número | 'list' desplegable | 'date'/'text' texto | (sin type) checkbox Sí/No.
-    const FICHA_CASA = {
-      "Características secundarias": [
-        { id: "PARKING_LOTS", label: "Cocheras", type: "num" },
-        { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
-        { id: "ROOMS", label: "Ambientes", type: "num" },
-        { id: "WAREHOUSES", label: "Bodegas", type: "num" },
-        { id: "FLOORS", label: "Cantidad de pisos", type: "num" },
-        { id: "LAND_AREA", label: "Superficie de terreno (m²)", type: "num" },
-        { id: "BALCONY_AREA", label: "Superficie de balcón (m²)", type: "num" },
-        { id: "HOUSE_NUMBER", label: "Número de la casa", type: "text" },
-        { id: "HOUSE_PROPERTY_SUBTYPE", label: "Tipo de casa", type: "list", options: ["Casa", "Cabaña", "Chalet", "Dúplex", "Ph", "Tríplex"] },
-        { id: "PROPERTY_OWNERSHIP", label: "Tipo de propiedad", type: "list", options: ["Casa sola", "Casa en condominio", "Casa en fraccionamiento"] },
-        { id: "FACING", label: "Orientación", type: "list", options: ["Norte", "Sur", "Este", "Oeste"] },
-        { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
-        { id: "CONTACT_SCHEDULE", label: "Horario de contacto", type: "text" },
-        { id: "AVAILABLE", label: "Disponible desde", type: "date" },
-      ],
-      "Servicios": [
-        { id: "HAS_INTERNET_ACCESS", label: "Acceso a internet" },
-        { id: "HAS_NATURAL_GAS", label: "Gas natural" },
-        { id: "HAS_TELEPHONE_LINE", label: "Línea telefónica" },
-        { id: "HAS_AIR_CONDITIONING", label: "Aire acondicionado" },
-        { id: "HAS_HEATING", label: "Calefacción" },
-        { id: "WITH_ELECTRIC_GENERATOR", label: "Grupo electrógeno" },
-        { id: "WITH_SOLAR_ENERGY", label: "Energía solar" },
-        { id: "WITH_LAUNDRY_CONNECTION", label: "Conexión para lavarropas" },
-        { id: "HAS_TAP_WATER", label: "Agua corriente" },
-        { id: "HAS_CISTERN", label: "Cisterna" },
-        { id: "HAS_BOILER", label: "Caldera a gas/eléctrica" },
-        { id: "HAS_CABLE_TV", label: "TV por cable" },
-        { id: "WITH_SATELITE_TV", label: "TV satelital" },
-      ],
-      "Comodidades y equipamiento": [
-        { id: "HAS_INDOOR_FIREPLACE", label: "Chimenea" },
-        { id: "HAS_GYM", label: "Gimnasio" },
-        { id: "HAS_JACUZZI", label: "Jacuzzi" },
-        { id: "HAS_GUEST_PARKING", label: "Estacionamiento para visitas" },
-        { id: "HAS_CINEMA_HALL", label: "Área de cine" },
-        { id: "WITH_PLAYGROUND", label: "Área de juegos infantiles" },
-        { id: "WITH_GREEN_AREA", label: "Área verde" },
-        { id: "HAS_LIFT", label: "Ascensor" },
-        { id: "WITH_BASKETBALL_COURT", label: "Cancha de básquetbol" },
-        { id: "WITH_SOCCER_FIELD", label: "Cancha de fútbol" },
-        { id: "WITH_PADDLE_COURT", label: "Cancha de paddle" },
-        { id: "WITH_TENNIS_COURT", label: "Cancha de tenis" },
-        { id: "WITH_MULTIPURPOSE_SPORT_COURT", label: "Cancha polideportiva" },
-        { id: "WITH_PARTY_ROOM", label: "Salón de fiestas" },
-        { id: "HAS_SAUNA", label: "Sauna" },
-        { id: "HAS_FRIDGE", label: "Heladera" },
-        { id: "WITH_BREAKFAST_BAR", label: "Desayunador" },
-        { id: "WITH_GARDENER", label: "Jardinero" },
-      ],
-      "Seguridad": [
-        { id: "HAS_ALARM", label: "Alarma" },
-        { id: "HAS_ELECTRIC_GATE_OPENER", label: "Portón automático" },
-        { id: "HAS_SECURITY", label: "Circuito de cámaras de seguridad" },
-        { id: "WITH_CONTROLLED_ACCESS", label: "Acceso controlado" },
-        { id: "IN_GATED_COMMUNITY", label: "En barrio cerrado" },
-        { id: "SECURITY_TYPE", label: "Tipo de seguridad", type: "list", options: ["24 horas", "Diurno", "Nocturno", "Virtual"] },
-      ],
-      "Ambientes": [
-        { id: "HAS_ATTIC", label: "Altillo" },
-        { id: "HAS_BALCONY", label: "Balcón" },
-        { id: "HAS_KITCHEN", label: "Cocina" },
-        { id: "HAS_DINNING_ROOM", label: "Comedor" },
-        { id: "HAS_BEDROOM_SUITE", label: "Dormitorio en suite" },
-        { id: "HAS_MAID_ROOM", label: "Dormitorio de servicio" },
-        { id: "HAS_STUDY", label: "Estudio" },
-        { id: "HAS_LIVING_ROOM", label: "Living" },
-        { id: "HAS_PATIO", label: "Patio" },
-        { id: "HAS_PLAYROOM", label: "Cuarto de juegos" },
-        { id: "HAS_LAUNDRY", label: "Lavadero" },
-        { id: "HAS_DRESSING_ROOM", label: "Vestidor" },
-        { id: "HAS_GARDEN", label: "Jardín" },
-        { id: "HAS_GRILL", label: "Parrillero" },
-        { id: "HAS_SWIMMING_POOL", label: "Piscina" },
-        { id: "HAS_TERRACE", label: "Terraza" },
-        { id: "HAS_HALF_BATH", label: "Baño social" },
-        { id: "HAS_CLOSETS", label: "Placards" },
-      ],
-      "Condiciones especiales": [
-        { id: "FURNISHED", label: "Amoblado" },
-        { id: "PROFESSIONAL_USE_ALLOWED", label: "Uso comercial" },
-        { id: "IS_SUITABLE_FOR_PETS", label: "Admite mascotas" },
-        { id: "ONLY_FAMILIES", label: "Solo familias" },
-        { id: "ENDORSEMENT_REQUIRED", label: "Requiere aval" },
-      ],
+
+    // ============================================================================
+    // FICHA TÉCNICA — catálogo COMPLETO generado del dump oficial de ML
+    // (ml-ficha-salida.json) + extras de InfoCasas. Los nombres y opciones de las
+    // listas son EXACTOS a los de ML: no editar a mano, regenerar desde el dump.
+    // Ids IC_* son extras de InfoCasas: el backend de ML los ignora y el feed los lee.
+    // ============================================================================
+    const FICHA_TIPOS = {
+      "casa": {
+        "Datos del inmueble": [
+          {
+            "id": "PARKING_LOTS",
+            "label": "Cocheras",
+            "type": "num",
+            "req": true,
+            "help": "Cantidad de cocheras. Va a ML y como garajes a InfoCasas."
+          },
+          {
+            "id": "PROPERTY_AGE",
+            "label": "Antigüedad",
+            "type": "num",
+            "help": "Años de antigüedad. InfoCasas lo convierte en año de construcción."
+          },
+          {
+            "id": "LAND_AREA",
+            "label": "Superficie de terreno",
+            "type": "num",
+            "help": "m² del terreno. Si queda vacío, InfoCasas usa la superficie total."
+          },
+          {
+            "id": "BALCONY_AREA",
+            "label": "Superficie de balcón",
+            "type": "num",
+            "help": "m² del balcón (solo el balcón, no la unidad)."
+          },
+          {
+            "id": "ROOMS",
+            "label": "Ambientes",
+            "type": "num",
+            "help": "Cantidad de ambientes."
+          },
+          {
+            "id": "WAREHOUSES",
+            "label": "Bodegas",
+            "type": "num",
+            "help": "Bodegas o depósitos. En InfoCasas marca \"Box / Depósito\"."
+          },
+          {
+            "id": "FLOORS",
+            "label": "Cantidad de pisos",
+            "type": "num",
+            "help": "Plantas de la propiedad. También alimenta \"Cantidad de plantas\" en InfoCasas."
+          },
+          {
+            "id": "HOUSE_PROPERTY_SUBTYPE",
+            "label": "Tipo de casa",
+            "type": "list",
+            "options": [
+              "Dúplex",
+              "Ph",
+              "Tríplex",
+              "Cabaña",
+              "Casa",
+              "Chalet"
+            ]
+          },
+          {
+            "id": "FACING",
+            "label": "Orientación",
+            "type": "list",
+            "options": [
+              "Sur",
+              "Oeste",
+              "Norte",
+              "Este"
+            ],
+            "help": "Orientación: viaja a los dos portales."
+          }
+        ],
+        "Ambientes": [
+          {
+            "id": "HAS_ATTIC",
+            "label": "Altillo"
+          },
+          {
+            "id": "HAS_BALCONY",
+            "label": "Balcón"
+          },
+          {
+            "id": "HAS_KITCHEN",
+            "label": "Cocina"
+          },
+          {
+            "id": "HAS_DINNING_ROOM",
+            "label": "Comedor"
+          },
+          {
+            "id": "HAS_MAID_ROOM",
+            "label": "Dormitorio de servicio"
+          },
+          {
+            "id": "HAS_BEDROOM_SUITE",
+            "label": "Dormitorio en suite"
+          },
+          {
+            "id": "HAS_STUDY",
+            "label": "Estudio"
+          },
+          {
+            "id": "HAS_GARDEN",
+            "label": "Jardín"
+          },
+          {
+            "id": "HAS_LIVING_ROOM",
+            "label": "Living"
+          },
+          {
+            "id": "HAS_PATIO",
+            "label": "Patio"
+          },
+          {
+            "id": "HAS_CLOSETS",
+            "label": "Placards"
+          },
+          {
+            "id": "HAS_PLAYROOM",
+            "label": "Cuarto de juegos"
+          },
+          {
+            "id": "HAS_TERRACE",
+            "label": "Terraza"
+          },
+          {
+            "id": "HAS_HALF_BATH",
+            "label": "Baño social"
+          },
+          {
+            "id": "HAS_DRESSING_ROOM",
+            "label": "Vestidor"
+          },
+          {
+            "id": "HAS_LAUNDRY",
+            "label": "Con lavadero"
+          },
+          {
+            "id": "HAS_BREAKFAST_BAR",
+            "label": "Desayunador"
+          }
+        ],
+        "Equipamiento y servicios": [
+          {
+            "id": "HAS_INTERNET_ACCESS",
+            "label": "Acceso a internet"
+          },
+          {
+            "id": "HAS_AIR_CONDITIONING",
+            "label": "Aire acondicionado"
+          },
+          {
+            "id": "HAS_HEATING",
+            "label": "Calefacción"
+          },
+          {
+            "id": "HAS_INDOOR_FIREPLACE",
+            "label": "Chimenea"
+          },
+          {
+            "id": "HAS_NATURAL_GAS",
+            "label": "Gas natural"
+          },
+          {
+            "id": "HAS_TELEPHONE_LINE",
+            "label": "Línea telefónica"
+          },
+          {
+            "id": "HAS_GRILL",
+            "label": "Parrillero"
+          },
+          {
+            "id": "HAS_CABLE_TV",
+            "label": "TV por cable"
+          },
+          {
+            "id": "HAS_FRIDGE",
+            "label": "Heladera"
+          },
+          {
+            "id": "WITH_SOLAR_ENERGY",
+            "label": "Con energia solar"
+          },
+          {
+            "id": "WITH_LAUNDRY_CONNECTION",
+            "label": "Con conexión para lavarropas"
+          },
+          {
+            "id": "FURNISHED",
+            "label": "Amoblado"
+          },
+          {
+            "id": "HAS_TAP_WATER",
+            "label": "Agua corriente"
+          },
+          {
+            "id": "HAS_CISTERN",
+            "label": "Cisterna"
+          },
+          {
+            "id": "HAS_BOILER",
+            "label": "Caldera a gas/ eléctrica"
+          }
+        ],
+        "Amenities del edificio o barrio": [
+          {
+            "id": "HAS_GYM",
+            "label": "Gimnasio"
+          },
+          {
+            "id": "HAS_JACUZZI",
+            "label": "Jacuzzi"
+          },
+          {
+            "id": "HAS_SWIMMING_POOL",
+            "label": "Piscina"
+          },
+          {
+            "id": "HAS_CINEMA_HALL",
+            "label": "Área de cine"
+          },
+          {
+            "id": "HAS_PLAYGROUND",
+            "label": "Área de juegos infantiles"
+          },
+          {
+            "id": "WITH_GREEN_AREA",
+            "label": "Con área verde"
+          },
+          {
+            "id": "HAS_LIFT",
+            "label": "Ascensor"
+          },
+          {
+            "id": "HAS_BASKETBALL_COURT",
+            "label": "Cancha de básquetbol"
+          },
+          {
+            "id": "WITH_SOCCER_FIELD",
+            "label": "Con cancha de fútbol"
+          },
+          {
+            "id": "HAS_PADDLE_COURT",
+            "label": "Cancha de paddle"
+          },
+          {
+            "id": "HAS_TENNIS_COURT",
+            "label": "Cancha de tenis"
+          },
+          {
+            "id": "WITH_MULTIPURPOSE_SPORT_COURT",
+            "label": "Con cancha polideportiva"
+          },
+          {
+            "id": "HAS_ELECTRIC_GENERATOR",
+            "label": "Grupo electrógeno"
+          },
+          {
+            "id": "HAS_PARTY_ROOM",
+            "label": "Salón de fiestas"
+          },
+          {
+            "id": "HAS_SAUNA",
+            "label": "Sauna"
+          }
+        ],
+        "Seguridad": [
+          {
+            "id": "HAS_ALARM",
+            "label": "Alarma"
+          },
+          {
+            "id": "HAS_ELECTRIC_GATE_OPENER",
+            "label": "Portón automático"
+          },
+          {
+            "id": "HAS_SECURITY",
+            "label": "Circuito de cámaras de seguridad"
+          },
+          {
+            "id": "HAS_GUEST_PARKING",
+            "label": "Estacionamiento para visitas"
+          },
+          {
+            "id": "SECURITY_TYPE",
+            "label": "Tipo de seguridad",
+            "type": "text",
+            "help": "\"24 horas\" marca Portería 24 hs en InfoCasas; Diurno/Nocturno marcan Guardia."
+          },
+          {
+            "id": "IN_GATED_COMMUNITY",
+            "label": "En barrio cerrado"
+          },
+          {
+            "id": "HAS_CONTROLLED_ACCESS",
+            "label": "Acceso controlado"
+          }
+        ],
+        "Condiciones": [
+          {
+            "id": "CONTACT_SCHEDULE",
+            "label": "Horario de contacto",
+            "type": "text",
+            "help": "Arranca en \"24 horas\". Cambialo solo si este aviso atiende en otro horario."
+          },
+          {
+            "id": "PROPERTY_OWNERSHIP",
+            "label": "Tipo de propiedad",
+            "type": "list",
+            "options": [
+              "Casa sola",
+              "Casa en condominio",
+              "Casa en fraccionamiento"
+            ]
+          },
+          {
+            "id": "PROFESSIONAL_USE_ALLOWED",
+            "label": "Uso comercial"
+          },
+          {
+            "id": "SUITABLE_FOR_MORTGAGE_LOAN",
+            "label": "Acepta crédito hipotecario"
+          },
+          {
+            "id": "PROPERTY_CODE",
+            "label": "Código de la propiedad",
+            "type": "text",
+            "help": "Se genera solo y no se repite jamás. Sale en ML y como Ref. en InfoCasas."
+          }
+        ],
+        "Alquiler": [
+          {
+            "id": "ENDORSEMENT_REQUIRED",
+            "label": "Requiere garantía",
+            "help": "Solo para alquileres."
+          },
+          {
+            "id": "ONLY_FAMILIES",
+            "label": "Solo familias"
+          },
+          {
+            "id": "AVAILABLE",
+            "label": "Disponible desde",
+            "type": "date"
+          }
+        ],
+        "InfoCasas": [
+          {
+            "id": "PROPERTY_CONDITION",
+            "label": "Estado del inmueble",
+            "type": "list",
+            "options": [
+              "Nuevo",
+              "Renovado",
+              "Buen estado",
+              "Usado",
+              "En construcción"
+            ],
+            "help": "InfoCasas lo publica como Estado (\"Usado\" va como \"a definir\")."
+          },
+          {
+            "id": "VIEW_TYPE",
+            "label": "Tipo de vista",
+            "type": "list",
+            "options": [
+              "Mar",
+              "Ciudad",
+              "Río",
+              "Laguna",
+              "Vista abierta",
+              "Sin vista especial"
+            ],
+            "help": "\"Mar\" marca Vista al Mar en InfoCasas."
+          },
+          {
+            "id": "IC_SOBRE",
+            "label": "Sobre (rambla / avenida)",
+            "type": "list",
+            "options": [
+              "Rambla",
+              "Avenida"
+            ],
+            "help": "Solo si la propiedad da a rambla o avenida."
+          },
+          {
+            "id": "IC_DISTANCIA_MAR",
+            "label": "Distancia al mar",
+            "type": "list",
+            "options": [
+              "Frente al mar",
+              "Menos de 100 m",
+              "200 m",
+              "300 m",
+              "400 m"
+            ],
+            "help": "Dejalo vacío si no aplica."
+          },
+          {
+            "id": "IC_TOUR3D",
+            "label": "Tour 3D (link)",
+            "type": "text",
+            "help": "Kuula, Matterport, etc. Va a InfoCasas y marca \"Con tour virtual\" en ML."
+          },
+          {
+            "id": "IC_UBICACION",
+            "label": "Pin en InfoCasas",
+            "type": "list",
+            "options": [
+              "Punto aproximado",
+              "Punto exacto"
+            ],
+            "help": "Cómo se muestra la ubicación en el mapa de InfoCasas."
+          }
+        ]
+      },
+      "apartamento": {
+        "Datos del inmueble": [
+          {
+            "id": "BALCONY_AREA",
+            "label": "Superficie de balcón",
+            "type": "num",
+            "help": "m² del balcón (solo el balcón, no la unidad)."
+          },
+          {
+            "id": "ROOMS",
+            "label": "Ambientes",
+            "type": "num",
+            "help": "Cantidad de ambientes."
+          },
+          {
+            "id": "PARKING_LOTS",
+            "label": "Cocheras",
+            "type": "num",
+            "req": true,
+            "help": "Cantidad de cocheras. Va a ML y como garajes a InfoCasas."
+          },
+          {
+            "id": "WAREHOUSES",
+            "label": "Bodegas",
+            "type": "num",
+            "help": "Bodegas o depósitos. En InfoCasas marca \"Box / Depósito\"."
+          },
+          {
+            "id": "FLOORS",
+            "label": "Cantidad de pisos",
+            "type": "num",
+            "help": "Plantas de la propiedad. También alimenta \"Cantidad de plantas\" en InfoCasas."
+          },
+          {
+            "id": "APARTMENTS_PER_FLOOR",
+            "label": "Apartamentos por piso",
+            "type": "num",
+            "help": "Cuántas unidades hay por piso en el edificio."
+          },
+          {
+            "id": "UNIT_FLOOR",
+            "label": "Número de piso de la unidad",
+            "type": "num",
+            "help": "En qué piso está la unidad (0 = planta baja)."
+          },
+          {
+            "id": "APARTMENT_PROPERTY_SUBTYPE",
+            "label": "Tipo de departamento",
+            "type": "list",
+            "options": [
+              "Semi piso",
+              "Tríplex",
+              "Loft",
+              "Penthhouse",
+              "Departamento",
+              "Dúplex",
+              "Monoambiente",
+              "Ph",
+              "Piso"
+            ]
+          },
+          {
+            "id": "DISPOSITION",
+            "label": "Disposición",
+            "type": "list",
+            "options": [
+              "Contrafrente",
+              "Frente",
+              "Interno",
+              "Lateral"
+            ],
+            "help": "Frente, contrafrente, interno o lateral: viaja a los dos portales."
+          },
+          {
+            "id": "FACING",
+            "label": "Orientación",
+            "type": "list",
+            "options": [
+              "Sur",
+              "Oeste",
+              "Norte",
+              "Este"
+            ],
+            "help": "Orientación: viaja a los dos portales."
+          },
+          {
+            "id": "PROPERTY_AGE",
+            "label": "Antigüedad",
+            "type": "num",
+            "help": "Años de antigüedad. InfoCasas lo convierte en año de construcción."
+          }
+        ],
+        "Ambientes": [
+          {
+            "id": "HAS_BALCONY",
+            "label": "Balcón"
+          },
+          {
+            "id": "HAS_KITCHEN",
+            "label": "Cocina"
+          },
+          {
+            "id": "HAS_DINNING_ROOM",
+            "label": "Comedor"
+          },
+          {
+            "id": "HAS_MAID_ROOM",
+            "label": "Dormitorio de servicio"
+          },
+          {
+            "id": "HAS_BREAKFAST_BAR",
+            "label": "Desayunador"
+          },
+          {
+            "id": "HAS_BEDROOM_SUITE",
+            "label": "Dormitorio en suite"
+          },
+          {
+            "id": "HAS_STUDY",
+            "label": "Estudio"
+          },
+          {
+            "id": "HAS_GARDEN",
+            "label": "Jardín"
+          },
+          {
+            "id": "HAS_LAUNDRY",
+            "label": "Con lavadero"
+          },
+          {
+            "id": "HAS_LIVING_ROOM",
+            "label": "Living"
+          },
+          {
+            "id": "HAS_PATIO",
+            "label": "Patio"
+          },
+          {
+            "id": "HAS_CLOSETS",
+            "label": "Placards"
+          },
+          {
+            "id": "HAS_TERRACE",
+            "label": "Terraza"
+          },
+          {
+            "id": "HAS_HALF_BATH",
+            "label": "Baño social"
+          },
+          {
+            "id": "HAS_DRESSING_ROOM",
+            "label": "Vestidor"
+          },
+          {
+            "id": "HAS_PLAYROOM",
+            "label": "Cuarto de juegos"
+          }
+        ],
+        "Equipamiento y servicios": [
+          {
+            "id": "WHEELCHAIR_RAMP",
+            "label": "Rampa para silla de ruedas"
+          },
+          {
+            "id": "HAS_INTERNET_ACCESS",
+            "label": "Acceso a internet"
+          },
+          {
+            "id": "HAS_TAP_WATER",
+            "label": "Agua corriente"
+          },
+          {
+            "id": "HAS_AIR_CONDITIONING",
+            "label": "Aire acondicionado"
+          },
+          {
+            "id": "HAS_BOILER",
+            "label": "Caldera a gas/ eléctrica"
+          },
+          {
+            "id": "HAS_HEATING",
+            "label": "Calefacción"
+          },
+          {
+            "id": "HAS_INDOOR_FIREPLACE",
+            "label": "Chimenea"
+          },
+          {
+            "id": "HAS_CISTERN",
+            "label": "Cisterna"
+          },
+          {
+            "id": "WITH_LAUNDRY_CONNECTION",
+            "label": "Con conexión para lavarropas"
+          },
+          {
+            "id": "HAS_FRIDGE",
+            "label": "Heladera"
+          },
+          {
+            "id": "FURNISHED",
+            "label": "Amoblado"
+          },
+          {
+            "id": "WITH_SOLAR_ENERGY",
+            "label": "Con energia solar"
+          },
+          {
+            "id": "HAS_NATURAL_GAS",
+            "label": "Gas natural"
+          },
+          {
+            "id": "HAS_TELEPHONE_LINE",
+            "label": "Línea telefónica"
+          },
+          {
+            "id": "HAS_GRILL",
+            "label": "Parrillero"
+          }
+        ],
+        "Amenities del edificio o barrio": [
+          {
+            "id": "WITH_GREEN_AREA",
+            "label": "Con área verde"
+          },
+          {
+            "id": "HAS_BASKETBALL_COURT",
+            "label": "Cancha de básquetbol"
+          },
+          {
+            "id": "HAS_PADDLE_COURT",
+            "label": "Cancha de paddle"
+          },
+          {
+            "id": "HAS_MULTIPLE_USE_COURT",
+            "label": "Canchas de usos múltiples"
+          },
+          {
+            "id": "HAS_ELECTRIC_GENERATOR",
+            "label": "Grupo electrógeno"
+          },
+          {
+            "id": "HAS_SAUNA",
+            "label": "Sauna"
+          },
+          {
+            "id": "WITH_SOCCER_FIELD",
+            "label": "Con cancha de fútbol"
+          },
+          {
+            "id": "HAS_FRONT_DESK",
+            "label": "Recepción"
+          },
+          {
+            "id": "HAS_JACUZZI",
+            "label": "Jacuzzi"
+          },
+          {
+            "id": "HAS_CINEMA_HALL",
+            "label": "Área de cine"
+          },
+          {
+            "id": "HAS_PLAYGROUND",
+            "label": "Área de juegos infantiles"
+          },
+          {
+            "id": "HAS_LIFT",
+            "label": "Ascensor"
+          },
+          {
+            "id": "HAS_BUSINESS_CENTER",
+            "label": "Cowork"
+          },
+          {
+            "id": "HAS_TENNIS_COURT",
+            "label": "Cancha de tenis"
+          },
+          {
+            "id": "HAS_GYM",
+            "label": "Gimnasio"
+          },
+          {
+            "id": "HAS_COMMON_LAUNDRY",
+            "label": "Área de lavandería"
+          },
+          {
+            "id": "HAS_SWIMMING_POOL",
+            "label": "Piscina"
+          },
+          {
+            "id": "HAS_ROOF_GARDEN",
+            "label": "Azotea"
+          },
+          {
+            "id": "HAS_PARTY_ROOM",
+            "label": "Salón de fiestas"
+          },
+          {
+            "id": "HAS_MULTIPURPOSE_ROOM",
+            "label": "Salón de usos múltiples"
+          }
+        ],
+        "Seguridad": [
+          {
+            "id": "IN_GATED_COMMUNITY",
+            "label": "En barrio cerrado"
+          },
+          {
+            "id": "SECURITY_TYPE",
+            "label": "Tipo de seguridad",
+            "type": "list",
+            "options": [
+              "24 horas",
+              "Diurno",
+              "Nocturno",
+              "Virtual"
+            ],
+            "help": "\"24 horas\" marca Portería 24 hs en InfoCasas; Diurno/Nocturno marcan Guardia."
+          },
+          {
+            "id": "HAS_GUEST_PARKING",
+            "label": "Estacionamiento para visitas"
+          },
+          {
+            "id": "HAS_SECURITY",
+            "label": "Circuito de cámaras de seguridad"
+          }
+        ],
+        "Condiciones": [
+          {
+            "id": "CONTACT_SCHEDULE",
+            "label": "Horario de contacto",
+            "type": "text",
+            "help": "Arranca en \"24 horas\". Cambialo solo si este aviso atiende en otro horario."
+          },
+          {
+            "id": "IS_SUITABLE_FOR_PETS",
+            "label": "Admite mascotas"
+          },
+          {
+            "id": "PROFESSIONAL_USE_ALLOWED",
+            "label": "Uso comercial"
+          },
+          {
+            "id": "SUITABLE_FOR_MORTGAGE_LOAN",
+            "label": "Acepta crédito hipotecario"
+          },
+          {
+            "id": "PROPERTY_CODE",
+            "label": "Código de la propiedad",
+            "type": "text",
+            "help": "Se genera solo y no se repite jamás. Sale en ML y como Ref. en InfoCasas."
+          }
+        ],
+        "Alquiler": [
+          {
+            "id": "ENDORSEMENT_REQUIRED",
+            "label": "Requiere garantía",
+            "help": "Solo para alquileres."
+          },
+          {
+            "id": "ONLY_FAMILIES",
+            "label": "Solo familias"
+          },
+          {
+            "id": "AVAILABLE",
+            "label": "Disponible desde",
+            "type": "date"
+          }
+        ],
+        "InfoCasas": [
+          {
+            "id": "PROPERTY_CONDITION",
+            "label": "Estado del inmueble",
+            "type": "list",
+            "options": [
+              "Nuevo",
+              "Renovado",
+              "Buen estado",
+              "Usado",
+              "En construcción"
+            ],
+            "help": "InfoCasas lo publica como Estado (\"Usado\" va como \"a definir\")."
+          },
+          {
+            "id": "VIEW_TYPE",
+            "label": "Tipo de vista",
+            "type": "list",
+            "options": [
+              "Mar",
+              "Ciudad",
+              "Río",
+              "Laguna",
+              "Vista abierta",
+              "Sin vista especial"
+            ],
+            "help": "\"Mar\" marca Vista al Mar en InfoCasas."
+          },
+          {
+            "id": "IC_SOBRE",
+            "label": "Sobre (rambla / avenida)",
+            "type": "list",
+            "options": [
+              "Rambla",
+              "Avenida"
+            ],
+            "help": "Solo si la propiedad da a rambla o avenida."
+          },
+          {
+            "id": "IC_DISTANCIA_MAR",
+            "label": "Distancia al mar",
+            "type": "list",
+            "options": [
+              "Frente al mar",
+              "Menos de 100 m",
+              "200 m",
+              "300 m",
+              "400 m"
+            ],
+            "help": "Dejalo vacío si no aplica."
+          },
+          {
+            "id": "IC_TOUR3D",
+            "label": "Tour 3D (link)",
+            "type": "text",
+            "help": "Kuula, Matterport, etc. Va a InfoCasas y marca \"Con tour virtual\" en ML."
+          },
+          {
+            "id": "IC_UBICACION",
+            "label": "Pin en InfoCasas",
+            "type": "list",
+            "options": [
+              "Punto aproximado",
+              "Punto exacto"
+            ],
+            "help": "Cómo se muestra la ubicación en el mapa de InfoCasas."
+          }
+        ]
+      },
+      "terreno": {
+        "Datos del inmueble": [
+          {
+            "id": "LAND_ACCESS",
+            "label": "Acceso",
+            "type": "list",
+            "options": [
+              "Tierra",
+              "Arena",
+              "Asfalto",
+              "Otro",
+              "Ripio"
+            ],
+            "req": true
+          },
+          {
+            "id": "LOT_WIDTH",
+            "label": "Metros de frente",
+            "type": "num"
+          },
+          {
+            "id": "LOT_DEPTH",
+            "label": "Metros de fondo",
+            "type": "num"
+          },
+          {
+            "id": "LOT_SHAPE",
+            "label": "Forma del terreno",
+            "type": "list",
+            "options": [
+              "Regular",
+              "Irregular",
+              "Plano"
+            ]
+          },
+          {
+            "id": "PROPERTY_AGE",
+            "label": "Antigüedad",
+            "type": "num",
+            "help": "Años de antigüedad. InfoCasas lo convierte en año de construcción."
+          },
+          {
+            "id": "LOT_DISPOSITION",
+            "label": "Disposición del lote",
+            "type": "list",
+            "options": [
+              "Otro",
+              "Perimetral",
+              "A rio",
+              "A laguna",
+              "Interno"
+            ]
+          },
+          {
+            "id": "HAS_DRAINAGE",
+            "label": "Saneamiento"
+          },
+          {
+            "id": "HAS_FORESTATION",
+            "label": "Forestación"
+          },
+          {
+            "id": "HAS_ELECTRIC_LIGHT",
+            "label": "Luz eléctrica"
+          },
+          {
+            "id": "PRICE_PER_AREA_UNIT",
+            "label": "Precio por unidad de área",
+            "type": "num"
+          }
+        ],
+        "Equipamiento y servicios": [
+          {
+            "id": "HAS_TAP_WATER",
+            "label": "Agua corriente"
+          },
+          {
+            "id": "HAS_NATURAL_GAS",
+            "label": "Gas natural"
+          }
+        ],
+        "Seguridad": [
+          {
+            "id": "HAS_SECURITY",
+            "label": "Circuito de cámaras de seguridad"
+          }
+        ],
+        "Condiciones": [
+          {
+            "id": "CONTACT_SCHEDULE",
+            "label": "Horario de contacto",
+            "type": "text",
+            "help": "Arranca en \"24 horas\". Cambialo solo si este aviso atiende en otro horario."
+          },
+          {
+            "id": "PROPERTY_CODE",
+            "label": "Código de la propiedad",
+            "type": "text",
+            "help": "Se genera solo y no se repite jamás. Sale en ML y como Ref. en InfoCasas."
+          }
+        ],
+        "Alquiler": [
+          {
+            "id": "ENDORSEMENT_REQUIRED",
+            "label": "Requiere garantía",
+            "help": "Solo para alquileres."
+          },
+          {
+            "id": "ONLY_FAMILIES",
+            "label": "Solo familias"
+          },
+          {
+            "id": "AVAILABLE",
+            "label": "Disponible desde",
+            "type": "date"
+          }
+        ],
+        "InfoCasas": [
+          {
+            "id": "PROPERTY_CONDITION",
+            "label": "Estado del inmueble",
+            "type": "list",
+            "options": [
+              "Nuevo",
+              "Renovado",
+              "Buen estado",
+              "Usado",
+              "En construcción"
+            ],
+            "help": "InfoCasas lo publica como Estado (\"Usado\" va como \"a definir\")."
+          },
+          {
+            "id": "VIEW_TYPE",
+            "label": "Tipo de vista",
+            "type": "list",
+            "options": [
+              "Mar",
+              "Ciudad",
+              "Río",
+              "Laguna",
+              "Vista abierta",
+              "Sin vista especial"
+            ],
+            "help": "\"Mar\" marca Vista al Mar en InfoCasas."
+          },
+          {
+            "id": "IC_SOBRE",
+            "label": "Sobre (rambla / avenida)",
+            "type": "list",
+            "options": [
+              "Rambla",
+              "Avenida"
+            ],
+            "help": "Solo si la propiedad da a rambla o avenida."
+          },
+          {
+            "id": "IC_DISTANCIA_MAR",
+            "label": "Distancia al mar",
+            "type": "list",
+            "options": [
+              "Frente al mar",
+              "Menos de 100 m",
+              "200 m",
+              "300 m",
+              "400 m"
+            ],
+            "help": "Dejalo vacío si no aplica."
+          },
+          {
+            "id": "IC_TOUR3D",
+            "label": "Tour 3D (link)",
+            "type": "text",
+            "help": "Kuula, Matterport, etc. Va a InfoCasas y marca \"Con tour virtual\" en ML."
+          },
+          {
+            "id": "IC_UBICACION",
+            "label": "Pin en InfoCasas",
+            "type": "list",
+            "options": [
+              "Punto aproximado",
+              "Punto exacto"
+            ],
+            "help": "Cómo se muestra la ubicación en el mapa de InfoCasas."
+          }
+        ]
+      },
+      "local": {
+        "Datos del inmueble": [
+          {
+            "id": "PARKING_LOTS",
+            "label": "Cocheras",
+            "type": "num",
+            "req": true,
+            "help": "Cantidad de cocheras. Va a ML y como garajes a InfoCasas."
+          },
+          {
+            "id": "WAREHOUSES",
+            "label": "Bodegas",
+            "type": "num",
+            "help": "Bodegas o depósitos. En InfoCasas marca \"Box / Depósito\"."
+          },
+          {
+            "id": "FLOORS",
+            "label": "Cantidad de pisos",
+            "type": "num",
+            "help": "Plantas de la propiedad. También alimenta \"Cantidad de plantas\" en InfoCasas."
+          },
+          {
+            "id": "PROPERTY_AGE",
+            "label": "Antigüedad",
+            "type": "num",
+            "help": "Años de antigüedad. InfoCasas lo convierte en año de construcción."
+          },
+          {
+            "id": "HAS_ELECTRIC_LIGHT",
+            "label": "Luz eléctrica"
+          },
+          {
+            "id": "HAS_FIRE_SYSTEM",
+            "label": "Sistema contra incendio"
+          },
+          {
+            "id": "HAS_FITTING_ROOM",
+            "label": "Probador"
+          },
+          {
+            "id": "PRICE_PER_AREA_UNIT",
+            "label": "Precio por unidad de área",
+            "type": "num"
+          }
+        ],
+        "Ambientes": [
+          {
+            "id": "HAS_KITCHEN",
+            "label": "Cocina"
+          }
+        ],
+        "Equipamiento y servicios": [
+          {
+            "id": "HAS_INTERNET_ACCESS",
+            "label": "Acceso a internet"
+          },
+          {
+            "id": "HAS_TAP_WATER",
+            "label": "Agua corriente"
+          },
+          {
+            "id": "HAS_AIR_CONDITIONING",
+            "label": "Aire acondicionado"
+          },
+          {
+            "id": "HAS_HEATING",
+            "label": "Calefacción"
+          },
+          {
+            "id": "HAS_NATURAL_GAS",
+            "label": "Gas natural"
+          },
+          {
+            "id": "HAS_TELEPHONE_LINE",
+            "label": "Línea telefónica"
+          },
+          {
+            "id": "WHEELCHAIR_RAMP",
+            "label": "Rampa para silla de ruedas"
+          }
+        ],
+        "Amenities del edificio o barrio": [
+          {
+            "id": "HAS_ELECTRIC_GENERATOR",
+            "label": "Grupo electrógeno"
+          },
+          {
+            "id": "HAS_LIFT",
+            "label": "Ascensor"
+          }
+        ],
+        "Seguridad": [
+          {
+            "id": "HAS_SECURITY",
+            "label": "Circuito de cámaras de seguridad"
+          },
+          {
+            "id": "HAS_GUEST_PARKING",
+            "label": "Estacionamiento para visitas"
+          }
+        ],
+        "Condiciones": [
+          {
+            "id": "CONTACT_SCHEDULE",
+            "label": "Horario de contacto",
+            "type": "text",
+            "help": "Arranca en \"24 horas\". Cambialo solo si este aviso atiende en otro horario."
+          },
+          {
+            "id": "PROPERTY_CODE",
+            "label": "Código de la propiedad",
+            "type": "text",
+            "help": "Se genera solo y no se repite jamás. Sale en ML y como Ref. en InfoCasas."
+          }
+        ],
+        "Alquiler": [
+          {
+            "id": "ENDORSEMENT_REQUIRED",
+            "label": "Requiere garantía",
+            "help": "Solo para alquileres."
+          },
+          {
+            "id": "ONLY_FAMILIES",
+            "label": "Solo familias"
+          },
+          {
+            "id": "AVAILABLE",
+            "label": "Disponible desde",
+            "type": "date"
+          }
+        ],
+        "InfoCasas": [
+          {
+            "id": "PROPERTY_CONDITION",
+            "label": "Estado del inmueble",
+            "type": "list",
+            "options": [
+              "Nuevo",
+              "Renovado",
+              "Buen estado",
+              "Usado",
+              "En construcción"
+            ],
+            "help": "InfoCasas lo publica como Estado (\"Usado\" va como \"a definir\")."
+          },
+          {
+            "id": "VIEW_TYPE",
+            "label": "Tipo de vista",
+            "type": "list",
+            "options": [
+              "Mar",
+              "Ciudad",
+              "Río",
+              "Laguna",
+              "Vista abierta",
+              "Sin vista especial"
+            ],
+            "help": "\"Mar\" marca Vista al Mar en InfoCasas."
+          },
+          {
+            "id": "IC_SOBRE",
+            "label": "Sobre (rambla / avenida)",
+            "type": "list",
+            "options": [
+              "Rambla",
+              "Avenida"
+            ],
+            "help": "Solo si la propiedad da a rambla o avenida."
+          },
+          {
+            "id": "IC_DISTANCIA_MAR",
+            "label": "Distancia al mar",
+            "type": "list",
+            "options": [
+              "Frente al mar",
+              "Menos de 100 m",
+              "200 m",
+              "300 m",
+              "400 m"
+            ],
+            "help": "Dejalo vacío si no aplica."
+          },
+          {
+            "id": "IC_TOUR3D",
+            "label": "Tour 3D (link)",
+            "type": "text",
+            "help": "Kuula, Matterport, etc. Va a InfoCasas y marca \"Con tour virtual\" en ML."
+          },
+          {
+            "id": "IC_UBICACION",
+            "label": "Pin en InfoCasas",
+            "type": "list",
+            "options": [
+              "Punto aproximado",
+              "Punto exacto"
+            ],
+            "help": "Cómo se muestra la ubicación en el mapa de InfoCasas."
+          }
+        ]
+      },
+      "oficina": {
+        "Datos del inmueble": [
+          {
+            "id": "PARKING_LOTS",
+            "label": "Cocheras",
+            "type": "num",
+            "req": true,
+            "help": "Cantidad de cocheras. Va a ML y como garajes a InfoCasas."
+          },
+          {
+            "id": "OFFICES",
+            "label": "Número de oficinas",
+            "type": "num"
+          },
+          {
+            "id": "UNIT_FLOOR",
+            "label": "Número de piso de la unidad",
+            "type": "num",
+            "help": "En qué piso está la unidad (0 = planta baja)."
+          },
+          {
+            "id": "OFFICES_PER_FLOOR",
+            "label": "Oficinas por piso",
+            "type": "num"
+          },
+          {
+            "id": "BATHS_PER_FLOOR",
+            "label": "Baños por piso",
+            "type": "num"
+          },
+          {
+            "id": "WAREHOUSES",
+            "label": "Bodegas",
+            "type": "num",
+            "help": "Bodegas o depósitos. En InfoCasas marca \"Box / Depósito\"."
+          },
+          {
+            "id": "FACING",
+            "label": "Orientación",
+            "type": "list",
+            "options": [
+              "Sur",
+              "Oeste",
+              "Norte",
+              "Este"
+            ],
+            "help": "Orientación: viaja a los dos portales."
+          },
+          {
+            "id": "DISPOSITION",
+            "label": "Disposición",
+            "type": "list",
+            "options": [
+              "Contrafrente",
+              "Frente",
+              "Interno",
+              "Lateral"
+            ],
+            "help": "Frente, contrafrente, interno o lateral: viaja a los dos portales."
+          },
+          {
+            "id": "PROPERTY_AGE",
+            "label": "Antigüedad",
+            "type": "num",
+            "help": "Años de antigüedad. InfoCasas lo convierte en año de construcción."
+          },
+          {
+            "id": "HAS_ELECTRIC_LIGHT",
+            "label": "Luz eléctrica"
+          },
+          {
+            "id": "HAS_MEETING_ROOM",
+            "label": "Sala de reuniones"
+          },
+          {
+            "id": "HAS_DINNING_AREA",
+            "label": "Área de comedor"
+          },
+          {
+            "id": "HAS_OPEN_SPACES",
+            "label": "Áreas verdes"
+          },
+          {
+            "id": "HAS_LOBBY",
+            "label": "Portería"
+          },
+          {
+            "id": "HAS_FIRE_SYSTEM",
+            "label": "Sistema contra incendio"
+          },
+          {
+            "id": "VALET_PARKING_SERVICE",
+            "label": "Valet parking"
+          },
+          {
+            "id": "ROOMS",
+            "label": "Ambientes",
+            "type": "num",
+            "help": "Cantidad de ambientes."
+          },
+          {
+            "id": "PRICE_PER_AREA_UNIT",
+            "label": "Precio por unidad de área",
+            "type": "num"
+          }
+        ],
+        "Ambientes": [
+          {
+            "id": "HAS_KITCHEN",
+            "label": "Cocina"
+          },
+          {
+            "id": "HAS_DINNING_ROOM",
+            "label": "Comedor"
+          },
+          {
+            "id": "HAS_TERRACE",
+            "label": "Terraza"
+          }
+        ],
+        "Equipamiento y servicios": [
+          {
+            "id": "HAS_INTERNET_ACCESS",
+            "label": "Acceso a internet"
+          },
+          {
+            "id": "HAS_TAP_WATER",
+            "label": "Agua corriente"
+          },
+          {
+            "id": "HAS_AIR_CONDITIONING",
+            "label": "Aire acondicionado"
+          },
+          {
+            "id": "HAS_HEATING",
+            "label": "Calefacción"
+          },
+          {
+            "id": "HAS_NATURAL_GAS",
+            "label": "Gas natural"
+          },
+          {
+            "id": "HAS_TELEPHONE_LINE",
+            "label": "Línea telefónica"
+          }
+        ],
+        "Amenities del edificio o barrio": [
+          {
+            "id": "HAS_FRONT_DESK",
+            "label": "Recepción"
+          },
+          {
+            "id": "HAS_LIFT",
+            "label": "Ascensor"
+          },
+          {
+            "id": "HAS_GYM",
+            "label": "Gimnasio"
+          },
+          {
+            "id": "HAS_ELECTRIC_GENERATOR",
+            "label": "Grupo electrógeno"
+          }
+        ],
+        "Seguridad": [
+          {
+            "id": "HAS_GUEST_PARKING",
+            "label": "Estacionamiento para visitas"
+          },
+          {
+            "id": "HAS_SECURITY",
+            "label": "Circuito de cámaras de seguridad"
+          }
+        ],
+        "Condiciones": [
+          {
+            "id": "CONTACT_SCHEDULE",
+            "label": "Horario de contacto",
+            "type": "text",
+            "help": "Arranca en \"24 horas\". Cambialo solo si este aviso atiende en otro horario."
+          },
+          {
+            "id": "PROPERTY_CODE",
+            "label": "Código de la propiedad",
+            "type": "text",
+            "help": "Se genera solo y no se repite jamás. Sale en ML y como Ref. en InfoCasas."
+          }
+        ],
+        "Alquiler": [
+          {
+            "id": "ENDORSEMENT_REQUIRED",
+            "label": "Requiere garantía",
+            "help": "Solo para alquileres."
+          },
+          {
+            "id": "ONLY_FAMILIES",
+            "label": "Solo familias"
+          },
+          {
+            "id": "AVAILABLE",
+            "label": "Disponible desde",
+            "type": "date"
+          }
+        ],
+        "InfoCasas": [
+          {
+            "id": "PROPERTY_CONDITION",
+            "label": "Estado del inmueble",
+            "type": "list",
+            "options": [
+              "Nuevo",
+              "Renovado",
+              "Buen estado",
+              "Usado",
+              "En construcción"
+            ],
+            "help": "InfoCasas lo publica como Estado (\"Usado\" va como \"a definir\")."
+          },
+          {
+            "id": "VIEW_TYPE",
+            "label": "Tipo de vista",
+            "type": "list",
+            "options": [
+              "Mar",
+              "Ciudad",
+              "Río",
+              "Laguna",
+              "Vista abierta",
+              "Sin vista especial"
+            ],
+            "help": "\"Mar\" marca Vista al Mar en InfoCasas."
+          },
+          {
+            "id": "IC_SOBRE",
+            "label": "Sobre (rambla / avenida)",
+            "type": "list",
+            "options": [
+              "Rambla",
+              "Avenida"
+            ],
+            "help": "Solo si la propiedad da a rambla o avenida."
+          },
+          {
+            "id": "IC_DISTANCIA_MAR",
+            "label": "Distancia al mar",
+            "type": "list",
+            "options": [
+              "Frente al mar",
+              "Menos de 100 m",
+              "200 m",
+              "300 m",
+              "400 m"
+            ],
+            "help": "Dejalo vacío si no aplica."
+          },
+          {
+            "id": "IC_TOUR3D",
+            "label": "Tour 3D (link)",
+            "type": "text",
+            "help": "Kuula, Matterport, etc. Va a InfoCasas y marca \"Con tour virtual\" en ML."
+          },
+          {
+            "id": "IC_UBICACION",
+            "label": "Pin en InfoCasas",
+            "type": "list",
+            "options": [
+              "Punto aproximado",
+              "Punto exacto"
+            ],
+            "help": "Cómo se muestra la ubicación en el mapa de InfoCasas."
+          }
+        ]
+      },
+      "galpon": {
+        "Datos del inmueble": [
+          {
+            "id": "PARKING_LOTS",
+            "label": "Cocheras",
+            "type": "num",
+            "req": true,
+            "help": "Cantidad de cocheras. Va a ML y como garajes a InfoCasas."
+          },
+          {
+            "id": "TYPE_OF_WAREHOUSE",
+            "label": "Tipo de bodega",
+            "type": "list",
+            "options": [
+              "Bodega comercial",
+              "Nave industrial",
+              "Almacén"
+            ]
+          },
+          {
+            "id": "PROPERTY_AGE",
+            "label": "Antigüedad",
+            "type": "num",
+            "help": "Años de antigüedad. InfoCasas lo convierte en año de construcción."
+          },
+          {
+            "id": "OFFICES",
+            "label": "Número de oficinas",
+            "type": "num"
+          },
+          {
+            "id": "HEIGHT",
+            "label": "Altura",
+            "type": "num"
+          },
+          {
+            "id": "SUPPORTED_WEIGHT",
+            "label": "Soporte de piso",
+            "type": "num"
+          },
+          {
+            "id": "PLATFORM_TRAILERS",
+            "label": "Remolques de plataforma",
+            "type": "num"
+          },
+          {
+            "id": "HAS_BASCULE",
+            "label": "Báscula"
+          },
+          {
+            "id": "HAS_ELECTRIC_LIGHT",
+            "label": "Luz eléctrica"
+          },
+          {
+            "id": "HAS_FIRE_SYSTEM",
+            "label": "Sistema contra incendio"
+          },
+          {
+            "id": "VENTILATION_SYSTEM",
+            "label": "Sistema de ventilación"
+          },
+          {
+            "id": "PRICE_PER_AREA_UNIT",
+            "label": "Precio por unidad de área",
+            "type": "num"
+          }
+        ],
+        "Equipamiento y servicios": [
+          {
+            "id": "HAS_INTERNET_ACCESS",
+            "label": "Acceso a internet"
+          },
+          {
+            "id": "HAS_TAP_WATER",
+            "label": "Agua corriente"
+          },
+          {
+            "id": "HAS_AIR_CONDITIONING",
+            "label": "Aire acondicionado"
+          },
+          {
+            "id": "HAS_HEATING",
+            "label": "Calefacción"
+          },
+          {
+            "id": "HAS_NATURAL_GAS",
+            "label": "Gas natural"
+          },
+          {
+            "id": "HAS_TELEPHONE_LINE",
+            "label": "Línea telefónica"
+          }
+        ],
+        "Amenities del edificio o barrio": [
+          {
+            "id": "HAS_ELECTRIC_GENERATOR",
+            "label": "Grupo electrógeno"
+          },
+          {
+            "id": "HAS_LIFT",
+            "label": "Ascensor"
+          }
+        ],
+        "Seguridad": [
+          {
+            "id": "HAS_ALARM",
+            "label": "Alarma"
+          },
+          {
+            "id": "HAS_SECURITY",
+            "label": "Circuito de cámaras de seguridad"
+          }
+        ],
+        "Condiciones": [
+          {
+            "id": "CONTACT_SCHEDULE",
+            "label": "Horario de contacto",
+            "type": "text",
+            "help": "Arranca en \"24 horas\". Cambialo solo si este aviso atiende en otro horario."
+          },
+          {
+            "id": "PROPERTY_CODE",
+            "label": "Código de la propiedad",
+            "type": "text",
+            "help": "Se genera solo y no se repite jamás. Sale en ML y como Ref. en InfoCasas."
+          }
+        ],
+        "Alquiler": [
+          {
+            "id": "ENDORSEMENT_REQUIRED",
+            "label": "Requiere garantía",
+            "help": "Solo para alquileres."
+          },
+          {
+            "id": "ONLY_FAMILIES",
+            "label": "Solo familias"
+          },
+          {
+            "id": "AVAILABLE",
+            "label": "Disponible desde",
+            "type": "date"
+          }
+        ],
+        "InfoCasas": [
+          {
+            "id": "PROPERTY_CONDITION",
+            "label": "Estado del inmueble",
+            "type": "list",
+            "options": [
+              "Nuevo",
+              "Renovado",
+              "Buen estado",
+              "Usado",
+              "En construcción"
+            ],
+            "help": "InfoCasas lo publica como Estado (\"Usado\" va como \"a definir\")."
+          },
+          {
+            "id": "VIEW_TYPE",
+            "label": "Tipo de vista",
+            "type": "list",
+            "options": [
+              "Mar",
+              "Ciudad",
+              "Río",
+              "Laguna",
+              "Vista abierta",
+              "Sin vista especial"
+            ],
+            "help": "\"Mar\" marca Vista al Mar en InfoCasas."
+          },
+          {
+            "id": "IC_SOBRE",
+            "label": "Sobre (rambla / avenida)",
+            "type": "list",
+            "options": [
+              "Rambla",
+              "Avenida"
+            ],
+            "help": "Solo si la propiedad da a rambla o avenida."
+          },
+          {
+            "id": "IC_DISTANCIA_MAR",
+            "label": "Distancia al mar",
+            "type": "list",
+            "options": [
+              "Frente al mar",
+              "Menos de 100 m",
+              "200 m",
+              "300 m",
+              "400 m"
+            ],
+            "help": "Dejalo vacío si no aplica."
+          },
+          {
+            "id": "IC_TOUR3D",
+            "label": "Tour 3D (link)",
+            "type": "text",
+            "help": "Kuula, Matterport, etc. Va a InfoCasas y marca \"Con tour virtual\" en ML."
+          },
+          {
+            "id": "IC_UBICACION",
+            "label": "Pin en InfoCasas",
+            "type": "list",
+            "options": [
+              "Punto aproximado",
+              "Punto exacto"
+            ],
+            "help": "Cómo se muestra la ubicación en el mapa de InfoCasas."
+          }
+        ]
+      },
+      "campo": {
+        "Datos del inmueble": [
+          {
+            "id": "FARM_TYPE",
+            "label": "Tipo de campo",
+            "type": "list",
+            "options": [
+              "Otro",
+              "Frutícola",
+              "Agrícola",
+              "Chacra",
+              "Criadero",
+              "Tambero",
+              "Floricultura",
+              "Forestal",
+              "Ganadero",
+              "Haras"
+            ]
+          },
+          {
+            "id": "LAND_ACCESS",
+            "label": "Acceso",
+            "type": "list",
+            "options": [
+              "Tierra",
+              "Arena",
+              "Asfalto",
+              "Otro",
+              "Ripio"
+            ],
+            "req": true
+          },
+          {
+            "id": "PAVED_ROAD_DISTANCE",
+            "label": "Distancia al asfalto",
+            "type": "num"
+          },
+          {
+            "id": "LOT_SHAPE",
+            "label": "Forma del terreno",
+            "type": "list",
+            "options": [
+              "Regular",
+              "Irregular",
+              "Plano"
+            ]
+          },
+          {
+            "id": "PROPERTY_AGE",
+            "label": "Antigüedad",
+            "type": "num",
+            "help": "Años de antigüedad. InfoCasas lo convierte en año de construcción."
+          },
+          {
+            "id": "FARM_HOUSE_AREA",
+            "label": "Superficie cubierta del casco",
+            "type": "num"
+          },
+          {
+            "id": "FARM_HOUSE_ROOMS_NUMBER",
+            "label": "Cantidad de habitaciones",
+            "type": "num"
+          },
+          {
+            "id": "HAS_ELECTRIC_LIGHT",
+            "label": "Luz eléctrica"
+          },
+          {
+            "id": "HAS_WATERERS",
+            "label": "Bebederos"
+          },
+          {
+            "id": "FARM_HOUSE",
+            "label": "Casco"
+          },
+          {
+            "id": "HAS_FARMYARD",
+            "label": "Corral"
+          },
+          {
+            "id": "HAS_FARM_SHED",
+            "label": "Galpón"
+          },
+          {
+            "id": "HAS_MILLS",
+            "label": "Molinos"
+          },
+          {
+            "id": "HAS_SILO",
+            "label": "Silos"
+          },
+          {
+            "id": "HAS_WATER_TANK",
+            "label": "Tanque de agua"
+          }
+        ],
+        "Equipamiento y servicios": [
+          {
+            "id": "HAS_TAP_WATER",
+            "label": "Agua corriente"
+          },
+          {
+            "id": "HAS_NATURAL_GAS",
+            "label": "Gas natural"
+          },
+          {
+            "id": "HAS_TELEPHONE_LINE",
+            "label": "Línea telefónica"
+          }
+        ],
+        "Condiciones": [
+          {
+            "id": "CONTACT_SCHEDULE",
+            "label": "Horario de contacto",
+            "type": "text",
+            "help": "Arranca en \"24 horas\". Cambialo solo si este aviso atiende en otro horario."
+          },
+          {
+            "id": "PROPERTY_CODE",
+            "label": "Código de la propiedad",
+            "type": "text",
+            "help": "Se genera solo y no se repite jamás. Sale en ML y como Ref. en InfoCasas."
+          }
+        ],
+        "Alquiler": [
+          {
+            "id": "ENDORSEMENT_REQUIRED",
+            "label": "Requiere garantía",
+            "help": "Solo para alquileres."
+          },
+          {
+            "id": "ONLY_FAMILIES",
+            "label": "Solo familias"
+          },
+          {
+            "id": "AVAILABLE",
+            "label": "Disponible desde",
+            "type": "date"
+          }
+        ],
+        "InfoCasas": [
+          {
+            "id": "PROPERTY_CONDITION",
+            "label": "Estado del inmueble",
+            "type": "list",
+            "options": [
+              "Nuevo",
+              "Renovado",
+              "Buen estado",
+              "Usado",
+              "En construcción"
+            ],
+            "help": "InfoCasas lo publica como Estado (\"Usado\" va como \"a definir\")."
+          },
+          {
+            "id": "VIEW_TYPE",
+            "label": "Tipo de vista",
+            "type": "list",
+            "options": [
+              "Mar",
+              "Ciudad",
+              "Río",
+              "Laguna",
+              "Vista abierta",
+              "Sin vista especial"
+            ],
+            "help": "\"Mar\" marca Vista al Mar en InfoCasas."
+          },
+          {
+            "id": "IC_SOBRE",
+            "label": "Sobre (rambla / avenida)",
+            "type": "list",
+            "options": [
+              "Rambla",
+              "Avenida"
+            ],
+            "help": "Solo si la propiedad da a rambla o avenida."
+          },
+          {
+            "id": "IC_DISTANCIA_MAR",
+            "label": "Distancia al mar",
+            "type": "list",
+            "options": [
+              "Frente al mar",
+              "Menos de 100 m",
+              "200 m",
+              "300 m",
+              "400 m"
+            ],
+            "help": "Dejalo vacío si no aplica."
+          },
+          {
+            "id": "IC_TOUR3D",
+            "label": "Tour 3D (link)",
+            "type": "text",
+            "help": "Kuula, Matterport, etc. Va a InfoCasas y marca \"Con tour virtual\" en ML."
+          },
+          {
+            "id": "IC_UBICACION",
+            "label": "Pin en InfoCasas",
+            "type": "list",
+            "options": [
+              "Punto aproximado",
+              "Punto exacto"
+            ],
+            "help": "Cómo se muestra la ubicación en el mapa de InfoCasas."
+          }
+        ]
+      }
     };
-    // Apartamento: calcado del log real de ML (MLU1474, 114 atributos).
-    const FICHA_APTO = {
-      "Características secundarias": [
-        { id: "PARKING_LOTS", label: "Cocheras", type: "num" },
-        { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
-        { id: "ROOMS", label: "Ambientes", type: "num" },
-        { id: "WAREHOUSES", label: "Bodegas", type: "num" },
-        { id: "FLOORS", label: "Cantidad de pisos", type: "num" },
-        { id: "UNIT_FLOOR", label: "Piso de la unidad", type: "num" },
-        { id: "APARTMENTS_PER_FLOOR", label: "Apartamentos por piso", type: "num" },
-        { id: "BALCONY_AREA", label: "Superficie de balcón (m²)", type: "num" },
-        { id: "APARTMENT_NUMBER", label: "Número del apartamento", type: "text" },
-        { id: "TOWER_NUMBER", label: "Número de torre", type: "num" },
-        { id: "APARTMENT_PROPERTY_SUBTYPE", label: "Tipo de departamento", type: "list", options: ["Departamento", "Monoambiente", "Dúplex", "Tríplex", "Penthouse", "Loft", "Semipiso", "Piso", "Ph"] },
-        { id: "DISPOSITION", label: "Disposición", type: "list", options: ["Frente", "Contrafrente", "Interno", "Lateral"] },
-        { id: "FACING", label: "Orientación", type: "list", options: ["Norte", "Sur", "Este", "Oeste"] },
-        { id: "PROPERTY_CONDITION", label: "Estado del inmueble", type: "list", options: ["Nuevo", "Renovado", "Buen estado", "En construcción", "Usado", "No informado"] },
-        { id: "VIEW_TYPE", label: "Tipo de vista", type: "list", options: ["Mar", "Cordillera", "Cerro", "Ciudad", "Río", "Valle", "Laguna", "Vista abierta", "Sin vista especial"] },
-        { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
-        { id: "CONTACT_SCHEDULE", label: "Horario de contacto", type: "text" },
-      ],
-      "Servicios": [
-        { id: "HAS_INTERNET_ACCESS", label: "Acceso a internet" },
-        { id: "HAS_AIR_CONDITIONING", label: "Aire acondicionado" },
-        { id: "HAS_HEATING", label: "Calefacción" },
-        { id: "HAS_NATURAL_GAS", label: "Gas natural" },
-        { id: "HAS_TAP_WATER", label: "Agua corriente" },
-        { id: "HAS_CISTERN", label: "Cisterna" },
-        { id: "HAS_BOILER", label: "Caldera a gas/eléctrica" },
-        { id: "HAS_TELEPHONE_LINE", label: "Línea telefónica" },
-        { id: "WITH_LAUNDRY_CONNECTION", label: "Conexión para lavarropas" },
-        { id: "WITH_SOLAR_ENERGY", label: "Energía solar" },
-        { id: "HAS_ELECTRIC_GENERATOR", label: "Grupo electrógeno" },
-      ],
-      "Ambientes": [
-        { id: "HAS_BALCONY", label: "Balcón" },
-        { id: "HAS_TERRACE", label: "Terraza" },
-        { id: "HAS_ROOF_GARDEN", label: "Azotea" },
-        { id: "HAS_KITCHEN", label: "Cocina" },
-        { id: "HAS_DINNING_ROOM", label: "Comedor" },
-        { id: "HAS_LIVING_ROOM", label: "Living" },
-        { id: "HAS_STUDY", label: "Estudio" },
-        { id: "HAS_BEDROOM_SUITE", label: "Dormitorio en suite" },
-        { id: "HAS_MAID_ROOM", label: "Dormitorio de servicio" },
-        { id: "HAS_GARDEN", label: "Jardín" },
-        { id: "HAS_PATIO", label: "Patio" },
-        { id: "HAS_GRILL", label: "Parrillero" },
-        { id: "HAS_SWIMMING_POOL", label: "Piscina" },
-        { id: "HAS_PLAYROOM", label: "Cuarto de juegos" },
-        { id: "HAS_HALF_BATH", label: "Baño social" },
-        { id: "HAS_DRESSING_ROOM", label: "Vestidor" },
-        { id: "HAS_CLOSETS", label: "Placards" },
-        { id: "HAS_LAUNDRY", label: "Lavadero" },
-        { id: "HAS_INDOOR_FIREPLACE", label: "Chimenea" },
-      ],
-      "Comodidades y equipamiento": [
-        { id: "HAS_LIFT", label: "Ascensor" },
-        { id: "HAS_GYM", label: "Gimnasio" },
-        { id: "HAS_JACUZZI", label: "Jacuzzi" },
-        { id: "HAS_SAUNA", label: "Sauna" },
-        { id: "HAS_GUEST_PARKING", label: "Estacionamiento para visitas" },
-        { id: "HAS_PLAYGROUND", label: "Área de juegos infantiles" },
-        { id: "WITH_GREEN_AREA", label: "Área verde" },
-        { id: "HAS_PARTY_ROOM", label: "Salón de fiestas" },
-        { id: "HAS_MULTIPURPOSE_ROOM", label: "Salón de usos múltiples" },
-        { id: "HAS_BUSINESS_CENTER", label: "Cowork" },
-        { id: "HAS_FRONT_DESK", label: "Recepción" },
-        { id: "HAS_COMMON_LAUNDRY", label: "Área de lavandería" },
-        { id: "HAS_CINEMA_HALL", label: "Área de cine" },
-        { id: "HAS_FRIDGE", label: "Heladera" },
-        { id: "HAS_BREAKFAST_BAR", label: "Desayunador" },
-        { id: "HAS_TENNIS_COURT", label: "Cancha de tenis" },
-        { id: "HAS_PADDLE_COURT", label: "Cancha de paddle" },
-        { id: "HAS_BASKETBALL_COURT", label: "Cancha de básquetbol" },
-        { id: "WITH_SOCCER_FIELD", label: "Cancha de fútbol" },
-        { id: "HAS_MULTIPLE_USE_COURT", label: "Cancha de usos múltiples" },
-      ],
-      "Seguridad y accesibilidad": [
-        { id: "HAS_SECURITY", label: "Circuito de cámaras de seguridad" },
-        { id: "IN_GATED_COMMUNITY", label: "En barrio cerrado" },
-        { id: "WHEELCHAIR_RAMP", label: "Rampa para silla de ruedas" },
-        { id: "SECURITY_TYPE", label: "Tipo de seguridad", type: "list", options: ["24 horas", "Diurno", "Nocturno", "Virtual"] },
-      ],
-      "Terminaciones": [
-        { id: "HAS_FLOATING_FLOOR", label: "Piso flotante" },
-        { id: "HAS_PARQUET", label: "Parquet" },
-        { id: "HAS_PORCELAIN_TILE", label: "Porcelanato" },
-        { id: "HAS_CERAMIC", label: "Cerámica" },
-        { id: "HAS_LAMINATE", label: "Laminado" },
-        { id: "HAS_WOOD", label: "Madera" },
-        { id: "HAS_MARBLE", label: "Mármol" },
-        { id: "HAS_GRANIT", label: "Granito" },
-        { id: "HAS_CARPET", label: "Alfombra" },
-      ],
-      "Cercanías": [
-        { id: "HAS_METRO", label: "Metro cercano" },
-        { id: "HAS_SCHOOL", label: "Escuela cercana" },
-        { id: "HAS_NEAR_PARK", label: "Parque cercano" },
-        { id: "HAS_SHOPPING_CENTER", label: "Centro comercial cercano" },
-        { id: "HAS_ENTERTAINMENT", label: "Entretenimiento cercano" },
-        { id: "HAS_COAST", label: "Costa cercana" },
-      ],
-      "Condiciones especiales": [
-        { id: "FURNISHED", label: "Amoblado" },
-        { id: "IS_SUITABLE_FOR_PETS", label: "Admite mascotas" },
-        { id: "PROFESSIONAL_USE_ALLOWED", label: "Uso comercial" },
-        { id: "SUITABLE_FOR_MORTGAGE_LOAN", label: "Acepta crédito hipotecario" },
-        { id: "IS_PROPERTY_IN_AUCTION", label: "Es propiedad en remate" },
-      ],
-    };
-    // Terreno: calcado del log real de ML (MLU1495).
-    const FICHA_TERRENO = {
-      "Características del terreno": [
-        { id: "LAND_ACCESS", label: "Acceso (requerido)", type: "list", options: ["Asfalto", "Ripio", "Tierra", "Arena", "Otro"] },
-        { id: "LOT_WIDTH", label: "Metros de frente", type: "num" },
-        { id: "LOT_DEPTH", label: "Metros de fondo", type: "num" },
-        { id: "LOT_SHAPE", label: "Forma del terreno", type: "list", options: ["Regular", "Irregular", "Plano"] },
-        { id: "LOT_DISPOSITION", label: "Disposición del lote", type: "list", options: ["Perimetral", "Interno", "A rio", "A laguna", "Otro"] },
-        { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
-        { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
-        { id: "CONTACT_SCHEDULE", label: "Horario de contacto", type: "text" },
-      ],
-      "Servicios": [
-        { id: "HAS_TAP_WATER", label: "Agua corriente" },
-        { id: "HAS_DRAINAGE", label: "Saneamiento" },
-        { id: "HAS_NATURAL_GAS", label: "Gas natural" },
-        { id: "HAS_ELECTRIC_LIGHT", label: "Luz eléctrica" },
-        { id: "HAS_FORESTATION", label: "Forestación" },
-        { id: "HAS_SECURITY", label: "Circuito de cámaras de seguridad" },
-      ],
-    };
-    // Local comercial: calcado del log real de ML (MLU1483).
-    const FICHA_LOCAL = {
-      "Características secundarias": [
-        { id: "PARKING_LOTS", label: "Cocheras", type: "num" },
-        { id: "WAREHOUSES", label: "Bodegas", type: "num" },
-        { id: "FLOORS", label: "Cantidad de pisos", type: "num" },
-        { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
-        { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
-        { id: "CONTACT_SCHEDULE", label: "Horario de contacto", type: "text" },
-      ],
-      "Servicios e instalaciones": [
-        { id: "HAS_INTERNET_ACCESS", label: "Acceso a internet" },
-        { id: "HAS_TAP_WATER", label: "Agua corriente" },
-        { id: "HAS_AIR_CONDITIONING", label: "Aire acondicionado" },
-        { id: "HAS_HEATING", label: "Calefacción" },
-        { id: "HAS_NATURAL_GAS", label: "Gas natural" },
-        { id: "HAS_ELECTRIC_GENERATOR", label: "Grupo electrógeno" },
-        { id: "HAS_ELECTRIC_LIGHT", label: "Luz eléctrica" },
-        { id: "HAS_FIRE_SYSTEM", label: "Sistema contra incendio" },
-        { id: "HAS_TELEPHONE_LINE", label: "Línea telefónica" },
-      ],
-      "Equipamiento y seguridad": [
-        { id: "HAS_KITCHEN", label: "Cocina" },
-        { id: "HAS_FITTING_ROOM", label: "Probador" },
-        { id: "HAS_LIFT", label: "Ascensor" },
-        { id: "HAS_GUEST_PARKING", label: "Estacionamiento para visitas" },
-        { id: "WHEELCHAIR_RAMP", label: "Rampa para silla de ruedas" },
-        { id: "HAS_SECURITY", label: "Circuito de cámaras de seguridad" },
-      ],
-    };
-    // Oficina: calcado del log real de ML (MLU50635).
-    const FICHA_OFICINA = {
-      "Características secundarias": [
-        { id: "PARKING_LOTS", label: "Cocheras", type: "num" },
-        { id: "OFFICES", label: "Número de oficinas", type: "num" },
-        { id: "OFFICES_PER_FLOOR", label: "Oficinas por piso", type: "num" },
-        { id: "BATHS_PER_FLOOR", label: "Baños por piso", type: "num" },
-        { id: "UNIT_FLOOR", label: "Piso de la unidad", type: "num" },
-        { id: "ROOMS", label: "Ambientes", type: "num" },
-        { id: "WAREHOUSES", label: "Bodegas", type: "num" },
-        { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
-        { id: "FACING", label: "Orientación", type: "list", options: ["Norte", "Sur", "Este", "Oeste"] },
-        { id: "DISPOSITION", label: "Disposición", type: "list", options: ["Frente", "Contrafrente", "Interno", "Lateral"] },
-        { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
-        { id: "CONTACT_SCHEDULE", label: "Horario de contacto", type: "text" },
-      ],
-      "Servicios": [
-        { id: "HAS_INTERNET_ACCESS", label: "Acceso a internet" },
-        { id: "HAS_TAP_WATER", label: "Agua corriente" },
-        { id: "HAS_AIR_CONDITIONING", label: "Aire acondicionado" },
-        { id: "HAS_HEATING", label: "Calefacción" },
-        { id: "HAS_NATURAL_GAS", label: "Gas natural" },
-        { id: "HAS_TELEPHONE_LINE", label: "Línea telefónica" },
-        { id: "HAS_ELECTRIC_LIGHT", label: "Luz eléctrica" },
-        { id: "HAS_ELECTRIC_GENERATOR", label: "Grupo electrógeno" },
-      ],
-      "Espacios y comodidades": [
-        { id: "HAS_KITCHEN", label: "Cocina" },
-        { id: "HAS_DINNING_ROOM", label: "Comedor" },
-        { id: "HAS_DINNING_AREA", label: "Área de comedor" },
-        { id: "HAS_MEETING_ROOM", label: "Sala de reuniones" },
-        { id: "HAS_FRONT_DESK", label: "Recepción" },
-        { id: "HAS_LOBBY", label: "Portería" },
-        { id: "HAS_LIFT", label: "Ascensor" },
-        { id: "HAS_GYM", label: "Gimnasio" },
-        { id: "HAS_TERRACE", label: "Terraza" },
-        { id: "HAS_OPEN_SPACES", label: "Áreas verdes" },
-        { id: "HAS_GUEST_PARKING", label: "Estacionamiento para visitas" },
-        { id: "VALET_PARKING_SERVICE", label: "Valet parking" },
-      ],
-      "Seguridad": [
-        { id: "HAS_SECURITY", label: "Circuito de cámaras de seguridad" },
-        { id: "HAS_FIRE_SYSTEM", label: "Sistema contra incendio" },
-      ],
-    };
-    // Galpón / Depósito: calcado del log real de ML (MLU455468).
-    const FICHA_GALPON = {
-      "Características del galpón": [
-        { id: "PARKING_LOTS", label: "Cocheras", type: "num" },
-        { id: "TYPE_OF_WAREHOUSE", label: "Tipo de bodega", type: "list", options: ["Bodega comercial", "Nave industrial", "Almacén"] },
-        { id: "OFFICES", label: "Número de oficinas", type: "num" },
-        { id: "HEIGHT", label: "Altura (m)", type: "num" },
-        { id: "SUPPORTED_WEIGHT", label: "Soporte de piso", type: "num" },
-        { id: "PLATFORM_TRAILERS", label: "Remolques de plataforma", type: "num" },
-        { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
-        { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
-        { id: "CONTACT_SCHEDULE", label: "Horario de contacto", type: "text" },
-      ],
-      "Servicios e instalaciones": [
-        { id: "HAS_INTERNET_ACCESS", label: "Acceso a internet" },
-        { id: "HAS_TAP_WATER", label: "Agua corriente" },
-        { id: "HAS_AIR_CONDITIONING", label: "Aire acondicionado" },
-        { id: "HAS_HEATING", label: "Calefacción" },
-        { id: "HAS_NATURAL_GAS", label: "Gas natural" },
-        { id: "HAS_ELECTRIC_GENERATOR", label: "Grupo electrógeno" },
-        { id: "HAS_ELECTRIC_LIGHT", label: "Luz eléctrica" },
-        { id: "HAS_TELEPHONE_LINE", label: "Línea telefónica" },
-        { id: "VENTILATION_SYSTEM", label: "Sistema de ventilación" },
-        { id: "HAS_LIFT", label: "Ascensor" },
-      ],
-      "Seguridad y equipamiento": [
-        { id: "HAS_ALARM", label: "Alarma" },
-        { id: "HAS_BASCULE", label: "Báscula" },
-        { id: "HAS_SECURITY", label: "Circuito de cámaras de seguridad" },
-        { id: "HAS_FIRE_SYSTEM", label: "Sistema contra incendio" },
-      ],
-    };
-    // Campo / Chacra: calcado del log real de ML (MLU1492).
-    const FICHA_CAMPO = {
-      "Características del campo": [
-        { id: "FARM_TYPE", label: "Tipo de campo", type: "list", options: ["Agrícola", "Ganadero", "Forestal", "Frutícola", "Tambero", "Criadero", "Floricultura", "Chacra", "Haras", "Otro"] },
-        { id: "LAND_ACCESS", label: "Acceso (requerido)", type: "list", options: ["Asfalto", "Ripio", "Tierra", "Arena", "Otro"] },
-        { id: "PAVED_ROAD_DISTANCE", label: "Distancia al asfalto (m)", type: "num" },
-        { id: "LOT_SHAPE", label: "Forma del terreno", type: "list", options: ["Regular", "Irregular", "Plano"] },
-        { id: "FARM_HOUSE_AREA", label: "Superficie cubierta del casco (m²)", type: "num" },
-        { id: "FARM_HOUSE_ROOMS_NUMBER", label: "Cantidad de habitaciones", type: "num" },
-        { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
-        { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
-        { id: "CONTACT_SCHEDULE", label: "Horario de contacto", type: "text" },
-      ],
-      "Servicios": [
-        { id: "HAS_TAP_WATER", label: "Agua corriente" },
-        { id: "HAS_NATURAL_GAS", label: "Gas natural" },
-        { id: "HAS_TELEPHONE_LINE", label: "Línea telefónica" },
-        { id: "HAS_ELECTRIC_LIGHT", label: "Luz eléctrica" },
-      ],
-      "Instalaciones rurales": [
-        { id: "FARM_HOUSE", label: "Casco" },
-        { id: "HAS_FARMYARD", label: "Corral" },
-        { id: "HAS_FARM_SHED", label: "Galpón" },
-        { id: "HAS_MILLS", label: "Molinos" },
-        { id: "HAS_SILO", label: "Silos" },
-        { id: "HAS_WATER_TANK", label: "Tanque de agua" },
-        { id: "HAS_WATERERS", label: "Bebederos" },
-      ],
-    };
-    // Fallback para los tipos que todavía no relevé contra ML (apartamento, terreno,
-    // local, oficina, galpón, campo). El backend igual valida y descarta lo que no
-    // aplica a cada categoría. Con el log [CAT ...] de cada tipo armo su ficha exacta.
-    const FICHA_COMUN = {
-      "Ambientes y superficies": [
-        { id: "ROOMS", label: "Ambientes", type: "num" },
-        { id: "PARKING_LOTS", label: "Cocheras", type: "num" },
-        { id: "WAREHOUSES", label: "Bodegas", type: "num" },
-        { id: "BALCONY_AREA", label: "Superficie de balcón (m²)", type: "num" },
-        { id: "UNIT_FLOOR", label: "Piso de la unidad", type: "num" },
-        { id: "APARTMENTS_PER_FLOOR", label: "Apartamentos por piso", type: "num" },
-        { id: "FLOORS", label: "Cantidad de pisos", type: "num" },
-        { id: "PROPERTY_AGE", label: "Antigüedad (años)", type: "num" },
-        { id: "HOUSE_PROPERTY_SUBTYPE", label: "Tipo de casa", type: "list", options: ["Casa", "Cabaña", "Chalet", "Dúplex", "Ph", "Tríplex"] },
-        { id: "APARTMENT_PROPERTY_SUBTYPE", label: "Tipo de departamento", type: "list", options: ["Departamento", "Monoambiente", "Dúplex", "Tríplex", "Penthouse", "Loft", "Semipiso", "Piso", "Ph"] },
-        { id: "DISPOSITION", label: "Disposición", type: "list", options: ["Frente", "Contrafrente", "Interno", "Lateral"] },
-        { id: "FACING", label: "Orientación", type: "list", options: ["Norte", "Sur", "Este", "Oeste"] },
-      ],
-      "Comodidades y amenities": [
-        { id: "HAS_INTERNET_ACCESS", label: "Acceso a internet" },
-        { id: "HAS_AIR_CONDITIONING", label: "Aire acondicionado" },
-        { id: "HAS_HEATING", label: "Calefacción" },
-        { id: "HAS_LIFT", label: "Ascensor" },
-        { id: "HAS_GYM", label: "Gimnasio" },
-        { id: "HAS_SWIMMING_POOL", label: "Piscina" },
-        { id: "HAS_JACUZZI", label: "Jacuzzi" },
-        { id: "HAS_GUEST_PARKING", label: "Estacionamiento para visitas" },
-        { id: "HAS_PLAYGROUND", label: "Área de juegos infantiles" },
-        { id: "HAS_PARTY_ROOM", label: "Salón de fiestas" },
-        { id: "HAS_MULTIPURPOSE_ROOM", label: "Salón de usos múltiples" },
-        { id: "HAS_BUSINESS_CENTER", label: "Cowork" },
-        { id: "HAS_TENNIS_COURT", label: "Cancha de tenis" },
-        { id: "HAS_INDOOR_FIREPLACE", label: "Chimenea" },
-        { id: "HAS_COMMON_LAUNDRY", label: "Área de lavandería" },
-        { id: "HAS_FRONT_DESK", label: "Recepción" },
-        { id: "HAS_SECURITY", label: "Circuito de cámaras de seguridad" },
-      ],
-      "Ambientes": [
-        { id: "HAS_BALCONY", label: "Balcón" },
-        { id: "HAS_TERRACE", label: "Terraza" },
-        { id: "HAS_ROOF_GARDEN", label: "Azotea" },
-        { id: "HAS_KITCHEN", label: "Cocina" },
-        { id: "HAS_DINNING_ROOM", label: "Comedor" },
-        { id: "HAS_LIVING_ROOM", label: "Living" },
-        { id: "HAS_STUDY", label: "Estudio" },
-        { id: "HAS_BEDROOM_SUITE", label: "Dormitorio en suite" },
-        { id: "HAS_MAID_ROOM", label: "Dormitorio de servicio" },
-        { id: "HAS_GARDEN", label: "Jardín" },
-        { id: "HAS_PATIO", label: "Patio" },
-        { id: "HAS_GRILL", label: "Parrillero" },
-        { id: "HAS_PLAYROOM", label: "Cuarto de juegos" },
-        { id: "HAS_HALF_BATH", label: "Baño social" },
-        { id: "HAS_DRESSING_ROOM", label: "Vestidor" },
-      ],
-      "Características adicionales": [
-        { id: "FURNISHED", label: "Amoblado" },
-        { id: "HAS_NATURAL_GAS", label: "Gas natural" },
-        { id: "HAS_TAP_WATER", label: "Agua corriente" },
-        { id: "HAS_TELEPHONE_LINE", label: "Línea telefónica" },
-        { id: "PROFESSIONAL_USE_ALLOWED", label: "Uso comercial" },
-        { id: "IS_SUITABLE_FOR_PETS", label: "Admite mascotas" },
-        { id: "IN_GATED_COMMUNITY", label: "En barrio cerrado" },
-      ],
-      "Equipamiento y otros": [
-        { id: "HAS_SAUNA", label: "Sauna" },
-        { id: "HAS_BREAKFAST_BAR", label: "Desayunador" },
-        { id: "HAS_FRIDGE", label: "Heladera" },
-        { id: "HAS_CABLE_TV", label: "TV por cable" },
-        { id: "WITH_SATELITE_TV", label: "TV satelital" },
-        { id: "HAS_CINEMA_HALL", label: "Área de cine" },
-        { id: "HAS_BOILER", label: "Caldera a gas/eléctrica" },
-        { id: "HAS_ELECTRIC_GENERATOR", label: "Grupo electrógeno" },
-        { id: "WITH_SOLAR_ENERGY", label: "Energía solar" },
-        { id: "WITH_LAUNDRY_CONNECTION", label: "Conexión para lavarropas" },
-        { id: "HAS_LAUNDRY", label: "Lavadero" },
-        { id: "HAS_CLOSETS", label: "Placards" },
-        { id: "WITH_GREEN_AREA", label: "Área verde" },
-        { id: "HAS_MULTIPLE_USE_COURT", label: "Cancha de usos múltiples" },
-        { id: "WITH_SOCCER_FIELD", label: "Cancha de fútbol" },
-        { id: "HAS_BASKETBALL_COURT", label: "Cancha de básquetbol" },
-        { id: "HAS_PADDLE_COURT", label: "Cancha de paddle" },
-      ],
-      "Seguridad y disponibilidad": [
-        { id: "SECURITY_TYPE", label: "Tipo de seguridad", type: "list", options: ["24 horas", "Diurno", "Nocturno", "Virtual"] },
-        { id: "AVAILABLE", label: "Disponible desde", type: "date" },
-        { id: "PROPERTY_CODE", label: "Código de la propiedad", type: "text" },
-        { id: "CONTACT_SCHEDULE", label: "Horario de contacto", type: "text" },
-      ],
-    };
-    // Ficha por tipo. 'casa' calcada del log real de ML (MLU1467). El resto usa la común.
-    const FICHA_TIPOS = { casa: FICHA_CASA, apartamento: FICHA_APTO, terreno: FICHA_TERRENO, local: FICHA_LOCAL, oficina: FICHA_OFICINA, galpon: FICHA_GALPON, campo: FICHA_CAMPO };
+
     function fichaActual() {
       const t = (document.getElementById('propRealEstateType') || {}).value;
-      return FICHA_TIPOS[t] || FICHA_COMUN;
+      return FICHA_TIPOS[t] || FICHA_TIPOS.casa;
     }
-    function fichaCampos() { return Object.values(fichaActual()).flat(); }
+    function fichaCampos() {
+      const esAlquiler = (document.getElementById('propType') || {}).value === 'rent';
+      return Object.entries(fichaActual())
+        .filter(([g]) => esAlquiler || g !== 'Alquiler')
+        .flatMap(([, campos]) => campos);
+    }
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
     function renderFicha() {
       const wrap = document.getElementById('fichaTecnica');
       if (!wrap) return;
       const FICHA = fichaActual();
-      wrap.innerHTML = Object.keys(FICHA).map((grupo, i) => {
+      const esAlquiler = (document.getElementById('propType') || {}).value === 'rent';
+      wrap.innerHTML = Object.keys(FICHA).map((grupo, gi) => {
+        if (grupo === 'Alquiler' && !esAlquiler) return '';
         const campos = FICHA[grupo];
         const inputs = campos.filter(c => c.type);
         const bools = campos.filter(c => !c.type);
+        const esIC = grupo === 'InfoCasas';
         let html = '';
         if (inputs.length) {
-          html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:8px">' + inputs.map(c => {
-            if (c.type === 'list') return `<div class="form-group"><label>${c.label}</label><select id="fc-${c.id}"><option value="">Elegir...</option>${c.options.map(o => `<option>${o}</option>`).join('')}</select></div>`;
-            const t = c.type === 'date' ? 'date' : (c.type === 'text' ? 'text' : 'number');
-            return `<div class="form-group"><label>${c.label}</label><input type="${t}" id="fc-${c.id}" ${t === 'number' ? 'min="0"' : ''}></div>`;
+          html += '<div class="fx-inputs">' + inputs.map(c => {
+            const req = c.req ? ' <span class="fx-req">*</span>' : '';
+            const help = c.help ? `<div class="fx-help">${esc(c.help)}</div>` : '';
+            let campo;
+            if (c.type === 'list') campo = `<select id="fc-${c.id}"><option value="">Elegir...</option>${(c.options || []).map(o => `<option>${esc(o)}</option>`).join('')}</select>`;
+            else { const t = c.type === 'date' ? 'date' : (c.type === 'text' ? 'text' : 'number'); campo = `<input type="${t}" id="fc-${c.id}" ${t === 'number' ? 'min="0"' : ''}>`; }
+            return `<div class="form-group fx-item" data-buscar="${esc(c.label.toLowerCase())}"><label>${esc(c.label)}${req}</label>${campo}${help}</div>`;
           }).join('') + '</div>';
         }
-        if (bools.length) html += '<div class="feat-grid">' + bools.map(c => `<label class="feat-item"><input type="checkbox" id="fc-${c.id}"> ${c.label}</label>`).join('') + '</div>';
-        return `<details class="ppf-acc"${i === 0 ? ' open' : ''}><summary>${grupo}</summary><div style="padding:12px">${html}</div></details>`;
+        if (bools.length) {
+          html += '<div class="fx-checks">' + bools.map(c =>
+            `<label class="fx-check fx-item" data-buscar="${esc(c.label.toLowerCase())}" ${c.help ? `title="${esc(c.help)}"` : ''}><input type="checkbox" id="fc-${c.id}" onchange="this.closest('.fx-check').classList.toggle('on', this.checked)"> ${esc(c.label)}</label>`
+          ).join('') + '</div>';
+        }
+        const badge = esIC ? ' <span class="fx-ic-badge">PORTAL</span>' : '';
+        return `<details class="fx-group" data-grupo="${gi}"${gi === 0 || esIC ? ' open' : ''}><summary><span>${esc(grupo)}${badge}</span><span class="fx-count" id="fxc-${gi}"></span></summary><div class="fx-body">${html}</div></details>`;
       }).join('');
-      // Si la ficha común trae los dos subtipos, mostrar solo el del tipo actual.
-      var ret = (document.getElementById('propRealEstateType') || {}).value;
-      var smap = { casa: 'HOUSE_PROPERTY_SUBTYPE', apartamento: 'APARTMENT_PROPERTY_SUBTYPE' };
-      ['HOUSE_PROPERTY_SUBTYPE', 'APARTMENT_PROPERTY_SUBTYPE'].forEach(function (id) {
-        var el = document.getElementById('fc-' + id); if (!el) return;
-        var g = el.closest('.form-group'); var show = (smap[ret] === id);
-        if (g) g.style.display = show ? '' : 'none'; if (!show) el.value = '';
-      });
       ensureCodigo();
+      ensureHorario();
+      updateFichaCounters();
+      filtrarFicha();
     }
-    // Al cambiar el tipo de inmueble: re-dibuja la ficha de ese tipo y conserva lo cargado.
+
+    // Al cambiar tipo de inmueble u operación: re-dibuja la ficha conservando lo cargado.
     function onTipoChange() {
       const prev = {};
       document.querySelectorAll('#fichaTecnica [id^="fc-"]').forEach(el => {
@@ -938,6 +2529,7 @@
       renderFicha();
       fillFichaObj(prev);
     }
+
     function collectFicha() {
       const ficha = {};
       fichaCampos().forEach(c => {
@@ -947,6 +2539,8 @@
         else if (c.type === 'num') { const n = parseFloat(el.value); if (!isNaN(n)) ficha[c.id] = n; }
         else { if (el.value) ficha[c.id] = el.value; }                             // lista / texto / fecha
       });
+      // Con link de tour cargado, ML recibe "Con tour virtual" automáticamente.
+      if (ficha.IC_TOUR3D) ficha.WITH_VIRTUAL_TOUR = true;
       return ficha;
     }
     function fillFichaObj(ficha) {
@@ -955,12 +2549,51 @@
         const el = document.getElementById('fc-' + c.id);
         if (!el) return;
         const v = ficha[c.id];
-        if (!c.type) el.checked = !!v;
+        if (!c.type) { el.checked = !!v; const w = el.closest('.fx-check'); if (w) w.classList.toggle('on', !!v); }
         else el.value = (v != null ? v : '');
       });
       ensureCodigo();
+      ensureHorario();
+      updateFichaCounters();
+      calidadRecalc();
     }
     function fillFicha(p) { fillFichaObj((p || {}).ficha || {}); }
+
+    function updateFichaCounters() {
+      const FICHA = fichaActual();
+      Object.keys(FICHA).forEach((grupo, gi) => {
+        const el = document.getElementById('fxc-' + gi);
+        if (!el) return;
+        const campos = FICHA[grupo];
+        let llenos = 0, total = campos.length;
+        campos.forEach(c => {
+          const input = document.getElementById('fc-' + c.id);
+          if (!input) return;
+          if (!c.type) { if (input.checked) llenos++; }
+          else if (input.value !== '') llenos++;
+        });
+        el.textContent = llenos + '/' + total;
+        el.classList.toggle('full', llenos > 0 && llenos === total);
+      });
+    }
+    function filtrarFicha() {
+      const q = (document.getElementById('fichaSearch').value || '').toLowerCase().trim();
+      let visibles = 0;
+      document.querySelectorAll('#fichaTecnica .fx-item').forEach(el => {
+        const hit = !q || (el.dataset.buscar || '').includes(q);
+        el.classList.toggle('fx-hidden', !hit);
+        if (hit) visibles++;
+      });
+      document.querySelectorAll('#fichaTecnica .fx-group').forEach(g => {
+        const alguno = g.querySelector('.fx-item:not(.fx-hidden)');
+        g.classList.toggle('fx-hidden', q && !alguno);
+        if (q && alguno) g.open = true;
+      });
+      document.getElementById('fichaEmpty').style.display = (q && !visibles) ? 'block' : 'none';
+    }
+    function toggleGrupos(abrir) {
+      document.querySelectorAll('#fichaTecnica .fx-group').forEach(g => g.open = abrir);
+    }
 
     // ==== CÓDIGO DE PROPIEDAD AUTOMÁTICO ====
     // Se genera solo (MAL- + 5 caracteres sin ambiguos tipo 0/O/1/I) y el campo queda
@@ -977,6 +2610,12 @@
       el.style.background = '#f5f6f8';
       if (!el.value) el.value = genCodigo();
     }
+    // Horario de contacto: la inmobiliaria atiende siempre — arranca en "24 horas"
+    // (editable por si algún aviso necesita otro horario).
+    function ensureHorario() {
+      var el = document.getElementById('fc-CONTACT_SCHEDULE');
+      if (el && !el.value) el.value = '24 horas';
+    }
     // Devuelve un código que NO usa ninguna otra propiedad (se excluye la propia).
     // Si el candidato choca, regenera y reintenta; la chance de chocar es ínfima.
     async function codigoUnico(cand, selfId) {
@@ -991,6 +2630,94 @@
       }
       return cand + '-' + Date.now().toString(36).slice(-3).toUpperCase();
     }
+
+    // ============================================================================
+    // CALIDAD DEL AVISO — dos medidores en vivo: qué tan completo está el aviso
+    // para Mercado Libre y para InfoCasas, con la próxima mejora sugerida.
+    // ============================================================================
+    function _v(id) { const e = document.getElementById(id); return e ? e.value : ''; }
+    function _fc(id) { return document.getElementById('fc-' + id); }
+    function calidadRecalc() {
+      try {
+        const tipo = _v('propRealEstateType');
+        const sinDorms = ['terreno', 'campo', 'galpon', 'local', 'oficina'].includes(tipo);
+        const fotos = selectedImages.length;
+        const pin = ubicacionState.lat != null;
+        const titulo = (_v('propTitle') || '').length;
+        const desc = (_v('propDescription') || '').length;
+        const precio = parseFloat(_v('propPrice')) > 0;
+        const dorms = parseInt(_v('propBedrooms')) > 0 || sinDorms;
+        const banos = parseInt(_v('propBathrooms')) > 0 || sinDorms;
+        const areaT = parseFloat(_v('propTotalArea')) > 0;
+        const areaP = parseFloat(_v('propBuiltArea')) > 0 || ['terreno', 'campo'].includes(tipo);
+        const cochera = _fc('PARKING_LOTS') ? _fc('PARKING_LOTS').value !== '' : true;
+        const estado = _fc('PROPERTY_CONDITION') && _fc('PROPERTY_CONDITION').value !== '';
+        let tildadas = 0, typedLlenos = 0, typedTotal = 0;
+        fichaCampos().forEach(c => {
+          const el = document.getElementById('fc-' + c.id);
+          if (!el) return;
+          if (!c.type) { if (el.checked) tildadas++; }
+          else { typedTotal++; if (el.value !== '') typedLlenos++; }
+        });
+
+        // Mercado Libre: 12 puntos
+        const ml = [titulo >= 60, desc >= 300, fotos >= 6, fotos >= 10, pin, precio,
+                    dorms, banos, areaT, areaP, cochera, typedTotal > 0 && typedLlenos / typedTotal >= 0.5];
+        // InfoCasas: 10 puntos (el pin vale doble: sin pin no entra al feed)
+        const ic = [pin, pin, titulo > 0, desc >= 150, fotos >= 3, fotos >= 10, precio, areaT, estado, tildadas >= 3];
+
+        const pML = Math.round(100 * ml.filter(Boolean).length / ml.length);
+        const pIC = Math.round(100 * ic.filter(Boolean).length / ic.length);
+        document.getElementById('calMLbar').style.width = pML + '%';
+        document.getElementById('calMLpct').textContent = pML + '%';
+        document.getElementById('calICbar').style.width = pIC + '%';
+        document.getElementById('calICpct').textContent = pIC + '%';
+
+        // Próxima mejora, en orden de impacto
+        const hint =
+          !pin ? 'Fijá el pin en el mapa: sin coordenadas la propiedad no entra a InfoCasas.' :
+          fotos < 3 ? `Sumá fotos (${fotos}/3): InfoCasas exige 3 como mínimo.` :
+          !precio ? 'Cargá el precio.' :
+          fotos < 10 ? `Sumá fotos (${fotos}/10): con 10+ la calidad de ML vuela.` :
+          titulo < 60 ? `Alargá el título (${titulo}/60): sumá barrio, dormitorios y extras.` :
+          !estado ? 'Elegí el "Estado del inmueble" en la ficha (grupo InfoCasas).' :
+          !cochera ? 'Completá "Cocheras" en la ficha: ML lo pide como obligatorio.' :
+          desc < 300 ? 'Dale más cuerpo a la descripción (300+ caracteres).' :
+          tildadas < 3 ? 'Tildá las comodidades que tenga: alimentan los dos portales.' :
+          '¡Aviso completo! Así se publica con la mejor calidad en los dos portales.';
+        document.getElementById('calHint').textContent = hint;
+
+        // Ticks del índice lateral
+        const ticks = { 1: true, 2: !!(_v('propDepartamento') && _v('propCiudad')) && pin,
+          3: dorms && banos && areaT && areaP, 4: typedLlenos > 1 || tildadas > 0,
+          5: fotos >= 3, 6: titulo >= 30, 7: precio, 8: true };
+        document.querySelectorAll('#pfRail a').forEach(a => a.classList.toggle('done', !!ticks[a.dataset.rail]));
+
+        // Contador de fotos
+        const fcEl = document.getElementById('fotoCounter');
+        if (fcEl) fcEl.innerHTML = fotos === 0 ? '' :
+          `<span class="b" style="color:${fotos >= 10 ? 'var(--ok)' : (fotos >= 3 ? 'var(--gold)' : 'var(--bad)')}">${fotos} foto${fotos === 1 ? '' : 's'}</span> · InfoCasas pide 3+ · la calidad de ML mejora con 10+`;
+        updateFichaCounters();
+      } catch (e) { /* la calidad nunca debe romper el form */ }
+    }
+    let _calT = null;
+    function calidadDebounced() { clearTimeout(_calT); _calT = setTimeout(calidadRecalc, 180); }
+
+    // Enganches: recalcular cuando cambia cualquier cosa relevante, sin tocar la lógica original.
+    document.addEventListener('DOMContentLoaded', () => {
+      const f = document.getElementById('propertyForm');
+      if (f) { f.addEventListener('input', calidadDebounced); f.addEventListener('change', calidadDebounced); }
+    });
+    const _renderImagePreviews = renderImagePreviews;
+    renderImagePreviews = function () { _renderImagePreviews(); calidadRecalc(); };
+    const _actualizarEstadoUbicacion = actualizarEstadoUbicacion;
+    actualizarEstadoUbicacion = function () { _actualizarEstadoUbicacion(); calidadRecalc(); };
+    const _togglePropertyType = togglePropertyType;
+    togglePropertyType = function () { _togglePropertyType(); onTipoChange(); };
+    const _loadPropertyForEdit = loadPropertyForEdit;
+    loadPropertyForEdit = function (p) { _loadPropertyForEdit(p); document.getElementById('pfCal').style.display = ''; calidadRecalc(); };
+    const _showState = showState;
+    showState = function (which, opts) { _showState(which, opts); document.getElementById('pfCal').style.display = (which === 'ppfFormWrap') ? '' : 'none'; };
 
     async function handleSaveProperty(e) {
       e.preventDefault();
@@ -1117,6 +2844,7 @@
         }
       }
     });
+
   </script>
 </body>
 </html>

@@ -705,10 +705,13 @@ async function addFeatureAttributes(categoryId, p, baseAttributes, token, catAtt
       return `${a.id}=${a.name}[${a.value_type}]${req}${vals}`;
     });
     logger.info(`[ATRIBUTOS ${categoryId}] (${_all.length}) ${_all.join(" | ")}`);
-    const _drop = Object.keys(ficha).filter((id) => !byId[id]);
+    const _drop = Object.keys(ficha).filter((id) => !byId[id] && !id.startsWith("IC_"));
     logger.info(`[FICHA-DESCARTADOS ${categoryId}] ${_drop.join(", ") || "(ninguno)"}`);
   } catch (_e) {}
   // ===============================================================================
+
+  // Los ids IC_* son extras de InfoCasas cargados desde el form: no existen en ML,
+  // los consume únicamente el feed (feedInfocasas). Se saltean acá a propósito.
 
   for (const [id, val] of Object.entries(ficha)) {
     const attr = byId[id];
@@ -928,6 +931,13 @@ async function buildItem(p, token) {
     if (p.ficha.MAINTENANCE_FEE == null || p.ficha.MAINTENANCE_FEE === "") {
       p.ficha.MAINTENANCE_FEE = Number(p.commonExpenses);
     }
+  }
+  // Horario de contacto: la inmobiliaria atiende siempre, así que si el agente no
+  // cargó otro horario, TODOS los avisos van con "24 horas". Cubre también los
+  // avisos viejos: lo toman en la próxima edición/sincronización.
+  p.ficha = p.ficha || {};
+  if (p.ficha.CONTACT_SCHEDULE == null || p.ficha.CONTACT_SCHEDULE === "") {
+    p.ficha.CONTACT_SCHEDULE = "24 horas";
   }
 
   // Los atributos de la categoría se leen UNA sola vez y se comparten entre el
@@ -1922,13 +1932,29 @@ exports.feedInfocasas = onRequest(async (req, res) => {
       const comIds = Object.keys(com).filter((k) => k !== "_DEPOSITO" && F[k] === true).map((k) => com[k]);
       if ((Number(F.WAREHOUSES) || 0) > 0 && com._DEPOSITO) comIds.push(com._DEPOSITO);
       if (comIds.length) x += icTag("comodidades", comIds.join(","));
-      // Seguridad (spec: 1 alarma, 2 cámaras CCTV, 4 portería 24hs, 5 portón eléctrico).
+      // Seguridad (spec: 1 alarma, 2 cámaras CCTV, 4 portería 24hs, 5 portón eléctrico,
+      // 7 guardia de seguridad — este último cuando hay vigilancia diurna/nocturna).
       const seg = [];
       if (F.HAS_ALARM === true) seg.push(1);
       if (F.HAS_SECURITY === true) seg.push(2);
-      if (icNorm(F.SECURITY_TYPE) === "24 horas") seg.push(4);
+      const segTipo = icNorm(F.SECURITY_TYPE);
+      if (segTipo === "24 horas") seg.push(4);
+      if (segTipo === "diurno" || segTipo === "nocturno") seg.push(7);
       if (F.HAS_ELECTRIC_GATE_OPENER === true) seg.push(5);
       if (seg.length) x += icTag("seguridad", seg.join(","));
+      // Vista al mar: sale del "Tipo de vista" de la ficha (spec: vistaMar 1/0).
+      if (icNorm(F.VIEW_TYPE) === "mar") x += icTag("vistaMar", 1);
+      // Extras cargados en el grupo "InfoCasas" del form (ids IC_*).
+      const IC_SOBRE_MAP = { "rambla": 2, "avenida": 3 };
+      const sobre = IC_SOBRE_MAP[icNorm(F.IC_SOBRE)];
+      if (sobre) x += icTag("sobre", sobre);
+      const IC_DIST_MAP = { "frente al mar": 1, "menos de 100 m": 2, "200 m": 3, "300 m": 4, "400 m": 5 };
+      const dmar = IC_DIST_MAP[icNorm(F.IC_DISTANCIA_MAR)];
+      if (dmar) x += icTag("distanciaMar", dmar);
+      if (F.IC_TOUR3D) x += icTag("tour3d", F.IC_TOUR3D);
+      const ubiPin = icNorm(F.IC_UBICACION);
+      if (ubiPin === "punto exacto") x += icTag("ubicacionAproximada", 0);
+      else if (ubiPin === "punto aproximado") x += icTag("ubicacionAproximada", 1);
       const ta = Number(p.totalArea) || 0, ca = Number(p.builtArea) || 0;
       if (ta > 0) x += icTag("m2", ta);
       if (ca > 0) x += icTag("m2edificados", ca);
