@@ -180,6 +180,101 @@ async function notificarErrorML(p, propertyId, titulo, resumen) {
 }
 
 // =====================================================================
+// WEBHOOK DE NOTIFICACIONES DE MERCADO LIBRE
+// Registrá esta URL en https://developers.mercadolibre.com.uy/devcenter
+// (tu aplicación -> editar -> campo "Notificaciones callbacks URL"):
+//   https://us-central1-mi-cartera-inmobiliaria.cloudfunctions.net/mlNotificaciones
+// Tópicos a tildar: "questions" y los de leads de inmuebles (vis_leads / leads).
+// ML exige HTTP 200 en menos de 500 ms o desactiva los tópicos: acá SOLO se
+// guarda el evento y se responde; el trigger de abajo hace el trabajo pesado.
+// =====================================================================
+exports.mlNotificaciones = onRequest(async (req, res) => {
+  try {
+    if (req.method !== "POST") { res.status(200).send("mlNotificaciones OK"); return; }
+    const ev = req.body || {};
+    const topic = String(ev.topic || "");
+    const resource = String(ev.resource || "");
+    if (!resource || !["questions", "vis_leads", "leads", "messages"].some((t) => topic.startsWith(t))) {
+      res.status(200).send("ignorado"); return;
+    }
+    // Dedupe por id determinístico: los reintentos de ML no crean eventos nuevos.
+    const evId = (topic + "_" + resource).replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 400);
+    try {
+      await db.collection("mlEventos").doc(evId).create({
+        topic, resource, mlUserId: ev.user_id || null,
+        recibido: new Date().toISOString(), estado: "pendiente",
+      });
+    } catch (e) { /* ya existía: reintento de ML, se ignora */ }
+    res.status(200).send("OK");
+  } catch (e) {
+    logger.error("[mlNotificaciones]", e.message);
+    res.status(200).send("error registrado");
+  }
+});
+
+// Procesa cada evento guardado: resuelve el recurso en la API de ML, encuentra la
+// propiedad por su aviso y le crea la notificación (app + push) al agente dueño.
+exports.procesarEventoML = onDocumentCreated("mlEventos/{id}", async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+  const ev = snap.data() || {};
+  const topic = String(ev.topic || ""), resource = String(ev.resource || "");
+  try {
+    const token = await getValidToken();
+    const headers = { Authorization: `Bearer ${token}` };
+
+    let itemId = null, texto = "", titulo = "";
+    if (topic.startsWith("questions")) {
+      const q = (await axios.get(`${API}${resource}`, { headers })).data || {};
+      itemId = q.item_id;
+      texto = q.text || "";
+      titulo = "Nueva pregunta en Mercado Libre";
+    } else {
+      // Leads de inmuebles ("persona interesada"). El detalle del contacto exige el
+      // permiso de inmobiliaria (el mismo del 403 de métricas): si ML lo niega,
+      // igual se avisa al agente, sin el detalle.
+      titulo = "Persona interesada en Mercado Libre";
+      try {
+        const l = (await axios.get(`${API}${resource}`, { headers })).data || {};
+        itemId = l.item_id || (l.item && l.item.id) || null;
+        const quien = [l.name || l.contact_name, l.phone || l.contact_phone, l.email || l.contact_email]
+          .filter(Boolean).join(" · ");
+        if (quien) texto = `Contacto: ${quien}`;
+      } catch (e) { /* sin permiso todavía: se notifica sin detalle */ }
+    }
+    if (!itemId) { const m = resource.match(/MLU\d+/); if (m) itemId = m[0]; }
+    if (!itemId) { await snap.ref.update({ estado: "sin_item" }); return; }
+
+    const qs = await db.collection("properties").where("mlItemId", "==", itemId).limit(1).get();
+    if (qs.empty) { await snap.ref.update({ estado: "sin_propiedad", itemId }); return; }
+    const pDoc = qs.docs[0], p = pDoc.data();
+
+    const aviso = {
+      type: "ml_lead",
+      propertyId: pDoc.id,
+      propertyTitle: p.title || "Propiedad",
+      userName: "Mercado Libre",
+      userPhoto: null,
+      text: `${titulo}${texto ? " — " + texto : ""}. Respondé desde la cuenta de Mercado Libre.`,
+    };
+    const push = { title: "📩 " + titulo, body: `${p.title || "Propiedad"}${texto ? " — " + texto.slice(0, 90) : ""}` };
+    const destinos = [];
+    if (p.ownerId) {
+      try { const u = await db.doc(`users/${p.ownerId}`).get(); if (u.exists) destinos.push({ uid: u.id, fcmToken: u.data().fcmToken }); } catch (e) {}
+    }
+    const adm = await getAdminUser();
+    if (adm && !destinos.some((d) => d.uid === adm.uid)) destinos.push(adm);
+    for (const d of destinos) await crearNotificacion(d, aviso, push);
+    await snap.ref.update({ estado: "procesado", itemId, propertyId: pDoc.id, agente: p.ownerId || null });
+    logger.info(`[procesarEventoML] ${topic} -> ${itemId} -> "${p.title || pDoc.id}" (${destinos.length} destinos)`);
+  } catch (e) {
+    const detail = e.response ? JSON.stringify(e.response.data) : e.message;
+    logger.error("[procesarEventoML]", detail);
+    try { await snap.ref.update({ estado: "error", error: String(detail).slice(0, 500) }); } catch (_e) {}
+  }
+});
+
+// =====================================================================
 // 1) INICIAR AUTORIZACIÓN  — abrí esta URL en el navegador una sola vez
 // =====================================================================
 exports.iniciarAuthML = onRequest(async (req, res) => {
