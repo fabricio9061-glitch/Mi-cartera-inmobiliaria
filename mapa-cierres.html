@@ -102,7 +102,7 @@
   <div class="overlay" id="regModal">
     <div class="modal">
       <h2><i class="fas fa-handshake"></i> Registrar cierre</h2>
-      <div class="sub">Elegí una propiedad tuya. Quedan guardados su ubicación, características, el precio del cierre y tu ganancia (de ahí salen tus puntos de Recompensas).</div>
+      <div class="sub">Quedan guardados la ubicación, características, el precio del cierre y la ganancia del agente (de ahí salen sus puntos de Recompensas).</div>
 
       <div class="fg">
         <label>Propiedad</label>
@@ -298,22 +298,34 @@
       if(!isAdmin || !agentesList.length){ if(wrap) wrap.style.display='none'; return; }
       wrap.style.display = '';
       const sel = document.getElementById('regAgente');
-      sel.innerHTML = agentesList.map(a=>'<option value="'+esc(a.uid)+'">'+esc(a.name)+'</option>').join('');
-      if(defUid && agentesList.some(a=>a.uid===defUid)) sel.value = defUid;
-      else if(agentesList.some(a=>a.uid===curUser.uid)) sel.value = curUser.uid;
+      sel.innerHTML = '<option value="">— Todos los agentes —</option>'
+        + agentesList.map(a=>'<option value="'+esc(a.uid)+'">'+esc(a.name)+'</option>').join('');
+      sel.value = (defUid && agentesList.some(a=>a.uid===defUid)) ? defUid : '';
       onAgenteSelect();
     }
+    // Al elegir un agente: se filtran SUS propiedades y se ajusta la etiqueta de ganancia.
     function onAgenteSelect(){
       const sel = document.getElementById('regAgente'), lbl = document.getElementById('regGanLabel');
-      if(!lbl) return;
-      const esOtro = isAdmin && sel && sel.value && sel.value !== curUser.uid;
-      lbl.innerHTML = esOtro
-        ? 'Ganancia del agente <small style="color:#aaa">(lo que le quedó, sin IVA)</small>'
-        : 'Tu ganancia <small style="color:#aaa">(lo que te quedó, sin IVA)</small>';
+      const uid = (isAdmin && sel) ? sel.value : '';
+      // Refiltrar el selector de propiedades conservando la elegida si sigue en la lista.
+      const propSel = document.getElementById('regProp');
+      const actual = propSel.value;
+      llenarPicker(uid);
+      if(actual && Array.from(propSel.options).some(o=>o.value===actual)) propSel.value = actual;
+      else if(actual){ propSel.value=''; selProp=null; document.getElementById('regInfo').innerHTML=''; }
+      if(lbl){
+        const esOtro = isAdmin && uid && uid !== curUser.uid;
+        lbl.innerHTML = esOtro
+          ? 'Ganancia del agente <small style="color:#aaa">(lo que le quedó, sin IVA)</small>'
+          : 'Tu ganancia <small style="color:#aaa">(lo que te quedó, sin IVA)</small>';
+      }
     }
-    function llenarPicker(){
+    function llenarPicker(uidFiltro){
       const sel=document.getElementById('regProp');
-      const opts = editableProps.map(p=>{
+      const lista = uidFiltro
+        ? editableProps.filter(p => p.ownerId===uidFiltro || (Array.isArray(p.agents) && p.agents.indexOf(uidFiltro)>=0))
+        : editableProps;
+      const opts = lista.map(p=>{
         const dir = p.direccion || (p.ubicacion && p.ubicacion.barrio) || p.barrio || p.location || '';
         return '<option value="'+p.id+'">'+esc((p.title || '(sin título)') + (dir ? ' — ' + dir : ''))+'</option>';
       }).join('');
@@ -336,6 +348,21 @@
       if(regMap.getZoom()<14) regMap.setView([lat,lng],15); else regMap.panTo([lat,lng]);
     }
 
+    // Si la propiedad no tiene coordenadas guardadas, se busca su dirección y se
+    // planta el pin igual (el agente puede ajustarlo arrastrándolo).
+    async function geocodearPropiedad(p){
+      const ub = p.ubicacion || {};
+      const calle = [ub.calle || p.direccion || '', ub.numero || ''].filter(Boolean).join(' ').trim();
+      const q = [calle, p.ciudad || ub.ciudad || '', p.departamento || ub.departamento || '', 'Uruguay'].filter(Boolean).join(', ');
+      if(!q || q === 'Uruguay') return;
+      try{
+        const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=uy&accept-language=es&q='+encodeURIComponent(q));
+        const j = await r.json();
+        if(j && j.length){ regMap.setView([+j[0].lat, +j[0].lon], calle ? 16 : 13); setRegPin(+j[0].lat, +j[0].lon); }
+        else toast('No encontré la dirección de la propiedad: marcá el pin a mano en el mapa', true);
+      }catch(e){ /* sin geocoder no pasa nada: el pin se marca a mano */ }
+    }
+
     function openReg(){
       selProp=null; regLatLng=null;
       document.getElementById('regProp').value='';
@@ -347,7 +374,7 @@
       document.getElementById('regUbi').value='';
       document.getElementById('regFecha').value = new Date().toISOString().slice(0,10);
       document.querySelector('input[name="regTipo"][value="venta"]').checked = true;
-      llenarAgentes(curUser.uid);
+      llenarAgentes('');
       if(regPin && regMap){ regMap.removeLayer(regPin); regPin=null; }
       document.getElementById('regModal').classList.add('open');
       setTimeout(()=>{ initRegMap(); }, 60);
@@ -368,8 +395,10 @@
       info.innerHTML = '<div class="reg-info"><b>'+esc(p.title||'Propiedad')+'</b><br>'
         + (m2?m2+' m² · ':'') + esc(p.realEstateType||'') + ' · ' + (p.bedrooms||0) + ' dorm · ' + (p.bathrooms||0) + ' baños<br>'
         + 'Precio publicado: ' + fmtMoney(p.price, p.currency) + '</div>';
-      const lat = p.ubicacion && p.ubicacion.lat, lng = p.ubicacion && p.ubicacion.lng;
+      const ub = p.ubicacion || {};
+      const lat = (ub.lat!=null ? ub.lat : p.lat), lng = (ub.lng!=null ? ub.lng : p.lng);
       if(lat!=null && lng!=null){ setRegPin(lat,lng); }
+      else { geocodearPropiedad(p); }
     }
 
     async function guardarCierre(){
@@ -384,6 +413,7 @@
       let cierreAgUid = curUser.uid, cierreAgNom = curProfile.name || curUser.email || 'Agente';
       if(isAdmin){
         const selAg = document.getElementById('regAgente');
+        if(selAg && agentesList.length && !selAg.value){ toast('Elegí el agente del cierre', true); return; }
         if(selAg && selAg.value){
           cierreAgUid = selAg.value;
           const ag = agentesList.find(a=>a.uid===selAg.value);
