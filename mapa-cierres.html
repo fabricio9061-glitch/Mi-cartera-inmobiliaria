@@ -247,6 +247,7 @@
       var conf = p.cierreConfirmado === true;
       s += '<div style="margin-top:7px;border-top:1px solid #eee;padding-top:6px">' + (conf
         ? '<span style="font-size:.72rem;font-weight:700;color:#27ae60">&#10003; Confirmado</span>'
+          + (isAdmin ? ' <button onclick="quitarConfirmacion(\''+p.id+'\')" title="Volver a pendiente" style="margin-left:6px;border:1px solid #e3b8b1;background:#fff;color:#c0392b;border-radius:7px;padding:3px 9px;font-size:.7rem;font-weight:600;cursor:pointer">Quitar</button>' : '')
         : '<span style="font-size:.72rem;font-weight:700;color:#C9A227">Pendiente de confirmar</span>'
           + (isAdmin ? ' <button onclick="confirmarCierre(\''+p.id+'\')" style="margin-left:6px;border:none;background:#27ae60;color:#fff;border-radius:7px;padding:4px 9px;font-size:.72rem;font-weight:600;cursor:pointer">Confirmar</button>' : '')
       ) + '</div>';
@@ -280,7 +281,9 @@
         + '<div class="cc-main"><div class="cc-price">'+fmtMoney(c.precio,c.moneda)+'</div>'
         + '<div class="cc-sub">'+esc(p.title||'Propiedad')+'</div>'
         + '<div class="cc-meta">'+meta+'</div>'
-        + (p.cierreConfirmado===true ? '<div style="font-size:.72rem;font-weight:700;color:#27ae60;margin-top:3px">&#10003; Confirmado</div>' : '<div style="font-size:.72rem;font-weight:700;color:#C9A227;margin-top:3px">Pendiente'+(isAdmin?' <button onclick="event.stopPropagation();confirmarCierre(\''+p.id+'\')" style="margin-left:4px;border:none;background:#27ae60;color:#fff;border-radius:6px;padding:3px 8px;font-size:.7rem;font-weight:600;cursor:pointer">Confirmar</button>':'')+'</div>')
+        + (p.cierreConfirmado===true
+            ? '<div style="font-size:.72rem;font-weight:700;color:#27ae60;margin-top:3px">&#10003; Confirmado'+(isAdmin?' <button onclick="event.stopPropagation();quitarConfirmacion(\''+p.id+'\')" title="Volver a pendiente" style="margin-left:5px;border:1px solid #e3b8b1;background:#fff;color:#c0392b;border-radius:6px;padding:2px 8px;font-size:.68rem;font-weight:600;cursor:pointer">Quitar</button>':'')+'</div>'
+            : '<div style="font-size:.72rem;font-weight:700;color:#C9A227;margin-top:3px">Pendiente'+(isAdmin?' <button onclick="event.stopPropagation();confirmarCierre(\''+p.id+'\')" style="margin-left:4px;border:none;background:#27ae60;color:#fff;border-radius:6px;padding:3px 8px;font-size:.7rem;font-weight:600;cursor:pointer">Confirmar</button>':'')+'</div>')
         + '<div class="cc-actions" onclick="event.stopPropagation()">'
         +   '<a class="cc-btn" href="propiedad.html?id='+esc(p.id)+'" target="_blank"><i class="fas fa-house"></i> Ver propiedad</a>'
         +   (isAdmin ? '<button class="cc-btn gold" onclick="generarRecibo(\''+p.id+'\', this)"><i class="fas fa-file-invoice-dollar"></i> Recibo</button>' : '')
@@ -315,6 +318,21 @@
       document.getElementById('mapaCierres').scrollIntoView({ behavior:'smooth', block:'center' });
     }
 
+    async function quitarConfirmacion(id){
+      if(!isAdmin) return;
+      if(!confirm('¿Quitar la confirmación de este cierre?\n\nVuelve a "Pendiente" y los puntos de Recompensas del agente se descuentan solos hasta que lo confirmes de nuevo.')) return;
+      const p = cierres.find(x=>x.id===id) || allProps.find(x=>x.id===id);
+      if(!p) return;
+      try{
+        await db.collection('properties').doc(id).update({ cierreConfirmado: false, updatedAt: new Date().toISOString() });
+        p.cierreConfirmado = false;
+        refrescar();
+        toast('Confirmación quitada: el cierre volvió a Pendiente');
+      }catch(e){
+        console.warn('quitarConfirmacion', e);
+        toast('No se pudo quitar la confirmación: '+(e.code||e.message||e), true);
+      }
+    }
     async function confirmarCierre(id){
       if(!isAdmin) return;
       const p = cierres.find(x=>x.id===id) || allProps.find(x=>x.id===id);
