@@ -243,7 +243,9 @@
       if(c.fecha) s += '<br>📅 '+fmtFecha(c.fecha);
       s += '</div>';
       if(Array.isArray(p.images) && p.images[0]) s = '<div style="min-width:210px"><img src="'+esc(p.images[0])+'" style="width:100%;height:96px;object-fit:cover;border-radius:8px;margin-bottom:7px">' + s.slice('<div style="min-width:180px">'.length);
-      s += '<div style="margin-top:6px"><a href="propiedad.html?id='+esc(p.id)+'" target="_blank" style="font-size:.78rem;font-weight:700;color:#16273f;text-decoration:underline">Ver propiedad &rarr;</a></div>';
+      s += '<div style="margin-top:6px"><a href="propiedad.html?id='+esc(p.id)+'" target="_blank" style="font-size:.78rem;font-weight:700;color:#16273f;text-decoration:underline">Ver propiedad &rarr;</a>'
+        + (isAdmin ? ' &nbsp;·&nbsp; <a onclick="eliminarCierre(\''+p.id+'\')" style="font-size:.78rem;font-weight:700;color:#c0392b;text-decoration:underline;cursor:pointer">Eliminar cierre</a>' : '')
+        + '</div>';
       var conf = p.cierreConfirmado === true;
       s += '<div style="margin-top:7px;border-top:1px solid #eee;padding-top:6px">' + (conf
         ? '<span style="font-size:.72rem;font-weight:700;color:#27ae60">&#10003; Confirmado</span>'
@@ -287,6 +289,7 @@
         + '<div class="cc-actions" onclick="event.stopPropagation()">'
         +   '<a class="cc-btn" href="propiedad.html?id='+esc(p.id)+'" target="_blank"><i class="fas fa-house"></i> Ver propiedad</a>'
         +   (isAdmin ? '<button class="cc-btn gold" onclick="generarRecibo(\''+p.id+'\', this)"><i class="fas fa-file-invoice-dollar"></i> Recibo</button>' : '')
+        +   (isAdmin ? '<button class="cc-btn" style="border-color:#e3b8b1;color:#c0392b" onclick="eliminarCierre(\''+p.id+'\')"><i class="fas fa-trash-can"></i> Eliminar</button>' : '')
         + '</div>'
         + '</div>'
         + '<div class="cc-date">'+fmtFecha(c.fecha)+'</div></div>';
@@ -318,6 +321,37 @@
       document.getElementById('mapaCierres').scrollIntoView({ behavior:'smooth', block:'center' });
     }
 
+    // Borra el cierre COMPLETO (registrado por error): sale del mapa y de Recompensas,
+    // y la propiedad vuelve a Disponible -> el backend republica en ML (aviso nuevo,
+    // Plata, pago; el finalizado no se puede reabrir) y vuelve al feed de InfoCasas.
+    async function eliminarCierre(id){
+      if(!isAdmin) return;
+      const p = cierres.find(x=>x.id===id) || allProps.find(x=>x.id===id);
+      if(!p || !p.cierre) return;
+      const msg = '¿Eliminar este cierre por completo?\n\n'
+        + '\u2022 Desaparece del mapa de cierres y de Recompensas.\n'
+        + '\u2022 "'+(p.title||'La propiedad')+'" vuelve a DISPONIBLE.\n'
+        + '\u2022 Su aviso de ML quedó finalizado (no se puede reabrir): se va a publicar UNO NUEVO en Plata (pago) y la propiedad vuelve al feed de InfoCasas.';
+      if(!confirm(msg)) return;
+      if(!confirm('Última confirmación: ¿seguro que este cierre fue un error y hay que borrarlo?')) return;
+      try{
+        await db.collection('properties').doc(id).update({
+          cierre: firebase.firestore.FieldValue.delete(),
+          cierreConfirmado: firebase.firestore.FieldValue.delete(),
+          status: 'available',
+          updatedAt: new Date().toISOString()
+        });
+        delete p.cierre; delete p.cierreConfirmado; p.status = 'available';
+        cierres = allProps.filter(x => x.cierre && x.cierre.lat != null && x.cierre.lng != null);
+        refrescar();
+        toast('Cierre eliminado: la propiedad volvió a Disponible y se está republicando en ML.');
+      }catch(e){
+        console.warn('eliminarCierre', e);
+        toast(e && e.code==='permission-denied'
+          ? 'Firestore lo bloqueó: publicá las reglas actualizadas que te pasé y probá de nuevo.'
+          : ('No se pudo eliminar: '+(e.message||e)), true);
+      }
+    }
     async function quitarConfirmacion(id){
       if(!isAdmin) return;
       if(!confirm('¿Quitar la confirmación de este cierre?\n\nVuelve a "Pendiente" y los puntos de Recompensas del agente se descuentan solos hasta que lo confirmes de nuevo.')) return;
