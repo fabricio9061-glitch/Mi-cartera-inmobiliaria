@@ -65,6 +65,18 @@
     .mv-toast.show{ opacity:1; transform:translateY(0); }
     .mv-toast.err{ border-left-color:#e74c3c; }
     @media(max-width:560px){ #mapaCierres{ height:340px; } .grid2{ grid-template-columns:1fr; } }
+      .cc-thumb{ width:74px; height:56px; border-radius:9px; object-fit:cover; flex:none; background:#eef0f2; }
+    .cc-thumb-ph{ width:74px; height:56px; border-radius:9px; flex:none; background:#eef0f2; display:flex; align-items:center; justify-content:center; color:#b7bec7; }
+    .cc-actions{ display:flex; gap:7px; flex-wrap:wrap; margin-top:7px; }
+    .cc-btn{ border:1px solid #ddd; background:#fff; color:#444; border-radius:8px; padding:4px 10px; font-size:.74rem; font-weight:600; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:5px; font-family:inherit; }
+    .cc-btn:hover{ border-color:#16273f; color:#16273f; }
+    .cc-btn.gold{ background:#C9A227; border-color:#C9A227; color:#fff; }
+    .cc-btn.gold:hover{ opacity:.9; }
+    .ref-row{ display:grid; grid-template-columns:1fr 1fr 84px 84px; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid #f0f1f3; }
+    .ref-row b{ font-size:.9rem; color:#16273f; font-weight:600; }
+    .ref-row select,.ref-row input{ width:100%; padding:8px 9px; border:1px solid #ddd; border-radius:8px; font-family:inherit; font-size:.86rem; }
+    .ref-head{ display:grid; grid-template-columns:1fr 1fr 84px 84px; gap:8px; font-size:.72rem; color:#999; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding-bottom:4px; }
+    @media (max-width:560px){ .ref-row,.ref-head{ grid-template-columns:1fr; } .ref-head span:not(:first-child){ display:none; } }
   </style>
 </head>
 <body>
@@ -73,6 +85,7 @@
       <h1><i class="fas fa-map-location-dot"></i> Mapa de cierres</h1>
       <div class="top-actions">
         <a class="back" href="index.html"><i class="fas fa-arrow-left"></i> Volver</a>
+        <button class="btn" id="btnRef" onclick="openRef()" style="display:none;background:#fff;border:1px solid #ddd;color:#444"><i class="fas fa-people-arrows"></i> Referidos</button>
         <button class="btn btn-gold" id="btnReg" onclick="openReg()" style="display:none"><i class="fas fa-plus"></i> Registrar cierre</button>
       </div>
     </div>
@@ -99,6 +112,19 @@
   </div>
 
   <!-- Modal registrar cierre -->
+  <div class="overlay" id="refModal">
+    <div class="modal">
+      <h2><i class="fas fa-people-arrows"></i> Referidos entre agentes</h2>
+      <div class="sub">Si un agente fue referido por otro, el referente cobra un <b>% de la ganancia del agente</b> en cada cierre. Se paga aparte: no se le descuenta nada al agente. El recibo de cada cierre lo calcula solo.</div>
+      <div class="ref-head"><span>Agente</span><span>Referido por</span><span>% venta</span><span>% alquiler</span></div>
+      <div id="refRows"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeRef()" style="background:#fff;border:1px solid #ddd;color:#444">Cancelar</button>
+        <button class="btn btn-gold" onclick="guardarReferidos()"><i class="fas fa-save"></i> Guardar referidos</button>
+      </div>
+    </div>
+  </div>
+
   <div class="overlay" id="regModal">
     <div class="modal">
       <h2><i class="fas fa-handshake"></i> Registrar cierre</h2>
@@ -130,7 +156,7 @@
       </div>
       <div class="grid2">
         <div class="fg"><label id="regGanLabel">Tu ganancia <small style="color:#aaa">(lo que te quedó, sin IVA)</small></label><input type="number" id="regGanancia" placeholder="0"></div>
-        <div class="fg"><label>&nbsp;</label><div style="font-size:.78rem;color:#999;padding-top:10px">En la misma moneda del precio. De acá salen tus puntos de Recompensas; la podés calcular en "Mis ganancias".</div></div>
+        <div class="fg"><label>&nbsp;</label><div style="font-size:.78rem;color:#999;padding-top:10px">Se calcula sola con el % del agente (venta: 3% de comisión · alquiler: 1 mes) apenas ponés el precio. Corregila a mano si el número real fue otro; en la misma moneda del precio.</div></div>
       </div>
       <div class="grid2">
         <div class="fg"><label>Fecha del cierre</label><input type="date" id="regFecha"></div>
@@ -155,6 +181,8 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -213,6 +241,8 @@
       if(c.barrio) s += '<br>📍 '+esc(c.barrio);
       if(c.fecha) s += '<br>📅 '+fmtFecha(c.fecha);
       s += '</div>';
+      if(Array.isArray(p.images) && p.images[0]) s = '<div style="min-width:210px"><img src="'+esc(p.images[0])+'" style="width:100%;height:96px;object-fit:cover;border-radius:8px;margin-bottom:7px">' + s.slice('<div style="min-width:180px">'.length);
+      s += '<div style="margin-top:6px"><a href="propiedad.html?id='+esc(p.id)+'" target="_blank" style="font-size:.78rem;font-weight:700;color:#16273f;text-decoration:underline">Ver propiedad &rarr;</a></div>';
       var conf = p.cierreConfirmado === true;
       s += '<div style="margin-top:7px;border-top:1px solid #eee;padding-top:6px">' + (conf
         ? '<span style="font-size:.72rem;font-weight:700;color:#27ae60">&#10003; Confirmado</span>'
@@ -240,12 +270,20 @@
       const c=p.cierre;
       let meta = (c.m2?c.m2+' m² · ':'') + esc(c.realEstateType||'');
       if(c.barrio) meta += ' · ' + esc(c.barrio);
+      const thumb = (Array.isArray(p.images) && p.images[0])
+        ? '<img class="cc-thumb" src="'+esc(p.images[0])+'" alt="" loading="lazy">'
+        : '<div class="cc-thumb-ph"><i class="fas fa-image"></i></div>';
       return '<div class="cierre-card" onclick="focusCierre('+idx+')">'
+        + thumb
         + '<span class="tag" style="background:'+COL[c.tipo]+'22;color:'+COL[c.tipo]+'">'+(c.tipo==='venta'?'Venta':'Alquiler')+'</span>'
         + '<div class="cc-main"><div class="cc-price">'+fmtMoney(c.precio,c.moneda)+'</div>'
         + '<div class="cc-sub">'+esc(p.title||'Propiedad')+'</div>'
         + '<div class="cc-meta">'+meta+'</div>'
         + (p.cierreConfirmado===true ? '<div style="font-size:.72rem;font-weight:700;color:#27ae60;margin-top:3px">&#10003; Confirmado</div>' : '<div style="font-size:.72rem;font-weight:700;color:#C9A227;margin-top:3px">Pendiente'+(isAdmin?' <button onclick="event.stopPropagation();confirmarCierre(\''+p.id+'\')" style="margin-left:4px;border:none;background:#27ae60;color:#fff;border-radius:6px;padding:3px 8px;font-size:.7rem;font-weight:600;cursor:pointer">Confirmar</button>':'')+'</div>')
+        + '<div class="cc-actions" onclick="event.stopPropagation()">'
+        +   '<a class="cc-btn" href="propiedad.html?id='+esc(p.id)+'" target="_blank"><i class="fas fa-house"></i> Ver propiedad</a>'
+        +   (isAdmin ? '<button class="cc-btn gold" onclick="generarRecibo(\''+p.id+'\', this)"><i class="fas fa-file-invoice-dollar"></i> Recibo</button>' : '')
+        + '</div>'
         + '</div>'
         + '<div class="cc-date">'+fmtFecha(c.fecha)+'</div></div>';
     }
@@ -291,8 +329,159 @@
       }
     }
 
+    // ---- Referidos entre agentes (solo admin) ----
+    // referidos/{uidAgente} = { referrerUid, referrerNombre, pctSale, pctRent }.
+    // El referente cobra pct% de la GANANCIA del agente en cada cierre (se paga aparte).
+    let referidosMap = {};
+    function openRef(){
+      if(!isAdmin) return;
+      const rows = document.getElementById('refRows');
+      rows.innerHTML = agentesList.map(a=>{
+        const r = referidosMap[a.uid] || {};
+        const ops = '<option value="">— nadie —</option>' + agentesList.filter(x=>x.uid!==a.uid)
+          .map(x=>'<option value="'+esc(x.uid)+'"'+(r.referrerUid===x.uid?' selected':'')+'>'+esc(x.name)+'</option>').join('');
+        return '<div class="ref-row" data-uid="'+esc(a.uid)+'">'
+          + '<b>'+esc(a.name)+'</b>'
+          + '<select class="ref-sel">'+ops+'</select>'
+          + '<input type="number" class="ref-sale" min="0" max="100" placeholder="% venta" value="'+(r.pctSale!=null?r.pctSale:'')+'">'
+          + '<input type="number" class="ref-rent" min="0" max="100" placeholder="% alq." value="'+(r.pctRent!=null?r.pctRent:'')+'">'
+          + '</div>';
+      }).join('');
+      document.getElementById('refModal').classList.add('open');
+    }
+    function closeRef(){ document.getElementById('refModal').classList.remove('open'); }
+    async function guardarReferidos(){
+      const filas = Array.from(document.querySelectorAll('#refRows .ref-row'));
+      try{
+        for(const f of filas){
+          const uid = f.dataset.uid;
+          const refUid = f.querySelector('.ref-sel').value;
+          const pctSale = parseFloat(f.querySelector('.ref-sale').value) || 0;
+          const pctRent = parseFloat(f.querySelector('.ref-rent').value) || 0;
+          if(refUid){
+            const refAg = agentesList.find(x=>x.uid===refUid) || {};
+            const data = { referrerUid: refUid, referrerNombre: refAg.name || '', pctSale, pctRent, updatedAt: new Date().toISOString() };
+            await db.collection('referidos').doc(uid).set(data);
+            referidosMap[uid] = data;
+          } else if(referidosMap[uid]){
+            await db.collection('referidos').doc(uid).delete();
+            delete referidosMap[uid];
+          }
+        }
+        toast('Referidos guardados');
+        closeRef();
+      }catch(e){ console.error(e); toast('No se pudieron guardar los referidos: '+(e.code||e.message), true); }
+    }
+
+    // ---- Recibo de comisión en PDF (solo admin) ----
+    let cfgPts = null;
+    async function cfgPuntos(){
+      if(cfgPts) return cfgPts;
+      cfgPts = { puntosPor100: 1, valorPunto: 0.05, dolarPesos: 40 };
+      try{ const d = await db.collection('config').doc('recompensas').get(); if(d.exists) cfgPts = Object.assign(cfgPts, d.data()); }catch(e){}
+      return cfgPts;
+    }
+    async function generarRecibo(id, btn){
+      const p = cierres.find(x=>x.id===id) || allProps.find(x=>x.id===id);
+      if(!p || !p.cierre){ toast('No encontré el cierre', true); return; }
+      const c = p.cierre;
+      const prev = btn ? btn.innerHTML : '';
+      if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+      try{
+        const cfg = await cfgPuntos();
+        const gan = Number(c.gananciaAgente);
+        const tieneGan = isFinite(gan) && c.gananciaAgente != null && c.gananciaAgente !== '';
+        const ganUSD = !tieneGan ? 0 : (c.moneda==='UYU' ? (cfg.dolarPesos>0 ? gan/cfg.dolarPesos : 0) : gan);
+        const pts = Math.floor(ganUSD/100) * (Number(cfg.puntosPor100)||1);
+        const code = (p.ficha && p.ficha.PROPERTY_CODE) || ('C-' + String(p.id).slice(-6).toUpperCase());
+        const hoy = new Date().toLocaleDateString('es-UY', { day:'numeric', month:'long', year:'numeric' });
+        const dir = [ (p.ubicacion && p.ubicacion.calle) || p.direccion, (p.ubicacion && p.ubicacion.numero) ].filter(Boolean).join(' ');
+        const lugar = [p.ciudad, p.departamento].filter(Boolean).join(', ');
+        const ref = referidosMap[c.agenteUid];
+        const refPct = ref ? Number(c.tipo==='venta' ? ref.pctSale : ref.pctRent) || 0 : 0;
+        const refMonto = (tieneGan && refPct > 0) ? Math.round(gan * refPct / 100) : 0;
+
+        const fila = (k,v)=>'<tr><td style="padding:7px 0;color:#6b7480;font-size:13px;width:200px">'+k+'</td><td style="padding:7px 0;color:#16273f;font-size:13px;font-weight:600">'+v+'</td></tr>';
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'position:fixed;left:-3000px;top:0;width:794px;background:#fff;font-family:Jost,Arial,sans-serif';
+        wrap.innerHTML = '<div id="reciboPDF" style="width:794px;min-height:1123px;background:#fff;padding:56px 60px;box-sizing:border-box;position:relative">'
+          + '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #C9A227;padding-bottom:18px">'
+          +   '<div style="display:flex;gap:14px;align-items:center"><img src="iso-malave.png" style="width:54px;height:54px;object-fit:contain"><div><div style="font-size:22px;font-weight:700;color:#16273f;letter-spacing:.14em">MALAVE</div><div style="font-size:12px;color:#6b7480">Inmobiliaria · Aníbal Malave</div></div></div>'
+          +   '<div style="text-align:right"><div style="font-size:17px;font-weight:700;color:#16273f">RECIBO DE COMISIÓN</div><div style="font-size:12px;color:#6b7480;margin-top:3px">N° '+esc(code)+'</div><div style="font-size:12px;color:#6b7480">Emitido: '+hoy+'</div></div>'
+          + '</div>'
+          + '<table style="width:100%;border-collapse:collapse;margin-top:26px">'
+          +   fila('Agente', esc(c.agenteNombre||'—'))
+          +   fila('Operación', c.tipo==='venta' ? 'Venta' : 'Alquiler (mensual)')
+          +   fila('Propiedad', esc(p.title||'—'))
+          +   (dir||lugar ? fila('Dirección', esc([dir,lugar].filter(Boolean).join(' · '))) : '')
+          +   fila('Fecha del cierre', esc(fmtFecha(c.fecha)))
+          +   fila('Precio de cierre', fmtMoney(c.precio, c.moneda))
+          + '</table>'
+          + '<div style="margin-top:26px;background:#16273f;border-radius:12px;padding:20px 24px;display:flex;justify-content:space-between;align-items:center">'
+          +   '<div style="color:#c7cfdb;font-size:13px;font-weight:600;letter-spacing:.06em">TOTAL A PAGAR AL AGENTE<br><span style="font-size:11px;font-weight:400">Comisión sin IVA</span></div>'
+          +   '<div style="color:#fff;font-size:28px;font-weight:700">'+(tieneGan ? fmtMoney(gan, c.moneda) : '—')+'</div>'
+          + '</div>'
+          + (pts>0 ? '<div style="margin-top:12px;font-size:12.5px;color:#8a6d12;background:rgba(201,162,39,.10);border:1px solid rgba(201,162,39,.35);border-radius:10px;padding:11px 14px"><b>Puntos de Recompensas del cierre:</b> '+pts.toLocaleString('es-UY')+' '+(pts===1?'punto':'puntos')+' (se acreditan al confirmarse el cierre).</div>' : '')
+          + (refMonto>0 ? '<div style="margin-top:12px;font-size:12.5px;color:#16273f;background:#f4f5f7;border:1px solid #e5e8ec;border-radius:10px;padding:11px 14px"><b>Comisión por referido — '+esc(ref.referrerNombre||'')+':</b> '+fmtMoney(refMonto, c.moneda)+' ('+refPct+'% de la ganancia del agente; se abona aparte, no se descuenta al agente).</div>' : '')
+          + '<div style="display:flex;gap:60px;margin-top:90px">'
+          +   '<div style="flex:1;text-align:center;border-top:1.5px solid #16273f;padding-top:8px;font-size:12px;color:#16273f">Recibí conforme<br><b>'+esc(c.agenteNombre||'')+'</b></div>'
+          +   '<div style="flex:1;text-align:center;border-top:1.5px solid #16273f;padding-top:8px;font-size:12px;color:#16273f">p/ Inmobiliaria MALAVE<br><b>Aníbal Malave</b></div>'
+          + '</div>'
+          + '<div style="position:absolute;bottom:34px;left:60px;right:60px;border-top:1px solid #e5e8ec;padding-top:10px;font-size:10.5px;color:#9aa3ad;display:flex;justify-content:space-between"><span>Propiedad '+esc(code)+' · Ref. interna '+esc(String(p.id))+'</span><span>malaveinmobiliaria.com</span></div>'
+          + '</div>';
+        document.body.appendChild(wrap);
+        const canvas = await html2canvas(document.getElementById('reciboPDF'), { scale:2, useCORS:true, backgroundColor:'#ffffff', windowWidth:794 });
+        const jsPDF = window.jspdf.jsPDF;
+        const pdf = new jsPDF({ unit:'pt', format:'a4', orientation:'portrait' });
+        const pageW = 595.28, pageH = 841.89;
+        const imgH = pageW * canvas.height / canvas.width;
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.94), 'JPEG', 0, 0, pageW, Math.max(imgH, pageH));
+        const nomAg = String(c.agenteNombre||'agente').replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g,'').replace(/\s+/g,'_');
+        pdf.save('Recibo_'+code+'_'+nomAg+'.pdf');
+        wrap.remove();
+        toast('Recibo generado');
+      }catch(e){ console.error(e); toast('No se pudo generar el recibo: '+(e.message||e), true); }
+      if(btn){ btn.disabled = false; btn.innerHTML = prev; }
+    }
+
     // ---- Registrar cierre ----
     let agentesList = [];
+    let ganManual = false; // true cuando el usuario escribió la ganancia a mano
+
+    // % de comisión del agente del cierre (el elegido por el admin, o el propio).
+    function comisionDelAgente(){
+      const de = (u)=>{
+        const fb = (u.commissionPct!=null && u.commissionPct!=='') ? Number(u.commissionPct) : 0;
+        return { sale:(u.commissionSale!=null && u.commissionSale!=='') ? Number(u.commissionSale) : fb,
+                 rent:(u.commissionRent!=null && u.commissionRent!=='') ? Number(u.commissionRent) : fb };
+      };
+      if(isAdmin){
+        const sel = document.getElementById('regAgente');
+        if(sel && sel.value){ const a = agentesList.find(x=>x.uid===sel.value); if(a) return { sale:a.sale||0, rent:a.rent||0 }; }
+      }
+      return de(curProfile || {});
+    }
+    // Precarga la ganancia con la regla estándar (venta: 3% de comisión inmobiliaria;
+    // alquiler: 1 mes) por el % del agente. Editable: si la tocan a mano, no se pisa.
+    function recalcGanancia(){
+      if(ganManual) return;
+      const el = document.getElementById('regGanancia');
+      const precio = parseFloat(document.getElementById('regPrecio').value);
+      if(!precio || precio<=0){ el.value=''; return; }
+      const tipo = (document.querySelector('input[name="regTipo"]:checked')||{}).value || 'venta';
+      const com = comisionDelAgente();
+      const pct = (tipo==='venta') ? com.sale : com.rent;
+      if(!(pct > 0)) return; // sin % configurado no se inventa nada
+      const comInmobiliaria = (tipo==='venta') ? precio * 0.03 : precio;
+      el.value = Math.round(comInmobiliaria * pct / 100);
+    }
+    (function(){
+      const p = document.getElementById('regPrecio');
+      if(p) p.addEventListener('input', recalcGanancia);
+      const g = document.getElementById('regGanancia');
+      if(g) g.addEventListener('input', ()=>{ ganManual = g.value !== ''; });
+      document.querySelectorAll('input[name="regTipo"]').forEach(r=>r.addEventListener('change', recalcGanancia));
+    })();
     function llenarAgentes(defUid){
       const wrap = document.getElementById('regAgenteWrap');
       if(!isAdmin || !agentesList.length){ if(wrap) wrap.style.display='none'; return; }
@@ -319,6 +508,7 @@
           ? 'Ganancia del agente <small style="color:#aaa">(lo que le quedó, sin IVA)</small>'
           : 'Tu ganancia <small style="color:#aaa">(lo que te quedó, sin IVA)</small>';
       }
+      recalcGanancia();
     }
     function llenarPicker(uidFiltro){
       const sel=document.getElementById('regProp');
@@ -370,6 +560,7 @@
       document.getElementById('regPrecio').value='';
       document.getElementById('regPrecio').placeholder='0';
       document.getElementById('regGanancia').value='';
+      ganManual = false;
       document.getElementById('regCons').value='';
       document.getElementById('regUbi').value='';
       document.getElementById('regFecha').value = new Date().toISOString().slice(0,10);
@@ -464,13 +655,23 @@
         if(isAdmin && !agentesList.length){
           try{
             const us = await db.collection('users').where('status','==','approved').get();
-            agentesList = us.docs.map(d=>({ uid:d.id, name:(d.data().name || d.data().email || 'Agente') }))
-              .sort((a,b)=>a.name.localeCompare(b.name));
+            agentesList = us.docs.map(d=>{
+              const u = d.data();
+              const fb = (u.commissionPct!=null && u.commissionPct!=='') ? Number(u.commissionPct) : 0;
+              return { uid:d.id, name:(u.name || u.email || 'Agente'),
+                sale:(u.commissionSale!=null && u.commissionSale!=='') ? Number(u.commissionSale) : fb,
+                rent:(u.commissionRent!=null && u.commissionRent!=='') ? Number(u.commissionRent) : fb };
+            }).sort((a,b)=>a.name.localeCompare(b.name));
           }catch(e){ agentesList = []; }
+          try{
+            const rf = await db.collection('referidos').get();
+            referidosMap = {}; rf.docs.forEach(d=>{ referidosMap[d.id] = d.data(); });
+          }catch(e){ referidosMap = {}; }
         }
         coleccionar();
         show('content');
         document.getElementById('btnReg').style.display = '';
+        if(isAdmin) document.getElementById('btnRef').style.display = '';
         initMap();
         llenarPicker();
         refrescar();
