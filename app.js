@@ -8,34 +8,10 @@
   };
   firebase.initializeApp(firebaseConfig);
   function mvEsc(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
-  // Devuelve la URL solo si es http(s) y NO trae caracteres que permitan romper
-  // un atributo o una cadena JS (comillas, < > \ o espacios). Si no, '' .
-  // Sirve para meter URLs de usuario en href Y en onclick sin riesgo de XSS.
-  function safeUrl(u){ const s = String(u == null ? '' : u).trim(); return /^https?:\/\/[^\s'"<>\\]+$/i.test(s) ? s : ''; }
   const auth = firebase.auth(),
     db = firebase.firestore(),
     storage = firebase.storage(),
     ADMIN_EMAIL = "fabricio9061@gmail.com";
-
-  // ===== Rangos de la inmobiliaria (organigrama) =====
-  // 'grupo' arma los optgroups del selector; 'nivel' queda para permisos futuros.
-  // El COO (y el CEO) pueden ver la agenda de todo el equipo (ver agenda.html + reglas).
-  const RANKS = [
-    { key:'ceo',                grupo:'Dirección',   label:'CEO',                            nivel:100 },
-    { key:'coo',                grupo:'Dirección',   label:'COO — Director de Operaciones',  nivel:90 },
-    { key:'gerente_comercial',  grupo:'Comercial',   label:'Gerente Comercial',              nivel:80 },
-    { key:'lider_equipo',       grupo:'Comercial',   label:'Líder de Equipo',                nivel:70 },
-    { key:'asesor_elite',       grupo:'Comercial',   label:'Asesor Elite',                   nivel:60 },
-    { key:'asesor_senior',      grupo:'Comercial',   label:'Asesor Senior',                  nivel:50 },
-    { key:'asesor_semi_senior', grupo:'Comercial',   label:'Asesor Semi Senior',             nivel:40 },
-    { key:'asesor_junior',      grupo:'Comercial',   label:'Asesor Junior',                  nivel:30 },
-    { key:'coord_admin',        grupo:'Operaciones', label:'Coordinador Administrativo',     nivel:55 },
-    { key:'administracion',     grupo:'Operaciones', label:'Administración',                 nivel:45 },
-    { key:'marketing',          grupo:'Operaciones', label:'Marketing',                      nivel:45 },
-    { key:'procesos_calidad',   grupo:'Operaciones', label:'Procesos y Calidad',             nivel:45 },
-    { key:'finanzas',           grupo:'Finanzas',    label:'Finanzas',                       nivel:50 },
-  ];
-  function rankLabel(key){ const r = RANKS.find(x => x.key === key); return r ? r.label : ''; }
 
   // FCM - Push Notifications
   // Se inicializa en una app de Firebase APARTE a propósito: el SDK de Cloud
@@ -161,26 +137,26 @@
     }
   }
 
-    const uruguayData = {
-    "Montevideo": ["Aguada", "Aires Puros", "Atahualpa", "Bañados de Carrasco", "Barrio Sur", "Bella Italia", "Bella Vista", "Belvedere", "Brazo Oriental", "Buceo", "Capurro", "Carrasco", "Carrasco Norte", "Casabó", "Casavalle", "Centro", "Cerrito de la Victoria", "Cerro", "Ciudad Vieja", "Colón", "Conciliación", "Cordón", "Flor de Maroñas", "Goes", "Ituzaingó", "Jacinto Vera", "Jardines del Hipódromo", "La Blanqueada", "La Comercial", "La Figurita", "La Paloma", "La Teja", "Larrañaga", "Las Acacias", "Las Canteras", "Lezica", "Malvín", "Malvín Norte", "Manga", "Maroñas", "Melilla", "Mercado Modelo", "Nuevo París", "Palermo", "Parque Batlle", "Parque Rodó", "Paso de la Arena", "Paso de las Duranas", "Paso Molino", "Peñarol", "Piedras Blancas", "Pocitos", "Pocitos Nuevo", "Prado", "Punta Carretas", "Punta Gorda", "Punta Rieles", "Reducto", "Sayago", "Toledo Chico", "Tres Cruces", "Tres Ombúes", "Unión", "Villa Dolores", "Villa Española", "Villa García", "Villa Muñoz", "Vista Linda"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Canelones": ["Las Piedras", "Pando", "Canelones", "Santa Lucía", "Progreso", "Atlántida", "Salinas", "Parque del Plata", "Solymar", "Shangrilá", "El Pinar", "Lagomar", "La Floresta", "Paso Carrasco", "Ciudad de la Costa", "San José de Carrasco", "Médanos de Solymar", "Colinas de Solymar", "Colonia Nicolich", "Barros Blancos", "Toledo", "Sauce", "Joaquín Suárez", "Suárez", "La Paz", "Las Toscas", "Pinamar", "Neptunia", "Marindia", "Villa Argentina", "Estación Atlántida", "Costa Azul", "Bello Horizonte", "San Luis", "La Tuna", "Cuchilla Alta", "Jaureguiberry", "Empalme Olmos", "Tala", "San Ramón", "Santa Rosa", "San Jacinto", "San Bautista", "Migues", "Montes", "Soca", "Aguas Corrientes", "Los Cerrillos", "Juanicó", "San Antonio", "El Bosque", "Villa Felicidad"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Maldonado": ["Maldonado", "Punta del Este", "San Carlos", "Piriápolis", "Pan de Azúcar", "Aiguá", "Solís", "Bella Vista", "Las Flores", "Playa Verde", "Playa Hermosa", "Playa Grande", "San Francisco", "Punta Colorada", "Punta Negra", "Gregorio Aznárez", "Cerros Azules", "Nueva Carrara", "Punta Ballena", "Solanas", "Sauce de Portezuelo", "Portezuelo", "Chihuahua", "Laguna del Sauce", "Pinares", "La Barra", "El Tesoro", "Manantiales", "El Chorro", "Montoya", "Balneario Buenos Aires", "La Juanita", "José Ignacio", "Santa Mónica", "Pueblo Edén", "Garzón", "Estación Las Flores", "Maldonado Nuevo", "Cerro Pelado", "La Capuera", "Ocean Park", "Las Grutas", "El Placer"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Colonia": ["Colonia del Sacramento", "Carmelo", "Juan Lacaze", "Nueva Helvecia", "Rosario", "Nueva Palmira", "Tarariras", "Colonia Valdense", "Ombúes de Lavalle", "Florencio Sánchez", "Conchillas", "Miguelete", "Colonia Cosmopolita"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Salto": ["Salto", "Daymán", "Termas del Daymán", "Termas del Arapey", "Belén", "Constitución"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Paysandú": ["Paysandú", "Guichón", "Termas de Guaviyú", "Quebracho", "Piedras Coloradas", "Chapicuy", "Porvenir"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Río Negro": ["Fray Bentos", "Young", "Nuevo Berlín", "San Javier"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Soriano": ["Mercedes", "Dolores", "Cardona", "José Enrique Rodó", "Palmitas", "Villa Soriano"].sort((a,b)=>a.localeCompare(b,'es')),
-    "San José": ["San José de Mayo", "Ciudad del Plata", "Libertad", "Rodríguez", "Ecilda Paullier", "Rafael Perazza", "Puntas de Valdez", "Delta del Tigre"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Florida": ["Florida", "Sarandí Grande", "Casupá", "Fray Marcos", "25 de Mayo", "25 de Agosto", "Cardal", "Capilla del Sauce"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Flores": ["Trinidad", "Ismael Cortinas"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Durazno": ["Durazno", "Sarandí del Yí", "Villa del Carmen", "Carmen", "La Paloma", "Blanquillo"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Tacuarembó": ["Tacuarembó", "Paso de los Toros", "San Gregorio de Polanco", "Ansina"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Rivera": ["Rivera", "Tranqueras", "Vichadero", "Minas de Corrales"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Artigas": ["Artigas", "Bella Unión", "Tomás Gomensoro", "Baltasar Brum"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Cerro Largo": ["Melo", "Río Branco", "Fraile Muerto", "Aceguá", "Tupambaé"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Lavalleja": ["Minas", "José Pedro Varela", "Solís de Mataojo", "Mariscala", "Batlle y Ordóñez", "Pirarajá"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Rocha": ["Rocha", "Chuy", "Castillos", "La Paloma", "La Pedrera", "Cabo Polonio", "Punta del Diablo", "Lascano", "Velázquez", "Aguas Dulces", "Barra de Valizas", "La Coronilla", "Punta Rubia"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Treinta y Tres": ["Treinta y Tres", "Vergara", "Santa Clara de Olimar", "Cerro Chato"].sort((a,b)=>a.localeCompare(b,'es'))
+  const uruguayData = {
+    "Montevideo": ["Aguada", "Aires Puros", "Atahualpa", "Bañados de Carrasco", "Barrio Sur", "Bella Italia", "Bella Vista", "Belvedere", "Brazo Oriental", "Buceo", "Capurro", "Carrasco", "Carrasco Norte", "Casabó", "Casavalle", "Centro", "Cerrito de la Victoria", "Cerro", "Ciudad Vieja", "Colón", "Conciliación", "Cordón", "Flor de Maroñas", "Goes", "Ituzaingó", "Jacinto Vera", "Jardines del Hipódromo", "La Blanqueada", "La Comercial", "La Figurita", "La Paloma", "La Teja", "Larrañaga", "Las Acacias", "Las Canteras", "Lezica", "Malvín", "Malvín Norte", "Manga", "Maroñas", "Melilla", "Mercado Modelo", "Nuevo París", "Palermo", "Parque Batlle", "Parque Rodó", "Paso de la Arena", "Paso de las Duranas", "Paso Molino", "Peñarol", "Piedras Blancas", "Pocitos", "Pocitos Nuevo", "Prado", "Punta Carretas", "Punta Gorda", "Punta Rieles", "Reducto", "Sayago", "Toledo Chico", "Tres Cruces", "Tres Ombúes", "Unión", "Villa Dolores", "Villa Española", "Villa García", "Villa Muñoz", "Vista Linda"].sort(),
+    "Canelones": ["Ciudad de la Costa", "Las Piedras", "Pando", "Canelones", "Santa Lucía", "Progreso", "Atlántida", "Salinas", "Parque del Plata", "Solymar", "Shangrilá", "El Pinar", "Lagomar", "La Floresta"],
+    "Maldonado": ["Maldonado", "Punta del Este", "San Carlos", "Piriápolis", "Pan de Azúcar", "La Barra", "José Ignacio", "Manantiales", "Punta Ballena"],
+    "Colonia": ["Colonia del Sacramento", "Carmelo", "Juan Lacaze", "Nueva Helvecia", "Rosario", "Nueva Palmira"],
+    "Salto": ["Salto", "Daymán", "Termas del Daymán", "Termas del Arapey"],
+    "Paysandú": ["Paysandú", "Guichón", "Termas de Guaviyú"],
+    "Río Negro": ["Fray Bentos", "Young"],
+    "Soriano": ["Mercedes", "Dolores"],
+    "San José": ["San José de Mayo", "Ciudad del Plata", "Libertad"],
+    "Florida": ["Florida", "Sarandí Grande"],
+    "Flores": ["Trinidad"],
+    "Durazno": ["Durazno", "Sarandí del Yí"],
+    "Tacuarembó": ["Tacuarembó", "Paso de los Toros"],
+    "Rivera": ["Rivera", "Tranqueras"],
+    "Artigas": ["Artigas", "Bella Unión"],
+    "Cerro Largo": ["Melo", "Río Branco"],
+    "Lavalleja": ["Minas"],
+    "Rocha": ["Rocha", "Chuy", "Castillos", "La Paloma", "La Pedrera", "Cabo Polonio", "Punta del Diablo"],
+    "Treinta y Tres": ["Treinta y Tres", "Vergara"]
   };
 
   let currentUser = null,
@@ -385,11 +361,13 @@
     if (!currentUser) { openModal('loginModal'); return; }
     // Volcar datos del usuario en la cabecera del panel
     const av = document.getElementById('mvSideAv');
-    if (av) av.innerHTML = (userProfile && userProfile.profilePhoto) ? `<img src="${safeUrl(userProfile.profilePhoto)}" alt="">` : '<i class="fas fa-user"></i>';
+    if (av) av.innerHTML = (userProfile && userProfile.profilePhoto) ? `<img src="${userProfile.profilePhoto}" alt="">` : '<i class="fas fa-user"></i>';
     const nm = document.getElementById('mvSideName'); if (nm) nm.textContent = (userProfile && userProfile.name) || 'Usuario';
     const rl = document.getElementById('mvSideRole'); if (rl) rl.textContent = isAdminUser() ? 'Administrador' : 'Agente';
     document.getElementById('mvSideAdminGroup')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !isAdminUser());
+    document.getElementById('mvSideRevisiones')?.classList.toggle('hidden', !isAdminUser());
+    document.getElementById('mvSideSolicitudes')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSide')?.classList.add('open');
     document.getElementById('mvSideOverlay')?.classList.add('open');
     document.getElementById('mvSide')?.setAttribute('aria-hidden', 'false');
@@ -955,7 +933,7 @@
       bnp?.classList.remove('hidden');
       if (un) un.textContent = userProfile.name || 'Usuario';
       const i = (userProfile.name || 'U').charAt(0).toUpperCase();
-      if (ua) ua.innerHTML = userProfile.profilePhoto ? `<img src="${safeUrl(userProfile.profilePhoto)}" alt="">` : i;
+      if (ua) ua.innerHTML = userProfile.profilePhoto ? `<img src="${userProfile.profilePhoto}" alt="">` : i;
       if ((userProfile.email || '').toLowerCase() === ADMIN_EMAIL) {
         ab?.classList.remove('hidden');
         abt?.classList.remove('hidden')
@@ -1017,13 +995,6 @@
       .ml-stat i{ font-size:1.2rem; flex:0 0 auto; }
       .ml-stat .n{ font-weight:800; font-size:1.25rem; color:#16273f; line-height:1; }
       .ml-stat .t{ font-size:.76rem; color:#6a7280; margin-top:3px; }
-      .ml-chart{ margin-top:10px; background:#f6f8fa; border-radius:12px; padding:12px 14px; }
-      .ml-chart-head{ display:flex; justify-content:space-between; align-items:baseline; font-size:.82rem; font-weight:700; color:#16273f; margin-bottom:9px; }
-      .ml-chart-head small{ font-weight:600; color:#8a93a0; font-size:.72rem; }
-      .ml-chart-bars{ display:flex; align-items:flex-end; gap:2px; height:58px; }
-      .ml-bar{ flex:1; height:100%; display:flex; align-items:flex-end; min-width:0; }
-      .ml-bar-fill{ width:100%; background:#1e9e6a; border-radius:3px 3px 0 0; opacity:.8; min-height:3px; transition:opacity .12s; }
-      .ml-bar:hover .ml-bar-fill{ opacity:1; }
       .ml-label{ font-size:.74rem; letter-spacing:.04em; color:#8a93a0; font-weight:600; text-transform:uppercase; margin-bottom:7px; }
       .ml-select{ width:100%; padding:12px 13px; border:1.5px solid #e2e6ea; border-radius:11px; font-family:inherit; font-size:.95rem; color:#16273f; background:#fff; }
       .ml-select:focus{ outline:none; border-color:#C9A227; }
@@ -1113,20 +1084,7 @@
     const _dash = (v) => (v != null ? v : '—');
     const _pregN = (d.preguntas && d.preguntas.total != null) ? d.preguntas.total : null;
     const _pregSR = (d.preguntas && d.preguntas.sinResponder) ? ` · ${d.preguntas.sinResponder} sin responder` : '';
-    const _serie = Array.isArray(d.visitasSerie) ? d.visitasSerie : [];
-    let _chart = '';
-    if (_serie.length > 1 && _serie.some(x => (x.total || 0) > 0)) {
-      const _max = Math.max.apply(null, _serie.map(x => x.total || 0).concat([1]));
-      const _bars = _serie.map(x => {
-        const n = x.total || 0;
-        const h = Math.max(5, Math.round(n / _max * 100));
-        const dt = String(x.date || '').slice(0, 10);
-        const dd = dt.length === 10 ? dt.slice(8, 10) + '/' + dt.slice(5, 7) : '';
-        return `<div class="ml-bar" title="${dd}: ${n} visita${n === 1 ? '' : 's'}"><div class="ml-bar-fill" style="height:${h}%${n === 0 ? ';opacity:.25' : ''}"></div></div>`;
-      }).join('');
-      _chart = `<div class="ml-chart"><div class="ml-chart-head"><span><i class="fas fa-chart-column" style="color:#1e9e6a"></i> Visitas por día</span><small>últimos 30 días</small></div><div class="ml-chart-bars">${_bars}</div></div>`;
-    }
-    const interaccion = `<div class="ml-section"><div class="ml-stats"><div class="ml-stat"><i class="fas fa-eye" style="color:#1e9e6a"></i><div><div class="n">${_dash(d.visitas)}</div><div class="t">visitas · 30 días</div></div></div><div class="ml-stat"><i class="fas fa-circle-question" style="color:#2e86de"></i><div><div class="n">${_dash(_pregN)}</div><div class="t">preguntas${_pregSR}</div></div></div><div class="ml-stat"><i class="fab fa-whatsapp" style="color:#25d366"></i><div><div class="n">${_dash(d.contactosWhatsapp)}</div><div class="t">contactos WhatsApp · 30 días</div></div></div></div>${_chart}</div>`;
+    const interaccion = `<div class="ml-section"><div class="ml-stats"><div class="ml-stat"><i class="fas fa-eye" style="color:#1e9e6a"></i><div><div class="n">${_dash(d.visitas)}</div><div class="t">visitas · 30 días</div></div></div><div class="ml-stat"><i class="fas fa-circle-question" style="color:#2e86de"></i><div><div class="n">${_dash(_pregN)}</div><div class="t">preguntas${_pregSR}</div></div></div><div class="ml-stat"><i class="fab fa-whatsapp" style="color:#25d366"></i><div><div class="n">${_dash(d.contactosWhatsapp)}</div><div class="t">contactos WhatsApp · 30 días</div></div></div></div></div>`;
     const pagoHint = d.status === 'payment_required' ? `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-circle-info"></i><div>El aviso está creado pero Mercado Libre exige pagar el tipo <strong>${mlListingTypeName(d.listingType)}</strong> para activarlo (se abona desde tu cuenta de ML, sección Publicaciones). Si no querés pagarlo, dale <strong>Dar de baja</strong> y volvé a publicarlo eligiendo otro tipo. Mientras no lo pagues, no se cobra nada.</div></div></div>` : '';
     // Qué falta para el 100%: lo MÁS confiable es comparar los atributos de la
     // categoría contra los que el aviso tiene cargados (d.faltan, lo calcula el
@@ -1175,7 +1133,9 @@
     if (d.permalink) botones.push(`<a href="${d.permalink}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost"><i class="fas fa-external-link-alt"></i> Ver aviso</a>`);
     if (d.status === 'paused' || d.status === 'closed') botones.push(`<button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-rotate-right"></i> Republicar</button>`);
     if (d.status !== 'closed') botones.push(`<button class="ml-btn ml-btn-danger" onclick="bajaPropiedad()"><i class="fas fa-circle-stop"></i> Dar de baja</button>`);
-    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}${selTipo}<div class="ml-btns">${botones.join('')}</div></div>`
+    const _dbg = Array.isArray(d.debugMetricas) ? d.debugMetricas : [];
+    const debugHtml = _dbg.length ? `<div class="ml-section" style="font-size:.68rem;color:#5a6573;font-family:monospace;word-break:break-all;background:#f3f4f6;border:1px dashed #c4ccd6;border-radius:8px;padding:8px"><div style="font-weight:bold;margin-bottom:4px;color:#16273f">debug métricas (temporal):</div>${_dbg.map(x => '<div>'+mvEsc(x)+'</div>').join('')}</div>` : '';
+    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}${debugHtml}${selTipo}<div class="ml-btns">${botones.join('')}</div></div>`
   }
   async function republicarPropiedad() {
     if (!mlModalPropId) return;
@@ -1418,35 +1378,17 @@
       b.textContent = 'Iniciar Sesión'
     }
   }
-  // Traduce los códigos de error de Firebase Auth a mensajes claros.
-  function mensajeErrorAuth(err) {
-    switch (err && err.code) {
-      case 'auth/email-already-in-use': return 'Este correo ya está registrado.';
-      case 'auth/invalid-email': return 'El correo no es válido.';
-      case 'auth/weak-password': return 'La contraseña es muy débil (mínimo 6 caracteres).';
-      case 'auth/network-request-failed': return 'Falló la conexión. Revisá tu internet y reintentá.';
-      default: return (err && err.message) || 'No se pudo crear la cuenta.';
-    }
-  }
-
   async function handleRegister(e) {
     e.preventDefault();
     const b = document.getElementById('registerBtn'),
       er = document.getElementById('registerError'),
       su = document.getElementById('registerSuccess'),
-      nm = document.getElementById('registerName').value.trim(),
-      em = document.getElementById('registerEmail').value.trim(),
-      wh = document.getElementById('registerWhatsapp').value.trim(),
+      nm = document.getElementById('registerName').value,
+      em = document.getElementById('registerEmail').value,
+      wh = document.getElementById('registerWhatsapp').value,
       ig = document.getElementById('registerInstagram').value.trim(),
       pw = document.getElementById('registerPassword').value,
       cf = document.getElementById('registerConfirm').value;
-    er.classList.add('hidden');
-    su.classList.add('hidden');
-    if (!nm || !em) {
-      er.textContent = 'Completá tu nombre y correo.';
-      er.classList.remove('hidden');
-      return
-    }
     if (pw !== cf) {
       er.textContent = 'Las contraseñas no coinciden';
       er.classList.remove('hidden');
@@ -1454,23 +1396,10 @@
     }
     b.disabled = true;
     b.textContent = 'Creando...';
-
-    // PASO 1 — crear la cuenta de Firebase Auth.
-    let uc;
+    er.classList.add('hidden');
+    su.classList.add('hidden');
     try {
-      uc = await auth.createUserWithEmailAndPassword(em, pw);
-    } catch (err) {
-      er.textContent = mensajeErrorAuth(err);
-      er.classList.remove('hidden');
-      b.disabled = false;
-      b.textContent = 'Crear Cuenta';
-      return
-    }
-
-    // PASO 2 — escribir el perfil en Firestore. Si falla, NO dejamos la cuenta
-    // de Auth huérfana: la borramos para que el correo quede libre y se pueda
-    // volver a registrar sin el error "este correo ya está registrado".
-    try {
+      const uc = await auth.createUserWithEmailAndPassword(em, pw);
       const ia = em.toLowerCase() === ADMIN_EMAIL;
       const ud = {
         uid: uc.user.uid,
@@ -1487,12 +1416,7 @@
       su.textContent = ia ? '¡Cuenta admin creada!' : '¡Cuenta creada! Espera aprobación.';
       su.classList.remove('hidden')
     } catch (err) {
-      // Revertimos: borramos la cuenta recién creada (o al menos cerramos sesión).
-      try { await uc.user.delete(); }
-      catch (delErr) { try { await auth.signOut(); } catch (e2) {} }
-      console.error('Registro: falló la escritura del perfil en Firestore:', err);
-      er.textContent = 'No se pudo guardar tu perfil: ' + ((err && err.message) || err) +
-        '. Si el problema persiste, avisale al administrador. Probá de nuevo.';
+      er.textContent = err.code === 'auth/email-already-in-use' ? 'Este correo ya está registrado' : err.message;
       er.classList.remove('hidden')
     } finally {
       b.disabled = false;
@@ -1616,7 +1540,7 @@
         archived: 'ARCHIVADA'
       };
       const stLabel = stLabels[st] || '';
-      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${!ce?`<button class="mv-fav ${mvEsFav(p.id)?'on':''}" title="Guardar" onclick="mvToggleFav(event,'${p.id}')"><i class="${mvEsFav(p.id)?'fas':'far'} fa-heart"></i></button>`:''}${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button><button class="card-action-btn" onclick="event.stopPropagation();openMLModal('${p.id}')" title="Mercado Libre" style="background:#fff159;color:#2d3277"><i class="fas fa-tag"></i></button><button class="btn-feature ${p.featured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${p.featured?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button><button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${safeUrl(o.profilePhoto)}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span>${ce?`<span class="card-views" title="Tocaron Contactar"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${p.contactClicks||0}</span>`:''}</div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
+      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button><button class="card-action-btn" onclick="event.stopPropagation();openMLModal('${p.id}')" title="Mercado Libre" style="background:#fff159;color:#2d3277"><i class="fas fa-tag"></i></button><button class="btn-feature ${p.featured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${p.featured?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button><button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${o.profilePhoto}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span>${ce?`<span class="card-views" title="Tocaron Contactar"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${p.contactClicks||0}</span>`:''}</div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${o.instagram}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
     }).join('')
   }
 
@@ -1646,17 +1570,27 @@
   // Profile Functions
   function renderSocialLinks(ud) {
     let html = '';
-    const link = (url, cls, title, icon) => {
-      const safe = safeUrl(url);
-      return safe ? `<a href="${safe}" target="_blank" rel="noopener noreferrer" class="profile-social-link ${cls}" title="${title}"><i class="${icon}"></i></a>` : '';
-    };
-    if (ud.instagram && ud.instagram.includes('instagram.com')) html += link(ud.instagram, 'instagram', 'Instagram', 'fab fa-instagram');
-    if (ud.facebook && ud.facebook.includes('facebook.com')) html += link(ud.facebook, 'facebook', 'Facebook', 'fab fa-facebook-f');
-    if (ud.linkedin && ud.linkedin.includes('linkedin.com')) html += link(ud.linkedin, 'linkedin', 'LinkedIn', 'fab fa-linkedin-in');
-    if (ud.twitter && (ud.twitter.includes('twitter.com') || ud.twitter.includes('x.com'))) html += link(ud.twitter, 'twitter', 'Twitter/X', 'fab fa-twitter');
-    if (ud.tiktok && ud.tiktok.includes('tiktok.com')) html += link(ud.tiktok, 'tiktok', 'TikTok', 'fab fa-tiktok');
-    if (ud.youtube && ud.youtube.includes('youtube.com')) html += link(ud.youtube, 'youtube', 'YouTube', 'fab fa-youtube');
-    if (ud.website) html += link(ud.website, '', 'Sitio Web', 'fas fa-globe');
+    if (ud.instagram && ud.instagram.includes('instagram.com')) {
+      html += `<a href="${ud.instagram}" target="_blank" class="profile-social-link instagram" title="Instagram"><i class="fab fa-instagram"></i></a>`
+    }
+    if (ud.facebook && ud.facebook.includes('facebook.com')) {
+      html += `<a href="${ud.facebook}" target="_blank" class="profile-social-link facebook" title="Facebook"><i class="fab fa-facebook-f"></i></a>`
+    }
+    if (ud.linkedin && ud.linkedin.includes('linkedin.com')) {
+      html += `<a href="${ud.linkedin}" target="_blank" class="profile-social-link linkedin" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>`
+    }
+    if (ud.twitter && (ud.twitter.includes('twitter.com') || ud.twitter.includes('x.com'))) {
+      html += `<a href="${ud.twitter}" target="_blank" class="profile-social-link twitter" title="Twitter/X"><i class="fab fa-twitter"></i></a>`
+    }
+    if (ud.tiktok && ud.tiktok.includes('tiktok.com')) {
+      html += `<a href="${ud.tiktok}" target="_blank" class="profile-social-link tiktok" title="TikTok"><i class="fab fa-tiktok"></i></a>`
+    }
+    if (ud.youtube && ud.youtube.includes('youtube.com')) {
+      html += `<a href="${ud.youtube}" target="_blank" class="profile-social-link youtube" title="YouTube"><i class="fab fa-youtube"></i></a>`
+    }
+    if (ud.website) {
+      html += `<a href="${ud.website}" target="_blank" class="profile-social-link" title="Sitio Web"><i class="fas fa-globe"></i></a>`
+    }
     return html
   }
 
@@ -1687,7 +1621,7 @@
       ael.innerHTML = about ? about.split(/\n+/).filter(Boolean).map(p => `<p>${p.replace(/</g, '&lt;')}</p>`).join('') : '<p style="color:var(--gray-400,#aaa)">Este asesor todavía no agregó una descripción.</p>';
     }
     const i = (ud.name || 'U').charAt(0).toUpperCase();
-    document.getElementById('profileAvatar').innerHTML = ud.profilePhoto ? `<img src="${safeUrl(ud.profilePhoto)}" alt="">` : i;
+    document.getElementById('profileAvatar').innerHTML = ud.profilePhoto ? `<img src="${ud.profilePhoto}" alt="">` : i;
     const ip = currentUser && currentUser.uid === ui;
     document.getElementById('profileAvatarEdit').classList.toggle('hidden', !ip);
     document.getElementById('btnEditProfile').classList.toggle('hidden', !ip);
@@ -1988,7 +1922,7 @@
     const o = getOwnerInfo(p),
       oi = (o.name || 'U').charAt(0).toUpperCase();
     document.getElementById('detailOwnerName').textContent = o.name || 'Usuario';
-    document.getElementById('detailOwnerAvatar').innerHTML = o.profilePhoto ? `<img src="${safeUrl(o.profilePhoto)}" alt="">` : oi;
+    document.getElementById('detailOwnerAvatar').innerHTML = o.profilePhoto ? `<img src="${o.profilePhoto}" alt="">` : oi;
     document.getElementById('detailBadges').innerHTML = `${p.featured&&st==='available'?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}${st==='reserved'?'<span class="badge badge-reserved">RESERVADA</span>':''}${st==='sold'?'<span class="badge badge-sold">VENDIDA</span>':''}${st==='rented'?'<span class="badge badge-rented">ALQUILADA</span>':''}${st==='archived'?'<span class="badge badge-archived">ARCHIVADA</span>':''}`;
     document.getElementById('detailFeatures').innerHTML = `${p.bedrooms?`<div class="detail-feature"><i class="fas fa-bed"></i><strong>${p.bedrooms}</strong><span>Dormitorios</span></div>`:''}${p.bathrooms?`<div class="detail-feature"><i class="fas fa-bath"></i><strong>${p.bathrooms}</strong><span>Baños</span></div>`:''}${p.totalArea?`<div class="detail-feature"><i class="fas fa-expand"></i><strong>${p.totalArea}</strong><span>m² Total</span></div>`:''}${p.builtArea?`<div class="detail-feature"><i class="fas fa-home"></i><strong>${p.builtArea}</strong><span>m² Edificado</span></div>`:''}${p.garage==='yes'?`<div class="detail-feature"><i class="fas fa-car"></i><strong>Sí</strong><span>Garaje</span></div>`:''}${p.commonExpenses?`<div class="detail-feature"><i class="fas fa-dollar-sign"></i><strong>${p.commonExpenses}</strong><span>Gastos</span></div>`:''}`;
     document.getElementById('detailWhatsapp').onclick = () => contactWhatsapp(id);
@@ -2222,7 +2156,7 @@
           id: d.id,
           ...d.data()
         }));
-        c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${safeUrl(u.profilePhoto)}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${mvEsc(u.role||'Asesor Inmobiliario')}</small>${u.commissionSale!=null||u.commissionRent!=null||u.commissionPct!=null?`<br><small style="color:#8a6d12"><i class="fas fa-percent"></i> Venta: ${u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:'—')}% · Alq: ${u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:'—')}%</small>`:''}<br><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="setUserRole('${u.id}')" title="Asignar cargo"><i class="fas fa-id-badge"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
+        c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${u.profilePhoto}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${mvEsc(u.role||'Asesor Inmobiliario')}</small>${u.commissionSale!=null||u.commissionRent!=null||u.commissionPct!=null?`<br><small style="color:#8a6d12"><i class="fas fa-percent"></i> Venta: ${u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:'—')}% · Alq: ${u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:'—')}%</small>`:''}<br><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="setUserRole('${u.id}')" title="Asignar cargo"><i class="fas fa-id-badge"></i></button><button class="btn-edit" onclick="setUserComision('${u.id}')" title="Comisión del agente"><i class="fas fa-percent"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
       } else if (tb === 'properties') {
         c.innerHTML = properties.length === 0 ? '<div class="empty-state"><i class="fas fa-building"></i><h3>Sin propiedades</h3></div>' : properties.map(p => {
           const o = getOwnerInfo(p),
@@ -2257,735 +2191,11 @@
             return `<div class="user-card"><div class="user-card-avatar"><i class="fas fa-quote-left"></i></div><div class="user-card-info"><h4>${t.name||'Anónimo'} ${t.role?`<small style="color:var(--gray-500);font-weight:normal">· ${t.role}</small>`:''}</h4><p style="font-style:italic">"${(t.text||'').slice(0,160)}${(t.text||'').length>160?'…':''}"</p><small style="color:var(--gray-400)"><i class="fas fa-map-pin"></i> ${donde} · ${estado}</small></div><div class="user-card-actions">${!t.approved?`<button class="btn-approve" onclick="approveTestimonial('${t.id}')" title="Aprobar y publicar"><i class="fas fa-check"></i></button>`:`<button class="btn-edit" onclick="unpublishTestimonial('${t.id}')" title="Despublicar"><i class="fas fa-eye-slash"></i></button>`}<button class="btn-reject" onclick="deleteTestimonial('${t.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div></div>`;
           }).join('');
         }
-      } else if (tb === 'comisiones') {
-        const [cfgSnap, refSnap, cierresSnap] = await Promise.all([
-          db.collection('adminData').doc('comisionesConfig').get(),
-          db.collection('referidos').get(),
-          db.collection('properties').where('cierreConfirmado', '==', true).get()
-        ]);
-        const cfg = Object.assign({ agencyPctSale: 3, agencyMonthsRent: 1 }, cfgSnap.exists ? cfgSnap.data() : {});
-        const refDocs = {};
-        refSnap.docs.forEach(d => { refDocs[d.id] = d.data(); });
-        const cierresPorAgente = {};
-        cierresSnap.docs.forEach(d => {
-          const p = d.data();
-          if (!p.cierre || !p.ownerId) return;
-          (cierresPorAgente[p.ownerId] = cierresPorAgente[p.ownerId] || []).push(p.cierre);
-        });
-        const nom = uid => (allUsers[uid] && (allUsers[uid].name || allUsers[uid].email)) || 'Agente';
-        const num = v => { const n = Number(v); return isNaN(n) ? 0 : n; };
-        // Comisión de la inmobiliaria en UNA operación (base de toda la cadena).
-        // Usa lo negociado en ese cierre; si el cierre no lo tiene, cae al valor por defecto.
-        function comAgencia(cc) {
-          const price = num(cc.precio);
-          if (cc.tipo === 'venta') {
-            const pct = (cc.agencyPct != null) ? num(cc.agencyPct) : num(cfg.agencyPctSale);
-            return price * pct / 100;
-          }
-          const meses = (cc.agencyMonths != null) ? num(cc.agencyMonths) : num(cfg.agencyMonthsRent);
-          return price * meses;
-        }
-        const addTo = (s, cc, monto) => { s[(cc.moneda === 'UYU') ? 'UYU' : 'USD'] += monto; };
-        // Comisión que gana el AGENTE (su % de la comisión inmobiliaria)
-        function comAgente(agenteUid) {
-          const u = allUsers[agenteUid] || {}, s = { USD: 0, UYU: 0 };
-          (cierresPorAgente[agenteUid] || []).forEach(cc => {
-            const pct = (cc.tipo === 'venta') ? num(u.commissionSale) : num(u.commissionRent);
-            if (pct) addTo(s, cc, comAgencia(cc) * pct / 100);
-          });
-          return s;
-        }
-        // Comisión que gana el REFERENTE (su % de la comisión del referido)
-        function comReferente(referidoUid, refPctSale, refPctRent) {
-          const u = allUsers[referidoUid] || {}, s = { USD: 0, UYU: 0 };
-          (cierresPorAgente[referidoUid] || []).forEach(cc => {
-            const agPct = (cc.tipo === 'venta') ? num(u.commissionSale) : num(u.commissionRent);
-            const rfPct = (cc.tipo === 'venta') ? num(refPctSale) : num(refPctRent);
-            if (agPct && rfPct) addTo(s, cc, comAgencia(cc) * agPct / 100 * rfPct / 100);
-          });
-          return s;
-        }
-        function fmtSums(s) {
-          const parts = [];
-          if (Math.round(s.USD)) parts.push('US$ ' + Math.round(s.USD).toLocaleString('es-UY'));
-          if (Math.round(s.UYU)) parts.push('$U ' + Math.round(s.UYU).toLocaleString('es-UY'));
-          return parts.length ? parts.join(' · ') : '—';
-        }
-        const agentes = Object.keys(allUsers)
-          .filter(uid => (allUsers[uid].email || '').toLowerCase() !== ADMIN_EMAIL)
-          .map(uid => Object.assign({ _uid: uid }, allUsers[uid]))
-          .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
-        let html = '';
-        html += `<style>
-          .com-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 18px}
-          @media(max-width:760px){.com-kpis{grid-template-columns:repeat(2,1fr)}}
-          .com-kpi{background:#fff;border:1px solid #e9e6dd;border-radius:12px;padding:13px 15px}
-          .com-kpi .n{font-size:1.55rem;font-weight:800;color:#16273f;line-height:1;font-variant-numeric:tabular-nums}
-          .com-kpi .l{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;font-weight:600;margin-top:5px}
-          .com-kpi.good .n{color:#15803d}.com-kpi.warn .n{color:#C9A227}
-          .com-sec{font-family:'Cormorant Garamond',serif;font-size:1.4rem;color:#16273f;margin:24px 0 12px;display:flex;align-items:center;gap:8px}
-          .com-tools{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
-          .com-search{flex:1;min-width:190px;position:relative}
-          .com-search i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#b6bcc6;font-size:.85rem}
-          .com-search input{width:100%;padding:9px 12px 9px 32px;border:1px solid #e2ded3;border-radius:10px;font-family:inherit;font-size:.9rem;background:#fff}
-          .com-search input:focus{outline:none;border-color:#C9A227;box-shadow:0 0 0 3px rgba(201,162,39,.13)}
-          .com-chip{border:1px solid #e2ded3;background:#fff;border-radius:20px;padding:8px 15px;font-size:.82rem;font-weight:600;color:#6b7280;cursor:pointer;white-space:nowrap}
-          .com-chip.on{background:#16273f;color:#fff;border-color:#16273f}
-          .com-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-          @media(max-width:820px){.com-grid{grid-template-columns:1fr}}
-          .com-agent{background:#fff;border:1px solid #e9e6dd;border-radius:14px;padding:13px 14px;display:flex;gap:12px;align-items:flex-start;transition:border-color .15s, box-shadow .15s}
-          .com-agent:hover{border-color:#C9A227;box-shadow:0 3px 14px rgba(0,0,0,.05)}
-          .com-agent.nocom{background:#fffdf4;border-color:#efe3bd}
-          .com-av{width:46px;height:46px;border-radius:50%;overflow:hidden;flex:0 0 46px;background:#eef1f6;display:flex;align-items:center;justify-content:center;color:#9aa4b2}
-          .com-av img{width:100%;height:100%;object-fit:cover}
-          .com-body{flex:1;min-width:0}
-          .com-name{font-weight:700;color:#16273f;font-size:.98rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-          .com-rank{font-size:.72rem;color:#9aa4b2;margin-top:1px}
-          .com-pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-          .com-pill{font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:8px;background:#f2f0ea;color:#5b6472;display:inline-flex;align-items:center;gap:4px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-          .com-pill.sale{background:#eef4ff;color:#2b5cae}.com-pill.rent{background:#eafaf0;color:#1b7a45}
-          .com-pill.ref{background:#f7f1e2;color:#8a6d12}.com-pill.none{background:#fdf3d6;color:#8a6d12}
-          .com-earn{font-size:.76rem;color:#15803d;font-weight:600;margin-top:7px}
-          .com-edit{flex:0 0 auto;border:1px solid #dfe3ea;background:#fff;color:#16273f;border-radius:9px;padding:7px 11px;cursor:pointer;font-size:.85rem;align-self:center}
-          .com-edit:hover{background:#16273f;color:#fff;border-color:#16273f}
-          .com-refcard{background:#fff;border:1px solid #e9e6dd;border-radius:14px;padding:14px 16px;margin-bottom:10px}
-          .com-refhead{display:flex;justify-content:space-between;align-items:center;gap:10px}
-          .com-refhead b{color:#16273f;font-size:1rem}
-          .com-refrow{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid #f0efe9;font-size:.85rem}
-          .com-empty{background:#fff;border:1px dashed #dcd8cd;border-radius:12px;padding:22px;text-align:center;color:#9aa4b2;font-size:.9rem}
-        </style>`;
-
-        // ---- Config de la inmobiliaria (por defecto) ----
-        html += `<div style="background:#0f1f33;color:#fff;border-radius:14px;padding:18px 20px;margin-bottom:18px"><div style="font-weight:600;margin-bottom:4px"><i class="fas fa-building" style="color:#C9A227"></i> Comisión de la inmobiliaria — por defecto</div><div style="font-size:.8rem;color:#aeb7c2;margin-bottom:14px">La comisión real se define <b>en cada cierre</b> (se negocia con el dueño). Esto es solo el valor por defecto para cierres que no tengan su propio dato.</div><div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end"><div><label style="font-size:.75rem;color:#aeb7c2;display:block;margin-bottom:5px">Venta (% del precio)</label><input id="cfgAgencyPctSale" type="number" min="0" max="100" step="0.1" value="${num(cfg.agencyPctSale)}" style="width:130px;padding:9px 11px;border:1px solid rgba(255,255,255,.2);border-radius:9px;background:rgba(255,255,255,.08);color:#fff;font-family:inherit"></div><div><label style="font-size:.75rem;color:#aeb7c2;display:block;margin-bottom:5px">Alquiler (meses de renta)</label><input id="cfgAgencyMonthsRent" type="number" min="0" step="0.1" value="${num(cfg.agencyMonthsRent)}" style="width:150px;padding:9px 11px;border:1px solid rgba(255,255,255,.2);border-radius:9px;background:rgba(255,255,255,.08);color:#fff;font-family:inherit"></div><button onclick="saveComisionesConfig()" style="padding:9px 18px;border-radius:9px;border:none;background:#C9A227;color:#0f1f33;font-family:inherit;font-weight:700;cursor:pointer">Guardar</button></div></div>`;
-
-        // ---- KPIs ----
-        const _conCom = agentes.filter(u => u.commissionSale != null || u.commissionRent != null).length;
-        const _conRef = agentes.filter(u => refDocs[u._uid] && refDocs[u._uid].referrerUid).length;
-        html += `<div class="com-kpis"><div class="com-kpi"><div class="n">${agentes.length}</div><div class="l">Agentes</div></div><div class="com-kpi good"><div class="n">${_conCom}</div><div class="l">Con comisión</div></div><div class="com-kpi ${_conCom < agentes.length ? 'warn' : ''}"><div class="n">${agentes.length - _conCom}</div><div class="l">Falta comisión</div></div><div class="com-kpi"><div class="n">${_conRef}</div><div class="l">Con referente</div></div></div>`;
-        html += `<div style="margin-bottom:6px;color:#94a3b8;font-size:.82rem"><i class="fas fa-circle-info"></i> Cadena: <b>precio</b> → comisión inmobiliaria → <b>comisión del agente</b> (% de esa) → <b>comisión del referente</b> (% de la del agente). Sobre cierres <b>confirmados</b>.</div>`;
-
-        // ---- Resumen de ganancias por referidos ----
-        const porReferente = {};
-        Object.keys(refDocs).forEach(refUid => {
-          const r = refDocs[refUid];
-          if (!r.referrerUid) return;
-          (porReferente[r.referrerUid] = porReferente[r.referrerUid] || []).push({ uid: refUid, pctSale: r.pctSale, pctRent: r.pctRent });
-        });
-        const referentes = Object.keys(porReferente).map(refUid => {
-          const total = { USD: 0, UYU: 0 };
-          const hijos = porReferente[refUid].map(h => {
-            const g = comReferente(h.uid, h.pctSale, h.pctRent);
-            total.USD += g.USD; total.UYU += g.UYU;
-            return Object.assign({}, h, { g });
-          });
-          return { refUid, hijos, total };
-        }).sort((a, b) => (b.total.USD + b.total.UYU) - (a.total.USD + a.total.UYU));
-        if (referentes.length) {
-          html += '<div class="com-sec"><i class="fas fa-trophy" style="color:#C9A227"></i> Ganancias por referidos</div>';
-          html += referentes.map(rf => {
-            const rows = rf.hijos.map(h => `<div class="com-refrow"><span>${mvEsc(nom(h.uid))} <small style="color:#aab">· ${num(h.pctSale)}% / ${num(h.pctRent)}% de su comisión</small></span><span style="font-weight:600;color:#15803d">${fmtSums(h.g)}</span></div>`).join('');
-            return `<div class="com-refcard"><div class="com-refhead"><b><i class="fas fa-user-tie" style="color:#C9A227"></i> ${mvEsc(nom(rf.refUid))}</b><span style="font-weight:700;color:#15803d">${fmtSums(rf.total)}</span></div><div style="font-size:.75rem;color:#9aa4b2;margin-top:2px">${rf.hijos.length} referido${rf.hijos.length === 1 ? '' : 's'}</div>${rows}</div>`;
-          }).join('');
-        }
-
-        // ---- Comisión por agente ----
-        html += '<div class="com-sec"><i class="fas fa-users" style="color:#C9A227"></i> Comisión por agente</div>';
-        if (!agentes.length) {
-          html += '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin agentes</h3></div>';
-        } else {
-          html += `<div class="com-tools"><div class="com-search"><i class="fas fa-search"></i><input id="comSearch" type="text" placeholder="Buscar agente…" oninput="filtrarComisiones()"></div><button class="com-chip on" data-f="todos" onclick="setComFilter(this)">Todos</button><button class="com-chip" data-f="sincom" onclick="setComFilter(this)">Falta comisión</button><button class="com-chip" data-f="conref" onclick="setComFilter(this)">Con referente</button></div>`;
-          html += '<div class="com-grid" id="comGrid">';
-          html += agentes.map(u => {
-            const r = refDocs[u._uid];
-            const hasCom = (u.commissionSale != null || u.commissionRent != null);
-            const hasRef = !!(r && r.referrerUid);
-            const photo = u.profilePhoto ? `<img src="${safeUrl(u.profilePhoto)}" alt="">` : '<i class="fas fa-user"></i>';
-            const pills = hasCom
-              ? `<span class="com-pill sale">Venta ${u.commissionSale != null ? u.commissionSale : 0}%</span><span class="com-pill rent">Alq ${u.commissionRent != null ? u.commissionRent : 0}%</span>`
-              : '<span class="com-pill none"><i class="fas fa-triangle-exclamation"></i> Falta comisión</span>';
-            const refPill = hasRef ? `<span class="com-pill ref" title="Gana ${num(r.pctSale)}% venta / ${num(r.pctRent)}% alquiler de su comisión"><i class="fas fa-user-tie"></i> ${mvEsc(nom(r.referrerUid))}</span>` : '';
-            const ganado = comAgente(u._uid);
-            const earn = (Math.round(ganado.USD) || Math.round(ganado.UYU)) ? `<div class="com-earn"><i class="fas fa-sack-dollar"></i> Ganó ${fmtSums(ganado)}</div>` : '';
-            const rank = u.role ? `<div class="com-rank">${mvEsc(u.role)}</div>` : '';
-            return `<div class="com-agent ${hasCom ? '' : 'nocom'}" data-name="${mvEsc((u.name || '').toLowerCase())}" data-com="${hasCom ? 1 : 0}" data-ref="${hasRef ? 1 : 0}"><div class="com-av">${photo}</div><div class="com-body"><div class="com-name">${mvEsc(u.name || 'Sin nombre')}</div>${rank}<div class="com-pills">${pills}${refPill}</div>${earn}</div><button class="com-edit" onclick="openComisionAgente('${u._uid}')" title="Editar comisión y referente"><i class="fas fa-sliders-h"></i></button></div>`;
-          }).join('');
-          html += '<div class="com-empty" id="comEmpty" style="display:none;grid-column:1/-1">No hay agentes con ese filtro.</div>';
-          html += '</div>';
-        }
-        c.innerHTML = html;
-      } else if (tb === 'solicitudes') {
-        try {
-          const snap = await db.collection('leadsVenta').get();
-          _solLeads = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
-        } catch (e) {
-          c.innerHTML = '<div class="empty-state"><i class="fas fa-lock"></i><h3>No se pudieron cargar las solicitudes</h3><p>' + mvEsc(e.code === 'permission-denied' ? 'Sin permiso para leer "leadsVenta" (regla de Firestore).' : (e.message || e)) + '</p></div>';
-          return;
-        }
-        _solLeads.sort((a, b) => _solMs(b.createdAt) - _solMs(a.createdAt));
-        _solFiltro = 'nuevo';
-        c.innerHTML = `<style>
-          .sol-countbar{background:#fffdf5;border:1px solid #eee6cf;border-left:4px solid #C9A227;border-radius:12px;padding:12px 16px;font-weight:700;display:flex;align-items:center;gap:9px;margin-bottom:14px;color:#9a7d12}
-          .sol-countbar.none{border-left-color:#2ecc71;color:#27ae60;background:#fff;border-color:#e4e6ea}
-          .sol-toolrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
-          .sol-chips{display:flex;gap:6px;background:#fff;border:1px solid #e4e6ea;border-radius:12px;padding:4px;width:fit-content;flex-wrap:wrap}
-          .sol-chip{border:none;background:transparent;cursor:pointer;border-radius:9px;padding:7px 14px;font-size:.85rem;font-weight:600;color:#666;font-family:inherit}
-          .sol-chip.active{background:#16273f;color:#fff}
-          .sol-refresh{border:1px solid #e4e6ea;background:#fff;color:#444;border-radius:10px;padding:8px 13px;cursor:pointer;font-family:inherit;font-size:.85rem;font-weight:600;display:inline-flex;align-items:center;gap:7px}
-          .sol-card{background:#fff;border:1px solid #e4e6ea;border-radius:14px;padding:16px;margin-bottom:12px}
-          .sol-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
-          .sol-nombre{font-weight:700;font-size:1.05rem;color:#16273f}
-          .sol-when{color:#999;font-size:.82rem}
-          .sol-badge{margin-left:auto;font-size:.72rem;font-weight:700;padding:4px 10px;border-radius:20px}
-          .sol-badge.nuevo{background:#fff4e0;color:#b9770f}
-          .sol-badge.contactado{background:#e7f7ec;color:#1f9d54}
-          .sol-badge.archivado{background:#eef0f3;color:#888}
-          .sol-rows{display:flex;flex-direction:column;gap:7px}
-          .sol-row{display:flex;gap:10px;font-size:.9rem;align-items:flex-start}
-          .sol-row i{color:#C9A227;width:18px;text-align:center;margin-top:3px}
-          .sol-row .lbl{color:#888;min-width:74px}
-          .sol-row .val{color:#1c1c1c;flex:1}
-          .sol-row a{color:#2e86de;text-decoration:none}
-          .sol-msg{background:#f8f9fb;border:1px solid #e4e6ea;border-radius:10px;padding:10px 12px;font-size:.9rem;color:#444;margin-top:4px;line-height:1.5}
-          .sol-f{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid #e4e6ea;flex-wrap:wrap}
-          .sol-act{border:none;cursor:pointer;border-radius:9px;padding:8px 13px;font-size:.83rem;font-weight:600;display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:inherit}
-          .sol-act.wa{background:#25d366;color:#fff}
-          .sol-act.ok{background:#27ae60;color:#fff}
-          .sol-act.arch{background:#eef0f3;color:#666}
-          .sol-empty{text-align:center;color:#999;padding:40px 20px;background:#fff;border:1px solid #e4e6ea;border-radius:14px}
-        </style>
-        <div id="solCountBar" class="sol-countbar"></div>
-        <div class="sol-toolrow">
-          <div class="sol-chips">
-            <button class="sol-chip active" id="solChip-nuevo" onclick="solSetFiltro('nuevo')">Nuevas</button>
-            <button class="sol-chip" id="solChip-contactado" onclick="solSetFiltro('contactado')">Contactadas</button>
-            <button class="sol-chip" id="solChip-archivado" onclick="solSetFiltro('archivado')">Archivadas</button>
-            <button class="sol-chip" id="solChip-todos" onclick="solSetFiltro('todos')">Todas</button>
-          </div>
-          <button class="sol-refresh" onclick="showAdminTab('solicitudes')"><i class="fas fa-rotate-right"></i> Actualizar</button>
-        </div>
-        <div id="solLista"></div>`;
-        solRender();
-      } else if (tb === 'revisiones') {
-        try {
-          const q = await db.collection('users').get();
-          _revRecords = [];
-          q.docs.forEach(d => {
-            const u = d.data();
-            Object.keys(_REV_TIPOS).forEach(tipo => {
-              _revToList(u[_REV_TIPOS[tipo].field]).forEach(rec => {
-                _revRecords.push(Object.assign({}, rec, {
-                  _uid: d.id, _field: _REV_TIPOS[tipo].field,
-                  tipo: rec.tipo || tipo,
-                  _agente: rec.agenteNombre || u.name || u.email || 'Agente'
-                }));
-              });
-            });
-          });
-        } catch (e) {
-          c.innerHTML = '<div class="empty-state"><i class="fas fa-triangle-exclamation"></i><h3>No se pudieron cargar las revisiones</h3><p>' + mvEsc(e.message || e) + '</p></div>';
-          return;
-        }
-        _revRecords.sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')));
-        _revPage = 1; _revFTipo = 'todas'; _revFEstado = 'todas';
-        c.innerHTML = `<style>
-          .rev-toolrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-          .rev-filters{display:flex;gap:10px;flex-wrap:wrap}
-          .rev-sel{position:relative}
-          .rev-sel i.lead{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#6b7480;font-size:.8rem;pointer-events:none}
-          .rev-sel i.caret{position:absolute;right:13px;top:50%;transform:translateY(-50%);color:#6b7480;font-size:.7rem;pointer-events:none}
-          .rev-sel select{-webkit-appearance:none;appearance:none;border:1px solid #e7eaef;border-radius:12px;padding:10px 34px 10px 36px;font-size:.9rem;background:#fff;color:#3a4350;cursor:pointer;font-family:inherit;min-width:190px}
-          .rev-btn{border:1px solid #e7eaef;background:#fff;color:#3a4350;cursor:pointer;border-radius:11px;padding:9px 14px;font-size:.86rem;font-weight:600;display:inline-flex;align-items:center;gap:8px;font-family:inherit}
-          .rev-btn.danger{background:#fdecee;border-color:#f6d6da;color:#dc3545}
-          .rev-banner{position:relative;overflow:hidden;border-radius:16px;padding:18px 22px;margin-bottom:16px;display:flex;align-items:center;gap:14px}
-          .rev-banner.ok{background:#e8f7ee;border:1px solid #cdeed8}
-          .rev-banner.alert{background:#fff6e3;border:1px solid #f4e2b8}
-          .rev-banner .bic{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex:0 0 auto;color:#fff}
-          .rev-banner.ok .bic{background:#15a05a}
-          .rev-banner.alert .bic{background:#C9A227}
-          .rev-banner h3{font-size:1.02rem;font-weight:700;margin:0}
-          .rev-banner.ok h3{color:#127a45}
-          .rev-banner.alert h3{color:#b9770f}
-          .rev-banner p{font-size:.85rem;color:#6b7480;margin:2px 0 0}
-          .rev-banner .bart{position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:4rem;opacity:.12}
-          .rev-banner.ok .bart{color:#15a05a}
-          .rev-banner.alert .bart{color:#C9A227}
-          .rev-card{background:#fff;border:1px solid #e7eaef;border-radius:16px;padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(20,30,50,.04)}
-          .rev-h{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
-          .rev-tipo{font-size:.76rem;font-weight:700;padding:5px 11px;border-radius:8px;display:inline-flex;align-items:center;gap:6px}
-          .rev-who{font-weight:700;font-size:1rem;color:#1f2733}
-          .rev-when{color:#9aa2ad;font-size:.82rem}
-          .rev-badge{margin-left:auto;font-size:.74rem;font-weight:700;padding:5px 11px;border-radius:20px;display:inline-flex;align-items:center;gap:6px}
-          .rev-badge.pend{background:#fff6e3;color:#b9770f}
-          .rev-badge.ok{background:#e8f7ee;color:#127a45}
-          .rev-kwrap{position:relative}
-          .rev-kebab{background:none;border:none;cursor:pointer;color:#aab2bd;font-size:1rem;padding:6px 8px;border-radius:8px}
-          .rev-kebab:hover{background:#f3f5f8;color:#1f2733}
-          .rev-menu{position:absolute;right:0;top:34px;background:#fff;border:1px solid #e7eaef;border-radius:12px;box-shadow:0 10px 30px rgba(20,30,50,.14);padding:6px;min-width:190px;z-index:30;display:none}
-          .rev-menu.open{display:block}
-          .rev-menu button{width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit;font-size:.86rem;color:#3a4350;padding:9px 11px;border-radius:8px;display:flex;align-items:center;gap:9px}
-          .rev-menu button:hover{background:#f3f5f8}
-          .rev-menu button.danger{color:#dc3545}
-          .rev-metrics{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:8px;background:#f8fafb;border:1px solid #eef1f5;border-radius:13px;padding:13px 15px;margin-top:14px}
-          .rev-metric .lbl{font-size:.66rem;text-transform:uppercase;letter-spacing:.6px;color:#9aa2ad;font-weight:700}
-          .rev-metric .val{font-size:1rem;font-weight:700;color:#1f2733;margin-top:5px}
-          .rev-metric.big .val{font-size:1.45rem;font-weight:800;color:#15a05a}
-          .rev-metric.unc .val{color:#15a05a}
-          .rev-feats{display:flex;flex-wrap:wrap;gap:10px 24px;padding:13px 4px;border-bottom:1px solid #e7eaef;margin-top:4px}
-          .rev-feat{display:flex;align-items:center;gap:10px}
-          .rev-feat .fic{width:30px;height:30px;border-radius:9px;background:#f0f3f7;color:#5a6470;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex:0 0 auto}
-          .rev-feat b{font-size:.9rem;font-weight:700;display:block;line-height:1.1}
-          .rev-feat small{font-size:.72rem;color:#9aa2ad}
-          .rev-dets{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px 18px;padding:14px 4px 4px}
-          .rev-det .dl{font-size:.72rem;color:#9aa2ad;font-weight:600;margin-bottom:3px}
-          .rev-det .dv{font-size:.9rem;font-weight:600;color:#1f2733}
-          .rev-stars i{font-size:.78rem;color:#e2c45a}
-          .rev-stars i.off{color:#dfe3e9}
-          .rev-more{display:none;margin-top:13px;padding-top:13px;border-top:1px dashed #e7eaef}
-          .rev-more.open{display:block}
-          .rev-kvgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-          .rev-kvg h4{font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;color:#9aa2ad;margin:0 0 7px}
-          .rev-kv{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px dashed #eef1f5;font-size:.85rem}
-          .rev-kv span{color:#7c848f}
-          .rev-kv b{color:#1f2733;text-align:right}
-          .rev-f{display:flex;align-items:center;gap:10px;margin-top:15px;padding-top:13px;border-top:1px solid #e7eaef;flex-wrap:wrap}
-          .rev-lnk{display:inline-flex;align-items:center;gap:8px;border-radius:10px;padding:9px 14px;font-size:.85rem;font-weight:600;cursor:pointer;text-decoration:none;border:1px solid transparent;font-family:inherit;background:#fff}
-          .rev-lnk.green{background:#e8f7ee;color:#127a45}
-          .rev-lnk.ghost{border-color:#e7eaef;color:#3a4350}
-          .rev-lnk.disabled{opacity:.5;cursor:not-allowed}
-          .rev-mark{background:#15a05a;color:#fff;border:none;cursor:pointer;border-radius:10px;padding:9px 14px;font-size:.85rem;font-weight:600;display:inline-flex;align-items:center;gap:7px;font-family:inherit}
-          .rev-trash{margin-left:auto;background:#fdecee;color:#dc3545;border:1px solid #f6d6da;cursor:pointer;border-radius:10px;width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center}
-          .rev-pager{display:flex;justify-content:center;align-items:center;gap:7px;margin-top:20px;flex-wrap:wrap}
-          .rev-pg{min-width:38px;height:38px;border-radius:10px;border:1px solid #e7eaef;background:#fff;color:#3a4350;cursor:pointer;font-size:.88rem;font-weight:600;font-family:inherit;display:inline-flex;align-items:center;justify-content:center;padding:0 10px}
-          .rev-pg.active{background:#15a05a;color:#fff;border-color:#15a05a}
-          .rev-pg:disabled{opacity:.4;cursor:not-allowed}
-          .rev-pg.dots{border:none;background:none;cursor:default}
-          .rev-empty{text-align:center;color:#9aa2ad;padding:42px 20px;background:#fff;border:1px solid #e7eaef;border-radius:16px}
-          .rev-empty i{font-size:1.6rem;display:block;margin-bottom:10px;color:#ccd2da}
-          @media(max-width:680px){.rev-metrics{grid-template-columns:1fr 1fr}.rev-metric.big{grid-column:1/-1}.rev-kvgrid{grid-template-columns:1fr}}
-        </style>
-        <div class="rev-toolrow">
-          <div class="rev-filters">
-            <div class="rev-sel"><i class="fas fa-filter lead"></i><select id="revFTipo" onchange="revSetFiltro('tipo', this.value)"><option value="todas">Todos los tipos</option><option value="tasacion">Tasaciones</option><option value="gastos">Gastos y comisiones</option><option value="terreno">Cálculo de terrenos</option></select><i class="fas fa-chevron-down caret"></i></div>
-            <div class="rev-sel"><i class="fas fa-list-check lead"></i><select id="revFEstado" onchange="revSetFiltro('estado', this.value)"><option value="todas">Todos</option><option value="pend">Sin revisar</option><option value="rev">Revisadas</option></select><i class="fas fa-chevron-down caret"></i></div>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="rev-btn" onclick="showAdminTab('revisiones')"><i class="fas fa-rotate-right"></i> Actualizar</button>
-            <button class="rev-btn danger" onclick="revLimpiarRevisadas()"><i class="fas fa-trash-can"></i> Limpiar revisadas</button>
-          </div>
-        </div>
-        <div id="revBanner"></div>
-        <div id="revList"></div>
-        <div id="revPager" class="rev-pager"></div>`;
-        revRender();
       }
     } catch (err) {
       console.error('Error panel admin:', err);
       c.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i><h3>Error al cargar</h3><p style="color:var(--gray-500);margin-top:8px">${err.message}</p></div>`
     }
-  }
-
-  // ===== Comisiones (solo admin): config de la inmobiliaria + comisión y referente por agente =====
-  async function saveComisionesConfig() {
-    if (!isAdminUser()) return;
-    const agencyPctSale = parseFloat(document.getElementById('cfgAgencyPctSale').value) || 0;
-    const agencyMonthsRent = parseFloat(document.getElementById('cfgAgencyMonthsRent').value) || 0;
-    try {
-      await db.collection('adminData').doc('comisionesConfig').set({ agencyPctSale, agencyMonthsRent, updatedAt: new Date().toISOString() }, { merge: true });
-      showToast('Guardado', 'Comisión de la inmobiliaria actualizada.', 'fa-check');
-      showAdminTab('comisiones');
-    } catch (e) {
-      showToast('Error', 'No se pudo guardar: ' + (e.message || e), 'fa-triangle-exclamation');
-    }
-  }
-
-  function setComFilter(el){
-    const chips = el.parentElement.querySelectorAll('.com-chip');
-    chips.forEach(x => x.classList.toggle('on', x === el));
-    filtrarComisiones();
-  }
-  function filtrarComisiones(){
-    const inp = document.getElementById('comSearch');
-    const s = (inp ? inp.value : '').toLowerCase().trim();
-    const chip = document.querySelector('.com-chip.on');
-    const f = chip ? chip.getAttribute('data-f') : 'todos';
-    let visibles = 0;
-    document.querySelectorAll('.com-agent').forEach(el => {
-      const name = el.getAttribute('data-name') || '';
-      const hasCom = el.getAttribute('data-com') === '1';
-      const hasRef = el.getAttribute('data-ref') === '1';
-      let ok = name.indexOf(s) !== -1;
-      if (ok && f === 'sincom') ok = !hasCom;
-      if (ok && f === 'conref') ok = hasRef;
-      el.style.display = ok ? '' : 'none';
-      if (ok) visibles++;
-    });
-    const em = document.getElementById('comEmpty');
-    if (em) em.style.display = visibles ? 'none' : 'block';
-  }
-
-  // ===== Panel admin: Solicitudes de venta (leadsVenta) =====
-  let _solLeads = [], _solFiltro = 'nuevo';
-  const _SOL_TIPO_LBL = { casa: 'Casa', apartamento: 'Apartamento', terreno: 'Terreno', local: 'Local', oficina: 'Oficina', galpon: 'Galpón', campo: 'Campo', otro: 'Otro' };
-  function _solMs(v) { if (!v) return 0; if (typeof v === 'object' && typeof v.toDate === 'function') return v.toDate().getTime(); if (typeof v === 'object' && v.seconds) return v.seconds * 1000; const d = new Date(v); return isNaN(d.getTime()) ? 0 : d.getTime(); }
-  function _solFecha(v) { const ms = _solMs(v); return ms ? new Date(ms).toLocaleString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; }
-  function _solWa(tel) { let d = String(tel || '').replace(/\D/g, ''); if (!d) return ''; if (d.indexOf('598') === 0) return d; if (d.charAt(0) === '0') d = d.slice(1); if (d.length <= 9) return '598' + d; return d; }
-  function _solCard(l) {
-    const est = l.estado || 'nuevo';
-    const wa = _solWa(l.telefono);
-    let rows = '<div class="sol-row"><i class="fas fa-phone"></i><span class="lbl">Teléfono</span><span class="val">' + mvEsc(l.telefono || '—') + '</span></div>';
-    if (l.email) rows += '<div class="sol-row"><i class="fas fa-envelope"></i><span class="lbl">Email</span><span class="val"><a href="mailto:' + mvEsc(l.email) + '">' + mvEsc(l.email) + '</a></span></div>';
-    if (l.tipo) rows += '<div class="sol-row"><i class="fas fa-building"></i><span class="lbl">Quiere</span><span class="val">' + mvEsc(_SOL_TIPO_LBL[l.tipo] || l.tipo) + '</span></div>';
-    if (l.zona) rows += '<div class="sol-row"><i class="fas fa-location-dot"></i><span class="lbl">Zona</span><span class="val">' + mvEsc(l.zona) + '</span></div>';
-    if (l.mensaje) rows += '<div class="sol-row"><i class="fas fa-comment"></i><span class="lbl">Mensaje</span><span class="val"><div class="sol-msg">' + mvEsc(l.mensaje) + '</div></span></div>';
-    let foot = '';
-    if (wa) foot += '<a class="sol-act wa" href="https://wa.me/' + wa + '" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> WhatsApp</a>';
-    if (est !== 'contactado') foot += '<button class="sol-act ok" onclick="solMarcar(\'' + l.id + '\',\'contactado\')"><i class="fas fa-check"></i> Marcar contactada</button>';
-    if (est !== 'archivado') foot += '<button class="sol-act arch" onclick="solMarcar(\'' + l.id + '\',\'archivado\')"><i class="fas fa-box-archive"></i> Archivar</button>';
-    else foot += '<button class="sol-act arch" onclick="solMarcar(\'' + l.id + '\',\'nuevo\')"><i class="fas fa-rotate-left"></i> Reabrir</button>';
-    return '<div class="sol-card"><div class="sol-h"><span class="sol-nombre">' + mvEsc(l.nombre || '(sin nombre)') + '</span><span class="sol-when">' + mvEsc(_solFecha(l.createdAt)) + '</span><span class="sol-badge ' + est + '">' + (est === 'nuevo' ? 'Nueva' : est === 'contactado' ? 'Contactada' : 'Archivada') + '</span></div><div class="sol-rows">' + rows + '</div><div class="sol-f">' + foot + '</div></div>';
-  }
-  function solRender() {
-    const cb = document.getElementById('solCountBar'), list = document.getElementById('solLista');
-    if (!cb || !list) return;
-    const recs = _solLeads.filter(l => _solFiltro === 'todos' || (l.estado || 'nuevo') === _solFiltro);
-    const nuevas = _solLeads.filter(l => (l.estado || 'nuevo') === 'nuevo').length;
-    cb.className = 'sol-countbar' + (nuevas > 0 ? '' : ' none');
-    cb.innerHTML = nuevas > 0
-      ? '<i class="fas fa-bell"></i> ' + nuevas + (nuevas === 1 ? ' solicitud nueva sin contactar' : ' solicitudes nuevas sin contactar')
-      : '<i class="fas fa-circle-check"></i> No hay solicitudes nuevas pendientes';
-    list.innerHTML = recs.length ? recs.map(_solCard).join('') : '<div class="sol-empty">No hay solicitudes en esta categoría.</div>';
-  }
-  function solSetFiltro(f) {
-    _solFiltro = f;
-    ['nuevo', 'contactado', 'archivado', 'todos'].forEach(x => { const el = document.getElementById('solChip-' + x); if (el) el.classList.toggle('active', x === f); });
-    solRender();
-  }
-  async function solMarcar(id, estado) {
-    try {
-      await db.collection('leadsVenta').doc(id).update({ estado: estado });
-      const l = _solLeads.find(x => x.id === id); if (l) l.estado = estado;
-      solRender();
-      showToast('Solicitudes', estado === 'contactado' ? 'Marcada como contactada' : estado === 'archivado' ? 'Archivada' : 'Reabierta', 'fa-check');
-    } catch (e) { alert('No se pudo actualizar: ' + (e.message || e)); }
-  }
-
-  // ===== Panel admin: Revisiones (tasaciones / gastos / terrenos en users) =====
-  let _revRecords = [], _revFTipo = 'todas', _revFEstado = 'todas', _revPage = 1;
-  const _REV_PAGE_SIZE = 5;
-  const _REV_TIPOS = {
-    tasacion: { field: 'tasaciones', label: 'Tasación', icon: 'fa-calculator', color: '#c9a227' },
-    gastos: { field: 'calcGastos', label: 'Gastos y comisiones', icon: 'fa-file-invoice-dollar', color: '#2e86de' },
-    terreno: { field: 'calcTerrenos', label: 'Cálculo de terreno', icon: 'fa-mountain-sun', color: '#27ae60' }
-  };
-  const _REV_LBL = {
-    m2: 'm² construidos', construccion: 'Construcción', ubicacion: 'Ubicación', dormitorios: 'Dormitorios', banos: 'Baños', antecedentes: 'Comparables',
-    cliente: 'Cliente', tipoInm: 'Tipo inmueble', direccion: 'Dirección', barrio: 'Barrio', departamento: 'Departamento', padron: 'Padrón',
-    valor: 'Valor estimado', min: 'Mínimo', max: 'Máximo', incertidumbre: 'Incertidumbre',
-    operacion: 'Operación', precio: 'Precio', moneda: 'Moneda', comision: 'Comisión', honorarios: 'Honorarios', iva: 'IVA', total: 'Total',
-    area: 'Superficie', precioM2: 'Precio m²', costo: 'Costo', utilidad: 'Utilidad'
-  };
-  const _REV_MONEY = new Set(['valor', 'min', 'max', 'precio', 'comision', 'honorarios', 'iva', 'total', 'precioM2', 'costo', 'utilidad']);
-  function _revToList(v) { if (Array.isArray(v)) return v; if (v && typeof v === 'object') return Object.values(v); return []; }
-  function _revFecha(iso) { if (!iso) return ''; const d = new Date(iso); if (isNaN(d.getTime())) return iso; return d.toLocaleString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
-  function _revMoney(v) { return 'US$ ' + Number(v || 0).toLocaleString('es-UY'); }
-  function _revStars(n) { n = Math.max(0, Math.min(5, Math.round(Number(n) || 0))); let h = '<span class="rev-stars">'; for (let i = 1; i <= 5; i++) h += '<i class="fas fa-star' + (i <= n ? '' : ' off') + '"></i>'; return h + '</span>'; }
-  function _revNum(v) { return (v === '' || v == null) ? '—' : v; }
-  function _revKv(obj) {
-    if (!obj || typeof obj !== 'object') return '';
-    return Object.keys(obj).map(k => {
-      let v = obj[k];
-      if (v === '' || v === null || v === undefined) return '';
-      if (_REV_MONEY.has(k)) v = _revMoney(v);
-      else if (k === 'incertidumbre') v = v + ' %';
-      return '<div class="rev-kv"><span>' + mvEsc(_REV_LBL[k] || k) + '</span><b>' + mvEsc(String(v)) + '</b></div>';
-    }).filter(Boolean).join('');
-  }
-  function _revFeat(ic, val, lbl) { return '<div class="rev-feat"><div class="fic"><i class="fas ' + ic + '"></i></div><div><b>' + val + '</b><small>' + lbl + '</small></div></div>'; }
-  function _revDet(lbl, val) { return '<div class="rev-det"><div class="dl">' + lbl + '</div><div class="dv">' + val + '</div></div>'; }
-  function _revCardTasacion(r) {
-    const d = r.datos || {}, res = r.resultado || {};
-    const metrics = '<div class="rev-metrics">'
-      + '<div class="rev-metric big"><div class="lbl">Valor estimado</div><div class="val">' + _revMoney(res.valor) + '</div></div>'
-      + '<div class="rev-metric"><div class="lbl">Mínimo</div><div class="val">' + _revMoney(res.min) + '</div></div>'
-      + '<div class="rev-metric"><div class="lbl">Máximo</div><div class="val">' + _revMoney(res.max) + '</div></div>'
-      + '<div class="rev-metric unc"><div class="lbl">Incertidumbre</div><div class="val">' + (res.incertidumbre != null ? res.incertidumbre + ' %' : '—') + '</div></div>'
-      + '</div>';
-    const feats = '<div class="rev-feats">'
-      + _revFeat('fa-up-right-and-down-left-from-center', _revNum(d.m2) + ' m²', 'Construidos')
-      + _revFeat('fa-house', _revNum(d.tipoInm), 'Tipo inmueble')
-      + _revFeat('fa-bed', _revNum(d.dormitorios), 'Dormitorios')
-      + _revFeat('fa-bath', _revNum(d.banos), 'Baños')
-      + _revFeat('fa-location-dot', _revNum(d.barrio), 'Barrio')
-      + '</div>';
-    const dets = '<div class="rev-dets">'
-      + _revDet('Cliente', mvEsc(_revNum(d.cliente)))
-      + _revDet('Padrón', mvEsc(_revNum(d.padron)))
-      + _revDet('Ubicación', mvEsc(_revNum(d.direccion)))
-      + _revDet('Departamento', mvEsc(_revNum(d.departamento)))
-      + _revDet('Comparables', mvEsc(_revNum(d.antecedentes)))
-      + _revDet('Construcción', _revStars(d.construccion))
-      + _revDet('Ubicación', _revStars(d.ubicacion))
-      + '</div>';
-    return metrics + feats + dets;
-  }
-  function _revCardGen(r) {
-    const res = r.resultado || {};
-    const keys = Object.keys(res).slice(0, 4);
-    let mh = '<div class="rev-metrics">';
-    keys.forEach((k, i) => {
-      let v = res[k]; if (_REV_MONEY.has(k)) v = _revMoney(v); else if (k === 'incertidumbre') v = v + ' %';
-      mh += '<div class="rev-metric' + (i === 0 ? ' big' : '') + '"><div class="lbl">' + mvEsc(_REV_LBL[k] || k) + '</div><div class="val">' + mvEsc(String(v)) + '</div></div>';
-    });
-    return mh + '</div>';
-  }
-  function _revCard(r) {
-    const t = _REV_TIPOS[r.tipo] || { label: r.tipo, icon: 'fa-file', color: '#888' };
-    const badge = r.revisado ? '<span class="rev-badge ok"><i class="fas fa-circle-check"></i> Revisada</span>' : '<span class="rev-badge pend"><i class="fas fa-clock"></i> Sin revisar</span>';
-    const cuerpo = r.tipo === 'tasacion' ? _revCardTasacion(r) : _revCardGen(r);
-    const pdfUrl = r.pdfUrl ? safeUrl(r.pdfUrl) : '';
-    const verInf = pdfUrl
-      ? '<a class="rev-lnk green" href="' + pdfUrl + '" target="_blank" rel="noopener"><i class="fas fa-file-pdf"></i> Ver informe</a>'
-      : '<span class="rev-lnk green disabled"><i class="fas fa-file-pdf"></i> Sin PDF</span>';
-    const toggleTxt = r.revisado ? '<i class="fas fa-rotate-left"></i> Volver a sin revisar' : '<i class="fas fa-check"></i> Marcar revisada';
-    const markBtn = r.revisado ? '' : '<button class="rev-mark" onclick="revMarcar(\'' + r._uid + '\',\'' + r._field + '\',\'' + mvEsc(r.id) + '\',true)"><i class="fas fa-check"></i> Marcar revisada</button>';
-    return '<div class="rev-card">'
-      + '<div class="rev-h">'
-      + '<span class="rev-tipo" style="background:' + t.color + '1f; color:' + t.color + '"><i class="fas ' + t.icon + '"></i> ' + mvEsc(t.label) + '</span>'
-      + '<span class="rev-who">' + mvEsc(r._agente) + '</span>'
-      + '<span class="rev-when">' + mvEsc(_revFecha(r.fecha)) + '</span>'
-      + badge
-      + '<div class="rev-kwrap">'
-      + '<button class="rev-kebab" onclick="revToggleMenu(event,\'' + mvEsc(r.id) + '\')"><i class="fas fa-ellipsis-vertical"></i></button>'
-      + '<div class="rev-menu" id="revMenu-' + mvEsc(r.id) + '">'
-      + '<button onclick="revMarcar(\'' + r._uid + '\',\'' + r._field + '\',\'' + mvEsc(r.id) + '\',' + (!r.revisado) + ')">' + toggleTxt + '</button>'
-      + '<button class="danger" onclick="revEliminar(\'' + r._uid + '\',\'' + r._field + '\',\'' + mvEsc(r.id) + '\')"><i class="fas fa-trash"></i> Eliminar</button>'
-      + '</div>'
-      + '</div>'
-      + '</div>'
-      + cuerpo
-      + '<div class="rev-more" id="revMore-' + mvEsc(r.id) + '"><div class="rev-kvgrid">'
-      + '<div class="rev-kvg"><h4>Datos</h4>' + (_revKv(r.datos) || '<div class="rev-kv"><span>—</span></div>') + '</div>'
-      + '<div class="rev-kvg"><h4>Resultado</h4>' + (_revKv(r.resultado) || '<div class="rev-kv"><span>—</span></div>') + '</div>'
-      + '</div></div>'
-      + '<div class="rev-f">'
-      + verInf
-      + '<button class="rev-lnk ghost" onclick="revToggleMore(\'' + mvEsc(r.id) + '\',this)"><i class="fas fa-list"></i> Ver detalles <i class="fas fa-chevron-down" style="font-size:.7rem"></i></button>'
-      + markBtn
-      + '<button class="rev-trash" title="Eliminar" onclick="revEliminar(\'' + r._uid + '\',\'' + r._field + '\',\'' + mvEsc(r.id) + '\')"><i class="fas fa-trash"></i></button>'
-      + '</div>'
-      + '</div>';
-  }
-  function revToggleMore(id, btn) {
-    const m = document.getElementById('revMore-' + id); if (!m) return;
-    const open = m.classList.toggle('open');
-    const chev = btn.querySelector('.fa-chevron-down, .fa-chevron-up');
-    if (chev) { chev.classList.toggle('fa-chevron-down', !open); chev.classList.toggle('fa-chevron-up', open); }
-  }
-  function revToggleMenu(ev, id) {
-    ev.stopPropagation();
-    document.querySelectorAll('.rev-menu.open').forEach(m => { if (m.id !== 'revMenu-' + id) m.classList.remove('open'); });
-    const m = document.getElementById('revMenu-' + id); if (m) m.classList.toggle('open');
-  }
-  document.addEventListener('click', () => document.querySelectorAll('.rev-menu.open').forEach(m => m.classList.remove('open')));
-  function revRender() {
-    const b = document.getElementById('revBanner'), list = document.getElementById('revList'), pager = document.getElementById('revPager');
-    if (!b || !list || !pager) return;
-    const recs = _revRecords.filter(r =>
-      (_revFTipo === 'todas' || r.tipo === _revFTipo) &&
-      (_revFEstado === 'todas' || (_revFEstado === 'pend' ? !r.revisado : r.revisado))
-    );
-    const pend = _revRecords.filter(r => !r.revisado).length;
-    if (pend > 0) {
-      b.innerHTML = '<div class="rev-banner alert"><div class="bic"><i class="fas fa-bell"></i></div><div><h3>' + pend + ' ' + (pend === 1 ? 'tasación sin revisar' : 'tasaciones sin revisar') + '</h3><p>Revisá los informes pendientes para que los agentes puedan descargarlos.</p></div><i class="fas fa-clipboard-list bart"></i></div>';
-    } else {
-      b.innerHTML = '<div class="rev-banner ok"><div class="bic"><i class="fas fa-check"></i></div><div><h3>No hay nada pendiente de revisar</h3><p>Todas las revisiones están al día.</p></div><i class="fas fa-clipboard-check bart"></i></div>';
-    }
-    if (!recs.length) {
-      list.innerHTML = '<div class="rev-empty"><i class="fas fa-inbox"></i>No hay registros para mostrar con este filtro.</div>';
-      pager.innerHTML = ''; return;
-    }
-    const totalPages = Math.ceil(recs.length / _REV_PAGE_SIZE);
-    if (_revPage > totalPages) _revPage = totalPages;
-    if (_revPage < 1) _revPage = 1;
-    const start = (_revPage - 1) * _REV_PAGE_SIZE;
-    list.innerHTML = recs.slice(start, start + _REV_PAGE_SIZE).map(_revCard).join('');
-    pager.innerHTML = _revPagerHTML(totalPages);
-  }
-  function _revPagerHTML(total) {
-    if (total <= 1) return '';
-    let h = '<button class="rev-pg" onclick="revGoPage(' + (_revPage - 1) + ')" ' + (_revPage === 1 ? 'disabled' : '') + '><i class="fas fa-chevron-left"></i></button>';
-    const win = [];
-    win.push(1);
-    if (_revPage > 3) win.push('...');
-    for (let n = Math.max(2, _revPage - 1); n <= Math.min(total - 1, _revPage + 1); n++) win.push(n);
-    if (_revPage < total - 2) win.push('...');
-    if (total > 1) win.push(total);
-    const seen = new Set();
-    win.forEach(n => {
-      if (n === '...') { h += '<span class="rev-pg dots">…</span>'; return; }
-      if (seen.has(n)) return; seen.add(n);
-      h += '<button class="rev-pg' + (n === _revPage ? ' active' : '') + '" onclick="revGoPage(' + n + ')">' + n + '</button>';
-    });
-    h += '<button class="rev-pg" onclick="revGoPage(' + (_revPage + 1) + ')" ' + (_revPage === total ? 'disabled' : '') + '><i class="fas fa-chevron-right"></i></button>';
-    return h;
-  }
-  function revGoPage(n) { _revPage = n; revRender(); const p = document.getElementById('adminPanel'); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-  function revSetFiltro(cual, val) { if (cual === 'tipo') _revFTipo = val; else _revFEstado = val; _revPage = 1; revRender(); }
-  async function revMarcar(uid, field, id, valor) {
-    try {
-      const ref = db.collection('users').doc(uid);
-      const d = await ref.get();
-      const cur = d.exists ? d.data()[field] : null;
-      let nuevo;
-      if (Array.isArray(cur)) {
-        nuevo = cur.map(x => (x && x.id === id) ? Object.assign({}, x, { revisado: valor }) : x);
-      } else if (cur && typeof cur === 'object') {
-        nuevo = Object.assign({}, cur);
-        Object.keys(nuevo).forEach(k => { if (nuevo[k] && (nuevo[k].id === id || k === id)) nuevo[k] = Object.assign({}, nuevo[k], { revisado: valor }); });
-      } else { return; }
-      await ref.update({ [field]: nuevo });
-      _revRecords.forEach(r => { if (r._uid === uid && r._field === field && r.id === id) { r.revisado = valor; } });
-      revRender();
-      showToast('Revisiones', valor ? 'Marcada como revisada · el agente ya puede descargarla' : 'Vuelta a sin revisar', 'fa-check');
-    } catch (e) { alert('No se pudo actualizar: ' + (e.message || e)); }
-  }
-  async function revEliminar(uid, field, id) {
-    if (!confirm('¿Eliminar este registro? Se borra también su PDF y el agente no podrá descargarlo.')) return;
-    try {
-      const ref = db.collection('users').doc(uid);
-      const d = await ref.get();
-      const cur = d.exists ? d.data()[field] : null;
-      let nuevo;
-      if (Array.isArray(cur)) {
-        nuevo = cur.filter(x => !(x && x.id === id));
-      } else if (cur && typeof cur === 'object') {
-        nuevo = Object.assign({}, cur);
-        Object.keys(nuevo).forEach(k => { if (nuevo[k] && (nuevo[k].id === id || k === id)) delete nuevo[k]; });
-      } else { return; }
-      await ref.update({ [field]: nuevo });
-      try { await firebase.storage().ref('tasacionesPDF/' + id + '.pdf').delete(); } catch (e) { }
-      _revRecords = _revRecords.filter(r => !(r._uid === uid && r._field === field && r.id === id));
-      revRender();
-      showToast('Revisiones', 'Registro eliminado', 'fa-trash');
-    } catch (e) { alert('No se pudo eliminar: ' + (e.message || e)); }
-  }
-  async function revLimpiarRevisadas() {
-    const revs = _revRecords.filter(r => r.revisado);
-    if (!revs.length) { showToast('Revisiones', 'No hay revisiones revisadas para limpiar', 'fa-circle-info'); return; }
-    if (!confirm('Esto elimina las ' + revs.length + ' revisión(es) ya revisadas y sus PDF de forma permanente. Asegurate de que los agentes ya las hayan descargado. ¿Continuar?')) return;
-    try {
-      const porDoc = {};
-      revs.forEach(r => { const key = r._uid + '|' + r._field; (porDoc[key] = porDoc[key] || []).push(r.id); });
-      for (const key of Object.keys(porDoc)) {
-        const parts = key.split('|'); const uid = parts[0], field = parts[1];
-        const ids = new Set(porDoc[key]);
-        const ref = db.collection('users').doc(uid);
-        const d = await ref.get();
-        const cur = d.exists ? d.data()[field] : null;
-        let nuevo;
-        if (Array.isArray(cur)) nuevo = cur.filter(x => !(x && ids.has(x.id)));
-        else if (cur && typeof cur === 'object') { nuevo = Object.assign({}, cur); Object.keys(nuevo).forEach(k => { if (nuevo[k] && (ids.has(nuevo[k].id) || ids.has(k))) delete nuevo[k]; }); }
-        else continue;
-        await ref.update({ [field]: nuevo });
-        for (const id of ids) { try { await firebase.storage().ref('tasacionesPDF/' + id + '.pdf').delete(); } catch (e) { } }
-      }
-      _revRecords = _revRecords.filter(r => !r.revisado);
-      _revPage = 1; revRender();
-      showToast('Revisiones', 'Revisiones revisadas eliminadas', 'fa-check');
-    } catch (e) { alert('No se pudo limpiar: ' + (e.message || e)); }
-  }
-  function showAdminAt(tb) {
-    if (!currentUser || userProfile?.email?.toLowerCase() !== ADMIN_EMAIL) return;
-    document.getElementById('mainContent').classList.add('hidden');
-    document.getElementById('profilePage').classList.add('hidden');
-    document.getElementById('crmPage').classList.add('hidden');
-    document.getElementById('clientProfilePage')?.classList.add('hidden');
-    document.getElementById('adminPanel').classList.remove('hidden');
-    showAdminTab(tb);
-  }
-
-  function openComisionAgente(agentId) {
-    if (!isAdminUser()) { showToast('Solo administradores', 'Solo el administrador gestiona comisiones.', 'fa-lock'); return; }
-    const agente = allUsers[agentId] || {};
-    const posibles = Object.keys(allUsers)
-      .filter(uid => uid !== agentId)
-      .map(uid => Object.assign({ _uid: uid }, allUsers[uid]))
-      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    let modal = document.getElementById('comisionModal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'comisionModal';
-      modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(16,39,63,.55);padding:20px;overflow:auto';
-      modal.innerHTML =
-        '<div style="background:#fff;border-radius:16px;max-width:480px;width:100%;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.25);max-height:90vh;overflow:auto">' +
-          '<h3 style="font-family:\'Cormorant Garamond\',serif;font-size:1.5rem;color:#16273f;margin-bottom:4px"><i class="fas fa-percent" style="color:#C9A227;margin-right:8px"></i>Comisión del agente</h3>' +
-          '<p id="comWho" style="font-size:.85rem;color:#64748b;margin-bottom:18px"></p>' +
-          '<div style="font-weight:600;color:#16273f;margin-bottom:8px;font-size:.9rem">Comisión del agente <span style="font-weight:400;color:#94a3b8">(% de la comisión de la inmobiliaria)</span></div>' +
-          '<div style="display:flex;gap:12px">' +
-            '<div style="flex:1"><label style="font-size:.75rem;color:#64748b;display:block;margin-bottom:5px">Venta %</label><input id="comSale" type="number" min="0" max="100" step="0.1" placeholder="0" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit"></div>' +
-            '<div style="flex:1"><label style="font-size:.75rem;color:#64748b;display:block;margin-bottom:5px">Alquiler %</label><input id="comRent" type="number" min="0" max="100" step="0.1" placeholder="0" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit"></div>' +
-          '</div>' +
-          '<hr style="border:none;border-top:1px solid #eef2f7;margin:20px 0">' +
-          '<div style="font-weight:600;color:#16273f;margin-bottom:8px;font-size:.9rem">Referente <span style="font-weight:400;color:#94a3b8">(quién lo refirió y qué gana de su comisión)</span></div>' +
-          '<label style="font-size:.75rem;color:#64748b;display:block;margin-bottom:5px">¿Quién lo refirió?</label>' +
-          '<select id="comReferrer" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit;background:#fff"></select>' +
-          '<div style="display:flex;gap:12px;margin-top:12px">' +
-            '<div style="flex:1"><label style="font-size:.75rem;color:#64748b;display:block;margin-bottom:5px">Gana % (venta)</label><input id="comRefSale" type="number" min="0" max="100" step="0.1" placeholder="0" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit"></div>' +
-            '<div style="flex:1"><label style="font-size:.75rem;color:#64748b;display:block;margin-bottom:5px">Gana % (alquiler)</label><input id="comRefRent" type="number" min="0" max="100" step="0.1" placeholder="0" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit"></div>' +
-          '</div>' +
-          '<p style="font-size:.72rem;color:#94a3b8;margin-top:8px">El referente gana ese % de la comisión que le queda al agente en cada operación confirmada.</p>' +
-          '<div style="display:flex;gap:10px;justify-content:space-between;margin-top:22px">' +
-            '<button id="comRemoveRef" style="padding:10px 14px;border-radius:9px;border:1px solid #fecaca;background:#fff;color:#b91c1c;font-family:inherit;font-weight:600;cursor:pointer">Quitar referente</button>' +
-            '<div style="display:flex;gap:10px"><button id="comCancel" style="padding:10px 18px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-family:inherit;font-weight:600;cursor:pointer">Cancelar</button>' +
-            '<button id="comSave" style="padding:10px 18px;border-radius:9px;border:none;background:#16273f;color:#fff;font-family:inherit;font-weight:600;cursor:pointer">Guardar</button></div>' +
-          '</div>' +
-        '</div>';
-      document.body.appendChild(modal);
-      modal.querySelector('#comCancel').addEventListener('click', () => { modal.style.display = 'none'; });
-      modal.querySelector('#comRemoveRef').addEventListener('click', () => {
-        modal.querySelector('#comReferrer').value = '';
-        modal.querySelector('#comRefSale').value = '';
-        modal.querySelector('#comRefRent').value = '';
-      });
-      modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
-    }
-    const sel = modal.querySelector('#comReferrer');
-    sel.innerHTML = '<option value="">— Sin referente —</option>' + posibles.map(u => `<option value="${u._uid}">${mvEsc(u.name || u.email || 'Agente')}</option>`).join('');
-    modal.querySelector('#comWho').innerHTML = 'Agente: <b>' + mvEsc(agente.name || agente.email || 'Agente') + '</b>';
-    modal.querySelector('#comSale').value = (agente.commissionSale != null) ? agente.commissionSale : '';
-    modal.querySelector('#comRent').value = (agente.commissionRent != null) ? agente.commissionRent : '';
-    sel.value = ''; modal.querySelector('#comRefSale').value = ''; modal.querySelector('#comRefRent').value = '';
-    db.collection('referidos').doc(agentId).get().then(d => {
-      const r = d.exists ? d.data() : {};
-      sel.value = r.referrerUid || '';
-      modal.querySelector('#comRefSale').value = (r.pctSale != null) ? r.pctSale : '';
-      modal.querySelector('#comRefRent').value = (r.pctRent != null) ? r.pctRent : '';
-    }).catch(() => {});
-    modal.querySelector('#comSave').onclick = async function () {
-      const referrerUid = sel.value;
-      if (referrerUid === agentId) { showToast('No válido', 'Un agente no puede referirse a sí mismo.', 'fa-triangle-exclamation'); return; }
-      const commissionSale = parseFloat(modal.querySelector('#comSale').value) || 0;
-      const commissionRent = parseFloat(modal.querySelector('#comRent').value) || 0;
-      const pctSale = parseFloat(modal.querySelector('#comRefSale').value) || 0;
-      const pctRent = parseFloat(modal.querySelector('#comRefRent').value) || 0;
-      const btn = this; btn.disabled = true; btn.textContent = 'Guardando...';
-      try {
-        await db.collection('users').doc(agentId).update({ commissionSale, commissionRent });
-        if (allUsers[agentId]) { allUsers[agentId].commissionSale = commissionSale; allUsers[agentId].commissionRent = commissionRent; }
-        if (referrerUid) {
-          await db.collection('referidos').doc(agentId).set({ referredUid: agentId, referrerUid, pctSale, pctRent, updatedAt: new Date().toISOString() });
-        } else {
-          await db.collection('referidos').doc(agentId).delete().catch(() => {});
-        }
-        modal.style.display = 'none';
-        showAdminTab('comisiones');
-        showToast('Guardado', 'Comisión y referente actualizados.', 'fa-check');
-      } catch (e) {
-        showToast('Error', 'No se pudo guardar: ' + (e.message || e), 'fa-triangle-exclamation');
-      } finally { btn.disabled = false; btn.textContent = 'Guardar'; }
-    };
-    modal.style.display = 'flex';
   }
 
   // ===== Moderación de testimonios (solo admin) =====
@@ -3010,82 +2220,21 @@
   window.deleteTestimonial = deleteTestimonial;
 
   // El cargo/título es oficial de la inmobiliaria: SOLO el admin lo asigna.
-  // Asignar rango/cargo. El select usa el organigrama (RANKS); guarda 'rank' (clave,
-  // para permisos) y 'role' (etiqueta visible). La opción "Otro" deja un título libre.
-  function setUserRole(id) {
+  async function setUserRole(id) {
     if (!isAdminUser()) { showToast('Solo administradores', 'Solo el administrador puede asignar cargos.', 'fa-lock'); return; }
-    const u = allUsers[id] || {};
-    const rankActual = u.rank || '';
-    const roleActual = u.role || '';
-    // Si el cargo guardado no es un rango conocido, lo tratamos como "Otro".
-    const esConocido = !!rankActual && RANKS.some(r => r.key === rankActual);
-
-    let modal = document.getElementById('rankModal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'rankModal';
-      modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(16,39,63,.55);padding:20px';
-      // Optgroups por área del organigrama
-      const grupos = {};
-      RANKS.forEach(r => { (grupos[r.grupo] = grupos[r.grupo] || []).push(r); });
-      let opts = '<option value="">— Sin cargo —</option>';
-      Object.keys(grupos).forEach(g => {
-        opts += '<optgroup label="' + g + '">';
-        grupos[g].forEach(r => { opts += '<option value="' + r.key + '">' + r.label + '</option>'; });
-        opts += '</optgroup>';
-      });
-      opts += '<option value="__otro__">Otro (personalizado)…</option>';
-      modal.innerHTML =
-        '<div style="background:#fff;border-radius:16px;max-width:440px;width:100%;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.25)">' +
-          '<h3 style="font-family:\'Cormorant Garamond\',serif;font-size:1.5rem;color:#16273f;margin-bottom:4px"><i class="fas fa-id-badge" style="color:#C9A227;margin-right:8px"></i>Cargo del agente</h3>' +
-          '<p style="font-size:.85rem;color:#64748b;margin-bottom:16px">El cargo aparece en el perfil del agente. <b>El COO y el CEO</b> pueden ver la agenda de todo el equipo.</p>' +
-          '<label style="font-size:.8rem;font-weight:600;color:#16273f;display:block;margin-bottom:6px">Rango</label>' +
-          '<select id="rankSelect" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit;font-size:.95rem;background:#fff">' + opts + '</select>' +
-          '<div id="rankCustomWrap" style="display:none;margin-top:12px">' +
-            '<label style="font-size:.8rem;font-weight:600;color:#16273f;display:block;margin-bottom:6px">Título personalizado</label>' +
-            '<input id="rankCustom" type="text" placeholder="Ej: Corredor Público" style="width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-family:inherit;font-size:.95rem">' +
-          '</div>' +
-          '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px">' +
-            '<button id="rankCancel" style="padding:10px 18px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-family:inherit;font-weight:600;cursor:pointer">Cancelar</button>' +
-            '<button id="rankSave" style="padding:10px 18px;border-radius:9px;border:none;background:#16273f;color:#fff;font-family:inherit;font-weight:600;cursor:pointer">Guardar</button>' +
-          '</div>' +
-        '</div>';
-      document.body.appendChild(modal);
-      const sel = modal.querySelector('#rankSelect');
-      const wrap = modal.querySelector('#rankCustomWrap');
-      sel.addEventListener('change', function(){ wrap.style.display = (sel.value === '__otro__') ? 'block' : 'none'; });
-      modal.querySelector('#rankCancel').addEventListener('click', function(){ modal.style.display = 'none'; });
-      modal.addEventListener('click', function(e){ if (e.target === modal) modal.style.display = 'none'; });
+    const actual = (allUsers[id] && allUsers[id].role) || '';
+    const nuevo = prompt('Cargo / título para este agente (aparece en su perfil):\nEj: CEO, Asesor Inmobiliario, Asesora Senior, Corredor Público', actual || 'Asesor Inmobiliario');
+    if (nuevo === null) return; // canceló
+    const role = nuevo.trim();
+    try {
+      await db.collection('users').doc(id).update({ role: role });
+      if (allUsers[id]) allUsers[id].role = role;
+      if (currentProfileUserId === id) showProfile(id); // refrescar si está abierto su perfil
+      showAdminTab('users');
+      showToast('Cargo actualizado', role ? `Ahora figura como "${role}".` : 'Se quitó el cargo.', 'fa-id-badge');
+    } catch (e) {
+      showToast('Error', 'No se pudo guardar el cargo: ' + (e.message || e), 'fa-triangle-exclamation');
     }
-
-    const sel = modal.querySelector('#rankSelect');
-    const wrap = modal.querySelector('#rankCustomWrap');
-    const custom = modal.querySelector('#rankCustom');
-    if (esConocido) { sel.value = rankActual; wrap.style.display = 'none'; custom.value = ''; }
-    else if (roleActual) { sel.value = '__otro__'; wrap.style.display = 'block'; custom.value = roleActual; }
-    else { sel.value = ''; wrap.style.display = 'none'; custom.value = ''; }
-
-    const saveBtn = modal.querySelector('#rankSave');
-    saveBtn.onclick = async function(){
-      let rank = sel.value, role;
-      if (rank === '__otro__') { rank = ''; role = (custom.value || '').trim(); }
-      else if (rank === '') { role = ''; }
-      else { role = rankLabel(rank); }
-      saveBtn.disabled = true; saveBtn.textContent = 'Guardando...';
-      try {
-        await db.collection('users').doc(id).update({ rank: rank, role: role });
-        if (allUsers[id]) { allUsers[id].rank = rank; allUsers[id].role = role; }
-        modal.style.display = 'none';
-        if (currentProfileUserId === id) showProfile(id);
-        showAdminTab('users');
-        showToast('Cargo actualizado', role ? `Ahora figura como "${role}".` : 'Se quitó el cargo.', 'fa-id-badge');
-      } catch (e) {
-        showToast('Error', 'No se pudo guardar el cargo: ' + (e.message || e), 'fa-triangle-exclamation');
-      } finally {
-        saveBtn.disabled = false; saveBtn.textContent = 'Guardar';
-      }
-    };
-    modal.style.display = 'flex';
   }
   // La comision del agente (% de la comision que cobra la inmobiliaria): SOLO el admin la fija.
   async function setUserComision(id) {
@@ -3652,17 +2801,11 @@
 
 
 // ===== Inicio v2: favoritos del visitante (localStorage) y foto del hero =====
-function mvFavsGet() { try { return JSON.parse(localStorage.getItem('mvFavs') || '[]'); } catch (e) { return []; } }
-function mvEsFav(id) { return mvFavsGet().includes(id); }
-function mvToggleFav(ev, id) {
-  ev.stopPropagation();
-  let f = mvFavsGet();
-  f = f.includes(id) ? f.filter(x => x !== id) : f.concat([id]);
-  try { localStorage.setItem('mvFavs', JSON.stringify(f)); } catch (e) { /* sin storage */ }
-  const b = ev.currentTarget, on = f.includes(id);
-  b.classList.toggle('on', on);
-  b.innerHTML = '<i class="' + (on ? 'fas' : 'far') + ' fa-heart"></i>';
-}
+// Favoritos del visitante: quitados (no aportaban valor real). Se dejan stubs
+// inertes por si alguna referencia vieja los invoca.
+function mvFavsGet() { return []; }
+function mvEsFav() { return false; }
+function mvToggleFav(ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); }
 function mvSetHeroPhoto(ps) {
   // La imagen del hero ahora es una foto fija profesional definida en index.html
   // (antes tomaba la primera propiedad y no se integraba bien). No se toca.
