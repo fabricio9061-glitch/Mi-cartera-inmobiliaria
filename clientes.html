@@ -47,9 +47,21 @@
 
     /* Stats */
     .crm-stats{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom:22px; }
-    .crm-stat{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:18px 22px; min-width:140px; flex:1; box-shadow:0 1px 3px rgba(16,39,63,.04); }
-    .crm-stat-num{ font-family:'Cormorant Garamond',serif; font-size:34px; font-weight:700; color:var(--primary); line-height:1; }
-    .crm-stat-label{ font-size:13px; color:var(--gray-500); margin-top:4px; }
+    .crm-stat{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:16px 20px; min-width:140px; flex:1; box-shadow:0 1px 3px rgba(16,39,63,.04); cursor:pointer; transition:transform .15s, box-shadow .15s, border-color .15s; }
+    .crm-stat:hover{ transform:translateY(-2px); box-shadow:0 8px 20px rgba(16,39,63,.08); border-color:var(--gray-300); }
+    .crm-stat.active{ border-color:var(--gold-2); box-shadow:0 0 0 2px rgba(201,162,39,.18); }
+    .crm-stat-top{ display:flex; align-items:center; gap:11px; }
+    .crm-stat-ico{ width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:1rem; flex:0 0 auto; }
+    .crm-stat-ico.i-total{ background:#eef2ff; color:#4338ca; }
+    .crm-stat-ico.i-nuevo{ background:#e8f0fe; color:#2563eb; }
+    .crm-stat-ico.i-proceso{ background:#fef3c7; color:#b45309; }
+    .crm-stat-ico.i-cerrado{ background:#dcfce7; color:#15803d; }
+    .crm-stat-num{ font-family:'Cormorant Garamond',serif; font-size:30px; font-weight:700; color:var(--primary); line-height:1; }
+    .crm-stat-label{ font-size:12.5px; color:var(--gray-500); margin-top:2px; }
+    .crm-stat-trend{ font-size:12px; font-weight:600; margin-top:9px; display:inline-flex; align-items:center; gap:5px; }
+    .crm-stat-trend.up{ color:var(--success); }
+    .crm-stat-trend.flat{ color:var(--gray-400); font-weight:500; }
+    .crm-stat-trend span{ color:var(--gray-400); font-weight:400; }
 
     /* Toolbar */
     .crm-toolbar{ display:flex; gap:12px; margin-bottom:22px; flex-wrap:wrap; align-items:center; }
@@ -62,7 +74,7 @@
 
     /* Grid de clientes */
     .crm-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr)); gap:16px; }
-    .client-card{ background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:18px; transition:transform .15s, box-shadow .15s; }
+    .client-card{ background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:18px; transition:transform .15s, box-shadow .15s; display:flex; flex-direction:column; }
     .client-card:hover{ transform:translateY(-3px); box-shadow:0 12px 30px rgba(16,39,63,.1); }
     .client-card-top{ display:flex; align-items:flex-start; gap:12px; margin-bottom:12px; }
     .client-avatar{ width:46px; height:46px; border-radius:50%; background:var(--navy); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1.1rem; flex:0 0 auto; }
@@ -82,8 +94,10 @@
     .client-meta{ display:flex; flex-direction:column; gap:5px; margin-bottom:10px; }
     .client-meta-row{ font-size:.84rem; color:var(--gray-600); display:flex; align-items:center; gap:8px; }
     .client-meta-row i{ width:14px; color:var(--gray-400); }
+    .client-activity{ font-size:.76rem; color:var(--gray-500); display:flex; align-items:center; gap:7px; margin-bottom:12px; }
+    .client-activity i{ color:var(--gray-400); }
     .client-notes-preview{ font-size:.82rem; color:var(--gray-600); font-style:italic; background:var(--gray-50); border-radius:8px; padding:8px 11px; margin-bottom:10px; }
-    .client-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+    .client-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:auto; padding-top:4px; }
     .client-actions a, .client-actions button{ font-size:.82rem; padding:8px 12px; border-radius:9px; border:1px solid var(--gray-200); background:#fff; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:6px; transition:all .15s; color:var(--navy); text-decoration:none; }
     .ca-wa{ color:#1eb858 !important; } .ca-wa:hover{ border-color:#1eb858; background:#f0fdf4; }
     .ca-edit:hover{ border-color:var(--gold-2); color:var(--gold-2); }
@@ -138,6 +152,26 @@
     .cp-ev-chip{ background:rgba(255,255,255,.13); color:#fff; font-size:.8rem; font-weight:600; padding:5px 11px; border-radius:20px; white-space:nowrap; }
     .cp-ev-chip i{ color:var(--gold); margin-right:5px; }
     .cp-hero-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+    /* Resumen rápido (panel claro dentro del hero) */
+    .cp-summary{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:15px 18px; min-width:280px; align-self:flex-start; }
+    .cp-summary-head{ font-size:.82rem; font-weight:600; color:#fff; display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+    .cp-summary-head i{ color:var(--gold); }
+    .cp-summary-grid{ display:flex; gap:20px; flex-wrap:wrap; }
+    .cp-summary-item{ display:flex; align-items:flex-start; gap:10px; }
+    .cp-summary-ico{ width:32px; height:32px; border-radius:9px; background:rgba(201,162,39,.16); color:var(--gold); display:flex; align-items:center; justify-content:center; font-size:.82rem; flex:0 0 auto; }
+    .cp-summary-val{ font-size:1.05rem; font-weight:700; color:#fff; line-height:1.2; }
+    .cp-summary-lab{ font-size:.7rem; color:#aeb7c2; margin-top:2px; }
+    /* Feed de actividad (solo cambios de estado) */
+    .cp-activity-list{ display:flex; flex-direction:column; }
+    .cp-activity-item{ display:flex; gap:12px; padding:11px 0; border-bottom:1px solid var(--gray-100); }
+    .cp-activity-item:last-child{ border-bottom:none; }
+    .cp-activity-dot{ width:26px; height:26px; border-radius:50%; background:var(--gray-50); border:1px solid var(--gray-200); color:var(--gold-hover); display:flex; align-items:center; justify-content:center; font-size:.68rem; flex:0 0 auto; margin-top:1px; }
+    .cp-activity-body{ flex:1; min-width:0; }
+    .cp-activity-text{ font-size:.86rem; color:var(--navy); }
+    .cp-activity-text b{ font-weight:600; }
+    .cp-activity-foot{ font-size:.73rem; color:var(--gray-400); margin-top:3px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+    .cp-activity-foot .sep{ opacity:.5; }
+    .cp-activity-empty{ font-size:.85rem; color:var(--gray-400); font-style:italic; padding:6px 2px; }
     .cp-btn{ padding:10px 18px; border-radius:9px; font-family:inherit; font-size:.9rem; font-weight:600; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:8px; text-decoration:none; transition:all .18s; }
     .cp-btn-wa{ background:#25D366; color:#fff; } .cp-btn-wa:hover{ background:#1eb858; }
     .cp-btn-edit{ background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.2); } .cp-btn-edit:hover{ background:rgba(255,255,255,.2); }
@@ -192,12 +226,10 @@
     .cp-prop-loc, .cp-prop-agent{ font-size:.78rem; color:var(--gray-500); display:flex; align-items:center; gap:6px; margin-top:3px; }
     .cp-prop-loc i, .cp-prop-agent i{ color:var(--gray-400); width:12px; }
     .cp-prop-open{ background:var(--gray-50); border-top:1px solid var(--gray-100); padding:9px; text-align:center; font-size:.82rem; font-weight:600; color:var(--navy); display:flex; align-items:center; justify-content:center; gap:7px; transition:all .15s; }
-    /* Gestiones */
     /* ===== Gestiones: filas compactas (ver más de un vistazo) ===== */
     .cp-props-grid{ display:flex; flex-direction:column; gap:10px; }
     .cp-grow{ border:1px solid var(--gray-200); border-radius:13px; background:#fff; overflow:hidden; transition:box-shadow .16s, border-color .16s; }
     .cp-grow:hover{ box-shadow:0 5px 18px rgba(22,39,63,.07); border-color:var(--gray-300); }
-    /* Fila superior: miniatura + info + acciones, todo en una línea */
     .cp-grow-row{ display:flex; align-items:center; gap:13px; padding:11px 13px; }
     .cp-grow-thumb{ width:66px; height:52px; border-radius:9px; object-fit:cover; flex:none; background:var(--gray-100); }
     .cp-grow-info{ flex:1; min-width:0; }
@@ -207,13 +239,11 @@
     .cp-grow-op{ font-size:.68rem; font-weight:600; color:var(--gray-500); }
     .cp-grow-dot{ width:3px; height:3px; border-radius:50%; background:var(--gray-300); }
     .cp-grow-st{ font-size:.66rem; font-weight:700; padding:2px 9px; border-radius:20px; color:#fff; white-space:nowrap; }
-    /* Acciones: iconos alineados a la derecha */
     .cp-grow-acts{ display:flex; align-items:center; gap:5px; flex:none; }
     .cp-ico{ width:33px; height:33px; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; border:1px solid var(--gray-200); background:#fff; color:var(--gray-600); cursor:pointer; font-family:inherit; font-size:.82rem; text-decoration:none; transition:all .14s; }
     .cp-ico:hover{ border-color:var(--gold-2); color:var(--gold-2); }
     .cp-ico.visita:hover{ border-color:#7c3aed; color:#7c3aed; background:#faf9ff; }
     .cp-ico.del:hover{ border-color:var(--danger); color:var(--danger); }
-    /* Franja inferior: selectores en línea + visitas, tenue */
     .cp-grow-foot{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:9px 13px; border-top:1px solid var(--gray-100); background:var(--gray-50); }
     .cp-inline-sel{ display:flex; align-items:center; gap:7px; }
     .cp-inline-sel label{ font-size:.64rem; text-transform:uppercase; letter-spacing:.04em; color:var(--gray-400); font-weight:700; white-space:nowrap; }
@@ -229,7 +259,8 @@
     .cp-grow-agent{ font-size:.7rem; color:var(--gray-400); display:inline-flex; align-items:center; gap:5px; }
     .cp-grow.migrar{ border-style:dashed; }
     .cp-grow.migrar .cp-grow-foot{ background:#fdfbf3; }
-    /* --- Móvil: la fila se reacomoda en vertical, selectores a ancho completo --- */
+    .cp-migrar-aviso{ background:rgba(201,162,39,.08); border:1px solid rgba(201,162,39,.25); border-radius:10px; padding:10px 13px; font-size:.8rem; color:var(--gray-700); margin:4px 0 4px; display:flex; align-items:flex-start; gap:8px; }
+    .cp-migrar-aviso i{ color:var(--gold-2); margin-top:2px; }
     @media (max-width:640px){
       .cp-grow-row{ flex-wrap:wrap; gap:11px; padding:12px; }
       .cp-grow-info{ flex:1 1 calc(100% - 79px); }
@@ -247,11 +278,7 @@
     .cp-gestion-actions{ display:flex; gap:7px; flex-wrap:wrap; }
     .cp-g-btn{ font-size:.8rem; padding:7px 11px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:6px; color:var(--navy); text-decoration:none; }
     .cp-g-btn:hover{ border-color:var(--gold-2); color:var(--gold-2); }
-
-    .cp-g-del{ color:var(--danger); } .cp-g-del:hover{ border-color:#e3a9a2; background:#fff0ee; color:var(--danger); }
-    .cp-migrar-aviso{ background:rgba(201,162,39,.08); border:1px solid rgba(201,162,39,.25); border-radius:10px; padding:10px 13px; font-size:.8rem; color:var(--gray-700); margin:4px 0 4px; display:flex; align-items:flex-start; gap:8px; }
-    .cp-migrar-aviso i{ color:var(--gold-2); margin-top:2px; }
-
+    .cp-g-noprop{ font-size:.78rem; color:var(--gray-400); padding:8px 0; }
     .hist-list{ display:flex; flex-direction:column; gap:0; max-height:60vh; overflow-y:auto; }
     .hist-item{ display:flex; gap:12px; padding:12px 2px; border-bottom:1px solid var(--gray-100); }
     .hist-item:last-child{ border-bottom:none; }
@@ -281,14 +308,8 @@
       .cp-avatar{ width:66px; height:66px; font-size:1.9rem; }
       .cp-hero-actions{ width:100%; }
       .cp-btn{ flex:1; justify-content:center; }
-      .cp-hero{ padding:20px 0 24px; }
-      .cp-hero-main{ gap:14px; }
-      .cp-meta{ font-size:.8rem; gap:6px 12px; }
-      .cp-body{ padding:20px 14px 50px; }
-      .cp-card{ padding:16px; border-radius:14px; }
-      .cp-props-head{ flex-wrap:wrap; gap:10px; }
-      .cp-add-prop{ flex:1; justify-content:center; padding:10px 14px; }
-      .cp-name-row{ flex-wrap:wrap; gap:8px; }
+      .cp-summary{ width:100%; min-width:0; }
+      .cp-grid{ grid-template-columns:1fr; }
     }
     /* Links del cliente */
     .link-add-row{ display:flex; gap:8px; }
@@ -336,7 +357,7 @@
 
       <div class="crm-toolbar">
         <div class="crm-search"><i class="fas fa-search"></i><input type="text" id="clientSearch" placeholder="Buscar por nombre o teléfono..." oninput="renderClients()"></div>
-        <select class="crm-filter" id="clientStatusFilter" onchange="renderClients()">
+        <select class="crm-filter" id="clientStatusFilter" onchange="statFilter='all';renderClients()">
           <option value="">Todos los estados</option>
           <option value="nuevo">Nuevo</option><option value="contactado">Contactado</option>
           <option value="seguimiento">En seguimiento</option><option value="visita">Visita agendada</option>
@@ -377,6 +398,10 @@
               <button class="cp-btn cp-btn-edit" id="cpEditBtn"><i class="fas fa-edit"></i> Editar cliente</button>
             </div>
           </div>
+          <div class="cp-summary" id="cpSummary" style="display:none">
+            <div class="cp-summary-head"><i class="fas fa-chart-simple"></i> Resumen rápido</div>
+            <div class="cp-summary-grid" id="cpSummaryGrid"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -404,6 +429,10 @@
             </div>
             <div id="cpPropsCount" class="cp-props-count" style="margin-bottom:14px"></div>
             <div id="cpGestionesGrid" class="cp-props-grid"></div>
+          </div>
+          <div class="cp-card" id="cpActivityCard" style="display:none">
+            <h3><i class="fas fa-wave-square"></i> Actividad reciente</h3>
+            <div id="cpActivityList" class="cp-activity-list"></div>
           </div>
         </div>
       </div>
@@ -516,11 +545,52 @@
     var currentUser = null, userProfile = null, isAdmin = false;
     var clients = [];
     var misClientesOnly = true;
+    var statFilter = 'all'; // filtro rápido por tarjeta de stat: all | nuevo | proceso | cerrado
 
     function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     function escA(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
     function showToast(msg){ var t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); },3000); }
     function normalizePhone(raw){ var d=String(raw||'').replace(/[^\d+]/g,''); if(d.startsWith('+'))d=d.slice(1); if(d.startsWith('598'))d=d.slice(3); d=d.replace(/^0+/,''); return d?'+598'+d:''; }
+
+    // Formato lindo de teléfono: +598 99 123 456 (móvil UY) / fallback con grupos
+    function fmtPhone(raw){
+      var s = String(raw||'').trim();
+      if (!s) return '—';
+      var plus = s.charAt(0)==='+';
+      var d = s.replace(/\D/g,'');
+      if (d.startsWith('598')){
+        var rest = d.slice(3);
+        var grp = rest.length===8 ? rest.replace(/(\d{2})(\d{3})(\d{3})/, '$1 $2 $3')
+                : rest.length===7 ? rest.replace(/(\d{1})(\d{3})(\d{3})/, '$1 $2 $3')
+                : rest.replace(/(\d{2})(?=\d)/g,'$1 ').trim();
+        return '+598 ' + grp;
+      }
+      return (plus?'+':'') + d.replace(/(\d{3})(?=\d)/g,'$1 ').trim();
+    }
+
+    // Tiempo relativo en español ("hace 2 días")
+    function relTime(iso){
+      if (!iso) return '';
+      var then = new Date(iso).getTime(); if (isNaN(then)) return '';
+      var diff = Math.max(0, Date.now()-then), min = Math.floor(diff/60000);
+      if (min < 1) return 'recién';
+      if (min < 60) return 'hace '+min+' min';
+      var h = Math.floor(min/60); if (h < 24) return 'hace '+h+' h';
+      var dd = Math.floor(h/24); if (dd === 1) return 'ayer';
+      if (dd < 30) return 'hace '+dd+' días';
+      var mo = Math.floor(dd/30); if (mo < 12) return 'hace '+mo+(mo===1?' mes':' meses');
+      var y = Math.floor(mo/12); return 'hace '+y+(y===1?' año':' años');
+    }
+
+    // Estado "cabecera" del cliente = el de su gestión más reciente (el estado vive en las gestiones).
+    var ACTIVE_STATES = ['contactado','seguimiento','visita','negociacion','cartera'];
+    function rollupStatus(c){ return (c && c._rollupStatus) || 'nuevo'; }
+    function statBucket(st){
+      if (st === 'nuevo') return 'nuevo';
+      if (st === 'cerrado') return 'cerrado';
+      if (ACTIVE_STATES.indexOf(st) >= 0) return 'proceso';
+      return 'otro'; // perdido u otros: no entra en los contadores principales
+    }
 
     // ===== Auth =====
     auth.onAuthStateChanged(function(user){
@@ -560,16 +630,27 @@
         ]).then(function(res){
           var gSnap = res[0], pSnap = res[1];
           var gestPorCliente = {}; // clientId -> set de propertyId con gestión
+          var ultimaGest = {};     // clientId -> { ts, estado } de la gestión más reciente
           gSnap.docs.forEach(function(d){
             var g = d.data();
-            if (g.clientId){ (gestPorCliente[g.clientId] = gestPorCliente[g.clientId] || {})[g.propertyId||('g'+d.id)] = true; }
+            if (g.clientId){
+              (gestPorCliente[g.clientId] = gestPorCliente[g.clientId] || {})[g.propertyId||('g'+d.id)] = true;
+              var ts = g.updatedAt || g.createdAt || '';
+              var prev = ultimaGest[g.clientId];
+              if (!prev || ts > prev.ts){ ultimaGest[g.clientId] = { ts: ts, estado: g.estadoGestion || 'nuevo' }; }
+            }
           });
           // Sumar propiedades viejas con clientId que todavía no tienen gestión
           pSnap.docs.forEach(function(d){
             var cid = d.data().clientId;
             if (cid){ var set = gestPorCliente[cid] = gestPorCliente[cid] || {}; if(!set[d.id]) set[d.id]=true; }
           });
-          clients.forEach(function(c){ c._gestionCount = gestPorCliente[c.id] ? Object.keys(gestPorCliente[c.id]).length : 0; });
+          clients.forEach(function(c){
+            c._gestionCount = gestPorCliente[c.id] ? Object.keys(gestPorCliente[c.id]).length : 0;
+            var u = ultimaGest[c.id];
+            c._rollupStatus = u ? u.estado : (c.status || 'nuevo');
+            c._lastActivity = (u && u.ts) || c.updatedAt || c.createdAt || '';
+          });
           renderClients();
         }).catch(function(){ renderClients(); });
       }).catch(function(e){ console.error('Error cargando clientes:', e); renderClients(); });
@@ -581,25 +662,44 @@
       var sf = document.getElementById('clientStatusFilter').value;
       var inf = document.getElementById('clientInterestFilter').value;
 
-      var st = {
-        total: clients.length,
-        nuevo: clients.filter(function(c){ return c.status==='nuevo'; }).length,
-        proceso: clients.filter(function(c){ return ['contactado','seguimiento','visita','negociacion'].indexOf(c.status)>=0; }).length,
-        cerrado: clients.filter(function(c){ return c.status==='cerrado'; }).length
-      };
+      // Stats sobre el estado REAL (el de la gestión más reciente de cada cliente)
+      var st = { total:0, nuevo:0, proceso:0, cerrado:0 };
+      var nuevosMes=0, nuevosMesPrev=0;
+      var now=new Date(), y=now.getFullYear(), m=now.getMonth();
+      var iniMes=new Date(y,m,1).toISOString(), iniPrev=new Date(y,m-1,1).toISOString();
+      clients.forEach(function(c){
+        if (c.archived) return; // las stats reflejan clientes activos
+        st.total++;
+        var b = statBucket(rollupStatus(c));
+        if (b==='nuevo') st.nuevo++; else if (b==='proceso') st.proceso++; else if (b==='cerrado') st.cerrado++;
+        var ca = c.createdAt || '';
+        if (ca >= iniMes) nuevosMes++; else if (ca >= iniPrev) nuevosMesPrev++;
+      });
+      var totalTrend = nuevosMes>0
+        ? '<div class="crm-stat-trend up"><i class="fas fa-arrow-up"></i> +'+nuevosMes+' <span>este mes</span></div>'
+        : '<div class="crm-stat-trend flat"><i class="fas fa-minus"></i> sin altas este mes</div>';
+      function statCard(bucket, num, label, ico, trendHtml){
+        return '<div class="crm-stat'+(statFilter===bucket?' active':'')+'" onclick="filterByStat(\''+bucket+'\')" title="Filtrar por '+label.toLowerCase()+'">' +
+          '<div class="crm-stat-top"><div class="crm-stat-ico i-'+bucket+'"><i class="fas '+ico+'"></i></div>' +
+          '<div><div class="crm-stat-num">'+num+'</div><div class="crm-stat-label">'+label+'</div></div></div>' +
+          (trendHtml||'') +
+        '</div>';
+      }
       document.getElementById('crmStats').innerHTML =
-        '<div class="crm-stat"><div class="crm-stat-num">'+st.total+'</div><div class="crm-stat-label">Total clientes</div></div>' +
-        '<div class="crm-stat"><div class="crm-stat-num">'+st.nuevo+'</div><div class="crm-stat-label">Nuevos</div></div>' +
-        '<div class="crm-stat"><div class="crm-stat-num">'+st.proceso+'</div><div class="crm-stat-label">En proceso</div></div>' +
-        '<div class="crm-stat"><div class="crm-stat-num">'+st.cerrado+'</div><div class="crm-stat-label">Cerrados</div></div>';
+        statCard('total',   st.total,   'Total clientes', 'fa-users',    totalTrend) +
+        statCard('nuevo',   st.nuevo,   'Nuevos',         'fa-user-plus','<div class="crm-stat-trend flat">sin gestión</div>') +
+        statCard('proceso', st.proceso, 'En proceso',     'fa-spinner',  '<div class="crm-stat-trend flat">con seguimiento</div>') +
+        statCard('cerrado', st.cerrado, 'Cerrados',       'fa-circle-check','<div class="crm-stat-trend flat">ganados</div>');
 
       var arf = document.getElementById('clientArchivedFilter').value;
-      var miNombreLC = ((userProfile && userProfile.name) || '').trim().toLowerCase();
       var list = clients.filter(function(c){
         var m = !term || (c.name||'').toLowerCase().indexOf(term)>=0 || (c.phone||'').indexOf(term)>=0 || (c.phoneNormalized||'').indexOf(term)>=0;
         var archMatch = arf==='all' ? true : (arf==='archived' ? !!c.archived : !c.archived);
         var mio = !misClientesOnly || esMio(c);
-        return m && archMatch && mio && (!sf || c.status===sf) && (!inf || c.interest===inf);
+        var rs = rollupStatus(c);
+        var matchStatus = !sf || rs===sf;
+        var matchBucket = statFilter==='all' || statBucket(rs)===statFilter;
+        return m && archMatch && mio && matchStatus && matchBucket && (!inf || c.interest===inf);
       });
       list.sort(function(a,b){
         var am = esMio(a) ? 0 : 1, bm = esMio(b) ? 0 : 1;
@@ -616,9 +716,12 @@
         var ini = (c.name||'?').charAt(0).toUpperCase();
         var ph = (c.phoneNormalized || c.phone || '').replace(/\D/g,'');
         var owner = c.createdByName || c.ownerName;
-        var phoneDisp = c.phoneNormalized || ((c.areaCode||'')+(c.phone||'')) || '—';
+        var phoneDisp = c.phoneNormalized || ((c.areaCode||'')+(c.phone||''));
         var nGest = c._gestionCount || 0;
         var gestLabel = nGest>0 ? (nGest+' gestión'+(nGest===1?'':'es')) : 'Sin gestiones';
+        var rs = rollupStatus(c);
+        var stLabel = GESTION_ESTADO[rs] || rs;
+        var actTxt = c._lastActivity ? ((nGest>0?'Última gestión ':'Creado ')+relTime(c._lastActivity)) : '';
         return '<div class="client-card'+(c.archived?' archived':'')+'" onclick="showClientProfile(\''+c.id+'\')" style="cursor:pointer;position:relative">' +
           '<div class="client-card-top">' +
             '<div class="client-avatar">'+esc(ini)+'</div>' +
@@ -627,13 +730,15 @@
               (owner?'<div class="client-owner"><i class="fas fa-user-tie"></i> '+esc(owner)+'</div>':'') +
               '<div style="font-size:.74rem;color:var(--gray-500);margin-top:3px"><i class="fas fa-handshake"></i> '+gestLabel+'</div>' +
             '</div>' +
+            '<span class="client-status '+rs+'">'+esc(stLabel)+'</span>' +
           '</div>' +
           '<div class="client-meta">' +
-            '<div class="client-meta-row"><i class="fas fa-phone"></i> '+esc(phoneDisp)+'</div>' +
+            '<div class="client-meta-row"><i class="fas fa-phone"></i> '+esc(fmtPhone(phoneDisp))+'</div>' +
             ((c.links&&c.links.length)?'<div class="client-meta-row link-row"><i class="fas fa-link"></i> '+c.links.map(function(l,i){return '<a href="'+escA(l)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">'+(c.links.length>1?('Propiedad '+(i+1)):'Ver propiedad')+'</a>';}).join(' · ')+'</div>':'') +
             ((c.email&&c.email.indexOf('@')<0)?'<div class="client-meta-row"><i class="fas fa-pen"></i> '+esc(c.email)+'</div>':'') +
           '</div>' +
-          (c.notes?'<div style="margin-top:6px;font-size:.82rem;color:var(--gray-600);background:var(--gray-50);border-radius:8px;padding:7px 10px;line-height:1.4"><i class="fas fa-pen" style="opacity:.6;margin-right:5px"></i>'+esc(c.notes)+'</div>':'') +
+          (actTxt?'<div class="client-activity"><i class="fas fa-clock"></i> '+actTxt+'</div>':'') +
+          (c.notes?'<div style="font-size:.82rem;color:var(--gray-600);background:var(--gray-50);border-radius:8px;padding:7px 10px;line-height:1.4;margin-bottom:10px"><i class="fas fa-pen" style="opacity:.6;margin-right:5px"></i>'+esc(c.notes)+'</div>':'') +
           '<div class="client-actions">' +
             (ph?'<a class="ca-wa" href="https://wa.me/'+ph+'" target="_blank" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i> WhatsApp</a>':'') +
             '<button class="ca-edit" onclick="event.stopPropagation();openClientModal(\''+c.id+'\')"><i class="fas fa-edit"></i> Editar</button>' +
@@ -642,6 +747,13 @@
           '</div>' +
         '</div>';
       }).join('');
+    }
+
+    // Filtro rápido al tocar una tarjeta de stat (toca de nuevo para quitar el filtro)
+    function filterByStat(bucket){
+      statFilter = (statFilter===bucket || bucket==='total') ? 'all' : bucket;
+      document.getElementById('clientStatusFilter').value = ''; // no pelear con el dropdown
+      renderClients();
     }
 
     // ===== Perfil del cliente (pantalla completa) =====
@@ -687,7 +799,6 @@
 
       var phoneFull = c.phoneNormalized || ((c.areaCode||'')+(c.phone||''));
       var meta = [];
-      if (phoneFull) meta.push('<i class="fas fa-phone"></i> '+esc(phoneFull));
       if (c.createdByName||c.ownerName) meta.push('<i class="fas fa-user-tie"></i> Creado por '+esc(c.createdByName||c.ownerName));
       if (c.createdAt) meta.push('<i class="fas fa-calendar"></i> '+new Date(c.createdAt).toLocaleDateString('es-UY'));
       document.getElementById('cpMeta').innerHTML = meta.join(' &nbsp;·&nbsp; ');
@@ -698,9 +809,14 @@
       if (ph){ wa.href = 'https://wa.me/'+ph; wa.style.display=''; } else { wa.style.display='none'; }
       document.getElementById('cpEditBtn').onclick = function(){ openClientModal(id); };
 
+      // Reseteo resumen y actividad mientras cargan las gestiones (evita ver datos del cliente anterior)
+      document.getElementById('cpSummary').style.display = 'none';
+      document.getElementById('cpActivityCard').style.display = 'none';
+
       // Campos: SOLO datos de la persona. El interés/estado/presupuesto/link viven en cada gestión.
       var fields = [];
-      fields.push(['Teléfono', phoneFull ? esc(phoneFull) : '—']);
+      var phLink = (phoneFull||'').replace(/\D/g,'');
+      fields.push(['Teléfono', phoneFull ? '<a href="tel:+'+phLink+'" style="color:var(--navy);text-decoration:none">'+esc(fmtPhone(phoneFull))+'</a>' : '—']);
       var linksHtml = (c.links && c.links.length) ? c.links.map(function(l){ return '<a href="'+escA(l)+'" target="_blank" rel="noopener" style="color:var(--gold,#C9A227);text-decoration:none;word-break:break-all">'+esc(l)+'</a>'; }).join('<br>') : '—';
       fields.push(['Links', linksHtml]);
       document.getElementById('cpFields').innerHTML = fields.map(function(f){
@@ -738,6 +854,10 @@
         gestiones.forEach(function(g){ if(g.propertyId) idsConGestion[g.propertyId]=true; });
         var viejas = allProperties.filter(function(p){ return p.clientId===clientId && !idsConGestion[p.id]; });
 
+        // Resumen rápido + feed de actividad (siempre, aun con 0 gestiones)
+        renderResumen(gestiones, viejas);
+        renderActividad(gestiones);
+
         var total = gestiones.length + viejas.length;
         cnt.textContent = total===0 ? 'Sin gestiones aún' : (total+' '+(total===1?'gestión':'gestiones'));
         if (!total){
@@ -755,7 +875,78 @@
         console.error('Error cargando gestiones:', e);
         cnt.textContent = '';
         grid.innerHTML = '<div class="cp-prop-soon">No se pudieron cargar las gestiones.</div>';
+        document.getElementById('cpSummary').style.display = 'none';
+        document.getElementById('cpActivityCard').style.display = 'none';
       });
+    }
+
+    var TERMINAL = ['cerrado','perdido'];
+    // Resumen rápido: gestiones activas, valor en gestión y último movimiento
+    function renderResumen(gestiones, viejas){
+      var box = document.getElementById('cpSummary');
+      var grid = document.getElementById('cpSummaryGrid');
+      if (!box || !grid) return;
+      var sums = { USD:0, UYU:0 };
+      function addProp(propId){
+        var p = allProperties.find(function(x){ return x.id===propId; });
+        if (p){ sums[(p.currency==='UYU')?'UYU':'USD'] += (Number(p.price)||0); }
+      }
+      var activas = 0, lastTs = '';
+      gestiones.forEach(function(g){
+        if (TERMINAL.indexOf(g.estadoGestion) < 0){ activas++; addProp(g.propertyId); }
+        [g.updatedAt, g.createdAt].forEach(function(t){ if (t && t>lastTs) lastTs=t; });
+        (g.historial||[]).forEach(function(h){ if (h.fecha && h.fecha>lastTs) lastTs=h.fecha; });
+      });
+      (viejas||[]).forEach(function(p){ activas++; sums[(p.currency==='UYU')?'UYU':'USD'] += (Number(p.price)||0); });
+
+      var valParts = [];
+      if (sums.USD>0) valParts.push('US$ '+sums.USD.toLocaleString('es-UY'));
+      if (sums.UYU>0) valParts.push('$U '+sums.UYU.toLocaleString('es-UY'));
+      var valDisp = valParts.length ? valParts.join(' · ') : '—';
+      var movDisp = lastTs ? relTime(lastTs) : '—';
+
+      function item(ico, val, lab){
+        return '<div class="cp-summary-item"><div class="cp-summary-ico"><i class="fas '+ico+'"></i></div>' +
+          '<div><div class="cp-summary-val">'+val+'</div><div class="cp-summary-lab">'+lab+'</div></div></div>';
+      }
+      grid.innerHTML =
+        item('fa-handshake', activas, activas===1?'Gestión activa':'Gestiones activas') +
+        item('fa-tag', valDisp, 'Valor en gestión') +
+        item('fa-clock', movDisp, 'Último movimiento');
+      box.style.display = '';
+    }
+
+    // Actividad reciente: SOLO cambios de estado (avance + estado de propiedad), consolidando los historiales.
+    function renderActividad(gestiones){
+      var card = document.getElementById('cpActivityCard');
+      var list = document.getElementById('cpActivityList');
+      if (!card || !list) return;
+      var eventos = [];
+      gestiones.forEach(function(g){
+        var titulo = g.propertyTitle || 'Propiedad';
+        (g.historial||[]).forEach(function(h){
+          if (h.tipo==='avance' || h.tipo==='propiedad'){
+            eventos.push({ tipo:h.tipo, valor:h.valor, autor:h.autor, fecha:h.fecha, titulo:titulo });
+          }
+        });
+      });
+      if (!eventos.length){ card.style.display='none'; list.innerHTML=''; return; }
+      eventos.sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||''); });
+      list.innerHTML = eventos.slice(0,8).map(function(e){
+        var ico = e.tipo==='propiedad' ? 'fa-house' : 'fa-arrow-trend-up';
+        var texto = e.tipo==='propiedad'
+          ? 'Estado de la propiedad → <b>'+esc(e.valor)+'</b>'
+          : 'Avance con el cliente → <b>'+esc(e.valor)+'</b>';
+        var fecha = e.fecha ? new Date(e.fecha).toLocaleString('es-UY',{ day:'numeric', month:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+        return '<div class="cp-activity-item">' +
+          '<div class="cp-activity-dot"><i class="fas '+ico+'"></i></div>' +
+          '<div class="cp-activity-body">' +
+            '<div class="cp-activity-text">'+texto+'</div>' +
+            '<div class="cp-activity-foot"><span>'+esc(e.titulo)+'</span><span class="sep">·</span><span>'+esc(e.autor||'Agente')+'</span><span class="sep">·</span><span>'+fecha+'</span></div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+      card.style.display = '';
     }
 
     function propViejaCard(p){
@@ -808,14 +999,11 @@
       }).catch(function(e){ showToast('No se pudo convertir'); console.error(e); });
     }
 
-    // Colores de estado de la propiedad para el chip del hero
-    var PROP_STATUS_COL = { tasacion:'#8a6d12', tasado:'#b45309', available:'#1e7d4f', reserved:'#7c3aed', sold:'#c0392b', rented:'#2563eb' };
-
     // Colores del chip de estado de la propiedad
     var PROP_STATUS_COL = { tasacion:'#8a6d12', tasado:'#b45309', available:'#1e7d4f', reserved:'#7c3aed', sold:'#c0392b', rented:'#2563eb' };
 
     // Fila de gestión compacta: miniatura + info en una línea; selectores y visitas
-    // en una franja tenue debajo. Editar abre la FICHA de la propiedad.
+    // debajo en franja tenue. Editar abre la FICHA de la propiedad.
     function gestionCard(g){
       var prop = allProperties.find(function(p){ return p.id===g.propertyId; });
       var precio = prop ? fmtPrice(prop.price, prop.currency||'USD') : '';
@@ -838,7 +1026,7 @@
       if (!isAdmin && propCerrada) optsProp = '<option value="'+estadoProp+'" selected>'+PROP_STATUS[estadoProp]+'</option>';
       var propDisabled = (!isAdmin && propCerrada) ? ' disabled' : '';
 
-      // Editar -> ficha técnica de la propiedad (propiedad-form). Sin propiedad, edita la gestión.
+      // Editar -> ficha técnica de la propiedad. Sin propiedad, edita la gestión.
       var editar = prop
         ? '<a class="cp-ico" href="propiedad-form.html?id='+g.propertyId+'" title="Editar ficha de la propiedad"><i class="fas fa-pen"></i></a>'
         : '<button class="cp-ico" onclick="openGestionModal(\''+g.id+'\')" title="Editar gestión"><i class="fas fa-pen"></i></button>';
@@ -890,8 +1078,6 @@
       }).join('');
       return '<div class="cp-grow-visitas"><span class="lbl"><i class="fas fa-calendar-check"></i></span>'+chips+'</div>';
     }
-
-
 
     // Cambiar el avance de la gestión (rápido, desde la tarjeta)
     function cambiarEstadoGestion(gestionId, nuevo){
