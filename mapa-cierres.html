@@ -223,10 +223,28 @@
       cierres = allProps.filter(p => p.cierre && p.cierre.lat != null && p.cierre.lng != null);
     }
 
+    // Límites de los barrios de Montevideo: líneas finas por encima del mapa base.
+    // Fuente: datos abiertos de la Intendencia (vía vierja/geojson_montevideo),
+    // simplificados y servidos como barrios-montevideo.geojson desde el propio sitio.
+    var barriosLayer = null;
+    function cargarBarrios(targetMap){
+      if(barriosLayer){ barriosLayer.addTo(targetMap); return; }
+      fetch('barrios-montevideo.geojson')
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(geo){
+          if(!geo) return;
+          barriosLayer = L.geoJSON(geo, {
+            style: { color:'#16273f', weight:1, opacity:0.35, fill:false, interactive:false }
+          }).addTo(targetMap);
+        })
+        .catch(function(){ /* si no carga, el mapa sigue funcionando igual */ });
+    }
+
     function initMap(){
       if(map){ setTimeout(()=>map.invalidateSize(),150); return; }
       map = L.map('mapaCierres', { scrollWheelZoom:false }).setView([-34.9011,-56.1645], 11);
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(map);
+      cargarBarrios(map);
       setTimeout(()=>map.invalidateSize(),200);
     }
 
@@ -591,6 +609,7 @@
       if(regMap){ setTimeout(()=>regMap.invalidateSize(),100); return; }
       regMap = L.map('regMapa').setView([-34.9011,-56.1645], 11);
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(regMap);
+      cargarBarrios(regMap);
       regMap.on('click', e=> setRegPin(e.latlng.lat, e.latlng.lng));
       setTimeout(()=>regMap.invalidateSize(),120);
     }
