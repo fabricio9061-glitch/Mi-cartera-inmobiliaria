@@ -192,7 +192,7 @@
         </div>
 
         <div class="pf-sec" id="sec5">
-          <div class="pf-sec-head"><span class="n">5</span><div><h3>Fotos y video</h3><small>La primera foto es la portada. InfoCasas necesita 3 como mínimo; la calidad de ML vuela con 10 o más.</small></div></div>
+          <div class="pf-sec-head"><span class="n">5</span><div><h3>Fotos y video</h3><small>Mínimo <b>12 fotos</b> obligatorias para publicar. La primera es la portada; la calidad de ML mejora cuantas más subas.</small></div></div>
           <div class="form-group"><label>Fotos <span class="fx-req">*</span> <small style="color:var(--muted);font-weight:normal">(arrastrá para reordenar, máx 5MB cada una)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div class="foto-counter" id="fotoCounter"></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div><div style="font-size:.8rem;color:var(--muted);margin-top:8px"><i class="fas fa-shield-halved" style="color:var(--gold)"></i> A cada foto se le agrega automáticamente la marca de agua MALAVE (logo centrado y tenue) al guardar.</div></div>
           <div class="form-group"><label>Video de YouTube (opcional)</label><input type="url" id="propVideo" placeholder="https://www.youtube.com/watch?v=..."></div>
         </div>
@@ -2608,7 +2608,7 @@
       if (!el) return;
       el.readOnly = true;
       el.style.background = '#f5f6f8';
-      if (!el.value) el.value = genCodigo();
+      if (!el.value || String(el.value).trim().length < 4) el.value = genCodigo();
     }
     // Horario de contacto: la inmobiliaria atiende siempre — arranca en "24 horas"
     // (editable por si algún aviso necesita otro horario).
@@ -2676,7 +2676,7 @@
         // Próxima mejora, en orden de impacto
         const hint =
           !pin ? 'Fijá el pin en el mapa: sin coordenadas la propiedad no entra a InfoCasas.' :
-          fotos < 3 ? `Sumá fotos (${fotos}/3): InfoCasas exige 3 como mínimo.` :
+          fotos < 12 ? `Sumá fotos (${fotos}/12): son obligatorias para publicar.` :
           !precio ? 'Cargá el precio.' :
           fotos < 10 ? `Sumá fotos (${fotos}/10): con 10+ la calidad de ML vuela.` :
           titulo < 60 ? `Alargá el título (${titulo}/60): sumá barrio, dormitorios y extras.` :
@@ -2693,10 +2693,12 @@
           5: fotos >= 3, 6: titulo >= 30, 7: precio, 8: true };
         document.querySelectorAll('#pfRail a').forEach(a => a.classList.toggle('done', !!ticks[a.dataset.rail]));
 
-        // Contador de fotos
+        // Contador de fotos: el mínimo obligatorio para publicar es 12.
         const fcEl = document.getElementById('fotoCounter');
-        if (fcEl) fcEl.innerHTML = fotos === 0 ? '' :
-          `<span class="b" style="color:${fotos >= 10 ? 'var(--ok)' : (fotos >= 3 ? 'var(--gold)' : 'var(--bad)')}">${fotos} foto${fotos === 1 ? '' : 's'}</span> · InfoCasas pide 3+ · la calidad de ML mejora con 10+`;
+        if (fcEl) {
+          if (fotos >= 12) fcEl.innerHTML = `<span class="b" style="color:var(--ok)"><i class="fas fa-circle-check"></i> ${fotos} fotos — cumple el mínimo obligatorio (12)</span>`;
+          else fcEl.innerHTML = `<span class="b" style="color:var(--bad)"><i class="fas fa-triangle-exclamation"></i> ${fotos} de 12 fotos — faltan ${12 - fotos} para poder publicar</span>`;
+        }
         updateFichaCounters();
       } catch (e) { /* la calidad nunca debe romper el form */ }
     }
@@ -2722,7 +2724,12 @@
     async function handleSaveProperty(e) {
       e.preventDefault();
       if (!currentUser) { alert('Debes iniciar sesión'); return }
-      if (selectedImages.length === 0) { alert('Sube al menos una imagen'); return }
+      if (selectedImages.length < 12) {
+        const faltan = 12 - selectedImages.length;
+        alert('Se necesitan al menos 12 fotos para publicar. Tenés ' + selectedImages.length + ' — faltan ' + faltan + '.');
+        var _sec = document.getElementById('sec5'); if (_sec) _sec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
       const b = document.getElementById('propertyBtn'), er = document.getElementById('propertyError'), ei = document.getElementById('editingPropertyId').value, pp = document.getElementById('previousPrice').value;
       b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; er.classList.add('hidden');
       try {
@@ -2846,6 +2853,6 @@
     });
 
   </script>
+<script src="fcm-init.js"></script>
 </body>
 </html>
-
