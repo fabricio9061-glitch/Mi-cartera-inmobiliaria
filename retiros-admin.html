@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Retiros | MALAVE Admin</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root{ --ink:#16273f; --paper:#f4f5f7; --card:#fff; --line:#e5e8ec; --muted:#6b7480; --gold:#C9A227; --ok:#1e7d4f; --bad:#c0392b; --warn:#b45309; --blue:#2563eb; }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{ font-family:'Inter',sans-serif; background:var(--paper); color:#1d2733; }
+    h1,h2,h3{ font-family:'Cormorant Garamond',serif; }
+    .fh{ background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:50; }
+    .fh-in{ max-width:900px; margin:0 auto; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; }
+    .fh-logo{ display:flex; align-items:center; gap:9px; font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:700; color:var(--ink); letter-spacing:.12em; }
+    .fh-back{ display:inline-flex; align-items:center; gap:7px; color:var(--muted); font-size:.88rem; font-weight:500; padding:8px 15px; border:1px solid var(--line); border-radius:999px; text-decoration:none; }
+    .fh-back:hover{ background:var(--ink); color:#fff; }
+    .wrap{ max-width:900px; margin:0 auto; padding:26px 20px 70px; }
+    h1{ font-size:2rem; color:var(--ink); margin-bottom:4px; }
+    .lede{ color:var(--muted); margin-bottom:22px; }
+    .tabs{ display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+    .tab{ padding:9px 16px; border-radius:999px; border:1px solid var(--line); background:#fff; font-family:inherit; font-size:.86rem; font-weight:600; color:var(--muted); cursor:pointer; }
+    .tab.on{ background:var(--ink); color:#fff; border-color:var(--ink); }
+    .tab .n{ background:var(--gold); color:#fff; border-radius:20px; padding:1px 7px; font-size:.72rem; margin-left:5px; }
+    .card{ background:#fff; border:1px solid var(--line); border-radius:15px; padding:16px 18px; margin-bottom:13px; }
+    .card.pendiente{ border-left:4px solid var(--warn); }
+    .card.aprobado{ border-left:4px solid var(--blue); }
+    .r-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap; }
+    .r-who{ font-weight:600; color:var(--ink); font-size:1.02rem; }
+    .r-date{ font-size:.78rem; color:var(--muted); margin-top:2px; }
+    .r-amount{ font-family:'Cormorant Garamond',serif; font-size:1.7rem; font-weight:700; color:var(--ink); white-space:nowrap; }
+    .r-bank{ background:var(--paper); border-radius:11px; padding:11px 14px; margin:13px 0; font-size:.85rem; color:#40484f; line-height:1.6; }
+    .r-bank b{ color:var(--ink); }
+    .r-bank .copy{ float:right; border:1px solid var(--line); background:#fff; border-radius:7px; padding:3px 9px; font-size:.72rem; cursor:pointer; color:var(--muted); }
+    .r-bank .copy:hover{ border-color:var(--gold); color:var(--gold); }
+    .r-st{ font-size:.72rem; font-weight:700; padding:4px 12px; border-radius:20px; white-space:nowrap; }
+    .r-st.pendiente{ background:#fef3c7; color:var(--warn); }
+    .r-st.aprobado{ background:#dbeafe; color:var(--blue); }
+    .r-st.pagado{ background:#dcfce7; color:var(--ok); }
+    .r-st.rechazado{ background:#fee2e2; color:var(--bad); }
+    .r-st.cancelado{ background:#f1f1f4; color:var(--muted); }
+    .r-acts{ display:flex; gap:9px; flex-wrap:wrap; margin-top:6px; }
+    .rb{ border:none; border-radius:9px; padding:9px 15px; font-family:inherit; font-size:.84rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
+    .rb-ok{ background:var(--blue); color:#fff; } .rb-ok:hover{ opacity:.9; }
+    .rb-pay{ background:var(--ok); color:#fff; } .rb-pay:hover{ opacity:.9; }
+    .rb-no{ background:#fff; color:var(--bad); border:1px solid #ecc8c2; } .rb-no:hover{ background:#fdf3f1; }
+    .empty{ text-align:center; color:var(--muted); padding:50px 20px; }
+    .empty i{ font-size:2.2rem; color:var(--line); display:block; margin-bottom:12px; }
+    .denied{ text-align:center; padding:70px 20px; color:var(--muted); }
+    .denied i{ font-size:2.6rem; color:var(--line); display:block; margin-bottom:14px; }
+    .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:13px 22px; border-radius:12px; font-size:.9rem; display:none; align-items:center; gap:10px; z-index:200; box-shadow:0 8px 30px rgba(22,39,63,.35); }
+    .toast.err{ background:var(--bad); }
+    .state{ text-align:center; padding:70px 20px; color:var(--muted); }
+    .sp{ width:44px; height:44px; border:4px solid var(--line); border-top-color:var(--ink); border-radius:50%; animation:sp 1s linear infinite; margin:0 auto 18px; }
+    @keyframes sp{ to{ transform:rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <header class="fh">
+    <div class="fh-in">
+      <div class="fh-logo"><i class="fas fa-building" style="color:var(--gold)"></i> MALAVE</div>
+      <a class="fh-back" href="index.html"><i class="fas fa-arrow-left"></i> Volver</a>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div id="loading" class="state"><div class="sp"></div><p>Cargando solicitudes…</p></div>
+    <div id="denied" class="denied" style="display:none"><i class="fas fa-lock"></i><h2>Solo para el administrador</h2><p>Esta sección es exclusiva de la administración.</p></div>
+
+    <div id="content" style="display:none">
+      <h1>Solicitudes de retiro</h1>
+      <p class="lede">Confirmá cuánto te pidió cobrar cada agente. Al aprobar, la plata queda comprometida; marcá "Pagado" cuando hayas hecho la transferencia.</p>
+      <div class="tabs" id="tabs"></div>
+      <div id="list"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"><i class="fas fa-check-circle"></i><span id="toastTxt"></span></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script>
+    var firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
+    firebase.initializeApp(firebaseConfig);
+    var auth = firebase.auth(), db = firebase.firestore();
+    var ADMIN_EMAIL = "fabricio9061@gmail.com";
+    var retiros = [], filtro = 'pendiente', me = null;
+
+    function fmt(n, cur){ return (cur==='UYU'?'$U ':'US$ ') + Math.round(Number(n)||0).toLocaleString('es-UY'); }
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+    function toast(m, err){ var t=document.getElementById('toast'); t.className='toast'+(err?' err':''); t.querySelector('i').className=err?'fas fa-triangle-exclamation':'fas fa-check-circle'; document.getElementById('toastTxt').textContent=m; t.style.display='flex'; clearTimeout(t._tm); t._tm=setTimeout(function(){t.style.display='none';},3800); }
+
+    auth.onAuthStateChanged(async function(u){
+      document.getElementById('loading').style.display='none';
+      if(!u || (u.email||'').toLowerCase()!==ADMIN_EMAIL){ document.getElementById('denied').style.display='block'; return; }
+      me=u;
+      document.getElementById('content').style.display='block';
+      await cargar();
+    });
+
+    async function cargar(){
+      try{
+        var snap = await db.collection('retiros').get();
+        retiros = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); })
+          .sort(function(a,b){ return (b.creadoEl||'').localeCompare(a.creadoEl||''); });
+        render();
+      }catch(e){ toast('No se pudieron cargar: '+(e.code||e.message), true); }
+    }
+
+    function render(){
+      var counts = { pendiente:0, aprobado:0, pagado:0, otros:0 };
+      retiros.forEach(function(r){
+        if(r.status==='pendiente') counts.pendiente++;
+        else if(r.status==='aprobado') counts.aprobado++;
+        else if(r.status==='pagado') counts.pagado++;
+        else counts.otros++;
+      });
+      var defs=[['pendiente','Pendientes',counts.pendiente],['aprobado','Aprobados',counts.aprobado],['pagado','Pagados',counts.pagado],['otros','Rechazados/Cancelados',counts.otros]];
+      document.getElementById('tabs').innerHTML = defs.map(function(d){
+        return '<button class="tab '+(filtro===d[0]?'on':'')+'" onclick="setFiltro(\''+d[0]+'\')">'+d[1]+(d[2]?'<span class="n">'+d[2]+'</span>':'')+'</button>';
+      }).join('');
+
+      var lista = retiros.filter(function(r){
+        if(filtro==='otros') return r.status==='rechazado' || r.status==='cancelado';
+        return r.status===filtro;
+      });
+      var box=document.getElementById('list');
+      if(!lista.length){ box.innerHTML='<div class="empty"><i class="fas fa-receipt"></i>No hay solicitudes en esta categoría.</div>'; return; }
+      var LAB={pendiente:'Pendiente',aprobado:'Aprobado',pagado:'Pagado',rechazado:'Rechazado',cancelado:'Cancelado'};
+      box.innerHTML = lista.map(function(r){
+        var f = r.creadoEl ? new Date(r.creadoEl).toLocaleDateString('es-UY',{day:'numeric',month:'long',year:'numeric'}) : '';
+        var datos = [
+          r.cuentaBanco?('<b>Banco:</b> '+esc(r.cuentaBanco)):'',
+          r.cuentaTipo?('<b>Tipo:</b> '+esc(r.cuentaTipo)):'',
+          r.cuentaNumero?('<b>Nº cuenta:</b> '+esc(r.cuentaNumero)):'',
+          r.cuentaTitular?('<b>Titular:</b> '+esc(r.cuentaTitular)):'',
+          r.cuentaCI?('<b>CI:</b> '+esc(r.cuentaCI)):''
+        ].filter(Boolean).join(' &nbsp;·&nbsp; ');
+        var copiable = [r.cuentaBanco,r.cuentaTipo,r.cuentaNumero?('Nº '+r.cuentaNumero):'',r.cuentaTitular,r.cuentaCI].filter(Boolean).join(' | ');
+        var bank = datos ? '<div class="r-bank"><button class="copy" onclick="copiar(\''+esc(copiable).replace(/'/g,"\\'")+'\')">Copiar</button>'+datos+'</div>' : '';
+        var acts='';
+        if(r.status==='pendiente'){
+          acts='<div class="r-acts">'
+            +'<button class="rb rb-ok" onclick="aprobar(\''+r.id+'\')"><i class="fas fa-check"></i> Aprobar</button>'
+            +'<button class="rb rb-pay" onclick="pagar(\''+r.id+'\', true)"><i class="fas fa-money-bill-transfer"></i> Aprobar y marcar pagado</button>'
+            +'<button class="rb rb-no" onclick="rechazar(\''+r.id+'\')"><i class="fas fa-xmark"></i> Rechazar</button></div>';
+        } else if(r.status==='aprobado'){
+          acts='<div class="r-acts">'
+            +'<button class="rb rb-pay" onclick="pagar(\''+r.id+'\')"><i class="fas fa-check-double"></i> Marcar pagado</button>'
+            +'<button class="rb rb-no" onclick="rechazar(\''+r.id+'\')"><i class="fas fa-xmark"></i> Rechazar</button></div>';
+        }
+        return '<div class="card '+r.status+'"><div class="r-top">'
+          +'<div><div class="r-who">'+esc(r.agenteNombre||'Agente')+'</div><div class="r-date">Solicitado el '+f+'</div></div>'
+          +'<div style="text-align:right"><div class="r-amount">'+fmt(r.monto,r.moneda)+'</div><span class="r-st '+r.status+'">'+(LAB[r.status]||r.status)+'</span></div>'
+          +'</div>'+bank+acts+'</div>';
+      }).join('');
+    }
+
+    function setFiltro(f){ filtro=f; render(); }
+    function copiar(txt){ navigator.clipboard.writeText(txt).then(function(){ toast('Datos copiados'); }).catch(function(){}); }
+
+    async function setStatus(id, status, extra){
+      try{
+        await db.collection('retiros').doc(id).update(Object.assign({ status:status }, extra||{}));
+        var r=retiros.find(function(x){return x.id===id;}); if(r){ Object.assign(r,{status:status}, extra||{}); }
+        render();
+        toast('Solicitud actualizada');
+      }catch(e){ toast('No se pudo actualizar: '+(e.code||e.message), true); }
+    }
+    function aprobar(id){ setStatus(id,'aprobado',{ aprobadoEl:new Date().toISOString() }); }
+    function pagar(id, aprobarTambien){
+      if(!confirm('¿Confirmás que ya hiciste la transferencia? Esto marca el retiro como PAGADO y descuenta el saldo del agente.')) return;
+      var extra={ pagadoEl:new Date().toISOString() };
+      if(aprobarTambien) extra.aprobadoEl=new Date().toISOString();
+      setStatus(id,'pagado',extra);
+    }
+    function rechazar(id){
+      var motivo=prompt('Motivo del rechazo (opcional, lo verá el agente):','');
+      if(motivo===null) return;
+      setStatus(id,'rechazado',{ motivo:motivo||'', rechazadoEl:new Date().toISOString() });
+    }
+  </script>
+</body>
+</html>

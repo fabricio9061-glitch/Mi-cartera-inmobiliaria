@@ -533,6 +533,18 @@
       <div class="form-group"><label><i class="fab fa-twitter" style="color:#1DA1F2"></i> Twitter / X</label><input type="url" id="editTwitter" placeholder="https://twitter.com/tu_usuario"></div>
       <div class="form-group"><label><i class="fab fa-tiktok"></i> TikTok</label><input type="url" id="editTiktok" placeholder="https://tiktok.com/@tu_usuario"></div>
       <div class="form-group"><label><i class="fab fa-youtube" style="color:#FF0000"></i> YouTube</label><input type="url" id="editYoutube" placeholder="https://youtube.com/@tu_canal"></div>
+      <div id="cobroSection" style="margin-top:22px;padding-top:18px;border-top:2px solid var(--gray-100,#eee)">
+        <h3 style="font-size:1.05rem;color:var(--primary,#16273f);margin:0 0 4px;display:flex;align-items:center;gap:8px"><i class="fas fa-university" style="color:var(--gold,#C9A227)"></i> Datos de cobro</h3>
+        <p style="font-size:.82rem;color:var(--gray-500,#888);margin:0 0 14px">Con estos datos la inmobiliaria te transfiere tus comisiones. Solo vos y la administración los ven.</p>
+        <div class="form-group"><label>Banco</label><select id="editBanco"><option value="">Elegí tu banco...</option></select></div>
+        <div class="form-group"><label>Titular de la cuenta</label><input type="text" id="editCuentaTitular" placeholder="Nombre como figura en el banco"></div>
+        <div class="form-group"><label>Cédula del titular</label><input type="text" id="editCuentaCI" placeholder="1.234.567-8"></div>
+        <div class="form-row" style="display:flex;gap:12px;flex-wrap:wrap">
+          <div class="form-group" style="flex:1;min-width:150px"><label>Número de cuenta</label><input type="text" id="editCuentaNumero" placeholder="Nº de cuenta"></div>
+          <div class="form-group" style="flex:1;min-width:120px"><label>Moneda de la cuenta</label><select id="editCuentaMoneda"><option value="">—</option><option value="UYU">Pesos ($U)</option><option value="USD">Dólares (US$)</option></select></div>
+        </div>
+        <div class="form-group"><label>Tipo de cuenta</label><select id="editCuentaTipo"><option value="">—</option><option value="Caja de ahorro">Caja de ahorro</option><option value="Cuenta corriente">Cuenta corriente</option></select></div>
+      </div>
       <div class="form-group"><label><i class="fas fa-globe" style="color:var(--accent)"></i> Sitio Web</label><input type="url" id="editWebsite" placeholder="https://tu-sitio-web.com"></div>
       <button type="submit" class="btn-submit" id="editProfileBtn"><i class="fas fa-save"></i> Guardar Cambios</button>
     </form>
@@ -679,8 +691,21 @@
       </div>
       <button class="mv-side-close" onclick="closeSideMenu()" aria-label="Cerrar"><i class="fas fa-times"></i></button>
     </div>
+    <div class="mv-side-finanzas" id="mvSideFinanzas">
+      <a class="mv-fin-saldo" href="finanzas.html" title="Ver mis finanzas y solicitar cobros">
+        <span class="mv-fin-cap"><i class="fas fa-wallet"></i> Saldo a cobrar</span>
+        <span class="mv-fin-val" id="mvFinUsd">US$ 0</span>
+        <span class="mv-fin-val uyu" id="mvFinUyu">$U 0</span>
+      </a>
+      <a class="mv-fin-pts" href="finanzas.html" title="Ver mis puntos">
+        <i class="fas fa-star"></i>
+        <span class="mv-fin-ptsnum" id="mvFinPuntos">—</span>
+        <span class="mv-fin-ptslbl">puntos</span>
+      </a>
+    </div>
     <nav class="mv-side-nav">
       <button class="mv-side-item" onclick="closeSideMenu();showMyProfile()"><i class="fas fa-user"></i> Mi Perfil</button>
+      <a class="mv-side-item" href="finanzas.html"><i class="fas fa-wallet"></i> Mis Finanzas</a>
 
       <div class="mv-side-group">Mi trabajo</div>
       <a class="mv-side-item" href="agenda.html"><i class="fas fa-calendar-alt"></i> Mi Agenda</a>
@@ -703,6 +728,8 @@
 
       <div class="mv-side-group mv-side-admin hidden" id="mvSideAdminGroup">Administración</div>
       <button class="mv-side-item mv-side-admin hidden" id="mvSideAdmin" onclick="closeSideMenu();showAdmin()"><i class="fas fa-shield-halved"></i> Panel de Administración</button>
+      <a class="mv-side-item mv-side-admin hidden" id="mvSideRetiros" href="retiros-admin.html"><i class="fas fa-money-check-dollar"></i> Retiros de agentes</a>
+      <a class="mv-side-item mv-side-admin hidden" id="mvSidePapelera" href="papelera.html"><i class="fas fa-trash-can"></i> Papelera</a>
 
       <div class="mv-side-sep"></div>
       <button class="mv-side-item" onclick="startTour()"><i class="fas fa-circle-question"></i> Tutorial</button>
@@ -721,6 +748,18 @@
     .mv-side-av img{ width:100%; height:100%; object-fit:cover; }
     .mv-side-user strong{ display:block; font-size:1.02rem; line-height:1.2; }
     .mv-side-user span{ display:block; font-size:.78rem; color:rgba(255,255,255,.65); margin-top:3px; }
+    .mv-side-finanzas{ display:flex; align-items:stretch; gap:9px; padding:0 20px 16px; background:linear-gradient(120deg,#101d30,var(--primary,#16273f)); }
+    .mv-fin-saldo{ flex:1; display:flex; flex-direction:column; gap:2px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:11px 14px; text-decoration:none; transition:background .15s; }
+    .mv-fin-saldo:hover{ background:rgba(255,255,255,.14); }
+    .mv-fin-cap{ font-size:.64rem; color:rgba(255,255,255,.55); text-transform:uppercase; letter-spacing:.05em; font-weight:600; display:flex; align-items:center; gap:6px; margin-bottom:3px; }
+    .mv-fin-cap i{ color:var(--gold,#C9A227); }
+    .mv-fin-val{ font-size:1.05rem; font-weight:700; color:#fff; line-height:1.25; white-space:nowrap; }
+    .mv-fin-val.uyu{ font-size:.95rem; color:rgba(255,255,255,.82); }
+    .mv-fin-pts{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; min-width:70px; background:rgba(201,162,39,.14); border:1px solid rgba(201,162,39,.3); border-radius:12px; padding:9px 12px; text-decoration:none; transition:background .15s; }
+    .mv-fin-pts:hover{ background:rgba(201,162,39,.24); }
+    .mv-fin-pts>i{ font-size:.82rem; color:var(--gold,#C9A227); margin-bottom:2px; }
+    .mv-fin-ptsnum{ font-size:1.15rem; font-weight:700; color:#fff; line-height:1; }
+    .mv-fin-ptslbl{ font-size:.62rem; color:rgba(255,255,255,.55); text-transform:uppercase; letter-spacing:.04em; }
     .mv-side-close{ background:rgba(255,255,255,.1); border:none; color:#fff; width:34px; height:34px; border-radius:50%; cursor:pointer; font-size:1rem; flex:0 0 auto; transition:background .2s; }
     .mv-side-close:hover{ background:rgba(255,255,255,.22); }
     .mv-side-nav{ padding:14px 12px; overflow-y:auto; flex:1; }

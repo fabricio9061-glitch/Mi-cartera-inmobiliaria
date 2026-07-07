@@ -1574,6 +1574,31 @@ exports.cerrarMLAlBorrar = onDocumentDeleted("properties/{id}", async (event) =>
 //    admin recibe una notificación en la campanita y un push FCM para
 //    entrar al panel y aprobarlo o rechazarlo.
 // =====================================================================
+// Notifica al admin cuando un agente solicita un retiro de dinero.
+exports.notificarRetiro = onDocumentCreated("retiros/{id}", async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+  const r = snap.data();
+  if (!r || r.status !== "pendiente") return;
+  const adm = await getAdminUser();
+  if (!adm || adm.uid === r.agenteUid) return;
+  const simb = r.moneda === "UYU" ? "$U" : "US$";
+  const monto = simb + " " + (Number(r.monto) || 0).toLocaleString("es-UY");
+  const nombre = r.agenteNombre || "Un agente";
+  await crearNotificacion(
+    adm,
+    {
+      type: "retiro",
+      propertyId: "",
+      propertyTitle: "un retiro — confirmalo en el Panel de Administración",
+      userName: `💸 ${nombre}`,
+      userPhoto: null,
+      text: `${nombre} solicitó retirar ${monto}${r.cuentaBanco ? " a " + r.cuentaBanco : ""}. Revisalo y confirmá el pago.`,
+    },
+    { title: "💸 Solicitud de retiro", body: `${nombre} pidió cobrar ${monto}.` }
+  );
+});
+
 exports.notificarNuevoUsuario = onDocumentCreated("users/{uid}", async (event) => {
   const snap = event.data;
   if (!snap) return;

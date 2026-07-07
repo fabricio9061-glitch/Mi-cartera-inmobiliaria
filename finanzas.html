@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mis Finanzas | MALAVE</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <meta name="theme-color" content="#16273f">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root{ --ink:#16273f; --paper:#f4f5f7; --card:#fff; --line:#e5e8ec; --muted:#6b7480; --gold:#C9A227; --ok:#1e7d4f; --bad:#c0392b; --warn:#b45309; }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{ font-family:'Inter',sans-serif; background:var(--paper); color:#1d2733; line-height:1.5; }
+    h1,h2,h3{ font-family:'Cormorant Garamond',serif; }
+    .fh{ background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:50; }
+    .fh-in{ max-width:960px; margin:0 auto; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; gap:14px; }
+    .fh-logo{ display:flex; align-items:center; gap:9px; font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:700; color:var(--ink); letter-spacing:.12em; }
+    .fh-back{ display:inline-flex; align-items:center; gap:7px; color:var(--muted); font-size:.88rem; font-weight:500; padding:8px 15px; border:1px solid var(--line); border-radius:999px; text-decoration:none; }
+    .fh-back:hover{ background:var(--ink); color:#fff; border-color:var(--ink); }
+    .wrap{ max-width:960px; margin:0 auto; padding:26px 20px 70px; }
+    .ftitle{ font-size:2rem; color:var(--ink); margin-bottom:4px; }
+    .flede{ color:var(--muted); margin-bottom:22px; }
+
+    /* Billeteras */
+    .wallets{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:26px; }
+    .wallet{ border-radius:18px; padding:20px 22px; color:#fff; position:relative; overflow:hidden; }
+    .wallet.usd{ background:linear-gradient(135deg,#14532d,#1e7d4f); }
+    .wallet.uyu{ background:linear-gradient(135deg,#1e3a5f,#2563eb); }
+    .wallet .cur{ font-size:.8rem; letter-spacing:.08em; text-transform:uppercase; opacity:.8; display:flex; align-items:center; gap:7px; }
+    .wallet .amount{ font-size:2.1rem; font-weight:700; margin:8px 0 2px; font-variant-numeric:tabular-nums; }
+    .wallet .sub{ font-size:.78rem; opacity:.82; }
+    .wallet .breakdown{ display:flex; gap:16px; margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,.18); font-size:.74rem; }
+    .wallet .breakdown div span{ display:block; opacity:.7; }
+    .wallet .breakdown div b{ font-size:.92rem; font-weight:600; }
+    .wallet .wbtn{ margin-top:16px; width:100%; background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.25); color:#fff; border-radius:11px; padding:11px; font-family:inherit; font-size:.9rem; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
+    .wallet .wbtn:hover:not(:disabled){ background:rgba(255,255,255,.26); }
+    .wallet .wbtn:disabled{ opacity:.45; cursor:not-allowed; }
+
+    .sec{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px 22px; margin-bottom:18px; }
+    .sec-head{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
+    .sec-head h3{ font-size:1.3rem; color:var(--ink); display:flex; align-items:center; gap:9px; }
+    .sec-head h3 i{ color:var(--gold); font-size:1.1rem; }
+    .btn-add{ border:1px solid var(--line); background:#fff; border-radius:10px; padding:8px 14px; font-family:inherit; font-size:.84rem; font-weight:600; color:var(--ink); cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
+    .btn-add:hover{ border-color:var(--gold); color:var(--gold); }
+
+    /* Cuentas bancarias */
+    .accounts{ display:flex; flex-direction:column; gap:11px; }
+    .acc{ border:1px solid var(--line); border-radius:13px; padding:13px 15px; display:flex; align-items:center; gap:13px; }
+    .acc-ic{ width:42px; height:42px; border-radius:11px; background:#eef1f6; color:var(--ink); display:flex; align-items:center; justify-content:center; font-size:1.05rem; flex:none; }
+    .acc-info{ flex:1; min-width:0; }
+    .acc-bank{ font-weight:600; color:var(--ink); }
+    .acc-meta{ font-size:.8rem; color:var(--muted); margin-top:2px; }
+    .acc-cur{ font-size:.66rem; font-weight:700; padding:2px 8px; border-radius:20px; background:#eef1f6; color:var(--ink); }
+    .acc-cur.usd{ background:rgba(30,125,79,.12); color:var(--ok); }
+    .acc-cur.uyu{ background:rgba(37,99,235,.12); color:#2563eb; }
+    .acc-del{ border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:9px; width:34px; height:34px; cursor:pointer; flex:none; }
+    .acc-del:hover{ border-color:var(--bad); color:var(--bad); }
+    .empty{ text-align:center; color:var(--muted); padding:26px 14px; font-size:.9rem; }
+    .empty i{ font-size:1.8rem; color:var(--line); display:block; margin-bottom:8px; }
+
+    /* Historial de retiros */
+    .withdraw{ display:flex; align-items:center; gap:13px; padding:13px 0; border-bottom:1px solid var(--line); }
+    .withdraw:last-child{ border-bottom:none; }
+    .w-amount{ font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums; min-width:110px; }
+    .w-info{ flex:1; min-width:0; font-size:.8rem; color:var(--muted); }
+    .w-st{ font-size:.7rem; font-weight:700; padding:4px 11px; border-radius:20px; white-space:nowrap; }
+    .w-st.pendiente{ background:#fef3c7; color:var(--warn); }
+    .w-st.aprobado{ background:#dbeafe; color:#2563eb; }
+    .w-st.pagado{ background:#dcfce7; color:var(--ok); }
+    .w-st.rechazado{ background:#fee2e2; color:var(--bad); }
+    .w-st.cancelado{ background:#f1f1f4; color:var(--muted); }
+    .w-cancel{ border:1px solid #ecc8c2; background:#fff; color:var(--bad); border-radius:8px; padding:5px 10px; font-family:inherit; font-size:.74rem; font-weight:600; cursor:pointer; }
+
+    /* Modal */
+    .ov{ position:fixed; inset:0; background:rgba(16,25,40,.55); display:none; align-items:center; justify-content:center; z-index:100; padding:18px; }
+    .ov.open{ display:flex; }
+    .modal{ background:#fff; border-radius:18px; width:100%; max-width:440px; max-height:92vh; overflow:auto; padding:24px; }
+    .modal h2{ font-size:1.5rem; color:var(--ink); margin-bottom:6px; display:flex; align-items:center; gap:9px; }
+    .modal h2 i{ color:var(--gold); }
+    .modal .sub{ font-size:.86rem; color:var(--muted); margin-bottom:18px; }
+    .fg{ margin-bottom:14px; }
+    .fg label{ display:block; font-size:.8rem; font-weight:600; color:var(--ink); margin-bottom:6px; }
+    .fg input, .fg select{ width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px; font-family:inherit; font-size:.95rem; }
+    .fg input:focus, .fg select:focus{ outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.12); }
+    .fg small{ display:block; font-size:.74rem; color:var(--muted); margin-top:5px; }
+    .amount-in{ position:relative; }
+    .amount-in .pre{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--muted); font-weight:600; }
+    .amount-in input{ padding-left:44px; font-size:1.2rem; font-weight:700; }
+    .max-hint{ font-size:.8rem; color:var(--muted); margin-top:6px; display:flex; justify-content:space-between; }
+    .max-hint a{ color:var(--gold); font-weight:600; cursor:pointer; }
+    .m-actions{ display:flex; gap:10px; margin-top:20px; }
+    .m-actions button{ flex:1; padding:12px; border-radius:11px; font-family:inherit; font-size:.92rem; font-weight:600; cursor:pointer; border:none; }
+    .m-cancel{ background:#f1f1f4; color:#444; }
+    .m-ok{ background:var(--gold); color:#fff; }
+    .m-ok:disabled{ opacity:.5; cursor:not-allowed; }
+    .m-err{ background:#fef2f2; color:var(--bad); border:1px solid #f3c9c4; border-radius:9px; padding:9px 12px; font-size:.82rem; margin-bottom:14px; display:none; }
+
+    .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:13px 22px; border-radius:12px; font-size:.9rem; display:none; align-items:center; gap:10px; z-index:200; box-shadow:0 8px 30px rgba(22,39,63,.35); }
+    .toast.err{ background:var(--bad); }
+    .state{ text-align:center; padding:70px 20px; color:var(--muted); }
+    .state .sp{ width:44px; height:44px; border:4px solid var(--line); border-top-color:var(--ink); border-radius:50%; animation:sp 1s linear infinite; margin:0 auto 18px; }
+    @keyframes sp{ to{ transform:rotate(360deg); } }
+    @media (max-width:640px){ .wallets{ grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <header class="fh">
+    <div class="fh-in">
+      <div class="fh-logo"><i class="fas fa-building" style="color:var(--gold)"></i> MALAVE</div>
+      <a class="fh-back" href="index.html"><i class="fas fa-arrow-left"></i> Volver</a>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div id="loading" class="state"><div class="sp"></div><p>Cargando tus finanzas…</p></div>
+
+    <div id="content" style="display:none">
+      <h1 class="ftitle">Mis Finanzas</h1>
+      <p class="flede">Acá ves tu dinero ganado, gestionás tus cuentas y solicitás cobros a la administración.</p>
+
+      <div class="wallets">
+        <div class="wallet usd">
+          <div class="cur"><i class="fas fa-dollar-sign"></i> Billetera en dólares</div>
+          <div class="amount" id="wUsdDisp">US$ 0</div>
+          <div class="sub">disponible para retirar</div>
+          <div class="breakdown">
+            <div><span>Ganado</span><b id="wUsdGan">US$ 0</b></div>
+            <div><span>Pendiente</span><b id="wUsdPend">US$ 0</b></div>
+            <div><span>Cobrado</span><b id="wUsdPag">US$ 0</b></div>
+          </div>
+          <button class="wbtn" id="wUsdBtn" onclick="abrirRetiro('USD')"><i class="fas fa-money-bill-transfer"></i> Solicitar retiro</button>
+        </div>
+        <div class="wallet uyu">
+          <div class="cur"><i class="fas fa-money-bill-wave"></i> Billetera en pesos</div>
+          <div class="amount" id="wUyuDisp">$U 0</div>
+          <div class="sub">disponible para retirar</div>
+          <div class="breakdown">
+            <div><span>Ganado</span><b id="wUyuGan">$U 0</b></div>
+            <div><span>Pendiente</span><b id="wUyuPend">$U 0</b></div>
+            <div><span>Cobrado</span><b id="wUyuPag">$U 0</b></div>
+          </div>
+          <button class="wbtn" id="wUyuBtn" onclick="abrirRetiro('UYU')"><i class="fas fa-money-bill-transfer"></i> Solicitar retiro</button>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-head">
+          <h3><i class="fas fa-university"></i> Mis cuentas bancarias</h3>
+          <button class="btn-add" onclick="abrirCuenta()"><i class="fas fa-plus"></i> Agregar cuenta</button>
+        </div>
+        <div class="accounts" id="accounts"></div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-head"><h3><i class="fas fa-clock-rotate-left"></i> Historial de solicitudes</h3></div>
+        <div id="withdraws"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: agregar cuenta -->
+  <div class="ov" id="accModal">
+    <div class="modal">
+      <h2><i class="fas fa-university"></i> Nueva cuenta</h2>
+      <div class="sub">Estos datos los usa la administración para transferirte. Solo vos y el admin los ven.</div>
+      <div class="m-err" id="accErr"></div>
+      <div class="fg"><label>Banco</label><select id="accBanco"><option value="">Elegí tu banco…</option></select></div>
+      <div class="fg"><label>Moneda de la cuenta</label><select id="accMoneda"><option value="">—</option><option value="UYU">Pesos ($U)</option><option value="USD">Dólares (US$)</option></select></div>
+      <div class="fg"><label>Titular</label><input type="text" id="accTitular" placeholder="Nombre como figura en el banco"></div>
+      <div class="fg"><label>Cédula del titular</label><input type="text" id="accCI" placeholder="1.234.567-8"></div>
+      <div class="fg"><label>Número de cuenta</label><input type="text" id="accNumero" placeholder="Nº de cuenta"></div>
+      <div class="fg"><label>Tipo de cuenta</label><select id="accTipo"><option value="">—</option><option value="Caja de ahorro">Caja de ahorro</option><option value="Cuenta corriente">Cuenta corriente</option></select></div>
+      <div class="m-actions">
+        <button class="m-cancel" onclick="cerrar('accModal')">Cancelar</button>
+        <button class="m-ok" onclick="guardarCuenta(this)">Guardar cuenta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: solicitar retiro -->
+  <div class="ov" id="retModal">
+    <div class="modal">
+      <h2><i class="fas fa-money-bill-transfer"></i> Solicitar retiro</h2>
+      <div class="sub" id="retSub">Ingresá el monto que querés cobrar.</div>
+      <div class="m-err" id="retErr"></div>
+      <div class="fg">
+        <label>Monto a retirar</label>
+        <div class="amount-in"><span class="pre" id="retPre">US$</span><input type="number" id="retMonto" min="0" step="0.01" placeholder="0" oninput="validarMonto()"></div>
+        <div class="max-hint"><span>Disponible: <b id="retDisp">—</b></span><a onclick="retirarTodo()">Retirar todo</a></div>
+      </div>
+      <div class="fg"><label>Cobrar a la cuenta</label><select id="retCuenta"></select><small id="retCuentaHint"></small></div>
+      <div class="m-actions">
+        <button class="m-cancel" onclick="cerrar('retModal')">Cancelar</button>
+        <button class="m-ok" id="retOkBtn" onclick="enviarRetiro(this)">Enviar solicitud</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"><i class="fas fa-check-circle"></i><span id="toastTxt"></span></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script>
+    var firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
+    firebase.initializeApp(firebaseConfig);
+    var auth = firebase.auth(), db = firebase.firestore();
+
+    var BANCOS_UY = ['BROU - Banco República','Banco Itaú','Santander','BBVA','Scotiabank','HSBC','Banco Heritage','Citibank','Banco de la Nación Argentina','BANDES','Prex','Mi Dinero','OCA Blue','Anda','Creditel','Otro'];
+
+    var me = null, profile = null, cuentas = [], retiros = [];
+    var saldos = { USD:{ganado:0,pend:0,pag:0}, UYU:{ganado:0,pend:0,pag:0} };
+    var cfgPts = { dolarPesos:40 };
+
+    function fmt(n, cur){ return (cur==='UYU'?'$U ':'US$ ') + Math.round(Number(n)||0).toLocaleString('es-UY'); }
+    function disp(cur){ var s=saldos[cur]; return Math.max(0, s.ganado - s.pend - s.pag); }
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+    function toast(m, err){ var t=document.getElementById('toast'); t.className='toast'+(err?' err':''); t.querySelector('i').className=err?'fas fa-triangle-exclamation':'fas fa-check-circle'; document.getElementById('toastTxt').textContent=m; t.style.display='flex'; clearTimeout(t._tm); t._tm=setTimeout(function(){t.style.display='none';},4000); }
+    function cerrar(id){ document.getElementById(id).classList.remove('open'); }
+
+    auth.onAuthStateChanged(async function(u){
+      if(!u){ location.href='index.html'; return; }
+      me = u;
+      try{
+        var pd = await db.collection('users').doc(u.uid).get();
+        profile = pd.exists ? pd.data() : {};
+        cuentas = Array.isArray(profile.cuentasBancarias) ? profile.cuentasBancarias : migrarCuentaVieja(profile);
+        try { var c = await db.collection('config').doc('recompensas').get(); if(c.exists) cfgPts = Object.assign(cfgPts, c.data()); } catch(e){}
+        await Promise.all([calcularGanado(u.uid), cargarRetiros(u.uid)]);
+        render();
+        document.getElementById('loading').style.display='none';
+        document.getElementById('content').style.display='block';
+      }catch(e){ console.error(e); toast('No se pudieron cargar tus finanzas: '+(e.code||e.message), true); }
+    });
+
+    // Compat: si el agente tenía una sola cuenta cargada en el perfil viejo, la trae.
+    function migrarCuentaVieja(p){
+      if(p.bancoNombre || p.cuentaNumero){
+        return [{ banco:p.bancoNombre||'', moneda:p.cuentaMoneda||'', titular:p.cuentaTitular||'', ci:p.cuentaCI||'', numero:p.cuentaNumero||'', tipo:p.cuentaTipo||'', id:'cta_'+Date.now() }];
+      }
+      return [];
+    }
+
+    // Ganado = suma de comisiones de cierres CONFIRMADOS donde soy el agente.
+    async function calcularGanado(uid){
+      saldos.USD.ganado = 0; saldos.UYU.ganado = 0;
+      var snap = await db.collection('properties').where('ownerId','==',uid).get();
+      var DEF_SALE=3, DEF_MONTHS=1;
+      snap.forEach(function(d){
+        var p=d.data(); if(!p.cierre || p.cierreConfirmado!==true) return;
+        var c=p.cierre;
+        var gan=(c.gananciaAgente!=null && c.gananciaAgente!=='' && isFinite(Number(c.gananciaAgente)))?Number(c.gananciaAgente):null;
+        if(gan==null){
+          var precio=Number(c.precio)||0;
+          var comAg=(c.tipo==='venta')?precio*((c.agencyPct!=null?Number(c.agencyPct):DEF_SALE)/100):precio*(c.agencyMonths!=null?Number(c.agencyMonths):DEF_MONTHS);
+          var pct=(c.tipo==='venta')?Number(profile.commissionSale):Number(profile.commissionRent);
+          gan=pct?comAg*pct/100:0;
+        }
+        var mon=c.moneda||'USD';
+        saldos[mon==='UYU'?'UYU':'USD'].ganado += gan;
+      });
+    }
+
+    // Retiros: pendientes+aprobados restan del disponible; pagados también (ya salió la plata).
+    async function cargarRetiros(uid){
+      saldos.USD.pend=0; saldos.UYU.pend=0; saldos.USD.pag=0; saldos.UYU.pag=0;
+      var snap = await db.collection('retiros').where('agenteUid','==',uid).get();
+      retiros = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); })
+        .sort(function(a,b){ return (b.creadoEl||'').localeCompare(a.creadoEl||''); });
+      retiros.forEach(function(r){
+        var m=r.moneda==='UYU'?'UYU':'USD';
+        if(r.status==='pendiente' || r.status==='aprobado') saldos[m].pend += Number(r.monto)||0;
+        else if(r.status==='pagado') saldos[m].pag += Number(r.monto)||0;
+      });
+    }
+
+    function render(){
+      ['USD','UYU'].forEach(function(cur){
+        var pre = cur==='USD'?'Usd':'Uyu';
+        document.getElementById('w'+pre+'Disp').textContent = fmt(disp(cur), cur);
+        document.getElementById('w'+pre+'Gan').textContent = fmt(saldos[cur].ganado, cur);
+        document.getElementById('w'+pre+'Pend').textContent = fmt(saldos[cur].pend, cur);
+        document.getElementById('w'+pre+'Pag').textContent = fmt(saldos[cur].pag, cur);
+        document.getElementById('w'+pre+'Btn').disabled = disp(cur) <= 0;
+      });
+      renderCuentas();
+      renderRetiros();
+    }
+
+    function renderCuentas(){
+      var box=document.getElementById('accounts');
+      if(!cuentas.length){ box.innerHTML='<div class="empty"><i class="fas fa-building-columns"></i>Todavía no cargaste ninguna cuenta. Agregá una para poder cobrar.</div>'; return; }
+      box.innerHTML = cuentas.map(function(a){
+        var cc = a.moneda==='UYU'?'uyu':(a.moneda==='USD'?'usd':'');
+        var meta=[a.tipo, a.numero?('Nº '+a.numero):'', a.titular].filter(Boolean).join(' · ');
+        return '<div class="acc"><div class="acc-ic"><i class="fas fa-university"></i></div>'
+          +'<div class="acc-info"><div class="acc-bank">'+esc(a.banco||'Cuenta')+' <span class="acc-cur '+cc+'">'+(a.moneda==='UYU'?'$U':(a.moneda==='USD'?'US$':'—'))+'</span></div>'
+          +'<div class="acc-meta">'+esc(meta||'Sin datos')+'</div></div>'
+          +'<button class="acc-del" onclick="borrarCuenta(\''+a.id+'\')" title="Eliminar"><i class="fas fa-trash"></i></button></div>';
+      }).join('');
+    }
+
+    function renderRetiros(){
+      var box=document.getElementById('withdraws');
+      if(!retiros.length){ box.innerHTML='<div class="empty"><i class="fas fa-receipt"></i>Todavía no hiciste ninguna solicitud de retiro.</div>'; return; }
+      var LAB={pendiente:'Pendiente',aprobado:'Aprobado',pagado:'Pagado',rechazado:'Rechazado',cancelado:'Cancelado'};
+      box.innerHTML = retiros.map(function(r){
+        var f = r.creadoEl ? new Date(r.creadoEl).toLocaleDateString('es-UY',{day:'numeric',month:'short',year:'numeric'}) : '';
+        var info = f + (r.cuentaBanco?(' · '+esc(r.cuentaBanco)):'') + (r.status==='rechazado' && r.motivo?(' · '+esc(r.motivo)):'');
+        var cancel = r.status==='pendiente' ? '<button class="w-cancel" onclick="cancelar(\''+r.id+'\')">Cancelar</button>' : '';
+        return '<div class="withdraw"><div class="w-amount">'+fmt(r.monto,r.moneda)+'</div>'
+          +'<div class="w-info">'+info+'</div>'
+          +'<span class="w-st '+r.status+'">'+(LAB[r.status]||r.status)+'</span>'+cancel+'</div>';
+      }).join('');
+    }
+
+    // ---- Cuentas ----
+    function abrirCuenta(){
+      var sel=document.getElementById('accBanco');
+      if(!sel.dataset.filled){ sel.insertAdjacentHTML('beforeend', BANCOS_UY.map(function(b){return '<option value="'+b+'">'+b+'</option>';}).join('')); sel.dataset.filled='1'; }
+      ['accBanco','accMoneda','accTitular','accCI','accNumero','accTipo'].forEach(function(id){ document.getElementById(id).value=''; });
+      document.getElementById('accErr').style.display='none';
+      document.getElementById('accModal').classList.add('open');
+    }
+    async function guardarCuenta(btn){
+      var banco=document.getElementById('accBanco').value, moneda=document.getElementById('accMoneda').value,
+          numero=document.getElementById('accNumero').value.trim();
+      var err=document.getElementById('accErr');
+      if(!banco || !moneda || !numero){ err.textContent='Completá al menos banco, moneda y número de cuenta.'; err.style.display='block'; return; }
+      btn.disabled=true;
+      var nueva={ id:'cta_'+Date.now(), banco:banco, moneda:moneda, titular:document.getElementById('accTitular').value.trim(), ci:document.getElementById('accCI').value.trim(), numero:numero, tipo:document.getElementById('accTipo').value };
+      try{
+        cuentas.push(nueva);
+        await db.collection('users').doc(me.uid).set({ cuentasBancarias:cuentas, updatedAt:new Date().toISOString() }, {merge:true});
+        cerrar('accModal'); renderCuentas(); toast('Cuenta agregada');
+      }catch(e){ cuentas.pop(); err.textContent='No se pudo guardar: '+(e.code||e.message); err.style.display='block'; }
+      btn.disabled=false;
+    }
+    async function borrarCuenta(id){
+      if(!confirm('¿Eliminar esta cuenta?')) return;
+      var prev=cuentas.slice();
+      cuentas=cuentas.filter(function(a){return a.id!==id;});
+      try{ await db.collection('users').doc(me.uid).set({ cuentasBancarias:cuentas, updatedAt:new Date().toISOString() }, {merge:true}); renderCuentas(); toast('Cuenta eliminada'); }
+      catch(e){ cuentas=prev; toast('No se pudo eliminar: '+(e.code||e.message), true); }
+    }
+
+    // ---- Retiro ----
+    var retCur=null;
+    function abrirRetiro(cur){
+      retCur=cur;
+      var d=disp(cur);
+      if(d<=0){ toast('No tenés saldo disponible en esa moneda', true); return; }
+      document.getElementById('retPre').textContent = cur==='UYU'?'$U':'US$';
+      document.getElementById('retSub').textContent = 'Billetera en '+(cur==='UYU'?'pesos':'dólares')+'. Podés retirar hasta tu disponible.';
+      document.getElementById('retDisp').textContent = fmt(d, cur);
+      document.getElementById('retMonto').value='';
+      document.getElementById('retErr').style.display='none';
+      // Cuentas de esa moneda (o todas si no marcó moneda)
+      var opts = cuentas.filter(function(a){ return !a.moneda || a.moneda===cur; });
+      var sel=document.getElementById('retCuenta');
+      sel.innerHTML = opts.length
+        ? opts.map(function(a){ return '<option value="'+a.id+'">'+esc(a.banco)+(a.numero?(' — Nº '+esc(a.numero)):'')+'</option>'; }).join('')
+        : '<option value="">— sin cuentas en esta moneda —</option>';
+      document.getElementById('retCuentaHint').textContent = opts.length ? '' : 'Agregá primero una cuenta en '+(cur==='UYU'?'pesos':'dólares')+'.';
+      validarMonto();
+      document.getElementById('retModal').classList.add('open');
+    }
+    function retirarTodo(){ document.getElementById('retMonto').value = Math.floor(disp(retCur)*100)/100; validarMonto(); }
+    function validarMonto(){
+      var v=parseFloat(document.getElementById('retMonto').value), d=disp(retCur);
+      var err=document.getElementById('retErr'), ok=document.getElementById('retOkBtn');
+      var tieneCuenta = cuentas.filter(function(a){ return !a.moneda || a.moneda===retCur; }).length>0;
+      var valido = !isNaN(v) && v>0 && v<=d && tieneCuenta;
+      if(!isNaN(v) && v>d){ err.textContent='No podés retirar más de tu disponible ('+fmt(d,retCur)+').'; err.style.display='block'; }
+      else if(!isNaN(v) && v<=0){ err.textContent='El monto tiene que ser mayor a cero.'; err.style.display='block'; }
+      else err.style.display='none';
+      ok.disabled=!valido;
+    }
+    async function enviarRetiro(btn){
+      var v=parseFloat(document.getElementById('retMonto').value), d=disp(retCur);
+      if(isNaN(v) || v<=0 || v>d){ validarMonto(); return; }
+      var ctaId=document.getElementById('retCuenta').value;
+      var cta=cuentas.find(function(a){return a.id===ctaId;}) || {};
+      btn.disabled=true;
+      try{
+        var doc={
+          agenteUid:me.uid,
+          agenteNombre:profile.name || me.email || 'Agente',
+          monto:Math.round(v*100)/100,
+          moneda:retCur,
+          status:'pendiente',
+          cuentaBanco:cta.banco||'', cuentaNumero:cta.numero||'', cuentaTitular:cta.titular||'', cuentaTipo:cta.tipo||'', cuentaCI:cta.ci||'',
+          creadoEl:new Date().toISOString()
+        };
+        await db.collection('retiros').add(doc);
+        cerrar('retModal');
+        await cargarRetiros(me.uid); render();
+        toast('Solicitud enviada. La administración la va a revisar.');
+      }catch(e){ var err=document.getElementById('retErr'); err.textContent='No se pudo enviar: '+(e.code||e.message); err.style.display='block'; btn.disabled=false; }
+    }
+    async function cancelar(id){
+      if(!confirm('¿Cancelar esta solicitud de retiro?')) return;
+      try{ await db.collection('retiros').doc(id).update({ status:'cancelado', canceladoEl:new Date().toISOString() }); await cargarRetiros(me.uid); render(); toast('Solicitud cancelada'); }
+      catch(e){ toast('No se pudo cancelar: '+(e.code||e.message), true); }
+    }
+  </script>
+</body>
+</html>
