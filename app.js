@@ -56,7 +56,7 @@
   const VAPID_KEY = 'BK8DjPgkooF91Ou9js1FOaX9VtJwVDqFaXpGePoYosqWcmpy5MBrtW0YauhWjWpYP1yUVvM9IzT4toFYLdEI8Ko';
 
   async function setupFCM() {
-    if (!messaging || !currentUser) return;
+    if (!currentUser) return;
     try {
       // 1. Verificar soporte de Service Worker
       if (!('serviceWorker' in navigator)) {
@@ -68,9 +68,14 @@
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
         console.log('Permiso de notificaciones denegado');
-        showToast('Notificaciones', 'Habilita las notificaciones para recibir recordatorios', 'fa-bell');
         return;
       }
+
+      // messaging puede no estar listo todavía; lo inicializamos si hace falta.
+      if (!messaging && firebase.messaging) {
+        try { messaging = firebase.messaging(); } catch (e) { console.warn('messaging no disponible', e); return; }
+      }
+      if (!messaging) return;
 
       // 3. Registrar Service Worker
       const reg = await navigator.serviceWorker.register('firebase-messaging-sw.js');
@@ -295,6 +300,50 @@
 
   function requestNotificationPermission() {
     if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission()
+  }
+
+  // Activación de notificaciones DISPARADA POR EL USUARIO (botón). iOS exige que el
+  // pedido de permiso venga de un gesto del usuario y que la web esté instalada en la
+  // pantalla de inicio; si no, no muestra el diálogo. Esta función da feedback claro.
+  async function activarNotificaciones() {
+    // ¿iPhone/iPad en Safari SIN instalar a inicio? Ahí iOS nunca deja activar push.
+    const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const instalada = window.navigator.standalone === true ||
+                      window.matchMedia('(display-mode: standalone)').matches;
+    if (esIOS && !instalada) {
+      alert('En iPhone, primero agregá la app a tu pantalla de inicio:\n\n1) Tocá el botón Compartir de Safari\n2) "Agregar a inicio"\n3) Abrí MALAVE desde ese ícono\n4) Volvé a tocar "Activar notificaciones"');
+      return;
+    }
+    if (!('Notification' in window)) {
+      alert('Tu navegador no soporta notificaciones.');
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      alert('Las notificaciones están bloqueadas. Activálas desde los ajustes del navegador (o borrá la app de inicio y volvé a agregarla) y reintentá.');
+      return;
+    }
+    try {
+      await setupFCM(); // pide permiso (gesto del usuario) + registra token
+      if (Notification.permission === 'granted') {
+        showToast('¡Listo!', 'Notificaciones activadas correctamente', 'fa-bell');
+        ocultarBannerNotif();
+      } else {
+        showToast('No se activaron', 'No diste permiso de notificaciones', 'fa-bell-slash');
+      }
+    } catch (e) {
+      console.warn('activarNotificaciones', e);
+      alert('No se pudieron activar las notificaciones. Reintentá en un momento.');
+    }
+  }
+  // Muestra el banner solo si el permiso NO está concedido; con botón para activar.
+  function refrescarBannerNotif() {
+    const b = document.getElementById('notifBanner');
+    if (!b) return;
+    const soportado = 'Notification' in window;
+    b.style.display = (soportado && Notification.permission === 'granted') ? 'none' : '';
+  }
+  function ocultarBannerNotif() {
+    const b = document.getElementById('notifBanner'); if (b) b.style.display = 'none';
   }
 
   function sendBrowserNotification(t, b, tag = 'notification') {
@@ -947,8 +996,11 @@
           currentUser = u;
           allUsers[u.uid] = userProfile;
           updateUI();
-          requestNotificationPermission();
-          setupFCM();
+          // No pedimos permiso automáticamente (iOS lo bloquea si no es por gesto del
+          // usuario). Mostramos el banner con botón "Activar"; si ya está concedido,
+          // setupFCM refresca el token en silencio.
+          refrescarBannerNotif();
+          if ('Notification' in window && Notification.permission === 'granted') setupFCM();
           startNotificationPolling();
           loadVisits();
           startVisitReminderCheck();
@@ -1695,7 +1747,7 @@
         archived: 'ARCHIVADA'
       };
       const stLabel = stLabels[st] || '';
-      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button><button class="card-action-btn" onclick="event.stopPropagation();openMLModal('${p.id}')" title="Mercado Libre" style="background:#fff159;color:#2d3277"><i class="fas fa-tag"></i></button><button class="btn-feature ${p.featured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${p.featured?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button><button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${safeUrl(o.profilePhoto)}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span>${ce?`<span class="card-views" title="Tocaron Contactar"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${p.contactClicks||0}</span>`:''}</div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
+      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${!ce?`<button class="mv-fav ${mvEsFav(p.id)?'on':''}" title="Guardar" onclick="mvToggleFav(event,'${p.id}')"><i class="${mvEsFav(p.id)?'fas':'far'} fa-heart"></i></button>`:''}${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button><button class="card-action-btn" onclick="event.stopPropagation();openMLModal('${p.id}')" title="Mercado Libre" style="background:#fff159;color:#2d3277"><i class="fas fa-tag"></i></button><button class="btn-feature ${p.featured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${p.featured?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button><button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${safeUrl(o.profilePhoto)}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span>${ce?`<span class="card-views" title="Tocaron Contactar"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${p.contactClicks||0}</span>`:''}</div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
     }).join('')
   }
 
@@ -3904,10 +3956,17 @@
 
 
 // ===== Inicio v2: favoritos del visitante (localStorage) y foto del hero =====
-// Favoritos del visitante: quitados (no aportaban valor). Stubs inertes por compatibilidad.
-function mvFavsGet() { return []; }
-function mvEsFav() { return false; }
-function mvToggleFav(ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); }
+function mvFavsGet() { try { return JSON.parse(localStorage.getItem('mvFavs') || '[]'); } catch (e) { return []; } }
+function mvEsFav(id) { return mvFavsGet().includes(id); }
+function mvToggleFav(ev, id) {
+  ev.stopPropagation();
+  let f = mvFavsGet();
+  f = f.includes(id) ? f.filter(x => x !== id) : f.concat([id]);
+  try { localStorage.setItem('mvFavs', JSON.stringify(f)); } catch (e) { /* sin storage */ }
+  const b = ev.currentTarget, on = f.includes(id);
+  b.classList.toggle('on', on);
+  b.innerHTML = '<i class="' + (on ? 'fas' : 'far') + ' fa-heart"></i>';
+}
 function mvSetHeroPhoto(ps) {
   // La imagen del hero ahora es una foto fija profesional definida en index.html
   // (antes tomaba la primera propiedad y no se integraba bien). No se toca.
