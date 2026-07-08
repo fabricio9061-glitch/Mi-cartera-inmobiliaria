@@ -168,6 +168,15 @@
         <div class="fg"><label id="regGanLabel">Tu ganancia <small style="color:#aaa">(lo que te quedó, sin IVA)</small></label><input type="number" id="regGanancia" placeholder="0"></div>
         <div class="fg"><label>&nbsp;</label><div style="font-size:.78rem;color:#999;padding-top:10px">Se calcula sola: comisión de cada parte × tu %. Podés cobrar por una o ambas partes. Corregila a mano si el número real fue otro.</div></div>
       </div>
+
+      <div class="fg" id="regEquipoWrap">
+        <label style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <span><i class="fas fa-users" style="color:var(--gold,#C9A227)"></i> ¿Cerraste en equipo?</span>
+          <button type="button" id="regAddAgente" onclick="agregarParticipante()" style="border:1px solid #d9c48a;background:#fdf8ec;color:#8a6d12;border-radius:8px;padding:6px 12px;font-family:inherit;font-size:.8rem;font-weight:600;cursor:pointer"><i class="fas fa-plus"></i> Agregar agente</button>
+        </label>
+        <small style="color:#aaa;display:block;margin:-2px 0 8px">Sumá a los agentes que participaron y escribí cuánto le toca a cada uno. Cada uno lo verá en su saldo y sumará sus puntos.</small>
+        <div id="regParticipantes"></div>
+      </div>
       <div class="grid2">
         <div class="fg"><label>Fecha del cierre</label><input type="date" id="regFecha"></div>
         <div class="fg"><label>&nbsp;</label><div style="font-size:.78rem;color:#999;padding-top:10px">El alquiler es por mes.</div></div>
@@ -611,6 +620,45 @@
       document.querySelectorAll('input[name="regTipo"]').forEach(r=>r.addEventListener('change', ()=>{ ajustarPartesLabels(); recalcGanancia(); }));
       const m = document.getElementById('regMoneda'); if(m) m.addEventListener('change', recalcGanancia);
     })();
+    // ===== Agentes participantes (cierre en equipo) =====
+    // El agente principal ya tiene su parte en "Tu ganancia". Acá se suman los DEMÁS
+    // participantes con su monto fijo; cada uno verá su parte en su saldo y sus puntos.
+    let _partIdx = 0;
+    function agregarParticipante(uidPre, montoPre){
+      const cont = document.getElementById('regParticipantes');
+      if(!cont) return;
+      const id = 'part_' + (_partIdx++);
+      // El principal no puede elegirse a sí mismo como participante extra
+      const principalUid = (isAdmin && document.getElementById('regAgente') && document.getElementById('regAgente').value)
+        ? document.getElementById('regAgente').value : curUser.uid;
+      const opciones = '<option value="">— elegí un agente —</option>' +
+        agentesList.filter(a => a.uid !== principalUid)
+          .map(a => '<option value="'+esc(a.uid)+'"'+(uidPre===a.uid?' selected':'')+'>'+esc(a.name)+'</option>').join('');
+      const row = document.createElement('div');
+      row.className = 'reg-part-row';
+      row.id = id;
+      row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px';
+      row.innerHTML =
+        '<select class="reg-part-ag" style="flex:1;padding:9px 10px;border:1px solid #ddd;border-radius:8px;font-family:inherit">'+opciones+'</select>' +
+        '<input type="number" class="reg-part-monto" placeholder="Monto" value="'+(montoPre||'')+'" style="width:110px;padding:9px 10px;border:1px solid #ddd;border-radius:8px;font-family:inherit">' +
+        '<button type="button" onclick="document.getElementById(\''+id+'\').remove()" style="border:1px solid #ecc8c2;background:#fff;color:#c0392b;border-radius:8px;width:36px;height:38px;cursor:pointer;flex:none" title="Quitar"><i class="fas fa-trash"></i></button>';
+      cont.appendChild(row);
+    }
+    // Devuelve los participantes cargados (con nombre resuelto), validados.
+    function leerParticipantes(){
+      const rows = document.querySelectorAll('#regParticipantes .reg-part-row');
+      const out = [];
+      rows.forEach(r => {
+        const uid = r.querySelector('.reg-part-ag').value;
+        const monto = parseFloat(r.querySelector('.reg-part-monto').value);
+        if(uid && !isNaN(monto) && monto > 0){
+          const ag = agentesList.find(a => a.uid === uid) || {};
+          out.push({ uid: uid, nombre: ag.name || 'Agente', monto: Math.round(monto*100)/100 });
+        }
+      });
+      return out;
+    }
+
     function llenarAgentes(defUid){
       const wrap = document.getElementById('regAgenteWrap');
       if(!isAdmin || !agentesList.length){ if(wrap) wrap.style.display='none'; return; }
@@ -690,6 +738,7 @@
       document.getElementById('regPrecio').value='';
       document.getElementById('regPrecio').placeholder='0';
       document.getElementById('regGanancia').value='';
+      const _pc = document.getElementById('regParticipantes'); if(_pc) _pc.innerHTML = '';
       ganManual = false;
       document.getElementById('regPctComprador').value='';
       document.getElementById('regPctVendedor').value='';
@@ -763,6 +812,7 @@
         comisionVendedor: (function(){ const v=parseFloat(document.getElementById('regPctVendedor').value); return isNaN(v)?null:v; })(),
         ambasPartes: (function(){ const c=parseFloat(document.getElementById('regPctComprador').value)||0, v=parseFloat(document.getElementById('regPctVendedor').value)||0; return c>0 && v>0; })(),
         agenteUid: cierreAgUid, agenteNombre: cierreAgNom,
+        participantes: leerParticipantes(),
         registradoEl: new Date().toISOString()
       };
       const btn=document.getElementById('regSave'); btn.disabled=true;

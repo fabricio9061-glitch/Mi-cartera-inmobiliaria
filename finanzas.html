@@ -268,6 +268,22 @@
         saldos[mon==='UYU'?'UYU':'USD'].ganado += gan;
       });
 
+      // Participaciones en EQUIPO: cierres de otros agentes donde figuro como
+      // participante con monto fijo. Sumo mi parte.
+      try{
+        var eqSnap = await db.collection('properties').where('cierreConfirmado','==',true).get();
+        eqSnap.forEach(function(d){
+          var p=d.data();
+          if(!p.cierre || p.cierre.agenteUid===uid) return; // los míos ya se contaron
+          var parts = Array.isArray(p.cierre.participantes) ? p.cierre.participantes : [];
+          var mia = parts.find(function(x){ return x.uid===uid; });
+          if(!mia) return;
+          var monto = Number(mia.monto)||0; if(!monto) return;
+          var mon = p.cierre.moneda||'USD';
+          saldos[mon==='UYU'?'UYU':'USD'].ganado += monto;
+        });
+      }catch(e){ console.warn('equipo', e && e.message); }
+
       // Ganancia por REFERIDOS: mi % de lo que ganó cada agente que referí, en sus
       // cierres confirmados. El % está en referidos/{uidReferido}.
       try{

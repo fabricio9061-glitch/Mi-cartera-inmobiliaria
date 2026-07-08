@@ -1932,6 +1932,25 @@
         pts += Math.floor(ganUSD / 100) * (Number(cfg.puntosPor100) || 1);
       });
 
+      // Participaciones en EQUIPO: cierres de OTROS agentes donde yo figuro como
+      // participante con un monto fijo. Sumo mi parte y mis puntos por esa parte.
+      try {
+        const eqSnap = await db.collection('properties').where('cierreConfirmado', '==', true).get();
+        eqSnap.forEach(d => {
+          const p = d.data();
+          if (!p.cierre || p.cierre.agenteUid === currentUser.uid) return; // los míos ya se contaron
+          const parts = Array.isArray(p.cierre.participantes) ? p.cierre.participantes : [];
+          const mia = parts.find(x => x.uid === currentUser.uid);
+          if (!mia) return;
+          const monto = Number(mia.monto) || 0;
+          if (!monto) return;
+          const moneda = p.cierre.moneda || 'USD';
+          if (moneda === 'UYU') sumUYU += monto; else sumUSD += monto;
+          const mUSD = moneda === 'UYU' ? (cfg.dolarPesos > 0 ? monto / cfg.dolarPesos : 0) : monto;
+          pts += Math.floor(mUSD / 100) * (Number(cfg.puntosPor100) || 1);
+        });
+      } catch (e) { console.warn('[finanzas menú] equipo', e && e.message); }
+
       // Ganancia por REFERIDOS: si yo referí a otros agentes, cobro mi % de lo que
       // ganó cada uno en sus cierres confirmados. El % (por venta/alquiler) está en
       // referidos/{uidReferido}. Se suma solo al confirmarse el cierre del referido.
