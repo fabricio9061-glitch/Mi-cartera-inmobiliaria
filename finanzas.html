@@ -267,6 +267,27 @@
         var mon=c.moneda||'USD';
         saldos[mon==='UYU'?'UYU':'USD'].ganado += gan;
       });
+
+      // Ganancia por REFERIDOS: mi % de lo que ganó cada agente que referí, en sus
+      // cierres confirmados. El % está en referidos/{uidReferido}.
+      try{
+        var refSnap = await db.collection('referidos').where('referrerUid','==',uid).get();
+        for(var i=0;i<refSnap.docs.length;i++){
+          var rd = refSnap.docs[i], refInfo = rd.data(), referidoUid = rd.id;
+          var pctS = Number(refInfo.pctSale)||0, pctR = Number(refInfo.pctRent)||0;
+          if(!pctS && !pctR) continue;
+          var cs = await db.collection('properties').where('ownerId','==',referidoUid).get();
+          cs.forEach(function(d){
+            var p=d.data(); if(!p.cierre || p.cierreConfirmado!==true) return;
+            var c=p.cierre;
+            var ganRef=(c.gananciaAgente!=null && c.gananciaAgente!=='' && isFinite(Number(c.gananciaAgente)))?Number(c.gananciaAgente):0;
+            var rfPct=(c.tipo==='venta')?pctS:pctR;
+            if(!ganRef || !rfPct) return;
+            var mon=c.moneda||'USD';
+            saldos[mon==='UYU'?'UYU':'USD'].ganado += ganRef*rfPct/100;
+          });
+        }
+      }catch(e){ console.warn('referidos', e && e.message); }
     }
 
     // Retiros: pendientes+aprobados restan del disponible; pagados también (ya salió la plata).
