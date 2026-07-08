@@ -393,6 +393,7 @@
     document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSideRetiros')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSidePapelera')?.classList.toggle('hidden', !isAdminUser());
+    if (isAdminUser()) actualizarBadgePendientes();
     document.getElementById('mvSide')?.classList.add('open');
     document.getElementById('mvSideOverlay')?.classList.add('open');
     document.getElementById('mvSide')?.setAttribute('aria-hidden', 'false');
@@ -814,7 +815,7 @@
     if (!currentUser) return;
     loadNotifications();
     if (notificationCheckInterval) clearInterval(notificationCheckInterval);
-    notificationCheckInterval = setInterval(loadNotifications, 10000)
+    notificationCheckInterval = setInterval(() => { loadNotifications(); if (isAdminUser()) actualizarBadgePendientes(); }, 10000)
   }
 
   function stopNotificationPolling() {
@@ -914,6 +915,32 @@
   auth.onAuthStateChanged(async u => {
     if (u) {
       const d = await db.collection('users').doc(u.uid).get();
+      if (!d.exists) {
+        // Cuenta en Authentication pero SIN perfil en Firestore (quedó a medias en un
+        // registro anterior). La reparamos creando el doc pendiente ahora, así aparece
+        // en el panel del admin sin tener que borrarla y volver a registrarse.
+        try {
+          const esAdmin = (u.email || '').toLowerCase() === ADMIN_EMAIL;
+          await db.collection('users').doc(u.uid).set({
+            uid: u.uid,
+            email: u.email || '',
+            name: u.displayName || (u.email ? u.email.split('@')[0] : 'Usuario'),
+            whatsapp: '',
+            status: esAdmin ? 'approved' : 'pending',
+            createdAt: new Date().toISOString(),
+            autorreparado: true
+          });
+          console.log('Perfil reparado para', u.email);
+        } catch (e) {
+          console.error('No se pudo reparar el perfil:', e);
+          auth.signOut();
+          alert('Hubo un problema con tu cuenta. Volvé a registrarte o avisale al administrador.');
+          return;
+        }
+        auth.signOut();
+        alert('Tu cuenta quedó registrada y está pendiente de aprobación. El administrador ya la puede ver.');
+        return;
+      }
       if (d.exists) {
         userProfile = d.data();
         if (userProfile.status === 'approved' || userProfile.email.toLowerCase() === ADMIN_EMAIL) {
@@ -1432,6 +1459,46 @@
     }
   }
 
+  // Espera a que la sesión de auth esté realmente lista y con token vigente, para
+  // que las reglas de Firestore reciban request.auth != null en la primera escritura.
+  function esperarSesion(user) {
+    return new Promise((resolve) => {
+      let listo = false;
+      const finish = async () => {
+        if (listo) return; listo = true;
+        try { await user.getIdToken(true); } catch (e) { /* seguimos igual */ }
+        resolve();
+      };
+      // Si ya hay currentUser con el mismo uid, listo; si no, esperamos el evento.
+      if (auth.currentUser && auth.currentUser.uid === user.uid) { finish(); return; }
+      const unsub = auth.onAuthStateChanged((u) => {
+        if (u && u.uid === user.uid) { unsub(); finish(); }
+      });
+      // Red de seguridad: no colgarse más de 4s esperando el evento.
+      setTimeout(finish, 4000);
+    });
+  }
+
+  // Escribe el perfil reintentando si falla por permisos/timing (hasta 3 intentos,
+  // con una pausa creciente y refrescando el token entre intentos).
+  async function escribirPerfilConReintento(uid, ud) {
+    let ultimoError = null;
+    for (let intento = 1; intento <= 3; intento++) {
+      try {
+        await db.collection('users').doc(uid).set(ud);
+        return; // éxito
+      } catch (err) {
+        ultimoError = err;
+        console.warn(`Registro: intento ${intento} de escribir el perfil falló:`, err && err.code);
+        if (intento < 3) {
+          await new Promise(r => setTimeout(r, 700 * intento));
+          try { if (auth.currentUser) await auth.currentUser.getIdToken(true); } catch (e) {}
+        }
+      }
+    }
+    throw ultimoError; // los 3 intentos fallaron
+  }
+
   async function handleRegister(e) {
     e.preventDefault();
     const b = document.getElementById('registerBtn'),
@@ -1484,7 +1551,16 @@
         createdAt: new Date().toISOString()
       };
       if (ig && ig.includes('instagram.com')) ud.instagram = ig;
-      await db.collection('users').doc(uc.user.uid).set(ud);
+
+      // IMPORTANTE (fix registros que no aparecían): tras crear la cuenta, la sesión
+      // de auth puede tardar un instante en propagarse. Si escribimos el perfil antes
+      // de que esté lista, las reglas ven request.auth == null y RECHAZAN la escritura
+      // por permisos: queda la cuenta en Authentication pero SIN doc en Firestore, y el
+      // panel no la ve. Por eso: (1) esperamos a que auth.currentUser esté confirmado,
+      // (2) forzamos un token fresco, y (3) reintentamos la escritura si falla.
+      await esperarSesion(uc.user);
+      await escribirPerfilConReintento(uc.user.uid, ud);
+
       await auth.signOut();
       document.getElementById('registerForm').reset();
       su.textContent = ia ? '¡Cuenta admin creada!' : '¡Cuenta creada! Espera aprobación.';
@@ -1823,10 +1899,10 @@
   // Lee los cierres CONFIRMADOS donde el usuario es el agente, calcula su comisión
   // (misma regla que el mapa de cierres) y los puntos de recompensa (1 por cada
   // US$100 de su ganancia). No duplica datos: es la misma fuente que ya existe.
-  let _finLoaded = false;
+  let _finBusy = false;
   async function cargarFinanzasMenu() {
-    if (_finLoaded || !currentUser) return;
-    _finLoaded = true;
+    if (_finBusy || !currentUser) return;
+    _finBusy = true;
     try {
       // Config de puntos (para convertir pesos y saber el valor del punto)
       let cfg = { puntosPor100: 1, dolarPesos: 40 };
@@ -1856,6 +1932,48 @@
         pts += Math.floor(ganUSD / 100) * (Number(cfg.puntosPor100) || 1);
       });
 
+      // Ganancia por REFERIDOS: si yo referí a otros agentes, cobro mi % de lo que
+      // ganó cada uno en sus cierres confirmados. El % (por venta/alquiler) está en
+      // referidos/{uidReferido}. Se suma solo al confirmarse el cierre del referido.
+      try {
+        const refSnap = await db.collection('referidos').where('referrerUid', '==', currentUser.uid).get();
+        for (const rd of refSnap.docs) {
+          const refInfo = rd.data();
+          const referidoUid = rd.id; // el doc se identifica por el uid del referido
+          const pctS = Number(refInfo.pctSale) || 0, pctR = Number(refInfo.pctRent) || 0;
+          if (!pctS && !pctR) continue;
+          const cs = await db.collection('properties').where('ownerId', '==', referidoUid).get();
+          cs.forEach(d => {
+            const p = d.data();
+            if (!p.cierre || p.cierreConfirmado !== true) return;
+            const c = p.cierre;
+            // Ganancia del referido en ese cierre (base para mi %)
+            const ganRef = (c.gananciaAgente != null && c.gananciaAgente !== '' && isFinite(Number(c.gananciaAgente)))
+              ? Number(c.gananciaAgente) : 0;
+            const rfPct = (c.tipo === 'venta') ? pctS : pctR;
+            if (!ganRef || !rfPct) return;
+            const miParte = ganRef * rfPct / 100;
+            const moneda = c.moneda || 'USD';
+            if (moneda === 'UYU') sumUYU += miParte; else sumUSD += miParte;
+          });
+        }
+      } catch (e) { console.warn('[finanzas menú] referidos', e && e.message); }
+
+      // Descontar retiros: los pagados ya salieron, y los pendientes/aprobados están
+      // comprometidos. El SALDO a cobrar es lo ganado menos eso (los PUNTOS no bajan:
+      // se ganan al cerrar y quedan). Esto corrige que el saldo no bajara al pagar.
+      try {
+        const rs = await db.collection('retiros').where('agenteUid', '==', currentUser.uid).get();
+        rs.forEach(d => {
+          const r = d.data();
+          if (r.status === 'pagado' || r.status === 'pendiente' || r.status === 'aprobado') {
+            const m = Number(r.monto) || 0;
+            if (r.moneda === 'UYU') sumUYU -= m; else sumUSD -= m;
+          }
+        });
+      } catch (e) { console.warn('[finanzas menú] retiros', e && e.message); }
+      sumUSD = Math.max(0, sumUSD); sumUYU = Math.max(0, sumUYU);
+
       const usdEl = document.getElementById('mvFinUsd');
       const uyuEl = document.getElementById('mvFinUyu');
       const puntosEl = document.getElementById('mvFinPuntos');
@@ -1870,7 +1988,24 @@
     } catch (e) {
       console.warn('[finanzas menú]', e && e.message);
       ['mvFinUsd','mvFinUyu','mvFinPuntos'].forEach(function(id){ var e=document.getElementById(id); if(e) e.textContent='—'; });
+    } finally {
+      _finBusy = false;
     }
+  }
+
+  // Cuenta usuarios pendientes de aprobación leyendo la colección directamente.
+  // Es a prueba de fallos: no depende de la Cloud Function ni del push. Aunque la
+  // notificación no llegue, el admin ve acá cuántos registros esperan aprobación.
+  async function actualizarBadgePendientes() {
+    try {
+      const s = await db.collection('users').where('status', '==', 'pending').get();
+      const n = s.size;
+      const badge = document.getElementById('mvPendBadge');
+      if (badge) {
+        badge.textContent = n;
+        badge.style.display = n > 0 ? 'inline-flex' : 'none';
+      }
+    } catch (e) { console.warn('[pendientes]', e && e.message); }
   }
 
   function openEditProfileModal() {
