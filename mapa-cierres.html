@@ -154,9 +154,19 @@
         <div class="fg"><label>Precio de cierre</label><input type="number" id="regPrecio" placeholder="0"></div>
         <div class="fg"><label>Moneda</label><select id="regMoneda"><option value="USD">US$</option><option value="UYU">$U</option></select></div>
       </div>
+
+      <div class="fg" id="regPartesWrap">
+        <label id="regPartesLabel">Comisión de la inmobiliaria <small style="color:#aaa">— cargá lo que paga cada parte (0 si no paga)</small></label>
+        <div class="grid2">
+          <div class="fg" style="margin:0"><label id="regLblComprador" style="font-size:.82rem">Comprador %</label><input type="number" id="regPctComprador" min="0" step="0.1" placeholder="3"></div>
+          <div class="fg" style="margin:0"><label id="regLblVendedor" style="font-size:.82rem">Vendedor %</label><input type="number" id="regPctVendedor" min="0" step="0.1" placeholder="3"></div>
+        </div>
+        <div id="regComResumen" style="font-size:.78rem;color:#8a6d12;background:rgba(201,162,39,.1);border-radius:8px;padding:7px 10px;margin-top:8px;display:none"></div>
+      </div>
+
       <div class="grid2">
         <div class="fg"><label id="regGanLabel">Tu ganancia <small style="color:#aaa">(lo que te quedó, sin IVA)</small></label><input type="number" id="regGanancia" placeholder="0"></div>
-        <div class="fg"><label>&nbsp;</label><div style="font-size:.78rem;color:#999;padding-top:10px">Se calcula sola con el % del agente (venta: 3% de comisión · alquiler: 1 mes) apenas ponés el precio. Corregila a mano si el número real fue otro; en la misma moneda del precio.</div></div>
+        <div class="fg"><label>&nbsp;</label><div style="font-size:.78rem;color:#999;padding-top:10px">Se calcula sola: comisión de cada parte × tu %. Podés cobrar por una o ambas partes. Corregila a mano si el número real fue otro.</div></div>
       </div>
       <div class="grid2">
         <div class="fg"><label>Fecha del cierre</label><input type="date" id="regFecha"></div>
@@ -544,26 +554,62 @@
       }
       return de(curProfile || {});
     }
-    // Precarga la ganancia con la regla estándar (venta: 3% de comisión inmobiliaria;
-    // alquiler: 1 mes) por el % del agente. Editable: si la tocan a mano, no se pisa.
+    // Ajusta las etiquetas de las partes según sea venta (%) o alquiler (meses).
+    function ajustarPartesLabels(){
+      const tipo = (document.querySelector('input[name="regTipo"]:checked')||{}).value || 'venta';
+      const lc = document.getElementById('regLblComprador'), lv = document.getElementById('regLblVendedor');
+      const cont = document.getElementById('regPartesLabel');
+      const pc = document.getElementById('regPctComprador'), pv = document.getElementById('regPctVendedor');
+      if(tipo==='venta'){
+        if(lc) lc.textContent = 'Comprador %'; if(lv) lv.textContent = 'Vendedor %';
+        if(cont) cont.innerHTML = 'Comisión de la inmobiliaria <small style="color:#aaa">— % que paga cada parte (0 si no paga)</small>';
+        if(pc) pc.placeholder='3'; if(pv) pv.placeholder='3';
+      } else {
+        if(lc) lc.textContent = 'Inquilino (meses)'; if(lv) lv.textContent = 'Propietario (meses)';
+        if(cont) cont.innerHTML = 'Comisión de la inmobiliaria <small style="color:#aaa">— meses de alquiler que paga cada parte (0 si no paga)</small>';
+        if(pc) pc.placeholder='1'; if(pv) pv.placeholder='0';
+      }
+    }
+    // Comisión inmobiliaria = suma de ambas partes. Venta: precio × (%compr + %vend).
+    // Alquiler: (meses inquilino + meses propietario) × precio mensual.
+    function comInmobiliariaTotal(precio, tipo){
+      const c = parseFloat(document.getElementById('regPctComprador').value);
+      const v = parseFloat(document.getElementById('regPctVendedor').value);
+      // Defaults si están vacíos: venta 3/3, alquiler 1/0 (una parte)
+      const cc = isNaN(c) ? (tipo==='venta'?3:1) : c;
+      const vv = isNaN(v) ? (tipo==='venta'?3:0) : v;
+      if(tipo==='venta') return precio * (cc + vv) / 100;
+      return precio * (cc + vv); // meses
+    }
+    // Precarga la ganancia: comisión total (ambas partes) × % del agente. Editable.
     function recalcGanancia(){
-      if(ganManual) return;
       const el = document.getElementById('regGanancia');
       const precio = parseFloat(document.getElementById('regPrecio').value);
-      if(!precio || precio<=0){ el.value=''; return; }
       const tipo = (document.querySelector('input[name="regTipo"]:checked')||{}).value || 'venta';
+      const cur = document.getElementById('regMoneda').value || 'USD';
+      const simb = cur==='UYU' ? '$U' : 'US$';
+      const comTot = (precio>0) ? comInmobiliariaTotal(precio, tipo) : 0;
+      // Resumen visible de la comisión inmobiliaria
+      const res = document.getElementById('regComResumen');
+      if(res){
+        if(comTot>0){ res.style.display='block'; res.textContent = 'Comisión de la inmobiliaria: ' + simb + ' ' + Math.round(comTot).toLocaleString('es-UY'); }
+        else res.style.display='none';
+      }
+      if(ganManual) return;
+      if(!precio || precio<=0){ el.value=''; return; }
       const com = comisionDelAgente();
       const pct = (tipo==='venta') ? com.sale : com.rent;
-      if(!(pct > 0)) return; // sin % configurado no se inventa nada
-      const comInmobiliaria = (tipo==='venta') ? precio * 0.03 : precio;
-      el.value = Math.round(comInmobiliaria * pct / 100);
+      if(!(pct > 0)) return; // sin % del agente configurado no se inventa nada
+      el.value = Math.round(comTot * pct / 100);
     }
     (function(){
       const p = document.getElementById('regPrecio');
       if(p) p.addEventListener('input', recalcGanancia);
       const g = document.getElementById('regGanancia');
       if(g) g.addEventListener('input', ()=>{ ganManual = g.value !== ''; });
-      document.querySelectorAll('input[name="regTipo"]').forEach(r=>r.addEventListener('change', recalcGanancia));
+      ['regPctComprador','regPctVendedor'].forEach(id=>{ const e=document.getElementById(id); if(e) e.addEventListener('input', recalcGanancia); });
+      document.querySelectorAll('input[name="regTipo"]').forEach(r=>r.addEventListener('change', ()=>{ ajustarPartesLabels(); recalcGanancia(); }));
+      const m = document.getElementById('regMoneda'); if(m) m.addEventListener('change', recalcGanancia);
     })();
     function llenarAgentes(defUid){
       const wrap = document.getElementById('regAgenteWrap');
@@ -645,6 +691,10 @@
       document.getElementById('regPrecio').placeholder='0';
       document.getElementById('regGanancia').value='';
       ganManual = false;
+      document.getElementById('regPctComprador').value='';
+      document.getElementById('regPctVendedor').value='';
+      document.getElementById('regComResumen').style.display='none';
+      ajustarPartesLabels();
       document.getElementById('regCons').value='';
       document.getElementById('regUbi').value='';
       document.getElementById('regFecha').value = new Date().toISOString().slice(0,10);
@@ -709,6 +759,9 @@
         realEstateType: p.realEstateType || '', barrio: (p.ubicacion && p.ubicacion.barrio) || p.barrio || '',
         precioPublicado: p.price || 0,
         gananciaAgente: gan,
+        comisionComprador: (function(){ const v=parseFloat(document.getElementById('regPctComprador').value); return isNaN(v)?null:v; })(),
+        comisionVendedor: (function(){ const v=parseFloat(document.getElementById('regPctVendedor').value); return isNaN(v)?null:v; })(),
+        ambasPartes: (function(){ const c=parseFloat(document.getElementById('regPctComprador').value)||0, v=parseFloat(document.getElementById('regPctVendedor').value)||0; return c>0 && v>0; })(),
         agenteUid: cierreAgUid, agenteNombre: cierreAgNom,
         registradoEl: new Date().toISOString()
       };
