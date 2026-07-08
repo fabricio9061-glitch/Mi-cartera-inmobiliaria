@@ -1823,10 +1823,10 @@
   // Lee los cierres CONFIRMADOS donde el usuario es el agente, calcula su comisión
   // (misma regla que el mapa de cierres) y los puntos de recompensa (1 por cada
   // US$100 de su ganancia). No duplica datos: es la misma fuente que ya existe.
-  let _finLoaded = false;
+  let _finBusy = false;
   async function cargarFinanzasMenu() {
-    if (_finLoaded || !currentUser) return;
-    _finLoaded = true;
+    if (_finBusy || !currentUser) return;
+    _finBusy = true;
     try {
       // Config de puntos (para convertir pesos y saber el valor del punto)
       let cfg = { puntosPor100: 1, dolarPesos: 40 };
@@ -1856,6 +1856,21 @@
         pts += Math.floor(ganUSD / 100) * (Number(cfg.puntosPor100) || 1);
       });
 
+      // Descontar retiros: los pagados ya salieron, y los pendientes/aprobados están
+      // comprometidos. El SALDO a cobrar es lo ganado menos eso (los PUNTOS no bajan:
+      // se ganan al cerrar y quedan). Esto corrige que el saldo no bajara al pagar.
+      try {
+        const rs = await db.collection('retiros').where('agenteUid', '==', currentUser.uid).get();
+        rs.forEach(d => {
+          const r = d.data();
+          if (r.status === 'pagado' || r.status === 'pendiente' || r.status === 'aprobado') {
+            const m = Number(r.monto) || 0;
+            if (r.moneda === 'UYU') sumUYU -= m; else sumUSD -= m;
+          }
+        });
+      } catch (e) { console.warn('[finanzas menú] retiros', e && e.message); }
+      sumUSD = Math.max(0, sumUSD); sumUYU = Math.max(0, sumUYU);
+
       const usdEl = document.getElementById('mvFinUsd');
       const uyuEl = document.getElementById('mvFinUyu');
       const puntosEl = document.getElementById('mvFinPuntos');
@@ -1870,6 +1885,8 @@
     } catch (e) {
       console.warn('[finanzas menú]', e && e.message);
       ['mvFinUsd','mvFinUyu','mvFinPuntos'].forEach(function(id){ var e=document.getElementById(id); if(e) e.textContent='—'; });
+    } finally {
+      _finBusy = false;
     }
   }
 
