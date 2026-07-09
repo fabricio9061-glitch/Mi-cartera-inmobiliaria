@@ -306,20 +306,30 @@
   // pedido de permiso venga de un gesto del usuario y que la web esté instalada en la
   // pantalla de inicio; si no, no muestra el diálogo. Esta función da feedback claro.
   async function activarNotificaciones() {
-    // ¿iPhone/iPad en Safari SIN instalar a inicio? Ahí iOS nunca deja activar push.
-    const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const ua = navigator.userAgent || '';
+    const esIOS = /iphone|ipad|ipod/i.test(ua);
+    const esAndroid = /android/i.test(ua);
     const instalada = window.navigator.standalone === true ||
                       window.matchMedia('(display-mode: standalone)').matches;
+    // iPhone/iPad: iOS solo permite push web si la app está agregada a la pantalla
+    // de inicio y se abre desde ahí. En Safari normal nunca deja activarlas.
     if (esIOS && !instalada) {
       alert('En iPhone, primero agregá la app a tu pantalla de inicio:\n\n1) Tocá el botón Compartir de Safari\n2) "Agregar a inicio"\n3) Abrí MALAVE desde ese ícono\n4) Volvé a tocar "Activar notificaciones"');
       return;
     }
     if (!('Notification' in window)) {
-      alert('Tu navegador no soporta notificaciones.');
+      alert('Tu navegador no soporta notificaciones. Probá con Chrome (Android) o Safari (iPhone).');
       return;
     }
     if (Notification.permission === 'denied') {
-      alert('Las notificaciones están bloqueadas. Activálas desde los ajustes del navegador (o borrá la app de inicio y volvé a agregarla) y reintentá.');
+      // Instrucción según la plataforma, porque se reactiva distinto en cada una.
+      if (esAndroid) {
+        alert('Las notificaciones están bloqueadas.\n\nEn Android: tocá el candado 🔒 junto a la dirección → Permisos → Notificaciones → Permitir. Después reintentá.');
+      } else if (esIOS) {
+        alert('Las notificaciones están bloqueadas.\n\nEn iPhone: Ajustes → Notificaciones → MALAVE, o borrá el ícono de inicio y volvé a agregar la app. Después reintentá.');
+      } else {
+        alert('Las notificaciones están bloqueadas. Activálas desde el candado 🔒 junto a la dirección del navegador y reintentá.');
+      }
       return;
     }
     try {
