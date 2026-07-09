@@ -346,13 +346,21 @@
     }
   }
   // Muestra el banner solo si el permiso NO está concedido; con botón para activar.
+  // Muestra el banner SOLO si: hay sesión iniciada, el navegador soporta
+  // notificaciones, el permiso todavía no está concedido, y el usuario no lo cerró
+  // ya en esta sesión. Así no aparece deslogueado ni parpadea al abrir.
   function refrescarBannerNotif() {
     const b = document.getElementById('notifBanner');
     if (!b) return;
-    const soportado = 'Notification' in window;
-    b.style.display = (soportado && Notification.permission === 'granted') ? 'none' : '';
+    const debeMostrar = !!currentUser
+      && ('Notification' in window)
+      && Notification.permission !== 'granted'
+      && !_notifBannerCerrado;
+    b.style.display = debeMostrar ? 'flex' : 'none';
   }
+  let _notifBannerCerrado = false;
   function ocultarBannerNotif() {
+    _notifBannerCerrado = true; // no volver a molestar hasta recargar
     const b = document.getElementById('notifBanner'); if (b) b.style.display = 'none';
   }
 
@@ -1027,6 +1035,7 @@
       visits = [];
       stopNotificationPolling();
       if (visitReminderInterval) clearInterval(visitReminderInterval);
+      const _nb = document.getElementById('notifBanner'); if (_nb) _nb.style.display = 'none';
       updateUI()
     }
   });
