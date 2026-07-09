@@ -107,6 +107,17 @@
     .crm-recall .txt{ flex:1; font-size:.86rem; color:#92400e; line-height:1.35; min-width:0; }
     .crm-recall button{ flex:none; border:none; background:#d97706; color:#fff; border-radius:9px; padding:8px 14px; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; white-space:nowrap; }
     .crm-recall button.off{ background:#fff; color:#92400e; border:1px solid #fde68a; }
+    .crm-recall button.cerrar{ background:transparent; color:#b45309; padding:6px 9px; font-size:.95rem; }
+    .crm-recall button.cerrar:hover{ background:#fef3c7; }
+    /* Menú de cambio rápido de estado (clic en la etiqueta de la tarjeta) */
+    .client-status{ cursor:pointer; }
+    .client-status .fa-chevron-down{ font-size:.55rem; opacity:.65; margin-left:2px; }
+    .st-pop{ position:fixed; z-index:1200; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 12px 32px rgba(22,39,63,.18); padding:8px; display:flex; flex-direction:column; gap:2px; min-width:185px; }
+    .st-pop .st-pop-hint{ font-size:.67rem; color:var(--gray-500); padding:3px 7px 7px; line-height:1.35; border-bottom:1px solid #f1f5f9; margin-bottom:3px; max-width:225px; }
+    .st-pop button{ border:none; background:transparent; text-align:left; padding:7px 9px; border-radius:8px; cursor:pointer; font-family:inherit; font-size:.8rem; display:flex; align-items:center; gap:9px; color:#374151; }
+    .st-pop button:hover{ background:#f8fafc; }
+    .st-pop button.sel{ background:#f1f5f9; font-weight:600; }
+    .st-pop button .dot{ width:9px; height:9px; border-radius:50%; flex:none; }
     .client-notes-preview{ font-size:.82rem; color:var(--gray-600); font-style:italic; background:var(--gray-50); border-radius:8px; padding:8px 11px; margin-bottom:10px; }
     .client-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:auto; padding-top:4px; }
     .client-actions a, .client-actions button{ font-size:.82rem; padding:8px 12px; border-radius:9px; border:1px solid var(--gray-200); background:#fff; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:6px; transition:all .15s; color:var(--navy); text-decoration:none; }
@@ -390,6 +401,7 @@
         <i class="fas fa-bell bell"></i>
         <div class="txt" id="crmRecallTxt"></div>
         <button id="crmRecallBtn" onclick="toggleRecontactar()">Verlos</button>
+        <button class="cerrar" onclick="silenciarBannerRecall()" title="Ocultar este aviso unos días"><i class="fas fa-times"></i></button>
       </div>
 
       <div class="crm-grid" id="crmGrid"></div>
@@ -568,7 +580,11 @@
     var SEGUIMIENTO = {
       diasNuevo: 7,    // sin gestión después de 7 días deja de ser "Nuevo" -> pasa a "Sin gestionar"
       diasAviso: 14,   // a los 14 días sin contacto la tarjeta avisa y entra al banner de recontacto
-      diasUrgente: 30  // a los 30 días el aviso pasa a rojo
+      diasUrgente: 30, // a los 30 días el aviso pasa a rojo
+      // Estados donde el silencio es lo esperado y NO hay que avisar: "En cartera"
+      // es etapa avanzada (la propiedad ya está captada), no un cliente abandonado.
+      estadosSinAviso: ['cartera'],
+      diasSilencioBanner: 3 // la X del banner lo silencia por estos días
     };
     function diasDesde(iso){ if(!iso) return 9999; var t=new Date(iso).getTime(); return isNaN(t)?9999:Math.floor((Date.now()-t)/86400000); }
 
@@ -616,14 +632,21 @@
       if (ACTIVE_STATES.indexOf(st) >= 0) return 'proceso';
       return 'otro'; // perdido u otros: no entra en los contadores principales
     }
-    // Cliente activo que hace demasiado que nadie toca: candidato a recontactar.
-    // Cerrados, perdidos y archivados nunca molestan.
-    function paraRecontactar(c){
-      if (!c || c.archived) return false;
-      var b = statBucket(rollupStatus(c));
-      if (b !== 'nuevo' && b !== 'proceso') return false;
-      return (c._diasSinContacto || 0) >= SEGUIMIENTO.diasAviso;
+    // Nivel de aviso por falta de contacto: null (nada), 'alerta' o 'urgente'.
+    // Cerrados, perdidos, archivados y los estados de estadosSinAviso (p. ej.
+    // "En cartera") nunca molestan.
+    function nivelAviso(c){
+      if (!c || c.archived) return null;
+      var rs = rollupStatus(c);
+      var b = statBucket(rs);
+      if (b !== 'nuevo' && b !== 'proceso') return null;
+      if (SEGUIMIENTO.estadosSinAviso.indexOf(rs) >= 0) return null;
+      var d = c._diasSinContacto || 0;
+      if (d >= SEGUIMIENTO.diasUrgente) return 'urgente';
+      if (d >= SEGUIMIENTO.diasAviso) return 'alerta';
+      return null;
     }
+    function paraRecontactar(c){ return nivelAviso(c) !== null; }
 
     // ===== Auth =====
     auth.onAuthStateChanged(function(user){
@@ -738,7 +761,7 @@
       var pendientes = clients.filter(function(c){ return paraRecontactar(c) && (!misClientesOnly || esMio(c)); });
       var rcBox = document.getElementById('crmRecall');
       if (rcBox){
-        if (pendientes.length){
+        if (pendientes.length && !bannerRecallSilenciado()){
           rcBox.style.display = 'flex';
           document.getElementById('crmRecallTxt').innerHTML = pendientes.length===1
             ? '<b>1 cliente</b> lleva más de '+SEGUIMIENTO.diasAviso+' días sin contacto. Un mensaje corto puede reactivarlo.'
@@ -796,7 +819,7 @@
               (owner?'<div class="client-owner"><i class="fas fa-user-tie"></i> '+esc(owner)+'</div>':'') +
               '<div style="font-size:.74rem;color:var(--gray-500);margin-top:3px"><i class="fas fa-handshake"></i> '+gestLabel+'</div>' +
             '</div>' +
-            '<span class="client-status '+rs+'">'+esc(stLabel)+'</span>' +
+            '<span class="client-status '+rs+'" role="button" title="Cambiar estado" onclick="abrirCambioEstado(event,\''+c.id+'\')">'+esc(stLabel)+' <i class="fas fa-chevron-down"></i></span>' +
           '</div>' +
           '<div class="client-meta">' +
             '<div class="client-meta-row"><i class="fas fa-phone"></i> '+esc(fmtPhone(phoneDisp))+'</div>' +
@@ -804,9 +827,9 @@
             ((c.email&&c.email.indexOf('@')<0)?'<div class="client-meta-row"><i class="fas fa-pen"></i> '+esc(c.email)+'</div>':'') +
           '</div>' +
           (function(){
-            var d = c._diasSinContacto||0, bk = statBucket(rs), activo = !c.archived && (bk==='nuevo'||bk==='proceso');
-            if (activo && d >= SEGUIMIENTO.diasUrgente) return '<div class="client-activity urgente"><i class="fas fa-exclamation-triangle"></i> '+d+' días sin contacto — retomalo</div>';
-            if (activo && d >= SEGUIMIENTO.diasAviso) return '<div class="client-activity alerta"><i class="fas fa-bell"></i> Sin contacto hace '+d+' días</div>';
+            var nv = nivelAviso(c), d = c._diasSinContacto||0;
+            if (nv==='urgente') return '<div class="client-activity urgente"><i class="fas fa-exclamation-triangle"></i> '+d+' días sin contacto — retomalo</div>';
+            if (nv==='alerta') return '<div class="client-activity alerta"><i class="fas fa-bell"></i> Sin contacto hace '+d+' días</div>';
             return actTxt?'<div class="client-activity"><i class="fas fa-clock"></i> '+actTxt+'</div>':'';
           })() +
           (c.notes?'<div style="font-size:.82rem;color:var(--gray-600);background:var(--gray-50);border-radius:8px;padding:7px 10px;line-height:1.4;margin-bottom:10px"><i class="fas fa-pen" style="opacity:.6;margin-right:5px"></i>'+esc(c.notes)+'</div>':'') +
@@ -833,6 +856,94 @@
       statFilter = (statFilter==='atencion') ? 'all' : 'atencion';
       document.getElementById('clientStatusFilter').value = '';
       renderClients();
+    }
+
+    // La X del banner lo silencia unos días (queda guardado en localStorage).
+    // Los avisos de cada tarjeta siguen visibles: lo que se silencia es el cartel.
+    function bannerRecallSilenciado(){
+      try {
+        var h = localStorage.getItem('crmRecallSilencio');
+        if (!h) return false;
+        return (Date.now() - new Date(h).getTime()) < SEGUIMIENTO.diasSilencioBanner*86400000;
+      } catch(e){ return false; }
+    }
+    function silenciarBannerRecall(){
+      try { localStorage.setItem('crmRecallSilencio', new Date().toISOString()); } catch(e){ /* sin storage */ }
+      if (statFilter==='atencion') statFilter = 'all';
+      renderClients();
+    }
+
+    // ===== Cambio rápido de estado desde la lista (clic en la etiqueta) =====
+    // La etiqueta del cliente es un RESUMEN: refleja su gestión más reciente.
+    // Por eso el cambio rápido actualiza ESA gestión, con el mismo formato que
+    // usa el perfil (estadoGestion + entrada en el historial). Si el cliente
+    // todavía no tiene gestiones, el estado vive en su ficha (clients.status).
+    // Además, cambiar el estado cuenta como actividad: resetea "sin contacto".
+    var _stPopEl = null, _stPopId = null;
+    function cerrarStPop(){ if (_stPopEl){ _stPopEl.remove(); _stPopEl = null; _stPopId = null; } }
+    document.addEventListener('click', function(e){ if (_stPopEl && !_stPopEl.contains(e.target)) cerrarStPop(); });
+    window.addEventListener('scroll', function(){ cerrarStPop(); }, true);
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape') cerrarStPop(); });
+
+    var ESTADO_DOT = { nuevo:'#2563eb', contactado:'#0891b2', seguimiento:'#b45309', visita:'#7c3aed', negociacion:'#be185d', cartera:'#4338ca', cerrado:'#15803d', perdido:'#b91c1c' };
+
+    function abrirCambioEstado(ev, id){
+      ev.stopPropagation();
+      if (_stPopId === id){ cerrarStPop(); return; } // segundo clic en la misma etiqueta: cierra
+      cerrarStPop();
+      var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
+      if (!c) return;
+      var actual = rollupStatus(c); if (actual==='singestion') actual = 'nuevo';
+      var pop = document.createElement('div');
+      pop.className = 'st-pop';
+      var hint = (c._gestionCount||0) > 1
+        ? '<div class="st-pop-hint">Este cliente tiene '+c._gestionCount+' gestiones: el cambio se aplica a la más reciente. Para manejar cada propiedad por separado, entrá a su ficha.</div>'
+        : '';
+      pop.innerHTML = hint + Object.keys(GESTION_ESTADO).map(function(k){
+        return '<button type="button" class="'+(k===actual?'sel':'')+'" onclick="aplicarCambioEstado(\''+id+'\',\''+k+'\')"><span class="dot" style="background:'+(ESTADO_DOT[k]||'#94a3b8')+'"></span>'+GESTION_ESTADO[k]+'</button>';
+      }).join('');
+      document.body.appendChild(pop);
+      var r = ev.currentTarget.getBoundingClientRect();
+      var x = Math.min(r.left, window.innerWidth - pop.offsetWidth - 10);
+      var y = r.bottom + 6;
+      if (y + pop.offsetHeight > window.innerHeight - 10) y = r.top - pop.offsetHeight - 6;
+      pop.style.left = Math.max(10, x) + 'px';
+      pop.style.top = Math.max(10, y) + 'px';
+      _stPopEl = pop; _stPopId = id;
+    }
+
+    function aplicarCambioEstado(id, nuevo){
+      cerrarStPop();
+      var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
+      if (!c) return;
+      var ahora = new Date().toISOString();
+      var quien = (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente';
+      db.collection('gestiones').where('clientId','==',id).get().then(function(q){
+        var ultimo = null;
+        q.docs.forEach(function(d){
+          var ts = d.data().updatedAt || d.data().createdAt || '';
+          if (!ultimo || ts > ultimo.ts) ultimo = { id: d.id, ts: ts };
+        });
+        if (ultimo){
+          // Misma escritura que el perfil: queda el avance en el historial de la gestión.
+          var entrada = { tipo:'avance', valor: GESTION_ESTADO[nuevo]||nuevo, autor: quien, fecha: ahora };
+          return db.collection('gestiones').doc(ultimo.id).update({
+            estadoGestion: nuevo,
+            updatedAt: ahora,
+            historial: firebase.firestore.FieldValue.arrayUnion(entrada)
+          });
+        }
+        return db.collection('clients').doc(id).update({ status: nuevo, updatedAt: ahora });
+      }).then(function(){
+        c._rollupStatus = nuevo;
+        c._lastActivity = ahora;
+        c._diasSinContacto = 0;
+        renderClients();
+        showToast('Estado actualizado a '+(GESTION_ESTADO[nuevo]||nuevo));
+      }).catch(function(e){
+        console.error('No se pudo cambiar el estado:', e);
+        showToast('No se pudo cambiar el estado');
+      });
     }
 
     // ===== Perfil del cliente (pantalla completa) =====

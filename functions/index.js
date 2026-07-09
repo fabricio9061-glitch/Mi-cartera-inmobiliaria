@@ -2175,7 +2175,10 @@ exports.recordatorioSeguimiento = onSchedule(
       if (c.archived) return;
       const u = ultima[d.id];
       const estado = u ? u.estado : (c.status || "nuevo");
-      if (estado === "cerrado" || estado === "perdido") return;
+      // Cerrado y perdido no molestan. "Cartera" tampoco: es etapa avanzada
+      // (la propiedad ya está captada) y el silencio ahí es normal, no abandono.
+      // Mantener esta lista igual a SEGUIMIENTO.estadosSinAviso de clientes.html.
+      if (estado === "cerrado" || estado === "perdido" || estado === "cartera") return;
       const ts = (u && u.ts) || c.updatedAt || c.createdAt || "";
       const t = new Date(ts).getTime();
       const dias = isNaN(t) ? 9999 : Math.floor((ahora - t) / 86400000);
