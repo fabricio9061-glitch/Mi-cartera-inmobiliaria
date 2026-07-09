@@ -22,6 +22,9 @@
 const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+// La API v2 no tiene triggers de Auth (onCreate/onDelete de usuarios): se usan
+// los de v1, que conviven sin problema con las funciones v2 de este archivo.
+const functionsV1 = require("firebase-functions/v1");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
@@ -2229,3 +2232,43 @@ exports.recordatorioSeguimiento = onSchedule(
     }
   }
 );
+
+// =====================================================================
+// Registro a prueba de fallos — garantía del lado del servidor.
+// El cliente ya intenta crear users/{uid} al registrarse (con reintentos y
+// rollback), pero puede fallar por caché de una versión vieja, cortes de red
+// o timing de permisos, dejando cuentas en Authentication invisibles para el
+// panel del admin. Este trigger corre en el servidor apenas se crea la cuenta
+// de Auth: si a los pocos segundos el perfil no existe, lo crea como pendiente.
+// La espera evita pisar la escritura del cliente (que trae más datos, como el
+// WhatsApp) y también crear un doc para registros que el cliente revierte.
+// =====================================================================
+exports.crearPerfilAlRegistrarse = functionsV1.auth.user().onCreate(async (user) => {
+  await new Promise((r) => setTimeout(r, 8000)); // le damos tiempo al cliente
+  const ref = db.collection("users").doc(user.uid);
+  const snap = await ref.get();
+  if (snap.exists) return; // el cliente ya lo escribió: no tocar nada
+  // ¿La cuenta sigue existiendo? Si el cliente hizo rollback, no crear huérfanos.
+  try { await admin.auth().getUser(user.uid); } catch (e) { return; }
+  const esAdmin = (user.email || "").toLowerCase() === ADMIN_EMAIL;
+  await ref.set({
+    uid: user.uid,
+    email: user.email || "",
+    name: user.displayName || (user.email ? user.email.split("@")[0] : "Usuario"),
+    whatsapp: "",
+    status: esAdmin ? "approved" : "pending",
+    createdAt: new Date().toISOString(),
+    creadoPorServidor: true
+  });
+  logger.info(`[crearPerfilAlRegistrarse] perfil creado en el servidor para ${user.email}`);
+});
+
+// Si la cuenta de Auth se borra (rollback del registro o borrado desde la
+// consola), el perfil de Firestore se va con ella: sin cuenta no hay login,
+// y un perfil suelto solo genera confusión en el panel.
+exports.limpiarPerfilAlBorrarse = functionsV1.auth.user().onDelete(async (user) => {
+  try {
+    await db.collection("users").doc(user.uid).delete();
+    logger.info(`[limpiarPerfilAlBorrarse] perfil eliminado para ${user.email || user.uid}`);
+  } catch (e) { /* si no existía, no hay nada que limpiar */ }
+});
