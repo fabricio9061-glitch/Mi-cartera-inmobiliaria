@@ -915,6 +915,11 @@
     l.innerHTML = notifications.map(n => {
       const i = (n.userName || 'A').charAt(0).toUpperCase(),
         ts = n.createdAt ? formatTimeAgo(n.createdAt) : '';
+      // Recordatorio del CRM (clientes sin contacto): formato propio y clic hacia Clientes,
+      // porque el formato estándar de abajo asume una consulta sobre una propiedad.
+      if (n.type === 'crm_seguimiento') {
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleCrmNotifClick('${n.id}')"><div class="notification-avatar" style="background:#fef3c7;color:#b45309"><i class="fas fa-user-clock"></i></div><div class="notification-body"><p><strong>Seguimiento de clientes</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,140))}${(n.text||'').length>140?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+      }
       return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar">${n.userPhoto?`<img src="${n.userPhoto}" alt="">`:i}</div><div class="notification-body"><p><strong>${n.userName}</strong> consultó sobre <strong>${n.propertyTitle}</strong></p><div class="notification-message">"${(n.text||'').substring(0,100)}${(n.text||'').length>100?'...':''}"</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span>${n.userPhone?`<a href="https://wa.me/${n.userPhone.replace(/\D/g,'')}" target="_blank" class="notification-phone" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i> ${n.userPhone}</a>`:''}</div></div></div>`
     }).join('')
   }
@@ -963,6 +968,17 @@
       console.error('Error marking notification as read:', e)
     }
     openDetail(pi, true)
+  }
+  // Clic en el recordatorio de seguimiento: marca leído y va a la página de Clientes.
+  async function handleCrmNotifClick(ni) {
+    closeNotifications();
+    try {
+      await db.collection('notifications').doc(ni).update({ read: true });
+      const n = notifications.find(nt => nt.id === ni);
+      if (n) n.read = true;
+      renderNotifications()
+    } catch (e) { /* si no se pudo marcar, igual navegamos */ }
+    window.location.href = 'clientes.html'
   }
   async function markAllAsRead(e) {
     e.stopPropagation();

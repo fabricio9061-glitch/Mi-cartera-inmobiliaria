@@ -90,12 +90,23 @@
     .client-status.cartera{ background:#e0e7ff; color:#4338ca; }
     .client-status.cerrado{ background:#dcfce7; color:#15803d; }
     .client-status.perdido{ background:#fee2e2; color:#b91c1c; }
+    .client-status.singestion{ background:#fef3c7; color:#b45309; }
     .client-interest-tag{ display:inline-block; font-size:.76rem; color:var(--gray-600); background:var(--gray-50); border:1px solid var(--gray-100); border-radius:8px; padding:4px 10px; margin-bottom:10px; }
     .client-meta{ display:flex; flex-direction:column; gap:5px; margin-bottom:10px; }
     .client-meta-row{ font-size:.84rem; color:var(--gray-600); display:flex; align-items:center; gap:8px; }
     .client-meta-row i{ width:14px; color:var(--gray-400); }
     .client-activity{ font-size:.76rem; color:var(--gray-500); display:flex; align-items:center; gap:7px; margin-bottom:12px; }
     .client-activity i{ color:var(--gray-400); }
+    .client-activity.alerta{ color:#b45309; font-weight:600; }
+    .client-activity.alerta i{ color:#d97706; }
+    .client-activity.urgente{ color:#b91c1c; font-weight:600; }
+    .client-activity.urgente i{ color:#dc2626; }
+    /* Banner "clientes para recontactar" */
+    .crm-recall{ display:flex; align-items:center; gap:12px; background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px 16px; margin-bottom:18px; }
+    .crm-recall i.bell{ color:#d97706; font-size:1.05rem; flex:none; }
+    .crm-recall .txt{ flex:1; font-size:.86rem; color:#92400e; line-height:1.35; min-width:0; }
+    .crm-recall button{ flex:none; border:none; background:#d97706; color:#fff; border-radius:9px; padding:8px 14px; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; white-space:nowrap; }
+    .crm-recall button.off{ background:#fff; color:#92400e; border:1px solid #fde68a; }
     .client-notes-preview{ font-size:.82rem; color:var(--gray-600); font-style:italic; background:var(--gray-50); border-radius:8px; padding:8px 11px; margin-bottom:10px; }
     .client-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:auto; padding-top:4px; }
     .client-actions a, .client-actions button{ font-size:.82rem; padding:8px 12px; border-radius:9px; border:1px solid var(--gray-200); background:#fff; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:6px; transition:all .15s; color:var(--navy); text-decoration:none; }
@@ -359,7 +370,7 @@
         <div class="crm-search"><i class="fas fa-search"></i><input type="text" id="clientSearch" placeholder="Buscar por nombre o teléfono..." oninput="renderClients()"></div>
         <select class="crm-filter" id="clientStatusFilter" onchange="statFilter='all';renderClients()">
           <option value="">Todos los estados</option>
-          <option value="nuevo">Nuevo</option><option value="contactado">Contactado</option>
+          <option value="nuevo">Nuevo</option><option value="singestion">Sin gestionar</option><option value="contactado">Contactado</option>
           <option value="seguimiento">En seguimiento</option><option value="visita">Visita agendada</option>
           <option value="negociacion">En negociación</option><option value="cartera">En cartera</option><option value="cerrado">Cerrado</option><option value="perdido">Perdido</option>
         </select>
@@ -373,6 +384,12 @@
           <option value="all">Todos</option>
         </select>
         <button type="button" class="crm-filter" id="misClientesBtn" onclick="toggleMisClientes()" style="cursor:pointer;white-space:nowrap;background:var(--primary);color:#fff;border-color:var(--primary)"><i class="fas fa-users"></i> Todos los clientes</button>
+      </div>
+
+      <div class="crm-recall" id="crmRecall" style="display:none">
+        <i class="fas fa-bell bell"></i>
+        <div class="txt" id="crmRecallTxt"></div>
+        <button id="crmRecallBtn" onclick="toggleRecontactar()">Verlos</button>
       </div>
 
       <div class="crm-grid" id="crmGrid"></div>
@@ -545,7 +562,15 @@
     var currentUser = null, userProfile = null, isAdmin = false;
     var clients = [];
     var misClientesOnly = true;
-    var statFilter = 'all'; // filtro rápido por tarjeta de stat: all | nuevo | proceso | cerrado
+    var statFilter = 'all'; // filtro rápido por tarjeta de stat: all | nuevo | proceso | cerrado | atencion (banner de recontacto)
+
+    // Seguimiento: umbrales en días (ajustar acá si se quieren otros plazos).
+    var SEGUIMIENTO = {
+      diasNuevo: 7,    // sin gestión después de 7 días deja de ser "Nuevo" -> pasa a "Sin gestionar"
+      diasAviso: 14,   // a los 14 días sin contacto la tarjeta avisa y entra al banner de recontacto
+      diasUrgente: 30  // a los 30 días el aviso pasa a rojo
+    };
+    function diasDesde(iso){ if(!iso) return 9999; var t=new Date(iso).getTime(); return isNaN(t)?9999:Math.floor((Date.now()-t)/86400000); }
 
     function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     function escA(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
@@ -586,10 +611,18 @@
     var ACTIVE_STATES = ['contactado','seguimiento','visita','negociacion','cartera'];
     function rollupStatus(c){ return (c && c._rollupStatus) || 'nuevo'; }
     function statBucket(st){
-      if (st === 'nuevo') return 'nuevo';
+      if (st === 'nuevo' || st === 'singestion') return 'nuevo';
       if (st === 'cerrado') return 'cerrado';
       if (ACTIVE_STATES.indexOf(st) >= 0) return 'proceso';
       return 'otro'; // perdido u otros: no entra en los contadores principales
+    }
+    // Cliente activo que hace demasiado que nadie toca: candidato a recontactar.
+    // Cerrados, perdidos y archivados nunca molestan.
+    function paraRecontactar(c){
+      if (!c || c.archived) return false;
+      var b = statBucket(rollupStatus(c));
+      if (b !== 'nuevo' && b !== 'proceso') return false;
+      return (c._diasSinContacto || 0) >= SEGUIMIENTO.diasAviso;
     }
 
     // ===== Auth =====
@@ -650,6 +683,11 @@
             var u = ultimaGest[c.id];
             c._rollupStatus = u ? u.estado : (c.status || 'nuevo');
             c._lastActivity = (u && u.ts) || c.updatedAt || c.createdAt || '';
+            c._diasSinContacto = diasDesde(c._lastActivity);
+            // "Nuevo" caduca: si sigue sin gestión pasada la primera semana, ya no es
+            // nuevo, es un pendiente. Es un estado derivado (no se escribe en la base):
+            // apenas se le registra una gestión, el estado pasa a ser el de la gestión.
+            if (c._rollupStatus === 'nuevo' && diasDesde(c.createdAt) > SEGUIMIENTO.diasNuevo) c._rollupStatus = 'singestion';
           });
           renderClients();
         }).catch(function(){ renderClients(); });
@@ -664,14 +702,16 @@
 
       // Stats sobre el estado REAL (el de la gestión más reciente de cada cliente)
       var st = { total:0, nuevo:0, proceso:0, cerrado:0 };
-      var nuevosMes=0, nuevosMesPrev=0;
+      var nuevosMes=0, nuevosMesPrev=0, frescos=0;
       var now=new Date(), y=now.getFullYear(), m=now.getMonth();
       var iniMes=new Date(y,m,1).toISOString(), iniPrev=new Date(y,m-1,1).toISOString();
       clients.forEach(function(c){
         if (c.archived) return; // las stats reflejan clientes activos
         st.total++;
-        var b = statBucket(rollupStatus(c));
+        var rst = rollupStatus(c);
+        var b = statBucket(rst);
         if (b==='nuevo') st.nuevo++; else if (b==='proceso') st.proceso++; else if (b==='cerrado') st.cerrado++;
+        if (rst==='nuevo') frescos++; // "nuevo" de verdad (dentro de la primera semana)
         var ca = c.createdAt || '';
         if (ca >= iniMes) nuevosMes++; else if (ca >= iniPrev) nuevosMesPrev++;
       });
@@ -687,24 +727,50 @@
       }
       document.getElementById('crmStats').innerHTML =
         statCard('total',   st.total,   'Total clientes', 'fa-users',    totalTrend) +
-        statCard('nuevo',   st.nuevo,   'Nuevos',         'fa-user-plus','<div class="crm-stat-trend flat">sin gestión</div>') +
+        statCard('nuevo',   st.nuevo,   'Sin gestión',    'fa-user-plus','<div class="crm-stat-trend flat">'+frescos+(frescos===1?' nuevo':' nuevos')+' esta semana</div>') +
         statCard('proceso', st.proceso, 'En proceso',     'fa-spinner',  '<div class="crm-stat-trend flat">con seguimiento</div>') +
         statCard('cerrado', st.cerrado, 'Cerrados',       'fa-circle-check','<div class="crm-stat-trend flat">ganados</div>');
 
       var arf = document.getElementById('clientArchivedFilter').value;
+
+      // Banner de recontacto: clientes activos sin contacto hace demasiado.
+      // Respeta el filtro "mis clientes" para que cada agente vea los suyos.
+      var pendientes = clients.filter(function(c){ return paraRecontactar(c) && (!misClientesOnly || esMio(c)); });
+      var rcBox = document.getElementById('crmRecall');
+      if (rcBox){
+        if (pendientes.length){
+          rcBox.style.display = 'flex';
+          document.getElementById('crmRecallTxt').innerHTML = pendientes.length===1
+            ? '<b>1 cliente</b> lleva más de '+SEGUIMIENTO.diasAviso+' días sin contacto. Un mensaje corto puede reactivarlo.'
+            : '<b>'+pendientes.length+' clientes</b> llevan más de '+SEGUIMIENTO.diasAviso+' días sin contacto. Un mensaje corto puede reactivarlos.';
+          var rcBtn = document.getElementById('crmRecallBtn');
+          rcBtn.textContent = statFilter==='atencion' ? 'Ver todos' : 'Verlos';
+          rcBtn.classList.toggle('off', statFilter==='atencion');
+        } else {
+          rcBox.style.display = 'none';
+          if (statFilter==='atencion') statFilter = 'all';
+        }
+      }
+
       var list = clients.filter(function(c){
         var m = !term || (c.name||'').toLowerCase().indexOf(term)>=0 || (c.phone||'').indexOf(term)>=0 || (c.phoneNormalized||'').indexOf(term)>=0;
         var archMatch = arf==='all' ? true : (arf==='archived' ? !!c.archived : !c.archived);
         var mio = !misClientesOnly || esMio(c);
         var rs = rollupStatus(c);
         var matchStatus = !sf || rs===sf;
-        var matchBucket = statFilter==='all' || statBucket(rs)===statFilter;
+        var matchBucket = statFilter==='all' || (statFilter==='atencion' ? paraRecontactar(c) : statBucket(rs)===statFilter);
         return m && archMatch && mio && matchStatus && matchBucket && (!inf || c.interest===inf);
       });
       list.sort(function(a,b){
         var am = esMio(a) ? 0 : 1, bm = esMio(b) ? 0 : 1;
         if (am !== bm) return am - bm;
-        return (b.createdAt||'').localeCompare(a.createdAt||'');
+        if (statFilter==='atencion'){
+          // Vista de recontacto: primero el más abandonado
+          return (a._lastActivity||'').localeCompare(b._lastActivity||'');
+        }
+        // Orden por actividad real: los que se están trabajando (o recién entran)
+        // quedan arriba; los que nadie toca van bajando solos.
+        return (b._lastActivity||'').localeCompare(a._lastActivity||'');
       });
 
       var g = document.getElementById('crmGrid');
@@ -720,7 +786,7 @@
         var nGest = c._gestionCount || 0;
         var gestLabel = nGest>0 ? (nGest+' gestión'+(nGest===1?'':'es')) : 'Sin gestiones';
         var rs = rollupStatus(c);
-        var stLabel = GESTION_ESTADO[rs] || rs;
+        var stLabel = rs==='singestion' ? 'Sin gestionar' : (GESTION_ESTADO[rs] || rs);
         var actTxt = c._lastActivity ? ((nGest>0?'Última gestión ':'Creado ')+relTime(c._lastActivity)) : '';
         return '<div class="client-card'+(c.archived?' archived':'')+'" onclick="showClientProfile(\''+c.id+'\')" style="cursor:pointer;position:relative">' +
           '<div class="client-card-top">' +
@@ -737,7 +803,12 @@
             ((c.links&&c.links.length)?'<div class="client-meta-row link-row"><i class="fas fa-link"></i> '+c.links.map(function(l,i){return '<a href="'+escA(l)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">'+(c.links.length>1?('Propiedad '+(i+1)):'Ver propiedad')+'</a>';}).join(' · ')+'</div>':'') +
             ((c.email&&c.email.indexOf('@')<0)?'<div class="client-meta-row"><i class="fas fa-pen"></i> '+esc(c.email)+'</div>':'') +
           '</div>' +
-          (actTxt?'<div class="client-activity"><i class="fas fa-clock"></i> '+actTxt+'</div>':'') +
+          (function(){
+            var d = c._diasSinContacto||0, bk = statBucket(rs), activo = !c.archived && (bk==='nuevo'||bk==='proceso');
+            if (activo && d >= SEGUIMIENTO.diasUrgente) return '<div class="client-activity urgente"><i class="fas fa-exclamation-triangle"></i> '+d+' días sin contacto — retomalo</div>';
+            if (activo && d >= SEGUIMIENTO.diasAviso) return '<div class="client-activity alerta"><i class="fas fa-bell"></i> Sin contacto hace '+d+' días</div>';
+            return actTxt?'<div class="client-activity"><i class="fas fa-clock"></i> '+actTxt+'</div>':'';
+          })() +
           (c.notes?'<div style="font-size:.82rem;color:var(--gray-600);background:var(--gray-50);border-radius:8px;padding:7px 10px;line-height:1.4;margin-bottom:10px"><i class="fas fa-pen" style="opacity:.6;margin-right:5px"></i>'+esc(c.notes)+'</div>':'') +
           '<div class="client-actions">' +
             (ph?'<a class="ca-wa" href="https://wa.me/'+ph+'" target="_blank" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i> WhatsApp</a>':'') +
@@ -753,6 +824,14 @@
     function filterByStat(bucket){
       statFilter = (statFilter===bucket || bucket==='total') ? 'all' : bucket;
       document.getElementById('clientStatusFilter').value = ''; // no pelear con el dropdown
+      renderClients();
+    }
+
+    // Botón del banner: muestra solo los clientes para recontactar (el más
+    // abandonado primero). Tocarlo de nuevo vuelve a la lista completa.
+    function toggleRecontactar(){
+      statFilter = (statFilter==='atencion') ? 'all' : 'atencion';
+      document.getElementById('clientStatusFilter').value = '';
       renderClients();
     }
 

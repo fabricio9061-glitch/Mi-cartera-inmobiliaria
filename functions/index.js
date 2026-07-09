@@ -21,6 +21,7 @@
 
 const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
@@ -2136,3 +2137,79 @@ exports.feedInfocasas = onRequest(async (req, res) => {
     res.status(500).send("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><xml></xml>");
   }
 });
+
+// =====================================================================
+// CRM — Recordatorio de seguimiento de clientes.
+// Corre lunes y jueves a las 10:00 (hora de Uruguay). Busca clientes activos
+// sin contacto hace RECORDATORIO_DIAS o más y le avisa a cada agente
+// (campanita + push FCM) cuántos tiene y quiénes son los más abandonados.
+// Cerrados, perdidos y archivados no cuentan. Los clientes sin agente
+// asignado (cargas viejas) se le avisan al admin.
+// Mantener RECORDATORIO_DIAS igual a SEGUIMIENTO.diasAviso de clientes.html.
+// =====================================================================
+const RECORDATORIO_DIAS = 14;
+
+exports.recordatorioSeguimiento = onSchedule(
+  { schedule: "0 10 * * 1,4", timeZone: "America/Montevideo" },
+  async () => {
+    const [cliSnap, gestSnap] = await Promise.all([
+      db.collection("clients").get(),
+      db.collection("gestiones").get(),
+    ]);
+
+    // Última gestión (fecha y estado) por cliente — mismo criterio que clientes.html.
+    const ultima = {};
+    gestSnap.docs.forEach((d) => {
+      const g = d.data();
+      if (!g.clientId) return;
+      const ts = g.updatedAt || g.createdAt || "";
+      if (!ultima[g.clientId] || ts > ultima[g.clientId].ts) {
+        ultima[g.clientId] = { ts, estado: g.estadoGestion || "nuevo" };
+      }
+    });
+
+    const ahora = Date.now();
+    const porAgente = {}; // uid -> [{ name, dias }]
+    cliSnap.docs.forEach((d) => {
+      const c = d.data();
+      if (c.archived) return;
+      const u = ultima[d.id];
+      const estado = u ? u.estado : (c.status || "nuevo");
+      if (estado === "cerrado" || estado === "perdido") return;
+      const ts = (u && u.ts) || c.updatedAt || c.createdAt || "";
+      const t = new Date(ts).getTime();
+      const dias = isNaN(t) ? 9999 : Math.floor((ahora - t) / 86400000);
+      if (dias < RECORDATORIO_DIAS) return;
+      const uid = c.createdBy || c.agentId || c.ownerId || "__sin_agente__";
+      (porAgente[uid] = porAgente[uid] || []).push({ name: c.name || "Sin nombre", dias });
+    });
+
+    const adm = await getAdminUser();
+    for (const uid of Object.keys(porAgente)) {
+      const lista = porAgente[uid].sort((a, b) => b.dias - a.dias);
+      let destino = null;
+      if (uid === "__sin_agente__") {
+        destino = adm;
+      } else {
+        try {
+          const uDoc = await db.doc(`users/${uid}`).get();
+          if (uDoc.exists) destino = { uid: uDoc.id, fcmToken: uDoc.data().fcmToken };
+        } catch (e) { /* sin perfil */ }
+        if (!destino) destino = adm; // agente sin perfil: que al menos lo vea el admin
+      }
+      if (!destino) continue;
+
+      const nombres = lista.slice(0, 3).map((x) => x.name).join(", ");
+      const extra = lista.length > 3 ? ` y ${lista.length - 3} más` : "";
+      const texto = lista.length === 1
+        ? `${nombres} lleva ${lista[0].dias} días sin contacto. Entrá a Clientes para retomarlo.`
+        : `${lista.length} clientes llevan más de ${RECORDATORIO_DIAS} días sin contacto: ${nombres}${extra}. Entrá a Clientes para retomarlos.`;
+      await crearNotificacion(
+        destino,
+        { type: "crm_seguimiento", userName: "Seguimiento", userPhoto: null, text: texto },
+        { title: "📋 Clientes para recontactar", body: texto }
+      );
+      logger.info(`[recordatorioSeguimiento] aviso a ${uid}: ${lista.length} cliente(s) sin contacto.`);
+    }
+  }
+);
