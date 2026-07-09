@@ -90,7 +90,7 @@
     .client-status.cartera{ background:#e0e7ff; color:#4338ca; }
     .client-status.cerrado{ background:#dcfce7; color:#15803d; }
     .client-status.perdido{ background:#fee2e2; color:#b91c1c; }
-    .client-status.singestion{ background:#fef3c7; color:#b45309; }
+    .client-status.singestion, .client-status.sinavance{ background:#fef3c7; color:#b45309; }
     .client-interest-tag{ display:inline-block; font-size:.76rem; color:var(--gray-600); background:var(--gray-50); border:1px solid var(--gray-100); border-radius:8px; padding:4px 10px; margin-bottom:10px; }
     .client-meta{ display:flex; flex-direction:column; gap:5px; margin-bottom:10px; }
     .client-meta-row{ font-size:.84rem; color:var(--gray-600); display:flex; align-items:center; gap:8px; }
@@ -381,7 +381,7 @@
         <div class="crm-search"><i class="fas fa-search"></i><input type="text" id="clientSearch" placeholder="Buscar por nombre o teléfono..." oninput="renderClients()"></div>
         <select class="crm-filter" id="clientStatusFilter" onchange="statFilter='all';renderClients()">
           <option value="">Todos los estados</option>
-          <option value="nuevo">Nuevo</option><option value="singestion">Sin gestionar</option><option value="contactado">Contactado</option>
+          <option value="nuevo">Nuevo</option><option value="singestion">Sin gestionar / sin avance</option><option value="contactado">Contactado</option>
           <option value="seguimiento">En seguimiento</option><option value="visita">Visita agendada</option>
           <option value="negociacion">En negociación</option><option value="cartera">En cartera</option><option value="cerrado">Cerrado</option><option value="perdido">Perdido</option>
         </select>
@@ -578,7 +578,7 @@
 
     // Seguimiento: umbrales en días (ajustar acá si se quieren otros plazos).
     var SEGUIMIENTO = {
-      diasNuevo: 7,    // sin gestión después de 7 días deja de ser "Nuevo" -> pasa a "Sin gestionar"
+      diasNuevo: 2,    // "Nuevo" dura esto: después pasa a "Sin gestionar" (sin gestiones) o "Sin avance" (gestión que no avanzó)
       diasAviso: 14,   // a los 14 días sin contacto la tarjeta avisa y entra al banner de recontacto
       diasUrgente: 30, // a los 30 días el aviso pasa a rojo
       // Estados donde el silencio es lo esperado y NO hay que avisar: "En cartera"
@@ -586,6 +586,11 @@
       estadosSinAviso: ['cartera'],
       diasSilencioBanner: 3 // la X del banner lo silencia por estos días
     };
+    // Orden del embudo: cuando un cliente tiene varias gestiones, MANDA la
+    // gestión activa más avanzada (no la más reciente). Cerrado/Perdido son
+    // terminales y no compiten: solo definen la etiqueta si no queda nada activo.
+    var ESTADO_PRIORIDAD = ['nuevo','contactado','seguimiento','visita','negociacion','cartera'];
+    var ESTADOS_TERMINALES = ['cerrado','perdido'];
     function diasDesde(iso){ if(!iso) return 9999; var t=new Date(iso).getTime(); return isNaN(t)?9999:Math.floor((Date.now()-t)/86400000); }
 
     function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -627,7 +632,7 @@
     var ACTIVE_STATES = ['contactado','seguimiento','visita','negociacion','cartera'];
     function rollupStatus(c){ return (c && c._rollupStatus) || 'nuevo'; }
     function statBucket(st){
-      if (st === 'nuevo' || st === 'singestion') return 'nuevo';
+      if (st === 'nuevo' || st === 'singestion' || st === 'sinavance') return 'nuevo';
       if (st === 'cerrado') return 'cerrado';
       if (ACTIVE_STATES.indexOf(st) >= 0) return 'proceso';
       return 'otro'; // perdido u otros: no entra en los contadores principales
@@ -685,32 +690,63 @@
           db.collection('properties').get().catch(function(){ return { docs:[] }; })
         ]).then(function(res){
           var gSnap = res[0], pSnap = res[1];
-          var gestPorCliente = {}; // clientId -> set de propertyId con gestión
-          var ultimaGest = {};     // clientId -> { ts, estado } de la gestión más reciente
+          // ---- Agregado por cliente a partir de sus gestiones ----
+          // La gestión es la unidad de verdad (una por propiedad). De acá sale:
+          // qué gestión MANDA (la activa más avanzada, define la etiqueta),
+          // y la última actividad (lo último que se tocó en cualquiera).
+          var gestPorCliente = {}; // clientId -> set de propertyId (solo para el contador visible)
+          var aggGest = {};        // clientId -> resumen de gestiones reales
           gSnap.docs.forEach(function(d){
             var g = d.data();
-            if (g.clientId){
-              (gestPorCliente[g.clientId] = gestPorCliente[g.clientId] || {})[g.propertyId||('g'+d.id)] = true;
-              var ts = g.updatedAt || g.createdAt || '';
-              var prev = ultimaGest[g.clientId];
-              if (!prev || ts > prev.ts){ ultimaGest[g.clientId] = { ts: ts, estado: g.estadoGestion || 'nuevo' }; }
+            if (!g.clientId) return;
+            (gestPorCliente[g.clientId] = gestPorCliente[g.clientId] || {})[g.propertyId||('g'+d.id)] = true;
+            var a = aggGest[g.clientId] = aggGest[g.clientId] || { total:0, activas:0, cerradas:0, ts:'', manda:null, ult:null };
+            a.total++;
+            var ts = g.updatedAt || g.createdAt || '';
+            if (ts > a.ts) a.ts = ts;
+            if (!a.ult || ts > a.ult.ts) a.ult = { id: d.id, ts: ts };
+            var e = g.estadoGestion || 'nuevo';
+            if (ESTADOS_TERMINALES.indexOf(e) >= 0){
+              if (e === 'cerrado') a.cerradas++;
+              return;
+            }
+            a.activas++;
+            // Manda la más avanzada; a igual etapa, la de actividad más reciente.
+            var pe = ESTADO_PRIORIDAD.indexOf(e);
+            if (!a.manda || pe > a.manda.prio || (pe === a.manda.prio && ts > a.manda.ts)){
+              a.manda = { id: d.id, estado: e, prio: pe, ts: ts, creada: g.createdAt || ts };
             }
           });
-          // Sumar propiedades viejas con clientId que todavía no tienen gestión
+          // Sumar propiedades viejas con clientId que todavía no tienen gestión (solo para el contador)
           pSnap.docs.forEach(function(d){
             var cid = d.data().clientId;
             if (cid){ var set = gestPorCliente[cid] = gestPorCliente[cid] || {}; if(!set[d.id]) set[d.id]=true; }
           });
           clients.forEach(function(c){
             c._gestionCount = gestPorCliente[c.id] ? Object.keys(gestPorCliente[c.id]).length : 0;
-            var u = ultimaGest[c.id];
-            c._rollupStatus = u ? u.estado : (c.status || 'nuevo');
-            c._lastActivity = (u && u.ts) || c.updatedAt || c.createdAt || '';
+            var a = aggGest[c.id];
+            // La gestión sobre la que actúa el cambio rápido: la que manda; si todo
+            // está cerrado/perdido, la última (cambiarle el estado la "reabre").
+            c._gestionPrincipal = a ? (a.manda ? a.manda.id : (a.ult ? a.ult.id : null)) : null;
+            // Última actividad: lo más reciente entre gestiones y la propia ficha.
+            c._lastActivity = [ (a && a.ts) || '', c.updatedAt || '', c.createdAt || '' ].sort().pop();
             c._diasSinContacto = diasDesde(c._lastActivity);
-            // "Nuevo" caduca: si sigue sin gestión pasada la primera semana, ya no es
-            // nuevo, es un pendiente. Es un estado derivado (no se escribe en la base):
-            // apenas se le registra una gestión, el estado pasa a ser el de la gestión.
-            if (c._rollupStatus === 'nuevo' && diasDesde(c.createdAt) > SEGUIMIENTO.diasNuevo) c._rollupStatus = 'singestion';
+            // ---- Etiqueta del cliente (estado derivado; nunca se escribe en la base) ----
+            if (a && a.total){
+              if (a.activas){
+                c._rollupStatus = a.manda.estado;
+                // Una gestión que sigue en "nuevo" pasados unos días ya no es nueva:
+                // existe pero no avanzó. Etiqueta honesta: "Sin avance".
+                if (c._rollupStatus === 'nuevo' && diasDesde(a.manda.creada) > SEGUIMIENTO.diasNuevo) c._rollupStatus = 'sinavance';
+              } else {
+                // Todas terminadas: si ganó alguna es Cerrado; si no, Perdido.
+                c._rollupStatus = a.cerradas ? 'cerrado' : 'perdido';
+              }
+            } else {
+              c._rollupStatus = c.status || 'nuevo';
+              // Sin ninguna gestión real: "Nuevo" caduca rápido y pasa a "Sin gestionar".
+              if (c._rollupStatus === 'nuevo' && diasDesde(c.createdAt) > SEGUIMIENTO.diasNuevo) c._rollupStatus = 'singestion';
+            }
           });
           renderClients();
         }).catch(function(){ renderClients(); });
@@ -750,7 +786,7 @@
       }
       document.getElementById('crmStats').innerHTML =
         statCard('total',   st.total,   'Total clientes', 'fa-users',    totalTrend) +
-        statCard('nuevo',   st.nuevo,   'Sin gestión',    'fa-user-plus','<div class="crm-stat-trend flat">'+frescos+(frescos===1?' nuevo':' nuevos')+' esta semana</div>') +
+        statCard('nuevo',   st.nuevo,   'Por gestionar',  'fa-user-plus','<div class="crm-stat-trend flat">incluye '+frescos+(frescos===1?' nuevo':' nuevos')+'</div>') +
         statCard('proceso', st.proceso, 'En proceso',     'fa-spinner',  '<div class="crm-stat-trend flat">con seguimiento</div>') +
         statCard('cerrado', st.cerrado, 'Cerrados',       'fa-circle-check','<div class="crm-stat-trend flat">ganados</div>');
 
@@ -780,7 +816,7 @@
         var archMatch = arf==='all' ? true : (arf==='archived' ? !!c.archived : !c.archived);
         var mio = !misClientesOnly || esMio(c);
         var rs = rollupStatus(c);
-        var matchStatus = !sf || rs===sf;
+        var matchStatus = !sf || rs===sf || (sf==='singestion' && rs==='sinavance');
         var matchBucket = statFilter==='all' || (statFilter==='atencion' ? paraRecontactar(c) : statBucket(rs)===statFilter);
         return m && archMatch && mio && matchStatus && matchBucket && (!inf || c.interest===inf);
       });
@@ -809,7 +845,7 @@
         var nGest = c._gestionCount || 0;
         var gestLabel = nGest>0 ? (nGest+' gestión'+(nGest===1?'':'es')) : 'Sin gestiones';
         var rs = rollupStatus(c);
-        var stLabel = rs==='singestion' ? 'Sin gestionar' : (GESTION_ESTADO[rs] || rs);
+        var stLabel = rs==='singestion' ? 'Sin gestionar' : rs==='sinavance' ? 'Sin avance' : (GESTION_ESTADO[rs] || rs);
         var actTxt = c._lastActivity ? ((nGest>0?'Última gestión ':'Creado ')+relTime(c._lastActivity)) : '';
         return '<div class="client-card'+(c.archived?' archived':'')+'" onclick="showClientProfile(\''+c.id+'\')" style="cursor:pointer;position:relative">' +
           '<div class="client-card-top">' +
@@ -893,11 +929,11 @@
       cerrarStPop();
       var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
       if (!c) return;
-      var actual = rollupStatus(c); if (actual==='singestion') actual = 'nuevo';
+      var actual = rollupStatus(c); if (actual==='singestion' || actual==='sinavance') actual = 'nuevo';
       var pop = document.createElement('div');
       pop.className = 'st-pop';
       var hint = (c._gestionCount||0) > 1
-        ? '<div class="st-pop-hint">Este cliente tiene '+c._gestionCount+' gestiones: el cambio se aplica a la más reciente. Para manejar cada propiedad por separado, entrá a su ficha.</div>'
+        ? '<div class="st-pop-hint">Este cliente tiene '+c._gestionCount+' gestiones: el cambio se aplica a la que define esta etiqueta (la más avanzada). Para manejar cada propiedad por separado, entrá a su ficha.</div>'
         : '';
       pop.innerHTML = hint + Object.keys(GESTION_ESTADO).map(function(k){
         return '<button type="button" class="'+(k===actual?'sel':'')+'" onclick="aplicarCambioEstado(\''+id+'\',\''+k+'\')"><span class="dot" style="background:'+(ESTADO_DOT[k]||'#94a3b8')+'"></span>'+GESTION_ESTADO[k]+'</button>';
@@ -918,23 +954,22 @@
       if (!c) return;
       var ahora = new Date().toISOString();
       var quien = (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente';
-      db.collection('gestiones').where('clientId','==',id).get().then(function(q){
-        var ultimo = null;
-        q.docs.forEach(function(d){
-          var ts = d.data().updatedAt || d.data().createdAt || '';
-          if (!ultimo || ts > ultimo.ts) ultimo = { id: d.id, ts: ts };
+      var escritura;
+      if (c._gestionPrincipal){
+        // Se actualiza la gestión que la etiqueta representa (la activa más
+        // avanzada; si todo estaba cerrado, la última: esto la "reabre").
+        // Misma escritura que el perfil: queda el avance en el historial.
+        var entrada = { tipo:'avance', valor: GESTION_ESTADO[nuevo]||nuevo, autor: quien, fecha: ahora };
+        escritura = db.collection('gestiones').doc(c._gestionPrincipal).update({
+          estadoGestion: nuevo,
+          updatedAt: ahora,
+          historial: firebase.firestore.FieldValue.arrayUnion(entrada)
         });
-        if (ultimo){
-          // Misma escritura que el perfil: queda el avance en el historial de la gestión.
-          var entrada = { tipo:'avance', valor: GESTION_ESTADO[nuevo]||nuevo, autor: quien, fecha: ahora };
-          return db.collection('gestiones').doc(ultimo.id).update({
-            estadoGestion: nuevo,
-            updatedAt: ahora,
-            historial: firebase.firestore.FieldValue.arrayUnion(entrada)
-          });
-        }
-        return db.collection('clients').doc(id).update({ status: nuevo, updatedAt: ahora });
-      }).then(function(){
+      } else {
+        // Sin gestiones reales: el estado vive en la ficha del cliente.
+        escritura = db.collection('clients').doc(id).update({ status: nuevo, updatedAt: ahora });
+      }
+      escritura.then(function(){
         c._rollupStatus = nuevo;
         c._lastActivity = ahora;
         c._diasSinContacto = 0;

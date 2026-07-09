@@ -2157,15 +2157,22 @@ exports.recordatorioSeguimiento = onSchedule(
       db.collection("gestiones").get(),
     ]);
 
-    // Última gestión (fecha y estado) por cliente — mismo criterio que clientes.html.
-    const ultima = {};
+    // Agregado por cliente — MISMO criterio que clientes.html: manda la gestión
+    // ACTIVA más avanzada; la última actividad es lo último tocado en cualquiera.
+    const PRIORIDAD = ["nuevo", "contactado", "seguimiento", "visita", "negociacion", "cartera"];
+    const agg = {};
     gestSnap.docs.forEach((d) => {
       const g = d.data();
       if (!g.clientId) return;
+      const a = agg[g.clientId] || (agg[g.clientId] = { total: 0, activas: 0, estado: null, prio: -1, ts: "" });
+      a.total++;
       const ts = g.updatedAt || g.createdAt || "";
-      if (!ultima[g.clientId] || ts > ultima[g.clientId].ts) {
-        ultima[g.clientId] = { ts, estado: g.estadoGestion || "nuevo" };
-      }
+      if (ts > a.ts) a.ts = ts;
+      const e = g.estadoGestion || "nuevo";
+      if (e === "cerrado" || e === "perdido") return;
+      a.activas++;
+      const p = PRIORIDAD.indexOf(e);
+      if (p > a.prio) { a.prio = p; a.estado = e; }
     });
 
     const ahora = Date.now();
@@ -2173,13 +2180,19 @@ exports.recordatorioSeguimiento = onSchedule(
     cliSnap.docs.forEach((d) => {
       const c = d.data();
       if (c.archived) return;
-      const u = ultima[d.id];
-      const estado = u ? u.estado : (c.status || "nuevo");
-      // Cerrado y perdido no molestan. "Cartera" tampoco: es etapa avanzada
-      // (la propiedad ya está captada) y el silencio ahí es normal, no abandono.
-      // Mantener esta lista igual a SEGUIMIENTO.estadosSinAviso de clientes.html.
-      if (estado === "cerrado" || estado === "perdido" || estado === "cartera") return;
-      const ts = (u && u.ts) || c.updatedAt || c.createdAt || "";
+      const a = agg[d.id];
+      let estado;
+      if (a && a.total) {
+        if (!a.activas) return; // todas las gestiones cerradas/perdidas: nada para recordar
+        estado = a.estado;
+      } else {
+        estado = c.status || "nuevo";
+        if (estado === "cerrado" || estado === "perdido") return;
+      }
+      // "Cartera" es etapa avanzada (la propiedad ya está captada): el silencio
+      // ahí es normal, no abandono. Mantener igual a estadosSinAviso de clientes.html.
+      if (estado === "cartera") return;
+      const ts = [(a && a.ts) || "", c.updatedAt || "", c.createdAt || ""].sort().pop();
       const t = new Date(ts).getTime();
       const dias = isNaN(t) ? 9999 : Math.floor((ahora - t) / 86400000);
       if (dias < RECORDATORIO_DIAS) return;
