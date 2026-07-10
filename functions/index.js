@@ -1994,7 +1994,11 @@ const IC_COMODIDADES = {
 };
 
 function icNorm(s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim(); }
-function icEsc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;"); }
+// Escapa para XML y ELIMINA caracteres de control inválidos (quedan tab/salto de
+// línea, que sí son legales). Un solo carácter invisible pegado desde Word en UNA
+// descripción invalida el XML ENTERO y hace que InfoCasas rechace el feed completo
+// ese ciclo: por eso los precios/fotos "a veces" no se actualizaban.
+function icEsc(s) { return String(s == null ? "" : s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;"); }
 function icTag(t, v) { return (v === undefined || v === null || v === "") ? "" : `<${t}>${icEsc(v)}</${t}>`; }
 function icZona(depId, ciudad, barrio) {
   const z = IC_ZONAS[depId] || {};
@@ -2006,6 +2010,8 @@ function icZona(depId, ciudad, barrio) {
 
 exports.feedInfocasas = onRequest(async (req, res) => {
   try {
+    const debug = req.query && req.query.debug === "1";
+    const detalle = []; // en modo debug: por qué entra o no cada propiedad
     const [propsSnap, usersSnap, cfgSnap] = await Promise.all([
       db.collection("properties").get(),
       db.collection("users").get(),
@@ -2018,17 +2024,23 @@ exports.feedInfocasas = onRequest(async (req, res) => {
     let n = 0, skip = 0;
     propsSnap.docs.forEach((doc) => {
       const p = doc.data();
-      // Mismas condiciones de "activa" que usa la web pública + no cerrada.
-      const activa = (!p.status || p.status === "available" || p.status === "reserved") && p.cierreConfirmado !== true;
-      if (!activa) return;
+      const fuera = (motivo) => { skip++; if (debug) detalle.push(`FUERA  ${doc.id}  ${p.title || "(sin título)"}  -> ${motivo}`); };
+      // Solo propiedades realmente disponibles. Las RESERVADAS también salen del
+      // feed: en la web propia se muestran con su cinta, pero en InfoCasas no hay
+      // forma de marcarlas y quedarían como disponibles recibiendo consultas.
+      if (p.cierreConfirmado === true) return fuera("cierre confirmado");
+      if (p.status && p.status !== "available") return fuera(`estado "${p.status}"`);
       const u = p.ubicacion || {};
       const lat = u.lat, lng = u.lng;
       const price = Number(p.price) || 0;
       const imgs = (p.images || []).filter(Boolean).slice(0, 15);
       // InfoCasas no sincroniza sin geolocalización, sin precio o sin fotos.
-      if (lat == null || lng == null || !(price > 0) || !imgs.length) { skip++; return; }
+      if (lat == null || lng == null) return fuera("sin pin de ubicación (lat/lng)");
+      if (!(price > 0)) return fuera("sin precio");
+      if (!imgs.length) return fuera("sin fotos");
       const depId = IC_DEPTOS[icNorm(p.departamento || u.departamento)];
-      if (!depId) { skip++; return; }
+      if (!depId) return fuera(`departamento no reconocido: "${p.departamento || u.departamento || ""}"`);
+      if (debug) detalle.push(`OK     ${doc.id}  ${p.title || "(sin título)"}`);
       const zona = icZona(depId, p.ciudad || u.ciudad, u.barrio);
       const tipoProp = IC_TIPO_PROP[icNorm(p.realEstateType)] || 13;
       const esVenta = p.type === "sale";
@@ -2131,7 +2143,14 @@ exports.feedInfocasas = onRequest(async (req, res) => {
       out += x + "\n"; n++;
     });
     out += "</xml>";
-    logger.info(`[feedInfocasas] ${n} propiedades en el feed, ${skip} excluidas (cerradas o sin geo/precio/fotos).`);
+    logger.info(`[feedInfocasas] ${n} propiedades en el feed, ${skip} excluidas (cerradas, reservadas o sin geo/precio/fotos).`);
+    if (debug) {
+      // Modo diagnóstico: /feedInfocasas?debug=1 lista qué entra y qué no, con motivo.
+      res.set("Content-Type", "text/plain; charset=utf-8");
+      res.set("Cache-Control", "no-store");
+      res.status(200).send(`Feed InfoCasas — ${n} publicadas, ${skip} excluidas\n\n` + detalle.join("\n"));
+      return;
+    }
     res.set("Content-Type", "application/xml; charset=utf-8");
     res.set("Cache-Control", "public, max-age=300");
     res.status(200).send(out);
@@ -2271,4 +2290,180 @@ exports.limpiarPerfilAlBorrarse = functionsV1.auth.user().onDelete(async (user) 
     await db.collection("users").doc(user.uid).delete();
     logger.info(`[limpiarPerfilAlBorrarse] perfil eliminado para ${user.email || user.uid}`);
   } catch (e) { /* si no existía, no hay nada que limpiar */ }
+});
+
+// =====================================================================
+// CRM ⇄ Propiedad — cerrar la gestión finaliza la propiedad.
+// Hasta ahora, cerrar una gestión en el CRM no tocaba la propiedad: quedaba
+// "available", seguía publicada en la web y en el feed de InfoCasas. Este
+// trigger sincroniza: gestión CERRADA => propiedad Vendida/Alquilada (según
+// sea venta o alquiler), lo que la saca del feed en la próxima lectura.
+// Si la gestión se reabre, revierte SOLO si fue este trigger quien la marcó
+// (flag finalizadaPorGestion): nunca pisa una decisión del admin ni del
+// Mapa de cierres, que sigue siendo el flujo de comisiones de siempre.
+// =====================================================================
+exports.sincronizarPropiedadAlCerrarGestion = onDocumentUpdated("gestiones/{gid}", async (event) => {
+  const antes = (event.data.before && event.data.before.data()) || {};
+  const ahora = (event.data.after && event.data.after.data()) || {};
+  const estAntes = antes.estadoGestion || "nuevo";
+  const estAhora = ahora.estadoGestion || "nuevo";
+  if (estAntes === estAhora) return; // cambió otra cosa (una nota, etc.)
+  const pid = ahora.propertyId;
+  if (!pid) return;
+  const ref = db.collection("properties").doc(pid);
+  const snap = await ref.get();
+  if (!snap.exists) return;
+  const p = snap.data();
+
+  if (estAhora === "cerrado") {
+    // Solo si la propiedad estaba disponible o reservada: un estado ya
+    // definido (vendida por el Mapa de cierres, en tasación, etc.) se respeta.
+    if (p.status && p.status !== "available" && p.status !== "reserved") return;
+    const nuevoEstado = p.type === "rent" ? "rented" : "sold";
+    await ref.update({
+      status: nuevoEstado,
+      finalizadaPorGestion: { gestionId: event.params.gid, fecha: new Date().toISOString() },
+      updatedAt: new Date().toISOString(),
+    });
+    logger.info(`[gestión cerrada] Propiedad ${pid} -> ${nuevoEstado} (gestión ${event.params.gid}).`);
+  } else if (estAntes === "cerrado") {
+    // Se reabrió la gestión: revertir solo lo que este trigger marcó.
+    const f = p.finalizadaPorGestion;
+    if (f && f.gestionId === event.params.gid && (p.status === "sold" || p.status === "rented")) {
+      await ref.update({
+        status: "available",
+        finalizadaPorGestion: admin.firestore.FieldValue.delete(),
+        updatedAt: new Date().toISOString(),
+      });
+      logger.info(`[gestión reabierta] Propiedad ${pid} -> available.`);
+    }
+  }
+});
+
+// =====================================================================
+// LEADS DE INFOCASAS -> CRM
+// Puerta de entrada que NO existía: por eso las consultas de InfoCasas no
+// llegaban nunca al CRM. InfoCasas debe configurar el envío de leads a:
+//   https://us-central1-mi-cartera-inmobiliaria.cloudfunctions.net/leadInfocasas
+// (pedirlo al ejecutivo de cuenta; si se define la variable de entorno
+// IC_LEAD_KEY, la URL debe incluir ?clave=ESA_CLAVE y se rechaza lo demás).
+// Diseño a prueba de sorpresas: el payload crudo SIEMPRE se guarda en la
+// colección leadsPortales antes de procesar, así ningún lead se pierde aunque
+// el formato no coincida; los nombres de campo se leen con tolerancia.
+// Qué hace con cada lead: resuelve la propiedad (por el id que va en el feed,
+// o por la Ref./código de la ficha), deduplica el cliente por teléfono, lo
+// crea a nombre del agente dueño de la propiedad, abre o actualiza la gestión
+// con la consulta en el historial, y avisa con campanita + push.
+// =====================================================================
+exports.leadInfocasas = onRequest(async (req, res) => {
+  if (req.method === "GET") { res.status(200).send("OK — receptor de leads de InfoCasas activo (usar POST)."); return; }
+  if (req.method !== "POST") { res.status(405).send("Método no permitido"); return; }
+  const claveEsperada = process.env.IC_LEAD_KEY || "";
+  if (claveEsperada && String((req.query && req.query.clave) || "") !== claveEsperada) {
+    res.status(401).send("Clave inválida"); return;
+  }
+  const body = (typeof req.body === "object" && req.body) || {};
+  const pick = (...keys) => {
+    for (const k of keys) {
+      const v = body[k];
+      if (v != null && String(v).trim() !== "") return String(v).trim();
+    }
+    return "";
+  };
+  const nombre = pick("nombre", "name", "contactName", "nombreContacto", "cliente") || "Consulta InfoCasas";
+  const telefono = pick("telefono", "tel", "phone", "celular", "movil", "telefonoContacto", "whatsapp");
+  const email = pick("email", "mail", "correo");
+  const mensaje = pick("mensaje", "message", "comentario", "consulta", "texto", "descripcion");
+  const refProp = pick("idPropiedad", "propiedad", "id", "referencia", "ref", "codigo", "propertyId", "idAviso");
+
+  // 1) Guardar el lead crudo ANTES de procesar: nada se pierde jamás.
+  const rawRef = await db.collection("leadsPortales").add({
+    fuente: "infocasas", recibido: new Date().toISOString(), body, query: req.query || {}, procesado: false,
+  });
+
+  try {
+    // 2) Resolver la propiedad: por el id que publica el feed, o por la Ref. de la ficha.
+    let propId = null, prop = null;
+    if (refProp) {
+      try { const d = await db.collection("properties").doc(refProp).get(); if (d.exists) { propId = d.id; prop = d.data(); } } catch (e) { /* id con formato raro */ }
+      if (!prop) {
+        const q = await db.collection("properties").where("ficha.PROPERTY_CODE", "==", refProp).limit(1).get();
+        if (!q.empty) { propId = q.docs[0].id; prop = q.docs[0].data(); }
+      }
+    }
+    const ownerId = (prop && prop.ownerId) || null;
+    let ownerName = "", destino = null;
+    if (ownerId) {
+      try { const u = await db.doc(`users/${ownerId}`).get(); if (u.exists) { ownerName = u.data().name || ""; destino = { uid: u.id, fcmToken: u.data().fcmToken }; } } catch (e) { /* sin perfil */ }
+    }
+    if (!destino) destino = await getAdminUser();
+
+    // 3) Cliente: deduplicar por teléfono normalizado (mismo criterio que el CRM).
+    const telNorm = normalizarTel(telefono);
+    let clientId = null, clienteExistia = false;
+    if (telNorm) {
+      const cs = await db.collection("clients").get();
+      for (const d of cs.docs) {
+        if (normalizarTel(d.data().phone) === telNorm) { clientId = d.id; clienteExistia = true; break; }
+      }
+    }
+    const ahora = new Date().toISOString();
+    if (!clientId) {
+      const nuevoCliente = {
+        name: nombre, phone: telefono, phoneNormalized: telNorm || "",
+        status: "nuevo", source: "infocasas",
+        notes: "Ingresó por una consulta en InfoCasas.",
+        createdAt: ahora, updatedAt: ahora,
+      };
+      if (email) nuevoCliente.email = email;
+      if (ownerId) { nuevoCliente.createdBy = ownerId; nuevoCliente.agentId = ownerId; nuevoCliente.ownerId = ownerId; }
+      if (ownerName) { nuevoCliente.createdByName = ownerName; nuevoCliente.ownerName = ownerName; }
+      const cRef = await db.collection("clients").add(nuevoCliente);
+      clientId = cRef.id;
+    }
+
+    // 4) Gestión sobre la propiedad: una por cliente+propiedad; si ya existe,
+    //    la consulta nueva se suma al historial (y cuenta como actividad).
+    const notaLead = {
+      tipo: "nota",
+      valor: `Consulta desde InfoCasas${mensaje ? `: "${mensaje}"` : ""}${email ? ` (email: ${email})` : ""}`,
+      autor: "InfoCasas", fecha: ahora,
+    };
+    if (propId && clientId) {
+      const g = await db.collection("gestiones").where("clientId", "==", clientId).where("propertyId", "==", propId).limit(1).get();
+      if (!g.empty) {
+        await g.docs[0].ref.update({ updatedAt: ahora, historial: admin.firestore.FieldValue.arrayUnion(notaLead) });
+      } else {
+        const nuevaGestion = { clientId, propertyId: propId, estadoGestion: "nuevo", createdAt: ahora, updatedAt: ahora, historial: [notaLead] };
+        if (ownerId) { nuevaGestion.agentId = ownerId; nuevaGestion.createdBy = ownerId; }
+        await db.collection("gestiones").add(nuevaGestion);
+      }
+    }
+
+    // 5) Aviso al agente (o al admin si la propiedad no se pudo identificar),
+    //    con el mismo formato que las consultas de la web: campanita + push.
+    if (destino) {
+      await crearNotificacion(destino, {
+        type: "consulta_infocasas",
+        propertyId: propId || "",
+        propertyTitle: (prop && prop.title) || "una propiedad",
+        userName: nombre,
+        userPhoto: null,
+        userPhone: telefono || "",
+        text: mensaje || "Consulta recibida desde InfoCasas",
+      }, {
+        title: "🔵 Lead de InfoCasas",
+        body: `${nombre} consultó por ${(prop && prop.title) || "una propiedad"}${clienteExistia ? " (cliente ya existente)" : ""}`,
+      });
+    }
+
+    await rawRef.update({ procesado: true, clientId: clientId || null, propertyId: propId || null });
+    logger.info(`[leadInfocasas] Lead de ${nombre} (${telefono || "sin tel"}) -> cliente ${clientId || "?"} / propiedad ${propId || "no identificada"}.`);
+    res.status(200).json({ ok: true });
+  } catch (e) {
+    logger.error("[leadInfocasas]", e);
+    try { await rawRef.update({ error: String((e && e.message) || e) }); } catch (e2) { /* nada */ }
+    // 200 igual: el crudo quedó guardado y no queremos reintentos infinitos de IC.
+    res.status(200).json({ ok: true, guardadoCrudo: true });
+  }
 });
