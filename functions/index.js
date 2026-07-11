@@ -778,7 +778,13 @@ function norm(s) {
 async function addFeatureAttributes(categoryId, p, baseAttributes, token, catAttrs) {
   const out = baseAttributes.slice();
   const have = new Set(out.map((a) => a.id));
-  const ficha = p.ficha || {};
+  const ficha = Object.assign({}, p.ficha || {});
+  // HOUSE_NUMBER ("Número de la casa") se toma SOLO de Ubicación → Número: es el
+  // mismo dato y no se le pide dos veces al agente. Ubicación manda incluso si un
+  // resto viejo quedó en la ficha. Solo viaja si la categoría lo acepta (el filtro
+  // byId de abajo se encarga de eso).
+  const _nroPuerta = String((p.ubicacion && p.ubicacion.numero) || "").trim();
+  if (_nroPuerta) ficha.HOUSE_NUMBER = _nroPuerta;
   if (!Object.keys(ficha).length) return out;
   let attrsData = catAttrs;
   if (!attrsData) {

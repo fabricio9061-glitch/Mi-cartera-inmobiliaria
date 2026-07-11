@@ -1307,7 +1307,14 @@
     let improve = '';
     const _faltan = Array.isArray(d.faltan) ? d.faltan : [];
     const _adm = typeof isAdminUser === 'function' && isAdminUser();
-    const _item = (x, icon, iconStyle) => `<li><i class="${icon}"${iconStyle ? ` style="${iconStyle}"` : ''}></i><span>${mvEsc(x.nombre)}${_adm && x.id ? ` <small style="color:#a8b0ba">· ${mvEsc(x.id)}</small>` : ''}</span></li>`;
+    // Atributos que NO se completan en la ficha sino en otra parte del formulario.
+    const _pistas = { HOUSE_NUMBER: 'se completa en Ubicación → Número' };
+    const _item = (x, icon, iconStyle) => {
+      const extra = _pistas[x.id]
+        ? ` <small style="color:#a8b0ba">· ${_pistas[x.id]}</small>`
+        : (_adm && x.id ? ` <small style="color:#a8b0ba">· ${mvEsc(x.id)}</small>` : '');
+      return `<li><i class="${icon}"${iconStyle ? ` style="${iconStyle}"` : ''}></i><span>${mvEsc(x.nombre)}${extra}</span></li>`;
+    };
     const _guia = '<div style="font-size:.8rem;color:#8a7a45;margin-top:8px;line-height:1.4">Completalos en <strong>Editar propiedad → Ficha técnica</strong> y guardá: se actualizan solos en Mercado Libre.</div>';
     const _oro = '<div class="ml-note gold"><i class="fas fa-trophy"></i><div><strong>¡Publicación al 100%!</strong> El aviso tiene la máxima calidad que mide Mercado Libre: mejor posición en los resultados y más visitas.</div></div>';
     const reqs = _faltan.filter(x => x && x.req);
@@ -1503,13 +1510,42 @@
     }
   }
 
+  // ---- Bloqueo del scroll de fondo mientras hay algo abierto encima ----
+  // En iPhone, con un modal abierto el dedo movía la página de atrás: en iOS
+  // overflow:hidden no alcanza. El método robusto es FIJAR el body
+  // (position:fixed) guardando dónde estaba el scroll, y devolverlo al cerrar.
+  // El estado se deriva del DOM (¿queda algún .active?) para que el bloqueo
+  // jamás quede colgado aunque un modal se cierre por otro camino.
+  let _scrollFondo = 0;
+  function sincronizarBloqueoFondo() {
+    const abierto = document.querySelector('.modal.active, .lightbox.active') !== null;
+    const bloqueado = document.body.style.position === 'fixed';
+    if (abierto && !bloqueado) {
+      _scrollFondo = window.scrollY || document.documentElement.scrollTop || 0;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${_scrollFondo}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+      document.body.style.width = '100%';
+    } else if (!abierto && bloqueado) {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.width = '';
+      window.scrollTo(0, _scrollFondo);
+    }
+  }
+
   function openModal(i) {
     document.getElementById(i).classList.add('active');
+    sincronizarBloqueoFondo();
     if (i === 'loginModal') loadRememberedUser()
   }
 
   function closeModal(i) {
-    document.getElementById(i).classList.remove('active')
+    document.getElementById(i).classList.remove('active');
+    sincronizarBloqueoFondo()
   }
 
   function switchModal(f, t) {
@@ -2420,12 +2456,12 @@
     document.getElementById('lightboxImg').src = currentDetailProperty.images[i];
     updateLightboxCounter();
     document.getElementById('lightbox').classList.add('active');
-    document.body.style.overflow = 'hidden'
+    sincronizarBloqueoFondo()
   }
 
   function closeLightbox() {
     document.getElementById('lightbox').classList.remove('active');
-    document.body.style.overflow = ''
+    sincronizarBloqueoFondo()
   }
 
   function lightboxNext() {
