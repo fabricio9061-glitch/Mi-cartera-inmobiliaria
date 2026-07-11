@@ -761,21 +761,24 @@
         box-shadow: var(--shadow-lg)
     }
 
+    /* El marco habla el mismo idioma que la banda de la foto:
+       - Reservada: azul marino suave (su banda es la liviana, con filete blanco)
+       - Vendida/Alquilada: el dorado sereno de los filetes (cierre, historia ganada)
+       - Archivada: casi nada, se retira del escenario
+       Ojo: es el dorado antiguo de la marca (#C9A227), no el amarillo brillante
+       de las destacadas — jerarquías distintas, tonos distintos. */
     .property-card.status-reserved {
-        border: 3px solid var(--reserved)
+        border: 2px solid rgba(22, 39, 63, .25);
     }
 
-    .property-card.status-sold {
-        border: 3px solid var(--sold)
-    }
-
+    .property-card.status-sold,
     .property-card.status-rented {
-        border: 3px solid #3498db
+        border: 2px solid rgba(201, 162, 39, .55);
     }
 
     .property-card.status-archived {
-        border: 3px solid #7f8c8d;
-        opacity: .7
+        border: 2px solid rgba(22, 39, 63, .15);
+        opacity: .75;
     }
 
     .card-image {
@@ -795,6 +798,10 @@
         transform: scale(1.05)
     }
 
+    /* ---- Estado de la propiedad (Reservada / Vendida / Alquilada) ----
+       Tratamiento sobrio acorde a la estética del sitio: velo azul marino
+       sobre la foto, banda horizontal con filetes dorados y tipografía
+       espaciada. Nada de cintas diagonales: el lujo no grita. */
     .property-status-overlay {
         position: absolute;
         top: 0;
@@ -805,56 +812,73 @@
         align-items: center;
         justify-content: center;
         z-index: 5;
-        pointer-events: none
+        pointer-events: none;
+        background: linear-gradient(168deg, rgba(22, 39, 63, .16), rgba(22, 39, 63, .44));
     }
 
     .property-status-overlay.reserved {
-        background: rgba(155, 89, 182, .3)
-    }
-
-    .property-status-overlay.sold {
-        background: rgba(192, 71, 58, .4)
-    }
-
-    .property-status-overlay.rented {
-        background: rgba(52, 152, 219, .3)
+        background: linear-gradient(168deg, rgba(22, 39, 63, .10), rgba(22, 39, 63, .30));
     }
 
     .property-status-overlay.archived {
-        background: rgba(127, 140, 141, .4)
+        background: linear-gradient(168deg, rgba(22, 39, 63, .30), rgba(22, 39, 63, .55));
     }
 
     .status-ribbon {
-        padding: 12px 40px;
-        font-size: 18px;
-        font-weight: 700;
+        width: 100%;
+        text-align: center;
+        padding: 11px 8px;
+        font-family: 'Jost', sans-serif;
+        font-size: .82rem;
+        font-weight: 500;
         text-transform: uppercase;
-        letter-spacing: 2px;
-        transform: rotate(-15deg)
+        letter-spacing: .45em;
+        text-indent: .45em; /* compensa el espaciado para centrar la palabra */
+        color: #fff;
+        background: rgba(14, 25, 43, .48);
+        border-top: 1px solid rgba(201, 162, 39, .85);
+        border-bottom: 1px solid rgba(201, 162, 39, .85);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        text-shadow: 0 1px 8px rgba(10, 20, 35, .5);
+        transform: none;
     }
 
+    /* Reservada: todavía puede volver al mercado; la banda es más liviana */
     .status-ribbon.reserved {
-        background: var(--reserved);
-        color: white;
-        box-shadow: 0 4px 15px rgba(155, 89, 182, .5)
+        background: rgba(14, 25, 43, .34);
+        border-top-color: rgba(255, 255, 255, .55);
+        border-bottom-color: rgba(255, 255, 255, .55);
     }
 
-    .status-ribbon.sold {
-        background: var(--sold);
-        color: white;
-        box-shadow: 0 4px 15px rgba(192, 71, 58, .5)
-    }
-
+    .status-ribbon.sold,
     .status-ribbon.rented {
-        background: #3498db;
-        color: white;
-        box-shadow: 0 4px 15px rgba(52, 152, 219, .5)
+        background: rgba(14, 25, 43, .52);
     }
 
     .status-ribbon.archived {
-        background: #7f8c8d;
-        color: white;
-        box-shadow: 0 4px 15px rgba(127, 140, 141, .5)
+        background: rgba(14, 25, 43, .6);
+        border-top-color: rgba(255, 255, 255, .3);
+        border-bottom-color: rgba(255, 255, 255, .3);
+    }
+
+    /* La foto se apaga con elegancia cuando la propiedad ya no está disponible */
+    .property-card.status-sold .card-image img,
+    .property-card.status-rented .card-image img {
+        filter: grayscale(.55) brightness(.92);
+    }
+
+    .property-card.status-archived .card-image img {
+        filter: grayscale(.85) brightness(.85);
+    }
+
+    @media (max-width: 640px) {
+        .status-ribbon {
+            font-size: .74rem;
+            letter-spacing: .38em;
+            text-indent: .38em;
+            padding: 9px 6px;
+        }
     }
 
     .card-badges {
@@ -4219,3 +4243,30 @@
             font-size: 30px
         }
     }
+
+
+/* ---- Modales en el celular: el scroll queda ADENTRO del modal ----
+   overscroll-behavior corta el "encadenamiento" hacia la página de fondo
+   cuando el contenido del modal llega a su tope; el body además se fija por
+   JS (position:fixed) mientras haya un modal o el lightbox abiertos. dvh
+   evita que el borde inferior quede tapado por la barra de Safari en iPhone. */
+.modal,
+.lightbox {
+    overscroll-behavior: contain;
+}
+
+.modal-content,
+.modal-body {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.modal-content {
+    max-height: 90dvh;
+}
+
+@media (max-width: 768px) {
+    .modal-body {
+        max-height: calc(90dvh - 120px);
+    }
+}
