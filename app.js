@@ -168,7 +168,7 @@
 
     const uruguayData = {
     "Montevideo": ["Aguada", "Aires Puros", "Atahualpa", "Bañados de Carrasco", "Barrio Sur", "Bella Italia", "Bella Vista", "Belvedere", "Brazo Oriental", "Buceo", "Capurro", "Carrasco", "Carrasco Norte", "Casabó", "Casavalle", "Centro", "Cerrito de la Victoria", "Cerro", "Ciudad Vieja", "Colón", "Conciliación", "Cordón", "Flor de Maroñas", "Goes", "Ituzaingó", "Jacinto Vera", "Jardines del Hipódromo", "La Blanqueada", "La Comercial", "La Figurita", "La Paloma", "La Teja", "Larrañaga", "Las Acacias", "Las Canteras", "Lezica", "Malvín", "Malvín Norte", "Manga", "Maroñas", "Melilla", "Mercado Modelo", "Nuevo París", "Palermo", "Parque Batlle", "Parque Rodó", "Paso de la Arena", "Paso de las Duranas", "Paso Molino", "Peñarol", "Piedras Blancas", "Pocitos", "Pocitos Nuevo", "Prado", "Punta Carretas", "Punta Gorda", "Punta Rieles", "Reducto", "Sayago", "Toledo Chico", "Tres Cruces", "Tres Ombúes", "Unión", "Villa Dolores", "Villa Española", "Villa García", "Villa Muñoz", "Vista Linda"].sort((a,b)=>a.localeCompare(b,'es')),
-    "Canelones": ["Las Piedras", "Pando", "Canelones", "Santa Lucía", "Progreso", "Atlántida", "Salinas", "Parque del Plata", "Solymar", "Shangrilá", "El Pinar", "Lagomar", "La Floresta", "Paso Carrasco", "Ciudad de la Costa", "San José de Carrasco", "Médanos de Solymar", "Colinas de Solymar", "Colonia Nicolich", "Barros Blancos", "Toledo", "Sauce", "Joaquín Suárez", "Suárez", "La Paz", "Las Toscas", "Pinamar", "Neptunia", "Marindia", "Villa Argentina", "Estación Atlántida", "Costa Azul", "Bello Horizonte", "San Luis", "La Tuna", "Cuchilla Alta", "Jaureguiberry", "Empalme Olmos", "Tala", "San Ramón", "Santa Rosa", "San Jacinto", "San Bautista", "Migues", "Montes", "Soca", "Aguas Corrientes", "Los Cerrillos", "Juanicó", "San Antonio", "El Bosque", "Villa Felicidad"].sort((a,b)=>a.localeCompare(b,'es')),
+    "Canelones": ["Las Piedras", "Pando", "Canelones", "Santa Lucía", "Progreso", "Atlántida", "Salinas", "Parque del Plata", "Solymar", "Shangrilá", "El Pinar", "Lagomar", "La Floresta", "Paso Carrasco", "Ciudad de la Costa", "San José de Carrasco", "Médanos de Solymar", "Colinas de Solymar", "Colonia Nicolich", "Barros Blancos", "Toledo", "Sauce", "Joaquín Suárez", "Suárez", "La Paz", "Las Toscas", "Pinamar", "Neptunia", "Marindia", "Villa Argentina", "Estación Atlántida", "Balneario Argentino", "Fortín de Santa Rosa", "Costa Azul", "Costa de Oro", "Las Vegas", "Bello Horizonte", "Guazuvirá", "Los Titanes", "Santa Lucía del Este", "Santa Ana", "San Luis", "La Tuna", "Cuchilla Alta", "Jaureguiberry", "Empalme Olmos", "Tala", "San Ramón", "Santa Rosa", "San Jacinto", "San Bautista", "Migues", "Montes", "Soca", "Aguas Corrientes", "Los Cerrillos", "Juanicó", "San Antonio", "El Bosque", "Villa Felicidad"].sort((a,b)=>a.localeCompare(b,'es')),
     "Maldonado": ["Maldonado", "Punta del Este", "San Carlos", "Piriápolis", "Pan de Azúcar", "Aiguá", "Solís", "Bella Vista", "Las Flores", "Playa Verde", "Playa Hermosa", "Playa Grande", "San Francisco", "Punta Colorada", "Punta Negra", "Gregorio Aznárez", "Cerros Azules", "Nueva Carrara", "Punta Ballena", "Solanas", "Sauce de Portezuelo", "Portezuelo", "Chihuahua", "Laguna del Sauce", "Pinares", "La Barra", "El Tesoro", "Manantiales", "El Chorro", "Montoya", "Balneario Buenos Aires", "La Juanita", "José Ignacio", "Santa Mónica", "Pueblo Edén", "Garzón", "Estación Las Flores", "Maldonado Nuevo", "Cerro Pelado", "La Capuera", "Ocean Park", "Las Grutas", "El Placer"].sort((a,b)=>a.localeCompare(b,'es')),
     "Colonia": ["Colonia del Sacramento", "Carmelo", "Juan Lacaze", "Nueva Helvecia", "Rosario", "Nueva Palmira", "Tarariras", "Colonia Valdense", "Ombúes de Lavalle", "Florencio Sánchez", "Conchillas", "Miguelete", "Colonia Cosmopolita"].sort((a,b)=>a.localeCompare(b,'es')),
     "Salto": ["Salto", "Daymán", "Termas del Daymán", "Termas del Arapey", "Belén", "Constitución"].sort((a,b)=>a.localeCompare(b,'es')),
@@ -1140,10 +1140,26 @@
       .ml-chart{ margin-top:10px; background:#f6f8fa; border-radius:12px; padding:12px 14px; }
       .ml-chart-head{ display:flex; justify-content:space-between; align-items:baseline; font-size:.82rem; font-weight:700; color:#16273f; margin-bottom:9px; }
       .ml-chart-head small{ font-weight:600; color:#8a93a0; font-size:.72rem; }
-      .ml-chart-bars{ display:flex; align-items:flex-end; gap:2px; height:58px; }
-      .ml-bar{ flex:1; height:100%; display:flex; align-items:flex-end; min-width:0; }
+      .ml-chart-bars{ display:flex; align-items:flex-end; gap:2px; height:74px; padding-top:16px; }
+      .ml-bar{ flex:1; height:100%; display:flex; align-items:flex-end; min-width:0; position:relative; }
       .ml-bar-fill{ width:100%; background:#1e9e6a; border-radius:3px 3px 0 0; opacity:.8; min-height:3px; transition:opacity .12s; }
       .ml-bar:hover .ml-bar-fill{ opacity:1; }
+      .ml-bar-num{ position:absolute; left:50%; transform:translateX(-50%); font-size:.68rem; font-weight:800; color:#157a52; white-space:nowrap; }
+      .ml-chart-axis{ display:flex; justify-content:space-between; font-size:.68rem; color:#8a93a0; font-weight:600; margin-top:6px; }
+      .ml-chart-total{ font-weight:800; color:#16273f; font-size:.95rem; }
+      .ml-note.gold{ background:linear-gradient(135deg,#fdf6e3,#fbf0d0); color:#7a611a; border:1px solid #ecd9a0; }
+      .ml-note.gold i{ color:#C9A227; margin-top:2px; }
+      .ml-more{ margin-top:10px; }
+      .ml-more summary{ cursor:pointer; font-size:.84rem; font-weight:700; color:#6a7280; padding:6px 2px; list-style:none; display:flex; align-items:center; gap:7px; }
+      .ml-more summary::-webkit-details-marker{ display:none; }
+      .ml-more summary i{ transition:transform .15s; font-size:.7rem; }
+      .ml-more[open] summary i{ transform:rotate(90deg); }
+      .ml-more ul{ margin-top:8px; }
+      .ml-divider{ display:flex; align-items:center; gap:10px; margin:18px 0 10px; }
+      .ml-divider .tagchip{ flex:none; padding:3px 9px; border-radius:6px; font-weight:800; font-size:.72rem; letter-spacing:.03em; }
+      .ml-divider .line{ flex:1; height:1px; background:#e7eaee; }
+      .ml-webline{ margin-top:10px; font-size:.8rem; color:#6a7280; display:flex; gap:14px; flex-wrap:wrap; align-items:center; }
+      .ml-webline b{ color:#16273f; }
       .ml-label{ font-size:.74rem; letter-spacing:.04em; color:#8a93a0; font-weight:600; text-transform:uppercase; margin-bottom:7px; }
       .ml-select{ width:100%; padding:12px 13px; border:1.5px solid #e2e6ea; border-radius:11px; font-family:inherit; font-size:.95rem; color:#16273f; background:#fff; }
       .ml-select:focus{ outline:none; border-color:#C9A227; }
@@ -1208,6 +1224,31 @@
     const aviso = lista.includes('free') ? '' : `<div class="ml-note warn" style="margin-top:8px"><i class="fas fa-circle-info"></i><div>Esta categoría no tiene aviso gratis, o ya usaste tu cupo de avisos gratis. Es normal en inmuebles: elegí un tipo de aviso pago.</div></div>`;
     return `<div class="ml-label">Tipo de aviso</div><select id="mlTipoAviso" class="ml-select">${opts}</select>${aviso}`;
   }
+  // Estado de la propiedad frente al feed de InfoCasas, calculado con las MISMAS
+  // reglas que usa el backend. InfoCasas no ofrece estadísticas por API (su
+  // integración es el feed, de una sola vía): acá se ve si está sincronizando,
+  // por qué no, y el link al aviso si ya se pegó desde Compartir.
+  function mlSeccionInfocasas() {
+    const p = properties.find(pr => pr.id === mlModalPropId);
+    if (!p) return '';
+    const EST = { tasacion: 'Pendiente de tasación', tasado: 'Tasada', reserved: 'Reservada', sold: 'Vendida', rented: 'Alquilada', archived: 'Archivada' };
+    let motivo = '';
+    if (p.cierreConfirmado === true) motivo = 'tiene un cierre confirmado';
+    else if (p.status && p.status !== 'available') motivo = 'está en estado "' + (EST[p.status] || p.status) + '" y solo las disponibles van al feed';
+    else if (!p.ubicacion || p.ubicacion.lat == null || p.ubicacion.lng == null) motivo = 'no tiene el pin de ubicación en el mapa';
+    else if (!(Number(p.price) > 0)) motivo = 'no tiene precio cargado';
+    else if (!((p.images || []).filter(Boolean).length)) motivo = 'no tiene fotos';
+    else if (!(p.departamento || (p.ubicacion && p.ubicacion.departamento))) motivo = 'no tiene departamento asignado';
+    const enFeed = !motivo;
+    const corregible = !enFeed && !(p.status && p.status !== 'available') && p.cierreConfirmado !== true;
+    const estadoHtml = enFeed
+      ? '<div class="ml-note ok"><i class="fas fa-circle-check"></i><div><strong>En el feed:</strong> InfoCasas la sincroniza periódicamente. Los cambios de precio, fotos y descripción viajan solos en la próxima lectura.</div></div>'
+      : `<div class="ml-note warn"><i class="fas fa-circle-info"></i><div><strong>Fuera del feed:</strong> ${motivo}.${corregible ? ' Corregilo en <strong>Editar propiedad</strong> y entra sola.' : ''}</div></div>`;
+    const linkHtml = (p.infocasasUrl && safeUrl(p.infocasasUrl))
+      ? `<a href="${safeUrl(p.infocasasUrl)}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost" style="margin-top:10px;flex:none"><i class="fas fa-external-link-alt"></i> Ver aviso en InfoCasas</a>`
+      : (enFeed ? '<div style="font-size:.8rem;color:#8a93a0;margin-top:8px;line-height:1.45">Cuando el aviso esté en línea, pegá su link desde el botón <strong>Compartir</strong> de la tarjeta y va a aparecer acá.</div>' : '');
+    return `<div class="ml-divider"><span class="tagchip" style="background:#dbeafe;color:#1d4ed8">InfoCasas</span><span class="line"></span></div>${estadoHtml}${linkHtml}<div style="font-size:.74rem;color:#a8b0ba;margin-top:8px">InfoCasas no ofrece estadísticas por API: acá solo se ve el estado de sincronización.</div>`;
+  }
   function renderMLStatus(d) {
     ensureMLStyles();
     const body = document.getElementById('mlModalBody');
@@ -1218,7 +1259,7 @@
             ? `<div class="ml-note warn" style="margin-top:8px"><i class="fas fa-circle-info"></i><div>${d.error}</div></div>`
             : `<div class="ml-err">${d.error}</div>`)
         : '';
-      body.innerHTML = `<div class="ml-ui"><div class="ml-empty"><div class="ml-empty-ic"><i class="fas fa-tag"></i></div><h4>Todavía no está publicada</h4><p>Esta propiedad aún no está en Mercado Libre.</p></div>${_errHtml}<div class="ml-section">${mlTypeSelector(d.tiposDisponibles)}</div><div class="ml-btns"><button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-upload"></i> Publicar en Mercado Libre</button></div></div>`;
+      body.innerHTML = `<div class="ml-ui"><div class="ml-empty"><div class="ml-empty-ic"><i class="fas fa-tag"></i></div><h4>Todavía no está publicada</h4><p>Esta propiedad aún no está en Mercado Libre.</p></div>${_errHtml}<div class="ml-section">${mlTypeSelector(d.tiposDisponibles)}</div><div class="ml-btns"><button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-upload"></i> Publicar en Mercado Libre</button></div>${mlSeccionInfocasas()}</div>`;
       return
     }
     if (d.error) {
@@ -1226,53 +1267,70 @@
       return
     }
     const hp = d.health != null ? Math.round(d.health * 100) : null;
+    const _prop = properties.find(pr => pr.id === mlModalPropId) || {};
     const ringColor = hp == null ? '#aeb8c6' : (hp >= 70 ? '#3ddc97' : hp >= 40 ? '#f5b54a' : '#ff7a7a');
     const stColors = { active: '#3ddc97', paused: '#f5b54a', closed: '#ff7a7a', under_review: '#f5b54a', inactive: '#aeb8c6', payment_required: '#f5b54a' };
     const pillColor = stColors[d.status] || '#aeb8c6';
-    const hero = `<div class="ml-hero">${hp != null ? mlRing(hp, ringColor) : ''}<div class="ml-hero-info"><span class="ml-pill" style="color:${pillColor}"><span class="dot"></span>${mlStatusName(d.status)}</span><h4>${mlListingTypeName(d.listingType)}</h4><div class="sub">${hp != null ? 'Calidad del aviso ' + hp + '%' : 'Aviso publicado en Mercado Libre'}</div></div></div>`;
+    const hero = `<div class="ml-divider" style="margin-top:0"><span class="tagchip" style="background:#fff159;color:#2d3277">Mercado Libre</span><span class="line"></span></div><div class="ml-hero">${hp != null ? mlRing(hp, ringColor) : ''}<div class="ml-hero-info"><span class="ml-pill" style="color:${pillColor}"><span class="dot"></span>${mlStatusName(d.status)}</span><h4>${mlListingTypeName(d.listingType)}</h4><div class="sub">${hp != null ? 'Calidad del aviso ' + hp + '%' : 'Aviso publicado en Mercado Libre'}</div></div></div>`;
     const _dash = (v) => (v != null ? v : '—');
     const _pregN = (d.preguntas && d.preguntas.total != null) ? d.preguntas.total : null;
     const _pregSR = (d.preguntas && d.preguntas.sinResponder) ? ` · ${d.preguntas.sinResponder} sin responder` : '';
     const _serie = Array.isArray(d.visitasSerie) ? d.visitasSerie : [];
     let _chart = '';
-    if (_serie.length > 1 && _serie.some(x => (x.total || 0) > 0)) {
-      const _max = Math.max.apply(null, _serie.map(x => x.total || 0).concat([1]));
-      const _bars = _serie.map(x => {
-        const n = x.total || 0;
-        const h = Math.max(5, Math.round(n / _max * 100));
-        const dt = String(x.date || '').slice(0, 10);
-        const dd = dt.length === 10 ? dt.slice(8, 10) + '/' + dt.slice(5, 7) : '';
-        return `<div class="ml-bar" title="${dd}: ${n} visita${n === 1 ? '' : 's'}"><div class="ml-bar-fill" style="height:${h}%${n === 0 ? ';opacity:.25' : ''}"></div></div>`;
-      }).join('');
-      _chart = `<div class="ml-chart"><div class="ml-chart-head"><span><i class="fas fa-chart-column" style="color:#1e9e6a"></i> Visitas por día</span><small>últimos 30 días</small></div><div class="ml-chart-bars">${_bars}</div></div>`;
+    if (_serie.length > 1) {
+      const _tot = _serie.reduce((s, x) => s + (x.total || 0), 0);
+      const _fmt = (x) => { const dt = String((x && x.date) || '').slice(0, 10); return dt.length === 10 ? dt.slice(8, 10) + '/' + dt.slice(5, 7) : ''; };
+      if (_tot > 0) {
+        const _max = Math.max.apply(null, _serie.map(x => x.total || 0));
+        let _peak = -1; _serie.forEach((x, i) => { if ((x.total || 0) === _max && _peak === -1) _peak = i; });
+        const _bars = _serie.map((x, i) => {
+          const nv = x.total || 0;
+          const h = Math.max(5, Math.round(nv / _max * 100));
+          const num = (i === _peak && nv > 0) ? `<span class="ml-bar-num" style="bottom:calc(${h}% + 3px)">${nv}</span>` : '';
+          return `<div class="ml-bar" title="${_fmt(x)}: ${nv} visita${nv === 1 ? '' : 's'}">${num}<div class="ml-bar-fill" style="height:${h}%${nv === 0 ? ';opacity:.25' : ''}"></div></div>`;
+        }).join('');
+        const _mid = _serie[Math.floor(_serie.length / 2)];
+        _chart = `<div class="ml-chart"><div class="ml-chart-head"><span><i class="fas fa-chart-column" style="color:#1e9e6a"></i> Visitas por día</span><span class="ml-chart-total">${_tot} <small style="font-weight:600;color:#8a93a0">en ${_serie.length} días</small></span></div><div class="ml-chart-bars">${_bars}</div><div class="ml-chart-axis"><span>${_fmt(_serie[0])}</span><span>${_fmt(_mid)}</span><span>${_fmt(_serie[_serie.length - 1])}</span></div></div>`;
+      } else {
+        _chart = `<div class="ml-chart"><div class="ml-chart-head"><span><i class="fas fa-chart-column" style="color:#1e9e6a"></i> Visitas por día</span><small>últimos ${_serie.length} días</small></div><div style="font-size:.82rem;color:#8a93a0;padding:6px 0 2px">Todavía sin visitas registradas en este período.</div></div>`;
+      }
     }
-    const interaccion = `<div class="ml-section"><div class="ml-stats"><div class="ml-stat"><i class="fas fa-eye" style="color:#1e9e6a"></i><div><div class="n">${_dash(d.visitas)}</div><div class="t">visitas · 30 días</div></div></div><div class="ml-stat"><i class="fas fa-circle-question" style="color:#2e86de"></i><div><div class="n">${_dash(_pregN)}</div><div class="t">preguntas${_pregSR}</div></div></div><div class="ml-stat"><i class="fab fa-whatsapp" style="color:#25d366"></i><div><div class="n">${_dash(d.contactosWhatsapp)}</div><div class="t">contactos WhatsApp · 30 días</div></div></div></div>${_chart}</div>`;
+    const interaccion = `<div class="ml-section"><div class="ml-stats"><div class="ml-stat"><i class="fas fa-eye" style="color:#1e9e6a"></i><div><div class="n">${_dash(d.visitas)}</div><div class="t">visitas · 30 días</div></div></div><div class="ml-stat"><i class="fas fa-circle-question" style="color:#2e86de"></i><div><div class="n">${_dash(_pregN)}</div><div class="t">preguntas${_pregSR}</div></div></div><div class="ml-stat"><i class="fab fa-whatsapp" style="color:#25d366"></i><div><div class="n">${_dash(d.contactosWhatsapp)}</div><div class="t">contactos WhatsApp · 30 días</div></div></div></div>${_chart}<div class="ml-webline"><span>En tu web:</span><span><i class="fas fa-eye"></i> <b>${_prop.views || 0}</b> visitas</span><span><i class="fab fa-whatsapp" style="color:#25d366"></i> <b>${_prop.contactClicks || 0}</b> contactos</span><span style="color:#a8b0ba">· histórico del sitio</span></div></div>`;
     const pagoHint = d.status === 'payment_required' ? `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-circle-info"></i><div>El aviso está creado pero Mercado Libre exige pagar el tipo <strong>${mlListingTypeName(d.listingType)}</strong> para activarlo (se abona desde tu cuenta de ML, sección Publicaciones). Si no querés pagarlo, dale <strong>Dar de baja</strong> y volvé a publicarlo eligiendo otro tipo. Mientras no lo pagues, no se cobra nada.</div></div></div>` : '';
     // Qué falta para el 100%: lo MÁS confiable es comparar los atributos de la
     // categoría contra los que el aviso tiene cargados (d.faltan, lo calcula el
     // backend y NO depende de la calidad de ML). Si por algo no viene, caemos al
     // detalle de /performance, después a /health, y por último a fotos/descripción.
-    let improve;
+    // Qué falta: obligatorios SIEMPRE visibles. Al 100% se festeja (nada de listas
+    // contradictorias bajo el anillo lleno): los opcionales quedan plegados. El id
+    // de ML se muestra chiquito solo al admin, para alinear el formulario sin adivinar.
+    let improve = '';
     const _faltan = Array.isArray(d.faltan) ? d.faltan : [];
-    if (_faltan.length) {
-      const reqs = _faltan.filter(x => x && x.req).map(x => x.nombre);
-      const opts = _faltan.filter(x => x && !x.req).map(x => x.nombre);
-      const CAP = 14;
-      let h = '<div class="ml-section">';
-      if (reqs.length) {
-        h += '<div class="ml-improve-title">Datos obligatorios sin completar</div><ul class="ml-improve">'
-          + reqs.map(n => `<li><i class="fas fa-triangle-exclamation" style="color:#e8a33d"></i><span>${mvEsc(n)}</span></li>`).join('')
-          + '</ul>';
-      }
+    const _adm = typeof isAdminUser === 'function' && isAdminUser();
+    const _item = (x, icon, iconStyle) => `<li><i class="${icon}"${iconStyle ? ` style="${iconStyle}"` : ''}></i><span>${mvEsc(x.nombre)}${_adm && x.id ? ` <small style="color:#a8b0ba">· ${mvEsc(x.id)}</small>` : ''}</span></li>`;
+    const _guia = '<div style="font-size:.8rem;color:#8a7a45;margin-top:8px;line-height:1.4">Completalos en <strong>Editar propiedad → Ficha técnica</strong> y guardá: se actualizan solos en Mercado Libre.</div>';
+    const _oro = '<div class="ml-note gold"><i class="fas fa-trophy"></i><div><strong>¡Publicación al 100%!</strong> El aviso tiene la máxima calidad que mide Mercado Libre: mejor posición en los resultados y más visitas.</div></div>';
+    const reqs = _faltan.filter(x => x && x.req);
+    const opts = _faltan.filter(x => x && !x.req);
+    let hImp = '';
+    if (reqs.length) {
+      hImp += '<div class="ml-improve-title">Datos obligatorios sin completar</div><ul class="ml-improve">' + reqs.map(x => _item(x, 'fas fa-triangle-exclamation', 'color:#e8a33d')).join('') + '</ul>';
+    }
+    if (hp != null && hp >= 99 && !reqs.length) {
+      hImp += _oro;
       if (opts.length) {
-        const shown = opts.slice(0, CAP), rest = opts.length - shown.length;
-        h += `<div class="ml-improve-title"${reqs.length ? ' style="margin-top:10px"' : ''}>Completá estos datos para subir la calidad</div><ul class="ml-improve">`
-          + shown.map(n => `<li><i class="fas fa-arrow-up"></i><span>${mvEsc(n)}</span></li>`).join('')
-          + (rest > 0 ? `<li style="opacity:.65"><i class="fas fa-ellipsis-h"></i><span>y ${rest} dato${rest === 1 ? '' : 's'} m\u00e1s</span></li>` : '')
+        hImp += `<details class="ml-more"><summary><i class="fas fa-chevron-right"></i>Datos opcionales que todavía podés sumar (${opts.length})</summary><ul class="ml-improve">` + opts.slice(0, 20).map(x => _item(x, 'fas fa-arrow-up')).join('') + `</ul>${_guia}</details>`;
+      }
+      improve = `<div class="ml-section">${hImp}</div>`;
+    } else if (reqs.length || opts.length) {
+      if (opts.length) {
+        const CAP = 14, shown = opts.slice(0, CAP), rest = opts.length - shown.length;
+        hImp += `<div class="ml-improve-title"${reqs.length ? ' style="margin-top:10px"' : ''}>Completá estos datos para subir la calidad</div><ul class="ml-improve">`
+          + shown.map(x => _item(x, 'fas fa-arrow-up')).join('')
+          + (rest > 0 ? `<li style="opacity:.65"><i class="fas fa-ellipsis-h"></i><span>y ${rest} dato${rest === 1 ? '' : 's'} más</span></li>` : '')
           + '</ul>';
       }
-      h += '<div style="font-size:.8rem;color:#8a7a45;margin-top:8px;line-height:1.4">Completalos en <strong>Editar propiedad</strong> y guard\u00e1: se actualizan solos en Mercado Libre.</div></div>';
-      improve = h;
+      improve = `<div class="ml-section">${hImp}${_guia}</div>`;
     } else {
       let _mej = [];
       const _vis = new Set();
@@ -1281,13 +1339,15 @@
       } else if (d.actions && d.actions.length) {
         d.actions.forEach(a => { const t = mlActionText(a); if (t && !_vis.has(t)) { _vis.add(t); _mej.push(t); } });
       }
-      const acc = _mej.map(t => `<li><i class="fas fa-arrow-up"></i><span>${mvEsc(t)}</span></li>`).join('');
-      if (acc) {
-        improve = `<div class="ml-section"><div class="ml-improve-title">Para llegar al 100%, completá:</div><ul class="ml-improve">${acc}</ul></div>`;
+      const acc = _mej.map(tx => `<li><i class="fas fa-arrow-up"></i><span>${mvEsc(tx)}</span></li>`).join('');
+      if (hp != null && hp >= 99) {
+        improve = `<div class="ml-section">${_oro}</div>`;
+      } else if (acc) {
+        improve = `<div class="ml-section"><div class="ml-improve-title">Para llegar al 100%, completá:</div><ul class="ml-improve">${acc}</ul>${_guia}</div>`;
       } else if (hp != null && hp < 99) {
-        improve = `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-circle-info"></i><div>Sum\u00e1 <strong>m\u00e1s fotos</strong> (al menos 12) y una <strong>descripci\u00f3n</strong> m\u00e1s completa para subir la calidad.</div></div></div>`;
+        improve = `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-circle-info"></i><div>Sumá <strong>más fotos</strong> (al menos 12) y una <strong>descripción</strong> más completa para subir la calidad.</div></div></div>`;
       } else {
-        improve = `<div class="ml-section"><div class="ml-note ok"><i class="fas fa-circle-check"></i><div>El aviso est\u00e1 completo, sin mejoras pendientes.</div></div></div>`;
+        improve = `<div class="ml-section"><div class="ml-note ok"><i class="fas fa-circle-check"></i><div>El aviso está completo, sin mejoras pendientes.</div></div></div>`;
       }
     }
     const selTipo = d.status === 'closed' ? `<div class="ml-section">${mlTypeSelector(d.tiposDisponibles)}</div>` : '';
@@ -1295,7 +1355,7 @@
     if (d.permalink) botones.push(`<a href="${d.permalink}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost"><i class="fas fa-external-link-alt"></i> Ver aviso</a>`);
     if (d.status === 'paused' || d.status === 'closed') botones.push(`<button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-rotate-right"></i> Republicar</button>`);
     if (d.status !== 'closed') botones.push(`<button class="ml-btn ml-btn-danger" onclick="bajaPropiedad()"><i class="fas fa-circle-stop"></i> Dar de baja</button>`);
-    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}${selTipo}<div class="ml-btns">${botones.join('')}</div></div>`
+    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}${mlSeccionInfocasas()}${selTipo}<div class="ml-btns">${botones.join('')}</div></div>`
   }
   async function republicarPropiedad() {
     if (!mlModalPropId) return;
@@ -3505,7 +3565,86 @@
     document.getElementById('sharePrice').textContent = formatPrice(p.price, p.currency || 'USD') + (p.type === 'rent' ? '/mes' : '');
     document.getElementById('shareLocation').textContent = getLocationString(p);
     document.getElementById('shareUrlInput').value = url;
+    _icEditando = false;
+    renderSharePortales(p);
     openModal('shareModal')
+  }
+
+  // ----- Links de los portales (Mercado Libre / InfoCasas) en el modal de compartir -----
+  // Solo visible con sesión iniciada: es una herramienta para los agentes.
+  // ML: el permalink lo guarda el backend al publicar (p.mlPermalink), es automático.
+  // InfoCasas: asigna su propia URL al importar el feed y el sistema no la conoce,
+  // así que el dueño (o el admin) la pega una vez acá y queda guardada para todos.
+  let _icEditando = false;
+  function renderSharePortales(p){
+    const box = document.getElementById('sharePortales');
+    if (!box) return;
+    if (!currentUser){ box.style.display = 'none'; box.innerHTML = ''; return; }
+    const puedeEditar = (p.ownerId === currentUser.uid) || isAdminUser();
+    const fila = (tag, tagStyle, inner) => `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;min-height:34px"><span style="flex:none;padding:3px 8px;border-radius:6px;font-weight:700;font-size:11px;${tagStyle}">${tag}</span>${inner}</div>`;
+    const urlSpan = u => `<span style="flex:1;min-width:0;font-size:12px;color:var(--gray-500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${mvEsc(u)}">${mvEsc(u)}</span>`;
+    const btnCopiar = cual => `<button onclick="copiarLinkPortal('${cual}')" style="flex:none;border:1px solid var(--gray-200,#e5e7eb);background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;color:var(--gray-700,#374151)"><i class="fas fa-copy"></i> Copiar</button>`;
+    const btnAbrir = u => safeUrl(u) ? `<a href="${safeUrl(u)}" target="_blank" rel="noopener" style="flex:none;color:var(--gray-400);padding:6px" title="Abrir el aviso"><i class="fas fa-external-link-alt"></i></a>` : '';
+    const vacio = t => `<span style="flex:1;font-size:12px;color:var(--gray-400)">${t}</span>`;
+
+    let ml;
+    if (p.mlPermalink) ml = urlSpan(p.mlPermalink) + btnCopiar('ml') + btnAbrir(p.mlPermalink);
+    else ml = vacio('Sin publicar en Mercado Libre');
+
+    let ic;
+    if (p.infocasasUrl && !_icEditando){
+      ic = urlSpan(p.infocasasUrl) + btnCopiar('ic') + btnAbrir(p.infocasasUrl) +
+        (puedeEditar ? `<button onclick="editarLinkInfocasas()" style="flex:none;border:none;background:transparent;color:var(--gray-400);cursor:pointer;padding:6px" title="Cambiar el link"><i class="fas fa-pen"></i></button>` : '');
+    } else if (puedeEditar){
+      ic = `<input id="icUrlInput" type="url" placeholder="Pegá el link del aviso en InfoCasas" value="${mvEsc(p.infocasasUrl||'')}" style="flex:1;min-width:0;padding:7px 10px;border:1px solid var(--gray-200,#e5e7eb);border-radius:8px;font-size:12px;font-family:inherit">` +
+        `<button onclick="guardarLinkInfocasas()" style="flex:none;border:none;background:var(--accent,#C9A227);color:#fff;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600">Guardar</button>`;
+    } else {
+      ic = vacio('El dueño todavía no cargó el link');
+    }
+
+    box.innerHTML =
+      `<div style="font-size:11px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.4px;margin:0 0 10px"><i class="fas fa-store"></i> Links en los portales</div>` +
+      fila('ML', 'background:#fff159;color:#2d3277', ml) +
+      fila('IC', 'background:#dbeafe;color:#1d4ed8', ic);
+    box.style.display = 'block';
+  }
+
+  function copiarLinkPortal(cual){
+    const p = currentShareProperty; if (!p) return;
+    const url = cual === 'ml' ? p.mlPermalink : p.infocasasUrl;
+    if (!url) return;
+    const nombre = cual === 'ml' ? 'Mercado Libre' : 'InfoCasas';
+    navigator.clipboard.writeText(url).then(() => {
+      showToast('Link copiado', 'El aviso de ' + nombre + ' está listo para pegar', 'fa-link');
+    }).catch(() => {
+      const t = document.createElement('textarea');
+      t.value = url; document.body.appendChild(t); t.select();
+      try { document.execCommand('copy'); showToast('Link copiado', 'El aviso de ' + nombre + ' está listo para pegar', 'fa-link'); }
+      catch (e) { showToast('No se pudo copiar', 'Copialo a mano desde el botón de abrir', 'fa-exclamation-triangle'); }
+      t.remove();
+    });
+  }
+
+  function editarLinkInfocasas(){ _icEditando = true; if (currentShareProperty) renderSharePortales(currentShareProperty); }
+
+  async function guardarLinkInfocasas(){
+    const p = currentShareProperty; if (!p) return;
+    const inp = document.getElementById('icUrlInput');
+    const v = ((inp && inp.value) || '').trim();
+    if (v && (v.indexOf('infocasas.com') === -1 || !safeUrl(v))){
+      showToast('Ese link no parece de InfoCasas', 'Pegá la URL completa del aviso publicado (empieza con https://www.infocasas.com.uy/...)', 'fa-exclamation-triangle');
+      return;
+    }
+    try {
+      await db.collection('properties').doc(p.id).update({ infocasasUrl: v });
+      p.infocasasUrl = v;
+      _icEditando = false;
+      renderSharePortales(p);
+      showToast(v ? 'Link de InfoCasas guardado' : 'Link de InfoCasas quitado', v ? 'Ahora todos los agentes lo pueden copiar desde Compartir' : '', 'fa-check');
+    } catch (e) {
+      console.error('No se pudo guardar el link de InfoCasas:', e);
+      showToast('No se pudo guardar', (e && e.message) || 'Probá de nuevo', 'fa-exclamation-triangle');
+    }
   }
 
   function getShareText() {
