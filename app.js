@@ -2624,6 +2624,83 @@
     document.getElementById('adminPanel').classList.remove('hidden');
     showAdminTab('pending')
   }
+  // ===== Editor de datos del agente (solo admin) =====
+  // El sitio público resuelve el nombre desde el perfil (getOwnerInfo prefiere
+  // allUsers), así que ahí alcanza con editar users/{uid}. Pero clientes y
+  // propiedades guardan COPIAS (createdByName / ownerName): al cambiar el
+  // nombre, el guardado las propaga para que no queden nombres viejos en el CRM.
+  // El email no se toca acá: es el usuario de ingreso y vive en Authentication.
+  let _edAgenteUid = null;
+  async function abrirEditorAgente(uid) {
+    cerrarEditorAgente();
+    let u = allUsers[uid];
+    try { const d = await db.collection('users').doc(uid).get(); if (d.exists) u = { id: d.id, ...d.data() }; } catch (e) { /* uso la copia en memoria */ }
+    if (!u) { showToast('No se encontró el perfil', '', 'fa-exclamation-triangle'); return; }
+    _edAgenteUid = uid;
+    const ov = document.createElement('div');
+    ov.id = 'agenteEditorOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,25,40,.55);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px';
+    ov.addEventListener('click', (e) => { if (e.target === ov) cerrarEditorAgente(); });
+    const lbl = 'display:block;font-size:.78rem;font-weight:600;color:var(--gray-600,#555);margin:0 0 4px';
+    const inp = 'width:100%;padding:10px 12px;border:1px solid var(--gray-200,#e5e7eb);border-radius:10px;font-family:inherit;font-size:.9rem;margin-bottom:12px;box-sizing:border-box';
+    ov.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:420px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(10,20,35,.35)">
+      <h3 style="margin:0 0 4px;font-size:1.05rem;color:var(--primary,#16273f)"><i class="fas fa-pen" style="color:var(--accent,#C9A227)"></i> Editar agente</h3>
+      <p style="margin:0 0 14px;font-size:.78rem;color:var(--gray-500,#8a93a0)">${mvEsc(u.email || '')} · el email es el usuario de ingreso y no se edita desde acá</p>
+      <label style="${lbl}">Nombre y apellido</label>
+      <input id="edAgNombre" type="text" value="${mvEsc(u.name || '')}" style="${inp}">
+      <label style="${lbl}">WhatsApp</label>
+      <input id="edAgWhatsapp" type="text" value="${mvEsc(u.whatsapp || '')}" placeholder="598 99 123 456" style="${inp}">
+      <label style="${lbl}">Instagram (sin @)</label>
+      <input id="edAgInstagram" type="text" value="${mvEsc(u.instagram || '')}" placeholder="usuario" style="${inp}">
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px">
+        <button onclick="cerrarEditorAgente()" style="border:1px solid var(--gray-200,#e5e7eb);background:#fff;border-radius:10px;padding:9px 16px;font-family:inherit;font-size:.85rem;font-weight:600;color:var(--gray-600,#555);cursor:pointer">Cancelar</button>
+        <button onclick="guardarEditorAgente()" style="border:none;background:var(--primary,#16273f);color:#fff;border-radius:10px;padding:9px 18px;font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer">Guardar</button>
+      </div></div>`;
+    document.body.appendChild(ov);
+  }
+  function cerrarEditorAgente() { const ov = document.getElementById('agenteEditorOverlay'); if (ov) ov.remove(); }
+  async function guardarEditorAgente() {
+    const uid = _edAgenteUid; if (!uid) return;
+    const nombre = (document.getElementById('edAgNombre').value || '').trim();
+    const whatsapp = (document.getElementById('edAgWhatsapp').value || '').trim();
+    const instagram = (document.getElementById('edAgInstagram').value || '').trim().replace(/^@/, '');
+    if (!nombre) { showToast('Falta el nombre', 'El agente necesita un nombre visible', 'fa-exclamation-triangle'); return; }
+    const previo = (allUsers[uid] && allUsers[uid].name) || '';
+    try {
+      await db.collection('users').doc(uid).update({ name: nombre, whatsapp, instagram, updatedAt: new Date().toISOString() });
+      // Propagar el nombre a las copias desnormalizadas (propiedades y clientes).
+      // Escala actual: decenas de docs por agente, entra cómodo en un batch (tope 500).
+      if (nombre !== previo) {
+        const [ps, cs1, cs2] = await Promise.all([
+          db.collection('properties').where('ownerId', '==', uid).get(),
+          db.collection('clients').where('createdBy', '==', uid).get(),
+          db.collection('clients').where('ownerId', '==', uid).get(),
+        ]);
+        const batch = db.batch();
+        let ops = 0;
+        ps.docs.forEach(d => { batch.update(d.ref, { ownerName: nombre }); ops++; });
+        const vistos = {};
+        cs1.docs.concat(cs2.docs).forEach(d => {
+          if (vistos[d.id]) return; vistos[d.id] = true;
+          const c = d.data(), upd = {};
+          if (c.createdByName != null) upd.createdByName = nombre;
+          if (c.ownerName != null) upd.ownerName = nombre;
+          if (Object.keys(upd).length) { batch.update(d.ref, upd); ops++; }
+        });
+        if (ops) await batch.commit();
+        properties.forEach(p => { if (p.ownerId === uid) p.ownerName = nombre; });
+      }
+      if (allUsers[uid]) Object.assign(allUsers[uid], { name: nombre, whatsapp, instagram });
+      cerrarEditorAgente();
+      const tabU = document.getElementById('tabUsers');
+      if (tabU && tabU.classList.contains('active')) showAdminTab('users');
+      showToast('Agente actualizado', nombre !== previo ? 'El nombre se propagó a sus propiedades y clientes' : '', 'fa-check');
+    } catch (e) {
+      console.error('No se pudo guardar el agente:', e);
+      showToast('No se pudo guardar', (e && e.message) || '', 'fa-exclamation-triangle');
+    }
+  }
+
   async function showAdminTab(tb) {
     document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
     document.getElementById(`tab${tb.charAt(0).toUpperCase()+tb.slice(1)}`).classList.add('active');
@@ -2646,7 +2723,7 @@
           id: d.id,
           ...d.data()
         }));
-        c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${safeUrl(u.profilePhoto)}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${mvEsc(u.role||'Asesor Inmobiliario')}</small>${u.commissionSale!=null||u.commissionRent!=null||u.commissionPct!=null?`<br><small style="color:#8a6d12"><i class="fas fa-percent"></i> Venta: ${u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:'—')}% · Alq: ${u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:'—')}%</small>`:''}<br><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="setUserRole('${u.id}')" title="Asignar cargo"><i class="fas fa-id-badge"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
+        c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${safeUrl(u.profilePhoto)}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${mvEsc(u.role||'Asesor Inmobiliario')}</small>${u.commissionSale!=null||u.commissionRent!=null||u.commissionPct!=null?`<br><small style="color:#8a6d12"><i class="fas fa-percent"></i> Venta: ${u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:'—')}% · Alq: ${u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:'—')}%</small>`:''}<br><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="abrirEditorAgente('${u.id}')" title="Editar datos"><i class="fas fa-pen"></i></button><button class="btn-edit" onclick="setUserRole('${u.id}')" title="Asignar cargo"><i class="fas fa-id-badge"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
       } else if (tb === 'properties') {
         c.innerHTML = properties.length === 0 ? '<div class="empty-state"><i class="fas fa-building"></i><h3>Sin propiedades</h3></div>' : properties.map(p => {
           const o = getOwnerInfo(p),
