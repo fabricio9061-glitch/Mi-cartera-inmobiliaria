@@ -97,6 +97,35 @@
     .client-status.sit-perdido{ background:#fee2e2; color:#b91c1c; }
     .client-sub-etapa{ font-size:.72rem; color:var(--gray-500); margin:-4px 0 10px; padding-left:2px; display:flex; align-items:center; gap:6px; }
     .client-sub-etapa i{ opacity:.7; }
+    /* Chip de SITUACIÓN: indicador propio, separado del badge de etapa comercial.
+       Banda fina arriba de la tarjeta, con puntito de color según la situación. */
+    .client-sit-chip{ display:inline-flex; align-items:center; gap:6px; font-size:.7rem; font-weight:700; letter-spacing:.02em; padding:5px 11px; border-radius:14px 0 10px 0; margin:-18px -18px 12px -18px; width:fit-content; cursor:pointer; }
+    .client-sit-chip .dot{ width:7px; height:7px; border-radius:50%; flex:none; }
+    .client-sit-chip .chev{ font-size:.6rem; opacity:.6; margin-left:1px; }
+    /* Botón de ayuda junto al título */
+    .crm-help-btn{ border:none; background:transparent; color:var(--gray-400); cursor:pointer; font-size:1.1rem; padding:0 0 0 4px; vertical-align:middle; transition:color .15s; }
+    .crm-help-btn:hover{ color:var(--accent,#C9A227); }
+    /* Modal de referencia de estados */
+    .ayuda-overlay{ position:fixed; inset:0; background:rgba(15,25,40,.55); z-index:3000; display:flex; align-items:center; justify-content:center; padding:16px; }
+    .ayuda-box{ background:#fff; border-radius:16px; max-width:520px; width:100%; max-height:85vh; overflow-y:auto; box-shadow:0 20px 60px rgba(10,20,35,.35); }
+    .ayuda-head{ display:flex; align-items:center; justify-content:space-between; padding:18px 20px 14px; border-bottom:1px solid var(--gray-100,#f1f5f9); position:sticky; top:0; background:#fff; }
+    .ayuda-head h3{ margin:0; font-size:1.05rem; color:var(--primary,#16273f); }
+    .ayuda-head button{ border:none; background:var(--gray-100,#f1f5f9); width:30px; height:30px; border-radius:50%; cursor:pointer; color:var(--gray-500); }
+    .ayuda-body{ padding:16px 20px 22px; }
+    .ayuda-sec{ font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--gray-400); margin:16px 0 10px; }
+    .ayuda-sec:first-child{ margin-top:0; }
+    .ayuda-item{ display:flex; gap:11px; margin-bottom:12px; align-items:flex-start; }
+    .ayuda-item .dot{ width:10px; height:10px; border-radius:50%; flex:none; margin-top:4px; }
+    .ayuda-item .txt strong{ display:block; font-size:.88rem; color:var(--primary,#16273f); margin-bottom:1px; }
+    .ayuda-item .txt span{ font-size:.8rem; color:var(--gray-500); line-height:1.4; }
+    .client-sit-chip.sit-activo{ background:#dcfce7; color:#15803d; }
+    .client-sit-chip.sit-activo .dot{ background:#16a34a; }
+    .client-sit-chip.sit-pausa{ background:#fef3c7; color:#b45309; }
+    .client-sit-chip.sit-pausa .dot{ background:#d97706; }
+    .client-sit-chip.sit-externo{ background:#e2e8f0; color:#475569; }
+    .client-sit-chip.sit-externo .dot{ background:#64748b; }
+    .client-sit-chip.sit-perdido{ background:#fee2e2; color:#b91c1c; }
+    .client-sit-chip.sit-perdido .dot{ background:#dc2626; }
     /* Clientes fuera del flujo activo (pausa / externo / perdido): se atenúan */
     .client-card.fuera-activo{ opacity:.72; }
     .client-card.fuera-activo:hover{ opacity:1; }
@@ -388,7 +417,7 @@
   <div id="cContent" style="display:none">
     <div class="wrap page-wrap">
       <div class="crm-header">
-        <div><h1>Clientes</h1><p id="crmSubtitle">Gestiona tus clientes y prospectos</p></div>
+        <div><h1>Clientes <button class="crm-help-btn" onclick="abrirAyudaEstados()" title="¿Qué significa cada estado?"><i class="fas fa-circle-info"></i></button></h1><p id="crmSubtitle">Gestiona tus clientes y prospectos</p></div>
         <button class="btn-new" onclick="openClientModal()"><i class="fas fa-plus"></i> Nuevo Cliente</button>
       </div>
 
@@ -922,13 +951,15 @@
         var rs = rollupStatus(c);
         var etapaLabel = rs==='singestion' ? 'Sin gestionar' : rs==='sinavance' ? 'Sin avance' : (GESTION_ESTADO[rs] || rs);
         var sit = situacionDe(c);
-        // Badge: si el cliente NO está activo, manda la situación; la etapa pasa a
-        // subtítulo ("Cerró por afuera · estaba en negociación"). Si está activo,
-        // el badge es la etapa como siempre.
-        var stLabel = sit==='activo' ? etapaLabel : SITUACION[sit];
-        var badgeClass = sit==='activo' ? rs : ('sit-'+sit);
+        // Dos ejes, dos indicadores separados:
+        //  - El BADGE (derecha) SIEMPRE muestra la etapa comercial. No desaparece.
+        //  - La SITUACIÓN es un chip propio (arriba izq. de la tarjeta), solo si
+        //    el cliente no está activo. Así se ven las dos cosas a la par.
+        var stLabel = etapaLabel;
+        var badgeClass = rs;
         var actTxt = c._lastActivity ? ((nGest>0?'Última gestión ':'Creado ')+relTime(c._lastActivity)) : '';
         return '<div class="client-card'+(c.archived?' archived':'')+(sit!=='activo'?' fuera-activo':'')+'" onclick="showClientProfile(\''+c.id+'\')" style="cursor:pointer;position:relative">' +
+          '<div class="client-sit-chip sit-'+sit+'" role="button" title="Cambiar situación" onclick="event.stopPropagation();abrirMenuSituacion(event,\''+c.id+'\')"><span class="dot"></span>'+SITUACION[sit]+(sit==='pausa'?' · desde '+relTime(c.pausadoEn||c.updatedAt||''):'')+' <i class="fas fa-chevron-down chev"></i></div>' +
           '<div class="client-card-top">' +
             '<div class="client-avatar">'+esc(ini)+'</div>' +
             '<div class="client-card-name">' +
@@ -936,9 +967,8 @@
               (owner?'<div class="client-owner"><i class="fas fa-user-tie"></i> '+esc(owner)+'</div>':'') +
               '<div style="font-size:.74rem;color:var(--gray-500);margin-top:3px"><i class="fas fa-handshake"></i> '+gestLabel+'</div>' +
             '</div>' +
-            '<span class="client-status '+badgeClass+'" role="button" title="Cambiar estado o situación" onclick="abrirCambioEstado(event,\''+c.id+'\')">'+esc(stLabel)+' <i class="fas fa-chevron-down"></i></span>' +
+            '<span class="client-status '+badgeClass+'" role="button" title="Cambiar etapa comercial" onclick="abrirMenuEtapa(event,\''+c.id+'\')">'+esc(stLabel)+' <i class="fas fa-chevron-down"></i></span>' +
           '</div>' +
-          (sit!=='activo' ? '<div class="client-sub-etapa"><i class="fas fa-'+(sit==='pausa'?'circle-pause':sit==='externo'?'arrow-right-from-bracket':'circle-xmark')+'"></i> '+(sit==='pausa'?'Pausado desde '+relTime(c.pausadoEn||c.updatedAt||'')+' · estaba en '+etapaLabel.toLowerCase():'estaba en '+etapaLabel.toLowerCase())+'</div>' : '') +
           '<div class="client-meta">' +
             '<div class="client-meta-row"><i class="fas fa-phone"></i> '+esc(fmtPhone(phoneDisp))+'</div>' +
             ((c.links&&c.links.length)?'<div class="client-meta-row link-row"><i class="fas fa-link"></i> '+c.links.map(function(l,i){return '<a href="'+escA(l)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">'+(c.links.length>1?('Propiedad '+(i+1)):'Ver propiedad')+'</a>';}).join(' · ')+'</div>':'') +
@@ -999,6 +1029,41 @@
       renderClients();
     }
 
+    // ===== Ayuda: referencia de qué significa cada estado =====
+    var AYUDA_ETAPAS = [
+      ['nuevo', 'Cliente recién ingresado, todavía sin gestionar.'],
+      ['contactado', 'Ya hubo un primer contacto, sin avanzar aún en el proceso.'],
+      ['seguimiento', 'En conversación activa: se le hace seguimiento periódico.'],
+      ['visita', 'Tiene una visita a la propiedad coordinada o realizada.'],
+      ['negociacion', 'Negociando precio o condiciones de la operación.'],
+      ['cartera', 'Propiedad captada y publicada: etapa avanzada, el silencio es normal.'],
+      ['cerrado', 'Operación concretada por la agencia. Cuenta como ganada.'],
+      ['perdido', 'El cliente descartó trabajar con la agencia (dijo que no).']
+    ];
+    var AYUDA_SIT = [
+      ['activo', 'Lo estás trabajando ahora. Aparece arriba y entra en los recordatorios.'],
+      ['pausa', 'Guardado para más adelante. Sale del flujo; el sistema te lo recuerda cada '+MESES_PAUSA+' meses.'],
+      ['externo', 'La operación se concretó, pero sin la agencia. No cuenta ni como ganada ni como perdida.'],
+      ['perdido', 'Descartado de verdad. Distinto de "cerró por afuera".']
+    ];
+    function abrirAyudaEstados(){
+      var ov = document.createElement('div');
+      ov.className = 'ayuda-overlay';
+      ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+      var fila = function(dot, nombre, desc){
+        return '<div class="ayuda-item"><span class="dot" style="background:'+dot+'"></span><div class="txt"><strong>'+nombre+'</strong><span>'+desc+'</span></div></div>';
+      };
+      var etapas = AYUDA_ETAPAS.map(function(x){ return fila(ESTADO_DOT[x[0]]||'#94a3b8', GESTION_ESTADO[x[0]]||x[0], x[1]); }).join('');
+      var sits = AYUDA_SIT.map(function(x){ return fila(SITUACION_DOT[x[0]]||'#94a3b8', SITUACION[x[0]]||x[0], x[1]); }).join('');
+      ov.innerHTML = '<div class="ayuda-box"><div class="ayuda-head"><h3><i class="fas fa-circle-info" style="color:var(--accent,#C9A227)"></i> Guía de estados</h3><button onclick="this.closest(\'.ayuda-overlay\').remove()"><i class="fas fa-times"></i></button></div>' +
+        '<div class="ayuda-body">' +
+        '<p style="font-size:.82rem;color:var(--gray-500);margin:0 0 16px;line-height:1.45">Cada cliente tiene dos cosas independientes: <b>en qué punto del proceso está</b> (etapa) y <b>si lo estás trabajando</b> (situación). Se cambian por separado: la etapa desde la etiqueta de la derecha, la situación desde la banda de la esquina.</p>' +
+        '<div class="ayuda-sec">Etapa comercial · dónde está en el proceso</div>' + etapas +
+        '<div class="ayuda-sec">Situación · cómo lo estás manejando</div>' + sits +
+        '</div></div>';
+      document.body.appendChild(ov);
+    }
+
     // ===== Cambio rápido de estado desde la lista (clic en la etiqueta) =====
     // La etiqueta del cliente es un RESUMEN: refleja su gestión más reciente.
     // Por eso el cambio rápido actualiza ESA gestión, con el mismo formato que
@@ -1013,28 +1078,7 @@
 
     var ESTADO_DOT = { nuevo:'#2563eb', contactado:'#0891b2', seguimiento:'#b45309', visita:'#7c3aed', negociacion:'#be185d', cartera:'#4338ca', cerrado:'#15803d', perdido:'#b91c1c' };
 
-    function abrirCambioEstado(ev, id){
-      ev.stopPropagation();
-      if (_stPopId === id){ cerrarStPop(); return; } // segundo clic en la misma etiqueta: cierra
-      cerrarStPop();
-      var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
-      if (!c) return;
-      var actual = rollupStatus(c); if (actual==='singestion' || actual==='sinavance') actual = 'nuevo';
-      var sitActual = situacionDe(c);
-      var pop = document.createElement('div');
-      pop.className = 'st-pop';
-      var hint = (c._gestionCount||0) > 1
-        ? '<div class="st-pop-hint">Este cliente tiene '+c._gestionCount+' gestiones: el cambio de etapa se aplica a la que define esta etiqueta (la más avanzada). Para manejar cada propiedad por separado, entrá a su ficha.</div>'
-        : '';
-      // Sección 1: etapa comercial (escribe en la gestión). Sección 2: situación
-      // (escribe en el cliente). Van separadas para no confundir los dos ejes.
-      var etapasHtml = '<div class="st-pop-sep" style="border-top:none;margin-top:0">Etapa comercial</div>' + Object.keys(GESTION_ESTADO).map(function(k){
-        return '<button type="button" class="'+(k===actual && sitActual==='activo'?'sel':'')+'" onclick="aplicarCambioEstado(\''+id+'\',\''+k+'\')"><span class="dot" style="background:'+(ESTADO_DOT[k]||'#94a3b8')+'"></span>'+GESTION_ESTADO[k]+'</button>';
-      }).join('');
-      var sitHtml = '<div class="st-pop-sep">Situación</div>' + Object.keys(SITUACION).map(function(k){
-        return '<button type="button" class="'+(k===sitActual?'sel':'')+'" onclick="aplicarSituacion(\''+id+'\',\''+k+'\')"><span class="dot" style="background:'+(SITUACION_DOT[k]||'#94a3b8')+'"></span>'+SITUACION[k]+'</button>';
-      }).join('');
-      pop.innerHTML = hint + etapasHtml + sitHtml;
+    function _posicionarPop(pop, ev){
       document.body.appendChild(pop);
       var r = ev.currentTarget.getBoundingClientRect();
       var x = Math.min(r.left, window.innerWidth - pop.offsetWidth - 10);
@@ -1042,7 +1086,42 @@
       if (y + pop.offsetHeight > window.innerHeight - 10) y = r.top - pop.offsetHeight - 6;
       pop.style.left = Math.max(10, x) + 'px';
       pop.style.top = Math.max(10, y) + 'px';
-      _stPopEl = pop; _stPopId = id;
+    }
+
+    // Menú del BADGE derecho: solo etapa comercial (escribe en la gestión).
+    function abrirMenuEtapa(ev, id){
+      ev.stopPropagation();
+      if (_stPopId === 'et'+id){ cerrarStPop(); return; }
+      cerrarStPop();
+      var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
+      if (!c) return;
+      var actual = rollupStatus(c); if (actual==='singestion' || actual==='sinavance') actual = 'nuevo';
+      var sitActual = situacionDe(c);
+      var pop = document.createElement('div'); pop.className = 'st-pop';
+      var hint = (c._gestionCount||0) > 1
+        ? '<div class="st-pop-hint">Este cliente tiene '+c._gestionCount+' gestiones: el cambio se aplica a la que define esta etiqueta (la más avanzada). Para manejar cada propiedad por separado, entrá a su ficha.</div>'
+        : '';
+      pop.innerHTML = hint + '<div class="st-pop-sep" style="border-top:none;margin-top:0">Etapa comercial</div>' + Object.keys(GESTION_ESTADO).map(function(k){
+        return '<button type="button" class="'+(k===actual && sitActual==='activo'?'sel':'')+'" onclick="aplicarCambioEstado(\''+id+'\',\''+k+'\')"><span class="dot" style="background:'+(ESTADO_DOT[k]||'#94a3b8')+'"></span>'+GESTION_ESTADO[k]+'</button>';
+      }).join('');
+      _posicionarPop(pop, ev);
+      _stPopEl = pop; _stPopId = 'et'+id;
+    }
+
+    // Menú de la BANDA izquierda: solo situación (escribe en el cliente).
+    function abrirMenuSituacion(ev, id){
+      ev.stopPropagation();
+      if (_stPopId === 'si'+id){ cerrarStPop(); return; }
+      cerrarStPop();
+      var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
+      if (!c) return;
+      var sitActual = situacionDe(c);
+      var pop = document.createElement('div'); pop.className = 'st-pop';
+      pop.innerHTML = '<div class="st-pop-sep" style="border-top:none;margin-top:0">Situación</div>' + Object.keys(SITUACION).map(function(k){
+        return '<button type="button" class="'+(k===sitActual?'sel':'')+'" onclick="aplicarSituacion(\''+id+'\',\''+k+'\')"><span class="dot" style="background:'+(SITUACION_DOT[k]||'#94a3b8')+'"></span>'+SITUACION[k]+'</button>';
+      }).join('');
+      _posicionarPop(pop, ev);
+      _stPopEl = pop; _stPopId = 'si'+id;
     }
 
     function aplicarCambioEstado(id, nuevo){
