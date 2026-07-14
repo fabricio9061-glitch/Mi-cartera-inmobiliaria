@@ -2217,6 +2217,10 @@ exports.recordatorioSeguimiento = onSchedule(
         estado = c.status || "nuevo";
         if (estado === "cerrado" || estado === "perdido") return;
       }
+      // El eje SITUACIÓN manda: pausados, cerrados por afuera y perdidos no reciben
+      // el aviso de "sin contacto" (los pausados tienen su propio recordatorio).
+      const sit = c.situacion || "activo";
+      if (sit !== "activo") return;
       // "Cartera" es etapa avanzada (la propiedad ya está captada): el silencio
       // ahí es normal, no abandono. Mantener igual a estadosSinAviso de clientes.html.
       if (estado === "cartera") return;
@@ -2254,6 +2258,63 @@ exports.recordatorioSeguimiento = onSchedule(
         { title: "📋 Clientes para recontactar", body: texto }
       );
       logger.info(`[recordatorioSeguimiento] aviso a ${uid}: ${lista.length} cliente(s) sin contacto.`);
+    }
+  }
+);
+
+// =====================================================================
+// CRM — Recordatorio de clientes EN PAUSA.
+// Cada día revisa los pausados; a los que cumplieron MESES_PAUSA desde que se
+// pausaron (o desde el último "posponer") les avisa al agente para decidir si
+// retoma o pospone otros 3 meses. La decisión se toma en la app (menú del badge
+// o banner). Mantener MESES_PAUSA igual al de clientes.html.
+// =====================================================================
+const MESES_PAUSA_FN = 3;
+
+exports.recordatorioPausados = onSchedule(
+  { schedule: "0 10 * * *", timeZone: "America/Montevideo" },
+  async () => {
+    const cliSnap = await db.collection("clients").get();
+    const ahora = Date.now();
+    const porAgente = {};
+    cliSnap.docs.forEach((d) => {
+      const c = d.data();
+      if (c.archived || c.situacion !== "pausa") return;
+      // "Despierta" si venció el snooze, o si pasaron 3 meses desde la pausa.
+      let vencido;
+      if (c.pausaSnoozeUntil) {
+        vencido = new Date(c.pausaSnoozeUntil).getTime() <= ahora;
+      } else {
+        const ref = c.pausadoEn || c.updatedAt || "";
+        const t = new Date(ref).getTime();
+        vencido = !isNaN(t) && (ahora - t) >= MESES_PAUSA_FN * 30 * 86400000;
+      }
+      if (!vencido) return;
+      const uid = c.createdBy || c.agentId || c.ownerId || "__sin_agente__";
+      (porAgente[uid] = porAgente[uid] || []).push(c.name || "Sin nombre");
+    });
+
+    const adm = await getAdminUser();
+    for (const uid of Object.keys(porAgente)) {
+      const lista = porAgente[uid];
+      let destino = null;
+      if (uid === "__sin_agente__") destino = adm;
+      else {
+        try { const u = await db.doc(`users/${uid}`).get(); if (u.exists) destino = { uid: u.id, fcmToken: u.data().fcmToken }; } catch (e) { /* sin perfil */ }
+        if (!destino) destino = adm;
+      }
+      if (!destino) continue;
+      const nombres = lista.slice(0, 3).join(", ");
+      const extra = lista.length > 3 ? ` y ${lista.length - 3} más` : "";
+      const texto = lista.length === 1
+        ? `${nombres} está en pausa desde hace ${MESES_PAUSA_FN} meses. ¿Lo retomás o lo dejás guardado otro tiempo?`
+        : `${lista.length} clientes en pausa cumplieron ${MESES_PAUSA_FN} meses: ${nombres}${extra}. Revisá si conviene retomarlos.`;
+      await crearNotificacion(
+        destino,
+        { type: "crm_pausa", userName: "Pausados", userPhoto: null, text: texto },
+        { title: "⏸️ Clientes en pausa para revisar", body: texto }
+      );
+      logger.info(`[recordatorioPausados] aviso a ${uid}: ${lista.length} pausado(s).`);
     }
   }
 );

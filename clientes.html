@@ -91,6 +91,17 @@
     .client-status.cerrado{ background:#dcfce7; color:#15803d; }
     .client-status.perdido{ background:#fee2e2; color:#b91c1c; }
     .client-status.singestion, .client-status.sinavance{ background:#fef3c7; color:#b45309; }
+    /* Badges del eje situación */
+    .client-status.sit-pausa{ background:#fef3c7; color:#b45309; }
+    .client-status.sit-externo{ background:#e2e8f0; color:#475569; }
+    .client-status.sit-perdido{ background:#fee2e2; color:#b91c1c; }
+    .client-sub-etapa{ font-size:.72rem; color:var(--gray-500); margin:-4px 0 10px; padding-left:2px; display:flex; align-items:center; gap:6px; }
+    .client-sub-etapa i{ opacity:.7; }
+    /* Clientes fuera del flujo activo (pausa / externo / perdido): se atenúan */
+    .client-card.fuera-activo{ opacity:.72; }
+    .client-card.fuera-activo:hover{ opacity:1; }
+    /* Separador dentro del menú del badge, entre etapas y situación */
+    .st-pop .st-pop-sep{ font-size:.64rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--gray-400); padding:8px 9px 3px; margin-top:3px; border-top:1px solid #f1f5f9; }
     .client-interest-tag{ display:inline-block; font-size:.76rem; color:var(--gray-600); background:var(--gray-50); border:1px solid var(--gray-100); border-radius:8px; padding:4px 10px; margin-bottom:10px; }
     .client-meta{ display:flex; flex-direction:column; gap:5px; margin-bottom:10px; }
     .client-meta-row{ font-size:.84rem; color:var(--gray-600); display:flex; align-items:center; gap:8px; }
@@ -109,6 +120,12 @@
     .crm-recall button.off{ background:#fff; color:#92400e; border:1px solid #fde68a; }
     .crm-recall button.cerrar{ background:transparent; color:#b45309; padding:6px 9px; font-size:.95rem; }
     .crm-recall button.cerrar:hover{ background:#fef3c7; }
+    /* Banner de pausados que despertaron: azul, para diferenciarlo del recontacto ámbar */
+    .crm-recall.crm-pausa{ background:#eff6ff; border-color:#bfdbfe; }
+    .crm-recall.crm-pausa .bell{ color:#2563eb; }
+    .crm-recall.crm-pausa .txt{ color:#1e40af; }
+    .crm-recall.crm-pausa button{ background:#2563eb; }
+    .crm-recall.crm-pausa button.off{ background:#fff; color:#1e40af; border:1px solid #bfdbfe; }
     /* Menú de cambio rápido de estado (clic en la etiqueta de la tarjeta) */
     .client-status{ cursor:pointer; }
     .client-status .fa-chevron-down{ font-size:.55rem; opacity:.65; margin-left:2px; }
@@ -385,6 +402,13 @@
           <option value="seguimiento">En seguimiento</option><option value="visita">Visita agendada</option>
           <option value="negociacion">En negociación</option><option value="cartera">En cartera</option><option value="cerrado">Cerrado</option><option value="perdido">Perdido</option>
         </select>
+        <select class="crm-filter" id="clientSituacionFilter" onchange="statFilter='all';renderClients()" title="Situación del cliente">
+          <option value="">Toda situación</option>
+          <option value="activo">Solo activos</option>
+          <option value="pausa">En pausa</option>
+          <option value="externo">Cerró por afuera</option>
+          <option value="perdido">Solo perdidos</option>
+        </select>
         <select class="crm-filter" id="clientInterestFilter" onchange="renderClients()">
           <option value="">Todo interés</option>
           <option value="comprar">Comprar</option><option value="alquilar">Alquilar</option><option value="vender">Vender</option>
@@ -395,6 +419,12 @@
           <option value="all">Todos</option>
         </select>
         <button type="button" class="crm-filter" id="misClientesBtn" onclick="toggleMisClientes()" style="cursor:pointer;white-space:nowrap;background:var(--primary);color:#fff;border-color:var(--primary)"><i class="fas fa-users"></i> Todos los clientes</button>
+      </div>
+
+      <div class="crm-recall crm-pausa" id="crmPausa" style="display:none">
+        <i class="fas fa-circle-pause bell"></i>
+        <div class="txt" id="crmPausaTxt"></div>
+        <button id="crmPausaBtn" onclick="verPausados()">Revisarlos</button>
       </div>
 
       <div class="crm-recall" id="crmRecall" style="display:none">
@@ -591,6 +621,29 @@
     // terminales y no compiten: solo definen la etiqueta si no queda nada activo.
     var ESTADO_PRIORIDAD = ['nuevo','contactado','seguimiento','visita','negociacion','cartera'];
     var ESTADOS_TERMINALES = ['cerrado','perdido'];
+
+    // ====== EJE SITUACIÓN (independiente de la etapa comercial) ======
+    // La etapa (nuevo→cartera→cerrado) vive en las gestiones y dice DÓNDE está el
+    // cliente en el embudo. La SITUACIÓN vive en el cliente (clients.situacion) y
+    // dice si lo estás trabajando o no. Son ejes separados: pausar a alguien no
+    // borra su etapa, así al reactivarlo vuelve exactamente a donde estaba.
+    //   activo   -> default, en el flujo normal (no se escribe: ausencia = activo)
+    //   pausa    -> guardado; sale de vista activa y recordatorios; vuelve cuando quieras
+    //   externo  -> "cerró por afuera": terminó pero sin la agencia (ni ganado ni perdido)
+    //   perdido  -> descartado de verdad (el que te dijo que no)
+    var SITUACION = { activo:'Activo', pausa:'En pausa', externo:'Cerró por afuera', perdido:'Perdido' };
+    var SITUACION_DOT = { activo:'#15803d', pausa:'#b45309', externo:'#64748b', perdido:'#b91c1c' };
+    var MESES_PAUSA = 3; // cada cuánto el sistema tantea "¿retomás a este pausado?"
+
+    function situacionDe(c){ return (c && c.situacion) || 'activo'; }
+    function esActivo(c){ return situacionDe(c) === 'activo'; }
+    // Un pausado "despierta" cuando pasaron MESES_PAUSA desde la pausa o desde el último posponer.
+    function pausaVencida(c){
+      if (situacionDe(c) !== 'pausa') return false;
+      var ref = c.pausaSnoozeUntil || c.pausadoEn || c.updatedAt || '';
+      if (c.pausaSnoozeUntil) return new Date(c.pausaSnoozeUntil).getTime() <= Date.now();
+      return diasDesde(ref) >= MESES_PAUSA*30;
+    }
     function diasDesde(iso){ if(!iso) return 9999; var t=new Date(iso).getTime(); return isNaN(t)?9999:Math.floor((Date.now()-t)/86400000); }
 
     function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -642,6 +695,7 @@
     // "En cartera") nunca molestan.
     function nivelAviso(c){
       if (!c || c.archived) return null;
+      if (!esActivo(c)) return null; // pausados, cerrados por afuera y perdidos no molestan
       var rs = rollupStatus(c);
       var b = statBucket(rs);
       if (b !== 'nuevo' && b !== 'proceso') return null;
@@ -757,22 +811,26 @@
     function renderClients(){
       var term = (document.getElementById('clientSearch').value||'').toLowerCase();
       var sf = document.getElementById('clientStatusFilter').value;
+      var sfSit = (document.getElementById('clientSituacionFilter')||{}).value || '';
       var inf = document.getElementById('clientInterestFilter').value;
 
       // Stats sobre el estado REAL (el de la gestión más reciente de cada cliente)
       var st = { total:0, nuevo:0, proceso:0, cerrado:0 };
-      var nuevosMes=0, nuevosMesPrev=0, frescos=0;
+      var nuevosMes=0, nuevosMesPrev=0, frescos=0, enPausa=0, pausaDespierta=0;
       var now=new Date(), y=now.getFullYear(), m=now.getMonth();
       var iniMes=new Date(y,m,1).toISOString(), iniPrev=new Date(y,m-1,1).toISOString();
       clients.forEach(function(c){
-        if (c.archived) return; // las stats reflejan clientes activos
+        if (c.archived) return; // las stats reflejan clientes no archivados
         st.total++;
+        var sit = situacionDe(c);
+        var ca = c.createdAt || '';
+        if (ca >= iniMes) nuevosMes++; else if (ca >= iniPrev) nuevosMesPrev++;
+        if (sit === 'pausa'){ enPausa++; if (pausaVencida(c)) pausaDespierta++; return; }
+        if (sit !== 'activo') return; // externos y perdidos no entran en el embudo activo
         var rst = rollupStatus(c);
         var b = statBucket(rst);
         if (b==='nuevo') st.nuevo++; else if (b==='proceso') st.proceso++; else if (b==='cerrado') st.cerrado++;
         if (rst==='nuevo') frescos++; // "nuevo" de verdad (dentro de la primera semana)
-        var ca = c.createdAt || '';
-        if (ca >= iniMes) nuevosMes++; else if (ca >= iniPrev) nuevosMesPrev++;
       });
       var totalTrend = nuevosMes>0
         ? '<div class="crm-stat-trend up"><i class="fas fa-arrow-up"></i> +'+nuevosMes+' <span>este mes</span></div>'
@@ -791,6 +849,22 @@
         statCard('cerrado', st.cerrado, 'Cerrados',       'fa-circle-check','<div class="crm-stat-trend flat">ganados</div>');
 
       var arf = document.getElementById('clientArchivedFilter').value;
+
+      // Banner de pausados que "despertaron" (pasaron los 3 meses). Aparece arriba
+      // del de recontacto; su botón filtra la vista a esos pausados para revisarlos.
+      var despiertos = clients.filter(function(c){ return pausaVencida(c) && !c.archived && (!misClientesOnly || esMio(c)); });
+      var pbBox = document.getElementById('crmPausa');
+      if (pbBox){
+        if (despiertos.length){
+          pbBox.style.display = 'flex';
+          document.getElementById('crmPausaTxt').innerHTML = despiertos.length===1
+            ? '<b>1 cliente en pausa</b> cumplió '+MESES_PAUSA+' meses. ¿Lo retomás o lo dejás guardado otro tiempo?'
+            : '<b>'+despiertos.length+' clientes en pausa</b> cumplieron '+MESES_PAUSA+' meses. Revisá si conviene retomarlos.';
+          var pbBtn = document.getElementById('crmPausaBtn');
+          pbBtn.textContent = sfSit==='pausa' ? 'Ver todos' : 'Revisarlos';
+          pbBtn.classList.toggle('off', sfSit==='pausa');
+        } else pbBox.style.display = 'none';
+      }
 
       // Banner de recontacto: clientes activos sin contacto hace demasiado.
       // Respeta el filtro "mis clientes" para que cada agente vea los suyos.
@@ -817,8 +891,9 @@
         var mio = !misClientesOnly || esMio(c);
         var rs = rollupStatus(c);
         var matchStatus = !sf || rs===sf || (sf==='singestion' && rs==='sinavance');
-        var matchBucket = statFilter==='all' || (statFilter==='atencion' ? paraRecontactar(c) : statBucket(rs)===statFilter);
-        return m && archMatch && mio && matchStatus && matchBucket && (!inf || c.interest===inf);
+        var matchSit = !sfSit || situacionDe(c)===sfSit;
+        var matchBucket = statFilter==='all' || (statFilter==='atencion' ? paraRecontactar(c) : (esActivo(c) && statBucket(rs)===statFilter));
+        return m && archMatch && mio && matchStatus && matchSit && matchBucket && (!inf || c.interest===inf);
       });
       list.sort(function(a,b){
         var am = esMio(a) ? 0 : 1, bm = esMio(b) ? 0 : 1;
@@ -845,9 +920,15 @@
         var nGest = c._gestionCount || 0;
         var gestLabel = nGest>0 ? (nGest+' gestión'+(nGest===1?'':'es')) : 'Sin gestiones';
         var rs = rollupStatus(c);
-        var stLabel = rs==='singestion' ? 'Sin gestionar' : rs==='sinavance' ? 'Sin avance' : (GESTION_ESTADO[rs] || rs);
+        var etapaLabel = rs==='singestion' ? 'Sin gestionar' : rs==='sinavance' ? 'Sin avance' : (GESTION_ESTADO[rs] || rs);
+        var sit = situacionDe(c);
+        // Badge: si el cliente NO está activo, manda la situación; la etapa pasa a
+        // subtítulo ("Cerró por afuera · estaba en negociación"). Si está activo,
+        // el badge es la etapa como siempre.
+        var stLabel = sit==='activo' ? etapaLabel : SITUACION[sit];
+        var badgeClass = sit==='activo' ? rs : ('sit-'+sit);
         var actTxt = c._lastActivity ? ((nGest>0?'Última gestión ':'Creado ')+relTime(c._lastActivity)) : '';
-        return '<div class="client-card'+(c.archived?' archived':'')+'" onclick="showClientProfile(\''+c.id+'\')" style="cursor:pointer;position:relative">' +
+        return '<div class="client-card'+(c.archived?' archived':'')+(sit!=='activo'?' fuera-activo':'')+'" onclick="showClientProfile(\''+c.id+'\')" style="cursor:pointer;position:relative">' +
           '<div class="client-card-top">' +
             '<div class="client-avatar">'+esc(ini)+'</div>' +
             '<div class="client-card-name">' +
@@ -855,8 +936,9 @@
               (owner?'<div class="client-owner"><i class="fas fa-user-tie"></i> '+esc(owner)+'</div>':'') +
               '<div style="font-size:.74rem;color:var(--gray-500);margin-top:3px"><i class="fas fa-handshake"></i> '+gestLabel+'</div>' +
             '</div>' +
-            '<span class="client-status '+rs+'" role="button" title="Cambiar estado" onclick="abrirCambioEstado(event,\''+c.id+'\')">'+esc(stLabel)+' <i class="fas fa-chevron-down"></i></span>' +
+            '<span class="client-status '+badgeClass+'" role="button" title="Cambiar estado o situación" onclick="abrirCambioEstado(event,\''+c.id+'\')">'+esc(stLabel)+' <i class="fas fa-chevron-down"></i></span>' +
           '</div>' +
+          (sit!=='activo' ? '<div class="client-sub-etapa"><i class="fas fa-'+(sit==='pausa'?'circle-pause':sit==='externo'?'arrow-right-from-bracket':'circle-xmark')+'"></i> '+(sit==='pausa'?'Pausado desde '+relTime(c.pausadoEn||c.updatedAt||'')+' · estaba en '+etapaLabel.toLowerCase():'estaba en '+etapaLabel.toLowerCase())+'</div>' : '') +
           '<div class="client-meta">' +
             '<div class="client-meta-row"><i class="fas fa-phone"></i> '+esc(fmtPhone(phoneDisp))+'</div>' +
             ((c.links&&c.links.length)?'<div class="client-meta-row link-row"><i class="fas fa-link"></i> '+c.links.map(function(l,i){return '<a href="'+escA(l)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">'+(c.links.length>1?('Propiedad '+(i+1)):'Ver propiedad')+'</a>';}).join(' · ')+'</div>':'') +
@@ -909,6 +991,14 @@
       renderClients();
     }
 
+    // Botón del banner de pausa: filtra la vista a los clientes en pausa.
+    function verPausados(){
+      var f = document.getElementById('clientSituacionFilter');
+      if (f){ f.value = (f.value==='pausa') ? '' : 'pausa'; }
+      statFilter = 'all';
+      renderClients();
+    }
+
     // ===== Cambio rápido de estado desde la lista (clic en la etiqueta) =====
     // La etiqueta del cliente es un RESUMEN: refleja su gestión más reciente.
     // Por eso el cambio rápido actualiza ESA gestión, con el mismo formato que
@@ -930,14 +1020,21 @@
       var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
       if (!c) return;
       var actual = rollupStatus(c); if (actual==='singestion' || actual==='sinavance') actual = 'nuevo';
+      var sitActual = situacionDe(c);
       var pop = document.createElement('div');
       pop.className = 'st-pop';
       var hint = (c._gestionCount||0) > 1
-        ? '<div class="st-pop-hint">Este cliente tiene '+c._gestionCount+' gestiones: el cambio se aplica a la que define esta etiqueta (la más avanzada). Para manejar cada propiedad por separado, entrá a su ficha.</div>'
+        ? '<div class="st-pop-hint">Este cliente tiene '+c._gestionCount+' gestiones: el cambio de etapa se aplica a la que define esta etiqueta (la más avanzada). Para manejar cada propiedad por separado, entrá a su ficha.</div>'
         : '';
-      pop.innerHTML = hint + Object.keys(GESTION_ESTADO).map(function(k){
-        return '<button type="button" class="'+(k===actual?'sel':'')+'" onclick="aplicarCambioEstado(\''+id+'\',\''+k+'\')"><span class="dot" style="background:'+(ESTADO_DOT[k]||'#94a3b8')+'"></span>'+GESTION_ESTADO[k]+'</button>';
+      // Sección 1: etapa comercial (escribe en la gestión). Sección 2: situación
+      // (escribe en el cliente). Van separadas para no confundir los dos ejes.
+      var etapasHtml = '<div class="st-pop-sep" style="border-top:none;margin-top:0">Etapa comercial</div>' + Object.keys(GESTION_ESTADO).map(function(k){
+        return '<button type="button" class="'+(k===actual && sitActual==='activo'?'sel':'')+'" onclick="aplicarCambioEstado(\''+id+'\',\''+k+'\')"><span class="dot" style="background:'+(ESTADO_DOT[k]||'#94a3b8')+'"></span>'+GESTION_ESTADO[k]+'</button>';
       }).join('');
+      var sitHtml = '<div class="st-pop-sep">Situación</div>' + Object.keys(SITUACION).map(function(k){
+        return '<button type="button" class="'+(k===sitActual?'sel':'')+'" onclick="aplicarSituacion(\''+id+'\',\''+k+'\')"><span class="dot" style="background:'+(SITUACION_DOT[k]||'#94a3b8')+'"></span>'+SITUACION[k]+'</button>';
+      }).join('');
+      pop.innerHTML = hint + etapasHtml + sitHtml;
       document.body.appendChild(pop);
       var r = ev.currentTarget.getBoundingClientRect();
       var x = Math.min(r.left, window.innerWidth - pop.offsetWidth - 10);
@@ -973,11 +1070,41 @@
         c._rollupStatus = nuevo;
         c._lastActivity = ahora;
         c._diasSinContacto = 0;
+        // Mover la etapa comercial implica que lo estás trabajando: si estaba
+        // pausado/perdido/externo, vuelve a Activo solo (con su etapa nueva).
+        if (situacionDe(c) !== 'activo'){
+          c.situacion = 'activo';
+          db.collection('clients').doc(id).update({ situacion: 'activo', updatedAt: ahora }).catch(function(){});
+        }
         renderClients();
         showToast('Estado actualizado a '+(GESTION_ESTADO[nuevo]||nuevo));
       }).catch(function(e){
         console.error('No se pudo cambiar el estado:', e);
         showToast('No se pudo cambiar el estado');
+      });
+    }
+
+    // ===== Cambio de SITUACIÓN (eje independiente, escribe en el cliente) =====
+    // No toca las gestiones: la etapa comercial queda intacta, así reactivar
+    // devuelve al cliente a donde estaba. Pausar guarda la fecha (para el tanteo
+    // a 3 meses) y limpia cualquier snooze previo.
+    function aplicarSituacion(id, nueva){
+      cerrarStPop();
+      var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
+      if (!c) return;
+      var ahora = new Date().toISOString();
+      var upd = { situacion: nueva, updatedAt: ahora };
+      if (nueva === 'pausa'){ upd.pausadoEn = ahora; upd.pausaSnoozeUntil = firebase.firestore.FieldValue.delete(); }
+      else { upd.pausadoEn = firebase.firestore.FieldValue.delete(); upd.pausaSnoozeUntil = firebase.firestore.FieldValue.delete(); }
+      db.collection('clients').doc(id).update(upd).then(function(){
+        c.situacion = nueva;
+        if (nueva === 'pausa') c.pausadoEn = ahora; else { delete c.pausadoEn; delete c.pausaSnoozeUntil; }
+        renderClients();
+        var msg = nueva==='activo' ? 'Cliente reactivado' : nueva==='pausa' ? 'Cliente en pausa — vuelve a avisar en '+MESES_PAUSA+' meses' : nueva==='externo' ? 'Marcado como cerrado por afuera' : 'Marcado como perdido';
+        showToast(msg);
+      }).catch(function(e){
+        console.error('No se pudo cambiar la situación:', e);
+        showToast('No se pudo cambiar la situación');
       });
     }
 

@@ -912,9 +912,27 @@
       l.innerHTML = '<div class="notification-empty"><i class="fas fa-bell-slash"></i><p>No tienes consultas</p></div>';
       return
     }
-    l.innerHTML = notifications.map(n => {
+    // Familia de cada notificación, para el filtro Clientes / Propiedades.
+    // Clientes: recordatorios del CRM (seguimiento, pausa). Propiedades: consultas
+    // de portales/web y (más adelante) vencimientos de alquiler.
+    const familiaDe = (n) => (n.type === 'crm_seguimiento' || n.type === 'crm_pausa') ? 'clientes' : 'propiedades';
+    const filtro = window._notifFiltro || 'all';
+    const visibles = notifications.filter(n => filtro === 'all' || familiaDe(n) === filtro);
+    const nCli = notifications.filter(n => familiaDe(n) === 'clientes').length;
+    const nProp = notifications.length - nCli;
+    const chip = (val, txt) => `<button class="notif-chip ${filtro===val?'active':''}" onclick="setNotifFiltro('${val}')">${txt}</button>`;
+    const barra = `<div class="notif-filtros">${chip('all','Todas')}${chip('clientes','Clientes'+(nCli?' ('+nCli+')':''))}${chip('propiedades','Propiedades'+(nProp?' ('+nProp+')':''))}</div>`;
+    if (!visibles.length){
+      l.innerHTML = barra + '<div class="notification-empty" style="padding:24px 12px"><i class="fas fa-bell-slash"></i><p>Sin avisos en esta categoría</p></div>';
+      return;
+    }
+    l.innerHTML = barra + visibles.map(n => {
       const i = (n.userName || 'A').charAt(0).toUpperCase(),
         ts = n.createdAt ? formatTimeAgo(n.createdAt) : '';
+      // Recordatorio de clientes EN PAUSA: azul, clic hacia Clientes.
+      if (n.type === 'crm_pausa') {
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleCrmNotifClick('${n.id}')"><div class="notification-avatar" style="background:#dbeafe;color:#2563eb"><i class="fas fa-circle-pause"></i></div><div class="notification-body"><p><strong>Clientes en pausa</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,140))}${(n.text||'').length>140?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+      }
       // Recordatorio del CRM (clientes sin contacto): formato propio y clic hacia Clientes,
       // porque el formato estándar de abajo asume una consulta sobre una propiedad.
       if (n.type === 'crm_seguimiento') {
@@ -970,6 +988,7 @@
     openDetail(pi, true)
   }
   // Clic en el recordatorio de seguimiento: marca leído y va a la página de Clientes.
+  function setNotifFiltro(f){ window._notifFiltro = f; renderNotifications(); }
   async function handleCrmNotifClick(ni) {
     closeNotifications();
     try {
