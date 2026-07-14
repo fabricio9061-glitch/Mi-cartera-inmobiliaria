@@ -2320,6 +2320,72 @@ exports.recordatorioPausados = onSchedule(
 );
 
 // =====================================================================
+// PROPIEDADES — Aviso de vencimiento de contratos de alquiler.
+// Un alquiler es una pausa CON fecha: la propiedad salió del mercado pero vuelve
+// al terminar el contrato. Cada día revisa los contratos vigentes y, cuando faltan
+// 90 / 60 / 30 días para el fin, avisa (una vez por hito, sin repetir) al agente
+// dueño. La propiedad NO se reactiva sola: el aviso es para que el agente hable con
+// el propietario y decida (renovar / volver al mercado / archivar) desde la ficha.
+// =====================================================================
+const HITOS_VENCIMIENTO = [90, 60, 30];
+
+exports.avisoVencimientoAlquiler = onSchedule(
+  { schedule: "0 9 * * *", timeZone: "America/Montevideo" },
+  async () => {
+    const propsSnap = await db.collection("properties").get();
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const adm = await getAdminUser();
+
+    for (const doc of propsSnap.docs) {
+      const p = doc.data();
+      if (p.status !== "rented" || !Array.isArray(p.contratos)) continue;
+      const idx = p.contratos.findIndex((c) => c && c.vigente);
+      if (idx < 0) continue;
+      const c = p.contratos[idx];
+      if (!c.fechaFin) continue;
+      const fin = new Date(c.fechaFin); fin.setHours(0, 0, 0, 0);
+      const dias = Math.round((fin - hoy) / 86400000);
+      // Buscar el hito correspondiente: el mayor de {90,60,30} que ya se alcanzó
+      // y todavía no se avisó. (dias<=90 && no avisado 90; etc.)
+      const avisados = c.hitosAvisados || [];
+      let hito = null;
+      for (const h of HITOS_VENCIMIENTO) {
+        if (dias <= h && avisados.indexOf(h) < 0) { hito = h; break; }
+      }
+      if (hito == null) continue;
+
+      const ownerId = p.ownerId || null;
+      let destino = null, ownerName = "";
+      if (ownerId) {
+        try { const u = await db.doc(`users/${ownerId}`).get(); if (u.exists) { ownerName = u.data().name || ""; destino = { uid: u.id, fcmToken: u.data().fcmToken }; } } catch (e) { /* sin perfil */ }
+      }
+      if (!destino) destino = adm;
+      if (!destino) continue;
+
+      const cuando = dias <= 0 ? "ya venció" : `vence en ${dias} día${dias === 1 ? "" : "s"}`;
+      const texto = `El alquiler de "${p.title || "una propiedad"}" ${cuando} (fin de contrato ${c.fechaFin}). Contactá al propietario para confirmar si renueva o vuelve al mercado.`;
+      await crearNotificacion(destino, {
+        type: "vencimiento_alquiler",
+        propertyId: doc.id,
+        propertyTitle: p.title || "una propiedad",
+        userName: "Vencimiento",
+        userPhoto: null,
+        text: texto,
+      }, {
+        title: "🏠 Alquiler por vencer",
+        body: `${p.title || "Una propiedad"} — ${cuando}`,
+      });
+
+      // Marcar el hito como avisado para no repetirlo (persistir en el contrato).
+      const nuevos = p.contratos.slice();
+      nuevos[idx] = Object.assign({}, c, { hitosAvisados: avisados.concat([hito]) });
+      await doc.ref.update({ contratos: nuevos });
+      logger.info(`[avisoVencimientoAlquiler] ${doc.id}: hito ${hito}d (faltan ${dias}).`);
+    }
+  }
+);
+
+// =====================================================================
 // Registro a prueba de fallos — garantía del lado del servidor.
 // El cliente ya intenta crear users/{uid} al registrarse (con reintentos y
 // rollback), pero puede fallar por caché de una versión vieja, cortes de red
@@ -2386,13 +2452,25 @@ exports.sincronizarPropiedadAlCerrarGestion = onDocumentUpdated("gestiones/{gid}
     // Solo si la propiedad estaba disponible o reservada: un estado ya
     // definido (vendida por el Mapa de cierres, en tasación, etc.) se respeta.
     if (p.status && p.status !== "available" && p.status !== "reserved") return;
-    const nuevoEstado = p.type === "rent" ? "rented" : "sold";
-    await ref.update({
+    const esAlquiler = p.type === "rent";
+    const nuevoEstado = esAlquiler ? "rented" : "sold";
+    const upd = {
       status: nuevoEstado,
       finalizadaPorGestion: { gestionId: event.params.gid, fecha: new Date().toISOString() },
       updatedAt: new Date().toISOString(),
-    });
-    logger.info(`[gestión cerrada] Propiedad ${pid} -> ${nuevoEstado} (gestión ${event.params.gid}).`);
+    };
+    // Alquiler = pausa con fecha. Si todavía no tiene un contrato vigente cargado,
+    // marcamos contratoPendiente: el front pedirá fecha de fin e inquilino. La venta
+    // no lleva contrato (es terminal de verdad).
+    if (esAlquiler) {
+      const hayVigente = Array.isArray(p.contratos) && p.contratos.some((c) => c && c.vigente);
+      if (!hayVigente) {
+        upd.contratoPendiente = true;
+        upd.contratoPendienteGestion = event.params.gid; // para vincular el inquilino
+      }
+    }
+    await ref.update(upd);
+    logger.info(`[gestión cerrada] Propiedad ${pid} -> ${nuevoEstado}${upd.contratoPendiente ? " (contrato pendiente)" : ""}.`);
   } else if (estAntes === "cerrado") {
     // Se reabrió la gestión: revertir solo lo que este trigger marcó.
     const f = p.finalizadaPorGestion;
@@ -2400,6 +2478,8 @@ exports.sincronizarPropiedadAlCerrarGestion = onDocumentUpdated("gestiones/{gid}
       await ref.update({
         status: "available",
         finalizadaPorGestion: admin.firestore.FieldValue.delete(),
+        contratoPendiente: admin.firestore.FieldValue.delete(),
+        contratoPendienteGestion: admin.firestore.FieldValue.delete(),
         updatedAt: new Date().toISOString(),
       });
       logger.info(`[gestión reabierta] Propiedad ${pid} -> available.`);

@@ -929,6 +929,10 @@
     l.innerHTML = barra + visibles.map(n => {
       const i = (n.userName || 'A').charAt(0).toUpperCase(),
         ts = n.createdAt ? formatTimeAgo(n.createdAt) : '';
+      // Aviso de vencimiento de alquiler: naranja, clic hacia la propiedad.
+      if (n.type === 'vencimiento_alquiler') {
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar" style="background:#ffedd5;color:#c2410c"><i class="fas fa-house-circle-exclamation"></i></div><div class="notification-body"><p><strong>Alquiler por vencer</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,150))}${(n.text||'').length>150?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+      }
       // Recordatorio de clientes EN PAUSA: azul, clic hacia Clientes.
       if (n.type === 'crm_pausa') {
         return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleCrmNotifClick('${n.id}')"><div class="notification-avatar" style="background:#dbeafe;color:#2563eb"><i class="fas fa-circle-pause"></i></div><div class="notification-body"><p><strong>Clientes en pausa</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,140))}${(n.text||'').length>140?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
@@ -1617,6 +1621,219 @@
       }));
       renderImagePreviews()
     }
+  }
+
+  // ===================================================================
+  // CONTRATOS DE ALQUILER (panel en el detalle de la propiedad)
+  // Modelo: property.contratos[] es el historial completo; el vigente es el que
+  // tiene vigente:true. Cada contrato guarda fechaInicio, fechaFin, el inquilino
+  // (nombre/clientId) y los hitos de aviso ya notificados. Renovar NO reemplaza:
+  // cierra el vigente y agrega uno nuevo, así queda el historial de renovaciones.
+  // Solo el dueño de la propiedad (o admin) ve y edita este panel.
+  // ===================================================================
+  function fmtFecha(iso){ if(!iso) return '—'; const d=new Date(iso+'T00:00:00'); return isNaN(d)?iso:d.toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+  function diasHastaFin(iso){ if(!iso) return null; const f=new Date(iso+'T00:00:00'); const h=new Date(); h.setHours(0,0,0,0); return Math.round((f-h)/86400000); }
+  function contratoVigente(p){ return (p.contratos||[]).find(c=>c&&c.vigente) || null; }
+
+  function renderDetailContrato(p){
+    const box = document.getElementById('detailContrato');
+    if (!box){ return; }
+    // Solo para el dueño/admin y solo si es un alquiler (o ya tiene contratos).
+    const puede = canEditProperty(p);
+    const esAlquiler = p.type === 'rent' || (p.contratos && p.contratos.length);
+    if (!puede || !esAlquiler){ box.innerHTML = ''; return; }
+
+    // Caso 1: contrato pendiente (el trigger marcó la propiedad alquilada sin datos).
+    if (p.contratoPendiente){
+      box.innerHTML = `<div class="ctr-panel ctr-pending"><div class="ctr-head"><i class="fas fa-file-signature"></i> Falta cargar el contrato</div><p class="ctr-p">Marcaste esta propiedad como alquilada. Cargá la fecha de fin del contrato y el inquilino para activar los avisos de vencimiento.</p><button class="ctr-btn primary" onclick="abrirModalContrato('${p.id}',false)"><i class="fas fa-plus"></i> Cargar contrato</button></div>`;
+      return;
+    }
+
+    const cv = contratoVigente(p);
+    // Caso 2: alquilada con contrato vigente.
+    if (cv){
+      const d = diasHastaFin(cv.fechaFin);
+      let alerta = '';
+      if (d != null){
+        if (d < 0) alerta = `<span class="ctr-chip venc">Venció hace ${-d} día${d===-1?'':'s'}</span>`;
+        else if (d <= 30) alerta = `<span class="ctr-chip r30">Vence en ${d} días</span>`;
+        else if (d <= 90) alerta = `<span class="ctr-chip r90">Vence en ${d} días</span>`;
+        else alerta = `<span class="ctr-chip ok">Vence en ${d} días</span>`;
+      }
+      const inq = cv.inquilinoNombre ? `<div class="ctr-row"><i class="fas fa-user"></i> Inquilino: <b>${mvEsc(cv.inquilinoNombre)}</b>${cv.inquilinoClientId?` <a href="clientes.html" class="ctr-link">ver ficha</a>`:''}</div>` : '';
+      const nRenov = (p.contratos||[]).length;
+      const histBtn = nRenov > 1 ? `<button class="ctr-btn ghost" onclick="verHistorialContratos('${p.id}')"><i class="fas fa-clock-rotate-left"></i> Historial (${nRenov})</button>` : '';
+      box.innerHTML = `<div class="ctr-panel"><div class="ctr-head"><i class="fas fa-key"></i> Contrato de alquiler ${alerta}</div>
+        <div class="ctr-row"><i class="fas fa-calendar"></i> Del <b>${fmtFecha(cv.fechaInicio)}</b> al <b>${fmtFecha(cv.fechaFin)}</b></div>
+        ${inq}
+        <div class="ctr-actions">
+          <button class="ctr-btn" onclick="abrirModalContrato('${p.id}',true)"><i class="fas fa-pen"></i> Editar</button>
+          <button class="ctr-btn primary" onclick="abrirModalRenovar('${p.id}')"><i class="fas fa-rotate"></i> Renovar</button>
+          <button class="ctr-btn ghost" onclick="finalizarContrato('${p.id}')"><i class="fas fa-flag-checkered"></i> Terminó / volver al mercado</button>
+          ${histBtn}
+        </div></div>`;
+      return;
+    }
+
+    // Caso 3: es alquiler pero sin contrato vigente (histórico) — ofrecer cargar.
+    box.innerHTML = `<div class="ctr-panel"><div class="ctr-head"><i class="fas fa-key"></i> Alquiler</div><p class="ctr-p">Esta propiedad no tiene un contrato activo cargado.</p><button class="ctr-btn primary" onclick="abrirModalContrato('${p.id}',false)"><i class="fas fa-plus"></i> Cargar contrato</button></div>`;
+  }
+
+  // ---- Modal para cargar / editar el contrato vigente ----
+  function abrirModalContrato(pid, editando){
+    const p = properties.find(x=>x.id===pid); if(!p) return;
+    const cv = editando ? contratoVigente(p) : null;
+    const hoy = new Date().toISOString().slice(0,10);
+    const finDefault = cv ? cv.fechaFin : '';
+    const iniDefault = cv ? cv.fechaInicio : hoy;
+    const ov = document.createElement('div');
+    ov.className = 'ctr-overlay'; ov.id = 'ctrOverlay';
+    ov.onclick = e => { if(e.target===ov) ov.remove(); };
+    const inpCss = 'width:100%;padding:10px 12px;border:1px solid var(--gray-200,#e5e7eb);border-radius:10px;font-family:inherit;font-size:.9rem;margin-bottom:12px;box-sizing:border-box';
+    const lblCss = 'display:block;font-size:.78rem;font-weight:600;color:var(--gray-600,#555);margin:0 0 4px';
+    ov.innerHTML = `<div class="ctr-modal">
+      <h3><i class="fas fa-file-signature" style="color:var(--accent,#C9A227)"></i> ${editando?'Editar contrato':'Cargar contrato'}</h3>
+      <label style="${lblCss}">Inicio del contrato</label>
+      <input type="date" id="ctrInicio" value="${iniDefault}" style="${inpCss}">
+      <label style="${lblCss}">Fin del contrato</label>
+      <input type="date" id="ctrFin" value="${finDefault}" style="${inpCss}">
+      <div class="ctr-quick"><button type="button" onclick="ctrCalcFin(1)">1 año</button><button type="button" onclick="ctrCalcFin(2)">2 años</button></div>
+      <label style="${lblCss}">Inquilino (nombre)</label>
+      <input type="text" id="ctrInquilino" value="${mvEsc((cv&&cv.inquilinoNombre)||'')}" placeholder="Nombre del inquilino" style="${inpCss}">
+      <label style="${lblCss} display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="ctrGuardarCliente" ${cv&&cv.inquilinoClientId?'':'checked'} style="width:auto;margin:0"> Guardarlo como contacto en el CRM</label>
+      <div class="ctr-modal-actions">
+        <button class="ctr-btn" onclick="document.getElementById('ctrOverlay').remove()">Cancelar</button>
+        <button class="ctr-btn primary" onclick="guardarContrato('${pid}',${!!editando})">Guardar</button>
+      </div></div>`;
+    document.body.appendChild(ov);
+  }
+  function ctrCalcFin(anios){
+    const ini = document.getElementById('ctrInicio').value || new Date().toISOString().slice(0,10);
+    const d = new Date(ini+'T00:00:00'); d.setFullYear(d.getFullYear()+anios);
+    document.getElementById('ctrFin').value = d.toISOString().slice(0,10);
+  }
+  async function guardarContrato(pid, editando){
+    const p = properties.find(x=>x.id===pid); if(!p) return;
+    const ini = document.getElementById('ctrInicio').value;
+    const fin = document.getElementById('ctrFin').value;
+    const inq = (document.getElementById('ctrInquilino').value||'').trim();
+    const guardarCli = document.getElementById('ctrGuardarCliente').checked;
+    if (!fin){ showToast('Falta la fecha de fin', 'Es la que dispara los avisos de vencimiento', 'fa-exclamation-triangle'); return; }
+    if (ini && fin < ini){ showToast('Fechas invertidas', 'El fin no puede ser antes del inicio', 'fa-exclamation-triangle'); return; }
+    try {
+      let inquilinoClientId = editando ? (contratoVigente(p)||{}).inquilinoClientId || null : null;
+      // Vincular / crear el inquilino como contacto si se pidió y hay nombre.
+      if (guardarCli && inq && !inquilinoClientId){
+        const nuevo = { name: inq, phone: '', status: 'nuevo', source: 'inquilino',
+          notes: `Inquilino de: ${p.title||'una propiedad'}`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        if (currentUser){ nuevo.createdBy = p.ownerId||currentUser.uid; nuevo.agentId = p.ownerId||currentUser.uid; nuevo.ownerId = p.ownerId||currentUser.uid; }
+        const ref = await db.collection('clients').add(nuevo);
+        inquilinoClientId = ref.id;
+      }
+      const nuevoContrato = { fechaInicio: ini||new Date().toISOString().slice(0,10), fechaFin: fin,
+        inquilinoNombre: inq, inquilinoClientId, vigente: true, hitosAvisados: [], creadoEn: new Date().toISOString() };
+      let contratos = (p.contratos||[]).slice();
+      if (editando){
+        const i = contratos.findIndex(c=>c&&c.vigente);
+        if (i>=0) contratos[i] = Object.assign({}, contratos[i], { fechaInicio: nuevoContrato.fechaInicio, fechaFin: fin, inquilinoNombre: inq, inquilinoClientId, hitosAvisados: [] });
+        else contratos.push(nuevoContrato);
+      } else {
+        contratos.forEach(c=>{ if(c) c.vigente=false; });
+        contratos.push(nuevoContrato);
+      }
+      await db.collection('properties').doc(pid).update({
+        contratos, status: 'rented',
+        contratoPendiente: firebase.firestore.FieldValue.delete(),
+        contratoPendienteGestion: firebase.firestore.FieldValue.delete(),
+        updatedAt: new Date().toISOString()
+      });
+      p.contratos = contratos; delete p.contratoPendiente;
+      document.getElementById('ctrOverlay')?.remove();
+      renderDetailContrato(p);
+      showToast('Contrato guardado', 'Los avisos de vencimiento quedan activos', 'fa-check');
+    } catch(e){ console.error('contrato:', e); showToast('No se pudo guardar', (e&&e.message)||'', 'fa-exclamation-triangle'); }
+  }
+
+  // ---- Renovar: cierra el vigente y abre uno nuevo (conserva historial) ----
+  function abrirModalRenovar(pid){
+    const p = properties.find(x=>x.id===pid); if(!p) return;
+    const cv = contratoVigente(p);
+    const iniNuevo = cv && cv.fechaFin ? cv.fechaFin : new Date().toISOString().slice(0,10);
+    const ov = document.createElement('div');
+    ov.className = 'ctr-overlay'; ov.id = 'ctrOverlay';
+    ov.onclick = e => { if(e.target===ov) ov.remove(); };
+    const inpCss = 'width:100%;padding:10px 12px;border:1px solid var(--gray-200,#e5e7eb);border-radius:10px;font-family:inherit;font-size:.9rem;margin-bottom:12px;box-sizing:border-box';
+    const lblCss = 'display:block;font-size:.78rem;font-weight:600;color:var(--gray-600,#555);margin:0 0 4px';
+    ov.innerHTML = `<div class="ctr-modal">
+      <h3><i class="fas fa-rotate" style="color:var(--accent,#C9A227)"></i> Renovar contrato</h3>
+      <p class="ctr-p" style="margin-top:0">El contrato actual queda en el historial y se crea un período nuevo.</p>
+      <label style="${lblCss}">Inicio del nuevo período</label>
+      <input type="date" id="ctrInicio" value="${iniNuevo}" style="${inpCss}">
+      <label style="${lblCss}">Fin del nuevo período</label>
+      <input type="date" id="ctrFin" value="" style="${inpCss}">
+      <div class="ctr-quick"><button type="button" onclick="ctrCalcFin(1)">1 año</button><button type="button" onclick="ctrCalcFin(2)">2 años</button></div>
+      <label style="${lblCss}">Inquilino</label>
+      <input type="text" id="ctrInquilino" value="${mvEsc((cv&&cv.inquilinoNombre)||'')}" placeholder="Mismo inquilino u otro" style="${inpCss}">
+      <div class="ctr-modal-actions">
+        <button class="ctr-btn" onclick="document.getElementById('ctrOverlay').remove()">Cancelar</button>
+        <button class="ctr-btn primary" onclick="confirmarRenovacion('${pid}')">Renovar</button>
+      </div></div>`;
+    document.body.appendChild(ov);
+  }
+  async function confirmarRenovacion(pid){
+    const p = properties.find(x=>x.id===pid); if(!p) return;
+    const ini = document.getElementById('ctrInicio').value;
+    const fin = document.getElementById('ctrFin').value;
+    const inq = (document.getElementById('ctrInquilino').value||'').trim();
+    if (!fin){ showToast('Falta la fecha de fin', '', 'fa-exclamation-triangle'); return; }
+    if (ini && fin < ini){ showToast('Fechas invertidas', '', 'fa-exclamation-triangle'); return; }
+    try {
+      const cv = contratoVigente(p);
+      let contratos = (p.contratos||[]).slice();
+      // Cerrar el vigente (queda en historial con marca de renovado).
+      contratos.forEach(c=>{ if(c&&c.vigente){ c.vigente=false; c.renovadoEn=new Date().toISOString(); } });
+      contratos.push({ fechaInicio: ini||new Date().toISOString().slice(0,10), fechaFin: fin,
+        inquilinoNombre: inq, inquilinoClientId: (cv&&cv.inquilinoClientId)||null,
+        vigente: true, hitosAvisados: [], creadoEn: new Date().toISOString(), esRenovacion: true });
+      await db.collection('properties').doc(pid).update({ contratos, status:'rented', updatedAt:new Date().toISOString() });
+      p.contratos = contratos;
+      document.getElementById('ctrOverlay')?.remove();
+      renderDetailContrato(p);
+      showToast('Contrato renovado', 'Se creó un nuevo período y se guardó el anterior', 'fa-check');
+    } catch(e){ console.error('renovar:', e); showToast('No se pudo renovar', '', 'fa-exclamation-triangle'); }
+  }
+
+  // ---- Finalizar: el inquilino se fue, la propiedad vuelve al mercado ----
+  async function finalizarContrato(pid){
+    const p = properties.find(x=>x.id===pid); if(!p) return;
+    if (!confirm('¿El contrato terminó y la propiedad vuelve a estar disponible? El inquilino quedará como antiguo inquilino en el historial.')) return;
+    try {
+      let contratos = (p.contratos||[]).slice();
+      contratos.forEach(c=>{ if(c&&c.vigente){ c.vigente=false; c.finalizadoEn=new Date().toISOString(); } });
+      await db.collection('properties').doc(pid).update({
+        contratos, status:'available',
+        finalizadaPorGestion: firebase.firestore.FieldValue.delete(),
+        updatedAt:new Date().toISOString()
+      });
+      p.contratos = contratos; p.status='available';
+      renderDetailContrato(p);
+      showToast('Propiedad disponible', 'Vuelve al mercado y al feed en la próxima sincronización', 'fa-check');
+    } catch(e){ console.error('finalizar:', e); showToast('No se pudo actualizar', '', 'fa-exclamation-triangle'); }
+  }
+
+  // ---- Historial de contratos (períodos anteriores) ----
+  function verHistorialContratos(pid){
+    const p = properties.find(x=>x.id===pid); if(!p) return;
+    const lista = (p.contratos||[]).slice().reverse();
+    const ov = document.createElement('div');
+    ov.className = 'ctr-overlay'; ov.id = 'ctrOverlay';
+    ov.onclick = e => { if(e.target===ov) ov.remove(); };
+    const filas = lista.map((c,i)=>{
+      const estado = c.vigente ? '<span class="ctr-chip ok">Vigente</span>' : (i===0?'':'')+'<span class="ctr-chip" style="background:#f1f5f9;color:#64748b">Finalizado</span>';
+      return `<div class="ctr-hist-item"><div><b>${fmtFecha(c.fechaInicio)} → ${fmtFecha(c.fechaFin)}</b> ${estado}</div>${c.inquilinoNombre?`<div class="ctr-hist-sub"><i class="fas fa-user"></i> ${mvEsc(c.inquilinoNombre)}${c.vigente?' (inquilino actual)':' (antiguo inquilino)'}</div>`:''}</div>`;
+    }).join('');
+    ov.innerHTML = `<div class="ctr-modal"><h3><i class="fas fa-clock-rotate-left" style="color:var(--accent,#C9A227)"></i> Historial de contratos</h3><div class="ctr-hist">${filas||'<p class="ctr-p">Sin contratos registrados.</p>'}</div><div class="ctr-modal-actions"><button class="ctr-btn primary" onclick="document.getElementById('ctrOverlay').remove()">Cerrar</button></div></div>`;
+    document.body.appendChild(ov);
   }
 
   function editCurrentProperty() {
@@ -2443,6 +2660,7 @@
       ib.classList.add('hidden')
     }
     document.getElementById('detailEditBtn').classList.toggle('hidden', !canEditProperty(p));
+    renderDetailContrato(p);
     document.getElementById('commentFormGuest').classList.toggle('hidden', !!currentUser);
     document.getElementById('commentFormUser').classList.toggle('hidden', !currentUser);
     loadComments(id);
