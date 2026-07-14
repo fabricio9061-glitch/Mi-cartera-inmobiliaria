@@ -120,6 +120,8 @@
     .ayuda-item .txt span{ font-size:.8rem; color:var(--gray-500); line-height:1.4; }
     .client-sit-chip.sit-activo{ background:#dcfce7; color:#15803d; }
     .client-sit-chip.sit-activo .dot{ background:#16a34a; }
+    .client-sit-chip.sit-cerrado{ background:#d1fae5; color:#047857; }
+    .client-sit-chip.sit-cerrado .dot{ background:#059669; }
     .client-sit-chip.sit-pausa{ background:#fef3c7; color:#b45309; }
     .client-sit-chip.sit-pausa .dot{ background:#d97706; }
     .client-sit-chip.sit-externo{ background:#e2e8f0; color:#475569; }
@@ -661,10 +663,24 @@
     //   externo  -> "cerró por afuera": terminó pero sin la agencia (ni ganado ni perdido)
     //   perdido  -> descartado de verdad (el que te dijo que no)
     var SITUACION = { activo:'Activo', pausa:'En pausa', externo:'Cerró por afuera', perdido:'Perdido' };
-    var SITUACION_DOT = { activo:'#15803d', pausa:'#b45309', externo:'#64748b', perdido:'#b91c1c' };
+    var SITUACION_DOT = { activo:'#15803d', pausa:'#b45309', externo:'#64748b', perdido:'#b91c1c', cerrado:'#15803d' };
+    // "cerrado" es una situación DERIVADA (viene de la etapa terminal, no se elige
+    // en el menú): la operación se concretó con la agencia. Etiqueta para la banda:
+    var SITUACION_LABEL = { activo:'Activo', pausa:'En pausa', externo:'Cerró por afuera', perdido:'Perdido', cerrado:'Cerrado' };
     var MESES_PAUSA = 3; // cada cuánto el sistema tantea "¿retomás a este pausado?"
 
-    function situacionDe(c){ return (c && c.situacion) || 'activo'; }
+    // La situación guardada manda SALVO cuando la etapa comercial ya es terminal:
+    // si el rollup dice "cerrado" o "perdido", el vínculo terminó y el cliente no
+    // puede figurar "Activo" (no tendría sentido: verde "Activo" + badge "Cerrado").
+    // Pausa sí se respeta siempre (es una decisión explícita de guardarlo).
+    function situacionDe(c){
+      var guardada = (c && c.situacion) || 'activo';
+      if (guardada === 'pausa') return 'pausa';
+      var rs = c && c._rollupStatus;
+      if (rs === 'cerrado') return (guardada==='externo'||guardada==='perdido') ? guardada : 'cerrado';
+      if (rs === 'perdido') return 'perdido';
+      return guardada;
+    }
     function esActivo(c){ return situacionDe(c) === 'activo'; }
     // Un pausado "despierta" cuando pasaron MESES_PAUSA desde la pausa o desde el último posponer.
     function pausaVencida(c){
@@ -959,7 +975,7 @@
         var badgeClass = rs;
         var actTxt = c._lastActivity ? ((nGest>0?'Última gestión ':'Creado ')+relTime(c._lastActivity)) : '';
         return '<div class="client-card'+(c.archived?' archived':'')+(sit!=='activo'?' fuera-activo':'')+'" onclick="showClientProfile(\''+c.id+'\')" style="cursor:pointer;position:relative">' +
-          '<div class="client-sit-chip sit-'+sit+'" role="button" title="Cambiar situación" onclick="event.stopPropagation();abrirMenuSituacion(event,\''+c.id+'\')"><span class="dot"></span>'+SITUACION[sit]+(sit==='pausa'?' · desde '+relTime(c.pausadoEn||c.updatedAt||''):'')+' <i class="fas fa-chevron-down chev"></i></div>' +
+          '<div class="client-sit-chip sit-'+sit+'" role="button" title="Cambiar situación" onclick="event.stopPropagation();abrirMenuSituacion(event,\''+c.id+'\')"><span class="dot"></span>'+(SITUACION_LABEL[sit]||sit)+(sit==='pausa'?' · desde '+relTime(c.pausadoEn||c.updatedAt||''):'')+' <i class="fas fa-chevron-down chev"></i></div>' +
           '<div class="client-card-top">' +
             '<div class="client-avatar">'+esc(ini)+'</div>' +
             '<div class="client-card-name">' +
@@ -1117,6 +1133,14 @@
       if (!c) return;
       var sitActual = situacionDe(c);
       var pop = document.createElement('div'); pop.className = 'st-pop';
+      // Si está "cerrado" por etapa terminal, la situación no se elige libremente:
+      // para reactivarlo hay que cambiar la etapa comercial (desde el otro menú).
+      if (sitActual === 'cerrado'){
+        pop.innerHTML = '<div class="st-pop-hint">Este cliente tiene una operación cerrada con la agencia. Para reactivarlo, cambiá su <b>etapa comercial</b> desde la etiqueta de la derecha.</div>';
+        _posicionarPop(pop, ev);
+        _stPopEl = pop; _stPopId = 'si'+id;
+        return;
+      }
       pop.innerHTML = '<div class="st-pop-sep" style="border-top:none;margin-top:0">Situación</div>' + Object.keys(SITUACION).map(function(k){
         return '<button type="button" class="'+(k===sitActual?'sel':'')+'" onclick="aplicarSituacion(\''+id+'\',\''+k+'\')"><span class="dot" style="background:'+(SITUACION_DOT[k]||'#94a3b8')+'"></span>'+SITUACION[k]+'</button>';
       }).join('');

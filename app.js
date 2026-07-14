@@ -1643,13 +1643,15 @@
     const esAlquiler = p.type === 'rent' || (p.contratos && p.contratos.length);
     if (!puede || !esAlquiler){ box.innerHTML = ''; return; }
 
-    // Caso 1: contrato pendiente (el trigger marcó la propiedad alquilada sin datos).
-    if (p.contratoPendiente){
-      box.innerHTML = `<div class="ctr-panel ctr-pending"><div class="ctr-head"><i class="fas fa-file-signature"></i> Falta cargar el contrato</div><p class="ctr-p">Marcaste esta propiedad como alquilada. Cargá la fecha de fin del contrato y el inquilino para activar los avisos de vencimiento.</p><button class="ctr-btn primary" onclick="abrirModalContrato('${p.id}',false)"><i class="fas fa-plus"></i> Cargar contrato</button></div>`;
+    const cv = contratoVigente(p);
+    // Caso 1: alquilada SIN contrato vigente → falta cargarlo. Esto cubre los tres
+    // caminos de cierre (perfil, mapa de cierres, cierre de gestión): la fuente de
+    // verdad es el estado de la propiedad, no un flag que solo pone un camino.
+    if (!cv && (p.status === 'rented' || p.contratoPendiente)){
+      box.innerHTML = `<div class="ctr-panel ctr-pending"><div class="ctr-head"><i class="fas fa-file-signature"></i> Falta cargar el contrato</div><p class="ctr-p">Esta propiedad está marcada como alquilada. Cargá la fecha de fin del contrato y el inquilino para activar los avisos de vencimiento a 90, 60 y 30 días.</p><button class="ctr-btn primary" onclick="abrirModalContrato('${p.id}',false)"><i class="fas fa-plus"></i> Cargar contrato</button></div>`;
       return;
     }
 
-    const cv = contratoVigente(p);
     // Caso 2: alquilada con contrato vigente.
     if (cv){
       const d = diasHastaFin(cv.fechaFin);
@@ -1675,8 +1677,15 @@
       return;
     }
 
-    // Caso 3: es alquiler pero sin contrato vigente (histórico) — ofrecer cargar.
-    box.innerHTML = `<div class="ctr-panel"><div class="ctr-head"><i class="fas fa-key"></i> Alquiler</div><p class="ctr-p">Esta propiedad no tiene un contrato activo cargado.</p><button class="ctr-btn primary" onclick="abrirModalContrato('${p.id}',false)"><i class="fas fa-plus"></i> Cargar contrato</button></div>`;
+    // Caso 3: alquiler disponible (no rented) que YA tuvo contratos → mostrar el
+    // historial. Si nunca tuvo contrato y está disponible, no se muestra nada
+    // (todavía no se alquiló): el panel aparecerá recién al marcarla alquilada.
+    if ((p.contratos||[]).length){
+      const n = p.contratos.length;
+      box.innerHTML = `<div class="ctr-panel"><div class="ctr-head"><i class="fas fa-key"></i> Alquiler · disponible</div><p class="ctr-p">No hay un contrato vigente. Esta propiedad tuvo ${n} contrato${n===1?'':'s'} antes.</p><button class="ctr-btn ghost" onclick="verHistorialContratos('${p.id}')"><i class="fas fa-clock-rotate-left"></i> Ver historial (${n})</button></div>`;
+      return;
+    }
+    box.innerHTML = '';
   }
 
   // ---- Modal para cargar / editar el contrato vigente ----
