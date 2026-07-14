@@ -320,6 +320,26 @@
     .cp-inline-sel select{ padding:5px 8px; border:1px solid var(--gray-300); border-radius:7px; font-family:inherit; font-size:.76rem; color:var(--navy); background:#fff; cursor:pointer; max-width:150px; }
     .cp-inline-sel select:focus{ outline:none; border-color:var(--gold-2); }
     .cp-inline-sel select:disabled{ background:var(--gray-100); color:var(--gray-500); cursor:not-allowed; }
+    /* Fila de contrato de alquiler dentro de la gestión */
+    .ctr-mini{ margin-top:8px; padding:9px 12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:9px; font-size:.8rem; color:#166534; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .ctr-mini.pend{ background:#fffbeb; border-color:#fde68a; color:#92400e; }
+    .ctr-mini i{ opacity:.8; }
+    .ctr-mini-chip{ font-size:.68rem; font-weight:700; padding:2px 8px; border-radius:999px; }
+    .ctr-mini-chip.ok{ background:#dcfce7; color:#15803d; }
+    .ctr-mini-chip.r90{ background:#fef3c7; color:#b45309; }
+    .ctr-mini-chip.r30{ background:#fee2e2; color:#b91c1c; }
+    .ctr-mini-chip.venc{ background:#fee2e2; color:#991b1b; }
+    .ctr-mini-btn{ margin-left:auto; border:1px solid currentColor; background:transparent; color:inherit; border-radius:7px; padding:4px 10px; font-family:inherit; font-size:.72rem; font-weight:600; cursor:pointer; opacity:.85; }
+    .ctr-mini-btn.primary{ background:#16a34a; color:#fff; border-color:#16a34a; opacity:1; }
+    .ctr-overlay{ position:fixed; inset:0; background:rgba(15,25,40,.55); z-index:3200; display:flex; align-items:center; justify-content:center; padding:16px; }
+    .ctr-modal{ background:#fff; border-radius:16px; max-width:420px; width:100%; padding:22px; box-shadow:0 20px 60px rgba(10,20,35,.35); max-height:88vh; overflow-y:auto; }
+    .ctr-modal h3{ margin:0 0 14px; font-size:1.05rem; color:var(--navy); }
+    .ctr-quick{ display:flex; gap:8px; margin:-4px 0 14px; }
+    .ctr-quick button{ border:1px solid var(--gray-300); background:#fff; border-radius:8px; padding:6px 14px; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; color:var(--gray-600); }
+    .ctr-quick button:hover{ border-color:var(--gold-2); }
+    .ctr-modal-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:8px; }
+    .ctr-btn{ border:1px solid var(--gray-300); background:#fff; color:var(--gray-700); border-radius:9px; padding:8px 15px; font-family:inherit; font-size:.84rem; font-weight:600; cursor:pointer; }
+    .ctr-btn.primary{ background:var(--navy); color:#fff; border-color:var(--navy); }
     .cp-grow-noprop{ font-size:.74rem; color:var(--gray-400); }
     .cp-grow-visitas{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-left:auto; }
     .cp-grow-visitas .lbl{ font-size:.68rem; font-weight:600; color:#6d28d9; display:inline-flex; align-items:center; gap:4px; }
@@ -871,7 +891,9 @@
         var ca = c.createdAt || '';
         if (ca >= iniMes) nuevosMes++; else if (ca >= iniPrev) nuevosMesPrev++;
         if (sit === 'pausa'){ enPausa++; if (pausaVencida(c)) pausaDespierta++; return; }
-        if (sit !== 'activo') return; // externos y perdidos no entran en el embudo activo
+        // 'externo' y 'perdido' no entran en el embudo. 'cerrado' SÍ cuenta como
+        // cerrado (es una operación ganada), aunque sea situación derivada.
+        if (sit === 'externo' || sit === 'perdido') return;
         var rst = rollupStatus(c);
         var b = statBucket(rst);
         if (b==='nuevo') st.nuevo++; else if (b==='proceso') st.proceso++; else if (b==='cerrado') st.cerrado++;
@@ -937,7 +959,8 @@
         var rs = rollupStatus(c);
         var matchStatus = !sf || rs===sf || (sf==='singestion' && rs==='sinavance');
         var matchSit = !sfSit || situacionDe(c)===sfSit;
-        var matchBucket = statFilter==='all' || (statFilter==='atencion' ? paraRecontactar(c) : (esActivo(c) && statBucket(rs)===statFilter));
+        var enEmbudo = situacionDe(c)!=='pausa' && situacionDe(c)!=='externo' && situacionDe(c)!=='perdido';
+        var matchBucket = statFilter==='all' || (statFilter==='atencion' ? paraRecontactar(c) : (enEmbudo && statBucket(rs)===statFilter));
         return m && archMatch && mio && matchStatus && matchSit && matchBucket && (!inf || c.interest===inf);
       });
       list.sort(function(a,b){
@@ -1513,9 +1536,92 @@
           '<span class="cp-grow-agent"><i class="fas fa-user-tie"></i> '+esc(g.agentName||'Agente')+'</span>' +
           visitasGestionHtml(g) +
         '</div>' +
+        contratoGestionHtml(prop, g) +
       '</div>';
     }
+    // Fila de contrato: aparece cuando la propiedad de la gestión está ALQUILADA.
+    // Si no tiene contrato vigente, invita a cargarlo; si lo tiene, muestra el
+    // vencimiento. La gestión completa vive en la ficha de la propiedad; acá es
+    // un acceso directo desde donde el agente cerró el alquiler.
+    function contratoVigenteDe(prop){ return (prop && prop.contratos || []).find(function(c){ return c && c.vigente; }) || null; }
+    function contratoGestionHtml(prop, g){
+      if (!prop || prop.status !== 'rented') return '';
+      var cv = contratoVigenteDe(prop);
+      if (cv){
+        var d = null;
+        if (cv.fechaFin){ var f=new Date(cv.fechaFin+'T00:00:00'); var h=new Date(); h.setHours(0,0,0,0); d=Math.round((f-h)/86400000); }
+        var chip = d==null ? '' : (d<0 ? '<span class="ctr-mini-chip venc">venció</span>' : d<=30 ? '<span class="ctr-mini-chip r30">vence en '+d+'d</span>' : d<=90 ? '<span class="ctr-mini-chip r90">vence en '+d+'d</span>' : '<span class="ctr-mini-chip ok">vence en '+d+'d</span>');
+        return '<div class="ctr-mini"><i class="fas fa-key"></i> Contrato hasta <b>'+(cv.fechaFin?relDate(cv.fechaFin):'—')+'</b>'+(cv.inquilinoNombre?' · '+esc(cv.inquilinoNombre):'')+' '+chip+' <button class="ctr-mini-btn" onclick="abrirContratoCliente(\''+prop.id+'\',true)">Editar</button></div>';
+      }
+      return '<div class="ctr-mini pend"><i class="fas fa-file-signature"></i> Falta cargar el contrato de alquiler <button class="ctr-mini-btn primary" onclick="abrirContratoCliente(\''+prop.id+'\',false)">Cargar</button></div>';
+    }
+    function relDate(iso){ if(!iso) return '—'; var d=new Date(iso+'T00:00:00'); return isNaN(d)?iso:d.toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'}); }
     function img(prop){ return (prop && prop.images && prop.images[0]) ? prop.images[0] : 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400'; }
+
+    // ---- Modal de contrato desde el perfil del cliente ----
+    function abrirContratoCliente(propId, editando){
+      var p = allProperties.find(function(x){ return x.id===propId; }); if(!p) return;
+      var cv = editando ? contratoVigenteDe(p) : null;
+      var hoy = new Date().toISOString().slice(0,10);
+      var ov = document.createElement('div');
+      ov.className = 'ctr-overlay'; ov.id = 'ctrCliOverlay';
+      ov.onclick = function(e){ if(e.target===ov) ov.remove(); };
+      var inp='width:100%;padding:10px 12px;border:1px solid var(--gray-300);border-radius:10px;font-family:inherit;font-size:.9rem;margin-bottom:12px;box-sizing:border-box';
+      var lbl='display:block;font-size:.78rem;font-weight:600;color:var(--gray-600);margin:0 0 4px';
+      ov.innerHTML = '<div class="ctr-modal">'+
+        '<h3><i class="fas fa-file-signature" style="color:var(--gold-2)"></i> '+(editando?'Editar contrato':'Cargar contrato')+'</h3>'+
+        '<label style="'+lbl+'">Inicio del contrato</label><input type="date" id="ctrcInicio" value="'+((cv&&cv.fechaInicio)||hoy)+'" style="'+inp+'">'+
+        '<label style="'+lbl+'">Fin del contrato</label><input type="date" id="ctrcFin" value="'+((cv&&cv.fechaFin)||'')+'" style="'+inp+'">'+
+        '<div class="ctr-quick"><button type="button" onclick="ctrcCalc(1)">1 año</button><button type="button" onclick="ctrcCalc(2)">2 años</button></div>'+
+        '<label style="'+lbl+'">Inquilino</label><input type="text" id="ctrcInq" value="'+esc((cv&&cv.inquilinoNombre)||'')+'" placeholder="Nombre del inquilino" style="'+inp+'">'+
+        '<label style="'+lbl+';display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="ctrcCli" '+(cv&&cv.inquilinoClientId?'':'checked')+' style="width:auto;margin:0"> Guardarlo como contacto en el CRM</label>'+
+        '<div class="ctr-modal-actions"><button class="ctr-btn" onclick="document.getElementById(\'ctrCliOverlay\').remove()">Cancelar</button><button class="ctr-btn primary" onclick="guardarContratoCliente(\''+propId+'\','+(!!editando)+')">Guardar</button></div>'+
+      '</div>';
+      document.body.appendChild(ov);
+    }
+    function ctrcCalc(anios){
+      var ini = document.getElementById('ctrcInicio').value || new Date().toISOString().slice(0,10);
+      var d = new Date(ini+'T00:00:00'); d.setFullYear(d.getFullYear()+anios);
+      document.getElementById('ctrcFin').value = d.toISOString().slice(0,10);
+    }
+    function guardarContratoCliente(propId, editando){
+      var p = allProperties.find(function(x){ return x.id===propId; }); if(!p) return;
+      var ini = document.getElementById('ctrcInicio').value;
+      var fin = document.getElementById('ctrcFin').value;
+      var inq = (document.getElementById('ctrcInq').value||'').trim();
+      var guardarCli = document.getElementById('ctrcCli').checked;
+      if (!fin){ showToast('Falta la fecha de fin'); return; }
+      if (ini && fin < ini){ showToast('El fin no puede ser antes del inicio'); return; }
+      var quien = (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente';
+      var finalizar = function(inquilinoClientId){
+        var contratos = (p.contratos||[]).slice();
+        if (editando){
+          var i = contratos.findIndex(function(c){ return c&&c.vigente; });
+          var base = { fechaInicio: ini||new Date().toISOString().slice(0,10), fechaFin: fin, inquilinoNombre: inq, inquilinoClientId: inquilinoClientId, vigente:true, hitosAvisados:[] };
+          if (i>=0) contratos[i] = Object.assign({}, contratos[i], base); else contratos.push(Object.assign({creadoEn:new Date().toISOString()}, base));
+        } else {
+          contratos.forEach(function(c){ if(c) c.vigente=false; });
+          contratos.push({ fechaInicio: ini||new Date().toISOString().slice(0,10), fechaFin: fin, inquilinoNombre: inq, inquilinoClientId: inquilinoClientId, vigente:true, hitosAvisados:[], creadoEn:new Date().toISOString() });
+        }
+        db.collection('properties').doc(propId).update({
+          contratos: contratos, status:'rented',
+          contratoPendiente: firebase.firestore.FieldValue.delete(),
+          updatedAt: new Date().toISOString()
+        }).then(function(){
+          p.contratos = contratos; delete p.contratoPendiente;
+          document.getElementById('ctrCliOverlay').remove();
+          if (currentProfileId) renderGestiones(currentProfileId);
+          showToast('Contrato guardado');
+        }).catch(function(e){ console.error(e); showToast('No se pudo guardar'); });
+      };
+      if (guardarCli && inq && !(editando && contratoVigenteDe(p) && contratoVigenteDe(p).inquilinoClientId)){
+        var nuevo = { name: inq, phone:'', status:'nuevo', source:'inquilino', notes:'Inquilino de: '+(p.title||'una propiedad'), createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() };
+        if (currentUser){ nuevo.createdBy = p.ownerId||currentUser.uid; nuevo.agentId = p.ownerId||currentUser.uid; nuevo.ownerId = p.ownerId||currentUser.uid; nuevo.createdByName = quien; }
+        db.collection('clients').add(nuevo).then(function(ref){ finalizar(ref.id); }).catch(function(){ finalizar(null); });
+      } else {
+        finalizar(editando && contratoVigenteDe(p) ? contratoVigenteDe(p).inquilinoClientId : null);
+      }
+    }
 
     // Visitas de este cliente a la propiedad de la gestión (no al cliente suelto).
     function visitasGestionHtml(g){
