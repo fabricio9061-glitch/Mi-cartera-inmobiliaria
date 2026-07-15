@@ -929,6 +929,10 @@
     l.innerHTML = barra + visibles.map(n => {
       const i = (n.userName || 'A').charAt(0).toUpperCase(),
         ts = n.createdAt ? formatTimeAgo(n.createdAt) : '';
+      // Aviso de ficha incompleta en ML: dorado, clic hacia la propiedad para editarla.
+      if (n.type === 'ficha_incompleta') {
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar" style="background:#fef9c3;color:#a16207"><i class="fas fa-clipboard-list"></i></div><div class="notification-body"><p><strong>Ficha incompleta</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,150))}${(n.text||'').length>150?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+      }
       // Aviso de vencimiento de alquiler: naranja, clic hacia la propiedad.
       if (n.type === 'vencimiento_alquiler') {
         return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar" style="background:#ffedd5;color:#c2410c"><i class="fas fa-house-circle-exclamation"></i></div><div class="notification-body"><p><strong>Alquiler por vencer</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,150))}${(n.text||'').length>150?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`

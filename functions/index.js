@@ -1241,6 +1241,68 @@ async function rescatarAvisoPerdido(p, propertyId, token) {
 // El candado tiene vencimiento (mlPublishingAt + 3 min): si una ejecución muere
 // sin liberarlo, la propiedad no queda bloqueada para siempre.
 // =====================================================================
+// Tras publicar/actualizar: revisa qué atributos de calidad le faltan al aviso y,
+// si hay, le avisa al agente (campanita + push) para que complete la ficha. NO
+// bloquea la publicación: el aviso ya está en línea; esto solo empuja a mejorarlo.
+// Se evita repetir el mismo aviso guardando la firma de lo que faltaba (mlFaltaHash).
+async function notificarFichaIncompleta(ref, id, p, item, token) {
+  try {
+    const headers = { Authorization: `Bearer ${token}` };
+    const catAttrs = (await axios.get(`${API}/categories/${item.category_id}/attributes`, { headers })).data || [];
+    const lleno = new Set();
+    (item.attributes || []).forEach((a) => {
+      const tiene = (a.value_name != null && String(a.value_name) !== "") || (a.value_id != null && String(a.value_id) !== "") || (Array.isArray(a.values) && a.values.length > 0);
+      if (tiene) lleno.add(a.id);
+    });
+    const noVa = new Set(["OPERATION", "PROPERTY_TYPE", "ITEM_CONDITION"]);
+    if (!(Number(p.commonExpenses) > 0)) noVa.add("MAINTENANCE_FEE");
+    const faltan = [];
+    catAttrs.forEach((a) => {
+      if (lleno.has(a.id) || noVa.has(a.id)) return;
+      const t = a.tags || {};
+      if (t.hidden || t.read_only || t.fixed) return;
+      // Solo listas y datos que suman calidad; los checkboxes sin tildar significan
+      // "no lo tiene", no "falta". Reclamamos listas/números y los required.
+      if (a.value_type === "boolean" && !(t.required || t.conditional_required)) return;
+      faltan.push({ nombre: a.name, req: !!(t.required || t.conditional_required) });
+    });
+    if (!faltan.length) {
+      // Ficha completa: limpiar la marca por si antes estaba incompleta.
+      await ref.update({ mlFaltaHash: admin.firestore.FieldValue.delete() }).catch(() => {});
+      return;
+    }
+    // Evitar repetir el MISMO aviso: firma de los campos que faltan.
+    const hash = faltan.map((f) => f.nombre).sort().join("|");
+    if (p.mlFaltaHash === hash) return;
+
+    const nombres = faltan.slice(0, 4).map((f) => f.nombre).join(", ");
+    const extra = faltan.length > 4 ? ` y ${faltan.length - 4} más` : "";
+    const texto = `"${p.title || "Tu propiedad"}" se publicó, pero le faltan datos para llegar al 100% de calidad en Mercado Libre: ${nombres}${extra}. Completalos en Editar propiedad → Ficha técnica.`;
+
+    // Destinatario: el agente dueño; si no tiene perfil, el admin.
+    let destino = null;
+    if (p.ownerId) {
+      try { const u = await db.doc(`users/${p.ownerId}`).get(); if (u.exists) destino = { uid: u.id, fcmToken: u.data().fcmToken }; } catch (e) {}
+    }
+    if (!destino) destino = await getAdminUser();
+    if (destino) {
+      await crearNotificacion(destino, {
+        type: "ficha_incompleta",
+        propertyId: id,
+        propertyTitle: p.title || "una propiedad",
+        userName: "Ficha incompleta",
+        userPhoto: null,
+        text: texto,
+      }, {
+        title: "📝 Ficha incompleta en Mercado Libre",
+        body: `${p.title || "Tu propiedad"} — faltan ${faltan.length} dato${faltan.length === 1 ? "" : "s"} para el 100%`,
+      });
+    }
+    await ref.update({ mlFaltaHash: hash }).catch(() => {});
+    logger.info(`[fichaIncompleta] ${id}: ${faltan.length} campos faltantes avisados.`);
+  } catch (e) { logger.warn(`[fichaIncompleta] ${e.response ? e.response.status : e.message}`); }
+}
+
 async function crearAvisoML(ref, id, extra = {}, opciones = {}) {
   const LOCK_MS = 3 * 60 * 1000;
   let p = null;
@@ -1341,6 +1403,8 @@ async function crearAvisoML(ref, id, extra = {}, opciones = {}) {
     });
     logger.info(`Propiedad ${id} publicada en ML: ${r.data.id} (${r.data.permalink})`);
     await registrarLog(id, "publicar", true, `${r.data.id} ${r.data.permalink || ""} [${r.data.listing_type_id || item.listing_type_id || ""}] ${r.data.status || ""}`);
+    // Aviso publicado: si la ficha quedó incompleta, avisar al agente para que la complete.
+    await notificarFichaIncompleta(ref, id, Object.assign({}, p, extra), item, token);
     // Tipo de publicación pago sin abonar: el aviso existe pero no se ve hasta pagarlo.
     if ((r.data.status || "") === "payment_required") {
       await notificarErrorML(p, id, "Aviso creado pero pendiente de pago en Mercado Libre",
@@ -1587,6 +1651,8 @@ exports.sincronizarEdicionML = onDocumentUpdated("properties/{id}", async (event
     await ref.update(cambios);
     logger.info(`Propiedad ${id} sincronizada con ML (${after.mlItemId})${fotosError ? " [fotos con error]" : ""}.`);
     await registrarLog(id, "sincronizar", !fotosError, after.mlItemId);
+    // Tras editar: si la ficha sigue incompleta, recordarle al agente qué falta.
+    await notificarFichaIncompleta(ref, id, after, item, token);
   } catch (e) {
     const detail = e.response?.data || e.message;
     const guardado = typeof detail === "string" ? detail : JSON.stringify(detail);
