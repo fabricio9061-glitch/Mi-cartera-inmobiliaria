@@ -1523,11 +1523,34 @@ exports.sincronizarEdicionML = onDocumentUpdated("properties/{id}", async (event
     const item = await buildItem(after, token);
     // En un aviso ya creado no se pueden cambiar estos campos; se quitan del PUT.
     // currency_id tampoco es modificable: si cambió la moneda, se avisa y no se toca el precio.
-    const { category_id, listing_type_id, buying_mode, condition, channels, available_quantity, description, currency_id, ...updatable } = item;
+    const { category_id, listing_type_id, buying_mode, condition, channels, available_quantity, description, currency_id, pictures, video_id, ...updatable } = item;
     const cambioMoneda = before && before.currency && before.currency !== after.currency;
     if (cambioMoneda) delete updatable.price;
 
+    // El resto del contenido (precio, título, atributos) en un PUT.
     await axios.put(`${API}/items/${after.mlItemId}`, updatable, { headers });
+
+    // El VIDEO en su propio PUT: algunas categorías/avisos activos rechazan el
+    // cambio de video_id y no queremos que eso tumbe el resto de la edición.
+    if (video_id) {
+      try { await axios.put(`${API}/items/${after.mlItemId}`, { video_id }, { headers }); }
+      catch (ev) { logger.warn(`Video no actualizado en ML ${after.mlItemId}:`, JSON.stringify(ev.response?.data || ev.message)); }
+    }
+
+    // Las FOTOS se actualizan en su PROPIO PUT. Mercado Libre es especialmente
+    // quisquilloso con las fotos de avisos activos: si mandara todo junto y ML
+    // rechazara las fotos, se perdían TODOS los cambios (ese era el bug de
+    // "edito y no se actualiza"). Separado, el precio/título/etc. se guardan sí
+    // o sí, y si las fotos fallan queda avisado sin tumbar lo demás.
+    let fotosError = null;
+    if (Array.isArray(pictures) && pictures.length) {
+      try {
+        await axios.put(`${API}/items/${after.mlItemId}`, { pictures }, { headers });
+      } catch (ef) {
+        fotosError = resumirErrorML(ef.response?.data || ef.message);
+        logger.error(`Fotos no actualizadas en ML ${after.mlItemId}:`, JSON.stringify(ef.response?.data || ef.message));
+      }
+    }
     await setItemDescription(after.mlItemId, after.description, token);
 
     const cambios = { mlSyncedAt: new Date().toISOString() };
@@ -1537,13 +1560,19 @@ exports.sincronizarEdicionML = onDocumentUpdated("properties/{id}", async (event
       if (before.mlError !== cambios.mlError) {
         await notificarErrorML(after, id, "Cambio de moneda no aplicado en Mercado Libre", "Dalo de baja y volvé a publicarlo para cambiar la moneda.");
       }
+    } else if (fotosError) {
+      cambios.mlError = "Las fotos no se pudieron actualizar en Mercado Libre (el resto de los cambios sí se guardó): " + fotosError;
+      cambios.mlErrorAt = new Date().toISOString();
+      if (before.mlError !== cambios.mlError) {
+        await notificarErrorML(after, id, "Fotos no actualizadas en Mercado Libre", "El resto de los cambios se guardó. Para renovar las fotos, puede que necesites dar de baja y volver a publicar.");
+      }
     } else {
       cambios.mlError = admin.firestore.FieldValue.delete();
       cambios.mlErrorAt = admin.firestore.FieldValue.delete();
     }
     await ref.update(cambios);
-    logger.info(`Propiedad ${id} sincronizada con ML (${after.mlItemId}).`);
-    await registrarLog(id, "sincronizar", true, after.mlItemId);
+    logger.info(`Propiedad ${id} sincronizada con ML (${after.mlItemId})${fotosError ? " [fotos con error]" : ""}.`);
+    await registrarLog(id, "sincronizar", !fotosError, after.mlItemId);
   } catch (e) {
     const detail = e.response?.data || e.message;
     const guardado = typeof detail === "string" ? detail : JSON.stringify(detail);
