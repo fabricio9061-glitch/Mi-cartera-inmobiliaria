@@ -2568,6 +2568,47 @@ exports.limpiarPerfilAlBorrarse = functionsV1.auth.user().onDelete(async (user) 
 // (flag finalizadaPorGestion): nunca pisa una decisión del admin ni del
 // Mapa de cierres, que sigue siendo el flujo de comisiones de siempre.
 // =====================================================================
+// ¿Qué es el cliente respecto a la propiedad de esta gestión? Si la gestión no
+// lo dice (legado), se infiere por el ORIGEN del cliente: los que entraron solos
+// por portales/web/contratos son interesados; los cargados a mano por la agencia
+// son, por regla de la casa, propietarios (así se construye la cartera).
+function rolGestionInferido(g, cliente) {
+  if (g && (g.rol === "propietario" || g.rol === "interesado")) return g.rol;
+  const src = ((cliente && cliente.source) || "").toLowerCase();
+  if (["infocasas", "ml", "mercadolibre", "web", "inquilino", "lead"].includes(src)) return "interesado";
+  return "propietario";
+}
+
+// La agencia perdió al propietario (gestión perdida, cerró por afuera o perdido a
+// nivel cliente): su propiedad NO puede seguir publicada sin permiso, pero nada se
+// baja solo. Se le manda al admin una confirmación con botones (campanita + push);
+// hasta que él decida, la propiedad se mantiene ("lo publicado se asume con permiso").
+// El flag despubPendiente evita duplicar el pedido si varios eventos coinciden.
+async function pedirConfirmacionDespublicar(propId, quienNombre, motivoTexto) {
+  const ref = db.collection("properties").doc(propId);
+  const snap = await ref.get();
+  if (!snap.exists) return;
+  const p = snap.data();
+  if (p.status && p.status !== "available" && p.status !== "reserved") return; // ya no está en el mercado
+  if (p.despubPendiente === true) return; // ya hay una confirmación esperando
+  const adm = await getAdminUser();
+  if (!adm) return;
+  const texto = `${quienNombre} (propietario) ${motivoTexto}. Su propiedad "${p.title || "sin título"}" sigue publicada: confirmá si hay que despublicarla o mantenerla.`;
+  await crearNotificacion(adm, {
+    type: "despublicar_confirmar",
+    propertyId: propId,
+    propertyTitle: p.title || "una propiedad",
+    userName: "Despublicar",
+    userPhoto: null,
+    text: texto,
+  }, {
+    title: "🏠 Confirmá una despublicación",
+    body: `${p.title || "Una propiedad"} — el propietario ${motivoTexto}`,
+  });
+  await ref.update({ despubPendiente: true });
+  logger.info(`[despublicar?] ${propId}: pedido de confirmación al admin (${motivoTexto}).`);
+}
+
 exports.sincronizarPropiedadAlCerrarGestion = onDocumentUpdated("gestiones/{gid}", async (event) => {
   const antes = (event.data.before && event.data.before.data()) || {};
   const ahora = (event.data.after && event.data.after.data()) || {};
@@ -2617,6 +2658,42 @@ exports.sincronizarPropiedadAlCerrarGestion = onDocumentUpdated("gestiones/{gid}
       });
       logger.info(`[gestión reabierta] Propiedad ${pid} -> available.`);
     }
+  } else if (estAhora === "perdido" && estAntes !== "perdido") {
+    // Se perdió la gestión. Dos mundos según el ROL del cliente:
+    //  - Interesado: perder un candidato NO saca la propiedad del mercado;
+    //    sigue disponible para el próximo. No se toca nada.
+    //  - Propietario: se perdió la CAPTACIÓN. La propiedad no puede seguir
+    //    publicada sin el dueño, pero nada se baja solo: confirmación al admin.
+    let cliente = null;
+    try {
+      if (ahora.clientId) { const cd = await db.doc(`clients/${ahora.clientId}`).get(); if (cd.exists) cliente = cd.data(); }
+    } catch (e) { /* sin datos del cliente */ }
+    if (rolGestionInferido(ahora, cliente) === "propietario") {
+      await pedirConfirmacionDespublicar(pid, (cliente && cliente.name) || ahora.clientName || "El propietario", "se marcó como perdido");
+    }
+  }
+});
+
+// =====================================================================
+// El CLIENTE (no una gestión puntual) se marcó "cerró por afuera" o "perdido".
+// Si es propietario de propiedades que siguen en el mercado, cada una necesita
+// la confirmación del admin para despublicarse. Caso típico: "alquilada por su
+// dueña" — la operación pasó por afuera y el aviso quedó colgado publicado.
+// =====================================================================
+exports.avisoDespublicarPorCliente = onDocumentUpdated("clients/{cid}", async (event) => {
+  const before = (event.data.before && event.data.before.data()) || {};
+  const after = (event.data.after && event.data.after.data()) || {};
+  const sitAntes = before.situacion || "activo";
+  const sitAhora = after.situacion || "activo";
+  if (sitAhora === sitAntes) return;
+  if (sitAhora !== "externo" && sitAhora !== "perdido") return;
+  const motivo = sitAhora === "externo" ? "cerró por afuera" : "se marcó como perdido";
+  const gs = await db.collection("gestiones").where("clientId", "==", event.params.cid).get();
+  for (const gd of gs.docs) {
+    const g = gd.data();
+    if (!g.propertyId) continue;
+    if (rolGestionInferido(g, after) !== "propietario") continue;
+    await pedirConfirmacionDespublicar(g.propertyId, after.name || g.clientName || "El propietario", motivo);
   }
 });
 
@@ -2714,7 +2791,7 @@ exports.leadInfocasas = onRequest(async (req, res) => {
       if (!g.empty) {
         await g.docs[0].ref.update({ updatedAt: ahora, historial: admin.firestore.FieldValue.arrayUnion(notaLead) });
       } else {
-        const nuevaGestion = { clientId, propertyId: propId, estadoGestion: "nuevo", createdAt: ahora, updatedAt: ahora, historial: [notaLead] };
+        const nuevaGestion = { clientId, propertyId: propId, estadoGestion: "nuevo", rol: "interesado", createdAt: ahora, updatedAt: ahora, historial: [notaLead] };
         if (ownerId) { nuevaGestion.agentId = ownerId; nuevaGestion.createdBy = ownerId; }
         await db.collection("gestiones").add(nuevaGestion);
       }

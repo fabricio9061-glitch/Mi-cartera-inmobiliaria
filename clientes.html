@@ -347,6 +347,9 @@
     .cp-visita-chip:hover{ border-color:#7c3aed; }
     .cp-visita-chip.pasada{ color:#9aa3ad; background:#f7f7f8; border-color:#e5e7eb; }
     .cp-grow-agent{ font-size:.7rem; color:var(--gray-400); display:inline-flex; align-items:center; gap:5px; }
+    .g-rol{ font-size:.66rem; font-weight:700; padding:2px 8px; border-radius:999px; letter-spacing:.02em; }
+    .g-rol.propietario{ background:#fdf6e3; color:#8a6d1a; border:1px solid #ecd9a0; }
+    .g-rol.interesado{ background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
     .cp-grow.migrar{ border-style:dashed; }
     .cp-grow.migrar .cp-grow-foot{ background:#fdfbf3; }
     .cp-migrar-aviso{ background:rgba(201,162,39,.08); border:1px solid rgba(201,162,39,.25); border-radius:10px; padding:10px 13px; font-size:.8rem; color:var(--gray-700); margin:4px 0 4px; display:flex; align-items:flex-start; gap:8px; }
@@ -610,6 +613,12 @@
               <option value="comprar">Comprar</option><option value="alquilar">Alquilar</option><option value="vender">Vender</option>
             </select>
           </div>
+        </div>
+        <div class="fg"><label>Rol del cliente en esta gestión</label>
+          <select id="gestionRol">
+            <option value="propietario">Propietario — es el dueño de la propiedad</option>
+            <option value="interesado">Interesado — quiere comprarla / alquilarla</option>
+          </select>
         </div>
         <div class="fg-row">
           <div class="fg"><label>Presupuesto</label><input type="text" id="gestionPresupuesto" placeholder="Ej: USD 150.000"></div>
@@ -1533,6 +1542,7 @@
           (prop
             ? '<div class="cp-inline-sel"><label>Propiedad</label><select'+propDisabled+' onchange="cambiarEstadoPropiedad(\''+g.propertyId+'\', this.value)">'+optsProp+'</select></div>'
             : '<span class="cp-grow-noprop"><i class="fas fa-circle-info"></i> Propiedad no encontrada</span>') +
+          (function(){ var _rg = rolDeGestion(g); return '<span class="g-rol '+_rg+'" title="Rol del cliente en esta gestión (se cambia con el lápiz)">'+(_rg==='propietario'?'Propietario':'Interesado')+'</span>'; })() +
           '<span class="cp-grow-agent"><i class="fas fa-user-tie"></i> '+esc(g.agentName||'Agente')+'</span>' +
           visitasGestionHtml(g) +
         '</div>' +
@@ -1543,6 +1553,16 @@
     // Si no tiene contrato vigente, invita a cargarlo; si lo tiene, muestra el
     // vencimiento. La gestión completa vive en la ficha de la propiedad; acá es
     // un acceso directo desde donde el agente cerró el alquiler.
+    // Rol del cliente en una gestión. Si no está guardado (legado), se infiere por
+    // el ORIGEN del cliente: leads de portales/web/contratos = interesado; cargado
+    // a mano por la agencia = propietario (regla de la casa). Espejo del backend.
+    function rolDeGestion(g, c){
+      if (g && (g.rol === 'propietario' || g.rol === 'interesado')) return g.rol;
+      if (!c){ var cid = (g && g.clientId) || currentProfileId; for (var i=0;i<clients.length;i++){ if (clients[i].id === cid){ c = clients[i]; break; } } }
+      var src = ((c && c.source) || '').toLowerCase();
+      if (['infocasas','ml','mercadolibre','web','inquilino','lead'].indexOf(src) >= 0) return 'interesado';
+      return 'propietario';
+    }
     function contratoVigenteDe(prop){ return (prop && prop.contratos || []).find(function(c){ return c && c.vigente; }) || null; }
     function contratoGestionHtml(prop, g){
       if (!prop || prop.status !== 'rented') return '';
@@ -1704,6 +1724,7 @@
         document.getElementById('gestionInteres').value = '';
         document.getElementById('gestionPresupuesto').value = '';
         document.getElementById('gestionLink').value = '';
+        document.getElementById('gestionRol').value = 'propietario';
         document.getElementById('gestionPropName').value = '';
         db.collection('gestiones').doc(gestionId).get().then(function(d){
           if (d.exists){
@@ -1713,6 +1734,7 @@
             document.getElementById('gestionInteres').value = g.interes || '';
             document.getElementById('gestionPresupuesto').value = g.presupuesto || '';
             document.getElementById('gestionLink').value = g.link || '';
+            document.getElementById('gestionRol').value = rolDeGestion(g);
           }
         });
       } else {
@@ -1738,6 +1760,7 @@
       b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
       var data = {
         estadoGestion: document.getElementById('gestionEstado').value,
+        rol: document.getElementById('gestionRol').value,
         interes: document.getElementById('gestionInteres').value,
         presupuesto: document.getElementById('gestionPresupuesto').value.trim(),
         link: document.getElementById('gestionLink').value.trim(),

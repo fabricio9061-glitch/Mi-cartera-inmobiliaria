@@ -929,6 +929,14 @@
     l.innerHTML = barra + visibles.map(n => {
       const i = (n.userName || 'A').charAt(0).toUpperCase(),
         ts = n.createdAt ? formatTimeAgo(n.createdAt) : '';
+      // Confirmación de despublicación (la ve el admin): botones de acción adentro.
+      // Un propietario se perdió o cerró por afuera y su propiedad sigue publicada.
+      if (n.type === 'despublicar_confirmar') {
+        const acciones = n.handled
+          ? `<div class="notification-meta"><span style="color:${n.resultado === 'despublicada' ? '#b91c1c' : '#15803d'};font-weight:700"><i class="fas fa-${n.resultado === 'despublicada' ? 'box-archive' : 'check'}"></i> ${n.resultado === 'despublicada' ? 'Despublicada' : 'Se mantuvo publicada'}</span><span><i class="far fa-clock"></i> ${ts}</span></div>`
+          : `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button onclick="confirmarDespublicacion(event,'${n.id}','${n.propertyId}')" style="border:none;background:#b91c1c;color:#fff;border-radius:8px;padding:6px 12px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer"><i class="fas fa-box-archive"></i> Despublicar</button><button onclick="mantenerPublicada(event,'${n.id}','${n.propertyId}')" style="border:1px solid var(--gray-200,#e5e7eb);background:#fff;color:var(--gray-600,#555);border-radius:8px;padding:6px 12px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">Mantener publicada</button></div><div class="notification-meta" style="margin-top:6px"><span><i class="far fa-clock"></i> ${ts}</span></div>`;
+        return `<div class="notification-item ${n.read ? '' : 'unread'}"><div class="notification-avatar" style="background:#fee2e2;color:#b91c1c"><i class="fas fa-house-circle-xmark"></i></div><div class="notification-body"><p><strong>¿Despublicar propiedad?</strong></p><div class="notification-message">${mvEsc((n.text || '').substring(0, 170))}${(n.text || '').length > 170 ? '...' : ''}</div>${acciones}</div></div>`
+      }
       // Aviso de ficha incompleta en ML: dorado, clic hacia la propiedad para editarla.
       if (n.type === 'ficha_incompleta') {
         return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar" style="background:#fef9c3;color:#a16207"><i class="fas fa-clipboard-list"></i></div><div class="notification-body"><p><strong>Ficha incompleta</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,150))}${(n.text||'').length>150?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
@@ -997,6 +1005,36 @@
   }
   // Clic en el recordatorio de seguimiento: marca leído y va a la página de Clientes.
   function setNotifFiltro(f){ window._notifFiltro = f; renderNotifications(); }
+  // El admin confirmó: la propiedad se archiva (sale del sitio; el espejo de estado
+  // la baja de Mercado Libre y el feed de InfoCasas la excluye en la próxima lectura).
+  async function confirmarDespublicacion(ev, nid, pid) {
+    ev.stopPropagation();
+    try {
+      await db.collection('properties').doc(pid).update({
+        status: 'archived',
+        despubPendiente: firebase.firestore.FieldValue.delete(),
+        archivedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      await db.collection('notifications').doc(nid).update({ handled: true, resultado: 'despublicada', read: true });
+      const n = notifications.find(x => x.id === nid); if (n) { n.handled = true; n.resultado = 'despublicada'; n.read = true; }
+      const p = properties.find(x => x.id === pid); if (p) p.status = 'archived';
+      renderNotifications();
+      showToast('Propiedad despublicada', 'Salió del sitio; los portales se sincronizan solos', 'fa-check');
+    } catch (e) { console.error('despublicar:', e); showToast('No se pudo despublicar', (e && e.message) || '', 'fa-exclamation-triangle'); }
+  }
+  // El admin decidió mantenerla: se limpia el pedido (puede volver a avisarse si
+  // más adelante otro evento del propietario lo justifica).
+  async function mantenerPublicada(ev, nid, pid) {
+    ev.stopPropagation();
+    try {
+      await db.collection('properties').doc(pid).update({ despubPendiente: firebase.firestore.FieldValue.delete(), updatedAt: new Date().toISOString() });
+      await db.collection('notifications').doc(nid).update({ handled: true, resultado: 'mantenida', read: true });
+      const n = notifications.find(x => x.id === nid); if (n) { n.handled = true; n.resultado = 'mantenida'; n.read = true; }
+      renderNotifications();
+      showToast('Se mantiene publicada', '', 'fa-check');
+    } catch (e) { console.error(e); showToast('No se pudo guardar', '', 'fa-exclamation-triangle'); }
+  }
   async function handleCrmNotifClick(ni) {
     closeNotifications();
     try {

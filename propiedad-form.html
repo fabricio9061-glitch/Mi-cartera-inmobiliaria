@@ -820,8 +820,15 @@
           {
             "id": "SECURITY_TYPE",
             "label": "Tipo de seguridad",
-            "type": "text",
-            "help": "\"24 horas\" marca Portería 24 hs en InfoCasas; Diurno/Nocturno marcan Guardia."
+            "type": "list",
+            "req": true,
+            "options": [
+              "24 horas",
+              "Diurno",
+              "Nocturno",
+              "Virtual"
+            ],
+            "help": "Obligatorio. \"24 horas\" marca Portería 24 hs en InfoCasas; Diurno/Nocturno marcan Guardia."
           },
           {
             "id": "IN_GATED_COMMUNITY",
@@ -1272,6 +1279,7 @@
             "id": "SECURITY_TYPE",
             "label": "Tipo de seguridad",
             "type": "list",
+            "req": true,
             "options": [
               "24 horas",
               "Diurno",
@@ -2761,6 +2769,24 @@
           if (im.existing) { iu.push(im.url) } else { uc++; updateUploadProgress(uc, tt); const url = await uploadImageToStorage(im.file, pi, i); iu.push(url) }
         }
         const ty = document.getElementById('propType').value, dp = document.getElementById('propDepartamento').value, cd = document.getElementById('propCiudad').value, np = parseInt(document.getElementById('propPrice').value);
+        // ---- Campos BLOQUEANTES de la ficha: sin ellos no se guarda ----
+        // Decisión de la agencia: "Tipo de seguridad" es obligatorio (los portales
+        // lo aprovechan y los agentes lo olvidaban). El resto de los requeridos
+        // sigue con la vía suave: asterisco + notificación de ficha incompleta.
+        const BLOQUEANTES = ['SECURITY_TYPE'];
+        for (const bid of BLOQUEANTES) {
+          const cDef = fichaCampos().find(c => c.id === bid);
+          if (!cDef) continue; // este tipo de inmueble no lleva el campo
+          const elB = document.getElementById('fc-' + bid);
+          if (elB && !elB.value) {
+            const det = elB.closest('details'); if (det) det.open = true;
+            elB.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            elB.style.borderColor = '#dc2626';
+            elB.focus();
+            showToast('Falta "' + cDef.label + '"', 'Es obligatorio: elegí una opción en la Ficha técnica para poder guardar.', 'fa-triangle-exclamation');
+            return;
+          }
+        }
         const ficha = collectFicha();
         // Código de propiedad: garantizar que no se repita jamás con otra propiedad.
         ficha.PROPERTY_CODE = await codigoUnico(ficha.PROPERTY_CODE, ei || pi);
@@ -2806,6 +2832,7 @@
                 propertyId: pi,
                 propertyTitle: pd.title || '',
                 estadoGestion: 'nuevo',
+                rol: 'propietario', // la propiedad nace desde este cliente: es su dueño
                 interes: pd.type === 'rent' ? 'alquilar' : 'vender',
                 presupuesto: '',
                 link: '',
