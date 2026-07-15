@@ -997,14 +997,14 @@
           {
             "id": "TOWER_NUMBER",
             "label": "Número de torre",
-            "type": "text",
-            "help": "Si el complejo tiene varias torres, cuál es. Suma calidad al aviso en Mercado Libre. Dejalo vacío si no aplica."
+            "type": "num",
+            "help": "Si el complejo tiene varias torres, cuál es. Suma calidad al aviso en Mercado Libre. Si lo dejás vacío se envía 0 (no se muestra al comprador)."
           },
           {
             "id": "APARTMENT_NUMBER",
             "label": "Número del apartamento",
-            "type": "text",
-            "help": "El número de la unidad (ej: 302). Suma calidad al aviso en Mercado Libre. Dejalo vacío si no aplica."
+            "type": "num",
+            "help": "El número de la unidad (ej: 302). Suma calidad al aviso en Mercado Libre. Si lo dejás vacío se envía 0 (no se muestra al comprador)."
           },
           {
             "id": "APARTMENT_PROPERTY_SUBTYPE",
@@ -2542,23 +2542,26 @@
       fillFichaObj(prev);
     }
 
-    // Campos numéricos de IDENTIFICACIÓN/posición: vacío = "sin dato", NO cero.
-    // Poner 0 acá sería falso (ej: "piso 0" = planta baja, no "sin dato"). El resto
-    // de los numéricos son CANTIDADES, donde vacío sí significa 0 (0 cocheras, etc.).
-    var NUM_NO_CERO = ['UNIT_FLOOR', 'FLOORS', 'PROPERTY_AGE'];
     function collectFicha() {
       const ficha = {};
+      let _diagNum = [], _diagFalta = [];
       fichaCampos().forEach(c => {
         const el = document.getElementById('fc-' + c.id);
-        if (!el) return;
+        if (!el) { _diagFalta.push(c.id + '(' + c.type + ')'); return; }
         if (!c.type) { ficha[c.id] = !!el.checked; }                              // checkbox: Sí (tildado) / No (sin tildar) — siempre se manda
         else if (c.type === 'num') {
+          // Numérico vacío = 0. Estos datos no se muestran al comprador en ML
+          // (número de torre, apto, etc.): son solo para la CALIDAD del aviso,
+          // así que completarlos con 0 suma puntaje y no confunde a nadie.
           const n = parseFloat(el.value);
-          if (!isNaN(n)) ficha[c.id] = n;
-          else if (NUM_NO_CERO.indexOf(c.id) < 0) ficha[c.id] = 0;               // cantidad vacía = 0 (cocheras, baños, etc.)
+          ficha[c.id] = isNaN(n) ? 0 : n;
+          _diagNum.push(c.id + '="' + el.value + '"→' + ficha[c.id]);
         }
         else { if (el.value) ficha[c.id] = el.value; }                             // lista / texto / fecha (vacío = no se manda)
       });
+      // DIAGNÓSTICO TEMPORAL (abrir la consola del navegador con F12 al guardar).
+      console.log('[collectFicha] numéricos:', _diagNum.join(' | '));
+      if (_diagFalta.length) console.log('[collectFicha] SIN input en el DOM:', _diagFalta.join(', '));
       // Con link de tour cargado, ML recibe "Con tour virtual" automáticamente.
       if (ficha.IC_TOUR3D) ficha.WITH_VIRTUAL_TOUR = true;
       return ficha;
