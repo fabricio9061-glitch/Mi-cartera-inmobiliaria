@@ -617,7 +617,12 @@ async function pickCondition(categoryId, token) {
 // no tiene avisos gratis, así que se publica directo en Plata). El agente
 // puede cambiar el tipo a mano desde el selector del botón de Mercado Libre.
 // =====================================================================
-const TIPOS_AVISO_VALIDOS = ["free", "bronze", "silver", "gold", "gold_premium"];
+// Tipos que ofrece ESTA cuenta inmobiliaria: Plata (silver), Oro (gold) y Oro
+// Premium (gold_premium). NO tiene avisos gratis ni Bronce, así que esos quedan
+// fuera: la publicación automática usa "silver" (Plata) por defecto. Igual se
+// consulta a ML qué hay disponible en cada categoría; esta lista es el universo
+// permitido y el orden de preferencia. Configurable con ML_LISTING_TYPE del .env.
+const TIPOS_AVISO_VALIDOS = ["silver", "gold", "gold_premium"];
 const LISTING_TYPE_PREF = (process.env.ML_LISTING_TYPE || "silver")
   .split(",").map((s) => s.trim()).filter((s) => TIPOS_AVISO_VALIDOS.includes(s));
 const _ltCache = new Map();   // categoryId -> { at, ids } disponibles de la cuenta (cache 10 min)
@@ -740,6 +745,12 @@ async function fillRequiredAttributes(categoryId, p, baseAttributes, token, catA
 }
 
 // Saca el ID de un video de YouTube desde cualquier formato de link.
+// Video institucional de la agencia: se usa en ML cuando la propiedad no tiene
+// uno propio (igual que en la ficha web). Mantener igual al VIDEO_DEFAULT del front.
+const VIDEO_DEFAULT_ML = "https://youtube.com/shorts/KcGr0S0Yx9A";
+function videoIdParaML(p) {
+  return extractYouTubeId(p && p.videoUrl) || extractYouTubeId(VIDEO_DEFAULT_ML);
+}
 function extractYouTubeId(url) {
   if (!url) return null;
   const m = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/))([A-Za-z0-9_-]{11})/);
@@ -1085,7 +1096,20 @@ async function buildItem(p, token) {
   }
 
   const condition = await pickCondition(categoryId, token);
-  const pictures = (p.images || []).slice(0, maxPics).map((url) => ({ source: url }));
+  // Mercado Libre DEDUPLICA las fotos por URL: si la misma imagen aparece dos
+  // veces (caso típico: suben 8 fotos pero 4 están repetidas), ML se queda con
+  // una sola y el aviso muestra menos fotos que la web. Para forzar que las tome
+  // todas, a cada repetición se le agrega un parámetro único en la URL (mismo
+  // archivo, URL distinta => ML la trata como otra foto).
+  const vistas = {};
+  const pictures = (p.images || []).slice(0, maxPics).map((url) => {
+    const u = String(url || "");
+    if (!u) return null;
+    vistas[u] = (vistas[u] || 0) + 1;
+    if (vistas[u] === 1) return { source: u };
+    const sep = u.indexOf("?") >= 0 ? "&" : "?";
+    return { source: `${u}${sep}mldup=${vistas[u]}` };
+  }).filter(Boolean);
 
   return {
     title: (p.title || "Propiedad").slice(0, maxTitle),
@@ -1098,7 +1122,7 @@ async function buildItem(p, token) {
     condition,
     channels: ["marketplace"],
     description: { plain_text: p.description || p.title || "" },
-    video_id: extractYouTubeId(p.videoUrl),
+    video_id: videoIdParaML(p),
     pictures,
     location: await resolveMLLocation(p, token),
     seller_contact: await buildSellerContact(p),

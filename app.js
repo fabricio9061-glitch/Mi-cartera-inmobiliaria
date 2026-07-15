@@ -1216,7 +1216,7 @@
       `</svg><div class="pct">${pct}%</div></div>`;
   }
   function mlListingTypeName(lt) {
-    const m = { free: 'Gratuita', bronze: 'Bronce', silver: 'Plata', gold: 'Oro', gold_special: 'Clásica', gold_pro: 'Premium', gold_premium: 'Premium' };
+    const m = { free: 'Gratuita', bronze: 'Bronce', silver: 'Plata', gold: 'Oro', gold_special: 'Clásica', gold_pro: 'Oro Premium', gold_premium: 'Oro Premium' };
     return m[lt] || lt || '—'
   }
   function mlStatusName(st) {
@@ -1242,9 +1242,11 @@
   // Selector del tipo de aviso: gratuita por defecto cuando existe; los tipos
   // pagos los elige el agente a mano y se abonan en Mercado Libre.
   function mlTypeSelector(tipos) {
-    const lista = (tipos && tipos.length ? tipos : ['free', 'bronze', 'silver', 'gold']);
-    const opts = lista.map(t => `<option value="${t}">${mlListingTypeName(t)}${t === 'free' ? ' — sin costo' : ' — paga (se abona en Mercado Libre)'}</option>`).join('');
-    const aviso = lista.includes('free') ? '' : `<div class="ml-note warn" style="margin-top:8px"><i class="fas fa-circle-info"></i><div>Esta categoría no tiene aviso gratis, o ya usaste tu cupo de avisos gratis. Es normal en inmuebles: elegí un tipo de aviso pago.</div></div>`;
+    // Los tipos vienen de ML (lo que ofrece la cuenta en esa categoría). Si no
+    // llegaron, el fallback son los planes reales de esta cuenta: Plata/Oro/Oro Premium.
+    const lista = (tipos && tipos.length ? tipos : ['silver', 'gold', 'gold_premium']);
+    const opts = lista.map(t => `<option value="${t}">${mlListingTypeName(t)}${t === 'free' ? ' — sin costo' : ' — se abona en Mercado Libre'}</option>`).join('');
+    const aviso = '';
     return `<div class="ml-label">Tipo de aviso</div><select id="mlTipoAviso" class="ml-select">${opts}</select>${aviso}`;
   }
   // Estado de la propiedad frente al feed de InfoCasas, calculado con las MISMAS
@@ -2331,6 +2333,111 @@
   // (misma regla que el mapa de cierres) y los puntos de recompensa (1 por cada
   // US$100 de su ganancia). No duplica datos: es la misma fuente que ya existe.
   let _finBusy = false;
+  // Calcula el estado financiero de CUALQUIER agente (saldo USD/UYU y puntos).
+  // Misma lógica que el menú personal: cierres propios + participaciones en equipo
+  // + referidos − retiros, MÁS los ajustes manuales del admin (correcciones
+  // auditables). Recibe el uid y su perfil (para las comisiones). Devuelve montos
+  // sin redondear; el que muestra decide el formato.
+  async function calcularFinanzasAgente(uid, perfil, cfg) {
+    perfil = perfil || {};
+    if (!cfg) { cfg = { puntosPor100: 1, dolarPesos: 40 }; try { const c = await db.collection('config').doc('recompensas').get(); if (c.exists) cfg = Object.assign(cfg, c.data()); } catch (e) {} }
+    const DEF_SALE = 3, DEF_MONTHS = 1;
+    let sumUSD = 0, sumUYU = 0, pts = 0;
+
+    // 1) Cierres propios
+    const snap = await db.collection('properties').where('ownerId', '==', uid).get();
+    snap.forEach(d => {
+      const p = d.data();
+      if (!p.cierre || p.cierreConfirmado !== true) return;
+      const c = p.cierre;
+      let gan = (c.gananciaAgente != null && c.gananciaAgente !== '' && isFinite(Number(c.gananciaAgente))) ? Number(c.gananciaAgente) : null;
+      if (gan == null) {
+        const precio = Number(c.precio) || 0;
+        const comAg = (c.tipo === 'venta') ? precio * ((c.agencyPct != null ? Number(c.agencyPct) : DEF_SALE) / 100) : precio * (c.agencyMonths != null ? Number(c.agencyMonths) : DEF_MONTHS);
+        const pct = (c.tipo === 'venta') ? Number(perfil.commissionSale) : Number(perfil.commissionRent);
+        gan = pct ? comAg * pct / 100 : 0;
+      }
+      const moneda = c.moneda || 'USD';
+      if (moneda === 'UYU') sumUYU += gan; else sumUSD += gan;
+      const ganUSD = moneda === 'UYU' ? (cfg.dolarPesos > 0 ? gan / cfg.dolarPesos : 0) : gan;
+      pts += Math.floor(ganUSD / 100) * (Number(cfg.puntosPor100) || 1);
+    });
+
+    // 2) Participaciones en equipo (cierres de otros donde este agente figura)
+    try {
+      const eqSnap = await db.collection('properties').where('cierreConfirmado', '==', true).get();
+      eqSnap.forEach(d => {
+        const p = d.data();
+        if (!p.cierre || p.cierre.agenteUid === uid) return;
+        const parts = Array.isArray(p.cierre.participantes) ? p.cierre.participantes : [];
+        const mia = parts.find(x => x.uid === uid);
+        if (!mia) return;
+        const monto = Number(mia.monto) || 0;
+        if (!monto) return;
+        const moneda = p.cierre.moneda || 'USD';
+        if (moneda === 'UYU') sumUYU += monto; else sumUSD += monto;
+        const mUSD = moneda === 'UYU' ? (cfg.dolarPesos > 0 ? monto / cfg.dolarPesos : 0) : monto;
+        pts += Math.floor(mUSD / 100) * (Number(cfg.puntosPor100) || 1);
+      });
+    } catch (e) { console.warn('[finanzas agente] equipo', e && e.message); }
+
+    // 3) Referidos (este agente refirió a otros y cobra su %)
+    try {
+      const refSnap = await db.collection('referidos').where('referrerUid', '==', uid).get();
+      for (const rd of refSnap.docs) {
+        const refInfo = rd.data();
+        const pctS = Number(refInfo.pctSale) || 0, pctR = Number(refInfo.pctRent) || 0;
+        if (!pctS && !pctR) continue;
+        const cs = await db.collection('properties').where('ownerId', '==', rd.id).get();
+        cs.forEach(d => {
+          const p = d.data();
+          if (!p.cierre || p.cierreConfirmado !== true) return;
+          const c = p.cierre;
+          const ganRef = (c.gananciaAgente != null && c.gananciaAgente !== '' && isFinite(Number(c.gananciaAgente))) ? Number(c.gananciaAgente) : 0;
+          const rfPct = (c.tipo === 'venta') ? pctS : pctR;
+          if (!ganRef || !rfPct) return;
+          const miParte = ganRef * rfPct / 100;
+          const moneda = c.moneda || 'USD';
+          if (moneda === 'UYU') sumUYU += miParte; else sumUSD += miParte;
+        });
+      }
+    } catch (e) { console.warn('[finanzas agente] referidos', e && e.message); }
+
+    // Guardar el bruto ganado (antes de retiros/ajustes) para mostrarlo desglosado
+    const ganadoUSD = sumUSD, ganadoUYU = sumUYU, ganadoPts = pts;
+
+    // 4) Ajustes manuales del admin (correcciones auditables). Suman o restan a
+    //    saldo y/o puntos según su signo. Cada uno guarda motivo, autor y fecha.
+    let ajUSD = 0, ajUYU = 0, ajPts = 0;
+    try {
+      const aj = await db.collection('ajustesFinancieros').where('agenteUid', '==', uid).get();
+      aj.forEach(d => {
+        const a = d.data();
+        ajUSD += Number(a.montoUSD) || 0;
+        ajUYU += Number(a.montoUYU) || 0;
+        ajPts += Number(a.puntos) || 0;
+      });
+    } catch (e) { console.warn('[finanzas agente] ajustes', e && e.message); }
+    sumUSD += ajUSD; sumUYU += ajUYU; pts += ajPts;
+
+    // 5) Retiros (bajan el saldo, no los puntos)
+    let retUSD = 0, retUYU = 0;
+    try {
+      const rs = await db.collection('retiros').where('agenteUid', '==', uid).get();
+      rs.forEach(d => {
+        const r = d.data();
+        if (r.status === 'pagado' || r.status === 'pendiente' || r.status === 'aprobado') {
+          const m = Number(r.monto) || 0;
+          if (r.moneda === 'UYU') retUYU += m; else retUSD += m;
+        }
+      });
+    } catch (e) { console.warn('[finanzas agente] retiros', e && e.message); }
+    sumUSD -= retUSD; sumUYU -= retUYU;
+    sumUSD = Math.max(0, sumUSD); sumUYU = Math.max(0, sumUYU); pts = Math.max(0, pts);
+
+    return { usd: sumUSD, uyu: sumUYU, pts, ganadoUSD, ganadoUYU, ganadoPts, ajUSD, ajUYU, ajPts, retUSD, retUYU, cfg };
+  }
+
   async function cargarFinanzasMenu() {
     if (_finBusy || !currentUser) return;
     _finBusy = true;
@@ -2947,6 +3054,109 @@
     }
   }
 
+  // ===== Panel financiero del agente (solo admin) =====
+  // Muestra el saldo (USD/UYU) y los puntos calculados, con el desglose (ganado −
+  // retiros ± ajustes), el historial de ajustes, y un formulario para registrar
+  // una corrección. Los ajustes NO sobrescriben nada: son movimientos que entran
+  // en el mismo cálculo, con motivo/autor/fecha, así queda auditoría de todo.
+  let _finAgenteUid = null;
+  async function abrirFinanzasAgente(uid) {
+    cerrarFinanzasAgente();
+    let u = allUsers[uid];
+    try { const d = await db.collection('users').doc(uid).get(); if (d.exists) u = { id: d.id, ...d.data() }; } catch (e) {}
+    if (!u) { showToast('No se encontró el perfil', '', 'fa-exclamation-triangle'); return; }
+    _finAgenteUid = uid;
+    const ov = document.createElement('div');
+    ov.id = 'finAgenteOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,25,40,.55);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px';
+    ov.addEventListener('click', e => { if (e.target === ov) cerrarFinanzasAgente(); });
+    ov.innerHTML = `<div id="finAgenteBox" style="background:#fff;border-radius:16px;max-width:460px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(10,20,35,.35);padding:22px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <h3 style="margin:0;font-size:1.05rem;color:var(--primary,#16273f)"><i class="fas fa-wallet" style="color:var(--accent,#C9A227)"></i> ${mvEsc(u.name||'Agente')}</h3>
+        <button onclick="cerrarFinanzasAgente()" style="border:none;background:var(--gray-100,#f1f5f9);width:30px;height:30px;border-radius:50%;cursor:pointer;color:var(--gray-500)"><i class="fas fa-times"></i></button>
+      </div>
+      <p style="font-size:.78rem;color:var(--gray-500,#8a93a0);margin:0 0 16px">${mvEsc(u.email||'')}</p>
+      <div id="finAgenteBody"><div class="loading" style="padding:30px"><div class="spinner"></div></div></div>
+    </div>`;
+    document.body.appendChild(ov);
+    await renderFinanzasAgente(uid, u);
+  }
+  function cerrarFinanzasAgente() { const o = document.getElementById('finAgenteOverlay'); if (o) o.remove(); }
+
+  async function renderFinanzasAgente(uid, u) {
+    const body = document.getElementById('finAgenteBody');
+    if (!body) return;
+    let f;
+    try { f = await calcularFinanzasAgente(uid, u); }
+    catch (e) { body.innerHTML = '<p style="color:var(--danger)">No se pudo calcular. ' + mvEsc((e&&e.message)||'') + '</p>'; return; }
+    const vPunto = Number(f.cfg.valorPunto) || 0;
+    const money = (n) => Math.round(n).toLocaleString('es-UY');
+    // Historial de ajustes
+    let ajustes = [];
+    try { const aj = await db.collection('ajustesFinancieros').where('agenteUid','==',uid).get(); ajustes = aj.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); } catch(e){}
+    const histHtml = ajustes.length ? ajustes.map(a=>{
+      const partes = [];
+      if (a.montoUSD) partes.push((a.montoUSD>0?'+':'')+'US$ '+money(a.montoUSD));
+      if (a.montoUYU) partes.push((a.montoUYU>0?'+':'')+'$U '+money(a.montoUYU));
+      if (a.puntos) partes.push((a.puntos>0?'+':'')+a.puntos+' pts');
+      return `<div style="padding:9px 0;border-bottom:1px solid var(--gray-100,#f1f5f9);font-size:.82rem"><div style="display:flex;justify-content:space-between;gap:8px"><b style="color:${(a.montoUSD||a.montoUYU||a.puntos)>=0?'#15803d':'#b91c1c'}">${partes.join(' · ')||'—'}</b><button onclick="borrarAjuste('${a.id}','${uid}')" style="border:none;background:transparent;color:var(--gray-400);cursor:pointer" title="Quitar ajuste"><i class="fas fa-times"></i></button></div><div style="color:var(--gray-500);margin-top:2px">${mvEsc(a.motivo||'Sin motivo')} · ${a.fecha?new Date(a.fecha).toLocaleDateString('es-UY'):''}</div></div>`;
+    }).join('') : '<p style="font-size:.8rem;color:var(--gray-400);margin:4px 0">Sin ajustes registrados.</p>';
+
+    body.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px;text-align:center"><div style="font-size:1.35rem;font-weight:800;color:#15803d">US$ ${money(f.usd)}</div><div style="font-size:.72rem;color:#166534;margin-top:2px">Saldo a cobrar</div></div>
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px;text-align:center"><div style="font-size:1.35rem;font-weight:800;color:#1d4ed8">$U ${money(f.uyu)}</div><div style="font-size:.72rem;color:#1e40af;margin-top:2px">Saldo a cobrar</div></div>
+      </div>
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px 14px;text-align:center;margin-bottom:16px"><div style="font-size:1.25rem;font-weight:800;color:#b45309">${f.pts.toLocaleString('es-UY')} puntos</div>${vPunto?`<div style="font-size:.72rem;color:#92400e;margin-top:2px">≈ US$ ${money(f.pts*vPunto)}</div>`:''}</div>
+
+      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--gray-400);margin-bottom:8px">Desglose</div>
+      <div style="font-size:.82rem;color:var(--gray-600);line-height:1.9;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between"><span>Ganado (cierres)</span><span>US$ ${money(f.ganadoUSD)} · $U ${money(f.ganadoUYU)}</span></div>
+        ${(f.ajUSD||f.ajUYU||f.ajPts)?`<div style="display:flex;justify-content:space-between;color:#b45309"><span>Ajustes del admin</span><span>${f.ajUSD?(f.ajUSD>0?'+':'')+'US$ '+money(f.ajUSD):''} ${f.ajUYU?(f.ajUYU>0?'+':'')+'$U '+money(f.ajUYU):''} ${f.ajPts?(f.ajPts>0?'+':'')+f.ajPts+'pts':''}</span></div>`:''}
+        <div style="display:flex;justify-content:space-between;color:#b91c1c"><span>Retiros</span><span>− US$ ${money(f.retUSD)} · $U ${money(f.retUYU)}</span></div>
+      </div>
+
+      <details style="margin-bottom:14px"><summary style="cursor:pointer;font-size:.82rem;font-weight:600;color:var(--gray-600)">Historial de ajustes (${ajustes.length})</summary><div style="margin-top:8px">${histHtml}</div></details>
+
+      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--gray-400);margin-bottom:10px">Registrar ajuste / corrección</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <input id="ajUSD" type="number" step="any" placeholder="USD (±)" style="padding:9px 11px;border:1px solid var(--gray-200,#e5e7eb);border-radius:9px;font-family:inherit;font-size:.85rem">
+        <input id="ajUYU" type="number" step="any" placeholder="UYU (±)" style="padding:9px 11px;border:1px solid var(--gray-200,#e5e7eb);border-radius:9px;font-family:inherit;font-size:.85rem">
+      </div>
+      <input id="ajPts" type="number" step="1" placeholder="Puntos (±)" style="width:100%;padding:9px 11px;border:1px solid var(--gray-200,#e5e7eb);border-radius:9px;font-family:inherit;font-size:.85rem;margin-top:8px;box-sizing:border-box">
+      <input id="ajMotivo" type="text" placeholder="Motivo (obligatorio)" style="width:100%;padding:9px 11px;border:1px solid var(--gray-200,#e5e7eb);border-radius:9px;font-family:inherit;font-size:.85rem;margin-top:8px;box-sizing:border-box">
+      <p style="font-size:.72rem;color:var(--gray-400);margin:8px 0 12px">Usá números negativos para descontar. Ej: <b>-200</b> en USD para restar saldo. Los puntos y el dinero se ajustan por separado.</p>
+      <button onclick="guardarAjuste('${uid}')" style="width:100%;border:none;background:var(--primary,#16273f);color:#fff;border-radius:10px;padding:11px;font-family:inherit;font-size:.88rem;font-weight:600;cursor:pointer">Guardar ajuste</button>`;
+  }
+
+  async function guardarAjuste(uid) {
+    const usd = Number(document.getElementById('ajUSD').value) || 0;
+    const uyu = Number(document.getElementById('ajUYU').value) || 0;
+    const pts = Math.round(Number(document.getElementById('ajPts').value) || 0);
+    const motivo = (document.getElementById('ajMotivo').value || '').trim();
+    if (!usd && !uyu && !pts) { showToast('Ingresá un monto o puntos', '', 'fa-exclamation-triangle'); return; }
+    if (!motivo) { showToast('El motivo es obligatorio', 'Queda registrado para auditoría', 'fa-exclamation-triangle'); return; }
+    try {
+      await db.collection('ajustesFinancieros').add({
+        agenteUid: uid, montoUSD: usd, montoUYU: uyu, puntos: pts, motivo,
+        autor: (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Admin',
+        autorUid: currentUser ? currentUser.uid : null, fecha: new Date().toISOString()
+      });
+      let u = allUsers[uid]; try { const d = await db.collection('users').doc(uid).get(); if (d.exists) u = {id:d.id,...d.data()}; } catch(e){}
+      await renderFinanzasAgente(uid, u);
+      showToast('Ajuste registrado', 'El saldo y los puntos se recalcularon', 'fa-check');
+    } catch (e) { console.error('ajuste:', e); showToast('No se pudo guardar', (e&&e.message)||'', 'fa-exclamation-triangle'); }
+  }
+  async function borrarAjuste(ajId, uid) {
+    if (!confirm('¿Quitar este ajuste? El saldo volverá a calcularse sin él.')) return;
+    try {
+      await db.collection('ajustesFinancieros').doc(ajId).delete();
+      let u = allUsers[uid]; try { const d = await db.collection('users').doc(uid).get(); if (d.exists) u = {id:d.id,...d.data()}; } catch(e){}
+      await renderFinanzasAgente(uid, u);
+      showToast('Ajuste quitado', '', 'fa-check');
+    } catch (e) { console.error(e); showToast('No se pudo quitar', '', 'fa-exclamation-triangle'); }
+  }
+
   async function showAdminTab(tb) {
     document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
     document.getElementById(`tab${tb.charAt(0).toUpperCase()+tb.slice(1)}`).classList.add('active');
@@ -2969,7 +3179,7 @@
           id: d.id,
           ...d.data()
         }));
-        c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${safeUrl(u.profilePhoto)}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${mvEsc(u.role||'Asesor Inmobiliario')}</small>${u.commissionSale!=null||u.commissionRent!=null||u.commissionPct!=null?`<br><small style="color:#8a6d12"><i class="fas fa-percent"></i> Venta: ${u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:'—')}% · Alq: ${u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:'—')}%</small>`:''}<br><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="abrirEditorAgente('${u.id}')" title="Editar datos"><i class="fas fa-pen"></i></button><button class="btn-edit" onclick="setUserRole('${u.id}')" title="Asignar cargo"><i class="fas fa-id-badge"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
+        c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${safeUrl(u.profilePhoto)}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${mvEsc(u.role||'Asesor Inmobiliario')}</small>${u.commissionSale!=null||u.commissionRent!=null||u.commissionPct!=null?`<br><small style="color:#8a6d12"><i class="fas fa-percent"></i> Venta: ${u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:'—')}% · Alq: ${u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:'—')}%</small>`:''}<br><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="abrirEditorAgente('${u.id}')" title="Editar datos"><i class="fas fa-pen"></i></button><button class="btn-edit" onclick="abrirFinanzasAgente('${u.id}')" title="Dinero y puntos"><i class="fas fa-wallet"></i></button><button class="btn-edit" onclick="setUserRole('${u.id}')" title="Asignar cargo"><i class="fas fa-id-badge"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
       } else if (tb === 'properties') {
         c.innerHTML = properties.length === 0 ? '<div class="empty-state"><i class="fas fa-building"></i><h3>Sin propiedades</h3></div>' : properties.map(p => {
           const o = getOwnerInfo(p),
