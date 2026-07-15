@@ -823,6 +823,10 @@ async function addFeatureAttributes(categoryId, p, baseAttributes, token, catAtt
     logger.info(`[ATRIBUTOS ${categoryId}] (${_all.length}) ${_all.join(" | ")}`);
     const _drop = Object.keys(ficha).filter((id) => !byId[id] && !id.startsWith("IC_"));
     logger.info(`[FICHA-DESCARTADOS ${categoryId}] ${_drop.join(", ") || "(ninguno)"}`);
+    // Diagnóstico por campo: qué tipo espera ML y qué valor tiene en la ficha.
+    // Ayuda a ver por qué un 0 no se toma (ej: el campo es 'list', no 'number').
+    const _detalle = Object.keys(ficha).filter((id) => byId[id]).map((id) => `${id}[${byId[id].value_type}]=${JSON.stringify(ficha[id])}`);
+    logger.info(`[FICHA-VALORES ${categoryId}] ${_detalle.join(" | ")}`);
   } catch (_e) {}
   // ===============================================================================
 
@@ -831,7 +835,12 @@ async function addFeatureAttributes(categoryId, p, baseAttributes, token, catAtt
 
   for (const [id, val] of Object.entries(ficha)) {
     const attr = byId[id];
-    if (!attr || have.has(id) || val === "" || val == null) continue;
+    // Saltear solo si el atributo no existe, ya está, o el valor es vacío/nulo.
+    // OJO: el número 0 es un valor VÁLIDO (0 cocheras, torre 0, etc.) — antes se
+    // colaba en filtros tipo "!val" y no se enviaba. Acá se compara explícito
+    // contra "" y null/undefined, nunca contra 0.
+    if (!attr || have.has(id)) continue;
+    if (val === "" || val === null || val === undefined) continue;
     const vt = attr.value_type;
     if (vt === "boolean") {
       const siVal = val === true || val === "true" || val === 1;
@@ -865,8 +874,13 @@ async function addFeatureAttributes(categoryId, p, baseAttributes, token, catAtt
       // value_name "5 m²" en vez de value_struct: con la unidad vacía ML descartaba el
       // atributo (el caso BALCONY_AREA: "value_id and value_name are null... not sent").
       if (!isNaN(num)) { out.push({ id, value_name: unit ? `${num} ${unit}` : String(num) }); have.add(id); }
+    } else if (vt === "number") {
+      // Numérico puro: incluye el 0 (torre 0, apto 0, etc.). Number("") es 0, pero
+      // el "" ya se filtró arriba, así que acá solo llegan valores reales.
+      const num = Number(val);
+      if (!isNaN(num)) { out.push({ id, value_name: String(num) }); have.add(id); }
     } else {
-      out.push({ id, value_name: String(val) }); // number o string
+      out.push({ id, value_name: String(val) }); // string u otros
       have.add(id);
     }
   }
