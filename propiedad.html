@@ -328,7 +328,10 @@
       if (p.description) { document.getElementById('ppDescWrap').style.display = 'block'; document.getElementById('ppDescription').textContent = p.description }
 
       // Video de YouTube
-      const ytId = extractYouTubeId(p.videoUrl);
+      // Video: el de la propiedad si el agente cargó uno; si no, el institucional
+      // de la agencia por defecto. Cualquier formato de YouTube (incluye Shorts).
+      const VIDEO_DEFAULT = 'https://youtube.com/shorts/KcGr0S0Yx9A';
+      const ytId = extractYouTubeId(p.videoUrl) || extractYouTubeId(VIDEO_DEFAULT);
       if (ytId) { document.getElementById('ppVideoWrap').style.display = 'block'; document.getElementById('ppVideoFrame').src = `https://www.youtube.com/embed/${ytId}`; }
 
       renderAmenities(p);
