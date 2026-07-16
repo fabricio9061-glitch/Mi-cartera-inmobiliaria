@@ -2666,18 +2666,18 @@ exports.sincronizarPropiedadAlCerrarGestion = onDocumentUpdated("gestiones/{gid}
       });
       logger.info(`[gestión reabierta] Propiedad ${pid} -> available.`);
     }
-  } else if (estAhora === "perdido" && estAntes !== "perdido") {
-    // Se perdió la gestión. Dos mundos según el ROL del cliente:
-    //  - Interesado: perder un candidato NO saca la propiedad del mercado;
-    //    sigue disponible para el próximo. No se toca nada.
-    //  - Propietario: se perdió la CAPTACIÓN. La propiedad no puede seguir
-    //    publicada sin el dueño, pero nada se baja solo: confirmación al admin.
+  } else if ((estAhora === "perdido" && estAntes !== "perdido") || (estAhora === "externo" && estAntes !== "externo")) {
+    // Se perdió la gestión, o cerró por afuera. Según el ROL del cliente:
+    //  - Interesado: no toca la propiedad (perder un candidato no la baja).
+    //  - Propietario: se perdió la captación / cerró sin la agencia -> la propiedad
+    //    no puede seguir publicada sin permiso: confirmación al admin.
     let cliente = null;
     try {
       if (ahora.clientId) { const cd = await db.doc(`clients/${ahora.clientId}`).get(); if (cd.exists) cliente = cd.data(); }
     } catch (e) { /* sin datos del cliente */ }
     if (rolGestionInferido(ahora, cliente) === "propietario") {
-      await pedirConfirmacionDespublicar(pid, (cliente && cliente.name) || ahora.clientName || "El propietario", "se marcó como perdido");
+      const motivo = estAhora === "externo" ? "cerró la operación por afuera" : "se marcó como perdido";
+      await pedirConfirmacionDespublicar(pid, (cliente && cliente.name) || ahora.clientName || "El propietario", motivo);
     }
   }
 });

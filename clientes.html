@@ -74,12 +74,12 @@
 
     /* Grid de clientes */
     .crm-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr)); gap:16px; }
-    .client-card{ background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:18px; transition:transform .15s, box-shadow .15s; display:flex; flex-direction:column; }
+    .client-card{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:13px 14px; transition:transform .15s, box-shadow .15s; display:flex; flex-direction:column; }
     .client-card:hover{ transform:translateY(-3px); box-shadow:0 12px 30px rgba(16,39,63,.1); }
-    .client-card-top{ display:flex; align-items:flex-start; gap:12px; margin-bottom:12px; }
-    .client-avatar{ width:46px; height:46px; border-radius:50%; background:var(--navy); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1.1rem; flex:0 0 auto; }
+    .client-card-top{ display:flex; align-items:flex-start; gap:10px; margin-bottom:9px; }
+    .client-avatar{ width:38px; height:38px; border-radius:50%; background:var(--navy); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.95rem; flex:0 0 auto; }
     .client-card-name{ flex:1; min-width:0; }
-    .client-card-name h3{ font-family:'Inter'; font-size:1.05rem; font-weight:600; color:var(--navy); }
+    .client-card-name h3{ font-family:'Inter'; font-size:.98rem; font-weight:600; color:var(--navy); }
     .client-owner{ font-size:.74rem; color:var(--gold-hover); margin-top:2px; }
     .client-status{ font-size:.7rem; font-weight:600; padding:4px 11px; border-radius:20px; white-space:nowrap; flex:0 0 auto; }
     .client-status.nuevo{ background:#e8f0fe; color:#2563eb; }
@@ -103,6 +103,7 @@
     .client-card.bl-dormido{ border-left-color:#dc2626; }
     .client-card.bl-pausa{ border-left-color:#d97706; }
     .client-card.bl-externo{ border-left-color:#94a3b8; }
+    .client-activity.st-externo{ color:#64748b; }
     .client-card.bl-perdido{ border-left-color:#dc2626; }
     .client-card.bl-cerrado{ border-left-color:#059669; }
     .client-activity.st-enfriando{ color:#b45309; }
@@ -158,7 +159,7 @@
     .client-meta{ display:flex; flex-direction:column; gap:5px; margin-bottom:10px; }
     .client-meta-row{ font-size:.84rem; color:var(--gray-600); display:flex; align-items:center; gap:8px; }
     .client-meta-row i{ width:14px; color:var(--gray-400); }
-    .client-activity{ font-size:.76rem; color:var(--gray-500); display:flex; align-items:center; gap:7px; margin-bottom:12px; }
+    .client-activity{ font-size:.74rem; color:var(--gray-500); display:flex; align-items:center; gap:6px; margin-bottom:9px; }
     .client-activity i{ color:var(--gray-400); }
     .client-activity.alerta{ color:#b45309; font-weight:600; }
     .client-activity.alerta i{ color:#d97706; }
@@ -187,9 +188,9 @@
     .st-pop button:hover{ background:#f8fafc; }
     .st-pop button.sel{ background:#f1f5f9; font-weight:600; }
     .st-pop button .dot{ width:9px; height:9px; border-radius:50%; flex:none; }
-    .client-notes-preview{ font-size:.82rem; color:var(--gray-600); font-style:italic; background:var(--gray-50); border-radius:8px; padding:8px 11px; margin-bottom:10px; }
-    .client-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:auto; padding-top:4px; }
-    .client-actions a, .client-actions button{ font-size:.82rem; padding:8px 12px; border-radius:9px; border:1px solid var(--gray-200); background:#fff; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:6px; transition:all .15s; color:var(--navy); text-decoration:none; }
+    .client-notes-preview{ font-size:.78rem; color:var(--gray-600); font-style:italic; background:var(--gray-50); border-radius:7px; padding:6px 10px; margin-bottom:8px; }
+    .client-actions{ display:flex; gap:6px; flex-wrap:wrap; margin-top:auto; padding-top:2px; }
+    .client-actions a, .client-actions button{ font-size:.78rem; padding:6px 10px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:5px; transition:all .15s; color:var(--navy); text-decoration:none; }
     .ca-wa{ color:#1eb858 !important; } .ca-wa:hover{ border-color:#1eb858; background:#f0fdf4; }
     .ca-edit:hover{ border-color:var(--gold-2); color:var(--gold-2); }
     .ca-del{ color:var(--danger) !important; } .ca-del:hover{ border-color:#e3a9a2; background:#fff0ee; }
@@ -702,7 +703,7 @@
     // gestión activa más avanzada (no la más reciente). Cerrado/Perdido son
     // terminales y no compiten: solo definen la etiqueta si no queda nada activo.
     var ESTADO_PRIORIDAD = ['nuevo','contactado','seguimiento','visita','negociacion','cartera'];
-    var ESTADOS_TERMINALES = ['cerrado','perdido'];
+    var ESTADOS_TERMINALES = ['cerrado','perdido','externo'];
 
     // ====== EJE SITUACIÓN (independiente de la etapa comercial) ======
     // La etapa (nuevo→cartera→cerrado) vive en las gestiones y dice DÓNDE está el
@@ -792,7 +793,8 @@
       var guardada = (c && c.situacion) || 'activo';
       if (guardada === 'pausa') return 'pausa';
       var rs = c && c._rollupStatus;
-      if (rs === 'cerrado') return (guardada === 'externo') ? 'externo' : 'cerrado';
+      if (rs === 'externo') return 'externo';
+      if (rs === 'cerrado') return 'cerrado';
       if (rs === 'perdido') return 'perdido';
       return 'activo';
     }
@@ -919,6 +921,7 @@
             var e = g.estadoGestion || 'nuevo';
             if (ESTADOS_TERMINALES.indexOf(e) >= 0){
               if (e === 'cerrado') a.cerradas++;
+              else if (e === 'externo') a.externas = (a.externas||0) + 1;
               return;
             }
             a.activas++;
@@ -951,7 +954,7 @@
                 if (c._rollupStatus === 'nuevo' && diasDesde(a.manda.creada) > SEGUIMIENTO.diasNuevo) c._rollupStatus = 'sinavance';
               } else {
                 // Todas terminadas: si ganó alguna es Cerrado; si no, Perdido.
-                c._rollupStatus = a.cerradas ? 'cerrado' : 'perdido';
+                c._rollupStatus = a.cerradas ? 'cerrado' : (a.externas ? 'externo' : 'perdido');
               }
             } else {
               c._rollupStatus = c.status || 'nuevo';
@@ -1234,6 +1237,7 @@
       ['negociacion', 'Negociando precio o condiciones de la operación.'],
       ['cartera', 'Propiedad captada y publicada: etapa avanzada, el silencio es normal.'],
       ['cerrado', 'Operación concretada por la agencia. Cuenta como ganada.'],
+      ['externo', 'La operación se concretó pero SIN la agencia. No cuenta ni como ganada ni como perdida.'],
       ['perdido', 'El cliente descartó trabajar con la agencia (dijo que no).']
     ];
     var AYUDA_SIT = [
@@ -1272,7 +1276,7 @@
     window.addEventListener('scroll', function(){ cerrarStPop(); }, true);
     document.addEventListener('keydown', function(e){ if (e.key === 'Escape') cerrarStPop(); });
 
-    var ESTADO_DOT = { nuevo:'#2563eb', contactado:'#0891b2', seguimiento:'#b45309', visita:'#7c3aed', negociacion:'#be185d', cartera:'#4338ca', cerrado:'#15803d', perdido:'#b91c1c' };
+    var ESTADO_DOT = { nuevo:'#2563eb', contactado:'#0891b2', seguimiento:'#b45309', visita:'#7c3aed', negociacion:'#be185d', cartera:'#4338ca', cerrado:'#15803d', externo:'#64748b', perdido:'#b91c1c' };
 
     function _posicionarPop(pop, ev){
       document.body.appendChild(pop);
@@ -1313,14 +1317,10 @@
       if (!c) return;
       var sitActual = situacionDe(c);
       var pop = document.createElement('div'); pop.className = 'st-pop';
-      // La situación DERIVA de la etapa; acá solo se manejan los matices manuales.
-      if (sitActual === 'cerrado' || sitActual === 'externo'){
-        pop.innerHTML = '<div class="st-pop-hint">La operación está cerrada. Para reactivar al cliente, cambiá su <b>etapa comercial</b> desde la etiqueta de la derecha.</div>' +
-          '<button type="button" class="'+(sitActual==='externo'?'sel':'')+'" onclick="aplicarSituacion(\''+id+'\',\''+(sitActual==='externo'?'cerrado_agencia':'externo')+'\')"><span class="dot" style="background:#64748b"></span>'+(sitActual==='externo'?'Fue cierre de la agencia':'Marcar: cerró por afuera')+'</button>';
-        _posicionarPop(pop, ev); _stPopEl = pop; _stPopId = 'si'+id; return;
-      }
-      if (sitActual === 'perdido'){
-        pop.innerHTML = '<div class="st-pop-hint">Cliente perdido. Para reactivarlo, cambiá su <b>etapa comercial</b> desde la etiqueta de la derecha.</div>';
+      // La situación DERIVA de la etapa; los terminales se cambian desde la etapa.
+      if (sitActual === 'cerrado' || sitActual === 'externo' || sitActual === 'perdido'){
+        var comoTermino = sitActual === 'cerrado' ? 'La operación se cerró con la agencia.' : sitActual === 'externo' ? 'El cliente cerró por afuera.' : 'El cliente está perdido.';
+        pop.innerHTML = '<div class="st-pop-hint">'+comoTermino+' Para cambiarlo, usá la <b>etapa comercial</b> en la etiqueta de la derecha.</div>';
         _posicionarPop(pop, ev); _stPopEl = pop; _stPopId = 'si'+id; return;
       }
       // Activo o Pausa: se puede pausar/reactivar a mano (Pausa no deriva de etapa).
@@ -1483,7 +1483,7 @@
     function fmtPrice(p, c){ return (c==='UYU'?'$U':'US$') + ' ' + (p||0).toLocaleString('es-UY'); }
     function locStr(p){ return (p.ciudad && p.departamento) ? (p.ciudad+', '+p.departamento) : (p.location||'Uruguay'); }
     var PROP_STATUS = { tasacion:'Pendiente de tasación', tasado:'Tasado', available:'Disponible', reserved:'Reservada', sold:'Vendida', rented:'Alquilada' };
-    var GESTION_ESTADO = { nuevo:'Nuevo', contactado:'Contactado', seguimiento:'En seguimiento', visita:'Visita agendada', negociacion:'En negociación', cartera:'En cartera', cerrado:'Cerrado', perdido:'Perdido' };
+    var GESTION_ESTADO = { nuevo:'Nuevo', contactado:'Contactado', seguimiento:'En seguimiento', visita:'Visita agendada', negociacion:'En negociación', cartera:'En cartera', cerrado:'Cerrado', externo:'Cerró por afuera', perdido:'Perdido' };
     var GESTION_INTERES = { comprar:'Comprar', alquilar:'Alquilar', vender:'Vender' };
     var allProperties = []; // cache de propiedades para el selector
 
