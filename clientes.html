@@ -97,18 +97,26 @@
     .client-status.sit-perdido{ background:#fee2e2; color:#b91c1c; }
     .client-sub-etapa{ font-size:.72rem; color:var(--gray-500); margin:-4px 0 10px; padding-left:2px; display:flex; align-items:center; gap:6px; }
     .client-sub-etapa i{ opacity:.7; }
-    /* Chip de SITUACIÓN: indicador propio, separado del badge de etapa comercial.
-       Banda fina arriba de la tarjeta, con puntito de color según la situación. */
-    .client-sit-chip{ display:inline-flex; align-items:center; gap:6px; font-size:.7rem; font-weight:700; letter-spacing:.02em; padding:5px 11px; border-radius:14px 0 10px 0; margin:-18px -18px 12px -18px; width:fit-content; cursor:pointer; }
-    .client-sit-chip .dot{ width:7px; height:7px; border-radius:50%; flex:none; }
-    .client-sit-chip .chev{ font-size:.6rem; opacity:.6; margin-left:1px; }
-    /* Chip de PULSO (capa automática), al lado de la situación */
-    .client-pulso{ display:inline-flex; align-items:center; gap:6px; font-size:.68rem; font-weight:700; padding:4px 10px; border-radius:0 0 0 10px; margin:-18px -18px 0 0; float:right; }
-    .client-pulso .dot{ width:6px; height:6px; border-radius:50%; }
-    .client-pulso.pl-pendiente{ background:#ecfeff; color:#0e7490; }
-    .client-pulso.pl-enfriando{ background:#fffbeb; color:#b45309; }
-    .client-pulso.pl-dormido{ background:#fef2f2; color:#b91c1c; cursor:pointer; animation:pulsoLatido 2s ease-in-out infinite; }
-    @keyframes pulsoLatido{ 0%,100%{ opacity:1; } 50%{ opacity:.62; } }
+    /* ===== Estado sin cajas: filete izquierdo + línea de estado ===== */
+    .client-card{ border-left:3px solid transparent; }
+    .client-card.bl-enfriando{ border-left-color:#f59e0b; }
+    .client-card.bl-dormido{ border-left-color:#dc2626; }
+    .client-card.bl-pausa{ border-left-color:#d97706; }
+    .client-card.bl-externo{ border-left-color:#94a3b8; }
+    .client-card.bl-perdido{ border-left-color:#dc2626; }
+    .client-card.bl-cerrado{ border-left-color:#059669; }
+    .client-activity.st-enfriando{ color:#b45309; }
+    .client-activity.st-enfriando i{ color:#d97706; }
+    .client-activity.st-dormido{ color:#b91c1c; font-weight:600; animation:pulsoLatido 2.2s ease-in-out infinite; }
+    .client-activity.st-dormido i{ color:#dc2626; }
+    .client-activity.st-dormido u{ text-underline-offset:3px; }
+    .client-activity.st-pausa{ color:#b45309; }
+    .client-activity.st-externo{ color:#64748b; }
+    .client-activity.st-perdido{ color:#b91c1c; }
+    .client-activity.st-cerrado{ color:#047857; }
+    @keyframes pulsoLatido{ 0%,100%{ opacity:1; } 55%{ opacity:.68; } }
+    .client-sub-etapa{ font-size:.72rem; color:var(--gray-500); margin:-4px 0 10px; padding-left:2px; display:flex; align-items:center; gap:6px; }
+    .client-sub-etapa i{ opacity:.7; }
     /* Modal "cliente dormido" */
     .dormido-overlay{ position:fixed; inset:0; background:rgba(15,25,40,.55); z-index:3300; display:flex; align-items:center; justify-content:center; padding:16px; }
     .dormido-box{ background:#fff; border-radius:16px; max-width:400px; width:100%; padding:22px; box-shadow:0 20px 60px rgba(10,20,35,.35); }
@@ -141,16 +149,6 @@
     .ayuda-item .dot{ width:10px; height:10px; border-radius:50%; flex:none; margin-top:4px; }
     .ayuda-item .txt strong{ display:block; font-size:.88rem; color:var(--primary,#16273f); margin-bottom:1px; }
     .ayuda-item .txt span{ font-size:.8rem; color:var(--gray-500); line-height:1.4; }
-    .client-sit-chip.sit-activo{ background:#dcfce7; color:#15803d; }
-    .client-sit-chip.sit-activo .dot{ background:#16a34a; }
-    .client-sit-chip.sit-cerrado{ background:#d1fae5; color:#047857; }
-    .client-sit-chip.sit-cerrado .dot{ background:#059669; }
-    .client-sit-chip.sit-pausa{ background:#fef3c7; color:#b45309; }
-    .client-sit-chip.sit-pausa .dot{ background:#d97706; }
-    .client-sit-chip.sit-externo{ background:#e2e8f0; color:#475569; }
-    .client-sit-chip.sit-externo .dot{ background:#64748b; }
-    .client-sit-chip.sit-perdido{ background:#fee2e2; color:#b91c1c; }
-    .client-sit-chip.sit-perdido .dot{ background:#dc2626; }
     /* Clientes fuera del flujo activo (pausa / externo / perdido): se atenúan */
     .client-card.fuera-activo{ opacity:.72; }
     .client-card.fuera-activo:hover{ opacity:1; }
@@ -1101,18 +1099,20 @@
         var stLabel = etapaLabel;
         var badgeClass = rs;
         var actTxt = c._lastActivity ? ((nGest>0?'Última gestión ':'Creado ')+relTime(c._lastActivity)) : '';
-        return '<div class="client-card'+(c.archived?' archived':'')+(sit!=='activo'?' fuera-activo':'')+'" onclick="showClientProfile(\''+c.id+'\')" style="cursor:pointer;position:relative">' +
-          '<div class="client-sit-chip sit-'+sit+'" role="button" title="Cambiar situación" onclick="event.stopPropagation();abrirMenuSituacion(event,\''+c.id+'\')"><span class="dot"></span>'+(SITUACION_LABEL[sit]||sit)+(sit==='pausa'?' · desde '+relTime(c.pausadoEn||c.updatedAt||''):'')+' <i class="fas fa-chevron-down chev"></i></div>' +
-          (function(){
-            // Chip de PULSO (capa automática): solo si aporta (no en "al día", que es lo normal).
-            var pl = pulsoDe(c);
-            if (!pl || pl === 'aldia') return '';
-            var info = PULSO_INFO[pl] || {};
-            var accion = pl === 'dormido'
-              ? ' onclick="event.stopPropagation();preguntarDormido(\''+c.id+'\')" role="button" title="Este cliente necesita una decisión"'
-              : '';
-            return '<div class="client-pulso pl-'+pl+'"'+accion+'><span class="dot" style="background:'+(info.dot||'#999')+'"></span>'+info.lbl+(c._diasSinContacto!=null?' · '+c._diasSinContacto+'d':'')+'</div>';
-          })() +
+        // ===== ESTADO SIN CAJAS: filete lateral + línea de estado fusionada =====
+        // Nada de bandas ni pestañas: el color vive en el borde izquierdo de la
+        // tarjeta (escaneás la columna y ves la salud de todos) y el detalle en la
+        // línea del reloj, que se fusiona con el pulso para no repetir el dato.
+        // "Pendiente" y "al día" no se muestran: lo normal no necesita cartel.
+        var pl = pulsoDe(c);
+        var borde = '';
+        if (sit === 'activo'){
+          if (pl === 'dormido') borde = ' bl-dormido';
+          else if (pl === 'enfriando') borde = ' bl-enfriando';
+        } else {
+          borde = ' bl-' + sit;
+        }
+        return '<div class="client-card'+(c.archived?' archived':'')+(sit!=='activo'?' fuera-activo':'')+borde+'" onclick="showClientProfile(\''+c.id+'\')" style="cursor:pointer;position:relative">' +
           '<div class="client-card-top">' +
             '<div class="client-avatar">'+esc(ini)+'</div>' +
             '<div class="client-card-name">' +
@@ -1128,10 +1128,15 @@
             ((c.email&&c.email.indexOf('@')<0)?'<div class="client-meta-row"><i class="fas fa-pen"></i> '+esc(c.email)+'</div>':'') +
           '</div>' +
           (function(){
-            var nv = nivelAviso(c), d = c._diasSinContacto||0;
-            if (nv==='urgente') return '<div class="client-activity urgente"><i class="fas fa-exclamation-triangle"></i> '+d+' días sin contacto — retomalo</div>';
-            if (nv==='alerta') return '<div class="client-activity alerta"><i class="fas fa-bell"></i> Sin contacto hace '+d+' días</div>';
-            return actTxt?'<div class="client-activity"><i class="fas fa-clock"></i> '+actTxt+'</div>':'';
+            // Línea de estado: reloj + pulso + situación en UNA frase.
+            var mnu = 'event.stopPropagation();abrirMenuSituacion(event,\''+c.id+'\')';
+            if (sit === 'pausa') return '<div class="client-activity st-pausa" role="button" onclick="'+mnu+'" title="Tocá para reactivar"><i class="fas fa-circle-pause"></i> En pausa desde '+relTime(c.pausadoEn||c.updatedAt||'')+'</div>';
+            if (sit === 'externo') return '<div class="client-activity st-externo" role="button" onclick="'+mnu+'"><i class="fas fa-arrow-right-from-bracket"></i> Cerró por afuera</div>';
+            if (sit === 'perdido') return '<div class="client-activity st-perdido"><i class="fas fa-circle-xmark"></i> Perdido</div>';
+            if (sit === 'cerrado') return '<div class="client-activity st-cerrado"><i class="fas fa-circle-check"></i> Operación cerrada</div>';
+            if (pl === 'dormido') return '<div class="client-activity st-dormido" role="button" onclick="event.stopPropagation();preguntarDormido(\''+c.id+'\')" title="Tocá para decidir qué hacer"><i class="fas fa-moon"></i> '+(c._diasSinContacto!=null?c._diasSinContacto:'?')+' días sin actividad · <u>decidir</u></div>';
+            if (pl === 'enfriando') return '<div class="client-activity st-enfriando" role="button" onclick="'+mnu+'"><i class="fas fa-temperature-half"></i> '+(actTxt||'Sin actividad')+' · enfriándose</div>';
+            return actTxt?'<div class="client-activity" role="button" onclick="'+mnu+'" title="Situación"><i class="fas fa-clock"></i> '+actTxt+'</div>':'';
           })() +
           (c.notes?'<div style="font-size:.82rem;color:var(--gray-600);background:var(--gray-50);border-radius:8px;padding:7px 10px;line-height:1.4;margin-bottom:10px"><i class="fas fa-pen" style="opacity:.6;margin-right:5px"></i>'+esc(c.notes)+'</div>':'') +
           '<div class="client-actions">' +
