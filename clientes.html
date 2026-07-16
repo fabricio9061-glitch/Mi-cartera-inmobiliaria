@@ -102,6 +102,29 @@
     .client-sit-chip{ display:inline-flex; align-items:center; gap:6px; font-size:.7rem; font-weight:700; letter-spacing:.02em; padding:5px 11px; border-radius:14px 0 10px 0; margin:-18px -18px 12px -18px; width:fit-content; cursor:pointer; }
     .client-sit-chip .dot{ width:7px; height:7px; border-radius:50%; flex:none; }
     .client-sit-chip .chev{ font-size:.6rem; opacity:.6; margin-left:1px; }
+    /* Chip de PULSO (capa automática), al lado de la situación */
+    .client-pulso{ display:inline-flex; align-items:center; gap:6px; font-size:.68rem; font-weight:700; padding:4px 10px; border-radius:0 0 0 10px; margin:-18px -18px 0 0; float:right; }
+    .client-pulso .dot{ width:6px; height:6px; border-radius:50%; }
+    .client-pulso.pl-pendiente{ background:#ecfeff; color:#0e7490; }
+    .client-pulso.pl-enfriando{ background:#fffbeb; color:#b45309; }
+    .client-pulso.pl-dormido{ background:#fef2f2; color:#b91c1c; cursor:pointer; animation:pulsoLatido 2s ease-in-out infinite; }
+    @keyframes pulsoLatido{ 0%,100%{ opacity:1; } 50%{ opacity:.62; } }
+    /* Modal "cliente dormido" */
+    .dormido-overlay{ position:fixed; inset:0; background:rgba(15,25,40,.55); z-index:3300; display:flex; align-items:center; justify-content:center; padding:16px; }
+    .dormido-box{ background:#fff; border-radius:16px; max-width:400px; width:100%; padding:22px; box-shadow:0 20px 60px rgba(10,20,35,.35); }
+    .dormido-head{ font-size:1.02rem; font-weight:700; color:var(--navy); display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+    .dormido-head i{ color:#6366f1; }
+    .dormido-p{ font-size:.88rem; color:var(--gray-600); line-height:1.5; margin:0 0 16px; }
+    .dormido-opt{ width:100%; display:flex; align-items:center; gap:12px; text-align:left; border:1px solid var(--gray-200); background:#fff; border-radius:12px; padding:12px 14px; margin-bottom:9px; cursor:pointer; font-family:inherit; transition:all .12s; }
+    .dormido-opt:hover{ border-color:var(--gold-2); background:#fafafa; }
+    .dormido-opt i{ font-size:1.1rem; width:22px; text-align:center; flex:none; }
+    .dormido-opt div{ display:flex; flex-direction:column; }
+    .dormido-opt b{ font-size:.88rem; color:var(--navy); }
+    .dormido-opt span{ font-size:.76rem; color:var(--gray-500); margin-top:1px; }
+    .dormido-opt.activo i{ color:#16a34a; }
+    .dormido-opt.pausa i{ color:#d97706; }
+    .dormido-opt.perdido i{ color:#dc2626; }
+    .dormido-cancel{ width:100%; border:none; background:transparent; color:var(--gray-500); font-family:inherit; font-size:.84rem; font-weight:600; padding:8px; cursor:pointer; margin-top:2px; }
     /* Botón de ayuda junto al título */
     .crm-help-btn{ border:none; background:transparent; color:var(--gray-400); cursor:pointer; font-size:1.1rem; padding:0 0 0 4px; vertical-align:middle; transition:color .15s; }
     .crm-help-btn:hover{ color:var(--accent,#C9A227); }
@@ -350,6 +373,7 @@
     .g-rol{ font-size:.66rem; font-weight:700; padding:2px 8px; border-radius:999px; letter-spacing:.02em; }
     .g-rol.propietario{ background:#fdf6e3; color:#8a6d1a; border:1px solid #ecd9a0; }
     .g-rol.interesado{ background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+    .despub-pend{ font-size:.66rem; font-weight:700; color:#b45309; background:#fffbeb; border:1px solid #fde68a; border-radius:999px; padding:2px 9px; display:inline-flex; align-items:center; gap:5px; margin-left:6px; }
     .cp-grow.migrar{ border-style:dashed; }
     .cp-grow.migrar .cp-grow-foot{ background:#fdfbf3; }
     .cp-migrar-aviso{ background:rgba(201,162,39,.08); border:1px solid rgba(201,162,39,.25); border-radius:10px; padding:10px 13px; font-size:.8rem; color:var(--gray-700); margin:4px 0 4px; display:flex; align-items:flex-start; gap:8px; }
@@ -449,7 +473,7 @@
       <div class="crm-stats" id="crmStats"></div>
 
       <div class="crm-toolbar">
-        <div class="crm-search"><i class="fas fa-search"></i><input type="text" id="clientSearch" placeholder="Buscar por nombre o teléfono..." oninput="renderClients()"></div>
+        <div class="crm-search"><i class="fas fa-search"></i><input type="text" id="clientSearch" placeholder="Buscar por nombre, teléfono o @agente..." oninput="renderClients()"></div>
         <select class="crm-filter" id="clientStatusFilter" onchange="statFilter='all';renderClients()">
           <option value="">Todos los estados</option>
           <option value="nuevo">Nuevo</option><option value="singestion">Sin gestionar / sin avance</option><option value="contactado">Contactado</option>
@@ -698,17 +722,81 @@
     var SITUACION_LABEL = { activo:'Activo', pausa:'En pausa', externo:'Cerró por afuera', perdido:'Perdido', cerrado:'Cerrado' };
     var MESES_PAUSA = 3; // cada cuánto el sistema tantea "¿retomás a este pausado?"
 
+    // ============ CAPA AUTOMÁTICA: el PULSO del cliente ============
+    // El pulso NO es la situación (esa es humana: activo/pausa/cerrado/perdido).
+    // Es un diagnóstico de salud que el reloj calcula solo, sin cambiar nada, para
+    // priorizar. Cuatro niveles: al día → pendiente → enfriándose → dormido.
+    // El tiempo tolerado depende de la ETAPA (no es lo mismo el silencio en "nuevo"
+    // que en "cartera"), medido en días desde el último contacto.
+    //   [aviso, urgente] = días para pasar a "enfriándose" y a "dormido".
+    var PULSO_ETAPA = {
+      nuevo:        { aviso: 1,  urgente: 3  },  // atención casi inmediata
+      contactado:   { aviso: 3,  urgente: 5  },
+      seguimiento:  { aviso: 3,  urgente: 5  },
+      visita:       { aviso: 5,  urgente: 10 },  // pero si hay visita futura, no corre (ver abajo)
+      negociacion:  { aviso: 5,  urgente: 7  },
+      tasacion:     { aviso: 5,  urgente: 7  },
+      cartera:      { aviso: 15, urgente: 30 },  // el propietario no requiere charla diaria
+    };
+    var PULSO_DEFAULT = { aviso: 7, urgente: 14 };
+
+    // Devuelve el pulso: 'aldia' | 'pendiente' | 'enfriando' | 'dormido' | null.
+    // null = fuera de la lógica (pausados dentro de plazo, cerrados, perdidos).
+    function pulsoDe(c){
+      if (!c || c.archived) return null;
+      var sit = situacionDe(c);
+      if (sit === 'cerrado' || sit === 'perdido') return null;         // terminales: sin pulso
+      if (sit === 'pausa'){ return pausaVencida(c) ? 'dormido' : null; } // pausa: recién avisa al vencer
+      // Situación activa: el pulso depende de la etapa y del último contacto.
+      var etapa = c._rollupStatus;
+      if (etapa === 'singestion' || etapa === 'sinavance') etapa = 'nuevo';
+      // Regla de visita/reunión: si hay una actividad FUTURA agendada, el cliente
+      // está "al día" esperándola — el reloj no lo enfría mientras tanto.
+      if (tieneActividadFutura(c)) return 'aldia';
+      var d = c._diasSinContacto != null ? c._diasSinContacto : 9999;
+      var u = PULSO_ETAPA[etapa] || PULSO_DEFAULT;
+      if (d >= u.urgente) return 'dormido';
+      if (d >= u.aviso) return 'enfriando';
+      if (d >= Math.max(1, Math.floor(u.aviso/2))) return 'pendiente';
+      return 'aldia';
+    }
+    // ¿El cliente tiene una visita o reunión agendada a futuro? (no lo enfriamos)
+    function tieneActividadFutura(c){
+      if (typeof allVisits === 'undefined' || !allVisits) return false;
+      var hoy = new Date(); hoy.setHours(0,0,0,0);
+      for (var i=0;i<allVisits.length;i++){
+        var v = allVisits[i];
+        if (v.clientId !== c.id) continue;
+        if (!v.date) continue;
+        var d = new Date(v.date+'T00:00:00');
+        if (d >= hoy) return true; // hay algo agendado de hoy en adelante
+      }
+      return false;
+    }
+    var PULSO_INFO = {
+      aldia:     { lbl:'Al día',       dot:'#16a34a', ord:0 },
+      pendiente: { lbl:'Pendiente',    dot:'#0891b2', ord:1 },
+      enfriando: { lbl:'Enfriándose',  dot:'#d97706', ord:2 },
+      dormido:   { lbl:'Dormido',      dot:'#dc2626', ord:3 },
+    };
+
     // La situación guardada manda SALVO cuando la etapa comercial ya es terminal:
     // si el rollup dice "cerrado" o "perdido", el vínculo terminó y el cliente no
     // puede figurar "Activo" (no tendría sentido: verde "Activo" + badge "Cerrado").
     // Pausa sí se respeta siempre (es una decisión explícita de guardarlo).
+    // La SITUACIÓN ahora se DERIVA de la etapa comercial (ya no se elige a mano,
+    // salvo Pausa). Marcar la etapa Cerrado/Perdido es lo que define la situación:
+    //   etapa cerrado  -> 'cerrado'   (salvo que el humano haya marcado externo)
+    //   etapa perdido  -> 'perdido'
+    //   Pausa: única situación 100% manual (tiene fecha, no equivale a una etapa).
+    //   'externo' (cerró por afuera): decisión humana que se respeta sobre 'cerrado'.
     function situacionDe(c){
       var guardada = (c && c.situacion) || 'activo';
       if (guardada === 'pausa') return 'pausa';
       var rs = c && c._rollupStatus;
-      if (rs === 'cerrado') return (guardada==='externo'||guardada==='perdido') ? guardada : 'cerrado';
+      if (rs === 'cerrado') return (guardada === 'externo') ? 'externo' : 'cerrado';
       if (rs === 'perdido') return 'perdido';
-      return guardada;
+      return 'activo';
     }
     function esActivo(c){ return situacionDe(c) === 'activo'; }
     // Un pausado "despierta" cuando pasaron MESES_PAUSA desde la pausa o desde el último posponer.
@@ -767,16 +855,13 @@
     // Nivel de aviso por falta de contacto: null (nada), 'alerta' o 'urgente'.
     // Cerrados, perdidos, archivados y los estados de estadosSinAviso (p. ej.
     // "En cartera") nunca molestan.
+    // El banner de recontacto ahora se apoya en el PULSO (un solo sistema de tiempo):
+    // 'enfriando' pinta alerta ámbar, 'dormido' es urgente. Así el banner y los chips
+    // de las tarjetas cuentan siempre lo mismo.
     function nivelAviso(c){
-      if (!c || c.archived) return null;
-      if (!esActivo(c)) return null; // pausados, cerrados por afuera y perdidos no molestan
-      var rs = rollupStatus(c);
-      var b = statBucket(rs);
-      if (b !== 'nuevo' && b !== 'proceso') return null;
-      if (SEGUIMIENTO.estadosSinAviso.indexOf(rs) >= 0) return null;
-      var d = c._diasSinContacto || 0;
-      if (d >= SEGUIMIENTO.diasUrgente) return 'urgente';
-      if (d >= SEGUIMIENTO.diasAviso) return 'alerta';
+      var pl = pulsoDe(c);
+      if (pl === 'dormido') return 'urgente';
+      if (pl === 'enfriando') return 'alerta';
       return null;
     }
     function paraRecontactar(c){ return nivelAviso(c) !== null; }
@@ -883,7 +968,16 @@
 
     // ===== Render lista + stats =====
     function renderClients(){
-      var term = (document.getElementById('clientSearch').value||'').toLowerCase();
+      var rawTerm = (document.getElementById('clientSearch').value||'').trim();
+      // Filtro por AGENTE con "@": escribir "@ana" muestra los clientes de Ana.
+      // Puede combinarse con texto: "@ana pocitos" filtra agente + búsqueda.
+      var agenteFiltro = '';
+      var term = rawTerm.toLowerCase();
+      if (rawTerm.indexOf('@') >= 0){
+        var mAg = rawTerm.match(/@([^\s]*)/);
+        if (mAg){ agenteFiltro = (mAg[1]||'').toLowerCase(); }
+        term = rawTerm.replace(/@[^\s]*/, '').trim().toLowerCase();
+      }
       var sf = document.getElementById('clientStatusFilter').value;
       var sfSit = (document.getElementById('clientSituacionFilter')||{}).value || '';
       var inf = document.getElementById('clientInterestFilter').value;
@@ -950,8 +1044,8 @@
         if (pendientes.length && !bannerRecallSilenciado()){
           rcBox.style.display = 'flex';
           document.getElementById('crmRecallTxt').innerHTML = pendientes.length===1
-            ? '<b>1 cliente</b> lleva más de '+SEGUIMIENTO.diasAviso+' días sin contacto. Un mensaje corto puede reactivarlo.'
-            : '<b>'+pendientes.length+' clientes</b> llevan más de '+SEGUIMIENTO.diasAviso+' días sin contacto. Un mensaje corto puede reactivarlos.';
+            ? '<b>1 cliente</b> se está enfriando para su etapa. Un mensaje corto puede reactivarlo.'
+            : '<b>'+pendientes.length+' clientes</b> se están enfriando o dormidos para su etapa. Un mensaje corto puede reactivarlos.';
           var rcBtn = document.getElementById('crmRecallBtn');
           rcBtn.textContent = statFilter==='atencion' ? 'Ver todos' : 'Verlos';
           rcBtn.classList.toggle('off', statFilter==='atencion');
@@ -964,13 +1058,14 @@
       var list = clients.filter(function(c){
         var m = !term || (c.name||'').toLowerCase().indexOf(term)>=0 || (c.phone||'').indexOf(term)>=0 || (c.phoneNormalized||'').indexOf(term)>=0;
         var archMatch = arf==='all' ? true : (arf==='archived' ? !!c.archived : !c.archived);
-        var mio = !misClientesOnly || esMio(c);
+        var mio = (agenteFiltro || !misClientesOnly) || esMio(c);
+        var agMatch = !agenteFiltro || (((c.createdByName||c.ownerName||c.agentName||'').toLowerCase()).indexOf(agenteFiltro) >= 0);
         var rs = rollupStatus(c);
         var matchStatus = !sf || rs===sf || (sf==='singestion' && rs==='sinavance');
         var matchSit = !sfSit || situacionDe(c)===sfSit;
         var enEmbudo = situacionDe(c)!=='pausa' && situacionDe(c)!=='externo' && situacionDe(c)!=='perdido';
         var matchBucket = statFilter==='all' || (statFilter==='atencion' ? paraRecontactar(c) : (enEmbudo && statBucket(rs)===statFilter));
-        return m && archMatch && mio && matchStatus && matchSit && matchBucket && (!inf || c.interest===inf);
+        return m && archMatch && mio && agMatch && matchStatus && matchSit && matchBucket && (!inf || c.interest===inf);
       });
       list.sort(function(a,b){
         var am = esMio(a) ? 0 : 1, bm = esMio(b) ? 0 : 1;
@@ -1008,6 +1103,16 @@
         var actTxt = c._lastActivity ? ((nGest>0?'Última gestión ':'Creado ')+relTime(c._lastActivity)) : '';
         return '<div class="client-card'+(c.archived?' archived':'')+(sit!=='activo'?' fuera-activo':'')+'" onclick="showClientProfile(\''+c.id+'\')" style="cursor:pointer;position:relative">' +
           '<div class="client-sit-chip sit-'+sit+'" role="button" title="Cambiar situación" onclick="event.stopPropagation();abrirMenuSituacion(event,\''+c.id+'\')"><span class="dot"></span>'+(SITUACION_LABEL[sit]||sit)+(sit==='pausa'?' · desde '+relTime(c.pausadoEn||c.updatedAt||''):'')+' <i class="fas fa-chevron-down chev"></i></div>' +
+          (function(){
+            // Chip de PULSO (capa automática): solo si aporta (no en "al día", que es lo normal).
+            var pl = pulsoDe(c);
+            if (!pl || pl === 'aldia') return '';
+            var info = PULSO_INFO[pl] || {};
+            var accion = pl === 'dormido'
+              ? ' onclick="event.stopPropagation();preguntarDormido(\''+c.id+'\')" role="button" title="Este cliente necesita una decisión"'
+              : '';
+            return '<div class="client-pulso pl-'+pl+'"'+accion+'><span class="dot" style="background:'+(info.dot||'#999')+'"></span>'+info.lbl+(c._diasSinContacto!=null?' · '+c._diasSinContacto+'d':'')+'</div>';
+          })() +
           '<div class="client-card-top">' +
             '<div class="client-avatar">'+esc(ini)+'</div>' +
             '<div class="client-card-name">' +
@@ -1067,6 +1172,44 @@
       try { localStorage.setItem('crmRecallSilencio', new Date().toISOString()); } catch(e){ /* sin storage */ }
       if (statFilter==='atencion') statFilter = 'all';
       renderClients();
+    }
+
+    // ===== El cliente llegó a "dormido": el sistema PREGUNTA, no decide =====
+    // Cada opción exige una acción concreta, como pediste: mantener activo crea una
+    // próxima tarea; pausar define fecha de recontacto; perdido recién ahí ejecuta
+    // las consecuencias (que ya viven en el backend: revisar/despublicar propiedad).
+    function preguntarDormido(id){
+      cerrarStPop();
+      var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
+      if (!c) return;
+      var dias = c._diasSinContacto != null ? c._diasSinContacto : '?';
+      var ov = document.createElement('div');
+      ov.className = 'dormido-overlay';
+      ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+      ov.innerHTML = '<div class="dormido-box">' +
+        '<div class="dormido-head"><i class="fas fa-moon"></i> Cliente sin actividad</div>' +
+        '<p class="dormido-p"><b>'+esc(c.name||'Este cliente')+'</b> lleva <b>'+dias+' días</b> sin movimiento. ¿Qué querés hacer?</p>' +
+        '<button class="dormido-opt activo" onclick="dormidoMantener(\''+id+'\')"><i class="fas fa-list-check"></i><div><b>Mantenerlo activo</b><span>Agendar una tarea o visita para seguirlo</span></div></button>' +
+        '<button class="dormido-opt pausa" onclick="dormidoPausar(\''+id+'\')"><i class="fas fa-circle-pause"></i><div><b>Ponerlo en pausa</b><span>Guardarlo y recontactarlo en '+MESES_PAUSA+' meses</span></div></button>' +
+        '<button class="dormido-opt perdido" onclick="dormidoPerder(\''+id+'\')"><i class="fas fa-circle-xmark"></i><div><b>Marcarlo como perdido</b><span>Cierra el seguimiento y revisa sus propiedades</span></div></button>' +
+        '<button class="dormido-cancel" onclick="this.closest(\'.dormido-overlay\').remove()">Ahora no</button>' +
+        '</div>';
+      document.body.appendChild(ov);
+    }
+    function dormidoMantener(id){
+      var ov = document.querySelector('.dormido-overlay'); if (ov) ov.remove();
+      window.location.href = 'agenda.html?nuevoEvento=1&clientId=' + encodeURIComponent(id);
+    }
+    function dormidoPausar(id){
+      var ov = document.querySelector('.dormido-overlay'); if (ov) ov.remove();
+      aplicarSituacion(id, 'pausa');
+    }
+    function dormidoPerder(id){
+      var ov = document.querySelector('.dormido-overlay'); if (ov) ov.remove();
+      var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
+      if (!c) return;
+      if (!confirm('¿Marcar a '+(c.name||'este cliente')+' como perdido? Si es propietario de alguna propiedad publicada, el admin recibirá un aviso para revisarla.')) return;
+      aplicarCambioEstado(id, 'perdido');
     }
 
     // Botón del banner de pausa: filtra la vista a los clientes en pausa.
@@ -1165,19 +1308,26 @@
       if (!c) return;
       var sitActual = situacionDe(c);
       var pop = document.createElement('div'); pop.className = 'st-pop';
-      // Si está "cerrado" por etapa terminal, la situación no se elige libremente:
-      // para reactivarlo hay que cambiar la etapa comercial (desde el otro menú).
-      if (sitActual === 'cerrado'){
-        pop.innerHTML = '<div class="st-pop-hint">Este cliente tiene una operación cerrada con la agencia. Para reactivarlo, cambiá su <b>etapa comercial</b> desde la etiqueta de la derecha.</div>';
-        _posicionarPop(pop, ev);
-        _stPopEl = pop; _stPopId = 'si'+id;
-        return;
+      // La situación DERIVA de la etapa; acá solo se manejan los matices manuales.
+      if (sitActual === 'cerrado' || sitActual === 'externo'){
+        pop.innerHTML = '<div class="st-pop-hint">La operación está cerrada. Para reactivar al cliente, cambiá su <b>etapa comercial</b> desde la etiqueta de la derecha.</div>' +
+          '<button type="button" class="'+(sitActual==='externo'?'sel':'')+'" onclick="aplicarSituacion(\''+id+'\',\''+(sitActual==='externo'?'cerrado_agencia':'externo')+'\')"><span class="dot" style="background:#64748b"></span>'+(sitActual==='externo'?'Fue cierre de la agencia':'Marcar: cerró por afuera')+'</button>';
+        _posicionarPop(pop, ev); _stPopEl = pop; _stPopId = 'si'+id; return;
       }
-      pop.innerHTML = '<div class="st-pop-sep" style="border-top:none;margin-top:0">Situación</div>' + Object.keys(SITUACION).map(function(k){
-        return '<button type="button" class="'+(k===sitActual?'sel':'')+'" onclick="aplicarSituacion(\''+id+'\',\''+k+'\')"><span class="dot" style="background:'+(SITUACION_DOT[k]||'#94a3b8')+'"></span>'+SITUACION[k]+'</button>';
-      }).join('');
-      _posicionarPop(pop, ev);
-      _stPopEl = pop; _stPopId = 'si'+id;
+      if (sitActual === 'perdido'){
+        pop.innerHTML = '<div class="st-pop-hint">Cliente perdido. Para reactivarlo, cambiá su <b>etapa comercial</b> desde la etiqueta de la derecha.</div>';
+        _posicionarPop(pop, ev); _stPopEl = pop; _stPopId = 'si'+id; return;
+      }
+      // Activo o Pausa: se puede pausar/reactivar a mano (Pausa no deriva de etapa).
+      var items = '';
+      if (sitActual === 'pausa'){
+        items = '<button type="button" onclick="aplicarSituacion(\''+id+'\',\'activo\')"><span class="dot" style="background:#16a34a"></span>Reactivar (quitar pausa)</button>';
+      } else {
+        items = '<button type="button" onclick="aplicarSituacion(\''+id+'\',\'pausa\')"><span class="dot" style="background:#d97706"></span>Poner en pausa</button>';
+      }
+      pop.innerHTML = '<div class="st-pop-sep" style="border-top:none;margin-top:0">Situación</div>' +
+        '<div class="st-pop-hint" style="margin:0 0 4px">Activo, Cerrado y Perdido salen solos de la etapa comercial. Acá solo se gestiona la pausa.</div>' + items;
+      _posicionarPop(pop, ev); _stPopEl = pop; _stPopId = 'si'+id;
     }
 
     function aplicarCambioEstado(id, nuevo){
@@ -1228,14 +1378,17 @@
       var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
       if (!c) return;
       var ahora = new Date().toISOString();
-      var upd = { situacion: nueva, updatedAt: ahora };
+      // 'cerrado_agencia' = revertir el matiz "externo": vuelve a ser cierre normal.
+      // Se guarda situacion vacía (deriva de la etapa cerrada) borrando 'externo'.
+      var valorGuardado = (nueva === 'cerrado_agencia') ? firebase.firestore.FieldValue.delete() : nueva;
+      var upd = { situacion: valorGuardado, updatedAt: ahora };
       if (nueva === 'pausa'){ upd.pausadoEn = ahora; upd.pausaSnoozeUntil = firebase.firestore.FieldValue.delete(); }
       else { upd.pausadoEn = firebase.firestore.FieldValue.delete(); upd.pausaSnoozeUntil = firebase.firestore.FieldValue.delete(); }
       db.collection('clients').doc(id).update(upd).then(function(){
-        c.situacion = nueva;
+        if (nueva === 'cerrado_agencia') delete c.situacion; else c.situacion = nueva;
         if (nueva === 'pausa') c.pausadoEn = ahora; else { delete c.pausadoEn; delete c.pausaSnoozeUntil; }
         renderClients();
-        var msg = nueva==='activo' ? 'Cliente reactivado' : nueva==='pausa' ? 'Cliente en pausa — vuelve a avisar en '+MESES_PAUSA+' meses' : nueva==='externo' ? 'Marcado como cerrado por afuera' : 'Marcado como perdido';
+        var msg = nueva==='activo' ? 'Cliente reactivado' : nueva==='pausa' ? 'Cliente en pausa — vuelve a avisar en '+MESES_PAUSA+' meses' : nueva==='externo' ? 'Marcado como cerrado por afuera' : nueva==='cerrado_agencia' ? 'Marcado como cierre de la agencia' : 'Situación actualizada';
         showToast(msg);
       }).catch(function(e){
         console.error('No se pudo cambiar la situación:', e);
@@ -1540,7 +1693,7 @@
         '<div class="cp-grow-foot">' +
           '<div class="cp-inline-sel"><label>Avance</label><select onchange="cambiarEstadoGestion(\''+g.id+'\', this.value)">'+optsGestion+'</select></div>' +
           (prop
-            ? '<div class="cp-inline-sel"><label>Propiedad</label><select'+propDisabled+' onchange="cambiarEstadoPropiedad(\''+g.propertyId+'\', this.value)">'+optsProp+'</select></div>'
+            ? '<div class="cp-inline-sel"><label>Propiedad</label><select'+propDisabled+' onchange="cambiarEstadoPropiedad(\''+g.propertyId+'\', this.value)">'+optsProp+'</select></div>' + ((prop && prop.despubPendiente) ? '<span class="despub-pend" title="Un propietario perdido: el admin decide desde la campanita si se despublica"><i class="fas fa-hourglass-half"></i> despublicación pendiente</span>' : '')
             : '<span class="cp-grow-noprop"><i class="fas fa-circle-info"></i> Propiedad no encontrada</span>') +
           (function(){ var _rg = rolDeGestion(g); return '<span class="g-rol '+_rg+'" title="Rol del cliente en esta gestión (se cambia con el lápiz)">'+(_rg==='propietario'?'Propietario':'Interesado')+'</span>'; })() +
           '<span class="cp-grow-agent"><i class="fas fa-user-tie"></i> '+esc(g.agentName||'Agente')+'</span>' +
@@ -1661,17 +1814,97 @@
     }
 
     // Cambiar el avance de la gestión (rápido, desde la tarjeta)
+    // ============ SINCRONIZACIÓN AVANCE <-> PROPIEDAD (lógica sólida) ============
+    // Los dos selectores del perfil no pueden contradecirse. Reglas:
+    //   AVANCE -> Cerrado ............. la propiedad pasa sola a Vendida/Alquilada
+    //                                   (trigger del backend: contrato si es alquiler).
+    //   AVANCE -> Perdido (propietario) aviso al admin para confirmar despublicación;
+    //                                   mientras, el selector muestra "pendiente".
+    //   AVANCE -> Perdido (interesado)  si la propiedad estaba Reservada, se ofrece
+    //                                   liberar la reserva (probablemente era suya).
+    //   PROPIEDAD -> Disponible con gestión Cerrada  = la operación se cayó:
+    //                                   se reabre la gestión junto con la propiedad.
+    //   PROPIEDAD -> Disponible con propietario Perdido = el dueño volvió:
+    //                                   se reactiva la gestión (En cartera).
+    //   PROPIEDAD -> Vendida/Alquilada con gestión abierta: se pregunta si el cierre
+    //                                   fue con ESTE cliente -> se cierra la GESTIÓN
+    //                                   (el camino correcto) y todo se sincroniza.
+    function refrescarPropiedad(pid){
+      // El backend mueve la propiedad con un pequeño retraso (trigger): esta
+      // relectura hace que el selector muestre el estado real sin recargar.
+      db.collection('properties').doc(pid).get().then(function(d){
+        if (!d.exists) return;
+        var data = Object.assign({ id: d.id }, d.data());
+        var i = -1; for (var k=0;k<allProperties.length;k++){ if (allProperties[k].id===pid){ i=k; break; } }
+        if (i>=0) allProperties[i] = data; else allProperties.push(data);
+        if (currentProfileId) renderGestiones(currentProfileId);
+      }).catch(function(){});
+    }
+
     function cambiarEstadoGestion(gestionId, nuevo){
       var quien = (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente';
-      var entrada = { tipo:'avance', valor: GESTION_ESTADO[nuevo]||nuevo, autor: quien, fecha: new Date().toISOString() };
-      db.collection('gestiones').doc(gestionId).update({
-        estadoGestion: nuevo,
-        updatedAt: new Date().toISOString(),
-        historial: firebase.firestore.FieldValue.arrayUnion(entrada)
-      })
-        .then(function(){ showToast('Avance actualizado'); if(currentProfileId) renderGestiones(currentProfileId); })
-        .catch(function(e){ showToast('No se pudo actualizar'); console.error(e); });
+      db.collection('gestiones').doc(gestionId).get().then(function(gd){
+        if (!gd.exists){ showToast('No se encontró la gestión'); return; }
+        var g = Object.assign({ id: gd.id }, gd.data());
+        var anterior = g.estadoGestion || 'nuevo';
+        var prop = null; for (var k=0;k<allProperties.length;k++){ if (allProperties[k].id===g.propertyId){ prop = allProperties[k]; break; } }
+        var rol = rolDeGestion(g);
+
+        // Interesado perdido con propiedad Reservada: la reserva probablemente
+        // era suya. Se ofrece liberarla para que vuelva al mercado.
+        if (nuevo === 'perdido' && rol === 'interesado' && prop && prop.status === 'reserved'){
+          if (confirm('La propiedad está RESERVADA. ¿La reserva era de este cliente?\n\nAceptar: vuelve a Disponible.\nCancelar: la reserva queda como está.')){
+            db.collection('properties').doc(prop.id).update({ status: 'available', updatedAt: new Date().toISOString() })
+              .then(function(){ prop.status = 'available'; if (currentProfileId) renderGestiones(currentProfileId); }).catch(function(){});
+          }
+        }
+
+        var entrada = { tipo:'avance', valor: GESTION_ESTADO[nuevo]||nuevo, autor: quien, fecha: new Date().toISOString() };
+        db.collection('gestiones').doc(gestionId).update({
+          estadoGestion: nuevo,
+          updatedAt: new Date().toISOString(),
+          historial: firebase.firestore.FieldValue.arrayUnion(entrada)
+        }).then(function(){
+          if (nuevo === 'cerrado' && prop && (prop.status === 'available' || prop.status === 'reserved')){
+            showToast('Gestión cerrada', 'La propiedad pasa sola a ' + (prop.type === 'rent' ? 'Alquilada (pide el contrato)' : 'Vendida'));
+          } else if (nuevo === 'perdido' && rol === 'propietario' && prop && (prop.status === 'available' || prop.status === 'reserved')){
+            showToast('Propietario perdido', 'El admin va a confirmar si se despublica su propiedad');
+          } else if (anterior === 'cerrado' && nuevo !== 'cerrado' && prop && (prop.status === 'sold' || prop.status === 'rented')){
+            showToast('Gestión reabierta', 'Si la operación se cayó, la propiedad vuelve sola a Disponible');
+          } else {
+            showToast('Avance actualizado');
+          }
+          if (currentProfileId) renderGestiones(currentProfileId);
+          // Dar tiempo al trigger del backend y releer la propiedad para que el
+          // selector PROPIEDAD refleje el estado real sin recargar la página.
+          if (g.propertyId && (nuevo === 'cerrado' || nuevo === 'perdido' || anterior === 'cerrado')){
+            setTimeout(function(){ refrescarPropiedad(g.propertyId); }, 2200);
+          }
+        }).catch(function(e){ showToast('No se pudo actualizar'); console.error(e); });
+      }).catch(function(e){ showToast('No se pudo leer la gestión'); console.error(e); });
     }
+
+    // Escritura directa del estado de la propiedad + historial en sus gestiones.
+    function escribirEstadoPropiedad(propId, nuevo){
+      db.collection('properties').doc(propId).update({ status: nuevo, updatedAt: new Date().toISOString() })
+        .then(function(){
+          var p = null; for (var k=0;k<allProperties.length;k++){ if (allProperties[k].id===propId){ p = allProperties[k]; break; } }
+          if (p) p.status = nuevo;
+          showToast('Estado de la propiedad actualizado');
+          var quien = (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente';
+          var entrada = { tipo:'propiedad', valor: PROP_STATUS[nuevo]||nuevo, autor: quien, fecha: new Date().toISOString() };
+          if (currentProfileId){
+            db.collection('gestiones').where('clientId','==',currentProfileId).where('propertyId','==',propId).get().then(function(q){
+              q.docs.forEach(function(d){
+                db.collection('gestiones').doc(d.id).update({ historial: firebase.firestore.FieldValue.arrayUnion(entrada) }).catch(function(){});
+              });
+            }).catch(function(){});
+            renderGestiones(currentProfileId);
+          }
+        })
+        .catch(function(e){ showToast('No se pudo actualizar la propiedad'); console.error(e); });
+    }
+
     // Cambiar el estado de la PROPIEDAD (afecta a todas las gestiones de esa propiedad)
     function cambiarEstadoPropiedad(propId, nuevo){
       // Vendida/Alquilada implican pago, puntos y baja del aviso: se registran en el
@@ -1681,24 +1914,43 @@
         if (currentProfileId) renderGestiones(currentProfileId);
         return;
       }
-      db.collection('properties').doc(propId).update({ status: nuevo })
-        .then(function(){
-          // actualizar cache local
-          var p = allProperties.find(function(x){ return x.id===propId; });
-          if (p) p.status = nuevo;
-          showToast('Estado de la propiedad actualizado');
-          // Registrar en el historial de las gestiones de esa propiedad que esté abiertas
-          var quien = (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente';
-          var entrada = { tipo:'propiedad', valor: PROP_STATUS[nuevo]||nuevo, autor: quien, fecha: new Date().toISOString() };
-          if (currentProfileId){
-            db.collection('gestiones').where('clientId','==',currentProfileId).where('propertyId','==',propId).get().then(function(q){
-              q.docs.forEach(function(d){
-                db.collection('gestiones').doc(d.id).update({ historial: firebase.firestore.FieldValue.arrayUnion(entrada) }).catch(function(){});
-              });
-            }).catch(function(){});
+      var seguir = function(){ escribirEstadoPropiedad(propId, nuevo); };
+      if (!currentProfileId){ seguir(); return; }
+      // La coherencia se evalúa contra la gestión de ESTE cliente con la propiedad.
+      db.collection('gestiones').where('clientId','==',currentProfileId).where('propertyId','==',propId).get().then(function(q){
+        var g = null; q.docs.forEach(function(d){ if (!g) g = Object.assign({ id: d.id }, d.data()); });
+        var est = g ? (g.estadoGestion || 'nuevo') : null;
+        var rol = g ? rolDeGestion(g) : null;
+
+        // 1) Gestión CERRADA + volver a Disponible = contradicción. Solo tiene
+        //    sentido si la operación se cayó: se reabre TODO junto, nunca a medias.
+        if (nuevo === 'available' && est === 'cerrado'){
+          if (confirm('La gestión con este cliente está CERRADA. ¿Se cayó la operación?\n\nAceptar: la gestión se reabre (vuelve a "En negociación") y la propiedad queda Disponible.\nCancelar: no se cambia nada.')){
+            cambiarEstadoGestion(g.id, 'negociacion');
+            escribirEstadoPropiedad(propId, 'available');
+          } else if (currentProfileId) renderGestiones(currentProfileId);
+          return;
+        }
+        // 2) PROPIETARIO perdido + volver a Disponible = el dueño volvió a la agencia.
+        if (nuevo === 'available' && est === 'perdido' && rol === 'propietario'){
+          if (confirm('Este propietario figura PERDIDO. ¿Volvió a trabajar con la agencia?\n\nAceptar: la gestión se reactiva (En cartera) y la propiedad queda Disponible.\nCancelar: no se cambia nada (la despublicación la decide el admin desde la campanita).')){
+            db.collection('properties').doc(propId).update({ despubPendiente: firebase.firestore.FieldValue.delete() }).catch(function(){});
+            cambiarEstadoGestion(g.id, 'cartera');
+            escribirEstadoPropiedad(propId, 'available');
+          } else if (currentProfileId) renderGestiones(currentProfileId);
+          return;
+        }
+        // 3) Vendida/Alquilada con la gestión abierta: si el cierre fue con ESTE
+        //    cliente, el camino correcto es cerrar la GESTIÓN (propiedad, contrato
+        //    de alquiler y estadísticas se sincronizan de una sola vez).
+        if ((nuevo === 'sold' || nuevo === 'rented') && g && est !== 'cerrado' && est !== 'perdido'){
+          if (confirm('¿Esta operación la cerró la agencia con ESTE cliente?\n\nAceptar: la gestión pasa a Cerrado y todo se sincroniza solo (propiedad, y contrato si es alquiler).\nCancelar: solo cambia el estado de la propiedad (ej.: se cerró con otro cliente).')){
+            cambiarEstadoGestion(g.id, 'cerrado');
+            return;
           }
-        })
-        .catch(function(e){ showToast('No se pudo actualizar la propiedad'); console.error(e); });
+        }
+        seguir();
+      }).catch(function(){ seguir(); });
     }
 
     // ===== Modal de gestión =====

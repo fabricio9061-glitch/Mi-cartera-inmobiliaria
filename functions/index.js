@@ -2308,7 +2308,14 @@ exports.feedInfocasas = onRequest(async (req, res) => {
 // asignado (cargas viejas) se le avisan al admin.
 // Mantener RECORDATORIO_DIAS igual a SEGUIMIENTO.diasAviso de clientes.html.
 // =====================================================================
-const RECORDATORIO_DIAS = 14;
+const RECORDATORIO_DIAS = 14; // umbral por defecto para etapas sin regla propia
+
+// Umbral de silencio tolerado POR ETAPA — espejo del PULSO_ETAPA de clientes.html.
+// No es lo mismo el silencio en "nuevo" (urge contactar) que en "cartera" (la
+// propiedad ya está captada). El aviso salta cuando el silencio supera el umbral
+// de la etapa. Nota: la excepción por visita futura agendada solo la aplica el
+// front (acá no cargamos la agenda para mantener el scheduler liviano).
+const UMBRAL_ETAPA = { nuevo: 1, contactado: 3, seguimiento: 3, visita: 5, negociacion: 5, tasacion: 5, cartera: 15 };
 
 exports.recordatorioSeguimiento = onSchedule(
   { schedule: "0 10 * * 1,4", timeZone: "America/Montevideo" },
@@ -2360,7 +2367,8 @@ exports.recordatorioSeguimiento = onSchedule(
       const ts = [(a && a.ts) || "", c.updatedAt || "", c.createdAt || ""].sort().pop();
       const t = new Date(ts).getTime();
       const dias = isNaN(t) ? 9999 : Math.floor((ahora - t) / 86400000);
-      if (dias < RECORDATORIO_DIAS) return;
+      const umbral = UMBRAL_ETAPA[estado] != null ? UMBRAL_ETAPA[estado] : RECORDATORIO_DIAS;
+      if (dias < umbral) return;
       const uid = c.createdBy || c.agentId || c.ownerId || "__sin_agente__";
       (porAgente[uid] = porAgente[uid] || []).push({ name: c.name || "Sin nombre", dias });
     });
