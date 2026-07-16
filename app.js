@@ -1010,12 +1010,18 @@
   async function confirmarDespublicacion(ev, nid, pid) {
     ev.stopPropagation();
     try {
-      await db.collection('properties').doc(pid).update({
+      // Si el aviso vino de un "cerró por afuera", lo registramos en la propiedad
+      // como motivo del archivado — así queda la memoria de por qué se dio de baja.
+      const n0 = notifications.find(x => x.id === nid);
+      const fueExterno = n0 && /afuera/i.test(n0.text || '');
+      const upd = {
         status: 'archived',
         despubPendiente: firebase.firestore.FieldValue.delete(),
         archivedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      });
+      };
+      if (fueExterno) { upd.motivoBaja = 'cerro_externo'; upd.motivoBajaTexto = 'Cerró por afuera de la agencia'; }
+      await db.collection('properties').doc(pid).update(upd);
       await db.collection('notifications').doc(nid).update({ handled: true, resultado: 'despublicada', read: true });
       const n = notifications.find(x => x.id === nid); if (n) { n.handled = true; n.resultado = 'despublicada'; n.read = true; }
       const p = properties.find(x => x.id === pid); if (p) p.status = 'archived';

@@ -372,6 +372,9 @@
     .g-rol{ font-size:.66rem; font-weight:700; padding:2px 8px; border-radius:999px; letter-spacing:.02em; }
     .g-rol.propietario{ background:#fdf6e3; color:#8a6d1a; border:1px solid #ecd9a0; }
     .g-rol.interesado{ background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+    .cp-sello-externo{ margin-top:8px; padding:9px 12px; background:#f1f5f9; border:1px solid #cbd5e1; border-left:3px solid #64748b; border-radius:8px; font-size:.8rem; color:#475569; display:flex; align-items:center; gap:8px; }
+    .cp-sello-externo i{ color:#64748b; }
+    .cp-sello-externo b{ color:#334155; }
     .despub-pend{ font-size:.66rem; font-weight:700; color:#b45309; background:#fffbeb; border:1px solid #fde68a; border-radius:999px; padding:2px 9px; display:inline-flex; align-items:center; gap:5px; margin-left:6px; }
     .cp-grow.migrar{ border-style:dashed; }
     .cp-grow.migrar .cp-grow-foot{ background:#fdfbf3; }
@@ -1206,7 +1209,51 @@
     }
     function dormidoMantener(id){
       var ov = document.querySelector('.dormido-overlay'); if (ov) ov.remove();
+      var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
+      if (!c) return;
+      // Segundo paso: agendar algo (deja rastro en el calendario) o solo mantenerlo
+      // activo (silencia el aviso reiniciando el pulso, sin agendar nada).
+      var ov2 = document.createElement('div');
+      ov2.className = 'dormido-overlay';
+      ov2.onclick = function(e){ if (e.target === ov2) ov2.remove(); };
+      ov2.innerHTML = '<div class="dormido-box">' +
+        '<div class="dormido-head"><i class="fas fa-list-check" style="color:#16a34a"></i> Mantener activo</div>' +
+        '<p class="dormido-p">¿Cómo querés seguir a <b>'+esc(c.name||'este cliente')+'</b>?</p>' +
+        '<button class="dormido-opt activo" onclick="dormidoAgendar(\''+id+'\')"><i class="fas fa-calendar-plus"></i><div><b>Agendar una tarea o visita</b><span>Queda un recordatorio en el calendario</span></div></button>' +
+        '<button class="dormido-opt" onclick="dormidoSoloActivo(\''+id+'\')"><i class="fas fa-check-double" style="color:#0891b2"></i><div><b>Solo mantenerlo activo</b><span>Ya lo contactaste — silencia el aviso sin agendar nada</span></div></button>' +
+        '<button class="dormido-cancel" onclick="this.closest(\'.dormido-overlay\').remove()">Volver</button>' +
+        '</div>';
+      document.body.appendChild(ov2);
+    }
+    function dormidoAgendar(id){
+      var ov = document.querySelector('.dormido-overlay'); if (ov) ov.remove();
       window.location.href = 'agenda.html?nuevoEvento=1&clientId=' + encodeURIComponent(id);
+    }
+    // Solo mantener activo: registra un "contacto" que reinicia el pulso (queda al
+    // día) sin crear evento. Lo hace tocando la gestión que manda (actualiza su
+    // fecha) o, si no hay gestiones, el propio cliente.
+    function dormidoSoloActivo(id){
+      var ov = document.querySelector('.dormido-overlay'); if (ov) ov.remove();
+      var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
+      if (!c) return;
+      var quien = (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente';
+      var ahora = new Date().toISOString();
+      var nota = { tipo:'nota', valor:'Contacto registrado (se mantiene activo)', autor: quien, fecha: ahora };
+      var gid = c._gestionPrincipal || null;
+      var done = function(){
+        c._lastActivity = ahora; c._diasSinContacto = 0;
+        renderClients();
+        showToast('Cliente al día', 'Se registró el contacto; el aviso se silencia');
+      };
+      if (gid){
+        db.collection('gestiones').doc(gid).update({ updatedAt: ahora, historial: firebase.firestore.FieldValue.arrayUnion(nota) })
+          .then(done).catch(function(e){ console.error(e); showToast('No se pudo registrar'); });
+      } else {
+        // Sin gestiones: marco el contacto en el propio cliente.
+        db.collection('clients').doc(id).update({ updatedAt: ahora, ultimoContacto: ahora })
+          .then(function(){ c.updatedAt = ahora; c.ultimoContacto = ahora; done(); })
+          .catch(function(e){ console.error(e); showToast('No se pudo registrar'); });
+      }
     }
     function dormidoPausar(id){
       var ov = document.querySelector('.dormido-overlay'); if (ov) ov.remove();
@@ -1705,7 +1752,20 @@
           visitasGestionHtml(g) +
         '</div>' +
         contratoGestionHtml(prop, g) +
+        selloExternoHtml(g) +
       '</div>';
+    }
+    // Sello de memoria: cuando la gestión se cerró por afuera, queda registrado
+    // de forma visible con la fecha. La propiedad se despublica (con confirmación
+    // del admin), pero la HISTORIA de esta operación queda para siempre acá.
+    function selloExternoHtml(g){
+      if ((g.estadoGestion||'') !== 'externo') return '';
+      var fecha = '';
+      if (Array.isArray(g.historial)){
+        for (var i=g.historial.length-1;i>=0;i--){ var h=g.historial[i]; if (h && h.tipo==='avance' && (h.valor==='Cerró por afuera')){ fecha = h.fecha; break; } }
+      }
+      var f = fecha ? new Date(fecha).toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'}) : '';
+      return '<div class="cp-sello-externo"><i class="fas fa-arrow-right-from-bracket"></i> <b>Cerró por afuera</b> — la operación se concretó sin la agencia'+(f?' · '+f:'')+'</div>';
     }
     // Fila de contrato: aparece cuando la propiedad de la gestión está ALQUILADA.
     // Si no tiene contrato vigente, invita a cargarlo; si lo tiene, muestra el
@@ -1872,6 +1932,10 @@
         }).then(function(){
           if (nuevo === 'cerrado' && prop && (prop.status === 'available' || prop.status === 'reserved')){
             showToast('Gestión cerrada', 'La propiedad pasa sola a ' + (prop.type === 'rent' ? 'Alquilada (pide el contrato)' : 'Vendida'));
+          } else if (nuevo === 'externo' && rol === 'propietario' && prop && (prop.status === 'available' || prop.status === 'reserved')){
+            showToast('Cerró por afuera', 'Esta propiedad queda registrada; el admin confirma darla de baja de los portales');
+          } else if (nuevo === 'externo'){
+            showToast('Cerró por afuera', 'Quedó registrado en esta gestión');
           } else if (nuevo === 'perdido' && rol === 'propietario' && prop && (prop.status === 'available' || prop.status === 'reserved')){
             showToast('Propietario perdido', 'El admin va a confirmar si se despublica su propiedad');
           } else if (anterior === 'cerrado' && nuevo !== 'cerrado' && prop && (prop.status === 'sold' || prop.status === 'rented')){
@@ -1882,7 +1946,7 @@
           if (currentProfileId) renderGestiones(currentProfileId);
           // Dar tiempo al trigger del backend y releer la propiedad para que el
           // selector PROPIEDAD refleje el estado real sin recargar la página.
-          if (g.propertyId && (nuevo === 'cerrado' || nuevo === 'perdido' || anterior === 'cerrado')){
+          if (g.propertyId && (nuevo === 'cerrado' || nuevo === 'perdido' || nuevo === 'externo' || anterior === 'cerrado')){
             setTimeout(function(){ refrescarPropiedad(g.propertyId); }, 2200);
           }
         }).catch(function(e){ showToast('No se pudo actualizar'); console.error(e); });
