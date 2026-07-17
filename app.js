@@ -1017,6 +1017,7 @@
       const upd = {
         status: 'archived',
         despubPendiente: firebase.firestore.FieldValue.delete(),
+        statusPrevioDespub: firebase.firestore.FieldValue.delete(),
         archivedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -1034,11 +1035,23 @@
   async function mantenerPublicada(ev, nid, pid) {
     ev.stopPropagation();
     try {
-      await db.collection('properties').doc(pid).update({ despubPendiente: firebase.firestore.FieldValue.delete(), updatedAt: new Date().toISOString() });
+      // La propiedad había tomado el estado terminal (cerró por afuera) al pedir la
+      // baja; si el admin decide mantenerla, se restaura su estado de publicación.
+      const p = properties.find(x => x.id === pid);
+      const previo = (p && p.statusPrevioDespub) || 'available';
+      await db.collection('properties').doc(pid).update({
+        status: previo,
+        despubPendiente: firebase.firestore.FieldValue.delete(),
+        statusPrevioDespub: firebase.firestore.FieldValue.delete(),
+        motivoBaja: firebase.firestore.FieldValue.delete(),
+        motivoBajaTexto: firebase.firestore.FieldValue.delete(),
+        updatedAt: new Date().toISOString()
+      });
+      if (p) p.status = previo;
       await db.collection('notifications').doc(nid).update({ handled: true, resultado: 'mantenida', read: true });
       const n = notifications.find(x => x.id === nid); if (n) { n.handled = true; n.resultado = 'mantenida'; n.read = true; }
       renderNotifications();
-      showToast('Se mantiene publicada', '', 'fa-check');
+      showToast('Se mantiene publicada', 'Vuelve a su estado anterior', 'fa-check');
     } catch (e) { console.error(e); showToast('No se pudo guardar', '', 'fa-exclamation-triangle'); }
   }
   async function handleCrmNotifClick(ni) {
@@ -1304,7 +1317,7 @@
   function mlSeccionInfocasas() {
     const p = properties.find(pr => pr.id === mlModalPropId);
     if (!p) return '';
-    const EST = { tasacion: 'Pendiente de tasación', tasado: 'Tasada', reserved: 'Reservada', sold: 'Vendida', rented: 'Alquilada', archived: 'Archivada' };
+    const EST = { tasacion: 'Pendiente de tasación', tasado: 'Tasada', reserved: 'Reservada', sold: 'Vendida', rented: 'Alquilada', cerrado_externo: 'Cerró por afuera', archived: 'Dada de baja' };
     let motivo = '';
     if (p.cierreConfirmado === true) motivo = 'tiene un cierre confirmado';
     else if (p.status && p.status !== 'available') motivo = 'está en estado "' + (EST[p.status] || p.status) + '" y solo las disponibles van al feed';

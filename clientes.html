@@ -1529,7 +1529,7 @@
     // ===== Propiedades del cliente (Etapa 3) =====
     function fmtPrice(p, c){ return (c==='UYU'?'$U':'US$') + ' ' + (p||0).toLocaleString('es-UY'); }
     function locStr(p){ return (p.ciudad && p.departamento) ? (p.ciudad+', '+p.departamento) : (p.location||'Uruguay'); }
-    var PROP_STATUS = { tasacion:'Pendiente de tasación', tasado:'Tasado', available:'Disponible', reserved:'Reservada', sold:'Vendida', rented:'Alquilada' };
+    var PROP_STATUS = { tasacion:'Pendiente de tasación', tasado:'Tasado', available:'Disponible', reserved:'Reservada', sold:'Vendida', rented:'Alquilada', cerrado_externo:'Cerró por afuera', archived:'Dada de baja' };
     var GESTION_ESTADO = { nuevo:'Nuevo', contactado:'Contactado', seguimiento:'En seguimiento', visita:'Visita agendada', negociacion:'En negociación', cartera:'En cartera', cerrado:'Cerrado', externo:'Cerró por afuera', perdido:'Perdido' };
     var GESTION_INTERES = { comprar:'Comprar', alquilar:'Alquilar', vender:'Vender' };
     var allProperties = []; // cache de propiedades para el selector
@@ -1692,7 +1692,7 @@
     }
 
     // Colores del chip de estado de la propiedad
-    var PROP_STATUS_COL = { tasacion:'#8a6d12', tasado:'#b45309', available:'#1e7d4f', reserved:'#7c3aed', sold:'#c0392b', rented:'#2563eb' };
+    var PROP_STATUS_COL = { tasacion:'#8a6d12', tasado:'#b45309', available:'#1e7d4f', reserved:'#7c3aed', sold:'#c0392b', rented:'#2563eb', cerrado_externo:'#64748b', archived:'#94a3b8' };
 
     // Fila de gestión compacta: miniatura + info en una línea; selectores y visitas
     // debajo en franja tenue. Editar abre la FICHA de la propiedad.
@@ -1711,11 +1711,22 @@
       // de cierres. Si ya está cerrada, se muestra bloqueada.
       var estadosProp = isAdmin ? ['tasacion','tasado','available','reserved','sold','rented']
                                 : ['tasacion','tasado','available','reserved'];
-      var propCerrada = (estadoProp==='sold' || estadoProp==='rented');
-      var optsProp = estadosProp.map(function(k){
-        return '<option value="'+k+'"'+(estadoProp===k?' selected':'')+'>'+PROP_STATUS[k]+'</option>';
-      }).join('');
-      if (!isAdmin && propCerrada) optsProp = '<option value="'+estadoProp+'" selected>'+PROP_STATUS[estadoProp]+'</option>';
+      // Estados TERMINALES de propiedad (cerró por afuera / perdida / dada de baja):
+      // no se eligen a mano, los pone el flujo de la gestión. Si la propiedad ya
+      // está en uno, se muestra ese estado (bloqueado) para que el selector no
+      // mienta diciendo "Pendiente de tasación".
+      var TERMINALES_PROP = ['sold','rented','cerrado_externo','archived'];
+      var propCerrada = TERMINALES_PROP.indexOf(estadoProp) >= 0;
+      var optsProp;
+      if (propCerrada){
+        // Mostrar el estado terminal actual; el admin además puede reabrir a Disponible.
+        optsProp = '<option value="'+estadoProp+'" selected>'+(PROP_STATUS[estadoProp]||estadoProp)+'</option>';
+        if (isAdmin) optsProp += '<option value="available">'+PROP_STATUS.available+'</option>';
+      } else {
+        optsProp = estadosProp.map(function(k){
+          return '<option value="'+k+'"'+(estadoProp===k?' selected':'')+'>'+PROP_STATUS[k]+'</option>';
+        }).join('');
+      }
       var propDisabled = (!isAdmin && propCerrada) ? ' disabled' : '';
 
       // Editar -> ficha técnica de la propiedad. Sin propiedad, edita la gestión.

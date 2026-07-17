@@ -2592,7 +2592,7 @@ function rolGestionInferido(g, cliente) {
 // baja solo. Se le manda al admin una confirmación con botones (campanita + push);
 // hasta que él decida, la propiedad se mantiene ("lo publicado se asume con permiso").
 // El flag despubPendiente evita duplicar el pedido si varios eventos coinciden.
-async function pedirConfirmacionDespublicar(propId, quienNombre, motivoTexto) {
+async function pedirConfirmacionDespublicar(propId, quienNombre, motivoTexto, tipoTerminal) {
   const ref = db.collection("properties").doc(propId);
   const snap = await ref.get();
   if (!snap.exists) return;
@@ -2613,7 +2613,14 @@ async function pedirConfirmacionDespublicar(propId, quienNombre, motivoTexto) {
     title: "🏠 Confirmá una despublicación",
     body: `${p.title || "Una propiedad"} — el propietario ${motivoTexto}`,
   });
-  await ref.update({ despubPendiente: true });
+  // La propiedad toma YA su estado terminal (para que el selector no muestre algo
+  // sin sentido como "Pendiente de tasación"), guardando cuál era su estado de
+  // publicación por si el admin decide mantenerla. Sigue en los portales hasta
+  // que el admin confirme la baja desde la campanita.
+  const upd = { despubPendiente: true, statusPrevioDespub: p.status || "available" };
+  if (tipoTerminal === "externo") { upd.status = "cerrado_externo"; upd.motivoBaja = "cerro_externo"; upd.motivoBajaTexto = "Cerró por afuera de la agencia"; }
+  else if (tipoTerminal === "perdido") { upd.status = "cerrado_externo"; upd.motivoBaja = "propietario_perdido"; upd.motivoBajaTexto = "Propietario perdido"; }
+  await ref.update(upd);
   logger.info(`[despublicar?] ${propId}: pedido de confirmación al admin (${motivoTexto}).`);
 }
 
@@ -2677,7 +2684,8 @@ exports.sincronizarPropiedadAlCerrarGestion = onDocumentUpdated("gestiones/{gid}
     } catch (e) { /* sin datos del cliente */ }
     if (rolGestionInferido(ahora, cliente) === "propietario") {
       const motivo = estAhora === "externo" ? "cerró la operación por afuera" : "se marcó como perdido";
-      await pedirConfirmacionDespublicar(pid, (cliente && cliente.name) || ahora.clientName || "El propietario", motivo);
+      const tipoT = estAhora === "externo" ? "externo" : "perdido";
+      await pedirConfirmacionDespublicar(pid, (cliente && cliente.name) || ahora.clientName || "El propietario", motivo, tipoT);
     }
   }
 });
@@ -2701,7 +2709,7 @@ exports.avisoDespublicarPorCliente = onDocumentUpdated("clients/{cid}", async (e
     const g = gd.data();
     if (!g.propertyId) continue;
     if (rolGestionInferido(g, after) !== "propietario") continue;
-    await pedirConfirmacionDespublicar(g.propertyId, after.name || g.clientName || "El propietario", motivo);
+    await pedirConfirmacionDespublicar(g.propertyId, after.name || g.clientName || "El propietario", motivo, (sitAhora === "externo" ? "externo" : "perdido"));
   }
 });
 
