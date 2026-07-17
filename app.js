@@ -933,8 +933,8 @@
       // Un propietario se perdió o cerró por afuera y su propiedad sigue publicada.
       if (n.type === 'despublicar_confirmar') {
         const acciones = n.handled
-          ? `<div class="notification-meta"><span style="color:${n.resultado === 'despublicada' ? '#b91c1c' : '#15803d'};font-weight:700"><i class="fas fa-${n.resultado === 'despublicada' ? 'box-archive' : 'check'}"></i> ${n.resultado === 'despublicada' ? 'Despublicada' : 'Se mantuvo publicada'}</span><span><i class="far fa-clock"></i> ${ts}</span></div>`
-          : `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button onclick="confirmarDespublicacion(event,'${n.id}','${n.propertyId}')" style="border:none;background:#b91c1c;color:#fff;border-radius:8px;padding:6px 12px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer"><i class="fas fa-box-archive"></i> Despublicar</button><button onclick="mantenerPublicada(event,'${n.id}','${n.propertyId}')" style="border:1px solid var(--gray-200,#e5e7eb);background:#fff;color:var(--gray-600,#555);border-radius:8px;padding:6px 12px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">Mantener publicada</button></div><div class="notification-meta" style="margin-top:6px"><span><i class="far fa-clock"></i> ${ts}</span></div>`;
+          ? `<div class="notification-meta"><span style="color:${n.resultado === 'despublicada' ? '#b91c1c' : '#15803d'};font-weight:700"><i class="fas fa-${n.resultado === 'despublicada' ? 'box-archive' : 'check'}"></i> ${n.resultado === 'despublicada' ? 'Despublicada' : 'Se mantuvo publicada'}</span> <button onclick="verPropDesdeNotif(event,'${n.propertyId}')" style="border:none;background:transparent;color:var(--primary,#16273f);font-family:inherit;font-size:.76rem;font-weight:700;cursor:pointer;text-decoration:underline"><i class="fas fa-eye"></i> Ver propiedad</button><span><i class="far fa-clock"></i> ${ts}</span></div>`
+          : `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button onclick="confirmarDespublicacion(event,'${n.id}','${n.propertyId}')" style="border:none;background:#b91c1c;color:#fff;border-radius:8px;padding:6px 12px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer"><i class="fas fa-box-archive"></i> Despublicar</button><button onclick="mantenerPublicada(event,'${n.id}','${n.propertyId}')" style="border:1px solid var(--gray-200,#e5e7eb);background:#fff;color:var(--gray-600,#555);border-radius:8px;padding:6px 12px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">Mantener publicada</button></div><div class="notification-meta" style="margin-top:6px"><button onclick="verPropDesdeNotif(event,'${n.propertyId}')" style="border:none;background:transparent;color:var(--primary,#16273f);font-family:inherit;font-size:.76rem;font-weight:700;cursor:pointer;text-decoration:underline"><i class="fas fa-eye"></i> Ver propiedad</button><span><i class="far fa-clock"></i> ${ts}</span></div>`;
         return `<div class="notification-item ${n.read ? '' : 'unread'}"><div class="notification-avatar" style="background:#fee2e2;color:#b91c1c"><i class="fas fa-house-circle-xmark"></i></div><div class="notification-body"><p><strong>¿Despublicar propiedad?</strong></p><div class="notification-message">${mvEsc((n.text || '').substring(0, 170))}${(n.text || '').length > 170 ? '...' : ''}</div>${acciones}</div></div>`
       }
       // Aviso de ficha incompleta en ML: dorado, clic hacia la propiedad para editarla.
@@ -989,6 +989,18 @@
       b = document.getElementById('notificationBell');
     if (d && b && !d.contains(e.target) && !b.contains(e.target)) d.classList.remove('active')
   });
+  // Ver la propiedad desde una notificación (funciona aunque esté archivada:
+  // la carga del array; si no está en memoria, la trae de Firestore).
+  async function verPropDesdeNotif(ev, pid) {
+    ev.stopPropagation();
+    closeNotifications();
+    let p = properties.find(x => x.id === pid);
+    if (!p) {
+      try { const d = await db.collection('properties').doc(pid).get(); if (d.exists) { p = { id: d.id, ...d.data() }; properties.push(p); } } catch (e) {}
+    }
+    if (!p) { showToast('La propiedad ya no existe', 'Puede estar en la papelera', 'fa-info-circle'); return; }
+    openDetail(pid, true);
+  }
   async function handleNotificationClick(ni, pi) {
     closeNotifications();
     try {

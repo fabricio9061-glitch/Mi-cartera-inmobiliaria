@@ -954,16 +954,24 @@
             if (a && a.total){
               if (a.activas){
                 c._rollupStatus = a.manda.estado;
-                // Una gestión que sigue en "nuevo" pasados unos días ya no es nueva:
-                // existe pero no avanzó. Etiqueta honesta: "Sin avance".
-                if (c._rollupStatus === 'nuevo' && diasDesde(a.manda.creada) > SEGUIMIENTO.diasNuevo) c._rollupStatus = 'sinavance';
+                // OPCIÓN A: tener una gestión con propiedad ya significa "En cartera".
+                // Si el agente asoció una propiedad pero dejó el AVANCE en "nuevo"
+                // (no lo movió), el sistema NO lo muestra como nuevo: el piso es
+                // "cartera". El selector puede subirlo más, nunca dejarlo en nuevo.
+                var pisoIdx = ESTADO_PRIORIDAD.indexOf('cartera');
+                var actualIdx = ESTADO_PRIORIDAD.indexOf(c._rollupStatus);
+                if (actualIdx >= 0 && actualIdx < pisoIdx) c._rollupStatus = 'cartera';
               } else {
                 // Todas terminadas: si ganó alguna es Cerrado; si no, Perdido.
                 c._rollupStatus = a.cerradas ? 'cerrado' : (a.externas ? 'externo' : (a.perdidas ? 'perdido' : 'singestion'));
               }
             } else {
-              c._rollupStatus = c.status || 'nuevo';
-              // Sin ninguna gestión real: "Nuevo" caduca rápido y pasa a "Sin gestionar".
+              // SIN ninguna gestión real: la etapa vieja guardada en el cliente ya no
+              // vale (era del modelo anterior). Un cliente sin gestiones no puede
+              // estar "en cartera" ni en etapas de proceso: es "Sin gestionar".
+              var st = c.status || 'nuevo';
+              if (['contactado','seguimiento','visita','negociacion','cartera'].indexOf(st) >= 0) st = 'singestion';
+              c._rollupStatus = st;
               if (c._rollupStatus === 'nuevo' && diasDesde(c.createdAt) > SEGUIMIENTO.diasNuevo) c._rollupStatus = 'singestion';
             }
           });
