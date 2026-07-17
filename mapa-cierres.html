@@ -229,7 +229,6 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="malave-logos.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -525,51 +524,106 @@
           try { const ru = await db.collection('users').doc(ref.referrerUid).get(); if (ru.exists) refNombre = ru.data().name || ru.data().email || ''; } catch(e){}
         }
 
-        const fila = (k,v)=>'<tr><td style="padding:7px 0;color:#6b7480;font-size:13px;width:200px">'+k+'</td><td style="padding:7px 0;color:#16273f;font-size:13px;font-weight:600">'+v+'</td></tr>';
-        const wrap = document.createElement('div');
-        wrap.style.cssText = 'position:fixed;left:-3000px;top:0;width:794px;background:#fff;font-family:Jost,Arial,sans-serif';
-        wrap.innerHTML = '<div id="reciboPDF" style="width:794px;min-height:1123px;background:#fff;padding:56px 60px;box-sizing:border-box;position:relative">'
-          + '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #C9A227;padding-bottom:18px">'
-          +   '<div style="display:flex;gap:14px;align-items:center">'
-          +     '<div style="width:58px;height:58px;border-radius:13px;background:#16273f;display:flex;align-items:center;justify-content:center;flex:none">'
-          +       ((typeof MALAVE_LOGO_ISO !== 'undefined' && MALAVE_LOGO_ISO)
-                    ? '<img src="'+MALAVE_LOGO_ISO+'" style="width:42px;height:42px;object-fit:contain">'
-                    : '<span style="color:#C9A227;font-size:27px;font-weight:700;font-family:Georgia,serif">M</span>')
-          +     '</div>'
-          +     '<div><div style="font-size:22px;font-weight:700;color:#16273f;letter-spacing:.14em">MALAVE</div><div style="font-size:12px;color:#6b7480">Inmobiliaria · Aníbal Malave</div></div></div>'
-          +   '<div style="text-align:right"><div style="font-size:17px;font-weight:700;color:#16273f">RECIBO DE COMISIÓN</div><div style="font-size:12px;color:#6b7480;margin-top:3px">N° '+esc(code)+'</div><div style="font-size:12px;color:#6b7480">Emitido: '+hoy+'</div></div>'
-          + '</div>'
-          + '<table style="width:100%;border-collapse:collapse;margin-top:26px">'
-          +   fila('Agente', esc(c.agenteNombre||'—'))
-          +   fila('Operación', c.tipo==='venta' ? 'Venta' : 'Alquiler (mensual)')
-          +   fila('Propiedad', esc(p.title||'—'))
-          +   (dir||lugar ? fila('Dirección', esc([dir,lugar].filter(Boolean).join(' · '))) : '')
-          +   fila('Fecha del cierre', esc(fmtFecha(c.fecha)))
-          +   fila('Precio de cierre', fmtMoney(c.precio, c.moneda))
-          + '</table>'
-          + '<div style="margin-top:26px;background:#16273f;border-radius:12px;padding:20px 24px;display:flex;justify-content:space-between;align-items:center">'
-          +   '<div style="color:#c7cfdb;font-size:13px;font-weight:600;letter-spacing:.06em">TOTAL A PAGAR AL AGENTE<br><span style="font-size:11px;font-weight:400">Comisión sin IVA</span></div>'
-          +   '<div style="color:#fff;font-size:28px;font-weight:700">'+(tieneGan ? fmtMoney(gan, c.moneda) : '—')+'</div>'
-          + '</div>'
-          + (pts>0 ? '<div style="margin-top:12px;font-size:12.5px;color:#8a6d12;background:rgba(201,162,39,.10);border:1px solid rgba(201,162,39,.35);border-radius:10px;padding:11px 14px"><b>Puntos de Recompensas del cierre:</b> '+pts.toLocaleString('es-UY')+' '+(pts===1?'punto':'puntos')+' (se acreditan al confirmarse el cierre).</div>' : '')
-          + (refMonto>0 ? '<div style="margin-top:12px;font-size:12.5px;color:#16273f;background:#f4f5f7;border:1px solid #e5e8ec;border-radius:10px;padding:11px 14px"><b>Comisión por referido — '+esc(refNombre||'agente referente')+':</b> '+fmtMoney(refMonto, c.moneda)+' ('+refPct+'% de la ganancia del agente; se abona aparte, no se descuenta al agente).</div>' : '')
-          + '<div style="margin-top:24px;font-size:10.5px;color:#6b7480;line-height:1.6;border:1px solid #e5e8ec;border-radius:10px;padding:11px 14px;background:#fafbfc"><b style="color:#16273f">Aclaración:</b> este documento es un comprobante interno de pago de comisión por intermediación inmobiliaria a un agente que actúa en forma independiente. <b>No constituye recibo de sueldo</b> ni acredita relación de dependencia laboral, y no sustituye la documentación fiscal que corresponda emitir por estos honorarios.</div>'
-          + '<div style="display:flex;gap:60px;margin-top:56px">'
-          +   '<div style="flex:1;text-align:center;border-top:1.5px solid #16273f;padding-top:8px;font-size:12px;color:#16273f">Recibí conforme<br><b>'+esc(c.agenteNombre||'')+'</b></div>'
-          +   '<div style="flex:1;text-align:center;border-top:1.5px solid #16273f;padding-top:8px;font-size:12px;color:#16273f">p/ Inmobiliaria MALAVE<br><b>Aníbal Malave</b></div>'
-          + '</div>'
-          + '<div style="position:absolute;bottom:34px;left:60px;right:60px;border-top:1px solid #e5e8ec;padding-top:10px;font-size:10.5px;color:#9aa3ad;display:flex;justify-content:space-between"><span>Propiedad '+esc(code)+' · Ref. interna '+esc(String(p.id))+'</span><span>malaveinmobiliaria.com</span></div>'
-          + '</div>';
-        document.body.appendChild(wrap);
-        const canvas = await html2canvas(document.getElementById('reciboPDF'), { scale:2, useCORS:true, backgroundColor:'#ffffff', windowWidth:794 });
+        // Recibo dibujado con jsPDF NATIVO (texto y formas), sin html2canvas.
+        // html2canvas se colgaba en Safari/iOS (el botón giraba para siempre
+        // esperando la captura). Así funciona igual en iPhone que en escritorio,
+        // y el PDF sale más nítido y liviano (texto real, no una imagen del HTML).
         const jsPDF = window.jspdf.jsPDF;
         const pdf = new jsPDF({ unit:'pt', format:'a4', orientation:'portrait' });
-        const pageW = 595.28, pageH = 841.89;
-        const imgH = pageW * canvas.height / canvas.width;
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.94), 'JPEG', 0, 0, pageW, Math.max(imgH, pageH));
+        const W = 595.28, M = 48;                 // ancho A4 y margen
+        const NAVY = [22,39,63], GOLD = [201,162,39], GREY = [107,116,128], INK = [22,39,63];
+        let y = 56;
+
+        // ---- Encabezado ----
+        pdf.setFillColor(...NAVY); pdf.roundedRect(M, y, 46, 46, 10, 10, 'F');
+        pdf.setTextColor(...GOLD); pdf.setFont('times','bold'); pdf.setFontSize(26);
+        pdf.text('M', M+23, y+31, { align:'center' });
+        pdf.setTextColor(...INK); pdf.setFont('helvetica','bold'); pdf.setFontSize(19);
+        pdf.text('MALAVE', M+58, y+20);
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(10); pdf.setTextColor(...GREY);
+        pdf.text('Inmobiliaria · Aníbal Malave', M+58, y+35);
+        // Bloque derecho
+        pdf.setTextColor(...INK); pdf.setFont('helvetica','bold'); pdf.setFontSize(14);
+        pdf.text('RECIBO DE COMISIÓN', W-M, y+16, { align:'right' });
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(10); pdf.setTextColor(...GREY);
+        pdf.text('N° '+code, W-M, y+31, { align:'right' });
+        pdf.text('Emitido: '+hoy, W-M, y+44, { align:'right' });
+        y += 62;
+        pdf.setDrawColor(...GOLD); pdf.setLineWidth(2.5); pdf.line(M, y, W-M, y);
+        y += 26;
+
+        // ---- Tabla de datos ----
+        const filaPDF = (k,v)=>{
+          pdf.setFont('helvetica','normal'); pdf.setFontSize(11); pdf.setTextColor(...GREY);
+          pdf.text(k, M, y);
+          pdf.setFont('helvetica','bold'); pdf.setTextColor(...INK);
+          const lines = pdf.splitTextToSize(String(v||'—'), W-M-M-180);
+          pdf.text(lines, M+180, y);
+          y += (lines.length>1 ? 15*lines.length+4 : 20);
+        };
+        filaPDF('Agente', c.agenteNombre||'—');
+        filaPDF('Operación', c.tipo==='venta' ? 'Venta' : 'Alquiler (mensual)');
+        filaPDF('Propiedad', p.title||'—');
+        if (dir||lugar) filaPDF('Dirección', [dir,lugar].filter(Boolean).join(' · '));
+        filaPDF('Fecha del cierre', fmtFecha(c.fecha));
+        filaPDF('Precio de cierre', fmtMoney(c.precio, c.moneda));
+        y += 8;
+
+        // ---- Caja de total ----
+        pdf.setFillColor(...NAVY); pdf.roundedRect(M, y, W-M-M, 62, 12, 12, 'F');
+        pdf.setTextColor(199,207,219); pdf.setFont('helvetica','bold'); pdf.setFontSize(11);
+        pdf.text('TOTAL A PAGAR AL AGENTE', M+22, y+26);
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(9);
+        pdf.text('Comisión sin IVA', M+22, y+42);
+        pdf.setTextColor(255,255,255); pdf.setFont('helvetica','bold'); pdf.setFontSize(22);
+        pdf.text(tieneGan ? fmtMoney(gan, c.moneda) : '—', W-M-22, y+40, { align:'right' });
+        y += 62+16;
+
+        // ---- Puntos y referido (cajas informativas) ----
+        const cajaInfo = (texto, colFill, colBorde, colText)=>{
+          pdf.setFillColor(...colFill); pdf.setDrawColor(...colBorde); pdf.setLineWidth(1);
+          const lines = pdf.splitTextToSize(texto, W-M-M-28);
+          const h = 14*lines.length + 18;
+          pdf.roundedRect(M, y, W-M-M, h, 9, 9, 'FD');
+          pdf.setTextColor(...colText); pdf.setFont('helvetica','normal'); pdf.setFontSize(10);
+          pdf.text(lines, M+14, y+16);
+          y += h+12;
+        };
+        if (pts>0) cajaInfo('Puntos de Recompensas del cierre: '+pts.toLocaleString('es-UY')+' '+(pts===1?'punto':'puntos')+' (se acreditan al confirmarse el cierre).', [249,246,235],[201,162,39],[138,109,18]);
+        if (refMonto>0) cajaInfo('Comisión por referido — '+(refNombre||'agente referente')+': '+fmtMoney(refMonto, c.moneda)+' ('+refPct+'% de la ganancia del agente; se abona aparte, no se descuenta al agente).', [244,245,247],[229,232,236],[22,39,63]);
+
+        // ---- Aclaración legal ----
+        pdf.setFillColor(250,251,252); pdf.setDrawColor(229,232,236); pdf.setLineWidth(1);
+        const acl = 'Aclaración: este documento es un comprobante interno de pago de comisión por intermediación inmobiliaria a un agente que actúa en forma independiente. No constituye recibo de sueldo ni acredita relación de dependencia laboral, y no sustituye la documentación fiscal que corresponda emitir por estos honorarios.';
+        const aclLines = pdf.splitTextToSize(acl, W-M-M-28);
+        const aclH = 12*aclLines.length + 16;
+        pdf.roundedRect(M, y, W-M-M, aclH, 9, 9, 'FD');
+        pdf.setTextColor(...GREY); pdf.setFont('helvetica','normal'); pdf.setFontSize(9);
+        pdf.text(aclLines, M+14, y+14);
+        y += aclH + 48;
+
+        // ---- Firmas ----
+        const colW = (W-M-M-40)/2;
+        pdf.setDrawColor(...NAVY); pdf.setLineWidth(1.2);
+        pdf.line(M, y, M+colW, y);
+        pdf.line(M+colW+40, y, W-M, y);
+        pdf.setTextColor(...INK); pdf.setFont('helvetica','normal'); pdf.setFontSize(10);
+        pdf.text('Recibí conforme', M+colW/2, y+15, { align:'center' });
+        pdf.setFont('helvetica','bold');
+        pdf.text(c.agenteNombre||'', M+colW/2, y+29, { align:'center' });
+        pdf.setFont('helvetica','normal');
+        pdf.text('p/ Inmobiliaria MALAVE', M+colW+40+colW/2, y+15, { align:'center' });
+        pdf.setFont('helvetica','bold');
+        pdf.text('Aníbal Malave', M+colW+40+colW/2, y+29, { align:'center' });
+
+        // ---- Pie ----
+        pdf.setDrawColor(229,232,236); pdf.setLineWidth(1); pdf.line(M, 800, W-M, 800);
+        pdf.setTextColor(154,163,173); pdf.setFont('helvetica','normal'); pdf.setFontSize(9);
+        pdf.text('Propiedad '+code+' · Ref. interna '+String(p.id), M, 814);
+        pdf.text('malaveinmobiliaria.com', W-M, 814, { align:'right' });
+
         const nomAg = String(c.agenteNombre||'agente').replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g,'').replace(/\s+/g,'_');
         pdf.save('Recibo_'+code+'_'+nomAg+'.pdf');
-        wrap.remove();
         toast('Recibo generado');
       }catch(e){ console.error(e); toast('No se pudo generar el recibo: '+(e.message||e), true); }
       if(btn){ btn.disabled = false; btn.innerHTML = prev; }
