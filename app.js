@@ -2099,13 +2099,21 @@
   }
 
   // Properties
+  // ===== Vitrina del inicio =====
+  // La cara pública muestra solo lo que aporta: disponibles, reservadas y los
+  // cierres de la agencia (Vendida/Alquilada, que son carta de presentación).
+  // Las DADAS DE BAJA y las CERRADAS POR AFUERA no son vidriera: se siguen
+  // gestionando desde el perfil del agente, donde sí se listan todas.
+  const FUERA_VITRINA = ['archived', 'cerrado_externo'];
+  const enVitrina = p => FUERA_VITRINA.indexOf(p.status) < 0;
+
   function loadProperties() {
     db.collection('properties').orderBy('createdAt', 'desc').onSnapshot(s => {
       properties = s.docs.map(d => ({
         id: d.id,
         ...d.data()
       }));
-      renderProperties(properties);
+      renderProperties(properties.filter(enVitrina));
       updateStats()
     })
   }
@@ -2186,7 +2194,8 @@
         reserved: 'RESERVADA',
         sold: 'VENDIDA',
         rented: 'ALQUILADA',
-        archived: 'ARCHIVADA'
+        cerrado_externo: 'CERRÓ POR AFUERA',
+        archived: 'DADA DE BAJA'
       };
       const stLabel = stLabels[st] || '';
       return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button><button class="card-action-btn" onclick="event.stopPropagation();openMLModal('${p.id}')" title="Mercado Libre" style="background:#fff159;color:#2d3277"><i class="fas fa-tag"></i></button><button class="btn-feature ${p.featured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${p.featured?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button><button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${safeUrl(o.profilePhoto)}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span>${ce?`<span class="card-views" title="Tocaron Contactar"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${p.contactClicks||0}</span>`:''}</div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
@@ -2206,6 +2215,7 @@
       b = parseInt(document.getElementById('filterBedrooms').value) || 0,
       mp = parseInt(document.getElementById('filterPrice').value) || Infinity;
     const f = properties.filter(p => {
+      if (!enVitrina(p)) return false;
       const l = getLocationString(p).toLowerCase();
       if (s && !p.title.toLowerCase().includes(s) && !l.includes(s)) return false;
       if (t && p.type !== t) return false;
@@ -2807,7 +2817,8 @@
       reserved: 'RESERVADA',
       sold: 'VENDIDA',
       rented: 'ALQUILADA',
-      archived: 'ARCHIVADA'
+      cerrado_externo: 'CERRÓ POR AFUERA',
+      archived: 'DADA DE BAJA'
     };
     if (st !== 'available' && stLabels[st]) {
       so.className = `detail-status-overlay ${st}`;
