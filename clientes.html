@@ -706,7 +706,7 @@
     // gestión activa más avanzada (no la más reciente). Cerrado/Perdido son
     // terminales y no compiten: solo definen la etiqueta si no queda nada activo.
     var ESTADO_PRIORIDAD = ['nuevo','contactado','seguimiento','visita','negociacion','cartera'];
-    var ESTADOS_TERMINALES = ['cerrado','perdido','externo'];
+    var ESTADOS_TERMINALES = ['cerrado','perdido','externo','prop_eliminada'];
 
     // ====== EJE SITUACIÓN (independiente de la etapa comercial) ======
     // La etapa (nuevo→cartera→cerrado) vive en las gestiones y dice DÓNDE está el
@@ -717,7 +717,7 @@
     //   pausa    -> guardado; sale de vista activa y recordatorios; vuelve cuando quieras
     //   externo  -> "cerró por afuera": terminó pero sin la agencia (ni ganado ni perdido)
     //   perdido  -> descartado de verdad (el que te dijo que no)
-    var SITUACION = { activo:'Activo', pausa:'En pausa', externo:'Cerró por afuera', perdido:'Perdido' };
+    var SITUACION = { activo:'Activo', pausa:'En pausa', externo:'Cerró por afuera', perdido:'Perdido', prop_eliminada:'Propiedad eliminada' };
     var SITUACION_DOT = { activo:'#15803d', pausa:'#b45309', externo:'#64748b', perdido:'#b91c1c', cerrado:'#15803d' };
     // "cerrado" es una situación DERIVADA (viene de la etapa terminal, no se elige
     // en el menú): la operación se concretó con la agencia. Etiqueta para la banda:
@@ -925,6 +925,8 @@
             if (ESTADOS_TERMINALES.indexOf(e) >= 0){
               if (e === 'cerrado') a.cerradas++;
               else if (e === 'externo') a.externas = (a.externas||0) + 1;
+              else if (e === 'perdido') a.perdidas = (a.perdidas||0) + 1;
+              else if (e === 'prop_eliminada') a.eliminadas = (a.eliminadas||0) + 1;
               return;
             }
             a.activas++;
@@ -957,7 +959,7 @@
                 if (c._rollupStatus === 'nuevo' && diasDesde(a.manda.creada) > SEGUIMIENTO.diasNuevo) c._rollupStatus = 'sinavance';
               } else {
                 // Todas terminadas: si ganó alguna es Cerrado; si no, Perdido.
-                c._rollupStatus = a.cerradas ? 'cerrado' : (a.externas ? 'externo' : 'perdido');
+                c._rollupStatus = a.cerradas ? 'cerrado' : (a.externas ? 'externo' : (a.perdidas ? 'perdido' : 'singestion'));
               }
             } else {
               c._rollupStatus = c.status || 'nuevo';
@@ -1323,7 +1325,7 @@
     window.addEventListener('scroll', function(){ cerrarStPop(); }, true);
     document.addEventListener('keydown', function(e){ if (e.key === 'Escape') cerrarStPop(); });
 
-    var ESTADO_DOT = { nuevo:'#2563eb', contactado:'#0891b2', seguimiento:'#b45309', visita:'#7c3aed', negociacion:'#be185d', cartera:'#4338ca', cerrado:'#15803d', externo:'#64748b', perdido:'#b91c1c' };
+    var ESTADO_DOT = { nuevo:'#2563eb', contactado:'#0891b2', seguimiento:'#b45309', visita:'#7c3aed', negociacion:'#be185d', cartera:'#4338ca', cerrado:'#15803d', externo:'#64748b', perdido:'#b91c1c', prop_eliminada:'#78716c' };
 
     function _posicionarPop(pop, ev){
       document.body.appendChild(pop);
@@ -1348,7 +1350,7 @@
       var hint = (c._gestionCount||0) > 1
         ? '<div class="st-pop-hint">Este cliente tiene '+c._gestionCount+' gestiones: el cambio se aplica a la que define esta etiqueta (la más avanzada). Para manejar cada propiedad por separado, entrá a su ficha.</div>'
         : '';
-      pop.innerHTML = hint + '<div class="st-pop-sep" style="border-top:none;margin-top:0">Etapa comercial</div>' + Object.keys(GESTION_ESTADO).map(function(k){
+      pop.innerHTML = hint + '<div class="st-pop-sep" style="border-top:none;margin-top:0">Etapa comercial</div>' + Object.keys(GESTION_ESTADO).filter(function(k){ return k !== 'prop_eliminada'; }).map(function(k){
         return '<button type="button" class="'+(k===actual && sitActual==='activo'?'sel':'')+'" onclick="aplicarCambioEstado(\''+id+'\',\''+k+'\')"><span class="dot" style="background:'+(ESTADO_DOT[k]||'#94a3b8')+'"></span>'+GESTION_ESTADO[k]+'</button>';
       }).join('');
       _posicionarPop(pop, ev);
@@ -1704,9 +1706,19 @@
       var esRent = prop && prop.type === 'rent';
       var stCol = PROP_STATUS_COL[estadoProp] || 'var(--navy)';
 
-      var optsGestion = Object.keys(GESTION_ESTADO).map(function(k){
-        return '<option value="'+k+'"'+(g.estadoGestion===k?' selected':'')+'>'+GESTION_ESTADO[k]+'</option>';
-      }).join('');
+      // "Propiedad eliminada" no se elige a mano: lo pone el sistema al borrar la
+      // propiedad. Si la gestión está en ese estado y la propiedad NO volvió de la
+      // papelera, el selector queda bloqueado mostrando la verdad; si la propiedad
+      // fue restaurada, el selector se libera para reencaminar la gestión.
+      var esPropElim = g.estadoGestion === 'prop_eliminada';
+      var optsGestion;
+      if (esPropElim && !prop){
+        optsGestion = '<option value="prop_eliminada" selected>'+GESTION_ESTADO.prop_eliminada+'</option>';
+      } else {
+        optsGestion = Object.keys(GESTION_ESTADO).filter(function(k){ return k !== 'prop_eliminada' || esPropElim; }).map(function(k){
+          return '<option value="'+k+'"'+(g.estadoGestion===k?' selected':'')+'>'+GESTION_ESTADO[k]+'</option>';
+        }).join('');
+      }
       // Estado de la propiedad: agente hasta Reservada; Vendida/Alquilada por el Mapa
       // de cierres. Si ya está cerrada, se muestra bloqueada.
       var estadosProp = isAdmin ? ['tasacion','tasado','available','reserved','sold','rented']
@@ -1754,7 +1766,7 @@
           '</div>' +
         '</div>' +
         '<div class="cp-grow-foot">' +
-          '<div class="cp-inline-sel"><label>Avance</label><select onchange="cambiarEstadoGestion(\''+g.id+'\', this.value)">'+optsGestion+'</select></div>' +
+          '<div class="cp-inline-sel"><label>Avance</label><select'+((esPropElim && !prop)?' disabled':'')+' onchange="cambiarEstadoGestion(\''+g.id+'\', this.value)">'+optsGestion+'</select></div>' +
           (prop
             ? '<div class="cp-inline-sel"><label>Propiedad</label><select'+propDisabled+' onchange="cambiarEstadoPropiedad(\''+g.propertyId+'\', this.value)">'+optsProp+'</select></div>' + ((prop && prop.despubPendiente) ? '<span class="despub-pend" title="Un propietario perdido: el admin decide desde la campanita si se despublica"><i class="fas fa-hourglass-half"></i> despublicación pendiente</span>' : '')
             : '<span class="cp-grow-noprop"><i class="fas fa-circle-info"></i> Propiedad no encontrada</span>') +
@@ -1764,6 +1776,7 @@
         '</div>' +
         contratoGestionHtml(prop, g) +
         selloExternoHtml(g) +
+        selloEliminadaHtml(g) +
       '</div>';
     }
     // Sello de memoria: cuando la gestión se cerró por afuera, queda registrado
@@ -1777,6 +1790,18 @@
       }
       var f = fecha ? new Date(fecha).toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'}) : '';
       return '<div class="cp-sello-externo"><i class="fas fa-arrow-right-from-bracket"></i> <b>Cerró por afuera</b> — la operación se concretó sin la agencia'+(f?' · '+f:'')+'</div>';
+    }
+    // Sello de memoria: la propiedad de esta gestión fue eliminada del sistema.
+    // La historia (notas, avances) se conserva; el cliente vuelve al pozo.
+    function selloEliminadaHtml(g){
+      if ((g.estadoGestion||'') !== 'prop_eliminada') return '';
+      var fecha = '';
+      if (Array.isArray(g.historial)){
+        for (var i=g.historial.length-1;i>=0;i--){ var h=g.historial[i]; if (h && h.valor==='Propiedad eliminada'){ fecha = h.fecha; break; } }
+      }
+      var f = fecha ? new Date(fecha).toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'}) : '';
+      var titulo = g.propTituloEliminada ? ' · "'+esc(g.propTituloEliminada)+'"' : '';
+      return '<div class="cp-sello-externo"><i class="fas fa-house-circle-xmark"></i> <b>Propiedad eliminada</b> — se conserva la historia de esta gestión'+titulo+(f?' · '+f:'')+'</div>';
     }
     // Fila de contrato: aparece cuando la propiedad de la gestión está ALQUILADA.
     // Si no tiene contrato vigente, invita a cargarlo; si lo tiene, muestra el
@@ -2062,7 +2087,11 @@
           if (d.exists){
             var g = d.data();
             document.getElementById('gestionPropName').value = g.propertyTitle || 'Propiedad';
-            document.getElementById('gestionEstado').value = g.estadoGestion || 'nuevo';
+            var selE = document.getElementById('gestionEstado');
+            if (g.estadoGestion === 'prop_eliminada' && !selE.querySelector('option[value="prop_eliminada"]')){
+              selE.insertAdjacentHTML('afterbegin', '<option value="prop_eliminada">Propiedad eliminada</option>');
+            }
+            selE.value = g.estadoGestion || 'nuevo';
             document.getElementById('gestionInteres').value = g.interes || '';
             document.getElementById('gestionPresupuesto').value = g.presupuesto || '';
             document.getElementById('gestionLink').value = g.link || '';

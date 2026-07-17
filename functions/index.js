@@ -1681,6 +1681,27 @@ exports.cerrarMLAlBorrar = onDocumentDeleted("properties/{id}", async (event) =>
   try {
     await db.collection("papelera").doc(id).set(Object.assign({}, p, { _borradaEl: new Date().toISOString() }));
   } catch (e) { logger.error(`No se pudo copiar ${id} a la papelera:`, e.message); }
+  // GESTIONES: las gestiones ABIERTAS que apuntaban a esta propiedad pasan a
+  // "prop_eliminada" — un estado propio que conserva toda la historia (notas,
+  // avances) y NO dispara el aviso de despublicación (la propiedad ya no existe;
+  // "perdido" ensuciaría las estadísticas de clientes que dijeron que no).
+  // Las terminales (cerrado / externo / perdido) no se tocan: su historia ya cerró.
+  try {
+    const gs = await db.collection("gestiones").where("propertyId", "==", id).get();
+    const terminales = ["cerrado", "perdido", "externo", "prop_eliminada"];
+    const nota = { tipo: "avance", valor: "Propiedad eliminada", autor: "Sistema", fecha: new Date().toISOString() };
+    for (const gd of gs.docs) {
+      const g = gd.data();
+      if (terminales.includes(g.estadoGestion)) continue;
+      await gd.ref.update({
+        estadoGestion: "prop_eliminada",
+        propTituloEliminada: p.title || "",
+        updatedAt: new Date().toISOString(),
+        historial: admin.firestore.FieldValue.arrayUnion(nota),
+      });
+    }
+    if (!gs.empty) logger.info(`[borrado ${id}] gestiones abiertas marcadas como prop_eliminada.`);
+  } catch (e) { logger.error(`[borrado ${id}] no se pudieron marcar las gestiones:`, e.message); }
   if (!p.mlItemId) return;
   try {
     const token = await getValidToken();
