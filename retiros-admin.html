@@ -46,6 +46,7 @@
     .rb-ok{ background:var(--blue); color:#fff; } .rb-ok:hover{ opacity:.9; }
     .rb-pay{ background:var(--ok); color:#fff; } .rb-pay:hover{ opacity:.9; }
     .rb-no{ background:#fff; color:var(--bad); border:1px solid #ecc8c2; } .rb-no:hover{ background:#fdf3f1; }
+    .rb-rec{ background:#fff; color:#8a6d12; border:1px solid #ecd9a0; } .rb-rec:hover{ background:#fdf9ef; }
     .empty{ text-align:center; color:var(--muted); padding:50px 20px; }
     .empty i{ font-size:2.2rem; color:var(--line); display:block; margin-bottom:12px; }
     .denied{ text-align:center; padding:70px 20px; color:var(--muted); }
@@ -79,6 +80,7 @@
 
   <div class="toast" id="toast"><i class="fas fa-check-circle"></i><span id="toastTxt"></span></div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -157,7 +159,11 @@
         } else if(r.status==='aprobado'){
           acts='<div class="r-acts">'
             +'<button class="rb rb-pay" onclick="pagar(\''+r.id+'\')"><i class="fas fa-check-double"></i> Marcar pagado</button>'
+            +'<button class="rb rb-rec" onclick="reciboRetiro(\''+r.id+'\', this)"><i class="fas fa-file-invoice-dollar"></i> Recibo</button>'
             +'<button class="rb rb-no" onclick="rechazar(\''+r.id+'\')"><i class="fas fa-xmark"></i> Rechazar</button></div>';
+        } else if(r.status==='pagado'){
+          acts='<div class="r-acts">'
+            +'<button class="rb rb-rec" onclick="reciboRetiro(\''+r.id+'\', this)"><i class="fas fa-file-invoice-dollar"></i> Recibo</button></div>';
         }
         return '<div class="card '+r.status+'"><div class="r-top">'
           +'<div><div class="r-who">'+esc(r.agenteNombre||'Agente')+'</div><div class="r-date">Solicitado el '+f+'</div></div>'
@@ -188,6 +194,106 @@
       var motivo=prompt('Motivo del rechazo (opcional, lo verá el agente):','');
       if(motivo===null) return;
       setStatus(id,'rechazado',{ motivo:motivo||'', rechazadoEl:new Date().toISOString() });
+    }
+
+    // ---- Recibo de PAGO al agente (PDF nativo, funciona en Safari/iOS) ----
+    // Disponible desde que el pago se aprueba y en los pagados. Comprueba el pago
+    // del saldo de comisiones al agente. Mismo estilo que el recibo de comisión.
+    async function reciboRetiro(id, btn){
+      var r = retiros.find(function(x){ return x.id===id; });
+      if(!r){ toast('No encontré la solicitud', true); return; }
+      var prev = btn ? btn.innerHTML : '';
+      if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>'; }
+      try{
+        var jsPDF = window.jspdf.jsPDF;
+        var pdf = new jsPDF({ unit:'pt', format:'a4', orientation:'portrait' });
+        var W=595.28, M=48;
+        var NAVY=[22,39,63], GOLD=[201,162,39], GREY=[107,116,128], INK=[22,39,63];
+        var y=56;
+        var num = 'P-' + String(id).slice(-6).toUpperCase();
+        var hoy = new Date().toLocaleDateString('es-UY',{day:'numeric',month:'long',year:'numeric'});
+        var fSolic = r.creadoEl ? new Date(r.creadoEl).toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
+        var fPago = r.pagadoEl ? new Date(r.pagadoEl).toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'}) : (r.aprobadoEl ? new Date(r.aprobadoEl).toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'}) : hoy);
+        var estadoTxt = r.status==='pagado' ? 'Pagado' : 'Aprobado (transferencia en curso)';
+
+        // Encabezado
+        pdf.setFillColor.apply(pdf,NAVY); pdf.roundedRect(M,y,46,46,10,10,'F');
+        pdf.setTextColor.apply(pdf,GOLD); pdf.setFont('times','bold'); pdf.setFontSize(26);
+        pdf.text('M', M+23, y+31, {align:'center'});
+        pdf.setTextColor.apply(pdf,INK); pdf.setFont('helvetica','bold'); pdf.setFontSize(19);
+        pdf.text('MALAVE', M+58, y+20);
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(10); pdf.setTextColor.apply(pdf,GREY);
+        pdf.text('Inmobiliaria · Aníbal Malave', M+58, y+35);
+        pdf.setTextColor.apply(pdf,INK); pdf.setFont('helvetica','bold'); pdf.setFontSize(14);
+        pdf.text('RECIBO DE PAGO', W-M, y+16, {align:'right'});
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(10); pdf.setTextColor.apply(pdf,GREY);
+        pdf.text('N° '+num, W-M, y+31, {align:'right'});
+        pdf.text('Emitido: '+hoy, W-M, y+44, {align:'right'});
+        y+=62;
+        pdf.setDrawColor.apply(pdf,GOLD); pdf.setLineWidth(2.5); pdf.line(M,y,W-M,y);
+        y+=26;
+
+        // Tabla
+        var fila=function(k,v){
+          pdf.setFont('helvetica','normal'); pdf.setFontSize(11); pdf.setTextColor.apply(pdf,GREY);
+          pdf.text(k, M, y);
+          pdf.setFont('helvetica','bold'); pdf.setTextColor.apply(pdf,INK);
+          var lines=pdf.splitTextToSize(String(v||'—'), W-M-M-180);
+          pdf.text(lines, M+180, y);
+          y += (lines.length>1 ? 15*lines.length+4 : 20);
+        };
+        fila('Agente', r.agenteNombre||'—');
+        fila('Concepto', 'Pago de comisiones acumuladas');
+        fila('Fecha de solicitud', fSolic);
+        fila('Fecha de pago', fPago);
+        fila('Estado', estadoTxt);
+        if(r.cuentaBanco || r.cuentaNumero){
+          var cta = [r.cuentaBanco, r.cuentaTipo, r.cuentaNumero?('Nº '+r.cuentaNumero):'', r.cuentaTitular?('Titular '+r.cuentaTitular):''].filter(Boolean).join(' · ');
+          fila('Cuenta destino', cta);
+        }
+        y+=8;
+
+        // Caja del monto
+        pdf.setFillColor.apply(pdf,NAVY); pdf.roundedRect(M,y,W-M-M,62,12,12,'F');
+        pdf.setTextColor(199,207,219); pdf.setFont('helvetica','bold'); pdf.setFontSize(11);
+        pdf.text('MONTO PAGADO AL AGENTE', M+22, y+26);
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(9);
+        pdf.text('Retiro de saldo de comisiones', M+22, y+42);
+        pdf.setTextColor(255,255,255); pdf.setFont('helvetica','bold'); pdf.setFontSize(22);
+        pdf.text(fmt(r.monto, r.moneda), W-M-22, y+40, {align:'right'});
+        y+=62+18;
+
+        // Aclaración legal
+        pdf.setFillColor(250,251,252); pdf.setDrawColor(229,232,236); pdf.setLineWidth(1);
+        var acl='Aclaración: este documento comprueba el pago de comisiones por intermediación inmobiliaria a un agente que actúa en forma independiente. No constituye recibo de sueldo ni acredita relación de dependencia laboral, y no sustituye la documentación fiscal que corresponda emitir por estos honorarios.';
+        var aclLines=pdf.splitTextToSize(acl, W-M-M-28);
+        var aclH=12*aclLines.length+16;
+        pdf.roundedRect(M,y,W-M-M,aclH,9,9,'FD');
+        pdf.setTextColor.apply(pdf,GREY); pdf.setFont('helvetica','normal'); pdf.setFontSize(9);
+        pdf.text(aclLines, M+14, y+14);
+        y+=aclH+48;
+
+        // Firmas
+        var colW=(W-M-M-40)/2;
+        pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(1.2);
+        pdf.line(M,y,M+colW,y); pdf.line(M+colW+40,y,W-M,y);
+        pdf.setTextColor.apply(pdf,INK); pdf.setFont('helvetica','normal'); pdf.setFontSize(10);
+        pdf.text('Recibí conforme', M+colW/2, y+15, {align:'center'});
+        pdf.setFont('helvetica','bold'); pdf.text(r.agenteNombre||'', M+colW/2, y+29, {align:'center'});
+        pdf.setFont('helvetica','normal'); pdf.text('p/ Inmobiliaria MALAVE', M+colW+40+colW/2, y+15, {align:'center'});
+        pdf.setFont('helvetica','bold'); pdf.text('Aníbal Malave', M+colW+40+colW/2, y+29, {align:'center'});
+
+        // Pie
+        pdf.setDrawColor(229,232,236); pdf.setLineWidth(1); pdf.line(M,800,W-M,800);
+        pdf.setTextColor(154,163,173); pdf.setFont('helvetica','normal'); pdf.setFontSize(9);
+        pdf.text('Recibo de pago '+num+' · Ref. interna '+String(id), M, 814);
+        pdf.text('malaveinmobiliaria.com', W-M, 814, {align:'right'});
+
+        var nomAg = String(r.agenteNombre||'agente').replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g,'').replace(/\s+/g,'_');
+        pdf.save('Recibo_pago_'+num+'_'+nomAg+'.pdf');
+        toast('Recibo generado');
+      }catch(e){ console.error(e); toast('No se pudo generar el recibo: '+(e.message||e), true); }
+      if(btn){ btn.disabled=false; btn.innerHTML=prev; }
     }
   </script>
 </body>
