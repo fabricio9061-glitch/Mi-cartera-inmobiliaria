@@ -536,8 +536,14 @@
 
         // ---- Encabezado ----
         pdf.setFillColor(...NAVY); pdf.roundedRect(M, y, 46, 46, 10, 10, 'F');
-        pdf.setTextColor(...GOLD); pdf.setFont('times','bold'); pdf.setFontSize(26);
-        pdf.text('M', M+23, y+31, { align:'center' });
+        // Logo iso de la agencia (base64 en malave-logos.js); si no está, la "M".
+        if (typeof MALAVE_LOGO_ISO !== 'undefined' && MALAVE_LOGO_ISO) {
+          try { pdf.addImage(MALAVE_LOGO_ISO, 'PNG', M+7, y+7, 32, 32); }
+          catch(e){ pdf.setTextColor(...GOLD); pdf.setFont('times','bold'); pdf.setFontSize(26); pdf.text('M', M+23, y+31, { align:'center' }); }
+        } else {
+          pdf.setTextColor(...GOLD); pdf.setFont('times','bold'); pdf.setFontSize(26);
+          pdf.text('M', M+23, y+31, { align:'center' });
+        }
         pdf.setTextColor(...INK); pdf.setFont('helvetica','bold'); pdf.setFontSize(19);
         pdf.text('MALAVE', M+58, y+20);
         pdf.setFont('helvetica','normal'); pdf.setFontSize(10); pdf.setTextColor(...GREY);
@@ -600,21 +606,7 @@
         pdf.roundedRect(M, y, W-M-M, aclH, 9, 9, 'FD');
         pdf.setTextColor(...GREY); pdf.setFont('helvetica','normal'); pdf.setFontSize(9);
         pdf.text(aclLines, M+14, y+14);
-        y += aclH + 48;
-
-        // ---- Firmas ----
-        const colW = (W-M-M-40)/2;
-        pdf.setDrawColor(...NAVY); pdf.setLineWidth(1.2);
-        pdf.line(M, y, M+colW, y);
-        pdf.line(M+colW+40, y, W-M, y);
-        pdf.setTextColor(...INK); pdf.setFont('helvetica','normal'); pdf.setFontSize(10);
-        pdf.text('Recibí conforme', M+colW/2, y+15, { align:'center' });
-        pdf.setFont('helvetica','bold');
-        pdf.text(c.agenteNombre||'', M+colW/2, y+29, { align:'center' });
-        pdf.setFont('helvetica','normal');
-        pdf.text('p/ Inmobiliaria MALAVE', M+colW+40+colW/2, y+15, { align:'center' });
-        pdf.setFont('helvetica','bold');
-        pdf.text('Aníbal Malave', M+colW+40+colW/2, y+29, { align:'center' });
+        y += aclH + 30;
 
         // ---- Pie ----
         pdf.setDrawColor(229,232,236); pdf.setLineWidth(1); pdf.line(M, 800, W-M, 800);

@@ -1745,7 +1745,8 @@ exports.notificarRetiro = onDocumentCreated("retiros/{id}", async (event) => {
   const r = snap.data();
   if (!r || r.status !== "pendiente") return;
   const adm = await getAdminUser();
-  if (!adm || adm.uid === r.agenteUid) return;
+  if (!adm) { await registrarLog("", "solicitud de retiro SIN notificar", false, `No se encontró al admin (${ADMIN_EMAIL}) en users.`); return; }
+  if (adm.uid === r.agenteUid) return;
   const simb = r.moneda === "UYU" ? "$U" : "US$";
   const monto = simb + " " + (Number(r.monto) || 0).toLocaleString("es-UY");
   const nombre = r.agenteNombre || "Un agente";
@@ -1761,6 +1762,67 @@ exports.notificarRetiro = onDocumentCreated("retiros/{id}", async (event) => {
     },
     { title: "💸 Solicitud de retiro", body: `${nombre} pidió cobrar ${monto}.` }
   );
+});
+
+// Avisa AL AGENTE cuando su solicitud de retiro cambia de estado: aprobada
+// (la plata quedó comprometida) o pagada (el dinero entró a su cuenta). Un solo
+// trigger de actualización que mira la transición del status.
+exports.notificarEstadoRetiro = onDocumentUpdated("retiros/{id}", async (event) => {
+  const before = event.data && event.data.before ? event.data.before.data() : null;
+  const after = event.data && event.data.after ? event.data.after.data() : null;
+  if (!before || !after) return;
+  if (before.status === after.status) return; // no cambió el estado
+  if (!after.agenteUid) return;
+
+  // Buscar al agente destinatario (para su fcmToken).
+  let agente = null;
+  try { const u = await db.doc(`users/${after.agenteUid}`).get(); if (u.exists) agente = { uid: u.id, ...u.data() }; } catch (e) {}
+  if (!agente) return;
+  if (agente.uid === (await getAdminUser().then((a) => a && a.uid).catch(() => null))) return; // no auto-notificar al admin
+
+  const simb = after.moneda === "UYU" ? "$U" : "US$";
+  const monto = simb + " " + (Number(after.monto) || 0).toLocaleString("es-UY");
+
+  if (after.status === "aprobado") {
+    await crearNotificacion(
+      agente,
+      {
+        type: "retiro_estado",
+        propertyId: "",
+        propertyTitle: "tu solicitud de retiro",
+        userName: "✅ Retiro aprobado",
+        userPhoto: null,
+        text: `Tu solicitud de retiro de ${monto} fue aprobada. La transferencia está en curso; te avisamos cuando se acredite.`,
+      },
+      { title: "✅ Retiro aprobado", body: `Tu retiro de ${monto} fue aprobado.` }
+    );
+  } else if (after.status === "pagado") {
+    await crearNotificacion(
+      agente,
+      {
+        type: "retiro_estado",
+        propertyId: "",
+        propertyTitle: "tu solicitud de retiro",
+        userName: "💰 Dinero acreditado",
+        userPhoto: null,
+        text: `¡Listo! Se acreditó tu retiro de ${monto}${after.cuentaBanco ? " en tu cuenta de " + after.cuentaBanco : ""}. Ya podés descargar el recibo desde Mis Finanzas.`,
+      },
+      { title: "💰 Dinero acreditado", body: `Se pagó tu retiro de ${monto}.` }
+    );
+  } else if (after.status === "rechazado") {
+    await crearNotificacion(
+      agente,
+      {
+        type: "retiro_estado",
+        propertyId: "",
+        propertyTitle: "tu solicitud de retiro",
+        userName: "Retiro rechazado",
+        userPhoto: null,
+        text: `Tu solicitud de retiro de ${monto} fue rechazada${after.motivo ? ": " + after.motivo : ""}. Consultá con la administración.`,
+      },
+      { title: "Retiro rechazado", body: `Tu retiro de ${monto} fue rechazado.` }
+    );
+  }
 });
 
 exports.notificarNuevoUsuario = onDocumentCreated("users/{uid}", async (event) => {

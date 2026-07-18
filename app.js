@@ -915,13 +915,14 @@
     // Familia de cada notificación, para el filtro Clientes / Propiedades.
     // Clientes: recordatorios del CRM (seguimiento, pausa). Propiedades: consultas
     // de portales/web y (más adelante) vencimientos de alquiler.
-    const familiaDe = (n) => (n.type === 'crm_seguimiento' || n.type === 'crm_pausa') ? 'clientes' : 'propiedades';
+    const familiaDe = (n) => (n.type === 'crm_seguimiento' || n.type === 'crm_pausa') ? 'clientes' : (n.type === 'retiro' || n.type === 'retiro_estado') ? 'finanzas' : 'propiedades';
     const filtro = window._notifFiltro || 'all';
     const visibles = notifications.filter(n => filtro === 'all' || familiaDe(n) === filtro);
     const nCli = notifications.filter(n => familiaDe(n) === 'clientes').length;
-    const nProp = notifications.length - nCli;
+    const nFin = notifications.filter(n => familiaDe(n) === 'finanzas').length;
+    const nProp = notifications.length - nCli - nFin;
     const chip = (val, txt) => `<button class="notif-chip ${filtro===val?'active':''}" onclick="setNotifFiltro('${val}')">${txt}</button>`;
-    const barra = `<div class="notif-filtros">${chip('all','Todas')}${chip('clientes','Clientes'+(nCli?' ('+nCli+')':''))}${chip('propiedades','Propiedades'+(nProp?' ('+nProp+')':''))}</div>`;
+    const barra = `<div class="notif-filtros">${chip('all','Todas')}${chip('clientes','Clientes'+(nCli?' ('+nCli+')':''))}${chip('propiedades','Propiedades'+(nProp?' ('+nProp+')':''))}${nFin?chip('finanzas','Finanzas ('+nFin+')'):''}</div>`;
     if (!visibles.length){
       l.innerHTML = barra + '<div class="notification-empty" style="padding:24px 12px"><i class="fas fa-bell-slash"></i><p>Sin avisos en esta categoría</p></div>';
       return;
@@ -929,6 +930,17 @@
     l.innerHTML = barra + visibles.map(n => {
       const i = (n.userName || 'A').charAt(0).toUpperCase(),
         ts = n.createdAt ? formatTimeAgo(n.createdAt) : '';
+      // Aviso al AGENTE del estado de su retiro (aprobado / pagado / rechazado).
+      if (n.type === 'retiro_estado') {
+        const pagado = /acredit/i.test(n.text || '') || /💰/.test(n.userName || '');
+        const rechaz = /rechaz/i.test(n.userName || '');
+        const col = rechaz ? { bg:'#fee2e2', fg:'#b91c1c', ic:'fa-circle-xmark' } : pagado ? { bg:'#dcfce7', fg:'#15803d', ic:'fa-sack-dollar' } : { bg:'#dbeafe', fg:'#1d4ed8', ic:'fa-circle-check' };
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="window.location.href='finanzas.html'"><div class="notification-avatar" style="background:${col.bg};color:${col.fg}"><i class="fas ${col.ic}"></i></div><div class="notification-body"><p><strong>${mvEsc(n.userName||'Retiro')}</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,160))}${(n.text||'').length>160?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+      }
+      // Aviso al ADMIN de una solicitud de retiro nueva.
+      if (n.type === 'retiro') {
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="window.location.href='retiros-admin.html'"><div class="notification-avatar" style="background:#fef3c7;color:#a16207"><i class="fas fa-money-bill-transfer"></i></div><div class="notification-body"><p><strong>Solicitud de retiro</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,160))}${(n.text||'').length>160?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+      }
       // Confirmación de despublicación (la ve el admin): botones de acción adentro.
       // Un propietario se perdió o cerró por afuera y su propiedad sigue publicada.
       if (n.type === 'despublicar_confirmar') {

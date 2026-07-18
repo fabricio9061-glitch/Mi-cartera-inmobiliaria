@@ -14,7 +14,7 @@
     h1,h2,h3{ font-family:'Cormorant Garamond',serif; }
     .fh{ background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:50; }
     .fh-in{ max-width:900px; margin:0 auto; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; }
-    .fh-logo{ display:flex; align-items:center; gap:9px; font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:700; color:var(--ink); letter-spacing:.12em; }
+    .fh-logo{ display:flex; align-items:center; gap:10px; }
     .fh-back{ display:inline-flex; align-items:center; gap:7px; color:var(--muted); font-size:.88rem; font-weight:500; padding:8px 15px; border:1px solid var(--line); border-radius:999px; text-decoration:none; }
     .fh-back:hover{ background:var(--ink); color:#fff; }
     .wrap{ max-width:900px; margin:0 auto; padding:26px 20px 70px; }
@@ -61,7 +61,7 @@
 <body>
   <header class="fh">
     <div class="fh-in">
-      <div class="fh-logo"><i class="fas fa-building" style="color:var(--gold)"></i> MALAVE</div>
+      <div class="fh-logo"><img src="iso-malave.png" alt="" style="height:30px;width:auto"><img src="texto-malave.png" alt="MALAVE" style="height:19px;width:auto"></div>
       <a class="fh-back" href="index.html"><i class="fas fa-arrow-left"></i> Volver</a>
     </div>
   </header>
@@ -81,6 +81,7 @@
   <div class="toast" id="toast"><i class="fas fa-check-circle"></i><span id="toastTxt"></span></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="malave-logos.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -218,8 +219,13 @@
 
         // Encabezado
         pdf.setFillColor.apply(pdf,NAVY); pdf.roundedRect(M,y,46,46,10,10,'F');
-        pdf.setTextColor.apply(pdf,GOLD); pdf.setFont('times','bold'); pdf.setFontSize(26);
-        pdf.text('M', M+23, y+31, {align:'center'});
+        if (typeof MALAVE_LOGO_ISO !== 'undefined' && MALAVE_LOGO_ISO) {
+          try { pdf.addImage(MALAVE_LOGO_ISO, 'PNG', M+7, y+7, 32, 32); }
+          catch(e){ pdf.setTextColor.apply(pdf,GOLD); pdf.setFont('times','bold'); pdf.setFontSize(26); pdf.text('M', M+23, y+31, {align:'center'}); }
+        } else {
+          pdf.setTextColor.apply(pdf,GOLD); pdf.setFont('times','bold'); pdf.setFontSize(26);
+          pdf.text('M', M+23, y+31, {align:'center'});
+        }
         pdf.setTextColor.apply(pdf,INK); pdf.setFont('helvetica','bold'); pdf.setFontSize(19);
         pdf.text('MALAVE', M+58, y+20);
         pdf.setFont('helvetica','normal'); pdf.setFontSize(10); pdf.setTextColor.apply(pdf,GREY);
@@ -271,17 +277,7 @@
         pdf.roundedRect(M,y,W-M-M,aclH,9,9,'FD');
         pdf.setTextColor.apply(pdf,GREY); pdf.setFont('helvetica','normal'); pdf.setFontSize(9);
         pdf.text(aclLines, M+14, y+14);
-        y+=aclH+48;
-
-        // Firmas
-        var colW=(W-M-M-40)/2;
-        pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(1.2);
-        pdf.line(M,y,M+colW,y); pdf.line(M+colW+40,y,W-M,y);
-        pdf.setTextColor.apply(pdf,INK); pdf.setFont('helvetica','normal'); pdf.setFontSize(10);
-        pdf.text('Recibí conforme', M+colW/2, y+15, {align:'center'});
-        pdf.setFont('helvetica','bold'); pdf.text(r.agenteNombre||'', M+colW/2, y+29, {align:'center'});
-        pdf.setFont('helvetica','normal'); pdf.text('p/ Inmobiliaria MALAVE', M+colW+40+colW/2, y+15, {align:'center'});
-        pdf.setFont('helvetica','bold'); pdf.text('Aníbal Malave', M+colW+40+colW/2, y+29, {align:'center'});
+        y+=aclH+30;
 
         // Pie
         pdf.setDrawColor(229,232,236); pdf.setLineWidth(1); pdf.line(M,800,W-M,800);
