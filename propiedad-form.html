@@ -194,7 +194,7 @@
         <div class="pf-sec" id="sec5">
           <div class="pf-sec-head"><span class="n">5</span><div><h3>Fotos y video</h3><small>Mínimo <b>12 fotos</b> obligatorias para publicar. La primera es la portada; la calidad de ML mejora cuantas más subas.</small></div></div>
           <div class="form-group"><label>Fotos <span class="fx-req">*</span> <small style="color:var(--muted);font-weight:normal">(arrastrá para reordenar, máx 5MB cada una)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div class="foto-counter" id="fotoCounter"></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div><div style="font-size:.8rem;color:var(--muted);margin-top:8px"><i class="fas fa-shield-halved" style="color:var(--gold)"></i> A cada foto se le agrega automáticamente la marca de agua MALAVE (logo centrado y tenue) al guardar.</div></div>
-          <div class="form-group"><label>Video de YouTube (opcional)</label><input type="url" id="propVideo" placeholder="https://www.youtube.com/watch?v=..."><small style="color:var(--pf-gray,#6b7280);font-size:.78rem;display:block;margin-top:5px"><i class="fab fa-youtube" style="color:#ff0000"></i> Si lo dejás vacío, se muestra el video institucional de la agencia. Pegá un link (incluye Shorts) para usar uno propio de esta propiedad.</small></div>
+          <div class="form-group"><label>Video de YouTube (opcional)</label><input type="url" id="propVideo" placeholder="https://www.youtube.com/watch?v=..."></div>
         </div>
 
         <div class="pf-sec" id="sec6">
@@ -241,13 +241,18 @@
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth(), db = firebase.firestore(), storage = firebase.storage();
+    // Firebase Storage reintenta EN SILENCIO hasta 10 minutos por foto si la
+    // conexión anda mal — de ahí las publicaciones de 20 minutos sin error.
+    // Mejor fallar rápido, reintentar una vez y avisar claro.
+    storage.setMaxUploadRetryTime(60000);
+    storage.setMaxOperationRetryTime(30000);
     const ADMIN_EMAIL = "fabricio9061@gmail.com";
 
     let currentUser = null, userProfile = null, selectedImages = [], draggedImageIndex = null, editingProperty = null, formClientId = null;
 
     const uruguayData = {
       "Montevideo": ["Aguada", "Aires Puros", "Atahualpa", "Bañados de Carrasco", "Barrio Sur", "Bella Italia", "Bella Vista", "Belvedere", "Brazo Oriental", "Buceo", "Capurro", "Carrasco", "Carrasco Norte", "Casabó", "Casavalle", "Centro", "Cerrito de la Victoria", "Cerro", "Ciudad Vieja", "Colón", "Conciliación", "Cordón", "Flor de Maroñas", "Goes", "Ituzaingó", "Jacinto Vera", "Jardines del Hipódromo", "La Blanqueada", "La Comercial", "La Figurita", "La Paloma", "La Teja", "Larrañaga", "Las Acacias", "Las Canteras", "Lezica", "Malvín", "Malvín Norte", "Manga", "Maroñas", "Melilla", "Mercado Modelo", "Nuevo París", "Palermo", "Parque Batlle", "Parque Rodó", "Paso de la Arena", "Paso de las Duranas", "Paso Molino", "Peñarol", "Piedras Blancas", "Pocitos", "Pocitos Nuevo", "Prado", "Punta Carretas", "Punta Gorda", "Punta Rieles", "Reducto", "Sayago", "Toledo Chico", "Tres Cruces", "Tres Ombúes", "Unión", "Villa Dolores", "Villa Española", "Villa García", "Villa Muñoz", "Vista Linda"].sort(),
-      "Canelones": ["Las Piedras", "Pando", "Canelones", "Santa Lucía", "Progreso", "Atlántida", "Salinas", "Parque del Plata", "Solymar", "Shangrilá", "El Pinar", "Lagomar", "La Floresta", "Paso Carrasco", "Ciudad de la Costa", "San José de Carrasco", "Médanos de Solymar", "Colinas de Solymar", "Colonia Nicolich", "Barros Blancos", "Toledo", "Sauce", "Joaquín Suárez", "Suárez", "La Paz", "Las Toscas", "Pinamar", "Neptunia", "Marindia", "Villa Argentina", "Estación Atlántida", "Balneario Argentino", "Fortín de Santa Rosa", "Costa Azul", "Costa de Oro", "Las Vegas", "Bello Horizonte", "Guazuvirá", "Los Titanes", "Santa Lucía del Este", "Santa Ana", "San Luis", "La Tuna", "Cuchilla Alta", "Jaureguiberry", "Empalme Olmos", "Tala", "San Ramón", "Santa Rosa", "San Jacinto", "San Bautista", "Migues", "Montes", "Soca", "Aguas Corrientes", "Los Cerrillos", "Juanicó", "San Antonio", "El Bosque", "Villa Felicidad"].sort((a,b)=>a.localeCompare(b,'es')),
+      "Canelones": ["Ciudad de la Costa", "Las Piedras", "Pando", "Canelones", "Santa Lucía", "Progreso", "Atlántida", "Salinas", "Parque del Plata", "Solymar", "Shangrilá", "El Pinar", "Lagomar", "La Floresta"],
       "Maldonado": ["Maldonado", "Punta del Este", "San Carlos", "Piriápolis", "Pan de Azúcar", "Aiguá", "Solís", "Bella Vista", "Las Flores", "Playa Verde", "Playa Hermosa", "Playa Grande", "San Francisco", "Punta Colorada", "Punta Negra", "Gregorio Aznárez", "Cerros Azules", "Nueva Carrara", "Punta Ballena", "Solanas", "Sauce de Portezuelo", "Portezuelo", "Chihuahua", "Laguna del Sauce", "Pinares", "La Barra", "El Tesoro", "Manantiales", "El Chorro", "Montoya", "Balneario Buenos Aires", "La Juanita", "José Ignacio", "Santa Mónica", "Pueblo Edén", "Garzón", "Estación Las Flores"],
       "Colonia": ["Colonia del Sacramento", "Carmelo", "Juan Lacaze", "Nueva Helvecia", "Rosario", "Nueva Palmira"],
       "Salto": ["Salto", "Daymán", "Termas del Daymán", "Termas del Arapey"],
@@ -405,11 +410,30 @@
     }
 
     function compressImageToBlob(f, m = 1200, q = .8) {
-      return new Promise(r => { const rd = new FileReader(); rd.onload = e => { const i = new Image(); i.onload = () => { const c = document.createElement('canvas'); let w = i.width, h = i.height; if (w > m) { h = (h * m) / w; w = m } c.width = w; c.height = h; const ctx = c.getContext('2d'); ctx.drawImage(i, 0, 0, w, h); dibujarMarcaAgua(ctx, w, h); c.toBlob(r, 'image/jpeg', q) }; i.src = e.target.result }; rd.readAsDataURL(f) })
+      return new Promise((res, rej) => { const rd = new FileReader(); rd.onerror = () => rej(new Error('No se pudo leer ' + f.name)); rd.onload = e => { const i = new Image(); i.onerror = () => rej(new Error('No se pudo procesar ' + f.name + ' (formato no soportado)')); i.onload = () => { const c = document.createElement('canvas'); let w = i.width, h = i.height; if (w > m) { h = (h * m) / w; w = m } c.width = w; c.height = h; const ctx = c.getContext('2d'); ctx.drawImage(i, 0, 0, w, h); dibujarMarcaAgua(ctx, w, h); c.toBlob(res, 'image/jpeg', q) }; i.src = e.target.result }; rd.readAsDataURL(f) })
+    }
+    function _subirUna(f, p, i, ms) {
+      return new Promise(async (resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('timeout')), ms || 75000);
+        try {
+          const n = `${Date.now()}_${i}_${f.name.replace(/[^a-zA-Z0-9.]/g,'_')}`;
+          const r = storage.ref(`properties/${p}/${n}`);
+          const b = await compressImageToBlob(f, 1200, .8);
+          const u = await r.put(b);
+          const url = await u.ref.getDownloadURL();
+          clearTimeout(timer); resolve(url);
+        } catch (e) { clearTimeout(timer); reject(e); }
+      });
     }
     async function uploadImageToStorage(f, p, i) {
-      const n = `${Date.now()}_${i}_${f.name.replace(/[^a-zA-Z0-9.]/g,'_')}`, r = storage.ref(`properties/${p}/${n}`), b = await compressImageToBlob(f, 1200, .8), u = await r.put(b);
-      return await u.ref.getDownloadURL()
+      try { return await _subirUna(f, p, i, 75000); }
+      catch (e1) {
+        // Un reintento antes de rendirse (la señal pudo haber parpadeado).
+        try { return await _subirUna(f, p, i, 75000); }
+        catch (e2) {
+          throw new Error('No se pudo subir la foto ' + (i + 1) + ' (conexión inestable o archivo dañado). Tocá "Guardar" de nuevo: las fotos que ya subieron no se vuelven a subir.');
+        }
+      }
     }
     async function addImagesToPreview(fs) {
       for (const f of fs) { if (f.size > 5 * 1024 * 1024) { alert(`La imagen ${f.name} excede 5MB`); continue } const pr = await compressImageForPreview(f); selectedImages.push({ preview: pr, file: f, existing: false }); renderImagePreviews() }
@@ -820,15 +844,8 @@
           {
             "id": "SECURITY_TYPE",
             "label": "Tipo de seguridad",
-            "type": "list",
-            "req": true,
-            "options": [
-              "24 horas",
-              "Diurno",
-              "Nocturno",
-              "Virtual"
-            ],
-            "help": "Obligatorio. \"24 horas\" marca Portería 24 hs en InfoCasas; Diurno/Nocturno marcan Guardia."
+            "type": "text",
+            "help": "\"24 horas\" marca Portería 24 hs en InfoCasas; Diurno/Nocturno marcan Guardia."
           },
           {
             "id": "IN_GATED_COMMUNITY",
@@ -1000,18 +1017,6 @@
             "label": "Número de piso de la unidad",
             "type": "num",
             "help": "En qué piso está la unidad (0 = planta baja)."
-          },
-          {
-            "id": "TOWER_NUMBER",
-            "label": "Número de torre",
-            "type": "num",
-            "help": "Si el complejo tiene varias torres, cuál es. Suma calidad al aviso en Mercado Libre. Si lo dejás vacío se envía 0 (no se muestra al comprador)."
-          },
-          {
-            "id": "APARTMENT_NUMBER",
-            "label": "Número del apartamento",
-            "type": "num",
-            "help": "El número de la unidad (ej: 302). Suma calidad al aviso en Mercado Libre. Si lo dejás vacío se envía 0 (no se muestra al comprador)."
           },
           {
             "id": "APARTMENT_PROPERTY_SUBTYPE",
@@ -1279,7 +1284,6 @@
             "id": "SECURITY_TYPE",
             "label": "Tipo de seguridad",
             "type": "list",
-            "req": true,
             "options": [
               "24 horas",
               "Diurno",
@@ -2552,22 +2556,13 @@
 
     function collectFicha() {
       const ficha = {};
-      let _diagNum = [], _diagFalta = [];
       fichaCampos().forEach(c => {
         const el = document.getElementById('fc-' + c.id);
-        if (!el) { _diagFalta.push(c.id + '(' + c.type + ')'); return; }
+        if (!el) return;
         if (!c.type) { ficha[c.id] = !!el.checked; }                              // checkbox: Sí (tildado) / No (sin tildar) — siempre se manda
-        else if (c.type === 'num') {
-          // Numérico vacío = 0 (solo calidad de ML, no se muestra al comprador).
-          const n = parseFloat(el.value);
-          ficha[c.id] = isNaN(n) ? 0 : n;
-          _diagNum.push(c.id + '="' + el.value + '"→' + ficha[c.id]);
-        }
-        else { if (el.value) ficha[c.id] = el.value; }                             // lista / texto / fecha (vacío = no se manda)
+        else if (c.type === 'num') { const n = parseFloat(el.value); if (!isNaN(n)) ficha[c.id] = n; }
+        else { if (el.value) ficha[c.id] = el.value; }                             // lista / texto / fecha
       });
-      // DIAGNÓSTICO TEMPORAL (F12 → Console al guardar) — para el tema de los ceros.
-      console.log('[collectFicha] numéricos:', _diagNum.join(' | '));
-      if (_diagFalta.length) console.log('[collectFicha] SIN input en el DOM:', _diagFalta.join(', '));
       // Con link de tour cargado, ML recibe "Con tour virtual" automáticamente.
       if (ficha.IC_TOUR3D) ficha.WITH_VIRTUAL_TOUR = true;
       return ficha;
@@ -2763,30 +2758,27 @@
       b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; er.classList.add('hidden');
       try {
         const pi = ei || db.collection('properties').doc().id, iu = [];
-        const itu = selectedImages.filter(im => !im.existing); let uc = 0; const tt = itu.length;
-        for (let i = 0; i < selectedImages.length; i++) {
-          const im = selectedImages[i];
-          if (im.existing) { iu.push(im.url) } else { uc++; updateUploadProgress(uc, tt); const url = await uploadImageToStorage(im.file, pi, i); iu.push(url) }
-        }
-        const ty = document.getElementById('propType').value, dp = document.getElementById('propDepartamento').value, cd = document.getElementById('propCiudad').value, np = parseInt(document.getElementById('propPrice').value);
-        // ---- Campos BLOQUEANTES de la ficha: sin ellos no se guarda ----
-        // Decisión de la agencia: "Tipo de seguridad" es obligatorio (los portales
-        // lo aprovechan y los agentes lo olvidaban). El resto de los requeridos
-        // sigue con la vía suave: asterisco + notificación de ficha incompleta.
-        const BLOQUEANTES = ['SECURITY_TYPE'];
-        for (const bid of BLOQUEANTES) {
-          const cDef = fichaCampos().find(c => c.id === bid);
-          if (!cDef) continue; // este tipo de inmueble no lleva el campo
-          const elB = document.getElementById('fc-' + bid);
-          if (elB && !elB.value) {
-            const det = elB.closest('details'); if (det) det.open = true;
-            elB.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            elB.style.borderColor = '#dc2626';
-            elB.focus();
-            showToast('Falta "' + cDef.label + '"', 'Es obligatorio: elegí una opción en la Ficha técnica para poder guardar.', 'fa-triangle-exclamation');
-            return;
+        // Subida EN PARALELO (3 canales): antes era foto por foto en fila, y una
+        // sola foto con mala señal frenaba toda la cola. Además, si el guardado
+        // falla a mitad de camino, cada foto recuerda su URL (uploadedUrl) y al
+        // reintentar NO se vuelve a subir: se retoma donde quedó.
+        const resultados = new Array(selectedImages.length);
+        const tt = selectedImages.filter(im => !im.existing && !im.uploadedUrl).length;
+        let uc = 0, _idx = 0;
+        const canal = async () => {
+          while (_idx < selectedImages.length) {
+            const i = _idx++; const im = selectedImages[i];
+            if (im.existing) { resultados[i] = im.url; continue; }
+            if (im.uploadedUrl) { resultados[i] = im.uploadedUrl; continue; }
+            const url = await uploadImageToStorage(im.file, pi, i);
+            im.uploadedUrl = url;
+            resultados[i] = url;
+            uc++; updateUploadProgress(uc, tt);
           }
-        }
+        };
+        await Promise.all([canal(), canal(), canal()]);
+        resultados.forEach(u => { if (u) iu.push(u) });
+        const ty = document.getElementById('propType').value, dp = document.getElementById('propDepartamento').value, cd = document.getElementById('propCiudad').value, np = parseInt(document.getElementById('propPrice').value);
         const ficha = collectFicha();
         // Código de propiedad: garantizar que no se repita jamás con otra propiedad.
         ficha.PROPERTY_CODE = await codigoUnico(ficha.PROPERTY_CODE, ei || pi);
@@ -2832,7 +2824,6 @@
                 propertyId: pi,
                 propertyTitle: pd.title || '',
                 estadoGestion: 'nuevo',
-                rol: 'propietario', // la propiedad nace desde este cliente: es su dueño
                 interes: pd.type === 'rent' ? 'alquilar' : 'vender',
                 presupuesto: '',
                 link: '',
