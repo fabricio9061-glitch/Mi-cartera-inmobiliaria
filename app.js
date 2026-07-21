@@ -462,6 +462,7 @@
     document.getElementById('mvSideAdminGroup')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSideRetiros')?.classList.toggle('hidden', !isAdminUser());
+    document.getElementById('mvSideGenerarDoc')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSidePapelera')?.classList.toggle('hidden', !isAdminUser());
     if (isAdminUser()) actualizarBadgePendientes();
     document.getElementById('mvSide')?.classList.add('open');
@@ -923,11 +924,15 @@
     const nProp = notifications.length - nCli - nFin;
     const chip = (val, txt) => `<button class="notif-chip ${filtro===val?'active':''}" onclick="setNotifFiltro('${val}')">${txt}</button>`;
     const barra = `<div class="notif-filtros">${chip('all','Todas')}${chip('clientes','Clientes'+(nCli?' ('+nCli+')':''))}${chip('propiedades','Propiedades'+(nProp?' ('+nProp+')':''))}${nFin?chip('finanzas','Finanzas ('+nFin+')'):''}</div>`;
+    // Los filtros viven en una barra FIJA (no se van al scrollear la lista).
+    const fb = document.getElementById('notifFiltrosBar');
+    if (fb) fb.innerHTML = barra;
+    const pre = fb ? '' : barra;
     if (!visibles.length){
-      l.innerHTML = barra + '<div class="notification-empty" style="padding:24px 12px"><i class="fas fa-bell-slash"></i><p>Sin avisos en esta categoría</p></div>';
+      l.innerHTML = pre + '<div class="notification-empty" style="padding:24px 12px"><i class="fas fa-bell-slash"></i><p>Sin avisos en esta categoría</p></div>';
       return;
     }
-    l.innerHTML = barra + visibles.map(n => {
+    l.innerHTML = pre + visibles.map(n => {
       const i = (n.userName || 'A').charAt(0).toUpperCase(),
         ts = n.createdAt ? formatTimeAgo(n.createdAt) : '';
       // Aviso al AGENTE del estado de su retiro (aprobado / pagado / rechazado).
@@ -983,18 +988,36 @@
     return d.toLocaleDateString('es')
   }
 
+  // Bloqueo del scroll del fondo mientras el panel está abierto (en celular).
+  // Sin esto, scrollear la lista arrastraba la página de atrás: el "se mueve raro".
+  let _notifScrollY = 0;
+  function _notifLock() {
+    _notifScrollY = window.scrollY || 0;
+    const b = document.body;
+    b.style.position = 'fixed'; b.style.top = (-_notifScrollY) + 'px';
+    b.style.left = '0'; b.style.right = '0'; b.style.width = '100%';
+  }
+  function _notifUnlock() {
+    const b = document.body;
+    if (b.style.position !== 'fixed') return;
+    b.style.position = ''; b.style.top = ''; b.style.left = ''; b.style.right = ''; b.style.width = '';
+    window.scrollTo(0, _notifScrollY);
+  }
   function toggleNotifications(e) {
     e.stopPropagation();
     const d = document.getElementById('notificationDropdown');
     const o = document.getElementById('notificationOverlay');
     const isOpen = d.classList.toggle('active');
     o.classList.toggle('active', isOpen);
+    if (isOpen && window.matchMedia('(max-width: 640px)').matches) _notifLock();
+    if (!isOpen) _notifUnlock();
     if (isOpen) loadNotifications()
   }
 
   function closeNotifications() {
     document.getElementById('notificationDropdown').classList.remove('active');
-    document.getElementById('notificationOverlay').classList.remove('active')
+    document.getElementById('notificationOverlay').classList.remove('active');
+    _notifUnlock();
   }
   document.addEventListener('click', e => {
     const d = document.getElementById('notificationDropdown'),

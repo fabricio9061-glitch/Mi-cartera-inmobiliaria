@@ -4378,3 +4378,93 @@
 .ctr-hist-item { padding: 11px 0; border-bottom: 1px solid var(--gray-100, #f1f5f9); font-size: .86rem; }
 .ctr-hist-item:last-child { border-bottom: none; }
 .ctr-hist-sub { font-size: .78rem; color: var(--gray-500, #6b7280); margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+
+
+/* ================================================================
+   PANEL DE NOTIFICACIONES — rediseño (pisa las reglas anteriores)
+   Hoja estable con animación suave, filtros fijos, tarjetas
+   uniformes y scroll contenido (no arrastra el fondo).
+   ================================================================ */
+.notification-dropdown {
+    display: flex !important;
+    flex-direction: column;
+    width: 400px;
+    max-height: 540px;
+    border-radius: 18px;
+    box-shadow: 0 18px 50px rgba(10, 20, 35, .18);
+    border: 1px solid var(--gray-200, #e5e7eb);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-8px);
+    transition: opacity .2s ease, transform .2s ease, visibility .2s;
+    animation: none !important;
+}
+.notification-dropdown.active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+.notification-overlay {
+    display: block !important;
+    opacity: 0;
+    pointer-events: none;
+    background: rgba(10, 18, 32, .38);
+    transition: opacity .2s ease;
+}
+.notification-overlay.active { opacity: 1; pointer-events: auto; }
+
+/* Cabecera compacta y barra de filtros fija */
+.notification-header { padding: 13px 16px; flex: none; }
+.notification-header h3 { font-size: 1rem; }
+.notif-filtros-bar { flex: none; border-bottom: 1px solid var(--gray-100, #f1f5f9); background: #fff; }
+.notif-filtros-bar .notif-filtros { padding: 8px 12px; margin: 0; border: none; }
+
+/* La lista es la única que scrollea, y su scroll NO arrastra el fondo */
+.notification-list {
+    flex: 1 1 auto;
+    max-height: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+.notification-list::-webkit-scrollbar { width: 5px; }
+.notification-list::-webkit-scrollbar-thumb { background: var(--gray-200, #e5e7eb); border-radius: 99px; }
+
+/* Tarjetas uniformes y compactas */
+.notification-item { padding: 12px 15px; gap: 11px; }
+.notification-item.unread { background: rgba(37, 99, 235, .045); }
+.notification-item.unread::after { width: 3px; background: var(--accent, #2563eb); }
+.notification-avatar { width: 40px; height: 40px; font-size: 15px; }
+.notification-body p { font-size: .86rem; margin: 0 0 2px; }
+.notification-body strong { font-size: .86rem; }
+.notification-message {
+    font-size: .8rem;
+    line-height: 1.45;
+    color: var(--gray-500, #6b7280);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.notification-meta { font-size: .7rem; margin-top: 5px; }
+
+/* Celular: hoja completa desde arriba, estable y con cierre por overlay */
+@media (max-width: 640px) {
+    .notification-dropdown {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: auto !important;
+        max-width: none !important;
+        max-height: 92dvh;
+        border-radius: 0 0 22px 22px;
+        border: none;
+        transform: translateY(-14px);
+        z-index: 9999;
+    }
+    .notification-dropdown.active { transform: translateY(0); }
+    .notification-header { padding: 15px 16px 12px; }
+}
