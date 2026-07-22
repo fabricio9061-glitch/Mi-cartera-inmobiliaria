@@ -461,6 +461,9 @@
     cargarFinanzasMenu();
     document.getElementById('mvSideAdminGroup')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !isAdminUser());
+    // Barra inferior móvil: visible para cualquier usuario logueado
+    document.getElementById('mvBottomBar')?.classList.toggle('hidden', !currentUser);
+    document.body.classList.toggle('has-bottombar', !!currentUser);
     document.getElementById('mvSideRetiros')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSideGenerarDoc')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSidePapelera')?.classList.toggle('hidden', !isAdminUser());
@@ -901,6 +904,9 @@
       be = document.getElementById('notificationBell'),
       l = document.getElementById('notificationList'),
       uc = notifications.filter(n => !n.read).length;
+    // Espejo del contador en la barra inferior móvil
+    const bb = document.getElementById('bbBadge');
+    if (bb) { bb.textContent = uc > 99 ? '99+' : uc; bb.classList.toggle('hidden', uc === 0); }
     if (uc > 0) {
       b.textContent = uc > 99 ? '99+' : uc;
       b.classList.remove('hidden');
@@ -1014,10 +1020,42 @@
     if (isOpen) loadNotifications()
   }
 
+  // Navegación de la barra inferior móvil (Inicio · Consultas · Perfil · Menú)
+  function bbGo(tab) {
+    const marcar = id => {
+      document.querySelectorAll('.bb-item').forEach(b => b.classList.remove('active'));
+      document.getElementById(id)?.classList.add('active');
+    };
+    const notifAbierto = document.getElementById('notificationDropdown')?.classList.contains('active');
+    if (tab === 'inicio') {
+      closeNotifications(); closeSideMenu();
+      showHome(); window.scrollTo({ top: 0, behavior: 'smooth' });
+      marcar('bbInicio');
+    } else if (tab === 'notif') {
+      closeSideMenu();
+      if (notifAbierto) { closeNotifications(); marcar('bbInicio'); }
+      else { toggleNotifications({ stopPropagation: () => {} }); marcar('bbNotif'); }
+    } else if (tab === 'perfil') {
+      closeNotifications(); closeSideMenu();
+      if (currentUser) showProfile(currentUser.uid);
+      marcar('bbPerfil');
+    } else if (tab === 'menu') {
+      closeNotifications();
+      openSideMenu();
+      marcar('bbMenu');
+    }
+  }
+
   function closeNotifications() {
     document.getElementById('notificationDropdown').classList.remove('active');
     document.getElementById('notificationOverlay').classList.remove('active');
     _notifUnlock();
+    // Si la barra inferior está, el foco vuelve a Inicio
+    const bn = document.getElementById('bbNotif');
+    if (bn && bn.classList.contains('active')) {
+      document.querySelectorAll('.bb-item').forEach(b => b.classList.remove('active'));
+      document.getElementById('bbInicio')?.classList.add('active');
+    }
   }
   document.addEventListener('click', e => {
     const d = document.getElementById('notificationDropdown'),
