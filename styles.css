@@ -4776,3 +4776,27 @@
     .lightbox { z-index: 3700; }
     .lightbox .lightbox-content, .lightbox img { padding-top: env(safe-area-inset-top, 0px); }
 }
+
+
+/* ===== Galería del detalle en celular =====
+   Alto fijo de 400px + object-fit:cover recortaba las fotos (se veían
+   "cortadas"). En celular la foto se muestra ENTERA sobre fondo neutro,
+   y la tira de miniaturas deja de quedar mordida por el borde. */
+@media (max-width: 640px) {
+    .detail-gallery {
+        height: auto;
+        aspect-ratio: 4 / 3;
+        max-height: 46dvh;
+        background: #0f141c;
+    }
+    .detail-gallery img { object-fit: contain; }
+    .detail-thumbs {
+        padding: 10px 12px 12px;
+        gap: 8px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .detail-thumbs::-webkit-scrollbar { display: none; }
+    .detail-thumb { width: 62px; height: 62px; flex: 0 0 auto; }
+}
