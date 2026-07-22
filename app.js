@@ -1089,11 +1089,17 @@
   try { _agentesRecientes = JSON.parse(localStorage.getItem('mvAgentesRecientes') || '[]'); } catch (e) {}
   const _normTxt = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
+  function toggleBuscadorAgentes(e) {
+    e?.stopPropagation();
+    const p = document.getElementById('agentSearch');
+    if (p?.classList.contains('active')) cerrarBuscadorAgentes(); else abrirBuscadorAgentes();
+  }
   function abrirBuscadorAgentes() {
     const p = document.getElementById('agentSearch');
     if (!p) return;
     p.classList.add('active');
-    if (window.matchMedia('(max-width: 640px)').matches) _notifLock();
+    closeNotifications();
+    if (window.matchMedia('(max-width: 640px)').matches) sincronizarBloqueoFondo();
     renderBusquedaAgentes();
     setTimeout(() => document.getElementById('agentSearchInput')?.focus(), 220);
   }
@@ -1147,6 +1153,18 @@
       document.getElementById('bbInicio')?.classList.add('active');
     }
   }
+  // Buscador de agentes en PC: cerrar al hacer clic afuera o con Escape
+  document.addEventListener('click', e => {
+    const p = document.getElementById('agentSearch');
+    if (p && p.classList.contains('active')
+        && window.matchMedia('(min-width: 641px)').matches
+        && !p.contains(e.target)
+        && !e.target.closest('#agentSearchBtn')) cerrarBuscadorAgentes();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') cerrarBuscadorAgentes();
+  });
+
   document.addEventListener('click', e => {
     const d = document.getElementById('notificationDropdown'),
       b = document.getElementById('notificationBell');
@@ -1338,6 +1356,8 @@
   function updateUI() {
     // Barra inferior móvil (estilo app): visible solo con sesión iniciada.
     document.getElementById('mvBottomBar')?.classList.toggle('hidden', !currentUser);
+    // Lupa de búsqueda de agentes (escritorio)
+    document.getElementById('agentSearchBtn')?.classList.toggle('hidden', !currentUser);
     document.body.classList.toggle('has-bottombar', !!currentUser);
     // La pestaña Perfil muestra la FOTO del agente (como Facebook)
     const bba = document.getElementById('bbAvatar');
