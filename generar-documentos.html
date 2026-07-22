@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentos | MALAVE Admin</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root{ --ink:#16273f; --muted:#6b7480; --line:#e6e9ee; --card:#fff; --bg:#f4f6f8; --gold:#C9A227; --bad:#c0392b; --good:#15803d; --gray-100:#f1f5f9; }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{ font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); }
+    h1,h2,h3{ font-family:'Cormorant Garamond',serif; }
+    .fh{ background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:50; }
+    .fh-in{ max-width:1000px; margin:0 auto; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; }
+    .fh-logo{ display:flex; align-items:center; gap:10px; }
+    .fh-back{ display:inline-flex; align-items:center; gap:7px; color:var(--muted); font-size:.88rem; font-weight:500; padding:8px 15px; border:1px solid var(--line); border-radius:999px; text-decoration:none; }
+    .fh-back:hover{ background:var(--ink); color:#fff; }
+    .wrap{ max-width:1000px; margin:0 auto; padding:26px 20px 70px; }
+    h1{ font-size:2rem; font-weight:700; }
+    .lede{ color:var(--muted); margin:6px 0 24px; font-size:.95rem; max-width:640px; }
+    .state{ text-align:center; padding:60px 20px; color:var(--muted); }
+    .sp{ width:34px; height:34px; border:3px solid var(--line); border-top-color:var(--gold); border-radius:50%; margin:0 auto 14px; animation:spin 1s linear infinite; }
+    @keyframes spin{ to{ transform:rotate(360deg); } }
+    .denied{ text-align:center; padding:60px 20px; }
+    .denied i{ font-size:2.4rem; color:var(--bad); margin-bottom:12px; }
+
+    /* Selector de tipo de documento */
+    .doc-types{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:26px; }
+    .doc-type{ flex:1; min-width:200px; background:var(--card); border:2px solid var(--line); border-radius:14px; padding:18px; cursor:pointer; transition:all .15s; text-align:left; font-family:inherit; }
+    .doc-type:hover{ border-color:var(--gold); }
+    .doc-type.active{ border-color:var(--ink); background:#fbfcfd; }
+    .doc-type.soon{ opacity:.55; cursor:not-allowed; }
+    .doc-type i{ font-size:1.5rem; color:var(--gold); margin-bottom:8px; display:block; }
+    .doc-type b{ font-size:1rem; display:block; margin-bottom:3px; }
+    .doc-type span{ font-size:.8rem; color:var(--muted); }
+    .doc-type .soon-tag{ font-size:.68rem; background:var(--gray-100); color:var(--muted); padding:2px 8px; border-radius:999px; display:inline-block; margin-top:6px; }
+
+    /* Layout formulario + vista previa */
+    .doc-grid{ display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start; }
+    @media(max-width:860px){ .doc-grid{ grid-template-columns:1fr; } }
+    .panel{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px; }
+    .panel h3{ font-size:1.2rem; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    .panel h3 i{ color:var(--gold); font-size:1rem; }
+    .fld{ margin-bottom:15px; }
+    .fld label{ display:block; font-size:.8rem; font-weight:600; color:var(--muted); margin-bottom:5px; }
+    .fld input, .fld select, .fld textarea{ width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; font-family:inherit; font-size:.9rem; color:var(--ink); }
+    .fld input:focus, .fld select:focus{ outline:none; border-color:var(--gold); }
+    .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .seg{ display:flex; gap:8px; }
+    .seg button{ flex:1; padding:9px; border:1px solid var(--line); background:#fff; border-radius:9px; font-family:inherit; font-size:.84rem; font-weight:600; cursor:pointer; color:var(--muted); }
+    .seg button.on{ background:var(--ink); color:#fff; border-color:var(--ink); }
+
+    /* Firmantes */
+    .firmante{ background:#fafbfc; border:1px solid var(--line); border-radius:11px; padding:13px; margin-bottom:10px; position:relative; }
+    .firmante .fdel{ position:absolute; top:10px; right:10px; border:none; background:transparent; color:var(--muted); cursor:pointer; font-size:.9rem; }
+    .firmante .fdel:hover{ color:var(--bad); }
+    .firmante .fnum{ font-size:.72rem; font-weight:700; color:var(--gold); text-transform:uppercase; letter-spacing:.04em; margin-bottom:9px; }
+    .add-firmante{ width:100%; border:1.5px dashed var(--line); background:#fff; color:var(--ink); border-radius:10px; padding:11px; font-family:inherit; font-size:.86rem; font-weight:600; cursor:pointer; }
+    .add-firmante:hover{ border-color:var(--gold); background:#fdfaf0; }
+
+    .gen-btn{ width:100%; border:none; background:var(--ink); color:#fff; border-radius:12px; padding:14px; font-family:inherit; font-size:.95rem; font-weight:700; cursor:pointer; margin-top:8px; display:flex; align-items:center; justify-content:center; gap:9px; }
+    .gen-btn:hover{ background:#0f1d31; }
+    .gen-btn:disabled{ opacity:.6; cursor:default; }
+
+    /* Vista previa */
+    .preview-wrap{ position:sticky; top:90px; }
+    .preview-label{ font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:10px; display:flex; align-items:center; gap:7px; }
+    .preview{ background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 8px 30px rgba(10,20,35,.08); aspect-ratio:1/1.414; overflow:hidden; }
+    .preview iframe{ width:100%; height:100%; border:0; }
+    .preview-empty{ display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#c3ccd6; text-align:center; padding:30px; }
+    .preview-empty i{ font-size:2.4rem; margin-bottom:12px; }
+
+    .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:13px 22px; border-radius:12px; font-size:.9rem; box-shadow:0 10px 30px rgba(0,0,0,.25); z-index:200; opacity:0; transition:opacity .2s, transform .2s; }
+    .toast.show{ opacity:1; transform:translateX(-50%) translateY(-4px); }
+    .toast.bad{ background:var(--bad); }
+    .hint{ font-size:.76rem; color:var(--muted); margin-top:5px; }
+  </style>
+</head>
+<body>
+  <header class="fh">
+    <div class="fh-in">
+      <div class="fh-logo"><img src="iso-malave.png" alt="" style="height:30px;width:auto"><img src="texto-malave.png" alt="MALAVE" style="height:19px;width:auto"></div>
+      <a class="fh-back" href="index.html"><i class="fas fa-arrow-left"></i> Volver</a>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div id="loading" class="state"><div class="sp"></div><p>Cargando…</p></div>
+    <div id="denied" class="denied" style="display:none"><i class="fas fa-lock"></i><h2>Solo para el administrador</h2><p>Esta sección es exclusiva de la administración.</p></div>
+
+    <div id="content" style="display:none">
+      <h1>Documentos</h1>
+      <p class="lede">Generá documentos con el membrete de la agencia. Elegí el tipo, completá los datos y descargá el PDF listo para entregar.</p>
+
+      <div class="doc-types">
+        <button class="doc-type active" data-type="carta_pago" onclick="selectType('carta_pago')">
+          <i class="fas fa-hand-holding-dollar"></i>
+          <b>Carta de pago</b>
+          <span>Comprobante de que un cliente pagó la comisión. Se entrega a quien pagó.</span>
+        </button>
+        <button class="doc-type soon" disabled>
+          <i class="fas fa-file-contract"></i>
+          <b>Contrato de alquiler</b>
+          <span>Contrato completo con cláusulas y garantías.</span>
+          <span class="soon-tag">Próximamente</span>
+        </button>
+        <button class="doc-type soon" disabled>
+          <i class="fas fa-receipt"></i>
+          <b>Otros comprobantes</b>
+          <span>Recibos y constancias varias.</span>
+          <span class="soon-tag">Próximamente</span>
+        </button>
+      </div>
+
+      <div class="doc-grid">
+        <!-- Formulario -->
+        <div class="panel" id="formCartaPago">
+          <h3><i class="fas fa-pen-to-square"></i> Datos de la carta de pago</h3>
+
+          <div class="fld">
+            <label>Agente que gestionó la operación</label>
+            <select id="fAgente"><option value="">Elegí un agente…</option></select>
+            <div class="hint">Es quien firma la carta al pie.</div>
+          </div>
+
+          <div class="fld">
+            <label>Tipo de operación</label>
+            <div class="seg">
+              <button type="button" id="opAlq" class="on" onclick="setOperacion('arrendamiento')">Alquiler</button>
+              <button type="button" id="opVta" onclick="setOperacion('compraventa')">Venta</button>
+            </div>
+          </div>
+
+          <div class="fld">
+            <label>Propiedad</label>
+            <div class="seg" style="margin-bottom:9px">
+              <button type="button" id="modoLista" class="on" onclick="setModoProp('lista')">Elegir del sistema</button>
+              <button type="button" id="modoManual" onclick="setModoProp('manual')">Escribir dirección</button>
+            </div>
+            <select id="fPropSelect"><option value="">Elegí una propiedad…</option></select>
+            <input id="fPropManual" type="text" placeholder="Ej: José Antonio Cabrera 3558, Montevideo" style="display:none">
+            <div class="hint" id="propHint">A veces las direcciones cargadas tienen errores: revisá que la dirección sea correcta antes de generar.</div>
+          </div>
+
+          <div class="fld">
+            <label>Monto de la comisión</label>
+            <div class="row2">
+              <select id="fMoneda"><option value="UYU">Pesos ($U)</option><option value="USD">Dólares (US$)</option></select>
+              <input id="fMonto" type="number" min="0" step="1" placeholder="16000" oninput="renderPreview()">
+            </div>
+            <div class="hint" id="montoLetras">En letras: —</div>
+          </div>
+
+          <div class="fld">
+            <label>¿Quién realizó el pago?</label>
+            <div class="hint" style="margin-top:0;margin-bottom:9px">Agregá una o más personas. El texto se ajusta solo (una o varias).</div>
+            <div id="firmantes"></div>
+            <button type="button" class="add-firmante" onclick="addFirmante()"><i class="fas fa-plus"></i> Agregar persona</button>
+          </div>
+
+          <div class="fld">
+            <label>Fecha del documento</label>
+            <input id="fFecha" type="date">
+          </div>
+
+          <button class="gen-btn" id="genBtn" onclick="generarPDF()"><i class="fas fa-file-arrow-down"></i> Generar y descargar PDF</button>
+        </div>
+
+        <!-- Vista previa -->
+        <div class="preview-wrap">
+          <div class="preview-label"><i class="fas fa-eye"></i> Vista previa en vivo</div>
+          <div class="preview">
+            <iframe id="previewFrame"></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script>
+    // ===== Datos FIJOS del membrete (no cambian) =====
+    var EMPRESA = {
+      nombre: 'MALAVE INMOBILIARIA',
+      titular: 'Anibal Fabricio Malave Azocar',
+      rut: '219505710017',
+      celular: '94029297',
+      direccion: 'José Antonio Cabrera 3558, Montevideo',
+      email: 'inmobiliariamalave@gmail.com'
+    };
+
+    var ADMIN_EMAIL = 'fabricio9061@gmail.com';
+    var db, auth, agentes = [], props = [];
+    var tipoOperacion = 'arrendamiento', modoProp = 'lista';
+    // Logo del edificio en AZUL OSCURO, incrustado acá mismo. No se usa el de
+    // malave-logos.js porque ese es la versión BLANCA (para fondos oscuros como
+    // el recibo): sobre la hoja blanca de la carta quedaba invisible.
+    var LOGO_CARTA = "data:image/png;base64,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";
+    var _logoImg = null;
+    (function precargarLogo(){
+      var img = new Image();
+      img.onload = function(){ _logoImg = img; try{ renderPreview(); }catch(e){} };
+      img.onerror = function(){ console.warn('El logo incrustado no se pudo decodificar.'); };
+      img.src = LOGO_CARTA;
+    })();
+
+    function toast(msg, bad){ var t=document.getElementById('toast'); t.textContent=msg; t.className='toast show'+(bad?' bad':''); setTimeout(function(){ t.className='toast'; }, 2600); }
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+
+    // ---- Número a letras (pesos/dólares uruguayos) ----
+    function numeroALetras(n){
+      n = Math.floor(Number(n)||0);
+      if(n===0) return 'cero';
+      var UNI=['','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince','dieciséis','diecisiete','dieciocho','diecinueve','veinte','veintiuno','veintidós','veintitrés','veinticuatro','veinticinco','veintiséis','veintisiete','veintiocho','veintinueve'];
+      var DEC=['','','','treinta','cuarenta','cincuenta','sesenta','setenta','ochenta','noventa'];
+      var CEN=['','ciento','doscientos','trescientos','cuatrocientos','quinientos','seiscientos','setecientos','ochocientos','novecientos'];
+      function menor1000(x){
+        var s='';
+        var c=Math.floor(x/100), d=x%100;
+        if(x===100) return 'cien';
+        if(c>0) s+=CEN[c]+' ';
+        if(d<30){ s+=UNI[d]; }
+        else { var dd=Math.floor(d/10), u=d%10; s+=DEC[dd]; if(u>0) s+=' y '+UNI[u]; }
+        return s.trim();
+      }
+      var partes=[];
+      var millones=Math.floor(n/1000000); var resto=n%1000000;
+      var miles=Math.floor(resto/1000); var uni=resto%1000;
+      if(millones>0){ partes.push(millones===1?'un millón':menor1000(millones)+' millones'); }
+      if(miles>0){ partes.push(miles===1?'mil':apocope(menor1000(miles))+' mil'); }
+      if(uni>0){ partes.push(menor1000(uni)); }
+      return partes.join(' ').replace(/\s+/g,' ').trim();
+    }
+    // "uno"->"un" y "veintiuno"->"veintiún" cuando precede a un sustantivo (mil, moneda)
+    function apocope(txt){
+      return txt.replace(/veintiuno$/,'veintiún').replace(/\buno$/,'un');
+    }
+    function montoEnLetras(n, moneda){
+      n=Math.floor(Number(n)||0);
+      var letras = apocope(numeroALetras(n));
+      var mon = moneda==='USD' ? 'dólares estadounidenses' : 'pesos uruguayos';
+      var monSing = moneda==='USD' ? 'dólar estadounidense' : 'peso uruguayo';
+      // Singular exacto ("un peso") y "de" tras millón/millones exactos.
+      if(n===1){ mon = monSing; }
+      var terminaEnMillon = /millón$|millones$/.test(letras);
+      var conector = terminaEnMillon ? ' de ' : ' ';
+      return letras.charAt(0).toUpperCase()+letras.slice(1)+conector+mon;
+    }
+    function simbolo(moneda){ return moneda==='USD' ? 'US$' : '$'; }
+    function fmtMonto(n, moneda){ return simbolo(moneda)+' '+(Math.floor(Number(n)||0)).toLocaleString('es-UY'); }
+
+    // ===== Firmantes (1..n) =====
+    var firmanteId = 0;
+    function addFirmante(nombre, ci, trato){
+      firmanteId++;
+      var box=document.getElementById('firmantes');
+      var div=document.createElement('div');
+      div.className='firmante'; div.id='firmante-'+firmanteId;
+      div.innerHTML =
+        '<button type="button" class="fdel" onclick="delFirmante('+firmanteId+')" title="Quitar"><i class="fas fa-times"></i></button>'
+        +'<div class="fnum">Persona '+(box.children.length+1)+'</div>'
+        +'<div class="row2" style="margin-bottom:9px">'
+          +'<div><label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">Trato</label>'
+            +'<select class="f-trato" onchange="renderPreview()" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:.86rem">'
+              +'<option value="Sr."'+(trato==='Sr.'?' selected':'')+'>Sr.</option>'
+              +'<option value="Sra."'+(trato==='Sra.'?' selected':'')+'>Sra.</option>'
+            +'</select></div>'
+          +'<div><label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">Cédula</label>'
+            +'<input class="f-ci" type="text" placeholder="1.234.567-8" value="'+(ci||'')+'" oninput="renderPreview()" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:.86rem"></div>'
+        +'</div>'
+        +'<label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">Nombre completo</label>'
+        +'<input class="f-nombre" type="text" placeholder="Nombre y apellido" value="'+(nombre||'')+'" oninput="renderPreview()" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:.86rem">';
+      box.appendChild(div);
+      renderPreview();
+    }
+    function delFirmante(id){
+      var el=document.getElementById('firmante-'+id); if(el) el.remove();
+      // Renumerar
+      var box=document.getElementById('firmantes');
+      Array.prototype.forEach.call(box.children, function(c,i){ c.querySelector('.fnum').textContent='Persona '+(i+1); });
+      renderPreview();
+    }
+    function leerFirmantes(){
+      var out=[];
+      Array.prototype.forEach.call(document.getElementById('firmantes').children, function(c){
+        var nombre=(c.querySelector('.f-nombre').value||'').trim();
+        var ci=(c.querySelector('.f-ci').value||'').trim();
+        var trato=c.querySelector('.f-trato').value;
+        if(nombre) out.push({ nombre:nombre, ci:ci, trato:trato });
+      });
+      return out;
+    }
+
+    // ===== Armado del texto (singular/plural, género) =====
+    function armarCuerpo(){
+      var firmantes = leerFirmantes();
+      var monto = Number(document.getElementById('fMonto').value)||0;
+      var moneda = document.getElementById('fMoneda').value;
+      var dir = direccionActual();
+      var opTxt = tipoOperacion==='compraventa' ? 'compraventa' : 'arrendamiento';
+
+      // Encabezado de personas
+      var encabezado;
+      if(firmantes.length===0){
+        encabezado = '_________________';
+      } else if(firmantes.length===1){
+        var f=firmantes[0];
+        encabezado = 'el '+f.trato+' '+f.nombre+(f.ci?', CI '+f.ci:'');
+      } else {
+        // Determinar "los Sres." / "las Sras." / "los Sres. y Sras."
+        var soloSr = firmantes.every(function(x){return x.trato==='Sr.';});
+        var soloSra = firmantes.every(function(x){return x.trato==='Sra.';});
+        var trato = soloSra ? 'las Sras.' : (soloSr ? 'los Sres.' : 'los Sres. y Sras.');
+        var lista = firmantes.map(function(x){ return x.nombre+(x.ci?', CI '+x.ci:''); });
+        var ultimo = lista.pop();
+        encabezado = trato+' '+lista.join(', ')+' y '+ultimo;
+      }
+      var verbo = firmantes.length>1 ? 'realizaron en conjunto el pago' : 'realizó el pago';
+      var montoTxt = fmtMonto(monto, moneda);
+      var letrasTxt = montoEnLetras(monto, moneda);
+
+      var cuerpo = 'Por la presente se deja constancia que '+encabezado+' '+verbo+' correspondiente al '+opTxt+' de la propiedad ubicada en '+dir+', por concepto de comisión inmobiliaria, por la suma '+(firmantes.length>1?'total ':'')+'de '+montoTxt+' ('+letrasTxt.toLowerCase()+').';
+      return cuerpo;
+    }
+
+    function direccionActual(){
+      if(modoProp==='manual'){ return (document.getElementById('fPropManual').value||'').trim() || '_________________'; }
+      var sel=document.getElementById('fPropSelect'); var v=sel.value;
+      if(!v) return '_________________';
+      var p=props.find(function(x){return x.id===v;});
+      // Solo la dirección real; nunca el título (evita "Alquiler de Apto…" como dirección).
+      return (p && p._dir) ? p._dir : '_________________';
+    }
+    function agenteActual(){
+      var v=document.getElementById('fAgente').value;
+      var a=agentes.find(function(x){return x.id===v;});
+      return a ? (a.name||'') : '';
+    }
+
+    // ===== Construcción del HTML del documento (para preview y base del PDF) =====
+    function fechaLarga(iso){
+      if(!iso) return '';
+      var d=new Date(iso+'T00:00:00');
+      var meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+      return 'Montevideo, '+d.getDate()+' de '+meses[d.getMonth()]+' de '+d.getFullYear();
+    }
+
+    // ===== Construcción del PDF (una sola fuente para preview Y descarga) =====
+    // La vista previa muestra EXACTAMENTE este PDF embebido, así lo que ves es lo
+    // que se descarga (antes la preview era HTML y no coincidía).
+    function construirPDF(){
+      var jsPDF=window.jspdf.jsPDF;
+      var pdf=new jsPDF({unit:'pt',format:'a4',orientation:'portrait'});
+      var W=595.28, M=64;
+      var NAVY=[22,39,63], GREY=[95,106,128], INK=[26,38,58];
+      var moneda=document.getElementById('fMoneda').value;
+      var agente=agenteActual();
+      var cuerpo=armarCuerpo();
+      var fecha=fechaLarga(document.getElementById('fFecha').value) || 'Montevideo, ___ de _______ de ____';
+
+      // ---- Membrete: datos a la izquierda ----
+      var y=60;
+      pdf.setTextColor.apply(pdf,INK); pdf.setFont('helvetica','bold'); pdf.setFontSize(13.5);
+      pdf.text(EMPRESA.nombre, M, y);
+      y+=18;
+      pdf.setFont('helvetica','normal'); pdf.setFontSize(9); pdf.setTextColor.apply(pdf,GREY);
+      [EMPRESA.titular, 'RUT: '+EMPRESA.rut, 'Celular: '+EMPRESA.celular, EMPRESA.direccion, EMPRESA.email].forEach(function(d){ pdf.text(d, M, y); y+=13.5; });
+
+      // ---- Membrete: logo a la derecha ----
+      // Logo del edificio (oscuro, incrustado), con su proporción real.
+      if(_logoImg){
+        try{ pdf.addImage(_logoImg, 'PNG', W-M-80, 52, 57, 50); }
+        catch(e){ console.warn('No se pudo dibujar el logo:', e); }
+      }
+      pdf.setTextColor.apply(pdf,INK); pdf.setFont('helvetica','normal'); pdf.setFontSize(18);
+      pdf.text('MALAVE', W-M-50, 124, {align:'center', charSpace:3.5});
+      pdf.setFontSize(7); pdf.setTextColor.apply(pdf,GREY);
+      pdf.text('INMOBILIARIA', W-M-50, 135, {align:'center', charSpace:2.5});
+
+      // ---- Fecha ----
+      y=Math.max(y, 150)+22;
+      pdf.setFont('helvetica','normal'); pdf.setFontSize(11.5); pdf.setTextColor.apply(pdf,INK);
+      pdf.text(fecha, W-M, y, {align:'right'});
+      y+=46;
+
+      // ---- Título ----
+      pdf.setFont('helvetica','bold'); pdf.setFontSize(16);
+      pdf.text('CARTA DE PAGO', W/2, y, {align:'center'});
+      pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(2);
+      pdf.line(W/2-26, y+10, W/2+26, y+10);
+      y+=46;
+
+      // ---- Cuerpo con justificado prolijo ----
+      pdf.setFont('helvetica','normal'); pdf.setFontSize(12); pdf.setTextColor.apply(pdf,INK);
+      var lines=pdf.splitTextToSize(cuerpo, W-M-M);
+      var lh=22;
+      lines.forEach(function(ln,i){
+        var esUltima = (i===lines.length-1);
+        if(!esUltima){
+          pdf.text(ln.trim(), M, y, {align:'justify', maxWidth:W-M-M});
+        } else {
+          pdf.text(ln.trim(), M, y);
+        }
+        y+=lh;
+      });
+      y+=26;
+
+      // ---- Cierre ----
+      pdf.setFont('helvetica','normal'); pdf.setFontSize(12);
+      pdf.text('Agradecemos la confianza.', M, y); y+=lh;
+      pdf.text('Atentamente,', M, y); y+=34;
+      pdf.setFont('helvetica','bold'); pdf.setFontSize(12);
+      pdf.text(agente||'_________________', M, y);
+
+      // ---- Pie fijo ----
+      pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(1.2);
+      pdf.line(M, 788, W-M, 788);
+      pdf.setFont('helvetica','normal'); pdf.setFontSize(9); pdf.setTextColor.apply(pdf,GREY);
+      pdf.text(EMPRESA.direccion+'   |   '+EMPRESA.celular+'   |   '+EMPRESA.email, W/2, 802, {align:'center'});
+      pdf.setFontSize(8.5); pdf.text('RUT: '+EMPRESA.rut, W/2, 814, {align:'center'});
+
+      return pdf;
+    }
+
+    // ===== Vista previa: renderiza el PDF real (con debounce) =====
+    var _previewTimer=null;
+    function renderPreview(){
+      // "En letras" al instante
+      var monto=Number(document.getElementById('fMonto').value)||0;
+      var moneda=document.getElementById('fMoneda').value;
+      document.getElementById('montoLetras').textContent = 'En letras: '+(monto>0 ? montoEnLetras(monto,moneda) : '—');
+      // El PDF se regenera con un pequeño retardo para no trabar mientras se escribe
+      clearTimeout(_previewTimer);
+      _previewTimer=setTimeout(function(){
+        try{
+          var pdf=construirPDF();
+          var uri=pdf.output('datauristring');
+          document.getElementById('previewFrame').src=uri;
+        }catch(e){ console.error('preview',e); }
+      }, 250);
+    }
+
+    // ===== Descargar =====
+    async function generarPDF(){
+      var agente=agenteActual();
+      var firmantes=leerFirmantes();
+      var monto=Number(document.getElementById('fMonto').value)||0;
+      var dir=direccionActual();
+      if(!agente){ toast('Elegí el agente que firma', true); return; }
+      if(firmantes.length===0){ toast('Agregá al menos una persona que pagó', true); return; }
+      if(!monto){ toast('Ingresá el monto', true); return; }
+      if(dir==='_________________'){ toast('Falta la dirección de la propiedad', true); return; }
+      if(!document.getElementById('fFecha').value){ toast('Elegí la fecha del documento', true); return; }
+
+      var btn=document.getElementById('genBtn'); var prev=btn.innerHTML;
+      btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Generando…';
+      try{
+        var pdf=construirPDF();
+        pdf.save('Carta_de_pago_'+(document.getElementById('fFecha').value||'')+'.pdf');
+        toast('Carta de pago generada');
+      }catch(e){ console.error(e); toast('No se pudo generar: '+(e.message||e), true); }
+      btn.disabled=false; btn.innerHTML=prev;
+    }
+
+    // ===== Controles de UI =====
+    function selectType(t){
+      document.querySelectorAll('.doc-type').forEach(function(b){ b.classList.remove('active'); });
+      document.querySelector('.doc-type[data-type="'+t+'"]').classList.add('active');
+      // Por ahora solo carta_pago tiene formulario
+    }
+    function setOperacion(op){
+      tipoOperacion=op;
+      document.getElementById('opAlq').classList.toggle('on', op==='arrendamiento');
+      document.getElementById('opVta').classList.toggle('on', op==='compraventa');
+      poblarPropiedades();
+      renderPreview();
+    }
+    function setModoProp(m){
+      modoProp=m;
+      document.getElementById('modoLista').classList.toggle('on', m==='lista');
+      document.getElementById('modoManual').classList.toggle('on', m==='manual');
+      document.getElementById('fPropSelect').style.display = m==='lista'?'block':'none';
+      document.getElementById('fPropManual').style.display = m==='manual'?'block':'none';
+      document.getElementById('propHint').textContent = m==='manual'
+        ? 'Escribí la dirección tal como debe figurar en el documento.'
+        : 'A veces las direcciones cargadas tienen errores: revisá que la dirección sea correcta antes de generar.';
+      renderPreview();
+    }
+
+    // ===== Init =====
+    var firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
+    firebase.initializeApp(firebaseConfig);
+    auth=firebase.auth(); db=firebase.firestore();
+
+    auth.onAuthStateChanged(async function(user){
+      if(!user){ location.href='index.html'; return; }
+      var isAdmin = (user.email||'').toLowerCase()===ADMIN_EMAIL;
+      if(!isAdmin){
+        try{ var me=await db.collection('users').doc(user.uid).get(); isAdmin = me.exists && (me.data().email||'').toLowerCase()===ADMIN_EMAIL; }catch(e){}
+      }
+      document.getElementById('loading').style.display='none';
+      if(!isAdmin){ document.getElementById('denied').style.display='block'; return; }
+      document.getElementById('content').style.display='block';
+      await cargarDatos();
+      // Estado inicial
+      document.getElementById('fFecha').value = new Date().toISOString().slice(0,10);
+      addFirmante();
+      renderPreview();
+    });
+
+    // Llena el desplegable de propiedades filtrando por el AGENTE elegido y por
+    // el TIPO (venta/alquiler). Así la lista es corta y relevante: primero elegís
+    // el agente, después ves solo SUS propiedades del tipo que marcaste.
+    function poblarPropiedades(){
+      var selP=document.getElementById('fPropSelect');
+      var agId=document.getElementById('fAgente').value;
+      var tipoBuscado = tipoOperacion==='compraventa' ? 'sale' : 'rent';
+      selP.innerHTML='<option value="">Elegí una propiedad…</option>';
+
+      if(!agId){
+        selP.innerHTML='<option value="">Primero elegí un agente…</option>';
+        return;
+      }
+      var lista=props.filter(function(p){
+        var esDelAgente = p.ownerId===agId;
+        var esDelTipo = (p.type===tipoBuscado);
+        return esDelAgente && esDelTipo;
+      });
+      if(lista.length===0){
+        var op=tipoOperacion==='compraventa'?'venta':'alquiler';
+        selP.innerHTML='<option value="">Este agente no tiene propiedades de '+op+' — usá "Escribir dirección"</option>';
+        return;
+      }
+      lista.forEach(function(p){
+        var o=document.createElement('option'); o.value=p.id;
+        // El título identifica la propiedad; la dirección real va entre paréntesis.
+        o.textContent=(p.title||'Propiedad')+(p._dir?('  ·  '+p._dir):'  ·  (sin dirección cargada)');
+        selP.appendChild(o);
+      });
+    }
+    // Aviso si la propiedad elegida no tiene dirección cargada en el sistema.
+    function chequearDireccion(){
+      var hint=document.getElementById('propHint');
+      if(modoProp!=='lista'){ return; }
+      var v=document.getElementById('fPropSelect').value;
+      if(!v){ return; }
+      var p=props.find(function(x){return x.id===v;});
+      if(p && !p._dir){
+        hint.innerHTML='<b style="color:#b45309">Esta propiedad no tiene dirección cargada.</b> Usá "Escribir dirección" para ponerla a mano.';
+      } else {
+        hint.textContent='A veces las direcciones cargadas tienen errores: revisá que la dirección sea correcta antes de generar.';
+      }
+    }
+    async function cargarDatos(){
+      // Agentes (usuarios aprobados)
+      try{
+        var us=await db.collection('users').get();
+        agentes = us.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); })
+          .filter(function(u){ return u.name; })
+          .sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
+        var selA=document.getElementById('fAgente');
+        agentes.forEach(function(a){ var o=document.createElement('option'); o.value=a.id; o.textContent=a.name; selA.appendChild(o); });
+      }catch(e){ console.error('agentes',e); }
+      // Propiedades: se cargan a memoria; el desplegable lo llena poblarPropiedades()
+      // según el agente y el tipo elegidos (lista corta y relevante).
+      try{
+        var ps=await db.collection('properties').orderBy('createdAt','desc').get();
+        props = ps.docs.map(function(d){
+          var p=Object.assign({id:d.id}, d.data());
+          // Dirección REAL (campos en español del sistema): calle + ciudad + depto.
+          // NO usar el título como dirección (era el bug: ponía "Alquiler de Apto…").
+          var ciudadDepto = (p.ciudad && p.departamento) ? (p.ciudad+', '+p.departamento) : (p.location||'');
+          var partes=[p.direccion, ciudadDepto].filter(Boolean);
+          p._dir = partes.join(', ');
+          return p;
+        });
+      }catch(e){ console.error('props',e); }
+      poblarPropiedades();
+    }
+    // Elegir agente o cambiar tipo de operación -> refiltrar propiedades
+    document.getElementById('fAgente').addEventListener('change', function(){ poblarPropiedades(); renderPreview(); });
+    document.getElementById('fPropSelect').addEventListener('change', function(){ chequearDireccion(); renderPreview(); });
+    document.getElementById('fMoneda').addEventListener('change', renderPreview);
+    document.getElementById('fFecha').addEventListener('change', renderPreview);
+    document.getElementById('fPropManual').addEventListener('input', renderPreview);
+  </script>
+</body>
+</html>

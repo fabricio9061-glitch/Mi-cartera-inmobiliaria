@@ -4492,24 +4492,67 @@
 .notification-empty { padding: 48px 20px; text-align: center; color: #b4bcc6; }
 .notification-empty i { font-size: 2.2rem; margin-bottom: 12px; display: block; }
 
-/* ---------- Celular: HOJA desde abajo (bottom sheet) ---------- */
+/* ---------- Celular: PESTAÑA de pantalla completa (estilo app) ----------
+   Las notificaciones dejan de ser un panel flotante: ocupan toda la
+   pantalla, dejando visible la barra inferior para cambiar de pestaña.
+   Nada flota, nada se recorta, nada arrastra el fondo. */
 @media (max-width: 640px) {
     .notification-dropdown {
-        top: auto; bottom: 0; left: 0; right: 0;
-        width: 100%; max-width: none;
-        max-height: 88dvh;
-        border-radius: 22px 22px 0 0;
-        border: none;
-        transform: translateY(100%);
-        transform-origin: bottom center;
-        box-shadow: 0 -12px 40px rgba(10, 20, 35, .25);
+        top: 0; left: 0; right: 0;
+        bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+        width: 100%; max-width: none; max-height: none;
+        border-radius: 0; border: none;
+        box-shadow: none;
+        transform: translateY(6px);
     }
     .notification-dropdown.active { transform: translateY(0); }
-    /* Manija visual arriba de la hoja */
-    .notification-header::before {
-        content: ''; position: absolute; top: 7px; left: 50%;
-        transform: translateX(-50%);
-        width: 38px; height: 4px; border-radius: 99px; background: #d7dce3;
-    }
-    .notification-header { padding-top: 18px; }
+    .notification-header { padding: 16px 16px 12px; }
+    .notification-header h3 { font-size: 1.15rem; }
+    /* Sin overlay oscuro en celular: es una pestaña, no un popup */
+    .notification-overlay { display: none !important; }
+    /* Filas más aireadas, estilo feed */
+    .notification-item { padding: 14px 16px; gap: 12px; }
+    .notification-avatar { width: 44px; height: 44px; }
 }
+
+
+/* ================================================================
+   BARRA INFERIOR MÓVIL (estilo app) — Inicio · Consultas · Perfil · Menú
+   Solo visible en celular y para usuarios logueados.
+   ================================================================ */
+.mv-bottombar {
+    display: none;
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: #fff;
+    border-top: 1px solid #e8ebf0;
+    box-shadow: 0 -6px 24px rgba(10, 20, 35, .07);
+    z-index: 3500;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (max-width: 640px) {
+    .mv-bottombar:not(.hidden) { display: grid; grid-template-columns: repeat(4, 1fr); }
+    body.has-bottombar { padding-bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
+    /* La campanita del header sobra en celular: vive en la barra */
+    body.has-bottombar .notification-bell { display: none !important; }
+}
+.bb-item {
+    position: relative;
+    border: none; background: transparent; cursor: pointer;
+    font-family: inherit;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 9px 4px 8px;
+    color: #8a94a1; font-size: .64rem; font-weight: 600;
+    -webkit-tap-highlight-color: transparent;
+}
+.bb-item i { font-size: 1.15rem; }
+.bb-item.active { color: var(--ink, #16273f); }
+.bb-item.active i { color: var(--gold, #C9A227); }
+.bb-badge {
+    position: absolute; top: 4px; left: calc(50% + 6px);
+    min-width: 17px; height: 17px; border-radius: 99px;
+    background: #e11d48; color: #fff;
+    font-size: .62rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 4px; border: 2px solid #fff;
+}
+.bb-badge.hidden { display: none; }
