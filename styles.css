@@ -4528,10 +4528,20 @@
     display: none;
     position: fixed;
     left: 0; right: 0; bottom: 0;
-    background: var(--ink, #16273f);
-    border-top: 1px solid rgba(255, 255, 255, .08);
+    background: rgba(22, 39, 63, .97);
+    border-top: 1px solid rgba(255, 255, 255, .10);
     z-index: 3500;
     padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+/* Vidrio esmerilado: la barra es translúcida y el contenido pasa desenfocado
+   por debajo, tiñéndola sutilmente (efecto glass estilo iOS). Con respaldo
+   sólido para navegadores sin backdrop-filter. */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .mv-bottombar {
+        background: rgba(22, 39, 63, .72);
+        -webkit-backdrop-filter: blur(18px) saturate(1.5);
+        backdrop-filter: blur(18px) saturate(1.5);
+    }
 }
 @media (max-width: 640px) {
     .mv-bottombar:not(.hidden) { display: grid; grid-template-columns: repeat(5, 1fr); }
@@ -4640,3 +4650,14 @@
 .as-go { color: #c4ccd6; font-size: .8rem; }
 .as-empty { padding: 56px 24px; text-align: center; color: #b4bcc6; }
 .as-empty i { font-size: 2.1rem; margin-bottom: 12px; display: block; }
+
+
+/* En celular, el menú lateral respeta la barra inferior: termina justo arriba
+   de ella, así los últimos ítems (Tutorial, etc.) nunca quedan tapados. */
+@media (max-width: 640px) {
+    body.has-bottombar .mv-side {
+        height: auto !important;
+        top: 0 !important;
+        bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+}

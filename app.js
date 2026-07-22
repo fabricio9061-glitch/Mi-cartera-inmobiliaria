@@ -476,6 +476,12 @@
     document.getElementById('mvSide')?.classList.remove('open');
     document.getElementById('mvSideOverlay')?.classList.remove('open');
     document.getElementById('mvSide')?.setAttribute('aria-hidden', 'true');
+    // Si se cerró desde la pestaña Menú de la barra, el foco vuelve a Inicio
+    const bm = document.getElementById('bbMenu');
+    if (bm && bm.classList.contains('active')) {
+      document.querySelectorAll('.bb-item').forEach(b => b.classList.remove('active'));
+      document.getElementById('bbInicio')?.classList.add('active');
+    }
   }
 
   // ===== Tour guiado para nuevos agentes =====
