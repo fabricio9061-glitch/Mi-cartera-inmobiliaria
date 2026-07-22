@@ -4989,3 +4989,23 @@ html, body {
     }
     .lightbox-nav { width: 40px; height: 40px; }
 }
+
+
+/* ================================================================
+   FIX ESTRUCTURAL del detalle en celular
+   El modal fullscreen usa flex-column, pero el detalle no tiene
+   .modal-body: el flex COMPRIMÍA la galería y la foto desbordaba
+   tapando precio y miniaturas. El detalle scrollea como página.
+   ================================================================ */
+@media (max-width: 640px) {
+    .detail-modal .modal-content {
+        display: block !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+    .detail-gallery { flex: none; overflow: hidden; }
+    .detail-gallery img { position: relative; z-index: 1; }
+    .detail-thumbnails { position: relative; z-index: 2; }
+    .detail-content { position: relative; z-index: 2; background: #fff; }
+}
