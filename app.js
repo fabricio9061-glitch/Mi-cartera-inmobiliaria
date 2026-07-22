@@ -1028,22 +1028,78 @@
     };
     const notifAbierto = document.getElementById('notificationDropdown')?.classList.contains('active');
     if (tab === 'inicio') {
-      closeNotifications(); closeSideMenu();
+      closeNotifications(); closeSideMenu(); cerrarBuscadorAgentes(true);
       showHome(); window.scrollTo({ top: 0, behavior: 'smooth' });
       marcar('bbInicio');
+    } else if (tab === 'buscar') {
+      closeNotifications(); closeSideMenu();
+      abrirBuscadorAgentes();
+      marcar('bbBuscar');
     } else if (tab === 'notif') {
-      closeSideMenu();
+      closeSideMenu(); cerrarBuscadorAgentes(true);
       if (notifAbierto) { closeNotifications(); marcar('bbInicio'); }
       else { toggleNotifications({ stopPropagation: () => {} }); marcar('bbNotif'); }
     } else if (tab === 'perfil') {
-      closeNotifications(); closeSideMenu();
+      closeNotifications(); closeSideMenu(); cerrarBuscadorAgentes(true);
       if (currentUser) showProfile(currentUser.uid);
       marcar('bbPerfil');
     } else if (tab === 'menu') {
-      closeNotifications();
+      closeNotifications(); cerrarBuscadorAgentes(true);
       openSideMenu();
       marcar('bbMenu');
     }
+  }
+
+  // ===== Buscador de agentes (estilo Facebook) =====
+  let _agentesRecientes = [];
+  try { _agentesRecientes = JSON.parse(localStorage.getItem('mvAgentesRecientes') || '[]'); } catch (e) {}
+  const _normTxt = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  function abrirBuscadorAgentes() {
+    const p = document.getElementById('agentSearch');
+    if (!p) return;
+    p.classList.add('active');
+    if (window.matchMedia('(max-width: 640px)').matches) _notifLock();
+    renderBusquedaAgentes();
+    setTimeout(() => document.getElementById('agentSearchInput')?.focus(), 220);
+  }
+  // silencioso=true: cerrar sin devolver el foco de la barra a Inicio (lo maneja bbGo)
+  function cerrarBuscadorAgentes(silencioso) {
+    const p = document.getElementById('agentSearch');
+    if (!p || !p.classList.contains('active')) return;
+    p.classList.remove('active');
+    _notifUnlock();
+    const inp = document.getElementById('agentSearchInput'); if (inp) inp.value = '';
+    if (!silencioso) {
+      document.querySelectorAll('.bb-item').forEach(b => b.classList.remove('active'));
+      document.getElementById('bbInicio')?.classList.add('active');
+    }
+  }
+  function renderBusquedaAgentes() {
+    const body = document.getElementById('agentSearchBody');
+    if (!body) return;
+    const q = _normTxt((document.getElementById('agentSearchInput')?.value || '').trim());
+    const users = Object.entries(allUsers).map(([uid, u]) => ({ uid, ...u })).filter(u => u.name);
+    const fila = u => `<div class="as-row" onclick="elegirAgenteBusqueda('${u.uid}')">${u.profilePhoto ? `<img class="as-av" src="${safeUrl(u.profilePhoto)}" alt="">` : `<div class="as-av as-ini">${mvEsc((u.name || '?').charAt(0).toUpperCase())}</div>`}<div class="as-info"><b>${mvEsc(u.name)}</b><small>${(u.email || '').toLowerCase() === ADMIN_EMAIL ? 'Administrador' : 'Agente'}</small></div><i class="fas fa-chevron-right as-go"></i></div>`;
+    if (!q) {
+      const recs = _agentesRecientes.map(uid => users.find(u => u.uid === uid)).filter(Boolean);
+      body.innerHTML = recs.length
+        ? `<div class="as-sec">Recientes</div>` + recs.map(fila).join('')
+        : `<div class="as-empty"><i class="fas fa-user-group"></i><p>Escribí el nombre de un agente</p></div>`;
+      return;
+    }
+    const res = users.filter(u => _normTxt(u.name).includes(q)).slice(0, 20);
+    body.innerHTML = res.length
+      ? `<div class="as-sec">Agentes</div>` + res.map(fila).join('')
+      : `<div class="as-empty"><i class="fas fa-magnifying-glass"></i><p>Sin resultados</p></div>`;
+  }
+  function elegirAgenteBusqueda(uid) {
+    _agentesRecientes = [uid].concat(_agentesRecientes.filter(x => x !== uid)).slice(0, 6);
+    try { localStorage.setItem('mvAgentesRecientes', JSON.stringify(_agentesRecientes)); } catch (e) {}
+    cerrarBuscadorAgentes(true);
+    document.querySelectorAll('.bb-item').forEach(b => b.classList.remove('active'));
+    document.getElementById('bbInicio')?.classList.add('active');
+    showProfile(uid);
   }
 
   function closeNotifications() {
@@ -1060,7 +1116,13 @@
   document.addEventListener('click', e => {
     const d = document.getElementById('notificationDropdown'),
       b = document.getElementById('notificationBell');
-    if (d && b && !d.contains(e.target) && !b.contains(e.target)) d.classList.remove('active')
+    // Clic afuera cierra el panel — pero la BARRA INFERIOR no es "afuera"
+    // (sus botones lo abren/navegan) y el cierre pasa por closeNotifications
+    // para que overlay, bloqueo de scroll y pestaña activa queden coherentes.
+    if (d && d.classList.contains('active')
+        && !d.contains(e.target)
+        && !(b && b.contains(e.target))
+        && !e.target.closest('#mvBottomBar')) closeNotifications();
   });
   // Ver la propiedad desde una notificación (funciona aunque esté archivada:
   // la carga del array; si no está en memoria, la trae de Firestore).
@@ -1229,6 +1291,14 @@
   });
 
   function updateUI() {
+    // Barra inferior móvil (estilo app): visible solo con sesión iniciada.
+    document.getElementById('mvBottomBar')?.classList.toggle('hidden', !currentUser);
+    document.body.classList.toggle('has-bottombar', !!currentUser);
+    // La pestaña Perfil muestra la FOTO del agente (como Facebook)
+    const bba = document.getElementById('bbAvatar');
+    if (bba) bba.innerHTML = (currentUser && userProfile && userProfile.profilePhoto)
+      ? `<img src="${safeUrl(userProfile.profilePhoto)}" alt="">`
+      : '<i class="fas fa-user"></i>';
     const ng = document.getElementById('nav-guest'),
       nu = document.getElementById('nav-user'),
       un = document.getElementById('userName'),
