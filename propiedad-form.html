@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Gestionar propiedad | MALAVE</title>
   <link rel="icon" type="image/png" href="iso-malave.png">
   <meta name="theme-color" content="#16273f">
@@ -524,12 +524,21 @@
       actualizarContadorTitulo();
       document.getElementById('propDepartamento').value = p.departamento || '';
       updateCiudades();
-      setTimeout(() => { document.getElementById('propCiudad').value = p.ciudad || '' }, 100);
+      // Ciudad SIN carrera y a prueba de listas desfasadas: antes se asignaba con
+      // un setTimeout y, si el valor guardado no figuraba exacto en la lista,
+      // quedaba vacía EN SILENCIO — la ubicación "desaparecía" al reabrir y al
+      // guardar se pisaba. Ahora, si falta, se inyecta como opción y queda marcada.
+      const _selCiu = document.getElementById('propCiudad');
+      const _ciuGuardada = p.ciudad || '';
+      if (_ciuGuardada && !Array.from(_selCiu.options).some(o => o.value === _ciuGuardada)) {
+        _selCiu.insertAdjacentHTML('beforeend', `<option value="${_ciuGuardada}">${_ciuGuardada}</option>`);
+      }
+      _selCiu.value = _ciuGuardada;
       const ub = p.ubicacion || {};
       document.getElementById('propDireccion').value = ub.calle || p.direccion || '';
       document.getElementById('propNumeroPuerta').value = ub.numero || '';
       ubicacionState.barrio = ub.barrio || '';
-      if (ub.lat != null && ub.lng != null) { mapa.setView([ub.lat, ub.lng], 16); setPin(ub.lat, ub.lng, false) }
+      if (ub.lat != null && ub.lng != null) { mapa.setView([ub.lat, ub.lng], 16); setPin(ub.lat, ub.lng, false); setTimeout(() => mapa && mapa.invalidateSize(), 250) }
       else actualizarEstadoUbicacion();
       document.getElementById('propPrice').value = p.price || '';
       document.getElementById('propCurrency').value = p.currency || 'USD';

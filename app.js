@@ -1231,7 +1231,18 @@
   // Auth
   auth.onAuthStateChanged(async u => {
     if (u) {
-      const d = await db.collection('users').doc(u.uid).get();
+      // Con conexión lenta, esta lectura podía fallar y dejar un "login fantasma"
+      // (autenticado pero sin perfil, pantalla como deslogueado). Un reintento y,
+      // si tampoco, aviso claro en vez de silencio.
+      let d;
+      try { d = await db.collection('users').doc(u.uid).get(); }
+      catch (e1) {
+        try { d = await db.collection('users').doc(u.uid).get(); }
+        catch (e2) {
+          showToast('Conexión lenta', 'No pudimos cargar tu perfil. Revisá tu internet y recargá la página.', 'fa-wifi');
+          return;
+        }
+      }
       if (!d.exists) {
         // Cuenta en Authentication pero SIN perfil en Firestore (quedó a medias en un
         // registro anterior). La reparamos creando el doc pendiente ahora, así aparece
@@ -2090,7 +2101,13 @@
       document.getElementById('loginEmail').value = '';
       document.getElementById('loginPassword').value = ''
     } catch (err) {
-      er.textContent = 'Correo o contraseña incorrectos';
+      // El error de RED no es "contraseña incorrecta": con internet lento el
+      // mensaje engañoso hacía reintentar a ciegas. Ahora cada causa habla claro.
+      const c = (err && err.code) || '';
+      er.textContent =
+        c === 'auth/network-request-failed' ? 'Sin conexión o internet muy lento. Esperá unos segundos y volvé a intentar.' :
+        c === 'auth/too-many-requests' ? 'Demasiados intentos seguidos. Esperá un momento y probá de nuevo.' :
+        'Correo o contraseña incorrectos';
       er.classList.remove('hidden')
     } finally {
       b.disabled = false;
@@ -2269,7 +2286,14 @@
         ...d.data()
       }));
       renderProperties(properties.filter(enVitrina));
-      updateStats()
+      updateStats();
+      // Si se refrescó la página estando en el PERFIL de un agente, su grilla se
+      // pintó vacía antes de que llegaran las propiedades (carrera del snapshot):
+      // repintarla ahora que ya están.
+      if (typeof currentProfileUserId !== 'undefined' && currentProfileUserId && window.location.hash.startsWith('#perfil/')) {
+        const _pg = document.getElementById('profilePropertiesGrid');
+        if (_pg && !_pg.querySelector('.property-card')) showProfile(currentProfileUserId);
+      }
     })
   }
 
