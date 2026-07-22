@@ -5005,3 +5005,24 @@ function mvSetHeroPhoto(ps) {
   // La imagen del hero ahora es una foto fija profesional definida en index.html
   // (antes tomaba la primera propiedad y no se integraba bien). No se toca.
 }
+
+
+// ===== Bloqueo de zoom en iOS =====
+// Safari ignora user-scalable=no: hay que frenar los gestos a mano.
+(function () {
+  // Pellizco (gestos propietarios de Safari)
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(ev =>
+    document.addEventListener(ev, e => e.preventDefault(), { passive: false })
+  );
+  // Doble toque para acercar
+  let _ultimoToque = 0;
+  document.addEventListener('touchend', e => {
+    const ahora = Date.now();
+    if (ahora - _ultimoToque < 320) e.preventDefault();
+    _ultimoToque = ahora;
+  }, { passive: false });
+  // Pellizco con dos dedos
+  document.addEventListener('touchmove', e => {
+    if (e.touches && e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
+})();
