@@ -4790,13 +4790,21 @@
         background: #0f141c;
     }
     .detail-gallery img { object-fit: contain; }
-    .detail-thumbs {
-        padding: 10px 12px 12px;
+    /* La tira de miniaturas: clase real .detail-thumbnails (no .detail-thumbs).
+       Sin flex-shrink las miniaturas se aplastaban y quedaban mordidas. */
+    .detail-thumbnails {
+        padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
         gap: 8px;
-        overflow-x: auto;
+        align-items: center;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
     }
-    .detail-thumbs::-webkit-scrollbar { display: none; }
-    .detail-thumb { width: 62px; height: 62px; flex: 0 0 auto; }
+    .detail-thumbnails::-webkit-scrollbar { display: none; }
+    .detail-thumb {
+        width: 64px !important;
+        height: 64px !important;
+        flex: 0 0 64px;
+        align-self: center;
+    }
+    .detail-thumb img { width: 100%; height: 100%; object-fit: cover; }
 }
