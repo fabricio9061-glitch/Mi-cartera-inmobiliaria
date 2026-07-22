@@ -4706,3 +4706,72 @@
     .profile-stats .stat-value, .profile-stats b, .profile-stats strong { font-size: 1.25rem; }
     .profile-stats small, .profile-stats span { font-size: .68rem; line-height: 1.25; }
 }
+
+
+/* ===== Buscador de agentes en ESCRITORIO =====
+   Ícono junto a la campanita; el panel se ancla como dropdown en vez de
+   ocupar la pantalla (eso queda para celular). */
+.agent-search-btn {
+    width: 42px; height: 42px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--ink, #16273f);
+    background: var(--gray-50, #f8fafc);
+    border: 1px solid var(--gray-200, #e5e7eb);
+    transition: all .15s;
+}
+.agent-search-btn:hover { border-color: var(--gold, #C9A227); color: var(--gold, #C9A227); }
+.agent-search-btn.hidden { display: none; }
+@media (max-width: 640px) {
+    /* En celular la búsqueda vive en la barra inferior */
+    .agent-search-btn { display: none !important; }
+}
+@media (min-width: 641px) {
+    .agent-search {
+        top: 66px; right: 20px; left: auto; bottom: auto;
+        width: 400px; max-height: min(540px, calc(100vh - 90px));
+        border: 1px solid #e8ebf0; border-radius: 18px;
+        box-shadow: 0 20px 60px rgba(10, 20, 35, .22);
+        overflow: hidden;
+        transform: translateY(-10px) scale(.99);
+        transform-origin: top right;
+    }
+    .agent-search.active { transform: translateY(0) scale(1); }
+    .as-back { display: none; }   /* en PC se cierra con Esc o clic afuera */
+}
+
+
+/* ===== Modales como VENTANA COMPLETA en celular =====
+   Antes eran tarjetas flotantes al 95% (se veía el fondo a los lados), su
+   cabecera quedaba bajo la isla dinámica y la barra inferior los tapaba.
+   Ahora ocupan la pantalla entera, respetan el recorte superior de cada
+   teléfono y se muestran por encima de la barra (vista inmersiva: se cierra
+   con la X). */
+@media (max-width: 640px) {
+    .modal {
+        padding: 0;
+        align-items: stretch;
+        justify-content: stretch;
+        z-index: 3600;              /* por encima de la barra inferior */
+    }
+    .modal-content {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100dvh;
+        max-height: 100dvh !important;
+        margin: 0 !important;
+        border-radius: 0;
+        display: flex;
+        flex-direction: column;
+        animation: none;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .modal-content > .modal-header { flex: none; }
+    .modal-content > .modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .modal-content > .modal-footer { flex: none; }
+    /* El botón de cerrar siempre alcanzable bajo la isla */
+    .modal-close { position: relative; z-index: 2; }
+    /* Lightbox (galería ampliada) también full screen y por encima */
+    .lightbox { z-index: 3700; }
+    .lightbox .lightbox-content, .lightbox img { padding-top: env(safe-area-inset-top, 0px); }
+}
