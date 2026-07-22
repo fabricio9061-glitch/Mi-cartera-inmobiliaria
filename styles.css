@@ -4783,13 +4783,7 @@
    "cortadas"). En celular la foto se muestra ENTERA sobre fondo neutro,
    y la tira de miniaturas deja de quedar mordida por el borde. */
 @media (max-width: 640px) {
-    .detail-gallery {
-        height: auto;
-        aspect-ratio: 4 / 3;
-        max-height: 46dvh;
-        background: #0f141c;
-    }
-    .detail-gallery img { object-fit: contain; }
+    .detail-gallery { display: none; }
     /* La tira de miniaturas: clase real .detail-thumbnails (no .detail-thumbs).
        Sin flex-shrink las miniaturas se aplastaban y quedaban mordidas. */
     .detail-thumbnails {
@@ -4880,4 +4874,115 @@ html, body {
     .detail-gallery img { width: 100%; }
     /* La galería sí se desliza en horizontal (es su gesto propio) */
     .detail-thumbnails { touch-action: pan-x; max-width: 100vw; }
+}
+
+
+/* ================================================================
+   GALERÍA DEL DETALLE — versión móvil definitiva
+   La foto manda: ancho completo, proporción original, completa y nítida.
+   ================================================================ */
+@media (max-width: 640px) {
+    .detail-gallery {
+        display: block !important;
+        position: relative;
+        width: 100%;
+        height: auto !important;
+        aspect-ratio: auto !important;
+        max-height: none !important;
+        background: #0b1119;
+        line-height: 0;                 /* sin franja fantasma bajo la imagen */
+        overflow: hidden;
+    }
+    /* La imagen define la altura: se ve ENTERA, sin recortes ni deformación */
+    .detail-gallery img {
+        display: block;
+        width: 100%;
+        height: auto !important;
+        max-height: 62dvh;
+        object-fit: contain !important;
+        object-position: center;
+        margin: 0 auto;
+    }
+
+    /* --- Controles que no tapan la foto --- */
+    .detail-nav {
+        width: 38px; height: 38px;
+        background: rgba(11, 17, 25, .42);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        border: none; color: #fff;
+        opacity: .9;
+    }
+    .detail-nav i { font-size: .9rem; }
+    .detail-nav.prev { left: 8px; }
+    .detail-nav.next { right: 8px; }
+    .detail-zoom-hint {
+        bottom: 10px; right: 10px;
+        padding: 6px 11px; font-size: .74rem;
+        background: rgba(11, 17, 25, .55);
+    }
+
+    /* --- Etiquetas discretas: informan sin tapar --- */
+    .detail-gallery .card-badges {
+        top: calc(10px + env(safe-area-inset-top, 0px));
+        left: 10px; right: 62px;
+        gap: 5px; flex-wrap: wrap;
+    }
+    .detail-gallery .card-badges > * {
+        font-size: .62rem !important;
+        padding: 4px 9px !important;
+        line-height: 1.15;
+    }
+
+    /* --- Miniaturas: uniformes, completas, deslizables --- */
+    .detail-thumbnails {
+        display: flex;
+        gap: 7px;
+        padding: 9px 12px calc(9px + env(safe-area-inset-bottom, 0px));
+        background: #f4f6f8;
+        overflow-x: auto;
+        scroll-snap-type: x proximity;
+        scroll-padding-left: 12px;
+        touch-action: pan-x;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        max-width: 100vw;
+    }
+    .detail-thumbnails::-webkit-scrollbar { display: none; }
+    .detail-thumb {
+        width: 58px !important;
+        height: 58px !important;
+        flex: 0 0 58px;
+        border-radius: 9px;
+        overflow: hidden;
+        opacity: .55;
+        border: 2px solid transparent;
+        scroll-snap-align: start;
+        transition: opacity .15s, border-color .15s;
+    }
+    .detail-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    /* La seleccionada, bien clara: opaca y con filete dorado */
+    .detail-thumb.active {
+        opacity: 1;
+        border-color: var(--gold, #C9A227);
+        box-shadow: 0 2px 8px rgba(201, 162, 39, .35);
+    }
+}
+
+
+/* ===== Lightbox (pantalla completa) con zoom en celular ===== */
+@media (max-width: 640px) {
+    .lightbox { background: #05080d; }
+    .lightbox img, .lightbox-content img {
+        width: 100%; height: auto;
+        max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 90px);
+        object-fit: contain;
+        /* Acá SÍ se puede pellizcar para acercar */
+        touch-action: pinch-zoom;
+    }
+    .lightbox-close, .lightbox .modal-close {
+        top: calc(12px + env(safe-area-inset-top, 0px)) !important;
+        right: 12px !important;
+    }
+    .lightbox-nav { width: 40px; height: 40px; }
 }

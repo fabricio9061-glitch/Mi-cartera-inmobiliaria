@@ -3055,7 +3055,7 @@
     }
     const tc = document.getElementById('detailThumbnails');
     if (im.length > 1) {
-      tc.innerHTML = im.map((img, i) => `<div class="detail-thumb ${i===0?'active':''}" onclick="setDetailImage(${i})"><img src="${img}" alt=""></div>`).join('');
+      tc.innerHTML = im.map((img, i) => `<div class="detail-thumb ${i===0?'active':''}" onclick="setDetailImage(${i})"><img src="${img}" alt="" loading="${i < 4 ? 'eager' : 'lazy'}" decoding="async"></div>`).join('');
       tc.style.display = 'flex'
     } else tc.style.display = 'none';
     const o = getOwnerInfo(p),
@@ -3085,7 +3085,10 @@
     if (!currentDetailProperty?.images?.length) return;
     currentDetailImageIndex = i;
     document.getElementById('detailImage').src = currentDetailProperty.images[i];
-    document.querySelectorAll('.detail-thumb').forEach((t, idx) => t.classList.toggle('active', idx === i))
+    document.querySelectorAll('.detail-thumb').forEach((t, idx) => {
+      t.classList.toggle('active', idx === i);
+      if (idx === i) t.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    })
   }
 
   function prevDetailImage() {
@@ -5025,4 +5028,26 @@ function mvSetHeroPhoto(ps) {
   document.addEventListener('touchmove', e => {
     if (e.touches && e.touches.length > 1) e.preventDefault();
   }, { passive: false });
+})();
+
+
+// ===== Deslizar la foto principal del detalle para cambiar de imagen =====
+(function _galeriaSwipe() {
+  let x0 = null, y0 = null;
+  document.addEventListener('touchstart', e => {
+    const g = e.target.closest('.detail-gallery');
+    if (!g || !e.touches[0]) return;
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+  }, { passive: true });
+  document.addEventListener('touchend', e => {
+    if (x0 === null || !e.changedTouches[0]) return;
+    const dx = e.changedTouches[0].clientX - x0;
+    const dy = e.changedTouches[0].clientY - y0;
+    x0 = null;
+    // Horizontal claro y no vertical (para no pelear con el scroll)
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.6) {
+      if (dx < 0) { if (typeof nextDetailImage === 'function') nextDetailImage(); }
+      else { if (typeof prevDetailImage === 'function') prevDetailImage(); }
+    }
+  }, { passive: true });
 })();
