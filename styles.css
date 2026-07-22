@@ -4667,3 +4667,14 @@
    y reaparece al primer gesto hacia arriba (o cerca del tope de la página). */
 .mv-bottombar { transition: transform .28s cubic-bezier(.4, 0, .2, 1); will-change: transform; }
 .mv-bottombar.bb-oculta { transform: translateY(110%); }
+
+
+/* ===== Área segura SUPERIOR (isla dinámica / notch) =====
+   Con viewport-fit=cover el contenido llega hasta el borde físico: estas
+   reglas devuelven el respiro arriba en el header y en las vistas completas. */
+.header { padding-top: env(safe-area-inset-top, 0px); }
+@media (max-width: 640px) {
+    .notification-dropdown .notification-header { padding-top: calc(14px + env(safe-area-inset-top, 0px)); }
+    .agent-search .as-head { padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
+    .mv-side { padding-top: env(safe-area-inset-top, 0px); }
+}

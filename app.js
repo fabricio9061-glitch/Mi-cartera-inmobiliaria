@@ -1002,18 +1002,17 @@
 
   // Bloqueo del scroll del fondo mientras el panel está abierto (en celular).
   // Sin esto, scrollear la lista arrastraba la página de atrás: el "se mueve raro".
-  let _notifScrollY = 0;
+  // Bloqueo del scroll de fondo por overflow (no por body fijo): en iOS,
+  // fijar el body desancla los elementos fixed hijos y la barra inferior
+  // "se subía" al abrir las pestañas. Con overflow:hidden + las vistas
+  // completas capturando el toque, el fondo queda quieto sin ese bug.
   function _notifLock() {
-    _notifScrollY = window.scrollY || 0;
-    const b = document.body;
-    b.style.position = 'fixed'; b.style.top = (-_notifScrollY) + 'px';
-    b.style.left = '0'; b.style.right = '0'; b.style.width = '100%';
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
   }
   function _notifUnlock() {
-    const b = document.body;
-    if (b.style.position !== 'fixed') return;
-    b.style.position = ''; b.style.top = ''; b.style.left = ''; b.style.right = ''; b.style.width = '';
-    window.scrollTo(0, _notifScrollY);
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
   }
   function toggleNotifications(e) {
     e.stopPropagation();
@@ -1028,20 +1027,31 @@
 
   // Navegación de la barra inferior móvil (Inicio · Consultas · Perfil · Menú)
   // La barra se esconde al bajar y reaparece al subir (efecto del video).
+  // Se escucha el scroll también a nivel documento (captura) para que funcione
+  // en Safari/iOS instalada; dentro de las pestañas (Consultas, Buscar, Menú)
+  // la barra NUNCA se esconde: ahí es la navegación.
   let _bbLastY = 0, _bbTick = false;
-  window.addEventListener('scroll', () => {
+  const _bbOnScroll = () => {
     if (_bbTick) return; _bbTick = true;
     requestAnimationFrame(() => {
       _bbTick = false;
       const bar = document.getElementById('mvBottomBar');
-      if (!bar || bar.classList.contains('hidden')) { _bbLastY = window.scrollY; return; }
-      const y = window.scrollY, dy = y - _bbLastY;
+      const y = window.scrollY || document.documentElement.scrollTop || 0;
+      if (!bar || bar.classList.contains('hidden')) { _bbLastY = y; return; }
+      const pestañaAbierta =
+        document.getElementById('notificationDropdown')?.classList.contains('active') ||
+        document.getElementById('agentSearch')?.classList.contains('active') ||
+        document.getElementById('mvSide')?.classList.contains('open');
+      if (pestañaAbierta) { bar.classList.remove('bb-oculta'); _bbLastY = y; return; }
+      const dy = y - _bbLastY;
       if (y < 90) bar.classList.remove('bb-oculta');        // cerca del tope: siempre visible
       else if (dy > 6) bar.classList.add('bb-oculta');      // bajando: se esconde
       else if (dy < -6) bar.classList.remove('bb-oculta');  // subiendo: vuelve
       _bbLastY = y;
     });
-  }, { passive: true });
+  };
+  window.addEventListener('scroll', _bbOnScroll, { passive: true });
+  document.addEventListener('scroll', _bbOnScroll, { passive: true, capture: true });
 
   function bbGo(tab) {
     // Usar la barra siempre la muestra (por si estaba escondida)
