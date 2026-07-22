@@ -1027,7 +1027,25 @@
   }
 
   // Navegación de la barra inferior móvil (Inicio · Consultas · Perfil · Menú)
+  // La barra se esconde al bajar y reaparece al subir (efecto del video).
+  let _bbLastY = 0, _bbTick = false;
+  window.addEventListener('scroll', () => {
+    if (_bbTick) return; _bbTick = true;
+    requestAnimationFrame(() => {
+      _bbTick = false;
+      const bar = document.getElementById('mvBottomBar');
+      if (!bar || bar.classList.contains('hidden')) { _bbLastY = window.scrollY; return; }
+      const y = window.scrollY, dy = y - _bbLastY;
+      if (y < 90) bar.classList.remove('bb-oculta');        // cerca del tope: siempre visible
+      else if (dy > 6) bar.classList.add('bb-oculta');      // bajando: se esconde
+      else if (dy < -6) bar.classList.remove('bb-oculta');  // subiendo: vuelve
+      _bbLastY = y;
+    });
+  }, { passive: true });
+
   function bbGo(tab) {
+    // Usar la barra siempre la muestra (por si estaba escondida)
+    document.getElementById('mvBottomBar')?.classList.remove('bb-oculta');
     const marcar = id => {
       document.querySelectorAll('.bb-item').forEach(b => b.classList.remove('active'));
       document.getElementById(id)?.classList.add('active');
