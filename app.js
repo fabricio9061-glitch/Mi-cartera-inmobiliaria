@@ -1102,7 +1102,7 @@
     const p = document.getElementById('agentSearch');
     if (!p || !p.classList.contains('active')) return;
     p.classList.remove('active');
-    _notifUnlock();
+    sincronizarBloqueoFondo();
     const inp = document.getElementById('agentSearchInput'); if (inp) inp.value = '';
     if (!silencioso) {
       document.querySelectorAll('.bb-item').forEach(b => b.classList.remove('active'));
@@ -1139,7 +1139,7 @@
   function closeNotifications() {
     document.getElementById('notificationDropdown').classList.remove('active');
     document.getElementById('notificationOverlay').classList.remove('active');
-    _notifUnlock();
+    sincronizarBloqueoFondo();
     // Si la barra inferior está, el foco vuelve a Inicio
     const bn = document.getElementById('bbNotif');
     if (bn && bn.classList.contains('active')) {
@@ -1802,25 +1802,17 @@
   // (position:fixed) guardando dónde estaba el scroll, y devolverlo al cerrar.
   // El estado se deriva del DOM (¿queda algún .active?) para que el bloqueo
   // jamás quede colgado aunque un modal se cierre por otro camino.
-  let _scrollFondo = 0;
+  // Bloqueo del fondo UNIFICADO con el de las pestañas (overflow, no body fijo).
+  // Antes el modal usaba position:fixed y, en iOS, eso desancla los elementos
+  // fixed hijos: al abrir una consulta desde la campanita la barra saltaba y
+  // toda la vista se corría hacia arriba. Con overflow el fondo queda quieto
+  // y la posición de scroll se conserva sola, sin saltos.
   function sincronizarBloqueoFondo() {
-    const abierto = document.querySelector('.modal.active, .lightbox.active') !== null;
-    const bloqueado = document.body.style.position === 'fixed';
-    if (abierto && !bloqueado) {
-      _scrollFondo = window.scrollY || document.documentElement.scrollTop || 0;
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${_scrollFondo}px`;
-      document.body.style.left = '0';
-      document.body.style.right = '0';
-      document.body.style.width = '100%';
-    } else if (!abierto && bloqueado) {
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.left = '';
-      document.body.style.right = '';
-      document.body.style.width = '';
-      window.scrollTo(0, _scrollFondo);
-    }
+    const abierto =
+      document.querySelector('.modal.active, .lightbox.active') !== null ||
+      document.getElementById('notificationDropdown')?.classList.contains('active') ||
+      document.getElementById('agentSearch')?.classList.contains('active');
+    if (abierto) { _notifLock(); } else { _notifUnlock(); }
   }
 
   function openModal(i) {
