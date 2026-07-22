@@ -3685,21 +3685,7 @@
             flex-direction: column
         }
 
-        .notification-dropdown {
-            position: fixed !important;
-            top: 70px !important;
-            left: 10px !important;
-            right: 10px !important;
-            width: auto !important;
-            max-width: none !important;
-            transform: none !important;
-            max-height: calc(100vh - 90px);
-            z-index: 9999
-        }
-
-        .notification-list {
-            max-height: calc(100vh - 160px)
-        }
+        /* (reglas viejas del panel de notificaciones eliminadas: ahora vive en styles v2 al final) */
 
         .event-type-selector {
             flex-direction: column;
@@ -4381,90 +4367,149 @@
 
 
 /* ================================================================
-   PANEL DE NOTIFICACIONES — rediseño (pisa las reglas anteriores)
-   Hoja estable con animación suave, filtros fijos, tarjetas
-   uniformes y scroll contenido (no arrastra el fondo).
+   PANEL DE NOTIFICACIONES — v2 (panel movido al <body>)
+   Escritorio: tarjeta anclada arriba a la derecha.
+   Celular: hoja deslizante desde abajo (bottom sheet), estable.
    ================================================================ */
-.notification-dropdown {
-    display: flex !important;
-    flex-direction: column;
-    width: 400px;
-    max-height: 540px;
-    border-radius: 18px;
-    box-shadow: 0 18px 50px rgba(10, 20, 35, .18);
-    border: 1px solid var(--gray-200, #e5e7eb);
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transform: translateY(-8px);
-    transition: opacity .2s ease, transform .2s ease, visibility .2s;
-    animation: none !important;
-}
-.notification-dropdown.active {
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
-    transform: translateY(0);
-}
 .notification-overlay {
     display: block !important;
-    opacity: 0;
-    pointer-events: none;
-    background: rgba(10, 18, 32, .38);
-    transition: opacity .2s ease;
+    position: fixed; inset: 0;
+    background: rgba(12, 20, 34, .45);
+    opacity: 0; pointer-events: none;
+    transition: opacity .22s ease;
+    z-index: 3000;
 }
 .notification-overlay.active { opacity: 1; pointer-events: auto; }
 
-/* Cabecera compacta y barra de filtros fija */
-.notification-header { padding: 13px 16px; flex: none; }
-.notification-header h3 { font-size: 1rem; }
-.notif-filtros-bar { flex: none; border-bottom: 1px solid var(--gray-100, #f1f5f9); background: #fff; }
-.notif-filtros-bar .notif-filtros { padding: 8px 12px; margin: 0; border: none; }
+.notification-dropdown {
+    display: flex !important;
+    flex-direction: column;
+    position: fixed;
+    top: 66px; right: 20px;
+    width: 400px;
+    max-height: min(560px, calc(100vh - 90px));
+    background: #fff;
+    border: 1px solid #e8ebf0;
+    border-radius: 18px;
+    box-shadow: 0 20px 60px rgba(10, 20, 35, .22);
+    overflow: hidden;
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transform: translateY(-10px) scale(.99);
+    transform-origin: top right;
+    transition: opacity .2s ease, transform .2s ease, visibility .2s;
+    animation: none !important;
+    z-index: 3001;
+}
+.notification-dropdown.active {
+    opacity: 1; visibility: visible; pointer-events: auto;
+    transform: translateY(0) scale(1);
+}
 
-/* La lista es la única que scrollea, y su scroll NO arrastra el fondo */
+/* Cabecera fija */
+.notification-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 14px 16px; flex: none;
+    border-bottom: 1px solid #f0f2f5;
+}
+.notification-header h3 {
+    font-size: 1.02rem; display: flex; align-items: center; gap: 8px; margin: 0;
+    color: var(--ink, #16273f);
+}
+.notification-header h3 i { color: var(--gold, #C9A227); font-size: .95rem; }
+.notification-actions { display: flex; gap: 6px; }
+.notification-actions button {
+    border: none; background: transparent; cursor: pointer;
+    font-family: inherit; font-size: .76rem; font-weight: 600;
+    color: var(--gray-500, #6b7280); padding: 6px 9px; border-radius: 8px;
+    display: inline-flex; align-items: center; gap: 5px;
+}
+.notification-actions button:hover { background: #f4f6f8; }
+.notification-actions .btn-clear { color: var(--danger, #c0392b); }
+
+/* Barra de filtros fija (scroll horizontal si no entran) */
+.notif-filtros-bar {
+    flex: none; background: #fff;
+    border-bottom: 1px solid #f0f2f5;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.notif-filtros-bar::-webkit-scrollbar { display: none; }
+.notif-filtros-bar .notif-filtros {
+    display: flex; gap: 7px; padding: 10px 14px; margin: 0; border: none;
+    width: max-content;
+}
+.notif-chip {
+    border: 1px solid #e3e7ec; background: #fff;
+    border-radius: 999px; padding: 6px 13px;
+    font-family: inherit; font-size: .78rem; font-weight: 600;
+    color: var(--gray-500, #6b7280); cursor: pointer; white-space: nowrap;
+    transition: all .15s;
+}
+.notif-chip:hover { border-color: var(--gold, #C9A227); }
+.notif-chip.active {
+    background: var(--ink, #16273f); color: #fff; border-color: var(--ink, #16273f);
+}
+
+/* Lista: única zona con scroll, contenida (no arrastra el fondo) */
 .notification-list {
-    flex: 1 1 auto;
+    flex: 1 1 auto; min-height: 0;
     max-height: none;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow-y: auto; overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
 }
 .notification-list::-webkit-scrollbar { width: 5px; }
-.notification-list::-webkit-scrollbar-thumb { background: var(--gray-200, #e5e7eb); border-radius: 99px; }
+.notification-list::-webkit-scrollbar-thumb { background: #e0e4ea; border-radius: 99px; }
 
-/* Tarjetas uniformes y compactas */
-.notification-item { padding: 12px 15px; gap: 11px; }
-.notification-item.unread { background: rgba(37, 99, 235, .045); }
-.notification-item.unread::after { width: 3px; background: var(--accent, #2563eb); }
-.notification-avatar { width: 40px; height: 40px; font-size: 15px; }
-.notification-body p { font-size: .86rem; margin: 0 0 2px; }
-.notification-body strong { font-size: .86rem; }
-.notification-message {
-    font-size: .8rem;
-    line-height: 1.45;
-    color: var(--gray-500, #6b7280);
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+/* Tarjetas uniformes */
+.notification-item {
+    display: flex; gap: 11px; padding: 13px 16px;
+    border-bottom: 1px solid #f3f5f7; cursor: pointer;
+    transition: background .15s; position: relative;
 }
-.notification-meta { font-size: .7rem; margin-top: 5px; }
+.notification-item:hover { background: #f9fafb; }
+.notification-item.unread { background: rgba(37, 99, 235, .04); }
+.notification-item.unread::after {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: var(--accent, #2563eb);
+}
+.notification-avatar {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--accent, #2563eb), var(--gold, #C9A227));
+    color: #fff; font-weight: 600; font-size: 15px; overflow: hidden;
+}
+.notification-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.notification-body { flex: 1; min-width: 0; }
+.notification-body p { font-size: .85rem; margin: 0 0 2px; color: var(--ink, #16273f); }
+.notification-body strong { font-weight: 700; }
+.notification-message {
+    font-size: .8rem; line-height: 1.45; color: var(--gray-500, #6b7280);
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.notification-meta {
+    font-size: .7rem; color: var(--gray-400, #9aa3ad); margin-top: 6px;
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.notification-empty { padding: 48px 20px; text-align: center; color: #b4bcc6; }
+.notification-empty i { font-size: 2.2rem; margin-bottom: 12px; display: block; }
 
-/* Celular: hoja completa desde arriba, estable y con cierre por overlay */
+/* ---------- Celular: HOJA desde abajo (bottom sheet) ---------- */
 @media (max-width: 640px) {
     .notification-dropdown {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        width: auto !important;
-        max-width: none !important;
-        max-height: 92dvh;
-        border-radius: 0 0 22px 22px;
+        top: auto; bottom: 0; left: 0; right: 0;
+        width: 100%; max-width: none;
+        max-height: 88dvh;
+        border-radius: 22px 22px 0 0;
         border: none;
-        transform: translateY(-14px);
-        z-index: 9999;
+        transform: translateY(100%);
+        transform-origin: bottom center;
+        box-shadow: 0 -12px 40px rgba(10, 20, 35, .25);
     }
     .notification-dropdown.active { transform: translateY(0); }
-    .notification-header { padding: 15px 16px 12px; }
+    /* Manija visual arriba de la hoja */
+    .notification-header::before {
+        content: ''; position: absolute; top: 7px; left: 50%;
+        transform: translateX(-50%);
+        width: 38px; height: 4px; border-radius: 99px; background: #d7dce3;
+    }
+    .notification-header { padding-top: 18px; }
 }
