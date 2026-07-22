@@ -4808,3 +4808,54 @@
     }
     .detail-thumb img { width: 100%; height: 100%; object-fit: cover; }
 }
+
+
+/* ================================================================
+   DETALLE DE PROPIEDAD — optimización integral para celular
+   ================================================================ */
+@media (max-width: 640px) {
+    /* Miniaturas: la primera ya no queda mordida contra el borde y cada
+       una se alinea sola al deslizar (scroll-snap). */
+    .detail-thumbnails {
+        scroll-padding-left: 12px;
+        scroll-snap-type: x mandatory;
+    }
+    .detail-thumb { scroll-snap-align: start; }
+    .detail-thumb:first-child { margin-left: 0; }
+
+    /* Contenido: menos aire, más información por pantalla */
+    .detail-content { padding: 16px 14px 22px; }
+    .detail-header h2, .detail-header h1 { font-size: 1.42rem; line-height: 1.25; margin-bottom: 6px; }
+    .detail-location { font-size: .88rem; margin-bottom: 12px; }
+    .detail-price, .detail-price-row { font-size: 1.5rem; margin-bottom: 10px; }
+    .detail-price-old { font-size: 1.05rem; }
+
+    /* Tarjeta del agente compacta */
+    .detail-agent { padding: 10px 12px; margin: 12px 0; gap: 10px; }
+    .detail-agent img, .detail-agent .agent-photo { width: 42px; height: 42px; }
+    .detail-agent b, .detail-agent strong { font-size: .95rem; }
+
+    /* Ficha técnica: 3 columnas en vez de 2 (entra todo de un vistazo) */
+    .detail-features {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+    .detail-features > * {
+        padding: 12px 6px !important;
+        border-radius: 12px;
+        text-align: center;
+    }
+    .detail-features i { font-size: 1rem; margin-bottom: 4px; }
+    .detail-features b, .detail-features .feat-value { font-size: 1.15rem; }
+    .detail-features small, .detail-features span { font-size: .68rem; line-height: 1.2; }
+
+    /* Descripción y secciones */
+    .detail-description { font-size: .9rem; line-height: 1.6; }
+    .detail-section, .detail-block { margin-top: 18px; }
+    .detail-section h3, .detail-block h3 { font-size: 1.05rem; margin-bottom: 10px; }
+
+    /* Botones de acción a lo ancho y cómodos para el pulgar */
+    .detail-actions { display: grid; grid-template-columns: 1fr; gap: 9px; margin-top: 18px; }
+    .detail-actions > * { width: 100%; justify-content: center; padding: 13px 16px; font-size: .92rem; }
+}
