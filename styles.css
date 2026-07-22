@@ -4386,7 +4386,7 @@
     flex-direction: column;
     position: fixed;
     top: 66px; right: 20px;
-    width: 400px;
+    width: 430px;
     max-height: min(560px, calc(100vh - 90px));
     background: #fff;
     border: 1px solid #e8ebf0;
@@ -4435,7 +4435,7 @@
 .notif-filtros-bar::-webkit-scrollbar { display: none; }
 .notif-filtros-bar .notif-filtros {
     display: flex; gap: 7px; padding: 10px 14px; margin: 0; border: none;
-    width: max-content;
+    flex-wrap: wrap; width: auto;   /* en PC envuelven: nada se corta */
 }
 .notif-chip {
     border: 1px solid #e3e7ec; background: #fff;
@@ -4499,13 +4499,17 @@
 @media (max-width: 640px) {
     .notification-dropdown {
         top: 0; left: 0; right: 0;
-        bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+        bottom: 0;  /* sin barra, ocupa hasta abajo: cero franjas muertas */
         width: 100%; max-width: none; max-height: none;
         border-radius: 0; border: none;
         box-shadow: none;
         transform: translateY(6px);
     }
     .notification-dropdown.active { transform: translateY(0); }
+    /* Con la barra inferior presente, la pestaña le deja su lugar exacto */
+    body.has-bottombar .notification-dropdown { bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
+    /* En celular los chips scrollean con el dedo, en una sola línea */
+    .notif-filtros-bar .notif-filtros { flex-wrap: nowrap; width: max-content; }
     .notification-header { padding: 16px 16px 12px; }
     .notification-header h3 { font-size: 1.15rem; }
     /* Sin overlay oscuro en celular: es una pestaña, no un popup */
@@ -4522,37 +4526,117 @@
    ================================================================ */
 .mv-bottombar {
     display: none;
-    position: fixed; left: 0; right: 0; bottom: 0;
-    background: #fff;
-    border-top: 1px solid #e8ebf0;
-    box-shadow: 0 -6px 24px rgba(10, 20, 35, .07);
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: var(--ink, #16273f);
+    border-top: 1px solid rgba(255, 255, 255, .08);
     z-index: 3500;
     padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 @media (max-width: 640px) {
-    .mv-bottombar:not(.hidden) { display: grid; grid-template-columns: repeat(4, 1fr); }
-    body.has-bottombar { padding-bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
-    /* La campanita del header sobra en celular: vive en la barra */
+    .mv-bottombar:not(.hidden) { display: grid; grid-template-columns: repeat(5, 1fr); }
+    body.has-bottombar { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)); }
+    /* En celular, la campanita y el chip de usuario del header sobran:
+       viven en la barra de abajo (la foto es la pestaña Perfil). */
     body.has-bottombar .notification-bell { display: none !important; }
+    body.has-bottombar .user-info { display: none !important; }
 }
+/* Avatar del agente en la pestaña Perfil (como Facebook) */
+.bb-avatar {
+    width: 24px; height: 24px; border-radius: 50%; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    background: #0f1d31; color: #8fa0b8;
+}
+.bb-avatar i { font-size: .8rem; }
+.bb-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.bb-item.active .bb-avatar { box-shadow: 0 0 0 2px var(--gold, #C9A227); }
 .bb-item {
     position: relative;
     border: none; background: transparent; cursor: pointer;
     font-family: inherit;
-    display: flex; flex-direction: column; align-items: center; gap: 3px;
-    padding: 9px 4px 8px;
-    color: #8a94a1; font-size: .64rem; font-weight: 600;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 10px 3px 13px;
+    color: #8fa0b8; font-size: .61rem; font-weight: 600;
+    line-height: 1.2; letter-spacing: .01em;
     -webkit-tap-highlight-color: transparent;
 }
-.bb-item i { font-size: 1.15rem; }
-.bb-item.active { color: var(--ink, #16273f); }
+.bb-item i { font-size: 1.12rem; }
+.bb-item.active { color: #fff; }
 .bb-item.active i { color: var(--gold, #C9A227); }
+/* Filete dorado arriba de la pestaña activa: el mismo trazo de los
+   carteles premium del sitio, ahora como indicador de navegación. */
+.bb-item.active::before {
+    content: ''; position: absolute; top: 0; left: 24%; right: 24%;
+    height: 2.5px; background: var(--gold, #C9A227);
+    border-radius: 0 0 3px 3px;
+}
 .bb-badge {
-    position: absolute; top: 4px; left: calc(50% + 6px);
+    position: absolute; top: 5px; left: calc(50% + 6px);
     min-width: 17px; height: 17px; border-radius: 99px;
     background: #e11d48; color: #fff;
     font-size: .62rem; font-weight: 700;
     display: flex; align-items: center; justify-content: center;
-    padding: 0 4px; border: 2px solid #fff;
+    padding: 0 4px; border: 2px solid var(--ink, #16273f);
 }
 .bb-badge.hidden { display: none; }
+
+
+/* ================================================================
+   BUSCADOR DE AGENTES (estilo Facebook) — pantalla completa móvil
+   ================================================================ */
+.agent-search {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: #fff; z-index: 3400;
+    display: flex; flex-direction: column;
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transform: translateY(6px);
+    transition: opacity .18s ease, transform .18s ease, visibility .18s;
+}
+.agent-search.active { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); }
+@media (max-width: 640px) {
+    body.has-bottombar .agent-search { bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
+}
+.as-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; flex: none;
+    border-bottom: 1px solid #f0f2f5;
+}
+.as-back {
+    border: none; background: transparent; cursor: pointer;
+    width: 38px; height: 38px; border-radius: 50%;
+    color: var(--ink, #16273f); font-size: 1.05rem; flex: none;
+}
+.as-back:active { background: #f2f4f7; }
+.as-input {
+    flex: 1; display: flex; align-items: center; gap: 9px;
+    background: #f2f4f7; border-radius: 999px; padding: 10px 15px;
+}
+.as-input i { color: #9aa3ad; font-size: .9rem; }
+.as-input input {
+    border: none; background: transparent; outline: none;
+    font-family: inherit; font-size: .95rem; color: var(--ink, #16273f);
+    width: 100%;
+}
+.as-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.as-sec { padding: 15px 16px 7px; font-size: .92rem; font-weight: 800; color: var(--ink, #16273f); }
+.as-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.as-row:active { background: #f7f8fa; }
+.as-av {
+    width: 46px; height: 46px; border-radius: 50%; object-fit: cover; flex: none;
+    background: #eef1f5;
+}
+.as-ini {
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 700; font-size: 1.05rem;
+    background: linear-gradient(135deg, var(--ink, #16273f), #2c4266);
+}
+.as-info { flex: 1; min-width: 0; }
+.as-info b { display: block; font-size: .95rem; color: var(--ink, #16273f); }
+.as-info small { color: #8a94a1; font-size: .76rem; }
+.as-go { color: #c4ccd6; font-size: .8rem; }
+.as-empty { padding: 56px 24px; text-align: center; color: #b4bcc6; }
+.as-empty i { font-size: 2.1rem; margin-bottom: 12px; display: block; }
