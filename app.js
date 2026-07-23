@@ -1186,7 +1186,7 @@
       try { const d = await db.collection('properties').doc(pid).get(); if (d.exists) { p = { id: d.id, ...d.data() }; properties.push(p); } } catch (e) {}
     }
     if (!p) { showToast('La propiedad ya no existe', 'Puede estar en la papelera', 'fa-info-circle'); return; }
-    openDetail(pid, true);
+    openPropertyTab(pid);
   }
   async function handleNotificationClick(ni, pi) {
     closeNotifications();
@@ -1200,7 +1200,9 @@
     } catch (e) {
       console.error('Error marking notification as read:', e)
     }
-    openDetail(pi, true)
+    // Misma puerta que la grilla del inicio: la página dedicada, no el modal.
+    closeNotifications();
+    openPropertyTab(pi)
   }
   // Clic en el recordatorio de seguimiento: marca leído y va a la página de Clientes.
   function setNotifFiltro(f){ window._notifFiltro = f; renderNotifications(); }
@@ -2607,7 +2609,12 @@
     if (h.startsWith('#perfil/')) {
       showProfile(h.replace('#perfil/', ''))
     } else if (h.startsWith('#propiedad/')) {
+      // Enlaces compartidos: van a la página dedicada, igual que todo lo demás.
+      // (Se conserva la ruta vieja para que los links ya enviados sigan andando.)
       const pid = h.replace('#propiedad/', '');
+      window.location.replace('propiedad.html?id=' + pid);
+      return;
+      // eslint-disable-next-line no-unreachable
       if (properties.length > 0) {
         openDetail(pid)
       } else {
@@ -2955,9 +2962,14 @@
     }
   }
 
-  // Abre la propiedad en una pestaña nueva, en su página dedicada
+  // Abre la propiedad en su página dedicada.
+  // En computadora, pestaña nueva (no perdés dónde estabas).
+  // En celular, misma pestaña: así el gesto de "atrás" del teléfono te
+  // devuelve a la app en vez de acumular pestañas en Safari.
   function openPropertyTab(id) {
-    window.open('propiedad.html?id=' + id, '_blank');
+    const url = 'propiedad.html?id=' + id;
+    if (window.matchMedia('(max-width: 640px)').matches) { window.location.href = url; }
+    else { window.open(url, '_blank'); }
   }
 
   // Abre el formulario de crear/editar propiedad en una pestaña nueva
@@ -4429,7 +4441,7 @@
     const p = properties.find(pr => pr.id === id);
     if (!p) return;
     currentShareProperty = p;
-    const url = `${window.location.origin}${window.location.pathname}#propiedad/${id}`;
+    const url = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}propiedad.html?id=${id}`;
     document.getElementById('shareTitle').textContent = p.title;
     document.getElementById('sharePrice').textContent = formatPrice(p.price, p.currency || 'USD') + (p.type === 'rent' ? '/mes' : '');
     document.getElementById('shareLocation').textContent = getLocationString(p);
