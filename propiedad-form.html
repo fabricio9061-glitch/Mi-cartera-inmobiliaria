@@ -941,6 +941,12 @@
         ],
         "Alquiler": [
           {
+            "id": "MONTHLY_RENT_FACTOR",
+            "label": "Factor multiplicador de renta",
+            "type": "num",
+            "help": "Cuántos meses de alquiler pide la garantía (ej: 3). Mercado Libre lo cuenta para la calidad del aviso."
+          },
+          {
             "id": "ENDORSEMENT_REQUIRED",
             "label": "Requiere garantía",
             "help": "Solo para alquileres."
@@ -1394,6 +1400,12 @@
         ],
         "Alquiler": [
           {
+            "id": "MONTHLY_RENT_FACTOR",
+            "label": "Factor multiplicador de renta",
+            "type": "num",
+            "help": "Cuántos meses de alquiler pide la garantía (ej: 3). Mercado Libre lo cuenta para la calidad del aviso."
+          },
+          {
             "id": "ENDORSEMENT_REQUIRED",
             "label": "Requiere garantía",
             "help": "Solo para alquileres."
@@ -1580,6 +1592,12 @@
           }
         ],
         "Alquiler": [
+          {
+            "id": "MONTHLY_RENT_FACTOR",
+            "label": "Factor multiplicador de renta",
+            "type": "num",
+            "help": "Cuántos meses de alquiler pide la garantía (ej: 3). Mercado Libre lo cuenta para la calidad del aviso."
+          },
           {
             "id": "ENDORSEMENT_REQUIRED",
             "label": "Requiere garantía",
@@ -1781,6 +1799,12 @@
           }
         ],
         "Alquiler": [
+          {
+            "id": "MONTHLY_RENT_FACTOR",
+            "label": "Factor multiplicador de renta",
+            "type": "num",
+            "help": "Cuántos meses de alquiler pide la garantía (ej: 3). Mercado Libre lo cuenta para la calidad del aviso."
+          },
           {
             "id": "ENDORSEMENT_REQUIRED",
             "label": "Requiere garantía",
@@ -2056,6 +2080,12 @@
         ],
         "Alquiler": [
           {
+            "id": "MONTHLY_RENT_FACTOR",
+            "label": "Factor multiplicador de renta",
+            "type": "num",
+            "help": "Cuántos meses de alquiler pide la garantía (ej: 3). Mercado Libre lo cuenta para la calidad del aviso."
+          },
+          {
             "id": "ENDORSEMENT_REQUIRED",
             "label": "Requiere garantía",
             "help": "Solo para alquileres."
@@ -2269,6 +2299,12 @@
         ],
         "Alquiler": [
           {
+            "id": "MONTHLY_RENT_FACTOR",
+            "label": "Factor multiplicador de renta",
+            "type": "num",
+            "help": "Cuántos meses de alquiler pide la garantía (ej: 3). Mercado Libre lo cuenta para la calidad del aviso."
+          },
+          {
             "id": "ENDORSEMENT_REQUIRED",
             "label": "Requiere garantía",
             "help": "Solo para alquileres."
@@ -2479,6 +2515,12 @@
         ],
         "Alquiler": [
           {
+            "id": "MONTHLY_RENT_FACTOR",
+            "label": "Factor multiplicador de renta",
+            "type": "num",
+            "help": "Cuántos meses de alquiler pide la garantía (ej: 3). Mercado Libre lo cuenta para la calidad del aviso."
+          },
+          {
             "id": "ENDORSEMENT_REQUIRED",
             "label": "Requiere garantía",
             "help": "Solo para alquileres."
@@ -2625,6 +2667,10 @@
       fillFichaObj(prev);
     }
 
+    // Campos de TEXTO que también se completan con "0" si quedan vacíos.
+    // Siguen siendo de texto para poder escribir "1234 bis" o "302 A" cuando el
+    // dato existe de verdad.
+    const TEXTO_CERO = ['TOWER_NUMBER', 'APARTMENT_NUMBER', 'HOUSE_NUMBER'];
     function collectFicha() {
       const ficha = {};
       let _diagNum = [], _diagFalta = [];
@@ -2635,13 +2681,16 @@
         else if (c.type === 'num') {
           // Numérico vacío = 0, sin excepciones: la ficha llega completa a Mercado
           // Libre y sube el puntaje de calidad del aviso.
-          // Nota: los números de IDENTIFICACIÓN (torre, apartamento, puerta) son de
-          // tipo texto, así que no pasan por acá y nunca se rellenan con 0.
+          // Los números de identificación (torre, apartamento, puerta) son de tipo
+          // texto: se completan con "0" más abajo, en la rama de texto.
           const n = parseFloat(el.value);
           ficha[c.id] = isNaN(n) ? 0 : n;
           _diagNum.push(c.id + '="' + el.value + '"→' + ficha[c.id]);
         }
-        else { if (el.value) ficha[c.id] = el.value; }                             // lista / texto / fecha
+        else {                                                                    // lista / texto / fecha
+          if (el.value) { ficha[c.id] = el.value; }
+          else if (TEXTO_CERO.includes(c.id)) { ficha[c.id] = '0'; _diagNum.push(c.id + '=""→"0" (texto)'); }
+        }
       });
       // Con link de tour cargado, ML recibe "Con tour virtual" automáticamente.
       if (ficha.IC_TOUR3D) ficha.WITH_VIRTUAL_TOUR = true;
