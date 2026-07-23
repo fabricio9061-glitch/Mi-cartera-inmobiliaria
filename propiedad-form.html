@@ -859,7 +859,14 @@
           {
             "id": "SECURITY_TYPE",
             "label": "Tipo de seguridad",
-            "type": "text",
+            "type": "list",
+            "req": true,
+            "options": [
+              "24 horas",
+              "Diurno",
+              "Nocturno",
+              "Virtual"
+            ],
             "help": "\"24 horas\" marca Portería 24 hs en InfoCasas; Diurno/Nocturno marcan Guardia."
           },
           {
@@ -1299,6 +1306,7 @@
             "id": "SECURITY_TYPE",
             "label": "Tipo de seguridad",
             "type": "list",
+            "req": true,
             "options": [
               "24 horas",
               "Diurno",
@@ -2569,13 +2577,34 @@
       fillFichaObj(prev);
     }
 
+    // Campos numéricos donde un 0 SÍ tiene sentido ("no tiene / ninguno").
+    // Quedan afuera a propósito las medidas: LAND_AREA, BALCONY_AREA, HEIGHT,
+    // LOT_WIDTH, LOT_DEPTH, PAVED_ROAD_DISTANCE, FARM_HOUSE_AREA y
+    // PRICE_PER_AREA_UNIT, donde un 0 sería información falsa en el aviso.
+    const FICHA_CERO = [
+      'PARKING_LOTS',            // Cocheras
+      'WAREHOUSES',              // Bodegas
+      'OFFICES',                 // Número de oficinas
+      'OFFICES_PER_FLOOR',       // Oficinas por piso
+      'BATHS_PER_FLOOR',         // Baños por piso
+      'APARTMENTS_PER_FLOOR',    // Apartamentos por piso
+      'PLATFORM_TRAILERS',       // Remolques de plataforma
+      'FARM_HOUSE_ROOMS_NUMBER'  // Cantidad de habitaciones del casco
+    ];
     function collectFicha() {
       const ficha = {};
       fichaCampos().forEach(c => {
         const el = document.getElementById('fc-' + c.id);
         if (!el) return;
         if (!c.type) { ficha[c.id] = !!el.checked; }                              // checkbox: Sí (tildado) / No (sin tildar) — siempre se manda
-        else if (c.type === 'num') { const n = parseFloat(el.value); if (!isNaN(n)) ficha[c.id] = n; }
+        else if (c.type === 'num') {
+          const n = parseFloat(el.value);
+          if (!isNaN(n)) { ficha[c.id] = n; }
+          // Campos de CONTEO vacíos = 0 ("no tiene"). Así la ficha llega completa
+          // a Mercado Libre. Las MEDIDAS (superficie, altura, frente, fondo…) NO
+          // se rellenan: un 0 ahí sería un dato falso publicado.
+          else if (FICHA_CERO.includes(c.id)) { ficha[c.id] = 0; }
+        }
         else { if (el.value) ficha[c.id] = el.value; }                             // lista / texto / fecha
       });
       // Con link de tour cargado, ML recibe "Con tour virtual" automáticamente.
@@ -2767,6 +2796,26 @@
         const faltan = 12 - selectedImages.length;
         alert('Se necesitan al menos 12 fotos para publicar. Tenés ' + selectedImages.length + ' — faltan ' + faltan + '.');
         var _sec = document.getElementById('sec5'); if (_sec) _sec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      // Campos obligatorios de la ficha (los del asterisco). Antes el asterisco
+      // era decorativo: se mostraba pero nada lo exigía.
+      const _faltantes = fichaCampos().filter(c => {
+        if (!c.req) return false;
+        // Los que se autocompletan con 0 no bloquean: vacío ya significa "no tiene".
+        if (FICHA_CERO.includes(c.id)) return false;
+        const el = document.getElementById('fc-' + c.id);
+        return el && String(el.value || '').trim() === '';
+      });
+      if (_faltantes.length) {
+        alert('Faltan campos obligatorios de la ficha técnica:\n\n• ' + _faltantes.map(c => c.label).join('\n• '));
+        const primero = document.getElementById('fc-' + _faltantes[0].id);
+        if (primero) {
+          const grupo = primero.closest('.fx-group, details, .form-section');
+          if (grupo && grupo.tagName === 'DETAILS') grupo.open = true;
+          primero.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => primero.focus(), 300);
+        }
         return;
       }
       const b = document.getElementById('propertyBtn'), er = document.getElementById('propertyError'), ei = document.getElementById('editingPropertyId').value, pp = document.getElementById('previousPrice').value;
