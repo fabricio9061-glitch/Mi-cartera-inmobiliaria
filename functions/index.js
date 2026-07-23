@@ -1476,6 +1476,13 @@ function contentChanged(before, after) {
 
 // Estado interno de la app -> estado del aviso en Mercado Libre.
 const ML_STATUS_MAP = { available: "active", reserved: "paused", sold: "closed", rented: "closed", archived: "closed" };
+// Estados que NO deben tocar el aviso: la decisión de publicación todavía no está
+// tomada. 'cerrado_externo' espera la confirmación del admin desde la campanita
+// ("lo publicado se asume con permiso"), y tasación es previa a publicar. Antes
+// caían en el `|| "active"` de más abajo: una propiedad RESERVADA (aviso pausado)
+// cuya gestión cerraba por afuera terminaba REACTIVANDO el aviso justo en el
+// momento en que la operación se había hecho sin la agencia.
+const ML_ESTADOS_SIN_ESPEJO = ["cerrado_externo", "tasacion", "tasado"];
 
 exports.sincronizarEdicionML = onDocumentUpdated("properties/{id}", async (event) => {
   const before = event.data.before.data();
@@ -1514,7 +1521,9 @@ exports.sincronizarEdicionML = onDocumentUpdated("properties/{id}", async (event
   let mlStatusActual = after.mlStatus || "";
 
   // ---- (B) Cambio de estado en la app -> espejarlo en Mercado Libre.
-  if (cambioEstado) {
+  //      Salvo los estados en limbo (ver ML_ESTADOS_SIN_ESPEJO): ahí el aviso se
+  //      deja como está y se espera la decisión del admin.
+  if (cambioEstado && !ML_ESTADOS_SIN_ESPEJO.includes(stAfter)) {
     const objetivo = ML_STATUS_MAP[stAfter] || "active";
     try {
       const live = (await axios.get(`${API}/items/${after.mlItemId}`, { headers })).data;
@@ -2125,7 +2134,20 @@ exports.bajaML = onCall(async (request) => {
   const doc = await ref.get();
   if (!doc.exists) throw new HttpsError("not-found", "La propiedad no existe.");
   const p = doc.data();
-  await exigirAgente(request, p);
+  // SOLO ADMIN. La baja manual es irreversible en ML (el aviso no se reabre: hay
+  // que crear uno nuevo, y si es de pago se vuelve a cobrar) y no toca el estado
+  // de la propiedad en el CRM, así que dejaría el aviso muerto en ML con la
+  // propiedad figurando "Disponible" acá y en el feed de InfoCasas. El camino del
+  // agente es cerrar la gestión del cliente: el espejo de estado (ML_STATUS_MAP)
+  // baja el aviso solo y queda registrado el motivo. Se valida en el backend
+  // además de en la UI: el botón oculto no alcanza si alguien llama la función.
+  const { esAdmin } = await exigirAgente(request, p);
+  if (!esAdmin) {
+    throw new HttpsError(
+      "permission-denied",
+      "La baja de un aviso la hace el administrador. Para sacar esta propiedad de circulación, cerrá su gestión en Clientes (Cerrado / Cerró por afuera / Perdido).",
+    );
+  }
   if (!p.mlItemId) throw new HttpsError("failed-precondition", "Esta propiedad no está publicada en Mercado Libre.");
   const token = await getValidToken();
   const headers = { Authorization: `Bearer ${token}`, "content-type": "application/json" };

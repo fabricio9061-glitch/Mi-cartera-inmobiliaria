@@ -134,6 +134,25 @@
     .dormido-opt.pausa i{ color:#d97706; }
     .dormido-opt.perdido i{ color:#dc2626; }
     .dormido-cancel{ width:100%; border:none; background:transparent; color:var(--gray-500); font-family:inherit; font-size:.84rem; font-weight:600; padding:8px; cursor:pointer; margin-top:2px; }
+
+    /* Gestión traída por enlace directo desde la grilla de Propiedades: se resalta
+       unos segundos para que el agente vea DÓNDE tiene que mover el Avance. */
+    .cp-grow-foco{ border-color:var(--gold,#C9A227)!important; box-shadow:0 0 0 3px rgba(201,162,39,.22); animation:cpFoco 2.8s ease; }
+    @keyframes cpFoco{ 0%,25%{ background:#fdf8e8; } 100%{ background:#fff; } }
+
+    /* Selector "¿cuál propiedad?" para cambios terminales con varias gestiones */
+    #elgList{ max-height:46vh; overflow-y:auto; margin-bottom:10px; }
+    .elg-item{ display:flex; align-items:center; gap:10px; border:1px solid var(--gray-200); border-radius:11px; padding:8px 10px; margin-bottom:8px; cursor:pointer; transition:border-color .12s, background .12s; }
+    .elg-item:hover{ border-color:var(--gold-2,#C9A227); background:#fafafa; }
+    .elg-item input{ width:17px; height:17px; flex:none; accent-color:var(--navy,#16273F); cursor:pointer; }
+    .elg-item img{ width:52px; height:40px; border-radius:7px; object-fit:cover; flex:none; background:var(--gray-100); }
+    .elg-txt{ display:flex; flex-direction:column; min-width:0; }
+    .elg-txt b{ font-size:.84rem; color:var(--navy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .elg-txt span{ font-size:.73rem; color:var(--gray-500); margin-top:1px; }
+    .elg-item.off{ opacity:.5; cursor:default; }
+    .elg-item.off:hover{ border-color:var(--gray-200); background:transparent; }
+    .elg-go{ width:100%; border:none; border-radius:11px; background:var(--navy,#16273F); color:#fff; font-family:inherit; font-size:.87rem; font-weight:600; padding:11px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
+    .elg-go:disabled{ opacity:.6; cursor:default; }
     /* Botón de ayuda junto al título */
     .crm-help-btn{ border:none; background:transparent; color:var(--gray-400); cursor:pointer; font-size:1.1rem; padding:0 0 0 4px; vertical-align:middle; transition:color .15s; }
     .crm-help-btn:hover{ color:var(--accent,#C9A227); }
@@ -982,8 +1001,48 @@
             }
           });
           renderClients();
-        }).catch(function(){ renderClients(); });
+          aplicarDeepLink();
+        }).catch(function(){ renderClients(); aplicarDeepLink(); });
       }).catch(function(e){ console.error('Error cargando clientes:', e); renderClients(); });
+    }
+
+    // ===== Enlace directo desde una propiedad =====
+    // La grilla de Propiedades ya no ofrece borrar: ofrece "dar de baja", y eso
+    // trae hasta acá con ?gestion=<id> (o ?cliente=<id> para las propiedades
+    // viejas que todavía no son gestión). Abre el perfil y deja la gestión
+    // resaltada: el agente ve exactamente dónde tiene que mover el Avance.
+    // Corre una sola vez: loadClients() se vuelve a llamar después de editar.
+    var _deepLinkHecho = false, _focoGestion = null;
+    function aplicarDeepLink(){
+      if (_deepLinkHecho) return;
+      _deepLinkHecho = true;
+      var q;
+      try { q = new URLSearchParams(window.location.search); } catch(e){ return; }
+      var cid = q.get('cliente'), gid = q.get('gestion');
+      if (!cid && !gid) return;
+      // Se limpia la URL para que un F5 no vuelva a saltar al perfil.
+      var limpiar = function(){ try { history.replaceState(null, '', window.location.pathname); } catch(e){} };
+      if (gid){
+        db.collection('gestiones').doc(gid).get().then(function(d){
+          var data = d.exists ? d.data() : null;
+          if (!data || !data.clientId){ showToast('No se encontró esa gestión'); limpiar(); return; }
+          _focoGestion = gid;
+          showClientProfile(data.clientId);
+          limpiar();
+        }).catch(function(e){ console.error('deep link:', e); showToast('No se pudo abrir la gestión'); limpiar(); });
+        return;
+      }
+      showClientProfile(cid);
+      limpiar();
+    }
+    function resaltarGestion(gid){
+      setTimeout(function(){
+        var el = document.getElementById('g-'+gid);
+        if (!el) return;
+        el.scrollIntoView({ behavior:'smooth', block:'center' });
+        el.classList.add('cp-grow-foco');
+        setTimeout(function(){ el.classList.remove('cp-grow-foco'); }, 2800);
+      }, 140);
     }
 
     // ===== Render lista + stats =====
@@ -1362,7 +1421,7 @@
       var sitActual = situacionDe(c);
       var pop = document.createElement('div'); pop.className = 'st-pop';
       var hint = (c._gestionCount||0) > 1
-        ? '<div class="st-pop-hint">Este cliente tiene '+c._gestionCount+' gestiones: el cambio se aplica a la que define esta etiqueta (la más avanzada). Para manejar cada propiedad por separado, entrá a su ficha.</div>'
+        ? '<div class="st-pop-hint">Este cliente tiene '+c._gestionCount+' gestiones. Las etapas intermedias se aplican a la que define esta etiqueta (la más avanzada); <b>Cerrado, Cerró por afuera y Perdido</b> te van a preguntar a cuál propiedad, porque dan de baja la publicación.</div>'
         : '';
       pop.innerHTML = hint + '<div class="st-pop-sep" style="border-top:none;margin-top:0">Etapa comercial</div>' + Object.keys(GESTION_ESTADO).filter(function(k){ return k !== 'prop_eliminada'; }).map(function(k){
         return '<button type="button" class="'+(k===actual && sitActual==='activo'?'sel':'')+'" onclick="aplicarCambioEstado(\''+id+'\',\''+k+'\')"><span class="dot" style="background:'+(ESTADO_DOT[k]||'#94a3b8')+'"></span>'+GESTION_ESTADO[k]+'</button>';
@@ -1398,10 +1457,23 @@
       _posicionarPop(pop, ev); _stPopEl = pop; _stPopId = 'si'+id;
     }
 
+    // Etapas que sacan la propiedad de circulación (el backend la mueve de estado
+    // y, si el cliente es propietario, le pide al admin confirmar la despublicación).
+    var ETAPAS_TERMINALES = ['cerrado','externo','perdido'];
+
     function aplicarCambioEstado(id, nuevo){
       cerrarStPop();
       var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
       if (!c) return;
+      // Terminal + varias gestiones: hay que preguntar CUÁL propiedad. Antes esto
+      // se escribía a ciegas sobre "la gestión que manda" (la más avanzada), así
+      // que un cliente con tres propiedades podía terminar con la equivocada dada
+      // de baja. Para las etapas intermedias no se pregunta: no hay consecuencia
+      // sobre la publicación y preguntar sería fricción al pedo.
+      if (ETAPAS_TERMINALES.indexOf(nuevo) >= 0 && (c._gestionCount||0) > 1){
+        elegirGestionesTerminal(id, nuevo);
+        return;
+      }
       var ahora = new Date().toISOString();
       var quien = (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente';
       var escritura;
@@ -1434,6 +1506,100 @@
       }).catch(function(e){
         console.error('No se pudo cambiar el estado:', e);
         showToast('No se pudo cambiar el estado');
+      });
+    }
+
+    // ===== "¿Cuál propiedad?" — cierre terminal en clientes con varias gestiones =====
+    // Cerrar, cerrar por afuera o perder no es una etiqueta: dispara la baja de la
+    // propiedad de esa gestión. Con varias en juego, el sistema pregunta en vez de
+    // adivinar. Las gestiones que YA están en un terminal vienen deshabilitadas: su
+    // historia cerró y volver a escribirlas no aporta nada.
+    function elegirGestionesTerminal(clientId, nuevo){
+      var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===clientId){ c = clients[i]; break; } }
+      var ov = document.createElement('div');
+      ov.className = 'dormido-overlay';
+      ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+      ov.innerHTML = '<div class="dormido-box">' +
+        '<div class="dormido-head"><i class="fas fa-list-check"></i> ¿Cuál propiedad?</div>' +
+        '<p class="dormido-p"><b>'+esc((c&&c.name)||'Este cliente')+'</b> tiene varias gestiones. Marcar <b>'+esc(GESTION_ESTADO[nuevo]||nuevo)+'</b> saca de circulación la propiedad de cada gestión que elijas, así que decidí a cuáles aplica.</p>' +
+        '<div id="elgList"><div class="cp-prop-soon"><i class="fas fa-spinner fa-spin"></i> Cargando gestiones...</div></div>' +
+        '<button class="dormido-cancel" onclick="this.closest(\'.dormido-overlay\').remove()">Cancelar</button>' +
+      '</div>';
+      document.body.appendChild(ov);
+
+      var props = allProperties.length ? Promise.resolve() : cargarPropiedadesSelect();
+      Promise.all([ props, db.collection('gestiones').where('clientId','==',clientId).get() ]).then(function(res){
+        var cont = document.getElementById('elgList');
+        if (!cont) return; // se cerró el modal mientras cargaba
+        var gs = res[1].docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
+        gs.sort(function(a,b){ return (b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||''); });
+        if (!gs.length){ cont.innerHTML = '<div class="cp-prop-soon">Este cliente no tiene gestiones para cerrar.</div>'; return; }
+        var abiertas = 0;
+        var filas = gs.map(function(g){
+          var p = null; for (var k=0;k<allProperties.length;k++){ if (allProperties[k].id===g.propertyId){ p = allProperties[k]; break; } }
+          var est = g.estadoGestion || 'nuevo';
+          var yaTerminal = ESTADOS_TERMINALES.indexOf(est) >= 0;
+          if (!yaTerminal) abiertas++;
+          var titulo = g.propertyTitle || (p ? p.title : 'Gestión sin propiedad');
+          var estProp = p ? (p.status || 'available') : null;
+          return '<label class="elg-item'+(yaTerminal?' off':'')+'">' +
+              '<input type="checkbox" value="'+escA(g.id)+'"'+(yaTerminal?' disabled':' checked')+'>' +
+              '<img src="'+escA(img(p))+'" alt="" loading="lazy">' +
+              '<div class="elg-txt"><b>'+esc(titulo)+'</b>' +
+                '<span>Avance: '+esc(GESTION_ESTADO[est]||est)+(estProp?' · Propiedad: '+esc(PROP_STATUS[estProp]||estProp):'')+'</span>' +
+              '</div>' +
+            '</label>';
+        }).join('');
+        cont.innerHTML = filas + (abiertas
+          ? '<button class="elg-go" onclick="confirmarGestionesTerminal(\''+escA(clientId)+'\',\''+escA(nuevo)+'\')"><i class="fas fa-check"></i> Aplicar a lo marcado</button>'
+          : '<div class="cp-prop-soon">Todas las gestiones de este cliente ya están cerradas.</div>');
+      }).catch(function(e){
+        console.error('elegirGestionesTerminal:', e);
+        var cont = document.getElementById('elgList');
+        if (cont) cont.innerHTML = '<div class="cp-prop-soon">No se pudieron cargar las gestiones.</div>';
+      });
+    }
+
+    // Escribe el terminal en CADA gestión elegida. Una escritura por gestión: el
+    // trigger del backend corre una vez por cada una, así cada propiedad recibe su
+    // propio tratamiento (venta/alquiler, o pedido de despublicación al admin).
+    function confirmarGestionesTerminal(clientId, nuevo){
+      var box = document.getElementById('elgList');
+      if (!box) return;
+      var ids = [];
+      Array.prototype.forEach.call(box.querySelectorAll('input[type=checkbox]:checked'), function(ch){ ids.push(ch.value); });
+      if (!ids.length){ showToast('Marcá al menos una propiedad'); return; }
+      var btn = box.querySelector('.elg-go');
+      if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Aplicando...'; }
+      var ahora = new Date().toISOString();
+      var quien = (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente';
+      var entrada = { tipo:'avance', valor: GESTION_ESTADO[nuevo]||nuevo, autor: quien, fecha: ahora };
+      Promise.all(ids.map(function(gid){
+        return db.collection('gestiones').doc(gid).update({
+          estadoGestion: nuevo,
+          updatedAt: ahora,
+          historial: firebase.firestore.FieldValue.arrayUnion(entrada)
+        });
+      })).then(function(){
+        var ov = document.querySelector('.dormido-overlay'); if (ov) ov.remove();
+        // La pausa deja de tener sentido si acabás de cerrar/perder gestiones.
+        var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===clientId){ c = clients[i]; break; } }
+        if (c && c.situacion === 'pausa'){
+          delete c.situacion;
+          db.collection('clients').doc(clientId).update({
+            situacion: firebase.firestore.FieldValue.delete(),
+            pausadoEn: firebase.firestore.FieldValue.delete(),
+            pausaSnoozeUntil: firebase.firestore.FieldValue.delete(),
+            updatedAt: ahora
+          }).catch(function(){});
+        }
+        showToast(ids.length+(ids.length===1?' gestión pasó a ':' gestiones pasaron a ')+(GESTION_ESTADO[nuevo]||nuevo));
+        loadClients();
+        if (currentProfileId === clientId) renderGestiones(clientId);
+      }).catch(function(e){
+        console.error('confirmarGestionesTerminal:', e);
+        showToast('No se pudo aplicar el cambio');
+        if (btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Aplicar a lo marcado'; }
       });
     }
 
@@ -1579,6 +1745,8 @@
           html += viejas.map(function(p){ return propViejaCard(p); }).join('');
         }
         grid.innerHTML = html;
+        // Si llegamos por enlace directo desde una propiedad, marcar cuál gestión.
+        if (_focoGestion){ resaltarGestion(_focoGestion); _focoGestion = null; }
       }).catch(function(e){
         console.error('Error cargando gestiones:', e);
         cnt.textContent = '';
@@ -1760,7 +1928,7 @@
         ? '<a class="cp-ico" href="propiedad-form.html?id='+g.propertyId+'" title="Editar ficha de la propiedad"><i class="fas fa-pen"></i></a>'
         : '<button class="cp-ico" onclick="openGestionModal(\''+g.id+'\')" title="Editar gestión"><i class="fas fa-pen"></i></button>';
 
-      return '<div class="cp-grow">' +
+      return '<div class="cp-grow" id="g-'+g.id+'">' +
         '<div class="cp-grow-row">' +
           '<img class="cp-grow-thumb" src="'+escA(img(prop))+'" alt="" loading="lazy">' +
           '<div class="cp-grow-info">' +

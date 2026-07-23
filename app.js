@@ -1689,8 +1689,18 @@
     const botones = [];
     if (d.permalink) botones.push(`<a href="${d.permalink}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost"><i class="fas fa-external-link-alt"></i> Ver aviso</a>`);
     if (d.status === 'paused' || d.status === 'closed') botones.push(`<button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-rotate-right"></i> Republicar</button>`);
-    if (d.status !== 'closed') botones.push(`<button class="ml-btn ml-btn-danger" onclick="bajaPropiedad()"><i class="fas fa-circle-stop"></i> Dar de baja</button>`);
-    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}${mlSeccionInfocasas()}${selTipo}<div class="ml-btns">${botones.join('')}</div></div>`
+    // La baja MANUAL del aviso queda reservada al admin. Motivo: en Mercado Libre
+    // cerrar un aviso es IRREVERSIBLE (no se reabre — hay que crear uno nuevo, y si
+    // es de pago se vuelve a cobrar) y además no toca el estado de la propiedad en
+    // el CRM, con lo cual el aviso desaparece de ML mientras la propiedad sigue
+    // figurando "Disponible" acá y en el feed de InfoCasas. El agente no lo necesita:
+    // cerrando la gestión del cliente, el espejo de estado baja el aviso solo.
+    let bajaHint = '';
+    if (d.status !== 'closed') {
+      if (isAdminUser()) botones.push(`<button class="ml-btn ml-btn-danger" onclick="bajaPropiedad()"><i class="fas fa-circle-stop"></i> Dar de baja</button>`);
+      else bajaHint = `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-circle-info"></i><div>¿Hay que sacar esta propiedad de circulación? No se da de baja el aviso a mano: cerrá su <strong>gestión en Clientes</strong> (Cerrado, Cerró por afuera o Perdido) y el aviso se baja solo de Mercado Libre e InfoCasas, quedando registrado el motivo.</div></div></div>`;
+    }
+    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}${mlSeccionInfocasas()}${selTipo}${bajaHint}<div class="ml-btns">${botones.join('')}</div></div>`
   }
   async function republicarPropiedad() {
     if (!mlModalPropId) return;
@@ -1709,7 +1719,8 @@
   }
   async function bajaPropiedad() {
     if (!mlModalPropId) return;
-    if (!confirm('¿Dar de baja este aviso en Mercado Libre? Vas a poder volver a publicarlo después.')) return;
+    if (!isAdminUser()) { showToast('Solo administradores', 'Para sacar la propiedad de circulación, cerrá su gestión en Clientes', 'fa-lock'); return; }
+    if (!confirm('¿Dar de baja este aviso en Mercado Libre?\n\nOJO: en ML esto es IRREVERSIBLE. El aviso no se reabre: republicar crea uno NUEVO y, si es de pago, se vuelve a cobrar.\n\nAdemás esto NO cambia el estado de la propiedad en el CRM: si la operación se cerró, cerrá la gestión en Clientes y el aviso se baja solo.')) return;
     const id = mlModalPropId, body = document.getElementById('mlModalBody');
     ensureMLStyles();
     body.innerHTML = '<div class="ml-ui"><div class="ml-loading"><div class="sp"></div><p>Dando de baja...</p></div></div>';
@@ -2439,7 +2450,7 @@
         archived: 'DADA DE BAJA'
       };
       const stLabel = stLabels[st] || '';
-      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button><button class="card-action-btn" onclick="event.stopPropagation();openMLModal('${p.id}')" title="Mercado Libre" style="background:#fff159;color:#2d3277"><i class="fas fa-tag"></i></button><button class="btn-feature ${p.featured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${p.featured?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button><button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar"><i class="fas fa-trash"></i></button></div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${safeUrl(o.profilePhoto)}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span>${ce?`<span class="card-views" title="Tocaron Contactar"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${p.contactClicks||0}</span>`:''}</div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
+      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button><button class="card-action-btn" onclick="event.stopPropagation();openMLModal('${p.id}')" title="Mercado Libre" style="background:#fff159;color:#2d3277"><i class="fas fa-tag"></i></button><button class="btn-feature ${p.featured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${p.featured?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button>${isAdminUser()?`<button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar (solo admin)"><i class="fas fa-trash"></i></button>`:`<button class="card-action-btn baja" onclick="event.stopPropagation();irAGestion('${p.id}')" title="Dar de baja — se hace cerrando la gestión del cliente"><i class="fas fa-circle-stop"></i></button>`}</div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${safeUrl(o.profilePhoto)}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span>${ce?`<span class="card-views" title="Tocaron Contactar"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${p.contactClicks||0}</span>`:''}</div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
     }).join('')
   }
 
@@ -4177,9 +4188,37 @@
     delete allUsers[id];
     showAdminTab('users')
   }
+  // ===== UNA SOLA PUERTA PARA DAR DE BAJA =====
+  // Una propiedad no se saca de circulación por sí sola: se saca como CONSECUENCIA
+  // de cerrar la gestión del cliente (Cerrado / Cerró por afuera / Perdido). El
+  // backend hace el resto solo: mueve el estado de la propiedad, pide confirmación
+  // al admin si hay que despublicar, y el espejo de estado baja el aviso de los
+  // portales. Este atajo NO cambia nada: solo lleva al agente a la gestión correcta.
+  async function irAGestion(propId) {
+    showToast('Buscando la gestión', 'La baja se hace desde el cliente', 'fa-arrow-right-long');
+    try {
+      const q = await db.collection('gestiones').where('propertyId', '==', propId).get();
+      if (!q.empty) {
+        // Si la propiedad tiene más de una gestión (varios interesados), va a la
+        // que se tocó último: es la que el agente está trabajando.
+        const g = q.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')))[0];
+        window.location.href = 'clientes.html?gestion=' + encodeURIComponent(g.id);
+        return;
+      }
+      // Sin gestión todavía: propiedad de las viejas, asociada por clientId.
+      const p = properties.find(x => x.id === propId);
+      if (p && p.clientId) { window.location.href = 'clientes.html?cliente=' + encodeURIComponent(p.clientId); return; }
+      showToast('Sin cliente asociado', 'Asociala a un cliente desde Clientes → Nueva gestión y cerrala desde ahí', 'fa-user-slash');
+    } catch (e) {
+      console.error('irAGestion:', e);
+      showToast('No se pudo abrir la gestión', 'Entrá a Clientes y cerrá la gestión de esta propiedad', 'fa-exclamation-triangle');
+    }
+  }
   async function deleteProperty(id) {
-    if (!isAdminUser()) { showToast('Solo administradores', 'Solo el administrador puede eliminar propiedades. Como agente, podés archivarla.', 'fa-lock'); return; }
-    if (!confirm('¿Eliminar esta propiedad DEFINITIVAMENTE? Esta acción no se puede deshacer. Si solo querés ocultarla, archivala en su lugar.')) return;
+    if (!isAdminUser()) { showToast('Solo administradores', 'La baja se hace cerrando la gestión del cliente en Clientes.', 'fa-lock'); return; }
+    if (!confirm('¿Eliminar esta propiedad DEFINITIVAMENTE? Esta acción no se puede deshacer.\n\nOjo: para sacarla de circulación NO hace falta borrarla — alcanza con cerrar su gestión en Clientes (Cerrado / Cerró por afuera / Perdido) y la propiedad se da de baja sola, conservando toda su historia.')) return;
     await db.collection('properties').doc(id).delete()
   }
   async function toggleFeatured(id) {
