@@ -415,38 +415,61 @@
       } catch(e){ /* si falla, la foto queda sin marca */ }
     }
 
-    function compressImageToBlob(f, m = 1200, q = .8) {
-      return new Promise((res, rej) => { const rd = new FileReader(); rd.onerror = () => rej(new Error('No se pudo leer ' + f.name)); rd.onload = e => { const i = new Image(); i.onerror = () => rej(new Error('No se pudo procesar ' + f.name + ' (formato no soportado)')); i.onload = () => { const c = document.createElement('canvas'); let w = i.width, h = i.height; if (w > m) { h = (h * m) / w; w = m } c.width = w; c.height = h; const ctx = c.getContext('2d'); ctx.drawImage(i, 0, 0, w, h); dibujarMarcaAgua(ctx, w, h); c.toBlob(res, 'image/jpeg', q) }; i.src = e.target.result }; rd.readAsDataURL(f) })
+    function compressImageToBlob(f, m = 1200, q = .8, dup = 0) {
+      return new Promise((res, rej) => { const rd = new FileReader(); rd.onerror = () => rej(new Error('No se pudo leer ' + f.name)); rd.onload = e => { const i = new Image(); i.onerror = () => rej(new Error('No se pudo procesar ' + f.name + ' (formato no soportado)')); i.onload = () => { const c = document.createElement('canvas'); let w = i.width, h = i.height; if (w > m) { h = (h * m) / w; w = m } c.width = w; c.height = h; const ctx = c.getContext('2d'); ctx.drawImage(i, 0, 0, w, h); dibujarMarcaAgua(ctx, w, h); if (dup > 0) { ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fillRect((dup * 7) % Math.max(1, Math.floor(w) - 2), Math.floor(h) - 1, 1, 1); } c.toBlob(res, 'image/jpeg', q) }; i.src = e.target.result }; rd.readAsDataURL(f) })
     }
-    function _subirUna(f, p, i, ms) {
+    function _subirUna(f, p, i, ms, dup) {
       return new Promise(async (resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('timeout')), ms || 75000);
         try {
           const n = `${Date.now()}_${i}_${f.name.replace(/[^a-zA-Z0-9.]/g,'_')}`;
           const r = storage.ref(`properties/${p}/${n}`);
-          const b = await compressImageToBlob(f, 1200, .8);
+          const b = await compressImageToBlob(f, 1200, .8, dup || 0);
           const u = await r.put(b);
           const url = await u.ref.getDownloadURL();
           clearTimeout(timer); resolve(url);
         } catch (e) { clearTimeout(timer); reject(e); }
       });
     }
-    async function uploadImageToStorage(f, p, i) {
-      try { return await _subirUna(f, p, i, 75000); }
+    async function uploadImageToStorage(f, p, i, dup) {
+      try { return await _subirUna(f, p, i, 75000, dup); }
       catch (e1) {
         // Un reintento antes de rendirse (la señal pudo haber parpadeado).
-        try { return await _subirUna(f, p, i, 75000); }
+        try { return await _subirUna(f, p, i, 75000, dup); }
         catch (e2) {
           throw new Error('No se pudo subir la foto ' + (i + 1) + ' (conexión inestable o archivo dañado). Tocá "Guardar" de nuevo: las fotos que ya subieron no se vuelven a subir.');
         }
       }
     }
     async function addImagesToPreview(fs) {
-      for (const f of fs) { if (f.size > 5 * 1024 * 1024) { alert(`La imagen ${f.name} excede 5MB`); continue } const pr = await compressImageForPreview(f); selectedImages.push({ preview: pr, file: f, existing: false }); renderImagePreviews() }
+      for (const f of fs) { if (f.size > 5 * 1024 * 1024) { alert(`La imagen ${f.name} excede 5MB`); continue } const pr = await compressImageForPreview(f); const _nu = { preview: pr, file: f, existing: false }; const _d = _proximoDup(_nu) - 1; if (_d > 0) _nu.dup = _d; selectedImages.push(_nu); renderImagePreviews() }
     }
     function handleImageSelect(e) { addImagesToPreview(Array.from(e.target.files)); e.target.value = '' }
     function renderImagePreviews() {
-      document.getElementById('imagePreviewGrid').innerHTML = selectedImages.map((im, i) => `<div class="image-preview-item ${i===0?'main':''}" data-idx="${i}" draggable="true" ondragstart="handleDragStart(event,${i})" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropImage(event,${i})" ondragend="handleDragEnd(event)"><img src="${im.preview}" alt=""><div class="drag-handle" style="opacity:1;touch-action:none" ontouchstart="imgTouchStart(event,${i})"><i class="fas fa-grip-vertical"></i></div><div class="remove-image" onclick="event.stopPropagation();removeImage(${i})"><i class="fas fa-times"></i></div></div>`).join('')
+      document.getElementById('imagePreviewGrid').innerHTML = selectedImages.map((im, i) => `<div class="image-preview-item ${i===0?'main':''}" data-idx="${i}" draggable="true" ondragstart="handleDragStart(event,${i})" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropImage(event,${i})" ondragend="handleDragEnd(event)"><img src="${im.preview}" alt=""><div class="drag-handle" style="opacity:1;touch-action:none" ontouchstart="imgTouchStart(event,${i})"><i class="fas fa-grip-vertical"></i></div><div class="dup-image" title="Duplicar esta foto" onclick="event.stopPropagation();duplicateImage(${i})" style="position:absolute;top:6px;left:6px;background:rgba(22,39,63,.78);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.68rem;z-index:2"><i class="fas fa-clone"></i></div><div class="remove-image" onclick="event.stopPropagation();removeImage(${i})"><i class="fas fa-times"></i></div></div>`).join('')
+    }
+    // Duplica una foto para completar el mínimo. Cada copia lleva un número de
+    // serie (dup): al comprimirla se le altera UN píxel invisible, así el archivo
+    // resultante es distinto byte a byte y Mercado Libre NO la descarta como
+    // repetida (ML deduplica por contenido, no solo por URL).
+    function _proximoDup(im) {
+      const clave = im.file ? (im.file.name + '|' + im.file.size) : ('url|' + (im.url || im.uploadedUrl || ''));
+      let max = 0;
+      selectedImages.forEach(x => {
+        const k = x.file ? (x.file.name + '|' + x.file.size) : ('url|' + (x.url || x.uploadedUrl || ''));
+        if (k === clave && (x.dup || 0) > max) max = x.dup || 0;
+      });
+      return max + 1;
+    }
+    function duplicateImage(i) {
+      const im = selectedImages[i];
+      if (!im) return;
+      const copia = { preview: im.preview, existing: false, dup: _proximoDup(im) };
+      if (im.file) { copia.file = im.file; }
+      else { copia.existing = true; copia.url = im.url || im.uploadedUrl; }
+      selectedImages.splice(i + 1, 0, copia);
+      renderImagePreviews();
+      const fc = document.getElementById('fotoCounter'); if (fc && typeof actualizarFotoCounter === 'function') actualizarFotoCounter();
     }
     function removeImage(i) { selectedImages.splice(i, 1); renderImagePreviews() }
     function handleDragStart(e, i) { draggedImageIndex = i; e.target.classList.add('dragging') }
@@ -929,7 +952,8 @@
           {
             "id": "AVAILABLE",
             "label": "Disponible desde",
-            "type": "date"
+            "type": "date",
+            "req": true
           }
         ],
         "InfoCasas": [
@@ -1381,7 +1405,8 @@
           {
             "id": "AVAILABLE",
             "label": "Disponible desde",
-            "type": "date"
+            "type": "date",
+            "req": true
           }
         ],
         "InfoCasas": [
@@ -1567,7 +1592,8 @@
           {
             "id": "AVAILABLE",
             "label": "Disponible desde",
-            "type": "date"
+            "type": "date",
+            "req": true
           }
         ],
         "InfoCasas": [
@@ -1767,7 +1793,8 @@
           {
             "id": "AVAILABLE",
             "label": "Disponible desde",
-            "type": "date"
+            "type": "date",
+            "req": true
           }
         ],
         "InfoCasas": [
@@ -2040,7 +2067,8 @@
           {
             "id": "AVAILABLE",
             "label": "Disponible desde",
-            "type": "date"
+            "type": "date",
+            "req": true
           }
         ],
         "InfoCasas": [
@@ -2252,7 +2280,8 @@
           {
             "id": "AVAILABLE",
             "label": "Disponible desde",
-            "type": "date"
+            "type": "date",
+            "req": true
           }
         ],
         "InfoCasas": [
@@ -2461,7 +2490,8 @@
           {
             "id": "AVAILABLE",
             "label": "Disponible desde",
-            "type": "date"
+            "type": "date",
+            "req": true
           }
         ],
         "InfoCasas": [
@@ -2844,7 +2874,7 @@
             const i = _idx++; const im = selectedImages[i];
             if (im.existing) { resultados[i] = im.url; continue; }
             if (im.uploadedUrl) { resultados[i] = im.uploadedUrl; continue; }
-            const url = await uploadImageToStorage(im.file, pi, i);
+            const url = await uploadImageToStorage(im.file, pi, i, im.dup || 0);
             im.uploadedUrl = url;
             resultados[i] = url;
             uc++; updateUploadProgress(uc, tt);
