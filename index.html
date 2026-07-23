@@ -471,20 +471,7 @@
 
   <div class="modal" id="registerModal"><div class="modal-content"><div class="modal-header"><h2>Crear Cuenta</h2><button class="modal-close" onclick="closeModal('registerModal')"><i class="fas fa-times"></i></button></div><div class="modal-body"><div id="registerError" class="form-error hidden"></div><div id="registerSuccess" class="form-success hidden"></div><form onsubmit="handleRegister(event)" id="registerForm"><div class="form-group"><label>Nombre Completo *</label><input type="text" id="registerName" required placeholder="Tu nombre"></div><div class="form-group"><label>Correo Electrónico *</label><input type="email" id="registerEmail" required placeholder="tu@email.com"></div><div class="form-group"><label>WhatsApp *</label><input type="tel" id="registerWhatsapp" required placeholder="+598 99 123 456"></div><div class="form-group"><label>Instagram (opcional)</label><input type="url" id="registerInstagram" placeholder="https://instagram.com/tu_usuario"><small>Ingresa el link completo de tu perfil</small></div><div class="form-row"><div class="form-group"><label>Contraseña *</label><input type="password" id="registerPassword" required minlength="6" placeholder="Mínimo 6 caracteres"></div><div class="form-group"><label>Confirmar *</label><input type="password" id="registerConfirm" required placeholder="Repetir"></div></div><p style="font-size:13px;color:var(--gray-500);margin-bottom:20px;padding:12px;background:rgba(201,162,39,.1);border-radius:8px"><i class="fas fa-info-circle" style="color:var(--gold)"></i> Tu cuenta quedará <strong>pendiente</strong> hasta que el administrador la apruebe.</p><button type="submit" class="btn-submit" id="registerBtn">Crear Cuenta</button></form></div><div class="modal-footer">¿Ya tienes cuenta? <a onclick="switchModal('registerModal','loginModal')">Inicia sesión</a></div></div></div>
 
-  <div class="modal detail-modal" id="detailModal"><div class="modal-content">
-    <div class="detail-gallery"><img id="detailImage" src="" alt="" onclick="openLightbox(currentDetailImageIndex)"><div class="detail-zoom-hint"><i class="fas fa-expand"></i> Ampliar</div><button class="detail-nav prev" onclick="prevDetailImage()"><i class="fas fa-chevron-left"></i></button><button class="detail-nav next" onclick="nextDetailImage()"><i class="fas fa-chevron-right"></i></button><div class="card-badges" id="detailBadges" style="z-index:10"></div><div class="detail-status-overlay hidden" id="detailStatusOverlay"><div class="status-ribbon" id="detailStatusRibbon"></div></div></div>
-    <div class="detail-thumbnails" id="detailThumbnails"></div>
-    <div class="detail-content">
-      <div class="detail-header"><div><h2 id="detailTitle"></h2><p style="color:var(--gray-500)"><i class="fas fa-map-marker-alt" style="color:var(--accent)"></i> <span id="detailLocation"></span></p></div><div class="detail-price-container"><span class="detail-price-old hidden" id="detailPriceOld"></span><span class="detail-price" id="detailPrice"></span><span class="detail-price-drop hidden" id="detailPriceDrop"></span></div></div>
-      <div class="detail-owner" onclick="viewOwnerProfile()"><div class="detail-owner-avatar" id="detailOwnerAvatar">U</div><div class="detail-owner-info"><strong id="detailOwnerName">Usuario</strong><span style="color:var(--gray-300);margin:0 6px">|</span><small>Ver perfil</small></div></div>
-      <div class="detail-features" id="detailFeatures"></div>
-      <p class="detail-description" id="detailDescription"></p>
-      <div class="detail-actions"><button class="detail-share" onclick="openShareModal(currentDetailProperty?.id)"><i class="fas fa-share-alt"></i> Compartir</button><button class="detail-whatsapp" id="detailWhatsapp"><i class="fab fa-whatsapp"></i> Contactar por WhatsApp</button><button class="detail-instagram hidden" id="detailInstagram"><i class="fab fa-instagram"></i> Instagram</button><button class="detail-edit-btn hidden" id="detailEditBtn" onclick="editCurrentProperty()"><i class="fas fa-edit"></i> Editar</button></div>
-      <div id="detailContrato"></div>
-      <div class="comments-section"><h3><i class="fas fa-comments"></i> Consultas</h3><div class="comment-form" id="commentFormGuest"><div class="comment-form-row"><input type="text" id="guestName" placeholder="Tu nombre *"><input type="tel" id="guestPhone" placeholder="Tu WhatsApp *"></div><small><i class="fas fa-lock"></i> Tu número solo será visible para el dueño de la propiedad</small><div class="comment-form-row"><input type="text" id="commentInput" placeholder="Escribe tu consulta..."><button onclick="addComment()">Enviar</button></div></div><div class="comment-form hidden" id="commentFormUser"><div class="comment-form-row"><input type="text" id="commentInputUser" placeholder="Escribe tu consulta..."><button onclick="addComment()">Enviar</button></div></div><div id="commentsList"></div></div>
-    </div>
-    <button class="modal-close" style="position:absolute;top:calc(16px + env(safe-area-inset-top, 0px));right:16px;background:rgba(0,0,0,.55);color:white;z-index:30" onclick="closeModal('detailModal')"><i class="fas fa-times"></i></button>
-  </div></div>
+  <!-- (detalle de propiedad: ahora vive en propiedad.html) -->
 
   <div class="modal" id="propertyModal"><div class="modal-content" style="max-width:700px"><div class="modal-header"><h2 id="propertyModalTitle">Nueva Propiedad</h2><button class="modal-close" onclick="closeModal('propertyModal')"><i class="fas fa-times"></i></button></div><div class="modal-body"><div id="propertyError" class="form-error hidden"></div>
     <form onsubmit="handleSaveProperty(event)" id="propertyForm">
@@ -571,13 +558,7 @@
     </form>
   </div></div></div>
 
-  <div class="lightbox" id="lightbox" onclick="closeLightbox()">
-    <button class="lightbox-close" onclick="event.stopPropagation();closeLightbox()" title="Cerrar"><i class="fas fa-times"></i></button>
-    <button class="lightbox-nav prev" onclick="event.stopPropagation();lightboxPrev()"><i class="fas fa-chevron-left"></i></button>
-    <img class="lightbox-img" id="lightboxImg" src="" alt="" onclick="event.stopPropagation()">
-    <button class="lightbox-nav next" onclick="event.stopPropagation();lightboxNext()"><i class="fas fa-chevron-right"></i></button>
-    <div class="lightbox-counter" id="lightboxCounter"></div>
-  </div>
+  
 
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>

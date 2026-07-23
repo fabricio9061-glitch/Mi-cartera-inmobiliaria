@@ -192,8 +192,6 @@
     userProfile = null,
     properties = [],
     allUsers = {},
-    currentDetailProperty = null,
-    currentDetailImageIndex = 0,
     currentProfileUserId = null,
     selectedImages = [],
     draggedImageIndex = null,
@@ -2122,12 +2120,6 @@
     document.body.appendChild(ov);
   }
 
-  function editCurrentProperty() {
-    if (currentDetailProperty) {
-      closeModal('detailModal');
-      openPropertyFormTab(currentDetailProperty.id)
-    }
-  }
 
   function togglePropertyType() {
     document.getElementById('propertyTypeGroup').style.display = document.getElementById('propType').value === 'rent' ? 'none' : 'block'
@@ -2613,19 +2605,6 @@
       // (Se conserva la ruta vieja para que los links ya enviados sigan andando.)
       const pid = h.replace('#propiedad/', '');
       window.location.replace('propiedad.html?id=' + pid);
-      return;
-      // eslint-disable-next-line no-unreachable
-      if (properties.length > 0) {
-        openDetail(pid)
-      } else {
-        const checkProps = setInterval(() => {
-          if (properties.length > 0) {
-            clearInterval(checkProps);
-            openDetail(pid)
-          }
-        }, 200);
-        setTimeout(() => clearInterval(checkProps), 5000)
-      }
     }
   }
   window.addEventListener('hashchange', handleHash);
@@ -3018,245 +2997,6 @@
     host.innerHTML = `<span style="width:100%;font-size:.74rem;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.3px"><i class="fas fa-calendar-check"></i> Agenda de esta propiedad</span>` + chips.join('');
     host.style.display = 'flex';
   }
-  async function openDetail(id, sc = false) {
-    const p = properties.find(pr => pr.id === id);
-    if (!p) return;
-    currentDetailProperty = p;
-    currentDetailImageIndex = 0;
-    const io = currentUser && currentUser.uid === p.ownerId;
-    if (!sc && !io) db.collection('properties').doc(id).update({
-      views: firebase.firestore.FieldValue.increment(1)
-    }).catch(e => console.log('Error counting view:', e));
-    const im = p.images?.length ? p.images : ['https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'];
-    document.getElementById('detailImage').src = im[0];
-    document.getElementById('detailTitle').textContent = p.title;
-    document.getElementById('detailLocation').textContent = getLocationString(p) + (p.direccion ? ` - ${p.direccion}` : '');
-    const c = p.currency || 'USD',
-      hop = p.previousPrice && p.previousPrice > p.price,
-      pdp = hop ? Math.round((1 - p.price / p.previousPrice) * 100) : 0;
-    document.getElementById('detailPrice').textContent = `${formatPrice(p.price,c)}${p.type==='rent'?'/mes':''}`;
-    const ope = document.getElementById('detailPriceOld'),
-      pde = document.getElementById('detailPriceDrop');
-    if (hop) {
-      ope.textContent = formatPrice(p.previousPrice, c);
-      ope.classList.remove('hidden');
-      pde.textContent = `¡${pdp}% de descuento!`;
-      pde.classList.remove('hidden')
-    } else {
-      ope.classList.add('hidden');
-      pde.classList.add('hidden')
-    }
-    document.getElementById('detailDescription').textContent = p.description || 'Sin descripción.';
-    const so = document.getElementById('detailStatusOverlay'),
-      sr = document.getElementById('detailStatusRibbon'),
-      st = p.status || 'available';
-    const stLabels = {
-      reserved: 'RESERVADA',
-      sold: 'VENDIDA',
-      rented: 'ALQUILADA',
-      cerrado_externo: 'CERRÓ POR AFUERA',
-      archived: 'DADA DE BAJA'
-    };
-    if (st !== 'available' && stLabels[st]) {
-      so.className = `detail-status-overlay ${st}`;
-      sr.className = `status-ribbon ${st}`;
-      sr.textContent = stLabels[st];
-      so.classList.remove('hidden')
-    } else {
-      so.classList.add('hidden')
-    }
-    const tc = document.getElementById('detailThumbnails');
-    if (im.length > 1) {
-      tc.innerHTML = im.map((img, i) => `<div class="detail-thumb ${i===0?'active':''}" onclick="setDetailImage(${i})"><img src="${img}" alt="" loading="${i < 4 ? 'eager' : 'lazy'}" decoding="async"></div>`).join('');
-      tc.style.display = 'flex'
-    } else tc.style.display = 'none';
-    const o = getOwnerInfo(p),
-      oi = (o.name || 'U').charAt(0).toUpperCase();
-    document.getElementById('detailOwnerName').textContent = o.name || 'Usuario';
-    document.getElementById('detailOwnerAvatar').innerHTML = o.profilePhoto ? `<img src="${safeUrl(o.profilePhoto)}" alt="">` : oi;
-    document.getElementById('detailBadges').innerHTML = `${p.featured&&st==='available'?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}${st==='reserved'?'<span class="badge badge-reserved">RESERVADA</span>':''}${st==='sold'?'<span class="badge badge-sold">VENDIDA</span>':''}${st==='rented'?'<span class="badge badge-rented">ALQUILADA</span>':''}${st==='archived'?'<span class="badge badge-archived">ARCHIVADA</span>':''}`;
-    document.getElementById('detailFeatures').innerHTML = `${p.bedrooms?`<div class="detail-feature"><i class="fas fa-bed"></i><strong>${p.bedrooms}</strong><span>Dormitorios</span></div>`:''}${p.bathrooms?`<div class="detail-feature"><i class="fas fa-bath"></i><strong>${p.bathrooms}</strong><span>Baños</span></div>`:''}${p.totalArea?`<div class="detail-feature"><i class="fas fa-expand"></i><strong>${p.totalArea}</strong><span>m² Total</span></div>`:''}${p.builtArea?`<div class="detail-feature"><i class="fas fa-home"></i><strong>${p.builtArea}</strong><span>m² Edificado</span></div>`:''}${p.garage==='yes'?`<div class="detail-feature"><i class="fas fa-car"></i><strong>Sí</strong><span>Garaje</span></div>`:''}${p.commonExpenses?`<div class="detail-feature"><i class="fas fa-dollar-sign"></i><strong>${p.commonExpenses}</strong><span>Gastos</span></div>`:''}`;
-    document.getElementById('detailWhatsapp').onclick = () => contactWhatsapp(id);
-    const ib = document.getElementById('detailInstagram');
-    if (o.instagram && o.instagram.includes('instagram.com')) {
-      ib.classList.remove('hidden');
-      ib.onclick = () => window.open(o.instagram, '_blank')
-    } else {
-      ib.classList.add('hidden')
-    }
-    document.getElementById('detailEditBtn').classList.toggle('hidden', !canEditProperty(p));
-    renderDetailContrato(p);
-    document.getElementById('commentFormGuest').classList.toggle('hidden', !!currentUser);
-    document.getElementById('commentFormUser').classList.toggle('hidden', !currentUser);
-    loadComments(id);
-    renderPropEventCount(id);
-    openModal('detailModal')
-  }
-
-  function setDetailImage(i) {
-    if (!currentDetailProperty?.images?.length) return;
-    currentDetailImageIndex = i;
-    document.getElementById('detailImage').src = currentDetailProperty.images[i];
-    document.querySelectorAll('.detail-thumb').forEach((t, idx) => {
-      t.classList.toggle('active', idx === i);
-      if (idx === i) t.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    })
-  }
-
-  function prevDetailImage() {
-    if (!currentDetailProperty?.images?.length) return;
-    currentDetailImageIndex = (currentDetailImageIndex - 1 + currentDetailProperty.images.length) % currentDetailProperty.images.length;
-    setDetailImage(currentDetailImageIndex)
-  }
-
-  function nextDetailImage() {
-    if (!currentDetailProperty?.images?.length) return;
-    currentDetailImageIndex = (currentDetailImageIndex + 1) % currentDetailProperty.images.length;
-    setDetailImage(currentDetailImageIndex)
-  }
-
-  function openLightbox(i) {
-    if (!currentDetailProperty?.images?.length) return;
-    currentDetailImageIndex = i;
-    document.getElementById('lightboxImg').src = currentDetailProperty.images[i];
-    updateLightboxCounter();
-    document.getElementById('lightbox').classList.add('active');
-    sincronizarBloqueoFondo()
-  }
-
-  function closeLightbox() {
-    document.getElementById('lightbox').classList.remove('active');
-    sincronizarBloqueoFondo()
-  }
-
-  function lightboxNext() {
-    if (!currentDetailProperty?.images?.length) return;
-    currentDetailImageIndex = (currentDetailImageIndex + 1) % currentDetailProperty.images.length;
-    document.getElementById('lightboxImg').src = currentDetailProperty.images[currentDetailImageIndex];
-    setDetailImage(currentDetailImageIndex);
-    updateLightboxCounter()
-  }
-
-  function lightboxPrev() {
-    if (!currentDetailProperty?.images?.length) return;
-    currentDetailImageIndex = (currentDetailImageIndex - 1 + currentDetailProperty.images.length) % currentDetailProperty.images.length;
-    document.getElementById('lightboxImg').src = currentDetailProperty.images[currentDetailImageIndex];
-    setDetailImage(currentDetailImageIndex);
-    updateLightboxCounter()
-  }
-
-  function updateLightboxCounter() {
-    const c = document.getElementById('lightboxCounter');
-    if (c && currentDetailProperty?.images?.length) {
-      c.textContent = `${currentDetailImageIndex + 1} / ${currentDetailProperty.images.length}`;
-      c.style.display = currentDetailProperty.images.length > 1 ? 'block' : 'none'
-    }
-  }
-
-  document.addEventListener('keydown', e => {
-    const lb = document.getElementById('lightbox');
-    if (!lb || !lb.classList.contains('active')) return;
-    if (e.key === 'Escape') closeLightbox();
-    else if (e.key === 'ArrowRight') lightboxNext();
-    else if (e.key === 'ArrowLeft') lightboxPrev()
-  });
-
-  function viewOwnerProfile() {
-    if (currentDetailProperty) {
-      closeModal('detailModal');
-      showProfile(currentDetailProperty.ownerId)
-    }
-  }
-
-  // Comments
-  async function loadComments(pi) {
-    const c = document.getElementById('commentsList');
-    c.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-    const io = currentUser && currentDetailProperty && currentUser.uid === currentDetailProperty.ownerId;
-    try {
-      const s = await db.collection('properties').doc(pi).collection('comments').orderBy('createdAt', 'desc').get();
-      const cm = s.docs.map(d => d.data());
-      if (cm.length === 0) {
-        c.innerHTML = '<div class="no-comments"><i class="fas fa-comment-slash"></i><p>Sé el primero en consultar</p></div>';
-        return
-      }
-      c.innerHTML = cm.map(co => {
-        const i = (co.userName || 'A').charAt(0).toUpperCase(),
-          t = co.createdAt ? new Date(co.createdAt).toLocaleDateString('es') : '',
-          sp = io && co.userPhone;
-        return `<div class="comment-item"><div class="comment-avatar">${co.userPhoto?`<img src="${co.userPhoto}" alt="">`:i}</div><div class="comment-content"><div class="comment-header"><span class="comment-author">${co.userName||'Anónimo'}</span>${co.isGuest?'<span class="comment-guest-badge">Invitado</span>':''}<span class="comment-time">${t}</span></div><p class="comment-text">${co.text}</p>${sp?`<div class="comment-contact"><i class="fab fa-whatsapp"></i> Contacto: <a href="https://wa.me/${co.userPhone.replace(/\D/g,'')}" target="_blank">${co.userPhone}</a></div>`:''}</div></div>`
-      }).join('')
-    } catch (e) {
-      console.error('Error loading comments:', e);
-      c.innerHTML = '<p style="color:var(--danger)">Error al cargar consultas</p>'
-    }
-  }
-  async function addComment() {
-    let tx, un, up, uph, ig;
-    if (currentUser && userProfile) {
-      tx = document.getElementById('commentInputUser').value.trim();
-      un = userProfile.name;
-      up = userProfile.whatsapp || '';
-      uph = userProfile.profilePhoto || null;
-      ig = false
-    } else {
-      tx = document.getElementById('commentInput').value.trim();
-      un = document.getElementById('guestName').value.trim();
-      up = document.getElementById('guestPhone').value.trim();
-      uph = null;
-      ig = true;
-      if (!un) {
-        alert('Por favor ingresa tu nombre');
-        return
-      }
-      if (!up) {
-        alert('Por favor ingresa tu WhatsApp');
-        return
-      }
-    }
-    if (!tx || !currentDetailProperty) {
-      alert('Por favor escribe tu consulta');
-      return
-    }
-    try {
-      const cd = {
-        userId: currentUser?.uid || null,
-        userName: un,
-        userPhone: up,
-        userPhoto: uph,
-        text: tx,
-        isGuest: ig,
-        createdAt: new Date().toISOString()
-      };
-      await db.collection('properties').doc(currentDetailProperty.id).collection('comments').add(cd);
-      const io = currentUser && currentUser.uid === currentDetailProperty.ownerId;
-      if (!io) {
-        const nd = {
-          ownerId: currentDetailProperty.ownerId,
-          propertyId: currentDetailProperty.id,
-          propertyTitle: currentDetailProperty.title,
-          userName: un,
-          userPhone: up,
-          userPhoto: uph,
-          text: tx,
-          read: false,
-          createdAt: new Date().toISOString()
-        };
-        await db.collection('notifications').add(nd)
-      }
-      if (currentUser) {
-        document.getElementById('commentInputUser').value = ''
-      } else {
-        document.getElementById('commentInput').value = ''
-      }
-      loadComments(currentDetailProperty.id);
-      showToast('Consulta enviada', 'Tu mensaje ha sido enviado al propietario', 'fa-check')
-    } catch (e) {
-      console.error('Error adding comment:', e);
-      alert('Error al enviar consulta: ' + e.message)
-    }
-  }
-
   function contactWhatsapp(id) {
     const p = properties.find(pr => pr.id === id);
     if (!p) return;
@@ -5043,23 +4783,4 @@ function mvSetHeroPhoto(ps) {
 })();
 
 
-// ===== Deslizar la foto principal del detalle para cambiar de imagen =====
-(function _galeriaSwipe() {
-  let x0 = null, y0 = null;
-  document.addEventListener('touchstart', e => {
-    const g = e.target.closest('.detail-gallery');
-    if (!g || !e.touches[0]) return;
-    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
-  }, { passive: true });
-  document.addEventListener('touchend', e => {
-    if (x0 === null || !e.changedTouches[0]) return;
-    const dx = e.changedTouches[0].clientX - x0;
-    const dy = e.changedTouches[0].clientY - y0;
-    x0 = null;
-    // Horizontal claro y no vertical (para no pelear con el scroll)
-    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.6) {
-      if (dx < 0) { if (typeof nextDetailImage === 'function') nextDetailImage(); }
-      else { if (typeof prevDetailImage === 'function') prevDetailImage(); }
-    }
-  }, { passive: true });
-})();
+
