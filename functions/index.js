@@ -2923,3 +2923,123 @@ exports.leadInfocasas = onRequest(async (req, res) => {
     res.status(200).json({ ok: true, guardadoCrudo: true });
   }
 });
+
+// ============================================================================
+// AVISOS AL ADMIN DE LO QUE ESPERA EN EL PANEL
+// Todo lo que cae en el Panel de Administración y necesita una decisión
+// (alta de agente, testimonio, solicitud de venta, revisión) ahora avisa en
+// la campanita y por push, en vez de descubrirse solo al entrar al panel.
+// ============================================================================
+
+// 1) Alta de agente esperando aprobación (users con status "pending")
+exports.notificarAltaAgente = onDocumentCreated("users/{uid}", async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+  const u = snap.data();
+  if (!u || u.status !== "pending") return;      // los aprobados de entrada no avisan
+  const adm = await getAdminUser();
+  if (!adm || adm.uid === snap.id) return;
+  const nombre = u.name || u.email || "Un usuario";
+  await crearNotificacion(
+    adm,
+    {
+      type: "admin_pendiente",
+      subtipo: "alta",
+      propertyId: "",
+      propertyTitle: "una solicitud de alta — revisala en el Panel de Administración",
+      userName: "👤 Alta de agente",
+      userPhoto: u.profilePhoto || null,
+      text: `${nombre} se registró y espera aprobación${u.email ? " (" + u.email + ")" : ""}.`,
+    },
+    { title: "👤 Nueva alta de agente", body: `${nombre} espera aprobación.` }
+  );
+});
+
+// 2) Testimonio nuevo esperando aprobación
+exports.notificarTestimonio = onDocumentCreated("testimonials/{id}", async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+  const t = snap.data() || {};
+  if (t.approved === true) return;               // si ya nace aprobado, no hay nada que decidir
+  const adm = await getAdminUser();
+  if (!adm) return;
+  const autor = t.name || t.clientName || "Un cliente";
+  const texto = String(t.text || t.comment || "").slice(0, 140);
+  await crearNotificacion(
+    adm,
+    {
+      type: "admin_pendiente",
+      subtipo: "testimonio",
+      propertyId: "",
+      propertyTitle: "un testimonio — aprobalo en el Panel de Administración",
+      userName: "⭐ Testimonio nuevo",
+      userPhoto: null,
+      text: `${autor} dejó un testimonio${texto ? ': "' + texto + '…"' : ""}. Revisalo antes de publicarlo.`,
+    },
+    { title: "⭐ Testimonio para aprobar", body: `${autor} dejó un testimonio.` }
+  );
+});
+
+// 3) Solicitud de venta/tasación desde el sitio (leadsVenta)
+exports.notificarSolicitudVenta = onDocumentCreated("leadsVenta/{id}", async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+  const l = snap.data() || {};
+  const adm = await getAdminUser();
+  if (!adm) return;
+  const nombre = l.nombre || l.name || "Alguien";
+  const contacto = [l.telefono || l.phone, l.email].filter(Boolean).join(" · ");
+  const donde = l.direccion || l.zona || l.barrio || "";
+  await crearNotificacion(
+    adm,
+    {
+      type: "admin_pendiente",
+      subtipo: "solicitud",
+      propertyId: "",
+      propertyTitle: "una solicitud — contactala desde el Panel de Administración",
+      userName: "📩 Solicitud nueva",
+      userPhoto: null,
+      text: `${nombre} pidió que la contacten${donde ? " por " + donde : ""}.${contacto ? " " + contacto : ""}`,
+    },
+    { title: "📩 Nueva solicitud de venta", body: `${nombre} quiere que la contacten.` }
+  );
+});
+
+// 4) Revisiones: tasaciones y cálculos que los agentes guardan dentro de su
+//    propio documento de usuario (arrays tasaciones / calcGastos / calcTerrenos).
+//    Se compara el largo antes y después para avisar solo de las nuevas.
+exports.notificarRevision = onDocumentUpdated("users/{uid}", async (event) => {
+  const before = event.data && event.data.before ? event.data.before.data() : null;
+  const after = event.data && event.data.after ? event.data.after.data() : null;
+  if (!before || !after) return;
+
+  const TIPOS = [
+    { campo: "tasaciones", etiqueta: "Tasación" },
+    { campo: "calcGastos", etiqueta: "Gastos y comisiones" },
+    { campo: "calcTerrenos", etiqueta: "Cálculo de terreno" },
+  ];
+  const nuevas = TIPOS.filter((t) => {
+    const a = Array.isArray(after[t.campo]) ? after[t.campo].length : 0;
+    const b = Array.isArray(before[t.campo]) ? before[t.campo].length : 0;
+    return a > b;
+  });
+  if (!nuevas.length) return;
+
+  const adm = await getAdminUser();
+  if (!adm || adm.uid === event.params.uid) return;   // si la hizo el propio admin, no se avisa
+  const agente = after.name || after.email || "Un agente";
+  const que = nuevas.map((n) => n.etiqueta).join(" y ");
+  await crearNotificacion(
+    adm,
+    {
+      type: "admin_pendiente",
+      subtipo: "revision",
+      propertyId: "",
+      propertyTitle: "una revisión — miralas en el Panel de Administración",
+      userName: "🧮 Revisión nueva",
+      userPhoto: after.profilePhoto || null,
+      text: `${agente} guardó ${que.toLowerCase()}. Está esperando tu revisión.`,
+    },
+    { title: "🧮 Revisión para mirar", body: `${agente} guardó ${que.toLowerCase()}.` }
+  );
+});

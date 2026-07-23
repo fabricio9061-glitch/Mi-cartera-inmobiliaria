@@ -926,14 +926,15 @@
     // Familia de cada notificación, para el filtro Clientes / Propiedades.
     // Clientes: recordatorios del CRM (seguimiento, pausa). Propiedades: consultas
     // de portales/web y (más adelante) vencimientos de alquiler.
-    const familiaDe = (n) => (n.type === 'crm_seguimiento' || n.type === 'crm_pausa') ? 'clientes' : (n.type === 'retiro' || n.type === 'retiro_estado') ? 'finanzas' : 'propiedades';
+    const familiaDe = (n) => (n.type === 'crm_seguimiento' || n.type === 'crm_pausa') ? 'clientes' : (n.type === 'retiro' || n.type === 'retiro_estado') ? 'finanzas' : (n.type === 'admin_pendiente') ? 'panel' : 'propiedades';
     const filtro = window._notifFiltro || 'all';
     const visibles = notifications.filter(n => filtro === 'all' || familiaDe(n) === filtro);
     const nCli = notifications.filter(n => familiaDe(n) === 'clientes').length;
     const nFin = notifications.filter(n => familiaDe(n) === 'finanzas').length;
-    const nProp = notifications.length - nCli - nFin;
+    const nPan = notifications.filter(n => familiaDe(n) === 'panel').length;
+    const nProp = notifications.length - nCli - nFin - nPan;
     const chip = (val, txt) => `<button class="notif-chip ${filtro===val?'active':''}" onclick="setNotifFiltro('${val}')">${txt}</button>`;
-    const barra = `<div class="notif-filtros">${chip('all','Todas')}${chip('clientes','Clientes'+(nCli?' ('+nCli+')':''))}${chip('propiedades','Propiedades'+(nProp?' ('+nProp+')':''))}${nFin?chip('finanzas','Finanzas ('+nFin+')'):''}</div>`;
+    const barra = `<div class="notif-filtros">${chip('all','Todas')}${chip('clientes','Clientes'+(nCli?' ('+nCli+')':''))}${chip('propiedades','Propiedades'+(nProp?' ('+nProp+')':''))}${nFin?chip('finanzas','Finanzas ('+nFin+')'):''}${nPan?chip('panel','Panel ('+nPan+')'):''}</div>`;
     // Los filtros viven en una barra FIJA (no se van al scrollear la lista).
     const fb = document.getElementById('notifFiltrosBar');
     if (fb) fb.innerHTML = barra;
@@ -945,6 +946,16 @@
     l.innerHTML = pre + visibles.map(n => {
       const i = (n.userName || 'A').charAt(0).toUpperCase(),
         ts = n.createdAt ? formatTimeAgo(n.createdAt) : '';
+      // Pendientes del Panel de Administración (altas, testimonios, solicitudes, revisiones).
+      if (n.type === 'admin_pendiente') {
+        const S = {
+          alta:       { bg:'#e0e7ff', fg:'#4338ca', ic:'fa-user-plus',        tab:'pending' },
+          testimonio: { bg:'#fef3c7', fg:'#a16207', ic:'fa-star',             tab:'testimonials' },
+          solicitud:  { bg:'#dcfce7', fg:'#15803d', ic:'fa-envelope-open-text', tab:'solicitudes' },
+          revision:   { bg:'#e0f2fe', fg:'#0369a1', ic:'fa-calculator',       tab:'revisiones' }
+        }[n.subtipo] || { bg:'#eef1f5', fg:'#475569', ic:'fa-clipboard-check', tab:'pending' };
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="abrirPanelDesdeNotif('${S.tab}')"><div class="notification-avatar" style="background:${S.bg};color:${S.fg}"><i class="fas ${S.ic}"></i></div><div class="notification-body"><p><strong>${mvEsc(n.userName||'Pendiente')}</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,160))}${(n.text||'').length>160?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+      }
       // Aviso al AGENTE del estado de su retiro (aprobado / pagado / rechazado).
       if (n.type === 'retiro_estado') {
         const pagado = /acredit/i.test(n.text || '') || /💰/.test(n.userName || '');
@@ -1138,6 +1149,17 @@
     document.querySelectorAll('.bb-item').forEach(b => b.classList.remove('active'));
     document.getElementById('bbInicio')?.classList.add('active');
     showProfile(uid);
+  }
+
+  // Desde una notificación del panel: cierra la campanita, abre el Panel de
+  // Administración y salta directo a la pestaña que corresponde.
+  function abrirPanelDesdeNotif(tab) {
+    closeNotifications();
+    try {
+      if (typeof showAdmin === 'function') showAdmin();
+      else document.getElementById('adminBtn')?.click();
+      setTimeout(() => { try { showAdminTab(tab); } catch (e) {} }, 260);
+    } catch (e) { console.warn('No se pudo abrir el panel', e); }
   }
 
   function closeNotifications() {
