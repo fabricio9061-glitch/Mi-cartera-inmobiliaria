@@ -944,6 +944,8 @@
             "id": "MONTHLY_RENT_FACTOR",
             "label": "Factor multiplicador de renta",
             "type": "num",
+            "req": true,
+            "min": 1,
             "help": "Cuántos meses de alquiler pide la garantía (ej: 3). Mercado Libre lo cuenta para la calidad del aviso."
           },
           {
@@ -1403,6 +1405,8 @@
             "id": "MONTHLY_RENT_FACTOR",
             "label": "Factor multiplicador de renta",
             "type": "num",
+            "req": true,
+            "min": 1,
             "help": "Cuántos meses de alquiler pide la garantía (ej: 3). Mercado Libre lo cuenta para la calidad del aviso."
           },
           {
@@ -1596,6 +1600,8 @@
             "id": "MONTHLY_RENT_FACTOR",
             "label": "Factor multiplicador de renta",
             "type": "num",
+            "req": true,
+            "min": 1,
             "help": "Cuántos meses de alquiler pide la garantía (ej: 3). Mercado Libre lo cuenta para la calidad del aviso."
           },
           {
@@ -1803,6 +1809,8 @@
             "id": "MONTHLY_RENT_FACTOR",
             "label": "Factor multiplicador de renta",
             "type": "num",
+            "req": true,
+            "min": 1,
             "help": "Cuántos meses de alquiler pide la garantía (ej: 3). Mercado Libre lo cuenta para la calidad del aviso."
           },
           {
@@ -2083,6 +2091,8 @@
             "id": "MONTHLY_RENT_FACTOR",
             "label": "Factor multiplicador de renta",
             "type": "num",
+            "req": true,
+            "min": 1,
             "help": "Cuántos meses de alquiler pide la garantía (ej: 3). Mercado Libre lo cuenta para la calidad del aviso."
           },
           {
@@ -2302,6 +2312,8 @@
             "id": "MONTHLY_RENT_FACTOR",
             "label": "Factor multiplicador de renta",
             "type": "num",
+            "req": true,
+            "min": 1,
             "help": "Cuántos meses de alquiler pide la garantía (ej: 3). Mercado Libre lo cuenta para la calidad del aviso."
           },
           {
@@ -2518,6 +2530,8 @@
             "id": "MONTHLY_RENT_FACTOR",
             "label": "Factor multiplicador de renta",
             "type": "num",
+            "req": true,
+            "min": 1,
             "help": "Cuántos meses de alquiler pide la garantía (ej: 3). Mercado Libre lo cuenta para la calidad del aviso."
           },
           {
@@ -2637,7 +2651,7 @@
             const help = c.help ? `<div class="fx-help">${esc(c.help)}</div>` : '';
             let campo;
             if (c.type === 'list') campo = `<select id="fc-${c.id}"><option value="">Elegir...</option>${(c.options || []).map(o => `<option>${esc(o)}</option>`).join('')}</select>`;
-            else { const t = c.type === 'date' ? 'date' : (c.type === 'text' ? 'text' : 'number'); campo = `<input type="${t}" id="fc-${c.id}" ${t === 'number' ? 'min="0"' : ''}>`; }
+            else { const t = c.type === 'date' ? 'date' : (c.type === 'text' ? 'text' : 'number'); campo = `<input type="${t}" id="fc-${c.id}" ${t === 'number' ? `min="${c.min != null ? c.min : 0}"` : ''}>`; }
             return `<div class="form-group fx-item" data-buscar="${esc(c.label.toLowerCase())}"><label>${esc(c.label)}${req}</label>${campo}${help}</div>`;
           }).join('') + '</div>';
         }
@@ -2891,13 +2905,23 @@
       // era decorativo: se mostraba pero nada lo exigía.
       const _faltantes = fichaCampos().filter(c => {
         if (!c.req) return false;
-        // Los numéricos se autocompletan con 0, así que nunca bloquean el guardado.
-        if (c.type === 'num') return false;
         const el = document.getElementById('fc-' + c.id);
-        return el && String(el.value || '').trim() === '';
+        if (!el) return false;                    // no está en pantalla (grupo no renderizado)
+        const v = String(el.value || '').trim();
+        if (c.type === 'num') {
+          // Un numérico vacío se guarda como 0 (ver collectFicha), así que pedirlo
+          // "obligatorio" a secas no bloquea nada. Solo se exige de verdad cuando
+          // el campo declara un 'min': ahí el 0 no es una respuesta sino un campo
+          // sin llenar (0 meses de garantía no significa "sin garantía"). Los
+          // demás numéricos siguen autocompletándose con 0, como hasta ahora,
+          // porque para ellos el cero sí es un dato real (ej: 0 cocheras).
+          if (c.min == null) return false;
+          return v === '' || !(parseFloat(v) >= c.min);
+        }
+        return v === '';
       });
       if (_faltantes.length) {
-        alert('Faltan campos obligatorios de la ficha técnica:\n\n• ' + _faltantes.map(c => c.label).join('\n• '));
+        alert('Faltan campos obligatorios de la ficha técnica:\n\n• ' + _faltantes.map(c => c.label + (c.min != null ? ' (mínimo ' + c.min + ')' : '')).join('\n• '));
         const primero = document.getElementById('fc-' + _faltantes[0].id);
         if (primero) {
           const grupo = primero.closest('.fx-group, details, .form-section');
@@ -2950,7 +2974,7 @@
         ubicacion.direccionVisible = [ubicacion.calle, ubicacion.numero].filter(Boolean).join(' ');
         const pd = {
           title: document.getElementById('propTitle').value, departamento: dp, ciudad: cd, direccion: ubicacion.direccionVisible, ubicacion, location: `${cd}, ${dp}`,
-          price: np, currency: document.getElementById('propCurrency').value, type: ty, propertyType: ty === 'sale' ? document.getElementById('propPropertyType').value : 'common', realEstateType: document.getElementById('propRealEstateType').value, clientId: formClientId || null,
+          price: np, currency: document.getElementById('propCurrency').value, type: ty, propertyType: document.getElementById('propPropertyType').value, realEstateType: document.getElementById('propRealEstateType').value, clientId: formClientId || null,
           bedrooms: parseInt(document.getElementById('propBedrooms').value) || 0, bathrooms: parseInt(document.getElementById('propBathrooms').value) || 0,
           totalArea: parseInt(document.getElementById('propTotalArea').value) || 0, builtArea: parseInt(document.getElementById('propBuiltArea').value) || 0,
           commonExpenses: parseInt(document.getElementById('propExpenses').value) || 0, garage: (ficha.PARKING_LOTS || 0) > 0 ? 'yes' : 'no', status: document.getElementById('propStatus').value,
