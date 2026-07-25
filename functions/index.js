@@ -840,6 +840,12 @@ async function addFeatureAttributes(categoryId, p, baseAttributes, token, catAtt
     // colaba en filtros tipo "!val" y no se enviaba. Acá se compara explícito
     // contra "" y null/undefined, nunca contra 0.
     if (!attr || have.has(id)) continue;
+    // Si la categoría fija el atributo (lo calcula ella, o lo tiene oculto), no se
+    // manda: en el mejor caso lo ignora y en el peor rechaza la publicación. Los
+    // otros dos lugares del archivo que arman atributos ya hacían este chequeo;
+    // este se lo había salteado.
+    const _tg = attr.tags || {};
+    if (_tg.read_only || _tg.fixed || _tg.hidden) continue;
     if (val === "" || val === null || val === undefined) continue;
     const vt = attr.value_type;
     if (vt === "boolean") {
