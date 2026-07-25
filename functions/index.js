@@ -2189,6 +2189,109 @@ exports.bajaML = onCall(async (request) => {
 });
 
 // ============================================================
+// PEDIDO DE BAJA (el agente pide, el admin decide)
+// ------------------------------------------------------------
+// El agente no da de baja: la PIDE. El pedido le llega al admin a la campanita
+// (con push) usando la MISMA notificación que el flujo automático de "cerró por
+// afuera", así el admin resuelve todo desde un solo lugar y con los dos botones
+// que ya conoce: Despublicar / Mantener publicada.
+//
+// Mientras tanto la propiedad NO se toca: sigue publicada hasta que el admin
+// decida. Es la misma regla de siempre — lo publicado se asume con permiso.
+// ============================================================
+exports.pedirBajaPropiedad = onCall(async (request) => {
+  const propertyId = request.data && request.data.propertyId;
+  if (!propertyId) throw new HttpsError("invalid-argument", "Falta el id de la propiedad.");
+  const motivo = String((request.data && request.data.motivo) || "").trim().slice(0, 300);
+  const ref = db.collection("properties").doc(propertyId);
+  const doc = await ref.get();
+  if (!doc.exists) throw new HttpsError("not-found", "La propiedad no existe.");
+  const p = doc.data();
+  const { uid } = await exigirAgente(request, p); // agente dueño del aviso, o admin
+  if (p.despubPendiente === true) {
+    throw new HttpsError("already-exists", "Ya hay un pedido de baja esperando la decisión del administrador.");
+  }
+  if (p.status === "archived") throw new HttpsError("failed-precondition", "Esta propiedad ya está dada de baja.");
+  const adm = await getAdminUser();
+  if (!adm) throw new HttpsError("failed-precondition", "No se encontró al administrador para avisarle. Avisale por otra vía.");
+
+  let quien = "Un agente";
+  try {
+    const u = await db.doc(`users/${uid}`).get();
+    if (u.exists) quien = u.data().name || u.data().email || quien;
+  } catch (e) { logger.warn("pedirBajaPropiedad: no se pudo leer el nombre del agente:", e.message); }
+
+  const titulo = p.title || "sin título";
+  await crearNotificacion(adm, {
+    type: "despublicar_confirmar",
+    propertyId,
+    propertyTitle: titulo,
+    userName: "Pedido de baja",
+    userPhoto: null,
+    text: `${quien} pide dar de baja "${titulo}"${motivo ? `. Motivo: ${motivo}` : "."} Confirmá si hay que despublicarla o mantenerla.`,
+  }, {
+    title: "🏠 Un agente pide dar de baja",
+    body: `${titulo} — ${quien}`,
+  });
+
+  // statusPrevioDespub se guarda aunque el estado no cambie: es lo que lee
+  // "Mantener publicada" para restaurar. Sin esto, una propiedad Reservada
+  // volvería como Disponible al rechazarse el pedido.
+  await ref.update({
+    despubPendiente: true,
+    statusPrevioDespub: p.status || "available",
+    bajaSolicitadaPor: quien,
+    bajaSolicitadaUid: uid,
+    bajaSolicitadaAt: new Date().toISOString(),
+    bajaSolicitadaMotivo: motivo || null,
+  });
+  logger.info(`[pedido de baja] ${propertyId}: ${quien}${motivo ? ` — ${motivo}` : ""}`);
+  return { ok: true };
+});
+
+// El agente que pidió la baja tiene derecho a una respuesta. Cuando el admin
+// resuelve (despubPendiente deja de estar), se le avisa cómo salió. Sin esto el
+// pedido se siente como un pozo: se manda y nunca se sabe en qué quedó.
+exports.avisarResolucionBaja = onDocumentUpdated("properties/{id}", async (event) => {
+  const antes = event.data.before.data() || {};
+  const ahora = event.data.after.data() || {};
+  if (antes.despubPendiente !== true || ahora.despubPendiente === true) return;
+  const uid = antes.bajaSolicitadaUid;
+  if (!uid) return; // pedido automático (cerró por afuera), no lo pidió nadie a mano
+  const titulo = ahora.title || antes.title || "una propiedad";
+  const dadaDeBaja = ahora.status === "archived";
+  let destino = null;
+  try {
+    const u = await db.doc(`users/${uid}`).get();
+    if (u.exists) destino = { uid, ...u.data() };
+  } catch (e) { logger.warn("avisarResolucionBaja:", e.message); }
+  if (!destino) return;
+  await crearNotificacion(destino, {
+    type: "baja_resuelta",
+    propertyId: event.params.id,
+    propertyTitle: titulo,
+    userName: dadaDeBaja ? "Baja aprobada" : "Baja rechazada",
+    userPhoto: null,
+    resultado: dadaDeBaja ? "despublicada" : "mantenida",
+    text: dadaDeBaja
+      ? `El administrador dio de baja "${titulo}". Ya salió de la web y de los portales.`
+      : `El administrador decidió mantener publicada "${titulo}". Si hay algo que no cuadra, hablalo con él.`,
+  }, {
+    title: dadaDeBaja ? "✅ Baja aprobada" : "↩️ La propiedad se mantiene",
+    body: titulo,
+  });
+  // Los datos del pedido ya cumplieron su función.
+  try {
+    await event.data.after.ref.update({
+      bajaSolicitadaUid: admin.firestore.FieldValue.delete(),
+      bajaSolicitadaPor: admin.firestore.FieldValue.delete(),
+      bajaSolicitadaAt: admin.firestore.FieldValue.delete(),
+      bajaSolicitadaMotivo: admin.firestore.FieldValue.delete(),
+    });
+  } catch (e) { logger.warn("avisarResolucionBaja limpieza:", e.message); }
+});
+
+// ============================================================
 // FEED XML PARA INFOCASAS
 // InfoCasas lee esta URL periódicamente y sincroniza los avisos
 // (alta, edición y baja automáticas). Se incluyen todas las

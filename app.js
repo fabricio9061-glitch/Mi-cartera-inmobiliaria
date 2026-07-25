@@ -975,6 +975,13 @@
           : `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button onclick="confirmarDespublicacion(event,'${n.id}','${n.propertyId}')" style="border:none;background:#b91c1c;color:#fff;border-radius:8px;padding:6px 12px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer"><i class="fas fa-box-archive"></i> Despublicar</button><button onclick="mantenerPublicada(event,'${n.id}','${n.propertyId}')" style="border:1px solid var(--gray-200,#e5e7eb);background:#fff;color:var(--gray-600,#555);border-radius:8px;padding:6px 12px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">Mantener publicada</button></div><div class="notification-meta" style="margin-top:6px"><span><i class="far fa-clock"></i> ${ts}</span></div>`;
         return `<div class="notification-item ${n.read ? '' : 'unread'}" onclick="verPropDesdeNotif(event,'${n.propertyId}')"><div class="notification-avatar" style="background:#fee2e2;color:#b91c1c"><i class="fas fa-house-circle-xmark"></i></div><div class="notification-body"><p><strong>¿Despublicar propiedad?</strong></p><div class="notification-message">${mvEsc((n.text || '').substring(0, 170))}${(n.text || '').length > 170 ? '...' : ''}</div>${acciones}</div></div>`
       }
+      // Respuesta al AGENTE sobre el pedido de baja que mandó (aprobado / rechazado).
+      if (n.type === 'baja_resuelta') {
+        const col = n.resultado === 'despublicada'
+          ? { bg:'#dcfce7', fg:'#15803d', ic:'fa-circle-check' }
+          : { bg:'#e0f2fe', fg:'#0369a1', ic:'fa-rotate-left' };
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar" style="background:${col.bg};color:${col.fg}"><i class="fas ${col.ic}"></i></div><div class="notification-body"><p><strong>${mvEsc(n.userName||'Pedido de baja')}</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,170))}${(n.text||'').length>170?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+      }
       // Aviso de ficha incompleta en ML: dorado, clic hacia la propiedad para editarla.
       if (n.type === 'ficha_incompleta') {
         return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar" style="background:#fef9c3;color:#a16207"><i class="fas fa-clipboard-list"></i></div><div class="notification-body"><p><strong>Ficha incompleta</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,150))}${(n.text||'').length>150?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
@@ -1243,6 +1250,13 @@
         updatedAt: new Date().toISOString()
       };
       if (fueExterno) { upd.motivoBaja = 'cerro_externo'; upd.motivoBajaTexto = 'Cerró por afuera de la agencia'; }
+      // Si la baja la pidió un agente, se guarda SU motivo: dentro de seis meses,
+      // "lo pidió Ámbar porque el propietario la retiró" vale más que "archivada".
+      const pReq = properties.find(x => x.id === pid);
+      if (pReq && pReq.bajaSolicitadaMotivo) {
+        upd.motivoBaja = upd.motivoBaja || 'pedido_agente';
+        upd.motivoBajaTexto = `${pReq.bajaSolicitadaPor || 'Un agente'}: ${pReq.bajaSolicitadaMotivo}`;
+      }
       await db.collection('properties').doc(pid).update(upd);
       await db.collection('notifications').doc(nid).update({ handled: true, resultado: 'despublicada', read: true });
       const n = notifications.find(x => x.id === nid); if (n) { n.handled = true; n.resultado = 'despublicada'; n.read = true; }
@@ -1473,6 +1487,8 @@
       .ml-bar-num{ position:absolute; left:50%; transform:translateX(-50%); font-size:.68rem; font-weight:800; color:#157a52; white-space:nowrap; }
       .ml-chart-axis{ display:flex; justify-content:space-between; font-size:.68rem; color:#8a93a0; font-weight:600; margin-top:6px; }
       .ml-chart-total{ font-weight:800; color:#16273f; font-size:.95rem; }
+      .ml-note.info{ background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
+      .ml-note.info i{ color:#64748b; margin-top:2px; }
       .ml-note.gold{ background:linear-gradient(135deg,#fdf6e3,#fbf0d0); color:#7a611a; border:1px solid #ecd9a0; }
       .ml-note.gold i{ color:#C9A227; margin-top:2px; }
       .ml-more{ margin-top:10px; }
@@ -1689,16 +1705,26 @@
     const botones = [];
     if (d.permalink) botones.push(`<a href="${d.permalink}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost"><i class="fas fa-external-link-alt"></i> Ver aviso</a>`);
     if (d.status === 'paused' || d.status === 'closed') botones.push(`<button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-rotate-right"></i> Republicar</button>`);
-    // La baja MANUAL del aviso queda reservada al admin. Motivo: en Mercado Libre
-    // cerrar un aviso es IRREVERSIBLE (no se reabre — hay que crear uno nuevo, y si
-    // es de pago se vuelve a cobrar) y además no toca el estado de la propiedad en
-    // el CRM, con lo cual el aviso desaparece de ML mientras la propiedad sigue
-    // figurando "Disponible" acá y en el feed de InfoCasas. El agente no lo necesita:
-    // cerrando la gestión del cliente, el espejo de estado baja el aviso solo.
+    // La baja la EJECUTA el admin; el agente la PIDE. Motivos: en Mercado Libre
+    // cerrar un aviso es irreversible (no se reabre — hay que crear uno nuevo, y si
+    // es de pago se vuelve a cobrar), y además no toca el estado de la propiedad en
+    // el CRM, con lo cual el aviso desaparecería de ML mientras la propiedad sigue
+    // figurando "Disponible" acá y en el feed de InfoCasas. El pedido del agente le
+    // llega al admin a la campanita y se resuelve ahí (Despublicar / Mantener).
     let bajaHint = '';
+    const _pB = properties.find(x => x.id === mlModalPropId);
+    const _pendiente = !!(_pB && _pB.despubPendiente);
     if (d.status !== 'closed') {
-      if (isAdminUser()) botones.push(`<button class="ml-btn ml-btn-danger" onclick="bajaPropiedad()"><i class="fas fa-circle-stop"></i> Dar de baja</button>`);
-      else bajaHint = `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-circle-info"></i><div>¿Hay que sacar esta propiedad de circulación? No se da de baja el aviso a mano: cerrá su <strong>gestión en Clientes</strong> (Cerrado, Cerró por afuera o Perdido) y el aviso se baja solo de Mercado Libre e InfoCasas, quedando registrado el motivo.</div></div></div>`;
+      if (isAdminUser()) {
+        botones.push(`<button class="ml-btn ml-btn-danger" onclick="bajaPropiedad()"><i class="fas fa-circle-stop"></i> Dar de baja</button>`);
+        if (_pendiente) bajaHint = `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-hand"></i><div><strong>${mvEsc(_pB.bajaSolicitadaPor || 'Un agente')} pidió dar de baja esta propiedad.</strong>${_pB.bajaSolicitadaMotivo ? ` Motivo: ${mvEsc(_pB.bajaSolicitadaMotivo)}` : ''}<br>Resolvelo desde la campanita: <em>Despublicar</em> la saca de la web y de los portales; <em>Mantener publicada</em> descarta el pedido.</div></div></div>`;
+      } else if (_pendiente) {
+        botones.push(`<button class="ml-btn ml-btn-ghost" disabled style="opacity:.65;cursor:default"><i class="fas fa-hourglass-half"></i> Baja solicitada</button>`);
+        bajaHint = `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-paper-plane"></i><div>Tu pedido de baja ya está con el administrador. Hasta que lo resuelva, la propiedad sigue publicada. Te va a llegar un aviso con la respuesta.</div></div></div>`;
+      } else {
+        botones.push(`<button class="ml-btn ml-btn-danger" onclick="pedirBaja()"><i class="fas fa-circle-stop"></i> Pedir baja</button>`);
+        bajaHint = `<div class="ml-section"><div class="ml-note info"><i class="fas fa-circle-info"></i><div>La baja la confirma el administrador. Si la operación se cerró con la agencia, no hace falta pedir nada: cerrá la <strong>gestión en Clientes</strong> y la propiedad se da de baja sola.</div></div></div>`;
+      }
     }
     body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}${mlSeccionInfocasas()}${selTipo}${bajaHint}<div class="ml-btns">${botones.join('')}</div></div>`
   }
@@ -1715,6 +1741,28 @@
       openMLModal(id)
     } catch (e) {
       body.innerHTML = `<div class="ml-ui"><div class="ml-err">No se pudo publicar: ${e.message || e}</div><div class="ml-btns"><button class="ml-btn ml-btn-ghost" onclick="openMLModal('${id}')"><i class="fas fa-rotate-right"></i> Reintentar</button></div></div>`
+    }
+  }
+  // El agente pide la baja: le llega al admin a la campanita, con el motivo.
+  // No toca la propiedad — sigue publicada hasta que el admin decida.
+  async function pedirBaja() {
+    if (!mlModalPropId) return;
+    const motivo = prompt('¿Por qué hay que dar de baja esta propiedad?\n\nEl pedido le llega al administrador, que decide si la despublica o la mantiene.\n\nEj: el propietario la retiró · se cerró por afuera · está duplicada');
+    if (motivo === null) return;
+    if (!String(motivo).trim()) { showToast('Falta el motivo', 'Sin motivo el administrador no puede decidir', 'fa-comment-dots'); return; }
+    const id = mlModalPropId, body = document.getElementById('mlModalBody');
+    ensureMLStyles();
+    body.innerHTML = '<div class="ml-ui"><div class="ml-loading"><div class="sp"></div><p>Enviando el pedido...</p></div></div>';
+    try {
+      await firebase.functions().httpsCallable('pedirBajaPropiedad')({ propertyId: id, motivo: String(motivo).trim() });
+      // Se marca al toque en local: el snapshot llega unos instantes después y sin
+      // esto el botón volvería a decir "Pedir baja" invitando a mandarlo dos veces.
+      const p = properties.find(x => x.id === id);
+      if (p) { p.despubPendiente = true; p.bajaSolicitadaMotivo = String(motivo).trim(); }
+      showToast('Pedido enviado', 'El administrador va a resolverlo y te avisa', 'fa-paper-plane');
+      openMLModal(id)
+    } catch (e) {
+      body.innerHTML = `<div class="ml-ui"><div class="ml-err">No se pudo enviar el pedido: ${e.message || e}</div></div>`
     }
   }
   async function bajaPropiedad() {
