@@ -616,7 +616,20 @@
       togglePropertyType();
       renderFicha();
       fillFicha(p);
-      fichaRevisado = Array.isArray(p.fichaRevisado) ? p.fichaRevisado.slice() : [];
+      // Propiedades cargadas antes de que existiera "revisado": se aplica la misma
+      // regla hacia atrás — si el grupo tiene algo tildado, alguien lo miró. Sin
+      // esto, abrir una propiedad vieja para corregir el precio pediría confirmar
+      // seis grupos antes de dejarte guardar.
+      if (Array.isArray(p.fichaRevisado)) {
+        fichaRevisado = p.fichaRevisado.slice();
+      } else {
+        fichaRevisado = [];
+        const FICHA = fichaActual();
+        Object.keys(FICHA).forEach(g => {
+          const bools = FICHA[g].filter(c => !c.type);
+          if (bools.length && bools.some(c => { const el = document.getElementById('fc-' + c.id); return el && el.checked; })) fichaRevisado.push(g);
+        });
+      }
       updateFichaCounters();
       if (p.images && p.images.length > 0) { selectedImages = p.images.map(url => ({ preview: url, url: url, existing: true })); renderImagePreviews() }
     }
@@ -630,12 +643,6 @@
     const FICHA_TIPOS = {
       "casa": {
         "Datos del inmueble": [
-          {
-            "id": "HOUSE_NUMBER",
-            "label": "Número de la casa",
-            "type": "text",
-            "help": "El número de puerta. Es uno de los datos que Mercado Libre pondera para la calidad del aviso."
-          },
           {
             "id": "PARKING_LOTS",
             "label": "Cocheras",
@@ -2725,7 +2732,7 @@
     // Campos de TEXTO que también se completan con "0" si quedan vacíos.
     // Siguen siendo de texto para poder escribir "1234 bis" o "302 A" cuando el
     // dato existe de verdad.
-    const TEXTO_CERO = ['TOWER_NUMBER', 'APARTMENT_NUMBER', 'HOUSE_NUMBER'];
+    const TEXTO_CERO = ['TOWER_NUMBER', 'APARTMENT_NUMBER'];
     function collectFicha() {
       const ficha = {};
       let _diagNum = [], _diagFalta = [];
@@ -2785,7 +2792,38 @@
     }
     function onCheckFicha(input) {
       input.closest('.fx-check').classList.toggle('on', input.checked);
+      // Tildar algo PRUEBA que estuviste en el grupo: no tiene sentido pedirte
+      // después que confirmes que lo miraste. Así la confirmación explícita queda
+      // solo donde está la duda real (grupos con cero tildadas), y siendo rara
+      // sigue significando algo. Si pidiéramos las 6 en cada propiedad, en una
+      // semana se tocan sin leer y el dato deja de valer.
+      if (input.checked) {
+        const btn = input.closest('.fx-body') && input.closest('.fx-body').querySelector('.fx-rev');
+        const g = btn && btn.getAttribute('data-grupo-nombre');
+        if (g && !estaRevisado(g)) fichaRevisado.push(g);
+      }
       updateFichaCounters();
+    }
+    // Grupos con casilleros que todavía nadie confirmó haber mirado.
+    function gruposSinRevisar() {
+      const FICHA = fichaActual();
+      return Object.keys(FICHA).filter(g => {
+        if (!document.querySelector('.fx-rev[data-grupo-nombre="' + cssEsc(g) + '"]')) return false;
+        return !estaRevisado(g);
+      });
+    }
+    function irAGrupo(nombre) {
+      const btn = document.querySelector('.fx-rev[data-grupo-nombre="' + cssEsc(nombre) + '"]');
+      if (!btn) return;
+      const buscador = document.getElementById('fichaSearch');
+      if (buscador && buscador.value) { buscador.value = ''; filtrarFicha(); }
+      const grupo = btn.closest('details.fx-group');
+      if (grupo) grupo.open = true;
+      setTimeout(() => {
+        btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        btn.classList.add('fx-foco');
+        setTimeout(() => btn.classList.remove('fx-foco'), 2000);
+      }, 90);
     }
 
     // ===== PANEL "LO QUE FALTA" =====
@@ -2827,8 +2865,9 @@
       const conDato = campos.filter(c => c.type);
       const llenos = conDato.filter(c => !vacio(c)).length;
       const faltanMitad = Math.max(0, Math.ceil(conDato.length / 2) - llenos);
+      const sinRev = gruposSinRevisar();
 
-      if (!bloq.length && !clave.length && !faltanMitad) {
+      if (!bloq.length && !clave.length && !faltanMitad && !sinRev.length) {
         cont.className = 'fx-falt ok';
         cont.innerHTML = '<div class="fx-falt-head"><i class="fas fa-circle-check"></i> Ficha lista — no falta nada que mueva la aguja.</div>';
         return;
@@ -2836,6 +2875,8 @@
       const chip = (c, cls) => `<button type="button" class="fx-chip ${cls}" onclick="irACampo('${escAttr(c.id)}')">${esc(c.label)}${FX_CLAVE[c.id] ? ` <em>${esc(FX_CLAVE[c.id])}</em>` : ''}</button>`;
       let h = '<div class="fx-falt-head"><i class="fas fa-list-check"></i> Lo que falta</div>';
       if (bloq.length) h += '<div class="fx-falt-row"><span class="fx-falt-lbl bad">Frena el guardado</span>' + bloq.map(c => chip(c, 'bad')).join('') + '</div>';
+      if (sinRev.length) h += '<div class="fx-falt-row"><span class="fx-falt-lbl bad">Falta confirmar</span>' + sinRev.map(g =>
+        `<button type="button" class="fx-chip bad" onclick="irAGrupo('${escAttr(g)}')">${esc(g)}</button>`).join('') + '</div>';
       if (clave.length) h += '<div class="fx-falt-row"><span class="fx-falt-lbl">Sube la calidad</span>' + clave.map(c => chip(c, 'gold')).join('') + '</div>';
       h += `<div class="fx-falt-foot">Campos con dato: <b>${llenos}/${conDato.length}</b>` +
            (faltanMitad ? ` — faltan ${faltanMitad} para la mitad, que es donde Mercado Libre empieza a puntuarlos.` : ' — ya pasaste la mitad que puntúa Mercado Libre.') +
@@ -3085,6 +3126,18 @@
         }
         return;
       }
+      // Un casillero sin tildar NO es un campo vacío: se guarda como `false` y
+      // viaja a Mercado Libre diciendo "no lo tiene". Si nadie miró el grupo, el
+      // sistema está firmando esa declaración por el agente. Por eso se exige la
+      // confirmación — y por eso alcanza con haber tildado algo (ver onCheckFicha).
+      const _sinRev = gruposSinRevisar();
+      if (_sinRev.length) {
+        alert('Falta confirmar que miraste estos grupos de la ficha:\n\n• ' + _sinRev.join('\n• ') +
+              '\n\nLo que quede sin tildar se publica como "no lo tiene", así que conviene confirmarlo.' +
+              '\nUsá el botón al pie de cada grupo.');
+        irAGrupo(_sinRev[0]);
+        return;
+      }
       const b = document.getElementById('propertyBtn'), er = document.getElementById('propertyError'), ei = document.getElementById('editingPropertyId').value, pp = document.getElementById('previousPrice').value;
       b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; er.classList.add('hidden');
       try {
@@ -3229,4 +3282,3 @@
 <script src="fcm-init.js"></script>
 </body>
 </html>
-
