@@ -863,9 +863,9 @@ async function addFeatureAttributes(categoryId, p, baseAttributes, token, catAtt
       if (v) { out.push({ id, value_id: v.id }); have.add(id); }
     } else if (vt === "number_unit") {
       let unit = (attr.allowed_units && attr.allowed_units[0] && attr.allowed_units[0].id) || attr.default_unit || "";
-      // MAINTENANCE_FEE (gastos comunes): la unidad es una MONEDA. Hay que usar la
+      // Gastos comunes y precio por área: la unidad es una MONEDA. Hay que usar la
       // moneda de la propiedad (USD/UYU) si la categoría la permite, no la primera unidad.
-      if (id === "MAINTENANCE_FEE" && attr.allowed_units && attr.allowed_units.length) {
+      if ((id === "MAINTENANCE_FEE" || id === "PRICE_PER_AREA_UNIT") && attr.allowed_units && attr.allowed_units.length) {
         const wanted = (p && p.currency === "UYU") ? "UYU" : "USD";
         const match = attr.allowed_units.find((u) => u.id === wanted || norm(u.name) === norm(wanted));
         if (match) unit = match.id;
@@ -1068,6 +1068,17 @@ async function buildItem(p, token) {
   p.ficha = p.ficha || {};
   if (p.ficha.CONTACT_SCHEDULE == null || p.ficha.CONTACT_SCHEDULE === "") {
     p.ficha.CONTACT_SCHEDULE = "24 horas";
+  }
+
+  // Precio por unidad de área: es precio ÷ superficie, un dato que el sistema ya
+  // tiene. Pedírselo al agente era trabajo al pedo y encima una fuente de
+  // contradicciones (escribía 900 cuando la cuenta daba 1066, y el aviso se
+  // desmentía solo). Como MAINTENANCE_FEE, se deja en la ficha y que
+  // addFeatureAttributes le ponga la unidad correcta de la categoría.
+  const _sup = Number(p.totalArea) || 0;
+  const _precio = Number(p.price) || 0;
+  if (_sup > 0 && _precio > 0) {
+    p.ficha.PRICE_PER_AREA_UNIT = Math.round((_precio / _sup) * 100) / 100;
   }
 
   // Los atributos de la categoría se leen UNA sola vez y se comparten entre el

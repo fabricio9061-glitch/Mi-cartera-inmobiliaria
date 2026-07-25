@@ -61,13 +61,39 @@
     .fx-search input{ width:100%; padding:10px 12px 10px 34px; border:1px solid var(--line); border-radius:10px; font-family:inherit; font-size:.9rem; }
     .fx-btn{ background:none; border:1px solid var(--line); border-radius:10px; padding:9px 13px; font-family:inherit; font-size:.82rem; color:var(--muted); cursor:pointer; }
     .fx-btn:hover{ border-color:var(--ink); color:var(--ink); }
-    .fx-group{ border:1px solid var(--line); border-radius:12px; margin:10px 0; overflow:hidden; background:var(--card); }
-    .fx-group>summary{ cursor:pointer; padding:12px 15px; font-weight:600; color:var(--ink); background:#fafbfc; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:.94rem; }
-    .fx-group>summary::-webkit-details-marker{ display:none; }
-    .fx-group>summary .fx-count{ font-size:.74rem; font-weight:600; color:var(--muted); background:var(--paper); border:1px solid var(--line); border-radius:99px; padding:2px 9px; }
-    .fx-group>summary .fx-count.full{ color:var(--ok); border-color:rgba(30,125,79,.35); background:rgba(30,125,79,.07); }
-    .fx-group>summary::after{ content:'\25be'; color:#9ca3af; transition:transform .2s; margin-left:2px; }
-    .fx-group[open]>summary::after{ transform:rotate(180deg); }
+    /* ===== Flujo por pasos ===== */
+    .fx-bar{ display:flex; align-items:center; gap:11px; margin:12px 0 14px; }
+    .fx-atras{ width:34px; height:34px; flex:none; border:1px solid var(--line); background:var(--card); border-radius:9px; color:var(--muted); cursor:pointer; font-size:.85rem; }
+    .fx-atras:hover{ color:var(--ink); border-color:var(--gold); }
+    .fx-segs{ flex:1; display:flex; gap:4px; min-width:0; }
+    .fx-seg{ flex:1; height:4px; border:none; padding:0; border-radius:3px; background:var(--line); cursor:pointer; transition:background .15s; }
+    .fx-seg.listo{ background:var(--ok); }
+    .fx-seg.aqui{ background:var(--gold); }
+    .fx-paso-n{ font-size:.78rem; font-weight:600; color:var(--muted); flex:none; }
+
+    .fx-step{ border:1px solid var(--line); border-radius:13px; background:var(--card); overflow:hidden; }
+    .fx-modo-pasos .fx-step{ display:none; }
+    .fx-modo-pasos .fx-step.activa{ display:block; }
+    .fx-modo-lista .fx-step{ display:block; margin-bottom:12px; }
+    .fx-modo-lista .fx-bar .fx-atras, .fx-modo-lista .fx-paso-n{ display:none; }
+    .fx-step.fx-hidden{ display:none!important; }
+    .fx-step-head{ padding:16px 17px 0; }
+    .fx-step-t{ font-size:1.06rem; font-weight:600; color:var(--ink); display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+    .fx-modo-lista .fx-step-t{ font-size:.95rem; }
+    .fx-step-s{ font-size:.83rem; color:var(--muted); line-height:1.5; margin:6px 0 0; }
+    .fx-modo-pasos .fx-step .fx-count{ display:none; }
+    .fx-step-t .fx-count{ font-size:.72rem; font-weight:600; color:var(--muted); background:var(--paper); border:1px solid var(--line); border-radius:99px; padding:2px 9px; margin-left:auto; }
+    .fx-step-t .fx-count.full{ color:var(--ok); border-color:rgba(30,125,79,.35); background:rgba(30,125,79,.07); }
+
+    .fx-step-foot{ display:flex; flex-direction:column; align-items:stretch; gap:8px; padding:4px 17px 16px; }
+    .fx-modo-lista .fx-step-foot{ display:none; }
+    .fx-sig{ width:100%; border:none; border-radius:11px; background:var(--ink); color:#fff; font-family:inherit; font-size:.93rem; font-weight:600; padding:13px; cursor:pointer; transition:transform .1s; }
+    .fx-sig:active{ transform:scale(.985); }
+    .fx-saltar{ width:100%; border:none; background:transparent; color:var(--muted); font-family:inherit; font-size:.82rem; font-weight:600; padding:4px; cursor:pointer; }
+    .fx-saltar:hover{ color:var(--ink); }
+    /* En modo pasos la confirmación la da el botón del pie; el control viejo solo
+       reaparece en modo lista, donde no hay pie. */
+    .fx-modo-pasos .fx-revrow{ display:none; }
     .fx-body{ padding:14px 15px 6px; }
     .fx-inputs{ display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:12px 14px; margin-bottom:10px; }
     .fx-inputs .form-group{ margin-bottom:4px; }
@@ -83,6 +109,7 @@
     .fx-check .fx-tick{ font-size:.7rem; opacity:0; transition:opacity .13s; margin-left:-4px; }
     .fx-check.on{ color:var(--ink); font-weight:600; border-color:var(--gold); background:rgba(201,162,39,.10); }
     .fx-check.on .fx-tick{ opacity:1; color:var(--gold); margin-left:0; }
+    .fx-sublbl{ font-size:.8rem; font-weight:600; color:var(--muted); margin:14px 0 9px; padding-top:12px; border-top:1px solid var(--line); }
     .fx-revrow{ padding:2px 0 10px; }
     .fx-rev{ display:inline-flex; align-items:center; gap:7px; font-family:inherit; font-size:.79rem; font-weight:600; color:var(--muted); background:transparent; border:1px dashed var(--line); border-radius:99px; padding:6px 13px; cursor:pointer; transition:all .13s; }
     .fx-rev:hover{ color:var(--ink); border-color:var(--gold); }
@@ -218,8 +245,7 @@
           <div class="pf-sec-head"><span class="n">4</span><div><h3>Ficha técnica</h3><small>Todos los campos oficiales de Mercado Libre para este tipo de inmueble, más los extras de InfoCasas. Tildá y completá lo que la propiedad tenga: un checkbox sin tildar significa "no lo tiene".</small></div></div>
           <div class="fx-toolbar">
             <div class="fx-search"><i class="fas fa-magnifying-glass"></i><input type="text" id="fichaSearch" placeholder="Buscar un campo... (ej: parrillero, piscina, antigüedad)" oninput="filtrarFicha()"></div>
-            <button type="button" class="fx-btn" onclick="toggleGrupos(true)">Abrir todo</button>
-            <button type="button" class="fx-btn" onclick="toggleGrupos(false)">Cerrar todo</button>
+            <button type="button" class="fx-btn" id="fxBtnModo" onclick="fxCambiarModo()">Ver todo</button>
           </div>
           <div class="fx-falt" id="fxFaltantes"></div>
           <div id="fichaTecnica"></div>
@@ -1596,11 +1622,6 @@
           {
             "id": "HAS_ELECTRIC_LIGHT",
             "label": "Luz eléctrica"
-          },
-          {
-            "id": "PRICE_PER_AREA_UNIT",
-            "label": "Precio por unidad de área",
-            "type": "num"
           }
         ],
         "Equipamiento y servicios": [
@@ -1765,11 +1786,6 @@
           {
             "id": "HAS_FITTING_ROOM",
             "label": "Probador"
-          },
-          {
-            "id": "PRICE_PER_AREA_UNIT",
-            "label": "Precio por unidad de área",
-            "type": "num"
           }
         ],
         "Ambientes": [
@@ -2035,11 +2051,6 @@
             "label": "Ambientes",
             "type": "num",
             "help": "Cantidad de ambientes."
-          },
-          {
-            "id": "PRICE_PER_AREA_UNIT",
-            "label": "Precio por unidad de área",
-            "type": "num"
           }
         ],
         "Ambientes": [
@@ -2278,11 +2289,6 @@
           {
             "id": "VENTILATION_SYSTEM",
             "label": "Sistema de ventilación"
-          },
-          {
-            "id": "PRICE_PER_AREA_UNIT",
-            "label": "Precio por unidad de área",
-            "type": "num"
           }
         ],
         "Equipamiento y servicios": [
@@ -2676,16 +2682,67 @@
     // apóstrofo para romper el handler.
     function escAttr(s) { return esc(s).replace(/'/g, '&#39;'); }
 
+    // ===== LA FICHA COMO FLUJO DE PASOS =====
+    // Antes eran 8 acordeones con 83 campos adentro: abrir, mirar, cerrar, abrir el
+    // siguiente. En el celular eso es peor que scrollear porque perdés dónde estás.
+    // Ahora se ve UN bloque por vez. Efecto de fondo: avanzar de paso ES la
+    // confirmación de que miraste el grupo, así que el viejo botón "marcar como
+    // revisado" ya no hace falta como control aparte.
+    //
+    // Los campos de TODOS los pasos se renderizan igual y quedan siempre en el DOM
+    // (solo se ocultan por CSS). Es deliberado: medio formulario lee los campos por
+    // getElementById('fc-...') — el guardado, el medidor de calidad, la validación.
+    // Si los pasos se armaran y desarmaran al navegar, se perdería lo escrito y
+    // habría que reescribir todo eso.
+    const FX_TITULOS = {
+      'Datos del inmueble': ['Números de la propiedad', 'Si no sabés alguno, dejalo en cero y seguí.'],
+      'Ambientes': ['¿Qué ambientes tiene?', 'Tocá todo lo que tenga. Lo que dejes sin marcar se publica como que no lo tiene.'],
+      'Equipamiento y servicios': ['¿Con qué está equipada?', 'Tocá todo lo que tenga. Lo que dejes sin marcar se publica como que no lo tiene.'],
+      'Amenities del edificio o barrio': ['¿Qué tiene el edificio?', 'Tocá todo lo que tenga. Lo que dejes sin marcar se publica como que no lo tiene.'],
+      'Seguridad': ['¿Qué seguridad tiene?', 'Tocá todo lo que tenga. Lo que dejes sin marcar se publica como que no lo tiene.'],
+      'Condiciones': ['Condiciones de la operación', 'Cómo se atiende y con qué código se identifica.'],
+      'Alquiler': ['Condiciones del alquiler', 'Garantía, disponibilidad y a quién se le alquila.'],
+      'InfoCasas': ['Datos para InfoCasas', 'Estos campos viajan solo al feed de InfoCasas, no a Mercado Libre.'],
+      // Mitad de casilleros de un grupo partido en dos.
+      'Datos del inmueble|tildar': ['¿Con qué cuenta?', 'Tocá todo lo que tenga. Lo que dejes sin marcar se publica como que no lo tiene.']
+    };
+    let fxPaso = 0, fxModo = 'pasos';
+    // Grupos que se muestran para el tipo de inmueble y operación actuales.
+    function fxPasos() {
+      const FICHA = fichaActual();
+      const esAlquiler = (document.getElementById('propType') || {}).value === 'rent';
+      const out = [];
+      Object.keys(FICHA).forEach((grupo, gi) => {
+        if (grupo === 'Alquiler' && !esAlquiler) return;
+        const campos = FICHA[grupo];
+        const conDato = campos.filter(c => c.type).length;
+        const tildables = campos.length - conDato;
+        // Un paso, un gesto. Si el grupo pide escribir Y tildar, son dos pasos:
+        // mezclarlos deja chips huérfanos bajo un título que habla de números, y
+        // un botón "No tiene ninguna de estas" que no se sabe a qué se refiere.
+        // Se parte solo si las dos mitades aguantan una pantalla propia. "Seguridad"
+        // (1 desplegable + 3 chips) partido daría un paso con un solo campo, que es
+        // peor que el problema que se está resolviendo: ahí van juntos con un
+        // subtítulo que separa las dos partes.
+        if (conDato >= 3 && tildables >= 3) {
+          out.push({ grupo, gi, parte: 'datos' });
+          out.push({ grupo, gi, parte: 'tildar' });
+        } else {
+          out.push({ grupo, gi, parte: 'todo' });
+        }
+      });
+      return out;
+    }
+
     function renderFicha() {
       const wrap = document.getElementById('fichaTecnica');
       if (!wrap) return;
       const FICHA = fichaActual();
-      const esAlquiler = (document.getElementById('propType') || {}).value === 'rent';
-      wrap.innerHTML = Object.keys(FICHA).map((grupo, gi) => {
-        if (grupo === 'Alquiler' && !esAlquiler) return '';
+      const pasos = fxPasos();
+      const cuerpos = pasos.map(({ grupo, gi, parte }, idx) => {
         const campos = FICHA[grupo];
-        const inputs = campos.filter(c => c.type);
-        const bools = campos.filter(c => !c.type);
+        const inputs = parte === 'tildar' ? [] : campos.filter(c => c.type);
+        const bools = parte === 'datos' ? [] : campos.filter(c => !c.type);
         const esIC = grupo === 'InfoCasas';
         let html = '';
         if (inputs.length) {
@@ -2699,23 +2756,135 @@
           }).join('') + '</div>';
         }
         if (bools.length) {
+          // Sin este rótulo los chips quedaban colgando debajo de los inputs, sin
+          // que nada dijera que empezaba otra cosa.
+          if (inputs.length) html += '<div class="fx-sublbl">Marcá lo que tenga</div>';
           html += '<div class="fx-checks">' + bools.map(c =>
             `<label class="fx-check fx-item" data-buscar="${esc(c.label.toLowerCase())}" ${c.help ? `title="${esc(c.help)}"` : ''}><input type="checkbox" id="fc-${c.id}" onchange="onCheckFicha(this)"><i class="fas fa-check fx-tick"></i><span>${esc(c.label)}</span></label>`
           ).join('') + '</div>';
-          // Un grupo de casilleros no se puede "completar": si el edificio no tiene
-          // ninguna de las 20 amenities, lo correcto es cero tildadas. Este botón
-          // deja decir "ya lo miré", que es la diferencia entre un grupo terminado
-          // y uno que nunca se abrió — antes ambos se veían igual (0/20).
+          // Sigue existiendo pero oculto en modo pasos: es el ancla que usa el resto
+          // del código para saber a qué grupo pertenece un casillero, y el control
+          // visible cuando estás en modo lista.
           html += `<div class="fx-revrow"><button type="button" class="fx-rev" data-grupo-nombre="${esc(grupo)}" onclick="toggleRevisado(this,'${escAttr(grupo)}')"></button></div>`;
         }
+        const t = (parte === 'tildar' && FX_TITULOS[grupo + '|tildar']) || FX_TITULOS[grupo] || [grupo, ''];
         const badge = esIC ? ' <span class="fx-ic-badge">PORTAL</span>' : '';
-        return `<details class="fx-group" data-grupo="${gi}"${gi === 0 || esIC ? ' open' : ''}><summary><span>${esc(grupo)}${badge}</span><span class="fx-count" id="fxc-${gi}"></span></summary><div class="fx-body">${html}</div></details>`;
+        const cuenta = parte === 'tildar' ? '' : `<span class="fx-count" id="fxc-${gi}"></span>`;
+        return `<section class="fx-step" data-paso="${idx}" data-grupo-nombre="${esc(grupo)}" data-parte="${parte}">
+            <div class="fx-step-head">
+              <div class="fx-step-t">${esc(t[0])}${badge}${cuenta}</div>
+              ${t[1] ? `<p class="fx-step-s">${esc(t[1])}</p>` : ''}
+            </div>
+            <div class="fx-body">${html}</div>
+            <div class="fx-step-foot"></div>
+          </section>`;
       }).join('');
+
+      wrap.innerHTML = `<div class="fx-bar">
+          <button type="button" class="fx-atras" onclick="fxIr(fxPaso-1)" aria-label="Paso anterior"><i class="fas fa-arrow-left"></i></button>
+          <div class="fx-segs" id="fxSegs"></div>
+          <span class="fx-paso-n" id="fxPasoN"></span>
+        </div>${cuerpos}`;
+      wrap.className = 'fx-modo-' + fxModo;
+      if (fxPaso >= pasos.length) fxPaso = Math.max(0, pasos.length - 1);
       ensureCodigo();
       ensureHorario();
       updateFichaCounters();
       filtrarFicha();
     }
+
+    // Dibuja el estado del flujo: barra de progreso, número de paso y los botones
+    // del pie, que dependen de si el paso tiene casilleros y de si hay algo tildado.
+    function pintarPasos() {
+      const wrap = document.getElementById('fichaTecnica');
+      if (!wrap || !wrap.querySelector('.fx-step')) return;
+      const pasos = fxPasos();
+      const segs = document.getElementById('fxSegs');
+      const pasoN = document.getElementById('fxPasoN');
+      const atras = wrap.querySelector('.fx-atras');
+      if (segs) segs.innerHTML = pasos.map((x, i) => {
+        const listo = fxPasoListo(x.grupo, x.parte);
+        return `<button type="button" class="fx-seg${i === fxPaso ? ' aqui' : (listo ? ' listo' : '')}" onclick="fxIr(${i})" aria-label="Ir al paso ${i + 1}"></button>`;
+      }).join('');
+      if (pasoN) pasoN.textContent = fxModo === 'lista' ? '' : `Paso ${fxPaso + 1} de ${pasos.length}`;
+      if (atras) atras.style.visibility = (fxModo === 'lista' || fxPaso === 0) ? 'hidden' : 'visible';
+
+      wrap.querySelectorAll('.fx-step').forEach((sec, i) => {
+        sec.classList.toggle('activa', i === fxPaso);
+        const pie = sec.querySelector('.fx-step-foot');
+        if (!pie) return;
+        const grupo = sec.getAttribute('data-grupo-nombre');
+        const tieneBools = !!sec.querySelector('.fx-check');
+        const tildadas = sec.querySelectorAll('.fx-check input:checked').length;
+        const ultimo = i === pasos.length - 1;
+        const sigTxt = ultimo ? 'Listo' : 'Siguiente';
+        if (tieneBools && !tildadas) {
+          // Nada tildado: la acción principal es la afirmación, no el avance. Pero
+          // no se obliga — el que no sabe todavía puede seguir y el guardado se lo
+          // vuelve a pedir al final.
+          pie.innerHTML = `<button type="button" class="fx-sig" onclick="fxNinguna(${i})">No tiene ninguna de estas</button>
+            <button type="button" class="fx-saltar" onclick="fxIr(${i + 1})">Lo veo después</button>`;
+        } else {
+          pie.innerHTML = `<button type="button" class="fx-sig" onclick="fxIr(${i + 1})">${sigTxt}${tildadas ? ` · ${tildadas}` : ''}</button>`;
+        }
+      });
+    }
+    // Un paso está "listo" si sus campos con dato obligatorios están y, cuando tiene
+    // casilleros, alguien confirmó haberlo mirado.
+    function fxPasoListo(grupo, parte) {
+      let campos = (fichaActual()[grupo] || []);
+      if (parte === 'datos') campos = campos.filter(c => c.type);
+      else if (parte === 'tildar') campos = campos.filter(c => !c.type);
+      const bools = campos.filter(c => !c.type);
+      if (bools.length && !estaRevisado(grupo)) return false;
+      return campos.filter(c => c.type && c.req).every(c => {
+        const el = document.getElementById('fc-' + c.id);
+        if (!el) return true;
+        const v = String(el.value || '').trim();
+        if (c.type === 'num') return c.min == null || (v !== '' && parseFloat(v) >= c.min);
+        return v !== '';
+      });
+    }
+    function fxIr(n) {
+      const pasos = fxPasos();
+      if (n >= pasos.length) { fxTerminar(); return; }
+      fxPaso = Math.max(0, Math.min(n, pasos.length - 1));
+      if (fxModo === 'lista') fxCambiarModo();
+      else { pintarPasos(); fxScrollArriba(); }
+    }
+    function fxNinguna(i) {
+      const sec = document.querySelector('.fx-step[data-paso="' + i + '"]');
+      const g = sec && sec.getAttribute('data-grupo-nombre');
+      if (g && !estaRevisado(g)) fichaRevisado.push(g);
+      updateFichaCounters();
+      fxIr(i + 1);
+    }
+    // Al terminar el último paso se sigue con el formulario, que es lo que el agente
+    // iba a hacer igual: la ficha no es el destino, es un trámite en el medio.
+    function fxTerminar() {
+      updateFichaCounters();
+      const sig = document.getElementById('fichaTecnica').closest('.form-section');
+      const prox = sig && sig.nextElementSibling;
+      (prox || sig).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    function fxScrollArriba() {
+      const b = document.querySelector('#fichaTecnica .fx-bar');
+      if (!b) return;
+      const y = b.getBoundingClientRect().top + window.pageYOffset - 70;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    }
+    // Modo lista: todo abierto de un saque, para editar un campo suelto sin caminar
+    // los 7 pasos. Cargás por pasos, corregís por lista.
+    function fxCambiarModo() {
+      fxModo = fxModo === 'pasos' ? 'lista' : 'pasos';
+      const wrap = document.getElementById('fichaTecnica');
+      if (wrap) wrap.className = 'fx-modo-' + fxModo;
+      const b = document.getElementById('fxBtnModo');
+      if (b) b.textContent = fxModo === 'lista' ? 'Volver a pasos' : 'Ver todo';
+      pintarPasos();
+      if (fxModo === 'pasos') fxScrollArriba();
+    }
+
 
     // Al cambiar tipo de inmueble u operación: re-dibuja la ficha conservando lo cargado.
     function onTipoChange() {
@@ -2817,8 +2986,8 @@
       if (!btn) return;
       const buscador = document.getElementById('fichaSearch');
       if (buscador && buscador.value) { buscador.value = ''; filtrarFicha(); }
-      const grupo = btn.closest('details.fx-group');
-      if (grupo) grupo.open = true;
+      const sec = btn.closest('.fx-step');
+      if (sec && fxModo === 'pasos') fxIr(parseInt(sec.getAttribute('data-paso'), 10) || 0);
       setTimeout(() => {
         btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
         btn.classList.add('fx-foco');
@@ -2891,8 +3060,8 @@
       if (!el) return;
       const buscador = document.getElementById('fichaSearch');
       if (buscador && buscador.value) { buscador.value = ''; filtrarFicha(); }
-      const grupo = el.closest('details.fx-group');
-      if (grupo) grupo.open = true;
+      const sec = el.closest('.fx-step');
+      if (sec && fxModo === 'pasos') fxIr(parseInt(sec.getAttribute('data-paso'), 10) || 0);
       const item = el.closest('.fx-item') || el;
       setTimeout(() => {
         item.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2938,27 +3107,27 @@
         }
       });
       renderFaltantes();
+      pintarPasos();
     }
     // Los nombres de grupo van dentro de un selector de atributo: hay que
     // escaparlos o una comilla parte la consulta.
     function cssEsc(s) { return String(s).replace(/["\\]/g, '\\$&'); }
     function filtrarFicha() {
       const q = (document.getElementById('fichaSearch').value || '').toLowerCase().trim();
+      // Buscar sin ver todo no tendría sentido: el resultado podría estar en un paso
+      // que no está en pantalla. Escribir en el buscador cambia solo a modo lista.
+      if (q && fxModo === 'pasos') fxCambiarModo();
       let visibles = 0;
       document.querySelectorAll('#fichaTecnica .fx-item').forEach(el => {
         const hit = !q || (el.dataset.buscar || '').includes(q);
         el.classList.toggle('fx-hidden', !hit);
         if (hit) visibles++;
       });
-      document.querySelectorAll('#fichaTecnica .fx-group').forEach(g => {
+      document.querySelectorAll('#fichaTecnica .fx-step').forEach(g => {
         const alguno = g.querySelector('.fx-item:not(.fx-hidden)');
-        g.classList.toggle('fx-hidden', q && !alguno);
-        if (q && alguno) g.open = true;
+        g.classList.toggle('fx-hidden', !!q && !alguno);
       });
       document.getElementById('fichaEmpty').style.display = (q && !visibles) ? 'block' : 'none';
-    }
-    function toggleGrupos(abrir) {
-      document.querySelectorAll('#fichaTecnica .fx-group').forEach(g => g.open = abrir);
     }
 
     // ==== CÓDIGO DE PROPIEDAD AUTOMÁTICO ====
@@ -3119,10 +3288,9 @@
         alert('Faltan campos obligatorios de la ficha técnica:\n\n• ' + _faltantes.map(c => c.label + (c.min != null ? ' (mínimo ' + c.min + ')' : '')).join('\n• '));
         const primero = document.getElementById('fc-' + _faltantes[0].id);
         if (primero) {
-          const grupo = primero.closest('.fx-group, details, .form-section');
-          if (grupo && grupo.tagName === 'DETAILS') grupo.open = true;
-          primero.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          setTimeout(() => primero.focus(), 300);
+          const sec = primero.closest('.fx-step');
+          if (sec) fxIr(parseInt(sec.getAttribute('data-paso'), 10) || 0);
+          setTimeout(() => { primero.scrollIntoView({ behavior: 'smooth', block: 'center' }); primero.focus(); }, 320);
         }
         return;
       }
