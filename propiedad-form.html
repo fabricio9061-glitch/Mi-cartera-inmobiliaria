@@ -61,39 +61,66 @@
     .fx-search input{ width:100%; padding:10px 12px 10px 34px; border:1px solid var(--line); border-radius:10px; font-family:inherit; font-size:.9rem; }
     .fx-btn{ background:none; border:1px solid var(--line); border-radius:10px; padding:9px 13px; font-family:inherit; font-size:.82rem; color:var(--muted); cursor:pointer; }
     .fx-btn:hover{ border-color:var(--ink); color:var(--ink); }
-    /* ===== Flujo por pasos ===== */
-    .fx-bar{ display:flex; align-items:center; gap:11px; margin:12px 0 14px; }
-    .fx-atras{ width:34px; height:34px; flex:none; border:1px solid var(--line); background:var(--card); border-radius:9px; color:var(--muted); cursor:pointer; font-size:.85rem; }
-    .fx-atras:hover{ color:var(--ink); border-color:var(--gold); }
-    .fx-segs{ flex:1; display:flex; gap:4px; min-width:0; }
-    .fx-seg{ flex:1; height:4px; border:none; padding:0; border-radius:3px; background:var(--line); cursor:pointer; transition:background .15s; }
-    .fx-seg.listo{ background:var(--ok); }
-    .fx-seg.aqui{ background:var(--gold); }
-    .fx-paso-n{ font-size:.78rem; font-weight:600; color:var(--muted); flex:none; }
+    /* ===== FICHA TÉCNICA — flujo por pasos =====
+       La sección ya es una tarjeta blanca con borde. Antes cada paso era OTRA
+       tarjeta blanca con borde adentro: dos marcos idénticos anidados no se leen
+       como jerarquía, se leen como error. Ahora el paso no tiene marco propio y
+       lo que separa las partes es el espacio y alguna hairline. */
+    .fx-bar{ display:flex; align-items:baseline; gap:10px; margin:2px 0 16px; }
+    .fx-eyebrow{ font-size:.67rem; letter-spacing:.09em; text-transform:uppercase; color:#a8adb4; font-weight:600; }
+    .fx-cal{ margin-left:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end; }
+    .fx-cal-p{ font-size:.76rem; color:var(--muted); display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
+    .fx-cal-p b{ font-size:.6rem; font-weight:600; padding:2px 5px; border-radius:4px; color:var(--ink); }
+    .fx-cal-p b.ml{ background:var(--ml); }
+    .fx-cal-p b.ic{ background:var(--ic); color:#fff; }
+    .fx-cal-x{ font-size:.74rem; color:#a8adb4; }
 
-    .fx-step{ border:1px solid var(--line); border-radius:13px; background:var(--card); overflow:hidden; }
+    .fx-step{ border:none; background:none; }
     .fx-modo-pasos .fx-step{ display:none; }
     .fx-modo-pasos .fx-step.activa{ display:block; }
-    .fx-modo-lista .fx-step{ display:block; margin-bottom:12px; }
-    .fx-modo-lista .fx-bar .fx-atras, .fx-modo-lista .fx-paso-n{ display:none; }
+    .fx-modo-lista .fx-step{ display:block; padding-top:18px; margin-top:18px; border-top:1px solid #f0f0ee; }
+    .fx-modo-lista .fx-step:first-of-type{ border-top:none; margin-top:0; padding-top:0; }
+    .fx-modo-lista .fx-paso-n, .fx-modo-lista .fx-segs, .fx-modo-lista .fx-atras{ display:none; }
     .fx-step.fx-hidden{ display:none!important; }
-    .fx-step-head{ padding:16px 17px 0; }
-    .fx-step-t{ font-size:1.06rem; font-weight:600; color:var(--ink); display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
-    .fx-modo-lista .fx-step-t{ font-size:.95rem; }
-    .fx-step-s{ font-size:.83rem; color:var(--muted); line-height:1.5; margin:6px 0 0; }
+
+    .fx-step-head{ padding:0; }
+    .fx-step-top{ display:flex; align-items:flex-end; gap:11px; }
+    .fx-atras{ width:30px; height:30px; flex:none; border:1px solid var(--line); background:none; border-radius:8px; color:#a8adb4; cursor:pointer; font-size:.78rem; transition:color .13s, border-color .13s; }
+    .fx-atras:hover{ color:var(--ink); border-color:#c2c6cb; }
+    .fx-step-t{ flex:1; min-width:0; font-size:1.32rem; font-weight:500; color:var(--ink); letter-spacing:-.01em; display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+    .fx-modo-lista .fx-step-t{ font-size:1rem; font-weight:600; }
+    .fx-paso-n{ font-size:.75rem; color:#a8adb4; flex:none; white-space:nowrap; padding-bottom:3px; }
+    .fx-step-s{ font-size:.82rem; color:var(--muted); line-height:1.5; margin:7px 0 0; }
+    /* El progreso es el subrayado del título, no un widget aparte flotando entre
+       dos tarjetas: así se lee como "estás acá dentro de esta secuencia". */
+    .fx-segs{ display:flex; gap:3px; margin:11px 0 20px; }
+    .fx-seg{ flex:1; height:2px; border:none; padding:0; background:#ececea; cursor:pointer; transition:background .15s; }
+    .fx-seg:first-child{ border-radius:2px 0 0 2px; }
+    .fx-seg:last-child{ border-radius:0 2px 2px 0; }
+    .fx-seg.listo{ background:var(--ink); }
+    .fx-seg.aqui{ background:var(--gold); }
     .fx-modo-pasos .fx-step .fx-count{ display:none; }
     .fx-step-t .fx-count{ font-size:.72rem; font-weight:600; color:var(--muted); background:var(--paper); border:1px solid var(--line); border-radius:99px; padding:2px 9px; margin-left:auto; }
     .fx-step-t .fx-count.full{ color:var(--ok); border-color:rgba(30,125,79,.35); background:rgba(30,125,79,.07); }
 
-    .fx-step-foot{ display:flex; flex-direction:column; align-items:stretch; gap:8px; padding:4px 17px 16px; }
+    /* Pie: una barra, no botones apilados a todo lo ancho. La advertencia vive
+       acá — al lado de los botones que actúan sobre ella — y no repetida como
+       subtítulo en cuatro pasos seguidos. */
+    .fx-step-foot{ display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+      border-top:1px solid #f0f0ee; margin-top:22px; padding:14px 0 2px; }
     .fx-modo-lista .fx-step-foot{ display:none; }
-    .fx-sig{ width:100%; border:none; border-radius:11px; background:var(--ink); color:#fff; font-family:inherit; font-size:.93rem; font-weight:600; padding:13px; cursor:pointer; transition:transform .1s; }
-    .fx-sig:active{ transform:scale(.985); }
-    .fx-saltar{ width:100%; border:none; background:transparent; color:var(--muted); font-family:inherit; font-size:.82rem; font-weight:600; padding:4px; cursor:pointer; }
-    .fx-saltar:hover{ color:var(--ink); }
-    /* En modo pasos la confirmación la da el botón del pie; el control viejo solo
-       reaparece en modo lista, donde no hay pie. */
+    .fx-foot-hint{ flex:1; min-width:150px; font-size:.76rem; color:#a8adb4; line-height:1.4; }
+    .fx-sig{ border:none; border-radius:8px; background:var(--ink); color:#fff; font-family:inherit; font-size:.86rem; font-weight:500; padding:10px 22px; cursor:pointer; transition:transform .1s; }
+    .fx-sig:active{ transform:scale(.98); }
+    .fx-alt{ border:1px solid #dfe1e5; border-radius:8px; background:var(--card); color:#5b6472; font-family:inherit; font-size:.86rem; font-weight:500; padding:10px 16px; cursor:pointer; transition:border-color .13s; }
+    .fx-alt:hover{ border-color:#c2c6cb; color:var(--ink); }
     .fx-modo-pasos .fx-revrow{ display:none; }
+    @media (max-width:640px){
+      .fx-step-t{ font-size:1.1rem; }
+      .fx-step-foot{ gap:8px; }
+      .fx-foot-hint{ flex:1 0 100%; }
+      .fx-alt, .fx-sig{ flex:1; text-align:center; }
+    }
     .fx-body{ padding:14px 15px 6px; }
     .fx-inputs{ display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:12px 14px; margin-bottom:10px; }
     .fx-inputs .form-group{ margin-bottom:4px; }
@@ -134,12 +161,15 @@
     /* Pastillas en vez de filas: 20 amenities entran en 4 renglones en lugar de 20,
        y de un vistazo se ve qué está encendido. El casillero real sigue existiendo
        (oculto) porque todo el resto del formulario lo lee por id. */
-    .fx-check{ display:inline-flex; align-items:center; gap:7px; font-size:.86rem; color:#5b6472; cursor:pointer; padding:7px 13px; border:1px solid var(--line); border-radius:99px; background:#fff; transition:border-color .13s, background .13s, color .13s; user-select:none; }
-    .fx-check:hover{ border-color:var(--gold); }
+    /* Radio 8 igual que los inputs: veinte píldoras de radio 99 son mucha curva y
+       parecen otro lenguaje. Lo seleccionado va RELLENO, no contorno teñido: de un
+       golpe de vista se ve qué está encendido. */
+    .fx-check{ display:inline-flex; align-items:center; gap:6px; font-size:.86rem; color:#5b6472; cursor:pointer; padding:9px 15px; border:1px solid #e2e4e7; border-radius:8px; background:#fff; transition:border-color .13s, background .13s, color .13s; user-select:none; }
+    .fx-check:hover{ border-color:#c2c6cb; color:var(--ink); }
     .fx-check input{ position:absolute; opacity:0; width:0; height:0; pointer-events:none; }
-    .fx-check .fx-tick{ font-size:.7rem; opacity:0; transition:opacity .13s; margin-left:-4px; }
-    .fx-check.on{ color:var(--ink); font-weight:600; border-color:var(--gold); background:rgba(201,162,39,.10); }
-    .fx-check.on .fx-tick{ opacity:1; color:var(--gold); margin-left:0; }
+    .fx-check .fx-tick{ font-size:.68rem; opacity:0; width:0; transition:opacity .13s, width .13s; }
+    .fx-check.on{ color:#fff; background:var(--ink); border-color:var(--ink); }
+    .fx-check.on .fx-tick{ opacity:1; width:auto; }
     .fx-sublbl{ font-size:.8rem; font-weight:600; color:var(--muted); margin:14px 0 9px; padding-top:12px; border-top:1px solid var(--line); }
     .fx-revrow{ padding:2px 0 10px; }
     .fx-rev{ display:inline-flex; align-items:center; gap:7px; font-family:inherit; font-size:.79rem; font-weight:600; color:var(--muted); background:transparent; border:1px dashed var(--line); border-radius:99px; padding:6px 13px; cursor:pointer; transition:all .13s; }
@@ -279,7 +309,7 @@
         </div>
 
         <div class="pf-sec" id="sec4">
-          <div class="pf-sec-head"><span class="n">4</span><div><h3>Ficha técnica</h3><small>Todos los campos oficiales de Mercado Libre para este tipo de inmueble, más los extras de InfoCasas. Tildá y completá lo que la propiedad tenga: un checkbox sin tildar significa "no lo tiene".</small></div></div>
+          <div class="pf-sec-head"><span class="n">4</span><div><h3>Ficha técnica</h3><small>Los campos oficiales de Mercado Libre para este inmueble, más los extras de InfoCasas.</small></div></div>
           <div class="fx-toolbar">
             <div class="fx-search"><i class="fas fa-magnifying-glass"></i><input type="text" id="fichaSearch" placeholder="Buscar un campo... (ej: parrillero, piscina, antigüedad)" oninput="filtrarFicha()"></div>
             <button type="button" class="fx-btn" id="fxBtnModo" onclick="fxCambiarModo()">Ver todo</button>
@@ -2733,15 +2763,17 @@
     // habría que reescribir todo eso.
     const FX_TITULOS = {
       'Datos del inmueble': ['Números de la propiedad', 'Si no sabés alguno, dejalo en cero y seguí.'],
-      'Ambientes': ['¿Qué ambientes tiene?', 'Tocá todo lo que tenga. Lo que dejes sin marcar se publica como que no lo tiene.'],
-      'Equipamiento y servicios': ['¿Con qué está equipada?', 'Tocá todo lo que tenga. Lo que dejes sin marcar se publica como que no lo tiene.'],
-      'Amenities del edificio o barrio': ['¿Qué tiene el edificio?', 'Tocá todo lo que tenga. Lo que dejes sin marcar se publica como que no lo tiene.'],
-      'Seguridad': ['¿Qué seguridad tiene?', 'Tocá todo lo que tenga. Lo que dejes sin marcar se publica como que no lo tiene.'],
+      // Sin subtítulo a propósito: la misma frase repetida en cuatro pasos
+      // seguidos es ruido. La advertencia va una sola vez, en el pie.
+      'Ambientes': ['¿Qué ambientes tiene?', ''],
+      'Equipamiento y servicios': ['¿Con qué está equipada?', ''],
+      'Amenities del edificio o barrio': ['¿Qué tiene el edificio?', ''],
+      'Seguridad': ['¿Qué seguridad tiene?', ''],
       'Condiciones': ['Condiciones de la operación', 'Cómo se atiende y con qué código se identifica.'],
       'Alquiler': ['Condiciones del alquiler', 'Garantía, disponibilidad y a quién se le alquila.'],
       'InfoCasas': ['Datos para InfoCasas', 'Estos campos viajan solo al feed de InfoCasas, no a Mercado Libre.'],
       // Mitad de casilleros de un grupo partido en dos.
-      'Datos del inmueble|tildar': ['¿Con qué cuenta?', 'Tocá todo lo que tenga. Lo que dejes sin marcar se publica como que no lo tiene.']
+      'Datos del inmueble|tildar': ['¿Con qué cuenta?', '']
     };
     let fxPaso = 0, fxModo = 'pasos';
     // Grupos que se muestran para el tipo de inmueble y operación actuales.
@@ -2809,8 +2841,13 @@
         const cuenta = parte === 'tildar' ? '' : `<span class="fx-count" id="fxc-${gi}"></span>`;
         return `<section class="fx-step" data-paso="${idx}" data-grupo-nombre="${esc(grupo)}" data-parte="${parte}">
             <div class="fx-step-head">
-              <div class="fx-step-t">${esc(t[0])}${badge}${cuenta}</div>
+              <div class="fx-step-top">
+                <button type="button" class="fx-atras" onclick="fxIr(${idx - 1})" aria-label="Paso anterior"><i class="fas fa-arrow-left"></i></button>
+                <div class="fx-step-t">${esc(t[0])}${badge}${cuenta}</div>
+                <span class="fx-paso-n"></span>
+              </div>
               ${t[1] ? `<p class="fx-step-s">${esc(t[1])}</p>` : ''}
+              <div class="fx-segs"></div>
             </div>
             <div class="fx-body">${html}</div>
             <div class="fx-step-foot"></div>
@@ -2818,9 +2855,8 @@
       }).join('');
 
       wrap.innerHTML = `<div class="fx-bar">
-          <button type="button" class="fx-atras" onclick="fxIr(fxPaso-1)" aria-label="Paso anterior"><i class="fas fa-arrow-left"></i></button>
-          <div class="fx-segs" id="fxSegs"></div>
-          <span class="fx-paso-n" id="fxPasoN"></span>
+          <span class="fx-eyebrow">Ficha técnica</span>
+          <span class="fx-cal" id="fxCal"></span>
         </div>${cuerpos}`;
       wrap.className = 'fx-modo-' + fxModo;
       if (fxPaso >= pasos.length) fxPaso = Math.max(0, pasos.length - 1);
@@ -2836,33 +2872,38 @@
       const wrap = document.getElementById('fichaTecnica');
       if (!wrap || !wrap.querySelector('.fx-step')) return;
       const pasos = fxPasos();
-      const segs = document.getElementById('fxSegs');
-      const pasoN = document.getElementById('fxPasoN');
-      const atras = wrap.querySelector('.fx-atras');
-      if (segs) segs.innerHTML = pasos.map((x, i) => {
+      const barra = pasos.map((x, i) => {
         const listo = fxPasoListo(x.grupo, x.parte);
         return `<button type="button" class="fx-seg${i === fxPaso ? ' aqui' : (listo ? ' listo' : '')}" onclick="fxIr(${i})" aria-label="Ir al paso ${i + 1}"></button>`;
       }).join('');
-      if (pasoN) pasoN.textContent = fxModo === 'lista' ? '' : `Paso ${fxPaso + 1} de ${pasos.length}`;
-      if (atras) atras.style.visibility = (fxModo === 'lista' || fxPaso === 0) ? 'hidden' : 'visible';
 
       wrap.querySelectorAll('.fx-step').forEach((sec, i) => {
         sec.classList.toggle('activa', i === fxPaso);
+        // El progreso vive dentro de la cabecera de cada paso, pero solo se dibuja
+        // en el que está a la vista: no tiene sentido pintarlo ocho veces.
+        const segs = sec.querySelector('.fx-segs');
+        if (segs) segs.innerHTML = (i === fxPaso) ? barra : '';
+        const nro = sec.querySelector('.fx-paso-n');
+        if (nro) nro.textContent = `${i + 1} de ${pasos.length}`;
+        const atras = sec.querySelector('.fx-atras');
+        if (atras) atras.style.display = (i === 0) ? 'none' : '';
+
         const pie = sec.querySelector('.fx-step-foot');
         if (!pie) return;
-        const grupo = sec.getAttribute('data-grupo-nombre');
         const tieneBools = !!sec.querySelector('.fx-check');
         const tildadas = sec.querySelectorAll('.fx-check input:checked').length;
         const ultimo = i === pasos.length - 1;
         const sigTxt = ultimo ? 'Listo' : 'Siguiente';
+        const aviso = tieneBools ? '<span class="fx-foot-hint">Lo que no marques se publica como que no lo tiene</span>' : '<span class="fx-foot-hint"></span>';
         if (tieneBools && !tildadas) {
-          // Nada tildado: la acción principal es la afirmación, no el avance. Pero
-          // no se obliga — el que no sabe todavía puede seguir y el guardado se lo
-          // vuelve a pedir al final.
-          pie.innerHTML = `<button type="button" class="fx-sig" onclick="fxNinguna(${i})">No tiene ninguna de estas</button>
-            <button type="button" class="fx-saltar" onclick="fxIr(${i + 1})">Lo veo después</button>`;
+          // Nada tildado: la afirmación es la acción principal. Pero no se obliga —
+          // el que no sabe todavía puede seguir y el guardado se lo vuelve a pedir.
+          pie.innerHTML = aviso +
+            `<button type="button" class="fx-alt" onclick="fxIr(${i + 1})">Lo veo después</button>` +
+            `<button type="button" class="fx-sig" onclick="fxNinguna(${i})">No tiene ninguna</button>`;
         } else {
-          pie.innerHTML = `<button type="button" class="fx-sig" onclick="fxIr(${i + 1})">${sigTxt}${tildadas ? ` · ${tildadas}` : ''}</button>`;
+          pie.innerHTML = aviso +
+            `<button type="button" class="fx-sig" onclick="fxIr(${i + 1})">${sigTxt}${tildadas ? ` · ${tildadas}` : ''}</button>`;
         }
       });
     }
@@ -3092,19 +3133,21 @@
       const pend = puntos.filter(x => !x.ok).map(x => x.txt);
       const txtML = (document.getElementById('calMLpct') || {}).textContent || '—';
       const txtIC = (document.getElementById('calICpct') || {}).textContent || '—';
-      const cab = `<div class="fx-cal">
-          <span class="fx-cal-p"><b class="ml">ML</b> ${esc(txtML)}</span>
-          <span class="fx-cal-p"><b class="ic">IC</b> ${esc(txtIC)}</span>
-          <span class="fx-cal-x">La ficha aporta ${gana} de ${puntos.length} puntos${pend.length ? ' · falta ' + esc(pend.join(', ')) : ''}</span>
-        </div>`;
+      // La calidad va en la cabecera de la sección, no dentro del panel de
+      // pendientes: es contexto permanente, no una alerta.
+      const elCal = document.getElementById('fxCal');
+      if (elCal) elCal.innerHTML =
+          `<span class="fx-cal-x">La ficha aporta ${gana} de ${puntos.length}</span>` +
+          `<span class="fx-cal-p"><b class="ml">ML</b> ${esc(txtML)}</span>` +
+          `<span class="fx-cal-p"><b class="ic">IC</b> ${esc(txtIC)}</span>`;
 
       if (!bloq.length && !clave.length && !faltanMitad && !sinRev.length) {
         cont.className = 'fx-falt ok';
-        cont.innerHTML = cab + '<div class="fx-falt-head"><i class="fas fa-circle-check"></i> Ficha lista — no falta nada que mueva la aguja.</div>';
+        cont.innerHTML = '<div class="fx-falt-head"><i class="fas fa-circle-check"></i> Ficha lista — no falta nada que mueva la aguja.</div>';
         return;
       }
       const chip = (c, cls) => `<button type="button" class="fx-chip ${cls}" onclick="irACampo('${escAttr(c.id)}')">${esc(c.label)}${FX_CLAVE[c.id] ? ` <em>${esc(FX_CLAVE[c.id])}</em>` : ''}</button>`;
-      let h = cab + '<div class="fx-falt-head"><i class="fas fa-list-check"></i> Lo que falta</div>';
+      let h = '<div class="fx-falt-head"><i class="fas fa-list-check"></i> Lo que falta</div>';
       if (bloq.length) h += '<div class="fx-falt-row"><span class="fx-falt-lbl bad">Frena el guardado</span>' + bloq.map(c => chip(c, 'bad')).join('') + '</div>';
       if (sinRev.length) h += '<div class="fx-falt-row"><span class="fx-falt-lbl bad">Falta confirmar</span>' + sinRev.map(g =>
         `<button type="button" class="fx-chip bad" onclick="irAGrupo('${escAttr(g)}')">${esc(g)}</button>`).join('') + '</div>';
