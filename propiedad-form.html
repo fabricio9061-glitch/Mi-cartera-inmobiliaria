@@ -97,6 +97,37 @@
     .fx-body{ padding:14px 15px 6px; }
     .fx-inputs{ display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:12px 14px; margin-bottom:10px; }
     .fx-inputs .form-group{ margin-bottom:4px; }
+    /* ==========================================================================
+       PASADA VISUAL DE LOS CAMPOS
+       Sobrescribe lo que este formulario hereda de styles.css, donde los inputs
+       tienen borde de 2px, radio de 12 y 14px de padding — cajas de ~48px con
+       marco grueso — y las etiquetas van en peso 600, tan fuertes como el dato.
+       Está acotado a #propertyForm a propósito: si te gusta cómo queda, este
+       bloque entero se puede mover a styles.css (sacándole el prefijo
+       #propertyForm) y toda la aplicación pasa a verse igual.
+       ========================================================================== */
+    #propertyForm .form-group input,
+    #propertyForm .form-group select,
+    #propertyForm .form-group textarea{
+      padding:10px 12px; border:1px solid #dfe1e5; border-radius:8px;
+      transition:border-color .14s, box-shadow .14s;
+    }
+    #propertyForm .form-group input:hover,
+    #propertyForm .form-group select:hover,
+    #propertyForm .form-group textarea:hover{ border-color:#c2c6cb; }
+    /* El foco se marca con el borde, no engordando un marco que ya era grueso. */
+    #propertyForm .form-group input:focus,
+    #propertyForm .form-group select:focus,
+    #propertyForm .form-group textarea:focus{
+      border-color:var(--ink); box-shadow:0 0 0 3px rgba(22,39,63,.07);
+    }
+    /* La etiqueta deja de competir con el valor: gris, peso normal, más chica. */
+    #propertyForm .form-group label{
+      font-size:.79rem; font-weight:400; color:var(--muted); margin-bottom:5px;
+      display:flex; align-items:center; gap:5px;
+    }
+    #propertyForm .fx-inputs{ gap:14px 14px; }
+
     .fx-help{ font-size:.72rem; color:var(--muted); line-height:1.35; margin-top:4px; }
     .fx-req{ color:var(--bad); }
     .fx-checks{ display:flex; flex-wrap:wrap; gap:8px; padding-bottom:6px; }
@@ -116,6 +147,12 @@
     .fx-rev.on{ color:var(--ok); border-style:solid; border-color:rgba(30,125,79,.35); background:rgba(30,125,79,.07); }
 
     /* Panel "lo que falta" */
+    .fx-cal{ display:flex; align-items:center; flex-wrap:wrap; gap:7px 12px; padding-bottom:10px; margin-bottom:10px; border-bottom:1px solid var(--line); }
+    .fx-cal-p{ font-size:.82rem; font-weight:700; color:var(--ink); display:inline-flex; align-items:center; gap:6px; }
+    .fx-cal-p b{ font-size:.64rem; letter-spacing:.05em; padding:2px 6px; border-radius:5px; color:var(--ink); }
+    .fx-cal-p b.ml{ background:var(--ml); }
+    .fx-cal-p b.ic{ background:var(--ic); color:#fff; }
+    .fx-cal-x{ font-size:.78rem; color:var(--muted); flex:1; min-width:180px; }
     .fx-falt{ border:1px solid var(--line); border-radius:13px; background:var(--paper); padding:12px 14px; margin-bottom:14px; }
     .fx-falt:empty{ display:none; }
     .fx-falt.ok{ border-color:rgba(30,125,79,.3); background:rgba(30,125,79,.06); }
@@ -2863,9 +2900,13 @@
     // iba a hacer igual: la ficha no es el destino, es un trámite en el medio.
     function fxTerminar() {
       updateFichaCounters();
-      const sig = document.getElementById('fichaTecnica').closest('.form-section');
-      const prox = sig && sig.nextElementSibling;
-      (prox || sig).scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // OJO: la clase es 'pf-sec'. Antes acá decía '.form-section', que no existe
+      // en este archivo: closest() devolvía null y el scrollIntoView tiraba
+      // TypeError. Como el error moría en el try/catch de calidadRecalc, el botón
+      // "Listo" no hacía absolutamente nada y no se veía ni un error en consola.
+      const sec = document.getElementById('sec4');
+      const destino = (sec && sec.nextElementSibling) || sec;
+      if (destino) destino.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     function fxScrollArriba() {
       const b = document.querySelector('#fichaTecnica .fx-bar');
@@ -3036,13 +3077,34 @@
       const faltanMitad = Math.max(0, Math.ceil(conDato.length / 2) - llenos);
       const sinRev = gruposSinRevisar();
 
+      // Los 4 puntos de calidad que dependen de ESTA ficha (2 de los 12 de ML y
+      // 2 de los 10 de InfoCasas). El resto sale de fotos, pin, título y precio.
+      const _val = id => { const e = document.getElementById('fc-' + id); return e && String(e.value || '').trim() !== ''; };
+      let _tild = 0;
+      campos.forEach(c => { if (!c.type) { const e = document.getElementById('fc-' + c.id); if (e && e.checked) _tild++; } });
+      const puntos = [
+        { ok: _val('PARKING_LOTS'), txt: 'Cocheras', ml: true },
+        { ok: _val('PROPERTY_CONDITION'), txt: 'Estado del inmueble', ml: false },
+        { ok: conDato.length > 0 && llenos / conDato.length >= 0.5, txt: 'la mitad de los campos con dato', ml: true },
+        { ok: _tild >= 3, txt: '3 comodidades tildadas', ml: false }
+      ].filter(x => document.getElementById('fc-PARKING_LOTS') || x.txt !== 'Cocheras');
+      const gana = puntos.filter(x => x.ok).length;
+      const pend = puntos.filter(x => !x.ok).map(x => x.txt);
+      const txtML = (document.getElementById('calMLpct') || {}).textContent || '—';
+      const txtIC = (document.getElementById('calICpct') || {}).textContent || '—';
+      const cab = `<div class="fx-cal">
+          <span class="fx-cal-p"><b class="ml">ML</b> ${esc(txtML)}</span>
+          <span class="fx-cal-p"><b class="ic">IC</b> ${esc(txtIC)}</span>
+          <span class="fx-cal-x">La ficha aporta ${gana} de ${puntos.length} puntos${pend.length ? ' · falta ' + esc(pend.join(', ')) : ''}</span>
+        </div>`;
+
       if (!bloq.length && !clave.length && !faltanMitad && !sinRev.length) {
         cont.className = 'fx-falt ok';
-        cont.innerHTML = '<div class="fx-falt-head"><i class="fas fa-circle-check"></i> Ficha lista — no falta nada que mueva la aguja.</div>';
+        cont.innerHTML = cab + '<div class="fx-falt-head"><i class="fas fa-circle-check"></i> Ficha lista — no falta nada que mueva la aguja.</div>';
         return;
       }
       const chip = (c, cls) => `<button type="button" class="fx-chip ${cls}" onclick="irACampo('${escAttr(c.id)}')">${esc(c.label)}${FX_CLAVE[c.id] ? ` <em>${esc(FX_CLAVE[c.id])}</em>` : ''}</button>`;
-      let h = '<div class="fx-falt-head"><i class="fas fa-list-check"></i> Lo que falta</div>';
+      let h = cab + '<div class="fx-falt-head"><i class="fas fa-list-check"></i> Lo que falta</div>';
       if (bloq.length) h += '<div class="fx-falt-row"><span class="fx-falt-lbl bad">Frena el guardado</span>' + bloq.map(c => chip(c, 'bad')).join('') + '</div>';
       if (sinRev.length) h += '<div class="fx-falt-row"><span class="fx-falt-lbl bad">Falta confirmar</span>' + sinRev.map(g =>
         `<button type="button" class="fx-chip bad" onclick="irAGrupo('${escAttr(g)}')">${esc(g)}</button>`).join('') + '</div>';
