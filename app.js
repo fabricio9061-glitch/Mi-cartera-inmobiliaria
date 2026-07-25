@@ -2412,6 +2412,7 @@
       }));
       renderProperties(properties.filter(enVitrina));
       updateStats();
+      pedirSaludML();
       // Si se refrescó la página estando en el PERFIL de un agente, su grilla se
       // pintó vacía antes de que llegaran las propiedades (carrera del snapshot):
       // repintarla ahora que ya están.
@@ -2502,7 +2503,7 @@
         archived: 'DADA DE BAJA'
       };
       const stLabel = stLabels[st] || '';
-      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button><button class="card-action-btn" onclick="event.stopPropagation();openMLModal('${p.id}')" title="Mercado Libre" style="background:#fff159;color:#2d3277"><i class="fas fa-tag"></i></button><button class="btn-feature ${p.featured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${p.featured?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button>${isAdminUser()?`<button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar (solo admin)"><i class="fas fa-trash"></i></button>`:`<button class="card-action-btn baja" onclick="event.stopPropagation();irAGestion('${p.id}')" title="Dar de baja — se hace cerrando la gestión del cliente"><i class="fas fa-circle-stop"></i></button>`}</div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${safeUrl(o.profilePhoto)}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span>${ce?`<span class="card-views" title="Tocaron Contactar"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${p.contactClicks||0}</span>`:''}</div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
+      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button>${anilloML(p)}<button class="btn-feature ${p.featured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${p.featured?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button>${isAdminUser()?`<button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar (solo admin)"><i class="fas fa-trash"></i></button>`:`<button class="card-action-btn baja" onclick="event.stopPropagation();irAGestion('${p.id}')" title="Dar de baja — se hace cerrando la gestión del cliente"><i class="fas fa-circle-stop"></i></button>`}</div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${safeUrl(o.profilePhoto)}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span>${ce?`<span class="card-views" title="Tocaron Contactar"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${p.contactClicks||0}</span>`:''}</div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
     }).join('')
   }
 
@@ -4240,6 +4241,63 @@
     delete allUsers[id];
     showAdminTab('users')
   }
+  // Trae la calidad de los avisos que le faltan a la grilla, en UNA sola llamada.
+  // Sin esto, el anillo solo aparecía después de abrir el modal de esa propiedad
+  // o de esperar al cron de las 5:30 — o sea, había que hacer justo lo que el
+  // anillo viene a evitar.
+  const _saludPedida = new Set();
+  let _saludT = null;
+  function pedirSaludML() {
+    // El snapshot puede dispararse varias veces seguidas; se espera a que se calme.
+    if (_saludT) clearTimeout(_saludT);
+    _saludT = setTimeout(async () => {
+      const seisHoras = Date.now() - 6 * 3600 * 1000;
+      const faltan = properties.filter(p =>
+        p.mlItemId && !_saludPedida.has(p.id) &&
+        (!p.mlHealthAt || Date.parse(p.mlHealthAt) < seisHoras)
+      ).slice(0, 80);
+      if (!faltan.length) return;
+      // Se marcan ANTES de llamar: la escritura del backend vuelve por el snapshot
+      // y volvería a entrar acá, pidiendo lo mismo en bucle.
+      faltan.forEach(p => _saludPedida.add(p.id));
+      try {
+        const r = await firebase.functions().httpsCallable('saludMLLote')({ propertyIds: faltan.map(p => p.id) });
+        const salud = (r.data && r.data.salud) || {};
+        if (!Object.keys(salud).length) return;
+        // Se aplica en local para que el anillo aparezca ya, sin esperar el snapshot.
+        properties.forEach(p => { if (salud[p.id] != null) { p.mlHealth = salud[p.id]; p.mlHealthAt = r.data.medidoEn; } });
+        renderProperties(properties.filter(enVitrina));
+      } catch (e) {
+        console.warn('No se pudo traer la calidad de los avisos:', e.message || e);
+      }
+    }, 400);
+  }
+
+  // ===== ANILLO DE CALIDAD DE MERCADO LIBRE =====
+  // Reemplaza a la etiqueta amarilla, que solo abría el modal sin decir nada. El
+  // porcentaje sale de `mlHealth`, cacheado en la propiedad: lo escribe estadoML
+  // cada vez que alguien abre el modal y lo refresca un cron diario para toda la
+  // cartera. Así la grilla no le pega a la API de Mercado Libre por cada tarjeta.
+  function anilloML(p) {
+    const abrir = `event.stopPropagation();openMLModal('${p.id}')`;
+    if (!p.mlItemId) {
+      // Sin publicar: el botón mantiene su significado viejo (abrir para publicar).
+      return `<button class="card-action-btn ml-sin" onclick="${abrir}" title="No está publicada en Mercado Libre"><i class="fas fa-tag"></i></button>`;
+    }
+    if (p.mlHealth == null) {
+      return `<button class="card-action-btn ml-sin" onclick="${abrir}" title="Publicada — calidad todavía sin medir"><i class="fas fa-tag"></i></button>`;
+    }
+    const pct = Math.round(p.mlHealth * 100);
+    const col = pct >= 80 ? '#1e9e6a' : (pct >= 50 ? '#C9A227' : '#c0392b');
+    // Circunferencia de un radio 13 = 81.68. El trazo se recorta con dasharray.
+    const arco = (81.68 * pct / 100).toFixed(1);
+    const cuando = p.mlHealthAt ? ` (medida el ${new Date(p.mlHealthAt).toLocaleDateString('es-UY')})` : '';
+    return `<button class="card-action-btn ml-anillo" onclick="${abrir}" title="Calidad del aviso en Mercado Libre: ${pct}%${cuando}">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><circle class="pista" cx="16" cy="16" r="13"></circle><circle class="arco" cx="16" cy="16" r="13" stroke="${col}" stroke-dasharray="${arco} 81.68"></circle></svg>
+        <span style="color:${col}">${pct}</span>
+      </button>`;
+  }
+
   // ===== UNA SOLA PUERTA PARA DAR DE BAJA =====
   // Una propiedad no se saca de circulación por sí sola: se saca como CONSECUENCIA
   // de cerrar la gestión del cliente (Cerrado / Cerró por afuera / Perdido). El

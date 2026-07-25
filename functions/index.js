@@ -2057,6 +2057,14 @@ exports.estadoML = onCall(async (request) => {
     { url: `/items/${p.mlItemId}/contacts/whatsapp/time_window`, params: { last: 30, unit: "day" } },
     { url: `/items/contacts/whatsapp/time_window`, params: { ids: p.mlItemId, last: 30, unit: "day" } },
   ], "whatsapp");
+  // Se guarda en la propiedad para que la grilla pueda mostrarla sin pegarle a la
+  // API de Mercado Libre por cada tarjeta. Se hace sin await a propósito: si la
+  // escritura falla, el modal igual tiene que responder.
+  if (health != null) {
+    admin.firestore().collection("properties").doc(propertyId)
+      .update({ mlHealth: health, mlHealthAt: new Date().toISOString() })
+      .catch((e) => logger.warn("No se pudo cachear la salud ML:", e.message));
+  }
   return {
     publicado: true,
     mlItemId: p.mlItemId,
@@ -2307,6 +2315,119 @@ exports.avisarResolucionBaja = onDocumentUpdated("properties/{id}", async (event
     });
   } catch (e) { logger.warn("avisarResolucionBaja limpieza:", e.message); }
 });
+
+// ============================================================
+// SALUD DE VARIOS AVISOS DE UNA (lo que usa la grilla)
+// ------------------------------------------------------------
+// El cron diario mantiene la cartera al día, pero un aviso publicado hoy no
+// tendría anillo hasta mañana — o hasta que alguien le abriera el modal, que es
+// justo lo que el anillo viene a evitar. Esto lo resuelve: la grilla pide de una
+// sola vez las que le faltan y Mercado Libre las devuelve de a veinte.
+// ============================================================
+exports.saludMLLote = onCall(async (request) => {
+  await exigirAgente(request, null); // basta con ser agente aprobado: no es dato sensible
+  const pedidos = (request.data && request.data.propertyIds) || [];
+  if (!Array.isArray(pedidos) || !pedidos.length) return { salud: {} };
+  // Tope duro: una grilla grande no debe poder disparar cien llamadas a ML.
+  const ids = pedidos.slice(0, 80);
+
+  const docs = await Promise.all(ids.map((id) => db.collection("properties").doc(id).get()));
+  const porItem = new Map();
+  docs.forEach((d) => { if (d.exists && d.data().mlItemId) porItem.set(d.data().mlItemId, d.id); });
+  if (!porItem.size) return { salud: {} };
+
+  let token;
+  try { token = await getValidToken(); } catch (e) {
+    logger.warn("saludMLLote: sin token —", e.message);
+    return { salud: {} };
+  }
+  const headers = { Authorization: `Bearer ${token}` };
+  const itemIds = [...porItem.keys()];
+  const ahora = new Date().toISOString();
+  const salud = {};
+  const escrituras = [];
+
+  for (let i = 0; i < itemIds.length; i += 20) {
+    const lote = itemIds.slice(i, i + 20);
+    try {
+      const r = await axios.get(`${API}/items`, {
+        headers, params: { ids: lote.join(","), attributes: "id,health" },
+      });
+      (r.data || []).forEach((row) => {
+        const c = row && row.body;
+        if (!c || !c.id || c.health == null) return;
+        const propId = porItem.get(c.id);
+        if (!propId) return;
+        salud[propId] = c.health;
+        escrituras.push(
+          db.collection("properties").doc(propId)
+            .update({ mlHealth: c.health, mlHealthAt: ahora })
+            .catch(() => {}),
+        );
+      });
+    } catch (e) {
+      logger.warn(`saludMLLote: falló un lote de ${lote.length} —`, e.message);
+    }
+  }
+  await Promise.all(escrituras);
+  return { salud, medidoEn: ahora };
+});
+
+// ============================================================
+// REFRESCO DIARIO DE LA CALIDAD DE LOS AVISOS
+// ------------------------------------------------------------
+// La grilla muestra un anillo con el porcentaje de calidad de cada aviso. Ese dato
+// solo existe en la API de Mercado Libre, y no se le puede pegar una vez por
+// tarjeta. Acá se trae de a veinte avisos por llamada (multiget) y se guarda en
+// cada propiedad, así la grilla lo lee de lo que ya tiene cargado.
+// ============================================================
+exports.refrescarSaludML = onSchedule(
+  { schedule: "30 5 * * *", timeZone: "America/Montevideo" },
+  async () => {
+    let token;
+    try { token = await getValidToken(); } catch (e) {
+      logger.warn("refrescarSaludML: sin token de Mercado Libre —", e.message); return;
+    }
+    const headers = { Authorization: `Bearer ${token}` };
+    const snap = await db.collection("properties").where("mlItemId", "!=", null).get();
+    const items = snap.docs.filter((d) => d.data().mlItemId);
+    if (!items.length) { logger.info("refrescarSaludML: no hay avisos publicados"); return; }
+
+    const porId = new Map(items.map((d) => [d.data().mlItemId, d.id]));
+    const ids = [...porId.keys()];
+    const ahora = new Date().toISOString();
+    let ok = 0, fallos = 0;
+
+    for (let i = 0; i < ids.length; i += 20) {
+      const lote = ids.slice(i, i + 20);
+      try {
+        const r = await axios.get(`${API}/items`, {
+          headers, params: { ids: lote.join(","), attributes: "id,health" },
+        });
+        const escrituras = [];
+        (r.data || []).forEach((row) => {
+          const cuerpo = row && row.body;
+          if (!cuerpo || !cuerpo.id) return;
+          const propId = porId.get(cuerpo.id);
+          // health puede venir null en avisos que ML todavía no evaluó: en ese caso
+          // se deja el valor anterior en vez de pisarlo con nada.
+          if (!propId || cuerpo.health == null) return;
+          escrituras.push(
+            db.collection("properties").doc(propId)
+              .update({ mlHealth: cuerpo.health, mlHealthAt: ahora })
+              .then(() => { ok++; })
+              .catch(() => { fallos++; }),
+          );
+        });
+        await Promise.all(escrituras);
+      } catch (e) {
+        fallos += lote.length;
+        logger.warn(`refrescarSaludML: falló un lote de ${lote.length} —`, e.message);
+      }
+    }
+    logger.info(`refrescarSaludML: ${ok} avisos actualizados, ${fallos} con problemas.`);
+  },
+);
 
 // ============================================================
 // FEED XML PARA INFOCASAS
