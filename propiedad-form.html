@@ -73,11 +73,39 @@
     .fx-inputs .form-group{ margin-bottom:4px; }
     .fx-help{ font-size:.72rem; color:var(--muted); line-height:1.35; margin-top:4px; }
     .fx-req{ color:var(--bad); }
-    .fx-checks{ display:grid; grid-template-columns:repeat(auto-fill,minmax(185px,1fr)); gap:4px 12px; padding-bottom:8px; }
-    .fx-check{ display:flex; align-items:center; gap:9px; font-size:.9rem; color:#333; cursor:pointer; padding:6px 8px; border-radius:8px; transition:background .12s; }
-    .fx-check:hover{ background:var(--paper); }
-    .fx-check input{ width:16px; height:16px; margin:0; flex:none; accent-color:var(--gold); }
-    .fx-check.on{ color:var(--ink); font-weight:500; }
+    .fx-checks{ display:flex; flex-wrap:wrap; gap:8px; padding-bottom:6px; }
+    /* Pastillas en vez de filas: 20 amenities entran en 4 renglones en lugar de 20,
+       y de un vistazo se ve qué está encendido. El casillero real sigue existiendo
+       (oculto) porque todo el resto del formulario lo lee por id. */
+    .fx-check{ display:inline-flex; align-items:center; gap:7px; font-size:.86rem; color:#5b6472; cursor:pointer; padding:7px 13px; border:1px solid var(--line); border-radius:99px; background:#fff; transition:border-color .13s, background .13s, color .13s; user-select:none; }
+    .fx-check:hover{ border-color:var(--gold); }
+    .fx-check input{ position:absolute; opacity:0; width:0; height:0; pointer-events:none; }
+    .fx-check .fx-tick{ font-size:.7rem; opacity:0; transition:opacity .13s; margin-left:-4px; }
+    .fx-check.on{ color:var(--ink); font-weight:600; border-color:var(--gold); background:rgba(201,162,39,.10); }
+    .fx-check.on .fx-tick{ opacity:1; color:var(--gold); margin-left:0; }
+    .fx-revrow{ padding:2px 0 10px; }
+    .fx-rev{ display:inline-flex; align-items:center; gap:7px; font-family:inherit; font-size:.79rem; font-weight:600; color:var(--muted); background:transparent; border:1px dashed var(--line); border-radius:99px; padding:6px 13px; cursor:pointer; transition:all .13s; }
+    .fx-rev:hover{ color:var(--ink); border-color:var(--gold); }
+    .fx-rev.on{ color:var(--ok); border-style:solid; border-color:rgba(30,125,79,.35); background:rgba(30,125,79,.07); }
+
+    /* Panel "lo que falta" */
+    .fx-falt{ border:1px solid var(--line); border-radius:13px; background:var(--paper); padding:12px 14px; margin-bottom:14px; }
+    .fx-falt:empty{ display:none; }
+    .fx-falt.ok{ border-color:rgba(30,125,79,.3); background:rgba(30,125,79,.06); }
+    .fx-falt-head{ font-size:.86rem; font-weight:700; color:var(--ink); display:flex; align-items:center; gap:8px; }
+    .fx-falt.ok .fx-falt-head{ color:var(--ok); }
+    .fx-falt-row{ display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin-top:10px; }
+    .fx-falt-lbl{ font-size:.72rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin-right:2px; }
+    .fx-falt-lbl.bad{ color:var(--bad); }
+    .fx-chip{ font-family:inherit; font-size:.82rem; font-weight:600; border-radius:99px; padding:6px 12px; cursor:pointer; border:1px solid; transition:transform .1s; }
+    .fx-chip:active{ transform:scale(.95); }
+    .fx-chip em{ font-style:normal; font-weight:500; opacity:.75; font-size:.75rem; }
+    .fx-chip.bad{ background:rgba(192,57,43,.09); color:#a2321f; border-color:rgba(192,57,43,.28); }
+    .fx-chip.gold{ background:rgba(201,162,39,.11); color:#7a611a; border-color:rgba(201,162,39,.32); }
+    .fx-falt-foot{ font-size:.78rem; color:var(--muted); margin-top:10px; }
+    /* Destello al saltar desde un chip: sin esto llegás al grupo sin saber cuál era */
+    .fx-foco{ animation:fxFoco 2s ease; border-radius:9px; }
+    @keyframes fxFoco{ 0%,30%{ background:rgba(201,162,39,.20); } 100%{ background:transparent; } }
     .fx-ic-badge{ font-size:.66rem; font-weight:700; letter-spacing:.05em; background:rgba(255,122,0,.12); color:#b35600; border-radius:5px; padding:2px 6px; }
     .fx-hidden{ display:none !important; }
     .fx-empty{ color:var(--muted); font-size:.86rem; padding:8px 2px 14px; display:none; }
@@ -193,6 +221,7 @@
             <button type="button" class="fx-btn" onclick="toggleGrupos(true)">Abrir todo</button>
             <button type="button" class="fx-btn" onclick="toggleGrupos(false)">Cerrar todo</button>
           </div>
+          <div class="fx-falt" id="fxFaltantes"></div>
           <div id="fichaTecnica"></div>
           <div class="fx-empty" id="fichaEmpty">Ningún campo coincide con la búsqueda.</div>
         </div>
@@ -446,7 +475,7 @@
     }
     function handleImageSelect(e) { addImagesToPreview(Array.from(e.target.files)); e.target.value = '' }
     function renderImagePreviews() {
-      document.getElementById('imagePreviewGrid').innerHTML = selectedImages.map((im, i) => `<div class="image-preview-item ${i===0?'main':''}" data-idx="${i}" draggable="true" ondragstart="handleDragStart(event,${i})" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropImage(event,${i})" ondragend="handleDragEnd(event)"><img src="${im.preview}" alt=""><div class="drag-handle" style="opacity:1;touch-action:none" ontouchstart="imgTouchStart(event,${i})"><i class="fas fa-grip-vertical"></i></div><div class="dup-image" title="Duplicar esta foto" onclick="event.stopPropagation();duplicateImage(${i})" style="position:absolute;top:6px;left:6px;background:rgba(22,39,63,.78);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.68rem;z-index:2"><i class="fas fa-clone"></i></div><div class="remove-image" onclick="event.stopPropagation();removeImage(${i})"><i class="fas fa-times"></i></div></div>`).join('')
+      document.getElementById('imagePreviewGrid').innerHTML = selectedImages.map((im, i) => `<div class="image-preview-item ${i===0?'main':''}" data-idx="${i}" draggable="true" ondragstart="handleDragStart(event,${i})" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropImage(event,${i})" ondragend="handleDragEnd(event)"><img src="${im.preview}" alt=""><div class="drag-handle" title="Arrastrar para reordenar" ontouchstart="imgTouchStart(event,${i})"><i class="fas fa-grip-vertical"></i></div><div class="dup-image" title="Duplicar esta foto" onclick="event.stopPropagation();duplicateImage(${i})"><i class="fas fa-clone"></i></div><div class="remove-image" title="Quitar esta foto" onclick="event.stopPropagation();removeImage(${i})"><i class="fas fa-times"></i></div></div>`).join('')
     }
     // Duplica una foto para completar el mínimo. Cada copia lleva un número de
     // serie (dup): al comprimirla se le altera UN píxel invisible, así el archivo
@@ -587,6 +616,8 @@
       togglePropertyType();
       renderFicha();
       fillFicha(p);
+      fichaRevisado = Array.isArray(p.fichaRevisado) ? p.fichaRevisado.slice() : [];
+      updateFichaCounters();
       if (p.images && p.images.length > 0) { selectedImages = p.images.map(url => ({ preview: url, url: url, existing: true })); renderImagePreviews() }
     }
 
@@ -2632,6 +2663,11 @@
         .flatMap(([, campos]) => campos);
     }
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+    // Para valores que van DENTRO de un onclick="...'aquí'...": escapa la comilla
+    // simple además del HTML. Los nombres de grupo ("Amenities del edificio o
+    // barrio") hoy no la tienen, pero alcanza con que alguien agregue uno con
+    // apóstrofo para romper el handler.
+    function escAttr(s) { return esc(s).replace(/'/g, '&#39;'); }
 
     function renderFicha() {
       const wrap = document.getElementById('fichaTecnica');
@@ -2657,8 +2693,13 @@
         }
         if (bools.length) {
           html += '<div class="fx-checks">' + bools.map(c =>
-            `<label class="fx-check fx-item" data-buscar="${esc(c.label.toLowerCase())}" ${c.help ? `title="${esc(c.help)}"` : ''}><input type="checkbox" id="fc-${c.id}" onchange="this.closest('.fx-check').classList.toggle('on', this.checked)"> ${esc(c.label)}</label>`
+            `<label class="fx-check fx-item" data-buscar="${esc(c.label.toLowerCase())}" ${c.help ? `title="${esc(c.help)}"` : ''}><input type="checkbox" id="fc-${c.id}" onchange="onCheckFicha(this)"><i class="fas fa-check fx-tick"></i><span>${esc(c.label)}</span></label>`
           ).join('') + '</div>';
+          // Un grupo de casilleros no se puede "completar": si el edificio no tiene
+          // ninguna de las 20 amenities, lo correcto es cero tildadas. Este botón
+          // deja decir "ya lo miré", que es la diferencia entre un grupo terminado
+          // y uno que nunca se abrió — antes ambos se veían igual (0/20).
+          html += `<div class="fx-revrow"><button type="button" class="fx-rev" data-grupo-nombre="${esc(grupo)}" onclick="toggleRevisado(this,'${escAttr(grupo)}')"></button></div>`;
         }
         const badge = esIC ? ' <span class="fx-ic-badge">PORTAL</span>' : '';
         return `<details class="fx-group" data-grupo="${gi}"${gi === 0 || esIC ? ' open' : ''}><summary><span>${esc(grupo)}${badge}</span><span class="fx-count" id="fxc-${gi}"></span></summary><div class="fx-body">${html}</div></details>`;
@@ -2730,23 +2771,136 @@
     }
     function fillFicha(p) { fillFichaObj((p || {}).ficha || {}); }
 
+    // ===== GRUPOS REVISADOS =====
+    // Vive en la propiedad (campo `fichaRevisado`), NO adentro de `ficha`: ese
+    // objeto es la carga que viaja a Mercado Libre y no tiene por qué llevar
+    // estado de interfaz. Guarda los nombres de grupo que el agente dio por
+    // mirados, aunque no haya tildado nada.
+    let fichaRevisado = [];
+    function estaRevisado(g) { return fichaRevisado.indexOf(g) >= 0; }
+    function toggleRevisado(btn, grupo) {
+      const i = fichaRevisado.indexOf(grupo);
+      if (i >= 0) fichaRevisado.splice(i, 1); else fichaRevisado.push(grupo);
+      updateFichaCounters();
+    }
+    function onCheckFicha(input) {
+      input.closest('.fx-check').classList.toggle('on', input.checked);
+      updateFichaCounters();
+    }
+
+    // ===== PANEL "LO QUE FALTA" =====
+    // La inteligencia de qué campos importan ya existía en calidadRecalc, pero
+    // vivía en un recuadro aparte que decía "completá Cocheras en la ficha" y
+    // después había que buscarlo entre 83 campos. Esto la trae al lado de los
+    // campos: cada chip abre su grupo y pone el foco adentro.
+    // Los únicos campos de la FICHA que el medidor de calidad puntúa de verdad.
+    // (Dormitorios, baños y superficies no están acá: viven en la sección 3 del
+    // formulario, no en la ficha, y ya los cubre el cartel de calidad.)
+    const FX_CLAVE = {
+      PARKING_LOTS: 'ML lo pide como obligatorio',
+      PROPERTY_CONDITION: 'InfoCasas lo puntúa'
+    };
+    function renderFaltantes() {
+      const cont = document.getElementById('fxFaltantes');
+      if (!cont) return;
+      const campos = fichaCampos();
+      const vacio = c => {
+        const el = document.getElementById('fc-' + c.id);
+        if (!el) return false;                       // no está en pantalla
+        return String(el.value || '').trim() === '';
+      };
+      // Mismo criterio EXACTO que la validación al guardar: un numérico sin `min`
+      // se autocompleta con 0, así que no frena nada por más que tenga asterisco.
+      // Si no coincidieran, el panel prometería un bloqueo que nunca ocurre.
+      const bloquea = c => {
+        if (!c.req) return false;
+        const el = document.getElementById('fc-' + c.id);
+        if (!el) return false;
+        const v = String(el.value || '').trim();
+        if (c.type === 'num') return c.min != null && (v === '' || !(parseFloat(v) >= c.min));
+        return v === '';
+      };
+      const bloq = campos.filter(c => c.type && bloquea(c));
+      const clave = campos.filter(c => c.type && FX_CLAVE[c.id] && vacio(c) && !bloquea(c));
+      // El resto de los campos con dato no se listan uno por uno (serían decenas):
+      // se resumen, porque ML puntúa a partir de la mitad completada.
+      const conDato = campos.filter(c => c.type);
+      const llenos = conDato.filter(c => !vacio(c)).length;
+      const faltanMitad = Math.max(0, Math.ceil(conDato.length / 2) - llenos);
+
+      if (!bloq.length && !clave.length && !faltanMitad) {
+        cont.className = 'fx-falt ok';
+        cont.innerHTML = '<div class="fx-falt-head"><i class="fas fa-circle-check"></i> Ficha lista — no falta nada que mueva la aguja.</div>';
+        return;
+      }
+      const chip = (c, cls) => `<button type="button" class="fx-chip ${cls}" onclick="irACampo('${escAttr(c.id)}')">${esc(c.label)}${FX_CLAVE[c.id] ? ` <em>${esc(FX_CLAVE[c.id])}</em>` : ''}</button>`;
+      let h = '<div class="fx-falt-head"><i class="fas fa-list-check"></i> Lo que falta</div>';
+      if (bloq.length) h += '<div class="fx-falt-row"><span class="fx-falt-lbl bad">Frena el guardado</span>' + bloq.map(c => chip(c, 'bad')).join('') + '</div>';
+      if (clave.length) h += '<div class="fx-falt-row"><span class="fx-falt-lbl">Sube la calidad</span>' + clave.map(c => chip(c, 'gold')).join('') + '</div>';
+      h += `<div class="fx-falt-foot">Campos con dato: <b>${llenos}/${conDato.length}</b>` +
+           (faltanMitad ? ` — faltan ${faltanMitad} para la mitad, que es donde Mercado Libre empieza a puntuarlos.` : ' — ya pasaste la mitad que puntúa Mercado Libre.') +
+           '</div>';
+      cont.className = 'fx-falt';
+      cont.innerHTML = h;
+    }
+    // Abre el grupo del campo, lo trae a la vista y lo enfoca. Sin esto el panel
+    // sería otra lista que te dice qué falta sin llevarte hasta ahí.
+    function irACampo(id) {
+      const el = document.getElementById('fc-' + id);
+      if (!el) return;
+      const buscador = document.getElementById('fichaSearch');
+      if (buscador && buscador.value) { buscador.value = ''; filtrarFicha(); }
+      const grupo = el.closest('details.fx-group');
+      if (grupo) grupo.open = true;
+      const item = el.closest('.fx-item') || el;
+      setTimeout(() => {
+        item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        item.classList.add('fx-foco');
+        setTimeout(() => item.classList.remove('fx-foco'), 2000);
+        try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
+      }, 90);
+    }
+
     function updateFichaCounters() {
       const FICHA = fichaActual();
       Object.keys(FICHA).forEach((grupo, gi) => {
         const el = document.getElementById('fxc-' + gi);
         if (!el) return;
         const campos = FICHA[grupo];
-        let llenos = 0, total = campos.length;
-        campos.forEach(c => {
-          const input = document.getElementById('fc-' + c.id);
-          if (!input) return;
-          if (!c.type) { if (input.checked) llenos++; }
-          else if (input.value !== '') llenos++;
-        });
-        el.textContent = llenos + '/' + total;
-        el.classList.toggle('full', llenos > 0 && llenos === total);
+        // Se cuentan por separado porque son cosas distintas: un campo con dato
+        // se llena o no se llena, pero un casillero sin tildar es una respuesta
+        // válida ("no lo tiene"). Mezclarlos era lo que hacía que "Amenities"
+        // quedara en 0/20 para siempre — verde exigía tener las 20.
+        const conDato = campos.filter(c => c.type);
+        const tildables = campos.filter(c => !c.type);
+        let llenos = 0, tildadas = 0;
+        conDato.forEach(c => { const i = document.getElementById('fc-' + c.id); if (i && i.value !== '') llenos++; });
+        tildables.forEach(c => { const i = document.getElementById('fc-' + c.id); if (i && i.checked) tildadas++; });
+        const rev = estaRevisado(grupo);
+        const partes = [];
+        if (conDato.length) partes.push(llenos + '/' + conDato.length);
+        if (tildables.length) partes.push(tildadas + (rev ? ' ✓' : ''));
+        el.textContent = partes.join(' · ');
+        const datosOk = !conDato.length || llenos === conDato.length;
+        const tildOk = !tildables.length || rev;
+        el.classList.toggle('full', datosOk && tildOk);
+
+        // Botón "revisado" del grupo: el texto cambia según haya algo tildado,
+        // porque "no tiene ninguna" y "ya está" son dos afirmaciones distintas.
+        const btn = document.querySelector('.fx-rev[data-grupo-nombre="' + cssEsc(grupo) + '"]');
+        if (btn) {
+          btn.classList.toggle('on', rev);
+          btn.innerHTML = rev
+            ? '<i class="fas fa-circle-check"></i> Revisado'
+            : (tildadas ? '<i class="far fa-circle"></i> Marcar como revisado'
+                        : '<i class="far fa-circle"></i> No tiene ninguna de estas');
+        }
       });
+      renderFaltantes();
     }
+    // Los nombres de grupo van dentro de un selector de atributo: hay que
+    // escaparlos o una comilla parte la consulta.
+    function cssEsc(s) { return String(s).replace(/["\\]/g, '\\$&'); }
     function filtrarFicha() {
       const q = (document.getElementById('fichaSearch').value || '').toLowerCase().trim();
       let visibles = 0;
@@ -2979,7 +3133,10 @@
           totalArea: parseInt(document.getElementById('propTotalArea').value) || 0, builtArea: parseInt(document.getElementById('propBuiltArea').value) || 0,
           commonExpenses: parseInt(document.getElementById('propExpenses').value) || 0, garage: (ficha.PARKING_LOTS || 0) > 0 ? 'yes' : 'no', status: document.getElementById('propStatus').value,
           images: iu, description: document.getElementById('propDescription').value, videoUrl: document.getElementById('propVideo').value || '', ownerWhatsapp: document.getElementById('propWhatsapp').value || userProfile.whatsapp, updatedAt: new Date().toISOString(),
-          ficha
+          ficha,
+          // Grupos de casilleros que el agente dio por revisados. Va aparte de
+          // `ficha` a propósito: eso es la carga que viaja a Mercado Libre.
+          fichaRevisado: fichaRevisado.slice()
         };
         if (ei && pp && parseInt(pp) !== np) { pd.previousPrice = parseInt(pp); pd.priceChangedAt = new Date().toISOString() }
         if (ei) {

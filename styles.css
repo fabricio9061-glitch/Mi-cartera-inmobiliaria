@@ -1632,7 +1632,10 @@
 
     .image-preview-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        /* 96px y no 80: con miniaturas de 80 los tres controles de arriba
+           (agarradera, duplicar, quitar) no entran sin pisarse, y además una foto
+           de 80px es demasiado chica para reconocer qué ambiente es. */
+        grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
         gap: 12px;
         margin-top: 16px
     }
@@ -1659,26 +1662,70 @@
         pointer-events: none
     }
 
+    /* Los tres controles de cada miniatura viven en la fila de arriba y NO se pisan:
+       agarradera (izquierda) · duplicar (al lado) · quitar (derecha).
+       Antes "duplicar" traía su posición inline en top:6px/left:6px, a 2px de la
+       agarradera y con z-index:2, así que la tapaba por completo. */
+    .image-preview-item .drag-handle,
+    .image-preview-item .dup-image,
     .image-preview-item .remove-image {
         position: absolute;
         top: 4px;
-        right: 4px;
         width: 24px;
         height: 24px;
-        background: var(--danger);
-        color: var(--white);
-        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 12px;
+        font-size: 11px;
+        color: var(--white);
         cursor: pointer;
-        opacity: 0;
-        transition: all .3s
+        z-index: 2;
+        transition: opacity .2s, transform .12s
     }
 
-    .image-preview-item:hover .remove-image {
-        opacity: 1
+    .image-preview-item .drag-handle:active,
+    .image-preview-item .dup-image:active,
+    .image-preview-item .remove-image:active {
+        transform: scale(.9)
+    }
+
+    .image-preview-item .drag-handle {
+        left: 4px;
+        background: rgba(0, 0, 0, .55);
+        border-radius: 6px;
+        cursor: grab;
+        /* Venía inline y es funcional, no estético: sin esto, arrastrar una foto
+           en el celular scrollea la página en vez de mover la miniatura. */
+        touch-action: none
+    }
+
+    .image-preview-item .dup-image {
+        left: 32px;
+        background: rgba(22, 39, 63, .78);
+        border-radius: 50%
+    }
+
+    .image-preview-item .remove-image {
+        right: 4px;
+        background: var(--danger);
+        border-radius: 50%;
+        font-size: 12px
+    }
+
+    /* En el escritorio los controles aparecen al pasar el mouse (queda más limpio).
+       En celular no existe :hover, así que van siempre visibles: con la regla vieja
+       el botón de quitar era INVISIBLE e intocable desde el teléfono. */
+    @media (hover: hover) {
+
+        .image-preview-item .dup-image,
+        .image-preview-item .remove-image {
+            opacity: 0
+        }
+
+        .image-preview-item:hover .dup-image,
+        .image-preview-item:hover .remove-image {
+            opacity: 1
+        }
     }
 
     .image-preview-item.main::after {
@@ -1693,27 +1740,6 @@
         padding: 3px;
         text-align: center;
         font-weight: 600
-    }
-
-    .image-preview-item .drag-handle {
-        position: absolute;
-        top: 4px;
-        left: 4px;
-        width: 24px;
-        height: 24px;
-        background: rgba(0, 0, 0, .5);
-        color: var(--white);
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 10px;
-        opacity: 0;
-        transition: all .3s
-    }
-
-    .image-preview-item:hover .drag-handle {
-        opacity: 1
     }
 
     .upload-progress {
