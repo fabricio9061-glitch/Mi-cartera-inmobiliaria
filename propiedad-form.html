@@ -247,9 +247,12 @@
   </style>
 <style>
   /* Área segura superior (isla dinámica / notch) en toda la herramienta */
-  body{ padding-top: env(safe-area-inset-top, 0px); }
+  /* El margen de la barra de estado lo reserva EL HEADER, no el body.
+     Antes el body lo empujaba y la tercera regla se lo quitaba al header para no
+     duplicarlo — pero el header es sticky: al fijarse arriba sale del padding del
+     body y quedaba justo abajo de la hora y los iconos del sistema. En el header
+     funciona en las dos situaciones y no hay nada que duplicar. */
   .fh, header, .app-header, .topbar{ padding-top: env(safe-area-inset-top, 0px); }
-  body > .fh, body > header{ padding-top: 0; }
 </style>
 </head>
 <body>
@@ -583,30 +586,26 @@
     }
     function handleImageSelect(e) { addImagesToPreview(Array.from(e.target.files)); e.target.value = '' }
     function renderImagePreviews() {
-      document.getElementById('imagePreviewGrid').innerHTML = selectedImages.map((im, i) => `<div class="image-preview-item ${i===0?'main':''}" data-idx="${i}" draggable="true" ondragstart="handleDragStart(event,${i})" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropImage(event,${i})" ondragend="handleDragEnd(event)"><img src="${im.preview}" alt=""><div class="drag-handle" title="Arrastrar para reordenar" ontouchstart="imgTouchStart(event,${i})"><i class="fas fa-grip-vertical"></i></div><div class="dup-image" title="Duplicar esta foto" onclick="event.stopPropagation();duplicateImage(${i})"><i class="fas fa-clone"></i></div><div class="remove-image" title="Quitar esta foto" onclick="event.stopPropagation();removeImage(${i})"><i class="fas fa-times"></i></div></div>`).join('')
+      document.getElementById('imagePreviewGrid').innerHTML = selectedImages.map((im, i) => `<div class="image-preview-item ${i===0?'main':''}" data-idx="${i}" draggable="true" ondragstart="handleDragStart(event,${i})" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropImage(event,${i})" ondragend="handleDragEnd(event)"><img src="${im.preview}" alt=""><div class="drag-handle" title="Arrastrar para reordenar" ontouchstart="imgTouchStart(event,${i})"><i class="fas fa-grip-vertical"></i></div><div class="remove-image" title="Quitar esta foto" onclick="event.stopPropagation();removeImage(${i})"><i class="fas fa-times"></i></div></div>`).join('')
     }
     // Duplica una foto para completar el mínimo. Cada copia lleva un número de
     // serie (dup): al comprimirla se le altera UN píxel invisible, así el archivo
     // resultante es distinto byte a byte y Mercado Libre NO la descarta como
     // repetida (ML deduplica por contenido, no solo por URL).
-    function _proximoDup(im) {
-      const clave = im.file ? (im.file.name + '|' + im.file.size) : ('url|' + (im.url || im.uploadedUrl || ''));
-      let max = 0;
-      selectedImages.forEach(x => {
-        const k = x.file ? (x.file.name + '|' + x.file.size) : ('url|' + (x.url || x.uploadedUrl || ''));
-        if (k === clave && (x.dup || 0) > max) max = x.dup || 0;
-      });
-      return max + 1;
+    // Identifica una foto por su contenido, no por su nombre en Storage. Es la
+    // misma vara que usa Mercado Libre: dos archivos idénticos son UNA foto para
+    // ellos, por más que se suban con nombres distintos.
+    function claveFoto(im) {
+      return im.file ? (im.file.name + '|' + im.file.size) : ('url|' + (im.url || im.uploadedUrl || im.preview || ''));
     }
-    function duplicateImage(i) {
-      const im = selectedImages[i];
-      if (!im) return;
-      const copia = { preview: im.preview, existing: false, dup: _proximoDup(im) };
-      if (im.file) { copia.file = im.file; }
-      else { copia.existing = true; copia.url = im.url || im.uploadedUrl; }
-      selectedImages.splice(i + 1, 0, copia);
-      renderImagePreviews();
-      const fc = document.getElementById('fotoCounter'); if (fc && typeof actualizarFotoCounter === 'function') actualizarFotoCounter();
+    function fotosUnicas() {
+      return new Set(selectedImages.map(claveFoto)).size;
+    }
+    function _proximoDup(im) {
+      const clave = claveFoto(im);
+      let max = 0;
+      selectedImages.forEach(x => { if (claveFoto(x) === clave && (x.dup || 0) > max) max = x.dup || 0; });
+      return max + 1;
     }
     function removeImage(i) { selectedImages.splice(i, 1); renderImagePreviews() }
     function handleDragStart(e, i) { draggedImageIndex = i; e.target.classList.add('dragging') }
@@ -3351,8 +3350,12 @@
         // Contador de fotos: el mínimo obligatorio para publicar es 12.
         const fcEl = document.getElementById('fotoCounter');
         if (fcEl) {
-          if (fotos >= 12) fcEl.innerHTML = `<span class="b" style="color:var(--ok)"><i class="fas fa-circle-check"></i> ${fotos} fotos — cumple el mínimo obligatorio (12)</span>`;
-          else fcEl.innerHTML = `<span class="b" style="color:var(--bad)"><i class="fas fa-triangle-exclamation"></i> ${fotos} de 12 fotos — faltan ${12 - fotos} para poder publicar</span>`;
+          // Se cuentan las ÚNICAS: Mercado Libre descarta las repetidas, así que
+          // decir "12 fotos" con cuatro iguales sería mentirle al agente.
+          const unicas = fotosUnicas(), repes = fotos - unicas;
+          const aviso = repes ? ` <span style="color:var(--bad)">· ${repes} repetida${repes > 1 ? 's' : ''}, Mercado Libre las cuenta como una</span>` : '';
+          if (unicas >= 12) fcEl.innerHTML = `<span class="b" style="color:var(--ok)"><i class="fas fa-circle-check"></i> ${unicas} fotos distintas — cumple el mínimo (12)</span>${aviso}`;
+          else fcEl.innerHTML = `<span class="b" style="color:var(--bad)"><i class="fas fa-triangle-exclamation"></i> ${unicas} de 12 fotos distintas — faltan ${12 - unicas}</span>${aviso}`;
         }
         updateFichaCounters();
       } catch (e) { /* la calidad nunca debe romper el form */ }
@@ -3432,9 +3435,13 @@
     async function handleSaveProperty(e) {
       e.preventDefault();
       if (!currentUser) { alert('Debes iniciar sesión'); return }
-      if (selectedImages.length < 12) {
-        const faltan = 12 - selectedImages.length;
-        alert('Se necesitan al menos 12 fotos para publicar. Tenés ' + selectedImages.length + ' — faltan ' + faltan + '.');
+      const _unicas = fotosUnicas();
+      if (_unicas < 12) {
+        const faltan = 12 - _unicas;
+        const repes = selectedImages.length - _unicas;
+        alert('Se necesitan al menos 12 fotos DISTINTAS para publicar.\n\nTenés ' + selectedImages.length + ' cargadas' +
+              (repes ? ', pero ' + repes + ' están repetidas: Mercado Libre descarta las iguales y solo cuenta ' + _unicas + '.' : '.') +
+              '\nFaltan ' + faltan + '.');
         var _sec = document.getElementById('sec5'); if (_sec) _sec.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }

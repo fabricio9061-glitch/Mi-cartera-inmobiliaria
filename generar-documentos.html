@@ -89,10 +89,13 @@
     .hint{ font-size:.76rem; color:var(--muted); margin-top:5px; }
   </style>
 <style>
-  /* Área segura superior (isla dinámica / notch) en toda la herramienta */
-  body{ padding-top: env(safe-area-inset-top, 0px); }
+  /* Área segura superior (isla dinámica / notch).
+     El margen lo reserva EL HEADER, no el body. Antes el body lo empujaba y una
+     tercera regla se lo quitaba al header para no duplicar el espacio — pero el
+     header es sticky: al fijarse arriba sale del padding del body y quedaba
+     directamente abajo de la hora y los iconos del sistema. Poniéndolo en el
+     header funciona en las dos situaciones y no hay nada que duplicar. */
   .fh, header, .app-header, .topbar{ padding-top: env(safe-area-inset-top, 0px); }
-  body > .fh, body > header{ padding-top: 0; }
 </style>
 </head>
 <body>
@@ -333,13 +336,23 @@
         // El artículo tiene que concordar: antes decía "el" siempre y salía "el Sra.".
         encabezado = (f.trato==='Sra.' ? 'la ' : 'el ')+f.trato+' '+f.nombre+(f.ci?', CI '+f.ci:'');
       } else {
-        // Determinar "los Sres." / "las Sras." / "los Sres. y Sras."
         var soloSr = firmantes.every(function(x){return x.trato==='Sr.';});
         var soloSra = firmantes.every(function(x){return x.trato==='Sra.';});
-        var trato = soloSra ? 'las Sras.' : (soloSr ? 'los Sres.' : 'los Sres. y Sras.');
-        var lista = firmantes.map(function(x){ return x.nombre+(x.ci?', CI '+x.ci:''); });
-        var ultimo = lista.pop();
-        encabezado = trato+' '+lista.join(', ')+' y '+ultimo;
+        var lista;
+        if (soloSr || soloSra) {
+          // Todos con el mismo tratamiento: se dice una vez y siguen los nombres.
+          lista = firmantes.map(function(x){ return x.nombre+(x.ci?', CI '+x.ci:''); });
+          var ult = lista.pop();
+          encabezado = (soloSra ? 'las Sras. ' : 'los Sres. ')+lista.join(', ')+' y '+ult;
+        } else {
+          // Mixto: cada uno con su artículo y su tratamiento. "los Sres. y Sras."
+          // es fórmula de grupo y para dos personas se lee mal.
+          lista = firmantes.map(function(x){
+            return (x.trato==='Sra.' ? 'la ' : 'el ')+x.trato+' '+x.nombre+(x.ci?', CI '+x.ci:'');
+          });
+          var ultM = lista.pop();
+          encabezado = lista.join(', ')+' y '+ultM;
+        }
       }
       var verbo = firmantes.length>1 ? 'realizaron en conjunto el pago' : 'realizó el pago';
       var montoTxt = fmtMonto(monto, moneda);
