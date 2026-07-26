@@ -754,8 +754,8 @@
       </a>
     </div>
     <nav class="mv-side-nav">
-      <button class="mv-side-item" onclick="closeSideMenu();showMyProfile()"><i class="fas fa-user"></i> Mi Perfil</button>
-      <a class="mv-side-item" href="finanzas.html"><i class="fas fa-wallet"></i> Mis Finanzas</a>
+      <button class="mv-side-item mv-side-dup" onclick="closeSideMenu();showMyProfile()"><i class="fas fa-user"></i> Mi Perfil</button>
+      <a class="mv-side-item mv-side-dup" href="finanzas.html"><i class="fas fa-wallet"></i> Mis Finanzas</a>
 
       <div class="mv-side-group">Mi trabajo</div>
       <a class="mv-side-item" href="agenda.html"><i class="fas fa-calendar-alt"></i> Mi Agenda</a>
@@ -763,18 +763,24 @@
       <a class="mv-side-item" href="mapa-cierres.html"><i class="fas fa-map-location-dot"></i> Mapa de cierres</a>
 
       <div class="mv-side-group">Calculadoras</div>
-      <a class="mv-side-item" href="tasador.html"><i class="fas fa-calculator"></i> Tasador</a>
-      <a class="mv-side-item" href="gastos.html"><i class="fas fa-file-invoice-dollar"></i> Gastos y comisiones</a>
-      <a class="mv-side-item" href="ganancias.html"><i class="fas fa-sack-dollar"></i> Mis ganancias</a>
-      <a class="mv-side-item" href="desarrollo.html"><i class="fas fa-ruler-combined"></i> Calculadora de terrenos</a>
+      <div class="mv-side-duo">
+        <a class="mv-side-item" href="tasador.html"><i class="fas fa-calculator"></i> Tasador</a>
+        <a class="mv-side-item" href="gastos.html"><i class="fas fa-file-invoice-dollar"></i> Gastos</a>
+        <a class="mv-side-item" href="ganancias.html"><i class="fas fa-sack-dollar"></i> Mis ganancias</a>
+        <a class="mv-side-item" href="desarrollo.html"><i class="fas fa-ruler-combined"></i> Terrenos</a>
+      </div>
 
       <div class="mv-side-group">Recompensas y formación</div>
-      <a class="mv-side-item" href="recompensas.html"><i class="fas fa-trophy"></i> Recompensas</a>
-      <a class="mv-side-item" href="academy.html"><i class="fas fa-graduation-cap"></i> Malavé Academy</a>
+      <div class="mv-side-duo">
+        <a class="mv-side-item" href="recompensas.html"><i class="fas fa-trophy"></i> Recompensas</a>
+        <a class="mv-side-item" href="academy.html"><i class="fas fa-graduation-cap"></i> Academy</a>
+      </div>
 
       <div class="mv-side-group">Recursos</div>
-      <a class="mv-side-item" href="documentos.html"><i class="fas fa-folder-open"></i> Documentos</a>
-      <a class="mv-side-item" href="cuentas.html"><i class="fas fa-key"></i> Cuentas de portales</a>
+      <div class="mv-side-duo">
+        <a class="mv-side-item" href="documentos.html"><i class="fas fa-folder-open"></i> Documentos</a>
+        <a class="mv-side-item" href="cuentas.html"><i class="fas fa-key"></i> Cuentas</a>
+      </div>
 
       <div class="mv-side-group mv-side-admin hidden" id="mvSideAdminGroup">Administración</div>
       <button class="mv-side-item mv-side-admin hidden" id="mvSideAdmin" onclick="closeSideMenu();showAdmin()"><i class="fas fa-shield-halved"></i> Panel de Administración <span class="mv-pend-badge" id="mvPendBadge" style="display:none"></span></button>
@@ -849,7 +855,29 @@
     .mv-pa-actions .ed:hover{ border-color:var(--accent,#C9A227); color:var(--accent,#C9A227); }
     .mv-pa-actions .de{ color:#c0392b; }
     .mv-pa-actions .de:hover{ background:#fff0ee; border-color:#e3a9a2; }
-    @media (max-width:560px){ .mv-side-head{ padding:18px 16px; } .mv-side-item{ font-size:1rem; padding:14px; } }
+    @media (max-width:560px){
+      /* ===== Menú compacto en celular =====
+         Diecisiete filas a lo ancho obligaban a scrollear todo el panel. Las
+         herramientas (calculadoras, formación, recursos) pasan a dos columnas:
+         son etiquetas cortas y entran de a pares sin apretarse. Las secciones de
+         trabajo y administración quedan a lo ancho porque son las que más se usan
+         y conviene que sigan siendo blancos grandes. */
+      .mv-side-head{ padding:16px 16px; }
+      .mv-side-nav{ padding:8px 10px 20px; }
+      .mv-side-item{ font-size:.94rem; padding:11px 12px; gap:11px; }
+      .mv-side-item i{ width:30px; height:30px; font-size:.85rem; }
+      .mv-side-group{ padding:13px 12px 5px; font-size:.66rem; }
+      .mv-side-sep{ margin:8px 12px; }
+
+      .mv-side-duo{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+      .mv-side-duo .mv-side-item{ font-size:.86rem; padding:10px 9px; gap:8px; }
+      .mv-side-duo .mv-side-item i{ width:26px; height:26px; font-size:.78rem; }
+    }
+    /* "Mi Perfil" y "Mis Finanzas" salen del menú solo donde la barra inferior
+       los cubre. En escritorio la barra es display:none y el menú es la ÚNICA
+       navegación que queda: sacarlos ahí dejaba el perfil sin ninguna puerta.
+       El corte es 640px, el mismo de .mv-bottombar, no el de la compactación. */
+    @media (max-width:640px){ .mv-side-dup{ display:none; } }
   </style>
   <!-- ===== Modal: dejar testimonio ===== -->
   <div class="testi-modal" id="testimonioModal">
