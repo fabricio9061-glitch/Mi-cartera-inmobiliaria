@@ -1320,6 +1320,51 @@ async function notificarFichaIncompleta(ref, id, p, item, token) {
   } catch (e) { logger.warn(`[fichaIncompleta] ${e.response ? e.response.status : e.message}`); }
 }
 
+// ============================================================
+// MAPEO DE FOTOS  url de origen -> id de la foto en Mercado Libre
+// ------------------------------------------------------------
+// Por qué existe: ML CACHEA LAS IMÁGENES POR SU URL DE ORIGEN. Si en una
+// actualización le volvés a mandar `{source: url}` de una foto que ya tiene, la
+// reconoce y no toca nada — por eso "edito y guardo" no refrescaba la galería,
+// mientras que dar de baja y republicar sí (ahí las URLs le son todas nuevas).
+//
+// El método documentado para actualizar es: mandar el ID de las fotos que se
+// conservan, y el source SOLO de las nuevas. Pero ML no devuelve la URL de
+// origen de cada foto, así que no hay con qué emparejar: hay que guardarse el
+// mapeo nosotros. Eso es `mlPics`.
+// ============================================================
+async function guardarMapaPics(ref, itemId, fuentes, headers) {
+  try {
+    const r = await axios.get(`${API}/items/${itemId}`, { headers, params: { attributes: "pictures" } });
+    const pics = (r.data && r.data.pictures) || [];
+    // ML respeta el orden en que se mandan, así que la correspondencia es posicional.
+    // Si devuelve MENOS de las que mandamos, descartó alguna (típicamente por
+    // repetida) y de ahí en adelante el emparejamiento ya no es confiable.
+    if (pics.length !== fuentes.length) {
+      logger.warn(`[FOTOS ${itemId}] se enviaron ${fuentes.length} y Mercado Libre guardó ${pics.length}.`);
+    }
+    const mlPics = [];
+    for (let i = 0; i < Math.min(pics.length, fuentes.length); i++) {
+      if (pics[i] && pics[i].id) mlPics.push({ src: fuentes[i], id: pics[i].id });
+    }
+    await ref.update({ mlPics, mlPicsAt: new Date().toISOString() });
+    return pics.length;
+  } catch (e) {
+    logger.warn(`No se pudo guardar el mapeo de fotos de ${itemId}:`, e.message);
+    return null;
+  }
+}
+
+// Arma el arreglo `pictures` de una ACTUALIZACIÓN: id para las conocidas, source
+// para las nuevas. Sin esto ML ignora el PUT por completo.
+function picturesParaUpdate(prop, pictures) {
+  const mapa = new Map((prop.mlPics || []).map((x) => [x.src, x.id]));
+  return pictures.map((pic) => {
+    const id = mapa.get(pic.source);
+    return id ? { id } : { source: pic.source };
+  });
+}
+
 async function crearAvisoML(ref, id, extra = {}, opciones = {}) {
   const LOCK_MS = 3 * 60 * 1000;
   let p = null;
@@ -1407,6 +1452,9 @@ async function crearAvisoML(ref, id, extra = {}, opciones = {}) {
       }
     }
     await setItemDescription(r.data.id, p.description, token);
+    // Se guarda el mapeo de fotos ya mismo: es lo que va a permitir que la próxima
+    // edición pueda mandar ids en vez de sources y que ML sí actualice la galería.
+    await guardarMapaPics(ref, r.data.id, (item.pictures || []).map((x) => x.source), { Authorization: `Bearer ${token}` });
     await ref.update({
       mlItemId: r.data.id,
       mlPermalink: r.data.permalink || "",
@@ -1648,8 +1696,15 @@ exports.sincronizarEdicionML = onDocumentUpdated("properties/{id}", async (event
     // o sí, y si las fotos fallan queda avisado sin tumbar lo demás.
     let fotosError = null;
     if (Array.isArray(pictures) && pictures.length) {
+      const fuentes = pictures.map((x) => x.source);
+      const carga = picturesParaUpdate(after, pictures);
+      const nuevas = carga.filter((x) => x.source).length;
       try {
-        await axios.put(`${API}/items/${after.mlItemId}`, { pictures }, { headers });
+        await axios.put(`${API}/items/${after.mlItemId}`, { pictures: carga }, { headers });
+        logger.info(`[FOTOS ${after.mlItemId}] ${carga.length} en la galería (${nuevas} nuevas, ${carga.length - nuevas} ya conocidas).`);
+        // Se relee para dejar el mapeo al día: las nuevas ahora tienen id, y si
+        // ML descartó alguna, el conteo queda registrado en el log.
+        await guardarMapaPics(ref, after.mlItemId, fuentes, headers);
       } catch (ef) {
         fotosError = resumirErrorML(ef.response?.data || ef.message);
         logger.error(`Fotos no actualizadas en ML ${after.mlItemId}:`, JSON.stringify(ef.response?.data || ef.message));
