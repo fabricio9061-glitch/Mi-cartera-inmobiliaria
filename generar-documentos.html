@@ -39,7 +39,13 @@
 
     /* Layout formulario + vista previa */
     .doc-grid{ display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start; }
-    @media(max-width:860px){ .doc-grid{ grid-template-columns:1fr; } }
+    @media(max-width:860px){
+      .doc-grid{ grid-template-columns:1fr; }
+      /* Apilado, quedarse pegada arriba no sirve para nada y aprieta la hoja. */
+      .preview-wrap{ position:static; }
+      /* A este tamaño la hoja entera es ilegible: se ofrece abrirla en grande. */
+      .preview-abrir{ display:flex; }
+    }
     .panel{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px; }
     .panel h3{ font-size:1.2rem; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
     .panel h3 i{ color:var(--gold); font-size:1rem; }
@@ -67,8 +73,13 @@
     /* Vista previa */
     .preview-wrap{ position:sticky; top:90px; }
     .preview-label{ font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:10px; display:flex; align-items:center; gap:7px; }
-    .preview{ background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 8px 30px rgba(10,20,35,.08); aspect-ratio:1/1.414; overflow:hidden; }
+    .preview{ position:relative; background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 8px 30px rgba(10,20,35,.08); aspect-ratio:1/1.414; overflow:hidden; }
     .preview iframe{ width:100%; height:100%; border:0; }
+    /* En celular el iframe se dibuja a un ancho cómodo (700px) y recién después se
+       achica entero. Si se lo pone al ancho del teléfono, el visor de PDF mete sus
+       propias barras de scroll y la hoja queda diminuta adentro de una caja negra. */
+    .preview.escalada iframe{ position:absolute; top:0; left:0; width:700px; height:990px; transform-origin:top left; }
+    .preview-abrir{ display:none; width:100%; margin-top:10px; border:1px solid var(--line); background:#fff; border-radius:10px; padding:11px; font-family:inherit; font-size:.88rem; font-weight:600; color:var(--ink,#16273f); cursor:pointer; align-items:center; justify-content:center; gap:8px; }
     .preview-empty{ display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#c3ccd6; text-align:center; padding:30px; }
     .preview-empty i{ font-size:2.4rem; margin-bottom:12px; }
 
@@ -177,9 +188,10 @@
         <!-- Vista previa -->
         <div class="preview-wrap">
           <div class="preview-label"><i class="fas fa-eye"></i> Vista previa en vivo</div>
-          <div class="preview">
+          <div class="preview" id="previewBox">
             <iframe id="previewFrame"></iframe>
           </div>
+          <button type="button" class="preview-abrir" onclick="abrirPreview()"><i class="fas fa-up-right-and-down-left-from-center"></i> Ver la hoja en grande</button>
         </div>
       </div>
     </div>
@@ -318,7 +330,8 @@
         encabezado = '_________________';
       } else if(firmantes.length===1){
         var f=firmantes[0];
-        encabezado = 'el '+f.trato+' '+f.nombre+(f.ci?', CI '+f.ci:'');
+        // El artículo tiene que concordar: antes decía "el" siempre y salía "el Sra.".
+        encabezado = (f.trato==='Sra.' ? 'la ' : 'el ')+f.trato+' '+f.nombre+(f.ci?', CI '+f.ci:'');
       } else {
         // Determinar "los Sres." / "las Sras." / "los Sres. y Sras."
         var soloSr = firmantes.every(function(x){return x.trato==='Sr.';});
@@ -436,6 +449,27 @@
     }
 
     // ===== Vista previa: renderiza el PDF real (con debounce) =====
+    // El PDF se guarda para poder abrirlo en una pestaña aparte desde el celular.
+    var _previewURI=null;
+    function abrirPreview(){
+      if(!_previewURI){ toast('Todavía no hay nada que mostrar', true); return; }
+      var w=window.open();
+      if(!w){ toast('El navegador bloqueó la ventana', true); return; }
+      w.document.write('<iframe src="'+_previewURI+'" style="position:fixed;inset:0;width:100%;height:100%;border:0"></iframe>');
+      w.document.close();
+    }
+    // Dibuja el iframe a 700px y lo achica al ancho real. Sin esto el visor de PDF
+    // del celular mete sus propias barras de scroll y la hoja queda ilegible.
+    function escalarPreview(){
+      var box=document.getElementById('previewBox'), fr=document.getElementById('previewFrame');
+      if(!box||!fr) return;
+      if(window.innerWidth>860){ box.classList.remove('escalada'); fr.style.transform=''; return; }
+      box.classList.add('escalada');
+      fr.style.transform='scale('+(box.clientWidth/700)+')';
+    }
+    window.addEventListener('resize', escalarPreview, { passive:true });
+    window.addEventListener('load', escalarPreview);
+
     var _previewTimer=null;
     function renderPreview(){
       // "En letras" al instante
@@ -448,7 +482,9 @@
         try{
           var pdf=construirPDF();
           var uri=pdf.output('datauristring');
+          _previewURI=uri;
           document.getElementById('previewFrame').src=uri;
+          escalarPreview();
         }catch(e){ console.error('preview',e); }
       }, 250);
     }
