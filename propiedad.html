@@ -98,6 +98,10 @@
   .fh, header, .app-header, .topbar{ padding-top: env(safe-area-inset-top, 0px); }
   body > .fh, body > header{ padding-top: 0; }
 </style>
+<style>
+    .pp-btn-edit{ background:#16273f; color:#fff; border:1px solid #16273f; }
+    .pp-btn-edit:hover{ background:#0f1d31; }
+  </style>
 </head>
 <body>
   <header class="pp-header">
@@ -159,6 +163,7 @@
           <button class="pp-btn pp-btn-wa" id="ppContactBtn" onclick="ppContact()"><i class="fab fa-whatsapp"></i> Contactar por WhatsApp</button>
           <button class="pp-btn pp-btn-share" onclick="ppShare()"><i class="fas fa-share-alt"></i> Compartir</button>
           <button class="pp-btn pp-btn-profile" id="ppProfileBtn" onclick="ppViewProfile()"><i class="fas fa-user"></i> Ver perfil del agente</button>
+          <button class="pp-btn pp-btn-edit" id="ppEditBtn" style="display:none" onclick="ppEditar()"><i class="fas fa-pen-to-square"></i> Editar propiedad</button>
         </div>
       </aside>
     </div>
@@ -175,6 +180,7 @@
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script>
     const firebaseConfig = {
@@ -220,6 +226,7 @@
         }
         render();
         countView(id);
+        chequearPermisos();
       } catch (e) { console.error('Error:', e); showError() }
     }
 
@@ -381,6 +388,23 @@
       else { navigator.clipboard.writeText(url).then(() => alert('Enlace copiado al portapapeles')) }
     }
     function ppViewProfile() { if (property.ownerId) window.open('index.html#perfil/' + property.ownerId, '_blank') }
+
+    // ===== Quién está mirando =====
+    // Cliente sin sesión: solo las opciones de contacto (consultas).
+    // Agente dueño de la propiedad o administrador: además, editar.
+    const ADMIN_EMAIL = 'fabricio9061@gmail.com';
+    function chequearPermisos() {
+      try {
+        firebase.auth().onAuthStateChanged(u => {
+          const btn = document.getElementById('ppEditBtn');
+          if (!btn || !property) return;
+          const esAdmin = u && (u.email || '').toLowerCase() === ADMIN_EMAIL;
+          const esDuenio = u && property.ownerId && u.uid === property.ownerId;
+          btn.style.display = (esAdmin || esDuenio) ? '' : 'none';
+        });
+      } catch (e) { console.warn('auth no disponible', e); }
+    }
+    function ppEditar() { if (property) window.location.href = 'propiedad-form.html?id=' + property.id; }
 
     load();
   </script>

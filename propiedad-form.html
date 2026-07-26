@@ -11,6 +11,20 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="styles.css">
   <style>
+    /* ==========================================================================
+       ESTO ARREGLA TODOS LOS STICKY DE LA PÁGINA.
+       styles.css trae `html, body { overflow-x: hidden }` para evitar el scroll
+       horizontal. El problema: overflow-x:hidden hace que el eje vertical compute
+       a `auto`, o sea que body pasa a ser un CONTENEDOR DE SCROLL — y entonces
+       ningún `position: sticky` de adentro se engancha nunca. Por eso el header,
+       la barra de calidad y el índice lateral venían scrolleando y desapareciendo.
+       `clip` recorta igual pero NO crea contenedor de scroll, así que el sticky
+       vuelve a funcionar sin perder la protección contra el scroll horizontal.
+       (Si funciona bien acá, conviene hacer el mismo cambio en styles.css: hay
+       otras pantallas con encabezados sticky que están rotos por lo mismo.)
+       ========================================================================== */
+    html, body{ overflow-x:clip; }
+
     :root{ --ink:#16273f; --paper:#f4f5f7; --card:#fff; --line:#e5e8ec; --muted:#6b7480; --gold:#C9A227; --gold-soft:rgba(201,162,39,.12); --ml:#ffe600; --ic:#ff7a00; --ok:#1e7d4f; --bad:#c0392b; }
     body{ background:var(--paper); }
 
@@ -21,7 +35,7 @@
     .pf-back:hover{ background:var(--ink); color:#fff; border-color:var(--ink); }
 
     /* ---- Barra de calidad (la firma de la página) ---- */
-    .pf-cal{ background:var(--ink); color:#fff; position:sticky; top:61px; z-index:1090; box-shadow:0 6px 18px rgba(22,39,63,.18); }
+    .pf-cal{ background:var(--ink); color:#fff; position:sticky; top:var(--pf-hdr,77px); z-index:1090; box-shadow:0 6px 18px rgba(22,39,63,.18); }
     .pf-cal-inner{ max-width:1120px; margin:0 auto; padding:10px 22px; display:grid; grid-template-columns:auto auto 1fr; gap:10px 26px; align-items:center; }
     .pf-meter{ display:flex; align-items:center; gap:10px; min-width:210px; }
     .pf-meter .dot{ width:10px; height:10px; border-radius:3px; flex:none; }
@@ -37,12 +51,13 @@
 
     /* ---- Layout ---- */
     .pf-shell{ max-width:1120px; margin:0 auto; padding:26px 22px 70px; display:grid; grid-template-columns:230px minmax(0,1fr); gap:26px; align-items:start; }
-    .pf-rail{ position:sticky; top:128px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px; }
+    .pf-rail{ position:sticky; top:var(--pf-tope,128px); max-height:calc(100vh - var(--pf-tope,128px) - 20px); overflow-y:auto; overscroll-behavior:contain; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px; }
     .pf-rail a{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:9px; color:var(--muted); font-size:.86rem; font-weight:500; text-decoration:none; transition:background .15s; }
     .pf-rail a:hover{ background:var(--paper); color:var(--ink); }
     .pf-rail .tick{ width:19px; height:19px; border-radius:50%; border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:.6rem; color:transparent; flex:none; transition:all .2s; }
     .pf-rail a.done .tick{ background:var(--ok); border-color:var(--ok); color:#fff; }
     .pf-rail a.done{ color:var(--ink); }
+    .pf-rail a.actual{ background:var(--paper); color:var(--ink); font-weight:600; box-shadow:inset 2px 0 0 var(--gold); }
 
     .pf-main h1{ font-family:'Cormorant Garamond',serif; font-size:34px; font-weight:700; color:var(--ink); margin:0 0 4px; }
     .pf-lede{ color:var(--muted); margin-bottom:22px; max-width:640px; }
@@ -228,7 +243,6 @@
       .pf-meter{ min-width:0; } .pf-meter .who{ width:auto; }
       .pf-cal-hint{ grid-column:1 / -1; font-size:.8rem; }
       .pf-sec{ padding:16px 14px 8px; }
-      .pf-cal{ top:57px; }
     }
   </style>
 <style>
@@ -284,7 +298,7 @@
 
     <div class="pf-main">
       <h1 id="ppfTitle">Nueva propiedad</h1>
-      <p class="pf-lede">Un solo formulario para los dos portales: lo que completás acá es lo que se publica en Mercado Libre y lo que viaja en el feed a InfoCasas. Los campos con <span class="fx-req">*</span> son obligatorios.</p>
+      <p class="pf-lede">Un solo formulario para los dos portales. Los campos con <span class="fx-req">*</span> son obligatorios.</p>
       <div id="propertyError" class="form-error hidden"></div>
       <form onsubmit="handleSaveProperty(event)" id="propertyForm">
         <input type="hidden" id="editingPropertyId" value=""><input type="hidden" id="previousPrice" value="">
@@ -407,9 +421,10 @@
 
     function showState(which, opts = {}) {
       ['ppfLoading', 'ppfAuth', 'ppfErr', 'ppfFormWrap'].forEach(id => document.getElementById(id).style.display = 'none');
-      document.getElementById(which).style.display = which === 'ppfFormWrap' ? 'block' : 'flex';
+      document.getElementById(which).style.display = which === 'ppfFormWrap' ? 'grid' : 'flex';
       if (which === 'ppfAuth') { if (opts.title) document.getElementById('ppfAuthTitle').textContent = opts.title; if (opts.msg) document.getElementById('ppfAuthMsg').textContent = opts.msg }
       if (which === 'ppfErr' && opts.msg) document.getElementById('ppfErrMsg').textContent = opts.msg;
+      if (typeof medirTope === 'function') setTimeout(medirTope, 0);
     }
 
     function initDepartamentos() {
@@ -3328,9 +3343,9 @@
         document.getElementById('calHint').textContent = hint;
 
         // Ticks del índice lateral
-        const ticks = { 1: true, 2: !!(_v('propDepartamento') && _v('propCiudad')) && pin,
+        const ticks = { 1: !!_v('propRealEstateType'), 2: !!(_v('propDepartamento') && _v('propCiudad')) && pin,
           3: dorms && banos && areaT && areaP, 4: typedLlenos > 1 || tildadas > 0,
-          5: fotos >= 3, 6: titulo >= 30, 7: precio, 8: true };
+          5: fotos >= 12, 6: titulo >= 30 && desc >= 150, 7: precio, 8: !!_v('propWhatsapp') };
         document.querySelectorAll('#pfRail a').forEach(a => a.classList.toggle('done', !!ticks[a.dataset.rail]));
 
         // Contador de fotos: el mínimo obligatorio para publicar es 12.
@@ -3342,6 +3357,59 @@
         updateFichaCounters();
       } catch (e) { /* la calidad nunca debe romper el form */ }
     }
+    // Resalta en el índice lateral la sección que estás mirando. Sin esto el índice
+    // es una lista de ocho tildes verdes que no te dice dónde estás parado.
+    // El tope del índice depende de dos barras fijas que cambian de alto según el
+    // ancho (el consejo de la barra navy envuelve a dos renglones en pantallas
+    // medianas). Medirlas es más confiable que un número escrito a mano.
+    function medirTope() {
+      const h = document.querySelector('.pf-header'), c = document.querySelector('.pf-cal');
+      if (!h) return;
+      const hdr = h.offsetHeight;
+      // Si esto corre antes de que el navegador tenga layout (o con el header
+      // todavía oculto), offsetHeight da 0 y escribiríamos un tope de 10px que
+      // rompe el sticky del índice y el umbral del resaltado. Mejor no tocar nada
+      // y esperar a la próxima medición.
+      if (!hdr) return;
+      const cal = (c && c.offsetParent !== null) ? c.offsetHeight : 0;
+      const raiz = document.documentElement.style;
+      raiz.setProperty('--pf-hdr', hdr + 'px');          // dónde frena la barra de calidad
+      raiz.setProperty('--pf-tope', (hdr + cal + 10) + 'px'); // dónde frena el índice
+    }
+    window.addEventListener('resize', medirTope, { passive: true });
+    window.addEventListener('load', medirTope);
+    // El header contiene el logo: hasta que la imagen no carga, su alto todavía no
+    // es el definitivo y la medición saldría corta.
+    document.querySelectorAll('.pf-header img').forEach(im => {
+      if (!im.complete) im.addEventListener('load', medirTope, { once: true });
+    });
+
+    let _spyT = null;
+    function railSpy() {
+      if (_spyT) return;
+      _spyT = requestAnimationFrame(() => {
+        _spyT = null;
+        const links = [...document.querySelectorAll('#pfRail a')];
+        if (!links.length) return;
+        const ids = links.map(a => a.dataset.rail);
+        // El umbral es el borde inferior de las barras fijas, no un número
+        // inventado: una sección "empieza" cuando asoma debajo de ellas.
+        const tope = (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--pf-tope'), 10) || 128) + 32;
+        let actual = ids[0];
+        ids.forEach(id => {
+          const sec = document.getElementById('sec' + id);
+          if (sec && sec.getBoundingClientRect().top <= tope) actual = id;
+        });
+        // Al final de la página ya no queda scroll, así que la última sección
+        // nunca llegaría a cruzar el umbral y quedaba sin marcar para siempre.
+        // Si estás abajo del todo, la última es la que estás mirando.
+        const fin = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+        if (fin) actual = ids[ids.length - 1];
+        links.forEach(a => a.classList.toggle('actual', a.dataset.rail === actual));
+      });
+    }
+    window.addEventListener('scroll', railSpy, { passive: true });
+
     let _calT = null;
     function calidadDebounced() { clearTimeout(_calT); _calT = setTimeout(calidadRecalc, 180); }
 
