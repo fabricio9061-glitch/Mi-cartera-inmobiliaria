@@ -263,6 +263,17 @@
     .cp-ev-chip{ background:rgba(255,255,255,.13); color:#fff; font-size:.8rem; font-weight:600; padding:5px 11px; border-radius:20px; white-space:nowrap; }
     .cp-ev-chip i{ color:var(--gold); margin-right:5px; }
     .cp-hero-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+    .cp-btn-lista{ background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.25); }
+    .cp-btn-lista:hover{ background:rgba(255,255,255,.2); }
+    .cp-btn-lista.on{ background:rgba(201,162,39,.2); border-color:var(--gold); color:var(--gold); }
+    .cp-lista{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-top:12px; font-size:.8rem; color:rgba(255,255,255,.72); }
+    .cp-lista b{ color:#fff; font-weight:600; }
+    .cp-lista .cp-ag{ display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.1); border-radius:99px; padding:4px 11px 4px 4px; }
+    .cp-lista .cp-ag i{ width:20px; height:20px; border-radius:50%; background:var(--gold); color:var(--navy); display:flex; align-items:center; justify-content:center; font-size:.6rem; font-style:normal; font-weight:700; }
+    /* Quiénes lo tienen, también en la tarjeta: se ve de un vistazo sin entrar. */
+    .cc-enlista{ display:inline-flex; align-items:center; gap:4px; margin-left:9px; }
+    .cc-enlista span{ width:17px; height:17px; border-radius:50%; background:var(--navy); color:#fff; font-size:.56rem; font-weight:700; display:inline-flex; align-items:center; justify-content:center; border:1.5px solid #fff; margin-left:-6px; }
+    .cc-enlista span:first-child{ margin-left:0; }
     /* Resumen rápido (panel claro dentro del hero) */
     .cp-summary{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:15px 18px; min-width:280px; align-self:flex-start; }
     .cp-summary-head{ font-size:.82rem; font-weight:600; color:#fff; display:flex; align-items:center; gap:8px; margin-bottom:14px; }
@@ -563,7 +574,9 @@
             <div class="cp-hero-actions">
               <a class="cp-btn cp-btn-wa" id="cpWhatsapp" target="_blank"><i class="fab fa-whatsapp"></i> WhatsApp</a>
               <button class="cp-btn cp-btn-edit" id="cpEditBtn"><i class="fas fa-edit"></i> Editar cliente</button>
+              <button class="cp-btn cp-btn-lista" id="cpListaBtn" onclick="toggleMiLista()"></button>
             </div>
+            <div class="cp-lista" id="cpLista"></div>
           </div>
           <div class="cp-summary" id="cpSummary" style="display:none">
             <div class="cp-summary-head"><i class="fas fa-chart-simple"></i> Resumen rápido</div>
@@ -861,6 +874,13 @@
     }
 
     // Tiempo relativo en español ("hace 2 días")
+    // Fecha de alta, corta y sin hora: es un dato de referencia, no un timestamp.
+    function fechaCorta(iso){
+      if (!iso) return '';
+      var d = new Date(iso);
+      if (isNaN(d)) return '';
+      return d.toLocaleDateString('es-UY', { day:'numeric', month:'short', year:'numeric' });
+    }
     function relTime(iso){
       if (!iso) return '';
       var then = new Date(iso).getTime(); if (isNaN(then)) return '';
@@ -1138,7 +1158,15 @@
       }
 
       var list = clients.filter(function(c){
-        var m = !term || (c.name||'').toLowerCase().indexOf(term)>=0 || (c.phone||'').indexOf(term)>=0 || (c.phoneNormalized||'').indexOf(term)>=0;
+        // El teléfono se compara SOLO por dígitos: guardado va como
+        // "+598 99 138 332" y el agente escribe "99138332". Comparar los textos
+        // tal cual no coincidía nunca.
+        var digitos = term.replace(/\D/g,'');
+        var telCliente = ((c.phoneNormalized||'') + ' ' + (c.phone||'') + ' ' + (c.areaCode||'')).replace(/\D/g,'');
+        var m = !term
+          || (c.name||'').toLowerCase().indexOf(term)>=0
+          || (digitos.length>=3 && telCliente.indexOf(digitos)>=0)
+          || (c.email||'').toLowerCase().indexOf(term)>=0;
         var archMatch = arf==='all' ? true : (arf==='archived' ? !!c.archived : !c.archived);
         var mio = (agenteFiltro || !misClientesOnly) || esMio(c);
         var agMatch = !agenteFiltro || (((c.createdByName||c.ownerName||c.agentName||'').toLowerCase()).indexOf(agenteFiltro) >= 0);
@@ -1170,6 +1198,8 @@
         var ini = (c.name||'?').charAt(0).toUpperCase();
         var ph = (c.phoneNormalized || c.phone || '').replace(/\D/g,'');
         var owner = c.createdByName || c.ownerName;
+        // Agentes que lo sumaron a su lista, sin contar al que lo creó.
+        var otrosEnLista = listaDe(c).filter(function(x){ return x.uid !== c.createdBy; });
         var phoneDisp = c.phoneNormalized || ((c.areaCode||'')+(c.phone||''));
         var nGest = c._gestionCount || 0;
         var gestLabel = nGest>0 ? (nGest+' gestión'+(nGest===1?'':'es')) : 'Sin gestiones';
@@ -1182,7 +1212,11 @@
         //    el cliente no está activo. Así se ven las dos cosas a la par.
         var stLabel = etapaLabel;
         var badgeClass = rs;
-        var actTxt = c._lastActivity ? ((nGest>0?'Última gestión ':'Creado ')+relTime(c._lastActivity)) : '';
+        // Antes esta línea decía "Creado" pero mostraba _lastActivity, que es el
+        // máximo entre creación, edición y gestiones. O sea que "Creado ayer"
+        // podía ser un cliente de hace meses que se tocó ayer.
+        var actTxt = c._lastActivity ? ((nGest>0?'Última gestión ':'Último movimiento ')+relTime(c._lastActivity)) : '';
+        var altaTxt = c.createdAt ? fechaCorta(c.createdAt) : '';
         // ===== ESTADO SIN CAJAS: filete lateral + línea de estado fusionada =====
         // Nada de bandas ni pestañas: el color vive en el borde izquierdo de la
         // tarjeta (escaneás la columna y ves la salud de todos) y el detalle en la
@@ -1201,8 +1235,13 @@
             '<div class="client-avatar">'+esc(ini)+'</div>' +
             '<div class="client-card-name">' +
               '<h3>'+esc(c.name||'Sin nombre')+(c.archived?'<span class="client-archived-tag">Archivado</span>':'')+'</h3>' +
-              (owner?'<div class="client-owner"><i class="fas fa-user-tie"></i> '+esc(owner)+'</div>':'') +
-              '<div style="font-size:.74rem;color:var(--gray-500);margin-top:3px"><i class="fas fa-handshake"></i> '+gestLabel+'</div>' +
+              (owner?'<div class="client-owner"><i class="fas fa-user-tie"></i> '+esc(owner)+
+                (otrosEnLista.length?'<span class="cc-enlista" title="También lo trabajan: '+escA(otrosEnLista.map(function(x){return x.nombre;}).join(', '))+'">'+
+                  otrosEnLista.slice(0,3).map(function(x){ return '<span>'+esc(iniciales(x.nombre))+'</span>'; }).join('')+
+                  (otrosEnLista.length>3?'<span>+'+(otrosEnLista.length-3)+'</span>':'')+'</span>':'')+
+                '</div>':'') +
+              '<div style="font-size:.74rem;color:var(--gray-500);margin-top:3px"><i class="fas fa-handshake"></i> '+gestLabel+
+                (altaTxt?'<span style="margin-left:9px"><i class="fas fa-calendar-plus"></i> '+altaTxt+'</span>':'')+'</div>' +
             '</div>' +
             '<span class="client-status '+badgeClass+'" role="button" title="Cambiar etapa comercial" onclick="abrirMenuEtapa(event,\''+c.id+'\')">'+esc(stLabel)+' <i class="fas fa-chevron-down"></i></span>' +
           '</div>' +
@@ -1679,6 +1718,7 @@
       if (c.createdByName||c.ownerName) meta.push('<i class="fas fa-user-tie"></i> Creado por '+esc(c.createdByName||c.ownerName));
       if (c.createdAt) meta.push('<i class="fas fa-calendar"></i> '+new Date(c.createdAt).toLocaleDateString('es-UY'));
       document.getElementById('cpMeta').innerHTML = meta.join(' &nbsp;·&nbsp; ');
+      pintarLista(c);
       renderEventStats(id);
 
       var wa = document.getElementById('cpWhatsapp');
@@ -2405,15 +2445,25 @@
       if (!texto){ showToast('Escribí algo en la nota'); return; }
       var btn = document.getElementById('cpAddNoteBtn');
       btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Agregando...';
+      var ahoraNota = new Date().toISOString();
       db.collection('clients').doc(currentProfileId).collection('notes').add({
         text: texto,
         authorId: currentUser.uid,
         authorName: (userProfile && userProfile.name) || currentUser.email || 'Agente',
-        createdAt: new Date().toISOString()
+        createdAt: ahoraNota
+      }).then(function(){
+        // Dejar una nota ES actividad. Antes no lo era: la nota vive en una
+        // subcolección y el cálculo de actividad solo mira el cliente y sus
+        // gestiones, así que el que llamaba y anotaba igual aparecía como frío.
+        return db.collection('clients').doc(currentProfileId)
+          .update({ updatedAt: ahoraNota, lastNoteAt: ahoraNota })
+          .catch(function(e){ console.warn('No se pudo marcar la actividad:', e); });
       }).then(function(){
         ta.value = '';
         showToast('Nota agregada');
         cargarNotas(currentProfileId);
+        var cc = null; for (var i=0;i<clients.length;i++){ if(clients[i].id===currentProfileId){ cc=clients[i]; break; } }
+        if (cc){ cc.updatedAt = ahoraNota; cc._lastActivity = ahoraNota; cc._diasSinContacto = 0; }
       }).catch(function(e){
         showToast('No se pudo agregar la nota'); console.error(e);
       }).finally(function(){
@@ -2553,7 +2603,70 @@
       });
     }
 
+
+    // ===== LISTA DE CLIENTES POR AGENTE (muchos a muchos) =====
+    // El cliente es de todos: cualquier agente puede trabajarle una propiedad
+    // distinta. Por eso "mi lista" NO es una transferencia — sumarlo no se lo
+    // saca a nadie. Lo que sí importa es que se vea QUIÉNES lo tienen, para que
+    // dos agentes no llamen al mismo cliente sin saberlo.
+    //
+    // `createdBy` sigue siendo el dueño histórico y no cambia nunca.
+    // `enLista` es la lista de agentes que lo sumaron.
+    function listaDe(c){ return Array.isArray(c && c.enLista) ? c.enLista : []; }
+    function estaEnMiLista(c){
+      return !!(currentUser && listaDe(c).some(function(x){ return x.uid === currentUser.uid; }));
+    }
+    function iniciales(n){
+      var p = String(n||'?').trim().split(/\s+/);
+      return ((p[0]||'?')[0] + (p.length>1 ? p[p.length-1][0] : '')).toUpperCase();
+    }
+
+    function toggleMiLista(){
+      if (!currentProfileId || !currentUser) return;
+      var c = null; for (var i=0;i<clients.length;i++){ if(clients[i].id===currentProfileId){ c=clients[i]; break; } }
+      if (!c) return;
+      var yaEsta = estaEnMiLista(c);
+      var mio = { uid: currentUser.uid, nombre: (userProfile && userProfile.name) || currentUser.email || 'Agente', desde: new Date().toISOString() };
+      var nueva = yaEsta
+        ? listaDe(c).filter(function(x){ return x.uid !== currentUser.uid; })
+        : listaDe(c).concat([mio]);
+      var btn = document.getElementById('cpListaBtn');
+      if (btn) btn.disabled = true;
+      db.collection('clients').doc(currentProfileId).update({ enLista: nueva })
+        .then(function(){
+          c.enLista = nueva;
+          showToast(yaEsta ? 'Lo sacaste de tu lista' : 'Agregado a tus clientes');
+          pintarLista(c);
+          renderClients();
+        })
+        .catch(function(e){ console.error(e); showToast('No se pudo guardar'); })
+        .finally(function(){ if (btn) btn.disabled = false; });
+    }
+
+    function pintarLista(c){
+      var btn = document.getElementById('cpListaBtn');
+      var caja = document.getElementById('cpLista');
+      if (!btn || !caja) return;
+      var esta = estaEnMiLista(c);
+      btn.className = 'cp-btn cp-btn-lista' + (esta ? ' on' : '');
+      btn.innerHTML = esta
+        ? '<i class="fas fa-check"></i> En mis clientes'
+        : '<i class="fas fa-user-plus"></i> Agregar a mis clientes';
+      var l = listaDe(c);
+      var creador = c.createdByName || c.ownerName || '';
+      // El creador se nombra aparte: es el dueño, no un agregado más.
+      var otros = l.filter(function(x){ return x.uid !== c.createdBy; });
+      caja.innerHTML = (creador ? '<span>Cargado por <b>'+esc(creador)+'</b>'+(c.createdAt?' el '+fechaCorta(c.createdAt):'')+'</span>' : '') +
+        (otros.length
+          ? '<span style="margin-left:6px">· También lo trabajan:</span>' +
+            otros.map(function(x){ return '<span class="cp-ag"><i>'+esc(iniciales(x.nombre))+'</i>'+esc(x.nombre)+'</span>'; }).join('')
+          : '');
+    }
+
     function esMio(c){
+      // "Mis clientes" deja de ser solo "los que subí": incluye los que sumé a mi
+      // lista, que es donde viven los clientes compartidos con otros agentes.
+      if (estaEnMiLista(c)) return true;
       if (currentUser && (c.createdBy === currentUser.uid || c.agentId === currentUser.uid)) return true;
       var miNombreLC = ((userProfile && userProfile.name) || '').trim().toLowerCase();
       var duenoLC = (c.createdByName || c.ownerName || c.agentName || '').trim().toLowerCase();
