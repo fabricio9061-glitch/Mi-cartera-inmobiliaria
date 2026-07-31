@@ -64,6 +64,12 @@
     .crm-stat-trend span{ color:var(--gray-400); font-weight:400; }
 
     /* Toolbar */
+    .crm-filtros{ display:flex; flex-wrap:wrap; gap:9px; align-items:center; padding:12px 14px; margin-bottom:14px; background:var(--gray-50,#f7f8fa); border:1px solid var(--gray-200); border-radius:12px; }
+    .crm-mas{ cursor:pointer; white-space:nowrap; }
+    .crm-mas.on{ background:var(--navy); color:#fff; border-color:var(--navy); }
+    .crm-mas span:not(:empty){ display:inline-flex; align-items:center; justify-content:center; min-width:17px; height:17px; padding:0 4px; margin-left:6px; border-radius:99px; background:var(--gold); color:var(--navy); font-size:.66rem; font-weight:700; }
+    .crm-limpiar{ border:none; background:none; color:var(--gray-500); font-family:inherit; font-size:.82rem; font-weight:600; cursor:pointer; padding:6px 10px; }
+    .crm-limpiar:hover{ color:var(--navy); text-decoration:underline; }
     .crm-toolbar{ display:flex; gap:12px; margin-bottom:22px; flex-wrap:wrap; align-items:center; }
     .crm-search{ flex:1; min-width:220px; position:relative; }
     .crm-search i{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--gray-400); }
@@ -98,7 +104,7 @@
     .client-sub-etapa{ font-size:.72rem; color:var(--gray-500); margin:-4px 0 10px; padding-left:2px; display:flex; align-items:center; gap:6px; }
     .client-sub-etapa i{ opacity:.7; }
     /* ===== Estado sin cajas: filete izquierdo + línea de estado ===== */
-    .client-card{ border-left:3px solid transparent; }
+    .client-card{ border-left:3px solid #10b981; }   /* al día */
     .client-card.bl-enfriando{ border-left-color:#f59e0b; }
     .client-card.bl-dormido{ border-left-color:#dc2626; }
     .client-card.bl-pausa{ border-left-color:#d97706; }
@@ -120,7 +126,21 @@
     .client-sub-etapa i{ opacity:.7; }
     /* Modal "cliente dormido" */
     .dormido-overlay{ position:fixed; inset:0; background:rgba(15,25,40,.55); z-index:3300; display:flex; align-items:center; justify-content:center; padding:16px; }
-    .dormido-box{ background:#fff; border-radius:16px; max-width:400px; width:100%; padding:22px; box-shadow:0 20px 60px rgba(10,20,35,.35); }
+    .dormido-box{ background:#fff; border-radius:16px; max-width:400px; width:100%; padding:22px; box-shadow:0 20px 60px rgba(10,20,35,.35); max-height:88vh; overflow-y:auto; }
+    /* El selector del traspaso: etiqueta arriba y campo a lo ancho. En línea, con
+       nombres largos de agente, el desplegable quedaba de dos centímetros. */
+    .trs-sel{ display:block; margin-bottom:14px; }
+    .trs-sel label{ display:block; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em;
+      color:var(--gray-500); font-weight:700; margin-bottom:6px; }
+    .trs-sel select{ width:100%; padding:11px 12px; border:1px solid var(--gray-300); border-radius:10px;
+      font-family:inherit; font-size:.92rem; color:var(--navy); background:#fff; cursor:pointer; }
+    .trs-sel select:focus{ outline:none; border-color:var(--gold-2); }
+    @media (max-width:560px){
+      .dormido-overlay{ align-items:flex-end; padding:0; }
+      /* Hoja desde abajo: en el teléfono es lo que queda al alcance del pulgar. */
+      .dormido-box{ border-radius:18px 18px 0 0; max-width:none; max-height:90vh; padding:20px 18px calc(20px + env(safe-area-inset-bottom,0px)); }
+      .trs-sel select{ font-size:16px; }  /* menos de 16px hace que iOS haga zoom al tocar */
+    }
     .dormido-head{ font-size:1.02rem; font-weight:700; color:var(--navy); display:flex; align-items:center; gap:8px; margin-bottom:8px; }
     .dormido-head i{ color:#6366f1; }
     .dormido-p{ font-size:.88rem; color:var(--gray-600); line-height:1.5; margin:0 0 16px; }
@@ -185,6 +205,97 @@
     .client-activity.urgente{ color:#b91c1c; font-weight:600; }
     .client-activity.urgente i{ color:#dc2626; }
     /* Banner "clientes para recontactar" */
+    /* Barra del traspaso en lote. Las clases se usaban sin estar definidas: el
+       botón quedaba suelto contra el borde, sin fondo ni separación. */
+    .crm-banner{ display:flex; align-items:center; gap:12px; border:1px solid var(--gray-200);
+      border-radius:12px; padding:12px 16px; margin-bottom:18px; font-size:.86rem; color:var(--navy); }
+    .crm-banner > i{ flex:none; font-size:1rem; }
+    .crm-banner-btn{ flex:none; border:none; background:var(--navy); color:#fff; border-radius:9px;
+      padding:9px 16px; font-family:inherit; font-size:.82rem; font-weight:600; cursor:pointer;
+      white-space:nowrap; transition:opacity .15s; }
+    .crm-banner-btn:hover{ opacity:.88; }
+    @media (max-width:560px){
+      /* Apilado: en el teléfono el texto y el botón no entran en la misma línea
+         y el botón terminaba cortado contra el borde. */
+      .crm-banner{ flex-wrap:wrap; padding:12px 14px; }
+      .crm-banner-btn{ width:100%; padding:11px; }
+    }
+    /* ===== Tarjeta compacta ===== */
+    .cc-grupo{ grid-column:1/-1; display:flex; align-items:center; gap:9px; margin:6px 0 2px; }
+    .cc-grupo span{ font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--gray-500); }
+    .cc-grupo b{ font-size:.7rem; font-weight:600; color:var(--gray-400); }
+    .cc-grupo i{ flex:1; height:1px; background:var(--gray-200); }
+    .cc-top{ display:flex; align-items:center; gap:11px; }
+    /* El chip de etapa vuelve a la tarjeta: el encabezado del grupo puede quedar
+       fuera de pantalla al scrollear y ahí la tarjeta sola no decía en qué etapa está. */
+    .cc-etapa{ font-size:.68rem; font-weight:600; padding:2px 8px; border-radius:99px; white-space:nowrap;
+      background:var(--gray-100); color:var(--gray-600); cursor:pointer; transition:filter .13s; }
+    .cc-etapa:hover{ filter:brightness(.94); }
+    .cc-etapa i{ font-size:.5rem; opacity:.6; margin-left:2px; }
+    .cc-etapa.cartera{ background:#ede9fe; color:#6d28d9; }
+    .cc-etapa.negociacion{ background:#fef3c7; color:#92400e; }
+    .cc-etapa.visita{ background:#dbeafe; color:#1d4ed8; }
+    .cc-etapa.cerrado{ background:#dcfce7; color:#15803d; }
+    .cc-etapa.perdido{ background:#fee2e2; color:#991b1b; }
+    .cc-etapa.singestion, .cc-etapa.sinavance{ background:#fef3c7; color:#92400e; }
+    .cc-meta i{ margin-right:3px; opacity:.7; }
+    .cc-id{ flex:1; min-width:0; }
+    .cc-id h3{ font-size:.98rem; font-weight:600; color:var(--navy); margin:0; display:flex; align-items:center; gap:7px; }
+    .cc-tel{ font-size:.82rem; color:var(--gray-600); margin-top:3px; white-space:nowrap;
+      overflow:hidden; text-overflow:ellipsis; }
+    .cc-meta{ font-size:.73rem; color:var(--gray-400); margin-top:2px; line-height:1.4;
+      display:flex; flex-wrap:wrap; gap:0 4px; }
+    .cc-meta > span{ white-space:nowrap; }
+    .cc-ico{ flex:none; width:32px; height:32px; border:none; background:none; border-radius:8px; color:var(--gray-400);
+      display:flex; align-items:center; justify-content:center; font-size:.95rem; cursor:pointer; transition:background .13s, color .13s; text-decoration:none; }
+    .cc-ico:hover{ background:var(--gray-100); color:var(--navy); }
+    .cc-ico.wa{ color:#16a34a; font-size:1.1rem; }
+    .cc-ico.wa:hover{ background:#eafaf0; color:#12833c; }
+    /* Barra de pulso: solo aparece cuando hay algo que hacer. */
+    .cc-pulso{ display:flex; align-items:center; gap:8px; border-radius:9px; padding:8px 11px; margin-top:10px; font-size:.8rem; line-height:1.35; }
+    .cc-pulso span{ flex:1; min-width:0; }
+    .cc-pulso u{ font-weight:600; text-decoration:underline; white-space:nowrap; cursor:pointer; }
+    .cc-pulso.enfriando{ background:#fffbeb; color:#b45309; }
+    .cc-pulso.dormido{ background:#fef2f2; color:#a2321f; }
+    .cc-pulso.pausa{ background:var(--gray-100); color:var(--gray-600); }
+    .cc-pulso.externo{ background:#eef2f7; color:#475569; }
+    .cc-pulso.perdido{ background:#fef2f2; color:#991b1b; }
+    .cc-pulso.cerrado{ background:#eafaf0; color:#15803d; }
+    .cc-nota{ font-size:.79rem; color:var(--gray-500); margin-top:9px; line-height:1.4;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    /* El pulso queda pegado abajo: con las tarjetas a la misma altura, el aire
+       sobrante va al medio y no entre el pulso y el borde. */
+    .cc-nota, .cc-pulso{ flex:none; }
+    .cc-top{ margin-bottom:auto; }
+    /* Menú de tres puntos */
+    .cc-menu{ position:fixed; z-index:3400; background:#fff; border:1px solid var(--gray-200); border-radius:12px;
+      box-shadow:0 14px 40px rgba(10,20,35,.18); padding:6px; min-width:186px; }
+    .cc-menu button{ width:100%; display:flex; align-items:center; gap:10px; border:none; background:none; text-align:left;
+      font-family:inherit; font-size:.86rem; color:var(--gray-700); padding:10px 11px; border-radius:8px; cursor:pointer; }
+    .cc-menu button:hover{ background:var(--gray-100); color:var(--navy); }
+    .cc-menu button i{ width:15px; text-align:center; color:var(--gray-400); }
+    .cc-menu button.peligro{ color:#c0392b; }
+    .cc-menu button.peligro i{ color:#c0392b; }
+    @media (max-width:560px){
+      /* Hoja desde abajo, al alcance del pulgar. */
+      .cc-menu{ top:auto!important; left:0!important; bottom:0; width:100%; min-width:0;
+        border-radius:16px 16px 0 0; padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px)); }
+      .cc-menu button{ padding:14px 13px; font-size:.94rem; }
+      .cc-ico{ width:38px; height:38px; }
+    }
+    .crm-banner-btn.ghost{ background:#fff; color:var(--navy); border:1px solid var(--gray-300); }
+    .crm-banner-btn.ghost:hover{ border-color:var(--navy); opacity:1; }
+    /* Modo selección: la tarjeta se marca con un tilde y no abre el perfil. */
+    .client-card.cc-selmodo{ padding-left:44px; }
+    .cc-check{ position:absolute; top:50%; left:14px; transform:translateY(-50%); width:22px; height:22px;
+      border:2px solid var(--gray-300); border-radius:6px; background:#fff; display:flex; align-items:center;
+      justify-content:center; color:transparent; font-size:.68rem; transition:all .13s; }
+    .client-card.cc-sel{ border-color:var(--navy); box-shadow:0 0 0 2px rgba(22,39,63,.12); }
+    .client-card.cc-sel .cc-check{ background:var(--navy); border-color:var(--navy); color:#fff; }
+    @media (max-width:560px){
+      .client-card.cc-selmodo{ padding-left:40px; }
+      .cc-check{ left:11px; width:24px; height:24px; }
+    }
     .crm-recall{ display:flex; align-items:center; gap:12px; background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px 16px; margin-bottom:18px; }
     .crm-recall i.bell{ color:#d97706; font-size:1.05rem; flex:none; }
     .crm-recall .txt{ flex:1; font-size:.86rem; color:#92400e; line-height:1.35; min-width:0; }
@@ -319,6 +430,13 @@
     .cp-note-btn:hover{ background:var(--navy-2); }
     .cp-note-btn:disabled{ opacity:.6; cursor:not-allowed; }
     .cp-notes-list{ display:flex; flex-direction:column; gap:12px; }
+    /* Los links, como botones: la URL cruda ocupaba seis renglones y desbordaba. */
+    .cp-link{ display:inline-flex; align-items:center; gap:8px; max-width:100%; background:var(--gray-50);
+      border:1px solid var(--gray-200); border-radius:10px; padding:9px 13px; margin:0 6px 6px 0;
+      font-size:.84rem; font-weight:600; color:var(--navy); text-decoration:none; transition:border-color .13s, background .13s; }
+    .cp-link:hover{ border-color:var(--gold); background:#fff; }
+    .cp-link i{ font-size:.72rem; color:var(--gold); flex:none; }
+    .cp-link span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .cp-note-item{ background:var(--gray-50); border:1px solid var(--gray-100); border-left:3px solid var(--gold); border-radius:10px; padding:12px 14px; }
     .cp-note-text{ font-size:.9rem; color:var(--gray-700); line-height:1.6; white-space:pre-wrap; margin-bottom:8px; }
     .cp-note-foot{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
@@ -515,6 +633,13 @@
 
       <div class="crm-toolbar">
         <div class="crm-search"><i class="fas fa-search"></i><input type="text" id="clientSearch" placeholder="Buscar por nombre, teléfono o @agente..." oninput="renderClients()"></div>
+        <button type="button" class="crm-filter" id="misClientesBtn" onclick="toggleMisClientes()" style="cursor:pointer;white-space:nowrap;background:var(--primary);color:#fff;border-color:var(--primary)"><i class="fas fa-users"></i> Todos los clientes</button>
+        <button type="button" class="crm-filter crm-mas" id="btnMasFiltros" onclick="toggleFiltros()"><i class="fas fa-sliders"></i> Filtros<span id="filtrosCount"></span></button>
+      </div>
+
+      <!-- Filtros secundarios: plegados. Se usan poco y en la barra principal
+           competían con el buscador, que es lo que se usa siempre. -->
+      <div class="crm-filtros" id="crmFiltros" style="display:none">
         <select class="crm-filter" id="clientStatusFilter" onchange="statFilter='all';renderClients()">
           <option value="">Todos los estados</option>
           <option value="nuevo">Nuevo</option><option value="singestion">Sin gestionar / sin avance</option><option value="contactado">Contactado</option>
@@ -537,10 +662,15 @@
           <option value="archived">Archivados</option>
           <option value="all">Todos</option>
         </select>
-        <button type="button" class="crm-filter" id="misClientesBtn" onclick="toggleMisClientes()" style="cursor:pointer;white-space:nowrap;background:var(--primary);color:#fff;border-color:var(--primary)"><i class="fas fa-users"></i> Todos los clientes</button>
+        <button type="button" class="crm-limpiar" onclick="limpiarFiltros()">Limpiar</button>
       </div>
 
-      <div class="crm-recall crm-pausa" id="crmPausa" style="display:none">
+      <div class="crm-banner" id="crmTraspaso" style="display:none;background:#eef2f7;border-color:#d6dde6">
+          <i class="fas fa-right-left" style="color:var(--navy)"></i>
+          <span id="crmTraspasoTxt" style="flex:1"></span>
+          <span id="crmTraspasoAcc" style="display:flex;gap:8px;flex-wrap:wrap"></span>
+        </div>
+        <div class="crm-recall crm-pausa" id="crmPausa" style="display:none">
         <i class="fas fa-circle-pause bell"></i>
         <div class="txt" id="crmPausaTxt"></div>
         <button id="crmPausaBtn" onclick="verPausados()">Revisarlos</button>
@@ -573,8 +703,8 @@
             <div class="cp-ev" id="cpEvents" style="display:none"></div>
             <div class="cp-hero-actions">
               <a class="cp-btn cp-btn-wa" id="cpWhatsapp" target="_blank"><i class="fab fa-whatsapp"></i> WhatsApp</a>
-              <button class="cp-btn cp-btn-edit" id="cpEditBtn"><i class="fas fa-edit"></i> Editar cliente</button>
               <button class="cp-btn cp-btn-lista" id="cpListaBtn" onclick="toggleMiLista()"></button>
+              <button class="cp-btn cp-btn-lista" id="cpMasBtn" onclick="abrirMenuPerfil(event)"><i class="fas fa-ellipsis"></i> Más</button>
             </div>
             <div class="cp-lista" id="cpLista"></div>
           </div>
@@ -588,8 +718,8 @@
     <div class="wrap cp-body">
       <div class="cp-grid">
         <div class="cp-col">
-          <div class="cp-card">
-            <h3><i class="fas fa-id-card"></i> Datos del cliente</h3>
+          <div class="cp-card" id="cpDatosCard" style="display:none">
+            <h3><i class="fas fa-link"></i> Links</h3>
             <div class="cp-fields" id="cpFields"></div>
           </div>
           <div class="cp-card" id="cpNotesCard">
@@ -779,7 +909,10 @@
       visita:       { aviso: 5,  urgente: 10 },  // pero si hay visita futura, no corre (ver abajo)
       negociacion:  { aviso: 5,  urgente: 7  },
       tasacion:     { aviso: 5,  urgente: 7  },
-      cartera:      { aviso: 15, urgente: 30 },  // el propietario no requiere charla diaria
+      // Un propietario con la propiedad publicada no necesita llamada cada dos
+      // semanas. Con aviso a los 15 días quedaba en ámbar casi toda la cartera, y
+      // una alerta que se enciende para todos deja de ser una alerta.
+      cartera:      { aviso: 30, urgente: 60 },
     };
     var PULSO_DEFAULT = { aviso: 7, urgente: 14 };
 
@@ -875,11 +1008,16 @@
 
     // Tiempo relativo en español ("hace 2 días")
     // Fecha de alta, corta y sin hora: es un dato de referencia, no un timestamp.
-    function fechaCorta(iso){
+    function fechaCorta(iso, conAnio){
       if (!iso) return '';
       var d = new Date(iso);
       if (isNaN(d)) return '';
-      return d.toLocaleDateString('es-UY', { day:'numeric', month:'short', year:'numeric' });
+      // El año solo si NO es el corriente: repetir "2026" en 162 tarjetas es ruido,
+      // y era justo lo que hacía que el renglón se partiera en dos.
+      var mismoAnio = d.getFullYear() === new Date().getFullYear();
+      var op = { day:'numeric', month:'short' };
+      if (conAnio || !mismoAnio) op.year = 'numeric';
+      return d.toLocaleDateString('es-UY', op);
     }
     function relTime(iso){
       if (!iso) return '';
@@ -1177,99 +1315,188 @@
         var matchBucket = statFilter==='all' || (statFilter==='atencion' ? paraRecontactar(c) : (enEmbudo && statBucket(rs)===statFilter));
         return m && archMatch && mio && agMatch && matchStatus && matchSit && matchBucket && (!inf || c.interest===inf);
       });
+      // ===== ORDEN =====
+      // Lo elige el agente. Antes era uno solo y fijo, y para encontrar algo había
+      // que scrollear. El único criterio implícito que se conserva es "los míos
+      // primero", y solo en el orden por actividad: en los demás mandaría sobre lo
+      // que el agente pidió y el resultado se volvería impredecible.
+      // Orden fijo por etapa comercial: los más avanzados arriba y, dentro de cada
+      // etapa, por actividad reciente. La única excepción es la vista de recontacto,
+      // donde lo que importa es quién lleva más tiempo sin que lo toquen.
+      var orden = (statFilter==='atencion') ? 'atencion' : 'etapa';
       list.sort(function(a,b){
-        var am = esMio(a) ? 0 : 1, bm = esMio(b) ? 0 : 1;
-        if (am !== bm) return am - bm;
-        if (statFilter==='atencion'){
-          // Vista de recontacto: primero el más abandonado
-          return (a._lastActivity||'').localeCompare(b._lastActivity||'');
+        if (orden==='nombre') return (a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'});
+        if (orden==='nuevos') return (b.createdAt||'').localeCompare(a.createdAt||'')
+          || (a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'});
+        if (orden==='atencion'){
+          // El más abandonado arriba, y los que ni siquiera tienen fecha al final.
+          var aa = a._lastActivity||'\uffff', ba = b._lastActivity||'\uffff';
+          return aa.localeCompare(ba) || (a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'});
         }
-        // Orden por actividad real: los que se están trabajando (o recién entran)
-        // quedan arriba; los que nadie toca van bajando solos.
-        return (b._lastActivity||'').localeCompare(a._lastActivity||'');
+        if (orden==='etapa'){
+          var ai = ESTADO_PRIORIDAD.indexOf(rollupStatus(a));
+          var bi = ESTADO_PRIORIDAD.indexOf(rollupStatus(b));
+          if (ai !== bi) return bi - ai;   // el más avanzado primero
+          return (b._lastActivity||'').localeCompare(a._lastActivity||'')
+            || (a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'});
+        }
+        // Nada de "los míos primero": era una regla invisible que partía la lista
+        // en dos grupos y hacía que el orden pareciera arbitrario. Para eso está
+        // el filtro "Mis clientes", que sí se ve.
+        var r = (b._lastActivity||'').localeCompare(a._lastActivity||'');
+        return r || (a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'});
       });
+
+      // El traspaso en lote actúa sobre lo que el admin está viendo, así que
+      // necesita la lista ya filtrada.
+      contarFiltros();
+      _clientesFiltrados = list;
+      pintarBarraTraspaso(agenteFiltro, list);
 
       var g = document.getElementById('crmGrid');
       if (!list.length){
         g.innerHTML = '<div class="crm-empty"><i class="fas fa-user-friends"></i><h3>'+(clients.length===0?'Aún no hay clientes':'Sin resultados')+'</h3><p>'+(clients.length===0?'Agregá el primero con el botón Nuevo Cliente':'Probá con otros filtros')+'</p></div>';
         return;
       }
+      // ===== TARJETA COMPACTA CON ENCABEZADOS POR ETAPA =====
+      // La lista ya venía ordenada por etapa, pero eso no se veía: se leía como
+      // desorden. Ahora cada cambio de etapa abre su encabezado con el conteo.
+      // Y de la tarjeta se fue todo lo que se repetía idéntico en las 162:
+      // el agente (salvo cuando NO sos vos), el chip de etapa (lo dice el grupo)
+      // y tres de los cuatro botones, que pasan al menú de tres puntos.
+      var etapaActual = null;
       g.innerHTML = list.map(function(c){
         var ini = (c.name||'?').charAt(0).toUpperCase();
         var ph = (c.phoneNormalized || c.phone || '').replace(/\D/g,'');
-        var owner = c.createdByName || c.ownerName;
-        // Agentes que lo sumaron a su lista, sin contar al que lo creó.
         var otrosEnLista = listaDe(c).filter(function(x){ return x.uid !== c.createdBy; });
         var phoneDisp = c.phoneNormalized || ((c.areaCode||'')+(c.phone||''));
         var nGest = c._gestionCount || 0;
-        var gestLabel = nGest>0 ? (nGest+' gestión'+(nGest===1?'':'es')) : 'Sin gestiones';
         var rs = rollupStatus(c);
         var etapaLabel = rs==='singestion' ? 'Sin gestionar' : rs==='sinavance' ? 'Sin avance' : (GESTION_ESTADO[rs] || rs);
         var sit = situacionDe(c);
-        // Dos ejes, dos indicadores separados:
-        //  - El BADGE (derecha) SIEMPRE muestra la etapa comercial. No desaparece.
-        //  - La SITUACIÓN es un chip propio (arriba izq. de la tarjeta), solo si
-        //    el cliente no está activo. Así se ven las dos cosas a la par.
-        var stLabel = etapaLabel;
-        var badgeClass = rs;
-        // Antes esta línea decía "Creado" pero mostraba _lastActivity, que es el
-        // máximo entre creación, edición y gestiones. O sea que "Creado ayer"
-        // podía ser un cliente de hace meses que se tocó ayer.
-        var actTxt = c._lastActivity ? ((nGest>0?'Última gestión ':'Último movimiento ')+relTime(c._lastActivity)) : '';
-        var altaTxt = c.createdAt ? fechaCorta(c.createdAt) : '';
-        // ===== ESTADO SIN CAJAS: filete lateral + línea de estado fusionada =====
-        // Nada de bandas ni pestañas: el color vive en el borde izquierdo de la
-        // tarjeta (escaneás la columna y ves la salud de todos) y el detalle en la
-        // línea del reloj, que se fusiona con el pulso para no repetir el dato.
-        // "Pendiente" y "al día" no se muestran: lo normal no necesita cartel.
         var pl = pulsoDe(c);
+        var altaTxt = c.createdAt ? fechaCorta(c.createdAt) : '';
+
+        // Encabezado de grupo cuando cambia la etapa.
+        var cab = '';
+        if (etapaLabel !== etapaActual){
+          etapaActual = etapaLabel;
+          var cuantos = list.filter(function(x){
+            var r = rollupStatus(x);
+            var l = r==='singestion' ? 'Sin gestionar' : r==='sinavance' ? 'Sin avance' : (GESTION_ESTADO[r] || r);
+            return l === etapaLabel;
+          }).length;
+          cab = '<div class="cc-grupo"><span>'+esc(etapaLabel)+'</span><b>'+cuantos+'</b><i></i></div>';
+        }
+
         var borde = '';
         if (sit === 'activo'){
           if (pl === 'dormido') borde = ' bl-dormido';
           else if (pl === 'enfriando') borde = ' bl-enfriando';
-        } else {
-          borde = ' bl-' + sit;
-        }
-        return '<div class="client-card'+(c.archived?' archived':'')+(sit!=='activo'?' fuera-activo':'')+borde+'" onclick="showClientProfile(\''+c.id+'\')" style="cursor:pointer;position:relative">' +
-          '<div class="client-card-top">' +
+        } else { borde = ' bl-' + sit; }
+
+        var sel = _modoSeleccion && _seleccion.has(c.id);
+        var accion = _modoSeleccion ? 'toggleSeleccion(\''+c.id+'\')' : 'showClientProfile(\''+c.id+'\')';
+
+        // La línea gris: teléfono · gestiones · alta. El agente SOLO si no sos vos:
+        // repetir tu propio nombre 160 veces no informa nada, verlo en el ajeno sí.
+        // Dos renglones FIJOS. Antes era uno solo que envolvía cuando no entraba, y
+        // como el largo depende de la fecha ("5 jun." entra, "17 jun." no), la
+        // fecha saltaba de renglón según el cliente. Ahora siempre está en el mismo lugar.
+        var meta = [];
+        meta.push('<span>'+(nGest>0 ? nGest+' gestión'+(nGest===1?'':'es') : 'Sin gestiones')+'</span>');
+        if (!esMio(c) && (c.createdByName||c.ownerName)) meta.push('<span>'+esc(c.createdByName||c.ownerName)+'</span>');
+        if (altaTxt) meta.push('<span title="Cliente desde el '+escA(fechaCorta(c.createdAt, true))+'"><i class="fas fa-calendar-plus"></i> '+esc(altaTxt)+'</span>');
+
+        // La barra de pulso: solo cuando hay algo que hacer. Lo normal no lleva cartel.
+        var mnu = 'event.stopPropagation();abrirMenuSituacion(event,\''+c.id+'\')';
+        var pulso = '';
+        if (sit === 'pausa') pulso = '<div class="cc-pulso pausa" role="button" onclick="'+mnu+'"><i class="fas fa-circle-pause"></i><span>En pausa</span><u>Reactivar</u></div>';
+        else if (sit === 'externo') pulso = '<div class="cc-pulso externo" role="button" onclick="'+mnu+'"><i class="fas fa-arrow-right-from-bracket"></i><span>Cerró por afuera</span></div>';
+        else if (sit === 'perdido') pulso = '<div class="cc-pulso perdido"><i class="fas fa-circle-xmark"></i><span>Perdido</span></div>';
+        else if (sit === 'cerrado') pulso = '<div class="cc-pulso cerrado"><i class="fas fa-circle-check"></i><span>Operación cerrada</span></div>';
+        else if (pl === 'dormido') pulso = '<div class="cc-pulso dormido" role="button" onclick="event.stopPropagation();preguntarDormido(\''+c.id+'\')"><i class="fas fa-moon"></i><span>Sin contacto hace '+(c._diasSinContacto!=null?c._diasSinContacto:'?')+' días</span><u>Decidir</u></div>';
+        else if (pl === 'enfriando') pulso = '<div class="cc-pulso enfriando" role="button" onclick="event.stopPropagation();preguntarDormido(\''+c.id+'\')"><i class="fas fa-temperature-half"></i><span>Sin contacto hace '+(c._diasSinContacto!=null?c._diasSinContacto:'?')+' días</span><u>Decidir</u></div>';
+
+        return cab + '<div class="client-card'+(c.archived?' archived':'')+(sit!=='activo'?' fuera-activo':'')+borde+
+          (_modoSeleccion?' cc-selmodo':'')+(sel?' cc-sel':'')+'" onclick="'+accion+'" style="cursor:pointer;position:relative">' +
+          (_modoSeleccion?'<span class="cc-check"><i class="fas fa-check"></i></span>':'') +
+          '<div class="cc-top">' +
             '<div class="client-avatar">'+esc(ini)+'</div>' +
-            '<div class="client-card-name">' +
-              '<h3>'+esc(c.name||'Sin nombre')+(c.archived?'<span class="client-archived-tag">Archivado</span>':'')+'</h3>' +
-              (owner?'<div class="client-owner"><i class="fas fa-user-tie"></i> '+esc(owner)+
+            '<div class="cc-id">' +
+              '<h3>'+esc(c.name||'Sin nombre')+(c.archived?'<span class="client-archived-tag">Archivado</span>':'')+
+                '<span class="cc-etapa '+rs+'" role="button" title="Cambiar etapa" onclick="event.stopPropagation();abrirMenuEtapa(event,\''+c.id+'\')">'+esc(etapaLabel)+' <i class="fas fa-chevron-down"></i></span>' +
+              '</h3>' +
+              (phoneDisp?'<div class="cc-tel">'+esc(fmtPhone(phoneDisp))+'</div>':'') +
+              '<div class="cc-meta">'+meta.join('<span>·</span>')+
                 (otrosEnLista.length?'<span class="cc-enlista" title="También lo trabajan: '+escA(otrosEnLista.map(function(x){return x.nombre;}).join(', '))+'">'+
                   otrosEnLista.slice(0,3).map(function(x){ return '<span>'+esc(iniciales(x.nombre))+'</span>'; }).join('')+
-                  (otrosEnLista.length>3?'<span>+'+(otrosEnLista.length-3)+'</span>':'')+'</span>':'')+
-                '</div>':'') +
-              '<div style="font-size:.74rem;color:var(--gray-500);margin-top:3px"><i class="fas fa-handshake"></i> '+gestLabel+
-                (altaTxt?'<span style="margin-left:9px"><i class="fas fa-calendar-plus"></i> '+altaTxt+'</span>':'')+'</div>' +
+                  (otrosEnLista.length>3?'<span>+'+(otrosEnLista.length-3)+'</span>':'')+'</span>':'')+'</div>' +
             '</div>' +
-            '<span class="client-status '+badgeClass+'" role="button" title="Cambiar etapa comercial" onclick="abrirMenuEtapa(event,\''+c.id+'\')">'+esc(stLabel)+' <i class="fas fa-chevron-down"></i></span>' +
+            (ph?'<a class="cc-ico wa" href="https://wa.me/'+ph+'" target="_blank" onclick="event.stopPropagation()" title="WhatsApp"><i class="fab fa-whatsapp"></i></a>':'') +
+            '<button class="cc-ico" onclick="abrirMenuTarjeta(event,\''+c.id+'\')" title="Más acciones"><i class="fas fa-ellipsis-vertical"></i></button>' +
           '</div>' +
-          '<div class="client-meta">' +
-            '<div class="client-meta-row"><i class="fas fa-phone"></i> '+esc(fmtPhone(phoneDisp))+'</div>' +
-            ((c.links&&c.links.length)?'<div class="client-meta-row link-row"><i class="fas fa-link"></i> '+c.links.map(function(l,i){return '<a href="'+escA(l)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">'+(c.links.length>1?('Propiedad '+(i+1)):'Ver propiedad')+'</a>';}).join(' · ')+'</div>':'') +
-            ((c.email&&c.email.indexOf('@')<0)?'<div class="client-meta-row"><i class="fas fa-pen"></i> '+esc(c.email)+'</div>':'') +
-          '</div>' +
-          (function(){
-            // Línea de estado: reloj + pulso + situación en UNA frase.
-            var mnu = 'event.stopPropagation();abrirMenuSituacion(event,\''+c.id+'\')';
-            if (sit === 'pausa') return '<div class="client-activity st-pausa" role="button" onclick="'+mnu+'" title="Tocá para reactivar"><i class="fas fa-circle-pause"></i> En pausa desde '+relTime(c.pausadoEn||c.updatedAt||'')+'</div>';
-            if (sit === 'externo') return '<div class="client-activity st-externo" role="button" onclick="'+mnu+'"><i class="fas fa-arrow-right-from-bracket"></i> Cerró por afuera</div>';
-            if (sit === 'perdido') return '<div class="client-activity st-perdido"><i class="fas fa-circle-xmark"></i> Perdido</div>';
-            if (sit === 'cerrado') return '<div class="client-activity st-cerrado"><i class="fas fa-circle-check"></i> Operación cerrada</div>';
-            if (pl === 'dormido') return '<div class="client-activity st-dormido" role="button" onclick="event.stopPropagation();preguntarDormido(\''+c.id+'\')" title="Tocá para decidir qué hacer"><i class="fas fa-moon"></i> '+(c._diasSinContacto!=null?c._diasSinContacto:'?')+' días sin actividad · <u>decidir</u></div>';
-            if (pl === 'enfriando') return '<div class="client-activity st-enfriando" role="button" onclick="'+mnu+'"><i class="fas fa-temperature-half"></i> '+(actTxt||'Sin actividad')+' · enfriándose</div>';
-            return actTxt?'<div class="client-activity" role="button" onclick="'+mnu+'" title="Situación"><i class="fas fa-clock"></i> '+actTxt+'</div>':'';
-          })() +
-          (c.notes?'<div style="font-size:.82rem;color:var(--gray-600);background:var(--gray-50);border-radius:8px;padding:7px 10px;line-height:1.4;margin-bottom:10px"><i class="fas fa-pen" style="opacity:.6;margin-right:5px"></i>'+esc(c.notes)+'</div>':'') +
-          '<div class="client-actions">' +
-            (ph?'<a class="ca-wa" href="https://wa.me/'+ph+'" target="_blank" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i> WhatsApp</a>':'') +
-            '<button class="ca-edit" onclick="event.stopPropagation();openClientModal(\''+c.id+'\')"><i class="fas fa-edit"></i> Editar</button>' +
-            '<button class="ca-archive" onclick="event.stopPropagation();archiveClient(\''+c.id+'\','+(c.archived?'false':'true')+')" title="'+(c.archived?'Desarchivar':'Archivar')+'"><i class="fas fa-'+(c.archived?'box-open':'box-archive')+'"></i></button>' +
-            (isAdmin?'<button class="ca-del" onclick="event.stopPropagation();deleteClient(\''+c.id+'\')" title="Eliminar definitivamente"><i class="fas fa-trash"></i></button>':'') +
-          '</div>' +
+          pulso +
+          (c.notes?'<div class="cc-nota">'+esc(c.notes)+'</div>':'') +
         '</div>';
       }).join('');
+    }
+
+    // Menú de la tarjeta: etapa, editar, archivar y eliminar. Salen de la tarjeta
+    // porque eran cuatro botones repetidos 162 veces que no se usan al escanear.
+    // Mismo menú que la tarjeta, pero para el perfil. Editar y traspasar se usan
+    // poco y no merecen un botón permanente compitiendo con WhatsApp.
+    function abrirMenuPerfil(ev){
+      ev.stopPropagation();
+      cerrarMenuTarjeta();
+      var id = currentProfileId; if (!id) return;
+      var c = null; for (var i=0;i<clients.length;i++){ if(clients[i].id===id){ c=clients[i]; break; } }
+      if (!c) return;
+      var m = document.createElement('div');
+      m.className = 'cc-menu';
+      m.innerHTML =
+        '<button onclick="cerrarMenuTarjeta();openClientModal(\''+escA(id)+'\')"><i class="fas fa-edit"></i> Editar cliente</button>' +
+        (isAdmin?'<button onclick="cerrarMenuTarjeta();abrirTraspaso(\''+escA(id)+'\')"><i class="fas fa-right-left"></i> Traspasar a otro agente</button>':'') +
+        '<button onclick="cerrarMenuTarjeta();archiveClient(\''+escA(id)+'\','+(c.archived?'false':'true')+')"><i class="fas fa-box-archive"></i> '+(c.archived?'Desarchivar':'Archivar')+'</button>' +
+        (isAdmin?'<button class="peligro" onclick="cerrarMenuTarjeta();deleteClient(\''+escA(id)+'\')"><i class="fas fa-trash"></i> Eliminar</button>':'');
+      document.body.appendChild(m);
+      var r = ev.currentTarget.getBoundingClientRect();
+      var alto = m.offsetHeight;
+      var y = (r.bottom + alto + 8 > window.innerHeight) ? (r.top - alto - 6) : (r.bottom + 6);
+      m.style.top = Math.max(8, y) + 'px';
+      m.style.left = Math.max(8, Math.min(r.left, window.innerWidth - m.offsetWidth - 8)) + 'px';
+      setTimeout(function(){ document.addEventListener('click', cerrarMenuTarjeta, { once:true }); }, 0);
+    }
+
+    function abrirMenuTarjeta(ev, id){
+      ev.stopPropagation();
+      var vieja = document.querySelector('.cc-menu'); if (vieja) vieja.remove();
+      var c = null; for (var i=0;i<clients.length;i++){ if(clients[i].id===id){ c=clients[i]; break; } }
+      if (!c) return;
+      var m = document.createElement('div');
+      m.className = 'cc-menu';
+      m.innerHTML =
+        '<button onclick="etapaDesdeMenu(event,\''+escA(id)+'\')"><i class="fas fa-flag"></i> Cambiar etapa</button>' +
+        '<button onclick="cerrarMenuTarjeta();openClientModal(\''+escA(id)+'\')"><i class="fas fa-edit"></i> Editar</button>' +
+        '<button onclick="cerrarMenuTarjeta();archiveClient(\''+escA(id)+'\','+(c.archived?'false':'true')+')"><i class="fas fa-box-archive"></i> '+(c.archived?'Desarchivar':'Archivar')+'</button>' +
+        (isAdmin?'<button class="peligro" onclick="cerrarMenuTarjeta();deleteClient(\''+escA(id)+'\')"><i class="fas fa-trash"></i> Eliminar</button>':'');
+      document.body.appendChild(m);
+      var r = ev.currentTarget.getBoundingClientRect();
+      // Si no entra abajo, se abre hacia arriba.
+      var alto = m.offsetHeight;
+      var y = (r.bottom + alto + 8 > window.innerHeight) ? (r.top - alto - 6) : (r.bottom + 6);
+      m.style.top = Math.max(8, y) + 'px';
+      m.style.left = Math.max(8, Math.min(r.right - m.offsetWidth, window.innerWidth - m.offsetWidth - 8)) + 'px';
+      setTimeout(function(){ document.addEventListener('click', cerrarMenuTarjeta, { once:true }); }, 0);
+    }
+    function cerrarMenuTarjeta(){ var m = document.querySelector('.cc-menu'); if (m) m.remove(); }
+    // Se mide el botón ANTES de cerrar el menú: después ya no está en el DOM y su
+    // rectángulo da todo cero.
+    function etapaDesdeMenu(ev, id){
+      ev.stopPropagation();
+      var r = ev.currentTarget.getBoundingClientRect();
+      cerrarMenuTarjeta();
+      abrirMenuEtapa(null, id, r);
     }
 
     // Filtro rápido al tocar una tarjeta de stat (toca de nuevo para quitar el filtro)
@@ -1311,11 +1538,14 @@
       var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
       if (!c) return;
       var dias = c._diasSinContacto != null ? c._diasSinContacto : '?';
+      // El mismo diálogo sirve para enfriando y para dormido: cambian el título y
+      // el icono, no las opciones. Lo que hay que decidir es lo mismo.
+      var frio = pulsoDe(c) === 'enfriando';
       var ov = document.createElement('div');
       ov.className = 'dormido-overlay';
       ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
       ov.innerHTML = '<div class="dormido-box">' +
-        '<div class="dormido-head"><i class="fas fa-moon"></i> Cliente sin actividad</div>' +
+        '<div class="dormido-head"><i class="fas '+(frio?'fa-temperature-half':'fa-moon')+'"></i> '+(frio?'Cliente enfriándose':'Cliente sin actividad')+'</div>' +
         '<p class="dormido-p"><b>'+esc(c.name||'Este cliente')+'</b> lleva <b>'+dias+' días</b> sin movimiento. ¿Qué querés hacer?</p>' +
         '<button class="dormido-opt activo" onclick="dormidoMantener(\''+id+'\')"><i class="fas fa-list-check"></i><div><b>Mantenerlo activo</b><span>Agendar una tarea o visita para seguirlo</span></div></button>' +
         '<button class="dormido-opt pausa" onclick="dormidoPausar(\''+id+'\')"><i class="fas fa-circle-pause"></i><div><b>Ponerlo en pausa</b><span>Guardarlo y recontactarlo en '+MESES_PAUSA+' meses</span></div></button>' +
@@ -1442,9 +1672,19 @@
 
     var ESTADO_DOT = { nuevo:'#2563eb', contactado:'#0891b2', seguimiento:'#b45309', visita:'#7c3aed', negociacion:'#be185d', cartera:'#4338ca', cerrado:'#15803d', externo:'#64748b', perdido:'#b91c1c', prop_eliminada:'#78716c' };
 
-    function _posicionarPop(pop, ev){
+    // Acepta el evento o un rectángulo ya medido. Lo segundo hace falta cuando el
+    // botón que lo disparó se quitó del DOM antes de abrir el menú: un elemento
+    // desprendido devuelve un rect en cero y el menú aterrizaba en la esquina
+    // superior izquierda, lejos de donde se hizo clic.
+    function _posicionarPop(pop, ref){
       document.body.appendChild(pop);
-      var r = ev.currentTarget.getBoundingClientRect();
+      var r = (ref && ref.currentTarget) ? ref.currentTarget.getBoundingClientRect() : ref;
+      if (!r || (!r.width && !r.height)){
+        // Sin referencia válida: al centro, que es mejor que un rincón arbitrario.
+        pop.style.left = Math.max(10, (window.innerWidth - pop.offsetWidth)/2) + 'px';
+        pop.style.top  = Math.max(10, (window.innerHeight - pop.offsetHeight)/2) + 'px';
+        return;
+      }
       var x = Math.min(r.left, window.innerWidth - pop.offsetWidth - 10);
       var y = r.bottom + 6;
       if (y + pop.offsetHeight > window.innerHeight - 10) y = r.top - pop.offsetHeight - 6;
@@ -1453,8 +1693,8 @@
     }
 
     // Menú del BADGE derecho: solo etapa comercial (escribe en la gestión).
-    function abrirMenuEtapa(ev, id){
-      ev.stopPropagation();
+    function abrirMenuEtapa(ev, id, rect){
+      if (ev && ev.stopPropagation) ev.stopPropagation();
       if (_stPopId === 'et'+id){ cerrarStPop(); return; }
       cerrarStPop();
       var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
@@ -1468,7 +1708,7 @@
       pop.innerHTML = hint + '<div class="st-pop-sep" style="border-top:none;margin-top:0">Etapa comercial</div>' + Object.keys(GESTION_ESTADO).filter(function(k){ return k !== 'prop_eliminada'; }).map(function(k){
         return '<button type="button" class="'+(k===actual && sitActual==='activo'?'sel':'')+'" onclick="aplicarCambioEstado(\''+id+'\',\''+k+'\')"><span class="dot" style="background:'+(ESTADO_DOT[k]||'#94a3b8')+'"></span>'+GESTION_ESTADO[k]+'</button>';
       }).join('');
-      _posicionarPop(pop, ev);
+      _posicionarPop(pop, rect || ev);
       _stPopEl = pop; _stPopId = 'et'+id;
     }
 
@@ -1714,9 +1954,13 @@
       stEl.style.display = 'none';
 
       var phoneFull = c.phoneNormalized || ((c.areaCode||'')+(c.phone||''));
+      // Una sola línea con todo. Antes el creador y la fecha salían acá Y otra vez
+      // abajo de los botones, con distinto texto: "Creado por X · 17/6/2026" y
+      // "Cargado por X el 17 jun. 2026".
       var meta = [];
-      if (c.createdByName||c.ownerName) meta.push('<i class="fas fa-user-tie"></i> Creado por '+esc(c.createdByName||c.ownerName));
-      if (c.createdAt) meta.push('<i class="fas fa-calendar"></i> '+new Date(c.createdAt).toLocaleDateString('es-UY'));
+      if (phoneFull) meta.push('<i class="fas fa-phone"></i> '+esc(fmtPhone(phoneFull)));
+      if (c.createdByName||c.ownerName) meta.push('<i class="fas fa-user-tie"></i> '+esc(c.createdByName||c.ownerName));
+      if (c.createdAt) meta.push('<i class="fas fa-calendar"></i> cliente desde el '+fechaCorta(c.createdAt, true));
       document.getElementById('cpMeta').innerHTML = meta.join(' &nbsp;·&nbsp; ');
       pintarLista(c);
       renderEventStats(id);
@@ -1724,18 +1968,26 @@
       var wa = document.getElementById('cpWhatsapp');
       var ph = (phoneFull||'').replace(/\D/g,'');
       if (ph){ wa.href = 'https://wa.me/'+ph; wa.style.display=''; } else { wa.style.display='none'; }
-      document.getElementById('cpEditBtn').onclick = function(){ openClientModal(id); };
 
       // Reseteo resumen y actividad mientras cargan las gestiones (evita ver datos del cliente anterior)
       document.getElementById('cpSummary').style.display = 'none';
       document.getElementById('cpActivityCard').style.display = 'none';
 
-      // Campos: SOLO datos de la persona. El interés/estado/presupuesto/link viven en cada gestión.
+      // El teléfono subió a la línea de la cabecera. Acá quedan solo los links, y
+      // si no hay ninguno la tarjeta entera se esconde en vez de mostrar un guion.
       var fields = [];
-      var phLink = (phoneFull||'').replace(/\D/g,'');
-      fields.push(['Teléfono', phoneFull ? '<a href="tel:+'+phLink+'" style="color:var(--navy);text-decoration:none">'+esc(fmtPhone(phoneFull))+'</a>' : '—']);
-      var linksHtml = (c.links && c.links.length) ? c.links.map(function(l){ return '<a href="'+escA(l)+'" target="_blank" rel="noopener" style="color:var(--gold,#C9A227);text-decoration:none;word-break:break-all">'+esc(l)+'</a>'; }).join('<br>') : '—';
-      fields.push(['Links', linksHtml]);
+      // La URL completa de un aviso de ML son 200 caracteres que no dicen nada y
+      // rompen la caja. Se muestra el dominio y el resto queda en el botón.
+      var linksHtml = (c.links && c.links.length) ? c.links.map(function(l){
+        var dominio = l;
+        try { dominio = new URL(l).hostname.replace(/^www\./,''); } catch(e){ dominio = l.slice(0,40); }
+        return '<a class="cp-link" href="'+escA(l)+'" target="_blank" rel="noopener" title="'+escA(l)+'">' +
+          '<i class="fas fa-arrow-up-right-from-square"></i><span>'+esc(dominio)+'</span></a>';
+      }).join('') : '';
+      var tieneLinks = !!(c.links && c.links.length);
+      if (tieneLinks) fields.push(['', linksHtml]);
+      var cardDatos = document.getElementById('cpDatosCard');
+      if (cardDatos) cardDatos.style.display = tieneLinks ? '' : 'none';
       document.getElementById('cpFields').innerHTML = fields.map(function(f){
         return '<div class="cp-field"><span class="k">'+f[0]+'</span><span class="v">'+f[1]+'</span></div>';
       }).join('');
@@ -2652,15 +2904,217 @@
       btn.innerHTML = esta
         ? '<i class="fas fa-check"></i> En mis clientes'
         : '<i class="fas fa-user-plus"></i> Agregar a mis clientes';
-      var l = listaDe(c);
-      var creador = c.createdByName || c.ownerName || '';
-      // El creador se nombra aparte: es el dueño, no un agregado más.
-      var otros = l.filter(function(x){ return x.uid !== c.createdBy; });
-      caja.innerHTML = (creador ? '<span>Cargado por <b>'+esc(creador)+'</b>'+(c.createdAt?' el '+fechaCorta(c.createdAt):'')+'</span>' : '') +
-        (otros.length
-          ? '<span style="margin-left:6px">· También lo trabajan:</span>' +
-            otros.map(function(x){ return '<span class="cp-ag"><i>'+esc(iniciales(x.nombre))+'</i>'+esc(x.nombre)+'</span>'; }).join('')
-          : '');
+      // El creador ya está en la línea de arriba: acá solo van los OTROS agentes.
+      var otros = listaDe(c).filter(function(x){ return x.uid !== c.createdBy; });
+      caja.innerHTML = otros.length
+        ? '<span>También lo trabajan:</span>' +
+          otros.map(function(x){ return '<span class="cp-ag"><i>'+esc(iniciales(x.nombre))+'</i>'+esc(x.nombre)+'</span>'; }).join('')
+        : '';
+    }
+
+
+    // ===== TRASPASO DE CLIENTES (solo admin) =====
+    // Pensado para cuando un agente se va: sus clientes tienen que quedar en manos
+    // de alguien. A diferencia de "agregar a mi lista", esto SÍ cambia el dueño
+    // histórico (`createdBy`), así que es exclusivo del administrador y queda
+    // registrado en el propio cliente para poder reconstruir qué pasó.
+    var _agentes = [], _clientesFiltrados = [], _lote = null;
+
+    // Barra que aparece solo cuando el admin filtró por @agente: ahí ya está
+    // viendo exactamente los clientes que querría mover si ese agente se fue.
+
+    // ---- Selección manual para el traspaso ----
+    // "Traspasar todos" sirve cuando el agente se fue. Pero muchas veces querés
+    // mover solo algunos, así que se puede elegir uno por uno sin salir de la vista.
+    var _modoSeleccion = false, _seleccion = new Set();
+
+    function entrarSeleccion(){
+      _modoSeleccion = true;
+      _seleccion.clear();
+      renderClients();
+    }
+    function salirSeleccion(){
+      _modoSeleccion = false;
+      _seleccion.clear();
+      renderClients();
+    }
+    function toggleSeleccion(id){
+      if (_seleccion.has(id)) _seleccion.delete(id); else _seleccion.add(id);
+      // Se repinta solo la tarjeta tocada: repintar la grilla entera perdería el
+      // scroll y en una lista de 160 clientes se nota.
+      var card = document.querySelector('.client-card[onclick*="'+id+'"]');
+      if (card){
+        var on = _seleccion.has(id);
+        card.classList.toggle('cc-sel', on);
+      }
+      pintarBarraSeleccion();
+    }
+    function seleccionarTodos(){
+      (_clientesFiltrados||[]).forEach(function(c){ _seleccion.add(c.id); });
+      renderClients();
+    }
+
+    function pintarBarraSeleccion(){
+      var caja = document.getElementById('crmTraspaso');
+      if (!caja || !_modoSeleccion) return;
+      var n = _seleccion.size, total = (_clientesFiltrados||[]).length;
+      document.getElementById('crmTraspasoTxt').innerHTML =
+        n ? '<b>'+n+'</b> de '+total+' seleccionado'+(n===1?'':'s')
+          : 'Tocá las tarjetas que quieras traspasar.';
+      var acc = document.getElementById('crmTraspasoAcc');
+      if (!acc) return;
+      acc.innerHTML =
+        (n < total ? '<button class="crm-banner-btn ghost" onclick="seleccionarTodos()">Todos</button>' : '') +
+        '<button class="crm-banner-btn ghost" onclick="salirSeleccion()">Cancelar</button>' +
+        (n ? '<button class="crm-banner-btn" onclick="abrirTraspasoLote()">Traspasar '+n+'</button>' : '');
+    }
+
+    function pintarBarraTraspaso(agenteFiltro, list){
+      var caja = document.getElementById('crmTraspaso');
+      if (!caja) return;
+      // En modo selección la barra sigue visible aunque no haya filtro de agente:
+      // se puede elegir sueltos desde cualquier vista.
+      if (!isAdmin || (!agenteFiltro && !_modoSeleccion) || !list.length){
+        caja.style.display='none';
+        if (_modoSeleccion){ _modoSeleccion=false; _seleccion.clear(); }
+        return;
+      }
+      caja.style.display = 'flex';
+      if (_modoSeleccion){ pintarBarraSeleccion(); return; }
+      document.getElementById('crmTraspasoTxt').innerHTML =
+        'Estás viendo <b>'+list.length+' cliente'+(list.length===1?'':'s')+'</b> de <b>@'+esc(agenteFiltro)+'</b>.';
+      var acc = document.getElementById('crmTraspasoAcc');
+      if (acc) acc.innerHTML =
+        '<button class="crm-banner-btn ghost" onclick="entrarSeleccion()">Elegir cuáles</button>' +
+        '<button class="crm-banner-btn" onclick="abrirTraspasoLote()">Traspasar todos</button>';
+    }
+    function cargarAgentes(){
+      if (_agentes.length) return Promise.resolve(_agentes);
+      return db.collection('users').get().then(function(q){
+        _agentes = q.docs.map(function(d){ return Object.assign({ uid:d.id }, d.data()); })
+          .filter(function(u){ return u.status === 'approved' || (u.email||'').toLowerCase() === ADMIN_EMAIL; })
+          .sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
+        return _agentes;
+      }).catch(function(){ return []; });
+    }
+
+    function abrirTraspaso(clientId){
+      if (!isAdmin) return;
+      var c = null; for (var i=0;i<clients.length;i++){ if(clients[i].id===clientId){ c=clients[i]; break; } }
+      if (!c) return;
+      cargarAgentes().then(function(ags){
+        var opts = ags.filter(function(a){ return a.uid !== c.createdBy; })
+          .map(function(a){ return '<option value="'+escA(a.uid)+'">'+esc(a.name||a.email)+'</option>'; }).join('');
+        if (!opts){ showToast('No hay otro agente al que traspasarlo'); return; }
+        var ov = document.createElement('div');
+        ov.className = 'dormido-overlay';
+        ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+        ov.innerHTML = '<div class="dormido-box">' +
+          '<div class="dormido-head"><i class="fas fa-right-left"></i> Traspasar cliente</div>' +
+          '<p class="dormido-p"><b>'+esc(c.name||'Este cliente')+'</b> figura a nombre de <b>'+esc(c.createdByName||'—')+'</b>. ' +
+          'El nuevo dueño pasa a tenerlo en su lista y queda registrado quién hizo el traspaso.</p>' +
+          '<div class="trs-sel"><label>Nuevo dueño</label><select id="trsDestino">'+opts+'</select></div>' +
+          '<button class="dormido-opt" onclick="confirmarTraspaso(\'' + escA(clientId) + '\')"><i class="fas fa-check"></i> Traspasar</button>' +
+          '<button class="dormido-cancel" onclick="this.closest(\'.dormido-overlay\').remove()">Cancelar</button>' +
+        '</div>';
+        document.body.appendChild(ov);
+      });
+    }
+
+    function confirmarTraspaso(clientId){
+      var sel = document.getElementById('trsDestino');
+      if (!sel) return;
+      var destino = _agentes.filter(function(a){ return a.uid === sel.value; })[0];
+      if (!destino) return;
+      var c = null; for (var i=0;i<clients.length;i++){ if(clients[i].id===clientId){ c=clients[i]; break; } }
+      if (!c) return;
+      traspasarUno(c, destino).then(function(){
+        var ov = document.querySelector('.dormido-overlay'); if (ov) ov.remove();
+        showToast('Traspasado a '+(destino.name||destino.email));
+        _lote=null; _modoSeleccion=false; _seleccion.clear();
+        renderClients();
+        if (currentProfileId === clientId) showClientProfile(clientId);
+      }).catch(function(e){ console.error(e); showToast('No se pudo traspasar'); });
+    }
+
+    // Un solo traspaso. Se usa igual para el cliente suelto y para el lote.
+    function traspasarUno(c, destino){
+      var ahora = new Date().toISOString();
+      var deUid = c.createdBy, deNombre = c.createdByName || c.ownerName || '';
+      // El que se va sale de la lista y entra el nuevo dueño: si el agente dejó la
+      // agencia no tiene sentido que siga apareciendo trabajando al cliente.
+      var lista = listaDe(c).filter(function(x){ return x.uid !== deUid && x.uid !== destino.uid; });
+      lista.push({ uid: destino.uid, nombre: destino.name || destino.email || 'Agente', desde: ahora });
+      var registro = {
+        de: deUid || null, deNombre: deNombre,
+        a: destino.uid, aNombre: destino.name || destino.email || 'Agente',
+        fecha: ahora, por: (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Admin'
+      };
+      return db.collection('clients').doc(c.id).update({
+        createdBy: destino.uid,
+        createdByName: destino.name || destino.email || 'Agente',
+        enLista: lista,
+        updatedAt: ahora,
+        traspasos: firebase.firestore.FieldValue.arrayUnion(registro)
+      }).then(function(){
+        c.createdBy = destino.uid;
+        c.createdByName = destino.name || destino.email || 'Agente';
+        c.enLista = lista;
+        c.updatedAt = ahora;
+        c.traspasos = (c.traspasos||[]).concat([registro]);
+      });
+    }
+
+    // ---- Traspaso en lote: el caso real de "se fue un agente" ----
+    // Aparece cuando el admin filtra por @agente: ahí ya está viendo justo los
+    // clientes que quiere mover, así que el botón actúa sobre lo que tiene delante.
+    function abrirTraspasoLote(){
+      if (!isAdmin) return;
+      var lista = _modoSeleccion
+        ? (_clientesFiltrados||[]).filter(function(c){ return _seleccion.has(c.id); })
+        : (_clientesFiltrados || []);
+      if (!lista.length){ showToast(_modoSeleccion?'No marcaste ninguno':'No hay clientes en la vista'); return; }
+      _lote = lista;
+      cargarAgentes().then(function(ags){
+        var origenNombre = lista[0].createdByName || 'ese agente';
+        var opts = ags.map(function(a){ return '<option value="'+escA(a.uid)+'">'+esc(a.name||a.email)+'</option>'; }).join('');
+        var ov = document.createElement('div');
+        ov.className = 'dormido-overlay';
+        ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+        ov.innerHTML = '<div class="dormido-box">' +
+          '<div class="dormido-head"><i class="fas fa-right-left"></i> Traspasar '+lista.length+' cliente'+(lista.length===1?'':'s')+'</div>' +
+          '<p class="dormido-p">Se van a traspasar los <b>'+lista.length+'</b> clientes que estás viendo, hoy a nombre de <b>'+esc(origenNombre)+'</b>. ' +
+          'Cada uno guarda el registro del traspaso. <b>No se puede deshacer de una sola vez.</b></p>' +
+          '<div class="trs-sel"><label>Nuevo dueño</label><select id="trsDestinoLote">'+opts+'</select></div>' +
+          '<button class="dormido-opt" onclick="confirmarTraspasoLote()"><i class="fas fa-check"></i> Traspasar los '+lista.length+'</button>' +
+          '<button class="dormido-cancel" onclick="this.closest(\'.dormido-overlay\').remove()">Cancelar</button>' +
+        '</div>';
+        document.body.appendChild(ov);
+      });
+    }
+
+    function confirmarTraspasoLote(){
+      var sel = document.getElementById('trsDestinoLote');
+      if (!sel) return;
+      var destino = _agentes.filter(function(a){ return a.uid === sel.value; })[0];
+      if (!destino) return;
+      var lista = (_lote || _clientesFiltrados || []).filter(function(c){ return c.createdBy !== destino.uid; });
+      if (!lista.length){ showToast('Ya son todos de ese agente'); return; }
+      var btn = document.querySelector('.dormido-opt');
+      if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Traspasando...'; }
+      // De a uno y en serie: son pocos y así un fallo no deja la mitad a medias
+      // sin que nos enteremos cuál.
+      var ok = 0, fallos = 0;
+      lista.reduce(function(prev, c){
+        return prev.then(function(){
+          return traspasarUno(c, destino).then(function(){ ok++; }).catch(function(){ fallos++; });
+        });
+      }, Promise.resolve()).then(function(){
+        var ov = document.querySelector('.dormido-overlay'); if (ov) ov.remove();
+        showToast(ok+' traspasados'+(fallos?' · '+fallos+' con problemas':''));
+        _lote=null; _modoSeleccion=false; _seleccion.clear();
+        renderClients();
+      });
     }
 
     function esMio(c){
@@ -2686,6 +3140,37 @@
       var s = document.getElementById('crmSubtitle');
       if (s) s.textContent = misClientesOnly ? 'Tus clientes' : 'Todos los clientes de la inmobiliaria';
     }
+
+    // ---- Filtros plegables ----
+    function toggleFiltros(){
+      var caja = document.getElementById('crmFiltros');
+      var btn = document.getElementById('btnMasFiltros');
+      var abierto = caja.style.display !== 'none';
+      caja.style.display = abierto ? 'none' : 'flex';
+      btn.classList.toggle('on', !abierto);
+    }
+    function limpiarFiltros(){
+      ['clientStatusFilter','clientSituacionFilter','clientInterestFilter'].forEach(function(id){
+        var e=document.getElementById(id); if(e) e.value='';
+      });
+      var a=document.getElementById('clientArchivedFilter'); if(a) a.value='active';
+      statFilter='all';
+      renderClients();
+    }
+    // El contador avisa que hay filtros puestos aunque el panel esté plegado:
+    // si no, quedaría una lista recortada sin explicación a la vista.
+    function contarFiltros(){
+      var n=0;
+      ['clientStatusFilter','clientSituacionFilter','clientInterestFilter'].forEach(function(id){
+        var e=document.getElementById(id); if(e && e.value) n++;
+      });
+      var a=document.getElementById('clientArchivedFilter');
+      if(a && a.value!=='active') n++;
+      var b=document.getElementById('filtrosCount');
+      if(b) b.textContent = n ? String(n) : '';
+      return n;
+    }
+
     function toggleMisClientes(){
       misClientesOnly = !misClientesOnly;
       updateMisBtn();
