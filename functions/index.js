@@ -3336,11 +3336,16 @@ exports.notificarRevision = onDocumentUpdated("users/{uid}", async (event) => {
     { campo: "calcGastos", etiqueta: "Gastos y comisiones" },
     { campo: "calcTerrenos", etiqueta: "Cálculo de terreno" },
   ];
-  const nuevas = TIPOS.filter((t) => {
-    const a = Array.isArray(after[t.campo]) ? after[t.campo].length : 0;
-    const b = Array.isArray(before[t.campo]) ? before[t.campo].length : 0;
-    return a > b;
-  });
+  // OJO: estos campos se guardan como MAPA, no como arreglo. El tasador escribe
+  // `{ tasaciones: { [id]: rec } }`, así que `Array.isArray` daba false, contaba
+  // cero antes y cero después, y la notificación no salía nunca. Se cuentan las
+  // dos formas por si algún día alguno se guarda como lista.
+  const cuantos = (v) => {
+    if (Array.isArray(v)) return v.length;
+    if (v && typeof v === "object") return Object.keys(v).length;
+    return 0;
+  };
+  const nuevas = TIPOS.filter((t) => cuantos(after[t.campo]) > cuantos(before[t.campo]));
   if (!nuevas.length) return;
 
   const adm = await getAdminUser();
