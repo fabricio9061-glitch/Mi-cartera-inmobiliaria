@@ -3662,7 +3662,27 @@
           .rev-lnk.green{background:#e8f7ee;color:#127a45}
           .rev-lnk.ghost{border-color:#e7eaef;color:#3a4350}
           .rev-lnk.disabled{opacity:.5;cursor:not-allowed}
-          .rev-mark{background:#15a05a;color:#fff;border:none;cursor:pointer;border-radius:10px;padding:9px 14px;font-size:.85rem;font-weight:600;display:inline-flex;align-items:center;gap:7px;font-family:inherit}
+          /* Rechazada: tercer estado, con el motivo a la vista. */
+.rev-badge.bad{background:#fee2e2;color:#991b1b}
+.rev-rechazo{display:flex;align-items:flex-start;gap:9px;background:#fef2f2;border:1px solid #fecaca;border-radius:11px;padding:11px 13px;margin-top:12px;font-size:.85rem;color:#991b1b;line-height:1.45}
+.rev-rechazo i{margin-top:2px;flex:none}
+.rev-rechazar{background:#fff;color:#c0392b;border:1px solid #f5c6c0;cursor:pointer;border-radius:10px;padding:9px 14px;font-size:.85rem;font-weight:600;display:inline-flex;align-items:center;gap:7px;transition:background .13s}
+.rev-rechazar:hover{background:#fef2f2}
+/* ===== Compacto en celular =====
+   La tarjeta ocupaba una pantalla entera: cuatro métricas apiladas, cinco
+   características y siete detalles, todo a lo ancho. */
+@media(max-width:680px){
+  .rev-card{padding:13px 14px;border-radius:13px;margin-bottom:11px}
+  .rev-metrics{padding:11px 12px;gap:6px}
+  .rev-feats{gap:8px 14px;padding:11px 2px}
+  .rev-dets{grid-template-columns:1fr 1fr;gap:9px 12px;padding:11px 2px 2px}
+  .rev-f{flex-wrap:wrap;gap:7px}
+  .rev-f .rev-lnk,.rev-f .rev-mark,.rev-f .rev-rechazar{flex:1 1 calc(50% - 4px);justify-content:center;padding:10px 8px;font-size:.82rem}
+  .rev-trash{flex:none}
+  /* El menú se abría encima del valor estimado, que es el dato principal. */
+  .rev-menu{right:0;left:auto;max-width:min(84vw,260px)}
+}
+.rev-mark{background:#15a05a;color:#fff;border:none;cursor:pointer;border-radius:10px;padding:9px 14px;font-size:.85rem;font-weight:600;display:inline-flex;align-items:center;gap:7px;font-family:inherit}
           .rev-trash{margin-left:auto;background:#fdecee;color:#dc3545;border:1px solid #f6d6da;cursor:pointer;border-radius:10px;width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center}
           .rev-pager{display:flex;justify-content:center;align-items:center;gap:7px;margin-top:20px;flex-wrap:wrap}
           .rev-pg{min-width:38px;height:38px;border-radius:10px;border:1px solid #e7eaef;background:#fff;color:#3a4350;cursor:pointer;font-size:.88rem;font-weight:600;font-family:inherit;display:inline-flex;align-items:center;justify-content:center;padding:0 10px}
@@ -3830,11 +3850,11 @@
     const dets = '<div class="rev-dets">'
       + _revDet('Cliente', mvEsc(_revNum(d.cliente)))
       + _revDet('Padrón', mvEsc(_revNum(d.padron)))
-      + _revDet('Ubicación', mvEsc(_revNum(d.direccion)))
+      + _revDet('Dirección', mvEsc(_revNum(d.direccion)))
       + _revDet('Departamento', mvEsc(_revNum(d.departamento)))
       + _revDet('Comparables', mvEsc(_revNum(d.antecedentes)))
-      + _revDet('Construcción', _revStars(d.construccion))
-      + _revDet('Ubicación', _revStars(d.ubicacion))
+      + _revDet('Calidad construcción', _revStars(d.construccion))
+      + _revDet('Calidad zona', _revStars(d.ubicacion))
       + '</div>';
     return metrics + feats + dets;
   }
@@ -3850,14 +3870,28 @@
   }
   function _revCard(r) {
     const t = _REV_TIPOS[r.tipo] || { label: r.tipo, icon: 'fa-file', color: '#888' };
-    const badge = r.revisado ? '<span class="rev-badge ok"><i class="fas fa-circle-check"></i> Revisada</span>' : '<span class="rev-badge pend"><i class="fas fa-clock"></i> Sin revisar</span>';
+    // Tres estados: sin revisar · revisada · rechazada. La rechazada bloquea el
+    // PDF hasta que el agente corrija, y lleva el motivo a la vista.
+    const badge = r.rechazada
+      ? '<span class="rev-badge bad"><i class="fas fa-circle-xmark"></i> Rechazada</span>'
+      : (r.revisado ? '<span class="rev-badge ok"><i class="fas fa-circle-check"></i> Revisada</span>'
+                    : '<span class="rev-badge pend"><i class="fas fa-clock"></i> Sin revisar</span>');
     const cuerpo = r.tipo === 'tasacion' ? _revCardTasacion(r) : _revCardGen(r);
     const pdfUrl = r.pdfUrl ? safeUrl(r.pdfUrl) : '';
+    // El admin siempre puede abrir el PDF, incluso rechazado: lo necesita para
+    // revisar qué estuvo mal. Al agente se lo bloquea el propio tasador.
     const verInf = pdfUrl
       ? '<a class="rev-lnk green" href="' + pdfUrl + '" target="_blank" rel="noopener"><i class="fas fa-file-pdf"></i> Ver informe</a>'
       : '<span class="rev-lnk green disabled"><i class="fas fa-file-pdf"></i> Sin PDF</span>';
-    const toggleTxt = r.revisado ? '<i class="fas fa-rotate-left"></i> Volver a sin revisar' : '<i class="fas fa-check"></i> Marcar revisada';
-    const markBtn = r.revisado ? '' : '<button class="rev-mark" onclick="revMarcar(\'' + r._uid + '\',\'' + r._field + '\',\'' + mvEsc(r.id) + '\',true)"><i class="fas fa-check"></i> Marcar revisada</button>';
+    const motivo = r.rechazada && r.motivoRechazo
+      ? '<div class="rev-rechazo"><i class="fas fa-circle-exclamation"></i><div><b>Rechazada</b> — ' + mvEsc(r.motivoRechazo) + '</div></div>'
+      : '';
+    const toggleTxt = (r.revisado || r.rechazada)
+      ? '<i class="fas fa-rotate-left"></i> Volver a sin revisar'
+      : '<i class="fas fa-check"></i> Aprobar';
+    const markBtn = (r.revisado || r.rechazada) ? '' :
+      '<button class="rev-mark" onclick="revMarcar(\'' + r._uid + '\',\'' + r._field + '\',\'' + mvEsc(r.id) + '\',true)"><i class="fas fa-check"></i> Aprobar</button>'
+      + '<button class="rev-rechazar" onclick="revRechazar(\'' + r._uid + '\',\'' + r._field + '\',\'' + mvEsc(r.id) + '\')"><i class="fas fa-xmark"></i> Rechazar</button>';
     return '<div class="rev-card">'
       + '<div class="rev-h">'
       + '<span class="rev-tipo" style="background:' + t.color + '1f; color:' + t.color + '"><i class="fas ' + t.icon + '"></i> ' + mvEsc(t.label) + '</span>'
@@ -3868,10 +3902,12 @@
       + '<button class="rev-kebab" onclick="revToggleMenu(event,\'' + mvEsc(r.id) + '\')"><i class="fas fa-ellipsis-vertical"></i></button>'
       + '<div class="rev-menu" id="revMenu-' + mvEsc(r.id) + '">'
       + '<button onclick="revMarcar(\'' + r._uid + '\',\'' + r._field + '\',\'' + mvEsc(r.id) + '\',' + (!r.revisado) + ')">' + toggleTxt + '</button>'
+      + (r.rechazada ? '' : '<button onclick="revRechazar(\'' + r._uid + '\',\'' + r._field + '\',\'' + mvEsc(r.id) + '\')"><i class="fas fa-xmark"></i> Rechazar con motivo</button>')
       + '<button class="danger" onclick="revEliminar(\'' + r._uid + '\',\'' + r._field + '\',\'' + mvEsc(r.id) + '\')"><i class="fas fa-trash"></i> Eliminar</button>'
       + '</div>'
       + '</div>'
       + '</div>'
+      + motivo
       + cuerpo
       + '<div class="rev-more" id="revMore-' + mvEsc(r.id) + '"><div class="rev-kvgrid">'
       + '<div class="rev-kvg"><h4>Datos</h4>' + (_revKv(r.datos) || '<div class="rev-kv"><span>—</span></div>') + '</div>'
@@ -3948,16 +3984,44 @@
       const cur = d.exists ? d.data()[field] : null;
       let nuevo;
       if (Array.isArray(cur)) {
-        nuevo = cur.map(x => (x && x.id === id) ? Object.assign({}, x, { revisado: valor }) : x);
+        // Aprobar o volver a sin revisar limpia el rechazo: si no, quedaría una
+        // tasación aprobada arrastrando el motivo del rechazo anterior.
+        const parche = { revisado: valor, rechazada: false, motivoRechazo: '' };
+        nuevo = cur.map(x => (x && x.id === id) ? Object.assign({}, x, parche) : x);
       } else if (cur && typeof cur === 'object') {
         nuevo = Object.assign({}, cur);
-        Object.keys(nuevo).forEach(k => { if (nuevo[k] && (nuevo[k].id === id || k === id)) nuevo[k] = Object.assign({}, nuevo[k], { revisado: valor }); });
+        const parche = { revisado: valor, rechazada: false, motivoRechazo: '' };
+        Object.keys(nuevo).forEach(k => { if (nuevo[k] && (nuevo[k].id === id || k === id)) nuevo[k] = Object.assign({}, nuevo[k], parche); });
       } else { return; }
       await ref.update({ [field]: nuevo });
-      _revRecords.forEach(r => { if (r._uid === uid && r._field === field && r.id === id) { r.revisado = valor; } });
+      _revRecords.forEach(r => { if (r._uid === uid && r._field === field && r.id === id) { r.revisado = valor; r.rechazada = false; r.motivoRechazo = ''; } });
       revRender();
       showToast('Revisiones', valor ? 'Marcada como revisada · el agente ya puede descargarla' : 'Vuelta a sin revisar', 'fa-check');
     } catch (e) { alert('No se pudo actualizar: ' + (e.message || e)); }
+  }
+  // Rechazar con motivo. El motivo NO es opcional: sin él el agente no sabe qué
+  // corregir y el rechazo se vuelve un rebote sin información.
+  async function revRechazar(uid, field, id) {
+    const motivo = prompt('¿Por qué se rechaza?\n\nEl agente va a recibir este mensaje y no va a poder descargar el informe hasta corregirlo.\n\nEj: la superficie no coincide con el padrón · faltan comparables de la zona');
+    if (motivo === null) return;
+    if (!String(motivo).trim()) { showToast('Revisiones', 'Sin motivo el agente no sabe qué corregir', 'fa-comment-dots'); return; }
+    try {
+      const ref = db.collection('users').doc(uid);
+      const d = await ref.get();
+      const cur = d.exists ? d.data()[field] : null;
+      const parche = { revisado: false, rechazada: true, motivoRechazo: String(motivo).trim(), rechazadaAt: new Date().toISOString() };
+      let nuevo;
+      if (Array.isArray(cur)) {
+        nuevo = cur.map(x => (x && x.id === id) ? Object.assign({}, x, parche) : x);
+      } else if (cur && typeof cur === 'object') {
+        nuevo = Object.assign({}, cur);
+        Object.keys(nuevo).forEach(k => { if (nuevo[k] && (nuevo[k].id === id || k === id)) nuevo[k] = Object.assign({}, nuevo[k], parche); });
+      } else { return; }
+      await ref.update({ [field]: nuevo });
+      _revRecords.forEach(r => { if (r._uid === uid && r._field === field && r.id === id) Object.assign(r, parche); });
+      revRender();
+      showToast('Revisiones', 'Rechazada · el agente recibe el motivo', 'fa-xmark');
+    } catch (e) { alert('No se pudo rechazar: ' + (e.message || e)); }
   }
   async function revEliminar(uid, field, id) {
     if (!confirm('¿Eliminar este registro? Se borra también su PDF y el agente no podrá descargarlo.')) return;

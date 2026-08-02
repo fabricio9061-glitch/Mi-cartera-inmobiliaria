@@ -3326,6 +3326,52 @@ exports.notificarSolicitudVenta = onDocumentCreated("leadsVenta/{id}", async (ev
 // 4) Revisiones: tasaciones y cálculos que los agentes guardan dentro de su
 //    propio documento de usuario (arrays tasaciones / calcGastos / calcTerrenos).
 //    Se compara el largo antes y después para avisar solo de las nuevas.
+// Avisar al agente cuando el admin rechaza uno de sus informes. Sin esto el
+// rechazo es mudo: el agente vuelve a entrar días después y no entiende por qué
+// no puede descargar el PDF.
+exports.notificarRechazo = onDocumentUpdated("users/{uid}", async (event) => {
+  const before = event.data && event.data.before ? event.data.before.data() : null;
+  const after = event.data && event.data.after ? event.data.after.data() : null;
+  if (!before || !after) return;
+
+  const TIPOS = [
+    { campo: "tasaciones", etiqueta: "tasación" },
+    { campo: "calcGastos", etiqueta: "cálculo de gastos" },
+    { campo: "calcTerrenos", etiqueta: "cálculo de terreno" },
+  ];
+  const comoMapa = (v) => {
+    if (Array.isArray(v)) { const o = {}; v.forEach((x) => { if (x && x.id) o[x.id] = x; }); return o; }
+    return (v && typeof v === "object") ? v : {};
+  };
+
+  const rechazados = [];
+  TIPOS.forEach((t) => {
+    const a = comoMapa(after[t.campo]), b = comoMapa(before[t.campo]);
+    Object.keys(a).forEach((k) => {
+      // Solo el cambio a rechazada: si ya lo estaba, no se vuelve a avisar.
+      if (a[k] && a[k].rechazada === true && !(b[k] && b[k].rechazada === true)) {
+        rechazados.push({ etiqueta: t.etiqueta, motivo: a[k].motivoRechazo || "" });
+      }
+    });
+  });
+  if (!rechazados.length) return;
+
+  const destino = { uid: event.params.uid, ...after };
+  const r = rechazados[0];
+  await crearNotificacion(destino, {
+    type: "revision_rechazada",
+    propertyId: "",
+    propertyTitle: `tu ${r.etiqueta}`,
+    userName: "Informe rechazado",
+    userPhoto: null,
+    text: `El administrador rechazó tu ${r.etiqueta}${r.motivo ? `: ${r.motivo}` : "."} Corregila y volvé a enviarla.`,
+  }, {
+    title: "Informe rechazado",
+    body: r.motivo ? r.motivo.slice(0, 120) : `Revisá tu ${r.etiqueta}`,
+  });
+  logger.info(`[rechazo] ${event.params.uid}: ${rechazados.length} informe(s)`);
+});
+
 exports.notificarRevision = onDocumentUpdated("users/{uid}", async (event) => {
   const before = event.data && event.data.before ? event.data.before.data() : null;
   const after = event.data && event.data.after ? event.data.after.data() : null;

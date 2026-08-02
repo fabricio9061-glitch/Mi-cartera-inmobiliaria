@@ -996,15 +996,25 @@
           var cli = (r.datos && r.datos.cliente) ? r.datos.cliente : 'Sin cliente';
           var val = (r.resultado && r.resultado.valor) ? ('US$ ' + Number(r.resultado.valor).toLocaleString('es-UY')) : '';
           var aprob = !!r.revisado;
-          var estado = aprob
+          var rech = !!r.rechazada;
+          // Rechazada tiene que verse distinto de "en revisión": si no, el agente
+          // espera sentado a que se apruebe algo que necesita corregir.
+          var estado = rech
+            ? '<span style="background:#fef2f2; color:#991b1b; font-size:.72rem; font-weight:700; padding:4px 10px; border-radius:20px"><i class="fas fa-circle-xmark"></i> Rechazada</span>'
+            : aprob
             ? '<span style="background:#e8f7ee; color:#127a45; font-size:.72rem; font-weight:700; padding:4px 10px; border-radius:20px"><i class="fas fa-circle-check"></i> Aprobada</span>'
             : '<span style="background:#fff6e3; color:#b9770f; font-size:.72rem; font-weight:700; padding:4px 10px; border-radius:20px"><i class="fas fa-clock"></i> En revisión</span>';
+          var motivo = (rech && r.motivoRechazo)
+            ? '<div style="flex:1 0 100%; background:#fef2f2; border:1px solid #fecaca; border-radius:9px; padding:9px 12px; font-size:.82rem; color:#991b1b; line-height:1.45; margin-top:8px"><b>Motivo:</b> '+_mtEsc(r.motivoRechazo)+'</div>'
+            : '';
           var accion = (aprob && r.pdfUrl)
             ? '<a href="'+_mtEsc(r.pdfUrl)+'" target="_blank" rel="noopener" style="background:#16273f; color:#fff; border-radius:9px; padding:8px 13px; font-size:.82rem; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:7px"><i class="fas fa-download"></i> Descargar PDF</a>'
-            : '<span style="color:#9aa2ad; font-size:.8rem; display:inline-flex; align-items:center; gap:6px"><i class="fas fa-lock"></i> Pendiente de aprobación</span>';
+            : (rech
+              ? '<span style="color:#991b1b; font-size:.8rem; display:inline-flex; align-items:center; gap:6px"><i class="fas fa-lock"></i> Corregila y volvé a enviarla</span>'
+              : '<span style="color:#9aa2ad; font-size:.8rem; display:inline-flex; align-items:center; gap:6px"><i class="fas fa-lock"></i> Pendiente de aprobación</span>');
           return '<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:12px 0; border-bottom:1px solid #eef1f5">'
             + '<div style="flex:1; min-width:160px"><div style="font-weight:600; font-size:.9rem">'+_mtEsc(cli)+(val?' · '+val:'')+'</div><div style="color:#9aa2ad; font-size:.78rem">'+_mtEsc(fecha)+'</div></div>'
-            + estado + accion
+            + estado + accion + motivo
             + '</div>';
         }).join('');
       }catch(e){
