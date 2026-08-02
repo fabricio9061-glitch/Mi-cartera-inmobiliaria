@@ -3113,7 +3113,7 @@
     document.getElementById('crmPage').classList.add('hidden');
     document.getElementById('clientProfilePage')?.classList.add('hidden');
     document.getElementById('adminPanel').classList.remove('hidden');
-    showAdminTab('pending')
+    showAdminTab('bandeja')
   }
   // ===== Editor de datos del agente (solo admin) =====
   // El sitio público resuelve el nombre desde el perfil (getOwnerInfo prefiere
@@ -3295,13 +3295,162 @@
     } catch (e) { console.error(e); showToast('No se pudo quitar', '', 'fa-exclamation-triangle'); }
   }
 
+
+  // ==========================================================================
+  // BANDEJA DEL ADMIN
+  // --------------------------------------------------------------------------
+  // Ya existían 16 tipos de notificación funcionando, pero para saber qué te
+  // espera hoy había que entrar pestaña por pestaña a ver si había algo. Acá se
+  // junta todo lo que necesita una decisión, ordenado por urgencia.
+  // ==========================================================================
+
+  // Cada entrada define cómo se ve y a dónde lleva. `urgencia`: 0 alta, 1 media, 2 baja.
+  const BANDEJA_TIPOS = {
+    despublicar_confirmar: { urgencia:0, icono:'fa-circle-stop', accion:'Resolver', ir:n => abrirCampana() },
+    ml_error:              { urgencia:0, icono:'fa-triangle-exclamation', accion:'Ver', ir:n => n.propertyId && openMLModal(n.propertyId) },
+    refresh_token:         { urgencia:0, icono:'fa-key', accion:'Reconectar', ir:() => abrirCampana() },
+    authorization_code:    { urgencia:0, icono:'fa-key', accion:'Reconectar', ir:() => abrirCampana() },
+    retiro:                { urgencia:0, icono:'fa-money-bill-transfer', accion:'Ver', ir:() => location.href='retiros-admin.html' },
+    admin_pendiente:       { urgencia:1, icono:'fa-user-clock', accion:'Aprobar', ir:() => showAdminTab('users') },
+    new_user:              { urgencia:1, icono:'fa-user-plus', accion:'Aprobar', ir:() => showAdminTab('users') },
+    ml_lead:               { urgencia:1, icono:'fa-comment-dots', accion:'Ver', ir:n => n.propertyId && openPropertyTab(n.propertyId) },
+    consulta_infocasas:    { urgencia:1, icono:'fa-comment-dots', accion:'Ver', ir:n => n.propertyId && openPropertyTab(n.propertyId) },
+    ficha_incompleta:      { urgencia:1, icono:'fa-clipboard-list', accion:'Completar', ir:n => n.propertyId && openPropertyFormTab(n.propertyId) },
+    vencimiento_alquiler:  { urgencia:1, icono:'fa-calendar-xmark', accion:'Ver', ir:n => n.propertyId && openPropertyTab(n.propertyId) },
+    crm_seguimiento:       { urgencia:2, icono:'fa-address-book', accion:'Ver', ir:() => location.href='clientes.html' },
+    crm_pausa:             { urgencia:2, icono:'fa-circle-pause', accion:'Ver', ir:() => location.href='clientes.html' },
+    baja_resuelta:         { urgencia:2, icono:'fa-circle-check', accion:'Ver', ir:() => abrirCampana() },
+    retiro_estado:         { urgencia:2, icono:'fa-receipt', accion:'Ver', ir:() => location.href='retiros-admin.html' }
+  };
+  const BANDEJA_DEF = { urgencia:2, icono:'fa-bell', accion:'Ver', ir:() => abrirCampana() };
+
+  function abrirCampana(){
+    const d = document.getElementById('notificationDropdown');
+    if (d) d.classList.add('active');
+  }
+
+  // Cuenta lo que espera decisión, para el globito de la pestaña.
+  function bandejaPendientes(){
+    return (notifications || []).filter(n => !n.read);
+  }
+  function pintarContadorBandeja(){
+    const el = document.getElementById('bandejaCount');
+    if (!el) return;
+    const n = bandejaPendientes().length;
+    el.textContent = n ? `(${n})` : '';
+  }
+
+  async function renderBandeja(c){
+    // Además de las notificaciones sin leer, se buscan las cosas que esperan
+    // decisión aunque nadie haya generado un aviso: agentes sin aprobar,
+    // tasaciones sin revisar y testimonios sin publicar.
+    let extras = [];
+    try {
+      const [pend, testi] = await Promise.all([
+        db.collection('users').where('status','==','pending').get(),
+        db.collection('testimonials').where('approved','==',false).get()
+      ]);
+      if (pend.size) extras.push({ _sint:true, urgencia:1, icono:'fa-user-clock',
+        titulo: `${pend.size} agente${pend.size===1?'':'s'} esperando aprobación`,
+        sub: pend.docs.map(d => d.data().email || d.data().name).slice(0,3).join(' · '),
+        accion:'Aprobar', ir:() => showAdminTab('users') });
+      if (testi.size) extras.push({ _sint:true, urgencia:2, icono:'fa-comment-dots',
+        titulo: `${testi.size} testimonio${testi.size===1?'':'s'} sin publicar`,
+        sub:'Desde el sitio público', accion:'Revisar', ir:() => showAdminTab('sitio') });
+    } catch(e){ console.warn('bandeja extras:', e); }
+
+    const items = bandejaPendientes().map(n => {
+      const t = BANDEJA_TIPOS[n.type] || BANDEJA_DEF;
+      return { urgencia:t.urgencia, icono:t.icono, accion:t.accion,
+        titulo: n.userName ? `${n.userName}${n.propertyTitle ? ' · ' + n.propertyTitle : ''}` : (n.propertyTitle || 'Aviso'),
+        sub: (n.text || '').slice(0,110), fecha: n.createdAt, _n:n, ir:() => t.ir(n) };
+    }).concat(extras);
+
+    // Primero por urgencia, después lo más reciente.
+    items.sort((a,b) => (a.urgencia - b.urgencia) || String(b.fecha||'').localeCompare(String(a.fecha||'')));
+
+    if (!items.length){
+      c.innerHTML = '<div class="empty-state"><i class="fas fa-circle-check" style="color:var(--success)"></i><h3>Todo al día</h3><p style="color:var(--gray-500)">No hay nada esperando una decisión tuya.</p></div>';
+      pintarContadorBandeja();
+      return;
+    }
+    const COLOR = ['alta','media','baja'];
+    c.innerHTML = '<div class="bnd">' + items.map((x,i) => {
+      return `<div class="bnd-row ${COLOR[x.urgencia]}">
+          <span class="bnd-dot"></span>
+          <i class="fas ${x.icono} bnd-ico"></i>
+          <div class="bnd-txt">
+            <b>${mvEsc(x.titulo)}</b>
+            <span>${mvEsc(x.sub)}${x.fecha ? ' · ' + relTime(x.fecha) : ''}</span>
+          </div>
+          <button class="bnd-btn" onclick="bandejaIr(${i})">${mvEsc(x.accion)}</button>
+        </div>`;
+    }).join('') + '</div>';
+    _bandejaItems = items;
+    pintarContadorBandeja();
+  }
+  let _bandejaItems = [];
+  function bandejaIr(i){
+    const x = _bandejaItems[i];
+    if (!x) return;
+    // Se marca leída al resolverla: si no, la bandeja nunca se vacía.
+    if (x._n && x._n.id){
+      db.collection('notifications').doc(x._n.id).update({ read:true }).catch(()=>{});
+      x._n.read = true;
+    }
+    try { x.ir(); } catch(e){ console.warn('bandeja ir:', e); }
+  }
+
+  // Estilos de la bandeja
+  (function(){
+    if (document.getElementById('bndCss')) return;
+    const st = document.createElement('style');
+    st.id = 'bndCss';
+    st.textContent = `
+.bnd{background:#fff;border:1px solid #e7eaef;border-radius:14px;overflow:hidden}
+.bnd-row{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid #f0f2f5}
+.bnd-row:last-child{border-bottom:none}
+.bnd-dot{width:7px;height:7px;border-radius:50%;flex:none}
+.bnd-row.alta .bnd-dot{background:#dc2626}
+.bnd-row.media .bnd-dot{background:#f59e0b}
+.bnd-row.baja .bnd-dot{background:#94a3b8}
+.bnd-ico{flex:none;width:30px;height:30px;border-radius:9px;background:#f4f6f9;color:#5b6472;display:flex;align-items:center;justify-content:center;font-size:.8rem}
+.bnd-row.alta .bnd-ico{background:#fef2f2;color:#dc2626}
+.bnd-txt{flex:1;min-width:0}
+.bnd-txt b{display:block;font-size:.9rem;font-weight:600;color:#16273f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bnd-txt span{display:block;font-size:.78rem;color:#8a8f96;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bnd-btn{flex:none;border:1px solid #dfe1e5;background:#fff;border-radius:9px;padding:7px 14px;font-family:inherit;font-size:.82rem;font-weight:600;color:#16273f;cursor:pointer;transition:border-color .13s}
+.bnd-btn:hover{border-color:#16273f}
+@media(max-width:600px){
+  .bnd-row{flex-wrap:wrap;padding:12px 13px;gap:9px}
+  .bnd-txt{flex:1 1 calc(100% - 60px)}
+  .bnd-txt b,.bnd-txt span{white-space:normal}
+  .bnd-btn{flex:1 1 100%;padding:10px}
+}`;
+    document.head.appendChild(st);
+  })();
+
   async function showAdminTab(tb) {
     document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
-    document.getElementById(`tab${tb.charAt(0).toUpperCase()+tb.slice(1)}`).classList.add('active');
+    // Varias ramas viven bajo una misma pestaña: pending y comisiones son parte
+    // de Equipo, y testimonials/solicitudes son parte de Sitio.
+    const PESTANA = { pending:'Users', comisiones:'Users', users:'Users',
+      testimonials:'Sitio', solicitudes:'Sitio', sitio:'Sitio',
+      bandeja:'Bandeja', revisiones:'Revisiones' };
+    const idTab = 'tab' + (PESTANA[tb] || (tb.charAt(0).toUpperCase()+tb.slice(1)));
+    const elTab = document.getElementById(idTab);
+    if (elTab) elTab.classList.add('active');
     const c = document.getElementById('adminContent');
     c.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
     try {
-      if (tb === 'pending') {
+      if (tb === 'bandeja') {
+        await renderBandeja(c);
+        return;
+      } else if (tb === 'sitio') {
+        // Testimonios y solicitudes juntos: los dos llegan del sitio público.
+        await showAdminTab('testimonials');
+        return;
+      } else if (tb === 'pending') {
         console.log('Buscando usuarios pendientes...');
         const s = await db.collection('users').where('status', '==', 'pending').get();
         console.log('Encontrados:', s.docs.length);
