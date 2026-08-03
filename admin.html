@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Administración · MALAVE</title>
-  <link rel="icon" type="image/png" href="isomalave.png">
+  <link rel="icon" type="image/png" href="iso-malave.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -108,6 +108,30 @@
     .kb:hover{background:var(--paper);color:var(--ink)}
 
     /* ===== Menú ===== */
+    /* Panel lateral de edición */
+    .slide{position:fixed;inset:0;background:rgba(16,29,48,.42);z-index:500;display:flex;justify-content:flex-end}
+    .slide-box{background:var(--card);width:100%;max-width:420px;height:100%;display:flex;flex-direction:column;
+      box-shadow:-14px 0 40px rgba(10,20,35,.18);animation:entra .22s ease}
+    @keyframes entra{from{transform:translateX(30px);opacity:.6}to{transform:none;opacity:1}}
+    .slide-h{display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line)}
+    .slide-h b{flex:1;font-size:1rem;font-weight:600}
+    .slide-b{flex:1;overflow-y:auto;padding:20px}
+    .slide-f{display:flex;gap:9px;padding:16px 20px;border-top:1px solid var(--line)}
+    .slide-f .bd-btn{flex:1;justify-content:center}
+    .bd-btn.pri{background:var(--navy);color:#fff;border-color:var(--navy)}
+    .cp{display:block;margin-bottom:15px}
+    .cp span{display:block;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}
+    .cp input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:.92rem;color:var(--ink)}
+    .cp input:focus{outline:none;border-color:var(--ink)}
+    .cp input:disabled{background:var(--paper);color:var(--muted-2)}
+    .cp-nota{font-size:.79rem;color:var(--muted);line-height:1.5;margin:0 0 16px}
+    @media(max-width:600px){
+      /* Hoja desde abajo, como el resto de la app. */
+      .slide{align-items:flex-end}
+      .slide-box{max-width:none;height:auto;max-height:90vh;border-radius:18px 18px 0 0}
+      .slide-f{padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+      .cp input{font-size:16px}
+    }
     .menu{position:fixed;z-index:400;background:var(--card);border:1px solid var(--line);border-radius:12px;
       box-shadow:0 14px 40px rgba(10,20,35,.16);padding:6px;min-width:196px}
     .menu button{width:100%;display:flex;align-items:center;gap:11px;border:none;background:none;text-align:left;
@@ -174,7 +198,7 @@
 
 <header class="ad-top">
   <div class="ad-top-in">
-    <a href="index.html" class="ad-marca"><img src="isomalave.png" alt=""><img src="textomalave.png" alt="MALAVE"></a>
+    <a href="index.html" class="ad-marca"><img src="iso-malave.png" alt=""><img src="texto-malave.png" alt="MALAVE"></a>
     <a class="ad-back" href="index.html"><i class="fas fa-arrow-left"></i> Volver al inicio</a>
   </div>
 </header>
@@ -244,9 +268,16 @@
     cerrarMenu();
     var m=document.createElement('div');
     m.className='menu';
-    m.innerHTML = opciones.map(o =>
-      '<button class="'+(o.mal?'mal':'')+'" onclick="cerrarMenu();('+o.fn+')()"><i class="fas '+o.ico+'"></i> '+esc(o.txt)+'</button>').join('');
+    m.innerHTML = opciones.map((o,i) =>
+      '<button class="'+(o.mal?'mal':'')+'" data-i="'+i+'"><i class="fas '+o.ico+'"></i> '+esc(o.txt)+'</button>').join('');
     document.body.appendChild(m);
+    m.querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click', function(){
+        var o = opciones[+b.dataset.i];
+        cerrarMenu();
+        if (o && typeof o.fn === 'function') { try { o.fn(); } catch(e){ console.error(e); toast('No se pudo abrir'); } }
+      });
+    });
     var alto=m.offsetHeight;
     var y=(r.bottom+alto+8>window.innerHeight)?(r.top-alto-6):(r.bottom+6);
     m.style.top=Math.max(8,y)+'px';
@@ -410,7 +441,7 @@
             '<div class="id"><div class="id-n"><b>'+esc(u.name||'Sin nombre')+'</b><span class="chip warn">Pendiente</span></div>' +
             '<div class="id-s">'+esc(u.email||'')+(u.createdAt?' · solicitó '+hace(u.createdAt):'')+'</div></div>' +
             '<button class="bd-btn" onclick="aprobar(\''+escA(u.id)+'\')">Aprobar</button>' +
-            '<button class="kb" onclick="abrirMenu(event,[{ico:\'fa-xmark\',txt:\'Rechazar\',mal:1,fn:\'()=>rechazar(\\\''+escA(u.id)+'\\\')\'}])"><i class="fas fa-ellipsis-vertical"></i></button>' +
+            '<button class="kb" onclick="menuPendiente(event,\''+escA(u.id)+'\')"><i class="fas fa-ellipsis-vertical"></i></button>' +
             '</div>').join('') + '</div>';
       }
 
@@ -445,6 +476,11 @@
     }
   }
 
+  var _acciones = {};
+  function menuPendiente(ev, id){
+    abrirMenu(ev, [{ico:'fa-xmark', txt:'Rechazar solicitud', mal:1, fn:function(){ rechazar(id); }}]);
+  }
+  function menuAgente(ev, id){ abrirMenu(ev, _acciones[id] || []); }
   function avatar(u){
     return '<div class="av">'+(u.profilePhoto?'<img src="'+escA(u.profilePhoto)+'" alt="">':esc(iniciales(u.name)))+'</div>';
   }
@@ -458,13 +494,15 @@
     var cs = u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:null);
     var cr = u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:null);
     var com = (cs!=null||cr!=null) ? (cs!=null?cs:'—')+' / '+(cr!=null?cr:'—') : 'Agencia';
-    var opts = [
-      {ico:'fa-pen', txt:'Editar datos', fn:'()=>editar(\''+escA(u.id)+'\')'},
-      {ico:'fa-percent', txt:'Comisión', fn:'()=>comision(\''+escA(u.id)+'\')'},
-      {ico:'fa-wallet', txt:'Dinero y puntos', fn:'()=>finanzas(\''+escA(u.id)+'\')'},
-      {ico:'fa-eye', txt:'Ver perfil público', fn:'()=>location.href=\'index.html#perfil/'+escA(u.id)+'\''}
+    // Se guardan por id y se resuelven al hacer clic: así el dato nunca viaja
+    // dentro de una cadena de HTML.
+    _acciones[u.id] = [
+      {ico:'fa-pen', txt:'Editar datos', fn:function(){ editar(u.id); }},
+      {ico:'fa-percent', txt:'Comisión', fn:function(){ comision(u.id); }},
+      {ico:'fa-wallet', txt:'Dinero y puntos', fn:function(){ finanzas(u.id); }},
+      {ico:'fa-eye', txt:'Ver perfil público', fn:function(){ window.open('index.html#perfil/'+u.id,'_blank'); }}
     ];
-    if (!admin) opts.push({ico:'fa-trash', txt:'Eliminar', mal:1, fn:'()=>eliminar(\''+escA(u.id)+'\')'});
+    if (!admin) _acciones[u.id].push({ico:'fa-trash', txt:'Eliminar', mal:1, fn:function(){ eliminar(u.id); }});
     return '<div class="row">'+avatar(u)+
       '<div class="id"><div class="id-n"><b>'+esc(u.name||'Sin nombre')+'</b>' +
         (admin?'<span class="chip oro">Admin</span>':'<span class="chip">'+esc(u.role||'Asesor')+'</span>') +
@@ -476,7 +514,7 @@
         '<div class="met"><b'+(saldo>0?' class="ok"':' class="nada"')+'>'+(saldo>0?plata(saldo,'USD'):'—')+'</b><span>A cobrar</span></div>' +
         '<div class="met"><b>'+esc(com)+'</b><span>Comisión</span></div>' +
       '</div>' +
-      '<button class="kb" onclick=\'abrirMenu(event,'+JSON.stringify(opts).replace(/'/g,"&#39;")+')\'><i class="fas fa-ellipsis-vertical"></i></button>' +
+      '<button class="kb" onclick="menuAgente(event,\''+escA(u.id)+'\')"><i class="fas fa-ellipsis-vertical"></i></button>' +
       '</div>';
   }
 
@@ -528,10 +566,98 @@
       toast('Comisión de la agencia guardada');
     }catch(e){ toast('No se pudo guardar'); }
   }
-  // Estas tres abren editores que por ahora viven en el panel viejo.
-  function editar(id){ location.href='index.html#admin/editar/'+id; }
-  function comision(id){ location.href='index.html#admin/comision/'+id; }
-  function finanzas(id){ location.href='index.html#admin/finanzas/'+id; }
+  // ---- Editores del agente, en un panel lateral ----
+  function agente(id){ for(var i=0;i<_agentes.length;i++) if(_agentes[i].id===id) return _agentes[i]; return null; }
+  function cerrarPanel(){ var p=document.querySelector('.slide'); if(p) p.remove(); }
+  // `guardar` es una FUNCIÓN, no un texto. Antes se metía como texto dentro de
+  // onclick="..." y el id del agente venía entre comillas dobles: cerraban el
+  // atributo y el botón quedaba muerto. Acá se ata con addEventListener.
+  function abrirPanel(titulo, cuerpo, guardar){
+    cerrarPanel();
+    var w=document.createElement('div');
+    w.className='slide';
+    w.onclick=function(e){ if(e.target===w) cerrarPanel(); };
+    w.innerHTML='<div class="slide-box"><div class="slide-h"><b>'+esc(titulo)+'</b>'+
+      '<button class="kb" data-cerrar><i class="fas fa-xmark"></i></button></div>'+
+      '<div class="slide-b">'+cuerpo+'</div>'+
+      (guardar?'<div class="slide-f"><button class="bd-btn" data-cerrar>Cancelar</button>'+
+        '<button class="bd-btn pri" data-guardar>Guardar</button></div>':'')+'</div>';
+    document.body.appendChild(w);
+    w.querySelectorAll('[data-cerrar]').forEach(b => b.addEventListener('click', cerrarPanel));
+    var g = w.querySelector('[data-guardar]');
+    if (g && guardar) g.addEventListener('click', function(){
+      g.disabled = true; g.textContent = 'Guardando...';
+      Promise.resolve(guardar()).catch(function(e){
+        console.error(e); toast('No se pudo guardar');
+      }).then(function(){ if(document.body.contains(g)){ g.disabled=false; g.textContent='Guardar'; } });
+    });
+  }
+  function campo(lbl, id, val, tipo, extra){
+    return '<label class="cp"><span>'+esc(lbl)+'</span><input id="'+id+'" type="'+(tipo||'text')+'" value="'+escA(val==null?'':val)+'" '+(extra||'')+'></label>';
+  }
+
+  function editar(id){
+    var u=agente(id); if(!u) return;
+    abrirPanel('Editar '+(u.name||'agente'),
+      campo('Nombre','edNombre',u.name) +
+      campo('Cargo','edRol',u.role||'Asesor Inmobiliario') +
+      campo('Teléfono','edTel',u.phone||u.whatsapp||'') +
+      '<label class="cp"><span>Correo</span><input value="'+escA(u.email||'')+'" disabled></label>' +
+      '<p class="cp-nota">El correo no se puede cambiar: es con lo que inicia sesión.</p>',
+      function(){ return guardarAgente(id); });
+  }
+  async function guardarAgente(id){
+    try{
+      await db.collection('users').doc(id).update({
+        name: document.getElementById('edNombre').value.trim(),
+        role: document.getElementById('edRol').value.trim(),
+        phone: document.getElementById('edTel').value.trim()
+      });
+      cerrarPanel(); toast('Datos guardados'); ver('equipo');
+    }catch(e){ toast('No se pudo guardar'); }
+  }
+
+  function comision(id){
+    var u=agente(id); if(!u) return;
+    var cs=u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:'');
+    var cr=u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:'');
+    abrirPanel('Comisión de '+(u.name||'agente'),
+      '<p class="cp-nota" style="margin-top:0">Porcentaje que se queda el agente. Si los dejás vacíos usa la comisión de la agencia.</p>' +
+      campo('Venta (%)','coVenta',cs,'number','step="0.1" min="0" max="100"') +
+      campo('Alquiler (%)','coAlq',cr,'number','step="0.1" min="0" max="100"'),
+      function(){ return guardarComisionAgente(id); });
+  }
+  async function guardarComisionAgente(id){
+    try{
+      var v=document.getElementById('coVenta').value.trim();
+      var a=document.getElementById('coAlq').value.trim();
+      await db.collection('users').doc(id).update({
+        commissionSale: v===''?firebase.firestore.FieldValue.delete():parseFloat(v),
+        commissionRent: a===''?firebase.firestore.FieldValue.delete():parseFloat(a)
+      });
+      cerrarPanel(); toast('Comisión guardada'); ver('equipo');
+    }catch(e){ toast('No se pudo guardar'); }
+  }
+
+  function finanzas(id){
+    var u=agente(id); if(!u) return;
+    abrirPanel('Dinero y puntos · '+(u.name||'agente'),
+      '<p class="cp-nota" style="margin-top:0">Saldo a cobrar y puntos acumulados del agente.</p>' +
+      campo('Saldo a cobrar (US$)','fiSaldo',u.saldoUSD||0,'number','step="1" min="0"') +
+      campo('Saldo a cobrar ($U)','fiSaldoUyu',u.saldoUYU||0,'number','step="1" min="0"') +
+      campo('Puntos','fiPuntos',u.puntos||0,'number','step="1" min="0"'),
+      function(){ return guardarFinanzas(id); });
+  }
+  async function guardarFinanzas(id){
+    try{
+      await db.collection('users').doc(id).update({
+        saldoUSD: parseFloat(document.getElementById('fiSaldo').value)||0,
+        saldoUYU: parseFloat(document.getElementById('fiSaldoUyu').value)||0,
+        puntos: parseInt(document.getElementById('fiPuntos').value)||0
+      });
+      cerrarPanel(); toast('Guardado'); ver('equipo');
+    }catch(e){ toast('No se pudo guardar'); }
+  }
 
   // ==========================================================================
   // REVISIONES y SITIO — por ahora redirigen al panel viejo, que ya las tiene
