@@ -1119,20 +1119,29 @@
         selP.innerHTML='<option value="">Primero elegí un agente…</option>';
         return;
       }
+      // Solo las que están en trato: una carta de pago se emite cuando la
+      // operación avanzó, no sobre una propiedad que sigue disponible.
+      var EN_TRATO = ['reserved','sold','rented'];
       var lista=props.filter(function(p){
         var esDelAgente = p.ownerId===agId;
         var esDelTipo = (p.type===tipoBuscado);
-        return esDelAgente && esDelTipo;
+        return esDelAgente && esDelTipo && EN_TRATO.indexOf(p.status||'available')>=0;
       });
       if(lista.length===0){
         var op=tipoOperacion==='compraventa'?'venta':'alquiler';
-        selP.innerHTML='<option value="">Este agente no tiene propiedades de '+op+' — usá "Escribir dirección"</option>';
+        // Se distingue "no tiene ninguna" de "tiene pero ninguna reservada":
+        // el segundo caso es un aviso de que falta marcar el estado.
+        var totalDelTipo = props.filter(function(p){ return p.ownerId===agId && p.type===tipoBuscado; }).length;
+        selP.innerHTML = totalDelTipo
+          ? '<option value="">Ninguna reservada o cerrada — marcá el estado o usá "Escribir dirección"</option>'
+          : '<option value="">Este agente no tiene propiedades de '+op+' — usá "Escribir dirección"</option>';
         return;
       }
       lista.forEach(function(p){
         var o=document.createElement('option'); o.value=p.id;
         // El título identifica la propiedad; la dirección real va entre paréntesis.
-        o.textContent=(p.title||'Propiedad')+(p._dir?('  ·  '+p._dir):'  ·  (sin dirección cargada)');
+        var EST={reserved:'Reservada', sold:'Vendida', rented:'Alquilada'};
+        o.textContent=(EST[p.status]||'')+' · '+(p.title||'Propiedad')+(p._dir?('  ·  '+p._dir):'  ·  (sin dirección cargada)');
         selP.appendChild(o);
       });
     }
