@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Administración · MALAVE</title>
-  <link rel="icon" type="image/png" href="iso-malave.png">
+  <link rel="icon" type="image/png" href="isomalave.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -28,7 +28,10 @@
     .ad-top{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:80;
       padding-top:env(safe-area-inset-top,0px)}
     .ad-top-in{max-width:1240px;margin:0 auto;padding:14px 22px;display:flex;align-items:center;gap:14px}
-    .ad-logo{height:34px;width:auto}
+    .ad-marca{display:inline-flex;align-items:center;gap:11px}
+    .ad-marca img:first-child{height:34px;width:auto}
+    .ad-marca img:last-child{height:15px;width:auto}
+    @media(max-width:480px){ .ad-marca img:last-child{display:none} }
     .ad-back{margin-left:auto;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);
       border-radius:99px;padding:8px 16px;font-size:.85rem;font-weight:600;color:var(--muted);cursor:pointer;background:var(--card)}
     .ad-back:hover{color:var(--ink);border-color:var(--muted-2)}
@@ -45,10 +48,32 @@
     .ad-t b{font-size:.68rem;font-weight:700;background:var(--bad);color:#fff;border-radius:99px;padding:1px 7px;min-width:18px;text-align:center}
 
     .ad-wrap{max-width:1240px;margin:0 auto;padding:26px 22px 80px}
+    .ad-head{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+    .ad-head > div:first-child{flex:1;min-width:200px}
     .ad-h{font-family:'Cormorant Garamond',serif;font-size:1.9rem;font-weight:600;margin:0 0 4px}
-    .ad-sub{font-size:.88rem;color:var(--muted);margin:0 0 22px}
+    .ad-sub{font-size:.88rem;color:var(--muted);margin:0}
+    .ad-tools{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+    .ad-busca{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);
+      border-radius:10px;padding:9px 13px;min-width:230px}
+    .ad-busca i{color:var(--muted-2);font-size:.82rem}
+    .ad-busca input{border:none;outline:none;font-family:inherit;font-size:.87rem;background:none;width:100%;color:var(--ink)}
+    .ad-sel{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:9px 12px;
+      font-family:inherit;font-size:.86rem;color:var(--ink);cursor:pointer}
+    @media(max-width:600px){ .ad-tools{width:100%} .ad-busca{flex:1;min-width:0} }
 
     /* ===== Bloques ===== */
+    /* Resumen del equipo */
+    .resumen{display:flex;gap:1px;background:var(--line);border:1px solid var(--line);
+      border-radius:var(--r);overflow:hidden;margin-bottom:4px}
+    .rs{flex:1;background:var(--card);padding:15px 17px;min-width:0}
+    .rs b{display:block;font-size:1.35rem;font-weight:600;color:var(--ink);line-height:1.15}
+    .rs b.ok{color:var(--ok)} .rs b.warn{color:var(--warn)}
+    .rs span{display:block;font-size:.66rem;color:var(--muted-2);text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
+    @media(max-width:700px){
+      .resumen{flex-wrap:wrap}
+      .rs{flex:1 0 calc(50% - 1px);padding:13px 14px}
+      .rs b{font-size:1.15rem}
+    }
     .ad-sec{display:flex;align-items:center;gap:10px;margin:26px 0 11px}
     .ad-sec:first-child{margin-top:0}
     .ad-sec span{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
@@ -149,7 +174,7 @@
 
 <header class="ad-top">
   <div class="ad-top-in">
-    <img src="isomalave.png" alt="" class="ad-logo">
+    <a href="index.html" class="ad-marca"><img src="isomalave.png" alt=""><img src="textomalave.png" alt="MALAVE"></a>
     <a class="ad-back" href="index.html"><i class="fas fa-arrow-left"></i> Volver al inicio</a>
   </div>
 </header>
@@ -164,8 +189,13 @@
 </nav>
 
 <main class="ad-wrap">
-  <h1 class="ad-h" id="titulo">Bandeja</h1>
-  <p class="ad-sub" id="subtitulo">Todo lo que espera una decisión tuya.</p>
+  <div class="ad-head">
+    <div>
+      <h1 class="ad-h" id="titulo">Bandeja</h1>
+      <p class="ad-sub" id="subtitulo">Todo lo que espera una decisión tuya.</p>
+    </div>
+    <div class="ad-tools" id="tools"></div>
+  </div>
   <div id="cuerpo"><div class="cargando"><div class="sp"></div></div></div>
 </main>
 
@@ -233,6 +263,17 @@
   };
   function ver(s){
     seccion = s;
+    // Las herramientas dependen de la sección: buscar y ordenar solo en Equipo.
+    var tools = document.getElementById('tools');
+    tools.innerHTML = (s==='equipo')
+      ? '<div class="ad-busca"><i class="fas fa-search"></i><input id="qEquipo" placeholder="Buscar agente..." oninput="filtrarEquipo()"></div>' +
+        '<select class="ad-sel" id="ordenEquipo" onchange="filtrarEquipo()">' +
+          '<option value="nombre">Nombre</option>' +
+          '<option value="props">Más propiedades</option>' +
+          '<option value="clis">Más clientes</option>' +
+          '<option value="saldo">Mayor saldo</option>' +
+        '</select>'
+      : '';
     document.querySelectorAll('.ad-t').forEach(t => t.classList.remove('on'));
     var t = document.getElementById('t'+s.charAt(0).toUpperCase()+s.slice(1));
     if (t) t.classList.add('on');
@@ -359,6 +400,8 @@
       var b=document.getElementById('cEquipo');
       b.textContent = pendientes.length || ''; b.style.display = pendientes.length ? '' : 'none';
 
+      // Se guardan para poder filtrar y ordenar sin volver a consultar.
+      _eqDatos = { equipo:equipo, props:propsPorAgente, clis:clisPorAgente };
       var html = '';
       if (pendientes.length){
         html += '<div class="ad-sec"><span>Esperando aprobación</span><b>'+pendientes.length+'</b><i></i></div><div class="card">' +
@@ -371,8 +414,21 @@
             '</div>').join('') + '</div>';
       }
 
-      html += '<div class="ad-sec"><span>Equipo</span><b>'+equipo.length+'</b><i></i></div><div class="card">' +
-        equipo.map(u => fila(u, propsPorAgente[u.id]||0, clisPorAgente[u.id]||0)).join('') + '</div>';
+      // Totales del equipo: el dato que un dueño mira primero y que hoy había que
+      // sumar a mano recorriendo las filas.
+      var tProps = Object.values(propsPorAgente).reduce((a,b)=>a+b,0);
+      var tClis  = Object.values(clisPorAgente).reduce((a,b)=>a+b,0);
+      var tSaldo = equipo.reduce((a,u)=>a+(Number(u.saldoUSD)||0),0);
+      var sinAct = equipo.filter(u => !(propsPorAgente[u.id]||0) && !(clisPorAgente[u.id]||0)).length;
+      html += '<div class="resumen">' +
+        '<div class="rs"><b>'+equipo.length+'</b><span>Agentes</span></div>' +
+        '<div class="rs"><b>'+tProps+'</b><span>Propiedades</span></div>' +
+        '<div class="rs"><b>'+tClis+'</b><span>Clientes</span></div>' +
+        '<div class="rs"><b'+(tSaldo>0?' class="ok"':'')+'>'+(tSaldo>0?plata(tSaldo,'USD'):'—')+'</b><span>A cobrar</span></div>' +
+        (sinAct?'<div class="rs"><b class="warn">'+sinAct+'</b><span>Sin actividad</span></div>':'') +
+      '</div>';
+      html += '<div class="ad-sec"><span>Equipo</span><b>'+equipo.length+'</b><i></i></div>' +
+        '<div class="card" id="eqLista">' + equipo.map(u => fila(u, propsPorAgente[u.id]||0, clisPorAgente[u.id]||0)).join('') + '</div>';
 
       var d = (cfg && cfg.exists) ? cfg.data() : {};
       html += '<div class="ad-sec"><span>Comisión de la agencia</span><i></i></div>' +
@@ -394,6 +450,8 @@
   }
   function fila(u, nProps, nClis){
     var admin = (u.email||'').toLowerCase()===ADMIN_EMAIL;
+    // Un agente sin nada cargado es lo que un dueño quiere ver de un vistazo.
+    var quieto = !admin && !nProps && !nClis;
     var saldo = Number(u.saldoUSD||0);
     // Sin comisión propia hereda la de la agencia: se muestra para que no
     // parezca un dato faltante.
@@ -410,6 +468,7 @@
     return '<div class="row">'+avatar(u)+
       '<div class="id"><div class="id-n"><b>'+esc(u.name||'Sin nombre')+'</b>' +
         (admin?'<span class="chip oro">Admin</span>':'<span class="chip">'+esc(u.role||'Asesor')+'</span>') +
+        (quieto?'<span class="chip warn">Sin actividad</span>':'') +
       '</div><div class="id-s">'+esc(u.email||'')+'</div></div>' +
       '<div class="mets">' +
         '<div class="met"><b'+(nProps?'':' class="nada"')+'>'+(nProps||'—')+'</b><span>Propiedades</span></div>' +
@@ -419,6 +478,31 @@
       '</div>' +
       '<button class="kb" onclick=\'abrirMenu(event,'+JSON.stringify(opts).replace(/'/g,"&#39;")+')\'><i class="fas fa-ellipsis-vertical"></i></button>' +
       '</div>';
+  }
+
+  var _eqDatos = null;
+  function filtrarEquipo(){
+    if (!_eqDatos) return;
+    var q = (document.getElementById('qEquipo')||{}).value || '';
+    q = q.trim().toLowerCase();
+    var orden = (document.getElementById('ordenEquipo')||{}).value || 'nombre';
+    var lista = _eqDatos.equipo.filter(u =>
+      !q || (u.name||'').toLowerCase().indexOf(q)>=0 || (u.email||'').toLowerCase().indexOf(q)>=0 || (u.role||'').toLowerCase().indexOf(q)>=0);
+    var P = _eqDatos.props, C = _eqDatos.clis;
+    lista.sort(function(a,b){
+      if (orden==='props') return (P[b.id]||0)-(P[a.id]||0) || (a.name||'').localeCompare(b.name||'','es');
+      if (orden==='clis')  return (C[b.id]||0)-(C[a.id]||0) || (a.name||'').localeCompare(b.name||'','es');
+      if (orden==='saldo') return (Number(b.saldoUSD)||0)-(Number(a.saldoUSD)||0) || (a.name||'').localeCompare(b.name||'','es');
+      // Por nombre: el admin primero, es la referencia de la lista.
+      var ad = (a.email||'').toLowerCase()===ADMIN_EMAIL, bd = (b.email||'').toLowerCase()===ADMIN_EMAIL;
+      if (ad!==bd) return ad ? -1 : 1;
+      return (a.name||'').localeCompare(b.name||'','es',{sensitivity:'base'});
+    });
+    var cont = document.getElementById('eqLista');
+    if (!cont) return;
+    cont.innerHTML = lista.length
+      ? lista.map(u => fila(u, P[u.id]||0, C[u.id]||0)).join('')
+      : '<div class="vacio" style="padding:36px"><i class="fas fa-user-slash"></i><h3>Sin resultados</h3><p>Probá con otro nombre.</p></div>';
   }
 
   async function aprobar(id){

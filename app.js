@@ -3407,6 +3407,23 @@
     const st = document.createElement('style');
     st.id = 'bndCss';
     st.textContent = `
+.sitio-sw{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+.sitio-b{border:1px solid #dfe1e5;background:#fff;border-radius:10px;padding:9px 16px;font-family:inherit;font-size:.86rem;font-weight:600;color:#5b6472;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all .13s}
+.sitio-b:hover{border-color:#16273f;color:#16273f}
+.sitio-b.active{background:#16273f;color:#fff;border-color:#16273f}
+@media(max-width:600px){.sitio-b{flex:1;justify-content:center;padding:10px 8px;font-size:.82rem}}
+.eq-sec{display:flex;align-items:center;gap:9px;margin:22px 0 10px}
+.eq-sec:first-child{margin-top:4px}
+.eq-sec span{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8a8f96}
+.eq-sec b{font-size:.7rem;font-weight:600;color:#a8adb4}
+.eq-sec i{flex:1;height:1px;background:#e7eaef}
+.user-card.pend{border-left:3px solid #C9A227}
+.eq-cfg{background:#fff;border:1px solid #e7eaef;border-radius:14px;padding:16px 18px}
+.eq-cfg p{font-size:.83rem;color:#8a8f96;margin:0 0 13px;line-height:1.5}
+.eq-cfg-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.eq-cfg-row label{display:inline-flex;align-items:center;gap:8px;font-size:.86rem;font-weight:600;color:#16273f}
+.eq-cfg-row input{width:76px;padding:8px 10px;border:1px solid #dfe1e5;border-radius:8px;font-family:inherit;font-size:.9rem}
+@media(max-width:600px){.eq-cfg-row{gap:11px}.eq-cfg-row label{flex:1 1 100%}.eq-cfg-row button{width:100%}}
 .bnd{background:#fff;border:1px solid #e7eaef;border-radius:14px;overflow:hidden}
 .bnd-row{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid #f0f2f5}
 .bnd-row:last-child{border-bottom:none}
@@ -3430,6 +3447,19 @@
     document.head.appendChild(st);
   })();
 
+  // Pinta una de las dos vistas del Sitio sin perder el selector de arriba.
+  // Reusa las ramas que ya existían: se les pasa el contenedor interno.
+  async function sitioVer(cual){
+    document.getElementById('swTesti').classList.toggle('active', cual==='testimonials');
+    document.getElementById('swSolic').classList.toggle('active', cual==='solicitudes');
+    const body = document.getElementById('sitioBody');
+    if (!body) return;
+    body.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    _sitioDestino = body;
+    try { await showAdminTab(cual); } finally { _sitioDestino = null; }
+  }
+  let _sitioDestino = null;
+
   async function showAdminTab(tb) {
     document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
     // Varias ramas viven bajo una misma pestaña: pending y comisiones son parte
@@ -3440,15 +3470,23 @@
     const idTab = 'tab' + (PESTANA[tb] || (tb.charAt(0).toUpperCase()+tb.slice(1)));
     const elTab = document.getElementById(idTab);
     if (elTab) elTab.classList.add('active');
-    const c = document.getElementById('adminContent');
-    c.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    // Cuando la rama se llama desde el Sitio, escribe adentro de su contenedor
+    // y no reemplaza el panel entero: si no, se perdería el selector.
+    const c = _sitioDestino || document.getElementById('adminContent');
+    if (!_sitioDestino) c.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
     try {
       if (tb === 'bandeja') {
         await renderBandeja(c);
         return;
       } else if (tb === 'sitio') {
         // Testimonios y solicitudes juntos: los dos llegan del sitio público.
-        await showAdminTab('testimonials');
+        // Antes eran dos pestañas, y al fusionarlas las solicitudes quedaban sin
+        // acceso: acá se muestran las dos, con un selector arriba.
+        c.innerHTML = `<div class="sitio-sw">
+            <button class="sitio-b active" id="swTesti" onclick="sitioVer('testimonials')"><i class="fas fa-comment-dots"></i> Testimonios</button>
+            <button class="sitio-b" id="swSolic" onclick="sitioVer('solicitudes')"><i class="fas fa-inbox"></i> Solicitudes de venta</button>
+          </div><div id="sitioBody"></div>`;
+        await sitioVer('testimonials');
         return;
       } else if (tb === 'pending') {
         console.log('Buscando usuarios pendientes...');
@@ -3461,29 +3499,42 @@
         document.getElementById('pendingCount').textContent = us.length > 0 ? `(${us.length})` : '';
         c.innerHTML = us.length === 0 ? `<div class="empty-state"><i class="fas fa-check-circle" style="color:var(--success)"></i><h3>Sin pendientes</h3><p style="color:var(--gray-500);margin-top:8px">No hay usuarios esperando aprobación</p></div>` : us.map(u => `<div class="user-card"><div class="user-card-avatar"><i class="fas fa-user"></i></div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')}</h4><p>${mvEsc(u.email||'')}</p><small>WhatsApp: ${mvEsc(u.whatsapp||'-')}</small><br><small style="color:var(--gray-400)">Registrado: ${u.createdAt?new Date(u.createdAt).toLocaleDateString('es-UY'):'N/A'}</small></div><div class="user-card-actions"><button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i> Aprobar</button><button class="btn-reject" onclick="rejectUser('${u.id}')"><i class="fas fa-times"></i> Rechazar</button></div></div>`).join('')
       } else if (tb === 'users') {
+        // ===== EQUIPO =====
+        // Antes eran tres pestañas leyendo la misma colección: aprobar un agente
+        // en una, verlo en otra, configurarle la comisión en una tercera. Es la
+        // misma persona: una sola vista, con los pendientes arriba de todo.
         const s = await db.collection('users').get();
-        const us = s.docs.map(d => ({
-          id: d.id,
-          ...d.data()
-        }));
-        c.innerHTML = us.length === 0 ? '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>' : us.map(u => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${safeUrl(u.profilePhoto)}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${mvEsc(u.role||'Asesor Inmobiliario')}</small>${u.commissionSale!=null||u.commissionRent!=null||u.commissionPct!=null?`<br><small style="color:#8a6d12"><i class="fas fa-percent"></i> Venta: ${u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:'—')}% · Alq: ${u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:'—')}%</small>`:''}<br><small style="color:${u.status==='approved'?'var(--success)':u.status==='pending'?'var(--gold)':'var(--danger)'}">${u.status==='approved'?'✓ Aprobado':u.status==='pending'?'⏳ Pendiente':'✗ Rechazado'}</small></div><div class="user-card-actions"><button class="btn-edit" onclick="abrirEditorAgente('${u.id}')" title="Editar datos"><i class="fas fa-pen"></i></button><button class="btn-edit" onclick="abrirFinanzasAgente('${u.id}')" title="Dinero y puntos"><i class="fas fa-wallet"></i></button><button class="btn-edit" onclick="setUserRole('${u.id}')" title="Asignar cargo"><i class="fas fa-id-badge"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${u.status==='pending'?`<button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i></button>`:''}${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`).join('')
-      } else if (tb === 'properties') {
-        c.innerHTML = properties.length === 0 ? '<div class="empty-state"><i class="fas fa-building"></i><h3>Sin propiedades</h3></div>' : properties.map(p => {
-          const o = getOwnerInfo(p),
-            st = p.status || 'available',
-            stLabels = {
-              tasacion: '⏳ Pendiente de tasación',
-              tasado: '📋 Tasado',
-              available: '✓ Disponible',
-              reserved: '⏳ Reservada',
-              sold: '✗ Vendida',
-              rented: '🔑 Alquilada',
-              archived: '📦 Archivada'
-            },
-            stt = stLabels[st] || '✓ Disponible',
-            isFeat = p.featured;
-          return `<div class="user-card ${isFeat?'featured-admin':''}"><div class="user-card-avatar" style="border-radius:8px"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=100'}" style="width:100%;height:100%;object-fit:cover;border-radius:8px"></div><div class="user-card-info"><h4>${isFeat?'<i class="fas fa-star" style="color:#f1c40f"></i> ':''} ${mvEsc(p.title)}</h4><p>${formatPrice(p.price,p.currency||'USD')} - ${getLocationString(p)}</p><small>${mvEsc(o.name)} | <i class="fas fa-eye"></i> ${p.views||0} | ${stt}</small></div><div class="user-card-actions"><button class="btn-feature-admin ${isFeat?'active':''}" onclick="toggleFeatured('${p.id}')" title="${isFeat?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button><button class="btn-edit" onclick="openPropertyFormTab('${p.id}')"><i class="fas fa-edit"></i></button><button class="btn-reject" onclick="deleteProperty('${p.id}')"><i class="fas fa-trash"></i></button></div></div>`
-        }).join('')
+        const us = s.docs.map(d => ({ id: d.id, ...d.data() }));
+        const pendientes = us.filter(u => u.status === 'pending');
+        const equipo = us.filter(u => u.status !== 'pending')
+          .sort((a,b) => ((a.email||'').toLowerCase()===ADMIN_EMAIL ? -1 : (b.email||'').toLowerCase()===ADMIN_EMAIL ? 1 : (a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'})));
+        document.getElementById('pendingCount').textContent = pendientes.length ? `(${pendientes.length})` : '';
+
+        const tarjeta = (u) => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${safeUrl(u.profilePhoto)}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${mvEsc(u.role||'Asesor Inmobiliario')}</small>${u.commissionSale!=null||u.commissionRent!=null||u.commissionPct!=null?`<br><small style="color:#8a6d12"><i class="fas fa-percent"></i> Venta: ${u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:'—')}% · Alq: ${u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:'—')}%</small>`:'<br><small style="color:var(--gray-400)"><i class="fas fa-percent"></i> Sin comisión propia · usa la de la agencia</small>'}</div><div class="user-card-actions"><button class="btn-edit" onclick="abrirEditorAgente('${u.id}')" title="Editar datos"><i class="fas fa-pen"></i></button><button class="btn-edit" onclick="abrirFinanzasAgente('${u.id}')" title="Dinero y puntos"><i class="fas fa-wallet"></i></button><button class="btn-edit" onclick="openComisionAgente('${u.id}')" title="Comisión"><i class="fas fa-percent"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`;
+
+        // Los pendientes van primero y con sus propios botones: es lo único que
+        // requiere una decisión, el resto es consulta.
+        const bloquePend = pendientes.length ? `<div class="eq-sec"><span>Esperando aprobación</span><b>${pendientes.length}</b><i></i></div>` +
+          pendientes.map(u => `<div class="user-card pend"><div class="user-card-avatar">${u.profilePhoto?`<img src="${safeUrl(u.profilePhoto)}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)">${u.createdAt?'Solicitó el '+new Date(u.createdAt).toLocaleDateString('es-UY'):''}</small></div><div class="user-card-actions"><button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i> Aprobar</button><button class="btn-reject" onclick="rejectUser('${u.id}')"><i class="fas fa-xmark"></i></button></div></div>`).join('') : '';
+
+        const cfg = await db.collection('adminData').doc('comisiones').get().catch(() => null);
+        const d = (cfg && cfg.exists) ? cfg.data() : {};
+        // La configuración global vivía en su propia pestaña. Va al pie de Equipo:
+        // es el valor por defecto de todos, así que se lee después de ver a quiénes aplica.
+        const bloqueCfg = `<div class="eq-sec"><span>Comisión de la agencia</span><i></i></div>
+          <div class="eq-cfg">
+            <p>Se aplica a los agentes que no tengan una comisión propia configurada.</p>
+            <div class="eq-cfg-row">
+              <label>Venta <input type="number" id="cfgAgencyPctSale" value="${d.agencyPctSale != null ? d.agencyPctSale : 3}" step="0.1"> %</label>
+              <label>Alquiler <input type="number" id="cfgAgencyMonthsRent" value="${d.agencyMonthsRent != null ? d.agencyMonthsRent : 1}" step="0.1"> meses</label>
+              <button class="btn-edit" onclick="saveComisionesConfig()"><i class="fas fa-floppy-disk"></i> Guardar</button>
+            </div>
+          </div>`;
+
+        c.innerHTML = bloquePend +
+          (equipo.length ? `<div class="eq-sec"><span>Equipo</span><b>${equipo.length}</b><i></i></div>` + equipo.map(tarjeta).join('')
+                         : '<div class="empty-state"><i class="fas fa-users"></i><h3>Sin usuarios</h3></div>') +
+          bloqueCfg;
       } else if (tb === 'testimonials') {
         const s = await db.collection('testimonials').get();
         const ts = s.docs.map(d => ({ id: d.id, ...d.data() }));
