@@ -93,6 +93,14 @@
     .ct-op input[type=checkbox]{ width:17px; height:17px; margin:2px 0 0; flex:none; cursor:pointer; }
     .ct-op b{ font-size:.88rem; color:var(--ink); display:block; }
     .ct-op span{ font-size:.78rem; color:var(--muted); line-height:1.4; }
+    /* Mismo control segmentado que ya usa el formulario para Alquiler/Venta:
+       un casillero suelto se perdía entre los campos y nadie lo veía. */
+    .seg{display:flex;gap:8px}
+    .seg-b{flex:1;border:1px solid var(--line);background:#fff;border-radius:10px;padding:11px 12px;
+      font-family:inherit;font-size:.88rem;font-weight:600;color:var(--muted);cursor:pointer;transition:all .13s}
+    .seg-b:hover{border-color:var(--ink);color:var(--ink)}
+    .seg-b.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+    #boxParcial{border-left:2px solid var(--line);padding-left:14px;margin:-4px 0 14px}
     .preview-abrir{ display:none; width:100%; margin-top:10px; border:1px solid var(--line); background:#fff; border-radius:10px; padding:11px; font-family:inherit; font-size:.88rem; font-weight:600; color:var(--ink,#16273f); cursor:pointer; align-items:center; justify-content:center; gap:8px; }
     .preview-empty{ display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#c3ccd6; text-align:center; padding:30px; }
     .preview-empty i{ font-size:2.4rem; margin-bottom:12px; }
@@ -181,9 +189,38 @@
             <label>Monto de la comisión</label>
             <div class="row2">
               <select id="fMoneda"><option value="UYU">Pesos ($U)</option><option value="USD">Dólares (US$)</option></select>
-              <input id="fMonto" type="number" min="0" step="1" placeholder="16000" oninput="renderPreview()">
+              <input id="fMonto" type="number" min="0" step="1" placeholder="39000" oninput="renderPreview()">
             </div>
             <div class="hint" id="montoLetras">En letras: —</div>
+
+          <div class="fld">
+            <label>¿Cómo se paga?</label>
+            <div class="seg">
+              <button type="button" class="seg-b on" id="segTotal" onclick="modoPago(false)">Pagó todo</button>
+              <button type="button" class="seg-b" id="segParcial" onclick="modoPago(true)">Pago parcial</button>
+            </div>
+            <input type="checkbox" id="fParcial" style="display:none">
+          </div>
+
+          <div id="boxParcial" style="display:none">
+            <div class="fld"><label>¿Cuánto abona ahora?</label>
+              <input id="fEntrega" type="number" min="0" step="1" placeholder="19500" oninput="renderPreview()">
+              <div class="hint" id="saldoTxt"></div>
+            </div>
+            <div class="fld">
+              <label>¿Qué documenta esta carta?</label>
+              <div class="seg">
+                <button type="button" class="seg-b on" id="segPrimera" onclick="modoSaldo(false)">La primera entrega</button>
+                <button type="button" class="seg-b" id="segSaldo" onclick="modoSaldo(true)">El saldo final</button>
+              </div>
+              <input type="checkbox" id="fSaldoFinal" style="display:none">
+            </div>
+            <div class="fld" id="boxFechaPrevia" style="display:none">
+              <label>Fecha del pago anterior <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>
+              <input id="fFechaPrevia" type="date" oninput="renderPreview()">
+              <div class="hint">Si la completás, la carta la menciona: "cuya primera parte fue abonada el…".</div>
+            </div>
+          </div>
           </div>
 
           <div class="fld">
@@ -869,11 +906,29 @@
         }
       }
       var verbo = firmantes.length>1 ? 'realizaron en conjunto el pago' : 'realizó el pago';
-      var montoTxt = fmtMonto(monto, moneda);
-      var letrasTxt = montoEnLetras(monto, moneda);
+      var pg = datosPago();
+      var montoTxt = fmtMonto(pg.entrega, moneda);
+      var letrasTxt = montoEnLetras(pg.entrega, moneda);
+      // La frase final cambia según sea pago completo, primera parte o saldo.
+      var cierre;
+      if (!pg.parcial && !pg.esSaldo) {
+        cierre = '';
+      } else if (pg.esSaldo) {
+        var fp = document.getElementById('fFechaPrevia');
+        var previa = fp && fp.value ? fechaSola(fp.value) : '';
+        cierre = ' Dicho importe corresponde al saldo de la comisión pactada de ' +
+          fmtMonto(pg.total, moneda) + ' (' + montoEnLetras(pg.total, moneda) + ')' +
+          (previa ? ', cuya primera parte fue abonada el ' + previa : '') +
+          ', quedando la comisión totalmente saldada.';
+      } else {
+        cierre = ' Dicho importe corresponde a una entrega parcial de la comisión pactada de ' +
+          fmtMonto(pg.total, moneda) + ' (' + montoEnLetras(pg.total, moneda) + '). ' +
+          'El saldo de ' + fmtMonto(pg.saldo, moneda) + ' (' + montoEnLetras(pg.saldo, moneda) + ') ' +
+          'se abonará al momento de la firma del contrato de ' + opTxt + '.';
+      }
 
       var cuerpo = 'Por la presente se deja constancia que '+encabezado+' '+verbo+' correspondiente al '+opTxt+' de la propiedad ubicada en '+dir+', por concepto de comisión inmobiliaria, por la suma '+(firmantes.length>1?'total ':'')+'de '+montoTxt+' ('+letrasTxt.toLowerCase()+').';
-      return cuerpo;
+      return cuerpo + cierre;
     }
 
     function direccionActual(){
@@ -891,11 +946,18 @@
     }
 
     // ===== Construcción del HTML del documento (para preview y base del PDF) =====
-    function fechaLarga(iso){
+    var MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    // Solo la fecha, para meterla en medio de una oración.
+    function fechaSola(iso){
       if(!iso) return '';
       var d=new Date(iso+'T00:00:00');
-      var meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-      return 'Montevideo, '+d.getDate()+' de '+meses[d.getMonth()]+' de '+d.getFullYear();
+      if(isNaN(d)) return '';
+      return d.getDate()+' de '+MESES[d.getMonth()]+' de '+d.getFullYear();
+    }
+    // Con la ciudad adelante, para el encabezado del documento.
+    function fechaLarga(iso){
+      var f=fechaSola(iso);
+      return f ? 'Montevideo, '+f : '';
     }
 
     // ===== Construcción del PDF (una sola fuente para preview Y descarga) =====
@@ -997,12 +1059,61 @@
     window.addEventListener('resize', escalarPreview, { passive:true });
     window.addEventListener('load', escalarPreview);
 
+    function modoPago(parcial){
+      document.getElementById('fParcial').checked = parcial;
+      document.getElementById('segTotal').classList.toggle('on', !parcial);
+      document.getElementById('segParcial').classList.toggle('on', parcial);
+      togglePagoParcial();
+    }
+    function modoSaldo(esSaldo){
+      document.getElementById('fSaldoFinal').checked = esSaldo;
+      document.getElementById('segPrimera').classList.toggle('on', !esSaldo);
+      document.getElementById('segSaldo').classList.toggle('on', esSaldo);
+      toggleSaldoFinal();
+    }
+    function togglePagoParcial(){
+      var on = document.getElementById('fParcial').checked;
+      document.getElementById('boxParcial').style.display = on ? 'block' : 'none';
+      if(!on){
+        document.getElementById('fEntrega').value='';
+        document.getElementById('fSaldoFinal').checked=false;
+        document.getElementById('segPrimera').classList.add('on');
+        document.getElementById('segSaldo').classList.remove('on');
+        document.getElementById('boxFechaPrevia').style.display='none';
+      }
+      renderPreview();
+    }
+    function toggleSaldoFinal(){
+      document.getElementById('boxFechaPrevia').style.display =
+        document.getElementById('fSaldoFinal').checked ? 'block' : 'none';
+      renderPreview();
+    }
+    // Devuelve los tres números del pago: total, lo que se entrega y el saldo.
+    function datosPago(){
+      var total = Number(document.getElementById('fMonto').value)||0;
+      var parcial = document.getElementById('fParcial') && document.getElementById('fParcial').checked;
+      var esSaldo = document.getElementById('fSaldoFinal') && document.getElementById('fSaldoFinal').checked;
+      var entrega = parcial ? (Number(document.getElementById('fEntrega').value)||0) : total;
+      // El saldo nunca puede ser negativo: si alguien escribe más que el total,
+      // se toma como pago completo en vez de mostrar un número absurdo.
+      var saldo = Math.max(0, total - entrega);
+      return { total:total, entrega:entrega, saldo:saldo, parcial:parcial && entrega>0 && saldo>0, esSaldo:esSaldo };
+    }
+
     var _previewTimer=null;
     function renderPreview(){
       // "En letras" al instante
       var monto=Number(document.getElementById('fMonto').value)||0;
       var moneda=document.getElementById('fMoneda').value;
       document.getElementById('montoLetras').textContent = 'En letras: '+(monto>0 ? montoEnLetras(monto,moneda) : '—');
+      var st=document.getElementById('saldoTxt');
+      if(st){
+        var d=datosPago();
+        st.textContent = d.entrega<=0 ? ''
+          : d.entrega>d.total ? 'La entrega supera el total: se toma como pago completo.'
+          : 'Saldo pendiente: '+fmtMonto(d.saldo, moneda)+(d.saldo>0?' ('+montoEnLetras(d.saldo,moneda)+')':' — queda saldado');
+        st.style.color = d.entrega>d.total ? 'var(--bad,#c0392b)' : '';
+      }
       // El PDF se regenera con un pequeño retardo para no trabar mientras se escribe
       clearTimeout(_previewTimer);
       _previewTimer=setTimeout(function(){
@@ -1024,7 +1135,9 @@
       var dir=direccionActual();
       if(!agente){ toast('Elegí el agente que firma', true); return; }
       if(firmantes.length===0){ toast('Agregá al menos una persona que pagó', true); return; }
-      if(!monto){ toast('Ingresá el monto', true); return; }
+      if(!monto){ toast('Ingresá el monto total de la comisión', true); return; }
+      var _pg = datosPago();
+      if(document.getElementById('fParcial').checked && !_pg.entrega){ toast('Ingresá cuánto abona ahora', true); return; }
       if(dir==='_________________'){ toast('Falta la dirección de la propiedad', true); return; }
       if(!document.getElementById('fFecha').value){ toast('Elegí la fecha del documento', true); return; }
 
@@ -1137,11 +1250,18 @@
           : '<option value="">Este agente no tiene propiedades de '+op+' — usá "Escribir dirección"</option>';
         return;
       }
+      // Lo que se necesita para elegir es la DIRECCIÓN: es lo que va a salir en la
+      // carta. El título completo ("Apartamento en Pocitos | 3 Dormitorios |
+      // Luminoso al Frente") desbordaba el ancho y tapaba los campos de abajo.
+      var EST={reserved:'Reservada', sold:'Vendida', rented:'Alquilada'};
       lista.forEach(function(p){
         var o=document.createElement('option'); o.value=p.id;
-        // El título identifica la propiedad; la dirección real va entre paréntesis.
-        var EST={reserved:'Reservada', sold:'Vendida', rented:'Alquilada'};
-        o.textContent=(EST[p.status]||'')+' · '+(p.title||'Propiedad')+(p._dir?('  ·  '+p._dir):'  ·  (sin dirección cargada)');
+        var dir = p._dir || '(sin dirección cargada)';
+        // Se acorta con puntos suspensivos por si alguna dirección es muy larga.
+        if (dir.length > 46) dir = dir.slice(0,44).trim()+'…';
+        o.textContent = dir + '  ·  ' + (EST[p.status]||'');
+        // El detalle completo queda en el título del option, al pasar el mouse.
+        o.title = (p.title||'Propiedad') + (p._dir ? ' — '+p._dir : '');
         selP.appendChild(o);
       });
     }
