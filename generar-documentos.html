@@ -371,7 +371,10 @@
       // El texto de la marca sale del archivo del repo. Si no carga, el membrete
       // cae al texto dibujado de antes: el documento se genera igual.
       var t = new Image();
-      t.crossOrigin = 'anonymous';
+      // Sin crossOrigin al abrir el archivo desde el disco (file://): ese protocolo
+      // bloquea las peticiones "anonymous" y la imagen ni siquiera carga. Sobre
+      // https sí hace falta para poder leerla desde el canvas.
+      if (location.protocol !== 'file:') t.crossOrigin = 'anonymous';
       t.onload = function(){
         // El archivo es un JPEG con extensión .png: pasarle 'PNG' a jsPDF fallaba
         // en silencio y el membrete caía al texto dibujado. Al redibujarlo en un
@@ -386,7 +389,11 @@
           ctx.drawImage(t, 0, 0);
           _textoImg = { data: c.toDataURL('image/png'), w: t.naturalWidth, h: t.naturalHeight };
         }catch(e){
-          console.warn('No se pudo convertir el texto del logo:', e);
+          // Pasa si el canvas quedó "contaminado" (file:// o sin CORS): el
+          // navegador no deja leerlo. Se cae al texto dibujado.
+          console.warn('No se pudo convertir el texto del logo (' + (location.protocol==='file:'
+            ? 'estás abriendo el archivo desde el disco; en el sitio publicado funciona'
+            : e.message) + ')');
           _textoImg = null;
         }
         try{ renderPreview(); }catch(e){}
@@ -800,8 +807,10 @@
     }
 
     function ctPreview(){
+      if(_tipoActivo !== 'contrato') return;
       if(_previewTimer) clearTimeout(_previewTimer);
       _previewTimer=setTimeout(function(){
+        if(_tipoActivo !== 'contrato') return;
         try{
           var uri=ctConstruirPDF().output('datauristring');
           _previewURI=uri;
@@ -1154,8 +1163,10 @@
         st.style.color = d.entrega>d.total ? 'var(--bad,#c0392b)' : '';
       }
       // El PDF se regenera con un pequeño retardo para no trabar mientras se escribe
+      if(_tipoActivo !== 'carta_pago') return;
       clearTimeout(_previewTimer);
       _previewTimer=setTimeout(function(){
+        if(_tipoActivo !== 'carta_pago') return;
         try{
           var pdf=construirPDF();
           var uri=pdf.output('datauristring');
@@ -1191,13 +1202,19 @@
     }
 
     // ===== Controles de UI =====
+    var _tipoActivo = 'carta_pago';
     function selectType(t){
       document.querySelectorAll('.doc-type').forEach(function(b){ b.classList.remove('active'); });
       document.querySelector('.doc-type[data-type="'+t+'"]').classList.add('active');
       var esContrato = (t==='contrato');
+      _tipoActivo = esContrato ? 'contrato' : 'carta_pago';
       document.getElementById('formCartaPago').style.display = esContrato?'none':'';
       document.getElementById('formContrato').style.display = esContrato?'':'none';
-      if(esContrato){ ctInit(); ctPreview(); } else { pintarPreview(); }
+      // Se cancela lo que hubiera agendado el tipo anterior: los dos comparten
+      // temporizador y el que llegaba tarde pisaba al nuevo.
+      if(_previewTimer) clearTimeout(_previewTimer);
+      _previewURI = null;
+      if(esContrato){ ctInit(); ctPreview(); } else { renderPreview(); }
     }
 
     var _ctListo=false;
