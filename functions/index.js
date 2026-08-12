@@ -2416,8 +2416,24 @@ exports.saludMLLote = onCall(async (request) => {
         const propId = porItem.get(c.id);
         if (!propId) return;
         respondieron.add(c.id);
-        const cambios = { mlStatus: c.status || "", mlStatusAt: ahora };
-        estados[propId] = c.status || "";
+        // El multiget contesta por aviso: los que no se pueden leer vienen con
+        // code 403 (cuenta ajena o bloqueada) o 404 (borrado). En ese caso el
+        // cuerpo NO trae un estado real, así que no hay que guardarlo.
+        const codigo = row.code;
+        if ((codigo && codigo !== 200) || typeof c.status !== "string") {
+          estados[propId] = "no_encontrado";
+          escrituras.push(
+            db.collection("properties").doc(propId).update({
+              mlStatus: "no_encontrado",
+              mlStatusAt: ahora,
+              mlHealth: admin.firestore.FieldValue.delete(),
+              mlHealthAt: admin.firestore.FieldValue.delete(),
+            }).catch(() => {}),
+          );
+          return;
+        }
+        const cambios = { mlStatus: c.status, mlStatusAt: ahora };
+        estados[propId] = c.status;
         // health puede venir null en avisos que ML todavía no evaluó: en ese caso
         // se deja el valor anterior en vez de pisarlo con nada.
         if (c.health != null) {
@@ -2495,7 +2511,19 @@ exports.refrescarSaludML = onSchedule(
           const propId = porId.get(cuerpo.id);
           if (!propId) return;
           respondieron.add(cuerpo.id);
-          const cambios = { mlStatus: cuerpo.status || "", mlStatusAt: ahora };
+          // 403/404: el aviso no se puede leer. No es un estado, es un error.
+          if ((row.code && row.code !== 200) || typeof cuerpo.status !== "string") {
+            escrituras.push(
+              db.collection("properties").doc(propId).update({
+                mlStatus: "no_encontrado",
+                mlStatusAt: ahora,
+                mlHealth: admin.firestore.FieldValue.delete(),
+                mlHealthAt: admin.firestore.FieldValue.delete(),
+              }).then(() => { ok++; }).catch(() => { fallos++; }),
+            );
+            return;
+          }
+          const cambios = { mlStatus: cuerpo.status, mlStatusAt: ahora };
           // health puede venir null en avisos que ML todavía no evaluó: en ese caso
           // se deja el valor anterior en vez de pisarlo con nada.
           if (cuerpo.health != null) {

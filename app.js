@@ -4558,8 +4558,10 @@
     // El CRM tiene guardado un aviso, pero puede no estar EN LÍNEA: caído, cerrado,
     // pausado o esperando algo. En esos casos el porcentaje de calidad miente (es el
     // último medido), así que se muestra una alerta en vez del anillo: de un vistazo
-    // se ve cuál hay que renovar.
-    const CAIDOS = {
+    // se ve cuál hay que renovar. La lista va al revés a propósito: SOLO 'active'
+    // muestra el anillo. Cualquier otro valor —incluidos estados nuevos de Mercado
+    // Libre o códigos de error— cae en la alerta, nunca se hace pasar por publicado.
+    const MOTIVOS = {
       no_encontrado: ['#c0392b', 'El aviso ya no existe en Mercado Libre — tocá para volver a publicar'],
       closed: ['#c0392b', 'Aviso cerrado en Mercado Libre — tocá para volver a publicar'],
       payment_required: ['#c0392b', 'El aviso espera el pago para salir en línea'],
@@ -4569,9 +4571,10 @@
       under_review: ['#C9A227', 'Mercado Libre está revisando el aviso'],
       inactive: ['#C9A227', 'Aviso inactivo en Mercado Libre'],
     };
-    const caido = CAIDOS[p.mlStatus || ''];
-    if (caido) {
-      return `<button class="card-action-btn ml-caido" style="color:${caido[0]};border-color:${caido[0]}" onclick="${abrir}" title="${caido[1]}"><i class="fas fa-exclamation-triangle"></i></button>`;
+    const st = p.mlStatus == null ? '' : String(p.mlStatus);
+    if (st && st !== 'active') {
+      const m = MOTIVOS[st] || ['#c0392b', 'El aviso no está en línea en Mercado Libre — tocá para revisarlo'];
+      return `<button class="card-action-btn ml-caido" style="color:${m[0]};border-color:${m[0]}" onclick="${abrir}" title="${m[1]}"><i class="fas fa-exclamation-triangle"></i></button>`;
     }
     if (p.mlHealth == null) {
       return `<button class="card-action-btn ml-sin" onclick="${abrir}" title="Publicada — calidad todavía sin medir"><i class="fas fa-tag"></i></button>`;
