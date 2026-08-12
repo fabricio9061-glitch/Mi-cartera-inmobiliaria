@@ -78,7 +78,7 @@ const CAT_SALE = process.env.ML_CAT_SALE || "";
 const CAT_RENT = process.env.ML_CAT_RENT || "";
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "fabricio9061@gmail.com").toLowerCase();
 // Datos de la inmobiliaria que se muestran como contacto en los avisos de ML.
-const NOMBRE_INMOBILIARIA = process.env.ML_NOMBRE_INMOBILIARIA || "Inmobiliaria Malave";
+const NOMBRE_INMOBILIARIA = process.env.ML_NOMBRE_INMOBILIARIA || "Malave Inmobiliaria";
 const EMAIL_INMOBILIARIA = process.env.ML_EMAIL_INMOBILIARIA || "inmobiliariamalave@gmail.com";
 
 const API = "https://api.mercadolibre.com";
