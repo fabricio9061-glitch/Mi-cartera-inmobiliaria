@@ -2438,7 +2438,14 @@ exports.saludMLLote = onCall(async (request) => {
         estados[propId] = "no_encontrado";
         escrituras.push(
           db.collection("properties").doc(propId)
-            .update({ mlStatus: "no_encontrado", mlStatusAt: ahora }).catch(() => {}),
+            .update({
+              mlStatus: "no_encontrado",
+              mlStatusAt: ahora,
+              // La calidad guardada es de un aviso que ya no existe: si se deja,
+              // la grilla sigue mostrando un porcentaje que no significa nada.
+              mlHealth: admin.firestore.FieldValue.delete(),
+              mlHealthAt: admin.firestore.FieldValue.delete(),
+            }).catch(() => {}),
         );
       });
     } catch (e) {
@@ -2509,7 +2516,12 @@ exports.refrescarSaludML = onSchedule(
           if (!propId) return;
           escrituras.push(
             db.collection("properties").doc(propId)
-              .update({ mlStatus: "no_encontrado", mlStatusAt: ahora })
+              .update({
+                mlStatus: "no_encontrado",
+                mlStatusAt: ahora,
+                mlHealth: admin.firestore.FieldValue.delete(),
+                mlHealthAt: admin.firestore.FieldValue.delete(),
+              })
               .then(() => { ok++; })
               .catch(() => { fallos++; }),
           );
