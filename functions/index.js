@@ -2400,24 +2400,45 @@ exports.saludMLLote = onCall(async (request) => {
   const itemIds = [...porItem.keys()];
   const ahora = new Date().toISOString();
   const salud = {};
+  const estados = {};
   const escrituras = [];
 
   for (let i = 0; i < itemIds.length; i += 20) {
     const lote = itemIds.slice(i, i + 20);
     try {
       const r = await axios.get(`${API}/items`, {
-        headers, params: { ids: lote.join(","), attributes: "id,health" },
+        headers, params: { ids: lote.join(","), attributes: "id,health,status" },
       });
+      const respondieron = new Set();
       (r.data || []).forEach((row) => {
         const c = row && row.body;
-        if (!c || !c.id || c.health == null) return;
+        if (!c || !c.id) return;
         const propId = porItem.get(c.id);
         if (!propId) return;
-        salud[propId] = c.health;
+        respondieron.add(c.id);
+        const cambios = { mlStatus: c.status || "", mlStatusAt: ahora };
+        estados[propId] = c.status || "";
+        // health puede venir null en avisos que ML todavía no evaluó: en ese caso
+        // se deja el valor anterior en vez de pisarlo con nada.
+        if (c.health != null) {
+          salud[propId] = c.health;
+          cambios.mlHealth = c.health;
+          cambios.mlHealthAt = ahora;
+        }
+        escrituras.push(
+          db.collection("properties").doc(propId).update(cambios).catch(() => {}),
+        );
+      });
+      // Lo que ML no devolvió dentro de un lote que SÍ respondió: ese aviso ya no
+      // existe (borrado, o de una cuenta que se perdió). Se marca para que la
+      // grilla lo muestre caído en vez de seguir mostrando la última calidad.
+      lote.filter((id) => !respondieron.has(id)).forEach((id) => {
+        const propId = porItem.get(id);
+        if (!propId) return;
+        estados[propId] = "no_encontrado";
         escrituras.push(
           db.collection("properties").doc(propId)
-            .update({ mlHealth: c.health, mlHealthAt: ahora })
-            .catch(() => {}),
+            .update({ mlStatus: "no_encontrado", mlStatusAt: ahora }).catch(() => {}),
         );
       });
     } catch (e) {
@@ -2425,7 +2446,7 @@ exports.saludMLLote = onCall(async (request) => {
     }
   }
   await Promise.all(escrituras);
-  return { salud, medidoEn: ahora };
+  return { salud, estados, medidoEn: ahora };
 });
 
 // ============================================================
@@ -2457,19 +2478,38 @@ exports.refrescarSaludML = onSchedule(
       const lote = ids.slice(i, i + 20);
       try {
         const r = await axios.get(`${API}/items`, {
-          headers, params: { ids: lote.join(","), attributes: "id,health" },
+          headers, params: { ids: lote.join(","), attributes: "id,health,status" },
         });
         const escrituras = [];
+        const respondieron = new Set();
         (r.data || []).forEach((row) => {
           const cuerpo = row && row.body;
           if (!cuerpo || !cuerpo.id) return;
           const propId = porId.get(cuerpo.id);
+          if (!propId) return;
+          respondieron.add(cuerpo.id);
+          const cambios = { mlStatus: cuerpo.status || "", mlStatusAt: ahora };
           // health puede venir null en avisos que ML todavía no evaluó: en ese caso
           // se deja el valor anterior en vez de pisarlo con nada.
-          if (!propId || cuerpo.health == null) return;
+          if (cuerpo.health != null) {
+            cambios.mlHealth = cuerpo.health;
+            cambios.mlHealthAt = ahora;
+          }
           escrituras.push(
             db.collection("properties").doc(propId)
-              .update({ mlHealth: cuerpo.health, mlHealthAt: ahora })
+              .update(cambios)
+              .then(() => { ok++; })
+              .catch(() => { fallos++; }),
+          );
+        });
+        // Avisos que ML no devolvió: ya no existen. Se marcan para que la grilla
+        // los muestre caídos y se puedan republicar.
+        lote.filter((id) => !respondieron.has(id)).forEach((id) => {
+          const propId = porId.get(id);
+          if (!propId) return;
+          escrituras.push(
+            db.collection("properties").doc(propId)
+              .update({ mlStatus: "no_encontrado", mlStatusAt: ahora })
               .then(() => { ok++; })
               .catch(() => { fallos++; }),
           );

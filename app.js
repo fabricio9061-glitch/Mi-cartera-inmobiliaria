@@ -4516,9 +4516,12 @@
     if (_saludT) clearTimeout(_saludT);
     _saludT = setTimeout(async () => {
       const seisHoras = Date.now() - 6 * 3600 * 1000;
+      // Se revisa por el ESTADO, no por la calidad: un aviso puede tener la calidad
+      // medida hace un rato y haberse caído (o activado) después. La misma llamada
+      // trae las dos cosas, así que alcanza con mirar la fecha del estado.
       const faltan = properties.filter(p =>
         p.mlItemId && !_saludPedida.has(p.id) &&
-        (!p.mlHealthAt || Date.parse(p.mlHealthAt) < seisHoras)
+        (!p.mlStatusAt || Date.parse(p.mlStatusAt) < seisHoras)
       ).slice(0, 80);
       if (!faltan.length) return;
       // Se marcan ANTES de llamar: la escritura del backend vuelve por el snapshot
@@ -4527,9 +4530,13 @@
       try {
         const r = await firebase.functions().httpsCallable('saludMLLote')({ propertyIds: faltan.map(p => p.id) });
         const salud = (r.data && r.data.salud) || {};
-        if (!Object.keys(salud).length) return;
+        const estados = (r.data && r.data.estados) || {};
+        if (!Object.keys(salud).length && !Object.keys(estados).length) return;
         // Se aplica en local para que el anillo aparezca ya, sin esperar el snapshot.
-        properties.forEach(p => { if (salud[p.id] != null) { p.mlHealth = salud[p.id]; p.mlHealthAt = r.data.medidoEn; } });
+        properties.forEach(p => {
+          if (salud[p.id] != null) { p.mlHealth = salud[p.id]; p.mlHealthAt = r.data.medidoEn; }
+          if (estados[p.id] != null) { p.mlStatus = estados[p.id]; }
+        });
         renderProperties(properties.filter(enVitrina));
       } catch (e) {
         console.warn('No se pudo traer la calidad de los avisos:', e.message || e);
@@ -4547,6 +4554,24 @@
     if (!p.mlItemId) {
       // Sin publicar: el botón mantiene su significado viejo (abrir para publicar).
       return `<button class="card-action-btn ml-sin" onclick="${abrir}" title="No está publicada en Mercado Libre"><i class="fas fa-tag"></i></button>`;
+    }
+    // El CRM tiene guardado un aviso, pero puede no estar EN LÍNEA: caído, cerrado,
+    // pausado o esperando algo. En esos casos el porcentaje de calidad miente (es el
+    // último medido), así que se muestra una alerta en vez del anillo: de un vistazo
+    // se ve cuál hay que renovar.
+    const CAIDOS = {
+      no_encontrado: ['#c0392b', 'El aviso ya no existe en Mercado Libre — tocá para volver a publicar'],
+      closed: ['#c0392b', 'Aviso cerrado en Mercado Libre — tocá para volver a publicar'],
+      payment_required: ['#c0392b', 'El aviso espera el pago para salir en línea'],
+      pack_quota_exceeded: ['#c0392b', 'Se superó el cupo del paquete: el aviso no salió en línea'],
+      paused: ['#C9A227', 'Aviso pausado en Mercado Libre — no se está viendo'],
+      not_yet_active: ['#C9A227', 'Aviso creado, todavía no está en línea'],
+      under_review: ['#C9A227', 'Mercado Libre está revisando el aviso'],
+      inactive: ['#C9A227', 'Aviso inactivo en Mercado Libre'],
+    };
+    const caido = CAIDOS[p.mlStatus || ''];
+    if (caido) {
+      return `<button class="card-action-btn ml-caido" style="color:${caido[0]};border-color:${caido[0]}" onclick="${abrir}" title="${caido[1]}"><i class="fas fa-exclamation-triangle"></i></button>`;
     }
     if (p.mlHealth == null) {
       return `<button class="card-action-btn ml-sin" onclick="${abrir}" title="Publicada — calidad todavía sin medir"><i class="fas fa-tag"></i></button>`;
