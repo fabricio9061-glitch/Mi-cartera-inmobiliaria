@@ -1459,6 +1459,9 @@ async function crearAvisoML(ref, id, extra = {}, opciones = {}) {
       mlItemId: r.data.id,
       mlPermalink: r.data.permalink || "",
       mlStatus: r.data.status || "active",
+      // Cuándo se supo ese estado. Recién creado casi siempre es 'not_yet_active';
+      // sin esta marca la grilla lo daba por revisado y no volvía a preguntar.
+      mlStatusAt: new Date().toISOString(),
       mlListingType: r.data.listing_type_id || item.listing_type_id || "",
       mlError: admin.firestore.FieldValue.delete(),
       mlErrorAt: admin.firestore.FieldValue.delete(),

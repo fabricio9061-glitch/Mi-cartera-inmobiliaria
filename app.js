@@ -4516,13 +4516,17 @@
     if (_saludT) clearTimeout(_saludT);
     _saludT = setTimeout(async () => {
       const seisHoras = Date.now() - 6 * 3600 * 1000;
+      const cincoMinutos = Date.now() - 5 * 60 * 1000;
       // Se revisa por el ESTADO, no por la calidad: un aviso puede tener la calidad
       // medida hace un rato y haberse caído (o activado) después. La misma llamada
-      // trae las dos cosas, así que alcanza con mirar la fecha del estado.
-      const faltan = properties.filter(p =>
-        p.mlItemId && !_saludPedida.has(p.id) &&
-        (!p.mlStatusAt || Date.parse(p.mlStatusAt) < seisHoras)
-      ).slice(0, 80);
+      // trae las dos cosas. Los que NO están en línea se revisan seguido, porque
+      // 'not_yet_active' dura minutos: si se espera seis horas, la grilla muestra
+      // "todavía no está en línea" cuando el aviso ya salió hace rato.
+      const faltan = properties.filter(p => {
+        if (!p.mlItemId || _saludPedida.has(p.id)) return false;
+        const revisado = p.mlStatusAt ? Date.parse(p.mlStatusAt) : 0;
+        return revisado < (p.mlStatus === 'active' ? seisHoras : cincoMinutos);
+      }).slice(0, 80);
       if (!faltan.length) return;
       // Se marcan ANTES de llamar: la escritura del backend vuelve por el snapshot
       // y volvería a entrar acá, pidiendo lo mismo en bucle.
