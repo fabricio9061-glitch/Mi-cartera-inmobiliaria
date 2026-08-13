@@ -4640,11 +4640,18 @@
   // Funciones de compartir
   let currentShareProperty = null;
 
+  // El link que se comparte NO es propiedad.html: es la página de vista previa,
+  // que escribe la foto y el precio en el HTML para que WhatsApp los pueda leer
+  // (los robots de vista previa no ejecutan JavaScript). Al tocarlo, esa página
+  // manda a propiedad.html de siempre.
+  const DOMINIO_COMPARTIR = 'https://ver.malaveinmobiliaria.com';
+  function linkParaCompartir(id) { return `${DOMINIO_COMPARTIR}/p/${id}`; }
+
   function openShareModal(id) {
     const p = properties.find(pr => pr.id === id);
     if (!p) return;
     currentShareProperty = p;
-    const url = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}propiedad.html?id=${id}`;
+    const url = linkParaCompartir(id);
     document.getElementById('shareTitle').textContent = p.title;
     document.getElementById('sharePrice').textContent = formatPrice(p.price, p.currency || 'USD') + (p.type === 'rent' ? '/mes' : '');
     document.getElementById('shareLocation').textContent = getLocationString(p);

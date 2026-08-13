@@ -2207,6 +2207,78 @@ exports.republicarML = onCall(async (request) => {
   throw new HttpsError("internal", res.error || "No se pudo republicar.");
 });
 
+// ============================================================
+// VISTA PREVIA PARA COMPARTIR (WhatsApp, Facebook, etc.)
+// ------------------------------------------------------------
+// propiedad.html arma la ficha con JavaScript, y los robots que generan la vista
+// previa NO ejecutan JavaScript: solo leen el HTML crudo, donde la foto todavía
+// no existe. Por eso el link salía siempre con el logo.
+// Esta función devuelve una página mínima con los datos ya escritos (título,
+// precio, ubicación y la foto real) y manda a la persona a la ficha de siempre.
+// ============================================================
+function escaparHtml(t) {
+  return String(t == null ? "" : t)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+exports.fichaCompartir = onRequest({ cors: true }, async (req, res) => {
+  const SITIO = "https://malaveinmobiliaria.com";
+  // Acepta /p/ID y también ?id=ID
+  const porRuta = (req.path || "").split("/").filter(Boolean).pop();
+  const id = (req.query && req.query.id) || (porRuta && porRuta !== "p" ? porRuta : "");
+  if (!id) return res.redirect(302, SITIO);
+
+  let p = null;
+  try {
+    const doc = await db.collection("properties").doc(String(id)).get();
+    if (doc.exists) p = doc.data();
+  } catch (e) {
+    logger.warn("fichaCompartir: no se pudo leer la propiedad —", e.message);
+  }
+  const destino = `${SITIO}/propiedad.html?id=${encodeURIComponent(id)}`;
+  if (!p) return res.redirect(302, destino);
+
+  const moneda = p.currency === "UYU" ? "$U" : "US$";
+  const precio = `${moneda} ${Number(p.price || 0).toLocaleString("es-UY")}${p.type === "rent" ? "/mes" : ""}`;
+  const donde = p.ciudad && p.departamento ? `${p.ciudad}, ${p.departamento}` : (p.location || "Uruguay");
+  const partes = [precio, donde];
+  if (p.bedrooms) partes.push(`${p.bedrooms} dorm.`);
+  if (p.bathrooms) partes.push(`${p.bathrooms} baños`);
+  const titulo = p.title || "Propiedad en MALAVE Inmobiliaria";
+  const desc = partes.join(" · ");
+  const foto = (p.images && p.images[0]) || `${SITIO}/icon512.png`;
+
+  // Cache corta: si cambia el precio o la foto, la vista previa se renueva sola.
+  res.set("Cache-Control", "public, max-age=300, s-maxage=600");
+  res.status(200).send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>${escaparHtml(titulo)}</title>
+<meta name="description" content="${escaparHtml(desc)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MALAVE Inmobiliaria">
+<meta property="og:title" content="${escaparHtml(titulo)}">
+<meta property="og:description" content="${escaparHtml(desc)}">
+<meta property="og:image" content="${escaparHtml(foto)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="${escaparHtml(destino)}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${escaparHtml(titulo)}">
+<meta name="twitter:description" content="${escaparHtml(desc)}">
+<meta name="twitter:image" content="${escaparHtml(foto)}">
+<link rel="canonical" href="${escaparHtml(destino)}">
+<script>location.replace(${JSON.stringify(destino)});</script>
+</head>
+<body style="font-family:system-ui,sans-serif;text-align:center;padding:40px">
+<p>Abriendo la propiedad…</p>
+<p><a href="${escaparHtml(destino)}">${escaparHtml(titulo)}</a></p>
+</body>
+</html>`);
+});
+
 exports.bajaML = onCall(async (request) => {
   const propertyId = request.data && request.data.propertyId;
   if (!propertyId) throw new HttpsError("invalid-argument", "Falta el id de la propiedad.");
