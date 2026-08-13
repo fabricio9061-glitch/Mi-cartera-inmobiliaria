@@ -147,6 +147,11 @@
           <b>Contrato de arrendamiento</b>
           <span>Solo destino comercial o industrial. Cláusulas numeradas automáticamente.</span>
         </button>
+        <button class="doc-type" data-type="mediacion" onclick="selectType('mediacion')">
+          <i class="fas fa-handshake"></i>
+          <b>Compromiso de mediación</b>
+          <span>Encargo de venta o alquiler, en exclusiva o no.</span>
+        </button>
         <button class="doc-type soon" disabled>
           <i class="fas fa-receipt"></i>
           <b>Otros comprobantes</b>
@@ -352,6 +357,68 @@
           <div class="fld"><label>Fecha del documento</label><input id="ctFecha" type="date"></div>
 
           <button class="gen-btn" onclick="ctGenerarPDF()"><i class="fas fa-file-arrow-down"></i> Generar y descargar contrato</button>
+        </div>
+
+        <!-- Compromiso de mediación -->
+        <div class="panel" id="formMediacion" style="display:none">
+          <h3><i class="fas fa-handshake"></i> Compromiso de mediación</h3>
+
+          <div class="fld">
+            <label>Operación</label>
+            <div class="seg">
+              <button type="button" id="cmOpVenta" class="on" onclick="cmSetOperacion('venta')">Venta</button>
+              <button type="button" id="cmOpAlq" onclick="cmSetOperacion('alquiler')">Alquiler</button>
+            </div>
+          </div>
+          <div class="fld">
+            <label>Modalidad</label>
+            <div class="seg">
+              <button type="button" id="cmModEx" class="on" onclick="cmSetModalidad('exclusiva')">Exclusiva</button>
+              <button type="button" id="cmModNo" onclick="cmSetModalidad('abierta')">No exclusiva</button>
+            </div>
+            <div class="hint" id="cmModHint">En exclusiva el encargo es solo para la agencia y la comisión se debe aunque la operación la cierre otro.</div>
+          </div>
+
+          <div class="ct-sec">1 · Agente que suscribe</div>
+          <div class="row2">
+            <div class="fld"><label>Nombre del agente</label><input id="cmAgente" oninput="cmPreview()"></div>
+            <div class="fld"><label>Cédula del agente</label><input id="cmAgenteCI" oninput="cmPreview()"></div>
+          </div>
+          <div class="hint" style="margin:-4px 0 10px">El mediador inscripto ante el BPS sigue siendo la agencia. Si firma otro agente, el documento dice que actúa en su representación.</div>
+
+          <div class="ct-sec">2 · Propietario</div>
+          <div id="cmPropietarios"></div>
+          <button type="button" class="ct-add" onclick="cmAgregarProp()"><i class="fas fa-plus"></i> Agregar propietario</button>
+
+          <div class="ct-sec">3 · Inmueble</div>
+          <div class="fld"><label>Calle y número</label><input id="cmCalle" oninput="cmPreview()"></div>
+          <div class="row2">
+            <div class="fld"><label>Padrón</label><input id="cmPadron" oninput="cmPreview()"></div>
+            <div class="fld"><label>Unidad (opcional)</label><input id="cmUnidad" oninput="cmPreview()"></div>
+          </div>
+          <div class="row2">
+            <div class="fld"><label>Ciudad</label><input id="cmCiudad" value="Montevideo" oninput="cmPreview()"></div>
+            <div class="fld"><label>Departamento</label><input id="cmDepartamento" value="Montevideo" oninput="cmPreview()"></div>
+          </div>
+
+          <div class="ct-sec">4 · Condiciones y duración</div>
+          <div id="cmCondiciones"></div>
+          <div class="fld"><label>Plazo del encargo (meses)</label><input id="cmMeses" type="number" value="3" oninput="cmPreview()"></div>
+
+          <div class="ct-sec">5 · Honorarios</div>
+          <div id="cmHonorarios"></div>
+
+          <div class="ct-sec">6 · Servicios incluidos</div>
+          <div class="hint" style="margin:-6px 0 10px">Se listan en la cláusula de objeto. Destildá los que no correspondan.</div>
+          <div id="cmServicios"></div>
+
+          <div class="ct-sec">7 · Cierre</div>
+          <div class="row2">
+            <div class="fld"><label>Fecha</label><input id="cmFecha" type="date" oninput="cmPreview()"></div>
+            <div class="fld"><label>Ejemplares</label><input id="cmEjemplares" type="number" value="2" min="1" max="4" oninput="cmPreview()"></div>
+          </div>
+
+          <button class="gen-btn" onclick="cmGenerarPDF()"><i class="fas fa-file-arrow-down"></i> Generar y descargar compromiso</button>
         </div>
 
         <!-- Vista previa -->
@@ -951,12 +1018,23 @@
     // La carta de pago era una sola hoja. Un contrato son varias, y cada una lleva
     // membrete, bloque de firmas y número de página. Acá se mide antes de escribir:
     // si un bloque no entra, se corta la hoja y se abre una nueva con su membrete.
+    // Si todavía no se cargaron los nombres, igual se dibuja la línea de firma con
+    // el rol: así la vista previa muestra dónde va a firmar cada uno y el espacio
+    // queda reservado desde el principio, sin que el documento se reacomode
+    // después al completar los datos.
     function ctFirmantes(){
       var l=[];
-      ctListaPersonas('arrendador').forEach(function(x){ l.push({n:x.nombre, r:'ARRENDADOR'}); });
-      ctListaPersonas('arrendatario').forEach(function(x){ l.push({n:x.nombre, r:'ARRENDATARIO'}); });
+      var arr=ctListaPersonas('arrendador'), ata=ctListaPersonas('arrendatario');
+      if(arr.length) arr.forEach(function(x){ l.push({n:x.nombre, r:'ARRENDADOR'}); });
+      else l.push({n:'', r:'ARRENDADOR'});
+      if(ata.length) ata.forEach(function(x){ l.push({n:x.nombre, r:'ARRENDATARIO'}); });
+      else l.push({n:'', r:'ARRENDATARIO'});
       // El fiador firma: un contrato con fianza donde el fiador no firma no sirve.
-      if(ctVal('ctGarantia')==='fianza') ctListaPersonas('fiador').forEach(function(x){ l.push({n:x.nombre, r:'FIADOR'}); });
+      if(ctVal('ctGarantia')==='fianza'){
+        var fia=ctListaPersonas('fiador');
+        if(fia.length) fia.forEach(function(x){ l.push({n:x.nombre, r:'FIADOR'}); });
+        else l.push({n:'', r:'FIADOR'});
+      }
       return l;
     }
 
@@ -1010,8 +1088,8 @@
             var w = Math.min(col-20, 170);
             pdf.setDrawColor(60).setLineWidth(1.1).line(cx-w/2, yf, cx+w/2, yf);
             pdf.setFont('helvetica','bold').setFontSize(8.5).setTextColor(30);
-            var lineas = pdf.splitTextToSize(f.n, col-14).slice(0,2);
-            lineas.forEach(function(ln,k){ pdf.text(ln, cx, yf+13+k*10, {align:'center'}); });
+            var lineas = f.n ? pdf.splitTextToSize(f.n, col-14).slice(0,2) : [''];
+            lineas.forEach(function(ln,k){ if(ln) pdf.text(ln, cx, yf+13+k*10, {align:'center'}); });
             pdf.setFont('helvetica','normal').setFontSize(7.5).setTextColor(110);
             pdf.text(f.r, cx, yf+15+lineas.length*10, {align:'center'});
           });
@@ -1054,12 +1132,40 @@
           y+=alto;
         }
       }
+      // Alto aproximado de una hoja nueva: el membrete deja el cursor cerca de 174.
+      var ALTO_UTIL = limite - 174;
+      // Cuánto espacio necesita una cláusula para empezar: su título más las
+      // primeras líneas. Sin esto, un título podía quedar solo al pie de la hoja.
+      function altoEntrada(cuerpo){
+        var primero = String(cuerpo||'').split('\n')[0];
+        var lineas = pdf.splitTextToSize(primero, ancho);
+        return 15 + Math.min(lineas.length, 3)*13.5 + 6;
+      }
+      // Alto completo de una cláusula: título más todos sus párrafos. Se usa para
+      // no partirla entre hojas. Una cláusula cortada al medio se presta a
+      // discusión sobre qué se leyó y qué se firmó, así que se prefiere dejar el
+      // hueco. Si es más larga que una hoja entera, no hay alternativa.
+      function altoClausula(cuerpo){
+        var h = 15;
+        String(cuerpo||'').split('\n').forEach(function(b){
+          if(!b.trim()){ h += 6; return; }
+          h += pdf.splitTextToSize(b, ancho).length * 13.5;
+        });
+        return h + 10;
+      }
       function parrafo(txt, opts){
         opts=opts||{};
         var tam=opts.tam||9.2, alto=opts.alto||13.5;
         txt.split('\n').forEach(function(bloque){
           if(!bloque.trim()){ y+=6; return; }
-          escribir(pdf.splitTextToSize(bloque, ancho), alto, opts.negrita, tam, opts.color==null?55:opts.color);
+          var lineas = pdf.splitTextToSize(bloque, ancho);
+          // Un párrafo no se corta entre hojas si entra entero en una hoja nueva:
+          // se prefiere dejar el hueco antes que partir una frase al medio. Si es
+          // más largo que una hoja, no queda otra que dejarlo fluir.
+          if (y + lineas.length*alto > limite && lineas.length*alto <= ALTO_UTIL) {
+            cerrarHoja(); y = membrete();
+          }
+          escribir(lineas, alto, opts.negrita, tam, opts.color==null?55:opts.color);
         });
       }
 
@@ -1075,8 +1181,11 @@
 
       // Cláusulas, numeradas por el motor
       ctClausulas(d).forEach(function(c){
-        // El título no puede quedar solo al final de una hoja.
-        if(y+42>limite){ cerrarHoja(); y=membrete(); }
+        // Una cláusula no se parte entre hojas: se mide entera y, si no entra en
+        // lo que queda, arranca en la siguiente. Solo se deja fluir cuando es más
+        // larga que una hoja completa, donde no hay alternativa.
+        var necesita = altoClausula(c.cuerpo);
+        if (y+necesita > limite && (necesita <= ALTO_UTIL || y+altoEntrada(c.cuerpo) > limite)) { cerrarHoja(); y=membrete(); }
         pdf.setFont('helvetica','bold').setFontSize(9.6).setTextColor(25);
         pdf.text(c.ordinal+' – '+c.titulo, M, y);
         y+=15;
@@ -1664,8 +1773,11 @@
 
     function axFirmantes(){
       var l=[];
-      axNombres('arrendador').forEach(function(n){ l.push({n:n, r:'ARRENDADOR'}); });
-      axNombres('arrendatario').forEach(function(n){ l.push({n:n, r:'ARRENDATARIO'}); });
+      var arr=axNombres('arrendador'), ata=axNombres('arrendatario');
+      if(arr.length) arr.forEach(function(n){ l.push({n:n, r:'ARRENDADOR'}); });
+      else l.push({n:'', r:'ARRENDADOR'});
+      if(ata.length) ata.forEach(function(n){ l.push({n:n, r:'ARRENDATARIO'}); });
+      else l.push({n:'', r:'ARRENDATARIO'});
       return l;
     }
 
@@ -1719,8 +1831,8 @@
             var w = Math.min(col-20, 170);
             pdf.setDrawColor(60).setLineWidth(1.1).line(cx-w/2, yf, cx+w/2, yf);
             pdf.setFont('helvetica','bold').setFontSize(8.5).setTextColor(30);
-            var lineas = pdf.splitTextToSize(f.n, col-14).slice(0,2);
-            lineas.forEach(function(ln,k){ pdf.text(ln, cx, yf+13+k*10, {align:'center'}); });
+            var lineas = f.n ? pdf.splitTextToSize(f.n, col-14).slice(0,2) : [''];
+            lineas.forEach(function(ln,k){ if(ln) pdf.text(ln, cx, yf+13+k*10, {align:'center'}); });
             pdf.setFont('helvetica','normal').setFontSize(7.5).setTextColor(110);
             pdf.text(f.r, cx, yf+15+lineas.length*10, {align:'center'});
           });
@@ -1757,12 +1869,40 @@
           y+=alto;
         }
       }
+      // Alto aproximado de una hoja nueva: el membrete deja el cursor cerca de 174.
+      var ALTO_UTIL = limite - 174;
+      // Cuánto espacio necesita una cláusula para empezar: su título más las
+      // primeras líneas. Sin esto, un título podía quedar solo al pie de la hoja.
+      function altoEntrada(cuerpo){
+        var primero = String(cuerpo||'').split('\n')[0];
+        var lineas = pdf.splitTextToSize(primero, ancho);
+        return 15 + Math.min(lineas.length, 3)*13.5 + 6;
+      }
+      // Alto completo de una cláusula: título más todos sus párrafos. Se usa para
+      // no partirla entre hojas. Una cláusula cortada al medio se presta a
+      // discusión sobre qué se leyó y qué se firmó, así que se prefiere dejar el
+      // hueco. Si es más larga que una hoja entera, no hay alternativa.
+      function altoClausula(cuerpo){
+        var h = 15;
+        String(cuerpo||'').split('\n').forEach(function(b){
+          if(!b.trim()){ h += 6; return; }
+          h += pdf.splitTextToSize(b, ancho).length * 13.5;
+        });
+        return h + 10;
+      }
       function parrafo(txt, opts){
         opts=opts||{};
         var tam=opts.tam||9.2, alto=opts.alto||13.5;
         txt.split('\n').forEach(function(bloque){
           if(!bloque.trim()){ y+=6; return; }
-          escribir(pdf.splitTextToSize(bloque, ancho), alto, opts.negrita, tam, opts.color==null?55:opts.color);
+          var lineas = pdf.splitTextToSize(bloque, ancho);
+          // Un párrafo no se corta entre hojas si entra entero en una hoja nueva:
+          // se prefiere dejar el hueco antes que partir una frase al medio. Si es
+          // más largo que una hoja, no queda otra que dejarlo fluir.
+          if (y + lineas.length*alto > limite && lineas.length*alto <= ALTO_UTIL) {
+            cerrarHoja(); y = membrete();
+          }
+          escribir(lineas, alto, opts.negrita, tam, opts.color==null?55:opts.color);
         });
       }
 
@@ -1770,7 +1910,8 @@
       y+=10;
 
       axClausulas(d).forEach(function(c){
-        if(y+42>limite){ cerrarHoja(); y=membrete(); }
+        var necesita = altoClausula(c.cuerpo);
+        if (y+necesita > limite && (necesita <= ALTO_UTIL || y+altoEntrada(c.cuerpo) > limite)) { cerrarHoja(); y=membrete(); }
         pdf.setFont('helvetica','bold').setFontSize(9.6).setTextColor(25);
         pdf.text(c.ordinal+' – '+c.titulo, M, y);
         y+=15;
@@ -1783,20 +1924,481 @@
     }
 
 
+
+    // ==========================================================================
+    // COMPROMISO DE MEDIACIÓN
+    // --------------------------------------------------------------------------
+    // Cuatro documentos en uno: venta o alquiler, en exclusiva o no. La diferencia
+    // no es cosmética. En exclusiva la propietaria no puede encargar el inmueble a
+    // nadie más y la comisión se debe igual si la operación la cierra otro; en la
+    // no exclusiva no hay ninguna de las dos cosas, y la comisión se paga solo si
+    // la agencia fue quien consiguió al interesado. Escribir una por la otra es
+    // el error caro de este documento, así que cada modalidad tiene su texto.
+    // ==========================================================================
+    var cmOperacion = 'venta';
+    var cmModalidad = 'exclusiva';
+    var cmPropietarios = [];
+    // En alquiler no siempre se le cobra al propietario: a veces la comisión la
+    // paga solo el inquilino. Cambia la cláusula de honorarios y, con exclusiva,
+    // también la consecuencia de incumplirla.
+    var cmCobraProp = true;
+    // Los servicios no son los mismos en venta que en alquiler: en alquiler pesa la
+    // coordinación de garantías y la precalificación del arrendatario, que en una
+    // venta no existen.
+    var CM_SERVICIOS = {
+      venta: [
+        'Estudio del inmueble y desarrollo de estrategia comercial.',
+        'Material gráfico realizado por profesionales acorde a la estrategia de comercialización.',
+        'Publicación en página web inmobiliaria.',
+        'Creación de embudos de marketing digital.',
+        'Publicación en diferentes portales inmobiliarios.',
+        'Publicación destacada en portales inmobiliarios.',
+        'Precalificación de visitas e investigación de potenciales compradores.',
+        'Trabajo en red con agentes vendedores asociados.',
+        'Trabajo en red con inmobiliarias colegas.'
+      ],
+      alquiler: [
+        'Estudio del inmueble y desarrollo de estrategia comercial.',
+        'Asesoramiento respecto del precio y condiciones de alquiler.',
+        'Producción de fotografías, videos y material gráfico para la comercialización.',
+        'Publicación en la página web, redes sociales y canales digitales de MALAVE.',
+        'Publicación en diferentes portales inmobiliarios.',
+        'Recepción y precalificación de potenciales arrendatarios.',
+        'Coordinación y realización de visitas al inmueble.',
+        'Coordinación de garantías de alquiler y documentación requerida.',
+        'Trabajo en red con agentes colaboradores e inmobiliarias colegas.'
+      ]
+    };
+    var cmServiciosOn = { venta: CM_SERVICIOS.venta.map(function(){ return true; }),
+                          alquiler: CM_SERVICIOS.alquiler.map(function(){ return true; }) };
+
+    function cmVal(id){ var e=document.getElementById(id); return e?e.value.trim():''; }
+    function cmVerbo(){ return cmOperacion==='venta' ? 'enajenación' : 'arrendamiento'; }
+
+    function cmAgregarProp(){
+      cmPropietarios.push({nombre:'',cedula:'',domicilio:''});
+      cmPintarProp(); cmPreview();
+    }
+    function cmQuitarProp(i){ cmPropietarios.splice(i,1); cmPintarProp(); cmPreview(); }
+    function cmSetProp(i,campo,v){ cmPropietarios[i][campo]=v; cmPreview(); }
+    function cmPintarProp(){
+      var c=document.getElementById('cmPropietarios'); if(!c) return;
+      c.innerHTML = cmPropietarios.map(function(p,i){
+        return '<div class="ct-persona">'+
+          '<div class="row2"><div class="fld"><label>Nombre completo</label><input value="'+esc(p.nombre)+'" oninput="cmSetProp('+i+',\'nombre\',this.value)"></div>'+
+          '<div class="fld"><label>Cédula</label><input value="'+esc(p.cedula)+'" oninput="cmSetProp('+i+',\'cedula\',this.value)"></div></div>'+
+          '<div class="fld"><label>Domicilio</label><input value="'+esc(p.domicilio)+'" oninput="cmSetProp('+i+',\'domicilio\',this.value)"></div>'+
+          (cmPropietarios.length>1?'<button type="button" class="ct-del" onclick="cmQuitarProp('+i+')"><i class="fas fa-trash"></i> Quitar</button>':'')+
+          '</div>';
+      }).join('');
+    }
+
+    function cmPintarServicios(){
+      var c=document.getElementById('cmServicios'); if(!c) return;
+      var lista=CM_SERVICIOS[cmOperacion], on=cmServiciosOn[cmOperacion];
+      c.innerHTML = lista.map(function(t,i){
+        return '<div class="ct-op"><input type="checkbox" '+(on[i]?'checked':'')+' onchange="cmServiciosOn[cmOperacion]['+i+']=this.checked; cmPreview()">'+
+          '<div style="flex:1"><b style="font-weight:500">'+esc(t)+'</b></div></div>';
+      }).join('');
+    }
+
+    // En alquiler el compromiso fija además el precio autorizado y qué garantías
+    // se aceptan: son las condiciones con las que se sale a comercializar.
+    function cmPintarCondiciones(){
+      var c=document.getElementById('cmCondiciones'); if(!c) return;
+      if(cmOperacion==='alquiler'){
+        c.innerHTML='<div class="fld"><label>Precio mensual autorizado</label><input id="cmPrecioAlq" placeholder="ej: $ 29.900" oninput="cmPreview()"></div>'+
+          '<div class="fld"><label>Garantías que se aceptan</label><input id="cmGarantiasAlq" placeholder="ej: ANDA, Porto Seguro, Contaduría General de la Nación" oninput="cmPreview()"></div>';
+      } else {
+        c.innerHTML='<div class="fld"><label>Precio autorizado de venta</label><input id="cmPrecioVta" placeholder="ej: USD 120.000" oninput="cmPreview()"></div>';
+      }
+    }
+
+    function cmPintarHonorarios(){
+      var c=document.getElementById('cmHonorarios'); if(!c) return;
+      if(cmOperacion==='venta'){
+        c.innerHTML='<div class="row2"><div class="fld"><label>Porcentaje sobre el precio</label><input id="cmPorcentaje" value="3" oninput="cmPreview()"></div>'+
+          '<div class="fld"><label>Momento de pago</label><input id="cmMomento" value="a la firma del primer documento definitivo" oninput="cmPreview()"></div></div>'+
+          '<div class="row2"><div class="fld"><label>Honorario mínimo</label><input id="cmMinimo" value="USD 3.000" oninput="cmPreview()"></div>'+
+          '<div class="fld"><label>Se aplica si el precio no supera</label><input id="cmUmbral" value="USD 100.000" oninput="cmPreview()"></div></div>'+
+          '<div class="hint">El mínimo y el umbral son los de tu compromiso actual. Dejá vacío el mínimo si no querés esa cláusula.</div>';
+      } else {
+        var cobraProp = (typeof cmCobraProp==='undefined') ? true : cmCobraProp;
+        c.innerHTML='<div class="ct-op"><input type="checkbox" '+(cobraProp?'checked':'')+' onchange="cmSetCobraProp(this.checked)">'+
+          '<div style="flex:1"><b>Se le cobran honorarios al propietario</b><span>Destildalo cuando la comisión la paga solo la parte arrendataria.</span></div></div>'+
+          (cobraProp
+            ? '<div class="fld" style="margin-top:10px"><label>Honorarios a cargo de la propietaria</label><input id="cmHonAlq" value="un (1) mes del precio mensual de alquiler finalmente pactado" oninput="cmPreview()"></div>'+
+              '<div class="fld"><label>Momento de pago</label><input id="cmMomento" value="al momento de la firma del contrato de arrendamiento" oninput="cmPreview()"></div>'
+            : '<div class="fld" style="margin-top:10px"><label>Honorarios a cargo de la arrendataria (opcional)</label><input id="cmHonArr" placeholder="ej: un (1) mes de alquiler" oninput="cmPreview()"></div>'+
+              (cmModalidad==='exclusiva'
+                ? '<div class="fld"><label>Compensación si se incumple la exclusividad</label><input id="cmCompensa" placeholder="ej: un (1) mes del precio mensual autorizado" oninput="cmPreview()">'+
+                  '<div class="hint"><span style="color:#8a6d1f">Sin honorarios del propietario, la exclusividad no tiene consecuencia económica salvo que se pacte una acá.</span></div></div>'
+                : ''))+
+          '<div class="hint">Los honorarios que se acuerden con la parte arrendataria son independientes de los del propietario y no los reducen.</div>';
+      }
+    }
+
+    function cmSetOperacion(op){
+      cmOperacion=op;
+      document.getElementById('cmOpVenta').classList.toggle('on', op==='venta');
+      document.getElementById('cmOpAlq').classList.toggle('on', op==='alquiler');
+      cmPintarHonorarios(); cmPintarCondiciones(); cmPintarServicios(); cmPreview();
+    }
+    function cmSetCobraProp(v){ cmCobraProp=v; cmPintarHonorarios(); cmPreview(); }
+
+    function cmSetModalidad(m){
+      cmModalidad=m;
+      document.getElementById('cmModEx').classList.toggle('on', m==='exclusiva');
+      document.getElementById('cmModNo').classList.toggle('on', m==='abierta');
+      document.getElementById('cmModHint').textContent = (m==='exclusiva')
+        ? 'En exclusiva el encargo es solo para la agencia y la comisión se debe aunque la operación la cierre otro.'
+        : 'Sin exclusividad: la propietaria puede encargarlo a otros, y la comisión se debe solo si la operación la consigue la agencia.';
+      cmPintarHonorarios();
+      cmPreview();
+    }
+
+    var CM_CLAUSULAS = [
+      { id:'objeto', titulo:'OBJETO', texto:function(d){
+        var t = (d.exclusiva
+          ? 'Mediante el presente compromiso, la parte PROPIETARIA confiere a MALAVE INMOBILIARIA, que acepta, un encargo en EXCLUSIVA para la '+d.verbo+' del inmueble individualizado precedentemente.'
+          : 'Mediante el presente compromiso, la parte PROPIETARIA confiere a MALAVE INMOBILIARIA, que acepta, un encargo de mediación, sin exclusividad, para la '+d.verbo+' del inmueble individualizado precedentemente.');
+        // Los servicios van en párrafo corrido y no en lista numerada: dicen lo
+        // mismo y ahorran media carilla, que es lo que hace que el compromiso
+        // entre en dos hojas y no en tres.
+        t += '\n\nMALAVE INMOBILIARIA asumirá los gastos comerciales y publicitarios vinculados a la estrategia ordinaria de comercialización del inmueble, salvo que las partes acuerden expresamente un gasto extraordinario, así como la prestación de los siguientes servicios profesionales: '+
+          d.servicios.map(function(sv){ return sv.replace(/\.\s*$/, ''); }).join('; ')+'.';
+        return t; } },
+
+      { id:'duracion', tituloDe:function(d){ return d.esVenta ? 'NEGOCIACIONES Y DURACIÓN' : 'NEGOCIACIONES, PRECIO Y DURACIÓN'; },
+        titulo:'NEGOCIACIONES Y DURACIÓN', texto:function(d){
+        var t = '';
+        if (!d.esVenta) {
+          t += 'La parte PROPIETARIA autoriza inicialmente la comercialización del inmueble por un precio mensual de '+(d.precioAlq||'____')+', más los gastos comunes que correspondan, aceptándose como garantías: '+(d.garantiasAlq||'____')+'.\n\n';
+        } else if (d.precioVta) {
+          t += 'La parte PROPIETARIA autoriza inicialmente la comercialización del inmueble por un precio de '+d.precioVta+'.\n\n';
+        }
+        t += 'MALAVE INMOBILIARIA iniciará los contactos y negociaciones con potenciales '+(d.esVenta?'compradores':'arrendatarios')+' por un plazo de '+d.mesesTexto+' ('+d.meses+') meses, contados a partir de la fecha de suscripción del presente instrumento.';
+        if (d.exclusiva) {
+          t += '\n\nDurante la vigencia del presente compromiso, la parte PROPIETARIA no podrá encomendar la comercialización del inmueble a otros mediadores inmobiliarios ni realizar actos de comercialización por cuenta propia.';
+          t += (d.esVenta || d.cobraProp)
+            ? '\n\nEn caso de concretarse la '+d.verbo+' del inmueble por intermedio de otra inmobiliaria, de un tercero o directamente por la parte PROPIETARIA durante el período de exclusividad, se hará automáticamente exigible la comisión pactada más IVA.'
+            : (d.compensa
+                ? '\n\nEn caso de concretarse el arrendamiento por intermedio de otra inmobiliaria, de un tercero o directamente por la parte PROPIETARIA durante el período de exclusividad, será exigible la compensación establecida en la cláusula de honorarios.'
+                : '');
+        } else {
+          t += '\n\nLa parte PROPIETARIA conserva la facultad de encomendar la comercialización del inmueble a otros mediadores inmobiliarios y de realizar actos de comercialización por cuenta propia.';
+          t += '\n\nLos honorarios pactados se devengarán únicamente si la operación se concreta con un interesado presentado por MALAVE INMOBILIARIA. Si la operación se concreta con un interesado ajeno a su gestión, nada se le adeudará por este concepto.';
+          t += '\n\nA los efectos de evitar controversias, la parte PROPIETARIA comunicará a MALAVE INMOBILIARIA la identidad de los interesados presentados por otros intermediarios, y MALAVE INMOBILIARIA informará por escrito los interesados que hubiera presentado.';
+        }
+        t += '\n\nMALAVE INMOBILIARIA podrá recibir referenciados provenientes de otras inmobiliarias, agentes colaboradores o del propio titular del inmueble.';
+        t += (d.esVenta
+          ? '\n\nLa parte PROPIETARIA se obliga a entregar copia de toda la documentación necesaria del inmueble a efectos de su estudio, así como a proporcionar en tiempo y forma la documentación requerida por el escribano designado por el adquirente para la elaboración de la Promesa de Compraventa o Escritura correspondiente.'
+          : '\n\nLa parte PROPIETARIA se obliga a proporcionar la documentación necesaria y a informar cualquier modificación del precio, disponibilidad o condiciones del arrendamiento.');
+        return t; } },
+
+      { id:'honorarios', titulo:'HONORARIOS', texto:function(d){
+        if (d.esVenta) {
+          var t = 'Durante el período de vigencia del presente compromiso, MALAVE INMOBILIARIA percibirá en concepto de honorarios profesionales el '+d.porcentaje+'% del precio total de la operación, más IVA a la tasa legal vigente.';
+          t += '\n\nDichos honorarios serán exigibles y abonados exclusivamente '+d.momento+', entendiéndose por tal la Promesa de Compraventa o la Escritura de Compraventa, quedando expresamente supeditado el cobro al boleto de reserva, el cual no generará obligación de pago de honorarios.';
+          if (d.minimo) {
+            t += '\n\nEn caso de que el precio de la compraventa no supere la suma de '+d.umbral+', se establece un honorario profesional mínimo de '+d.minimo+', más IVA a la tasa legal vigente, el cual será abonado en la misma oportunidad indicada precedentemente.';
+          }
+          t += '\n\nEn caso de operaciones financiadas mediante instituciones bancarias, letras de cambio u otros instrumentos de pago, las partes podrán acordar modalidades y plazos razonables para el pago de los honorarios profesionales.';
+          return t;
+        }
+        if (!d.cobraProp) {
+          var t = 'La parte PROPIETARIA no abonará honorarios a MALAVE INMOBILIARIA por la gestión encomendada en el presente contrato.\n\n';
+          t += (d.honArr
+            ? 'Los honorarios profesionales por la intermediación serán percibidos de la parte arrendataria, equivalentes a '+d.honArr+', más IVA a la tasa legal vigente, y serán exigibles al momento de la firma del contrato de arrendamiento.'
+            : 'Los honorarios profesionales por la intermediación serán acordados con la parte arrendataria y percibidos de ella, sin que ello genere obligación alguna a cargo de la parte PROPIETARIA.');
+          if (d.exclusiva && d.compensa) {
+            t += '\n\nSin perjuicio de lo anterior, si durante el período de exclusividad el inmueble fuera arrendado por intermedio de otra inmobiliaria, de un tercero o directamente por la parte PROPIETARIA, esta abonará a MALAVE INMOBILIARIA, en concepto de compensación por los gastos y la gestión realizada, la suma de '+d.compensa+', más IVA a la tasa legal vigente.';
+          }
+          return t;
+        }
+        return 'Por los servicios de mediación prestados, MALAVE INMOBILIARIA percibirá de la parte PROPIETARIA honorarios profesionales equivalentes a '+(d.honAlq||'____')+', más IVA a la tasa legal vigente.\n\n'+
+          'Dichos honorarios serán exigibles y abonados '+d.momento+'.\n\n'+
+          'Los honorarios que MALAVE INMOBILIARIA pudiera acordar con la parte arrendataria serán independientes de los asumidos por la parte PROPIETARIA y no los reducirán ni sustituirán.'; } },
+
+      { id:'interesados', tituloDe:function(d){ return 'INTERESADOS PRESENTADOS, GARANTÍAS Y PUBLICIDAD'; },
+        titulo:'INTERESADOS PRESENTADOS, GARANTÍAS Y PUBLICIDAD', texto:function(d){
+        var t = 'Se considerará interesado presentado por MALAVE INMOBILIARIA toda persona que haya realizado una consulta identificable, visita, propuesta, reserva o gestión respecto del inmueble por intermedio de MALAVE INMOBILIARIA o de alguno de sus colaboradores.\n\n';
+        t += 'Si dentro de los noventa (90) días posteriores al vencimiento '+(d.exclusiva?'de la exclusividad':'del presente encargo')+' la parte PROPIETARIA celebrara '+(d.esVenta?'la enajenación':'un arrendamiento')+' con una persona previamente presentada y documentada por MALAVE INMOBILIARIA, serán igualmente exigibles los honorarios profesionales pactados.\n\n';
+        if (!d.esVenta) {
+          t += 'La aceptación definitiva del arrendatario quedará sujeta a la conformidad de la parte PROPIETARIA y, cuando corresponda, a la aprobación de la aseguradora, ANDA, Contaduría General de la Nación u otra institución de garantía. MALAVE INMOBILIARIA no garantiza la aprobación de la garantía ni la solvencia futura del arrendatario.\n\n';
+        }
+        t += 'La parte PROPIETARIA autoriza a MALAVE INMOBILIARIA a fotografiar y filmar el inmueble y a utilizar dicho material para su comercialización en portales inmobiliarios, redes sociales, página web y redes de colaboración profesional durante la vigencia del presente encargo.';
+        return t; } },
+
+      { id:'firma', titulo:'FIRMA Y EJEMPLARES', texto:function(d){
+        return 'Y en prueba de conformidad, se firman '+d.ejemplaresLetras+' ('+d.ejemplares+') ejemplares de un mismo tenor, en el lugar y fecha indicados ut supra.'; } }
+    ];
+
+    function cmDatos(){
+      var meses = parseInt(cmVal('cmMeses'),10)||3;
+      var ej = parseInt(cmVal('cmEjemplares'),10)||2;
+      return {
+        exclusiva: cmModalidad==='exclusiva',
+        esVenta: cmOperacion==='venta',
+        verbo: cmVerbo(),
+        servicios: CM_SERVICIOS[cmOperacion].filter(function(_,i){ return cmServiciosOn[cmOperacion][i]; }),
+        meses: meses, mesesTexto: (NUM_LETRAS[meses]||meses),
+        porcentaje: cmVal('cmPorcentaje')||'3',
+        momento: cmVal('cmMomento')||'al concretarse la operación',
+        minimo: cmVal('cmMinimo'), umbral: cmVal('cmUmbral')||'USD 100.000',
+        honAlq: cmVal('cmHonAlq'), cobraProp: (cmOperacion==='venta') ? true : cmCobraProp,
+        honArr: cmVal('cmHonArr'), compensa: cmVal('cmCompensa'),
+        precioAlq: cmVal('cmPrecioAlq'),
+        garantiasAlq: cmVal('cmGarantiasAlq'), precioVta: cmVal('cmPrecioVta'),
+        agente: cmVal('cmAgente') || EMPRESA.titular, agenteCI: cmVal('cmAgenteCI'),
+        ejemplares: ej, ejemplaresLetras: (NUM_LETRAS[ej]||String(ej)),
+        fechaLarga: fechaLarga(cmVal('cmFecha')),
+        ciudad: cmVal('cmCiudad')||'Montevideo'
+      };
+    }
+
+    function cmFirmantes(){
+      var l=[{n:(cmVal('cmAgente')||EMPRESA.titular), r:'AGENTE MEDIADOR'}];
+      var conNombre=cmPropietarios.filter(function(p){ return p.nombre; });
+      if(conNombre.length) conNombre.forEach(function(p){ l.push({n:p.nombre, r:'PROPIETARIO'}); });
+      else l.push({n:'', r:'PROPIETARIO'});
+      return l;
+    }
+
+    // Las firmas van al pie de todas las hojas, igual que en el contrato: cada
+    // página del compromiso queda firmada por sí misma y no se puede sustituir
+    // una hoja intermedia sin que se note.
+    function cmConstruirPDF(){
+      var jsPDF=window.jspdf.jsPDF;
+      var pdf=new jsPDF({unit:'pt',format:'a4',orientation:'portrait'});
+      var W=595.28;
+      var M=64, ancho=W-M*2;
+      var NAVY=[22,39,63], GREY=[95,106,128], INK=[26,38,58];
+      var firmantes=cmFirmantes();
+      var pieY = 788;
+      var pagina=0;
+      var POR_FILA = 3;
+      var filasFirmas = Math.ceil(firmantes.length / POR_FILA) || 0;
+      var altoFirmas = filasFirmas ? (filasFirmas*48 + 14) : 0;
+      var limite = pieY - altoFirmas - 26;
+
+      function membrete(){
+        pagina++;
+        if(pagina>1) pdf.addPage();
+        var y=60;
+        pdf.setTextColor.apply(pdf,INK); pdf.setFont('helvetica','bold'); pdf.setFontSize(13.5);
+        pdf.text(EMPRESA.nombre, M, y);
+        y+=18;
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(9); pdf.setTextColor.apply(pdf,GREY);
+        [EMPRESA.titular, 'RUT: '+EMPRESA.rut, 'Celular: '+EMPRESA.celular, EMPRESA.direccion, EMPRESA.email]
+          .forEach(function(t){ pdf.text(t, M, y); y+=13.5; });
+        if(_logoImg){
+          try{ pdf.addImage(_logoImg,'PNG', W-M-80, 52, 57, 50); }
+          catch(e){ console.warn('No se pudo dibujar el logo:', e); }
+        }
+        marcaDerecha(pdf, W, M, INK, GREY);
+        return Math.max(y, 150)+24;
+      }
+      function pie(){
+        pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(1.2);
+        pdf.line(M, pieY, W-M, pieY);
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(9); pdf.setTextColor.apply(pdf,GREY);
+        pdf.text(EMPRESA.direccion+'   |   '+EMPRESA.celular+'   |   '+EMPRESA.email, W/2, pieY+14, {align:'center'});
+        pdf.setFontSize(8.5);
+        pdf.text('RUT: '+EMPRESA.rut, W/2, pieY+26, {align:'center'});
+        pdf.text('Página '+pagina, W-M, pieY+26, {align:'right'});
+      }
+      function firmas(){
+        if(!firmantes.length) return;
+        var y0 = pieY - altoFirmas + 16;
+        for(var fila=0; fila<filasFirmas; fila++){
+          var enFila = firmantes.slice(fila*POR_FILA, (fila+1)*POR_FILA);
+          var col = ancho/enFila.length;
+          var yf = y0 + fila*48;
+          enFila.forEach(function(f,i){
+            var cx = M + col*i + col/2;
+            var w = Math.min(col-20, 170);
+            pdf.setDrawColor(60).setLineWidth(1.1).line(cx-w/2, yf, cx+w/2, yf);
+            pdf.setFont('helvetica','bold').setFontSize(8.5).setTextColor(30);
+            var lineas = f.n ? pdf.splitTextToSize(f.n, col-14).slice(0,2) : [''];
+            lineas.forEach(function(ln,k){ if(ln) pdf.text(ln, cx, yf+13+k*10, {align:'center'}); });
+            pdf.setFont('helvetica','normal').setFontSize(7.5).setTextColor(110);
+            pdf.text(f.r, cx, yf+15+lineas.length*10, {align:'center'});
+          });
+        }
+      }
+      function cerrarHoja(){ firmas(); pie(); }
+
+      var y=membrete();
+      var d=cmDatos();
+
+      pdf.setFont('helvetica','bold'); pdf.setFontSize(15); pdf.setTextColor.apply(pdf,INK);
+      pdf.text('CONTRATO DE MEDIACIÓN INMOBILIARIA', W/2, y, {align:'center'});
+      pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(2);
+      pdf.line(W/2-70, y+10, W/2+70, y+10);
+      y+=32;
+      pdf.setFont('helvetica','normal').setFontSize(9).setTextColor.apply(pdf,GREY);
+      pdf.setFont('helvetica','bold').setFontSize(11).setTextColor.apply(pdf,INK);
+      pdf.text((d.exclusiva?'EXCLUSIVA ':'')+(d.esVenta?'PARA VENTA':'PARA ARRENDAMIENTO'), W/2, y, {align:'center'});
+      y+=24;
+
+      function escribir(lineas, alto, negrita, tam, color){
+        for(var i=0;i<lineas.length;i++){
+          if(y+alto>limite){ cerrarHoja(); y=membrete(); }
+          pdf.setFont('helvetica', negrita?'bold':'normal').setFontSize(tam).setTextColor(color);
+          pdf.text(lineas[i], M, y);
+          y+=alto;
+        }
+      }
+      // Alto aproximado de una hoja nueva: el membrete deja el cursor cerca de 174.
+      var ALTO_UTIL = limite - 174;
+      // Cuánto espacio necesita una cláusula para empezar: su título más las
+      // primeras líneas. Sin esto, un título podía quedar solo al pie de la hoja.
+      function altoEntrada(cuerpo){
+        var primero = String(cuerpo||'').split('\n')[0];
+        var lineas = pdf.splitTextToSize(primero, ancho);
+        return 15 + Math.min(lineas.length, 3)*13.5 + 6;
+      }
+      // Alto completo de una cláusula: título más todos sus párrafos. Se usa para
+      // no partirla entre hojas. Una cláusula cortada al medio se presta a
+      // discusión sobre qué se leyó y qué se firmó, así que se prefiere dejar el
+      // hueco. Si es más larga que una hoja entera, no hay alternativa.
+      function altoClausula(cuerpo){
+        var h = 15;
+        String(cuerpo||'').split('\n').forEach(function(b){
+          if(!b.trim()){ h += 6; return; }
+          h += pdf.splitTextToSize(b, ancho).length * 13.5;
+        });
+        return h + 10;
+      }
+      function parrafo(txt, opts){
+        opts=opts||{};
+        var tam=opts.tam||9.2, alto=opts.alto||13.5;
+        txt.split('\n').forEach(function(bloque){
+          if(!bloque.trim()){ y+=6; return; }
+          var lineas = pdf.splitTextToSize(bloque, ancho);
+          // Un párrafo no se corta entre hojas si entra entero en una hoja nueva:
+          // se prefiere dejar el hueco antes que partir una frase al medio. Si es
+          // más largo que una hoja, no queda otra que dejarlo fluir.
+          if (y + lineas.length*alto > limite && lineas.length*alto <= ALTO_UTIL) {
+            cerrarHoja(); y = membrete();
+          }
+          escribir(lineas, alto, opts.negrita, tam, opts.color==null?55:opts.color);
+        });
+      }
+
+      // Comparecencia
+      var props = cmPropietarios.filter(function(p){ return p.nombre; }).map(function(p){
+        return p.nombre+(p.cedula?', titular de la cédula de identidad número '+p.cedula:'')+(p.domicilio?', con domicilio en '+p.domicilio:'');
+      });
+      // El mediador inscripto ante el BPS es siempre el titular de la agencia. Si el
+      // documento lo firma otro agente, se deja constancia de que actúa en su
+      // representación, en vez de reemplazarlo: la habilitación no es transferible.
+      var otroAgente = d.agente && d.agente !== EMPRESA.titular;
+      var repre = otroAgente
+        ? ', representado en este acto por '+d.agente+(d.agenteCI?', titular de la cédula de identidad número '+d.agenteCI:'')
+        : (d.agenteCI ? ', titular de la cédula de identidad número '+d.agenteCI : '');
+      parrafo('En la ciudad de '+d.ciudad+', el día '+d.fechaLarga+', por una parte '+EMPRESA.titular.toUpperCase()+
+        ', inscripto ante el BPS con el número 8295545, RUT '+EMPRESA.rut+
+        ', domiciliado en '+EMPRESA.direccion+repre+
+        ', en su calidad de AGENTE MEDIADOR; y por la otra parte '+(props.length?props.join('; y '):'_________________')+
+        ', en su calidad de PROPIETARIO/A, acuerdan celebrar el presente contrato de mediación inmobiliaria'+
+        (d.exclusiva?' exclusiva':'')+(d.esVenta?' para la venta':' para el arrendamiento')+
+        ', sujeto a las siguientes condiciones:');
+      y+=8;
+
+      // Exponen
+      pdf.setFont('helvetica','bold').setFontSize(10).setTextColor(25);
+      if(y+30>limite){ cerrarHoja(); y=membrete(); }
+      pdf.text('EXPONEN:', M, y); y+=16;
+      var inm = 'Padrón número '+(cmVal('cmPadron')||'____')+
+        (cmVal('cmUnidad')?', unidad '+cmVal('cmUnidad'):'')+
+        ', sito en la calle '+(cmVal('cmCalle')||'____')+
+        ', de la ciudad de '+(cmVal('cmCiudad')||'____')+', departamento de '+(cmVal('cmDepartamento')||'____')+'.';
+      parrafo('I.- Que la parte PROPIETARIA declara ser titular y/o encontrarse legítimamente facultada para '+
+        (d.esVenta?'enajenar':'dar en arrendamiento')+' el inmueble que se describe a continuación: '+inm);
+      parrafo('II.- Que la parte PROPIETARIA encomienda a MALAVE INMOBILIARIA la promoción, intermediación y búsqueda de '+
+        (d.esVenta?'comprador':'arrendatario')+' para el referido inmueble'+
+        (d.exclusiva?', bajo régimen de EXCLUSIVIDAD':', sin exclusividad')+
+        ', aceptando MALAVE INMOBILIARIA dicho encargo.');
+      y+=8;
+      pdf.setFont('helvetica','bold').setFontSize(10).setTextColor(25);
+      if(y+30>limite){ cerrarHoja(); y=membrete(); }
+      pdf.text('ESTIPULACIONES:', M, y); y+=18;
+
+      CM_CLAUSULAS.forEach(function(c,i){
+        var cuerpo = c.texto(d);
+        var necesita = altoClausula(cuerpo);
+        if (y+necesita > limite && (necesita <= ALTO_UTIL || y+altoEntrada(cuerpo) > limite)) { cerrarHoja(); y=membrete(); }
+        pdf.setFont('helvetica','bold').setFontSize(9.6).setTextColor(25);
+        pdf.text(ORDINALES[i]+' · '+(c.tituloDe?c.tituloDe(d):c.titulo), M, y);
+        y+=15;
+        parrafo(c.texto(d));
+        y+=10;
+      });
+
+      cerrarHoja();
+      return pdf;
+    }
+
+    function cmPreview(){
+      if(_tipoActivo !== 'mediacion') return;
+      if(_previewTimer) clearTimeout(_previewTimer);
+      _previewTimer=setTimeout(function(){
+        if(_tipoActivo !== 'mediacion') return;
+        try{
+          var uri=cmConstruirPDF().output('datauristring');
+          _previewURI=uri;
+          document.getElementById('previewFrame').src=uri;
+          escalarPreview();
+        }catch(e){ console.warn('preview mediación:', e); }
+      }, 400);
+    }
+
+    function cmGenerarPDF(){
+      if(!cmPropietarios.filter(function(p){ return p.nombre; }).length){ toast('Falta al menos un propietario', true); return; }
+      if(!cmVal('cmCalle')){ toast('Falta la dirección del inmueble', true); return; }
+      if(cmOperacion==='alquiler' && !cmVal('cmHonAlq')){
+        if(!confirm('No completaste los honorarios. El documento va a salir con un espacio en blanco.\n\n¿Generar igual?')) return;
+      }
+      var nombre='Compromiso_'+(cmModalidad==='exclusiva'?'exclusiva_':'')+cmOperacion+'_'+(cmVal('cmCalle')||'inmueble').replace(/[^\w]+/g,'_')+'.pdf';
+      cmConstruirPDF().save(nombre);
+      toast('Compromiso generado');
+    }
+
+    var _cmListo=false;
+    function cmInit(){
+      if(_cmListo) return;
+      _cmListo=true;
+      cmAgregarProp();
+      cmPintarServicios();
+      cmPintarHonorarios();
+      cmPintarCondiciones();
+      // Si el CRM sabe quién está usando la página, ese es el agente que firma.
+      var ag=document.getElementById('cmAgente');
+      if(ag && !ag.value){
+        var u = (typeof usuarioActual!=='undefined' && usuarioActual && (usuarioActual.name||usuarioActual.displayName)) || '';
+        ag.value = u || EMPRESA.titular;
+      }
+      var f=document.getElementById('cmFecha'); if(f && !f.value) f.value=new Date().toISOString().slice(0,10);
+    }
+
     // ===== Controles de UI =====
     var _tipoActivo = 'carta_pago';
     function selectType(t){
       document.querySelectorAll('.doc-type').forEach(function(b){ b.classList.remove('active'); });
       document.querySelector('.doc-type[data-type="'+t+'"]').classList.add('active');
-      var esContrato = (t==='contrato');
-      _tipoActivo = esContrato ? 'contrato' : 'carta_pago';
-      document.getElementById('formCartaPago').style.display = esContrato?'none':'';
-      document.getElementById('formContrato').style.display = esContrato?'':'none';
+      _tipoActivo = (t==='contrato' || t==='mediacion') ? t : 'carta_pago';
+      document.getElementById('formCartaPago').style.display = _tipoActivo==='carta_pago'?'':'none';
+      document.getElementById('formContrato').style.display = _tipoActivo==='contrato'?'':'none';
+      document.getElementById('formMediacion').style.display = _tipoActivo==='mediacion'?'':'none';
       // Se cancela lo que hubiera agendado el tipo anterior: los dos comparten
       // temporizador y el que llegaba tarde pisaba al nuevo.
       if(_previewTimer) clearTimeout(_previewTimer);
       _previewURI = null;
-      if(esContrato){ ctInit(); ctPreview(); } else { renderPreview(); }
+      if(_tipoActivo==='contrato'){ ctInit(); ctPreview(); }
+      else if(_tipoActivo==='mediacion'){ cmInit(); cmPreview(); }
+      else { renderPreview(); }
     }
 
     var _ctListo=false;
