@@ -242,11 +242,18 @@
         <div class="panel" id="formContrato" style="display:none">
           <h3><i class="fas fa-file-contract"></i> Contrato de arrendamiento</h3>
 
-          <div class="ct-aviso">
+          <div class="fld">
+            <label>Destino del inmueble</label>
+            <div class="seg">
+              <button type="button" id="ctDestComercial" class="on" onclick="ctSetDestino('comercial')">Comercial</button>
+              <button type="button" id="ctDestVivienda" onclick="ctSetDestino('vivienda')">Vivienda</button>
+            </div>
+          </div>
+
+          <div class="ct-aviso" id="ctAvisoDestino">
             <i class="fas fa-triangle-exclamation"></i>
-            <div><b>Solo para destino comercial o industrial.</b> Para vivienda rige un
-            plazo mínimo de dos años que no se puede renunciar: es otro contrato y esta
-            plantilla no sirve.</div>
+            <div id="ctAvisoTexto"><b>Destino comercial o industrial.</b> Rige el régimen de
+            libre contratación: el plazo lo acuerdan las partes.</div>
           </div>
 
           <div class="ct-sec">1 · Partes</div>
@@ -301,6 +308,7 @@
           <div class="fld"><label>Modalidad</label>
             <select id="ctGarantia" onchange="ctPintarGarantia()">
               <option value="aseguradora">Aseguradora (Porto Seguro u otra)</option>
+              <option value="anda">ANDA — su formulario + anexo de la inmobiliaria</option>
               <option value="deposito">Depósito en garantía</option>
               <option value="fianza">Fianza solidaria</option>
             </select></div>
@@ -349,9 +357,9 @@
       nombre: 'MALAVE INMOBILIARIA',
       titular: 'Anibal Fabricio Malave Azocar',
       rut: '219505710017',
-      celular: '94029297',
+      celular: '+598 94533006',
       direccion: 'José Antonio Cabrera 3558, Montevideo',
-      email: 'inmobiliariamalave@gmail.com'
+      email: 'Malaveinmobiliaria@gmail.com'
     };
 
     var ADMIN_EMAIL = 'fabricio9061@gmail.com';
@@ -447,7 +455,7 @@
           (d.barrio?', barrio '+d.barrio:'')+', ciudad y departamento de '+d.departamento+
           (d.padron?', padrón número '+d.padron:'')+'.'; } },
 
-      { id:'destino', fija:true, titulo:'DESTINO COMERCIAL', texto:function(d){
+      { id:'destino', fija:true, soloComercial:true, titulo:'DESTINO COMERCIAL', texto:function(d){
         return 'El inmueble será destinado exclusivamente al funcionamiento de un establecimiento comercial dedicado a '+d.destino+
           '. La actividad podrá desarrollarse con atención al público y con la participación de empleados, técnicos, profesionales y colaboradores de la parte arrendataria.\n\n'+
           'La parte arrendataria no podrá modificar el destino ni el giro comercial establecido sin la autorización previa, expresa y por escrito de la parte arrendadora.\n\n'+
@@ -481,7 +489,7 @@
         return 'La parte arrendataria no podrá realizar reformas, modificaciones, construcciones o mejoras en el inmueble sin autorización previa, expresa y escrita de la parte arrendadora.\n\n'+
           'Las mejoras autorizadas quedarán a beneficio de la propiedad y no darán derecho a indemnización, salvo que las partes acuerden expresamente algo diferente por escrito. Si la parte arrendadora no autoriza la permanencia de las mejoras al finalizar el contrato, la parte arrendataria deberá retirar lo instalado y devolver el inmueble en el estado en que lo recibió.'; } },
 
-      { id:'habilitaciones', fija:true, titulo:'HABILITACIONES Y PERMISOS', texto:function(d){
+      { id:'habilitaciones', fija:true, soloComercial:true, titulo:'HABILITACIONES Y PERMISOS', texto:function(d){
         return 'Serán de cargo y responsabilidad de la parte arrendataria la obtención, mantenimiento y renovación de las habilitaciones, permisos, inscripciones y autorizaciones necesarias para el funcionamiento de la actividad y de los servicios que se presten en el inmueble.\n\n'+
           'La parte arrendataria deberá cumplir las disposiciones de la Intendencia de '+d.departamento+', la Dirección Nacional de Bomberos, el Ministerio de Salud Pública, la copropiedad —cuando corresponda— y cualquier otro organismo competente.\n\n'+
           'La celebración del presente contrato no implica que la parte arrendadora garantice la obtención de las habilitaciones necesarias para la actividad.'; } },
@@ -568,10 +576,86 @@
           'En todo lo no previsto expresamente, se aplicarán las disposiciones del Código Civil de la República Oriental del Uruguay.'; } }
     ];
 
+
+    // ==========================================================================
+    // CLÁUSULAS PROPIAS DEL DESTINO VIVIENDA
+    // --------------------------------------------------------------------------
+    // No es el contrato comercial con otra palabra: la vivienda tiene reglas que
+    // no se pueden pactar en contra. El plazo mínimo de dos años del Decreto Ley
+    // 14.219 es irrenunciable, el reajuste sigue sus artículos 3º y 15º, y la mora
+    // por falta de pago tiene su propio régimen. Por eso estas cláusulas
+    // reemplazan a las comerciales cuando se elige vivienda.
+    // ==========================================================================
+    var CLAUSULAS_VIVIENDA = [
+      { id:'destinoViv', fija:true, soloVivienda:true, titulo:'DESTINO', texto:function(d){
+        return 'La parte arrendataria se obliga a ocupar el inmueble arrendado con destino exclusivo de casa habitación permanente, en forma efectiva, para sí y su familia.\n\n'+
+          'No podrá cambiarse el destino ni darse al inmueble un uso comercial, industrial o de alojamiento temporario, ni total ni parcialmente, sin autorización previa, expresa y escrita de la parte arrendadora.'; } },
+
+      { id:'plazoViv', fija:true, soloVivienda:true, titulo:'PLAZO', texto:function(d){
+        return 'El plazo del presente contrato será de '+d.plazoTexto+', contado desde el día '+d.fechaInicio+', fecha en la cual la parte arrendataria tomará posesión del inmueble, y vencerá el día '+d.fechaVencimiento+'.\n\n'+
+          'Las partes declaran conocer que, tratándose de un arrendamiento con destino casa habitación, rige el plazo mínimo legal establecido por el Decreto Ley N.º 14.219 y sus modificativas, que no puede ser renunciado por la parte arrendataria.'; } },
+
+      { id:'devolucionViv', fija:true, soloVivienda:true, titulo:'DESOCUPACIÓN Y ENTREGA DE LLAVES', texto:function(d){
+        return 'Cumplido el plazo mínimo legal, la parte arrendataria podrá desocupar el inmueble comunicándolo por medio fehaciente con una anticipación mínima de '+d.preaviso+' días corridos.\n\n'+
+          'Al finalizar el contrato, el inmueble deberá entregarse: a) totalmente desocupado de personas y bienes; b) limpio y en condiciones adecuadas de uso y conservación; c) con todas las llaves, controles y accesorios recibidos; d) en el estado establecido en el inventario, salvo el deterioro normal derivado del tiempo y del uso correcto; y e) con los consumos, gastos, tasas y demás obligaciones a cargo de la parte arrendataria debidamente abonados.\n\n'+
+          'Las partes realizarán una inspección final del inmueble y su comparación con el inventario firmado al inicio. La entrega de llaves deberá efectuarse a la parte arrendadora o a persona expresamente autorizada, contra recibo escrito.'; } },
+
+      { id:'obligacionesViv', fija:true, soloVivienda:true, titulo:'OBLIGACIONES Y PROHIBICIONES', texto:function(d){
+        return 'La parte arrendataria se obliga especialmente a: a) ocupar el inmueble conforme al destino pactado; b) no subarrendar, ceder ni permitir la ocupación por terceros sin autorización previa y escrita; c) permitir la ejecución de los trabajos de conservación, mejora o transformación que resulten necesarios, así como el acceso para inspección, tasación o venta; d) permitir la colocación de carteles de venta o alquiler, sin obstruir accesos ni aberturas; e) comunicar de inmediato cualquier daño o desperfecto que advierta en el inmueble; y f) abstenerse de realizar ruidos, trepidaciones o cualquier actividad que ocasione molestias a los vecinos.\n\n'+
+          'El cumplimiento de estas obligaciones no dará derecho a indemnización ni a reducción del precio.'; } },
+
+      { id:'artefactosViv', fija:true, soloVivienda:true, titulo:'SERVICIOS ACCESORIOS Y ARTEFACTOS', texto:function(d){
+        return 'La existencia en el inmueble de instalaciones de calefacción, gas, agua caliente, aire acondicionado o electrodomésticos no implica que se encuentren conectados ni en funcionamiento, ni obliga a la parte arrendadora a repararlos, sustituirlos o mantenerlos, salvo acuerdo expreso y escrito en contrario.\n\n'+
+          'Serán de cargo de la parte arrendataria las reparaciones locativas y el mantenimiento ordinario derivado del uso, conforme al artículo 1820 del Código Civil. Serán de cargo de la parte arrendadora las reparaciones necesarias, estructurales y las de las instalaciones generales del edificio.'; } },
+
+      { id:'regimenViv', fija:true, soloVivienda:true, titulo:'RÉGIMEN LEGAL APLICABLE', texto:function(d){
+        return 'El presente arrendamiento tiene destino casa habitación y se rige por el Decreto Ley N.º 14.219, sus modificativas y concordantes, y en todo lo no previsto expresamente, por las disposiciones del Código Civil de la República Oriental del Uruguay.\n\n'+
+          'La mora por falta de pago del alquiler se regirá por el régimen especial previsto en dicha norma. En las demás obligaciones, la mora se producirá de pleno derecho por el solo vencimiento de los plazos pactados.'; } }
+    ];
+
+    // Un solo catálogo, armado según el destino elegido. Las comerciales que no
+    // aplican se caen, y en su lugar entran las de vivienda, en el mismo orden
+    // en que iban las que reemplazan.
+    var _destino = 'comercial';
+    function ctCatalogo(){
+      if(_destino !== 'vivienda') return CLAUSULAS;
+      var viv = {};
+      CLAUSULAS_VIVIENDA.forEach(function(c){ viv[c.id]=c; });
+      var out = [];
+      CLAUSULAS.forEach(function(c){
+        if(c.soloComercial){
+          // 'destino' se reemplaza por el de vivienda; 'habilitaciones' no aplica.
+          if(c.id==='destino') out.push(viv.destinoViv);
+          return;
+        }
+        if(c.id==='plazo'){ out.push(viv.plazoViv); return; }
+        if(c.id==='entrega'){ out.push(viv.devolucionViv); return; }
+        if(c.id==='regimen'){ out.push(viv.regimenViv); return; }
+        if(c.id==='preaviso') return; // queda dentro de la de desocupación
+        if(c.id==='conservacion'){ out.push(c); out.push(viv.artefactosViv); out.push(viv.obligacionesViv); return; }
+        out.push(c);
+      });
+      return out;
+    }
+
+    function ctSetDestino(dst){
+      _destino = dst;
+      document.getElementById('ctDestComercial').classList.toggle('on', dst==='comercial');
+      document.getElementById('ctDestVivienda').classList.toggle('on', dst==='vivienda');
+      document.getElementById('ctAvisoTexto').innerHTML = (dst==='vivienda')
+        ? '<b>Destino casa habitación.</b> Rige el plazo mínimo de dos años del Decreto Ley 14.219, que la parte arrendataria no puede renunciar, y el reajuste anual por sus artículos 3º y 15º.'
+        : '<b>Destino comercial o industrial.</b> Rige el régimen de libre contratación: el plazo lo acuerdan las partes.';
+      var fd=document.getElementById('ctDestino');
+      var wrap = fd ? fd.closest('.fld') : null;
+      if(wrap) wrap.style.display = (dst==='vivienda') ? 'none' : '';
+      ctPintarOpcionales();
+      ctPreview();
+    }
+
     // Devuelve las cláusulas que entran, ya numeradas. Acá está la garantía de que
     // no puede haber huecos ni repetidas: el ordinal sale del índice, no del texto.
     function ctClausulas(d){
-      return CLAUSULAS
+      return ctCatalogo()
         .filter(function(c){ return c.fija || ctOpcionalesOn[c.id]; })
         .map(function(c,i){ return { ordinal:ORDINALES[i], titulo:c.titulo, cuerpo:c.texto(d) }; });
     }
@@ -600,7 +684,7 @@
 
     function ctPintarOpcionales(){
       var cont=document.getElementById('ctOpcionales'); if(!cont) return;
-      cont.innerHTML = CLAUSULAS.filter(function(c){ return !c.fija; }).map(function(c){
+      cont.innerHTML = ctCatalogo().filter(function(c){ return !c.fija; }).map(function(c){
         var campos = (c.campos||[]).map(function(f){
           return '<div class="fld" style="margin-top:8px"><label>'+esc(f.label)+'</label><input id="ct_'+f.id+'" oninput="ctPreview()"></div>';
         }).join('');
@@ -615,13 +699,35 @@
       ctPreview();
     }
 
+    // Texto de la cláusula de Porto Seguro, tal como viene usándose en los
+    // contratos de la agencia. Se precarga para no tener que pegarlo cada vez,
+    // pero queda editable: si la aseguradora cambia su redacción, se pisa acá.
+    var TEXTO_PORTO = 'Las partes acuerdan la garantía de Porto Seguro – Seguros del Uruguay S.A., en las condiciones del seguro establecido entre ellas y la referida aseguradora.\n\nLa entrega de llaves se hará efectiva una vez que la parte arrendataria presente ante la administradora la póliza correspondiente y el comprobante de pago de la primera cuota del seguro.\n\nLa parte arrendadora y la parte arrendataria declaran conocer y aceptar las Condiciones Generales del seguro Porto Alquiler.\n\nLa parte arrendataria deberá devolver el inmueble totalmente desocupado de personas y bienes, y en el mismo estado en que lo recibió, salvo el deterioro normal derivado del tiempo y del uso correcto. La entrega de las llaves se realizará contra recibo escrito de la parte arrendadora, previa inspección del inmueble y comparación con el inventario firmado al inicio del arrendamiento.\n\nLas partes convienen expresamente que, si al momento de realizarse el lanzamiento del inmueble arrendado existieran dentro de este bienes muebles o inmuebles por accesión, se considerarán irrevocablemente abandonados a favor de la parte arrendadora, quien podrá ejercer cualquiera de las facultades establecidas en el artículo 487 del Código Civil, sin responsabilidad de especie alguna.\n\nLas partes acuerdan firmar la rescisión del presente contrato, incluso cuando esta se produzca al finalizar el plazo contractual, y enviarla a Porto Seguro mediante correo electrónico a la casilla alquiler@portoseguro.com.uy.';
+
     function ctPintarGarantia(){
       var g=document.getElementById('ctGarantia').value, c=document.getElementById('ctGarantiaCampos');
+      if(g==='anda'){
+        c.innerHTML='<div class="ct-aviso" style="margin-top:4px"><i class="fas fa-circle-info"></i>'+
+          '<div><b>El contrato lo aporta ANDA.</b> Su formulario no se modifica ni se reescribe. '+
+          'Acá se genera el <b>anexo de la inmobiliaria</b>: una hoja aparte con las condiciones que ANDA no prevé, '+
+          'usando los mismos datos de partes e inmueble que ya cargaste arriba.</div></div>'+
+          '<div class="row2"><div class="fld"><label>Letra</label><input id="axLetra" placeholder="ej: A" oninput="ctPreview()"></div>'+
+          '<div class="fld"><label>Número</label><input id="axNumero" oninput="ctPreview()"></div></div>'+
+          '<div class="row2"><div class="fld"><label>Solicitud</label><input id="axSolicitud" oninput="ctPreview()"></div>'+
+          '<div class="fld"><label>Fecha del contrato de ANDA</label><input id="axFechaContrato" type="date" oninput="ctPreview()"></div></div>'+
+          '<div class="ct-sec" style="margin-top:14px">Cláusulas del anexo</div>'+
+          '<div class="hint" style="margin:-6px 0 10px">Todas apagadas. Se encienden a propósito, una por una.</div>'+
+          '<div id="axOpcionales"></div>';
+        axPintarOpcionales();
+        ctPreview();
+        return;
+      }
       if(g==='aseguradora'){
         c.innerHTML='<div class="row2"><div class="fld"><label>Aseguradora</label><input id="ctAseguradora" value="Porto Seguro – Seguros del Uruguay S.A." oninput="ctPreview()"></div>'+
           '<div class="fld"><label>Versión del texto</label><input id="ctVersionTexto" placeholder="ej: julio 2026" oninput="ctPreview()"></div></div>'+
-          '<div class="fld"><label>Texto de la garantía</label><textarea id="ctTextoAseg" rows="7" oninput="ctPreview()" placeholder="Pegá acá el texto exacto que envió la aseguradora. No lo redactamos nosotros."></textarea>'+
-          '<div class="hint">Se transcribe tal cual. Pedile a la aseguradora su redacción vigente por escrito.</div></div>';
+          '<div class="fld"><label>Texto de la garantía</label><textarea id="ctTextoAseg" rows="9" oninput="ctPreview()"></textarea>'+
+          '<div class="hint">Viene con el texto de Porto Seguro que ya usás. Si la aseguradora cambia su redacción, pegá la nueva acá.</div></div>';
+        var ta=document.getElementById('ctTextoAseg'); if(ta && !ta.value) ta.value=TEXTO_PORTO;
       } else if(g==='deposito'){
         c.innerHTML='<div class="row2"><div class="fld"><label>Monto</label><input id="ctMontoDep" oninput="ctPreview()"></div>'+
           '<div class="fld"><label>Equivale a (meses)</label><input id="ctMesesDep" type="number" oninput="ctPreview()"></div></div>'+
@@ -758,6 +864,14 @@
       // Título con el mismo filete navy que la carta de pago
       pdf.setFont('helvetica','bold'); pdf.setFontSize(16); pdf.setTextColor.apply(pdf,INK);
       pdf.text('CONTRATO DE ARRENDAMIENTO', W/2, y, {align:'center'});
+      if(_destino==='vivienda'){
+        pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(2);
+        pdf.line(W/2-52, y+10, W/2+52, y+10);
+        y+=24;
+        pdf.setFont('helvetica','normal').setFontSize(9).setTextColor.apply(pdf,GREY);
+        pdf.text('Destino casa habitación', W/2, y, {align:'center'});
+        y-=10;
+      }
       pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(2);
       pdf.line(W/2-52, y+10, W/2+52, y+10);
       y+=40;
@@ -812,7 +926,7 @@
       _previewTimer=setTimeout(function(){
         if(_tipoActivo !== 'contrato') return;
         try{
-          var uri=ctConstruirPDF().output('datauristring');
+          var uri=(ctVal('ctGarantia')==='anda' ? axConstruirPDF() : ctConstruirPDF()).output('datauristring');
           _previewURI=uri;
           document.getElementById('previewFrame').src=uri;
           escalarPreview();
@@ -824,6 +938,12 @@
       if(!ctListaPersonas('arrendador').length){ toast('Falta al menos un arrendador', true); return; }
       if(!ctListaPersonas('arrendatario').length){ toast('Falta al menos un arrendatario', true); return; }
       if(!ctVal('ctDireccion')){ toast('Falta la dirección del inmueble', true); return; }
+      if(ctVal('ctGarantia')==='anda'){
+        var nomAx='Anexo_'+(ctVal('ctDireccion')||'contrato').replace(/[^\w]+/g,'_')+'.pdf';
+        axConstruirPDF().save(nomAx);
+        toast('Anexo generado');
+        return;
+      }
       if(!ctVal('ctPrecio')){ toast('Falta el precio', true); return; }
       if(ctVal('ctGarantia')==='fianza' && !ctListaPersonas('fiador').length){ toast('La fianza necesita un fiador', true); return; }
       if(ctVal('ctGarantia')==='aseguradora' && !ctVal('ctTextoAseg')){
@@ -1200,6 +1320,283 @@
       }catch(e){ console.error(e); toast('No se pudo generar: '+(e.message||e), true); }
       btn.disabled=false; btn.innerHTML=prev;
     }
+
+
+    // ==========================================================================
+    // ANEXO DE CLÁUSULAS DE LA INMOBILIARIA
+    // --------------------------------------------------------------------------
+    // El contrato de ANDA es un formulario cerrado: no se edita ni se reescribe.
+    // Lo que sí se puede es acordar condiciones complementarias en hoja aparte,
+    // entre arrendador y arrendatario. Eso es este documento.
+    //
+    // Dos límites que el anexo respeta y deja escritos, porque son los que hacen
+    // que después no haya discusión: no contradice al contrato principal, y no
+    // obliga a ANDA, que no lo firma.
+    //
+    // Misma mecánica que el contrato: la numeración sale del orden de las
+    // cláusulas que entran, nunca escrita a mano.
+    // ==========================================================================
+    var axOpcionalesOn = {};
+
+    var AX_CLAUSULAS = [
+      { id:'objeto', fija:true, titulo:'OBJETO DEL ANEXO', texto:function(d){
+        return 'El presente anexo complementa el '+d.contratoNombre+' suscrito entre las partes'+d.referencia+
+          ', relativo al inmueble ubicado en '+d.inmueble+', y tiene por objeto establecer condiciones acordadas entre la parte arrendadora y la parte arrendataria que no se encuentran previstas en aquel.'; } },
+
+      { id:'prevalencia', fija:true, titulo:'ALCANCE Y PREVALENCIA', texto:function(d){
+        var t = 'El presente anexo complementa el contrato principal y no lo sustituye ni lo modifica. En caso de contradicción entre ambos, prevalecerá el contrato principal.\n\n';
+        if (d.esAnda) {
+          t += 'Este anexo es acordado exclusivamente entre la parte arrendadora y la parte arrendataria. La Asociación Nacional de Afiliados (ANDA) no es parte del mismo, no lo suscribe y su fianza no alcanza ni garantiza ninguna de las obligaciones aquí establecidas, rigiéndose su responsabilidad únicamente por el contrato principal y por el Reglamento para la garantía de alquiler.\n\n';
+        }
+        t += 'Ninguna disposición del presente anexo podrá interpretarse como renuncia a los derechos que las normas de orden público reconocen a las partes.';
+        return t; } },
+
+      { id:'administracion', fija:true, titulo:'ADMINISTRACIÓN Y COMUNICACIONES', texto:function(d){
+        return 'La intermediación y administración del arrendamiento se encuentran a cargo de '+EMPRESA.nombre+', RUT '+EMPRESA.rut+', con domicilio en '+EMPRESA.direccion+'.\n\n'+
+          'Toda comunicación, reclamo, solicitud de reparación o coordinación vinculada al inmueble deberá canalizarse a través de dicha administración, al teléfono '+EMPRESA.celular+' o a la casilla de correo '+EMPRESA.email+'.\n\n'+
+          'Las partes aceptan como válidas y fehacientes las comunicaciones cursadas por correo electrónico a las casillas declaradas en el contrato principal, mientras no se comunique por escrito su modificación.'; } },
+
+      { id:'inventario', fija:true, titulo:'INVENTARIO Y ESTADO DEL INMUEBLE', texto:function(d){
+        return 'Las partes suscriben en la fecha el inventario del inmueble, acompañado de registro fotográfico, que se considera parte integrante del contrato principal y del presente anexo.\n\n'+
+          'La parte arrendataria se obliga a devolver el inmueble en el mismo estado en que lo recibe, salvo el deterioro derivado del uso normal y legítimo.'; } },
+
+      { id:'llaves', fija:true, titulo:'ENTREGA Y DEVOLUCIÓN DE LLAVES', texto:function(d){
+        return 'La entrega de las llaves se realiza contra recibo escrito, una vez acreditada la vigencia de la garantía pactada en el contrato principal.\n\n'+
+          'Al finalizar el arrendamiento, la devolución se hará también contra recibo escrito, previa inspección del inmueble y comparación con el inventario suscrito al inicio. La entrega deberá efectuarse a la administración o a persona expresamente autorizada.'; } },
+
+      { id:'honorarios', fija:false, titulo:'HONORARIOS DE INTERMEDIACIÓN',
+        rotulo:'Honorarios de intermediación', ayuda:'Deja por escrito qué se cobró y qué queda pendiente.',
+        campos:[{id:'quienPaga', label:'A cargo de (arrendataria / arrendadora)'},{id:'montoHon', label:'Monto'},{id:'formaHon', label:'Forma y momento de pago'}],
+        texto:function(d){
+        return 'En concepto de honorarios por la intermediación, la parte '+(d.quienPaga||'____')+' abona a '+EMPRESA.nombre+' la suma de '+(d.montoHon||'____')+'.\n\n'+
+          'Forma y oportunidad de pago: '+(d.formaHon||'____')+'.\n\n'+
+          'Los honorarios de intermediación son independientes del precio del arrendamiento y no integran la garantía pactada en el contrato principal.'; } },
+
+      { id:'ocupantes', fija:false, titulo:'OCUPANTES DEL INMUEBLE',
+        rotulo:'Ocupantes', ayuda:'Quiénes van a vivir en el inmueble.',
+        campos:[{id:'ocupantes', label:'Ocupantes declarados'}],
+        texto:function(d){
+        return 'La parte arrendataria declara que el inmueble será ocupado por '+(d.ocupantes||'____')+'.\n\n'+
+          'Todo cambio en la ocupación deberá comunicarse a la administración. Esta declaración no habilita la cesión ni el subarrendamiento, que se rigen por el contrato principal.'; } },
+
+      { id:'mascotas', fija:false, titulo:'MASCOTAS',
+        rotulo:'Mascotas', ayuda:'Autoriza o prohíbe, y con qué condiciones.',
+        campos:[{id:'mascotasDetalle', label:'Detalle (ej: se autoriza un perro pequeño)'}],
+        texto:function(d){
+        return 'Respecto de animales domésticos en el inmueble, las partes acuerdan: '+(d.mascotasDetalle||'____')+'.\n\n'+
+          'La parte arrendataria será responsable de los daños que los animales ocasionen al inmueble, a sus instalaciones o a terceros, y deberá cumplir el reglamento de copropiedad cuando corresponda.'; } },
+
+      { id:'usoTuristico', fija:false, titulo:'PROHIBICIÓN DE USO TURÍSTICO',
+        rotulo:'Prohibición de uso turístico', ayuda:'Impide alquilar por plataformas tipo Airbnb.',
+        texto:function(d){
+        return 'La parte arrendataria no podrá destinar el inmueble, total ni parcialmente, a alojamiento turístico, hospedaje temporario ni a cualquier modalidad de explotación mediante plataformas digitales de alquiler de corta estadía.\n\n'+
+          'El incumplimiento de esta cláusula se considerará cambio de destino a los efectos del contrato principal.'; } },
+
+      { id:'artefactos', fija:false, titulo:'MANTENIMIENTO DE ARTEFACTOS E INSTALACIONES',
+        rotulo:'Mantenimiento de artefactos', ayuda:'Calefón, estufa, aire acondicionado, cocina.',
+        campos:[{id:'artefactos', label:'Artefactos entregados'}],
+        texto:function(d){
+        return 'El inmueble se entrega con los siguientes artefactos e instalaciones: '+(d.artefactos||'____')+'.\n\n'+
+          'Serán de cargo de la parte arrendataria el mantenimiento ordinario, la limpieza y las reparaciones menores derivadas del uso, así como los daños ocasionados por uso indebido.\n\n'+
+          'Serán de cargo de la parte arrendadora las reparaciones estructurales y las derivadas de vicios o defectos anteriores a la entrega.'; } },
+
+      { id:'gastosComunes', fija:false, titulo:'GASTOS COMUNES',
+        rotulo:'Gastos comunes', ayuda:'Cuánto, quién paga y cómo se acredita.',
+        campos:[{id:'gcMonto', label:'Importe estimado a la fecha'},{id:'gcDetalle', label:'A cargo de / alcance'}],
+        texto:function(d){
+        return 'Los gastos comunes ordinarios ascienden, a la fecha del presente, a '+(d.gcMonto||'____')+', importe variable según lo que resuelva la administración del edificio.\n\n'+
+          'Quedan a cargo de: '+(d.gcDetalle||'____')+'.\n\n'+
+          'Los gastos comunes extraordinarios serán de cargo de la parte arrendadora, salvo que deriven de daños imputables a la parte arrendataria.'; } },
+
+      { id:'inspecciones', fija:false, titulo:'INSPECCIONES',
+        rotulo:'Inspecciones periódicas', ayuda:'Permite inspeccionar avisando con antelación.',
+        campos:[{id:'avisoInsp', label:'Aviso previo (horas)'},{id:'frecuenciaInsp', label:'Frecuencia (ej: semestral)'}],
+        texto:function(d){
+        return 'La administración podrá inspeccionar el inmueble con frecuencia '+(d.frecuenciaInsp||'____')+', a efectos de verificar su estado de conservación, coordinando previamente con la parte arrendataria con una antelación no menor a '+(d.avisoInsp||'____')+' horas y en horarios razonables.'; } },
+
+      { id:'pintura', fija:false, titulo:'CONDICIONES DE DEVOLUCIÓN',
+        rotulo:'Condiciones de devolución', ayuda:'Pintura y limpieza al entregar.',
+        campos:[{id:'devolucionDetalle', label:'Condición acordada'}],
+        texto:function(d){
+        return 'Al momento de la devolución, la parte arrendataria entregará el inmueble desocupado de personas y bienes, limpio y en las siguientes condiciones acordadas: '+(d.devolucionDetalle||'____')+'.\n\n'+
+          'No se considerarán deterioros imputables los derivados del uso normal y del transcurso del tiempo.'; } },
+
+      { id:'firma', fija:true, titulo:'FIRMA Y EJEMPLARES', texto:function(d){
+        return 'Previa lectura, las partes declaran comprender y aceptar las condiciones establecidas en el presente anexo, y firman '+d.ejemplaresLetras+' ('+d.ejemplares+') ejemplares de un mismo tenor y a un solo efecto.\n\n'+
+          'En la ciudad de '+d.departamento+', el día '+d.fechaLarga+'.'; } }
+    ];
+
+    function axClausulas(d){
+      return AX_CLAUSULAS
+        .filter(function(c){ return c.fija || axOpcionalesOn[c.id]; })
+        .map(function(c,i){ return { ordinal:ORDINALES[i], titulo:c.titulo, cuerpo:c.texto(d) }; });
+    }
+
+    function axVal(id){ var e=document.getElementById(id); return e?e.value.trim():''; }
+
+    function axPintarOpcionales(){
+      var cont=document.getElementById('axOpcionales'); if(!cont) return;
+      cont.innerHTML = AX_CLAUSULAS.filter(function(c){ return !c.fija; }).map(function(c){
+        var campos = (c.campos||[]).map(function(f){
+          return '<div class="fld" style="margin-top:8px"><label>'+esc(f.label)+'</label><input id="ax_'+f.id+'" oninput="axPreview()"></div>';
+        }).join('');
+        return '<div class="ct-op"><input type="checkbox" id="axop_'+c.id+'" onchange="axToggleOp(\''+c.id+'\',this.checked)">'+
+          '<div style="flex:1"><b>'+esc(c.rotulo||c.titulo)+'</b><span>'+esc(c.ayuda||'')+'</span>'+
+          '<div id="axcampos_'+c.id+'" style="display:none">'+campos+'</div></div></div>';
+      }).join('');
+    }
+    function axToggleOp(id, on){
+      axOpcionalesOn[id]=on;
+      var c=document.getElementById('axcampos_'+id); if(c) c.style.display = on?'block':'none';
+      axPreview();
+    }
+
+    // El anexo no vuelve a pedir partes ni inmueble: son los mismos del contrato.
+    function axNombres(rol){
+      return ctListaPersonas(rol).map(function(x){ return x.nombre; });
+    }
+    function axFrase(rol){
+      var l=axNombres(rol);
+      if(!l.length) return '_________________';
+      var u=l.slice(); var ult=u.pop();
+      return u.length ? u.join(', ')+' y '+ult : ult;
+    }
+
+    function axDatos(){
+      var esAnda = axVal('axGarantia')==='anda';
+      var ref=[];
+      if(axVal('axLetra')) ref.push('Letra '+axVal('axLetra'));
+      if(axVal('axNumero')) ref.push('N.º '+axVal('axNumero'));
+      if(axVal('axSolicitud')) ref.push('solicitud '+axVal('axSolicitud'));
+      var refTxt = ref.length ? ', identificado con '+ref.join(', ') : '';
+      if(axVal('axFechaContrato')) refTxt += (refTxt?', ':', ')+'de fecha '+fechaLarga(axVal('axFechaContrato'));
+      var inm = (ctVal('ctDireccion')||'____')+
+        (ctVal('ctUnidad')?', unidad '+ctVal('ctUnidad'):'')+
+        (ctVal('ctPadron')?', padrón número '+ctVal('ctPadron'):'')+
+        ', departamento de '+(ctVal('ctDepartamento')||'Montevideo');
+      var ej = 2;
+      var LETRAS={1:'un',2:'dos',3:'tres',4:'cuatro',5:'cinco'};
+      return {
+        esAnda: esAnda,
+        contratoNombre: esAnda ? 'contrato de arrendamiento y fianza garantizado por la Asociación Nacional de Afiliados (ANDA)' : 'contrato de arrendamiento',
+        referencia: refTxt,
+        inmueble: inm,
+        departamento: ctVal('ctDepartamento')||'Montevideo',
+        fechaLarga: fechaLarga(ctVal('ctFecha')),
+        ejemplares: ej, ejemplaresLetras: LETRAS[ej]||String(ej),
+        quienPaga:axVal('ax_quienPaga'), montoHon:axVal('ax_montoHon'), formaHon:axVal('ax_formaHon'),
+        ocupantes:axVal('ax_ocupantes'), mascotasDetalle:axVal('ax_mascotasDetalle'),
+        artefactos:axVal('ax_artefactos'), gcMonto:axVal('ax_gcMonto'), gcDetalle:axVal('ax_gcDetalle'),
+        avisoInsp:axVal('ax_avisoInsp'), frecuenciaInsp:axVal('ax_frecuenciaInsp'),
+        devolucionDetalle:axVal('ax_devolucionDetalle')
+      };
+    }
+
+    function axFirmantes(){
+      var l=[];
+      axNombres('arrendador').forEach(function(n){ l.push({n:n, r:'ARRENDADOR'}); });
+      axNombres('arrendatario').forEach(function(n){ l.push({n:n, r:'ARRENDATARIO'}); });
+      return l;
+    }
+
+    function axConstruirPDF(){
+      var jsPDF=window.jspdf.jsPDF;
+      var pdf=new jsPDF({unit:'pt',format:'a4',orientation:'portrait'});
+      var W=595.28;
+      var M=64, ancho=W-M*2;
+      var NAVY=[22,39,63], GREY=[95,106,128], INK=[26,38,58];
+      var firmantes=axFirmantes();
+      var altoFirmas = firmantes.length ? 62 : 0;
+      var pieY = 788;
+      var limite = pieY - altoFirmas - 26;
+      var pagina=0;
+
+      function membrete(){
+        pagina++;
+        if(pagina>1) pdf.addPage();
+        var y=60;
+        pdf.setTextColor.apply(pdf,INK); pdf.setFont('helvetica','bold'); pdf.setFontSize(13.5);
+        pdf.text(EMPRESA.nombre, M, y);
+        y+=18;
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(9); pdf.setTextColor.apply(pdf,GREY);
+        [EMPRESA.titular, 'RUT: '+EMPRESA.rut, 'Celular: '+EMPRESA.celular, EMPRESA.direccion, EMPRESA.email]
+          .forEach(function(t){ pdf.text(t, M, y); y+=13.5; });
+        if(_logoImg){
+          try{ pdf.addImage(_logoImg,'PNG', W-M-80, 52, 57, 50); }
+          catch(e){ console.warn('No se pudo dibujar el logo:', e); }
+        }
+        marcaDerecha(pdf, W, M, INK, GREY);
+        return Math.max(y, 150)+24;
+      }
+      function pie(){
+        pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(1.2);
+        pdf.line(M, pieY, W-M, pieY);
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(9); pdf.setTextColor.apply(pdf,GREY);
+        pdf.text(EMPRESA.direccion+'   |   '+EMPRESA.celular+'   |   '+EMPRESA.email, W/2, pieY+14, {align:'center'});
+        pdf.setFontSize(8.5);
+        pdf.text('RUT: '+EMPRESA.rut, W/2, pieY+26, {align:'center'});
+        pdf.text('Página '+pagina, W-M, pieY+26, {align:'right'});
+      }
+      function firmas(){
+        if(!firmantes.length) return;
+        var y=pieY-altoFirmas+16;
+        var col=ancho/firmantes.length;
+        firmantes.forEach(function(f,i){
+          var cx=M+col*i+col/2, w=Math.min(col-16,170);
+          pdf.setDrawColor(60).setLineWidth(1.1).line(cx-w/2, y, cx+w/2, y);
+          pdf.setFont('helvetica','bold').setFontSize(8.5).setTextColor(30);
+          pdf.text(f.n, cx, y+14, {align:'center'});
+          pdf.setFont('helvetica','normal').setFontSize(7.5).setTextColor(110);
+          pdf.text(f.r, cx, y+26, {align:'center'});
+        });
+      }
+      function cerrarHoja(){ firmas(); pie(); }
+
+      var y=membrete();
+      var d=axDatos();
+
+      pdf.setFont('helvetica','bold'); pdf.setFontSize(16); pdf.setTextColor.apply(pdf,INK);
+      pdf.text('ANEXO AL CONTRATO DE ARRENDAMIENTO', W/2, y, {align:'center'});
+      pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(2);
+      pdf.line(W/2-70, y+10, W/2+70, y+10);
+      y+=26;
+      pdf.setFont('helvetica','normal').setFontSize(9).setTextColor.apply(pdf,GREY);
+      pdf.text('Cláusulas complementarias acordadas entre arrendador y arrendatario', W/2, y, {align:'center'});
+      y+=30;
+
+      function escribir(lineas, alto, negrita, tam, color){
+        for(var i=0;i<lineas.length;i++){
+          if(y+alto>limite){ cerrarHoja(); y=membrete(); }
+          pdf.setFont('helvetica', negrita?'bold':'normal').setFontSize(tam).setTextColor(color);
+          pdf.text(lineas[i], M, y);
+          y+=alto;
+        }
+      }
+      function parrafo(txt, opts){
+        opts=opts||{};
+        var tam=opts.tam||9.2, alto=opts.alto||13.5;
+        txt.split('\n').forEach(function(bloque){
+          if(!bloque.trim()){ y+=6; return; }
+          escribir(pdf.splitTextToSize(bloque, ancho), alto, opts.negrita, tam, opts.color==null?55:opts.color);
+        });
+      }
+
+      parrafo('En la ciudad de '+d.departamento+', el día '+d.fechaLarga+', entre '+axFrase('arrendador')+', en calidad de ARRENDADOR/A, y '+axFrase('arrendatario')+', en calidad de ARRENDATARIO/A, se acuerda el presente anexo.');
+      y+=10;
+
+      axClausulas(d).forEach(function(c){
+        if(y+42>limite){ cerrarHoja(); y=membrete(); }
+        pdf.setFont('helvetica','bold').setFontSize(9.6).setTextColor(25);
+        pdf.text(c.ordinal+' – '+c.titulo, M, y);
+        y+=15;
+        parrafo(c.cuerpo);
+        y+=10;
+      });
+
+      cerrarHoja();
+      return pdf;
+    }
+
 
     // ===== Controles de UI =====
     var _tipoActivo = 'carta_pago';

@@ -193,7 +193,7 @@
         // ====== Footer ======
         '<div style="background:'+NAVY+';padding:13px 24px;display:flex;justify-content:space-between;align-items:center;margin-top:14px;">' +
           '<div style="color:#cdd2d8;font-size:9px;letter-spacing:1px;">MALAVE &nbsp;·&nbsp; ASESORÍA INMOBILIARIA</div>' +
-          '<div style="color:#cdd2d8;font-size:9px;">094 029 297 &nbsp;·&nbsp; inmobiliariamalave@gmail.com</div>' +
+          '<div style="color:#cdd2d8;font-size:9px;">+598 94533006 &nbsp;·&nbsp; Malaveinmobiliaria@gmail.com</div>' +
           '<div style="color:'+GOLD+';font-size:13px;font-weight:bold;">01</div>' +
         '</div>' +
 

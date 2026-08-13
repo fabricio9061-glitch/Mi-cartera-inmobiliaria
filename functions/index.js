@@ -78,8 +78,8 @@ const CAT_SALE = process.env.ML_CAT_SALE || "";
 const CAT_RENT = process.env.ML_CAT_RENT || "";
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "fabricio9061@gmail.com").toLowerCase();
 // Datos de la inmobiliaria que se muestran como contacto en los avisos de ML.
-const NOMBRE_INMOBILIARIA = process.env.ML_NOMBRE_INMOBILIARIA || "Malave Inmobiliaria";
-const EMAIL_INMOBILIARIA = process.env.ML_EMAIL_INMOBILIARIA || "inmobiliariamalave@gmail.com";
+const NOMBRE_INMOBILIARIA = process.env.ML_NOMBRE_INMOBILIARIA || "Inmobiliaria Malave";
+const EMAIL_INMOBILIARIA = process.env.ML_EMAIL_INMOBILIARIA || "Malaveinmobiliaria@gmail.com";
 
 const API = "https://api.mercadolibre.com";
 const TOKENS_DOC = db.collection("ml_config").doc("tokens");
@@ -1459,9 +1459,6 @@ async function crearAvisoML(ref, id, extra = {}, opciones = {}) {
       mlItemId: r.data.id,
       mlPermalink: r.data.permalink || "",
       mlStatus: r.data.status || "active",
-      // Cuándo se supo ese estado. Recién creado casi siempre es 'not_yet_active';
-      // sin esta marca la grilla lo daba por revisado y no volvía a preguntar.
-      mlStatusAt: new Date().toISOString(),
       mlListingType: r.data.listing_type_id || item.listing_type_id || "",
       mlError: admin.firestore.FieldValue.delete(),
       mlErrorAt: admin.firestore.FieldValue.delete(),
@@ -2210,78 +2207,6 @@ exports.republicarML = onCall(async (request) => {
   throw new HttpsError("internal", res.error || "No se pudo republicar.");
 });
 
-// ============================================================
-// VISTA PREVIA PARA COMPARTIR (WhatsApp, Facebook, etc.)
-// ------------------------------------------------------------
-// propiedad.html arma la ficha con JavaScript, y los robots que generan la vista
-// previa NO ejecutan JavaScript: solo leen el HTML crudo, donde la foto todavía
-// no existe. Por eso el link salía siempre con el logo.
-// Esta función devuelve una página mínima con los datos ya escritos (título,
-// precio, ubicación y la foto real) y manda a la persona a la ficha de siempre.
-// ============================================================
-function escaparHtml(t) {
-  return String(t == null ? "" : t)
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-
-exports.fichaCompartir = onRequest({ cors: true }, async (req, res) => {
-  const SITIO = "https://malaveinmobiliaria.com";
-  // Acepta /p/ID y también ?id=ID
-  const porRuta = (req.path || "").split("/").filter(Boolean).pop();
-  const id = (req.query && req.query.id) || (porRuta && porRuta !== "p" ? porRuta : "");
-  if (!id) return res.redirect(302, SITIO);
-
-  let p = null;
-  try {
-    const doc = await db.collection("properties").doc(String(id)).get();
-    if (doc.exists) p = doc.data();
-  } catch (e) {
-    logger.warn("fichaCompartir: no se pudo leer la propiedad —", e.message);
-  }
-  const destino = `${SITIO}/propiedad.html?id=${encodeURIComponent(id)}`;
-  if (!p) return res.redirect(302, destino);
-
-  const moneda = p.currency === "UYU" ? "$U" : "US$";
-  const precio = `${moneda} ${Number(p.price || 0).toLocaleString("es-UY")}${p.type === "rent" ? "/mes" : ""}`;
-  const donde = p.ciudad && p.departamento ? `${p.ciudad}, ${p.departamento}` : (p.location || "Uruguay");
-  const partes = [precio, donde];
-  if (p.bedrooms) partes.push(`${p.bedrooms} dorm.`);
-  if (p.bathrooms) partes.push(`${p.bathrooms} baños`);
-  const titulo = p.title || "Propiedad en MALAVE Inmobiliaria";
-  const desc = partes.join(" · ");
-  const foto = (p.images && p.images[0]) || `${SITIO}/icon512.png`;
-
-  // Cache corta: si cambia el precio o la foto, la vista previa se renueva sola.
-  res.set("Cache-Control", "public, max-age=300, s-maxage=600");
-  res.status(200).send(`<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>${escaparHtml(titulo)}</title>
-<meta name="description" content="${escaparHtml(desc)}">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="MALAVE Inmobiliaria">
-<meta property="og:title" content="${escaparHtml(titulo)}">
-<meta property="og:description" content="${escaparHtml(desc)}">
-<meta property="og:image" content="${escaparHtml(foto)}">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:url" content="${escaparHtml(destino)}">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${escaparHtml(titulo)}">
-<meta name="twitter:description" content="${escaparHtml(desc)}">
-<meta name="twitter:image" content="${escaparHtml(foto)}">
-<link rel="canonical" href="${escaparHtml(destino)}">
-<script>location.replace(${JSON.stringify(destino)});</script>
-</head>
-<body style="font-family:system-ui,sans-serif;text-align:center;padding:40px">
-<p>Abriendo la propiedad…</p>
-<p><a href="${escaparHtml(destino)}">${escaparHtml(titulo)}</a></p>
-</body>
-</html>`);
-});
-
 exports.bajaML = onCall(async (request) => {
   const propertyId = request.data && request.data.propertyId;
   if (!propertyId) throw new HttpsError("invalid-argument", "Falta el id de la propiedad.");
@@ -2475,68 +2400,24 @@ exports.saludMLLote = onCall(async (request) => {
   const itemIds = [...porItem.keys()];
   const ahora = new Date().toISOString();
   const salud = {};
-  const estados = {};
   const escrituras = [];
 
   for (let i = 0; i < itemIds.length; i += 20) {
     const lote = itemIds.slice(i, i + 20);
     try {
       const r = await axios.get(`${API}/items`, {
-        headers, params: { ids: lote.join(","), attributes: "id,health,status" },
+        headers, params: { ids: lote.join(","), attributes: "id,health" },
       });
-      const respondieron = new Set();
       (r.data || []).forEach((row) => {
         const c = row && row.body;
-        if (!c || !c.id) return;
+        if (!c || !c.id || c.health == null) return;
         const propId = porItem.get(c.id);
         if (!propId) return;
-        respondieron.add(c.id);
-        // El multiget contesta por aviso: los que no se pueden leer vienen con
-        // code 403 (cuenta ajena o bloqueada) o 404 (borrado). En ese caso el
-        // cuerpo NO trae un estado real, así que no hay que guardarlo.
-        const codigo = row.code;
-        if ((codigo && codigo !== 200) || typeof c.status !== "string") {
-          estados[propId] = "no_encontrado";
-          escrituras.push(
-            db.collection("properties").doc(propId).update({
-              mlStatus: "no_encontrado",
-              mlStatusAt: ahora,
-              mlHealth: admin.firestore.FieldValue.delete(),
-              mlHealthAt: admin.firestore.FieldValue.delete(),
-            }).catch(() => {}),
-          );
-          return;
-        }
-        const cambios = { mlStatus: c.status, mlStatusAt: ahora };
-        estados[propId] = c.status;
-        // health puede venir null en avisos que ML todavía no evaluó: en ese caso
-        // se deja el valor anterior en vez de pisarlo con nada.
-        if (c.health != null) {
-          salud[propId] = c.health;
-          cambios.mlHealth = c.health;
-          cambios.mlHealthAt = ahora;
-        }
-        escrituras.push(
-          db.collection("properties").doc(propId).update(cambios).catch(() => {}),
-        );
-      });
-      // Lo que ML no devolvió dentro de un lote que SÍ respondió: ese aviso ya no
-      // existe (borrado, o de una cuenta que se perdió). Se marca para que la
-      // grilla lo muestre caído en vez de seguir mostrando la última calidad.
-      lote.filter((id) => !respondieron.has(id)).forEach((id) => {
-        const propId = porItem.get(id);
-        if (!propId) return;
-        estados[propId] = "no_encontrado";
+        salud[propId] = c.health;
         escrituras.push(
           db.collection("properties").doc(propId)
-            .update({
-              mlStatus: "no_encontrado",
-              mlStatusAt: ahora,
-              // La calidad guardada es de un aviso que ya no existe: si se deja,
-              // la grilla sigue mostrando un porcentaje que no significa nada.
-              mlHealth: admin.firestore.FieldValue.delete(),
-              mlHealthAt: admin.firestore.FieldValue.delete(),
-            }).catch(() => {}),
+            .update({ mlHealth: c.health, mlHealthAt: ahora })
+            .catch(() => {}),
         );
       });
     } catch (e) {
@@ -2544,7 +2425,7 @@ exports.saludMLLote = onCall(async (request) => {
     }
   }
   await Promise.all(escrituras);
-  return { salud, estados, medidoEn: ahora };
+  return { salud, medidoEn: ahora };
 });
 
 // ============================================================
@@ -2576,55 +2457,19 @@ exports.refrescarSaludML = onSchedule(
       const lote = ids.slice(i, i + 20);
       try {
         const r = await axios.get(`${API}/items`, {
-          headers, params: { ids: lote.join(","), attributes: "id,health,status" },
+          headers, params: { ids: lote.join(","), attributes: "id,health" },
         });
         const escrituras = [];
-        const respondieron = new Set();
         (r.data || []).forEach((row) => {
           const cuerpo = row && row.body;
           if (!cuerpo || !cuerpo.id) return;
           const propId = porId.get(cuerpo.id);
-          if (!propId) return;
-          respondieron.add(cuerpo.id);
-          // 403/404: el aviso no se puede leer. No es un estado, es un error.
-          if ((row.code && row.code !== 200) || typeof cuerpo.status !== "string") {
-            escrituras.push(
-              db.collection("properties").doc(propId).update({
-                mlStatus: "no_encontrado",
-                mlStatusAt: ahora,
-                mlHealth: admin.firestore.FieldValue.delete(),
-                mlHealthAt: admin.firestore.FieldValue.delete(),
-              }).then(() => { ok++; }).catch(() => { fallos++; }),
-            );
-            return;
-          }
-          const cambios = { mlStatus: cuerpo.status, mlStatusAt: ahora };
           // health puede venir null en avisos que ML todavía no evaluó: en ese caso
           // se deja el valor anterior en vez de pisarlo con nada.
-          if (cuerpo.health != null) {
-            cambios.mlHealth = cuerpo.health;
-            cambios.mlHealthAt = ahora;
-          }
+          if (!propId || cuerpo.health == null) return;
           escrituras.push(
             db.collection("properties").doc(propId)
-              .update(cambios)
-              .then(() => { ok++; })
-              .catch(() => { fallos++; }),
-          );
-        });
-        // Avisos que ML no devolvió: ya no existen. Se marcan para que la grilla
-        // los muestre caídos y se puedan republicar.
-        lote.filter((id) => !respondieron.has(id)).forEach((id) => {
-          const propId = porId.get(id);
-          if (!propId) return;
-          escrituras.push(
-            db.collection("properties").doc(propId)
-              .update({
-                mlStatus: "no_encontrado",
-                mlStatusAt: ahora,
-                mlHealth: admin.firestore.FieldValue.delete(),
-                mlHealthAt: admin.firestore.FieldValue.delete(),
-              })
+              .update({ mlHealth: cuerpo.health, mlHealthAt: ahora })
               .then(() => { ok++; })
               .catch(() => { fallos++; }),
           );
