@@ -152,11 +152,10 @@
           <b>Compromiso de mediación</b>
           <span>Encargo de venta o alquiler, en exclusiva o no.</span>
         </button>
-        <button class="doc-type soon" disabled>
-          <i class="fas fa-receipt"></i>
-          <b>Otros comprobantes</b>
-          <span>Recibos y constancias varias.</span>
-          <span class="soon-tag">Próximamente</span>
+        <button class="doc-type" data-type="propietario" onclick="selectType('propietario')">
+          <i class="fas fa-circle-info"></i>
+          <b>Información al propietario</b>
+          <span>Cómo trabaja la agencia en un arrendamiento. Se entrega al captar.</span>
         </button>
       </div>
 
@@ -423,6 +422,37 @@
           </div>
 
           <button class="gen-btn" onclick="cmGenerarPDF()"><i class="fas fa-file-arrow-down"></i> Generar y descargar compromiso</button>
+        </div>
+
+        <!-- Información al propietario -->
+        <div class="panel" id="formPropietario" style="display:none">
+          <h3><i class="fas fa-circle-info"></i> Información y procedimiento para propietarios</h3>
+
+          <div class="ct-sec">1 · Datos</div>
+          <div class="fld"><label>Agente que entrega</label>
+            <select id="ipAgente" onchange="ipPreview()"><option value="">Cargando agentes…</option></select>
+          </div>
+          <div class="fld"><label>Propietario</label><input id="ipPropietario" oninput="ipPreview()" placeholder="Nombre y apellido"></div>
+          <div class="fld"><label>Propiedad</label><input id="ipPropiedad" oninput="ipPreview()" placeholder="Dirección del inmueble"></div>
+          <div class="fld"><label>Fecha</label><input id="ipFecha" type="date" oninput="ipPreview()"></div>
+
+          <div class="ct-sec">2 · Condiciones particulares</div>
+          <div class="hint" style="margin:-6px 0 10px">Lo que se complete acá va en el punto 9. Lo que quede vacío no se menciona.</div>
+          <div class="row2">
+            <div class="fld"><label>Precio autorizado</label><input id="ipPrecio" oninput="ipPreview()" placeholder="ej: $ 29.900"></div>
+            <div class="fld"><label>Ocupantes máximos</label><input id="ipOcupantes" oninput="ipPreview()"></div>
+          </div>
+          <div class="fld"><label>Garantías aceptadas</label><input id="ipGarantias" oninput="ipPreview()" placeholder="ej: ANDA, Porto Seguro, Contaduría"></div>
+          <div class="fld"><label>Mascotas</label><input id="ipMascotas" oninput="ipPreview()" placeholder="ej: no se aceptan / se aceptan hasta un perro pequeño"></div>
+          <div class="fld"><label>Modalidad de acceso</label><input id="ipAcceso" oninput="ipPreview()" placeholder="ej: llaves en la agencia / portería"></div>
+          <div class="fld"><label>Otras condiciones</label><textarea id="ipOtras" rows="2" oninput="ipPreview()"></textarea></div>
+
+          <div class="ct-sec">3 · Cierre</div>
+          <div class="ct-op"><input type="checkbox" id="ipConstancia" checked onchange="ipPreview()">
+            <div style="flex:1"><b>Incluir constancia de recepción</b><span>El propietario firma que lo recibió y lo comprendió. Sin firma, el documento prueba que existe, no que se lo entregaste.</span></div>
+          </div>
+
+          <button class="gen-btn" onclick="ipGenerarPDF()"><i class="fas fa-file-arrow-down"></i> Generar y descargar</button>
         </div>
 
         <!-- Vista previa -->
@@ -2719,21 +2749,231 @@
       { o:'VIGÉSIMO TERCERA', x:'Las partes declaran conocer y aceptar el Reglamento para la Garantía de Alquiler, que se encuentra vigente en la web de ANDA (anda.com.uy), la que se considera parte integrante del presente contrato, rigiendo sus estipulaciones en lo que sea aplicable según el destino y en todo lo que no esté previsto en este contrato. Para constancia y cumplimiento, se firma el presente en el lugar y fecha indicados.' }
     ];
 
+
+    // ==========================================================================
+    // INFORMACIÓN Y PROCEDIMIENTO PARA PROPIETARIOS
+    // --------------------------------------------------------------------------
+    // Hoja que se entrega al captar. Los puntos 7 y 8 son los que evitan el
+    // reclamo típico meses después: quién cobra el alquiler y quién atiende los
+    // arreglos. Por eso la constancia de recepción va firmada: sin firma el
+    // documento prueba que existe, no que el propietario lo recibió.
+    // ==========================================================================
+    var IP_SECCIONES = [
+      { t:'COMERCIALIZACIÓN DEL INMUEBLE', x:function(d){
+        return 'Malave Inmobiliaria realizará la promoción de la propiedad, atención de interesados, coordinación de visitas y seguimiento de las personas interesadas hasta la concreción del arrendamiento.\n\n'+
+          'La propiedad podrá ser publicada en los distintos medios, portales inmobiliarios, redes sociales y canales de difusión utilizados por la inmobiliaria.'; } },
+      { t:'COORDINACIÓN DE VISITAS', x:function(d){
+        return 'Las visitas serán coordinadas por los asesores de Malave Inmobiliaria de acuerdo con la disponibilidad y la modalidad de acceso previamente acordada con el propietario.\n\n'+
+          'En caso de que se proporcionen llaves, códigos de acceso o autorización mediante portería, estos serán utilizados exclusivamente para la realización de visitas y gestiones vinculadas con la comercialización del inmueble.'; } },
+      { t:'SELECCIÓN DEL INTERESADO Y GARANTÍA', x:function(d){
+        return 'Cuando un interesado manifieste intención de arrendar la propiedad, se solicitará la documentación necesaria para continuar con el proceso.\n\n'+
+          'La garantía deberá encontrarse dentro de las opciones previamente aceptadas por el propietario, pudiendo incluir aseguradoras, ANDA, Contaduría General de la Nación u otras modalidades acordadas.\n\n'+
+          'La aceptación de un interesado estará sujeta al cumplimiento de los requisitos correspondientes.'; } },
+      { t:'RESERVA DE LA PROPIEDAD', x:function(d){
+        return 'Cuando un interesado decida avanzar con la operación, podrá realizarse una reserva del inmueble mientras se completa la documentación, la aprobación de la garantía y demás gestiones necesarias para la firma.\n\n'+
+          'La reserva no implica por sí sola la entrega de la propiedad ni sustituye la firma del contrato de arrendamiento.'; } },
+      { t:'MODALIDAD DE PAGO — MES VENCIDO', x:function(d){
+        return 'El propietario es informado de que el arrendamiento se realizará bajo la modalidad de pago a mes vencido.\n\n'+
+          'Esto significa que el pago correspondiente a cada período de alquiler se realizará una vez transcurrido dicho período, conforme a las fechas y condiciones establecidas en el contrato de arrendamiento y al funcionamiento de la garantía correspondiente.\n\n'+
+          'Esta modalidad quedará expresamente establecida al momento de la contratación.'; } },
+      { t:'FIRMA DEL CONTRATO Y ENTREGA DEL INMUEBLE', x:function(d){
+        return 'Una vez aprobada la documentación y cumplidas las condiciones necesarias, se procederá a la firma del contrato de arrendamiento.\n\n'+
+          'La entrega de llaves al arrendatario se realizará de acuerdo con lo establecido para cada operación.\n\n'+
+          'Cuando corresponda, podrá realizarse inventario, registro fotográfico o constancia del estado general de la propiedad al momento de la entrega.'; } },
+      { t:'CONTACTO ENTRE PROPIETARIO Y ARRENDATARIO', x:function(d){
+        return 'Una vez firmado el contrato y concretada la entrega del inmueble, Malave Inmobiliaria facilitará los datos de contacto entre propietario y arrendatario.\n\n'+
+          'A partir de ese momento, ambas partes podrán comunicarse directamente para todo lo relacionado con el pago mensual del alquiler, los gastos y consumos, las reparaciones y el mantenimiento, la coordinación de situaciones vinculadas al inmueble y los demás asuntos derivados del arrendamiento.'; } },
+      { t:'MALAVE INMOBILIARIA NO ADMINISTRA EL INMUEBLE', x:function(d){
+        return 'La intervención de Malave Inmobiliaria corresponde a la intermediación, comercialización y concreción del arrendamiento.\n\n'+
+          'Una vez firmado el contrato y entregada la propiedad, Malave Inmobiliaria no realizará la administración mensual del inmueble ni la cobranza de los alquileres.\n\n'+
+          'El seguimiento posterior del arrendamiento será realizado directamente entre propietario y arrendatario, salvo que exista un acuerdo diferente expresamente establecido por escrito.'; } },
+      { t:'CONDICIONES PARTICULARES', x:function(d){
+        var l=[];
+        if(d.precio) l.push('Precio autorizado: '+d.precio+'.');
+        if(d.garantias) l.push('Garantías aceptadas: '+d.garantias+'.');
+        if(d.mascotas) l.push('Mascotas: '+d.mascotas+'.');
+        if(d.ocupantes) l.push('Ocupantes máximos: '+d.ocupantes+'.');
+        if(d.acceso) l.push('Modalidad de acceso: '+d.acceso+'.');
+        if(d.otras) l.push(d.otras);
+        return 'El propietario informa las siguientes condiciones para la comercialización del inmueble:\n\n'+
+          (l.length ? l.join('\n') : '____')+
+          '\n\nCualquier otra condición especial respecto al precio, garantías aceptadas, mascotas, cantidad de ocupantes, modalidad de acceso, fechas u otras deberá ser informada previamente a Malave Inmobiliaria.'; } }
+    ];
+
+    function ipVal(id){ var e=document.getElementById(id); return e?e.value.trim():''; }
+    function ipDatos(){
+      return { propietario:ipVal('ipPropietario'), propiedad:ipVal('ipPropiedad'),
+        fecha:fechaLarga(ipVal('ipFecha')), agente:ipVal('ipAgente')||EMPRESA.titular,
+        precio:ipVal('ipPrecio'), garantias:ipVal('ipGarantias'), mascotas:ipVal('ipMascotas'),
+        ocupantes:ipVal('ipOcupantes'), acceso:ipVal('ipAcceso'), otras:ipVal('ipOtras') };
+    }
+
+    function ipConstruirPDF(){
+      var jsPDF=window.jspdf.jsPDF;
+      var pdf=new jsPDF({unit:'pt',format:'a4',orientation:'portrait'});
+      var W=595.28, M=58, ancho=W-M*2;
+      var NAVY=[22,39,63], GREY=[95,106,128], INK=[26,38,58];
+      var d=ipDatos();
+      var chk=document.getElementById('ipConstancia');
+      var conFirma = chk ? chk.checked : true;
+      var pieY=792, pagina=0;
+      var limite=pieY-24, ALTO_UTIL=limite-110;
+
+      function membrete(){
+        pagina++;
+        if(pagina>1) pdf.addPage();
+        if(pagina>1){
+          var yc=60;
+          pdf.setFont('helvetica','bold').setFontSize(10).setTextColor.apply(pdf,INK);
+          pdf.text(EMPRESA.nombre, M, yc);
+          pdf.setFont('helvetica','normal').setFontSize(8.5).setTextColor.apply(pdf,GREY);
+          pdf.text('Informacion y procedimiento para propietarios', W-M, yc, {align:'right'});
+          pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(0.8);
+          pdf.line(M, yc+8, W-M, yc+8);
+          return yc+28;
+        }
+        var y=60;
+        pdf.setTextColor.apply(pdf,INK); pdf.setFont('helvetica','bold'); pdf.setFontSize(13.5);
+        pdf.text(EMPRESA.nombre, M, y);
+        y+=18;
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(9); pdf.setTextColor.apply(pdf,GREY);
+        [EMPRESA.titular,'RUT: '+EMPRESA.rut,'Celular: '+EMPRESA.celular,EMPRESA.direccion,EMPRESA.email]
+          .forEach(function(t){ pdf.text(t,M,y); y+=13.5; });
+        if(_logoImg){
+          try{ pdf.addImage(_logoImg,'PNG', W-M-80, 52, 57, 50); }
+          catch(e){ console.warn('No se pudo dibujar el logo:', e); }
+        }
+        marcaDerecha(pdf, W, M, INK, GREY);
+        return Math.max(y,150)+24;
+      }
+      function pie(){
+        pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(1);
+        pdf.line(M, pieY, W-M, pieY);
+        pdf.setFont('helvetica','normal').setFontSize(8).setTextColor.apply(pdf,GREY);
+        pdf.text(EMPRESA.direccion+'   |   '+EMPRESA.celular+'   |   '+EMPRESA.email, W/2, pieY+13, {align:'center'});
+        pdf.text('Pagina '+pagina, W-M, pieY+13, {align:'right'});
+      }
+      function cerrarHoja(){ pie(); }
+
+      var y=membrete();
+      function escribir(l,alto,negrita,tam,color){
+        for(var i=0;i<l.length;i++){
+          if(y+alto>limite){ cerrarHoja(); y=membrete(); }
+          pdf.setFont('helvetica', negrita?'bold':'normal').setFontSize(tam).setTextColor(color);
+          pdf.text(l[i],M,y); y+=alto;
+        }
+      }
+      function parrafo(txt,o){
+        o=o||{};
+        var tam=o.tam||9.2, alto=o.alto||13;
+        String(txt).split('\n').forEach(function(b){
+          if(!b.trim()){ y+=5; return; }
+          var l=pdf.splitTextToSize(b.trim(), ancho);
+          if(y+l.length*alto>limite && l.length*alto<=ALTO_UTIL){ cerrarHoja(); y=membrete(); }
+          escribir(l,alto,o.negrita,tam,o.color==null?55:o.color);
+        });
+      }
+
+      pdf.setFont('helvetica','bold').setFontSize(13.5).setTextColor.apply(pdf,INK);
+      pdf.text('INFORMACION Y PROCEDIMIENTO PARA PROPIETARIOS', W/2, y, {align:'center'});
+      pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(2);
+      pdf.line(W/2-60, y+10, W/2+60, y+10);
+      y+=30;
+      pdf.setFont('helvetica','normal').setFontSize(9).setTextColor.apply(pdf,GREY);
+      pdf.text('Arrendamientos', W/2, y, {align:'center'});
+      y+=26;
+
+      if(d.propietario || d.propiedad || d.fecha){
+        var enc=[];
+        if(d.propietario) enc.push('Propietario: '+d.propietario);
+        if(d.propiedad) enc.push('Propiedad: '+d.propiedad);
+        if(d.fecha) enc.push('Fecha: '+d.fecha);
+        parrafo(enc.join('\n'), {negrita:true, color:30});
+        y+=8;
+      }
+      parrafo('El presente documento tiene como finalidad informar al propietario sobre el procedimiento de trabajo de Malave Inmobiliaria para la comercializacion y concrecion del arrendamiento de su propiedad.');
+      y+=8;
+
+      IP_SECCIONES.forEach(function(sec,i){
+        var cuerpo=sec.x(d), alto=15;
+        cuerpo.split('\n').forEach(function(b){ alto += b.trim() ? pdf.splitTextToSize(b.trim(),ancho).length*13 : 5; });
+        if(y+alto>limite && alto<=ALTO_UTIL){ cerrarHoja(); y=membrete(); }
+        pdf.setFont('helvetica','bold').setFontSize(9.6).setTextColor(25);
+        pdf.text((i+1)+'. '+sec.t, M, y);
+        y+=15;
+        parrafo(cuerpo);
+        y+=10;
+      });
+
+      if(conFirma){
+        if(y+130>limite){ cerrarHoja(); y=membrete(); }
+        y+=6;
+        pdf.setFont('helvetica','bold').setFontSize(9.6).setTextColor(25);
+        pdf.text('CONSTANCIA DE RECEPCION', M, y); y+=15;
+        parrafo('El propietario declara haber recibido el presente documento, haber comprendido su contenido y aceptar el procedimiento de trabajo descrito, en especial la modalidad de pago a mes vencido y que Malave Inmobiliaria no realiza la administracion mensual del inmueble.');
+        y+=40;
+        var col=ancho/2;
+        [['POR '+EMPRESA.nombre, d.agente], ['PROPIETARIO', d.propietario]].forEach(function(par,i){
+          var x=M+col*i, w=Math.min(col-30,200);
+          pdf.setDrawColor(60).setLineWidth(1).line(x, y, x+w, y);
+          pdf.setFont('helvetica','bold').setFontSize(8.5).setTextColor(30);
+          if(par[1]) pdf.text(pdf.splitTextToSize(par[1], w)[0], x, y+13);
+          pdf.setFont('helvetica','normal').setFontSize(7.5).setTextColor(110);
+          pdf.text(par[0], x, y+24);
+        });
+      }
+
+      cerrarHoja();
+      return pdf;
+    }
+
+    function ipPreview(){
+      if(_tipoActivo!=='propietario') return;
+      if(_previewTimer) clearTimeout(_previewTimer);
+      _previewTimer=setTimeout(function(){
+        if(_tipoActivo!=='propietario') return;
+        try{
+          var uri=ipConstruirPDF().output('datauristring');
+          _previewURI=uri;
+          document.getElementById('previewFrame').src=uri;
+          escalarPreview();
+        }catch(e){ console.warn('preview propietario:', e); }
+      },400);
+    }
+    function ipGenerarPDF(){
+      ipConstruirPDF().save('Informacion_propietario_'+(ipVal('ipPropiedad')||'').replace(/[^\w]+/g,'_')+'.pdf');
+      toast('Documento generado');
+    }
+    var _ipListo=false;
+    function ipInit(){
+      if(_ipListo) return;
+      _ipListo=true;
+      var sel=document.getElementById('ipAgente');
+      if(sel){
+        var lista=(typeof agentes!=='undefined' && agentes.length)?agentes:[];
+        sel.innerHTML=lista.map(function(a){ return '<option value="'+esc(a.name)+'">'+esc(a.name)+'</option>'; }).join('');
+        if(agenteLogueado && lista.some(function(a){ return a.name===agenteLogueado; })) sel.value=agenteLogueado;
+      }
+      var f=document.getElementById('ipFecha'); if(f && !f.value) f.value=new Date().toISOString().slice(0,10);
+    }
+
     // ===== Controles de UI =====
     var _tipoActivo = 'carta_pago';
     function selectType(t){
       document.querySelectorAll('.doc-type').forEach(function(b){ b.classList.remove('active'); });
       document.querySelector('.doc-type[data-type="'+t+'"]').classList.add('active');
-      _tipoActivo = (t==='contrato' || t==='mediacion') ? t : 'carta_pago';
+      _tipoActivo = (t==='contrato' || t==='mediacion' || t==='propietario') ? t : 'carta_pago';
       document.getElementById('formCartaPago').style.display = _tipoActivo==='carta_pago'?'':'none';
       document.getElementById('formContrato').style.display = _tipoActivo==='contrato'?'':'none';
       document.getElementById('formMediacion').style.display = _tipoActivo==='mediacion'?'':'none';
+      document.getElementById('formPropietario').style.display = _tipoActivo==='propietario'?'':'none';
       // Se cancela lo que hubiera agendado el tipo anterior: los dos comparten
       // temporizador y el que llegaba tarde pisaba al nuevo.
       if(_previewTimer) clearTimeout(_previewTimer);
       _previewURI = null;
       if(_tipoActivo==='contrato'){ ctInit(); ctPreview(); }
       else if(_tipoActivo==='mediacion'){ cmInit(); cmPreview(); }
+      else if(_tipoActivo==='propietario'){ ipInit(); ipPreview(); }
       else { renderPreview(); }
     }
 
