@@ -139,8 +139,8 @@
       <div class="doc-types">
         <button class="doc-type active" data-type="carta_pago" onclick="selectType('carta_pago')">
           <i class="fas fa-hand-holding-dollar"></i>
-          <b>Carta de pago</b>
-          <span>Comprobante de que un cliente pagó la comisión. Se entrega a quien pagó.</span>
+          <b>Comisión</b>
+          <span>Recibo de reserva al señar, o carta de pago al firmar y saldar.</span>
         </button>
         <button class="doc-type" data-type="contrato" onclick="selectType('contrato')">
           <i class="fas fa-file-contract"></i>
@@ -163,7 +163,7 @@
       <div class="doc-grid">
         <!-- Formulario -->
         <div class="panel" id="formCartaPago">
-          <h3><i class="fas fa-pen-to-square"></i> Datos de la carta de pago</h3>
+          <h3><i class="fas fa-pen-to-square"></i> <span id="tituloPanelPago">Datos del recibo de reserva</span></h3>
 
           <div class="fld">
             <label>Agente que gestionó la operación</label>
@@ -191,7 +191,7 @@
           </div>
 
           <div class="fld">
-            <label>Monto de la comisión</label>
+            <label>Comisión total pactada</label>
             <div class="row2">
               <select id="fMoneda"><option value="UYU">Pesos ($U)</option><option value="USD">Dólares (US$)</option></select>
               <input id="fMonto" type="number" min="0" step="1" placeholder="39000" oninput="renderPreview()">
@@ -199,33 +199,34 @@
             <div class="hint" id="montoLetras">En letras: —</div>
 
           <div class="fld">
-            <label>¿Cómo se paga?</label>
+            <label>Momento de la operación</label>
             <div class="seg">
-              <button type="button" class="seg-b on" id="segTotal" onclick="modoPago(false)">Pagó todo</button>
-              <button type="button" class="seg-b" id="segParcial" onclick="modoPago(true)">Pago parcial</button>
+              <button type="button" class="seg-b on" id="segReserva" onclick="setComprobante('reserva')">Al reservar</button>
+              <button type="button" class="seg-b" id="segCarta" onclick="setComprobante('carta')">Al firmar</button>
             </div>
-            <input type="checkbox" id="fParcial" style="display:none">
+            <div class="hint" id="hintComprobante">Recibo de reserva: deja constancia de la seña, la comisión total y el saldo pendiente.</div>
           </div>
 
-          <div id="boxParcial" style="display:none">
-            <div class="fld"><label>¿Cuánto abona ahora?</label>
+          <div id="boxReserva">
+            <div class="fld"><label>Monto entregado ahora</label>
               <input id="fEntrega" type="number" min="0" step="1" placeholder="19500" oninput="renderPreview()">
               <div class="hint" id="saldoTxt"></div>
             </div>
+          </div>
+
+          <div id="boxCarta" style="display:none">
             <div class="fld">
-              <label>¿Qué documenta esta carta?</label>
-              <div class="seg">
-                <button type="button" class="seg-b on" id="segPrimera" onclick="modoSaldo(false)">La primera entrega</button>
-                <button type="button" class="seg-b" id="segSaldo" onclick="modoSaldo(true)">El saldo final</button>
+              <label>Seña previa <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>
+              <div class="row2">
+                <input id="fEntregaPrevia" type="number" min="0" step="1" placeholder="Monto de la seña" oninput="renderPreview()">
+                <input id="fFechaPrevia" type="date" oninput="renderPreview()">
               </div>
-              <input type="checkbox" id="fSaldoFinal" style="display:none">
-            </div>
-            <div class="fld" id="boxFechaPrevia" style="display:none">
-              <label>Fecha del pago anterior <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>
-              <input id="fFechaPrevia" type="date" oninput="renderPreview()">
-              <div class="hint">Si la completás, la carta la menciona: "cuya primera parte fue abonada el…".</div>
+              <div class="hint">Si hubo reserva, la carta la menciona y descuenta del total.</div>
             </div>
           </div>
+
+          <input type="checkbox" id="fParcial" style="display:none">
+          <input type="checkbox" id="fSaldoFinal" style="display:none">
           </div>
 
           <div class="fld">
@@ -381,9 +382,12 @@
 
           <div class="ct-sec">1 · Agente que suscribe</div>
           <div class="row2">
-            <div class="fld"><label>Nombre del agente</label><input id="cmAgente" oninput="cmPreview()"></div>
+            <div class="fld"><label>Agente</label>
+              <select id="cmAgenteSel" onchange="cmSetAgente()"><option value="">Cargando agentes…</option></select>
+            </div>
             <div class="fld"><label>Cédula del agente</label><input id="cmAgenteCI" oninput="cmPreview()"></div>
           </div>
+          <div class="fld" id="cmAgenteOtroWrap" style="display:none"><label>Nombre del agente</label><input id="cmAgente" oninput="cmPreview()"></div>
           <div class="hint" style="margin:-4px 0 10px">El mediador inscripto ante el BPS sigue siendo la agencia. Si firma otro agente, el documento dice que actúa en su representación.</div>
 
           <div class="ct-sec">2 · Propietario</div>
@@ -452,6 +456,7 @@
 
     var ADMIN_EMAIL = 'fabricio9061@gmail.com';
     var db, auth, agentes = [], props = [];
+    var agenteLogueado = '';   // nombre del agente que está usando la página
     var tipoOperacion = 'arrendamiento', modoProp = 'lista';
     // Logo del edificio en AZUL OSCURO, incrustado acá mismo. No se usa el de
     // malave-logos.js porque ese es la versión BLANCA (para fondos oscuros como
@@ -922,14 +927,39 @@
       var ej=document.getElementById('ctEjemplares');
       if(ej && (!ej.value || ej.dataset.auto!=='0')){ ej.value = esAseguradora(g) ? 3 : 2; ej.dataset.auto='1'; }
       if(g==='anda'){
-        c.innerHTML='<div class="ct-aviso" style="margin-top:4px"><i class="fas fa-circle-info"></i>'+
-          '<div><b>El contrato lo aporta ANDA.</b> Su formulario no se modifica ni se reescribe. '+
-          'Acá se genera el <b>anexo de la inmobiliaria</b>: una hoja aparte con las condiciones que ANDA no prevé, '+
-          'usando los mismos datos de partes e inmueble que ya cargaste arriba.</div></div>'+
+        // ANDA tiene un formulario para casa habitación y otro para comercio. Solo
+        // está cargado el de vivienda, así que con destino comercial se genera
+        // únicamente el anexo. Conviene decirlo, no que el usuario lo deduzca.
+        c.innerHTML = '<div class="ct-aviso" style="margin-top:4px"><i class="fas fa-circle-info"></i>'+
+            '<div><b>Se genera el formulario de ANDA para '+(_destino==='vivienda'?'casa habitación':'local comercial')+
+            ' con sus espacios completados, más el anexo de la inmobiliaria.</b> '+
+            'El texto de ANDA se transcribe tal cual: no se modifica ni se reordena. '+
+            'Antes de usarlo la primera vez, compará el resultado con el formulario vigente en anda.com.uy.</div></div>'+
           '<div class="row2"><div class="fld"><label>Letra</label><input id="axLetra" placeholder="ej: A" oninput="ctPreview()"></div>'+
           '<div class="fld"><label>Número</label><input id="axNumero" oninput="ctPreview()"></div></div>'+
           '<div class="row2"><div class="fld"><label>Solicitud</label><input id="axSolicitud" oninput="ctPreview()"></div>'+
           '<div class="fld"><label>Fecha del contrato de ANDA</label><input id="axFechaContrato" type="date" oninput="ctPreview()"></div></div>'+
+          '<div class="ct-sec" style="margin-top:14px">Datos del formulario de ANDA</div>'+
+          '<div class="row2"><div class="fld"><label>N.º de arrendador</label><input id="axNroArr" oninput="ctPreview()"></div>'+
+          '<div class="fld"><label>RUT del arrendador</label><input id="axRut" oninput="ctPreview()"></div></div>'+
+          '<div class="row2"><div class="fld"><label>Representante del arrendador</label><input id="axRepre" oninput="ctPreview()"></div>'+
+          '<div class="fld"><label>CI del representante</label><input id="axRepreCI" oninput="ctPreview()"></div></div>'+
+          '<div class="row2"><div class="fld"><label>Correo del arrendador</label><input id="axMailArr" oninput="ctPreview()"></div>'+
+          '<div class="fld"><label>Correo del arrendatario</label><input id="axMailAta" oninput="ctPreview()"></div></div>'+
+          '<div class="row2"><div class="fld"><label>Localidad catastral</label><input id="axLocalidad" oninput="ctPreview()"></div>'+
+          '<div class="fld"><label>N.º de puerta</label><input id="axPuerta" oninput="ctPreview()"></div></div>'+
+          '<div class="row2"><div class="fld"><label>Apartamento para UTE</label><input id="axUte" oninput="ctPreview()"></div>'+
+          '<div class="fld"><label>Manzana / solar</label><input id="axManzana" placeholder="manzana / solar" oninput="ctPreview()"></div></div>'+
+          '<div class="fld"><label>ANDA garantiza desde el 1.º del mes de</label><input id="axMesGarantia" placeholder="ej: setiembre de 2026" oninput="ctPreview()"></div>'+
+          '<div class="row2"><div class="fld"><label>Servicio de OSE</label><select id="axOSE" onchange="ctPreview()"><option value="con">Se entrega con OSE conectado</option><option value="sin">Se entrega sin OSE conectado</option></select></div>'+
+          '<div class="fld"><label>Servicio de UTE</label><select id="axUTE" onchange="ctPreview()"><option value="con">Se entrega con UTE conectado</option><option value="sin">Se entrega sin UTE conectado</option></select></div></div>'+
+          '<div class="ct-sec" style="margin-top:14px">Consumos a cargo del arrendatario (%)</div>'+
+          '<div class="row2"><div class="fld"><label>OSE</label><input id="axpOSE" value="100" oninput="ctPreview()"></div>'+
+          '<div class="fld"><label>UTE</label><input id="axpUTE" value="100" oninput="ctPreview()"></div></div>'+
+          '<div class="row2"><div class="fld"><label>Saneamiento</label><input id="axpSan" value="0" oninput="ctPreview()"></div>'+
+          '<div class="fld"><label>Impuestos municipales</label><input id="axpMun" value="0" oninput="ctPreview()"></div></div>'+
+          '<div class="row2"><div class="fld"><label>Gastos comunes</label><input id="axpGC" value="0" oninput="ctPreview()"></div>'+
+          '<div class="fld"><label>Gas por cañería</label><input id="axpGas" value="0" oninput="ctPreview()"></div></div>'+
           '<div class="ct-sec" style="margin-top:14px">Cláusulas del anexo</div>'+
           '<div class="hint" style="margin:-6px 0 10px">Todas apagadas. Se encienden a propósito, una por una.</div>'+
           '<div id="axOpcionales"></div>';
@@ -1203,7 +1233,7 @@
       _previewTimer=setTimeout(function(){
         if(_tipoActivo !== 'contrato') return;
         try{
-          var uri=(ctVal('ctGarantia')==='anda' ? axConstruirPDF() : ctConstruirPDF()).output('datauristring');
+          var uri=(ctVal('ctGarantia')==='anda' ? andaMasAnexo() : ctConstruirPDF()).output('datauristring');
           _previewURI=uri;
           document.getElementById('previewFrame').src=uri;
           escalarPreview();
@@ -1216,9 +1246,9 @@
       if(!ctListaPersonas('arrendatario').length){ toast('Falta al menos un arrendatario', true); return; }
       if(!ctVal('ctDireccion')){ toast('Falta la dirección del inmueble', true); return; }
       if(ctVal('ctGarantia')==='anda'){
-        var nomAx='Anexo_'+(ctVal('ctDireccion')||'contrato').replace(/[^\w]+/g,'_')+'.pdf';
-        axConstruirPDF().save(nomAx);
-        toast('Anexo generado');
+        var base=(ctVal('ctDireccion')||'contrato').replace(/[^\w]+/g,'_');
+        andaMasAnexo().save((_destino==='vivienda' ? 'Contrato_ANDA_y_anexo_' : 'Anexo_')+base+'.pdf');
+        toast(_destino==='vivienda' ? 'Contrato de ANDA y anexo generados' : 'Anexo generado');
         return;
       }
       if(!ctVal('ctPrecio')){ toast('Falta el precio', true); return; }
@@ -1358,25 +1388,26 @@
       var montoTxt = fmtMonto(pg.entrega, moneda);
       var letrasTxt = montoEnLetras(pg.entrega, moneda);
       // La frase final cambia según sea pago completo, primera parte o saldo.
-      var cierre;
-      if (!pg.parcial && !pg.esSaldo) {
-        cierre = '';
-      } else if (pg.esSaldo) {
-        var fp = document.getElementById('fFechaPrevia');
-        var previa = fp && fp.value ? fechaSola(fp.value) : '';
-        cierre = ' Dicho importe corresponde al saldo de la comisión pactada de ' +
-          fmtMonto(pg.total, moneda) + ' (' + montoEnLetras(pg.total, moneda) + ')' +
-          (previa ? ', cuya primera parte fue abonada el ' + previa : '') +
-          ', quedando la comisión totalmente saldada.';
-      } else {
-        cierre = ' Dicho importe corresponde a una entrega parcial de la comisión pactada de ' +
-          fmtMonto(pg.total, moneda) + ' (' + montoEnLetras(pg.total, moneda) + '). ' +
-          'El saldo de ' + fmtMonto(pg.saldo, moneda) + ' (' + montoEnLetras(pg.saldo, moneda) + ') ' +
-          'se abonará al momento de la firma del contrato de ' + opTxt + '.';
+      if (pg.esReserva) {
+        var t = 'Recibí de '+encabezado+' la suma de '+montoTxt+' ('+letrasTxt.toLowerCase()+'), en concepto de seña para la reserva de la propiedad ubicada en '+dir+'.';
+        t += '\n\nSe deja constancia de que dicho importe será imputado al pago de la comisión inmobiliaria correspondiente a la operación de '+opTxt+
+             (pg.total>0 ? ', pactada en '+fmtMonto(pg.total, moneda)+' ('+montoEnLetras(pg.total, moneda)+')' : '')+
+             ', en caso de concretarse la firma del contrato.';
+        t += pg.saldo>0
+          ? '\n\nEl saldo de '+fmtMonto(pg.saldo, moneda)+' ('+montoEnLetras(pg.saldo, moneda)+') será abonado al momento de la firma del contrato.'
+          : '\n\nEl saldo restante de la comisión, si correspondiera, será abonado al momento de la firma del contrato.';
+        t += '\n\nEn caso de no concretarse la operación por causa imputable al interesado, la seña podrá quedar a favor de la inmobiliaria en concepto de gastos de gestión y reserva, salvo acuerdo distinto entre las partes.';
+        return t;
       }
-
-      var cuerpo = 'Por la presente se deja constancia que '+encabezado+' '+verbo+' correspondiente al '+opTxt+' de la propiedad ubicada en '+dir+', por concepto de comisión inmobiliaria, por la suma '+(firmantes.length>1?'total ':'')+'de '+montoTxt+' ('+letrasTxt.toLowerCase()+').';
-      return cuerpo + cierre;
+      var fp = document.getElementById('fFechaPrevia');
+      var fechaPrevia = fp && fp.value ? fechaSola(fp.value) : '';
+      var c = 'Por la presente se deja constancia que '+encabezado+' '+verbo+' correspondiente al '+opTxt+' de la propiedad ubicada en '+dir+', por concepto de comisión inmobiliaria, por la suma '+(firmantes.length>1?'total ':'')+'de '+montoTxt+' ('+letrasTxt.toLowerCase()+').';
+      if (pg.previa>0) {
+        c += '\n\nDe dicho importe, '+fmtMonto(pg.previa, moneda)+' ('+montoEnLetras(pg.previa, moneda)+') fueron abonados'+
+             (fechaPrevia ? ' el '+fechaPrevia : ' en concepto de seña')+' y el resto en este acto.';
+      }
+      c += '\n\nLa comisión inmobiliaria queda totalmente cancelada, sin que exista saldo pendiente por este concepto entre las partes.';
+      return c;
     }
 
     function direccionActual(){
@@ -1445,32 +1476,58 @@
 
       // ---- Título ----
       pdf.setFont('helvetica','bold'); pdf.setFontSize(16);
-      pdf.text('CARTA DE PAGO', W/2, y, {align:'center'});
+      pdf.text(tipoComprobante==='reserva' ? 'RECIBO DE RESERVA' : 'CARTA DE PAGO', W/2, y, {align:'center'});
       pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(2);
       pdf.line(W/2-26, y+10, W/2+26, y+10);
-      y+=46;
+      if(tipoComprobante==='reserva'){
+        // El subtítulo va DEBAJO de la línea: antes se dibujaba encima y se pisaban.
+        y+=30;
+        pdf.setFont('helvetica','normal').setFontSize(9).setTextColor.apply(pdf,GREY);
+        pdf.text('Pago a cuenta de comisión inmobiliaria', W/2, y, {align:'center'});
+        y+=30;
+      } else {
+        y+=46;
+      }
 
       // ---- Cuerpo con justificado prolijo ----
       pdf.setFont('helvetica','normal'); pdf.setFontSize(12); pdf.setTextColor.apply(pdf,INK);
-      var lines=pdf.splitTextToSize(cuerpo, W-M-M);
-      var lh=22;
-      lines.forEach(function(ln,i){
-        var esUltima = (i===lines.length-1);
-        if(!esUltima){
-          pdf.text(ln.trim(), M, y, {align:'justify', maxWidth:W-M-M});
-        } else {
-          pdf.text(ln.trim(), M, y);
-        }
-        y+=lh;
+      // El recibo de reserva tiene varios párrafos; la carta de pago, uno o dos.
+      // Se respetan los saltos en vez de volcar todo como un bloque corrido.
+      var lh = (tipoComprobante==='reserva') ? 17 : 22;
+      pdf.setFontSize(tipoComprobante==='reserva' ? 10.5 : 12);
+      cuerpo.split('\n').forEach(function(bloque){
+        if(!bloque.trim()){ y += lh*0.5; return; }
+        var lines=pdf.splitTextToSize(bloque.trim(), W-M-M);
+        lines.forEach(function(ln,i){
+          if(i < lines.length-1){ pdf.text(ln.trim(), M, y, {align:'justify', maxWidth:W-M-M}); }
+          else { pdf.text(ln.trim(), M, y); }
+          y+=lh;
+        });
       });
       y+=26;
 
       // ---- Cierre ----
-      pdf.setFont('helvetica','normal'); pdf.setFontSize(12);
-      pdf.text('Agradecemos la confianza.', M, y); y+=lh;
-      pdf.text('Atentamente,', M, y); y+=34;
-      pdf.setFont('helvetica','bold'); pdf.setFontSize(12);
-      pdf.text(agente||'_________________', M, y);
+      if(tipoComprobante==='reserva'){
+        // El recibo lo firman las dos partes: quien entrega la seña y la agencia.
+        var yF = Math.max(y, 600);
+        var col = (W-M-M)/2;
+        // Alcanza con la firma: la aclaración y la cédula ya están en el cuerpo del
+        // recibo, y repetirlas obliga a completar tres veces lo mismo.
+        [['POR '+EMPRESA.nombre, agente||''], ['INTERESADO/A', '']].forEach(function(par,i){
+          var x = M + col*i, ancho = Math.min(col-30, 200);
+          pdf.setFont('helvetica','bold').setFontSize(9.5).setTextColor.apply(pdf,INK);
+          pdf.text(par[0], x, yF);
+          pdf.setDrawColor(60).setLineWidth(1).line(x, yF+34, x+ancho, yF+34);
+          pdf.setFont('helvetica','normal').setFontSize(9).setTextColor(110);
+          pdf.text(par[1] || 'Firma', x, yF+47);
+        });
+      } else {
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(12);
+        pdf.text('Agradecemos la confianza.', M, y); y+=lh;
+        pdf.text('Atentamente,', M, y); y+=34;
+        pdf.setFont('helvetica','bold'); pdf.setFontSize(12);
+        pdf.text(agente||'_________________', M, y);
+      }
 
       // ---- Pie fijo ----
       pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(1.2);
@@ -1504,45 +1561,40 @@
     window.addEventListener('resize', escalarPreview, { passive:true });
     window.addEventListener('load', escalarPreview);
 
-    function modoPago(parcial){
-      document.getElementById('fParcial').checked = parcial;
-      document.getElementById('segTotal').classList.toggle('on', !parcial);
-      document.getElementById('segParcial').classList.toggle('on', parcial);
-      togglePagoParcial();
-    }
-    function modoSaldo(esSaldo){
-      document.getElementById('fSaldoFinal').checked = esSaldo;
-      document.getElementById('segPrimera').classList.toggle('on', !esSaldo);
-      document.getElementById('segSaldo').classList.toggle('on', esSaldo);
-      toggleSaldoFinal();
-    }
-    function togglePagoParcial(){
-      var on = document.getElementById('fParcial').checked;
-      document.getElementById('boxParcial').style.display = on ? 'block' : 'none';
-      if(!on){
-        document.getElementById('fEntrega').value='';
-        document.getElementById('fSaldoFinal').checked=false;
-        document.getElementById('segPrimera').classList.add('on');
-        document.getElementById('segSaldo').classList.remove('on');
-        document.getElementById('boxFechaPrevia').style.display='none';
-      }
+    // Dos comprobantes, uno por cada momento de la operación:
+    //  · al reservar   -> recibo de seña, con la comisión total y el saldo;
+    //  · al firmar     -> carta de pago, que declara la comisión saldada.
+    // Antes había un solo documento con tres modos, y la misma hoja servía para
+    // cosas distintas: la reserva quedaba sin sus condiciones y la carta final no
+    // decía con claridad que no quedaba nada pendiente.
+    var tipoComprobante = 'reserva';
+    function setComprobante(t){
+      tipoComprobante = t;
+      document.getElementById('segReserva').classList.toggle('on', t==='reserva');
+      document.getElementById('segCarta').classList.toggle('on', t==='carta');
+      document.getElementById('boxReserva').style.display = t==='reserva' ? 'block' : 'none';
+      document.getElementById('boxCarta').style.display   = t==='carta' ? 'block' : 'none';
+      var tp=document.getElementById('tituloPanelPago');
+      if(tp) tp.textContent = t==='reserva' ? 'Datos del recibo de reserva' : 'Datos de la carta de pago';
+      var gb=document.getElementById('genBtn');
+      if(gb) gb.innerHTML = '<i class="fas fa-file-arrow-down"></i> '+(t==='reserva'?'Generar recibo de reserva':'Generar carta de pago');
+      document.getElementById('hintComprobante').textContent = t==='reserva'
+        ? 'Recibo de reserva: deja constancia de la seña, la comisión total y el saldo pendiente.'
+        : 'Carta de pago: declara que la comisión quedó totalmente cancelada.';
       renderPreview();
     }
-    function toggleSaldoFinal(){
-      document.getElementById('boxFechaPrevia').style.display =
-        document.getElementById('fSaldoFinal').checked ? 'block' : 'none';
-      renderPreview();
-    }
-    // Devuelve los tres números del pago: total, lo que se entrega y el saldo.
+
+    // Los tres números del pago: comisión total, lo entregado ahora y el saldo.
     function datosPago(){
       var total = Number(document.getElementById('fMonto').value)||0;
-      var parcial = document.getElementById('fParcial') && document.getElementById('fParcial').checked;
-      var esSaldo = document.getElementById('fSaldoFinal') && document.getElementById('fSaldoFinal').checked;
-      var entrega = parcial ? (Number(document.getElementById('fEntrega').value)||0) : total;
+      var esReserva = (tipoComprobante==='reserva');
+      var entrega = esReserva ? (Number(document.getElementById('fEntrega').value)||0) : total;
       // El saldo nunca puede ser negativo: si alguien escribe más que el total,
       // se toma como pago completo en vez de mostrar un número absurdo.
       var saldo = Math.max(0, total - entrega);
-      return { total:total, entrega:entrega, saldo:saldo, parcial:parcial && entrega>0 && saldo>0, esSaldo:esSaldo };
+      var previa = Number((document.getElementById('fEntregaPrevia')||{}).value)||0;
+      return { total:total, entrega:entrega, saldo:saldo, esReserva:esReserva, previa:previa,
+               parcial: esReserva && entrega>0 && saldo>0, esSaldo: !esReserva };
     }
 
     var _previewTimer=null;
@@ -1555,7 +1607,7 @@
       if(st){
         var d=datosPago();
         st.textContent = d.entrega<=0 ? ''
-          : d.entrega>d.total ? 'La entrega supera el total: se toma como pago completo.'
+          : d.entrega>d.total ? 'La seña supera la comisión total: revisá los montos.'
           : 'Saldo pendiente: '+fmtMonto(d.saldo, moneda)+(d.saldo>0?' ('+montoEnLetras(d.saldo,moneda)+')':' — queda saldado');
         st.style.color = d.entrega>d.total ? 'var(--bad,#c0392b)' : '';
       }
@@ -1582,9 +1634,9 @@
       var dir=direccionActual();
       if(!agente){ toast('Elegí el agente que firma', true); return; }
       if(firmantes.length===0){ toast('Agregá al menos una persona que pagó', true); return; }
-      if(!monto){ toast('Ingresá el monto total de la comisión', true); return; }
+      if(!monto){ toast('Ingresá la comisión total pactada', true); return; }
       var _pg = datosPago();
-      if(document.getElementById('fParcial').checked && !_pg.entrega){ toast('Ingresá cuánto abona ahora', true); return; }
+      if(_pg.esReserva && !_pg.entrega){ toast('Ingresá cuánto se entrega ahora', true); return; }
       if(dir==='_________________'){ toast('Falta la dirección de la propiedad', true); return; }
       if(!document.getElementById('fFecha').value){ toast('Elegí la fecha del documento', true); return; }
 
@@ -1592,8 +1644,9 @@
       btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Generando…';
       try{
         var pdf=construirPDF();
-        pdf.save('Carta_de_pago_'+(document.getElementById('fFecha').value||'')+'.pdf');
-        toast('Carta de pago generada');
+        var esRes = (tipoComprobante==='reserva');
+        pdf.save((esRes?'Recibo_de_reserva_':'Carta_de_pago_')+(document.getElementById('fFecha').value||'')+'.pdf');
+        toast(esRes ? 'Recibo de reserva generado' : 'Carta de pago generada');
       }catch(e){ console.error(e); toast('No se pudo generar: '+(e.message||e), true); }
       btn.disabled=false; btn.innerHTML=prev;
     }
@@ -1781,15 +1834,18 @@
       return l;
     }
 
-    function axConstruirPDF(){
+    // Si recibe un PDF ya empezado (el formulario de ANDA), el anexo continúa en él
+    // en hojas nuevas, con la numeración corrida. Así el usuario ve y descarga un
+    // único documento en vez de dos archivos sueltos.
+    function axConstruirPDF(pdfBase, paginaInicial){
       var jsPDF=window.jspdf.jsPDF;
-      var pdf=new jsPDF({unit:'pt',format:'a4',orientation:'portrait'});
+      var pdf=pdfBase || new jsPDF({unit:'pt',format:'a4',orientation:'portrait'});
       var W=595.28;
       var M=64, ancho=W-M*2;
       var NAVY=[22,39,63], GREY=[95,106,128], INK=[26,38,58];
       var firmantes=axFirmantes();
       var pieY = 788;                        // misma línea que la carta de pago
-      var pagina=0;
+      var pagina=paginaInicial||0;
 
       // Mismo membrete y mismo pie que la carta de pago, para que los dos
       // documentos se vean de la misma agencia.
@@ -2038,6 +2094,34 @@
       }
     }
 
+    // La lista sale de los agentes del CRM, los mismos que usa la carta de pago.
+    // Antes venía fijo el titular, que no es quien firma la mayoría de las veces.
+    function cmPintarAgentes(){
+      var sel=document.getElementById('cmAgenteSel'); if(!sel) return;
+      var lista = (typeof agentes!=='undefined' && agentes.length) ? agentes : [];
+      sel.innerHTML = lista.map(function(a){
+        return '<option value="'+esc(a.name)+'">'+esc(a.name)+'</option>';
+      }).join('') + '<option value="__otro">Otro (escribir a mano)…</option>';
+      // Preselección: el agente logueado si está en la lista; si no, el titular.
+      var yo = agenteLogueado || '';
+      var quiero = lista.some(function(a){ return a.name===yo; }) ? yo
+                 : (lista.some(function(a){ return a.name===EMPRESA.titular; }) ? EMPRESA.titular
+                 : (lista.length ? lista[0].name : ''));
+      if(quiero) sel.value = quiero;
+      cmSetAgente();
+    }
+    function cmSetAgente(){
+      var sel=document.getElementById('cmAgenteSel');
+      var wrap=document.getElementById('cmAgenteOtroWrap');
+      if(wrap) wrap.style.display = (sel && sel.value==='__otro') ? '' : 'none';
+      cmPreview();
+    }
+    function cmNombreAgente(){
+      var sel=document.getElementById('cmAgenteSel');
+      if(sel && sel.value && sel.value!=='__otro') return sel.value;
+      return cmVal('cmAgente') || EMPRESA.titular;
+    }
+
     function cmSetOperacion(op){
       cmOperacion=op;
       document.getElementById('cmOpVenta').classList.toggle('on', op==='venta');
@@ -2130,8 +2214,6 @@
         t += 'La parte PROPIETARIA autoriza a MALAVE INMOBILIARIA a fotografiar y filmar el inmueble y a utilizar dicho material para su comercialización en portales inmobiliarios, redes sociales, página web y redes de colaboración profesional durante la vigencia del presente encargo.';
         return t; } },
 
-      { id:'firma', titulo:'FIRMA Y EJEMPLARES', texto:function(d){
-        return 'Y en prueba de conformidad, se firman '+d.ejemplaresLetras+' ('+d.ejemplares+') ejemplares de un mismo tenor, en el lugar y fecha indicados ut supra.'; } }
     ];
 
     function cmDatos(){
@@ -2150,7 +2232,7 @@
         honArr: cmVal('cmHonArr'), compensa: cmVal('cmCompensa'),
         precioAlq: cmVal('cmPrecioAlq'),
         garantiasAlq: cmVal('cmGarantiasAlq'), precioVta: cmVal('cmPrecioVta'),
-        agente: cmVal('cmAgente') || EMPRESA.titular, agenteCI: cmVal('cmAgenteCI'),
+        agente: cmNombreAgente(), agenteCI: cmVal('cmAgenteCI'),
         ejemplares: ej, ejemplaresLetras: (NUM_LETRAS[ej]||String(ej)),
         fechaLarga: fechaLarga(cmVal('cmFecha')),
         ciudad: cmVal('cmCiudad')||'Montevideo'
@@ -2158,7 +2240,7 @@
     }
 
     function cmFirmantes(){
-      var l=[{n:(cmVal('cmAgente')||EMPRESA.titular), r:'AGENTE MEDIADOR'}];
+      var l=[{n:cmNombreAgente(), r:'AGENTE MEDIADOR'}];
       var conNombre=cmPropietarios.filter(function(p){ return p.nombre; });
       if(conNombre.length) conNombre.forEach(function(p){ l.push({n:p.nombre, r:'PROPIETARIO'}); });
       else l.push({n:'', r:'PROPIETARIO'});
@@ -2172,19 +2254,32 @@
       var jsPDF=window.jspdf.jsPDF;
       var pdf=new jsPDF({unit:'pt',format:'a4',orientation:'portrait'});
       var W=595.28;
-      var M=64, ancho=W-M*2;
+      var M=56, ancho=W-M*2;
       var NAVY=[22,39,63], GREY=[95,106,128], INK=[26,38,58];
       var firmantes=cmFirmantes();
       var pieY = 788;
       var pagina=0;
       var POR_FILA = 3;
       var filasFirmas = Math.ceil(firmantes.length / POR_FILA) || 0;
-      var altoFirmas = filasFirmas ? (filasFirmas*48 + 14) : 0;
-      var limite = pieY - altoFirmas - 26;
+      var altoFirmas = filasFirmas ? (filasFirmas*44 + 10) : 0;
+      var limite = pieY - altoFirmas - 18;
 
+      // Primera hoja con el membrete completo; de la segunda en adelante, una banda
+      // fina con el nombre de la agencia. Repetir la ficha entera en cada página
+      // cuesta 174 puntos por hoja y es lo que empujaba el compromiso a tres.
       function membrete(){
         pagina++;
         if(pagina>1) pdf.addPage();
+        if(pagina>1){
+          var yc=64;
+          pdf.setTextColor.apply(pdf,INK); pdf.setFont('helvetica','bold'); pdf.setFontSize(10);
+          pdf.text(EMPRESA.nombre, M, yc);
+          pdf.setFont('helvetica','normal'); pdf.setFontSize(8.5); pdf.setTextColor.apply(pdf,GREY);
+          pdf.text('Contrato de mediación inmobiliaria', W-M, yc, {align:'right'});
+          pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(0.8);
+          pdf.line(M, yc+8, W-M, yc+8);
+          return yc+30;
+        }
         var y=60;
         pdf.setTextColor.apply(pdf,INK); pdf.setFont('helvetica','bold'); pdf.setFontSize(13.5);
         pdf.text(EMPRESA.nombre, M, y);
@@ -2214,7 +2309,7 @@
         for(var fila=0; fila<filasFirmas; fila++){
           var enFila = firmantes.slice(fila*POR_FILA, (fila+1)*POR_FILA);
           var col = ancho/enFila.length;
-          var yf = y0 + fila*48;
+          var yf = y0 + fila*44;
           enFila.forEach(function(f,i){
             var cx = M + col*i + col/2;
             var w = Math.min(col-20, 170);
@@ -2236,11 +2331,10 @@
       pdf.text('CONTRATO DE MEDIACIÓN INMOBILIARIA', W/2, y, {align:'center'});
       pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(2);
       pdf.line(W/2-70, y+10, W/2+70, y+10);
-      y+=32;
-      pdf.setFont('helvetica','normal').setFontSize(9).setTextColor.apply(pdf,GREY);
-      pdf.setFont('helvetica','bold').setFontSize(11).setTextColor.apply(pdf,INK);
+      y+=26;
+      pdf.setFont('helvetica','bold').setFontSize(10.5).setTextColor.apply(pdf,INK);
       pdf.text((d.exclusiva?'EXCLUSIVA ':'')+(d.esVenta?'PARA VENTA':'PARA ARRENDAMIENTO'), W/2, y, {align:'center'});
-      y+=24;
+      y+=18;
 
       function escribir(lineas, alto, negrita, tam, color){
         for(var i=0;i<lineas.length;i++){
@@ -2251,29 +2345,33 @@
         }
       }
       // Alto aproximado de una hoja nueva: el membrete deja el cursor cerca de 174.
-      var ALTO_UTIL = limite - 174;
+      var ALTO_UTIL = limite - 94;   // hoja de continuación, con banda fina
+      // El compromiso se compone algo más apretado que el contrato: es un
+      // documento de dos carillas que se firma en el momento, no un contrato
+      // largo para leer con calma.
+      var TAM = 8.9, LH = 12.4;
       // Cuánto espacio necesita una cláusula para empezar: su título más las
       // primeras líneas. Sin esto, un título podía quedar solo al pie de la hoja.
       function altoEntrada(cuerpo){
         var primero = String(cuerpo||'').split('\n')[0];
         var lineas = pdf.splitTextToSize(primero, ancho);
-        return 15 + Math.min(lineas.length, 3)*13.5 + 6;
+        return 14 + Math.min(lineas.length, 3)*LH + 6;
       }
       // Alto completo de una cláusula: título más todos sus párrafos. Se usa para
       // no partirla entre hojas. Una cláusula cortada al medio se presta a
       // discusión sobre qué se leyó y qué se firmó, así que se prefiere dejar el
       // hueco. Si es más larga que una hoja entera, no hay alternativa.
       function altoClausula(cuerpo){
-        var h = 15;
+        var h = 14;
         String(cuerpo||'').split('\n').forEach(function(b){
           if(!b.trim()){ h += 6; return; }
-          h += pdf.splitTextToSize(b, ancho).length * 13.5;
+          h += pdf.splitTextToSize(b, ancho).length * LH;
         });
-        return h + 10;
+        return h + 8;
       }
       function parrafo(txt, opts){
         opts=opts||{};
-        var tam=opts.tam||9.2, alto=opts.alto||13.5;
+        var tam=opts.tam||TAM, alto=opts.alto||LH;
         txt.split('\n').forEach(function(bloque){
           if(!bloque.trim()){ y+=6; return; }
           var lineas = pdf.splitTextToSize(bloque, ancho);
@@ -2305,12 +2403,12 @@
         ', en su calidad de PROPIETARIO/A, acuerdan celebrar el presente contrato de mediación inmobiliaria'+
         (d.exclusiva?' exclusiva':'')+(d.esVenta?' para la venta':' para el arrendamiento')+
         ', sujeto a las siguientes condiciones:');
-      y+=8;
+      y+=6;
 
       // Exponen
       pdf.setFont('helvetica','bold').setFontSize(10).setTextColor(25);
       if(y+30>limite){ cerrarHoja(); y=membrete(); }
-      pdf.text('EXPONEN:', M, y); y+=16;
+      pdf.text('EXPONEN:', M, y); y+=14;
       var inm = 'Padrón número '+(cmVal('cmPadron')||'____')+
         (cmVal('cmUnidad')?', unidad '+cmVal('cmUnidad'):'')+
         ', sito en la calle '+(cmVal('cmCalle')||'____')+
@@ -2321,10 +2419,10 @@
         (d.esVenta?'comprador':'arrendatario')+' para el referido inmueble'+
         (d.exclusiva?', bajo régimen de EXCLUSIVIDAD':', sin exclusividad')+
         ', aceptando MALAVE INMOBILIARIA dicho encargo.');
-      y+=8;
+      y+=6;
       pdf.setFont('helvetica','bold').setFontSize(10).setTextColor(25);
       if(y+30>limite){ cerrarHoja(); y=membrete(); }
-      pdf.text('ESTIPULACIONES:', M, y); y+=18;
+      pdf.text('ESTIPULACIONES:', M, y); y+=15;
 
       CM_CLAUSULAS.forEach(function(c,i){
         var cuerpo = c.texto(d);
@@ -2332,10 +2430,14 @@
         if (y+necesita > limite && (necesita <= ALTO_UTIL || y+altoEntrada(cuerpo) > limite)) { cerrarHoja(); y=membrete(); }
         pdf.setFont('helvetica','bold').setFontSize(9.6).setTextColor(25);
         pdf.text(ORDINALES[i]+' · '+(c.tituloDe?c.tituloDe(d):c.titulo), M, y);
-        y+=15;
-        parrafo(c.texto(d));
-        y+=10;
+        y+=14;
+        parrafo(cuerpo);
+        y+=8;
       });
+
+      // El cierre no lleva número: en los compromisos de la agencia es un párrafo
+      // suelto antes de las firmas, no una cláusula más.
+      parrafo('Y en prueba de conformidad, se firman '+d.ejemplaresLetras+' ('+d.ejemplares+') ejemplares de un mismo tenor, en el lugar y fecha indicados ut supra.');
 
       cerrarHoja();
       return pdf;
@@ -2374,14 +2476,248 @@
       cmPintarServicios();
       cmPintarHonorarios();
       cmPintarCondiciones();
-      // Si el CRM sabe quién está usando la página, ese es el agente que firma.
-      var ag=document.getElementById('cmAgente');
-      if(ag && !ag.value){
-        var u = (typeof usuarioActual!=='undefined' && usuarioActual && (usuarioActual.name||usuarioActual.displayName)) || '';
-        ag.value = u || EMPRESA.titular;
-      }
+      cmPintarAgentes();
       var f=document.getElementById('cmFecha'); if(f && !f.value) f.value=new Date().toISOString().slice(0,10);
     }
+
+
+    // ==========================================================================
+    // FORMULARIO DE ANDA — CASA HABITACIÓN
+    // --------------------------------------------------------------------------
+    // Texto transcrito del formulario oficial de ANDA. NO se edita ni se reordena:
+    // ANDA firma como fiadora sobre su propio texto, y cualquier cambio nuestro lo
+    // invalidaría. Lo único que hace el generador es completar los espacios en
+    // blanco con los datos cargados. Si ANDA publica una versión nueva, hay que
+    // reemplazar este bloque, no retocarlo.
+    var ANDA_VIVIENDA = [
+      { t:'INMUEBLE ARRENDADO', x:'La parte arrendadora, da en arrendamiento a la parte arrendataria, quien en tal concepto recibe, el siguiente bien inmueble: finca ubicada en la localidad catastral {localidad}, departamento de {departamento}, zona urbana, empadronada con el Nº {padron}, con frente a la calle {calle} Nº de puerta {puerta}, unidad {unidad} apartamento para UTE {uteApto} manzana {manzana}, solar {solar}, entre las calles {entre1} y {entre2}, barrio {barrio}, de la ciudad de {ciudad}.' },
+      { t:'DESTINO', x:'El destino del arrendamiento será el de casa habitación del arrendatario y su familia.' },
+      { t:'PLAZO', x:'El plazo de este contrato se estipula en {plazo} a contar del {inicio} ANDA garantizará el arrendamiento a partir del día 1º del mes de {mesGarantia}.' },
+      { t:'PRECIO', x:'El precio mensual del arriendo será de pesos uruguayos {precioLetras} ($ {precio}) pagaderos a mes vencido, el décimo día hábil de cada mes, con la excepción prevista en el Nral.II) de la cláusula octava del presente; por el sistema de depósito en la cuenta bancaria o IEDE (instrumento de dinero electrónico) , N.º {cuentaNumero}, en pesos uruguayos, del Banco {banco}, Agencia {agencia}, a nombre de {cuentaTitular}, salvo aquellos casos en que la legislación vigente admite el pago en efectivo, en cuyo caso se realizará en cualquier Sucursal de Anda. Si durante el plazo de vigencia del presente contrato, la parte arrendadora modificara la cuenta bancaria declarada, ésta quedará obligada a notificar dicho cambio a la parte arrendataria y a ANDA, sin que ello implique modificación del contrato. Para acreditar el pago no se admitirá otro medio de prueba que las confirmaciones de la acreditación de los depósitos en la Cuenta o por medio de la información brindada por la institución de intermediación financiera donde la Cuenta se encuentre radicada o el recibo expedido y firmado p or e l p ropietario, a dministrador o p ersona debidamente autorizada, en su caso.' },
+      { t:'PLAZO NO GARANTIZADO', x:'En caso de corresponder, la parte arrendataria, deberá abonar a la parte arrendadora los días comprendidos entre el inicio del plazo contractual hasta el inicio de la garantía de ANDA.' },
+      { t:'REAJUSTE', x:'Este contrato {siNo} se rige por lo estipulado en los artículos 3º y 15º del Decreto Ley 14.219, modificativas y concordantes, reajustando anualmente a partir del 1º de {mesReajuste} de {anioReajuste} y hasta la entrega efectiva del inmueble.' },
+      { t:'OBLIGACIONES DEL ARRENDATARIO', x:'La parte arrendataria, se obliga especialmente a: I) Pagar puntualmente los alquileres, así como los tributos nacionales o municipales que legalmente correspondan, existentes o supervinientes, consumos y demás servicios accesorios a la locación; debiendo en caso de entrega de la finca presentar al arrendador los recibos correspondientes que acrediten el pago de todos los servicios a su cargo, inclusive los del mes en que desocupe la finca. II) Cuando los medidores de agua, luz y gas no sean individuales, porque de un solo medidor dependan varias unidades, los consumos se prorratearán en relación con la cantidad de unidades habitacionales que se sirvan de un mismo medidor. III) No instalar en la fachada ningún elemento, letrero, etc., sin previa autorización por escrito del arrendador, y en su caso dentro de las normas establecidas en el reglamento interno o en el reglamento de copropiedad si correspondiere. IV) No efectuar en el bien mejoras o reformas sin el consentimiento previo y por escrito del arrendador; hechas, quedarán en beneficio de la propiedad sin derecho a indemnización alguna, y asumiendo desde ya su responsabilidad frente al BPS y demás organismos que correspondan, por las obras realizadas, que serán siempre de su cargo. Las partes conocen y aceptan que ANDA no garantiza esta obligación. V) Permitir la ejecución de las reparaciones necesarias para la conservación de la propiedad y admitir el acceso a la finca para su inspección, tasación, gravamen o venta. VI) No subarrendar total o parcialmente el inmueble, ni conceder su uso a título gratuito o precario, ni en forma transitoria o permanente, so pena de rescisión del presente contrato. VII) No ceder el presente contrato de arrendamiento sin autorización previa y por escrito del arrendador. VIII) En caso de tratarse de una unidad de propiedad horizontal o condominio, acatar en todos sus términos lo dispuesto en el reglamento de copropiedad del edificio y su reglamento interno.' },
+      { t:'OBLIGACIONES DEL ARRENDADOR', x:'La parte arrendadora se obliga a: I) Aceptar que en caso de renuncia, fallecimiento o cese por cualquier motivo de la calidad del trabajador en actividad o de jubilado o pensionista que tenga el titular del arrendamiento, o atraso en sus obligaciones por rubro alquileres frente a ANDA, justificado ante el Juzgado competente, el contrato quedará automáticamente sin plazo y ANDA estará facultada para ejercitar, conforme a derecho, las acciones tendientes a la sustitución de la garantía y/o al desalojo. De la misma forma podrá proceder ANDA en caso de desocupación de la finca, verificada judicialmente; siendo de aplicación en todos estos casos, las estipulaciones de los Arts. 69, 70 y 71 del Reglamento para la garantía de alquiler. En todos los casos, ANDA hará entrega de las llaves al arrendador, quien se obliga a recibirlas, aceptando que, a partir de la fecha del lanzamiento, el contrato de arrendamiento se tendrá por rescindido, quedando ANDA eximida de su obligación de pago de los alquileres, sin perjuicio de que se tasen los daños y se abonen en forma posterior al igual que los consumos. En caso de negarse a recibirlas, además, se le trasladarán a su costo los gastos judiciales y/o extrajudiciales a que pudieran dar lugar dichas acciones. Para la constatación, tasación y pago de los desperfectos se estará a lo previsto al respecto, en el capítulo VIII del Reglamento para la garantía de alquiler. II) Aceptar que ANDA deposite el importe de los alquileres, desperfectos, servicios accesorios y otros pagos que puedan corresponder, en la cuenta bancaria o IEDE declarada por el arrendador, en las fechas que ANDA fije previamente, la que no podrá sobrepasar en el caso de alquileres, el plazo de los 30 (treinta) días posteriores al mes vencido. III) Poner a disposición del inquilino toda la documentación pertinente a efectos de contratar a su nombre los servicios necesarios. IV) Entregar a ANDA copia o fotocopia de la rescisión o sustitución de garantía de ANDA dentro del plazo de 3 (tres) días hábiles de operada la misma. V) En caso de rescisión, a volver a poner a su nombre los servicios de UTE y OSE. De no hacerlo dentro del plazo de 72 horas de recibida la finca, el arrendatario podrá solicitar la desconexión del servicio sin pago de reconexión al propietario, a lo que éste presta desde ya su conformidad. VI) Son de cargo del propietario abonar la Contribución Inmobiliaria y el Impuesto de Primaria.' },
+      { t:'ALCANCE DE LAS MODIFICACIONES', x:'Para el caso de ser dos o más los arrendatarios y/o arrendadores, se considerarán eficaces y oponibles a los demás, los actos de otorgamiento de convenios y demás documentos modificativos (incluyendo dentro de estos, la rescisión y la entrega de la finca desocupada) de este contrato que se realice con cualesquiera de ellos, con tal que recaiga la conformidad expresa y por escrito del arrendatario y/o arrendador, según corresponda y de la garantía, en el acto respectivo.' },
+      { t:'INVENTARIO', x:'El arrendatario declara haber examinado la finca y presta su conformidad en recibirse de ella, con los servicios actuales en el estado que se verifica en el inventario adjunto, que se tiene como parte integrante de este contrato, obligándose a devolverla en el mismo estado, salvo el deterioro causado por el uso normal y legítimo y a cumplir con lo dispuesto por los artículos 1818, 1819 y 1820 del Código Civil. Si de la inspección de la Intendencia Municipal o del organismo competente surge que la finca posee problemas de habitabilidad, falta de servicio de UTE y/u OSE, no imputable al arrendatario, éste podrá hacer entrega de la misma, libre de bienes y personas, antes del vencimiento del plazo contractual, notificando al arrendador, en la forma y plazos que ANDA determine. La parte arrendadora consiente la rescisión anticipada del contrato y se obliga a recibir la finca de parte del arrendatario una vez operada la misma y liberando a ANDA a partir de este momento de toda responsabilidad sobre el inmueble. De no recibirse las llaves de la finca por parte del arrendador, el arrendatario deberá proceder a la oblación de estas según procedimiento judicial correspondiente en el que ANDA no tendrá vinculación ni responsabilidad alguna.' },
+      { t:'SOBRE LOS SERVICIOS DE LA FINCA', x:'Los defectos, suspensiones o interrupciones en el servicio de agua, electricidad y demás consumos de la finca, en modo alguno eximirán al arrendatario del cumplimiento de las obligaciones a su cargo, salvo que la falta de energía eléctrica o suministro de agua se debiere a corte del servicio por deudas anteriores a la toma de posesión por parte del inquilino. En este caso, el arrendador asume la obligación de regularizar dicha situación, so pena de rescisión del presente contrato a exclusiva opción del arrendatario, lo que el arrendador acepta y consiente desde ya. El propietario o administrador en ningún caso tendrán responsabilidad cuando el origen de las deficiencias provenga de fallas o desperfectos en el suministro, o en las cañerías o conductores externos a la finca. En caso de que el propietario mantuviera un convenio de pago por deuda con OSE, el arrendador autoriza desde ya a que el arrendatario haga entrega de la finca antes del vencimiento del plazo contractual, si por incumplimiento del mismo se dispusiera el corte de suministro de agua corriente por parte de aquel organismo. No obstante, se establece que el arrendatario deberá dentro de las 48 (cuarenta y ocho) horas hábiles de celebrado el contrato otorgar contrato a su nombre con UTE y OSE.' },
+      { t:'RESERVA DE ENAJENAR', x:'El propietario se reserva la facultad de enajenar el bien sin que ello origine indemnización alguna a favor del arrendatario, situación que el arrendatario declara conocer y aceptar en virtud de haber sido debidamente informado al respecto.' },
+      { t:'INCUMPLIMIENTO DEL INQUILINO', x:'El incumplimiento por parte del arrendatario de cualesquiera de las obligaciones o prohibiciones que asume y que están impuestas en la ley o en este contrato, incluso la falta de pago dará derecho al arrendador a demandar la rescisión del contrato y/o a solicitar el desalojo del inquilino.' },
+      { t:'FIANZA', x:'ANDA se constituye en fiadora solidaria lisa y llana pagadora de todas y cada una de las obligaciones que la ley, este instrumento y/o inventario, en su caso, le imponen al arrendatario, durante todo el tiempo que este ocupe el inmueble. Esta fianza permanecerá subsistente y no podrá ser cancelada, aunque haya vencido el plazo legal o contractual de este contrato, hasta que el arrendatario desocupe la finca y haya cumplido con las obligaciones a su cargo, sin perjuicio de lo dispuesto en las cláusulas 10 y 11 de este contrato. No obstante ello, si la parte arrendadora, por cualquier causa, no se recibiera de la finca, el contrato de arrendamiento se tendrá por rescindido, cesando la obligación de pagar el alquiler, siendo de aplicación lo dispuesto en la cláusula 8 numeral I) del presente contrato.' },
+      { t:'INDIVISIBILIDAD Y SOLIDARIDAD DE LAS OBLIGACIONES', x:'Las obligaciones emergentes de este contrato son indivisibles y solidarias en su caso; y fuera de las disposiciones legales sobre la mora, especialmente las relativas a la falta de pago, en las demás situaciones las partes caerán en mora de pleno derecho sin necesidad de protesto, ni interpelación judicial o extrajudicial de clase alguna. Serán de cargo de la parte incumplidora las costas y costos que se devenguen por el no cumplimiento.' },
+      { t:'DOMICILIOS CONSTITUIDOS', x:'Las partes fijan como domicilios especiales a todos los efectos judiciales o extrajudiciales, de este contrato los indicados como suyos en la comparecencia; y aceptan la validez del telegrama colacionado para notificaciones e intimaciones entre ellas, con excepción de aquellos casos en que la legislación en la materia impone otras formas.' },
+      { t:'ENTREGA DE SERVICIOS', x:'El bien se entrega {conOSE} servicio de OSE conectado y {conUTE} servicio de UTE conectado.' },
+      { t:'CONSUMOS', x:'Son de cargo del arrendatario y ANDA garantiza, sin perjuicio de las obligaciones legales y contractuales, los consumos de: OSE {pOSE}%, UTE {pUTE}%, Saneamiento {pSan}%, Impuestos Municipales {pMun}%, Gastos comunes {pGC}%, Gas por cañería {pGas}%.' },
+      { t:'NULIDAD', x:'Si se determinase que cualquier disposición del presente contrato es inválida, las restantes disposiciones permanecerán en plena vigencia.' },
+      { t:'CESIÓN DE CRÉDITOS', x:'El arrendatario conoce y acepta que, dentro del plazo de este contrato, el propietario podrá ceder a ANDA los créditos emergentes del presente arriendo, dándose así por notificado de las eventuales cesiones de crédito que puedan tener lugar durante aquel lapso, entre el propietario y ANDA, respecto de los arriendos que se devenguen en razón de este contrato. El arrendatario podrá en cualquier momento informarse en ANDA si se ha concretado la cesión de créditos a que refiere esta cláusula.' },
+      { t:'REGLAMENTO', x:'Las partes declaran conocer y aceptar el Reglamento para la garantía de alquiler, que se encuentra vigente y disponible en la web de ANDA (anda.com.uy), la que se considera parte integrante del presente contrato, rigiendo sus estipulaciones en lo que sea aplicable según el destino y en todo lo que no esté previsto en este contrato. Para constancia y cumplimiento se firma el presente en el lugar y fecha indicados.' }
+    ];
+
+
+    // Datos con los que se completan los espacios del formulario de ANDA.
+    // Con destino vivienda: formulario de ANDA y, a continuación, el anexo.
+    // Con destino comercial: por ahora solo el anexo, hasta cargar ese formulario.
+    function andaMasAnexo(){
+      var pdf = andaConstruirPDF();
+      return axConstruirPDF(pdf, pdf.getNumberOfPages());
+    }
+
+    function andaDatos(){
+      var arr = ctListaPersonas('arrendador'), ata = ctListaPersonas('arrendatario');
+      var mesReaj = ctVal('ctInicio') ? fechaLarga(ctVal('ctInicio')).split(' de ')[1] : '';
+      var anioReaj = ctVal('ctInicio') ? (parseInt(ctVal('ctInicio').slice(0,4),10)+1) : '';
+      return {
+        localidad: ctVal('axLocalidad') || ctVal('ctDepartamento') || '____',
+        departamento: ctVal('ctDepartamento') || '____',
+        padron: ctVal('ctPadron') || '____',
+        calle: ctVal('ctDireccion') || '____',
+        puerta: ctVal('axPuerta') || '____',
+        unidad: ctVal('ctUnidad') || '____',
+        uteApto: ctVal('axUte') || '____',
+        manzana: ctVal('axManzana') || '____', solar: '____',
+        entre1: ctVal('ctEntre1') || '____', entre2: ctVal('ctEntre2') || '____',
+        barrio: ctVal('ctBarrio') || '____',
+        ciudad: ctVal('ctDepartamento') || 'Montevideo',
+        plazo: ctVal('ctPlazoTexto') || '____',
+        inicio: ctVal('ctInicio') ? fechaLarga(ctVal('ctInicio')) : '____',
+        mesGarantia: ctVal('axMesGarantia') || '____',
+        precio: ctVal('ctPrecio') ? Number(ctVal('ctPrecio')).toLocaleString('es-UY') : '____',
+        precioLetras: ctVal('ctPrecio') ? numeroALetras(Number(ctVal('ctPrecio'))) : '____',
+        cuentaNumero: ctVal('ctNumeroCuenta') || '____',
+        banco: ctVal('ctBanco') || '____', agencia: '____',
+        cuentaTitular: ctVal('ctTitular') || '____',
+        // El "sí/no" del reajuste sale del régimen ya elegido: si el inmueble está
+        // bajo el 14.219 va "sí"; en libre contratación o LUC, "no". Así el
+        // formulario no puede contradecir lo que se definió arriba.
+        siNo: (ctVal('ctRegimen')==='14219') ? 'sí' : 'no',
+        mesReajuste: mesReaj || '____', anioReajuste: anioReaj || '____',
+        ramo: ctVal('ctDestino') || '____',
+        tipoCuenta: ctVal('ctTipoCuenta') || '____',
+        conOSE: ctVal('axOSE')==='sin' ? 'sin' : 'con',
+        conUTE: ctVal('axUTE')==='sin' ? 'sin' : 'con',
+        pOSE: ctVal('axpOSE')||'0', pUTE: ctVal('axpUTE')||'0', pSan: ctVal('axpSan')||'0',
+        pMun: ctVal('axpMun')||'0', pGC: ctVal('axpGC')||'0', pGas: ctVal('axpGas')||'0',
+        arrendadores: arr, arrendatarios: ata,
+        rut: ctVal('axRut'), repre: ctVal('axRepre'), repreCI: ctVal('axRepreCI'),
+        mailArr: ctVal('axMailArr'), mailAta: ctVal('axMailAta'),
+        letra: ctVal('axLetra'), numero: ctVal('axNumero'),
+        solicitud: ctVal('axSolicitud'), nroArr: ctVal('axNroArr'),
+        fecha: ctVal('ctFecha') ? fechaLarga(ctVal('ctFecha')) : '____'
+      };
+    }
+    function andaCompletar(txt, d){
+      return String(txt).replace(/\{(\w+)\}/g, function(_,k){
+        return (d[k]===undefined || d[k]==='') ? '____' : d[k];
+      });
+    }
+
+    // Genera el formulario de ANDA con sus espacios completados y, a continuación,
+    // el anexo de la inmobiliaria en hoja aparte.
+    function andaConstruirPDF(){
+      var jsPDF=window.jspdf.jsPDF;
+      var pdf=new jsPDF({unit:'pt',format:'a4',orientation:'portrait'});
+      var W=595.28, M=58, ancho=W-M*2;
+      var NAVY=[22,39,63], GREY=[95,106,128], INK=[26,38,58];
+      var d = andaDatos();
+      var firmantes = ctFirmantes().concat([{n:'ANDA', r:'FIADORA'}]);
+      var pieY = 800, pagina = 0;
+      var POR_FILA = 3;
+      var filasFirmas = Math.ceil(firmantes.length / POR_FILA) || 0;
+      var altoFirmas = filasFirmas ? (filasFirmas*44 + 10) : 0;
+      var limite = pieY - altoFirmas - 18;
+      var ALTO_UTIL = limite - 120;
+
+      function membrete(){
+        pagina++;
+        if(pagina>1) pdf.addPage();
+        var y=54;
+        pdf.setFont('helvetica','bold').setFontSize(12).setTextColor.apply(pdf,INK);
+        pdf.text('CONTRATO DE ARRENDAMIENTO Y FIANZA', W/2, y, {align:'center'});
+        y+=13;
+        pdf.setFont('helvetica','normal').setFontSize(7.5).setTextColor.apply(pdf,GREY);
+        pdf.text('Arenal Grande 1570 - Montevideo · 2400 0714 · 091 278 532 · anda.com.uy', W/2, y, {align:'center'});
+        y+=10;
+        pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(0.8);
+        pdf.line(M, y, W-M, y);
+        return y+22;
+      }
+      function pie(){
+        pdf.setDrawColor(180); pdf.setLineWidth(0.6);
+        pdf.line(M, pieY, W-M, pieY);
+        pdf.setFont('helvetica','normal').setFontSize(7.5).setTextColor.apply(pdf,GREY);
+        pdf.text('Formulario de ANDA completado por '+EMPRESA.nombre+' · '+EMPRESA.celular, M, pieY+12);
+        pdf.text('Página '+pagina, W-M, pieY+12, {align:'right'});
+      }
+      function firmas(){
+        if(!firmantes.length) return;
+        var y0 = pieY - altoFirmas + 14;
+        for(var fila=0; fila<filasFirmas; fila++){
+          var enFila = firmantes.slice(fila*POR_FILA, (fila+1)*POR_FILA);
+          var col = ancho/enFila.length, yf = y0 + fila*44;
+          enFila.forEach(function(f,i){
+            var cx = M + col*i + col/2, w = Math.min(col-20, 165);
+            pdf.setDrawColor(60).setLineWidth(1).line(cx-w/2, yf, cx+w/2, yf);
+            pdf.setFont('helvetica','bold').setFontSize(8).setTextColor(30);
+            if(f.n) pdf.text(pdf.splitTextToSize(f.n, col-14)[0], cx, yf+12, {align:'center'});
+            pdf.setFont('helvetica','normal').setFontSize(7).setTextColor(110);
+            pdf.text(f.r, cx, yf+23, {align:'center'});
+          });
+        }
+      }
+      function cerrarHoja(){ firmas(); pie(); }
+
+      var y = membrete();
+      function escribir(lineas, alto, negrita, tam, color){
+        for(var i=0;i<lineas.length;i++){
+          if(y+alto>limite){ cerrarHoja(); y=membrete(); }
+          pdf.setFont('helvetica', negrita?'bold':'normal').setFontSize(tam).setTextColor(color);
+          pdf.text(lineas[i], M, y);
+          y+=alto;
+        }
+      }
+      function parrafo(txt, opts){
+        opts=opts||{};
+        var tam=opts.tam||8.6, alto=opts.alto||11.8;
+        String(txt).split('\n').forEach(function(b){
+          if(!b.trim()){ y+=5; return; }
+          var l = pdf.splitTextToSize(b, ancho);
+          if (y + l.length*alto > limite && l.length*alto <= ALTO_UTIL) { cerrarHoja(); y=membrete(); }
+          escribir(l, alto, opts.negrita, tam, opts.color==null?55:opts.color);
+        });
+      }
+
+      // Encabezado del formulario
+      parrafo('Letra: '+(d.letra||'____')+'   N.º: '+(d.numero||'____')+'   Solicitud: '+(d.solicitud||'____')+'   N.º de Arrendador: '+(d.nroArr||'____'), {negrita:true, color:30});
+      y+=6;
+      var arrTxt = d.arrendadores.length ? d.arrendadores.map(function(x){ return x.nombre; }).join(', ') : '____';
+      var ataTxt = d.arrendatarios.length
+        ? d.arrendatarios.map(function(x,i){ return (i+1)+') '+x.nombre+' C.I. '+(x.ci||'____'); }).join('  ')
+        : '1) ____ C.I. ____';
+      parrafo('En la ciudad de '+d.ciudad+', el día '+d.fecha+'; entre: POR UNA PARTE: En calidad de arrendador: nombre '+arrTxt+
+        ', RUT: '+(d.rut||'____')+', nombre del representante '+(d.repre||'____')+', C.I. '+(d.repreCI||'____')+
+        ', domiciliado en '+((d.arrendadores[0]&&d.arrendadores[0].domicilio)||'____')+
+        ' y constituyendo domicilio electrónico a todos los efectos del presente contrato en la casilla de correo '+(d.mailArr||'____')+'.');
+      parrafo('POR OTRA PARTE: En calidad de arrendatario: '+ataTxt+
+        ', domiciliado en el bien que toma en arrendamiento y constituyendo domicilio electrónico a todos los efectos del presente contrato en la casilla de correo '+(d.mailAta||'____')+'.');
+      parrafo(_destino==='vivienda'
+        ? 'Y POR OTRA PARTE: en calidad de fiadora la Asociación Nacional de Afiliados, en adelante ANDA, con domicilio en Montevideo y constituyendo domicilio en sede Central Arenal Grande 1570.'
+        : 'Y POR OTRA PARTE: En calidad de fiador: ASOCIACIÓN NACIONAL DE AFILIADOS (ANDA), en adelante ANDA, con domicilio en Montevideo y Sede Central en Arenal Grande 1570.');
+      parrafo('CONVIENEN EN CELEBRAR EL CONTRATO DE ARRENDAMIENTO, que se regirá por las cláusulas siguientes y en un todo de acuerdo con las disposiciones legales vigentes en la materia:', {negrita:true, color:30});
+      y+=8;
+
+      var ORD_ANDA = ['PRIMERA','SEGUNDA','TERCERA','CUARTA','QUINTA','SEXTA','SÉPTIMA','OCTAVA','NOVENA','DÉCIMA',
+        'DÉCIMO PRIMERA','DÉCIMO SEGUNDA','DÉCIMO TERCERA','DÉCIMO CUARTA','DÉCIMO QUINTA','DÉCIMO SEXTA',
+        'DÉCIMO SÉPTIMA','DÉCIMO OCTAVA','DÉCIMO NOVENA','VIGÉSIMA','VIGÉSIMA PRIMERA'];
+      var FORM = (_destino==='vivienda') ? ANDA_VIVIENDA : ANDA_COMERCIO;
+      FORM.forEach(function(c,i){
+        var cuerpo = andaCompletar(c.x, d);
+        var alto = 0;
+        cuerpo.split('\n').forEach(function(b){ if(b.trim()) alto += pdf.splitTextToSize(b, ancho).length*11.8; });
+        alto += 14;
+        if (y+alto > limite && alto <= ALTO_UTIL) { cerrarHoja(); y=membrete(); }
+        pdf.setFont('helvetica','bold').setFontSize(8.8).setTextColor(25);
+        pdf.text(c.t ? ((ORD_ANDA[i]||'')+' ('+c.t+')') : (c.o||ORD_ANDA[i]||'')+':', M, y);
+        y+=13;
+        parrafo(cuerpo);
+        y+=7;
+      });
+      parrafo('Para constancia y cumplimiento se firma el presente en el lugar y fecha indicados.');
+
+      cerrarHoja();
+      return pdf;
+    }
+
+    // ==========================================================================
+    // FORMULARIO DE ANDA — LOCAL COMERCIAL
+    // --------------------------------------------------------------------------
+    // Mismo criterio que el de vivienda: texto oficial de ANDA, transcrito del
+    // documento que ellos entregan. No se edita ni se reordena; solo se completan
+    // los espacios en blanco.
+    var ANDA_COMERCIO = [
+      { o:'PRIMERA', x:'La parte designada en primer término (en adelante denominada arren dador) da en arrendamiento a la parte designada en segundo término (en adelante denominada arrendatario), quien, en tal concepto, y en las condiciones estipuladas en este contrato, recibe el siguiente bien inmueble: LOCAL Comercial ubicado en el departamento de {departamento}, localidad catastral {localidad}, zona urbana, empadronado con el N.º {padron}, con frente a la calle {calle}, número de puerta {puerta}, unidad {unidad}, apartamento para UTE {uteApto}, entre las calles {entre1} y {entre2}.' },
+      { o:'SEGUNDA', x:'El destino del arrendamiento será el de COMERCIO en el ramo de {ramo}, quedando expresamente prohibido cambiar total o parcialmente el destino estipulado, bajo pena de rescisión del presente contrato además de los daños y perjuicios a que pudiera dar lugar.' },
+      { o:'TERCERA', x:'El plazo de este contrato se estipula en {plazo} (máximo 2 años) a contar del {inicio}, ANDA garantizará el arrendamiento a partir del 1º del mes de {mesGarantia}.' },
+      { o:'CUARTA', x:'El precio mensual del arriendo será de $ {precio} (PESOS URUGUAYOS {precioLetras} 00/100), pagaderos a mes vencido, el décimo día hábil de cada mes, con la excepción prevista en el Nral .II) de la cláusula séptima del presente; por el sistema de depósito en la cuenta bancaria o instrumento de Dinero Electrónico: (Tipo de cuenta) {tipoCuenta}, N.º {cuentaNumero}, en pesos uruguayos, del Banco {banco}, Agencia {agencia}, a nombre de {cuentaTitular}, salvo aquellos casos en que la legislación vigente admite el pago en efectivo, en cuyo caso se realizará en cualquier Sucursal de ANDA. Si durante el plazo de vigencia del presente contrato, la parte arrenda dora modi ficara la cuenta bancaria declarada, ésta quedará obligada a noti ficar dicho cambio a la parte arrenda taria y a ANDA, sin que ello implique modi ficación del contrato. Para acreditar el pago no se admitirá otro medio de prueba que las con firmaciones de la acreditación de los depósitos en la Cuenta o por medio de la información brindada por la institución de intermediación financiera donde la Cuenta se encuentre radicada o el recibo expe dido y firmado por el propietario, administrador o persona debidamente autorizada, en su caso.' },
+      { o:'QUINTA', x:'Dicho arriendo se ajustará anualmente de acuerdo con las leyes vigentes en la materia, a partir del {mesReajuste} de {anioReajuste} y hasta la entrega efectiva del inmueble.' },
+      { o:'SEXTA', x:'La parte arrendataria, se obliga especialmente a: I) Pagar puntualmente los alquileres, así como los tributos nacionales o municipales que legalmente le correspon dan, existentes o supervinientes, consumos y demás servicios accesorios a la locación; debiendo en caso de entrega de la finca presentar al arrendador los recibos correspondientes que acrediten el pago de todos los servi cios a su cargo, inclusive los del mes en que desocupe el inmueble y en especial la baja en la Intendencia del Adicional Mercantil. II) Cuando los medidores de agua, luz y gas no sean individuales, porque de un solo medidor dependan varias unidades, los consumos se prorratearán en relación a la cantidad de locales que se sirvan de un mismo medidor. III) No instalar en la fachada ningún elemento, letrero, etc., sin previa autorización por escrito del arrendador, y en su caso dentro de las normas establecidas en el reglamento interno o en el reglamento de copropiedad si correspondiere. IV) No efectuar en el bien mejoras o reformas sin el consentimiento previo y por escrito del arrendador; salvo las locativas y necesarias para la adecuación de sus instalaciones; y si las hiciere, aún con el consentimiento del arrendador, quedarán a bene ficio de la propiedad, sin derecho a indemnización alguna, y asumiendo desde ya su responsabilidad frente al BPS y demás organismos que correspondan, por las obras realizadas, que serán siempre de su cargo. Las partes conocen y aceptan que ANDA no garantiza esta obligación. V) Permitir la ejecución de las reparaciones necesarias para la conservación de la propiedad y admitir el acceso a la finca para su inspección, tasación, gravamen o venta. VI) No subarrendar total o parcialmente el inmueble, ni conceder su uso o título gratuito o precario, ni en forma transitoria o permanente, so pena de resci sión del presente contrato. VII) No ceder el presente contrato de arrendamiento sin autorización previa y por escrito del arrendador, sin perjuicio de lo establecido en la cláusula 17 de este contrato. VIII) Solicitar y obtener de las autoridades competentes, por su cuenta y cargo, los permisos y habilitaciones necesarias en virtud del destino. IX) En caso de no obtenerse alguna de las autorizaciones o habilitaciones aún por obras de adecuación del local, el arrendatario no podrá alegar dicha circunstancia para eximirse del cumplimento puntual y exacto de sus obligaciones. X) En caso de tratarse de una unidad de propiedad horizontal o condominio, acatar en todos sus términos lo dispuesto en el reglamento de copropiedad del edi ficio y su reglamento interno.' },
+      { o:'SÉPTIMA', x:'La parte arrendadora se obliga a: I) Aceptar que en caso de renuncia, fallecimiento o cese por cualquier motivo de la calidad del trabajador en actividad o de jubilado o pensionista que tenga el titular del arrendamiento, o atraso en sus obligaciones por rubro alquileres frente a ANDA justi ficado ante el juzgado competente, el contrato quedará automáticamente sin plazo y ANDA estará facultada para ejercitar, conforme a derecho, las acciones tendientes a la sustitución de la garantía y/o al desalojo. De la misma forma podrá proceder ANDA es caso de desocupación de la finca, verificado judicialmente , siendo de aplicación en todos estos casos, las estipulaciones de los Arts. 69 y 71 del Reglamento para la garantía de alquiler. En todos los casos, ANDA hará entrega de las llaves al arrendador, quien se obliga a recibirlas, aceptando que, a partir de la fecha del lanzamiento, el contrato de arrendamiento se tendrá por rescindido, quedando ANDA eximida de su obligación de pago de los alquileres. En caso de negarse a recibirlas, además, se le trasladarán a su costo los gastos judiciales y/o extrajudiciales a que pudieran dar lugar dichas acciones. II) Cobrar mediante depósito bancario en la cuenta declarada a tales efectos, el importe de los alquileres, servicios accesorios y otros pagos que pudieran corresponder, en las fechas que ANDA fije previamente, lo que no podrá sobrepasar en caso de alquileres, el plazo de los 30 (treinta) días posteriores al mes vencido. III) Poner a disposición del arrendatario toda la documentación pertinente a efectos de contratar a su nombre los servicios necesarios. IV) Entregar a ANDA copia o fotocopia de la rescisión o susti tución de garantía de ANDA dentro del plazo de 5 (cinco) días hábiles de operada la misma. V) En caso de resci sión, a volver a poner a su nombre los servicios de UTE y OSE. De no hacerlo dentro del plazo de 72 horas de recibida la finca, el arrendatario podrá solicitar la desconexión del servicio sin pago de reconexión al propietario, a lo que este presta desde ya su conformidad.' },
+      { o:'OCTAVA', x:'El propietario autoriza al arrendatario, a colocar las marquesinas, cartelería o similar, necesarios para su actividad, tanto en el exterior como en el interior del local, en un todo de acuerdo con sus estándares y con las disposiciones municipales vigentes, así como a realizar en el local las reformas necesarias para la adecuación del mismo para el fin a que se destina, siendo estas de cargo de la parte arrendataria, así como su regularización ante el BPS, sin nada que reclamar por ningún concepto al propietario ni a ANDA, quienes quedan liberados de toda responsabilidad al respecto.' },
+      { o:'NOVENA', x:'Para el caso de ser dos o más los arrendatarios y/o arrendadores, se considerarán e ficaces y oponibles a los demás, los actos de otorgamiento de convenios y demás documentos modi ficativos de este contrato (incluyendo dentro de estos, la rescisión y la entrega de la finca desocupada) que se realice con cualesquiera de ellos, con tal que recaiga la conformidad expresa y por escrito del arrendatario y/o arrendador, según corresponda y de la garantía, en el acto respectivo.' },
+      { o:'DÉCIMA', x:'El arrendatario declara haber examinado el local y presta su conformidad en recibirse de él, con los servicios actuales en el estado que se veri fica en el inventario adjunto, que se tiene como parte integrante de este contrato, obligándose a devolverla en igual forma y a cumplir con los dispuesto por los artículos 1818, 1819 y 1820 del Código Civil.' },
+      { o:'DÉCIMO PRIMERA', x:'Los defectos, suspensiones o interrupciones en el servicio de agua, electricidad y demás consumos del local, en modo alguno eximirán al arrendatario del cumplimiento de las obligaciones a su cargo, salvo que la falta de energía eléctrica o suministro de agua se debiere a corte del servi cio por deudas anteriores a la toma de posesión por parte del arrendatario. En este caso, el arrendador asume la obligación de regularizar dicha situación, so pena de rescisión del presente contrato a exclusiva opción del arrendatario, lo que el arrendador acepta y consiente desde ya. El propietario o administrador en ningún caso tendrán responsabilidad cuando el origen de las de ficiencias provenga de fallas o desperfectos en el suministro, o en las cañerías o conductores externos a la finca. No obstante, se establece que el arrendatario deberá dentro de las 48 (cuarenta y ocho) horas hábiles de celebrado el contrato otorgar contrato a su nombre con UTE y OSE.' },
+      { o:'DÉCIMO SEGUNDA', x:'El propietario se reserva la facultad de enajenar el bien sin que ello origine indemnización alguna a favor del arrendatario, situación que el arrendatario declara conocer y aceptar en virtud de haber sido debidamente informado al respecto.' },
+      { o:'DÉCIMO TERCERA', x:'El incumplimiento por parte del arrendatario de cuales quiera de las obligaciones o prohibiciones que asume y que están impuestas en la ley o en este contrato, incluso la falta de pago dará derecho al arrendador a demandar la rescisión del contrato con daños y perjuicios y/o a solicitar el desalojo del inquilino.' },
+      { o:'DÉCIMO CUARTA', x:'En caso de que el propietario mantuviera un convenio de pago por deuda de OSE, el arrendador autoriza desde ya a que el arrendatario haga entrega de la finca antes del vencimiento del plazo contractual, si por incumplimiento del mismo se dispusiera el corte de suministro de agua corriente por parte de aquel organismo.' },
+      { o:'DÉCIMO QUINTA', x:'Las partes conocen y aceptan que ANDA se constituye en fiadora solidaria, lisa y llana pagadora de las obligaciones que en la ley y en este contrato se imponen al arrendatario, durante todo el tiempo que éste ocupe el local, exclusivamente en lo que re fiere al pago de los arrendamientos del inmueble, consumos y servicios accesorios, quedando expresamente eximida de responder por cualquier otro tipo de obligación y/o adeudo del arrendatario frente a cualquier autoridad pública y/o privada, cualquiera sea su origen, tales como regularizaciones, habilitaciones y/o autorizaciones municipales, sanitarias y/o comerciales en general, necesarias para el funcionamiento según el ramo del comercio o la industria y en un todo de acuerdo a las ordenanzas municipales y disposiciones legales y/o reglamentarias vigentes en la materia para ejercer la actividad comercial de que se trate, las que serán de cargo exclusivo y total del arrendatario así como el pago de multas y sanciones de cualquier índole que pudieran recaer en virtud de infracciones u omisiones a lo establecido en esta cláusula. De la misma forma, queda eximida de responder por las cargas sociales que se generen como consecuencia de la realización de obras de cualquier naturaleza y/o regularizaciones de planos, etc., ante la autoridad municipal, BPS, DGI y todo otro organismo que corresponda, para la adecuación del inmueble al destino. Esta fianza permanecerá subsistente y no podrá ser cancelada, aunque haya vencido el plazo legal o contractual de este contrato, mientras el arrendador no se reciba del local por escrito, con excepción de lo dispuesto en la cláusula 11 y 14 de este contrato. No obstante, ello, si la parte arrendadora, por cualquier causa, no se recibiera del local, el contrato de arrendamiento se tendrá por rescindido, cesando la obligación de pagar el alquiler, siendo de aplicación lo dispuesto en la cláusula 7 numeral I) del presente contrato.' },
+      { o:'DÉCIMO SEXTA', x:'ANDA no se responsabiliza por los desperfectos a la efectiva entrega del local, y por consiguiente no garantiza el inventario efectuado por las partes.' },
+      { o:'DÉCIMO SÉPTIMA', x:'Para el caso que el arrendatario cediera el presente contrato de arrendamiento, así como para el caso del cambio en la composición societaria del titular del comercio, ya sea por negocio entre vivos o por causa de muerte, la fianza de ANDA caducará de pleno dere cho. En ambos casos, las partes se obligan especialmente a noti ficar a ANDA por cualquier medio auténtico, que ha operado la cesión del arriendo o la venta del comercio o el cambio de titular por causa de muerte, en un plazo de 30 días corridos de acaecido el hecho. El incumplimiento de esta obligación de noti ficar hará pasible al propie tario , arrendatario cedente y arrendatario cesionario, de responsabilidad conjunta y solidaria frente a ANDA por cualquier pago que ésta hubiera realizado por concepto de alquileres y accesorios en virtud del contrato de arrendamiento a fianzado , por el desconocimiento de la situación, pudiendo repetir contra los 3.' },
+      { o:'DÉCIMO OCTAVA', x:'Las obligaciones emergentes de este contrato son indivisibles y solidarias en su caso; y fuera de las disposiciones legales sobre la mora, especialmente las relativas a la falta de pago, en las demás situaciones la parte arrendataria caerá en mora de pleno derecho sin necesidad de protesto, ni interpelación judicial de clase alguna.' },
+      { o:'DÉCIMO NOVENA', x:'Las partes constituyen como domicilios especiales a todos los efectos judiciales o extrajudiciales, de este contrato los indicados como suyos en la comparecencia, con excepción del arrendatario que lo constituye en el local que toma en arriendo; y aceptan la validez del telegrama colacionado para notificaciones e intimaciones, con excepción de aquellos casos en que la legislación de la materia impone otras formas.' },
+      { o:'VIGÉSIMA', x:'El bien se entrega {conOSE} servicio de OSE conectado y {conUTE} servicio de UTE conectado.' },
+      { o:'VIGÉSIMA PRIMERA', x:'Son de cargo del arrendatario: UTE {pUTE}%, OSE {pOSE}%, Gastos comunes {pGC}%, Tasa de saneamiento {pSan}%, Impuestos Municipales {pMun}%, Gas por cañería {pGas}%.' },
+      { o:'VIGÉSIMO SEGUNDA', x:'El arrendatario conoce y acepta que, dentro del plazo de este contrato, el propietario podrá ceder a ANDA los créditos emergentes del presente arriendo, dándo se así por noti ficado de las eventuales cesiones de crédito que pueda tener lugar durante aquel lapso, entre el propietario y ANDA, respecto de los arriendos que se devenguen en razón de este contrato. El arrendatario podrá en cualquier momento informarse en ANDA si se ha concretado la cesión de créditos a que re fiere esta cláusula.' },
+      { o:'VIGÉSIMO TERCERA', x:'Las partes declaran conocer y aceptar el Reglamento para la Garantía de Alquiler, que se encuentra vigente en la web de ANDA (anda.com.uy), la que se considera parte integrante del presente contrato, rigiendo sus estipulaciones en lo que sea aplicable según el destino y en todo lo que no esté previsto en este contrato. Para constancia y cumplimiento, se firma el presente en el lugar y fecha indicados.' }
+    ];
 
     // ===== Controles de UI =====
     var _tipoActivo = 'carta_pago';
@@ -2453,9 +2789,14 @@
     auth.onAuthStateChanged(async function(user){
       if(!user){ location.href='index.html'; return; }
       var isAdmin = (user.email||'').toLowerCase()===ADMIN_EMAIL;
-      if(!isAdmin){
-        try{ var me=await db.collection('users').doc(user.uid).get(); isAdmin = me.exists && (me.data().email||'').toLowerCase()===ADMIN_EMAIL; }catch(e){}
-      }
+      try{
+        var me = await db.collection('users').doc(user.uid).get();
+        if(me.exists){
+          agenteLogueado = me.data().name || '';
+          if(!isAdmin) isAdmin = (me.data().email||'').toLowerCase()===ADMIN_EMAIL;
+        }
+      }catch(e){}
+      if(!agenteLogueado) agenteLogueado = user.displayName || '';
       document.getElementById('loading').style.display='none';
       if(!isAdmin){ document.getElementById('denied').style.display='block'; return; }
       document.getElementById('content').style.display='block';
