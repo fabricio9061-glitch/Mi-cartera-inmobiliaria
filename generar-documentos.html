@@ -152,6 +152,11 @@
           <b>Compromiso de mediación</b>
           <span>Encargo de venta o alquiler, en exclusiva o no.</span>
         </button>
+        <button class="doc-type" data-type="inventario" onclick="selectType('inventario')">
+          <i class="fas fa-clipboard-list"></i>
+          <b>Inventario del inmueble</b>
+          <span>Planilla por ambiente para completar en la entrega.</span>
+        </button>
         <button class="doc-type" data-type="propietario" onclick="selectType('propietario')">
           <i class="fas fa-circle-info"></i>
           <b>Información al propietario</b>
@@ -453,6 +458,46 @@
           </div>
 
           <button class="gen-btn" onclick="ipGenerarPDF()"><i class="fas fa-file-arrow-down"></i> Generar y descargar</button>
+        </div>
+
+        <!-- Inventario -->
+        <div class="panel" id="formInventario" style="display:none">
+          <h3><i class="fas fa-clipboard-list"></i> Inventario del inmueble</h3>
+
+          <div class="ct-sec">1 · Datos</div>
+          <div class="fld"><label>Direccion</label><input id="ivDireccion" oninput="ivPreview()"></div>
+          <div class="row2">
+            <div class="fld"><label>Arrendador</label><input id="ivArrendador" oninput="ivPreview()"></div>
+            <div class="fld"><label>Arrendatario</label><input id="ivArrendatario" oninput="ivPreview()"></div>
+          </div>
+          <div class="row2">
+            <div class="fld"><label>Tipo de inmueble</label><input id="ivTipo" placeholder="Casa / Apartamento" oninput="ivPreview()"></div>
+            <div class="fld"><label>Juegos de llaves</label><input id="ivLlaves" oninput="ivPreview()"></div>
+          </div>
+          <div class="fld"><label>Fecha</label><input id="ivFecha" type="date" oninput="ivPreview()"></div>
+
+          <div class="ct-sec">2 · Ambientes</div>
+          <div class="fld">
+            <label>Destino</label>
+            <div class="seg">
+              <button type="button" id="ivDestViv" class="on" onclick="ivSetDestino('vivienda')">Vivienda</button>
+              <button type="button" id="ivDestCom" onclick="ivSetDestino('comercial')">Comercial</button>
+            </div>
+          </div>
+          <div class="row2" id="ivBoxViv">
+            <div class="fld"><label>Dormitorios</label><input id="ivDorm" type="number" min="0" max="8" value="1" oninput="ivPreview()"></div>
+            <div class="fld"><label>Baños</label><input id="ivBanos" type="number" min="0" max="6" value="1" oninput="ivPreview()"></div>
+          </div>
+          <div id="ivBoxCom" style="display:none">
+            <div class="row2">
+              <div class="fld"><label>Oficinas</label><input id="ivOficinas" type="number" min="0" max="8" value="0" oninput="ivPreview()"></div>
+              <div class="fld"><label>Depósitos</label><input id="ivDepositos" type="number" min="0" max="8" value="1" oninput="ivPreview()"></div>
+            </div>
+          </div>
+          <div class="hint" style="margin:-4px 0 10px">Las secciones que no correspondan se destildan y no aparecen en la planilla.</div>
+          <div id="ivSecciones"></div>
+
+          <button class="gen-btn" onclick="ivGenerarPDF()"><i class="fas fa-file-arrow-down"></i> Generar inventario</button>
         </div>
 
         <!-- Vista previa -->
@@ -2957,16 +3002,335 @@
       var f=document.getElementById('ipFecha'); if(f && !f.value) f.value=new Date().toISOString().slice(0,10);
     }
 
+
+    // ==========================================================================
+    // INVENTARIO DEL INMUEBLE
+    // --------------------------------------------------------------------------
+    // Planilla que se completa a mano en la entrega. Lo que aporta generarla desde
+    // el CRM es que se arma a medida de la propiedad: la cantidad de dormitorios y
+    // baños sale de los datos, y las secciones que no existen no se imprimen. Una
+    // planilla fija obliga a tachar la mitad de las hojas.
+    // ==========================================================================
+    var IV_ITEMS = {
+      entrada: ['Puerta principal','Marco','Contra marco','Cerraduras puerta','Otras puertas',
+        'Cerraduras otras puertas','Picaporte','Ventanas','Pasadores','Bisagras','Mirilla / Vidrio',
+        'Rejas','Pisos','Paredes','Moquete','Divisiones','Escaleras','Otros:'],
+      dormitorio: ['Puerta','Picaporte','Ventana','Rejas','Pisos','Paredes','Techo / Cielo raso',
+        'Zócalos','Pintura','Placard / Armarios empotrados','Tomas corriente',
+        'Interruptores / llaves de luz','Portalámparas','Otros:'],
+      bano: ['Puertas','Cerraduras','Picaporte','Banderolas','Pintura','Paredes','Techos / Cielo raso',
+        'Revestimiento de paredes','Zócalos','Pisos','Lavamanos / Pileta','Canilla de lavatorio',
+        'Sanitario / Water','Tapa de wáter','Tanque / Cisterna','Tapa de tanque','Toallero','Mampara',
+        'Espejos','Soporte papel higiénico','Bañera','Roseta de ducha','Grifería','Bidet',
+        'Canillas de bidet','Toma corriente','Porta lámparas','Interruptores / llaves de luz',
+        'Rejillas desagües','Otros:'],
+      cocina: ['Puertas','Cerraduras','Llaves','Picaporte','Ventana','Banderola','Pasadores','Paredes',
+        'Revestimiento de paredes','Pintura','Pisos','Zócalos','Techo / Cielo raso','Tomas corriente',
+        'Mesada','Rosetas','Interruptores / llaves de luz','Grifería','Armarios empotrados','Pileta',
+        'Sifón de pileta','Tapa de grasera','Portalámparas','Extractor','Campana extractora','Otros:'],
+      living: ['Puertas','Cerraduras','Ventanas','Rejas','Pisos','Paredes','Techos / Cielo raso',
+        'Pintura pared','Tomas corriente','Zócalos','Interruptores / llaves de luz','Portalámparas','Otros:'],
+      corredores: ['Paredes','Pisos','Zócalos','Puerta','Picaporte','Cerradura','Llaves','Vidrios',
+        'Pintura','Techo / Cielo raso','Portalámparas','Interruptores / llaves de luz','Toma corriente',
+        'Tablero eléctrico','Otros:'],
+      fondo: ['Muros','Pinturas','Pisos','Canillas','Rejilla de piso','Tapa de desagüe','Tapa de cámara','Otros:'],
+      garaje: ['Portón','Cerradura','Motor / Control','Pisos','Paredes','Techo','Portalámparas',
+        'Interruptores / llaves de luz','Toma corriente','Otros:'],
+      lavadero: ['Pileta','Canilla','Sifón','Pisos','Paredes','Techo / Cielo raso','Toma corriente',
+        'Portalámparas','Rejilla de desagüe','Otros:'],
+      azotea: ['Pisos','Muros','Impermeabilización','Rejilla de desagüe','Tanque de agua','Baranda','Otros:'],
+      // --- Local comercial ---
+      fachada: ['Cortina metálica','Motor / Control de cortina','Puerta de acceso','Vidriera','Vidrios',
+        'Cerraduras','Llaves','Marco','Rejas','Cartelería / Marquesina','Toldo','Timbre',
+        'Iluminación exterior','Pintura de fachada','Otros:'],
+      salon: ['Pisos','Paredes','Revestimiento de paredes','Pintura','Techo / Cielo raso','Zócalos',
+        'Ventanas','Rejas','Divisiones','Mostrador','Estanterías','Tomas corriente',
+        'Interruptores / llaves de luz','Luminarias','Portalámparas','Otros:'],
+      deposito: ['Puerta','Cerradura','Pisos','Paredes','Techo / Cielo raso','Estanterías',
+        'Ventilación','Tomas corriente','Luminarias','Otros:'],
+      oficina: ['Puerta','Cerradura','Ventana','Pisos','Paredes','Techo / Cielo raso','Zócalos',
+        'Pintura','Tomas corriente','Interruptores / llaves de luz','Luminarias','Aire acondicionado','Otros:'],
+      instalaciones: ['Tablero eléctrico','Llaves térmicas','Disyuntor','Medidor UTE','Medidor OSE',
+        'Instalación sanitaria','Calefón / Termotanque','Aire acondicionado','Extractor',
+        'Matafuegos','Luces de emergencia','Salida de emergencia','Alarma / Cámaras','Otros:']
+    };
+    // Un local no tiene dormitorios y una casa no tiene cortina metálica: cada
+    // destino trae su propio juego de secciones. Compartida queda solo la parte
+    // que existe en los dos, como el baño o la cocina.
+    var IV_SECCIONES = {
+      vivienda: [
+        { id:'entrada',    n:'Entrada' },
+        { id:'cocina',     n:'Cocina' },
+        { id:'living',     n:'Living / comedor y hall' },
+        { id:'corredores', n:'Corredores' },
+        { id:'lavadero',   n:'Lavadero' },
+        { id:'garaje',     n:'Garaje' },
+        { id:'azotea',     n:'Azotea' },
+        { id:'fondo',      n:'Fondo' }
+      ],
+      comercial: [
+        { id:'fachada',       n:'Fachada y acceso' },
+        { id:'salon',         n:'Salón / local' },
+        { id:'instalaciones', n:'Instalaciones y seguridad' },
+        { id:'cocina',        n:'Cocina / kitchenette' },
+        { id:'corredores',    n:'Corredores' },
+        { id:'garaje',        n:'Estacionamiento' },
+        { id:'azotea',        n:'Azotea' },
+        { id:'fondo',         n:'Fondo / patio' }
+      ]
+    };
+    var ivDestino = 'vivienda';
+    var ivOn = { entrada:true, cocina:true, living:true, corredores:true, lavadero:false, garaje:false,
+                 azotea:false, fondo:true, fachada:true, salon:true, instalaciones:true };
+
+    function ivVal(id){ var e=document.getElementById(id); return e?e.value.trim():''; }
+    function ivPintarSecciones(){
+      var c=document.getElementById('ivSecciones'); if(!c) return;
+      c.innerHTML = IV_SECCIONES[ivDestino].map(function(sec){
+        return '<div class="ct-op"><input type="checkbox" '+(ivOn[sec.id]?'checked':'')+
+          ' onchange="ivOn[\''+sec.id+'\']=this.checked; ivPreview()">'+
+          '<div style="flex:1"><b style="font-weight:500">'+esc(sec.n)+'</b></div></div>';
+      }).join('');
+    }
+
+    // Lista de secciones a imprimir, en el orden en que se recorre una casa.
+    function ivPlan(){
+      var plan=[];
+      var nb=parseInt(ivVal('ivBanos'),10); if(isNaN(nb)) nb=1;
+      if(ivDestino==='comercial'){
+        if(ivOn.fachada) plan.push({t:'FACHADA Y ACCESO', items:IV_ITEMS.fachada});
+        if(ivOn.salon) plan.push({t:'SALÓN / LOCAL', items:IV_ITEMS.salon});
+        var no=parseInt(ivVal('ivOficinas'),10); if(isNaN(no)) no=0;
+        for(var o=1;o<=no;o++) plan.push({t: no===1?'OFICINA':'OFICINA '+o, items:IV_ITEMS.oficina});
+        var nde=parseInt(ivVal('ivDepositos'),10); if(isNaN(nde)) nde=0;
+        for(var p=1;p<=nde;p++) plan.push({t: nde===1?'DEPÓSITO':'DEPÓSITO '+p, items:IV_ITEMS.deposito});
+        for(var b=1;b<=nb;b++) plan.push({t: nb===1?'BAÑO':'BAÑO '+b, items:IV_ITEMS.bano});
+        if(ivOn.cocina) plan.push({t:'COCINA / KITCHENETTE', items:IV_ITEMS.cocina});
+        if(ivOn.instalaciones) plan.push({t:'INSTALACIONES Y SEGURIDAD', items:IV_ITEMS.instalaciones});
+        if(ivOn.corredores) plan.push({t:'CORREDORES', items:IV_ITEMS.corredores});
+        if(ivOn.garaje) plan.push({t:'ESTACIONAMIENTO', items:IV_ITEMS.garaje});
+        if(ivOn.azotea) plan.push({t:'AZOTEA', items:IV_ITEMS.azotea});
+        if(ivOn.fondo) plan.push({t:'FONDO / PATIO', items:IV_ITEMS.fondo});
+        return plan;
+      }
+      if(ivOn.entrada) plan.push({t:'ENTRADA', items:IV_ITEMS.entrada});
+      var nd=parseInt(ivVal('ivDorm'),10); if(isNaN(nd)) nd=1;
+      for(var i=1;i<=nd;i++) plan.push({t: nd===1?'DORMITORIO':'DORMITORIO '+i, items:IV_ITEMS.dormitorio});
+      for(var j=1;j<=nb;j++) plan.push({t: nb===1?'BAÑO':(j===1?'BAÑO PRINCIPAL':'BAÑO '+j), items:IV_ITEMS.bano});
+      if(ivOn.cocina) plan.push({t:'COCINA', items:IV_ITEMS.cocina});
+      if(ivOn.living) plan.push({t:'LIVING / COMEDOR Y HALL', items:IV_ITEMS.living});
+      if(ivOn.corredores) plan.push({t:'CORREDORES', items:IV_ITEMS.corredores});
+      if(ivOn.lavadero) plan.push({t:'LAVADERO', items:IV_ITEMS.lavadero});
+      if(ivOn.garaje) plan.push({t:'GARAJE', items:IV_ITEMS.garaje});
+      if(ivOn.azotea) plan.push({t:'AZOTEA', items:IV_ITEMS.azotea});
+      if(ivOn.fondo) plan.push({t:'FONDO', items:IV_ITEMS.fondo});
+      return plan;
+    }
+
+    function ivSetDestino(d){
+      ivDestino=d;
+      document.getElementById('ivDestViv').classList.toggle('on', d==='vivienda');
+      document.getElementById('ivDestCom').classList.toggle('on', d==='comercial');
+      document.getElementById('ivBoxViv').style.display = d==='vivienda' ? '' : 'none';
+      document.getElementById('ivBoxCom').style.display = d==='comercial' ? '' : 'none';
+      ivPintarSecciones();
+      ivPreview();
+    }
+
+    function ivConstruirPDF(){
+      var jsPDF=window.jspdf.jsPDF;
+      var pdf=new jsPDF({unit:'pt',format:'a4',orientation:'portrait'});
+      var W=595.28, M=40, ancho=W-M*2;
+      var NAVY=[22,39,63], GREY=[95,106,128], INK=[26,38,58], ORO=[201,162,39];
+      var pieY=800, pagina=0, limite=pieY-16;
+      var FIL=15;                                  // alto de cada renglón
+      // Columnas: descripción, cantidad, tipo/material, B, R, M, observaciones
+      var cw=[168, 42, 118, 26, 26, 26, ancho-406];
+
+      function membrete(){
+        pagina++;
+        if(pagina>1) pdf.addPage();
+        var y=44;
+        pdf.setFont('helvetica','bold').setFontSize(16).setTextColor.apply(pdf,INK);
+        pdf.text('INVENTARIO', M, y);
+        pdf.setTextColor.apply(pdf,ORO).setFontSize(12);
+        pdf.text('DEL INMUEBLE', M+112, y);
+        // Marca a la derecha: el iso junto al texto MALAVE / INMOBILIARIA. Antes
+        // iba solo el iso, pegado al borde, y se cortaba.
+        var xIso = W-M-34, yIso = 16;
+        if(_logoImg){
+          try{ pdf.addImage(_logoImg,'PNG', xIso, yIso, 32, 28); }
+          catch(e){ console.warn('No se pudo dibujar el logo:', e); }
+        }
+        if(_textoImg && _textoImg.data){
+          var aT = 74, hT = aT * (_textoImg.h/_textoImg.w || 0.16);
+          try{
+            pdf.addImage(_textoImg.data,'PNG', xIso-aT-10, yIso+6, aT, hT);
+            pdf.setFont('helvetica','normal').setFontSize(5.6).setTextColor.apply(pdf,GREY);
+            pdf.text('INMOBILIARIA', xIso-10-aT/2, yIso+6+hT+7, {align:'center', charSpace:1.8});
+          }catch(e){ console.warn('No se pudo dibujar el texto del logo:', e); }
+        } else {
+          pdf.setFont('helvetica','normal').setFontSize(13).setTextColor.apply(pdf,INK);
+          pdf.text('MALAVE', xIso-12, yIso+20, {align:'right', charSpace:2.2});
+          pdf.setFontSize(5.6).setTextColor.apply(pdf,GREY);
+          pdf.text('INMOBILIARIA', xIso-12, yIso+29, {align:'right', charSpace:1.8});
+        }
+        pdf.setDrawColor.apply(pdf,NAVY); pdf.setLineWidth(1.4);
+        pdf.line(M, y+12, W-M, y+12);
+        return y+30;
+      }
+      function pie(){
+        pdf.setDrawColor(200); pdf.setLineWidth(.6);
+        pdf.line(M, pieY, W-M, pieY);
+        pdf.setFont('helvetica','normal').setFontSize(7.5).setTextColor.apply(pdf,GREY);
+        pdf.text(EMPRESA.nombre+'   ·   '+EMPRESA.celular, M, pieY+12);
+        pdf.text('Página '+pagina, W-M, pieY+12, {align:'right'});
+      }
+
+      var y=membrete();
+
+      // ---- Datos de la entrega ----
+      function campo(x, yy, etiqueta, valor, largo){
+        pdf.setFont('helvetica','bold').setFontSize(8).setTextColor.apply(pdf,INK);
+        pdf.text(etiqueta, x, yy);
+        var xv = x + pdf.getTextWidth ? x+pdf.getTextWidth(etiqueta)+6 : x+70;
+        pdf.setDrawColor(170).setLineWidth(.6).line(xv, yy+2, x+largo, yy+2);
+        if(valor){
+          pdf.setFont('helvetica','normal').setFontSize(8.5).setTextColor(40);
+          pdf.text(String(valor), xv+2, yy);
+        }
+      }
+      var col2 = M + ancho/2 + 8, mitad = ancho/2 - 12;
+      campo(M, y, 'Fecha:', fechaLarga(ivVal('ivFecha')), mitad);
+      campo(col2, y, 'Dirección:', ivVal('ivDireccion'), mitad);
+      y+=18;
+      campo(M, y, 'Arrendador:', ivVal('ivArrendador'), mitad);
+      campo(col2, y, 'Tipo de inmueble:', ivVal('ivTipo'), mitad);
+      y+=18;
+      campo(M, y, 'Arrendatario:', ivVal('ivArrendatario'), mitad);
+      campo(col2, y, 'Juegos de llaves:', ivVal('ivLlaves'), mitad);
+      y+=24;
+
+      // ---- Referencia de estado ----
+      pdf.setFillColor(22,39,63); pdf.rect(M, y-9, 62, 14, 'F');
+      pdf.setFont('helvetica','bold').setFontSize(8).setTextColor(255,255,255);
+      pdf.text('ESTADO:', M+8, y);
+      pdf.setTextColor(60).setFont('helvetica','normal').setFontSize(8);
+      pdf.text('B: Bien        R: Regular        M: Mal', M+76, y);
+      y+=18;
+
+      function cabecera(){
+        pdf.setFillColor(22,39,63); pdf.rect(M, y, ancho, 20, 'F');
+        pdf.setFont('helvetica','bold').setFontSize(7.2).setTextColor(255,255,255);
+        var x=M;
+        ['DESCRIPCIÓN','CANT','TIPO / MATERIAL'].forEach(function(t,i){
+          pdf.text(t, x+5, y+13); x+=cw[i];
+        });
+        pdf.text('ESTADO', x+39, y+8, {align:'center'});
+        ['B','R','M'].forEach(function(t,i){ pdf.text(t, x+13+i*26, y+17, {align:'center'}); });
+        x += cw[3]+cw[4]+cw[5];
+        pdf.text('OBSERVACIONES', x+5, y+13);
+        y+=20;
+      }
+      function tituloSeccion(t){
+        pdf.setFillColor(246,240,229); pdf.rect(M, y, ancho, 17, 'F');
+        pdf.setFont('helvetica','bold').setFontSize(8.5).setTextColor.apply(pdf,INK);
+        pdf.text(t, M+ancho/2, y+12, {align:'center'});
+        y+=17;
+      }
+      function fila(nombre, i){
+        if(i%2===0){ pdf.setFillColor(250,250,248); pdf.rect(M, y, ancho, FIL, 'F'); }
+        pdf.setDrawColor(215).setLineWidth(.4);
+        var x=M;
+        for(var k=0;k<cw.length;k++){ pdf.line(x, y, x, y+FIL); x+=cw[k]; }
+        pdf.line(W-M, y, W-M, y+FIL);
+        pdf.line(M, y+FIL, W-M, y+FIL);
+        pdf.setFont('helvetica','normal').setFontSize(7.6).setTextColor(45);
+        pdf.text(nombre, M+5, y+10);
+        y+=FIL;
+      }
+
+      ivPlan().forEach(function(sec){
+        // La cabecera y el título de la sección no pueden quedar solos al pie:
+        // se exige lugar para al menos cinco renglones.
+        if(y + 20 + 17 + FIL*5 > limite){ pie(); y=membrete(); }
+        cabecera();
+        tituloSeccion(sec.t);
+        sec.items.forEach(function(it,i){
+          if(y + FIL > limite){ pie(); y=membrete(); cabecera(); tituloSeccion(sec.t+' (continúa)'); }
+          fila(it, i);
+        });
+        y+=12;
+      });
+
+      // ---- Observaciones y cierre ----
+      if(y+150 > limite){ pie(); y=membrete(); }
+      pdf.setDrawColor(180).setLineWidth(.8);
+      pdf.roundedRect(M, y, ancho, 76, 6, 6);
+      pdf.setFont('helvetica','bold').setFontSize(8.5).setTextColor.apply(pdf,INK);
+      pdf.text('OBSERVACIONES:', M+8, y+14);
+      pdf.setDrawColor(215).setLineWidth(.5);
+      for(var r=1;r<=3;r++) pdf.line(M+8, y+22+r*16, W-M-8, y+22+r*16);
+      y+=92;
+
+      pdf.setFont('helvetica','normal').setFontSize(8.4).setTextColor(55);
+      pdf.splitTextToSize('Acorde con el contrato de arrendamiento, los arrendatarios se comprometen a observar y mantener el inmueble y su correspondiente dotación, en el mismo estado en que lo reciben.', ancho)
+        .forEach(function(l){ pdf.text(l, M, y); y+=12; });
+      y+=4;
+      pdf.splitTextToSize('En constancia de lo anterior firman las partes este documento sin tener nada más que reclamar, en la fecha indicada.', ancho)
+        .forEach(function(l){ pdf.text(l, M, y); y+=12; });
+      y+=34;
+
+      var col=ancho/2;
+      [['ARRENDADOR', ivVal('ivArrendador')], ['ARRENDATARIO', ivVal('ivArrendatario')]].forEach(function(par,i){
+        var x=M+col*i, w=Math.min(col-40, 200);
+        pdf.setDrawColor(60).setLineWidth(1).line(x, y, x+w, y);
+        pdf.setFont('helvetica','bold').setFontSize(8).setTextColor(30);
+        if(par[1]) pdf.text(pdf.splitTextToSize(par[1], w)[0], x, y+12);
+        pdf.setFont('helvetica','normal').setFontSize(7).setTextColor(110);
+        pdf.text(par[0], x, y+23);
+      });
+
+      pie();
+      return pdf;
+    }
+
+    function ivPreview(){
+      if(_tipoActivo!=='inventario') return;
+      if(_previewTimer) clearTimeout(_previewTimer);
+      _previewTimer=setTimeout(function(){
+        if(_tipoActivo!=='inventario') return;
+        try{
+          var uri=ivConstruirPDF().output('datauristring');
+          _previewURI=uri;
+          document.getElementById('previewFrame').src=uri;
+          escalarPreview();
+        }catch(e){ console.warn('preview inventario:', e); }
+      },400);
+    }
+    function ivGenerarPDF(){
+      ivConstruirPDF().save('Inventario_'+(ivVal('ivDireccion')||'inmueble').replace(/[^\w]+/g,'_')+'.pdf');
+      toast('Inventario generado');
+    }
+    var _ivListo=false;
+    function ivInit(){
+      if(_ivListo) return;
+      _ivListo=true;
+      ivPintarSecciones();
+      var f=document.getElementById('ivFecha'); if(f && !f.value) f.value=new Date().toISOString().slice(0,10);
+    }
+
     // ===== Controles de UI =====
     var _tipoActivo = 'carta_pago';
     function selectType(t){
       document.querySelectorAll('.doc-type').forEach(function(b){ b.classList.remove('active'); });
       document.querySelector('.doc-type[data-type="'+t+'"]').classList.add('active');
-      _tipoActivo = (t==='contrato' || t==='mediacion' || t==='propietario') ? t : 'carta_pago';
+      _tipoActivo = (t==='contrato' || t==='mediacion' || t==='propietario' || t==='inventario') ? t : 'carta_pago';
       document.getElementById('formCartaPago').style.display = _tipoActivo==='carta_pago'?'':'none';
       document.getElementById('formContrato').style.display = _tipoActivo==='contrato'?'':'none';
       document.getElementById('formMediacion').style.display = _tipoActivo==='mediacion'?'':'none';
       document.getElementById('formPropietario').style.display = _tipoActivo==='propietario'?'':'none';
+      document.getElementById('formInventario').style.display = _tipoActivo==='inventario'?'':'none';
       // Se cancela lo que hubiera agendado el tipo anterior: los dos comparten
       // temporizador y el que llegaba tarde pisaba al nuevo.
       if(_previewTimer) clearTimeout(_previewTimer);
@@ -2974,6 +3338,7 @@
       if(_tipoActivo==='contrato'){ ctInit(); ctPreview(); }
       else if(_tipoActivo==='mediacion'){ cmInit(); cmPreview(); }
       else if(_tipoActivo==='propietario'){ ipInit(); ipPreview(); }
+      else if(_tipoActivo==='inventario'){ ivInit(); ivPreview(); }
       else { renderPreview(); }
     }
 
