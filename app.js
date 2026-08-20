@@ -903,6 +903,50 @@
     }
   }
 
+
+  // De las consultas de portales, lo que se necesita para actuar está adentro del
+  // texto: nombre, teléfono y correo del interesado. Antes había que abrir la
+  // notificación y copiar el número a mano, y encima el texto se cortaba justo
+  // ahí. Esto lo saca afuera y lo deja a un toque.
+  function notifDatos(n) {
+    const txt = String(n.text || '');
+    let tel = n.userPhone || '';
+    if (!tel) {
+      // Se buscan tramos que parezcan número y se validan por sus dígitos, en vez
+      // de exigir un formato: el mismo teléfono llega como "+598 94438682",
+      // "094 533 006" o "99140383" según de dónde venga la consulta.
+      const runs = txt.match(/[+\d][\d\s.\-()]{6,}/g) || [];
+      for (const r of runs) {
+        let d = r.replace(/\D/g, '');
+        if (d.startsWith('598')) d = d.slice(3);
+        d = d.replace(/^0/, '');
+        if (/^9\d{7}$/.test(d)) { tel = '+598 ' + d; break; }   // celular uruguayo: 9 y siete más
+      }
+    }
+    const mm = txt.match(/Contacto:\s*([^·\n]+?)\s*[·\u00b7]/i);
+    const nombre = mm ? mm[1].trim() : '';
+    const me = txt.match(/[\w.+-]+@[\w-]+\.[\w.]+/);
+    const mail = me ? me[0] : '';
+    // El agente que trabaja la propiedad: el admin recibe las de todo el equipo y
+    // sin esto no sabe de quién es hasta entrar.
+    let agente = '';
+    try {
+      const prop = (typeof properties !== 'undefined' && properties.length)
+        ? properties.find(p => p.id === n.propertyId) : null;
+      const uid = prop && prop.ownerId;
+      if (uid && uid !== (currentUser && currentUser.uid)) {
+        agente = (allUsers[uid] && (allUsers[uid].name || allUsers[uid].email)) || '';
+      }
+    } catch (e) { /* si no está cargada la propiedad, se omite */ }
+    return { tel, nombre, mail, agente };
+  }
+  function notifWaLink(tel, titulo) {
+    const num = String(tel).replace(/\D/g, '');
+    const n2 = num.length <= 9 ? '598' + num.replace(/^0/, '') : num;
+    const msg = encodeURIComponent('Hola, te contacto de MALAVE Inmobiliaria por tu consulta' + (titulo ? ' sobre ' + titulo : '') + '.');
+    return 'https://wa.me/' + n2 + '?text=' + msg;
+  }
+
   function renderNotifications() {
     const b = document.getElementById('notificationBadge'),
       be = document.getElementById('notificationBell'),
@@ -999,7 +1043,29 @@
       if (n.type === 'crm_seguimiento') {
         return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleCrmNotifClick('${n.id}')"><div class="notification-avatar" style="background:#fef3c7;color:#b45309"><i class="fas fa-user-clock"></i></div><div class="notification-body"><p><strong>Seguimiento de clientes</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,140))}${(n.text||'').length>140?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
       }
-      return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar">${n.userPhoto?`<img src="${n.userPhoto}" alt="">`:i}</div><div class="notification-body"><p><strong>${n.userName}</strong> consultó sobre <strong>${n.propertyTitle}</strong></p><div class="notification-message">"${(n.text||'').substring(0,100)}${(n.text||'').length>100?'...':''}"</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span>${n.userPhone?`<a href="https://wa.me/${n.userPhone.replace(/\D/g,'')}" target="_blank" class="notification-phone" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i> ${n.userPhone}</a>`:''}</div></div></div>`
+      const d = notifDatos(n);
+      // El titular pasa a ser el interesado, no el portal: "Magela consultó por
+      // Mercado Libre" dice más que "Mercado Libre consultó".
+      const quien = d.nombre || n.userName;
+      const via = d.nombre && n.userName && n.userName !== d.nombre ? ` <span class="notif-via">por ${mvEsc(n.userName)}</span>` : '';
+      const resumen = d.nombre
+        ? [d.tel, d.mail].filter(Boolean).join(' · ')
+        : `${(n.text||'').substring(0,100)}${(n.text||'').length>100?'...':''}`;
+      return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')">` +
+        `<div class="notification-avatar">${n.userPhoto?`<img src="${n.userPhoto}" alt="">`:i}</div>` +
+        `<div class="notification-body">` +
+          `<p><strong>${mvEsc(quien)}</strong>${via} · <strong>${mvEsc(n.propertyTitle||'')}</strong></p>` +
+          (resumen ? `<div class="notification-message">${mvEsc(resumen)}</div>` : '') +
+          `<div class="notification-meta">` +
+            `<span><i class="far fa-clock"></i> ${ts}</span>` +
+            (d.agente ? `<span class="notif-agente"><i class="fas fa-user-tie"></i> ${mvEsc(d.agente)}</span>` : '') +
+          `</div>` +
+          (d.tel || d.mail ? `<div class="notif-acc">` +
+            (d.tel ? `<a class="notif-btn wa" href="${notifWaLink(d.tel, n.propertyTitle)}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i> WhatsApp</a>` +
+                     `<a class="notif-btn" href="tel:${String(d.tel).replace(/[^\d+]/g,'')}" onclick="event.stopPropagation()"><i class="fas fa-phone"></i> Llamar</a>` : '') +
+            (d.mail ? `<a class="notif-btn" href="mailto:${mvEsc(d.mail)}" onclick="event.stopPropagation()"><i class="fas fa-envelope"></i> Mail</a>` : '') +
+          `</div>` : '') +
+        `</div></div>`
     }).join('')
   }
 
@@ -4516,17 +4582,10 @@
     if (_saludT) clearTimeout(_saludT);
     _saludT = setTimeout(async () => {
       const seisHoras = Date.now() - 6 * 3600 * 1000;
-      const cincoMinutos = Date.now() - 5 * 60 * 1000;
-      // Se revisa por el ESTADO, no por la calidad: un aviso puede tener la calidad
-      // medida hace un rato y haberse caído (o activado) después. La misma llamada
-      // trae las dos cosas. Los que NO están en línea se revisan seguido, porque
-      // 'not_yet_active' dura minutos: si se espera seis horas, la grilla muestra
-      // "todavía no está en línea" cuando el aviso ya salió hace rato.
-      const faltan = properties.filter(p => {
-        if (!p.mlItemId || _saludPedida.has(p.id)) return false;
-        const revisado = p.mlStatusAt ? Date.parse(p.mlStatusAt) : 0;
-        return revisado < (p.mlStatus === 'active' ? seisHoras : cincoMinutos);
-      }).slice(0, 80);
+      const faltan = properties.filter(p =>
+        p.mlItemId && !_saludPedida.has(p.id) &&
+        (!p.mlHealthAt || Date.parse(p.mlHealthAt) < seisHoras)
+      ).slice(0, 80);
       if (!faltan.length) return;
       // Se marcan ANTES de llamar: la escritura del backend vuelve por el snapshot
       // y volvería a entrar acá, pidiendo lo mismo en bucle.
@@ -4534,13 +4593,9 @@
       try {
         const r = await firebase.functions().httpsCallable('saludMLLote')({ propertyIds: faltan.map(p => p.id) });
         const salud = (r.data && r.data.salud) || {};
-        const estados = (r.data && r.data.estados) || {};
-        if (!Object.keys(salud).length && !Object.keys(estados).length) return;
+        if (!Object.keys(salud).length) return;
         // Se aplica en local para que el anillo aparezca ya, sin esperar el snapshot.
-        properties.forEach(p => {
-          if (salud[p.id] != null) { p.mlHealth = salud[p.id]; p.mlHealthAt = r.data.medidoEn; }
-          if (estados[p.id] != null) { p.mlStatus = estados[p.id]; }
-        });
+        properties.forEach(p => { if (salud[p.id] != null) { p.mlHealth = salud[p.id]; p.mlHealthAt = r.data.medidoEn; } });
         renderProperties(properties.filter(enVitrina));
       } catch (e) {
         console.warn('No se pudo traer la calidad de los avisos:', e.message || e);
@@ -4558,27 +4613,6 @@
     if (!p.mlItemId) {
       // Sin publicar: el botón mantiene su significado viejo (abrir para publicar).
       return `<button class="card-action-btn ml-sin" onclick="${abrir}" title="No está publicada en Mercado Libre"><i class="fas fa-tag"></i></button>`;
-    }
-    // El CRM tiene guardado un aviso, pero puede no estar EN LÍNEA: caído, cerrado,
-    // pausado o esperando algo. En esos casos el porcentaje de calidad miente (es el
-    // último medido), así que se muestra una alerta en vez del anillo: de un vistazo
-    // se ve cuál hay que renovar. La lista va al revés a propósito: SOLO 'active'
-    // muestra el anillo. Cualquier otro valor —incluidos estados nuevos de Mercado
-    // Libre o códigos de error— cae en la alerta, nunca se hace pasar por publicado.
-    const MOTIVOS = {
-      no_encontrado: ['#c0392b', 'El aviso ya no existe en Mercado Libre — tocá para volver a publicar'],
-      closed: ['#c0392b', 'Aviso cerrado en Mercado Libre — tocá para volver a publicar'],
-      payment_required: ['#c0392b', 'El aviso espera el pago para salir en línea'],
-      pack_quota_exceeded: ['#c0392b', 'Se superó el cupo del paquete: el aviso no salió en línea'],
-      paused: ['#C9A227', 'Aviso pausado en Mercado Libre — no se está viendo'],
-      not_yet_active: ['#C9A227', 'Aviso creado, todavía no está en línea'],
-      under_review: ['#C9A227', 'Mercado Libre está revisando el aviso'],
-      inactive: ['#C9A227', 'Aviso inactivo en Mercado Libre'],
-    };
-    const st = p.mlStatus == null ? '' : String(p.mlStatus);
-    if (st && st !== 'active') {
-      const m = MOTIVOS[st] || ['#c0392b', 'El aviso no está en línea en Mercado Libre — tocá para revisarlo'];
-      return `<button class="card-action-btn ml-caido" style="color:${m[0]};border-color:${m[0]}" onclick="${abrir}" title="${m[1]}"><i class="fas fa-exclamation-triangle"></i></button>`;
     }
     if (p.mlHealth == null) {
       return `<button class="card-action-btn ml-sin" onclick="${abrir}" title="Publicada — calidad todavía sin medir"><i class="fas fa-tag"></i></button>`;
@@ -4644,18 +4678,11 @@
   // Funciones de compartir
   let currentShareProperty = null;
 
-  // El link que se comparte NO es propiedad.html: es la página de vista previa,
-  // que escribe la foto y el precio en el HTML para que WhatsApp los pueda leer
-  // (los robots de vista previa no ejecutan JavaScript). Al tocarlo, esa página
-  // manda a propiedad.html de siempre.
-  const DOMINIO_COMPARTIR = 'https://ver.malaveinmobiliaria.com';
-  function linkParaCompartir(id) { return `${DOMINIO_COMPARTIR}/p/${id}`; }
-
   function openShareModal(id) {
     const p = properties.find(pr => pr.id === id);
     if (!p) return;
     currentShareProperty = p;
-    const url = linkParaCompartir(id);
+    const url = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}propiedad.html?id=${id}`;
     document.getElementById('shareTitle').textContent = p.title;
     document.getElementById('sharePrice').textContent = formatPrice(p.price, p.currency || 'USD') + (p.type === 'rent' ? '/mes' : '');
     document.getElementById('shareLocation').textContent = getLocationString(p);
