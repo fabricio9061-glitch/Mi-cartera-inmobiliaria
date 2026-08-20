@@ -463,7 +463,6 @@
     document.getElementById('mvBottomBar')?.classList.toggle('hidden', !currentUser);
     document.body.classList.toggle('has-bottombar', !!currentUser);
     document.getElementById('mvSideRetiros')?.classList.toggle('hidden', !isAdminUser());
-    document.getElementById('mvSideGenerarDoc')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSidePapelera')?.classList.toggle('hidden', !isAdminUser());
     if (isAdminUser()) actualizarBadgePendientes();
     document.getElementById('mvSide')?.classList.add('open');
@@ -494,7 +493,7 @@
       { sel:'a[href="mapa-cierres.html"]', t:'Mapa de cierres', d:'Mirá en el mapa las ventas y alquileres cerrados del equipo.' },
       { sel:'a[href="gastos.html"]', t:'Gastos y comisiones', d:'Calculá comisiones, gastos e impuestos de una operación.' },
       { sel:'a[href="ganancias.html"]', t:'Mis ganancias', d:'Cuánto ganás según tu comisión en cada operación.' },
-      { sel:'a[href="documentos.html"]', t:'Recursos', d:'Documentos, cuentas de portales y la Academy con capacitaciones.' },
+      { sel:'a[href="generar-documentos.html"]', t:'Recursos', d:'Generá contratos, recibos e inventarios con el membrete de la agencia, y guardá las cuentas de los portales.' },
       { sel:null, t:'¡Listo! 🎉', d:'Abrí el menú ☰ cuando quieras. Podés volver a ver este recorrido tocando "Tutorial" en el menú.' }
     ];
     return steps.filter(function(s){ return !s.sel || document.querySelector(s.sel); });

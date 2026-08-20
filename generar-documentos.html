@@ -109,7 +109,13 @@
     .toast.show{ opacity:1; transform:translateX(-50%) translateY(-4px); }
     .toast.bad{ background:var(--bad); }
     .hint{ font-size:.76rem; color:var(--muted); margin-top:5px; }
-  </style>
+  
+    .doc-type.doc-bloq{ opacity:.55; cursor:not-allowed; position:relative }
+    .doc-type.doc-bloq:hover{ transform:none; box-shadow:none; border-color:var(--line) }
+    .doc-lock{ display:inline-flex; align-items:center; gap:5px; margin-top:7px; font-size:.66rem;
+      letter-spacing:.05em; text-transform:uppercase; color:var(--muted) }
+    .seg-b.doc-bloq{ opacity:.5; cursor:not-allowed }
+</style>
 <style>
   /* Área segura superior (isla dinámica / notch).
      El margen lo reserva EL HEADER, no el body. Antes el body lo empujaba y una
@@ -3320,6 +3326,50 @@
       var f=document.getElementById('ivFecha'); if(f && !f.value) f.value=new Date().toISOString().slice(0,10);
     }
 
+
+    // ---- Quién puede generar qué -------------------------------------------
+    // Un solo lugar para cambiarlo. 'todos' = cualquier agente aprobado.
+    // Todo lo que involucra dinero queda en administración: así los montos del
+    // recibo y de la carta de pago siempre coinciden con lo pactado. El agente
+    // pide el documento y se lo generan. El contrato, por el riesgo legal.
+    var PERMISOS = {
+      carta_pago:  'admin',      // reserva y carta de pago: los documentos de plata
+      contrato:    'admin',
+      mediacion:   'todos',
+      inventario:  'todos',
+      propietario: 'todos'
+    };
+    var esAdmin = false;
+    function puede(tipo){ return PERMISOS[tipo] === 'todos' || esAdmin; }
+
+    function aplicarPermisos(){
+      document.querySelectorAll('.doc-type[data-type]').forEach(function(b){
+        var t = b.getAttribute('data-type');
+        if (puede(t)) return;
+        b.classList.add('doc-bloq');
+        b.setAttribute('title', 'Lo genera la administración');
+        b.onclick = function(){ toast('Este documento lo genera la administración', true); };
+        if (!b.querySelector('.doc-lock')) {
+          var l = document.createElement('span');
+          l.className = 'doc-lock';
+          l.innerHTML = '<i class="fas fa-lock"></i> Administración';
+          b.appendChild(l);
+        }
+      });
+      // Si el tipo activo no está permitido, se pasa al primero que sí.
+      if (!puede(_tipoActivo)) {
+        var libre = Object.keys(PERMISOS).filter(puede)[0];
+        if (libre) selectType(libre);
+      }
+      // Dentro de Comisión, el momento "Al firmar" (carta de pago) es del admin.
+      var segCarta = document.getElementById('segCarta');
+      if (segCarta && !esAdmin) {
+        segCarta.classList.add('doc-bloq');
+        segCarta.title = 'La carta de pago la emite la administración';
+        segCarta.onclick = function(){ toast('La carta de pago la emite la administración', true); };
+      }
+    }
+
     // ===== Controles de UI =====
     var _tipoActivo = 'carta_pago';
     function selectType(t){
@@ -3403,8 +3453,12 @@
       }catch(e){}
       if(!agenteLogueado) agenteLogueado = user.displayName || '';
       document.getElementById('loading').style.display='none';
-      if(!isAdmin){ document.getElementById('denied').style.display='block'; return; }
+      // La página ya no es exclusiva del admin: cada rol ve los documentos que le
+      // corresponden. Los que no puede generar quedan a la vista pero bloqueados,
+      // así sabe que existen y a quién pedírselos, en vez de creer que no están.
+      esAdmin = isAdmin;
       document.getElementById('content').style.display='block';
+      aplicarPermisos();
       await cargarDatos();
       // Estado inicial
       document.getElementById('fFecha').value = new Date().toISOString().slice(0,10);
