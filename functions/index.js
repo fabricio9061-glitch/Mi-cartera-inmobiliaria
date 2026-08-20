@@ -79,7 +79,7 @@ const CAT_RENT = process.env.ML_CAT_RENT || "";
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "fabricio9061@gmail.com").toLowerCase();
 // Datos de la inmobiliaria que se muestran como contacto en los avisos de ML.
 const NOMBRE_INMOBILIARIA = process.env.ML_NOMBRE_INMOBILIARIA || "Inmobiliaria Malave";
-const EMAIL_INMOBILIARIA = process.env.ML_EMAIL_INMOBILIARIA || "Malaveinmobiliaria@gmail.com";
+const EMAIL_INMOBILIARIA = process.env.ML_EMAIL_INMOBILIARIA || "inmobiliariamalave@gmail.com";
 
 const API = "https://api.mercadolibre.com";
 const TOKENS_DOC = db.collection("ml_config").doc("tokens");
@@ -2205,6 +2205,200 @@ exports.republicarML = onCall(async (request) => {
   if (res.ok) return { ok: true, recreado: true, mlItemId: res.mlItemId, permalink: res.permalink };
   if (res.omitido) throw new HttpsError("failed-precondition", "La propiedad no está Disponible o ya hay una publicación en curso.");
   throw new HttpsError("internal", res.error || "No se pudo republicar.");
+});
+
+
+// =====================================================================
+// TRASPASO DE CARTERA — mueve todo lo de un agente a otro.
+// ---------------------------------------------------------------------
+// Cuando un agente deja la agencia no alcanza con reasignar en el CRM: el
+// teléfono del aviso de Mercado Libre se graba DENTRO del aviso al publicarlo,
+// así que los avisos ya publicados seguirían mostrando el número del que se
+// fue. Por eso, además de reasignar, acá se empuja a ML el contacto nuevo de
+// cada aviso vivo.
+// InfoCasas y el propio CRM no necesitan nada: leen el dueño en cada consulta.
+// =====================================================================
+exports.traspasarCartera = onCall(async (request) => {
+  const email = (request.auth && request.auth.token && request.auth.token.email || "").toLowerCase();
+  if (email !== ADMIN_EMAIL) throw new HttpsError("permission-denied", "Solo el administrador puede traspasar una cartera.");
+
+  const { deUid, aUid, mueve } = request.data || {};
+  if (!deUid || !aUid) throw new HttpsError("invalid-argument", "Faltan los agentes.");
+  if (deUid === aUid) throw new HttpsError("invalid-argument", "El origen y el destino son el mismo agente.");
+  const quiere = Object.assign({ propiedades: true, clientes: true, gestiones: true }, mueve || {});
+
+  const [deSnap, aSnap] = await Promise.all([
+    db.collection("users").doc(deUid).get(),
+    db.collection("users").doc(aUid).get(),
+  ]);
+  if (!aSnap.exists) throw new HttpsError("not-found", "El agente destino no existe.");
+  const de = deSnap.exists ? deSnap.data() : {};
+  const a = aSnap.data();
+  const aNombre = a.name || a.email || "Agente";
+  const ahora = new Date().toISOString();
+
+  const resumen = { propiedades: 0, clientes: 0, gestiones: 0, avisosActualizados: 0, avisosConError: [] };
+
+  // ---- Propiedades ----
+  let propsConAviso = [];
+  if (quiere.propiedades) {
+    const q = await db.collection("properties").where("ownerId", "==", deUid).get();
+    for (const doc of q.docs) {
+      const p = doc.data();
+      const agentes = Array.isArray(p.agents) ? p.agents.filter((x) => x !== deUid) : [];
+      if (!agentes.includes(aUid)) agentes.push(aUid);
+      await doc.ref.update({
+        ownerId: aUid,
+        ownerName: aNombre,
+        agents: agentes,
+        // El WhatsApp propio de la propiedad pisa al del perfil: si queda el del
+        // agente que se fue, el traspaso no serviría de nada.
+        ownerWhatsapp: admin.firestore.FieldValue.delete(),
+        traspasoAt: ahora,
+        updatedAt: ahora,
+      });
+      resumen.propiedades++;
+      if (p.mlItemId) propsConAviso.push({ id: doc.id, mlItemId: p.mlItemId });
+    }
+  }
+
+  // ---- Clientes ----
+  if (quiere.clientes) {
+    const q = await db.collection("clients").where("createdBy", "==", deUid).get();
+    for (const doc of q.docs) {
+      const c = doc.data();
+      const lista = (Array.isArray(c.enLista) ? c.enLista : []).filter((x) => x && x.uid !== deUid && x.uid !== aUid);
+      lista.push({ uid: aUid, nombre: aNombre, desde: ahora });
+      await doc.ref.update({
+        createdBy: aUid,
+        createdByName: aNombre,
+        enLista: lista,
+        updatedAt: ahora,
+        traspasos: admin.firestore.FieldValue.arrayUnion({
+          de: deUid, deNombre: de.name || de.email || "", a: aUid, aNombre,
+          fecha: ahora, por: email, motivo: "traspaso de cartera",
+        }),
+      });
+      resumen.clientes++;
+    }
+  }
+
+  // ---- Gestiones ----
+  if (quiere.gestiones) {
+    // La gestión guarda el agente en varios campos y la tarjeta del CRM muestra
+    // agentName: si solo se cambia createdBy, en pantalla sigue figurando el que
+    // se fue. Se buscan por los dos campos porque no todas las gestiones viejas
+    // tienen agentId.
+    const vistos = new Set();
+    for (const campo of ["createdBy", "agentId", "ownerId"]) {
+      const q = await db.collection("gestiones").where(campo, "==", deUid).get();
+      for (const doc of q.docs) {
+        if (vistos.has(doc.id)) continue;
+        vistos.add(doc.id);
+        await doc.ref.update({
+          createdBy: aUid, createdByName: aNombre,
+          agentId: aUid, agentName: aNombre, ownerId: aUid,
+          updatedAt: ahora,
+        });
+        resumen.gestiones++;
+      }
+    }
+  }
+
+  // ---- Mercado Libre: contacto nuevo en cada aviso vivo ----
+  if (propsConAviso.length) {
+    let token = null;
+    try { token = await getValidToken(); }
+    catch (e) { logger.warn("traspasarCartera: sin token de ML —", e.message); }
+    if (token) {
+      const headers = { Authorization: `Bearer ${token}` };
+      for (const item of propsConAviso) {
+        try {
+          const doc = await db.collection("properties").doc(item.id).get();
+          const contacto = await buildSellerContact(doc.data());
+          await axios.put(`${API}/items/${item.mlItemId}`, { seller_contact: contacto }, { headers });
+          resumen.avisosActualizados++;
+        } catch (e) {
+          const detalle = (e.response && e.response.data && (e.response.data.message || e.response.data.error)) || e.message;
+          resumen.avisosConError.push({ itemId: item.mlItemId, error: String(detalle).slice(0, 120) });
+          logger.warn(`traspasarCartera: no se pudo actualizar ${item.mlItemId} —`, detalle);
+        }
+      }
+    } else {
+      resumen.avisosConError.push({ itemId: "-", error: "No hay conexión con Mercado Libre" });
+    }
+  }
+
+  // ---- Registro del traspaso ----
+  await db.collection("traspasos").add({
+    de: deUid, deNombre: de.name || de.email || "", a: aUid, aNombre,
+    por: email, fecha: ahora, resumen,
+  });
+
+  logger.info(`Traspaso ${de.name || deUid} -> ${aNombre}: ${resumen.propiedades} propiedades, ${resumen.clientes} clientes, ${resumen.avisosActualizados} avisos actualizados`);
+  return resumen;
+});
+
+
+// =====================================================================
+// TRASPASO DE PROPIEDADES SUELTAS — mismo criterio que el traspaso de cartera,
+// pero para un puñado de propiedades elegidas (por ejemplo, las de un cliente
+// que se reasigna). Actualiza el dueño, limpia el WhatsApp propio y empuja a
+// Mercado Libre el contacto nuevo de cada aviso vivo.
+// =====================================================================
+exports.traspasarPropiedades = onCall(async (request) => {
+  const email = (request.auth && request.auth.token && request.auth.token.email || "").toLowerCase();
+  if (email !== ADMIN_EMAIL) throw new HttpsError("permission-denied", "Solo el administrador puede traspasar propiedades.");
+
+  const { propertyIds, aUid, soloDe } = request.data || {};
+  if (!Array.isArray(propertyIds) || !propertyIds.length) throw new HttpsError("invalid-argument", "No se indicaron propiedades.");
+  if (!aUid) throw new HttpsError("invalid-argument", "Falta el agente destino.");
+
+  const aSnap = await db.collection("users").doc(aUid).get();
+  if (!aSnap.exists) throw new HttpsError("not-found", "El agente destino no existe.");
+  const aNombre = aSnap.data().name || aSnap.data().email || "Agente";
+  const ahora = new Date().toISOString();
+  const resumen = { propiedades: 0, omitidas: 0, avisosActualizados: 0, avisosConError: [] };
+
+  let token = null;
+  try { token = await getValidToken(); } catch (e) { logger.warn("traspasarPropiedades: sin token de ML —", e.message); }
+  const headers = token ? { Authorization: `Bearer ${token}` } : null;
+
+  for (const pid of propertyIds) {
+    const ref = db.collection("properties").doc(String(pid));
+    const doc = await ref.get();
+    if (!doc.exists) continue;
+    const p = doc.data();
+    if (p.ownerId === aUid) continue;            // ya es de ese agente
+    // Un cliente puede tener varias propiedades con distintos agentes. Si se
+    // indica de quién se está traspasando, no se tocan las de los demás.
+    if (soloDe && p.ownerId !== soloDe) { resumen.omitidas = (resumen.omitidas || 0) + 1; continue; }
+    const agentes = Array.isArray(p.agents) ? p.agents.filter((x) => x !== p.ownerId) : [];
+    if (!agentes.includes(aUid)) agentes.push(aUid);
+    await ref.update({
+      ownerId: aUid, ownerName: aNombre, agents: agentes,
+      ownerWhatsapp: admin.firestore.FieldValue.delete(),
+      traspasoAt: ahora, updatedAt: ahora,
+    });
+    resumen.propiedades++;
+
+    if (p.mlItemId && headers) {
+      try {
+        const fresco = await ref.get();
+        const contacto = await buildSellerContact(fresco.data());
+        await axios.put(`${API}/items/${p.mlItemId}`, { seller_contact: contacto }, { headers });
+        resumen.avisosActualizados++;
+      } catch (e) {
+        const detalle = (e.response && e.response.data && (e.response.data.message || e.response.data.error)) || e.message;
+        resumen.avisosConError.push({ itemId: p.mlItemId, error: String(detalle).slice(0, 120) });
+      }
+    } else if (p.mlItemId) {
+      resumen.avisosConError.push({ itemId: p.mlItemId, error: "No hay conexión con Mercado Libre" });
+    }
+  }
+
+  logger.info(`Traspaso de ${resumen.propiedades} propiedades a ${aNombre}, ${resumen.avisosActualizados} avisos actualizados`);
+  return resumen;
 });
 
 exports.bajaML = onCall(async (request) => {

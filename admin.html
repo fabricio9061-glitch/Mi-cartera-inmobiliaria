@@ -103,6 +103,9 @@
     .met b.nada{color:var(--muted-2)}
     .met span{display:block;font-size:.63rem;color:var(--muted-2);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
 
+    .cpk{flex-direction:row;align-items:center;gap:9px}
+    .cpk input{width:17px;height:17px;flex:none}
+    .cpk span{font-size:.9rem}
     .kb{flex:none;width:32px;height:32px;border:none;background:none;border-radius:8px;color:var(--muted-2);
       cursor:pointer;font-size:.95rem;transition:background .13s,color .13s}
     .kb:hover{background:var(--paper);color:var(--ink)}
@@ -233,6 +236,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js"></script>
 <script>
   var firebaseConfig = {
     apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
@@ -507,6 +511,7 @@
       {ico:'fa-wallet', txt:'Dinero y puntos', fn:function(){ finanzas(u.id); }},
       {ico:'fa-eye', txt:'Ver perfil público', fn:function(){ window.open('index.html#perfil/'+u.id,'_blank'); }}
     ];
+    if (!admin) _acciones[u.id].splice(3, 0, {ico:'fa-right-left', txt:'Transferir cartera', fn:function(){ traspasar(u.id); }});
     if (!admin) _acciones[u.id].push({ico:'fa-trash', txt:'Eliminar', mal:1, fn:function(){ eliminar(u.id); }});
     return '<div class="row">'+avatar(u)+
       '<div class="id"><div class="id-n"><b>'+esc(u.name||'Sin nombre')+'</b>' +
@@ -557,6 +562,59 @@
     try{ await db.collection('users').doc(id).update({status:'rejected'}); toast('Solicitud rechazada'); ver('equipo'); contadores(); }
     catch(e){ toast('No se pudo rechazar'); }
   }
+
+  // ---- Traspaso de cartera ----------------------------------------------
+  // Cuando un agente se va, sus propiedades, clientes y gestiones pasan a otro.
+  // Lo que no se ve pero importa: los avisos ya publicados en Mercado Libre
+  // guardan adentro el teléfono del agente que los creó, así que el traspaso
+  // también empuja el contacto nuevo aviso por aviso. InfoCasas y el CRM leen el
+  // dueño en cada consulta, así que ahí se corrige solo.
+  function traspasar(id){
+    var u = agente(id); if(!u) return;
+    var otros = _agentes.filter(function(a){ return a.id !== id; });
+    if(!otros.length){ toast('No hay otro agente al que transferirle'); return; }
+    var opts = otros.map(function(a){
+      return '<option value="'+escA(a.id)+'">'+esc(a.name||a.email||'Agente')+'</option>';
+    }).join('');
+    abrirPanel('Transferir cartera de '+(u.name||'agente'),
+      '<p class="cp-nota" style="margin-top:0">Todo lo que esté a nombre de <b>'+esc(u.name||u.email||'')+
+      '</b> pasa al agente que elijas. Los avisos publicados en Mercado Libre se actualizan con el teléfono del agente nuevo.</p>'+
+      '<label class="cp"><span>Nuevo responsable</span><select id="trDestino">'+opts+'</select></label>'+
+      '<label class="cp cpk"><input type="checkbox" id="trProps" checked><span>Propiedades</span></label>'+
+      '<label class="cp cpk"><input type="checkbox" id="trClis" checked><span>Clientes</span></label>'+
+      '<label class="cp cpk"><input type="checkbox" id="trGest" checked><span>Gestiones</span></label>'+
+      '<p class="cp-nota">Puede demorar si hay muchos avisos publicados: cada uno se actualiza por separado.</p>',
+      function(){ return confirmarTraspaso(id); });
+  }
+
+  async function confirmarTraspaso(deId){
+    var destino = document.getElementById('trDestino').value;
+    var mueve = {
+      propiedades: document.getElementById('trProps').checked,
+      clientes: document.getElementById('trClis').checked,
+      gestiones: document.getElementById('trGest').checked
+    };
+    if(!mueve.propiedades && !mueve.clientes && !mueve.gestiones){ toast('Elegí al menos una cosa para transferir'); return; }
+    var r = await firebase.functions().httpsCallable('traspasarCartera')({ deUid: deId, aUid: destino, mueve: mueve });
+    var d = r.data || {};
+    cerrarPanel();
+    var partes = [];
+    if(d.propiedades) partes.push(d.propiedades+' propiedad'+(d.propiedades===1?'':'es'));
+    if(d.clientes) partes.push(d.clientes+' cliente'+(d.clientes===1?'':'s'));
+    if(d.gestiones) partes.push(d.gestiones+' gestión'+(d.gestiones===1?'':'es'));
+    var msg = partes.length ? 'Se transfirieron '+partes.join(', ') : 'No había nada para transferir';
+    if(d.avisosActualizados) msg += '. Avisos de ML actualizados: '+d.avisosActualizados;
+    toast(msg);
+    // Los avisos que no se pudieron actualizar hay que decirlos: si no, el
+    // teléfono viejo queda publicado y nadie se entera.
+    if(d.avisosConError && d.avisosConError.length){
+      alert('Quedaron '+d.avisosConError.length+' aviso(s) de Mercado Libre sin actualizar el contacto.\n\n'+
+        d.avisosConError.map(function(x){ return '· '+x.itemId+': '+x.error; }).join('\n')+
+        '\n\nRevisalos desde la propiedad y volvé a publicar si hace falta.');
+    }
+    ver('equipo');
+  }
+
   async function eliminar(id){
     if(!confirm('¿Eliminar este usuario definitivamente? No se puede deshacer.')) return;
     try{ await db.collection('users').doc(id).delete(); toast('Usuario eliminado'); ver('equipo'); }

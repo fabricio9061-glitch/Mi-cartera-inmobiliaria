@@ -127,6 +127,8 @@
     /* Modal "cliente dormido" */
     .dormido-overlay{ position:fixed; inset:0; background:rgba(15,25,40,.55); z-index:3300; display:flex; align-items:center; justify-content:center; padding:16px; }
     .dormido-box{ background:#fff; border-radius:16px; max-width:400px; width:100%; padding:22px; box-shadow:0 20px 60px rgba(10,20,35,.35); max-height:88vh; overflow-y:auto; }
+    .trs-chk{display:flex;align-items:flex-start;gap:9px;margin:12px 0 2px;cursor:pointer;font-size:.88rem;line-height:1.35}
+    .trs-chk input{width:17px;height:17px;flex:none;margin-top:1px}
     /* El selector del traspaso: etiqueta arriba y campo a lo ancho. En línea, con
        nombres largos de agente, el desplegable quedaba de dos centímetros. */
     .trs-sel{ display:block; margin-bottom:14px; }
@@ -517,6 +519,9 @@
     .cp-visita-chip:hover{ border-color:#7c3aed; }
     .cp-visita-chip.pasada{ color:#9aa3ad; background:#f7f7f8; border-color:#e5e7eb; }
     .cp-grow-agent{ font-size:.7rem; color:var(--gray-400); display:inline-flex; align-items:center; gap:5px; }
+    .cp-agent-btn{ background:none; border:1px dashed var(--gray-300); border-radius:999px; padding:3px 9px;
+      cursor:pointer; font-family:inherit; transition:.15s }
+    .cp-agent-btn:hover{ border-color:var(--gold,#c9a227); color:var(--gray-600) }
     .g-rol{ font-size:.66rem; font-weight:700; padding:2px 8px; border-radius:999px; letter-spacing:.02em; }
     .g-rol.propietario{ background:#fdf6e3; color:#8a6d1a; border:1px solid #ecd9a0; }
     .g-rol.interesado{ background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
@@ -841,6 +846,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
   <script>
     var firebaseConfig = {
       apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
@@ -2248,7 +2254,9 @@
             ? '<div class="cp-inline-sel"><label>Propiedad</label><select'+propDisabled+' onchange="cambiarEstadoPropiedad(\''+g.propertyId+'\', this.value)">'+optsProp+'</select></div>' + ((prop && prop.despubPendiente) ? '<span class="despub-pend" title="Un propietario perdido: el admin decide desde la campanita si se despublica"><i class="fas fa-hourglass-half"></i> despublicación pendiente</span>' : '')
             : '<span class="cp-grow-noprop"><i class="fas fa-circle-info"></i> Propiedad no encontrada</span>') +
           (function(){ var _rg = rolDeGestion(g); return '<span class="g-rol '+_rg+'" title="Rol del cliente en esta gestión (se cambia con el lápiz)">'+(_rg==='propietario'?'Propietario':'Interesado')+'</span>'; })() +
-          '<span class="cp-grow-agent"><i class="fas fa-user-tie"></i> '+esc(g.agentName||'Agente')+'</span>' +
+          (isAdmin
+            ? '<button class="cp-grow-agent cp-agent-btn" title="Cambiar el agente de esta gestión" onclick="cambiarAgenteGestion(\''+escA(g.id)+'\')"><i class="fas fa-user-tie"></i> '+esc(g.agentName||'Agente')+' <i class="fas fa-pen" style="font-size:.62rem;opacity:.6"></i></button>'
+            : '<span class="cp-grow-agent"><i class="fas fa-user-tie"></i> '+esc(g.agentName||'Agente')+'</span>') +
           visitasGestionHtml(g) +
         '</div>' +
         contratoGestionHtml(prop, g) +
@@ -3014,6 +3022,11 @@
           '<p class="dormido-p"><b>'+esc(c.name||'Este cliente')+'</b> figura a nombre de <b>'+esc(c.createdByName||'—')+'</b>. ' +
           'El nuevo dueño pasa a tenerlo en su lista y queda registrado quién hizo el traspaso.</p>' +
           '<div class="trs-sel"><label>Nuevo dueño</label><select id="trsDestino">'+opts+'</select></div>' +
+          (isAdmin ? '<label class="trs-chk"><input type="checkbox" id="trsArrastra" checked>' +
+            '<span>Traspasar también sus gestiones y propiedades</span></label>' +
+            '<p class="dormido-p" style="margin-top:6px;font-size:.82rem">Se mueve solo lo que está a nombre de <b>'+esc(c.createdByName||'ese agente')+'</b>. ' +
+            'Si el cliente tiene otras propiedades con otros agentes, esas no se tocan. ' +
+            'En las que sí se mueven cambia el agente en el CRM y se actualiza el contacto de los avisos de Mercado Libre.</p>' : '') +
           '<button class="dormido-opt" onclick="confirmarTraspaso(\'' + escA(clientId) + '\')"><i class="fas fa-check"></i> Traspasar</button>' +
           '<button class="dormido-cancel" onclick="this.closest(\'.dormido-overlay\').remove()">Cancelar</button>' +
         '</div>';
@@ -3028,7 +3041,12 @@
       if (!destino) return;
       var c = null; for (var i=0;i<clients.length;i++){ if(clients[i].id===clientId){ c=clients[i]; break; } }
       if (!c) return;
+      var chk = document.getElementById('trsArrastra');
+      var arrastra = !!(chk && chk.checked);
+      var deUid = c.createdBy;   // hay que leerlo antes: el traspaso lo pisa
       traspasarUno(c, destino).then(function(){
+        return arrastra ? arrastrarGestionesYPropiedades(clientId, destino, deUid) : null;
+      }).then(function(){
         var ov = document.querySelector('.dormido-overlay'); if (ov) ov.remove();
         showToast('Traspasado a '+(destino.name||destino.email));
         _lote=null; _modoSeleccion=false; _seleccion.clear();
@@ -3062,6 +3080,134 @@
         c.enLista = lista;
         c.updatedAt = ahora;
         c.traspasos = (c.traspasos||[]).concat([registro]);
+      });
+    }
+
+
+    // Traspasar el cliente sin sus gestiones dejaba en pantalla al agente que se
+    // fue: la tarjeta de la gestión muestra agentName, y la propiedad seguía a su
+    // nombre. Esto arrastra las dos cosas, y la propiedad se mueve desde el
+    // servidor porque además hay que actualizar el contacto en Mercado Libre.
+
+    // Cambiar el agente de UNA gestión. Es el camino correcto cuando un agente se
+    // va: el cliente es de la agencia y puede tener varias propiedades con
+    // distintos agentes, así que reasignar por cliente movería trabajo ajeno.
+    // Mueve la gestión y su propiedad, y actualiza el contacto del aviso en ML.
+    function cambiarAgenteGestion(gestionId){
+      if (!isAdmin) return;
+      db.collection('gestiones').doc(gestionId).get().then(function(d){
+        if (!d.exists){ showToast('No se encontró la gestión'); return; }
+        var g = d.data();
+        var actual = g.agentId || g.createdBy || g.ownerId || '';
+        return cargarAgentes().then(function(ags){
+          var opts = ags.filter(function(a){ return a.uid !== actual; })
+            .map(function(a){ return '<option value="'+escA(a.uid)+'">'+esc(a.name||a.email)+'</option>'; }).join('');
+          if (!opts){ showToast('No hay otro agente disponible'); return; }
+          var ov = document.createElement('div');
+          ov.className = 'dormido-overlay';
+          ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+          ov.innerHTML = '<div class="dormido-box">' +
+            '<div class="dormido-head"><i class="fas fa-user-tie"></i> Agente de esta gestión</div>' +
+            '<p class="dormido-p">Hoy la trabaja <b>'+esc(g.agentName||'—')+'</b>. ' +
+            'El agente nuevo pasa a figurar en la gestión y en la propiedad, y se actualiza el contacto de los avisos publicados en Mercado Libre.</p>' +
+            '<div class="trs-sel"><label>Nuevo agente</label><select id="gagDestino">'+opts+'</select></div>' +
+            '<label class="trs-chk"><input type="checkbox" id="gagProp" checked><span>Traspasar también la propiedad</span></label>' +
+            '<button class="dormido-opt" onclick="confirmarAgenteGestion(\'' + escA(gestionId) + '\')"><i class="fas fa-check"></i> Cambiar agente</button>' +
+            '<button class="dormido-cancel" onclick="this.closest(\'.dormido-overlay\').remove()">Cancelar</button>' +
+          '</div>';
+          document.body.appendChild(ov);
+        });
+      }).catch(function(e){ console.error(e); showToast('No se pudo abrir'); });
+    }
+
+    function confirmarAgenteGestion(gestionId){
+      var sel = document.getElementById('gagDestino'); if (!sel) return;
+      var destino = _agentes.filter(function(a){ return a.uid === sel.value; })[0];
+      if (!destino) return;
+      var conProp = document.getElementById('gagProp');
+      var mueveProp = !!(conProp && conProp.checked);
+      var nombre = destino.name || destino.email || 'Agente';
+      var ahora = new Date().toISOString();
+      var propertyId = null;
+
+      db.collection('gestiones').doc(gestionId).get().then(function(d){
+        propertyId = d.exists ? (d.data().propertyId || null) : null;
+        return db.collection('gestiones').doc(gestionId).update({
+          agentId: destino.uid, agentName: nombre,
+          createdBy: destino.uid, createdByName: nombre,
+          ownerId: destino.uid, updatedAt: ahora
+        });
+      }).then(function(){
+        if (!mueveProp || !propertyId) return null;
+        return firebase.functions().httpsCallable('traspasarPropiedades')({
+          propertyIds: [propertyId], aUid: destino.uid
+        }).then(function(r){
+          var x = (r && r.data) || {};
+          if (x.avisosConError && x.avisosConError.length){
+            alert('La propiedad se traspasó, pero quedaron '+x.avisosConError.length+' aviso(s) de Mercado Libre con el contacto anterior.\n\n'+
+              x.avisosConError.map(function(y){ return '· '+y.itemId+': '+y.error; }).join('\n'));
+          } else if (x.avisosActualizados){
+            showToast('Aviso de Mercado Libre actualizado', 'Ahora contesta '+nombre);
+          }
+        }).catch(function(e){
+          console.error(e);
+          showToast('La gestión cambió de agente', 'La propiedad no se pudo traspasar: probá desde Equipo');
+        });
+      }).then(function(){
+        var ov = document.querySelector('.dormido-overlay'); if (ov) ov.remove();
+        showToast('Ahora la trabaja '+nombre);
+        if (currentProfileId) renderGestiones(currentProfileId);
+      }).catch(function(e){ console.error(e); showToast('No se pudo cambiar el agente'); });
+    }
+
+    // Un mismo cliente puede tener varias propiedades y cada una con un agente
+    // distinto: los clientes son de la agencia, no del agente. Por eso se mueve
+    // SOLO lo que estaba a nombre del agente de origen; lo de los demás queda
+    // intacto. Sin este filtro, traspasar un cliente le robaba trabajo a otro.
+    function gestionEsDe(g, uid){
+      return g.agentId === uid || g.createdBy === uid || g.ownerId === uid;
+    }
+    function arrastrarGestionesYPropiedades(clientId, destino, deUid){
+      var nombre = destino.name || destino.email || 'Agente';
+      var ahora = new Date().toISOString();
+      return db.collection('gestiones').where('clientId','==',clientId).get().then(function(q){
+        var props = [], ajenas = 0;
+        var cambios = [];
+        q.docs.forEach(function(d){
+          var g = d.data();
+          if (deUid && !gestionEsDe(g, deUid)) { ajenas++; return; }
+          if (g.propertyId) props.push(g.propertyId);
+          cambios.push(d.ref.update({
+            agentId: destino.uid, agentName: nombre,
+            createdBy: destino.uid, createdByName: nombre,
+            ownerId: destino.uid, updatedAt: ahora
+          }));
+        });
+        return Promise.all(cambios).then(function(){ return { props: props, ajenas: ajenas }; });
+      }).then(function(res){
+        var props = res.props;
+        if (res.ajenas) showToast('Se respetaron '+res.ajenas+' gestión(es)', 'Están a nombre de otro agente y no se tocaron');
+        if (!props.length || !isAdmin) return null;
+        return firebase.functions().httpsCallable('traspasarPropiedades')({
+          propertyIds: props, aUid: destino.uid, soloDe: deUid || null
+        }).then(function(r){
+          var d = (r && r.data) || {};
+          if (d.propiedades) {
+            var msg = d.propiedades+' propiedad'+(d.propiedades===1?'':'es')+' a nombre de '+nombre;
+            if (d.avisosActualizados) msg += ' · '+d.avisosActualizados+' aviso(s) de ML actualizados';
+            showToast('Propiedades traspasadas', msg);
+          }
+          if (d.omitidas) showToast('Se respetaron '+d.omitidas+' propiedad(es)', 'Son de otro agente');
+          // Un aviso sin actualizar deja publicado el teléfono del agente anterior:
+          // se avisa en vez de dejarlo pasar.
+          if (d.avisosConError && d.avisosConError.length) {
+            alert('Quedaron '+d.avisosConError.length+' aviso(s) de Mercado Libre con el contacto anterior.\n\n'+
+              d.avisosConError.map(function(x){ return '· '+x.itemId+': '+x.error; }).join('\n'));
+          }
+        }).catch(function(e){
+          console.error(e);
+          showToast('Las propiedades no se pudieron traspasar', 'Probá desde Equipo → Transferir cartera');
+        });
       });
     }
 
