@@ -244,7 +244,28 @@
       .pf-cal-hint{ grid-column:1 / -1; font-size:.8rem; }
       .pf-sec{ padding:16px 14px 8px; }
     }
-  </style>
+  
+    /* Panel de pendientes: una sola acción destacada y el resto plegado. */
+    .fx-next{ display:flex; flex-direction:column; align-items:flex-start; gap:3px; width:100%;
+      text-align:left; border:1px solid var(--line,#e6e6e6); border-left:4px solid var(--bad,#c0392b);
+      background:#fff; border-radius:12px; padding:12px 14px; cursor:pointer; font-family:inherit;
+      transition:.15s; position:relative }
+    .fx-next.gold{ border-left-color:var(--gold,#c9a227) }
+    .fx-next:hover{ box-shadow:0 3px 12px rgba(20,30,50,.08); transform:translateY(-1px) }
+    .fx-next-rot{ font-size:.66rem; letter-spacing:.09em; text-transform:uppercase; color:var(--muted,#8a93a3) }
+    .fx-next-campo{ font-size:1rem; font-weight:600; color:var(--ink,#1a2740) }
+    .fx-next-campo em{ font-style:normal; font-weight:400; font-size:.8rem; color:var(--muted,#8a93a3) }
+    .fx-next-ir{ font-size:.74rem; color:var(--gold,#c9a227); font-weight:600; margin-top:2px }
+    .fx-resto{ margin-top:10px }
+    .fx-resto summary{ cursor:pointer; font-size:.78rem; color:var(--muted,#8a93a3); padding:4px 0; list-style:none }
+    .fx-resto summary::-webkit-details-marker{ display:none }
+    .fx-resto summary:before{ content:'▸ '; }
+    .fx-resto[open] summary:before{ content:'▾ '; }
+    .fx-resto-body{ padding-top:6px }
+    .fx-prog{ height:5px; border-radius:99px; background:#eceff3; overflow:hidden; margin-bottom:6px }
+    .fx-prog span{ display:block; height:100%; background:linear-gradient(90deg,#c9a227,#e0c25f); transition:width .3s }
+    .fx-prog-txt{ font-size:.74rem; color:var(--muted,#8a93a3) }
+</style>
 <style>
   /* Área segura superior (isla dinámica / notch) en toda la herramienta */
   /* El margen de la barra de estado lo reserva EL HEADER, no el body.
@@ -3167,14 +3188,51 @@
         return;
       }
       const chip = (c, cls) => `<button type="button" class="fx-chip ${cls}" onclick="irACampo('${escAttr(c.id)}')">${esc(c.label)}${FX_CLAVE[c.id] ? ` <em>${esc(FX_CLAVE[c.id])}</em>` : ''}</button>`;
-      let h = '<div class="fx-falt-head"><i class="fas fa-list-check"></i> Lo que falta</div>';
-      if (bloq.length) h += '<div class="fx-falt-row"><span class="fx-falt-lbl bad">Frena el guardado</span>' + bloq.map(c => chip(c, 'bad')).join('') + '</div>';
-      if (sinRev.length) h += '<div class="fx-falt-row"><span class="fx-falt-lbl bad">Falta confirmar</span>' + sinRev.map(g =>
-        `<button type="button" class="fx-chip bad" onclick="irAGrupo('${escAttr(g)}')">${esc(g)}</button>`).join('') + '</div>';
-      if (clave.length) h += '<div class="fx-falt-row"><span class="fx-falt-lbl">Sube la calidad</span>' + clave.map(c => chip(c, 'gold')).join('') + '</div>';
-      h += `<div class="fx-falt-foot">Campos con dato: <b>${llenos}/${conDato.length}</b>` +
-           (faltanMitad ? ` — faltan ${faltanMitad} para la mitad, que es donde Mercado Libre empieza a puntuarlos.` : ' — ya pasaste la mitad que puntúa Mercado Libre.') +
-           '</div>';
+
+      // Antes se mostraban las tres listas a la vez: nueve etiquetas iguales que
+      // no decían por dónde empezar. Ahora hay UNA sola cosa siguiente, grande y
+      // clicable, y el resto queda plegado. Lo que frena el guardado va primero;
+      // recién cuando no queda nada obligatorio se pasa a lo que sube la calidad.
+      const siguiente =
+        bloq.length   ? { c: bloq[0],   tipo:'bad',  rot:'Falta para poder guardar' } :
+        sinRev.length ? { g: sinRev[0], tipo:'bad',  rot:'Confirmá este grupo' } :
+        clave.length  ? { c: clave[0],  tipo:'gold', rot:'Lo que más sube la calidad' } : null;
+
+      let h = '';
+      if (siguiente) {
+        const etiqueta = siguiente.c ? esc(siguiente.c.label) : esc(siguiente.g);
+        const pista = siguiente.c && FX_CLAVE[siguiente.c.id] ? `<em>${esc(FX_CLAVE[siguiente.c.id])}</em>` : '';
+        const accion = siguiente.c
+          ? `irACampo('${escAttr(siguiente.c.id)}')`
+          : `irAGrupo('${escAttr(siguiente.g)}')`;
+        h += `<button type="button" class="fx-next ${siguiente.tipo}" onclick="${accion}">` +
+             `<span class="fx-next-rot">${siguiente.rot}</span>` +
+             `<span class="fx-next-campo">${etiqueta} ${pista}</span>` +
+             `<span class="fx-next-ir">Completar <i class="fas fa-arrow-right"></i></span></button>`;
+      }
+
+      const restantes = bloq.length + sinRev.length + clave.length - (siguiente ? 1 : 0);
+      if (restantes > 0) {
+        h += `<details class="fx-resto"><summary>Ver los otros ${restantes} pendientes</summary><div class="fx-resto-body">`;
+        const saltarCampo = siguiente && siguiente.c ? siguiente.c.id : null;
+        const saltarGrupo = siguiente && siguiente.g ? siguiente.g : null;
+        const bloqR = bloq.filter(c => c.id !== saltarCampo);
+        const revR  = sinRev.filter(g => g !== saltarGrupo);
+        const claveR = clave.filter(c => c.id !== saltarCampo);
+        if (bloqR.length) h += '<div class="fx-falt-row"><span class="fx-falt-lbl bad">Frena el guardado</span>' + bloqR.map(c => chip(c, 'bad')).join('') + '</div>';
+        if (revR.length) h += '<div class="fx-falt-row"><span class="fx-falt-lbl bad">Falta confirmar</span>' + revR.map(g =>
+          `<button type="button" class="fx-chip bad" onclick="irAGrupo('${escAttr(g)}')">${esc(g)}</button>`).join('') + '</div>';
+        if (claveR.length) h += '<div class="fx-falt-row"><span class="fx-falt-lbl">Sube la calidad</span>' + claveR.map(c => chip(c, 'gold')).join('') + '</div>';
+        h += '</div></details>';
+      }
+
+      // El progreso en una barra: un número suelto no dice si vas bien o mal.
+      const pct = conDato.length ? Math.round(100 * llenos / conDato.length) : 0;
+      h += `<div class="fx-falt-foot">` +
+           `<div class="fx-prog"><span style="width:${pct}%"></span></div>` +
+           `<span class="fx-prog-txt"><b>${llenos}</b> de ${conDato.length} campos con dato` +
+           (faltanMitad ? ` · faltan ${faltanMitad} para la mitad, que es donde Mercado Libre empieza a puntuar` : ' · ya pasaste la mitad que puntúa Mercado Libre') +
+           `</span></div>`;
       cont.className = 'fx-falt';
       cont.innerHTML = h;
     }
@@ -3358,10 +3416,12 @@
         if (fcEl) {
           // Se cuentan las ÚNICAS: Mercado Libre descarta las repetidas, así que
           // decir "12 fotos" con cuatro iguales sería mentirle al agente.
+          // Las repetidas cuentan para el mínimo, pero se avisan igual: doce fotos
+          // con cuatro iguales publican, aunque al que mira el aviso no le suman.
           const unicas = fotosUnicas(), repes = fotos - unicas;
-          const aviso = repes ? ` <span style="color:var(--bad)">· ${repes} repetida${repes > 1 ? 's' : ''}, Mercado Libre las cuenta como una</span>` : '';
-          if (unicas >= 12) fcEl.innerHTML = `<span class="b" style="color:var(--ok)"><i class="fas fa-circle-check"></i> ${unicas} fotos distintas — cumple el mínimo (12)</span>${aviso}`;
-          else fcEl.innerHTML = `<span class="b" style="color:var(--bad)"><i class="fas fa-triangle-exclamation"></i> ${unicas} de 12 fotos distintas — faltan ${12 - unicas}</span>${aviso}`;
+          const aviso = repes ? ` <span style="color:var(--muted)">· ${repes} repetida${repes > 1 ? 's' : ''} — suman al mínimo, pero variar las tomas rinde más</span>` : '';
+          if (fotos >= 12) fcEl.innerHTML = `<span class="b" style="color:var(--ok)"><i class="fas fa-circle-check"></i> ${fotos} fotos — cumple el mínimo (12)</span>${aviso}`;
+          else fcEl.innerHTML = `<span class="b" style="color:var(--bad)"><i class="fas fa-triangle-exclamation"></i> ${fotos} de 12 fotos — faltan ${12 - fotos}</span>${aviso}`;
         }
         updateFichaCounters();
       } catch (e) { /* la calidad nunca debe romper el form */ }
@@ -3441,13 +3501,13 @@
     async function handleSaveProperty(e) {
       e.preventDefault();
       if (!currentUser) { alert('Debes iniciar sesión'); return }
-      const _unicas = fotosUnicas();
-      if (_unicas < 12) {
-        const faltan = 12 - _unicas;
-        const repes = selectedImages.length - _unicas;
-        alert('Se necesitan al menos 12 fotos DISTINTAS para publicar.\n\nTenés ' + selectedImages.length + ' cargadas' +
-              (repes ? ', pero ' + repes + ' están repetidas: Mercado Libre descarta las iguales y solo cuenta ' + _unicas + '.' : '.') +
-              '\nFaltan ' + faltan + '.');
+      // El mínimo son 12 fotos cargadas. Las repetidas cuentan: al subirlas se
+      // guardan con nombre propio y un píxel distinto, así que a los portales
+      // llegan como fotos separadas. Una propiedad chica no siempre da doce
+      // tomas diferentes y no tiene sentido dejarla sin publicar por eso.
+      if (selectedImages.length < 12) {
+        const faltan = 12 - selectedImages.length;
+        alert('Se necesitan al menos 12 fotos para publicar.\n\nTenés ' + selectedImages.length + '. Faltan ' + faltan + '.');
         var _sec = document.getElementById('sec5'); if (_sec) _sec.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
