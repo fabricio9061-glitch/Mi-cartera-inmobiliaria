@@ -278,6 +278,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="rangos.js?v=20260821b"></script>
   <script>
     var firebaseConfig = {
       apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
@@ -305,7 +306,11 @@
     function showToast(msg){ var t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); },3000); }
 
     // ===== Auth =====
-    auth.onAuthStateChanged(function(user){
+    // OJO con el orden: antes isAdmin salía del correo y se resolvía al toque,
+    // así que cargarVisitas() podía arrancar enseguida. Ahora depende del RANGO,
+    // que está en Firestore: hay que leer el perfil ANTES de decidir qué consulta
+    // hacer, o el COO pediría solo sus propias visitas y vería la agenda vacía.
+    auth.onAuthStateChanged(async function(user){
       if (!user){
         document.getElementById('agLoading').style.display='none';
         document.getElementById('agContent').style.display='none';
@@ -313,18 +318,31 @@
         return;
       }
       currentUser = user;
-      isAdmin = (user.email||'').toLowerCase() === ADMIN_EMAIL;
+
+      // El perfil se lee una sola vez y sirve para las dos cosas: el rango y
+      // agProfile (que antes se pedía por separado más abajo).
+      try {
+        var _d = await db.collection('users').doc(user.uid).get();
+        agProfile = _d.exists ? _d.data() : {};
+      } catch(e){ agProfile = {}; }
+
+      // Dirección (CEO y COO) ve la agenda de todo el equipo. El correo del CEO
+      // queda de red de seguridad por si su perfil no tuviera rango cargado.
+      isAdmin = (user.email||'').toLowerCase() === ADMIN_EMAIL ||
+                !!(window.Rangos && Rangos.esDireccion(agProfile));
+
       document.getElementById('agLoading').style.display='none';
       document.getElementById('agAuth').style.display='none';
       document.getElementById('agContent').style.display='block';
       // Rol en la UI
       if (isAdmin){
-        document.getElementById('agRoleTxt').textContent='Administrador';
-        document.getElementById('agRolePill').innerHTML='<i class="fas fa-shield-halved"></i> Administrador';
+        var _et = (window.Rangos && Rangos.etiqueta(agProfile)) || 'Administrador';
+        document.getElementById('agRoleTxt').textContent = _et;
+        document.getElementById('agRolePill').innerHTML='<i class="fas fa-shield-halved"></i> '+esc(_et);
         document.getElementById('agHeroSub').textContent='Agenda de todo el equipo';
       }
       cargarVisitas();
-      db.collection('users').doc(user.uid).get().then(function(d){ agProfile = d.exists ? d.data() : {}; cargarVinculables().then(procesarDeepLink); }).catch(function(){ agProfile = {}; cargarVinculables().then(procesarDeepLink); });
+      cargarVinculables().then(procesarDeepLink);
       refreshRemindBtn();
       startReminders();
     });

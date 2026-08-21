@@ -26,15 +26,28 @@
     .denied{ text-align:center; padding:60px 20px; }
     .denied i{ font-size:2.4rem; color:var(--bad); margin-bottom:12px; }
 
-    /* Selector de tipo de documento */
-    .doc-types{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:26px; }
-    .doc-type{ flex:1; min-width:200px; background:var(--card); border:2px solid var(--line); border-radius:14px; padding:18px; cursor:pointer; transition:all .15s; text-align:left; font-family:inherit; }
+    /* Selector de tipo de documento.
+       Antes era flex con .doc-type{flex:1}: con 5 tarjetas entraban 4 arriba y la
+       quinta caía sola estirada a TODO el ancho, que es lo que se veía feo. Con
+       grid, las columnas están definidas, así que la última fila conserva el
+       ancho de columna y deja el hueco en vez de deformarse. De paso, al ocultar
+       las que un rol no puede usar, las que quedan se reparten parejo solas. */
+    .doc-types{ display:grid; grid-template-columns:repeat(auto-fit, minmax(168px, 1fr));
+      gap:10px; margin-bottom:14px; align-items:stretch; }
+    .doc-type{ background:var(--card); border:2px solid var(--line); border-radius:12px; padding:13px 14px; cursor:pointer; transition:border-color .15s, box-shadow .15s, background .15s; text-align:left; font-family:inherit; }
+    .doc-type[hidden]{ display:none; }
     .doc-type:hover{ border-color:var(--gold); }
-    .doc-type.active{ border-color:var(--ink); background:#fbfcfd; }
+    .doc-type.active{ border-color:var(--ink); background:#fbfcfd; box-shadow:0 4px 14px rgba(22,39,63,.09); }
+
+    /* Aviso de "esto lo emite la administración" */
+    .doc-nota{ font-size:.78rem; color:var(--muted); margin:0 0 24px; display:flex; gap:7px;
+      align-items:flex-start; line-height:1.5; }
+    .doc-nota i{ color:var(--gold); margin-top:2px; flex:none; }
+    .doc-nota[hidden]{ display:none; }
     .doc-type.soon{ opacity:.55; cursor:not-allowed; }
-    .doc-type i{ font-size:1.5rem; color:var(--gold); margin-bottom:8px; display:block; }
-    .doc-type b{ font-size:1rem; display:block; margin-bottom:3px; }
-    .doc-type span{ font-size:.8rem; color:var(--muted); }
+    .doc-type i{ font-size:1.1rem; color:var(--gold); margin-bottom:6px; display:block; }
+    .doc-type b{ font-size:.87rem; display:block; margin-bottom:3px; line-height:1.25; }
+    .doc-type span{ font-size:.72rem; color:var(--muted); line-height:1.4; display:block; }
     .doc-type .soon-tag{ font-size:.68rem; background:var(--gray-100); color:var(--muted); padding:2px 8px; border-radius:999px; display:inline-block; margin-top:6px; }
 
     /* Layout formulario + vista previa */
@@ -169,6 +182,11 @@
           <span>Cómo trabaja la agencia en un arrendamiento. Se entrega al captar.</span>
         </button>
       </div>
+
+      <!-- Aviso para los roles que no emiten todos los documentos. El texto lo
+           arma aplicarPermisos() con los nombres de las tarjetas ocultas, así no
+           hay una lista repetida que se desactualice al cambiar los permisos. -->
+      <p class="doc-nota" id="docNota" hidden></p>
 
       <div class="doc-grid">
         <!-- Formulario -->
@@ -524,6 +542,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="rangos.js?v=20260821b"></script>
   <script>
     // ===== Datos FIJOS del membrete (no cambian) =====
     var EMPRESA = {
@@ -3343,30 +3362,48 @@
     function puede(tipo){ return PERMISOS[tipo] === 'todos' || esAdmin; }
 
     function aplicarPermisos(){
+      // Lo que el rol no puede generar se OCULTA. Antes quedaba visible con un
+      // candado; la idea era que supieras que existe y a quién pedírselo, pero en
+      // la práctica es un botón que no se puede tocar y suma ruido a la pantalla.
+      // Ese "saber que existe" ahora lo cubre el aviso de abajo.
+      // Se usa hidden (y no una clase) para que también salga del layout del grid
+      // y las tarjetas que quedan se repartan bien el ancho.
+      var ocultos = [];
       document.querySelectorAll('.doc-type[data-type]').forEach(function(b){
         var t = b.getAttribute('data-type');
-        if (puede(t)) return;
-        b.classList.add('doc-bloq');
-        b.setAttribute('title', 'Lo genera la administración');
-        b.onclick = function(){ toast('Este documento lo genera la administración', true); };
-        if (!b.querySelector('.doc-lock')) {
-          var l = document.createElement('span');
-          l.className = 'doc-lock';
-          l.innerHTML = '<i class="fas fa-lock"></i> Administración';
-          b.appendChild(l);
-        }
+        var ok = puede(t);
+        b.hidden = !ok;
+        // El nombre sale de la propia tarjeta: si mañana cambia el título o los
+        // permisos, el aviso acompaña sin tocar nada acá.
+        if (!ok) { var n = b.querySelector('b'); if (n) ocultos.push(n.textContent.trim()); }
       });
+
+      var nota = document.getElementById('docNota');
+      if (nota) {
+        if (ocultos.length) {
+          var lista = ocultos.length === 1 ? ocultos[0]
+                    : ocultos.slice(0, -1).join(', ') + ' y ' + ocultos[ocultos.length - 1];
+          nota.innerHTML = '<i class="fas fa-circle-info"></i><span>' +
+            '<b>' + lista + '</b> ' + (ocultos.length === 1 ? 'lo emite' : 'los emite') +
+            ' la administración. Si necesitás uno para una operación tuya, pedíselo y te lo generan.</span>';
+          nota.hidden = false;
+        } else {
+          nota.hidden = true;
+        }
+      }
+
       // Si el tipo activo no está permitido, se pasa al primero que sí.
       if (!puede(_tipoActivo)) {
         var libre = Object.keys(PERMISOS).filter(puede)[0];
         if (libre) selectType(libre);
       }
-      // Dentro de Comisión, el momento "Al firmar" (carta de pago) es del admin.
+      // Dentro de Comisión, el momento "Al firmar" (carta de pago) es de Dirección.
+      // Si no corresponde, se oculta el botón y el segmentado queda solo con
+      // "Al reservar"; además se fuerza ese modo, por si venía en el otro.
       var segCarta = document.getElementById('segCarta');
       if (segCarta && !esAdmin) {
-        segCarta.classList.add('doc-bloq');
-        segCarta.title = 'La carta de pago la emite la administración';
-        segCarta.onclick = function(){ toast('La carta de pago la emite la administración', true); };
+        segCarta.hidden = true;
+        if (typeof setComprobante === 'function') setComprobante('reserva');
       }
     }
 
@@ -3448,14 +3485,16 @@
         var me = await db.collection('users').doc(user.uid).get();
         if(me.exists){
           agenteLogueado = me.data().name || '';
-          if(!isAdmin) isAdmin = (me.data().email||'').toLowerCase()===ADMIN_EMAIL;
+          // Los documentos de plata (reserva y carta de pago) pasan a ser de
+          // DIRECCIÓN, no de un correo suelto: por eso el COO ya los puede emitir.
+          if(!isAdmin) isAdmin = !!(window.Rangos && Rangos.esDireccion(me.data()));
         }
       }catch(e){}
       if(!agenteLogueado) agenteLogueado = user.displayName || '';
       document.getElementById('loading').style.display='none';
-      // La página ya no es exclusiva del admin: cada rol ve los documentos que le
-      // corresponden. Los que no puede generar quedan a la vista pero bloqueados,
-      // así sabe que existen y a quién pedírselos, en vez de creer que no están.
+      // La página no es exclusiva de Dirección: cada rol ve los documentos que le
+      // corresponden. Los que no puede generar NO se muestran (antes aparecían
+      // bloqueados con un candado, y un botón que no se puede tocar es ruido).
       esAdmin = isAdmin;
       document.getElementById('content').style.display='block';
       aplicarPermisos();
