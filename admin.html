@@ -125,6 +125,9 @@
     .cp{display:block;margin-bottom:15px}
     .cp span{display:block;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}
     .cp input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:.92rem;color:var(--ink)}
+    .cp select{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;
+      font-family:inherit;font-size:.92rem;color:var(--ink);background:var(--card);cursor:pointer}
+    .cp select:focus{outline:none;border-color:var(--ink)}
     .cp input:focus{outline:none;border-color:var(--ink)}
     .cp input:disabled{background:var(--paper);color:var(--muted-2)}
     .cp-nota{font-size:.79rem;color:var(--muted);line-height:1.5;margin:0 0 16px}
@@ -133,7 +136,7 @@
       .slide{align-items:flex-end}
       .slide-box{max-width:none;height:auto;max-height:90vh;border-radius:18px 18px 0 0}
       .slide-f{padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
-      .cp input{font-size:16px}
+      .cp input,.cp select{font-size:16px}
     }
     .menu{position:fixed;z-index:400;background:var(--card);border:1px solid var(--line);border-radius:12px;
       box-shadow:0 14px 40px rgba(10,20,35,.16);padding:6px;min-width:196px}
@@ -237,6 +240,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js"></script>
+<script src="rangos.js?v=20260821a"></script>
 <script>
   var firebaseConfig = {
     apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
@@ -507,15 +511,16 @@
     // dentro de una cadena de HTML.
     _acciones[u.id] = [
       {ico:'fa-pen', txt:'Editar datos', fn:function(){ editar(u.id); }},
+      {ico:'fa-id-badge', txt:'Cargo y rango', fn:function(){ panelRango(u.id); }},
       {ico:'fa-percent', txt:'Comisión', fn:function(){ comision(u.id); }},
       {ico:'fa-wallet', txt:'Dinero y puntos', fn:function(){ finanzas(u.id); }},
       {ico:'fa-eye', txt:'Ver perfil público', fn:function(){ window.open('index.html#perfil/'+u.id,'_blank'); }}
     ];
-    if (!admin) _acciones[u.id].splice(3, 0, {ico:'fa-right-left', txt:'Transferir cartera', fn:function(){ traspasar(u.id); }});
+    if (!admin) _acciones[u.id].splice(4, 0, {ico:'fa-right-left', txt:'Transferir cartera', fn:function(){ traspasar(u.id); }});
     if (!admin) _acciones[u.id].push({ico:'fa-trash', txt:'Eliminar', mal:1, fn:function(){ eliminar(u.id); }});
     return '<div class="row">'+avatar(u)+
       '<div class="id"><div class="id-n"><b>'+esc(u.name||'Sin nombre')+'</b>' +
-        (admin?'<span class="chip oro">Admin</span>':'<span class="chip">'+esc(u.role||'Asesor')+'</span>') +
+        (admin?'<span class="chip oro">Admin</span>':chipRango(u)) +
         (quieto?'<span class="chip warn">Sin actividad</span>':'') +
       '</div><div class="id-s">'+esc(u.email||'')+'</div></div>' +
       '<div class="mets">' +
@@ -663,17 +668,16 @@
     var u=agente(id); if(!u) return;
     abrirPanel('Editar '+(u.name||'agente'),
       campo('Nombre','edNombre',u.name) +
-      campo('Cargo','edRol',u.role||'Asesor Inmobiliario') +
       campo('Teléfono','edTel',u.phone||u.whatsapp||'') +
       '<label class="cp"><span>Correo</span><input value="'+escA(u.email||'')+'" disabled></label>' +
-      '<p class="cp-nota">El correo no se puede cambiar: es con lo que inicia sesión.</p>',
+      '<p class="cp-nota">El correo no se puede cambiar: es con lo que inicia sesión.</p>' +
+      '<p class="cp-nota">El cargo se asigna desde <b>Cargo y rango</b>, no acá: antes era texto libre y quedaba en contradicción con el organigrama.</p>',
       function(){ return guardarAgente(id); });
   }
   async function guardarAgente(id){
     try{
       await db.collection('users').doc(id).update({
         name: document.getElementById('edNombre').value.trim(),
-        role: document.getElementById('edRol').value.trim(),
         phone: document.getElementById('edTel').value.trim()
       });
       cerrarPanel(); toast('Datos guardados'); ver('equipo');
@@ -700,6 +704,51 @@
       });
       cerrarPanel(); toast('Comisión guardada'); ver('equipo');
     }catch(e){ toast('No se pudo guardar'); }
+  }
+
+  // El chip del rango. Si el agente todavía no tiene rango asignado lo marca en
+  // ámbar a propósito: mientras no lo tenga, la regla rangoVeTodo() y cualquier
+  // permiso por rango lo saltean. Es la lista de pendientes del backfill.
+  function chipRango(u){
+    var r = window.Rangos && Rangos.rango(u.rank);
+    if (r) return '<span class="chip">'+esc(r.label)+'</span>';
+    return (u.role ? '<span class="chip">'+esc(u.role)+'</span>' : '') +
+           '<span class="chip warn">Sin rango</span>';
+  }
+
+  // Asignar rango. Es lo único que define el cargo: el texto libre ya no existe.
+  function panelRango(id){
+    var u=agente(id); if(!u) return;
+    if (!window.Rangos){ toast('No se pudo cargar el organigrama'); return; }
+    var actual = u.rank || '';
+    var opts = '<option value="">— Sin rango —</option>';
+    Rangos.porGrupo().forEach(function(g){
+      opts += '<optgroup label="'+esc(g.grupo)+'">';
+      g.rangos.forEach(function(r){
+        opts += '<option value="'+r.key+'"'+(r.key===actual?' selected':'')+'>'+esc(r.label)+'</option>';
+      });
+      opts += '</optgroup>';
+    });
+    abrirPanel('Cargo y rango · '+(u.name||'agente'),
+      '<p class="cp-nota" style="margin-top:0">El rango define el cargo que se muestra y, más adelante, los permisos. ' +
+      '<b>Dirección</b> (CEO y COO) administra todo el sistema.</p>' +
+      '<label class="cp"><span>Rango</span><select id="rkSel">'+opts+'</select></label>' +
+      (u.role ? '<p class="cp-nota">Cargo viejo escrito a mano: <b>'+esc(u.role)+'</b>. Al guardar se reemplaza por el rango elegido.</p>' : ''),
+      function(){ return guardarRango(id); });
+  }
+  async function guardarRango(id){
+    var key = document.getElementById('rkSel').value;
+    // 'role' se sigue escribiendo porque lo leen el perfil público y otras
+    // pantallas que todavía no migré. Pero ya no se tipea: sale del organigrama,
+    // así no vuelven a existir dos fuentes de verdad.
+    var r = key ? Rangos.rango(key) : null;
+    try{
+      await db.collection('users').doc(id).update({
+        rank: key || firebase.firestore.FieldValue.delete(),
+        role: r ? r.label : firebase.firestore.FieldValue.delete()
+      });
+      cerrarPanel(); toast(r?('Ahora es '+r.label):'Rango quitado'); ver('equipo');
+    }catch(e){ console.error(e); toast('No se pudo guardar'); }
   }
 
   function finanzas(id){

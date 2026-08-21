@@ -18,24 +18,16 @@
     ADMIN_EMAIL = "fabricio9061@gmail.com";
 
   // ===== Rangos de la inmobiliaria (organigrama) =====
-  // 'grupo' arma los optgroups del selector; 'nivel' queda para permisos futuros.
-  // El COO (y el CEO) pueden ver la agenda de todo el equipo (ver agenda.html + reglas).
-  const RANKS = [
-    { key:'ceo',                grupo:'Dirección',   label:'CEO',                            nivel:100 },
-    { key:'coo',                grupo:'Dirección',   label:'COO — Director de Operaciones',  nivel:90 },
-    { key:'gerente_comercial',  grupo:'Comercial',   label:'Gerente Comercial',              nivel:80 },
-    { key:'lider_equipo',       grupo:'Comercial',   label:'Líder de Equipo',                nivel:70 },
-    { key:'asesor_elite',       grupo:'Comercial',   label:'Asesor Elite',                   nivel:60 },
-    { key:'asesor_senior',      grupo:'Comercial',   label:'Asesor Senior',                  nivel:50 },
-    { key:'asesor_semi_senior', grupo:'Comercial',   label:'Asesor Semi Senior',             nivel:40 },
-    { key:'asesor_junior',      grupo:'Comercial',   label:'Asesor Junior',                  nivel:30 },
-    { key:'coord_admin',        grupo:'Operaciones', label:'Coordinador Administrativo',     nivel:55 },
-    { key:'administracion',     grupo:'Operaciones', label:'Administración',                 nivel:45 },
-    { key:'marketing',          grupo:'Operaciones', label:'Marketing',                      nivel:45 },
-    { key:'procesos_calidad',   grupo:'Operaciones', label:'Procesos y Calidad',             nivel:45 },
-    { key:'finanzas',           grupo:'Finanzas',    label:'Finanzas',                       nivel:50 },
-  ];
-  function rankLabel(key){ const r = RANKS.find(x => x.key === key); return r ? r.label : ''; }
+  // La definición vive en rangos.js, que también carga admin.html. Antes estaba
+  // acá adentro y admin.html no carga app.js: por eso el panel terminó editando
+  // un "Cargo" de texto libre mientras el campo 'rank' no lo escribía nadie.
+  // Se deja una copia mínima de respaldo por si el archivo no cargó, para que
+  // rankLabel() no rompa las pantallas que ya lo usan.
+  const RANKS = (window.Rangos && window.Rangos.RANKS) || [];
+  function rankLabel(key){
+    if (window.Rangos) { const r = window.Rangos.rango(key); return r ? r.label : ''; }
+    return '';
+  }
 
   // FCM - Push Notifications
   // Se inicializa en una app de Firebase APARTE a propósito: el SDK de Cloud
@@ -2398,12 +2390,18 @@
     // volver a registrar sin el error "este correo ya está registrado".
     try {
       const ia = em.toLowerCase() === ADMIN_EMAIL;
+      // Todo el que se registra entra en el rango más bajo. No es elegible desde
+      // el formulario y la regla de Firestore clava el valor en el create, así
+      // que no se puede forjar otro desde el navegador. El admin lo cambia
+      // después desde el panel. Sigue entrando 'pending': un Junior sin aprobar
+      // no puede hacer nada igual.
       const ud = {
         uid: uc.user.uid,
         email: em,
         name: nm,
         whatsapp: wh,
         status: ia ? 'approved' : 'pending',
+        rank: ia ? 'ceo' : (window.Rangos ? Rangos.RANGO_INICIAL : 'asesor_junior'),
         createdAt: new Date().toISOString()
       };
       if (ig && ig.includes('instagram.com')) ud.instagram = ig;
