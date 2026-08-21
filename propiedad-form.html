@@ -291,9 +291,12 @@
     .wiz-back, .wiz-crumb, .wiz-next{ display:none; }   /* solo aparecen en modo libro */
     .wiz-nav #propertyBtn{ width:100%; margin:0; }      /* modo lista (fallback): publicar a lo ancho */
 
-    .pf-wizard .wiz-nav{ position:sticky; bottom:0; z-index:60;
-      padding:14px 4px calc(14px + env(safe-area-inset-bottom,0px));
-      background:linear-gradient(to top, var(--paper) 74%, rgba(244,245,247,0)); }
+    /* El fondo va SÓLIDO, no degradado: la barra flota sobre la tarjeta blanca y
+       con degradado se veía el contenido asomando por debajo del texto. Con color
+       plano y una hairline arriba se lee como una barra acoplada, a propósito. */
+    .pf-wizard .wiz-nav{ position:sticky; bottom:0; z-index:1080;
+      margin-top:22px; padding:13px 0 calc(13px + env(safe-area-inset-bottom,0px));
+      background:var(--paper); border-top:1px solid var(--line); }
     .pf-wizard .wiz-back{ display:inline-flex; }
     .pf-wizard .wiz-crumb{ display:block; }
     .pf-wizard .wiz-next{ display:inline-flex; }
@@ -310,11 +313,38 @@
     .wiz-next:hover{ box-shadow:0 6px 18px rgba(22,39,63,.26); }
     .wiz-next:active{ transform:scale(.98); }
     .wiz-nav #propertyBtn{ padding:12px 26px; border-radius:10px; font-size:.95rem; }
-    @media (max-width:520px){
-      .pf-wizard .wiz-nav{ gap:10px; }
-      .wiz-crumb{ order:-1; flex:1 0 100%; margin-bottom:2px; }
+    /* ---- El pie en el celular ----
+       Acá `sticky` no alcanzaba: la barra quedaba dentro de la columna (con los
+       22px de padding del shell a los costados) y se montaba sobre la tarjeta.
+       Fija y a todo el ancho se lee como lo que es: la barra de navegación del
+       asistente. El espacio para que el último campo no quede tapado lo reserva
+       el shell con padding-bottom. */
+    @media (max-width:640px){
+      .pf-shell.pf-wizard{ padding-bottom:calc(124px + env(safe-area-inset-bottom,0px)); }
+      .pf-wizard .wiz-nav{
+        position:fixed; left:0; right:0; bottom:0; margin:0;
+        padding:9px 14px calc(9px + env(safe-area-inset-bottom,0px));
+        background:var(--card); border-top:1px solid var(--line);
+        box-shadow:0 -6px 18px rgba(22,39,63,.10);
+        gap:8px 10px;
+      }
+      /* El número de paso y el nombre en UN renglón: dos renglones se comían
+         media pantalla en un teléfono. */
+      .pf-wizard .wiz-crumb{ order:-1; flex:1 0 100%; display:flex; align-items:baseline;
+        justify-content:center; gap:7px; min-width:0; margin:0; }
+      .pf-wizard .wiz-crumb .s{ flex:none; font-size:.62rem; }
+      .pf-wizard .wiz-crumb .nm{ font-size:.95rem; margin:0; min-width:0;
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      /* En el paso 1 el botón Atrás se saca del todo (antes quedaba invisible pero
+         ocupando lugar, y el Siguiente se veía descentrado). Así ocupa el ancho. */
+      .pf-wizard .wiz-back:disabled{ display:none; }
+      .pf-wizard .wiz-back{ flex:0 0 auto; padding:13px 17px; }
       .pf-wizard .wiz-next,
-      .pf-wizard .wiz-nav #propertyBtn{ flex:1; justify-content:center; text-align:center; }
+      .pf-wizard .wiz-nav #propertyBtn{ flex:1 1 auto; justify-content:center;
+        text-align:center; padding:13px 18px; box-shadow:none; }
+      /* Los avisos flotantes salen a 20px del piso: sin esto caían justo sobre
+         los botones de la barra. */
+      .pf-wizard ~ .toast-container{ bottom:calc(104px + env(safe-area-inset-bottom,0px)); }
     }
 </style>
 <style>
