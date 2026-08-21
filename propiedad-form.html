@@ -265,6 +265,57 @@
     .fx-prog{ height:5px; border-radius:99px; background:#eceff3; overflow:hidden; margin-bottom:6px }
     .fx-prog span{ display:block; height:100%; background:linear-gradient(90deg,#c9a227,#e0c25f); transition:width .3s }
     .fx-prog-txt{ font-size:.74rem; color:var(--muted,#8a93a3) }
+
+    .ubic-sug{ margin-top:7px; padding:8px 11px; border-radius:9px; background:#fdf8e9;
+      border:1px solid #ecd9a0; font-size:.82rem; color:#7a6420 }
+    .ubic-sug a{ color:#8a6d1f; font-weight:600; text-decoration:underline; cursor:pointer }
+
+    /* ==========================================================================
+       MODO LIBRO — el formulario como asistente paso a paso.
+       En vez de una lista larga que se scrollea, se ve UN paso por vez y se
+       avanza con "Siguiente" / "Atrás". El índice lateral pasa a ser un salto
+       directo a cualquier paso (comodísimo al editar un aviso ya cargado).
+       No agrega ningún candado nuevo: los campos obligatorios se siguen validando
+       recién al publicar, igual que antes.
+       La clase .pf-wizard la enciende el JS al arrancar. Si ese script fallara,
+       .pf-wizard nunca se agrega y el formulario vuelve solo a ser la lista larga
+       de siempre — nada queda escondido y el botón de publicar sigue visible.
+       ========================================================================== */
+    .pf-wizard .pf-sec{ display:none; }
+    .pf-wizard .pf-sec.wiz-actual{ display:block; animation:wizIn .26s ease; }
+    @keyframes wizIn{ from{ opacity:0; transform:translateY(7px); } to{ opacity:1; transform:none; } }
+
+    /* Pie de navegación: Atrás | dónde estás | Siguiente. Vive DENTRO del <form>
+       para que el botón de publicar del último paso siga enviando el formulario. */
+    .wiz-nav{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:20px; }
+    .wiz-back, .wiz-crumb, .wiz-next{ display:none; }   /* solo aparecen en modo libro */
+    .wiz-nav #propertyBtn{ width:100%; margin:0; }      /* modo lista (fallback): publicar a lo ancho */
+
+    .pf-wizard .wiz-nav{ position:sticky; bottom:0; z-index:60;
+      padding:14px 4px calc(14px + env(safe-area-inset-bottom,0px));
+      background:linear-gradient(to top, var(--paper) 74%, rgba(244,245,247,0)); }
+    .pf-wizard .wiz-back{ display:inline-flex; }
+    .pf-wizard .wiz-crumb{ display:block; }
+    .pf-wizard .wiz-next{ display:inline-flex; }
+    .pf-wizard .wiz-nav #propertyBtn{ width:auto; }
+
+    .wiz-back{ align-items:center; gap:8px; font-family:inherit; font-size:.9rem; font-weight:500; color:#5b6472; background:var(--card); border:1px solid #dfe1e5; border-radius:10px; padding:11px 18px; cursor:pointer; transition:border-color .13s, color .13s; }
+    .wiz-back:hover{ border-color:#c2c6cb; color:var(--ink); }
+    .wiz-back:disabled{ opacity:0; pointer-events:none; }   /* en el paso 1 no hay atrás: se oculta pero reserva el lugar */
+    .wiz-crumb{ flex:1; min-width:120px; text-align:center; line-height:1.2; }
+    .wiz-crumb .s{ display:block; font-size:.67rem; letter-spacing:.09em; text-transform:uppercase; color:#a8adb4; font-weight:600; }
+    .wiz-crumb .s b{ color:var(--gold); font-weight:700; }
+    .wiz-crumb .nm{ display:block; font-family:'Cormorant Garamond',serif; font-size:1.05rem; font-weight:700; color:var(--ink); margin-top:1px; }
+    .wiz-next{ align-items:center; gap:9px; font-family:inherit; font-size:.92rem; font-weight:600; color:#fff; background:var(--ink); border:none; border-radius:10px; padding:12px 24px; cursor:pointer; transition:transform .1s, box-shadow .2s; box-shadow:0 4px 14px rgba(22,39,63,.18); }
+    .wiz-next:hover{ box-shadow:0 6px 18px rgba(22,39,63,.26); }
+    .wiz-next:active{ transform:scale(.98); }
+    .wiz-nav #propertyBtn{ padding:12px 26px; border-radius:10px; font-size:.95rem; }
+    @media (max-width:520px){
+      .pf-wizard .wiz-nav{ gap:10px; }
+      .wiz-crumb{ order:-1; flex:1 0 100%; margin-bottom:2px; }
+      .pf-wizard .wiz-next,
+      .pf-wizard .wiz-nav #propertyBtn{ flex:1; justify-content:center; text-align:center; }
+    }
 </style>
 <style>
   /* Área segura superior (isla dinámica / notch) en toda la herramienta */
@@ -310,14 +361,14 @@
 
   <div class="pf-shell" id="ppfFormWrap" style="display:none">
     <aside class="pf-rail" id="pfRail">
-      <a href="#sec1" data-rail="1"><span class="tick"><i class="fas fa-check"></i></span> Qué publicás</a>
-      <a href="#sec2" data-rail="2"><span class="tick"><i class="fas fa-check"></i></span> Ubicación</a>
-      <a href="#sec3" data-rail="3"><span class="tick"><i class="fas fa-check"></i></span> Características</a>
-      <a href="#sec4" data-rail="4"><span class="tick"><i class="fas fa-check"></i></span> Ficha técnica</a>
-      <a href="#sec5" data-rail="5"><span class="tick"><i class="fas fa-check"></i></span> Fotos y video</a>
-      <a href="#sec6" data-rail="6"><span class="tick"><i class="fas fa-check"></i></span> Título y descripción</a>
-      <a href="#sec7" data-rail="7"><span class="tick"><i class="fas fa-check"></i></span> Precio</a>
-      <a href="#sec8" data-rail="8"><span class="tick"><i class="fas fa-check"></i></span> Contacto</a>
+      <a href="javascript:void(0)" data-rail="1" onclick="wizIr(0);return false"><span class="tick"><i class="fas fa-check"></i></span> Qué publicás</a>
+      <a href="javascript:void(0)" data-rail="2" onclick="wizIr(1);return false"><span class="tick"><i class="fas fa-check"></i></span> Ubicación</a>
+      <a href="javascript:void(0)" data-rail="3" onclick="wizIr(2);return false"><span class="tick"><i class="fas fa-check"></i></span> Características</a>
+      <a href="javascript:void(0)" data-rail="4" onclick="wizIr(3);return false"><span class="tick"><i class="fas fa-check"></i></span> Ficha técnica</a>
+      <a href="javascript:void(0)" data-rail="5" onclick="wizIr(4);return false"><span class="tick"><i class="fas fa-check"></i></span> Fotos y video</a>
+      <a href="javascript:void(0)" data-rail="6" onclick="wizIr(5);return false"><span class="tick"><i class="fas fa-check"></i></span> Título y descripción</a>
+      <a href="javascript:void(0)" data-rail="7" onclick="wizIr(6);return false"><span class="tick"><i class="fas fa-check"></i></span> Precio</a>
+      <a href="javascript:void(0)" data-rail="8" onclick="wizIr(7);return false"><span class="tick"><i class="fas fa-check"></i></span> Contacto</a>
     </aside>
 
     <div class="pf-main">
@@ -383,7 +434,12 @@
         <input type="hidden" id="propStatus" value="available">
         <div class="status-selector" id="statusSelector" style="display:none"></div>
 
-        <button type="submit" class="btn-submit" id="propertyBtn"><i class="fas fa-check"></i> Publicar Propiedad</button>
+        <div class="wiz-nav" id="wizNav">
+          <button type="button" class="wiz-back" id="wizBack" onclick="wizAtras()"><i class="fas fa-arrow-left"></i> Atrás</button>
+          <div class="wiz-crumb"><span class="s">Paso <b id="wizNumNow">1</b> de 8</span><span class="nm" id="wizNomNow">¿Qué vas a publicar?</span></div>
+          <button type="button" class="wiz-next" id="wizNext" onclick="wizSiguiente()">Siguiente <i class="fas fa-arrow-right"></i></button>
+          <button type="submit" class="btn-submit" id="propertyBtn"><i class="fas fa-check"></i> Publicar Propiedad</button>
+        </div>
       </form>
     </div>
   </div>
@@ -511,11 +567,29 @@
       if (ubicacionState.lat != null) {
         el.innerHTML = `<span class="ok"><i class="fas fa-location-dot"></i> Pin fijado</span> (${ubicacionState.lat}, ${ubicacionState.lng})` +
           (ubicacionState.barrio ? ` · Barrio detectado: <b>${ubicacionState.barrio}</b>` : '') +
-          ` · Arrastrá el pin para ajustar · <a onclick="quitarPin()">quitar pin</a>`;
+          ` · Arrastrá el pin para ajustar · <a onclick="quitarPin()">quitar pin</a>` +
+          (ubicacionState.sugerida
+            ? `<div class="ubic-sug"><i class="fas fa-map-pin"></i> El pin cae en <b>${
+                [ubicacionState.sugerida.calle, ubicacionState.sugerida.numero].filter(Boolean).join(' ')
+              }</b> · <a onclick="usarDireccionDelPin()">usar esta dirección</a></div>`
+            : '');
       } else {
         el.innerHTML = `<i class="far fa-hand-pointer"></i> Tocá el mapa o usá "Ubicar en el mapa" para fijar el pin. No es obligatorio, pero mejora mucho la ubicación del aviso en Mercado Libre.`;
       }
     }
+    // Reemplaza la dirección escrita por la que corresponde al pin. Es un clic
+    // explícito: el mapa propone, la persona decide.
+    function usarDireccionDelPin() {
+      const sug = ubicacionState.sugerida;
+      if (!sug) return;
+      const ce = document.getElementById('propDireccion'), ne = document.getElementById('propNumeroPuerta');
+      if (sug.calle) { ce.value = sug.calle; ce.dispatchEvent(new Event('input', { bubbles: true })); }
+      if (sug.numero) { ne.value = sug.numero; ne.dispatchEvent(new Event('input', { bubbles: true })); }
+      ubicacionState.sugerida = null;
+      actualizarEstadoUbicacion();
+      if (typeof toast === 'function') toast('Dirección actualizada según el pin');
+    }
+
     async function buscarEnMapa() {
       const calle = document.getElementById('propDireccion').value.trim();
       const numero = document.getElementById('propNumeroPuerta').value.trim();
@@ -537,10 +611,16 @@
         const j = await r.json();
         const a = (j && j.address) || {};
         ubicacionState.barrio = a.neighbourhood || a.suburb || a.quarter || ubicacionState.barrio || '';
-        // Solo completa los campos vacíos: nunca pisa lo que el agente escribió.
+        // Se completan los campos vacíos, pero nunca se pisa lo que el agente
+        // escribió: al arrastrar el pin a la puerta exacta, la dirección tipeada
+        // suele ser mejor que la del mapa (el número sobre todo). Si difieren, se
+        // ofrece el cambio y decide la persona.
         const ce = document.getElementById('propDireccion'), ne = document.getElementById('propNumeroPuerta');
         if (a.road && !ce.value.trim()) ce.value = a.road;
         if (a.house_number && !ne.value.trim()) ne.value = a.house_number;
+        const distinta = (a.road && ce.value.trim() && a.road.toLowerCase() !== ce.value.trim().toLowerCase())
+          || (a.house_number && ne.value.trim() && String(a.house_number) !== ne.value.trim());
+        ubicacionState.sugerida = distinta ? { calle: a.road || '', numero: a.house_number || '' } : null;
         actualizarEstadoUbicacion();
       } catch (e) { /* sin reverse no pasa nada: el pin ya quedó fijado */ }
     }
@@ -2982,6 +3062,8 @@
     // iba a hacer igual: la ficha no es el destino, es un trámite en el medio.
     function fxTerminar() {
       updateFichaCounters();
+      // En modo libro, terminar la ficha avanza al paso siguiente (Fotos).
+      if (wizOn()) { wizIr(4); return; }
       // OJO: la clase es 'pf-sec'. Antes acá decía '.form-section', que no existe
       // en este archivo: closest() devolvía null y el scrollIntoView tiraba
       // TypeError. Como el error moría en el try/catch de calidadRecalc, el botón
@@ -3455,6 +3537,10 @@
 
     let _spyT = null;
     function railSpy() {
+      // En modo libro el paso activo lo marca el asistente (wizIr), no el scroll:
+      // como todas las secciones menos una están ocultas, dejar correr el spy
+      // marcaría siempre la última. Por eso acá se corta.
+      if (wizOn()) return;
       if (_spyT) return;
       _spyT = requestAnimationFrame(() => {
         _spyT = null;
@@ -3498,6 +3584,57 @@
     const _showState = showState;
     showState = function (which, opts) { _showState(which, opts); document.getElementById('pfCal').style.display = (which === 'ppfFormWrap') ? '' : 'none'; };
 
+    // ============================================================================
+    // MODO LIBRO — el formulario como asistente por pasos.
+    // Muestra una sección por vez y navega con Siguiente / Atrás / índice lateral.
+    // No suma validación nueva: lo obligatorio se sigue exigiendo al publicar (más
+    // abajo). Si wizInit no llega a correr, el form queda como la lista de siempre.
+    // ============================================================================
+    const WIZ_TOTAL = 8;
+    let wizPaso = 0;
+    const wizNombres = ['¿Qué vas a publicar?', 'Ubicación', 'Características principales', 'Ficha técnica', 'Fotos y video', 'Título y descripción', 'Precio', 'Contacto'];
+    function wizOn() { const w = document.getElementById('ppfFormWrap'); return !!(w && w.classList.contains('pf-wizard')); }
+    function wizIr(n, scroll) {
+      if (scroll === undefined) scroll = true;
+      n = Math.max(0, Math.min(n, WIZ_TOTAL - 1));
+      wizPaso = n;
+      // Mostrar solo la sección del paso actual.
+      for (let i = 1; i <= WIZ_TOTAL; i++) {
+        const s = document.getElementById('sec' + i);
+        if (s) s.classList.toggle('wiz-actual', i === n + 1);
+      }
+      // Marcar el paso actual en el índice lateral.
+      document.querySelectorAll('#pfRail a').forEach(a => {
+        a.classList.toggle('actual', parseInt(a.dataset.rail, 10) === n + 1);
+      });
+      // Botones del pie: Atrás se apaga en el primero; en el último, "Siguiente"
+      // deja lugar al botón de publicar (que es el submit real del formulario).
+      const back = document.getElementById('wizBack');
+      const next = document.getElementById('wizNext');
+      const pub = document.getElementById('propertyBtn');
+      const ultimo = (n === WIZ_TOTAL - 1);
+      if (back) back.disabled = (n === 0);
+      if (next) next.style.display = ultimo ? 'none' : '';
+      if (pub) pub.style.display = ultimo ? '' : 'none';
+      const num = document.getElementById('wizNumNow'); if (num) num.textContent = (n + 1);
+      const nom = document.getElementById('wizNomNow'); if (nom) nom.textContent = wizNombres[n] || '';
+      // El mapa vive en el paso 2 (índice 1). Se creó con la sección visible, pero
+      // el modo libro la oculta: al volver a mostrarla hay que reajustar Leaflet o
+      // dibuja gris/cortado.
+      if (n === 1 && mapa) { setTimeout(() => mapa.invalidateSize(), 60); setTimeout(() => mapa.invalidateSize(), 260); }
+      if (scroll) {
+        const s = document.getElementById('sec' + (n + 1));
+        if (s) s.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+    function wizSiguiente() { wizIr(wizPaso + 1); }
+    function wizAtras() { wizIr(wizPaso - 1); }
+    function wizInit() {
+      const w = document.getElementById('ppfFormWrap');
+      if (w) w.classList.add('pf-wizard');
+      wizIr(0, false);   // arranca en el paso 1 sin dar un salto de scroll
+    }
+
     async function handleSaveProperty(e) {
       e.preventDefault();
       if (!currentUser) { alert('Debes iniciar sesión'); return }
@@ -3508,7 +3645,7 @@
       if (selectedImages.length < 12) {
         const faltan = 12 - selectedImages.length;
         alert('Se necesitan al menos 12 fotos para publicar.\n\nTenés ' + selectedImages.length + '. Faltan ' + faltan + '.');
-        var _sec = document.getElementById('sec5'); if (_sec) _sec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (wizOn()) wizIr(4); else { var _sec = document.getElementById('sec5'); if (_sec) _sec.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
         return;
       }
       // Campos obligatorios de la ficha (los del asterisco). Antes el asterisco
@@ -3534,6 +3671,7 @@
         alert('Faltan campos obligatorios de la ficha técnica:\n\n• ' + _faltantes.map(c => c.label + (c.min != null ? ' (mínimo ' + c.min + ')' : '')).join('\n• '));
         const primero = document.getElementById('fc-' + _faltantes[0].id);
         if (primero) {
+          if (wizOn()) wizIr(3, false);   // la ficha es el paso 4: mostrarla antes de saltar al campo
           const sec = primero.closest('.fx-step');
           if (sec) fxIr(parseInt(sec.getAttribute('data-paso'), 10) || 0);
           setTimeout(() => { primero.scrollIntoView({ behavior: 'smooth', block: 'center' }); primero.focus(); }, 320);
@@ -3549,7 +3687,7 @@
         alert('Falta confirmar que miraste estos grupos de la ficha:\n\n• ' + _sinRev.join('\n• ') +
               '\n\nLo que quede sin tildar se publica como "no lo tiene", así que conviene confirmarlo.' +
               '\nUsá el botón al pie de cada grupo.');
-        irAGrupo(_sinRev[0]);
+        if (wizOn()) { wizIr(3, false); setTimeout(() => irAGrupo(_sinRev[0]), 90); } else { irAGrupo(_sinRev[0]); }
         return;
       }
       const b = document.getElementById('propertyBtn'), er = document.getElementById('propertyError'), ei = document.getElementById('editingPropertyId').value, pp = document.getElementById('previousPrice').value;
@@ -3673,6 +3811,7 @@
           showState('ppfFormWrap');
           initMapa();
           loadPropertyForEdit(p);
+          wizInit();
         } catch (e) { console.error(e); showState('ppfErr', { msg: 'Error al cargar la propiedad.' }) }
       } else {
         showState('ppfFormWrap');
@@ -3682,6 +3821,7 @@
         selectStatus('available');
         togglePropertyType();
         actualizarEstadoUbicacion();
+        wizInit();
         if (clientIdParam) {
           formClientId = clientIdParam;
           try {
