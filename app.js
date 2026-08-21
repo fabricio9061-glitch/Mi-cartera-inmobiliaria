@@ -1473,7 +1473,7 @@
       if (un) un.textContent = userProfile.name || 'Usuario';
       const i = (userProfile.name || 'U').charAt(0).toUpperCase();
       if (ua) ua.innerHTML = userProfile.profilePhoto ? `<img src="${safeUrl(userProfile.profilePhoto)}" alt="">` : i;
-      if ((userProfile.email || '').toLowerCase() === ADMIN_EMAIL) {
+      if (isAdminUser()) {
         ab?.classList.remove('hidden');
         abt?.classList.remove('hidden')
       } else {
@@ -2514,7 +2514,10 @@
   }
 
   function canEditProperty(p) {
-    return currentUser && (currentUser.uid === p.ownerId || userProfile?.email?.toLowerCase() === ADMIN_EMAIL)
+    // Este era el motivo de que el COO no viera el botón de editar: comparaba el
+    // correo del CEO en vez de pasar por isAdminUser(), así que se salteaba todo
+    // el sistema de rangos.
+    return currentUser && (currentUser.uid === p.ownerId || isAdminUser())
   }
 
   function renderProperties(ps, tg = 'propertiesGrid') {
@@ -3170,7 +3173,7 @@
 
   // Admin
   function showAdmin() {
-    if (!currentUser || userProfile?.email?.toLowerCase() !== ADMIN_EMAIL) return;
+    if (!currentUser || !isAdminUser()) return;
     document.getElementById('mainContent').classList.add('hidden');
     document.getElementById('profilePage').classList.add('hidden');
     document.getElementById('crmPage').classList.add('hidden');
@@ -4332,7 +4335,7 @@
     } catch (e) { alert('No se pudo limpiar: ' + (e.message || e)); }
   }
   function showAdminAt(tb) {
-    if (!currentUser || userProfile?.email?.toLowerCase() !== ADMIN_EMAIL) return;
+    if (!currentUser || !isAdminUser()) return;
     document.getElementById('mainContent').classList.add('hidden');
     document.getElementById('profilePage').classList.add('hidden');
     document.getElementById('crmPage').classList.add('hidden');
@@ -5015,8 +5018,15 @@
   }
   let clients = [];
 
+  // "Admin" del lado de la interfaz = DIRECCIÓN (CEO y COO), no un correo suelto.
+  // El correo del CEO queda como red de seguridad: si su perfil se quedara sin
+  // rango, seguiría entrando igual y podría arreglarlo desde el panel.
+  // Esto es sólo la UI. El permiso de verdad lo hacen cumplir las reglas de
+  // Firestore y las Cloud Functions; si algo se abre acá, hay que abrirlo allá.
   function isAdminUser() {
-    return !!(userProfile && userProfile.email && userProfile.email.toLowerCase() === ADMIN_EMAIL)
+    if (!userProfile) return false;
+    if ((userProfile.email || '').toLowerCase() === ADMIN_EMAIL) return true;
+    return !!(window.Rangos && Rangos.esDireccion(userProfile));
   }
   async function loadClients() {
     if (!currentUser) {

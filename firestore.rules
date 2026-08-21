@@ -1,0 +1,296 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null &&
+             request.auth.token.email.lower() == 'fabricio9061@gmail.com';
+    }
+
+    // ¿La cuenta está aprobada? (el admin siempre cuenta como aprobado).
+    // Antes el approval era solo del lado del navegador: un usuario 'pending' o
+    // 'rejected' con su token podía leer/editar datos por SDK. Ahora se exige acá.
+    function isApproved() {
+      return isAdmin() ||
+             (request.auth != null &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved');
+    }
+
+    function perfil() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // DIRECCIÓN = CEO y COO. Es el permiso que antes era isAdmin() a secas.
+    // El correo del CEO queda como red de seguridad: si su perfil se quedara sin
+    // rango cargado, seguiría entrando igual y podría arreglarlo desde el panel.
+    // Se exige 'approved': un COO con la cuenta suspendida no manda nada.
+    // Nota de costo: el get() de perfil() se repite en varias funciones, pero
+    // Firestore cachea las lecturas al MISMO documento dentro de una evaluación,
+    // así que se cobra una sola.
+    function esDireccion() {
+      return isAdmin() || (
+        request.auth != null &&
+        perfil().get('rank', '') in ['ceo', 'coo'] &&
+        perfil().get('status', '') == 'approved'
+      );
+    }
+    // Alias histórico: la agenda ya lo usaba con este nombre.
+    function rangoVeTodo() { return esDireccion(); }
+
+    // ¿El documento que se está tocando es el del CEO? Se chequea por rango Y por
+    // correo: si el perfil del CEO todavía no tiene rango cargado, el correo lo
+    // protege igual. Sirve para que el COO no pueda editarlo ni borrarlo.
+    function esDocDelCEO() {
+      return resource.data.get('rank', '') == 'ceo'
+          || resource.data.get('email', '').lower() == 'fabricio9061@gmail.com';
+    }
+
+    // ============ USERS ============
+    // La lectura sigue siendo pública a propósito: la web pública (propiedad.html)
+    // muestra nombre/foto/WhatsApp del agente del aviso.
+    match /users/{userId} {
+      allow read: if resource.data.status == 'approved'
+                  || (request.auth != null && request.auth.uid == userId)
+                  || esDireccion();
+
+      // Al registrarse, el usuario NO puede autoaprobarse ni elegir su cargo.
+      // El rango de alta lo clava esta regla, no el navegador: se acepta SOLO
+      // 'asesor_junior' (el escalón más bajo) o vacío.
+      //
+      // Por qué se sigue aceptando vacío: un navegador con el JS viejo en caché
+      // manda el perfil sin 'rank', y si acá lo rechazáramos el registro se
+      // rompería con un error de permisos difícil de diagnosticar. Cuando ya no
+      // queden clientes viejos dando vueltas, se quita el '' de la lista y queda
+      // obligatorio. Lo que NUNCA se acepta es un rango elegido a gusto.
+      allow create: if request.auth != null && request.auth.uid == userId
+                    && (isAdmin() ||
+                        (request.resource.data.status == 'pending'
+                         && request.resource.data.get('rank', '') in ['', 'asesor_junior']
+                         && request.resource.data.get('role', '') == ''));
+
+      // Tres capas:
+      //  1. El CEO por correo: sin restricciones. Es el dueño del organigrama.
+      //  2. La Dirección (o sea el COO) administra al equipo, con tres candados:
+      //     no toca el documento del CEO, no se cambia el rango a sí mismo, y no
+      //     puede fabricar otro CEO. Sin esto, "COO = admin" significa que el COO
+      //     puede ascenderse y degradarte, que es justo lo que no queremos.
+      //  3. El propio usuario edita su perfil pero NO su estado, correo, cargo ni rango.
+      allow update: if isAdmin()
+                    || (esDireccion()
+                        && !esDocDelCEO()
+                        && request.resource.data.get('rank', '') != 'ceo'
+                        && !(request.auth.uid == userId
+                             && request.resource.data.get('rank', '') != resource.data.get('rank', '')))
+                    || (request.auth != null && request.auth.uid == userId
+                        && request.resource.data.status == resource.data.status
+                        && request.resource.data.email == resource.data.email
+                        && request.resource.data.get('role', '') == resource.data.get('role', '')
+                        && request.resource.data.get('rank', '') == resource.data.get('rank', ''));
+
+      // Nadie se borra a sí mismo, y al CEO no lo borra nadie.
+      allow delete: if isAdmin()
+                    || (esDireccion() && !esDocDelCEO() && request.auth.uid != userId);
+
+      // Datos sensibles del agente (p. ej. comisiones): SOLO Dirección o el propio dueño.
+      match /privado/{doc} {
+        allow read: if esDireccion() || (request.auth != null && request.auth.uid == userId);
+        allow write: if esDireccion();
+      }
+    }
+
+    // ============ ADMIN DATA (comisiones, etc.) — SOLO admin ============
+    match /adminData/{doc} {
+      allow read, write: if esDireccion();
+    }
+
+    // ============ REFERIDOS (quién refirió a quién + %) — SOLO admin ============
+    // Doc id = uid del agente referido. Contiene referrerUid, pctSale, pctRent.
+    match /referidos/{referredUid} {
+      // El admin gestiona todo. Cada usuario puede leer: su propio doc (para saber
+      // quién lo refirió) y los docs donde él es el referente (para calcular su
+      // ganancia por referidos en su saldo). Escribir, solo el admin.
+      allow read: if esDireccion()
+                  || (request.auth != null
+                      && (request.auth.uid == referredUid
+                          || resource.data.referrerUid == request.auth.uid));
+      allow write: if esDireccion();
+    }
+
+    // ============ PROPERTIES ============
+    match /properties/{propertyId} {
+      allow read: if true;
+      // El admin puede crear con cualquier ownerId: lo necesita la PAPELERA para
+      // restaurar propiedades de los agentes (el doc vuelve con su dueño original).
+      allow create: if esDireccion()
+                    || (isApproved()
+                        && request.resource.data.ownerId == request.auth.uid);
+      allow update: if (isApproved()
+                        && (resource.data.ownerId == request.auth.uid
+                            || (resource.data.agents is list && request.auth.uid in resource.data.agents)
+                            || esDireccion())
+                        && !request.resource.data.diff(resource.data).affectedKeys()
+                             .hasAny(['ownerId', 'mlItemId', 'mlStatus', 'mlPermalink',
+                                      'mlPublishing', 'mlPublishingAt', 'cierreConfirmado']))
+                    || (esDireccion()
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['cierre', 'cierreConfirmado', 'status', 'updatedAt']))
+                    || (request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['views', 'contactClicks']));
+      allow delete: if esDireccion();
+
+      // Comentarios públicos del aviso (web pública).
+      match /comments/{commentId} {
+        allow read, create: if true;
+        allow update, delete: if request.auth != null &&
+                              (resource.data.userId == request.auth.uid || esDireccion());
+      }
+    }
+
+    // ============ PAPELERA (propiedades borradas) — SOLO admin ============
+    // Las copias las escribe la Cloud Function al borrar (Admin SDK, no pasa por
+    // acá). Desde papelera.html el admin las lee, restaura o elimina definitivo.
+    match /papelera/{id} {
+      allow read, write: if esDireccion();
+    }
+
+    // ============ CLIENTS (CRM) — solo aprobados ============
+    match /clients/{clientId} {
+      allow read: if isApproved();
+      allow create: if isApproved();
+      allow update: if isApproved();
+      allow delete: if esDireccion();
+      match /notes/{noteId} {
+        allow read: if isApproved();
+        allow create: if isApproved();
+        allow update: if false;
+        allow delete: if isApproved() &&
+                      (resource.data.authorId == request.auth.uid || esDireccion());
+      }
+    }
+
+    // ============ GESTIONES — solo aprobados ============
+    match /gestiones/{gestionId} {
+      allow read: if isApproved();
+      allow create: if isApproved();
+      allow update: if isApproved();
+      allow delete: if isApproved() &&
+                    (resource.data.createdBy == request.auth.uid || esDireccion());
+    }
+
+    // ============ COMPARTIDAS — solo aprobados ============
+    match /compartidas/{id} {
+      allow read: if isApproved();
+      allow create: if isApproved();
+      allow update: if isApproved();
+      allow delete: if isApproved() &&
+                    (resource.data.createdBy == request.auth.uid || esDireccion());
+    }
+
+    // ============ PORTAL ACCOUNTS — solo aprobados leen, admin escribe ============
+    match /portalAccounts/{id} {
+      allow read: if isApproved();
+      allow write: if esDireccion();
+    }
+
+    // ============ NOTIFICATIONS ============
+    // Crear ya no es público (antes 'if true' permitía forjar notificaciones).
+    match /notifications/{notificationId} {
+      allow create: if request.auth != null;
+      allow read, update: if request.auth != null &&
+        (resource.data.ownerId == request.auth.uid ||
+         resource.data.userId == request.auth.uid || esDireccion());
+      allow delete: if request.auth != null &&
+        (resource.data.ownerId == request.auth.uid || esDireccion());
+    }
+
+    // ============ DOCUMENTOS Y ACADEMY — solo aprobados leen, admin escribe ============
+    match /documentos/{id} {
+      allow read: if isApproved();
+      allow write: if esDireccion();
+    }
+    match /academy/{id} {
+      allow read: if isApproved();
+      allow write: if esDireccion();
+    }
+
+    // ============ NEWSLETTER (web pública) ============
+    match /newsletter/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['email', 'createdAt']);
+      allow read, delete: if esDireccion();
+      allow update: if false;
+    }
+
+    // ============ VISITS (AGENDA) ============
+    // Cada agente aprobado ve las suyas. El COO/CEO (y admin) ven las de todos.
+    // Editar/borrar: solo el dueño del evento o el admin.
+    match /visits/{visitId} {
+      allow read: if (request.auth != null && resource.data.userId == request.auth.uid && isApproved())
+                  || rangoVeTodo();
+      allow create: if isApproved();
+      allow update, delete: if (request.auth != null && request.auth.uid == resource.data.userId && isApproved())
+                            || esDireccion();
+    }
+
+    // ============ LEADS DE VENTA (web pública) ============
+    match /leadsVenta/{leadId} {
+      allow create: if true;
+      allow read, update, delete: if esDireccion();
+    }
+
+    // ============ TESTIMONIOS (web pública) ============
+    match /testimonials/{testiId} {
+      allow read: if true;
+      allow create: if request.resource.data.approved == false;
+      allow update, delete: if esDireccion();
+    }
+
+    // ============ RECOMPENSAS (catálogo) — aprobados leen, admin escribe ============
+    match /recompensas/{id} {
+      allow read: if isApproved();
+      allow write: if esDireccion();
+    }
+
+    // ============ CANJES (pedidos de recompensa) ============
+    match /canjes/{id} {
+      allow read: if isApproved()
+                  && (resource.data.agenteUid == request.auth.uid || esDireccion());
+      allow create: if isApproved()
+                    && request.resource.data.agenteUid == request.auth.uid
+                    && request.resource.data.status == 'pendiente';
+      allow update, delete: if esDireccion();
+    }
+
+    // ============ RETIROS (solicitudes de cobro del agente) ============
+    // Modelo de dinero: el agente SOLO puede crear solicitudes a su nombre, en
+    // estado 'pendiente', con monto > 0. No puede aprobar, cambiar el monto, la
+    // moneda ni el estado una vez creada: eso lo hace exclusivamente el admin
+    // (pendiente -> aprobado/rechazado -> pagado). Así el saldo disponible que
+    // muestra la app no se puede falsear desde el cliente.
+    match /retiros/{id} {
+      allow read: if isApproved()
+                  && (resource.data.agenteUid == request.auth.uid || esDireccion());
+      allow create: if isApproved()
+                    && request.resource.data.agenteUid == request.auth.uid
+                    && request.resource.data.status == 'pendiente'
+                    && request.resource.data.monto is number
+                    && request.resource.data.monto > 0
+                    && (request.resource.data.moneda == 'USD' || request.resource.data.moneda == 'UYU');
+      // El agente puede CANCELAR su propia solicitud mientras siga pendiente
+      // (sin tocar monto/moneda). Todo lo demás (aprobar, rechazar, pagar) es del admin.
+      allow update: if esDireccion()
+                    || (isApproved()
+                        && resource.data.agenteUid == request.auth.uid
+                        && resource.data.status == 'pendiente'
+                        && request.resource.data.status == 'cancelado'
+                        && request.resource.data.monto == resource.data.monto
+                        && request.resource.data.moneda == resource.data.moneda);
+      allow delete: if esDireccion();
+    }
+
+    // ============ CONFIG — aprobados leen, admin escribe ============
+    match /config/{doc} {
+      allow read: if isApproved();
+      allow write: if esDireccion();
+    }
+  }
+}

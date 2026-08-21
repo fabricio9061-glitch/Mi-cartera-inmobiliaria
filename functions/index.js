@@ -77,6 +77,34 @@ const AUTH_DOMAIN = process.env.ML_AUTH_DOMAIN || "https://auth.mercadolibre.com
 const CAT_SALE = process.env.ML_CAT_SALE || "";
 const CAT_RENT = process.env.ML_CAT_RENT || "";
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "fabricio9061@gmail.com").toLowerCase();
+
+// ===== Dirección (CEO y COO) =====
+// Espejo de rangos.js del lado del navegador. Va duplicado a propósito: las
+// Functions no comparten bundle con el front, y bajar el permiso a mano acá es
+// preferible a que el backend confíe en algo que dice el cliente.
+//
+// OJO con la distinción, que es la que evita romper los avisos: ADMIN_EMAIL se
+// usa para DOS cosas distintas en este archivo. Como PERMISO (quién puede hacer
+// algo) pasa a ser Dirección. Como DESTINATARIO (a quién le avisamos de un
+// retiro o de un alta) sigue siendo el CEO y sólo el CEO: si eso se ampliara,
+// el sistema dejaría de saber a quién mandarle la notificación.
+const RANGOS_DIRECCION = ["ceo", "coo"];
+
+/** ¿El que llama es Dirección? Por correo (CEO) o por rango en su perfil. */
+async function esDireccion(uid, email) {
+  if (String(email || "").toLowerCase() === ADMIN_EMAIL) return true;
+  if (!uid) return false;
+  try {
+    const s = await db.doc(`users/${uid}`).get();
+    const d = s.exists ? s.data() : null;
+    if (!d || d.status !== "approved") return false;
+    return RANGOS_DIRECCION.includes(String(d.rank || ""));
+  } catch (e) {
+    // Ante la duda, NO se concede: un error de lectura no puede volverse un permiso.
+    logger.warn("esDireccion: no se pudo leer el perfil", e);
+    return false;
+  }
+}
 // Datos de la inmobiliaria que se muestran como contacto en los avisos de ML.
 const NOMBRE_INMOBILIARIA = process.env.ML_NOMBRE_INMOBILIARIA || "Inmobiliaria Malave";
 const EMAIL_INMOBILIARIA = process.env.ML_EMAIL_INMOBILIARIA || "inmobiliariamalave@gmail.com";
@@ -1946,12 +1974,14 @@ async function exigirAgente(request, p) {
   if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
   const uid = request.auth.uid;
   const email = String(request.auth.token.email || "").toLowerCase();
-  const esAdmin = email === ADMIN_EMAIL;
+  // Antes acá sólo pasaba el correo del CEO. Ahora pasa Dirección (CEO y COO):
+  // por eso el COO puede gestionar el aviso de cualquier agente.
+  const esAdmin = await esDireccion(uid, email);
   if (!esAdmin) {
     const u = await db.doc(`users/${uid}`).get();
     const d = u.exists ? u.data() : null;
     if (!d || d.status !== "approved") throw new HttpsError("permission-denied", "Tu cuenta no está aprobada.");
-    if (p && p.ownerId && p.ownerId !== uid) throw new HttpsError("permission-denied", "Solo el agente dueño o el administrador pueden gestionar este aviso.");
+    if (p && p.ownerId && p.ownerId !== uid) throw new HttpsError("permission-denied", "Solo el agente dueño o la Dirección pueden gestionar este aviso.");
   }
   return { uid, esAdmin };
 }
@@ -2220,7 +2250,8 @@ exports.republicarML = onCall(async (request) => {
 // =====================================================================
 exports.traspasarCartera = onCall(async (request) => {
   const email = (request.auth && request.auth.token && request.auth.token.email || "").toLowerCase();
-  if (email !== ADMIN_EMAIL) throw new HttpsError("permission-denied", "Solo el administrador puede traspasar una cartera.");
+  const uid = request.auth && request.auth.uid;
+  if (!await esDireccion(uid, email)) throw new HttpsError("permission-denied", "Solo la Dirección puede traspasar una cartera.");
 
   const { deUid, aUid, mueve } = request.data || {};
   if (!deUid || !aUid) throw new HttpsError("invalid-argument", "Faltan los agentes.");
@@ -2348,7 +2379,8 @@ exports.traspasarCartera = onCall(async (request) => {
 // =====================================================================
 exports.traspasarPropiedades = onCall(async (request) => {
   const email = (request.auth && request.auth.token && request.auth.token.email || "").toLowerCase();
-  if (email !== ADMIN_EMAIL) throw new HttpsError("permission-denied", "Solo el administrador puede traspasar propiedades.");
+  const uid = request.auth && request.auth.uid;
+  if (!await esDireccion(uid, email)) throw new HttpsError("permission-denied", "Solo la Dirección puede traspasar propiedades.");
 
   const { propertyIds, aUid, soloDe } = request.data || {};
   if (!Array.isArray(propertyIds) || !propertyIds.length) throw new HttpsError("invalid-argument", "No se indicaron propiedades.");
@@ -3145,6 +3177,10 @@ exports.crearPerfilAlRegistrarse = functionsV1.auth.user().onCreate(async (user)
     name: user.displayName || (user.email ? user.email.split("@")[0] : "Usuario"),
     whatsapp: "",
     status: esAdmin ? "approved" : "pending",
+    // Mismo rango de alta que escribe el navegador. Sin esto, el perfil creado
+    // por este respaldo quedaba SIN rango y el agente no entraba en ninguna
+    // regla por rango: invisible para todo el sistema de permisos.
+    rank: esAdmin ? "ceo" : "asesor_junior",
     createdAt: new Date().toISOString(),
     creadoPorServidor: true
   });
