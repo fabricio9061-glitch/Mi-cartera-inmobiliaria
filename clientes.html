@@ -638,7 +638,7 @@
 
       <div class="crm-toolbar">
         <div class="crm-search"><i class="fas fa-search"></i><input type="text" id="clientSearch" placeholder="Buscar por nombre, teléfono o @agente..." oninput="renderClients()"></div>
-        <button type="button" class="crm-filter" id="misClientesBtn" onclick="toggleMisClientes()" style="cursor:pointer;white-space:nowrap;background:var(--primary);color:#fff;border-color:var(--primary)"><i class="fas fa-users"></i> Todos los clientes</button>
+        <button type="button" class="crm-filter" id="misClientesBtn" onclick="toggleMisClientes()" title="Estás viendo solo tus clientes. Tocá para ver los de toda la inmobiliaria." style="cursor:pointer;white-space:nowrap;background:var(--primary);color:#fff;border-color:var(--primary)"><i class="fas fa-user"></i> Mis clientes</button>
         <button type="button" class="crm-filter crm-mas" id="btnMasFiltros" onclick="toggleFiltros()"><i class="fas fa-sliders"></i> Filtros<span id="filtrosCount"></span></button>
       </div>
 
@@ -3285,22 +3285,37 @@
       return !!miNombreLC && duenoLC === miNombreLC;
     }
     function updateMisBtn(){
+      var hayBusqueda = !!((document.getElementById('clientSearch')||{}).value||'').trim();
       var b = document.getElementById('misClientesBtn');
       if (b){
-        if (misClientesOnly){
-          b.innerHTML = '<i class="fas fa-users"></i> Todos los clientes';
-          b.style.background = 'var(--primary)'; b.style.color = '#fff'; b.style.borderColor = 'var(--primary)';
-        } else {
-          b.innerHTML = '<i class="fas fa-user"></i> Mis clientes';
+        if (misClientesOnly && hayBusqueda){
+          // Mientras buscás, el alcance lo manda la búsqueda: tocar el botón no
+          // cambiaría un solo resultado. Así que deja de ser un botón y pasa a
+          // ser un cartel de estado, apagado y sin clic. Al borrar la búsqueda
+          // vuelve solo a tu preferencia.
+          b.innerHTML = '<i class="fas fa-users"></i> Viendo todos';
           b.style.background = ''; b.style.color = ''; b.style.borderColor = '';
+          b.style.opacity = '.55'; b.style.pointerEvents = 'none';
+          b.title = 'Mientras buscás se muestran todos los clientes de la inmobiliaria';
+        } else {
+          b.style.opacity = ''; b.style.pointerEvents = '';
+          // La etiqueta dice DÓNDE ESTÁS PARADO, no a dónde te lleva. Antes decía
+          // el destino ("Todos los clientes" cuando estabas viendo los tuyos) y no
+          // había forma de saber si era un estado o una acción.
+          // Relleno oscuro = hay un filtro puesto. Contorno = sin filtrar.
+          if (misClientesOnly){
+            b.innerHTML = '<i class="fas fa-user"></i> Mis clientes';
+            b.style.background = 'var(--primary)'; b.style.color = '#fff'; b.style.borderColor = 'var(--primary)';
+            b.title = 'Estás viendo solo tus clientes. Tocá para ver los de toda la inmobiliaria.';
+          } else {
+            b.innerHTML = '<i class="fas fa-users"></i> Todos los clientes';
+            b.style.background = ''; b.style.color = ''; b.style.borderColor = '';
+            b.title = 'Estás viendo todos los clientes. Tocá para ver solo los tuyos.';
+          }
         }
       }
       var s = document.getElementById('crmSubtitle');
       if (s) {
-        // El botón sigue mostrando tu preferencia (no la pisamos). Lo que cambia
-        // es el subtítulo, para que quede claro por qué aparecen clientes que no
-        // son tuyos mientras hay algo escrito en el buscador.
-        var hayBusqueda = !!((document.getElementById('clientSearch')||{}).value||'').trim();
         if (misClientesOnly && hayBusqueda) s.textContent = 'Buscando en todos los clientes de la inmobiliaria';
         else s.textContent = misClientesOnly ? 'Tus clientes' : 'Todos los clientes de la inmobiliaria';
       }
