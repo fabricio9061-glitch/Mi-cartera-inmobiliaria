@@ -2498,11 +2498,13 @@
 
   // Properties
   // ===== Vitrina del inicio =====
-  // La cara pública muestra solo lo que aporta: disponibles, reservadas y los
-  // cierres de la agencia (Vendida/Alquilada, que son carta de presentación).
-  // Las DADAS DE BAJA y las CERRADAS POR AFUERA no son vidriera: se siguen
-  // gestionando desde el perfil del agente, donde sí se listan todas.
-  const FUERA_VITRINA = ['archived', 'cerrado_externo'];
+  // La vitrina muestra SOLO lo que se puede ofrecer hoy: disponibles.
+  // Vendidas, alquiladas y reservadas salen del index — ocupaban lugar arriba
+  // compitiendo con lo que sí se puede vender, y el que entra a buscar no puede
+  // hacer nada con ellas. Se siguen viendo enteras en el PERFIL DEL AGENTE, que
+  // es donde se gestionan y donde funcionan como carta de presentación.
+  // Las dadas de baja y las cerradas por afuera nunca fueron vidriera.
+  const FUERA_VITRINA = ['archived', 'cerrado_externo', 'sold', 'rented', 'reserved'];
   const enVitrina = p => FUERA_VITRINA.indexOf(p.status) < 0;
 
   function loadProperties() {
@@ -2657,7 +2659,10 @@
   }
 
   function updateStats() {
-    const av = properties.filter(p => !p.status || p.status === 'available' || p.status === 'reserved');
+    // Los contadores tienen que contar EXACTAMENTE lo que la grilla muestra. Antes
+    // sumaban las reservadas, que ahora quedaron fuera de la vitrina: el número
+    // habría quedado más alto que las tarjetas visibles y parecería un error.
+    const av = properties.filter(enVitrina);
     document.getElementById('statTotal').textContent = av.length;
     document.getElementById('statSale').textContent = av.filter(p => p.type === 'sale').length;
     document.getElementById('statRent').textContent = av.filter(p => p.type === 'rent').length
