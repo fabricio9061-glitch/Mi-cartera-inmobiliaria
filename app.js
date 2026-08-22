@@ -2659,44 +2659,23 @@
   }
 
   // ===== Nivel del agente en el menú =====
-  // El RANGO se muestra siempre (si lo tiene). La BARRA de experiencia, solo para
-  // la escalera comercial: un Marketing o la Dirección no ascienden por facturar,
-  // así que dibujarles una barra sería mentirles. Pero ocultarles el bloque entero
-  // tampoco iba: dejaba a la Dirección sin forma de ver su propio rango ni de
-  // comprobar que esto funciona.
+  // Solo para la escalera comercial. Dirección, Operaciones y Finanzas no
+  // ascienden por facturar: no tienen barra, y mostrarles el rango suelto era
+  // ocupar una fila del menú sin decirles nada que no supieran.
   let _expUSD = 0;
   function pintarNivelMenu(expUSD) {
     _expUSD = Number(expUSD) || 0;
     const caja = document.getElementById('mvNivel');
     if (!caja) return;
-    const rango = window.Rangos ? Rangos.rangoDe(userProfile) : null;
-    // Red de seguridad: el CEO entra por correo aunque su perfil no tenga rango.
-    const etiqueta = rango ? rango.label : (isAdminUser() ? 'Dirección' : '');
-    if (!etiqueta) { caja.hidden = true; return; }
+    const pr = window.Rangos ? Rangos.progresoRango(userProfile, _expUSD) : null;
+    if (!pr) { caja.hidden = true; return; }
     caja.hidden = false;
 
+    const fmt = n => 'US$ ' + Math.round(n).toLocaleString('es-UY');
     const rg = document.getElementById('mvNivelRango');
     const fill = document.getElementById('mvNivelFill');
     const pie = document.getElementById('mvNivelPie');
-    const barra = caja.querySelector('.mv-nivel-barra');
-    if (rg) rg.textContent = etiqueta;
-
-    const pr = window.Rangos ? Rangos.progresoRango(userProfile, _expUSD) : null;
-    const fmt = n => 'US$ ' + Math.round(n).toLocaleString('es-UY');
-
-    if (!pr) {
-      // Fuera de la escalera comercial: solo el rango. Sin barra y sin texto — no
-      // hay nada que informar y la aclaración era ruido.
-      if (barra) barra.hidden = true;
-      if (pie) pie.hidden = true;
-      caja.classList.remove('listo');
-      caja.classList.add('solo-rango');
-      return;
-    }
-
-    caja.classList.remove('solo-rango');
-    if (pie) pie.hidden = false;
-    if (barra) barra.hidden = false;
+    if (rg) rg.textContent = pr.rango.label;
     if (fill) fill.style.width = (pr.tope ? 100 : pr.pct) + '%';
     if (pie) {
       if (pr.tope) pie.textContent = 'Llegaste al último escalón de la carrera comercial.';
