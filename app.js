@@ -938,6 +938,27 @@
     return 'https://wa.me/' + n2 + '?text=' + msg;
   }
 
+  // Caja de mensaje de las notificaciones. Existe para que las 9 plantillas
+  // dibujen exactamente lo mismo: antes cada una recortaba a un largo distinto
+  // (140, 150, 160, 170) y encima el CSS volvía a recortar por altura, así que
+  // el resultado dependía de cuál te tocara.
+  // El texto va dentro de un <span>: el recorte por líneas (-webkit-line-clamp)
+  // tiene que ir en un elemento SIN padding, porque el overflow corta en el borde
+  // del padding y no del contenido — por eso se veía media línea asomando abajo
+  // de la caja gris. La caja (fondo, padding, barra lateral) queda en el div y el
+  // recorte en el span.
+  function notifMsg(text) {
+    const t = String(text == null ? '' : text).trim();
+    if (!t) return '';
+    return `<div class="notification-message"><span>${mvEsc(t)}</span></div>`;
+  }
+  // Segunda línea, gris: el contexto (normalmente la propiedad). Va aparte del
+  // titular para que en cada tarjeta haya UNA sola cosa en negrita.
+  function notifSub(text) {
+    const t = String(text == null ? '' : text).trim();
+    return t ? `<div class="notif-sub">${mvEsc(t)}</div>` : '';
+  }
+
   function renderNotifications() {
     const b = document.getElementById('notificationBadge'),
       be = document.getElementById('notificationBell'),
@@ -989,18 +1010,18 @@
           solicitud:  { bg:'#dcfce7', fg:'#15803d', ic:'fa-envelope-open-text', tab:'solicitudes' },
           revision:   { bg:'#e0f2fe', fg:'#0369a1', ic:'fa-calculator',       tab:'revisiones' }
         }[n.subtipo] || { bg:'#eef1f5', fg:'#475569', ic:'fa-clipboard-check', tab:'pending' };
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="abrirPanelDesdeNotif('${S.tab}')"><div class="notification-avatar" style="background:${S.bg};color:${S.fg}"><i class="fas ${S.ic}"></i></div><div class="notification-body"><p><strong>${mvEsc(n.userName||'Pendiente')}</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,160))}${(n.text||'').length>160?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="abrirPanelDesdeNotif('${S.tab}')"><div class="notification-avatar" style="background:${S.bg};color:${S.fg}"><i class="fas ${S.ic}"></i></div><div class="notification-body"><p><strong>${mvEsc(n.userName||'Pendiente')}</strong></p>${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
       }
       // Aviso al AGENTE del estado de su retiro (aprobado / pagado / rechazado).
       if (n.type === 'retiro_estado') {
         const pagado = /acredit/i.test(n.text || '') || /💰/.test(n.userName || '');
         const rechaz = /rechaz/i.test(n.userName || '');
         const col = rechaz ? { bg:'#fee2e2', fg:'#b91c1c', ic:'fa-circle-xmark' } : pagado ? { bg:'#dcfce7', fg:'#15803d', ic:'fa-sack-dollar' } : { bg:'#dbeafe', fg:'#1d4ed8', ic:'fa-circle-check' };
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="window.location.href='finanzas.html'"><div class="notification-avatar" style="background:${col.bg};color:${col.fg}"><i class="fas ${col.ic}"></i></div><div class="notification-body"><p><strong>${mvEsc(n.userName||'Retiro')}</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,160))}${(n.text||'').length>160?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="window.location.href='finanzas.html'"><div class="notification-avatar" style="background:${col.bg};color:${col.fg}"><i class="fas ${col.ic}"></i></div><div class="notification-body"><p><strong>${mvEsc(n.userName||'Retiro')}</strong></p>${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
       }
       // Aviso al ADMIN de una solicitud de retiro nueva.
       if (n.type === 'retiro') {
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="window.location.href='retiros-admin.html'"><div class="notification-avatar" style="background:#fef3c7;color:#a16207"><i class="fas fa-money-bill-transfer"></i></div><div class="notification-body"><p><strong>Solicitud de retiro</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,160))}${(n.text||'').length>160?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="window.location.href='retiros-admin.html'"><div class="notification-avatar" style="background:#fef3c7;color:#a16207"><i class="fas fa-money-bill-transfer"></i></div><div class="notification-body"><p><strong>Solicitud de retiro</strong></p>${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
       }
       // Confirmación de despublicación (la ve el admin): botones de acción adentro.
       // Un propietario se perdió o cerró por afuera y su propiedad sigue publicada.
@@ -1008,31 +1029,43 @@
         const acciones = n.handled
           ? `<div class="notification-meta"><span style="color:${n.resultado === 'despublicada' ? '#b91c1c' : '#15803d'};font-weight:700"><i class="fas fa-${n.resultado === 'despublicada' ? 'box-archive' : 'check'}"></i> ${n.resultado === 'despublicada' ? 'Despublicada' : 'Se mantuvo publicada'}</span> <span><i class="far fa-clock"></i> ${ts}</span></div>`
           : `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button onclick="confirmarDespublicacion(event,'${n.id}','${n.propertyId}')" style="border:none;background:#b91c1c;color:#fff;border-radius:8px;padding:6px 12px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer"><i class="fas fa-box-archive"></i> Despublicar</button><button onclick="mantenerPublicada(event,'${n.id}','${n.propertyId}')" style="border:1px solid var(--gray-200,#e5e7eb);background:#fff;color:var(--gray-600,#555);border-radius:8px;padding:6px 12px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">Mantener publicada</button></div><div class="notification-meta" style="margin-top:6px"><span><i class="far fa-clock"></i> ${ts}</span></div>`;
-        return `<div class="notification-item ${n.read ? '' : 'unread'}" onclick="verPropDesdeNotif(event,'${n.propertyId}')"><div class="notification-avatar" style="background:#fee2e2;color:#b91c1c"><i class="fas fa-house-circle-xmark"></i></div><div class="notification-body"><p><strong>¿Despublicar propiedad?</strong></p><div class="notification-message">${mvEsc((n.text || '').substring(0, 170))}${(n.text || '').length > 170 ? '...' : ''}</div>${acciones}</div></div>`
+        return `<div class="notification-item ${n.read ? '' : 'unread'}" onclick="verPropDesdeNotif(event,'${n.propertyId}')"><div class="notification-avatar" style="background:#fee2e2;color:#b91c1c"><i class="fas fa-house-circle-xmark"></i></div><div class="notification-body"><p><strong>¿Despublicar propiedad?</strong></p>${notifSub(n.propertyTitle)}${notifMsg(n.text)}${acciones}</div></div>`
       }
       // Respuesta al AGENTE sobre el pedido de baja que mandó (aprobado / rechazado).
       if (n.type === 'baja_resuelta') {
         const col = n.resultado === 'despublicada'
           ? { bg:'#dcfce7', fg:'#15803d', ic:'fa-circle-check' }
           : { bg:'#e0f2fe', fg:'#0369a1', ic:'fa-rotate-left' };
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar" style="background:${col.bg};color:${col.fg}"><i class="fas ${col.ic}"></i></div><div class="notification-body"><p><strong>${mvEsc(n.userName||'Pedido de baja')}</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,170))}${(n.text||'').length>170?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar" style="background:${col.bg};color:${col.fg}"><i class="fas ${col.ic}"></i></div><div class="notification-body"><p><strong>${mvEsc(n.userName||'Pedido de baja')}</strong></p>${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
       }
       // Aviso de ficha incompleta en ML: dorado, clic hacia la propiedad para editarla.
       if (n.type === 'ficha_incompleta') {
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar" style="background:#fef9c3;color:#a16207"><i class="fas fa-clipboard-list"></i></div><div class="notification-body"><p><strong>Ficha incompleta</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,150))}${(n.text||'').length>150?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar" style="background:#fef9c3;color:#a16207"><i class="fas fa-clipboard-list"></i></div><div class="notification-body"><p><strong>Ficha incompleta</strong></p>${notifSub(n.propertyTitle)}${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
       }
       // Aviso de vencimiento de alquiler: naranja, clic hacia la propiedad.
       if (n.type === 'vencimiento_alquiler') {
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar" style="background:#ffedd5;color:#c2410c"><i class="fas fa-house-circle-exclamation"></i></div><div class="notification-body"><p><strong>Alquiler por vencer</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,150))}${(n.text||'').length>150?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar" style="background:#ffedd5;color:#c2410c"><i class="fas fa-house-circle-exclamation"></i></div><div class="notification-body"><p><strong>Alquiler por vencer</strong></p>${notifSub(n.propertyTitle)}${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
       }
       // Recordatorio de clientes EN PAUSA: azul, clic hacia Clientes.
       if (n.type === 'crm_pausa') {
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleCrmNotifClick('${n.id}')"><div class="notification-avatar" style="background:#dbeafe;color:#2563eb"><i class="fas fa-circle-pause"></i></div><div class="notification-body"><p><strong>Clientes en pausa</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,140))}${(n.text||'').length>140?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleCrmNotifClick('${n.id}')"><div class="notification-avatar" style="background:#dbeafe;color:#2563eb"><i class="fas fa-circle-pause"></i></div><div class="notification-body"><p><strong>Clientes en pausa</strong></p>${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
       }
       // Recordatorio del CRM (clientes sin contacto): formato propio y clic hacia Clientes,
       // porque el formato estándar de abajo asume una consulta sobre una propiedad.
       if (n.type === 'crm_seguimiento') {
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleCrmNotifClick('${n.id}')"><div class="notification-avatar" style="background:#fef3c7;color:#b45309"><i class="fas fa-user-clock"></i></div><div class="notification-body"><p><strong>Seguimiento de clientes</strong></p><div class="notification-message">${mvEsc((n.text||'').substring(0,140))}${(n.text||'').length>140?'...':''}</div><div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleCrmNotifClick('${n.id}')"><div class="notification-avatar" style="background:#fef3c7;color:#b45309"><i class="fas fa-user-clock"></i></div><div class="notification-body"><p><strong>Seguimiento de clientes</strong></p>${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+      }
+      // Avisos de SISTEMA (errores de portal, tokens vencidos). Caían en la
+      // plantilla genérica de abajo, que arma el avatar con la inicial del
+      // "usuario": para Mercado Libre daba una "M" idéntica a la de una consulta
+      // real. Un problema y un cliente interesado se veían igual. Acá llevan
+      // color e ícono propios, como el resto de los avisos que piden atención.
+      if (n.type === 'ml_error' || n.type === 'refresh_token' || n.type === 'authorization_code') {
+        const esToken = n.type !== 'ml_error';
+        const col = esToken ? { bg:'#fef3c7', fg:'#b45309', ic:'fa-key' }
+                            : { bg:'#fee2e2', fg:'#b91c1c', ic:'fa-triangle-exclamation' };
+        const titulo = esToken ? 'Reconectar el portal' : 'No se pudo sincronizar';
+        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId||''}')"><div class="notification-avatar" style="background:${col.bg};color:${col.fg}"><i class="fas ${col.ic}"></i></div><div class="notification-body"><p><strong>${titulo}</strong>${n.userName?` <span class="notif-via">en ${mvEsc(n.userName)}</span>`:''}</p>${notifSub(n.propertyTitle)}${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span>${n.agente?`<span class="notif-agente"><i class="fas fa-user-tie"></i> ${mvEsc(n.agente)}</span>`:''}</div></div></div>`
       }
       const d = notifDatos(n);
       // El titular pasa a ser el interesado, no el portal: "Magela consultó por
@@ -1045,8 +1078,13 @@
       return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')">` +
         `<div class="notification-avatar">${n.userPhoto?`<img src="${n.userPhoto}" alt="">`:i}</div>` +
         `<div class="notification-body">` +
-          `<p><strong>${mvEsc(quien)}</strong>${via} · <strong>${mvEsc(n.propertyTitle||'')}</strong></p>` +
-          (resumen ? `<div class="notification-message">${mvEsc(resumen)}</div>` : '') +
+          // Antes el titular era "<b>Quién</b> por Portal · <b>Título de la propiedad</b>":
+          // dos negritas compitiendo en un renglón que se iba a tres líneas y
+          // empujaba todo. Ahora manda una sola cosa —el interesado— y la
+          // propiedad baja a la línea gris de contexto, igual que en el resto.
+          `<p><strong>${mvEsc(quien)}</strong>${via}</p>` +
+          notifSub(n.propertyTitle) +
+          (resumen ? `<div class="notification-message"><span>${mvEsc(resumen)}</span></div>` : '') +
           `<div class="notification-meta">` +
             `<span><i class="far fa-clock"></i> ${ts}</span>` +
             (d.agente ? `<span class="notif-agente"><i class="fas fa-user-tie"></i> ${mvEsc(d.agente)}</span>` : '') +

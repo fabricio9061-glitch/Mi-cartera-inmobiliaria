@@ -4407,9 +4407,25 @@
 .notification-body { flex: 1; min-width: 0; }
 .notification-body p { font-size: .85rem; margin: 0 0 2px; color: var(--ink, #16273f); }
 .notification-body strong { font-weight: 700; }
+/* El recorte por líneas va en el <span> interno, NO en esta caja.
+   Con -webkit-line-clamp el overflow corta en el borde del PADDING, no en el del
+   contenido: al tener la caja 8px de padding abajo, la cuarta línea se colaba
+   dentro de ese margen y se veía media línea de texto asomando. Con el clamp en
+   un elemento sin padding, corta donde tiene que cortar. */
 .notification-message {
     font-size: .8rem; line-height: 1.45; color: var(--gray-500, #6b7280);
-    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.notification-message span {
+    display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3;
+    -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* Línea de contexto (la propiedad). Una sola línea, gris y con puntos suspensivos:
+   acompaña al titular sin competirle. Es lo que empareja la altura de las
+   tarjetas, porque los títulos de los avisos son largos y desparejos. */
+.notif-sub {
+    font-size: .76rem; color: var(--gray-500, #6b7280);
+    margin: 0 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .notification-meta {
     font-size: .7rem; color: var(--gray-400, #9aa3ad); margin-top: 6px;
