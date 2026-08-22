@@ -1259,6 +1259,125 @@
         margin-bottom: 10px
     }
 
+    /* ===== Nivel del agente en el menú lateral =====
+       Vive debajo del saldo y los puntos. Se oculta solo (hidden) para los rangos
+       que no ascienden por facturar. */
+    .mv-nivel {
+        margin: 10px 14px 0;
+        padding: 11px 13px;
+        background: rgba(255, 255, 255, .06);
+        border: 1px solid rgba(255, 255, 255, .1);
+        border-radius: 12px
+    }
+
+    .mv-nivel[hidden] { display: none }
+
+    .mv-nivel-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 8px
+    }
+
+    .mv-nivel-rango {
+        font-size: .84rem;
+        font-weight: 700;
+        color: #fff;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap
+    }
+
+    .mv-nivel-info {
+        flex: none;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(255, 255, 255, .1);
+        color: #d8c9a3;
+        cursor: pointer;
+        font-size: .8rem;
+        display: grid;
+        place-items: center;
+        transition: background .15s
+    }
+
+    .mv-nivel-info:hover { background: rgba(255, 255, 255, .2) }
+
+    .mv-nivel-barra {
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, .12);
+        overflow: hidden
+    }
+
+    .mv-nivel-barra span {
+        display: block;
+        height: 100%;
+        width: 0;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #c9a227, #e6c65c);
+        transition: width .5s ease
+    }
+
+    /* Cumplió el umbral: la barra pasa a verde para que se note sin leer. */
+    .mv-nivel.listo .mv-nivel-barra span { background: linear-gradient(90deg, #15803d, #4ade80) }
+
+    .mv-nivel-pie {
+        margin-top: 7px;
+        font-size: .72rem;
+        line-height: 1.4;
+        color: rgba(255, 255, 255, .6)
+    }
+
+    .mv-nivel-pie b { color: #86efac }
+
+    /* Modal de "qué gano subiendo de nivel" */
+    .ni-modal { position: fixed; inset: 0; z-index: 4000; display: none }
+    .ni-modal.show { display: block }
+    .ni-back { position: absolute; inset: 0; background: rgba(12, 20, 33, .55) }
+
+    .ni-card {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: min(440px, calc(100vw - 32px));
+        max-height: 82vh;
+        overflow: auto;
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(12, 20, 33, .3)
+    }
+
+    .ni-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 16px;
+        border-bottom: 1px solid #eef1f5;
+        position: sticky;
+        top: 0;
+        background: #fff
+    }
+
+    .ni-head strong { font-size: .95rem; color: var(--primary, #16273f) }
+    .ni-head i.fa-medal { color: #c9a227; margin-right: 6px }
+
+    .ni-head button {
+        border: none;
+        background: none;
+        color: #8a929c;
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 4px 6px
+    }
+
+    .ni-body { padding: 16px }
+
     /* Ubicación y cliente comparten renglón: antes cada uno era un bloque y se
        apilaban, sumando ~25px de alto a CADA tarjeta. Con flex-wrap, si los dos
        textos no entran juntos el chip baja solo, sin romperse. */

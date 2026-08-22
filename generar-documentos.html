@@ -44,6 +44,13 @@
       align-items:flex-start; line-height:1.5; }
     .doc-nota i{ color:var(--gold); margin-top:2px; flex:none; }
     .doc-nota[hidden]{ display:none; }
+
+    /* Casilla de IVA, junto al importe de la comisión */
+    .iva-check{ display:inline-flex; align-items:center; gap:7px; margin-top:8px;
+      font-size:.82rem; color:var(--ink); cursor:pointer; user-select:none }
+    .iva-check input{ width:16px; height:16px; accent-color:var(--gold); cursor:pointer; margin:0 }
+    #ivaTxt{ font-weight:600; color:var(--ink) }
+    #ivaTxt[hidden]{ display:none }
     .doc-type.soon{ opacity:.55; cursor:not-allowed; }
     .doc-type i{ font-size:1.1rem; color:var(--gold); margin-bottom:6px; display:block; }
     .doc-type b{ font-size:.87rem; display:block; margin-bottom:3px; line-height:1.25; }
@@ -225,6 +232,8 @@
               <input id="fMonto" type="number" min="0" step="1" placeholder="39000" oninput="renderPreview()">
             </div>
             <div class="hint" id="montoLetras">En letras: —</div>
+            <label class="iva-check"><input type="checkbox" id="fIva" onchange="renderPreview()"> Agregar IVA (22%)</label>
+            <div class="hint" id="ivaTxt" hidden></div>
 
           <div class="fld">
             <label>Momento de la operación</label>
@@ -1491,7 +1500,10 @@
       if (pg.esReserva) {
         var t = 'Recibí de '+encabezado+' la suma de '+montoTxt+' ('+letrasTxt.toLowerCase()+'), en concepto de seña para la reserva de la propiedad ubicada en '+dir+'.';
         t += '\n\nSe deja constancia de que dicho importe será imputado al pago de la comisión inmobiliaria correspondiente a la operación de '+opTxt+
-             (pg.total>0 ? ', pactada en '+fmtMonto(pg.total, moneda)+' ('+montoEnLetras(pg.total, moneda)+')' : '')+
+             (pg.total>0 ? (pg.conIva
+                ? ', pactada en '+fmtMonto(pg.neto, moneda)+' más IVA (22%) de '+fmtMonto(pg.iva, moneda)+
+                  ', totalizando '+fmtMonto(pg.total, moneda)+' ('+montoEnLetras(pg.total, moneda)+')'
+                : ', pactada en '+fmtMonto(pg.total, moneda)+' ('+montoEnLetras(pg.total, moneda)+')') : '')+
              ', en caso de concretarse la firma del contrato.';
         t += pg.saldo>0
           ? '\n\nEl saldo de '+fmtMonto(pg.saldo, moneda)+' ('+montoEnLetras(pg.saldo, moneda)+') será abonado al momento de la firma del contrato.'
@@ -1505,6 +1517,10 @@
       if (pg.previa>0) {
         c += '\n\nDe dicho importe, '+fmtMonto(pg.previa, moneda)+' ('+montoEnLetras(pg.previa, moneda)+') fueron abonados'+
              (fechaPrevia ? ' el '+fechaPrevia : ' en concepto de seña')+' y el resto en este acto.';
+      }
+      if (pg.conIva && pg.iva>0) {
+        c += '\n\nDicho importe incluye IVA (22%) por '+fmtMonto(pg.iva, moneda)+
+             ', sobre una comisión neta de '+fmtMonto(pg.neto, moneda)+'.';
       }
       c += '\n\nLa comisión inmobiliaria queda totalmente cancelada, sin que exista saldo pendiente por este concepto entre las partes.';
       return c;
@@ -1685,24 +1701,42 @@
     }
 
     // Los tres números del pago: comisión total, lo entregado ahora y el saldo.
+    // IVA básico uruguayo. El importe se REDONDEA A ENTERO a propósito: fmtMonto y
+    // montoEnLetras hacen Math.floor, así que con decimales el recibo mostraría
+    // neto + IVA que no dan el total por un peso de diferencia. En un comprobante
+    // eso no puede pasar.
+    var IVA_TASA = 0.22;
     function datosPago(){
-      var total = Number(document.getElementById('fMonto').value)||0;
+      var neto = Number(document.getElementById('fMonto').value)||0;
+      var conIva = !!(document.getElementById('fIva')||{}).checked;
+      var iva = conIva ? Math.round(neto * IVA_TASA) : 0;
+      var total = neto + iva;
       var esReserva = (tipoComprobante==='reserva');
       var entrega = esReserva ? (Number(document.getElementById('fEntrega').value)||0) : total;
       // El saldo nunca puede ser negativo: si alguien escribe más que el total,
       // se toma como pago completo en vez de mostrar un número absurdo.
       var saldo = Math.max(0, total - entrega);
       var previa = Number((document.getElementById('fEntregaPrevia')||{}).value)||0;
-      return { total:total, entrega:entrega, saldo:saldo, esReserva:esReserva, previa:previa,
+      return { total:total, neto:neto, iva:iva, conIva:conIva,
+               entrega:entrega, saldo:saldo, esReserva:esReserva, previa:previa,
                parcial: esReserva && entrega>0 && saldo>0, esSaldo: !esReserva };
     }
 
     var _previewTimer=null;
     function renderPreview(){
       // "En letras" al instante
-      var monto=Number(document.getElementById('fMonto').value)||0;
       var moneda=document.getElementById('fMoneda').value;
-      document.getElementById('montoLetras').textContent = 'En letras: '+(monto>0 ? montoEnLetras(monto,moneda) : '—');
+      var _d0 = datosPago();
+      // "En letras" siempre sobre el TOTAL que se cobra: si hay IVA, es con IVA.
+      document.getElementById('montoLetras').textContent = 'En letras: '+(_d0.total>0 ? montoEnLetras(_d0.total,moneda) : '—');
+      var ivaEl = document.getElementById('ivaTxt');
+      if (ivaEl){
+        if (_d0.conIva && _d0.neto>0){
+          ivaEl.hidden = false;
+          ivaEl.textContent = 'Comisión ' + fmtMonto(_d0.neto,moneda) + '  +  IVA ' + fmtMonto(_d0.iva,moneda) +
+                              '  =  Total ' + fmtMonto(_d0.total,moneda);
+        } else { ivaEl.hidden = true; }
+      }
       var st=document.getElementById('saldoTxt');
       if(st){
         var d=datosPago();

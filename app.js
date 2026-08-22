@@ -2658,6 +2658,76 @@
     window.location.href = 'clientes.html?cliente=' + encodeURIComponent(id);
   }
 
+  // ===== Nivel del agente en el menú =====
+  // Muestra el rango y cuánto falta para el siguiente. Solo aparece para los
+  // rangos de la escalera comercial: un Marketing o un Finanzas no asciende por
+  // facturar, así que mostrarle una barra sería mentirle.
+  let _expUSD = 0;
+  function pintarNivelMenu(expUSD) {
+    _expUSD = Number(expUSD) || 0;
+    const caja = document.getElementById('mvNivel');
+    if (!caja) return;
+    const pr = window.Rangos ? Rangos.progresoRango(userProfile, _expUSD) : null;
+    if (!pr) { caja.hidden = true; return; }
+    caja.hidden = false;
+    const fmt = n => 'US$ ' + Math.round(n).toLocaleString('es-UY');
+    const rg = document.getElementById('mvNivelRango');
+    const fill = document.getElementById('mvNivelFill');
+    const pie = document.getElementById('mvNivelPie');
+    if (rg) rg.textContent = pr.rango.label;
+    if (fill) fill.style.width = (pr.tope ? 100 : pr.pct) + '%';
+    if (pie) {
+      if (pr.tope) pie.textContent = 'Llegaste al último escalón de la carrera comercial.';
+      else if (pr.listo) pie.innerHTML = '<b>Ya cumplís para ' + mvEsc(pr.siguiente.label) + '.</b> La Dirección confirma el ascenso.';
+      else pie.textContent = 'Te faltan ' + fmt(pr.falta) + ' facturados para ' + pr.siguiente.label + '.';
+    }
+    if (caja) caja.classList.toggle('listo', !!pr.listo);
+  }
+
+  // Qué gana el agente subiendo de nivel. Se arma del propio organigrama, así que
+  // si mañana cambian los umbrales o los destacados, el texto acompaña solo.
+  function verBeneficiosRango() {
+    if (!window.Rangos) return;
+    const pr = Rangos.progresoRango(userProfile, _expUSD);
+    const fmt = n => 'US$ ' + Math.round(n).toLocaleString('es-UY');
+    const filas = Rangos.ESCALERA.map(k => {
+      const r = Rangos.rango(k);
+      const yo = pr && pr.rango.key === k;
+      return `<tr style="${yo?'background:#fffbeb;font-weight:700':''}">
+        <td style="padding:7px 9px;border-bottom:1px solid #eef1f5">${mvEsc(r.label)}${yo?' <span style="color:#b45309;font-size:.7rem">· vos</span>':''}</td>
+        <td style="padding:7px 9px;border-bottom:1px solid #eef1f5;text-align:center">${r.umbralUSD?fmt(r.umbralUSD):'—'}</td>
+        <td style="padding:7px 9px;border-bottom:1px solid #eef1f5;text-align:center">${r.destacados}</td>
+      </tr>`;
+    }).join('');
+    const html = `<div style="text-align:left">
+      <p style="margin:0 0 10px;font-size:.86rem;color:#5b6472;line-height:1.5">
+        Tu nivel sube con lo que <b>facturás y queda verificado</b> (cierres confirmados).
+        Nunca baja: cobrar tu comisión o canjear puntos no te resta nivel.</p>
+      <table style="width:100%;border-collapse:collapse;font-size:.8rem">
+        <tr style="text-align:left;color:#8a929c;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em">
+          <th style="padding:0 9px 6px">Rango</th><th style="padding:0 9px 6px;text-align:center">Facturado</th><th style="padding:0 9px 6px;text-align:center">Destacados</th>
+        </tr>${filas}
+      </table>
+      <p style="margin:12px 0 0;font-size:.8rem;color:#5b6472;line-height:1.5">
+        Los <b>destacados</b> ponen una propiedad arriba de todo por 30 días. Cuantos más
+        tenés, más avisos podés empujar a la vez. El ascenso lo confirma la Dirección.</p>
+    </div>`;
+    const m = document.getElementById('nivelInfoModal');
+    if (m) { m.querySelector('.ni-body').innerHTML = html; m.classList.add('show'); return; }
+    const d = document.createElement('div');
+    d.id = 'nivelInfoModal';
+    d.className = 'ni-modal show';
+    d.innerHTML = `<div class="ni-back" onclick="cerrarBeneficiosRango()"></div>
+      <div class="ni-card"><div class="ni-head"><strong><i class="fas fa-medal"></i> Tu nivel</strong>
+      <button onclick="cerrarBeneficiosRango()" aria-label="Cerrar"><i class="fas fa-times"></i></button></div>
+      <div class="ni-body">${html}</div></div>`;
+    document.body.appendChild(d);
+  }
+  function cerrarBeneficiosRango() {
+    const m = document.getElementById('nivelInfoModal');
+    if (m) m.classList.remove('show');
+  }
+
   function updateStats() {
     // Los contadores tienen que contar EXACTAMENTE lo que la grilla muestra. Antes
     // sumaban las reservadas, que ahora quedaron fuera de la vitrina: el número
@@ -3038,6 +3108,12 @@
         }
       } catch (e) { console.warn('[finanzas menú] referidos', e && e.message); }
 
+      // EXPERIENCIA para el nivel: se toma ACÁ, antes de descontar retiros, y no
+      // baja nunca. Si el rango dependiera del saldo disponible, un agente que
+      // cobra su comisión o canjea un premio se auto-degradaría y perdería puntos
+      // de comisión. Lo facturado es historia, no caja.
+      const expUSD = sumUSD + (cfg.dolarPesos > 0 ? sumUYU / cfg.dolarPesos : 0);
+
       // Descontar retiros: los pagados ya salieron, y los pendientes/aprobados están
       // comprometidos. El SALDO a cobrar es lo ganado menos eso (los PUNTOS no bajan:
       // se ganan al cerrar y quedan). Esto corrige que el saldo no bajara al pagar.
@@ -3064,6 +3140,7 @@
         uyuEl.style.display = rUyu ? '' : 'none';
       }
       if (puntosEl) puntosEl.textContent = pts.toLocaleString('es-UY');
+      pintarNivelMenu(expUSD);
     } catch (e) {
       console.warn('[finanzas menú]', e && e.message);
       ['mvFinUsd','mvFinUyu','mvFinPuntos'].forEach(function(id){ var e=document.getElementById(id); if(e) e.textContent='—'; });

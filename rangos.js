@@ -36,33 +36,37 @@
 
   var RANKS = [
     // ---- Dirección: '*' es todas las capacidades ----
-    { key: 'ceo', grupo: 'Dirección', label: 'CEO', nivel: 100, caps: ['*'] },
-    { key: 'coo', grupo: 'Dirección', label: 'COO — Director de Operaciones', nivel: 90, caps: ['*'] },
+    { key: 'ceo', grupo: 'Dirección', label: 'CEO', nivel: 100, caps: ['*'], destacados: 3 },
+    { key: 'coo', grupo: 'Dirección', label: 'COO — Director de Operaciones', nivel: 90, caps: ['*'], destacados: 3 },
 
     // ---- Comercial: la escalera del asesor. Define la comisión. ----
     {
       key: 'gerente_comercial', grupo: 'Comercial', label: 'Gerente Comercial', nivel: 70,
-      caps: ['equipo.ver', 'equipo.aprobar', 'agenda.todas', 'propiedades.todas', 'clientes.todos']
+      caps: ['equipo.ver', 'equipo.aprobar', 'agenda.todas', 'propiedades.todas', 'clientes.todos'],
+      destacados: 3
     },
-    { key: 'asesor_elite', grupo: 'Comercial', label: 'Asesor Elite', nivel: 50, caps: ['compartidas.crear'] },
-    { key: 'asesor_senior', grupo: 'Comercial', label: 'Asesor Senior', nivel: 40, caps: [] },
-    { key: 'asesor_semi_senior', grupo: 'Comercial', label: 'Asesor Semi Senior', nivel: 30, caps: [] },
-    { key: 'asesor_junior', grupo: 'Comercial', label: 'Asesor Junior', nivel: 20, caps: [] },
+    { key: 'asesor_elite', grupo: 'Comercial', label: 'Asesor Elite', nivel: 50, caps: ['compartidas.crear'], destacados: 3, umbralUSD: 25000 },
+    { key: 'asesor_senior', grupo: 'Comercial', label: 'Asesor Senior', nivel: 40, caps: [], destacados: 2, umbralUSD: 10000 },
+    { key: 'asesor_semi_senior', grupo: 'Comercial', label: 'Asesor Semi Senior', nivel: 30, caps: [], destacados: 1, umbralUSD: 3000 },
+    { key: 'asesor_junior', grupo: 'Comercial', label: 'Asesor Junior', nivel: 20, caps: [], destacados: 1, umbralUSD: 0 },
 
     // ---- Finanzas: nivel bajo (no manda sobre nadie) pero toca la plata. ----
     {
       key: 'finanzas', grupo: 'Finanzas', label: 'Finanzas', nivel: 40,
-      caps: ['dinero.retiros', 'dinero.comisiones', 'dinero.saldos', 'ganancias.ver']
+      caps: ['dinero.retiros', 'dinero.comisiones', 'dinero.saldos', 'ganancias.ver'],
+      destacados: 1
     },
 
     // ---- Operaciones: al costado de lo comercial, no por encima. ----
     {
       key: 'administracion', grupo: 'Operaciones', label: 'Administración', nivel: 35,
-      caps: ['documentos.editar', 'portales.gestionar']
+      caps: ['documentos.editar', 'portales.gestionar'],
+      destacados: 1
     },
     {
       key: 'marketing', grupo: 'Operaciones', label: 'Marketing', nivel: 35,
-      caps: ['sitio.editar', 'academy.editar', 'recompensas.gestionar']
+      caps: ['sitio.editar', 'academy.editar', 'recompensas.gestionar'],
+      destacados: 1
     }
   ];
 
@@ -131,7 +135,47 @@
     return true;
   }
 
-  // Rangos agrupados para armar los <optgroup> del selector, en el orden del array.
+  // La ESCALERA de ascenso. Solo es comercial: un Marketing o un Finanzas no
+  // "sube" por facturar, hace otra cosa. Por eso la barra de experiencia se
+  // muestra únicamente a quien está en esta lista.
+  var ESCALERA = ['asesor_junior', 'asesor_semi_senior', 'asesor_senior', 'asesor_elite'];
+
+  /* Progreso hacia el rango siguiente.
+     `ganadoUSD` es la facturación VERIFICADA ACUMULADA del agente (cierres con
+     cierreConfirmado, antes de retiros y canjes). Es a propósito el bruto
+     histórico y no el saldo disponible: si el nivel dependiera de los puntos
+     gastables, un agente que canjea un premio se auto-degradaría y perdería
+     comisión. Lo ganado no baja nunca.
+     Devuelve null si el rango no está en la escalera comercial. */
+  function progresoRango(u, ganadoUSD) {
+    var r = rangoDe(u);
+    if (!r) return null;
+    var i = ESCALERA.indexOf(r.key);
+    if (i < 0) return null;
+    var ganado = Math.max(0, Number(ganadoUSD) || 0);
+    var desde = Number(r.umbralUSD) || 0;
+    var sigKey = ESCALERA[i + 1];
+    if (!sigKey) {
+      // Último escalón: no hay a dónde subir.
+      return { rango: r, siguiente: null, ganado: ganado, desde: desde,
+               hasta: null, falta: 0, pct: 100, listo: false, tope: true };
+    }
+    var sig = rango(sigKey);
+    var hasta = Number(sig.umbralUSD) || 0;
+    var tramo = Math.max(1, hasta - desde);
+    var pct = Math.max(0, Math.min(100, Math.round((ganado - desde) / tramo * 100)));
+    return {
+      rango: r, siguiente: sig, ganado: ganado, desde: desde, hasta: hasta,
+      falta: Math.max(0, hasta - ganado), pct: pct,
+      listo: ganado >= hasta,   // cumple el umbral; el ascenso lo confirma la Dirección
+      tope: false
+    };
+  }
+
+  // Cuántos destacados puede tener ACTIVOS a la vez. Sin rango, ninguno.
+  function destacadosDe(u) { var r = rangoDe(u); return r ? (Number(r.destacados) || 0) : 0; }
+
+
   function porGrupo() {
     var g = [], idx = {};
     RANKS.forEach(function (r) {
@@ -154,6 +198,9 @@
     puede: puede,
     puedeAdministrar: puedeAdministrar,
     puedeAsignarRango: puedeAsignarRango,
-    porGrupo: porGrupo
+    porGrupo: porGrupo,
+    ESCALERA: ESCALERA,
+    progresoRango: progresoRango,
+    destacadosDe: destacadosDe
   };
 })(typeof window !== 'undefined' ? window : this);
