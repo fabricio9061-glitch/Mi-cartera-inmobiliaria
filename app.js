@@ -2018,7 +2018,9 @@
   }
 
   function closeModal(i) {
-    document.getElementById(i).classList.remove('active');
+    const m = document.getElementById(i);
+    m.classList.remove('active');
+    ocultarPassDe(m);
     sincronizarBloqueoFondo()
   }
 
@@ -2727,6 +2729,33 @@
   function cerrarBeneficiosRango() {
     const m = document.getElementById('nivelInfoModal');
     if (m) m.classList.remove('show');
+  }
+
+  // Mostrar/ocultar contraseña. Se conserva la posición del cursor: si el campo
+  // se re-enfoca desde cero, el que estaba corrigiendo una letra en el medio
+  // pierde el lugar y termina escribiendo al final.
+  function toggleVerPass(btn) {
+    const wrap = btn.closest('.pass-wrap');
+    const inp = wrap && wrap.querySelector('input');
+    if (!inp) return;
+    const mostrar = inp.type === 'password';
+    const pos = inp.selectionStart;
+    inp.type = mostrar ? 'text' : 'password';
+    const ic = btn.querySelector('i');
+    if (ic) ic.className = mostrar ? 'fas fa-eye-slash' : 'fas fa-eye';
+    btn.setAttribute('aria-label', mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña');
+    inp.focus();
+    try { inp.setSelectionRange(pos, pos); } catch (e) { }
+  }
+  // Al cerrar el modal, toda contraseña vuelve a ocultarse: no puede quedar
+  // visible para el que abra la app después.
+  function ocultarPassDe(cont) {
+    if (!cont) return;
+    cont.querySelectorAll('.pass-wrap input[type="text"]').forEach(inp => {
+      inp.type = 'password';
+      const b = inp.parentElement.querySelector('.pass-eye i');
+      if (b) b.className = 'fas fa-eye';
+    });
   }
 
   function updateStats() {
