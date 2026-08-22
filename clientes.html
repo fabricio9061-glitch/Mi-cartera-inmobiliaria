@@ -1224,6 +1224,10 @@
         if (mAg){ agenteFiltro = (mAg[1]||'').toLowerCase(); }
         term = rawTerm.replace(/@[^\s]*/, '').trim().toLowerCase();
       }
+      // El subtítulo se recalcula en cada tecla: avisa cuando la búsqueda salió
+      // del alcance "Tus clientes".
+      updateMisBtn();
+
       var sf = document.getElementById('clientStatusFilter').value;
       var sfSit = (document.getElementById('clientSituacionFilter')||{}).value || '';
       var inf = document.getElementById('clientInterestFilter').value;
@@ -1312,7 +1316,15 @@
           || (digitos.length>=3 && telCliente.indexOf(digitos)>=0)
           || (c.email||'').toLowerCase().indexOf(term)>=0;
         var archMatch = arf==='all' ? true : (arf==='archived' ? !!c.archived : !c.archived);
-        var mio = (agenteFiltro || !misClientesOnly) || esMio(c);
+        // Buscar amplía el alcance a TODA la inmobiliaria, aunque estés parado en
+        // "Tus clientes". El motivo: el buscador ya lo hacía con "@agente" (por eso
+        // agenteFiltro está en esta línea desde antes) pero no con nombre ni
+        // teléfono, así que buscar a alguien que existe pero es de otro agente
+        // devolvía vacío y parecía que el cliente no estaba cargado.
+        // Es temporal y no pisa tu preferencia: al borrar la búsqueda volvés a ver
+        // solo los tuyos, sin tener que tocar el botón.
+        var buscando = !!(term || agenteFiltro);
+        var mio = (buscando || !misClientesOnly) || esMio(c);
         var agMatch = !agenteFiltro || (((c.createdByName||c.ownerName||c.agentName||'').toLowerCase()).indexOf(agenteFiltro) >= 0);
         var rs = rollupStatus(c);
         var matchStatus = !sf || rs===sf || (sf==='singestion' && rs==='sinavance');
@@ -3284,7 +3296,14 @@
         }
       }
       var s = document.getElementById('crmSubtitle');
-      if (s) s.textContent = misClientesOnly ? 'Tus clientes' : 'Todos los clientes de la inmobiliaria';
+      if (s) {
+        // El botón sigue mostrando tu preferencia (no la pisamos). Lo que cambia
+        // es el subtítulo, para que quede claro por qué aparecen clientes que no
+        // son tuyos mientras hay algo escrito en el buscador.
+        var hayBusqueda = !!((document.getElementById('clientSearch')||{}).value||'').trim();
+        if (misClientesOnly && hayBusqueda) s.textContent = 'Buscando en todos los clientes de la inmobiliaria';
+        else s.textContent = misClientesOnly ? 'Tus clientes' : 'Todos los clientes de la inmobiliaria';
+      }
     }
 
     // ---- Filtros plegables ----
