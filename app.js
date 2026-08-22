@@ -2659,29 +2659,51 @@
   }
 
   // ===== Nivel del agente en el menú =====
-  // Muestra el rango y cuánto falta para el siguiente. Solo aparece para los
-  // rangos de la escalera comercial: un Marketing o un Finanzas no asciende por
-  // facturar, así que mostrarle una barra sería mentirle.
+  // El RANGO se muestra siempre (si lo tiene). La BARRA de experiencia, solo para
+  // la escalera comercial: un Marketing o la Dirección no ascienden por facturar,
+  // así que dibujarles una barra sería mentirles. Pero ocultarles el bloque entero
+  // tampoco iba: dejaba a la Dirección sin forma de ver su propio rango ni de
+  // comprobar que esto funciona.
   let _expUSD = 0;
   function pintarNivelMenu(expUSD) {
     _expUSD = Number(expUSD) || 0;
     const caja = document.getElementById('mvNivel');
     if (!caja) return;
-    const pr = window.Rangos ? Rangos.progresoRango(userProfile, _expUSD) : null;
-    if (!pr) { caja.hidden = true; return; }
+    const rango = window.Rangos ? Rangos.rangoDe(userProfile) : null;
+    // Red de seguridad: el CEO entra por correo aunque su perfil no tenga rango.
+    const etiqueta = rango ? rango.label : (isAdminUser() ? 'Dirección' : '');
+    if (!etiqueta) { caja.hidden = true; return; }
     caja.hidden = false;
-    const fmt = n => 'US$ ' + Math.round(n).toLocaleString('es-UY');
+
     const rg = document.getElementById('mvNivelRango');
     const fill = document.getElementById('mvNivelFill');
     const pie = document.getElementById('mvNivelPie');
-    if (rg) rg.textContent = pr.rango.label;
+    const barra = caja.querySelector('.mv-nivel-barra');
+    if (rg) rg.textContent = etiqueta;
+
+    const pr = window.Rangos ? Rangos.progresoRango(userProfile, _expUSD) : null;
+    const fmt = n => 'US$ ' + Math.round(n).toLocaleString('es-UY');
+
+    if (!pr) {
+      // Fuera de la escalera comercial: solo el rango. Sin barra y sin texto — no
+      // hay nada que informar y la aclaración era ruido.
+      if (barra) barra.hidden = true;
+      if (pie) pie.hidden = true;
+      caja.classList.remove('listo');
+      caja.classList.add('solo-rango');
+      return;
+    }
+
+    caja.classList.remove('solo-rango');
+    if (pie) pie.hidden = false;
+    if (barra) barra.hidden = false;
     if (fill) fill.style.width = (pr.tope ? 100 : pr.pct) + '%';
     if (pie) {
       if (pr.tope) pie.textContent = 'Llegaste al último escalón de la carrera comercial.';
       else if (pr.listo) pie.innerHTML = '<b>Ya cumplís para ' + mvEsc(pr.siguiente.label) + '.</b> La Dirección confirma el ascenso.';
       else pie.textContent = 'Te faltan ' + fmt(pr.falta) + ' facturados para ' + pr.siguiente.label + '.';
     }
-    if (caja) caja.classList.toggle('listo', !!pr.listo);
+    caja.classList.toggle('listo', !!pr.listo);
   }
 
   // Qué gana el agente subiendo de nivel. Se arma del propio organigrama, así que
@@ -3081,6 +3103,15 @@
         });
       } catch (e) { console.warn('[finanzas menú] equipo', e && e.message); }
 
+      // EXPERIENCIA para el nivel: se congela ACÁ, con los cierres propios y la
+      // parte que le tocó al agente en las operaciones de equipo. Todavía NO se
+      // sumaron los referidos, y es a propósito: cobrar un % de lo que vende otro
+      // es plata del bolsillo, pero no es facturación propia. Si contara, alguien
+      // podría llegar a Senior sin haber cerrado una operación por su cuenta.
+      // Los referidos sí siguen sumando al SALDO, unas líneas más abajo.
+      // Tampoco entran los ajustes manuales de la Dirección: no son facturación.
+      const expUSD = sumUSD + (cfg.dolarPesos > 0 ? sumUYU / cfg.dolarPesos : 0);
+
       // Ganancia por REFERIDOS: si yo referí a otros agentes, cobro mi % de lo que
       // ganó cada uno en sus cierres confirmados. El % (por venta/alquiler) está en
       // referidos/{uidReferido}. Se suma solo al confirmarse el cierre del referido.
@@ -3107,12 +3138,6 @@
           });
         }
       } catch (e) { console.warn('[finanzas menú] referidos', e && e.message); }
-
-      // EXPERIENCIA para el nivel: se toma ACÁ, antes de descontar retiros, y no
-      // baja nunca. Si el rango dependiera del saldo disponible, un agente que
-      // cobra su comisión o canjea un premio se auto-degradaría y perdería puntos
-      // de comisión. Lo facturado es historia, no caja.
-      const expUSD = sumUSD + (cfg.dolarPesos > 0 ? sumUYU / cfg.dolarPesos : 0);
 
       // Descontar retiros: los pagados ya salieron, y los pendientes/aprobados están
       // comprometidos. El SALDO a cobrar es lo ganado menos eso (los PUNTOS no bajan:
