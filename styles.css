@@ -1186,7 +1186,7 @@
     }
 
     .card-content {
-        padding: 15px 16px 14px
+        padding: 13px 16px 12px
     }
 
     .card-price {
@@ -1239,7 +1239,15 @@
         font-weight: 600;
         color: var(--primary);
         line-height: 1.35;
-        margin-bottom: 5px
+        margin-bottom: 5px;
+        /* Corte a 2 renglones. Los títulos de los avisos son largos y desparejos:
+           uno de 3 renglones estiraba toda la fila de la grilla. El título completo
+           se ve igual al abrir la propiedad. */
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden
     }
 
     .card-location {
@@ -1251,6 +1259,72 @@
         margin-bottom: 10px
     }
 
+    /* Ubicación y cliente comparten renglón: antes cada uno era un bloque y se
+       apilaban, sumando ~25px de alto a CADA tarjeta. Con flex-wrap, si los dos
+       textos no entran juntos el chip baja solo, sin romperse. */
+    .card-meta {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 5px 9px;
+        margin-bottom: 9px;
+        min-width: 0
+    }
+
+    .card-meta .card-location {
+        margin-bottom: 0;
+        min-width: 0
+    }
+
+    .card-meta .card-client {
+        margin: 0
+    }
+
+    /* Chip del cliente propietario. Solo lo dibuja el equipo (ver esDelEquipo en
+       app.js): es dato interno y no va en la web pública. Al tocarlo abre la
+       ficha del cliente. Se separa visualmente de la ubicación con un tono más
+       apagado y el ícono en dorado, para que se lea como "dato de gestión" y no
+       como parte de la descripción del aviso. */
+    .card-client {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 100%;
+        margin: -4px 0 10px;
+        padding: 3px 9px 3px 7px;
+        border: 1px solid var(--gray-200, #eceef1);
+        border-radius: 999px;
+        background: var(--gray-50, #f7f8f9);
+        color: var(--gray-600, #5b6472);
+        font-size: 12.5px;
+        cursor: pointer;
+        transition: border-color .15s, background .15s, color .15s
+    }
+
+    .card-client i {
+        color: var(--gold, #c9a227);
+        font-size: 11px;
+        flex: none
+    }
+
+    .card-client span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap
+    }
+
+    .card-client:hover {
+        border-color: var(--gold, #c9a227);
+        background: #fff;
+        color: var(--gray-800, #2b3442)
+    }
+
+    /* Mientras los clientes todavía no cargaron el chip no muestra nada:
+       ocuparía lugar con un globo vacío. */
+    .card-client.vacio {
+        display: none
+    }
+
     .card-location i {
         color: var(--accent)
     }
@@ -1258,7 +1332,7 @@
     .card-features {
         display: flex;
         gap: 12px;
-        padding-top: 11px;
+        padding-top: 10px;
         border-top: 1px solid var(--gray-100);
         flex-wrap: wrap
     }
