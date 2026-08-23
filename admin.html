@@ -378,7 +378,16 @@
         db.collection('users').where('status','==','pending').get(),
         db.collection('testimonials').where('approved','==',false).get()
       ]);
-      var items = nots.docs.map(d => ({id:d.id, ...d.data()})).filter(n => !n.read).map(n => {
+      // Las altas pendientes se muestran UNA sola vez. Abajo se arma un renglón
+      // en vivo ("N agentes esperando aprobación") consultando users con status
+      // pending: ese es el que vale, porque refleja el estado real y desaparece
+      // solo al aprobar. Las notificaciones de alta cuentan el mismo hecho pero
+      // son historia: quedan hasta que alguien las marca leídas, así que sumarlas
+      // acá repetía el mismo pendiente dos veces.
+      var items = nots.docs.map(d => ({id:d.id, ...d.data()}))
+        .filter(n => !n.read)
+        .filter(n => !(n.type === 'admin_pendiente' && n.subtipo === 'alta'))
+        .map(n => {
         var t = TIPOS[n.type] || DEF;
         return { u:t.u, ico:t.i, accion:t.a,
           titulo: n.userName || n.propertyTitle || 'Aviso',

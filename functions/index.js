@@ -1934,33 +1934,16 @@ exports.notificarEstadoRetiro = onDocumentUpdated("retiros/{id}", async (event) 
   }
 });
 
-exports.notificarNuevoUsuario = onDocumentCreated("users/{uid}", async (event) => {
-  const snap = event.data;
-  if (!snap) return;
-  const d = snap.data();
-  if (!d || d.status !== "pending") return; // el admin se crea aprobado; no auto-notificarse
-  const adm = await getAdminUser();
-  if (!adm) {
-    await registrarLog("", "nuevo usuario pendiente SIN notificar", false, `No se encontró al admin (${ADMIN_EMAIL}) en users; revisá el email del perfil del admin.`);
-    return;
-  }
-  if (adm.uid === event.params.uid) return;
-  const nombre = d.name || d.email || "Alguien";
-  await crearNotificacion(
-    adm,
-    {
-      type: "new_user",
-      propertyId: "",
-      propertyTitle: "su registro — aprobalo en el Panel de Administración",
-      userName: `🆕 ${nombre}`,
-      userPhone: d.whatsapp || "",
-      userPhoto: null,
-      text: `${nombre} (${d.email || "sin email"}) se registró y está pendiente de aprobación.`,
-    },
-    { title: "👤 Nuevo usuario pendiente", body: `${nombre} se registró y espera tu aprobación.` }
-  );
-  await registrarLog("", "nuevo usuario pendiente", true, `${nombre} (${d.email || ""})`);
-});
+// NOTA: acá vivía notificarNuevoUsuario, que escuchaba users/{uid} y avisaba de
+// los registros pendientes. Hacía EXACTAMENTE lo mismo que notificarAltaAgente
+// (más abajo): mismo disparador, mismo filtro de status, mismo destinatario. El
+// resultado era que por cada agente que se registraba llegaban dos avisos a la
+// campanita y dos push al celular.
+// Se eliminó esta y quedó notificarAltaAgente, porque su tipo 'admin_pendiente'
+// tiene plantilla propia en la app (ícono y botón de aprobar); 'new_user' caía en
+// la plantilla genérica y salía con el avatar "?" y el texto metido en el campo
+// del título de la propiedad.
+// El registro en el log de diagnóstico se conservó, movido a notificarAltaAgente.
 
 // =====================================================================
 // Permisos de las funciones llamables — antes alcanzaba con tener CUALQUIER
@@ -3486,8 +3469,14 @@ exports.notificarAltaAgente = onDocumentCreated("users/{uid}", async (event) => 
   const u = snap.data();
   if (!u || u.status !== "pending") return;      // los aprobados de entrada no avisan
   const adm = await getAdminUser();
-  if (!adm || adm.uid === snap.id) return;
   const nombre = u.name || u.email || "Un usuario";
+  // Diagnóstico: si el perfil del admin no aparece en 'users', nadie se entera de
+  // los registros y no queda rastro de por qué. Venía de notificarNuevoUsuario.
+  if (!adm) {
+    await registrarLog("", "alta de agente SIN notificar", false, `No se encontró al admin (${ADMIN_EMAIL}) en users; revisá el email del perfil del admin.`);
+    return;
+  }
+  if (adm.uid === snap.id) return;
   await crearNotificacion(
     adm,
     {
@@ -3501,6 +3490,7 @@ exports.notificarAltaAgente = onDocumentCreated("users/{uid}", async (event) => 
     },
     { title: "👤 Nueva alta de agente", body: `${nombre} espera aprobación.` }
   );
+  await registrarLog("", "alta de agente pendiente", true, `${nombre} (${u.email || ""})`);
 });
 
 // 2) Testimonio nuevo esperando aprobación
