@@ -2676,14 +2676,19 @@
     const fmt = n => 'US$ ' + Math.round(n).toLocaleString('es-UY');
     const rg = document.getElementById('mvNivelRango');
     const fill = document.getElementById('mvNivelFill');
-    const pie = document.getElementById('mvNivelPie');
+    const meta = document.getElementById('mvNivelMeta');
     if (rg) rg.textContent = pr.rango.label;
     if (fill) fill.style.width = (pr.tope ? 100 : pr.pct) + '%';
-    if (pie) {
-      if (pr.tope) pie.textContent = 'Llegaste al último escalón de la carrera comercial.';
-      else if (pr.listo) pie.innerHTML = '<b>Ya cumplís para ' + mvEsc(pr.siguiente.label) + '.</b> La Dirección confirma el ascenso.';
-      else pie.textContent = 'Te faltan ' + fmt(pr.falta) + ' facturados para ' + pr.siguiente.label + '.';
+    // Arriba a la derecha va lo mínimo indispensable; la frase larga pasó al
+    // atributo title y al modal del botón de información.
+    if (meta) {
+      if (pr.tope) { meta.textContent = 'Máximo'; }
+      else if (pr.listo) { meta.textContent = '¡Listo!'; }
+      else { meta.textContent = 'faltan ' + fmt(pr.falta); }
     }
+    if (pr.tope) caja.title = 'Llegaste al último escalón de la carrera comercial.';
+    else if (pr.listo) caja.title = 'Ya cumplís para ' + pr.siguiente.label + '. La Dirección confirma el ascenso.';
+    else caja.title = 'Te faltan ' + fmt(pr.falta) + ' facturados para ' + pr.siguiente.label + '.';
     caja.classList.toggle('listo', !!pr.listo);
   }
 
