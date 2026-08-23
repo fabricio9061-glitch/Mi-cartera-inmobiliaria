@@ -20,7 +20,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260821d">
+  <link rel="stylesheet" href="styles.css?v=20260821e">
   <style>
     /* ============ INICIO V2 (mockup) — autocontenido, no pisa styles.css ============ */
     :root{ --mvNavy: var(--primary, #16273f); --mvGold: #C9A227; }
@@ -735,18 +735,23 @@
       });
     }
   </script>
-  <script src="rangos.js?v=20260821d"></script>
-  <script src="app.js?v=20260821d"></script>
+  <script src="rangos.js?v=20260821e"></script>
+  <script src="app.js?v=20260821e"></script>
   <!-- ====== MENÚ LATERAL DERECHO ====== -->
   <div class="mv-side-overlay" id="mvSideOverlay" onclick="closeSideMenu()"></div>
   <aside class="mv-side" id="mvSide" aria-hidden="true">
     <div class="mv-side-head">
-      <div class="mv-side-user">
+      <button type="button" class="mv-side-user" id="mvSideUser" onclick="toggleMenuDatos()" aria-expanded="false" aria-controls="mvSideDatos">
         <div class="mv-side-av" id="mvSideAv"><i class="fas fa-user"></i></div>
-        <div><strong id="mvSideName">Usuario</strong><span id="mvSideRole">Agente</span></div>
-      </div>
+        <div class="mv-side-quien"><strong id="mvSideName">Usuario</strong><span id="mvSideRole">Agente</span></div>
+        <i class="fas fa-chevron-down mv-side-caret" id="mvSideCaret" aria-hidden="true"></i>
+      </button>
       <button class="mv-side-close" onclick="closeSideMenu()" aria-label="Cerrar"><i class="fas fa-times"></i></button>
     </div>
+    <!-- Saldo, puntos y nivel: plegados por defecto. Se abren tocando el nombre.
+         Son datos de consulta, no accesos: tenerlos siempre abiertos empujaba
+         media lista de menú fuera de la pantalla. -->
+    <div class="mv-side-datos" id="mvSideDatos" hidden>
     <div class="mv-side-finanzas" id="mvSideFinanzas">
       <a class="mv-fin-saldo" href="finanzas.html" title="Ver mis finanzas y solicitar cobros">
         <span class="mv-fin-cap"><i class="fas fa-wallet"></i> Saldo a cobrar</span>
@@ -770,6 +775,7 @@
       </div>
       <div class="mv-nivel-barra"><span id="mvNivelFill"></span></div>
     </div>
+    </div><!-- /mv-side-datos -->
     <nav class="mv-side-nav">
       <button class="mv-side-item mv-side-dup" onclick="closeSideMenu();showMyProfile()"><i class="fas fa-user"></i> Mi Perfil</button>
       <a class="mv-side-item mv-side-dup" href="finanzas.html"><i class="fas fa-wallet"></i> Mis Finanzas</a>
@@ -780,7 +786,7 @@
       <a class="mv-side-item" href="mapa-cierres.html"><i class="fas fa-map-location-dot"></i> Mapa de cierres</a>
 
       <div class="mv-side-group">Calculadoras</div>
-      <a class="mv-side-item" href="tasador.html"><i class="fas fa-calculator"></i> Tasador</a>
+      <a class="mv-side-item" href="tasador.html"><i class="fas fa-calculator"></i> Tasaciones</a>
       <a class="mv-side-item" href="gastos.html"><i class="fas fa-file-invoice-dollar"></i> Gastos y comisiones</a>
       <a class="mv-side-item" href="ganancias.html"><i class="fas fa-sack-dollar"></i> Mis ganancias</a>
       <a class="mv-side-item" href="desarrollo.html"><i class="fas fa-ruler-combined"></i> Calculadora de terrenos</a>
@@ -810,7 +816,23 @@
     @media (max-width: 560px){ .mv-side{ width:100%; max-width:100%; } }
     .mv-side.open{ transform:translateX(0); }
     .mv-side-head{ color:#fff; padding:22px 20px; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
-    .mv-side-user{ display:flex; align-items:center; gap:13px; }
+    /* El bloque del usuario ahora es un botón: abre y cierra saldo, puntos y nivel.
+       Se resetean los estilos de <button> porque hereda fondo, borde y fuente. */
+    .mv-side-user{ display:flex; align-items:center; gap:13px; flex:1; min-width:0;
+      background:none; border:none; padding:6px 8px 6px 0; margin:-6px 0; border-radius:12px;
+      font-family:inherit; color:inherit; text-align:left; cursor:pointer;
+      transition:background .15s; }
+    .mv-side-user:hover{ background:rgba(255,255,255,.06); }
+    .mv-side-quien{ min-width:0; flex:1; }
+    .mv-side-user strong, .mv-side-user span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    /* La flecha es la única señal de que esto se toca: gira 180° al abrir. */
+    .mv-side-caret{ flex:none; font-size:.75rem; color:rgba(255,255,255,.5);
+      transition:transform .25s ease, color .15s; }
+    .mv-side-user:hover .mv-side-caret{ color:rgba(255,255,255,.85); }
+    .mv-side-user[aria-expanded="true"] .mv-side-caret{ transform:rotate(180deg); }
+    .mv-side-datos[hidden]{ display:none; }
+    .mv-side-datos{ animation:mvDatosIn .22s ease; }
+    @keyframes mvDatosIn{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:none; } }
     .mv-side-av{ width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,.12); border:1px solid rgba(201,162,39,.6); display:flex; align-items:center; justify-content:center; font-size:1.2rem; overflow:hidden; flex:0 0 auto; }
     .mv-side-av img{ width:100%; height:100%; object-fit:cover; }
     .mv-side-user strong{ display:block; font-size:1.02rem; line-height:1.2; }

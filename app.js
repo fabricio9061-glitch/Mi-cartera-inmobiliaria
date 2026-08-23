@@ -448,6 +448,7 @@
     if (av) av.innerHTML = (userProfile && userProfile.profilePhoto) ? `<img src="${safeUrl(userProfile.profilePhoto)}" alt="">` : '<i class="fas fa-user"></i>';
     const nm = document.getElementById('mvSideName'); if (nm) nm.textContent = (userProfile && userProfile.name) || 'Usuario';
     const rl = document.getElementById('mvSideRole'); if (rl) rl.textContent = isAdminUser() ? 'Administrador' : 'Agente';
+    initMenuDatos();
     cargarFinanzasMenu();
     document.getElementById('mvSideAdminGroup')?.classList.toggle('hidden', !isAdminUser());
     document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !isAdminUser());
@@ -2761,6 +2762,33 @@
       const b = inp.parentElement.querySelector('.pass-eye i');
       if (b) b.className = 'fas fa-eye';
     });
+  }
+
+  // ===== Saldo, puntos y nivel: panel plegable del menú =====
+  // Se recuerda abierto o cerrado entre visitas. El que consulta su saldo seguido
+  // no tiene que abrirlo cada vez, y el que no lo mira nunca no lo ve más.
+  const MV_DATOS_KEY = 'mvDatosAbierto';
+  function setMenuDatos(abierto) {
+    const panel = document.getElementById('mvSideDatos');
+    const btn = document.getElementById('mvSideUser');
+    if (!panel || !btn) return;
+    panel.hidden = !abierto;
+    btn.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+    try { localStorage.setItem(MV_DATOS_KEY, abierto ? '1' : '0'); } catch (e) { }
+  }
+  function toggleMenuDatos() {
+    const panel = document.getElementById('mvSideDatos');
+    if (panel) setMenuDatos(panel.hidden);
+  }
+  function initMenuDatos() {
+    let abierto = false;
+    try { abierto = localStorage.getItem(MV_DATOS_KEY) === '1'; } catch (e) { }
+    const panel = document.getElementById('mvSideDatos');
+    const btn = document.getElementById('mvSideUser');
+    if (!panel || !btn) return;
+    // En el arranque se aplica sin animación, para que no "salte" al abrir el menú.
+    panel.hidden = !abierto;
+    btn.setAttribute('aria-expanded', abierto ? 'true' : 'false');
   }
 
   function updateStats() {
