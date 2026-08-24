@@ -125,6 +125,39 @@
     .cp{display:block;margin-bottom:15px}
     .cp span{display:block;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}
     .cp input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:.92rem;color:var(--ink)}
+    /* ===== Revisiones ===== */
+    .rev-alerta{display:flex;align-items:center;gap:9px;padding:12px 14px;margin-bottom:16px;
+      background:#fffbeb;border:1px solid #fde68a;border-radius:12px;color:#92400e;font-size:.88rem}
+    .rev-alerta i{color:#d97706}
+    .rev-lista{display:flex;flex-direction:column;gap:10px}
+    .rev-item{display:flex;align-items:flex-start;gap:13px;padding:14px;background:var(--card);
+      border:1px solid var(--line);border-radius:12px}
+    /* Las pendientes llevan una barra dorada a la izquierda: son las que piden acción. */
+    .rev-item.pend{border-left:3px solid var(--gold)}
+    .rev-ico{flex:none;width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:.95rem}
+    .rev-cuerpo{flex:1;min-width:0}
+    .rev-tit{font-weight:600;font-size:.93rem;color:var(--ink);display:flex;align-items:center;
+      gap:8px;flex-wrap:wrap;margin-bottom:3px}
+    .rev-sub{font-size:.79rem;color:var(--muted)}
+    .rev-motivo{margin-top:5px;font-size:.78rem;color:#b91c1c}
+    .rev-chip{font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:999px;
+      display:inline-flex;align-items:center;gap:4px;text-transform:uppercase;letter-spacing:.04em}
+    .rev-chip.pend{background:#fef3c7;color:#b45309}
+    .rev-chip.si{background:#dcfce7;color:#15803d}
+    .rev-chip.no{background:#fee2e2;color:#b91c1c}
+    .rev-acc{display:flex;gap:7px;flex-wrap:wrap;flex:none}
+    .rev-b{font-family:inherit;font-size:.8rem;font-weight:600;padding:8px 13px;border-radius:9px;
+      border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;
+      text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:border-color .13s}
+    .rev-b:hover{border-color:#c2c6cb}
+    .rev-b.ok{background:var(--ink);color:#fff;border-color:var(--ink)}
+    .rev-b.no{color:#b91c1c}
+    @media (max-width:640px){
+      .rev-item{flex-wrap:wrap}
+      .rev-acc{flex:1 0 100%;margin-top:4px}
+      .rev-b{flex:1;justify-content:center}
+    }
+
     .cp select{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;
       font-family:inherit;font-size:.92rem;color:var(--ink);background:var(--card);cursor:pointer}
     .cp select:focus{outline:none;border-color:var(--ink)}
@@ -784,10 +817,126 @@
   // REVISIONES y SITIO — por ahora redirigen al panel viejo, que ya las tiene
   // funcionando. Se migran en el próximo paso.
   // ==========================================================================
-  function pintarRevisiones(c){
-    c.innerHTML = '<div class="vacio"><i class="fas fa-clipboard-check"></i><h3>Revisiones</h3>' +
-      '<p>Todavía viven en el panel anterior.</p><p style="margin-top:14px"><a class="bd-btn" style="display:inline-block" href="index.html#admin">Abrir el panel anterior</a></p></div>';
+  // ===== Revisiones =====
+  // Tasaciones, gastos y cálculos de terreno que los agentes mandan a aprobar.
+  // OJO con el modelo de datos: NO hay una colección 'tasaciones'. Cada cálculo
+  // se guarda como una entrada de un MAPA dentro del documento del agente
+  // (users/{uid}.tasaciones = { id: registro }). Por eso hay que leer los
+  // usuarios y recorrer los mapas: no se puede consultar por 'pendientes'.
+  // Con once agentes se banca; si el equipo crece mucho, conviene moverlas a su
+  // propia colección.
+  var REV_TIPOS = {
+    tasaciones:   { label:'Tasación',            ico:'fa-calculator',            col:'#c9a227' },
+    calcGastos:   { label:'Gastos y comisiones', ico:'fa-file-invoice-dollar',   col:'#2e86de' },
+    calcTerrenos: { label:'Cálculo de terreno',  ico:'fa-mountain-sun',          col:'#27ae60' }
+  };
+  var _revs = [];
+
+  async function pintarRevisiones(c){
+    c.innerHTML = '<div class="cargando"><div class="sp"></div></div>';
+    try{
+      var us = await db.collection('users').get();
+      _revs = [];
+      us.docs.forEach(function(d){
+        var u = d.data() || {};
+        Object.keys(REV_TIPOS).forEach(function(campo){
+          var mapa = u[campo];
+          if (!mapa || typeof mapa !== 'object') return;
+          Object.keys(mapa).forEach(function(id){
+            var r = mapa[id]; if (!r || typeof r !== 'object') return;
+            _revs.push(Object.assign({}, r, {
+              _uid: d.id, _campo: campo, _id: id,
+              _agente: r.agenteNombre || u.name || u.email || 'Agente'
+            }));
+          });
+        });
+      });
+      // Primero lo que espera decisión, y dentro de eso lo más nuevo arriba.
+      _revs.sort(function(a,b){
+        var pa = (!a.revisado && !a.rechazada) ? 0 : 1;
+        var pb = (!b.revisado && !b.rechazada) ? 0 : 1;
+        if (pa !== pb) return pa - pb;
+        return String(b.fecha||b.creadoAt||'').localeCompare(String(a.fecha||a.creadoAt||''));
+      });
+      renderRevs(c);
+    }catch(e){
+      console.error(e);
+      c.innerHTML = '<div class="vacio"><i class="fas fa-triangle-exclamation"></i><h3>No se pudieron cargar</h3><p>'+esc(e.message||'')+'</p></div>';
+    }
   }
+
+  function renderRevs(c){
+    var pend = _revs.filter(function(r){ return !r.revisado && !r.rechazada; });
+    if (!_revs.length){
+      c.innerHTML = '<div class="vacio"><i class="fas fa-clipboard-check"></i><h3>Sin revisiones</h3><p>Cuando un agente mande una tasación o un cálculo, aparece acá.</p></div>';
+      return;
+    }
+    var h = '';
+    if (pend.length){
+      h += '<div class="rev-alerta"><i class="fas fa-bell"></i> <b>'+pend.length+'</b> '+
+           (pend.length===1?'cálculo espera tu revisión':'cálculos esperan tu revisión')+
+           ' — hasta que los apruebes, el agente no puede descargar el PDF.</div>';
+    }
+    h += '<div class="rev-lista">' + _revs.map(filaRev).join('') + '</div>';
+    c.innerHTML = h;
+  }
+
+  function filaRev(r){
+    var t = REV_TIPOS[r._campo] || { label:'Cálculo', ico:'fa-file', col:'#8a929c' };
+    var val = r.resultado && r.resultado.valor;
+    var estado = r.rechazada
+      ? '<span class="rev-chip no"><i class="fas fa-circle-xmark"></i> Rechazada</span>'
+      : (r.revisado ? '<span class="rev-chip si"><i class="fas fa-circle-check"></i> Aprobada</span>'
+                    : '<span class="rev-chip pend"><i class="fas fa-clock"></i> Pendiente</span>');
+    var dato = (r.datos && (r.datos.direccion || r.datos.cliente)) || '';
+    var acciones = (r.revisado || r.rechazada)
+      ? '<button class="rev-b" onclick="revMarcar(\''+r._uid+'\',\''+r._campo+'\',\''+esc(r._id)+'\',false)">Volver a pendiente</button>'
+      : '<button class="rev-b ok" onclick="revMarcar(\''+r._uid+'\',\''+r._campo+'\',\''+esc(r._id)+'\',true)"><i class="fas fa-check"></i> Aprobar</button>'+
+        '<button class="rev-b no" onclick="revRechazar(\''+r._uid+'\',\''+r._campo+'\',\''+esc(r._id)+'\')">Rechazar</button>';
+    var pdf = r.pdfUrl ? '<a class="rev-b" href="'+escA(r.pdfUrl)+'" target="_blank" rel="noopener"><i class="fas fa-file-pdf"></i> PDF</a>' : '';
+    return '<div class="rev-item'+((!r.revisado&&!r.rechazada)?' pend':'')+'">'+
+      '<div class="rev-ico" style="background:'+t.col+'1a;color:'+t.col+'"><i class="fas '+t.ico+'"></i></div>'+
+      '<div class="rev-cuerpo">'+
+        '<div class="rev-tit">'+esc(t.label)+(val?' · US$ '+Number(val).toLocaleString('es-UY'):'')+' '+estado+'</div>'+
+        '<div class="rev-sub">'+esc(r._agente)+(dato?' · '+esc(dato):'')+(r.fecha?' · '+esc(r.fecha):'')+'</div>'+
+        (r.motivoRechazo?'<div class="rev-motivo">Motivo: '+esc(r.motivoRechazo)+'</div>':'')+
+      '</div>'+
+      '<div class="rev-acc">'+pdf+acciones+'</div>'+
+    '</div>';
+  }
+
+  async function revMarcar(uid, campo, id, valor){
+    try{
+      var parche = {}; 
+      parche[campo+'.'+id+'.revisado'] = valor;
+      parche[campo+'.'+id+'.rechazada'] = false;
+      parche[campo+'.'+id+'.motivoRechazo'] = '';
+      await db.collection('users').doc(uid).update(parche);
+      _revs.forEach(function(r){ if(r._uid===uid && r._campo===campo && r._id===id){ r.revisado=valor; r.rechazada=false; r.motivoRechazo=''; } });
+      renderRevs(document.getElementById('cuerpo'));
+      toast(valor ? 'Aprobada' : 'Vuelta a pendiente');
+      contadores();
+    }catch(e){ console.error(e); toast('No se pudo guardar'); }
+  }
+
+  async function revRechazar(uid, campo, id){
+    var motivo = prompt('¿Por qué se rechaza? El agente va a ver este motivo.');
+    if (motivo === null) return;
+    if (!String(motivo).trim()) { toast('Escribí un motivo'); return; }
+    try{
+      var parche = {};
+      parche[campo+'.'+id+'.revisado'] = false;
+      parche[campo+'.'+id+'.rechazada'] = true;
+      parche[campo+'.'+id+'.motivoRechazo'] = String(motivo).trim();
+      parche[campo+'.'+id+'.rechazadaAt'] = new Date().toISOString();
+      await db.collection('users').doc(uid).update(parche);
+      _revs.forEach(function(r){ if(r._uid===uid && r._campo===campo && r._id===id){ r.revisado=false; r.rechazada=true; r.motivoRechazo=String(motivo).trim(); } });
+      renderRevs(document.getElementById('cuerpo'));
+      toast('Rechazada');
+      contadores();
+    }catch(e){ console.error(e); toast('No se pudo guardar'); }
+  }
+
   function pintarSitio(c){
     c.innerHTML = '<div class="vacio"><i class="fas fa-globe"></i><h3>Sitio</h3>' +
       '<p>Testimonios y solicitudes todavía viven en el panel anterior.</p><p style="margin-top:14px"><a class="bd-btn" style="display:inline-block" href="index.html#admin">Abrir el panel anterior</a></p></div>';
