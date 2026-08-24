@@ -20,7 +20,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260821e">
+  <link rel="stylesheet" href="styles.css?v=20260821f">
   <style>
     /* ============ INICIO V2 (mockup) — autocontenido, no pisa styles.css ============ */
     :root{ --mvNavy: var(--primary, #16273f); --mvGold: #C9A227; }
@@ -735,8 +735,8 @@
       });
     }
   </script>
-  <script src="rangos.js?v=20260821e"></script>
-  <script src="app.js?v=20260821e"></script>
+  <script src="rangos.js?v=20260821f"></script>
+  <script src="app.js?v=20260821f"></script>
   <!-- ====== MENÚ LATERAL DERECHO ====== -->
   <div class="mv-side-overlay" id="mvSideOverlay" onclick="closeSideMenu()"></div>
   <aside class="mv-side" id="mvSide" aria-hidden="true">
@@ -778,18 +778,25 @@
     </div><!-- /mv-side-datos -->
     <nav class="mv-side-nav">
       <button class="mv-side-item mv-side-dup" onclick="closeSideMenu();showMyProfile()"><i class="fas fa-user"></i> Mi Perfil</button>
-      <a class="mv-side-item mv-side-dup" href="finanzas.html"><i class="fas fa-wallet"></i> Mis Finanzas</a>
+      <a class="mv-side-item mv-side-dup mv-side-fin" href="finanzas.html"><i class="fas fa-wallet"></i> Mis Finanzas</a>
 
       <div class="mv-side-group">Mi trabajo</div>
       <a class="mv-side-item" href="agenda.html"><i class="fas fa-calendar-alt"></i> Mi Agenda</a>
       <a class="mv-side-item" href="clientes.html"><i class="fas fa-address-book"></i> Clientes</a>
       <a class="mv-side-item" href="mapa-cierres.html"><i class="fas fa-map-location-dot"></i> Mapa de cierres</a>
 
-      <div class="mv-side-group">Calculadoras</div>
-      <a class="mv-side-item" href="tasador.html"><i class="fas fa-calculator"></i> Tasaciones</a>
-      <a class="mv-side-item" href="gastos.html"><i class="fas fa-file-invoice-dollar"></i> Gastos y comisiones</a>
-      <a class="mv-side-item" href="ganancias.html"><i class="fas fa-sack-dollar"></i> Mis ganancias</a>
-      <a class="mv-side-item" href="desarrollo.html"><i class="fas fa-ruler-combined"></i> Calculadora de terrenos</a>
+      <!-- Dos grupos en vez de uno. "Calculadoras" mezclaba dos preguntas
+           distintas: cuánto VALE una propiedad y cuánto DINERO deja la operación.
+           Y los nombres no decían de quién era la plata: "Mis ganancias" calcula
+           la comisión del agente y "Gastos y comisiones" lo que pagan comprador y
+           vendedor — dos cosas opuestas con nombres casi iguales. -->
+      <div class="mv-side-group">Cuánto vale</div>
+      <a class="mv-side-item" href="tasador.html"><i class="fas fa-calculator"></i> Tasar propiedad</a>
+      <a class="mv-side-item" href="desarrollo.html"><i class="fas fa-ruler-combined"></i> Tasar terreno</a>
+
+      <div class="mv-side-group">Cuánto deja la operación</div>
+      <a class="mv-side-item" href="ganancias.html"><i class="fas fa-sack-dollar"></i> Mi comisión</a>
+      <a class="mv-side-item" href="gastos.html"><i class="fas fa-file-invoice-dollar"></i> Gastos del cliente</a>
 
       <div class="mv-side-group">Recompensas y formación</div>
       <a class="mv-side-item" href="recompensas.html"><i class="fas fa-trophy"></i> Recompensas</a>
@@ -822,13 +829,15 @@
       background:none; border:none; padding:6px 8px 6px 0; margin:-6px 0; border-radius:12px;
       font-family:inherit; color:inherit; text-align:left; cursor:pointer;
       transition:background .15s; }
-    .mv-side-user:hover{ background:rgba(255,255,255,.06); }
+    /* Solo con mouse: en pantallas táctiles el :hover queda fijo después del
+       toque y el bloque se ve resaltado permanentemente. */
+    @media (hover:hover){ .mv-side-user:hover{ background:rgba(255,255,255,.06); } }
     .mv-side-quien{ min-width:0; flex:1; }
     .mv-side-user strong, .mv-side-user span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     /* La flecha es la única señal de que esto se toca: gira 180° al abrir. */
     .mv-side-caret{ flex:none; font-size:.75rem; color:rgba(255,255,255,.5);
       transition:transform .25s ease, color .15s; }
-    .mv-side-user:hover .mv-side-caret{ color:rgba(255,255,255,.85); }
+    @media (hover:hover){ .mv-side-user:hover .mv-side-caret{ color:rgba(255,255,255,.85); } }
     .mv-side-user[aria-expanded="true"] .mv-side-caret{ transform:rotate(180deg); }
     .mv-side-datos[hidden]{ display:none; }
     .mv-side-datos{ animation:mvDatosIn .22s ease; }
@@ -906,7 +915,11 @@
        los cubre. En escritorio la barra es display:none y el menú es la ÚNICA
        navegación que queda: sacarlos ahí dejaba el perfil sin ninguna puerta.
        El corte es 640px, el mismo de .mv-bottombar, no el de la compactación. */
-    @media (max-width:640px){ .mv-side-dup{ display:none; } }
+    /* En celular se ocultan los accesos que ya están en otro lado. "Mi Perfil"
+       sigue oculto porque está fijo en la barra de abajo. "Mis Finanzas" volvió:
+       su atajo era tocar la tarjeta del saldo, y esa tarjeta ahora arranca
+       plegada, así que sin este ítem quedaba a tres toques de distancia. */
+    @media (max-width:640px){ .mv-side-dup:not(.mv-side-fin){ display:none; } }
   </style>
   <!-- ===== Modal: dejar testimonio ===== -->
   <div class="testi-modal" id="testimonioModal">
