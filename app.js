@@ -4892,18 +4892,31 @@
     if (!confirm('¿Eliminar esta propiedad DEFINITIVAMENTE? Esta acción no se puede deshacer.\n\nOjo: para sacarla de circulación NO hace falta borrarla — alcanza con cerrar su gestión en Clientes (Cerrado / Cerró por afuera / Perdido) y la propiedad se da de baja sola, conservando toda su historia.')) return;
     await db.collection('properties').doc(id).delete()
   }
+  // El destacado ya NO se escribe desde acá: lo hace una Cloud Function que
+  // valida rango, cupo, estado y ficha. La regla de Firestore bloquea 'featured'
+  // para el cliente, así que este update fallaría igual — y esa es la idea.
   async function toggleFeatured(id) {
+    const p = properties.find(pr => pr.id === id);
+    if (!p) return;
+    const quitar = !!p.featured;
+    const fn = firebase.functions();
     try {
-      const p = properties.find(pr => pr.id === id);
-      if (!p) return;
-      const newVal = !p.featured;
-      await db.collection('properties').doc(id).update({
-        featured: newVal
-      });
-      showToast(newVal ? 'Propiedad destacada' : 'Destacado removido', newVal ? 'La propiedad aparecerá primero' : 'La propiedad volvió al orden normal', 'fa-star')
+      showToast(quitar ? 'Quitando destacado…' : 'Destacando…', '', 'fa-spinner');
+      const res = await fn.httpsCallable(quitar ? 'quitarDestacado' : 'activarDestacado')({ propertyId: id });
+      p.featured = !quitar;
+      if (!quitar && res && res.data) {
+        p.featuredHasta = res.data.hasta;
+        showToast('Propiedad destacada',
+          `Va arriba por 30 días · usaste ${res.data.usados} de ${res.data.cupo}`, 'fa-star');
+      } else {
+        showToast('Destacado removido', 'Se liberó el lugar para otra propiedad', 'fa-star');
+      }
+      filterProperties();
     } catch (err) {
-      console.error('Error toggling featured:', err);
-      alert('Error al cambiar destacado')
+      console.error('destacado:', err);
+      // Los mensajes de la función ya vienen explicados (falta de fotos, cupo
+      // lleno, propiedad no disponible), así que se muestran tal cual.
+      showToast('No se pudo destacar', (err && err.message) || 'Probá de nuevo', 'fa-circle-exclamation');
     }
   }
   // Funciones de compartir

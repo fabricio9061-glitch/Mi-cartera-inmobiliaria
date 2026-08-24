@@ -130,7 +130,13 @@ service cloud.firestore {
                             || esDireccion())
                         && !request.resource.data.diff(resource.data).affectedKeys()
                              .hasAny(['ownerId', 'mlItemId', 'mlStatus', 'mlPermalink',
-                                      'mlPublishing', 'mlPublishingAt', 'cierreConfirmado']))
+                                      'mlPublishing', 'mlPublishingAt', 'cierreConfirmado',
+                                      // DESTACADOS: solo los escribe el servidor.
+                                      // El cupo depende del rango y del vencimiento, y eso
+                                      // no se puede verificar desde el navegador. Sin esta
+                                      // línea, cualquier agente se pone featured:true por
+                                      // SDK y el sistema de cupos es decorativo.
+                                      'featured', 'featuredHasta', 'featuredDesde', 'featuredPor']))
                     || (esDireccion()
                         && request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['cierre', 'cierreConfirmado', 'status', 'updatedAt']))

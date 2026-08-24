@@ -3632,3 +3632,189 @@ exports.notificarRevision = onDocumentUpdated("users/{uid}", async (event) => {
     { title: "🧮 Revisión para mirar", body: `${agente} guardó ${que.toLowerCase()}.` }
   );
 });
+
+/* ============================================================================
+   DESTACADOS
+   ----------------------------------------------------------------------------
+   Poner una propiedad arriba de todo por 30 días. Cuántas puede tener ACTIVAS a
+   la vez cada agente lo define su RANGO, no un cupo mensual: lo que satura la
+   vitrina es cuántas hay al mismo tiempo, no cuántas se activaron en el mes.
+
+   Todo pasa por acá y NO por el navegador. La regla de Firestore bloquea
+   'featured' para el cliente justamente para que el cupo no se pueda saltear
+   escribiendo el campo a mano por SDK.
+
+   Espejo de rangos.js. Va duplicado porque las Functions no comparten bundle con
+   el front; si cambia allá, hay que cambiarlo acá.
+   ========================================================================== */
+const DESTACADOS_POR_RANGO = {
+  ceo: 3, coo: 3, gerente_comercial: 3,
+  asesor_elite: 3, asesor_senior: 2, asesor_semi_senior: 1, asesor_junior: 1,
+  finanzas: 1, administracion: 1, marketing: 1,
+};
+const DESTACADO_DIAS = 30;
+const DESTACADO_MIN_FOTOS = 12;
+
+/** Cupo del agente. Sin rango cargado no puede destacar nada. */
+function cupoDestacados(perfil) {
+  if (!perfil) return 0;
+  if (String(perfil.email || "").toLowerCase() === ADMIN_EMAIL) return 3;
+  return DESTACADOS_POR_RANGO[String(perfil.rank || "")] || 0;
+}
+
+/* ¿La ficha está lo bastante completa como para ocupar la vitrina?
+   No se recalcula el % de Mercado Libre / InfoCasas: ese puntaje se arma en el
+   navegador y no queda guardado. Se exige lo que sí se puede verificar acá y es
+   lo que realmente hace que un aviso rinda arriba. */
+function fichaListaParaDestacar(p) {
+  const faltan = [];
+  const fotos = Array.isArray(p.images) ? p.images.length : 0;
+  if (fotos < DESTACADO_MIN_FOTOS) faltan.push(`${DESTACADO_MIN_FOTOS} fotos (tenés ${fotos})`);
+  if (!String(p.title || "").trim()) faltan.push("título");
+  if (String(p.description || "").trim().length < 100) faltan.push("una descripción de al menos 100 caracteres");
+  if (!(Number(p.price) > 0)) faltan.push("precio");
+  const u = p.ubicacion || {};
+  if (u.lat == null || u.lng == null) faltan.push("el pin en el mapa");
+  return faltan;
+}
+
+/** Destacados vivos del agente (limpia de paso los que ya vencieron). */
+async function destacadosActivos(uid) {
+  const snap = await db.collection("properties")
+    .where("ownerId", "==", uid).where("featured", "==", true).get();
+  const ahora = Date.now();
+  const vivos = [];
+  for (const d of snap.docs) {
+    const p = d.data();
+    const hasta = p.featuredHasta ? Date.parse(p.featuredHasta) : 0;
+    if (hasta && hasta <= ahora) {
+      await d.ref.update({ featured: false, featuredHasta: "", featuredPor: "" });
+      continue;
+    }
+    vivos.push({ id: d.id, ...p });
+  }
+  return vivos;
+}
+
+exports.activarDestacado = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const uid = request.auth.uid;
+  const email = String(request.auth.token.email || "").toLowerCase();
+  const propertyId = String((request.data && request.data.propertyId) || "");
+  if (!propertyId) throw new HttpsError("invalid-argument", "Falta la propiedad.");
+
+  const [uSnap, pSnap] = await Promise.all([
+    db.doc(`users/${uid}`).get(),
+    db.doc(`properties/${propertyId}`).get(),
+  ]);
+  const perfil = uSnap.exists ? uSnap.data() : null;
+  if (!perfil || perfil.status !== "approved") throw new HttpsError("permission-denied", "Tu cuenta no está aprobada.");
+  if (!pSnap.exists) throw new HttpsError("not-found", "La propiedad no existe.");
+  const p = pSnap.data();
+
+  const esDir = await esDireccion(uid, email);
+  if (p.ownerId !== uid && !esDir) throw new HttpsError("permission-denied", "Solo podés destacar tus propias propiedades.");
+
+  // Una propiedad vendida, reservada o dada de baja no ocupa la vitrina.
+  const st = p.status || "available";
+  if (st !== "available") throw new HttpsError("failed-precondition", "Solo se pueden destacar propiedades disponibles.");
+
+  if (p.featured) {
+    const hasta = p.featuredHasta ? Date.parse(p.featuredHasta) : 0;
+    if (hasta > Date.now()) throw new HttpsError("already-exists", "Esta propiedad ya está destacada.");
+  }
+
+  const faltan = fichaListaParaDestacar(p);
+  if (faltan.length) {
+    throw new HttpsError("failed-precondition", "Para destacarla, la ficha necesita: " + faltan.join(", ") + ".");
+  }
+
+  // El cupo se mide sobre el DUEÑO, no sobre quien aprieta el botón: si la
+  // Dirección destaca el aviso de un agente, gasta el slot de ese agente.
+  const duenoUid = p.ownerId || uid;
+  const duenoPerfil = duenoUid === uid ? perfil : (await db.doc(`users/${duenoUid}`).get()).data();
+  const cupo = cupoDestacados(duenoPerfil);
+  if (cupo <= 0) throw new HttpsError("failed-precondition", "Tu rango todavía no tiene destacados disponibles.");
+  const activos = await destacadosActivos(duenoUid);
+  if (activos.filter((x) => x.id !== propertyId).length >= cupo) {
+    throw new HttpsError("resource-exhausted",
+      `Ya tenés ${cupo} ${cupo === 1 ? "destacado activo" : "destacados activos"}. Sacá uno o esperá a que venza.`);
+  }
+
+  const desde = new Date();
+  const hasta = new Date(desde.getTime() + DESTACADO_DIAS * 86400000);
+  await pSnap.ref.update({
+    featured: true,
+    featuredDesde: desde.toISOString(),
+    featuredHasta: hasta.toISOString(),
+    featuredPor: uid,
+  });
+  await registrarLog(propertyId, "destacado activado", true, `${DESTACADO_DIAS} días · cupo ${activos.length + 1}/${cupo}`);
+  return { ok: true, hasta: hasta.toISOString(), usados: activos.length + 1, cupo };
+});
+
+exports.quitarDestacado = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const uid = request.auth.uid;
+  const email = String(request.auth.token.email || "").toLowerCase();
+  const propertyId = String((request.data && request.data.propertyId) || "");
+  if (!propertyId) throw new HttpsError("invalid-argument", "Falta la propiedad.");
+  const pSnap = await db.doc(`properties/${propertyId}`).get();
+  if (!pSnap.exists) throw new HttpsError("not-found", "La propiedad no existe.");
+  const p = pSnap.data();
+  const esDir = await esDireccion(uid, email);
+  if (p.ownerId !== uid && !esDir) throw new HttpsError("permission-denied", "No es tu propiedad.");
+  await pSnap.ref.update({ featured: false, featuredHasta: "", featuredPor: "" });
+  return { ok: true };
+});
+
+/** Cuántos destacados le quedan al agente. Lo consulta la tarjeta. */
+exports.estadoDestacados = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const uid = request.auth.uid;
+  const uSnap = await db.doc(`users/${uid}`).get();
+  const cupo = cupoDestacados(uSnap.exists ? uSnap.data() : null);
+  const activos = await destacadosActivos(uid);
+  return { cupo, usados: activos.length, ids: activos.map((a) => a.id) };
+});
+
+/* Apaga los destacados vencidos y avisa al agente que le quedó el lugar libre.
+   Corre todos los días temprano. Sin esto, un destacado duraría para siempre. */
+exports.vencerDestacados = onSchedule(
+  { schedule: "5 7 * * *", timeZone: "America/Montevideo" },
+  async () => {
+    const snap = await db.collection("properties").where("featured", "==", true).get();
+    const ahora = Date.now();
+    let vencidos = 0;
+    for (const d of snap.docs) {
+      const p = d.data();
+      const hasta = p.featuredHasta ? Date.parse(p.featuredHasta) : 0;
+      // Se apaga por vencimiento O porque la propiedad dejó de estar disponible:
+      // una vendida o reservada no tiene por qué seguir ocupando la vitrina.
+      const fueraDeJuego = (p.status && p.status !== "available");
+      if (!hasta && !fueraDeJuego) continue;
+      if (!fueraDeJuego && hasta > ahora) continue;
+      await d.ref.update({ featured: false, featuredHasta: "", featuredPor: "" });
+      vencidos++;
+      try {
+        const dueno = p.ownerId ? (await db.doc(`users/${p.ownerId}`).get()) : null;
+        if (dueno && dueno.exists) {
+          await crearNotificacion(
+            { uid: p.ownerId, ...dueno.data() },
+            {
+              type: "destacado_vencido",
+              propertyId: d.id,
+              propertyTitle: p.title || "",
+              userName: "⭐ Destacado terminado",
+              text: fueraDeJuego
+                ? "La propiedad ya no está disponible, así que se liberó el destacado. Podés usarlo en otra."
+                : `Se cumplieron los ${DESTACADO_DIAS} días. Te quedó el lugar libre para destacar otra.`,
+            },
+            { title: "⭐ Destacado terminado", body: p.title || "Tenés un lugar libre." }
+          );
+        }
+      } catch (e) { logger.warn("vencerDestacados: aviso", e); }
+    }
+    logger.info(`vencerDestacados: ${vencidos} apagados`);
+  }
+);
