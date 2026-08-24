@@ -245,7 +245,7 @@
         <h3 class="tas-mini-h" style="margin:0"><i class="fas fa-folder-open"></i> Mis tasaciones</h3>
         <button type="button" onclick="cargarMisTasaciones()" style="background:none; border:1px solid #e4e6ea; border-radius:8px; padding:6px 12px; font-size:.8rem; cursor:pointer; color:#555; display:inline-flex; align-items:center; gap:6px"><i class="fas fa-rotate-right"></i> Actualizar</button>
       </div>
-      <p class="tas-hint" style="margin:0 0 12px">Cuando el administrador apruebe una tasación, vas a poder descargar el PDF desde acá.</p>
+      <p class="tas-hint" id="tasMisHint" style="margin:0 0 12px">Cuando el administrador apruebe una tasación, vas a poder descargar el PDF desde acá.</p>
       <div id="misTasaciones"><div style="color:#999; font-size:.85rem; padding:10px 0">Cargando…</div></div>
     </div>
 
@@ -270,6 +270,9 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth(), db = firebase.firestore();
     const ADMIN_EMAIL = "fabricio9061@gmail.com";
+    // ¿El que está usando el tasador es Dirección? Si lo es, su propia tasación
+    // no pasa por revisión: sería pedirse permiso a sí mismo.
+    var esDireccionTas = false;
     const LS_KEY = "malaveTasador";
     let agenteNombre = '', agenteEmail = '', agenteUid = '', sesionTasId = 'tas_' + Date.now();
 
@@ -966,13 +969,21 @@
           barrio: rv('repInmBarrio'), departamento: rv('repInmDepto'), padron: rv('repInmPadron')
         },
         resultado: { valor: Math.round(r.valorTotal || 0), min: Math.round(r.minV || 0), max: Math.round(r.maxV || 0), incertidumbre: +((r.incert || 0).toFixed(1)) },
-        revisado: false,
+        // La Dirección aprueba las tasaciones. Si la hizo la Dirección, nace
+        // aprobada: mandarla a revisión la dejaba esperando su propia firma, con
+        // el PDF bloqueado hasta que se aprobara a sí misma.
+        revisado: !!esDireccionTas,
+        revisadoPor: esDireccionTas ? (agenteNombre || agenteEmail || '') : '',
         pdfUrl: pdfUrl || ''
       };
       if (s) { s.textContent = 'Guardando…'; s.style.color = ''; }
       try {
         await db.collection('users').doc(agenteUid).set({ tasaciones: { [sesionTasId]: rec } }, { merge: true });
-        if (s) { s.textContent = 'Enviada a revisión ✓ ' + new Date().toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }); s.style.color = ''; }
+        if (s) {
+          var hora = new Date().toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' });
+          s.textContent = (esDireccionTas ? 'Guardada y aprobada ✓ ' : 'Enviada a revisión ✓ ') + hora;
+          s.style.color = '';
+        }
         try { cargarMisTasaciones(); } catch (e) {}
       } catch (e) {
         console.warn('autosave tasacion', e);
@@ -1026,7 +1037,11 @@
       if (!u) { tpShow('tpAuth'); return; }
       var prof = {};
       try { var d = await db.collection('users').doc(u.uid).get(); prof = d.exists ? d.data() : {}; } catch (e) { prof = {}; }
-      var isAdmin = (prof.email || u.email || '').toLowerCase() === ADMIN_EMAIL;
+      // Dirección (CEO y COO). El correo queda de red de seguridad por si el
+      // perfil no tuviera rango cargado.
+      esDireccionTas = (prof.email || u.email || '').toLowerCase() === ADMIN_EMAIL ||
+                       !!(window.Rangos && Rangos.esDireccion(prof));
+      var isAdmin = esDireccionTas;
       agenteNombre = prof.name || u.displayName || '';
       agenteEmail = prof.email || u.email || '';
       agenteUid = u.uid;
@@ -1036,12 +1051,19 @@
         tpShow('tpAuth'); return;
       }
       tpShow('tpContent');
+      // A la Dirección no le corresponde el aviso de "esperá la aprobación":
+      // la aprobación es suya.
+      if (esDireccionTas) {
+        var mh = document.getElementById('tasMisHint');
+        if (mh) mh.textContent = 'Tus tasaciones quedan aprobadas al guardarlas: podés descargar el PDF enseguida.';
+      }
       cargarLocal();
       renderTasAntecedentes();
       calcTasador();
       cargarMisTasaciones();
     });
   </script>
+<script src="rangos.js?v=20260821f"></script>
 <script src="fcm-init.js"></script>
 </body>
 </html>
