@@ -1703,9 +1703,15 @@ exports.sincronizarEdicionML = onDocumentUpdated("properties/{id}", async (event
     const item = await buildItem(after, token);
     // En un aviso ya creado no se pueden cambiar estos campos; se quitan del PUT.
     // currency_id tampoco es modificable: si cambió la moneda, se avisa y no se toca el precio.
-    const { category_id, listing_type_id, buying_mode, condition, channels, available_quantity, description, currency_id, pictures, video_id, ...updatable } = item;
+    const { category_id, listing_type_id, buying_mode, condition, channels, available_quantity, description, pictures, video_id, ...updatable } = item;
     const cambioMoneda = before && before.currency && before.currency !== after.currency;
-    if (cambioMoneda) delete updatable.price;
+    // ANTES: currency_id se quitaba siempre del PUT y, si había cambio de moneda,
+    // tampoco se mandaba el precio. O sea que ni se intentaba, y el agente recibía
+    // "dalo de baja y volvé a publicarlo" aunque Mercado Libre lo aceptara.
+    // AHORA se intenta de verdad. Si ML lo rechaza, el catch de abajo reporta el
+    // motivo REAL que devuelve ML en vez de una suposición nuestra.
+    // Nota: el precio viaja junto con la moneda, porque cambiar una sin la otra
+    // dejaría el aviso con el número viejo en la moneda nueva.
 
     // El resto del contenido (precio, título, atributos) en un PUT.
     await axios.put(`${API}/items/${after.mlItemId}`, updatable, { headers });
@@ -1742,11 +1748,11 @@ exports.sincronizarEdicionML = onDocumentUpdated("properties/{id}", async (event
 
     const cambios = { mlSyncedAt: new Date().toISOString() };
     if (cambioMoneda) {
-      cambios.mlError = "La moneda no se puede cambiar en un aviso ya publicado. Para cambiarla: dalo de baja y volvé a publicarlo.";
-      cambios.mlErrorAt = new Date().toISOString();
-      if (before.mlError !== cambios.mlError) {
-        await notificarErrorML(after, id, "Cambio de moneda no aplicado en Mercado Libre", "Dalo de baja y volvé a publicarlo para cambiar la moneda.");
-      }
+      // Llegar hasta acá con cambio de moneda significa que el PUT NO falló: ML lo
+      // aceptó. Se limpia cualquier error viejo en vez de inventar uno nuevo.
+      cambios.mlError = "";
+      cambios.mlErrorAt = "";
+      logger.info(`ML ${after.mlItemId}: moneda ${before.currency} -> ${after.currency} aceptada`);
     } else if (fotosError) {
       cambios.mlError = "Las fotos no se pudieron actualizar en Mercado Libre (el resto de los cambios sí se guardó): " + fotosError;
       cambios.mlErrorAt = new Date().toISOString();

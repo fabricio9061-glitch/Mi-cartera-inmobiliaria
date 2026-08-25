@@ -4892,6 +4892,21 @@
     if (!confirm('¿Eliminar esta propiedad DEFINITIVAMENTE? Esta acción no se puede deshacer.\n\nOjo: para sacarla de circulación NO hace falta borrarla — alcanza con cerrar su gestión en Clientes (Cerrado / Cerró por afuera / Perdido) y la propiedad se da de baja sola, conservando toda su historia.')) return;
     await db.collection('properties').doc(id).delete()
   }
+  // Repinta la vitrina después de destacar. No llama directo a filterProperties()
+  // porque esa función lee los inputs de filtro, y si estás en una vista donde no
+  // existen, revienta — y como el repintado va dentro del try del destacado, el
+  // agente vería "No se pudo destacar" cuando en realidad sí se destacó.
+  function refrescarVitrina() {
+    try {
+      if (document.getElementById('filterSearch')) { filterProperties(); }
+      else { renderProperties(properties.filter(enVitrina)); }
+    } catch (e) {
+      console.warn('refrescarVitrina:', e);
+      try { renderProperties(properties.filter(enVitrina)); } catch (e2) { }
+    }
+    try { updateStats(); } catch (e) { }
+  }
+
   // El destacado ya NO se escribe desde acá: lo hace una Cloud Function que
   // valida rango, cupo, estado y ficha. La regla de Firestore bloquea 'featured'
   // para el cliente, así que este update fallaría igual — y esa es la idea.
@@ -4904,6 +4919,8 @@
       showToast(quitar ? 'Quitando destacado…' : 'Destacando…', '', 'fa-spinner');
       const res = await fn.httpsCallable(quitar ? 'quitarDestacado' : 'activarDestacado')({ propertyId: id });
       p.featured = !quitar;
+      if (quitar) { p.featuredHasta = ''; }
+      refrescarVitrina();
       if (!quitar && res && res.data) {
         p.featuredHasta = res.data.hasta;
         showToast('Propiedad destacada',
@@ -4911,7 +4928,6 @@
       } else {
         showToast('Destacado removido', 'Se liberó el lugar para otra propiedad', 'fa-star');
       }
-      filterProperties();
     } catch (err) {
       console.error('destacado:', err);
       // Los mensajes de la función ya vienen explicados (falta de fotos, cupo
