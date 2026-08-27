@@ -37,6 +37,18 @@ service cloud.firestore {
     // Alias histórico: la agenda ya lo usaba con este nombre.
     function rangoVeTodo() { return esDireccion(); }
 
+    // SOLO EL CEO. La Dirección (que incluye al COO) comparte lo operativo, pero
+    // el dinero y lo irreversible no: aprobar un retiro es autorizar un pago y la
+    // papelera borra definitivo. Esconder el botón en el menú no alcanza — si el
+    // permiso queda abierto acá, se puede hacer igual por SDK.
+    function esCEO() {
+      return isAdmin() || (
+        request.auth != null &&
+        perfil().get('rank', '') == 'ceo' &&
+        perfil().get('status', '') == 'approved'
+      );
+    }
+
     // ¿El documento que se está tocando es el del CEO? Se chequea por rango Y por
     // correo: si el perfil del CEO todavía no tiene rango cargado, el correo lo
     // protege igual. Sirve para que el COO no pueda editarlo ni borrarlo.
@@ -100,7 +112,7 @@ service cloud.firestore {
 
     // ============ ADMIN DATA (comisiones, etc.) — SOLO admin ============
     match /adminData/{doc} {
-      allow read, write: if esDireccion();
+      allow read, write: if esCEO();
     }
 
     // ============ REFERIDOS (quién refirió a quién + %) — SOLO admin ============
@@ -156,7 +168,7 @@ service cloud.firestore {
     // Las copias las escribe la Cloud Function al borrar (Admin SDK, no pasa por
     // acá). Desde papelera.html el admin las lee, restaura o elimina definitivo.
     match /papelera/{id} {
-      allow read, write: if esDireccion();
+      allow read, write: if esCEO();
     }
 
     // ============ CLIENTS (CRM) — solo aprobados ============
@@ -274,7 +286,7 @@ service cloud.firestore {
     // muestra la app no se puede falsear desde el cliente.
     match /retiros/{id} {
       allow read: if isApproved()
-                  && (resource.data.agenteUid == request.auth.uid || esDireccion());
+                  && (resource.data.agenteUid == request.auth.uid || esCEO());
       allow create: if isApproved()
                     && request.resource.data.agenteUid == request.auth.uid
                     && request.resource.data.status == 'pendiente'
@@ -283,14 +295,14 @@ service cloud.firestore {
                     && (request.resource.data.moneda == 'USD' || request.resource.data.moneda == 'UYU');
       // El agente puede CANCELAR su propia solicitud mientras siga pendiente
       // (sin tocar monto/moneda). Todo lo demás (aprobar, rechazar, pagar) es del admin.
-      allow update: if esDireccion()
+      allow update: if esCEO()
                     || (isApproved()
                         && resource.data.agenteUid == request.auth.uid
                         && resource.data.status == 'pendiente'
                         && request.resource.data.status == 'cancelado'
                         && request.resource.data.monto == resource.data.monto
                         && request.resource.data.moneda == resource.data.moneda);
-      allow delete: if esDireccion();
+      allow delete: if esCEO();
     }
 
     // ============ CONFIG — aprobados leen, admin escribe ============

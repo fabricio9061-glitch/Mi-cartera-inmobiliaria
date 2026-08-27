@@ -450,13 +450,13 @@
     const rl = document.getElementById('mvSideRole'); if (rl) rl.textContent = isAdminUser() ? 'Administrador' : 'Agente';
     initMenuDatos();
     cargarFinanzasMenu();
-    document.getElementById('mvSideAdminGroup')?.classList.toggle('hidden', !isAdminUser());
-    document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !isAdminUser());
+    document.getElementById('mvSideAdminGroup')?.classList.toggle('hidden', !esCEO());
+    document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !esCEO());
     // Barra inferior móvil: visible para cualquier usuario logueado
     document.getElementById('mvBottomBar')?.classList.toggle('hidden', !currentUser);
     document.body.classList.toggle('has-bottombar', !!currentUser);
-    document.getElementById('mvSideRetiros')?.classList.toggle('hidden', !isAdminUser());
-    document.getElementById('mvSidePapelera')?.classList.toggle('hidden', !isAdminUser());
+    document.getElementById('mvSideRetiros')?.classList.toggle('hidden', !esCEO());
+    document.getElementById('mvSidePapelera')?.classList.toggle('hidden', !esCEO());
     if (isAdminUser()) actualizarBadgePendientes();
     document.getElementById('mvSide')?.classList.add('open');
     document.getElementById('mvSideOverlay')?.classList.add('open');
@@ -5277,6 +5277,16 @@
     }
   }
   let clients = [];
+
+  // SOLO EL CEO. Se separa de isAdminUser() a propósito: la Dirección comparte lo
+  // operativo (agenda del equipo, propiedades, clientes) pero NO lo financiero ni
+  // lo destructivo — aprobar retiros es autorizar un pago, y la papelera borra
+  // definitivo. Esas tres pantallas quedan del dueño.
+  function esCEO() {
+    if (!userProfile) return false;
+    if ((userProfile.email || '').toLowerCase() === ADMIN_EMAIL) return true;
+    return userProfile.rank === 'ceo';
+  }
 
   // "Admin" del lado de la interfaz = DIRECCIÓN (CEO y COO), no un correo suelto.
   // El correo del CEO queda como red de seguridad: si su perfil se quedara sin
