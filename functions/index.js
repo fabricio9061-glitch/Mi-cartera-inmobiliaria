@@ -2985,8 +2985,21 @@ exports.recordatorioSeguimiento = onSchedule(
       const dias = isNaN(t) ? 9999 : Math.floor((ahora - t) / 86400000);
       const umbral = UMBRAL_ETAPA[estado] != null ? UMBRAL_ETAPA[estado] : RECORDATORIO_DIAS;
       if (dias < umbral) return;
-      const uid = c.createdBy || c.agentId || c.ownerId || "__sin_agente__";
-      (porAgente[uid] = porAgente[uid] || []).push({ name: c.name || "Sin nombre", dias });
+      // Un cliente puede estar en la cartera de VARIOS agentes: además del que lo
+      // creó, los que se lo sumaron a su lista (campo 'enLista', que es donde el
+      // CRM guarda los compartidos — ver esMio() en clientes.html).
+      // Antes esta línea se quedaba con uno solo por cadena de respaldos, así que
+      // el segundo agente nunca se enteraba de que su cliente estaba frío.
+      const destinatarios = new Set();
+      const dueno = c.createdBy || c.agentId || c.ownerId;
+      if (dueno) destinatarios.add(dueno);
+      if (Array.isArray(c.enLista)) {
+        c.enLista.forEach((x) => { if (x && x.uid) destinatarios.add(x.uid); });
+      }
+      if (!destinatarios.size) destinatarios.add("__sin_agente__");
+      destinatarios.forEach((uid) => {
+        (porAgente[uid] = porAgente[uid] || []).push({ name: c.name || "Sin nombre", dias });
+      });
     });
 
     const adm = await getAdminUser();
@@ -2994,13 +3007,23 @@ exports.recordatorioSeguimiento = onSchedule(
       const lista = porAgente[uid].sort((a, b) => b.dias - a.dias);
       let destino = null;
       if (uid === "__sin_agente__") {
-        destino = adm;
+        // Antes esto caía en el admin. El recordatorio de seguimiento es una tarea
+        // del agente que atiende al cliente: mandárselo a la Dirección no hace que
+        // alguien lo retome, solo llena la campanita de gente que no conoce.
+        // Los huérfanos quedan en el log para poder asignarlos, no se avisan.
+        logger.warn(`[recordatorioSeguimiento] ${lista.length} cliente(s) SIN AGENTE asignado: ${lista.map((x) => x.name).join(", ")}`);
+        continue;
       } else {
         try {
           const uDoc = await db.doc(`users/${uid}`).get();
           if (uDoc.exists) destino = { uid: uDoc.id, fcmToken: uDoc.data().fcmToken };
         } catch (e) { /* sin perfil */ }
-        if (!destino) destino = adm; // agente sin perfil: que al menos lo vea el admin
+        // Agente sin perfil legible: se registra y se saltea. Antes se lo mandaba al
+        // admin, que recibía recordatorios de clientes que no son suyos.
+        if (!destino) {
+          logger.warn(`[recordatorioSeguimiento] agente ${uid} sin perfil; ${lista.length} cliente(s) sin avisar.`);
+          continue;
+        }
       }
       if (!destino) continue;
 
@@ -3055,10 +3078,17 @@ exports.recordatorioPausados = onSchedule(
     for (const uid of Object.keys(porAgente)) {
       const lista = porAgente[uid];
       let destino = null;
-      if (uid === "__sin_agente__") destino = adm;
-      else {
-        try { const u = await db.doc(`users/${uid}`).get(); if (u.exists) destino = { uid: u.id, fcmToken: u.data().fcmToken }; } catch (e) { /* sin perfil */ }
-        if (!destino) destino = adm;
+      // Mismo criterio que el recordatorio de seguimiento: el aviso es del agente
+      // dueño del aviso pausado. Sin dueño identificable se registra y se saltea,
+      // en vez de derivarlo a la Dirección, que no puede hacer nada con eso.
+      if (uid === "__sin_agente__") {
+        logger.warn(`[recordatorioPausados] ${lista.length} propiedad(es) pausadas SIN dueño identificable.`);
+        continue;
+      }
+      try { const u = await db.doc(`users/${uid}`).get(); if (u.exists) destino = { uid: u.id, fcmToken: u.data().fcmToken }; } catch (e) { /* sin perfil */ }
+      if (!destino) {
+        logger.warn(`[recordatorioPausados] agente ${uid} sin perfil; ${lista.length} propiedad(es) sin avisar.`);
+        continue;
       }
       if (!destino) continue;
       const nombres = lista.slice(0, 3).join(", ");
