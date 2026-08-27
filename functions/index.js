@@ -3824,3 +3824,54 @@ exports.vencerDestacados = onSchedule(
     logger.info(`vencerDestacados: ${vencidos} apagados`);
   }
 );
+
+/* ============================================================================
+   ELIMINAR AGENTE (de verdad)
+   ----------------------------------------------------------------------------
+   El panel borraba solo el documento de Firestore. La cuenta de Authentication
+   quedaba viva, así que la persona podía volver a iniciar sesión — y la
+   reparación automática de app.js ("cuenta sin perfil, la creamos") le rearmaba
+   el perfil en 'pending'. Resultado: el eliminado reaparecía en la Bandeja como
+   agente esperando aprobación.
+   Acá se borra la cuenta de Authentication. El perfil de Firestore lo limpia
+   solo el trigger limpiarPerfilAlBorrarse.
+   ========================================================================== */
+exports.eliminarAgente = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  const uid = request.auth.uid;
+  const objetivo = String((request.data && request.data.uid) || "");
+  if (!objetivo) throw new HttpsError("invalid-argument", "Falta el agente.");
+
+  // Borrar una cuenta es irreversible: solo el CEO, igual que retiros y papelera.
+  let esCEO = email === ADMIN_EMAIL;
+  if (!esCEO) {
+    const me = await db.doc(`users/${uid}`).get();
+    esCEO = me.exists && me.data().rank === "ceo" && me.data().status === "approved";
+  }
+  if (!esCEO) throw new HttpsError("permission-denied", "Solo el CEO puede eliminar una cuenta.");
+  if (objetivo === uid) throw new HttpsError("failed-precondition", "No podés eliminar tu propia cuenta.");
+
+  const oSnap = await db.doc(`users/${objetivo}`).get();
+  const o = oSnap.exists ? oSnap.data() : null;
+  if (o && (o.rank === "ceo" || String(o.email || "").toLowerCase() === ADMIN_EMAIL)) {
+    throw new HttpsError("failed-precondition", "La cuenta del CEO no se puede eliminar.");
+  }
+
+  const quien = (o && (o.name || o.email)) || objetivo;
+  let authBorrada = false;
+  try {
+    await admin.auth().deleteUser(objetivo);
+    authBorrada = true;   // el trigger limpiarPerfilAlBorrarse borra el perfil
+  } catch (e) {
+    // Si la cuenta ya no existía en Authentication, igual hay que sacar el perfil.
+    if (e && e.code === "auth/user-not-found") {
+      try { await db.doc(`users/${objetivo}`).delete(); } catch (e2) { /* ya no estaba */ }
+    } else {
+      logger.error("eliminarAgente:", e);
+      throw new HttpsError("internal", "No se pudo eliminar la cuenta: " + (e.message || ""));
+    }
+  }
+  await registrarLog("", "agente eliminado", true, `${quien}${authBorrada ? "" : " (solo perfil: no tenía cuenta)"}`);
+  return { ok: true, authBorrada };
+});

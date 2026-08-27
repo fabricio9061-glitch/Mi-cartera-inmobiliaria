@@ -663,9 +663,19 @@
   }
 
   async function eliminar(id){
-    if(!confirm('¿Eliminar este usuario definitivamente? No se puede deshacer.')) return;
-    try{ await db.collection('users').doc(id).delete(); toast('Usuario eliminado'); ver('equipo'); }
-    catch(e){ toast('No se pudo eliminar'); }
+    var u = agente(id) || {};
+    var quien = u.name || u.email || 'este usuario';
+    // Se avisa explícitamente que se borra la CUENTA, no solo la ficha: antes se
+    // borraba el perfil, la persona volvía a iniciar sesión y el sistema le
+    // recreaba el perfil en 'pending'. Parecía eliminado y no lo estaba.
+    if(!confirm('¿Eliminar la cuenta de ' + quien + '?\n\nSe borra el acceso al CRM y su ficha. No se puede deshacer.\n\nSi solo se va del equipo, conviene RECHAZARLO: pierde el acceso igual y se conserva su historial de cierres.')) return;
+    try{
+      await firebase.functions().httpsCallable('eliminarAgente')({ uid: id });
+      toast('Cuenta eliminada'); ver('equipo');
+    }catch(e){
+      console.error(e);
+      toast((e && e.message) || 'No se pudo eliminar');
+    }
   }
   async function guardarComision(){
     try{

@@ -2791,6 +2791,56 @@
     btn.setAttribute('aria-expanded', abierto ? 'true' : 'false');
   }
 
+  // ===== Contraseña =====
+  // Recuperación desde el login. Firebase manda el correo con el enlace; nosotros
+  // no guardamos ni vemos nada.
+  async function recuperarPass() {
+    const campo = document.getElementById('loginEmail');
+    let em = (campo && campo.value || '').trim();
+    if (!em) em = (prompt('¿A qué correo te mandamos el enlace para restablecer la contraseña?') || '').trim();
+    if (!em) return;
+    try {
+      await auth.sendPasswordResetEmail(em);
+      // A propósito NO se aclara si el correo existe o no: decirlo permitiría
+      // averiguar qué direcciones tienen cuenta en el sistema.
+      showToast('Revisá tu correo', 'Si esa dirección tiene cuenta, le llega el enlace en un minuto.', 'fa-envelope');
+    } catch (err) {
+      console.error('recuperarPass:', err);
+      const m = (err && err.code) === 'auth/invalid-email'
+        ? 'Ese correo no tiene un formato válido.'
+        : 'No se pudo enviar. Probá de nuevo en un momento.';
+      showToast('No se pudo enviar', m, 'fa-circle-exclamation');
+    }
+  }
+
+  // Cambio desde adentro. Firebase exige sesión reciente para cambiar la
+  // contraseña, así que primero se re-autentica con la actual: además de cumplir
+  // el requisito, evita que alguien cambie la clave en un equipo que quedó abierto.
+  async function cambiarPass() {
+    if (!currentUser) return;
+    const actual = prompt('Para cambiarla, escribí tu contraseña actual:');
+    if (!actual) return;
+    const nueva = prompt('Nueva contraseña (mínimo 6 caracteres):');
+    if (!nueva) return;
+    if (String(nueva).length < 6) { showToast('Muy corta', 'Tiene que tener al menos 6 caracteres.', 'fa-circle-exclamation'); return; }
+    const repetir = prompt('Repetila para confirmar:');
+    if (nueva !== repetir) { showToast('No coinciden', 'La nueva contraseña y su repetición son distintas.', 'fa-circle-exclamation'); return; }
+    try {
+      const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, actual);
+      await currentUser.reauthenticateWithCredential(cred);
+      await currentUser.updatePassword(nueva);
+      showToast('Contraseña cambiada', 'Usá la nueva la próxima vez que entres.', 'fa-check');
+    } catch (err) {
+      console.error('cambiarPass:', err);
+      const c = err && err.code;
+      const m = c === 'auth/wrong-password' ? 'La contraseña actual no es correcta.'
+        : c === 'auth/weak-password' ? 'La nueva es demasiado débil.'
+        : c === 'auth/too-many-requests' ? 'Demasiados intentos. Esperá unos minutos.'
+        : 'No se pudo cambiar. Probá de nuevo.';
+      showToast('No se pudo cambiar', m, 'fa-circle-exclamation');
+    }
+  }
+
   function updateStats() {
     // Los contadores tienen que contar EXACTAMENTE lo que la grilla muestra. Antes
     // sumaban las reservadas, que ahora quedaron fuera de la vitrina: el número
