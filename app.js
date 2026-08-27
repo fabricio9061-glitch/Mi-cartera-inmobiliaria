@@ -2851,6 +2851,13 @@
     document.getElementById('statRent').textContent = av.filter(p => p.type === 'rent').length
   }
 
+  // Código de la propiedad, normalizado para comparar. Se busca en varios lugares
+  // porque según cómo se cargó el aviso puede estar en la ficha o suelto arriba.
+  function codigoDePropiedad(p) {
+    const c = (p && ((p.ficha && (p.ficha.PROPERTY_CODE || p.ficha.property_code)) || p.codigo || p.PROPERTY_CODE)) || '';
+    return String(c).toLowerCase().replace(/[\s-]/g, '');
+  }
+
   function filterProperties() {
     const s = document.getElementById('filterSearch').value.toLowerCase(),
       t = document.getElementById('filterType').value,
@@ -2859,7 +2866,15 @@
     const f = properties.filter(p => {
       if (!enVitrina(p)) return false;
       const l = getLocationString(p).toLowerCase();
-      if (s && !p.title.toLowerCase().includes(s) && !l.includes(s)) return false;
+      // El CÓDIGO también busca. Vive dentro de la ficha (PROPERTY_CODE), así que
+      // no se veía desde acá y buscar "MAL-B5CMW" no devolvía nada — justo el dato
+      // que el agente tiene a mano cuando el cliente le pasa una referencia.
+      // Se comparan sin guiones ni espacios para que "MALB5CMW", "mal-b5cmw" y
+      // "B5CMW" encuentren lo mismo.
+      const cod = codigoDePropiedad(p);
+      const sN = s.replace(/[\s-]/g, '');
+      if (s && !p.title.toLowerCase().includes(s) && !l.includes(s)
+           && !(sN && cod && cod.includes(sN))) return false;
       if (t && p.type !== t) return false;
       if (b && (p.bedrooms || 0) < b) return false;
       if (p.price > mp) return false;
