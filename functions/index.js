@@ -164,6 +164,65 @@ async function getAdminUser() {
   return data;
 }
 
+/* ============================================================================
+   DESTINATARIOS DE DIRECCIÓN (CEO + COO)
+   ----------------------------------------------------------------------------
+   getAdminUser() de arriba devuelve UN usuario y hay 16 lugares que lo usan así
+   (`crearNotificacion(adm, ...)`). Cambiarlo para devolver varios rompería los
+   16 en silencio: crearNotificacion recibiría un arreglo donde espera un objeto
+   y escribiría documentos inválidos, sin que nadie se entere hasta notar que no
+   llega nada. Por eso NO se toca y se agrega esto al lado.
+
+   Cada aviso se migra de a uno cambiando `crearNotificacion(adm, ...)` por
+   `notificarDireccion(...)`. Lo que no se migra sigue funcionando igual.
+   ========================================================================== */
+let _dirCache = { at: 0, data: null };
+const RANGOS_QUE_RECIBEN = ["ceo", "coo"];
+
+/** CEO y COO aprobados. Nunca devuelve vacío si existe el admin por correo. */
+async function getDireccion() {
+  if (_dirCache.data && Date.now() - _dirCache.at < 5 * 60 * 1000) return _dirCache.data;
+  const porUid = new Map();
+  try {
+    const q = await db.collection("users").where("rank", "in", RANGOS_QUE_RECIBEN).get();
+    q.docs.forEach((d) => {
+      const u = d.data();
+      if (u.status === "approved") porUid.set(d.id, { uid: d.id, ...u });
+    });
+  } catch (e) {
+    logger.warn("getDireccion: no se pudo consultar por rango:", e.message);
+  }
+  // RED DE SEGURIDAD: el CEO va SIEMPRE, aunque su documento no tenga el rango
+  // cargado o la consulta de arriba haya fallado. Un error acá no puede dejar al
+  // sistema sin avisarle a nadie.
+  const adm = await getAdminUser();
+  if (adm && !porUid.has(adm.uid)) porUid.set(adm.uid, adm);
+
+  const lista = Array.from(porUid.values());
+  if (lista.length) _dirCache = { at: Date.now(), data: lista };
+  else logger.error("getDireccion: no se encontró NINGÚN destinatario de Dirección.");
+  return lista;
+}
+
+/** Crea la notificación para cada uno de Dirección. Un documento por persona,
+    así cada uno marca leído por su cuenta sin apagarle el aviso al otro. */
+async function notificarDireccion(datos, push, opts = {}) {
+  const destinos = await getDireccion();
+  if (!destinos.length) return false;
+  for (const u of destinos) {
+    // 'excluir' evita avisarle a quien generó el hecho: no tiene sentido que te
+    // llegue una notificación de algo que acabás de hacer vos.
+    if (opts.excluir && u.uid === opts.excluir) continue;
+    try {
+      await crearNotificacion(u, datos, push);
+    } catch (e) {
+      // Que le falle a uno no puede impedir que le llegue al otro.
+      logger.warn(`notificarDireccion: falló para ${u.uid}:`, e.message);
+    }
+  }
+  return true;
+}
+
 // Crea una notificación en la campanita (colección notifications) y, si hay
 // token FCM, manda también un push. Nunca tira error hacia afuera.
 async function crearNotificacion(destino, campos, push) {
@@ -2517,7 +2576,7 @@ exports.pedirBajaPropiedad = onCall(async (request) => {
   } catch (e) { logger.warn("pedirBajaPropiedad: no se pudo leer el nombre del agente:", e.message); }
 
   const titulo = p.title || "sin título";
-  await crearNotificacion(adm, {
+  await notificarDireccion({
     type: "despublicar_confirmar",
     propertyId,
     propertyTitle: titulo,
@@ -3252,7 +3311,7 @@ async function pedirConfirmacionDespublicar(propId, quienNombre, motivoTexto, ti
   const adm = await getAdminUser();
   if (!adm) return;
   const texto = `${quienNombre} (propietario) ${motivoTexto}. Su propiedad "${p.title || "sin título"}" sigue publicada: confirmá si hay que despublicarla o mantenerla.`;
-  await crearNotificacion(adm, {
+  await notificarDireccion({
     type: "despublicar_confirmar",
     propertyId: propId,
     propertyTitle: p.title || "una propiedad",
@@ -3513,8 +3572,7 @@ exports.notificarAltaAgente = onDocumentCreated("users/{uid}", async (event) => 
     return;
   }
   if (adm.uid === snap.id) return;
-  await crearNotificacion(
-    adm,
+  await notificarDireccion(
     {
       type: "admin_pendiente",
       subtipo: "alta",
@@ -3539,8 +3597,7 @@ exports.notificarTestimonio = onDocumentCreated("testimonials/{id}", async (even
   if (!adm) return;
   const autor = t.name || t.clientName || "Un cliente";
   const texto = String(t.text || t.comment || "").slice(0, 140);
-  await crearNotificacion(
-    adm,
+  await notificarDireccion(
     {
       type: "admin_pendiente",
       subtipo: "testimonio",
@@ -3564,8 +3621,7 @@ exports.notificarSolicitudVenta = onDocumentCreated("leadsVenta/{id}", async (ev
   const nombre = l.nombre || l.name || "Alguien";
   const contacto = [l.telefono || l.phone, l.email].filter(Boolean).join(" · ");
   const donde = l.direccion || l.zona || l.barrio || "";
-  await crearNotificacion(
-    adm,
+  await notificarDireccion(
     {
       type: "admin_pendiente",
       subtipo: "solicitud",
@@ -3654,8 +3710,7 @@ exports.notificarRevision = onDocumentUpdated("users/{uid}", async (event) => {
   if (!adm || adm.uid === event.params.uid) return;   // si la hizo el propio admin, no se avisa
   const agente = after.name || after.email || "Un agente";
   const que = nuevas.map((n) => n.etiqueta).join(" y ");
-  await crearNotificacion(
-    adm,
+  await notificarDireccion(
     {
       type: "admin_pendiente",
       subtipo: "revision",
