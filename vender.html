@@ -195,6 +195,18 @@
       /* "Volver al inicio" no entra cómodo en pantallas chicas */
       .back-link span, .ad-back span{ display:none; }
     }
+
+    /* ===== Ajustes para celular =====
+       El principal: los campos usan .95rem (~15px) y iOS hace zoom automático en
+       cualquier campo de menos de 16px. Al tocar un input la página saltaba y se
+       desacomodaba sola. Con 16px deja de pasar; en escritorio no se nota. */
+    @media (max-width:600px){
+      .fg input, .fg select, .fg textarea{ font-size:16px }
+      /* Botones a lo ancho: en el celular no conviene que compitan por el renglón. */
+      .header-cta, .btn-wa-sm, .form-card button[type=submit]{ width:100%; justify-content:center }
+      /* Que el pie no quede debajo de la barra de gestos del iPhone. */
+      .footer{ padding-bottom:calc(28px + env(safe-area-inset-bottom,0px)) }
+    }
 </style>
 </head>
 <body>
