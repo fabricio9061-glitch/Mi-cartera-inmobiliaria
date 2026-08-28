@@ -83,14 +83,53 @@
     .mv-toast.err{ border-left-color:#e74c3c; }
     @media(max-width:560px){ .grid2{ grid-template-columns:1fr; } .saldo .pts{ font-size:2.1rem; } }
   </style>
-<style>body{padding-top:env(safe-area-inset-top,0px)}.fh,header,.app-header,.topbar{padding-top:env(safe-area-inset-top,0px)}body>.fh,body>header{padding-top:0}</style>
+<style>body{padding-top:env(safe-area-inset-top,0px)}.fh,header,.app-header,.topbar{padding-top:env(safe-area-inset-top,0px)}body>.fh,body>header{padding-top:0}
+    /* ===== Cabecera estándar de las herramientas =====
+       Copiada de finanzas.html, que es la que mejor quedaba: "Volver" como botón
+       con contorno redondeado que se rellena al pasar el mouse, en vez de un
+       enlace suelto. Antes cada herramienta tenía la suya y algunas ni logo. */
+    .mv-head{ background:#fff; border-bottom:1px solid #eef1f5; position:sticky; top:0; z-index:60;
+      padding-top:env(safe-area-inset-top,0px); }
+    .mv-head-in{ max-width:1200px; margin:0 auto; padding:14px 20px; display:flex;
+      justify-content:space-between; align-items:center; gap:14px; }
+    .mv-head .logo{ display:flex; align-items:center; gap:10px; text-decoration:none; }
+    .mv-head .logo-img{ height:30px; width:auto; } .mv-head .logo-text{ height:19px; width:auto; }
+    .mv-head .back-link{ display:inline-flex; align-items:center; gap:7px; color:#6b7280;
+      font-size:.88rem; font-weight:500; padding:8px 15px; border:1px solid #eef1f5;
+      border-radius:999px; text-decoration:none; white-space:nowrap;
+      transition:background .15s, color .15s, border-color .15s; }
+    .mv-head .back-link:hover{ background:#16273f; color:#fff; border-color:#16273f; }
+    @media (max-width:520px){
+      .mv-head-in{ padding:10px 14px; }
+      .mv-head .logo-img{ height:26px; } .mv-head .logo-text{ height:16px; }
+      .mv-head .back-link{ padding:8px 13px; }
+    }
+
+    /* Fila de título + acciones. En el celular el título va arriba y los botones
+       abajo repartidos, en vez de apretarse todos en un renglón. */
+    .mv-toolbar{ display:flex; align-items:center; justify-content:space-between;
+      gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+    .mv-toolbar h1{ margin:0; display:flex; align-items:center; gap:10px; min-width:0; }
+    .mv-toolbar-acc{ display:flex; gap:9px; align-items:center; flex-wrap:wrap; }
+    @media (max-width:640px){
+      .mv-toolbar h1{ flex:1 0 100%; font-size:1.5rem; }
+      .mv-toolbar-acc{ flex:1 0 100%; }
+      .mv-toolbar-acc > *{ flex:1; justify-content:center; text-align:center; }
+    }
+</style>
 </head>
 <body>
+  <header class="mv-head">
+    <div class="mv-head-in">
+      <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
+      <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i> <span>Volver al inicio</span></a>
+    </div>
+  </header>
+
   <div class="wrap">
-    <div class="top">
+    <div class="mv-toolbar">
       <h1><i class="fas fa-trophy"></i> Recompensas</h1>
-      <div style="display:flex; gap:10px; align-items:center">
-        <a class="back" href="index.html"><i class="fas fa-arrow-left"></i> Volver</a>
+      <div class="mv-toolbar-acc">
         <button class="btn btn-ghost" onclick="cargar()"><i class="fas fa-rotate-right"></i> Actualizar</button>
       </div>
     </div>

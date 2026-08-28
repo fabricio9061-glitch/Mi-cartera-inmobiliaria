@@ -236,14 +236,51 @@
         padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));min-width:0}
       .menu button{padding:14px 13px;font-size:.94rem}
     }
-  </style>
+  
+    /* ============================================================================
+       CABECERA UNIFICADA — estándar tomado de finanzas.html
+       Cada herramienta tenía la suya (.header, .top, .gh-header, .ad-top) y el
+       "volver" era a veces un enlace suelto y a veces un botón. Acá se llevan
+       todas al mismo aspecto sin tocar el markup de cada página: barra blanca
+       pegada arriba y "Volver" como botón con contorno que se rellena al pasar.
+       ========================================================================== */
+    .header, .top, .gh-header, .ad-top{
+      background:#fff !important; border-bottom:1px solid #eef1f5 !important;
+      padding-top:env(safe-area-inset-top,0px);
+    }
+    .header-in, .top > .wrap, .gh-header, .ad-top-in{
+      padding-top:14px; padding-bottom:14px;
+    }
+    /* El botón de volver, en todas sus variantes de clase */
+    .back-link, .back, .gh-back, .ad-back, .tp-back, .fh-back{
+      display:inline-flex !important; align-items:center; gap:7px;
+      color:#6b7280 !important; font-size:.88rem; font-weight:500;
+      padding:8px 15px !important; border:1px solid #eef1f5 !important;
+      border-radius:999px !important; text-decoration:none !important;
+      white-space:nowrap; background:#fff;
+      transition:background .15s, color .15s, border-color .15s;
+    }
+    .back-link:hover, .back:hover, .gh-back:hover, .ad-back:hover, .tp-back:hover, .fh-back:hover{
+      background:#16273f !important; color:#fff !important; border-color:#16273f !important;
+    }
+    /* El logo, al tamaño del estándar */
+    .logo-img, .ad-marca img:first-child{ height:30px !important; width:auto; }
+    .logo-text, .ad-marca img:last-child{ height:19px !important; width:auto; }
+    @media (max-width:520px){
+      .logo-img, .ad-marca img:first-child{ height:26px !important; }
+      .logo-text, .ad-marca img:last-child{ height:16px !important; }
+      .back-link, .back, .gh-back, .ad-back, .tp-back, .fh-back{ padding:8px 13px !important; }
+      /* "Volver al inicio" no entra cómodo en pantallas chicas */
+      .back-link span, .ad-back span{ display:none; }
+    }
+</style>
 </head>
 <body>
 
 <header class="ad-top">
   <div class="ad-top-in">
     <a href="index.html" class="ad-marca"><img src="iso-malave.png" alt=""><img src="texto-malave.png" alt="MALAVE"></a>
-    <a class="ad-back" href="index.html"><i class="fas fa-arrow-left"></i> Volver al inicio</a>
+    <a class="ad-back" href="index.html"><i class="fas fa-arrow-left"></i> <span>Volver al inicio</span></a>
   </div>
 </header>
 
@@ -967,5 +1004,8 @@
     }catch(err){ console.warn('contadores:', err); }
   }
 </script>
+<!-- Registro del token para push. Faltaba en esta página: sin esto el
+     agente que solo usa esta pantalla nunca queda registrado y no recibe avisos. -->
+<script src="fcm-init.js"></script>
 </body>
 </html>
