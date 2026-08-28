@@ -353,8 +353,12 @@ exports.procesarEventoML = onDocumentCreated("mlEventos/{id}", async (event) => 
     if (p.ownerId) {
       try { const u = await db.doc(`users/${p.ownerId}`).get(); if (u.exists) destinos.push({ uid: u.id, fcmToken: u.data().fcmToken }); } catch (e) {}
     }
-    const adm = await getAdminUser();
-    if (adm && !destinos.some((d) => d.uid === adm.uid)) destinos.push(adm);
+    // La consulta va al agente dueño Y a la Dirección (CEO y COO), que supervisan
+    // que nadie quede sin responder. Antes acá solo se sumaba getAdminUser(), o sea
+    // el CEO: por eso al COO no le llegaban las consultas de los demás agentes.
+    for (const u of await getDireccion()) {
+      if (!destinos.some((d) => d.uid === u.uid)) destinos.push(u);
+    }
     for (const d of destinos) await crearNotificacion(d, aviso, push);
     await snap.ref.update({ estado: "procesado", itemId, propertyId: pDoc.id, agente: p.ownerId || null });
     logger.info(`[procesarEventoML] ${topic} -> ${itemId} -> "${p.title || pDoc.id}" (${destinos.length} destinos)`);
