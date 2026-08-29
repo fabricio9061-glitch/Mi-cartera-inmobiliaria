@@ -3971,3 +3971,87 @@ exports.eliminarAgente = onCall(async (request) => {
   await registrarLog("", "agente eliminado", true, `${quien}${authBorrada ? "" : " (solo perfil: no tenía cuenta)"}`);
   return { ok: true, authBorrada };
 });
+
+/* ============================================================================
+   INFOCASAS — API DE INTEGRACIÓN (reemplaza al feed XML)
+   ----------------------------------------------------------------------------
+   Autenticación: API Key en el encabezado `apikey`.
+   La publicación es ASINCRÓNICA: POST/PATCH /listing devuelve un task_id y hay
+   que consultar GET /task para saber si terminó (COMPLETED o ERROR).
+
+   ⚠️  POST /validate-listing NO valida: SINCRONIZA. Se le manda la lista de las
+   propiedades que deben quedar activas y DA DE BAJA TODO LO QUE NO ESTÉ EN ELLA.
+   Con la lista vacía elimina todos los avisos. No se usa hasta el final y con
+   doble confirmación. (Confirmado por el equipo de InfoCasas, 28/08/2026.)
+
+   No hay convivencia con el feed XML: cuando se cambia, se cambia entero.
+   ========================================================================== */
+const IC_API_BASE = (process.env.IC_API_BASE || "https://kong-qa.frcol.io/management/api/1.0").replace(/\/+$/, "");
+const IC_API_KEY = process.env.IC_API_KEY || "";
+
+/** Llamada a la API de InfoCasas. Devuelve { ok, status, data }. */
+async function icFetch(path, { method = "GET", body = null } = {}) {
+  if (!IC_API_KEY) throw new HttpsError("failed-precondition", "Falta IC_API_KEY en el .env de functions.");
+  // Los endpoints de consulta piden un valor dinámico en la URL para saltear
+  // la caché de ellos (lo indica su documentación).
+  const sep = path.includes("?") ? "&" : "?";
+  const url = IC_API_BASE + path + (method === "GET" ? `${sep}_=${Date.now()}` : "");
+  // axios, igual que el resto del archivo (Mercado Libre). validateStatus en true
+  // para manejar los errores acá y no con try/catch en cada llamada.
+  const res = await axios({
+    url, method,
+    headers: { apikey: IC_API_KEY, "Content-Type": "application/json", Accept: "application/json" },
+    data: body || undefined,
+    timeout: 20000,
+    validateStatus: () => true,
+  });
+  const ok = res.status >= 200 && res.status < 300;
+  if (!ok) logger.warn(`InfoCasas ${method} ${path} -> ${res.status}`, res.data);
+  return { ok, status: res.status, data: res.data };
+}
+
+/* Trae el catálogo de ubicaciones de InfoCasas y lo guarda en Firestore.
+   Es el primer paso de la migración y el que más trabajo da: sus departamentos y
+   barrios no coinciden con los nuestros y hay que armar la equivalencia.
+   No publica ni modifica nada: solo lee. */
+exports.icUbicaciones = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const r = await icFetch("/location");
+  if (!r.ok) {
+    return { ok: false, status: r.status, detalle: r.data,
+             pista: r.status === 401 || r.status === 403
+               ? "La API Key fue rechazada. Revisá IC_API_KEY en el .env."
+               : "Revisá IC_API_BASE." };
+  }
+  const items = Array.isArray(r.data) ? r.data : (r.data && (r.data.data || r.data.results)) || [];
+  try {
+    await db.doc("adminData/infocasasUbicaciones").set({
+      actualizado: new Date().toISOString(),
+      cantidad: items.length,
+      // Se guarda una muestra, no el catálogo entero: puede ser enorme y el
+      // documento de Firestore tiene 1 MB de tope.
+      muestra: items.slice(0, 50),
+    });
+  } catch (e) { logger.warn("icUbicaciones: no se pudo guardar", e.message); }
+  return { ok: true, cantidad: items.length, muestra: items.slice(0, 30) };
+});
+
+/** Prueba de conexión: confirma que la clave y la URL están bien, sin tocar nada. */
+exports.icProbarConexion = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const r = await icFetch("/client");
+  return {
+    ok: r.ok, status: r.status, base: IC_API_BASE,
+    claveCargada: !!IC_API_KEY,
+    data: r.ok ? r.data : null,
+    detalle: r.ok ? null : r.data,
+  };
+});
