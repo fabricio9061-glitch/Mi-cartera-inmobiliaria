@@ -1054,7 +1054,29 @@
       // Recordatorio del CRM (clientes sin contacto): formato propio y clic hacia Clientes,
       // porque el formato estándar de abajo asume una consulta sobre una propiedad.
       if (n.type === 'crm_seguimiento') {
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleCrmNotifClick('${n.id}')"><div class="notification-avatar" style="background:#fef3c7;color:#b45309"><i class="fas fa-user-clock"></i></div><div class="notification-body"><p><strong>Seguimiento de clientes</strong></p>${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
+        // El nombre del cliente manda en el titular. Antes decía "Seguimiento de
+        // clientes" —igual en las cinco tarjetas— y el dato que importa quedaba
+        // enterrado en el párrafo gris. Ahora se lee de un vistazo a quién hay
+        // que llamar. Los nombres vienen del campo 'clientes'; si la notificación
+        // es vieja y no lo tiene, se cae al título de siempre.
+        const nombres = Array.isArray(n.clientes) ? n.clientes : [];
+        const cuantos = Number(n.cuantos) || nombres.length;
+        let titulo = 'Seguimiento de clientes';
+        if (cuantos === 1 && nombres[0]) {
+          titulo = mvEsc(nombres[0]);
+        } else if (cuantos > 1) {
+          titulo = cuantos + ' clientes sin contacto';
+        }
+        const sub = (cuantos > 1 && nombres.length)
+          ? nombres.slice(0, 3).join(' · ') + (cuantos > nombres.slice(0, 3).length ? ' y ' + (cuantos - 3) + ' más' : '')
+          : (n.diasMax ? 'Hace ' + n.diasMax + ' días sin contacto' : '');
+        return `<div class="notification-item ${n.read?'':'unread'}"><div class="notification-avatar" style="background:#fef3c7;color:#b45309"><i class="fas fa-user-clock"></i></div><div class="notification-body">` +
+          `<p><strong>${titulo}</strong></p>` +
+          notifSub(sub) +
+          `<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div>` +
+          `<div class="notif-acciones"><button class="notif-btn ok" onclick="event.stopPropagation();handleCrmNotifClick('${n.id}')">` +
+          `<i class="fas fa-arrow-right"></i> ${cuantos > 1 ? 'Ver los ' + cuantos : 'Retomar'}</button></div>` +
+          `</div></div>`
       }
       // Avisos de SISTEMA (errores de portal, tokens vencidos). Caían en la
       // plantilla genérica de abajo, que arma el avatar con la inicial del

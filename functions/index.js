@@ -3097,7 +3097,14 @@ exports.recordatorioSeguimiento = onSchedule(
         : `${lista.length} clientes llevan más de ${RECORDATORIO_DIAS} días sin contacto: ${nombres}${extra}. Entrá a Clientes para retomarlos.`;
       await crearNotificacion(
         destino,
-        { type: "crm_seguimiento", userName: "Seguimiento", userPhoto: null, text: texto },
+        {
+          type: "crm_seguimiento", userName: "Seguimiento", userPhoto: null, text: texto,
+          // Los nombres y el conteo van aparte del texto para que la tarjeta pueda
+          // resaltarlos en el titular en vez de dejarlos enterrados en la frase.
+          clientes: lista.slice(0, 6).map((x) => x.name),
+          cuantos: lista.length,
+          diasMax: lista[0] ? lista[0].dias : 0,
+        },
         { title: "📋 Clientes para recontactar", body: texto }
       );
       logger.info(`[recordatorioSeguimiento] aviso a ${uid}: ${lista.length} cliente(s) sin contacto.`);
