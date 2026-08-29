@@ -4062,3 +4062,38 @@ exports.icProbarConexion = onCall(async (request) => {
     detalle: r.ok ? null : r.data,
   };
 });
+
+/* Diagnóstico: prueba todas las rutas de la documentación, con y sin barra final,
+   y devuelve qué contestó cada una. Sirve para dejar de adivinar de a una cuando
+   la documentación y el servidor no coinciden. Solo hace GET: no toca nada. */
+exports.icExplorar = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const rutas = ["/client", "/location", "/locations", "/task", "/listing"];
+  const out = [];
+  for (const base of rutas) {
+    for (const p of [base, base + "/"]) {
+      try {
+        // Se arma la URL a mano para poder probar SIN la barra que agrega icFetch.
+        const url = IC_API_BASE + p + `?_=${Date.now()}`;
+        const res = await axios({
+          url, method: "GET",
+          headers: { apikey: IC_API_KEY, Accept: "application/json" },
+          timeout: 15000, validateStatus: () => true,
+        });
+        const d = res.data;
+        const tipo = Array.isArray(d) ? `array(${d.length})`
+          : (typeof d === "string" && d.startsWith("<")) ? "html(404 Django)"
+          : d && typeof d === "object" ? `objeto(${Object.keys(d).slice(0, 5).join(",")})`
+          : typeof d;
+        out.push({ ruta: p, status: res.status, tipo });
+      } catch (e) {
+        out.push({ ruta: p, status: "error", tipo: String(e.message).slice(0, 80) });
+      }
+    }
+  }
+  return { base: IC_API_BASE, resultados: out };
+});
