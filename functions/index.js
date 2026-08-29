@@ -3994,8 +3994,15 @@ async function icFetch(path, { method = "GET", body = null } = {}) {
   if (!IC_API_KEY) throw new HttpsError("failed-precondition", "Falta IC_API_KEY en el .env de functions.");
   // Los endpoints de consulta piden un valor dinámico en la URL para saltear
   // la caché de ellos (lo indica su documentación).
-  const sep = path.includes("?") ? "&" : "?";
-  const url = IC_API_BASE + path + (method === "GET" ? `${sep}_=${Date.now()}` : "");
+  // Barra final OBLIGATORIA: su backend es Django y sus rutas están declaradas
+  // con barra ('management/api/1.0/'). Sin ella devuelve un 404 de Django que
+  // parece "endpoint inexistente" y en realidad es solo la barra que falta.
+  let ruta = path;
+  const qs = ruta.indexOf("?");
+  if (qs === -1) { if (!ruta.endsWith("/")) ruta += "/"; }
+  else if (ruta[qs - 1] !== "/") { ruta = ruta.slice(0, qs) + "/" + ruta.slice(qs); }
+  const sep = ruta.includes("?") ? "&" : "?";
+  const url = IC_API_BASE + ruta + (method === "GET" ? `${sep}_=${Date.now()}` : "");
   // axios, igual que el resto del archivo (Mercado Libre). validateStatus en true
   // para manejar los errores acá y no con try/catch en cada llamada.
   const res = await axios({
