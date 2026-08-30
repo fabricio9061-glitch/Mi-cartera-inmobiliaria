@@ -225,16 +225,42 @@ async function notificarDireccion(datos, push, opts = {}) {
 
 // Crea una notificación en la campanita (colección notifications) y, si hay
 // token FCM, manda también un push. Nunca tira error hacia afuera.
-async function crearNotificacion(destino, campos, push) {
+//
+// 'idUnico' (opcional) hace la creación IDEMPOTENTE: en vez de .add() -que genera
+// un id nuevo en cada llamada- se usa .doc(id).create(), que falla si el documento
+// ya existe. Sirve para los avisos que pueden dispararse dos veces por el mismo
+// hecho (reintentos de Cloud Functions, webhooks repetidos de un portal).
+//
+// Importante: si el documento ya existía NO se manda el push. Sin ese corte
+// tendrías una sola campanita pero dos push en el teléfono, que es peor.
+//
+// Los llamadores que no pasan 'idUnico' se comportan exactamente igual que antes.
+async function crearNotificacion(destino, campos, push, idUnico) {
   if (!destino || !destino.uid) return;
-  try {
-    await db.collection("notifications").add({
-      ownerId: destino.uid,
-      read: false,
-      createdAt: new Date().toISOString(),
-      ...campos,
-    });
-  } catch (e) { logger.warn("No se pudo crear la notificación:", e.message); }
+  const doc = {
+    ownerId: destino.uid,
+    read: false,
+    createdAt: new Date().toISOString(),
+    ...campos,
+  };
+  if (idUnico) {
+    try {
+      await db.collection("notifications").doc(idUnico).create(doc);
+    } catch (e) {
+      // ALREADY_EXISTS (código 6) = entrega repetida del mismo hecho. No es un
+      // error: es exactamente lo que queremos frenar. Se corta acá, sin push.
+      if (e && (e.code === 6 || String(e.message).includes("ALREADY_EXISTS"))) {
+        logger.info(`crearNotificacion: duplicado ignorado (${idUnico}).`);
+        return;
+      }
+      logger.warn("No se pudo crear la notificación:", e.message);
+      return;
+    }
+  } else {
+    try {
+      await db.collection("notifications").add(doc);
+    } catch (e) { logger.warn("No se pudo crear la notificación:", e.message); }
+  }
   if (push && destino.fcmToken) {
     try {
       await admin.messaging().send({
@@ -334,6 +360,37 @@ exports.procesarEventoML = onDocumentCreated("mlEventos/{id}", async (event) => 
   if (!snap) return;
   const ev = snap.data() || {};
   const topic = String(ev.topic || ""), resource = String(ev.resource || "");
+
+  // GUARDIA DE ENTRADA. Los triggers de Firestore son "al menos una vez": la misma
+  // creación puede entregarse dos veces y antes eso significaba dos consultas a la
+  // API de ML y dos notificaciones por destinatario.
+  //
+  // 'event.data' es la foto del documento AL CREARSE, así que mirar ev.estado no
+  // sirve: en la segunda entrega también diría "pendiente". Hay que releerlo, y
+  // hacerlo dentro de una transacción para que dos entregas simultáneas no pasen
+  // las dos.
+  //
+  // Contrapartida asumida: si la función se cae de forma dura (timeout, OOM) el
+  // evento queda en "procesando" y ningún reintento lo retoma. Queda visible en
+  // mlEventos para reprocesarlo a mano. Es preferible a seguir duplicando.
+  try {
+    const tomado = await db.runTransaction(async (tx) => {
+      const d = await tx.get(snap.ref);
+      if (!d.exists) return false;
+      const est = String(d.data().estado || "pendiente");
+      if (est !== "pendiente") return false;
+      tx.update(snap.ref, { estado: "procesando", tomadoAt: new Date().toISOString() });
+      return true;
+    });
+    if (!tomado) {
+      logger.info(`[procesarEventoML] entrega repetida ignorada: ${topic} ${resource}`);
+      return;
+    }
+  } catch (e) {
+    logger.warn("[procesarEventoML] no se pudo reclamar el evento:", e.message);
+    return;
+  }
+
   try {
     const token = await getValidToken();
     const headers = { Authorization: `Bearer ${token}` };
@@ -383,7 +440,14 @@ exports.procesarEventoML = onDocumentCreated("mlEventos/{id}", async (event) => 
     for (const u of await getDireccion()) {
       if (!destinos.some((d) => d.uid === u.uid)) destinos.push(u);
     }
-    for (const d of destinos) await crearNotificacion(d, aviso, push);
+    // Segunda red, independiente de la guardia de arriba: el id de la notificación
+    // se deriva del RECURSO de ML y del destinatario. Aunque este bloque llegara a
+    // correr dos veces, el segundo intento choca contra un documento existente y
+    // no crea nada ni manda push.
+    const claveRecurso = ("ml_" + resource).replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 200);
+    for (const d of destinos) {
+      await crearNotificacion(d, aviso, push, `${claveRecurso}__${d.uid}`);
+    }
     await snap.ref.update({ estado: "procesado", itemId, propertyId: pDoc.id, agente: p.ownerId || null });
     logger.info(`[procesarEventoML] ${topic} -> ${itemId} -> "${p.title || pDoc.id}" (${destinos.length} destinos)`);
   } catch (e) {
