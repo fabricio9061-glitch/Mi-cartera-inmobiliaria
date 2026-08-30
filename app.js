@@ -863,11 +863,18 @@
   async function loadNotifications() {
     if (!currentUser) return;
     try {
-      const s = await db.collection('notifications').where('ownerId', '==', currentUser.uid).get();
-      const nn = s.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      })).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)).slice(0, 50);
+      // Antes esto se traía TODAS las notificaciones del usuario, las ordenaba en
+      // el navegador y recién ahí se quedaba con 50: el resto se descargaba y se
+      // tiraba. Y 'notifications' no se limpia sola, así que crece para siempre.
+      // Ahora ordena y corta Firestore, que es quien tiene que hacerlo.
+      // Requiere el índice compuesto (ownerId, createdAt desc); si no existe,
+      // Firestore lo rechaza y el catch de abajo deja la lista como estaba.
+      const s = await db.collection('notifications')
+        .where('ownerId', '==', currentUser.uid)
+        .orderBy('createdAt', 'desc')
+        .limit(50)
+        .get();
+      const nn = s.docs.map(d => ({ id: d.id, ...d.data() }));
       const oi = new Set(notifications.map(n => n.id)),
         bn = nn.filter(n => !oi.has(n.id) && !n.read);
       if (bn.length > 0 && notifications.length > 0) bn.forEach(n => {
