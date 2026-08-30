@@ -2567,9 +2567,6 @@
       renderProperties(properties.filter(enVitrina));
       updateStats();
       pedirSaludML();
-      // Una sola vez: estadoDestacados es una Cloud Function y este snapshot se
-      // dispara con cada cambio de cualquier propiedad de la agencia.
-      if (!estadoDest) { cargarEstadoDestacados(); } else { renderPanelDestacados(); }
       // Si se refrescó la página estando en el PERFIL de un agente, su grilla se
       // pintó vacía antes de que llegaran las propiedades (carrera del snapshot):
       // repintarla ahora que ya están.
@@ -5040,93 +5037,110 @@
   // Nada de esto se escribe desde el navegador: lo hace una Cloud Function que
   // valida rango, cupo, estado y ficha. La regla de Firestore bloquea 'featured'
   // para el cliente, asi que un update directo fallaria igual.
+  //
+  // No hay barra fija en la vitrina: el estado se ve al tocar la estrella de una
+  // propiedad. Asi el dato aparece donde el agente lo necesita y no ocupa lugar
+  // en la grilla. estadoDestacados se llama al abrir el modal, no al cargar la
+  // pagina: es una Cloud Function y no vale gastarla en cada visita.
   // ==========================================================================
 
-  let estadoDest = null;   // ultimo estadoDestacados() conocido
+  function cerrarModalDest() { document.getElementById('destOverlay')?.remove(); }
 
-  async function cargarEstadoDestacados() {
-    if (!currentUser) return null;
-    try {
-      const res = await firebase.functions().httpsCallable('estadoDestacados')({});
-      estadoDest = res && res.data ? res.data : null;
-    } catch (e) {
-      console.warn('estadoDestacados:', e);
-      estadoDest = null;
-    }
-    renderPanelDestacados();
-    return estadoDest;
+  function modalDest(html) {
+    cerrarModalDest();
+    const ov = document.createElement('div');
+    ov.className = 'ctr-overlay'; ov.id = 'destOverlay';
+    ov.onclick = e => { if (e.target === ov) ov.remove(); };
+    ov.innerHTML = `<div class="ctr-modal">${html}</div>`;
+    document.body.appendChild(ov);
+    return ov;
   }
 
-  // Un solo panel arriba de la vitrina, no una chapa por tarjeta: el cupo es
-  // informacion del AGENTE, no de la propiedad, y repetirla en 30 tarjetas es
-  // ruido. Cada slot tiene su propia fecha, asi que no alcanza con "1 de 1".
-  function renderPanelDestacados() {
-    const cont = document.getElementById('destacadosPanel');
-    if (!cont) return;
-    if (!estadoDest || !estadoDest.cupo) { cont.style.display = 'none'; return; }
+  async function estadoDestacadosFresco() {
+    try {
+      const res = await firebase.functions().httpsCallable('estadoDestacados')({});
+      return (res && res.data) || null;
+    } catch (e) {
+      console.warn('estadoDestacados:', e);
+      return null;
+    }
+  }
 
-    const slots = (estadoDest.slots || []).slice().sort((a, b) => {
-      if (a.tipo !== b.tipo) return a.tipo === 'rango' ? -1 : 1;
-      return String(a.id).localeCompare(String(b.id));
-    });
+  function fechaCorta(iso) {
+    const d = parseFeaturedDate(iso);
+    return d ? d.toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+  }
 
-    const chips = slots.map((sl, i) => {
-      const prop = sl.propertyId ? properties.find(x => x.id === sl.propertyId) : null;
-      const hasta = parseFeaturedDate(sl.validUntil);
-      const dias = hasta ? Math.max(0, Math.ceil((hasta.getTime() - Date.now()) / 86400000)) : 0;
-      const etiqueta = sl.tipo === 'comprado' ? 'Extra' : `Lugar ${i + 1}`;
-      if (!sl.propertyId) {
-        return `<div class="dest-slot dest-slot-libre">
-          <i class="fas fa-star"></i>
-          <div><strong>${etiqueta}</strong><span>Libre · ${dias} d. de vigencia</span></div>
-        </div>`;
-      }
-      return `<div class="dest-slot dest-slot-usado" onclick="openPropertyTab('${sl.propertyId}')">
-        <i class="fas fa-star"></i>
-        <div><strong>${etiqueta}</strong><span>${mvEsc((prop && prop.title) || 'Propiedad')} · vence en ${dias} d.</span></div>
+  // Estrella de una propiedad YA destacada: informa y deja liberarla.
+  async function abrirModalDestacado(id) {
+    const p = properties.find(pr => pr.id === id);
+    if (!p) return;
+    modalDest(`<h3><i class="fas fa-star" style="color:#f5b301"></i> Destacado</h3>
+      <p style="font-size:.86rem;color:var(--gray-600,#555)">Cargando…</p>`);
+    const est = await estadoDestacadosFresco();
+    const slot = est && (est.slots || []).find(sl => sl.propertyId === id);
+    const dias = diasDeDestacado(p);
+    const tipo = slot && slot.tipo === 'comprado' ? 'Destacado extra (comprado con puntos)' : 'Lugar de tu rango';
+
+    modalDest(`<h3><i class="fas fa-star" style="color:#f5b301"></i> Destacado activo</h3>
+      <p style="font-size:.9rem;margin:0 0 10px"><strong>${mvEsc(p.title || 'Propiedad')}</strong></p>
+      <div style="background:var(--gray-50,#f8fafc);border-radius:10px;padding:12px;font-size:.84rem;line-height:1.6;margin-bottom:12px">
+        <div>${tipo}</div>
+        <div>Vence el <strong>${fechaCorta(slot ? slot.validUntil : p.featuredHasta)}</strong> · quedan ${dias} d&iacute;a${dias === 1 ? '' : 's'}</div>
+        ${est ? `<div>Estás usando ${est.usados} de ${est.cupo} lugares</div>` : ''}
+      </div>
+      <p style="font-size:.79rem;color:var(--gray-600,#555);margin:0 0 12px">
+        Si lo liberás, conservás esos ${dias} d&iacute;a${dias === 1 ? '' : 's'} para usarlos en otra propiedad.
+        Cambiar de propiedad <strong>no renueva</strong> el per&iacute;odo.
+      </p>
+      <div class="ctr-modal-actions">
+        <button class="ctr-btn" onclick="cerrarModalDest()">Cerrar</button>
+        <button class="ctr-btn primary" onclick="liberarDestacado('${id}')">Liberar destacado</button>
+      </div>`);
+  }
+
+  // Estrella de una propiedad SIN destacar cuando no queda ningun lugar libre.
+  // Antes el backend ofrecia "sumar uno extra por 2 puntos" y no existia forma
+  // de aceptarlo: el mensaje ofrecia algo que el agente no podia hacer.
+  async function abrirModalSinLugar(id, mensaje) {
+    const p = properties.find(pr => pr.id === id);
+    const est = await estadoDestacadosFresco();
+    const ocupados = est ? (est.slots || []).filter(sl => sl.propertyId) : [];
+    const lista = ocupados.map(sl => {
+      const pr = properties.find(x => x.id === sl.propertyId);
+      const d = parseFeaturedDate(sl.validUntil);
+      const dd = d ? Math.max(0, Math.ceil((d.getTime() - Date.now()) / 86400000)) : 0;
+      return `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--gray-200,#e5e7eb)">
+        <span>${mvEsc((pr && pr.title) || 'Propiedad')}</span>
+        <span style="white-space:nowrap;opacity:.7">${dd} d.</span>
       </div>`;
     }).join('');
 
-    const extra = estadoDest.puedeComprarExtra
-      ? `<button class="dest-extra-btn" onclick="comprarDestacadoExtra()">
-           <i class="fas fa-plus"></i> Sumar un destacado extra por ${estadoDest.costoExtra} puntos
-         </button>`
+    const extra = est && est.puedeComprarExtra
+      ? `<button class="ctr-btn primary" onclick="destacarPropiedad('${id}', true)">
+           Sumar extra por ${est.costoExtra} puntos</button>`
       : '';
 
-    cont.innerHTML = `<div class="dest-head"><i class="fas fa-star"></i>
-        Tus destacados · ${estadoDest.usados} de ${estadoDest.cupo} en uso</div>
-      <div class="dest-slots">${chips}</div>${extra}`;
-    cont.style.display = '';
-  }
-
-  // El extra se compra desde el panel, no como reintento escondido de un error.
-  // Antes el backend ofrecia "sumar uno extra por 2 puntos" en el mensaje de
-  // cupo lleno y no existia ninguna forma de aceptarlo.
-  async function comprarDestacadoExtra() {
-    if (!estadoDest || !estadoDest.puedeComprarExtra) return;
-    const dispo = (properties || []).filter(p =>
-      canEditProperty(p) && (p.status || 'available') === 'available' && !isEffectivelyFeatured(p));
-    if (!dispo.length) {
-      showToast('No hay propiedades para destacar', 'Todas tus propiedades disponibles ya estan destacadas', 'fa-circle-info');
-      return;
-    }
-    const lista = dispo.slice(0, 15).map((p, i) => `${i + 1}. ${p.title || p.id}`).join('\n');
-    const eleccion = prompt(
-      `Destacado extra por ${estadoDest.costoExtra} puntos.\n\n` +
-      `Dura 30 dias desde hoy y NO se renueva. Los puntos no se devuelven, ` +
-      `ni siquiera si despues cambias la propiedad.\n\n` +
-      `Escribi el numero de la propiedad:\n\n${lista}`);
-    if (!eleccion) return;
-    const idx = parseInt(eleccion, 10) - 1;
-    const elegida = dispo[idx];
-    if (!elegida) { showToast('Numero invalido', '', 'fa-circle-exclamation'); return; }
-    await destacarPropiedad(elegida.id, true);
+    modalDest(`<h3><i class="fas fa-star" style="color:#f5b301"></i> No te quedan lugares</h3>
+      <p style="font-size:.86rem;margin:0 0 10px">${mvEsc(mensaje || 'Ya tenés todos tus destacados en uso.')}</p>
+      ${ocupados.length ? `<div style="font-size:.84rem;margin-bottom:12px">${lista}</div>` : ''}
+      <p style="font-size:.79rem;color:var(--gray-600,#555);margin:0 0 12px">
+        Podés liberar uno desde su estrella y ponerlo acá conservando los días que le quedan,
+        ${est && est.puedeComprarExtra
+          ? `o sumar un destacado extra por ${est.costoExtra} puntos. El extra dura 30 días, no se renueva y los puntos no se devuelven.`
+          : 'o esperar a que alguno venza.'}
+      </p>
+      <div class="ctr-modal-actions">
+        <button class="ctr-btn" onclick="cerrarModalDest()">Cerrar</button>
+        ${extra}
+      </div>`);
   }
 
   async function destacarPropiedad(id, conExtra) {
     const p = properties.find(pr => pr.id === id);
     if (!p) return;
     try {
+      cerrarModalDest();
       showToast(conExtra ? 'Comprando el extra…' : 'Destacando…', '', 'fa-spinner');
       const res = await firebase.functions().httpsCallable('activarDestacado')({
         propertyId: id, conExtra: !!conExtra,
@@ -5134,15 +5148,19 @@
       p.featured = true;
       if (res && res.data) p.featuredHasta = res.data.hasta;
       refrescarVitrina();
-      await cargarEstadoDestacados();
       const dias = diasDeDestacado(p);
       showToast('Propiedad destacada',
-        `Va arriba ${dias} dia${dias === 1 ? '' : 's'} mas · ${res.data.usados} de ${res.data.cupo} en uso`, 'fa-star');
+        `Va arriba ${dias} día${dias === 1 ? '' : 's'} más · ${res.data.usados} de ${res.data.cupo} en uso`, 'fa-star');
     } catch (err) {
       console.error('destacado:', err);
-      // Los mensajes de la funcion ya vienen explicados (falta de fotos, cupo
-      // lleno, propiedad no disponible), asi que se muestran tal cual.
-      showToast('No se pudo destacar', (err && err.message) || 'Proba de nuevo', 'fa-circle-exclamation');
+      // Cupo lleno no es un error a secas: es el momento de ofrecer el extra.
+      if (err && err.code === 'resource-exhausted' && !conExtra) {
+        abrirModalSinLugar(id, err.message);
+        return;
+      }
+      // El resto de los mensajes de la funcion ya vienen explicados (falta de
+      // fotos, propiedad no disponible), asi que se muestran tal cual.
+      showToast('No se pudo destacar', (err && err.message) || 'Probá de nuevo', 'fa-circle-exclamation');
     }
   }
 
@@ -5150,27 +5168,23 @@
     const p = properties.find(pr => pr.id === id);
     if (!p) return;
     const dias = diasDeDestacado(p);
-    if (!confirm(
-      `Liberar el destacado de "${p.title || 'esta propiedad'}"?\n\n` +
-      `Le quedan ${dias} dia${dias === 1 ? '' : 's'}. Al ponerlo en otra propiedad ` +
-      `conserva esos mismos dias: cambiar de propiedad NO renueva el periodo.`)) return;
     try {
+      cerrarModalDest();
       showToast('Liberando…', '', 'fa-spinner');
       await firebase.functions().httpsCallable('quitarDestacado')({ propertyId: id });
       p.featured = false; p.featuredHasta = '';
       refrescarVitrina();
-      await cargarEstadoDestacados();
-      showToast('Destacado liberado', `Te quedan ${dias} dia${dias === 1 ? '' : 's'} para usarlo en otra propiedad`, 'fa-star');
+      showToast('Destacado liberado', `Te quedan ${dias} día${dias === 1 ? '' : 's'} para usarlo en otra propiedad`, 'fa-star');
     } catch (err) {
       console.error('liberar destacado:', err);
-      showToast('No se pudo liberar', (err && err.message) || 'Proba de nuevo', 'fa-circle-exclamation');
+      showToast('No se pudo liberar', (err && err.message) || 'Probá de nuevo', 'fa-circle-exclamation');
     }
   }
 
   async function toggleFeatured(id) {
     const p = properties.find(pr => pr.id === id);
     if (!p) return;
-    if (isEffectivelyFeatured(p)) return liberarDestacado(id);
+    if (isEffectivelyFeatured(p)) return abrirModalDestacado(id);
     return destacarPropiedad(id, false);
   }
 
