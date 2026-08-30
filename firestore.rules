@@ -108,6 +108,26 @@ service cloud.firestore {
         allow read: if esDireccion() || (request.auth != null && request.auth.uid == userId);
         allow write: if esDireccion();
       }
+
+      // DESTACADOS (entitlements). El agente los LEE para ver cuántos slots
+      // tiene, a qué propiedad va cada uno y hasta cuándo. No escribe nunca:
+      // 'validUntil' es el invariante del sistema y si el cliente pudiera
+      // tocarlo volvemos al agujero de los destacados infinitos.
+      // Las subcolecciones NO heredan de match /users/{userId}: sin este bloque
+      // el agente no podría ni leer sus propios destacados.
+      // Las escribe activarDestacado/quitarDestacado con Admin SDK, que no pasa
+      // por estas reglas.
+      match /featuredEntitlements/{entId} {
+        allow read: if esDireccion() || (request.auth != null && request.auth.uid == userId);
+        allow write: if false;
+
+        // Historial inmutable: sirve para responder "yo tenía X días y
+        // desaparecieron". Ni el dueño puede editarlo.
+        match /history/{eventId} {
+          allow read: if esDireccion() || (request.auth != null && request.auth.uid == userId);
+          allow write: if false;
+        }
+      }
     }
 
     // ============ ADMIN DATA (comisiones, etc.) — SOLO admin ============
@@ -148,7 +168,17 @@ service cloud.firestore {
                                       // no se puede verificar desde el navegador. Sin esta
                                       // línea, cualquier agente se pone featured:true por
                                       // SDK y el sistema de cupos es decorativo.
-                                      'featured', 'featuredHasta', 'featuredDesde', 'featuredPor']))
+                                      'featured', 'featuredHasta', 'featuredDesde', 'featuredPor',
+                                      // 'extraPago' marca el destacado comprado con puntos.
+                                      // activarDestacado permite UN extra a la vez y lo detecta
+                                      // leyendo este campo. Sin bloquearlo, el agente lo pone en
+                                      // false por SDK y se compra un segundo extra: paga los 2
+                                      // puntos igual, pero rompe el tope de simultaneidad que
+                                      // existe para que no se sature la vitrina.
+                                      // El cliente NO lo escribe en ningún flujo (verificado en
+                                      // todo el repo): solo lo escribe activarDestacado con el
+                                      // Admin SDK, que no pasa por estas reglas.
+                                      'extraPago']))
                     || (esDireccion()
                         && request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['cierre', 'cierreConfirmado', 'status', 'updatedAt']))

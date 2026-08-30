@@ -3904,22 +3904,153 @@ function fichaListaParaDestacar(p) {
   return faltan;
 }
 
-/** Destacados vivos del agente (limpia de paso los que ya vencieron). */
-async function destacadosActivos(uid) {
-  const snap = await db.collection("properties")
+/* ============================================================================
+   ENTITLEMENTS DE DESTACADOS
+   ----------------------------------------------------------------------------
+   INVARIANTE PRINCIPAL: el tiempo pertenece al DESTACADO, no a la propiedad.
+   Asignar o cambiar de propiedad NUNCA mueve 'validUntil'.
+
+   Antes, activarDestacado escribía featuredHasta = ahora + 30 días sin mirar
+   nada previo, y quitarDestacado limpiaba el campo gratis. Eso permitía:
+   destaco A, mañana la saco y destaco B con 30 días nuevos, pasado vuelvo a A.
+   El destacado quedaba encendido para siempre. Los 30 días no limitaban nada.
+
+   MODELO
+     - Destacados de RANGO: ciclo de mes calendario. Vencen el día 1 del mes
+       siguiente sin importar cuándo se asignaron. Reasignables sin costo.
+     - Destacado COMPRADO: 30 días exactos desde la compra, uno solo a la vez,
+       sin regeneración. Solo se puede comprar con TODOS los slots de rango
+       ocupados. Los puntos no se devuelven nunca.
+
+   PROYECCIÓN: properties.featured / featuredHasta siguen existiendo porque
+   propiedad.html es pública y no puede leer los entitlements del agente. Son
+   una copia; la autoridad es el entitlement. Se escriben SIEMPRE en la misma
+   transacción: si falla, no cambia ninguno de los dos.
+   ========================================================================== */
+
+/** Ciclo de mes calendario en hora de Montevideo. */
+function cicloActual(ahora) {
+  const d = ahora ? new Date(ahora) : new Date();
+  const y = d.getUTCFullYear(), m = d.getUTCMonth();
+  const desde = new Date(Date.UTC(y, m, 1));
+  const hasta = new Date(Date.UTC(y, m + 1, 1));
+  return {
+    cycleId: `${y}-${String(m + 1).padStart(2, "0")}`,
+    validFrom: desde.toISOString(),
+    validUntil: hasta.toISOString(),
+  };
+}
+
+function entCol(uid) { return db.collection(`users/${uid}/featuredEntitlements`); }
+
+/** Un entitlement está vivo si todavía no venció. */
+function entVivo(e, ahora) {
+  const hasta = e.validUntil ? Date.parse(e.validUntil) : 0;
+  return hasta > (ahora || Date.now());
+}
+
+/** Deja rastro de cada movimiento. El agente no puede escribir acá. */
+async function historial(uid, entId, accion, datos) {
+  try {
+    await entCol(uid).doc(entId).collection("history").add({
+      accion, at: new Date().toISOString(), ...datos,
+    });
+  } catch (e) { logger.warn("historial destacados:", e.message); }
+}
+
+/* MIGRACIÓN LEGACY — corre una sola vez por agente.
+   Los destacados que ya estaban vivos conservan su featuredHasta: no le
+   cortamos la campaña a nadie ni le regalamos un reinicio hasta octubre.
+   Cada uno consume un slot mientras siga vigente, si no la migración terminaría
+   regalando capacidad (destacado viejo + slot del ciclo nuevo = dos).
+   Fecha inválida o vacía = vencido: se limpia la proyección y no se crea nada.
+   Inventarle 30 días a un dato roto sería peor. */
+async function migrarLegacy(uid) {
+  const marca = db.doc(`users/${uid}/featuredEntitlements/_migracion`);
+  const ya = await marca.get();
+  if (ya.exists) return;
+
+  const props = await db.collection("properties")
     .where("ownerId", "==", uid).where("featured", "==", true).get();
   const ahora = Date.now();
-  const vivos = [];
-  for (const d of snap.docs) {
+  let creados = 0, limpiados = 0;
+
+  for (const d of props.docs) {
     const p = d.data();
-    const hasta = p.featuredHasta ? Date.parse(p.featuredHasta) : 0;
-    if (hasta && hasta <= ahora) {
+    const hasta = p.featuredHasta ? Date.parse(p.featuredHasta) : NaN;
+    const valido = Number.isFinite(hasta) && hasta > ahora;
+    if (!valido) {
       await d.ref.update({ featured: false, featuredHasta: "", featuredPor: "" });
+      limpiados++;
       continue;
     }
-    vivos.push({ id: d.id, ...p });
+    const id = `legacy_${d.id}`;
+    await entCol(uid).doc(id).set({
+      source: "legacy_migration",
+      legacyType: p.extraPago ? "paid" : "rank",
+      slotNumber: 0,
+      cycleId: "legacy",
+      validFrom: p.featuredDesde || new Date(ahora).toISOString(),
+      validUntil: new Date(hasta).toISOString(),
+      propertyId: d.id,
+      status: "assigned",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    await historial(uid, id, "migrado", { propertyId: d.id, validUntil: new Date(hasta).toISOString() });
+    creados++;
+  }
+  await marca.set({ at: new Date().toISOString(), creados, limpiados });
+  if (creados || limpiados) {
+    logger.info(`migrarLegacy ${uid}: ${creados} migrados, ${limpiados} limpiados`);
+  }
+}
+
+/* Crea los entitlements de rango que falten para el ciclo en curso.
+   Perezoso: se llama al leer o al activar. No depende del cron, así que un
+   agente que entra el 20 recibe sus slots en el momento.
+   Los legacy vigentes descuentan: nunca más slots que los del rango. */
+async function ensureEntitlements(uid, perfil) {
+  await migrarLegacy(uid);
+  const ciclo = cicloActual();
+  const ahora = Date.now();
+  const cupo = cupoDestacados(perfil);
+
+  const snap = await entCol(uid).get();
+  const vivos = snap.docs
+    .filter((d) => d.id !== "_migracion")
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((e) => entVivo(e, ahora));
+
+  const deRango = vivos.filter((e) => e.source !== "points" && e.legacyType !== "paid").length;
+  const faltan = Math.max(0, cupo - deRango);
+
+  for (let i = 0; i < faltan; i++) {
+    const n = deRango + i + 1;
+    const id = `rank_${ciclo.cycleId}_${n}`;
+    if (vivos.some((e) => e.id === id)) continue;
+    await entCol(uid).doc(id).set({
+      source: "rank",
+      slotNumber: n,
+      cycleId: ciclo.cycleId,
+      validFrom: new Date().toISOString(),
+      validUntil: ciclo.validUntil,
+      propertyId: null,
+      status: "available",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    await historial(uid, id, "creado", { cycleId: ciclo.cycleId, validUntil: ciclo.validUntil });
+    vivos.push({ id, source: "rank", propertyId: null, status: "available", validUntil: ciclo.validUntil, slotNumber: n });
   }
   return vivos;
+}
+
+/** Entitlements vivos del agente, ya asegurados para el ciclo. */
+async function entitlementsVivos(uid) {
+  const uSnap = await db.doc(`users/${uid}`).get();
+  const perfil = uSnap.exists ? uSnap.data() : null;
+  return ensureEntitlements(uid, perfil);
 }
 
 exports.activarDestacado = onCall(async (request) => {
@@ -3941,14 +4072,8 @@ exports.activarDestacado = onCall(async (request) => {
   const esDir = await esDireccion(uid, email);
   if (p.ownerId !== uid && !esDir) throw new HttpsError("permission-denied", "Solo podés destacar tus propias propiedades.");
 
-  // Una propiedad vendida, reservada o dada de baja no ocupa la vitrina.
   const st = p.status || "available";
   if (st !== "available") throw new HttpsError("failed-precondition", "Solo se pueden destacar propiedades disponibles.");
-
-  if (p.featured) {
-    const hasta = p.featuredHasta ? Date.parse(p.featuredHasta) : 0;
-    if (hasta > Date.now()) throw new HttpsError("already-exists", "Esta propiedad ya está destacada.");
-  }
 
   const faltan = fichaListaParaDestacar(p);
   if (faltan.length) {
@@ -3961,21 +4086,28 @@ exports.activarDestacado = onCall(async (request) => {
   const duenoPerfil = duenoUid === uid ? perfil : (await db.doc(`users/${duenoUid}`).get()).data();
   const cupo = cupoDestacados(duenoPerfil);
   if (cupo <= 0) throw new HttpsError("failed-precondition", "Tu rango todavía no tiene destacados disponibles.");
-  const activos = await destacadosActivos(duenoUid);
-  const usados = activos.filter((x) => x.id !== propertyId).length;
-  // Extra pagado con puntos cuando el cupo del rango está lleno. Se pide
-  // explícitamente desde la app (conExtra), nunca se cobra sin que lo confirme.
+
+  const vivos = await ensureEntitlements(duenoUid, duenoPerfil);
+  const ahora = Date.now();
+
+  if (vivos.some((e) => e.propertyId === propertyId)) {
+    throw new HttpsError("already-exists", "Esta propiedad ya está destacada.");
+  }
+
+  const libres = vivos.filter((e) => !e.propertyId);
   const quiereExtra = !!(request.data && request.data.conExtra);
+  let entId = libres.length ? libres[0].id : null;
   let cobrarExtra = false;
-  if (usados >= cupo) {
+
+  if (!entId) {
     if (!quiereExtra) {
       throw new HttpsError("resource-exhausted",
         `Ya tenés ${cupo} ${cupo === 1 ? "destacado activo" : "destacados activos"}. ` +
-        `Podés sumar uno extra por ${DESTACADO_EXTRA_PUNTOS} puntos, sacar uno, o esperar a que venza.`);
+        `Podés sumar uno extra por ${DESTACADO_EXTRA_PUNTOS} puntos, cambiar la propiedad de uno, o esperar a que venza.`);
     }
-    // Un solo extra a la vez: sin este tope, el que tiene muchos puntos se compra
-    // diez y volvemos al problema de que esté todo destacado.
-    if (activos.some((x) => x.extraPago)) {
+    // Un solo extra a la vez. La fuente de verdad es el entitlement, no el
+    // campo extraPago de la propiedad: ese se podía alterar desde el cliente.
+    if (vivos.some((e) => e.source === "points" || e.legacyType === "paid")) {
       throw new HttpsError("resource-exhausted", "Ya tenés un destacado extra activo. Solo se permite uno a la vez.");
     }
     const saldo = await puntosDisponibles(duenoUid);
@@ -3998,20 +4130,56 @@ exports.activarDestacado = onCall(async (request) => {
       propertyId,
       createdAt: new Date().toISOString(),
     });
+    const desde = new Date(ahora);
+    const hasta = new Date(ahora + DESTACADO_DIAS * 86400000);
+    entId = `paid_${ahora}`;
+    await entCol(duenoUid).doc(entId).set({
+      source: "points",
+      slotNumber: 0,
+      cycleId: "paid",
+      validFrom: desde.toISOString(),
+      validUntil: hasta.toISOString(),
+      propertyId: null,
+      status: "available",
+      costoPuntos: DESTACADO_EXTRA_PUNTOS,
+      createdAt: desde.toISOString(),
+      updatedAt: desde.toISOString(),
+    });
+    await historial(duenoUid, entId, "comprado", { costoPuntos: DESTACADO_EXTRA_PUNTOS, validUntil: hasta.toISOString() });
   }
-  const desde = new Date();
-  const hasta = new Date(desde.getTime() + DESTACADO_DIAS * 86400000);
-  await pSnap.ref.update({
-    featured: true,
-    featuredDesde: desde.toISOString(),
-    featuredHasta: hasta.toISOString(),
-    featuredPor: uid,
-    extraPago: cobrarExtra,
+
+  // Asignación atómica: el entitlement y su proyección en la propiedad se
+  // escriben juntos. Si dos toques rápidos compiten por el mismo slot, uno solo
+  // pasa. Nunca se toca validUntil: acá está el invariante del sistema.
+  const entRef = entCol(duenoUid).doc(entId);
+  const hastaFinal = await db.runTransaction(async (tx) => {
+    const eDoc = await tx.get(entRef);
+    if (!eDoc.exists) throw new HttpsError("not-found", "El destacado ya no existe.");
+    const e = eDoc.data();
+    if (e.propertyId) throw new HttpsError("aborted", "Ese destacado se acaba de ocupar. Probá de nuevo.");
+    if (!entVivo(e)) throw new HttpsError("failed-precondition", "Ese destacado ya venció.");
+    tx.update(entRef, {
+      propertyId, status: "assigned", updatedAt: new Date().toISOString(),
+    });
+    tx.update(pSnap.ref, {
+      featured: true,
+      featuredDesde: new Date().toISOString(),
+      featuredHasta: e.validUntil,
+      featuredPor: uid,
+      featuredEntitlementId: entId,
+      extraPago: e.source === "points",
+    });
+    return e.validUntil;
   });
-  await registrarLog(propertyId, "destacado activado", true, `${DESTACADO_DIAS} días · cupo ${activos.length + 1}/${cupo}`);
-  return { ok: true, hasta: hasta.toISOString(), usados: activos.length + 1, cupo };
+
+  await historial(duenoUid, entId, "asignado", { propertyId, por: uid, validUntil: hastaFinal });
+  await registrarLog(propertyId, "destacado activado", true, `hasta ${hastaFinal} · slot ${entId}`);
+  const usados = vivos.filter((e) => e.propertyId).length + 1;
+  return { ok: true, hasta: hastaFinal, usados, cupo, entitlementId: entId };
 });
 
+/* Libera el destacado de una propiedad. Ya NO hay exploit: el entitlement
+   conserva su validUntil, así que reasignarlo no regala tiempo. */
 exports.quitarDestacado = onCall(async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
   const uid = request.auth.uid;
@@ -4023,58 +4191,124 @@ exports.quitarDestacado = onCall(async (request) => {
   const p = pSnap.data();
   const esDir = await esDireccion(uid, email);
   if (p.ownerId !== uid && !esDir) throw new HttpsError("permission-denied", "No es tu propiedad.");
-  await pSnap.ref.update({ featured: false, featuredHasta: "", featuredPor: "" });
+
+  const duenoUid = p.ownerId || uid;
+  const entId = p.featuredEntitlementId || null;
+  const entRef = entId ? entCol(duenoUid).doc(entId) : null;
+
+  await db.runTransaction(async (tx) => {
+    if (entRef) {
+      const eDoc = await tx.get(entRef);
+      if (eDoc.exists) {
+        tx.update(entRef, { propertyId: null, status: "available", updatedAt: new Date().toISOString() });
+      }
+    }
+    tx.update(pSnap.ref, {
+      featured: false, featuredHasta: "", featuredPor: "",
+      featuredEntitlementId: null, extraPago: false,
+    });
+  });
+  if (entId) await historial(duenoUid, entId, "liberado", { propertyId, por: uid });
   return { ok: true };
 });
 
-/** Cuántos destacados le quedan al agente. Lo consulta la tarjeta. */
+/** Estado de los destacados del agente. Lo consulta la tarjeta. */
 exports.estadoDestacados = onCall(async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
   const uid = request.auth.uid;
   const uSnap = await db.doc(`users/${uid}`).get();
-  const cupo = cupoDestacados(uSnap.exists ? uSnap.data() : null);
-  const activos = await destacadosActivos(uid);
-  return { cupo, usados: activos.length, ids: activos.map((a) => a.id) };
+  const perfil = uSnap.exists ? uSnap.data() : null;
+  const cupo = cupoDestacados(perfil);
+  const vivos = await ensureEntitlements(uid, perfil);
+  const usados = vivos.filter((e) => e.propertyId);
+  return {
+    cupo,
+    usados: usados.length,
+    ids: usados.map((e) => e.propertyId),
+    puedeComprarExtra: usados.length >= cupo
+      && !vivos.some((e) => e.source === "points" || e.legacyType === "paid"),
+    costoExtra: DESTACADO_EXTRA_PUNTOS,
+    slots: vivos.map((e) => ({
+      id: e.id,
+      tipo: e.source === "points" || e.legacyType === "paid" ? "comprado" : "rango",
+      propertyId: e.propertyId || null,
+      validUntil: e.validUntil,
+    })),
+  };
 });
 
-/* Apaga los destacados vencidos y avisa al agente que le quedó el lugar libre.
-   Corre todos los días temprano. Sin esto, un destacado duraría para siempre. */
+/* LIMPIEZA, no exactitud. Quién está vencido lo decide la fecha, no este cron:
+   el cliente usa isEffectivelyFeatured() y no espera a las 7:05. Acá solo se
+   apagan proyecciones viejas y se liberan entitlements de propiedades que
+   salieron del mercado, conservando su validUntil. */
 exports.vencerDestacados = onSchedule(
   { schedule: "5 7 * * *", timeZone: "America/Montevideo" },
   async () => {
     const snap = await db.collection("properties").where("featured", "==", true).get();
     const ahora = Date.now();
-    let vencidos = 0;
+    let vencidos = 0, liberados = 0;
     for (const d of snap.docs) {
       const p = d.data();
       const hasta = p.featuredHasta ? Date.parse(p.featuredHasta) : 0;
-      // Se apaga por vencimiento O porque la propiedad dejó de estar disponible:
-      // una vendida o reservada no tiene por qué seguir ocupando la vitrina.
       const fueraDeJuego = (p.status && p.status !== "available");
-      if (!hasta && !fueraDeJuego) continue;
-      if (!fueraDeJuego && hasta > ahora) continue;
-      await d.ref.update({ featured: false, featuredHasta: "", featuredPor: "" });
+      const venció = !hasta || hasta <= ahora;
+      if (!venció && !fueraDeJuego) continue;
+
+      const duenoUid = p.ownerId || null;
+      const entId = p.featuredEntitlementId || null;
+      await d.ref.update({
+        featured: false, featuredHasta: "", featuredPor: "",
+        featuredEntitlementId: null, extraPago: false,
+      });
+      // Si la propiedad salió del mercado el destacado NO se pierde: vuelve a
+      // estar disponible con los días que le quedaban. Si venció, no hay nada
+      // que devolver.
+      if (duenoUid && entId && !venció && fueraDeJuego) {
+        try {
+          await entCol(duenoUid).doc(entId).update({
+            propertyId: null, status: "available", updatedAt: new Date().toISOString(),
+          });
+          await historial(duenoUid, entId, "liberado_por_cierre", { propertyId: d.id, status: p.status });
+          liberados++;
+        } catch (e) { logger.warn("vencerDestacados: liberar", e.message); }
+      }
       vencidos++;
       try {
-        const dueno = p.ownerId ? (await db.doc(`users/${p.ownerId}`).get()) : null;
+        const dueno = duenoUid ? (await db.doc(`users/${duenoUid}`).get()) : null;
         if (dueno && dueno.exists) {
           await crearNotificacion(
-            { uid: p.ownerId, ...dueno.data() },
+            { uid: duenoUid, ...dueno.data() },
             {
               type: "destacado_vencido",
               propertyId: d.id,
               propertyTitle: p.title || "",
               userName: "⭐ Destacado terminado",
               text: fueraDeJuego
-                ? "La propiedad ya no está disponible, así que se liberó el destacado. Podés usarlo en otra."
-                : `Se cumplieron los ${DESTACADO_DIAS} días. Te quedó el lugar libre para destacar otra.`,
+                ? "La propiedad ya no está disponible, así que se liberó el destacado con los días que le quedaban. Podés usarlo en otra."
+                : "Se cumplió el período del destacado. Te quedó el lugar libre para destacar otra.",
             },
-            { title: "⭐ Destacado terminado", body: p.title || "Tenés un lugar libre." }
+            { title: "⭐ Destacado terminado", body: p.title || "Tenés un lugar libre." },
+            `destvenc_${d.id}_${Math.floor(ahora / 86400000)}`
           );
         }
       } catch (e) { logger.warn("vencerDestacados: aviso", e); }
     }
-    logger.info(`vencerDestacados: ${vencidos} apagados`);
+    // Marca vencidos los entitlements pasados de fecha, para que no queden
+    // contando en ensureEntitlements ni en el panel del agente.
+    try {
+      const users = await db.collection("users").get();
+      for (const u of users.docs) {
+        const es = await entCol(u.id).get();
+        for (const e of es.docs) {
+          if (e.id === "_migracion") continue;
+          const dat = e.data();
+          if (dat.status !== "expired" && !entVivo(dat, ahora)) {
+            await e.ref.update({ status: "expired", updatedAt: new Date().toISOString() });
+          }
+        }
+      }
+    } catch (e) { logger.warn("vencerDestacados: expirar entitlements", e.message); }
+    logger.info(`vencerDestacados: ${vencidos} apagados, ${liberados} destacados liberados`);
   }
 );
 
