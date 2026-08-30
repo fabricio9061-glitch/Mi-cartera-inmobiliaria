@@ -584,7 +584,19 @@
   async function loadVisits() {
     if (!currentUser) return;
     try {
-      const s = await db.collection('visits').where('userId', '==', currentUser.uid).get();
+      // Ventana de 12 meses hacia atrás, sin tope hacia adelante. Antes traía TODAS
+      // las visitas del agente desde siempre, y 'visits' no se limpia nunca.
+      // No se usa .limit() a propósito: esto alimenta el calendario, y un corte
+      // por cantidad haría desaparecer eventos sin que nadie se entere. Con una
+      // ventana por fecha se sabe exactamente qué quedó afuera, y el calendario
+      // avisa cuando navegás antes de ese límite (ver renderCalendar).
+      const desde = new Date();
+      desde.setMonth(desde.getMonth() - 12);
+      visitsDesde = desde;
+      const s = await db.collection('visits')
+        .where('userId', '==', currentUser.uid)
+        .where('date', '>=', desde.toISOString().slice(0, 10))
+        .get();
       visits = s.docs.map(d => ({
         id: d.id,
         ...d.data()
@@ -596,6 +608,11 @@
       console.error('Error loading visits:', e)
     }
   }
+
+  // Desde cuándo se cargaron las visitas. La usa el calendario para avisar que
+  // antes de esa fecha no hay datos cargados, en vez de mostrar meses vacíos que
+  // parecen "no tuviste visitas".
+  let visitsDesde = null;
 
   function renderCalendar() {
     if (!currentCalendarDate || isNaN(currentCalendarDate.getTime && currentCalendarDate.getTime())) {
@@ -628,6 +645,14 @@
       if (he) c += ' has-events';
       h += `<div class="${c}" onclick="selectDate('${ds}')">${cd.getDate()}</div>`;
       cd.setDate(cd.getDate() + 1)
+    }
+    // Si el mes que estás mirando es anterior a la ventana cargada, se avisa.
+    // Sin esto, un mes viejo se vería vacío y parecería que no hubo visitas,
+    // cuando en realidad no se descargaron.
+    if (visitsDesde && currentCalendarDate < visitsDesde) {
+      h += `<div class="cal-fuera-rango">Las visitas anteriores a ` +
+        `${visitsDesde.toLocaleDateString('es-UY', { month: 'long', year: 'numeric' })} ` +
+        `no se cargan para que la agenda abra rápido.</div>`;
     }
     g.innerHTML = h
   }
