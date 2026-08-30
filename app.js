@@ -4905,6 +4905,11 @@
         (!p.mlHealthAt || Date.parse(p.mlHealthAt) < seisHoras)
       ).slice(0, 80);
       if (!faltan.length) return;
+      // El indicador de calidad es para el equipo: la función exige agente
+      // aprobado. Sin esta guarda, el temporizador disparaba igual para un
+      // visitante sin sesión y la llamada volvía con 401 en la consola.
+      if (!currentUser || !userProfile) return;
+      if (userProfile.status !== 'approved' && !isAdminUser()) return;
       // Se marcan ANTES de llamar: la escritura del backend vuelve por el snapshot
       // y volvería a entrar acá, pidiendo lo mismo en bucle.
       faltan.forEach(p => _saludPedida.add(p.id));
