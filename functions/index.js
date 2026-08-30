@@ -240,7 +240,31 @@ async function crearNotificacion(destino, campos, push) {
       await admin.messaging().send({
         token: destino.fcmToken,
         notification: { title: push.title, body: push.body },
-        data: { type: campos.type || "info" },
+        data: {
+          type: campos.type || "info",
+          // El service worker necesita estos datos para armar la notificación
+          // cuando la app está CERRADA: en segundo plano no tiene acceso al
+          // bloque 'notification', solo a 'data'.
+          title: String(push.title || ""),
+          body: String(push.body || ""),
+          propertyId: String(campos.propertyId || ""),
+        },
+        // Sin 'webpush.headers.Urgency: high' los navegadores pueden retrasar o
+        // directamente descartar el push cuando la pestaña no está activa. Es la
+        // causa habitual de que solo lleguen con la app abierta.
+        webpush: {
+          headers: { Urgency: "high", TTL: "86400" },
+          notification: {
+            title: push.title,
+            body: push.body,
+            icon: "/icon192.png",
+            badge: "/icon192.png",
+            requireInteraction: false,
+          },
+          fcmOptions: { link: "https://malaveinmobiliaria.com/index.html" },
+        },
+        android: { priority: "high" },
+        apns: { headers: { "apns-priority": "10" } },
       });
     } catch (e) { logger.warn("No se pudo enviar el push FCM:", e.message); }
   }
@@ -3994,13 +4018,10 @@ async function icFetch(path, { method = "GET", body = null } = {}) {
   if (!IC_API_KEY) throw new HttpsError("failed-precondition", "Falta IC_API_KEY en el .env de functions.");
   // Los endpoints de consulta piden un valor dinámico en la URL para saltear
   // la caché de ellos (lo indica su documentación).
-  // Barra final OBLIGATORIA: su backend es Django y sus rutas están declaradas
-  // con barra ('management/api/1.0/'). Sin ella devuelve un 404 de Django que
-  // parece "endpoint inexistente" y en realidad es solo la barra que falta.
-  let ruta = path;
-  const qs = ruta.indexOf("?");
-  if (qs === -1) { if (!ruta.endsWith("/")) ruta += "/"; }
-  else if (ruta[qs - 1] !== "/") { ruta = ruta.slice(0, qs) + "/" + ruta.slice(qs); }
+  // SIN barra final. Verificado con icExplorar el 29/08/2026: /client da 200 y
+  // /client/ da 404. Es al revés de lo que sugería el 404 de Django que vimos en
+  // el navegador, así que las rutas van tal cual las declara la documentación.
+  const ruta = path;
   const sep = ruta.includes("?") ? "&" : "?";
   const url = IC_API_BASE + ruta + (method === "GET" ? `${sep}_=${Date.now()}` : "");
   // axios, igual que el resto del archivo (Mercado Libre). validateStatus en true
