@@ -18,7 +18,10 @@
   'use strict';
 
   var VAPID_KEY = 'BK8DjPgkooF91Ou9js1FOaX9VtJwVDqFaXpGePoYosqWcmpy5MBrtW0YauhWjWpYP1yUVvM9IzT4toFYLdEI8Ko';
-  var FIREBASE_CONFIG = {
+  // La config vive en malave-config.js. Se deja una copia de respaldo porque
+  // este script se carga al final del body y no queremos que una pagina sin el
+  // <script> compartido pierda las notificaciones push en silencio.
+  var FIREBASE_CONFIG = window.firebaseConfig || {
     apiKey: 'AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ',
     authDomain: 'mi-cartera-inmobiliaria.firebaseapp.com',
     projectId: 'mi-cartera-inmobiliaria',
