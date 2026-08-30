@@ -2567,9 +2567,6 @@
       renderProperties(properties.filter(enVitrina));
       updateStats();
       pedirSaludML();
-      // Una sola vez: estadoDestacados es una Cloud Function y este snapshot se
-      // dispara con cada cambio de cualquier propiedad de la agencia.
-      if (!estadoDest) { cargarEstadoDestacados(); } else { renderPanelDestacados(); }
       // Si se refrescó la página estando en el PERFIL de un agente, su grilla se
       // pintó vacía antes de que llegaran las propiedades (carrera del snapshot):
       // repintarla ahora que ya están.
@@ -2638,10 +2635,8 @@
         stB = b.status || 'available';
       const prioA = statusPriority[stA] || 1,
         prioB = statusPriority[stB] || 1;
-      // isEffectivelyFeatured mira tambien featuredHasta: un destacado vencido
-      // que el cron todavia no apago NO tiene por que seguir ordenando primero.
-      const aFeat = isEffectivelyFeatured(a) ? 0 : 1;
-      const bFeat = isEffectivelyFeatured(b) ? 0 : 1;
+      const aFeat = a.featured && stA === 'available' ? 0 : 1;
+      const bFeat = b.featured && stB === 'available' ? 0 : 1;
       if (aFeat !== bFeat) return aFeat - bFeat;
       if (prioA !== prioB) return prioA - prioB;
       return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
@@ -2656,7 +2651,7 @@
         st = p.status || 'available',
         hop = p.previousPrice && p.previousPrice > p.price,
         pdp = hop ? Math.round((1 - p.price / p.previousPrice) * 100) : 0,
-        isFeatured = isEffectivelyFeatured(p);
+        isFeatured = p.featured && st === 'available';
       const stLabels = {
         reserved: 'RESERVADA',
         sold: 'VENDIDA',
@@ -2665,7 +2660,7 @@
         archived: 'DADA DE BAJA'
       };
       const stLabel = stLabels[st] || '';
-      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button>${anilloML(p)}<button class="btn-feature ${isFeatured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${isFeatured?`Destacada · vence en ${diasDeDestacado(p)} d. Tocá para cambiar la propiedad`:'Destacar'}"><i class="fas fa-star"></i></button>${isAdminUser()?`<button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar (solo admin)"><i class="fas fa-trash"></i></button>`:`<button class="card-action-btn baja" onclick="event.stopPropagation();irAGestion('${p.id}')" title="Dar de baja — se hace cerrando la gestión del cliente"><i class="fas fa-circle-stop"></i></button>`}</div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${safeUrl(o.profilePhoto)}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-meta"><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div>${chipCliente(p)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span>${ce?`<span class="card-views" title="Tocaron Contactar"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${p.contactClicks||0}</span>`:''}</div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
+      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button>${anilloML(p)}<button class="btn-feature ${p.featured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${p.featured?'Quitar destacado':'Destacar'}"><i class="fas fa-star"></i></button>${isAdminUser()?`<button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar (solo admin)"><i class="fas fa-trash"></i></button>`:`<button class="card-action-btn baja" onclick="event.stopPropagation();irAGestion('${p.id}')" title="Dar de baja — se hace cerrando la gestión del cliente"><i class="fas fa-circle-stop"></i></button>`}</div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${safeUrl(o.profilePhoto)}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-meta"><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div>${chipCliente(p)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span>${ce?`<span class="card-views" title="Tocaron Contactar"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${p.contactClicks||0}</span>`:''}</div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
     }).join('')
   }
 
@@ -5030,150 +5025,34 @@
     try { updateStats(); } catch (e) { }
   }
 
-  // ==========================================================================
-  // DESTACADOS
-  // --------------------------------------------------------------------------
-  // El tiempo pertenece al DESTACADO, no a la propiedad. Cambiar de propiedad
-  // NO reinicia el vencimiento: el backend conserva validUntil del entitlement.
-  // Antes, sacar y volver a poner regalaba 30 dias nuevos cada vez.
-  //
-  // Nada de esto se escribe desde el navegador: lo hace una Cloud Function que
+  // El destacado ya NO se escribe desde acá: lo hace una Cloud Function que
   // valida rango, cupo, estado y ficha. La regla de Firestore bloquea 'featured'
-  // para el cliente, asi que un update directo fallaria igual.
-  // ==========================================================================
-
-  let estadoDest = null;   // ultimo estadoDestacados() conocido
-
-  async function cargarEstadoDestacados() {
-    if (!currentUser) return null;
-    try {
-      const res = await firebase.functions().httpsCallable('estadoDestacados')({});
-      estadoDest = res && res.data ? res.data : null;
-    } catch (e) {
-      console.warn('estadoDestacados:', e);
-      estadoDest = null;
-    }
-    renderPanelDestacados();
-    return estadoDest;
-  }
-
-  // Un solo panel arriba de la vitrina, no una chapa por tarjeta: el cupo es
-  // informacion del AGENTE, no de la propiedad, y repetirla en 30 tarjetas es
-  // ruido. Cada slot tiene su propia fecha, asi que no alcanza con "1 de 1".
-  function renderPanelDestacados() {
-    const cont = document.getElementById('destacadosPanel');
-    if (!cont) return;
-    if (!estadoDest || !estadoDest.cupo) { cont.style.display = 'none'; return; }
-
-    const slots = (estadoDest.slots || []).slice().sort((a, b) => {
-      if (a.tipo !== b.tipo) return a.tipo === 'rango' ? -1 : 1;
-      return String(a.id).localeCompare(String(b.id));
-    });
-
-    const chips = slots.map((sl, i) => {
-      const prop = sl.propertyId ? properties.find(x => x.id === sl.propertyId) : null;
-      const hasta = parseFeaturedDate(sl.validUntil);
-      const dias = hasta ? Math.max(0, Math.ceil((hasta.getTime() - Date.now()) / 86400000)) : 0;
-      const etiqueta = sl.tipo === 'comprado' ? 'Extra' : `Lugar ${i + 1}`;
-      if (!sl.propertyId) {
-        return `<div class="dest-slot dest-slot-libre">
-          <i class="fas fa-star"></i>
-          <div><strong>${etiqueta}</strong><span>Libre · ${dias} d. de vigencia</span></div>
-        </div>`;
-      }
-      return `<div class="dest-slot dest-slot-usado" onclick="openPropertyTab('${sl.propertyId}')">
-        <i class="fas fa-star"></i>
-        <div><strong>${etiqueta}</strong><span>${mvEsc((prop && prop.title) || 'Propiedad')} · vence en ${dias} d.</span></div>
-      </div>`;
-    }).join('');
-
-    const extra = estadoDest.puedeComprarExtra
-      ? `<button class="dest-extra-btn" onclick="comprarDestacadoExtra()">
-           <i class="fas fa-plus"></i> Sumar un destacado extra por ${estadoDest.costoExtra} puntos
-         </button>`
-      : '';
-
-    cont.innerHTML = `<div class="dest-head"><i class="fas fa-star"></i>
-        Tus destacados · ${estadoDest.usados} de ${estadoDest.cupo} en uso</div>
-      <div class="dest-slots">${chips}</div>${extra}`;
-    cont.style.display = '';
-  }
-
-  // El extra se compra desde el panel, no como reintento escondido de un error.
-  // Antes el backend ofrecia "sumar uno extra por 2 puntos" en el mensaje de
-  // cupo lleno y no existia ninguna forma de aceptarlo.
-  async function comprarDestacadoExtra() {
-    if (!estadoDest || !estadoDest.puedeComprarExtra) return;
-    const dispo = (properties || []).filter(p =>
-      canEditProperty(p) && (p.status || 'available') === 'available' && !isEffectivelyFeatured(p));
-    if (!dispo.length) {
-      showToast('No hay propiedades para destacar', 'Todas tus propiedades disponibles ya estan destacadas', 'fa-circle-info');
-      return;
-    }
-    const lista = dispo.slice(0, 15).map((p, i) => `${i + 1}. ${p.title || p.id}`).join('\n');
-    const eleccion = prompt(
-      `Destacado extra por ${estadoDest.costoExtra} puntos.\n\n` +
-      `Dura 30 dias desde hoy y NO se renueva. Los puntos no se devuelven, ` +
-      `ni siquiera si despues cambias la propiedad.\n\n` +
-      `Escribi el numero de la propiedad:\n\n${lista}`);
-    if (!eleccion) return;
-    const idx = parseInt(eleccion, 10) - 1;
-    const elegida = dispo[idx];
-    if (!elegida) { showToast('Numero invalido', '', 'fa-circle-exclamation'); return; }
-    await destacarPropiedad(elegida.id, true);
-  }
-
-  async function destacarPropiedad(id, conExtra) {
-    const p = properties.find(pr => pr.id === id);
-    if (!p) return;
-    try {
-      showToast(conExtra ? 'Comprando el extra…' : 'Destacando…', '', 'fa-spinner');
-      const res = await firebase.functions().httpsCallable('activarDestacado')({
-        propertyId: id, conExtra: !!conExtra,
-      });
-      p.featured = true;
-      if (res && res.data) p.featuredHasta = res.data.hasta;
-      refrescarVitrina();
-      await cargarEstadoDestacados();
-      const dias = diasDeDestacado(p);
-      showToast('Propiedad destacada',
-        `Va arriba ${dias} dia${dias === 1 ? '' : 's'} mas · ${res.data.usados} de ${res.data.cupo} en uso`, 'fa-star');
-    } catch (err) {
-      console.error('destacado:', err);
-      // Los mensajes de la funcion ya vienen explicados (falta de fotos, cupo
-      // lleno, propiedad no disponible), asi que se muestran tal cual.
-      showToast('No se pudo destacar', (err && err.message) || 'Proba de nuevo', 'fa-circle-exclamation');
-    }
-  }
-
-  async function liberarDestacado(id) {
-    const p = properties.find(pr => pr.id === id);
-    if (!p) return;
-    const dias = diasDeDestacado(p);
-    if (!confirm(
-      `Liberar el destacado de "${p.title || 'esta propiedad'}"?\n\n` +
-      `Le quedan ${dias} dia${dias === 1 ? '' : 's'}. Al ponerlo en otra propiedad ` +
-      `conserva esos mismos dias: cambiar de propiedad NO renueva el periodo.`)) return;
-    try {
-      showToast('Liberando…', '', 'fa-spinner');
-      await firebase.functions().httpsCallable('quitarDestacado')({ propertyId: id });
-      p.featured = false; p.featuredHasta = '';
-      refrescarVitrina();
-      await cargarEstadoDestacados();
-      showToast('Destacado liberado', `Te quedan ${dias} dia${dias === 1 ? '' : 's'} para usarlo en otra propiedad`, 'fa-star');
-    } catch (err) {
-      console.error('liberar destacado:', err);
-      showToast('No se pudo liberar', (err && err.message) || 'Proba de nuevo', 'fa-circle-exclamation');
-    }
-  }
-
+  // para el cliente, así que este update fallaría igual — y esa es la idea.
   async function toggleFeatured(id) {
     const p = properties.find(pr => pr.id === id);
     if (!p) return;
-    if (isEffectivelyFeatured(p)) return liberarDestacado(id);
-    return destacarPropiedad(id, false);
+    const quitar = !!p.featured;
+    const fn = firebase.functions();
+    try {
+      showToast(quitar ? 'Quitando destacado…' : 'Destacando…', '', 'fa-spinner');
+      const res = await fn.httpsCallable(quitar ? 'quitarDestacado' : 'activarDestacado')({ propertyId: id });
+      p.featured = !quitar;
+      if (quitar) { p.featuredHasta = ''; }
+      refrescarVitrina();
+      if (!quitar && res && res.data) {
+        p.featuredHasta = res.data.hasta;
+        showToast('Propiedad destacada',
+          `Va arriba por 30 días · usaste ${res.data.usados} de ${res.data.cupo}`, 'fa-star');
+      } else {
+        showToast('Destacado removido', 'Se liberó el lugar para otra propiedad', 'fa-star');
+      }
+    } catch (err) {
+      console.error('destacado:', err);
+      // Los mensajes de la función ya vienen explicados (falta de fotos, cupo
+      // lleno, propiedad no disponible), así que se muestran tal cual.
+      showToast('No se pudo destacar', (err && err.message) || 'Probá de nuevo', 'fa-circle-exclamation');
+    }
   }
-
   // Funciones de compartir
   let currentShareProperty = null;
 
