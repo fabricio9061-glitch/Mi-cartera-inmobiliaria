@@ -1,11 +1,6 @@
-  const firebaseConfig = {
-    apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
-    authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
-    projectId: "mi-cartera-inmobiliaria",
-    storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
-    messagingSenderId: "923595024127",
-    appId: "1:923595024127:web:b7104adcba6387a5a84eca"
-  };
+  // firebaseConfig y ADMIN_EMAIL viven en malave-config.js, que index.html
+  // carga ANTES que este archivo. Si ves "firebaseConfig is not defined",
+  // falta ese <script> o quedo despues de app.js.
   firebase.initializeApp(firebaseConfig);
   function mvEsc(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
   // Devuelve la URL solo si es http(s) y NO trae caracteres que permitan romper
@@ -14,8 +9,7 @@
   function safeUrl(u){ const s = String(u == null ? '' : u).trim(); return /^https?:\/\/[^\s'"<>\\]+$/i.test(s) ? s : ''; }
   const auth = firebase.auth(),
     db = firebase.firestore(),
-    storage = firebase.storage(),
-    ADMIN_EMAIL = "fabricio9061@gmail.com";
+    storage = firebase.storage();
 
   // ===== Rangos de la inmobiliaria (organigrama) =====
   // La definición vive en rangos.js, que también carga admin.html. Antes estaba
