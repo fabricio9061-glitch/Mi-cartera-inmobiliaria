@@ -3780,6 +3780,42 @@ const DESTACADOS_POR_RANGO = {
 };
 const DESTACADO_DIAS = 30;
 const DESTACADO_MIN_FOTOS = 12;
+const DESTACADO_EXTRA_PUNTOS = 2;
+
+/* Puntos disponibles del agente, calculados EN EL SERVIDOR.
+   El saldo que muestra la app se arma en el navegador; si el cobro confiara en
+   eso, un agente podría comprarse destacados sin tener puntos. */
+async function puntosDisponibles(uid) {
+  let ganados = 0, gastados = 0;
+  // Los puntos NO están guardados: se calculan desde los cierres confirmados,
+  // 1 punto por cada US$100 de ganancia del agente. Es la misma cuenta que hace
+  // la app; si acá se leyera un campo guardado, siempre daría cero.
+  try {
+    const cfgSnap = await db.doc("config/recompensas").get();
+    const cfg = cfgSnap.exists ? cfgSnap.data() : {};
+    const dolar = Number(cfg.dolarPesos) || 40;
+    const porPunto = Number(cfg.usdPorPunto) || 100;
+    const props = await db.collection("properties").where("ownerId", "==", uid).get();
+    let usd = 0;
+    props.docs.forEach((d) => {
+      const p = d.data();
+      if (!p.cierreConfirmado || !p.cierre) return;
+      const c = p.cierre;
+      const g = Number(c.gananciaAgente) || 0;
+      if (!g) return;
+      usd += (c.moneda === "UYU") ? g / dolar : g;
+    });
+    ganados = Math.floor(usd / porPunto);
+  } catch (e) { logger.warn("puntosDisponibles ganados:", e.message); }
+  try {
+    const q = await db.collection("canjes").where("agenteUid", "==", uid).get();
+    q.docs.forEach((d) => {
+      const c = d.data();
+      if (c.status !== "rechazado") gastados += Number(c.costoPuntos || 0);
+    });
+  } catch (e) { logger.warn("puntosDisponibles:", e.message); }
+  return Math.max(0, ganados - gastados);
+}
 
 /** Cupo del agente. Sin rango cargado no puede destacar nada. */
 function cupoDestacados(perfil) {
@@ -3862,11 +3898,43 @@ exports.activarDestacado = onCall(async (request) => {
   const cupo = cupoDestacados(duenoPerfil);
   if (cupo <= 0) throw new HttpsError("failed-precondition", "Tu rango todavía no tiene destacados disponibles.");
   const activos = await destacadosActivos(duenoUid);
-  if (activos.filter((x) => x.id !== propertyId).length >= cupo) {
-    throw new HttpsError("resource-exhausted",
-      `Ya tenés ${cupo} ${cupo === 1 ? "destacado activo" : "destacados activos"}. Sacá uno o esperá a que venza.`);
+  const usados = activos.filter((x) => x.id !== propertyId).length;
+  // Extra pagado con puntos cuando el cupo del rango está lleno. Se pide
+  // explícitamente desde la app (conExtra), nunca se cobra sin que lo confirme.
+  const quiereExtra = !!(request.data && request.data.conExtra);
+  let cobrarExtra = false;
+  if (usados >= cupo) {
+    if (!quiereExtra) {
+      throw new HttpsError("resource-exhausted",
+        `Ya tenés ${cupo} ${cupo === 1 ? "destacado activo" : "destacados activos"}. ` +
+        `Podés sumar uno extra por ${DESTACADO_EXTRA_PUNTOS} puntos, sacar uno, o esperar a que venza.`);
+    }
+    // Un solo extra a la vez: sin este tope, el que tiene muchos puntos se compra
+    // diez y volvemos al problema de que esté todo destacado.
+    if (activos.some((x) => x.extraPago)) {
+      throw new HttpsError("resource-exhausted", "Ya tenés un destacado extra activo. Solo se permite uno a la vez.");
+    }
+    const saldo = await puntosDisponibles(duenoUid);
+    if (saldo < DESTACADO_EXTRA_PUNTOS) {
+      throw new HttpsError("failed-precondition",
+        `Te faltan puntos: el extra cuesta ${DESTACADO_EXTRA_PUNTOS} y tenés ${saldo}.`);
+    }
+    cobrarExtra = true;
   }
 
+  // El cobro va ANTES de destacar: si falla el canje, la propiedad no queda
+  // destacada gratis.
+  if (cobrarExtra) {
+    await db.collection("canjes").add({
+      agenteUid: duenoUid,
+      concepto: `Destacado extra · ${p.title || "propiedad"}`,
+      costoPuntos: DESTACADO_EXTRA_PUNTOS,
+      status: "aprobado",
+      tipo: "destacado",
+      propertyId,
+      createdAt: new Date().toISOString(),
+    });
+  }
   const desde = new Date();
   const hasta = new Date(desde.getTime() + DESTACADO_DIAS * 86400000);
   await pSnap.ref.update({
@@ -3874,6 +3942,7 @@ exports.activarDestacado = onCall(async (request) => {
     featuredDesde: desde.toISOString(),
     featuredHasta: hasta.toISOString(),
     featuredPor: uid,
+    extraPago: cobrarExtra,
   });
   await registrarLog(propertyId, "destacado activado", true, `${DESTACADO_DIAS} días · cupo ${activos.length + 1}/${cupo}`);
   return { ok: true, hasta: hasta.toISOString(), usados: activos.length + 1, cupo };
