@@ -44,3 +44,41 @@ window.firebaseConfig = {
 };
 
 window.ADMIN_EMAIL = "fabricio9061@gmail.com";
+
+/* ============================================================================
+ * DESTACADO EFECTIVO
+ * ----------------------------------------------------------------------------
+ * El backend apaga los destacados vencidos con un cron que corre 7:05. Entre el
+ * vencimiento real y esa hora, la propiedad sigue con featured:true y seguiria
+ * mostrandose arriba y con la chapa DESTACADA. Quien esta vencido lo decide la
+ * FECHA, no el cron: el cron solo limpia.
+ *
+ * Vive aca y no en app.js porque propiedad.html es publica y NO carga app.js.
+ * Si cada una tuviera su propia version, la web publica y el panel podrian
+ * discrepar sobre que esta destacado.
+ * ==========================================================================*/
+
+window.parseFeaturedDate = function (v) {
+  if (!v) return null;
+  // Puede venir como ISO (lo que escribe la Cloud Function) o como Timestamp de
+  // Firestore si algun dia se migra el campo.
+  if (typeof v === "object" && typeof v.toMillis === "function") {
+    return new Date(v.toMillis());
+  }
+  const t = Date.parse(v);
+  return Number.isFinite(t) ? new Date(t) : null;
+};
+
+window.isEffectivelyFeatured = function (p) {
+  if (!p || p.featured !== true) return false;
+  if ((p.status || "available") !== "available") return false;
+  const hasta = window.parseFeaturedDate(p.featuredHasta);
+  return hasta !== null && hasta.getTime() > Date.now();
+};
+
+/** Dias enteros que faltan para que venza. Devuelve 0 si ya vencio. */
+window.diasDeDestacado = function (p) {
+  const hasta = window.parseFeaturedDate(p && p.featuredHasta);
+  if (!hasta) return 0;
+  return Math.max(0, Math.ceil((hasta.getTime() - Date.now()) / 86400000));
+};
