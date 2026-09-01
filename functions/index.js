@@ -4370,6 +4370,21 @@ exports.eliminarAgente = onCall(async (request) => {
    La publicación es ASINCRÓNICA: POST/PATCH /listing devuelve un task_id y hay
    que consultar GET /task para saber si terminó (COMPLETED o ERROR).
 
+   RESPUESTAS DE INFOCASAS (Frank Payares, 31/08/2026):
+     · El catálogo de ubicaciones es GET /location/download, no /location. Trae
+       location_type "state" y "neighbourhood"; esos ids van en estate_id y
+       neighbourhood_id.
+     · GET /task exige el id en la ruta. Sin id da 404 SIEMPRE: no es una falla.
+       El id es el task_id que devuelve el POST /listing.
+     · /listing exige el header 'cookie' con el client_id, que sale de /client.
+       Ese era el 401.
+     · /client hoy devuelve una sola inmobiliaria: Malave Inmobiliaria,
+       5f6430c5-a32f-11f1-bc84-06cab93c00b5.
+
+   ⚠️  CUPO: la cuenta tiene initial_quota 50. Es un tope duro de avisos. Hoy la
+   cartera anda cerca de ese número, así que antes de migrar hay que decidir qué
+   entra. El feed XML no tenía este límite.
+
    ⚠️  POST /validate-listing NO valida: SINCRONIZA. Se le manda la lista de las
    propiedades que deben quedar activas y DA DE BAJA TODO LO QUE NO ESTÉ EN ELLA.
    Con la lista vacía elimina todos los avisos. No se usa hasta el final y con
@@ -4379,9 +4394,38 @@ exports.eliminarAgente = onCall(async (request) => {
    ========================================================================== */
 const IC_API_BASE = (process.env.IC_API_BASE || "https://kong-qa.frcol.io/management/api/1.0").replace(/\/+$/, "");
 const IC_API_KEY = process.env.IC_API_KEY || "";
+// Opcional. Solo hace falta si algún día el apikey queda asociado a más de una
+// inmobiliaria. Hoy /client devuelve una sola: Malave Inmobiliaria,
+// 5f6430c5-a32f-11f1-bc84-06cab93c00b5 (verificado 31/08/2026).
+const IC_CLIENT_ID = process.env.IC_CLIENT_ID || "";
 
-/** Llamada a la API de InfoCasas. Devuelve { ok, status, data }. */
-async function icFetch(path, { method = "GET", body = null } = {}) {
+/* El client_id se pide una vez y se guarda en memoria. La instancia de la
+   función vive un rato entre llamadas, así que esto ahorra un GET /client por
+   cada publicación. */
+let _icClient = null, _icClientAt = 0;
+
+async function icClientId() {
+  if (IC_CLIENT_ID) return IC_CLIENT_ID;
+  if (_icClient && Date.now() - _icClientAt < 30 * 60 * 1000) return _icClient;
+  const r = await icFetch("/client");
+  if (!r.ok) throw new HttpsError("failed-precondition", `No se pudo leer /client (${r.status}). Sin client_id no se puede publicar.`);
+  const lista = Array.isArray(r.data) ? r.data : (r.data && (r.data.data || r.data.results)) || [];
+  if (!lista.length) throw new HttpsError("failed-precondition", "/client no devolvió ninguna inmobiliaria.");
+  if (lista.length > 1) {
+    // No adivinamos: publicar con el id equivocado significa cargar avisos en la
+    // cuenta de otra inmobiliaria.
+    const ids = lista.map((c) => `${c.name}=${c.id}`).join(" · ");
+    throw new HttpsError("failed-precondition",
+      `/client devolvió ${lista.length} inmobiliarias. Definí IC_CLIENT_ID en el .env. Opciones: ${ids}`);
+  }
+  _icClient = lista[0].id; _icClientAt = Date.now();
+  return _icClient;
+}
+
+/** Llamada a la API de InfoCasas. Devuelve { ok, status, data }.
+    conCookie: agrega el header 'cookie' con el client_id. Lo pide /listing;
+    sin eso responde 401. (Confirmado por Frank Payares, 31/08/2026.) */
+async function icFetch(path, { method = "GET", body = null, conCookie = false } = {}) {
   if (!IC_API_KEY) throw new HttpsError("failed-precondition", "Falta IC_API_KEY en el .env de functions.");
   // Los endpoints de consulta piden un valor dinámico en la URL para saltear
   // la caché de ellos (lo indica su documentación).
@@ -4393,9 +4437,11 @@ async function icFetch(path, { method = "GET", body = null } = {}) {
   const url = IC_API_BASE + ruta + (method === "GET" ? `${sep}_=${Date.now()}` : "");
   // axios, igual que el resto del archivo (Mercado Libre). validateStatus en true
   // para manejar los errores acá y no con try/catch en cada llamada.
+  const headers = { apikey: IC_API_KEY, "Content-Type": "application/json", Accept: "application/json" };
+  if (conCookie) headers.cookie = await icClientId();
   const res = await axios({
     url, method,
-    headers: { apikey: IC_API_KEY, "Content-Type": "application/json", Accept: "application/json" },
+    headers,
     data: body || undefined,
     timeout: 20000,
     validateStatus: () => true,
@@ -4406,8 +4452,14 @@ async function icFetch(path, { method = "GET", body = null } = {}) {
 }
 
 /* Trae el catálogo de ubicaciones de InfoCasas y lo guarda en Firestore.
-   Es el primer paso de la migración y el que más trabajo da: sus departamentos y
-   barrios no coinciden con los nuestros y hay que armar la equivalencia.
+   El endpoint correcto es /location/download, NO /location: ese daba 404 y nos
+   tuvo trabados. Devuelve el catálogo completo con location_type ("state" o
+   "neighbourhood"); esos ids son los que van en estate_id y neighbourhood_id al
+   publicar. (Confirmado por Frank Payares, 31/08/2026.)
+
+   Se guarda en lotes dentro de una subcolección porque un documento de Firestore
+   tope en 1 MB y el catálogo de todo el país no entra. Antes se guardaba solo una
+   muestra de 50, que no sirve para armar la equivalencia con nuestros barrios.
    No publica ni modifica nada: solo lee. */
 exports.icUbicaciones = onCall(async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
@@ -4415,24 +4467,48 @@ exports.icUbicaciones = onCall(async (request) => {
   if (!(await esDireccion(request.auth.uid, email))) {
     throw new HttpsError("permission-denied", "Solo la Dirección.");
   }
-  const r = await icFetch("/location");
+  const r = await icFetch("/location/download");
   if (!r.ok) {
     return { ok: false, status: r.status, detalle: r.data,
              pista: r.status === 401 || r.status === 403
                ? "La API Key fue rechazada. Revisá IC_API_KEY en el .env."
-               : "Revisá IC_API_BASE." };
+               : "Revisá IC_API_BASE o si cambió la ruta del catálogo." };
   }
   const items = Array.isArray(r.data) ? r.data : (r.data && (r.data.data || r.data.results)) || [];
+  const tipo = (x) => String(x.location_type || x.locationType || "").toLowerCase();
+  const states = items.filter((x) => tipo(x) === "state");
+  const barrios = items.filter((x) => tipo(x) === "neighbourhood");
+  const otros = items.filter((x) => tipo(x) !== "state" && tipo(x) !== "neighbourhood");
+
   try {
-    await db.doc("adminData/infocasasUbicaciones").set({
+    const base = db.doc("adminData/infocasasUbicaciones");
+    await base.set({
       actualizado: new Date().toISOString(),
       cantidad: items.length,
-      // Se guarda una muestra, no el catálogo entero: puede ser enorme y el
-      // documento de Firestore tiene 1 MB de tope.
-      muestra: items.slice(0, 50),
+      states: states.length, neighbourhoods: barrios.length, otros: otros.length,
+      // Los states son pocos y son la puerta de entrada al mapeo: van enteros.
+      catalogoStates: states,
+      // Para ver la forma real del dato sin abrir los lotes.
+      ejemploBarrio: barrios[0] || null,
+      tiposVistos: [...new Set(items.map(tipo))],
     });
+    // Barrios en lotes de 400. Se borran los lotes viejos primero para que un
+    // catálogo más chico no deje registros fantasma del anterior.
+    const lotes = base.collection("lotes");
+    const previos = await lotes.get();
+    for (const d of previos.docs) await d.ref.delete();
+    for (let i = 0; i < barrios.length; i += 400) {
+      await lotes.doc(String(i / 400).padStart(3, "0")).set({ items: barrios.slice(i, i + 400) });
+    }
   } catch (e) { logger.warn("icUbicaciones: no se pudo guardar", e.message); }
-  return { ok: true, cantidad: items.length, muestra: items.slice(0, 30) };
+
+  return {
+    ok: true, cantidad: items.length,
+    states: states.length, neighbourhoods: barrios.length,
+    tiposVistos: [...new Set(items.map(tipo))],
+    muestraStates: states.slice(0, 25),
+    muestraBarrios: barrios.slice(0, 10),
+  };
 });
 
 /** Prueba de conexión: confirma que la clave y la URL están bien, sin tocar nada. */
@@ -4443,9 +4519,16 @@ exports.icProbarConexion = onCall(async (request) => {
     throw new HttpsError("permission-denied", "Solo la Dirección.");
   }
   const r = await icFetch("/client");
+  const lista = r.ok ? (Array.isArray(r.data) ? r.data : (r.data && (r.data.data || r.data.results)) || []) : [];
+  const c = lista[0] || null;
   return {
     ok: r.ok, status: r.status, base: IC_API_BASE,
     claveCargada: !!IC_API_KEY,
+    inmobiliarias: lista.length,
+    clientId: IC_CLIENT_ID || (lista.length === 1 && c ? c.id : null),
+    // El cupo es un tope duro de avisos publicables. Conviene mirarlo antes de
+    // migrar: si el feed manda más propiedades que el cupo, sobran.
+    cupo: c ? { total: c.initial_quota, usado: c.used_quota, libre: c.remained_quota } : null,
     data: r.ok ? r.data : null,
     detalle: r.ok ? null : r.data,
   };
@@ -4460,16 +4543,23 @@ exports.icExplorar = onCall(async (request) => {
   if (!(await esDireccion(request.auth.uid, email))) {
     throw new HttpsError("permission-denied", "Solo la Dirección.");
   }
-  const rutas = ["/client", "/location", "/locations", "/task", "/listing"];
+  // /task NO se prueba a secas: exige el id en la ruta (/task/{id}) y siempre
+  // devuelve 404 sin él. El id sale del task_id que responde el POST /listing.
+  // No es una falla: es cómo funciona. (Frank Payares, 31/08/2026.)
+  const rutas = ["/client", "/location/download", "/listing"];
   const out = [];
   for (const base of rutas) {
     for (const p of [base, base + "/"]) {
       try {
         // Se arma la URL a mano para poder probar SIN la barra que agrega icFetch.
         const url = IC_API_BASE + p + `?_=${Date.now()}`;
+        // /listing exige el header cookie con el client_id. Se manda en todas:
+        // las que no lo piden lo ignoran.
+        let cookie = null;
+        try { cookie = await icClientId(); } catch (e) { /* sin client_id igual se prueba */ }
         const res = await axios({
           url, method: "GET",
-          headers: { apikey: IC_API_KEY, Accept: "application/json" },
+          headers: { apikey: IC_API_KEY, Accept: "application/json", ...(cookie ? { cookie } : {}) },
           timeout: 15000, validateStatus: () => true,
         });
         const d = res.data;
