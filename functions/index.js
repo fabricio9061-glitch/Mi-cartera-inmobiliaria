@@ -2866,8 +2866,8 @@ const IC_ZONA_DEFAULT = { 1: 188, 2: 140, 3: 201, 4: 213, 5: 238, 6: 242, 7: 246
 // Zonas de InfoCasas (Anexo 3 del doc), claves normalizadas (minúsculas, sin acentos).
 const IC_ZONAS = {
   10: { "buceo": 1, "parque batlle": 2, "parque rodo": 3, "pocitos": 4, "pocitos nuevo": 5, "puerto buceo": 6, "punta carretas": 7, "villa biarritz": 8, "villa dolores": 9, "banados de carrasco": 10, "barra de carrasco": 11, "barrios privados": 12, "carrasco": 13, "carrasco este": 14, "carrasco norte": 15, "malvin": 16, "parque miramar": 17, "punta gorda": 18, "aguada": 19, "barrio sur": 20, "centro": 21, "ciudad vieja": 22, "cordon": 23, "la comercial": 24, "palermo": 25, "puerto": 26, "tres cruces": 27, "villa munoz": 28, "aires puros": 29, "arroyo seco": 30, "atahualpa": 31, "bella vista": 32, "brazo oriental": 33, "capurro": 34, "capurro bella vista": 35, "cerrito": 36, "cerrito de la victoria": 36, "goes": 37, "jacinto vera": 38, "paso molino": 39, "prado": 40, "prado nueva savona": 41, "reducto": 42, "perez castellanos": 43, "la figurita": 44, "bella italia": 45, "bolivar": 46, "flor de maronas": 47, "ituzaingo": 48, "jardines del hipodromo": 49, "la blanqueada": 50, "larranaga": 51, "las canteras": 52, "malvin norte": 53, "manga": 54, "maronas": 55, "mercado modelo": 56, "piedras blancas": 57, "punta rieles": 58, "union": 59, "villa espanola": 60, "villa garcia manga rural": 61, "villa garcia": 61, "casavalle": 62, "colon": 63, "conciliacion": 64, "las acacias": 65, "lezica": 66, "melilla": 67, "penarol": 68, "penarol lavalleja": 69, "sayago": 70, "marconi": 71, "belvedere": 72, "casabo": 73, "casabo pajas blancas": 74, "cerro": 75, "la teja": 76, "nuevo paris": 77, "paso de la arena": 78, "tres ombues pblo victoria": 79, "tres ombues": 79, "la paloma tomkinson": 80, "pajas blancas": 81, "golf": 343, "la caleta": 347, "barrio san nicolas": 4753, "barrio parques": 4754, "los olivos": 4755, "zen pueblo jardin": 4756, "jardines de carrasco": 4757 },
-  2: { "atlantida": 136, "estacion atlantida": 136, "costa de oro": 136, "balneario argentino": 137, "barra de carrasco": 138, "paso carrasco": 138, "bello horizonte": 139, "canelones": 140, "ciudad de la costa": 141, "colinas de solymar": 142, "costa azul": 143, "cuchilla alta": 144, "el bosque": 145, "el pinar": 146, "empalme olmos": 147, "fortin de santa rosa": 148, "guazu vira": 149, "guazuvira": 149, "jaureguiberry": 150, "la floresta": 151, "la paz": 152, "la tuna": 153, "lagomar": 154, "las piedras": 155, "las toscas": 156, "lomas de solymar": 157, "los cerrillos": 158, "los titanes": 159, "marindia": 160, "medanos de solymar": 161, "migues": 162, "montes de solymar": 163, "neptunia": 164, "pando": 165, "parque de solymar": 166, "parque del plata": 167, "las vegas": 167, "pinamar": 168, "pinares de solymar": 169, "progreso": 170, "salinas": 171, "san antonio": 172, "san cristobal": 173, "san jacinto": 174, "san luis": 175, "san ramon": 176, "santa ana": 177, "santa lucia": 178, "santa lucia del este": 179, "santa rosa": 180, "sauce": 181, "shangrila": 182, "solymar": 183, "tala": 184, "toledo": 185, "villa argentina": 186, "barrios privados": 187, "la tahona": 4736, "lomas de la tahona": 4737, "altos de la tahona": 4738, "vinedos de la tahona": 4739, "mirador de la tahona": 4740, "huertas de los horneros": 4741, "pilar de los horneros": 4742, "camino de los horneros": 4743, "la juana": 4744, "carlotta": 4745, "cumbres de carrasco": 4746, "colinas de carrasco": 4747, "las higueritas": 4748, "lomas de carrasco": 4749, "carmel": 4750, "haras del lago": 4751, "la asuncion": 4752, "san jose de carrasco": 345, "colonia nicolich": 355 },
-  9: { "aigua": 82, "gregorio aznares": 83, "gregorio aznarez": 83, "maldonado": 84, "pan de azucar": 85, "piriapolis": 86, "beaulieu": 87, "bella vista": 88, "cerro del toro": 90, "cerro san antonio": 91, "fuente venus": 92, "las flores": 93, "los angeles": 94, "playa grande": 95, "playa hermosa": 96, "playa verde": 97, "proa al mar": 99, "proa del mar": 99, "punta colorada": 101, "punta fria": 102, "punta negra": 103, "rinconada": 104, "san francisco": 105, "solis": 106, "portezuelo": 107, "punta ballena": 129, "lagunas del diario": 119, "laguna del diario": 2242, "laguna del sauce": 2243, "solanas": 344, "chihuahua": 2238, "ocean park": 2245, "sauce de portezuelo": 2251, "las cumbres": 2244, "el pejerrey": 2240, "la barra": 117, "la pastora": 118, "lugano": 121, "manantiales": 122, "montoya": 123, "punta piedras": 130, "balneario buenos aires": 2168, "punta del este": 124, "peninsula": 124, "pinares": 125, "playa brava": 126, "playa mansa": 127, "puerto": 128, "punta shopping": 131, "rincon del indio": 132, "roosevelt": 133, "san rafael": 134, "cantegril": 113, "golf": 115, "las delicias": 120, "beverly hills": 112, "arcobaleno": 110, "barrio cordoba": 111, "san carlos": 135, "jose ignacio": 2186, "arenas de jose ignacio": 2186, "la juanita": 2191, "laguna garzon": 2193, "pueblo garzon": 2195, "garzon": 2195, "san vicente": 2197, "santa monica": 2199 },
+  2: { "atlantida": 2177, "atlantida sur": 2177, "atlantida norte": 2178, "estacion atlantida": 2178, "balneario argentino": 137, "barra de carrasco": 138, "paso carrasco": 2547, "bello horizonte": 139, "canelones": 140, "ciudad de la costa": 141, "colinas de solymar": 142, "costa azul": 143, "cuchilla alta": 144, "el bosque": 145, "el pinar": 146, "empalme olmos": 147, "fortin de santa rosa": 148, "guazu vira": 149, "guazuvira": 149, "jaureguiberry": 150, "la floresta": 151, "la paz": 152, "la tuna": 153, "lagomar": 154, "las piedras": 155, "las toscas": 156, "lomas de solymar": 157, "los cerrillos": 158, "los titanes": 159, "marindia": 160, "medanos de solymar": 161, "migues": 162, "montes de solymar": 163, "neptunia": 164, "pando": 165, "parque de solymar": 166, "parque del plata": 2228, "parque del plata sur": 2228, "parque del plata norte": 2227, "las vegas": 2173, "pinamar": 168, "pinares de solymar": 169, "progreso": 170, "salinas": 171, "san antonio": 172, "san cristobal": 173, "san jacinto": 174, "san luis": 175, "san ramon": 176, "santa ana": 177, "santa lucia": 178, "santa lucia del este": 179, "santa rosa": 180, "sauce": 181, "shangrila": 182, "solymar": 183, "tala": 184, "toledo": 185, "villa argentina": 186, "barrios privados": 187, "la tahona": 4736, "lomas de la tahona": 4737, "altos de la tahona": 4738, "vinedos de la tahona": 4739, "mirador de la tahona": 4740, "huertas de los horneros": 4741, "pilar de los horneros": 4742, "camino de los horneros": 4743, "la juana": 4744, "carlotta": 4745, "cumbres de carrasco": 4746, "colinas de carrasco": 4747, "las higueritas": 4748, "lomas de carrasco": 4749, "carmel": 4750, "haras del lago": 4751, "la asuncion": 4752, "san jose de carrasco": 345, "colonia nicolich": 355 },
+  9: { "aigua": 82, "gregorio aznares": 83, "gregorio aznarez": 83, "maldonado": 84, "pan de azucar": 85, "piriapolis": 86, "beaulieu": 87, "bella vista": 88, "cerro del toro": 90, "cerro san antonio": 91, "fuente venus": 92, "las flores": 93, "los angeles": 94, "playa grande": 95, "playa hermosa": 96, "playa verde": 97, "proa al mar": 99, "proa del mar": 99, "punta colorada": 101, "punta fria": 102, "punta negra": 103, "rinconada": 104, "san francisco": 105, "solis": 106, "portezuelo": 107, "punta ballena": 129, "lagunas del diario": 119, "laguna del diario": 2242, "laguna del sauce": 2243, "solanas": 344, "chihuahua": 2238, "ocean park": 2245, "sauce de portezuelo": 2251, "las cumbres": 2244, "el pejerrey": 2240, "la barra": 117, "la pastora": 118, "lugano": 121, "manantiales": 122, "montoya": 123, "punta piedras": 130, "balneario buenos aires": 2168, "punta del este": 108, "peninsula": 124, "pinares": 125, "playa brava": 126, "playa mansa": 127, "puerto": 128, "punta shopping": 131, "rincon del indio": 132, "roosevelt": 133, "san rafael": 134, "cantegril": 113, "golf": 115, "las delicias": 120, "beverly hills": 112, "arcobaleno": 110, "barrio cordoba": 111, "san carlos": 135, "jose ignacio": 2186, "arenas de jose ignacio": 2186, "la juanita": 2191, "laguna garzon": 2193, "pueblo garzon": 2195, "garzon": 2195, "san vicente": 2197, "santa monica": 2199 },
   14: { "aguas dulces": 290, "barra de valizas": 291, "valizas": 650, "cabo polonio": 2181, "castillos": 294, "chuy": 295, "barra del chuy": 2176, "dieciocho de julio": 296, "18 de julio": 296, "rocha": 303, "lascano": 656, "la coronilla": 655, "la esmeralda": 653, "el palmar": 297, "vuelta del palmar": 297, "punta del diablo": 302, "la paloma": 2206, "costa azul": 646, "la aguada": 647, "arachania": 645, "antoniopolis": 644, "santa maria de rocha": 651, "la pedrera": 2219, "punta rubia": 649, "san antonio": 2224, "oceania del polonio": 648 },
   1: { "artigas": 188, "baltasar brum": 189, "bella union": 190, "bernabe rivera": 191, "cuaro": 192, "javier de viana": 193, "pintadito": 194, "tomas gomensoro": 195, "topador": 196 },
   3: { "acegua": 197, "cerro de las cuentas": 198, "fraile muerto": 199, "isidoro noblia": 200, "melo": 201, "rio branco": 202, "tres islas": 203 },
@@ -2875,12 +2875,12 @@ const IC_ZONAS = {
   5: { "durazno": 238, "san jorge": 239, "santa bernardita": 240 },
   6: { "san gregorio carrio": 241, "trinidad": 242 },
   7: { "25 de agosto": 243, "veinticinco de agosto": 243, "cardal": 244, "cerro colorado": 245, "florida": 246, "fray marcos": 247, "independencia": 248, "la cruz": 249, "pintado": 250, "sarandi grande": 251 },
-  8: { "colon": 252, "illescas": 253, "jose pedro varela": 254, "la mariscala": 255, "maria albina": 256, "minas": 257, "piraraja": 258, "solis de mataojo": 259, "zapican": 260, "villa del cerro": 346, "villa serrana": 257 },
+  8: { "colon": 252, "illescas": 253, "jose pedro varela": 254, "la mariscala": 255, "maria albina": 256, "minas": 257, "piraraja": 258, "solis de mataojo": 259, "zapican": 260, "villa del cerro": 346, "villa serrana": 2845 },
   11: { "chapicuy": 261, "guaviyu": 262, "paysandu": 263, "piedra sola": 264, "quebracho": 265 },
   12: { "algorta": 266, "andresito": 267, "barrio anglo": 268, "cardozo": 269, "carlos reyles": 270, "fray bentos": 271, "general borges": 272, "grecco": 273, "las canas": 274, "nuevo berlin": 275, "pueblo orgoroso": 276, "rincon del bonete": 277, "san javier": 278, "villa maria": 279, "young": 280 },
   13: { "la pedrera": 281, "lagunon": 282, "mandubi": 283, "masoller": 284, "minas de corrales": 285, "paso campamento": 286, "rivera": 287, "santa teresa": 288, "tranqueras": 289 },
   15: { "arenitas blancas": 304, "belen": 306, "colonia 18 de julio": 307, "constitucion": 308, "salto": 309, "termas del arapey": 310, "termas del dayman": 311 },
-  16: { "boca del cufre": 312, "delta del tigre": 313, "ecilda paullier": 314, "ituzaingo": 315, "libertad": 316, "playa pascual": 317, "san jose": 318, "san jose de mayo": 319, "scavino": 320, "villa rodriguez": 321, "ciudad del plata": 313 },
+  16: { "boca del cufre": 312, "delta del tigre": 313, "ecilda paullier": 314, "ituzaingo": 315, "libertad": 316, "playa pascual": 317, "san jose": 318, "san jose de mayo": 319, "scavino": 320, "villa rodriguez": 321, "ciudad del plata": 2811 },
   17: { "canada nieto": 322, "cardona": 323, "dolores": 324, "egana": 325, "florencio sanchez": 326, "jose enrique rodo": 327, "mercedes": 328, "palmitas": 329, "risso": 330, "santa catalina": 331 },
   18: { "clara": 332, "paso bonilla": 333, "paso de los toros": 334, "paso del cerro": 335, "san gregorio de polanco": 336, "tacuarembo": 337, "villa ansina": 338 },
   19: { "isla patrulla": 339, "treinta y tres": 340, "tupambae": 341, "vergara": 342 }
@@ -3539,11 +3539,16 @@ exports.avisoDespublicarPorCliente = onDocumentUpdated("clients/{cid}", async (e
 exports.leadInfocasas = onRequest(async (req, res) => {
   if (req.method === "GET") { res.status(200).send("OK — receptor de leads de InfoCasas activo (usar POST)."); return; }
   if (req.method !== "POST") { res.status(405).send("Método no permitido"); return; }
-  const claveEsperada = process.env.IC_LEAD_KEY || "";
-  if (claveEsperada && String((req.query && req.query.clave) || "") !== claveEsperada) {
-    res.status(401).send("Clave inválida"); return;
-  }
   const body = (typeof req.body === "object" && req.body) || {};
+  /* InfoCasas manda la clave en el CUERPO, en el campo "key". Antes solo se
+     miraba ?clave= en la URL: con IC_LEAD_KEY configurada, TODOS sus leads
+     habrían vuelto 401, y sin configurar el endpoint quedaba abierto.
+     (Payload confirmado por el equipo de InfoCasas, 31/08/2026.) */
+  const claveEsperada = process.env.IC_LEAD_KEY || "";
+  if (claveEsperada) {
+    const recibida = String((req.query && req.query.clave) || body.key || body.clave || "");
+    if (recibida !== claveEsperada) { res.status(401).send("Clave inválida"); return; }
+  }
   const pick = (...keys) => {
     for (const k of keys) {
       const v = body[k];
@@ -3555,11 +3560,22 @@ exports.leadInfocasas = onRequest(async (req, res) => {
   const telefono = pick("telefono", "tel", "phone", "celular", "movil", "telefonoContacto", "whatsapp");
   const email = pick("email", "mail", "correo");
   const mensaje = pick("mensaje", "message", "comentario", "consulta", "texto", "descripcion");
-  const refProp = pick("idPropiedad", "propiedad", "id", "referencia", "ref", "codigo", "propertyId", "idAviso");
+  /* "property_id" en snake_case es el nombre que usa InfoCasas y faltaba: solo
+     estaba "propertyId". Sin él el lead entraba pero sin identificar la
+     propiedad, así que no se asignaba al agente dueño ni se creaba la gestión.
+     Se prueba primero porque es el que manda el portal.
+     Ojo: en su ejemplo property_id se asigna dos veces y en PHP gana la última,
+     así que llega el CÓDIGO de la propiedad, no el id del documento. Abajo se
+     resuelve por las dos vías. */
+  const refProp = pick("property_id", "idPropiedad", "propiedad", "id", "referencia", "ref", "codigo", "propertyId", "idAviso");
+  // from_id identifica el portal de origen (2 = InfoCasas). Se guarda por si
+  // algún día enrutan más de un portal al mismo endpoint.
+  const origenId = pick("from_id", "fromId");
 
   // 1) Guardar el lead crudo ANTES de procesar: nada se pierde jamás.
   const rawRef = await db.collection("leadsPortales").add({
-    fuente: "infocasas", recibido: new Date().toISOString(), body, query: req.query || {}, procesado: false,
+    fuente: "infocasas", origenId: origenId || null,
+    recibido: new Date().toISOString(), body, query: req.query || {}, procesado: false,
   });
 
   try {
@@ -4598,6 +4614,56 @@ exports.icUbicaciones = onCall(async (request) => {
   };
 });
 
+/* EXPLORADOR GENÉRICO (solo lectura). Hace GET a una ruta de la API y devuelve
+   el cuerpo tal cual. Sirve para inspeccionar la forma real de los datos sin
+   desplegar una función nueva por cada endpoint que queramos mirar.
+
+   DOS CANDADOS, y son a propósito:
+     1) SOLO GET. No acepta method: ningún POST puede salir por acá.
+     2) Rechaza cualquier ruta que contenga "validate". POST /validate-listing
+        NO valida: SINCRONIZA y BORRA del portal todo aviso que no venga en la
+        lista enviada. Aunque hoy solo hagamos GET, el candado queda escrito
+        para que nadie la habilite por descuido más adelante.
+
+   Solo Dirección. */
+exports.icGet = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  let path = String((request.data && request.data.path) || "").trim();
+  if (!path) throw new HttpsError("invalid-argument", "Falta 'path' (por ejemplo: /listing).");
+  if (!path.startsWith("/")) path = "/" + path;
+  if (/validate/i.test(path)) {
+    throw new HttpsError("permission-denied",
+      "Ruta bloqueada: /validate-listing sincroniza y BORRA avisos del portal. No se toca desde acá.");
+  }
+  const params = (request.data && request.data.params) || null;
+  if (params && typeof params === "object") {
+    const qs = Object.entries(params)
+      .filter(([, v]) => v != null && String(v) !== "")
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
+    if (qs) path += (path.includes("?") ? "&" : "?") + qs;
+  }
+  const r = await icFetch(path, { conCookie: true });
+  const d = r.data;
+  // Los cuerpos pueden ser enormes (el catálogo pesa 95 KB). Se recorta para no
+  // reventar la consola ni el límite de respuesta de la función.
+  let cuerpo = d, recortado = false;
+  if (typeof d === "string" && d.length > 4000) { cuerpo = d.slice(0, 4000); recortado = true; }
+  else if (Array.isArray(d) && d.length > 5) { cuerpo = d.slice(0, 5); recortado = true; }
+  else if (d && typeof d === "object" && Array.isArray(d.results) && d.results.length > 3) {
+    cuerpo = { ...d, results: d.results.slice(0, 3) }; recortado = true;
+  }
+  return {
+    ruta: path, status: r.status, ok: r.ok,
+    tipoContenido: r.tipoContenido,
+    claves: d && typeof d === "object" && !Array.isArray(d) ? Object.keys(d) : null,
+    recortado, cuerpo,
+  };
+});
+
 /* BUSCADOR DEL CATÁLOGO. Busca ubicaciones de InfoCasas por nombre.
 
    Existe porque los barrios se guardan en la subcolección "lotes" y las
@@ -4688,6 +4754,19 @@ exports.icCobertura = onCall(async (request) => {
     }
   }
 
+  // --- Zonas por defecto ---
+  // Acá cae TODA propiedad cuyo barrio no se reconoce, así que un id malo pesa
+  // más que cualquier zona suelta. Faltaba verificarlo.
+  const defectosMal = [];
+  for (const [depId, zonaId] of Object.entries(IC_ZONA_DEFAULT || {})) {
+    const c = catBarrio.get(String(zonaId));
+    if (!c) { defectosMal.push({ depId: Number(depId), zonaId, problema: "el id no existe en el catálogo" }); continue; }
+    if (String(c.state_id) !== String(depId)) {
+      defectosMal.push({ depId: Number(depId), zonaId, enCatalogo: c.name,
+                         depEnCatalogo: Number(c.state_id), problema: "la zona por defecto está en otro departamento" });
+    }
+  }
+
   // --- Zonas / barrios ---
   // Varias entradas de IC_ZONAS comparten id a propósito: son alias para que el
   // matching de texto agarre las variantes que escriben los agentes
@@ -4723,6 +4802,7 @@ exports.icCobertura = onCall(async (request) => {
     nuestro: { departamentos: Object.keys(IC_DEPTOS).length, zonas: idsUsados.size },
     // Lo que hay que mirar primero:
     departamentosConProblema: depsMal,
+    zonasPorDefectoConProblema: defectosMal,
     zonasQueNoExisten: inexistentes,
     zonasConNombreDistinto: distintos.slice(0, 80),
     zonasConNombreDistintoTotal: distintos.length,
@@ -4731,7 +4811,7 @@ exports.icCobertura = onCall(async (request) => {
     barriosSinMapear: sinMapear.length,
     barriosSinMapearPorDepartamento: porDep,
     muestraSinMapear: sinMapear.slice(0, 40),
-    veredicto: (depsMal.length || inexistentes.length || distintos.length)
+    veredicto: (depsMal.length || defectosMal.length || inexistentes.length || distintos.length)
       ? "Hay diferencias: revisá las listas antes de publicar."
       : "El mapeo del feed XML coincide 100% con el catálogo de la API.",
   };
