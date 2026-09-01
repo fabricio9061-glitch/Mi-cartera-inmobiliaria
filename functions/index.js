@@ -4534,6 +4534,36 @@ exports.icUbicaciones = onCall(async (request) => {
   }
 
   const tipo = (x) => String(x.location_type || x.locationType || x.type || "").toLowerCase();
+
+  /* DEDUPLICACIÓN. El CSV devuelve cada ubicación TRES veces, variando solo
+     state_name, que ademas viene mal: se resuelve contra la tabla de barrios en
+     vez de la de departamentos. Ejemplo: Aguada llega con state_id 10
+     (Montevideo, correcto) y state_name "Bañados de Carrasco", que es el barrio
+     con id 10. Y todas las filas STATE traen state_id 1 sea cual sea el
+     departamento.
+     Por eso se descarta state_name y se deduplica por id + tipo.
+     1.246 filas -> 415 ubicaciones reales: 20 departamentos y 395 barrios.
+     (Reportado a Frank Payares el 31/08/2026.) */
+  const vistos = new Set();
+  const limpios = [];
+  for (const x of items) {
+    const t = tipo(x);
+    if (!t) continue;                       // fila vacía del final del CSV
+    const clave = `${t}:${x.id}`;
+    if (vistos.has(clave)) continue;
+    vistos.add(clave);
+    limpios.push({
+      id: String(x.id || "").trim(),
+      name: String(x.name || "").trim(),    // vienen con espacios: "Aceguá "
+      location_type: t,
+      location_point: String(x.location_point || "").trim(),
+      state_id: String(x.state_id || "").trim(),
+      // state_name se omite a propósito: el dato es incorrecto en el origen.
+    });
+  }
+  const filasCrudas = items.length;
+  items = limpios;
+
   const states = items.filter((x) => tipo(x) === "state");
   const barrios = items.filter((x) => tipo(x) === "neighbourhood");
   const otros = items.filter((x) => tipo(x) !== "state" && tipo(x) !== "neighbourhood");
@@ -4559,12 +4589,105 @@ exports.icUbicaciones = onCall(async (request) => {
   } catch (e) { logger.warn("icUbicaciones: no se pudo guardar", e.message); }
 
   return {
-    ok: true, cantidad: items.length,
+    ok: true, cantidad: items.length, filasCrudas,
     states: states.length, neighbourhoods: barrios.length, otros: otros.length,
     tiposVistos: [...new Set(items.map(tipo))],
     diagnostico,
     muestraStates: states.slice(0, 25),
     muestraBarrios: (barrios.length ? barrios : items).slice(0, 10),
+  };
+});
+
+/* COBERTURA DEL MAPEO. Compara IC_DEPTOS e IC_ZONAS -las tablas que el feed XML
+   viene usando desde siempre- contra el catálogo real de la API.
+
+   Por qué importa: al publicar, el estate_id y el neighbourhood_id salen de esas
+   tablas. Si un id no existe en el catálogo, o existe pero corresponde a otro
+   barrio, la propiedad sale publicada en la zona equivocada y nos enteramos por
+   un cliente, no por un error.
+
+   Solo lee y compara. No publica ni modifica nada. */
+exports.icCobertura = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+
+  // Se lee el catálogo ya deduplicado que dejó icUbicaciones. Si nunca se corrió,
+  // se avisa en vez de comparar contra nada.
+  const base = db.doc("adminData/infocasasUbicaciones");
+  const cab = await base.get();
+  if (!cab.exists) {
+    throw new HttpsError("failed-precondition", "Corré icUbicaciones primero: no hay catálogo guardado.");
+  }
+  const lotes = await base.collection("lotes").get();
+  const barrios = [];
+  for (const d of lotes.docs) for (const it of (d.data().items || [])) barrios.push(it);
+  const states = cab.data().catalogoStates || [];
+
+  // Índices del catálogo por id.
+  const catBarrio = new Map();   // id -> {name, state_id}
+  for (const b of barrios) catBarrio.set(String(b.id), b);
+  const catState = new Map();
+  for (const st of states) catState.set(String(st.id), st);
+
+  // --- Departamentos ---
+  const depsMal = [];
+  for (const [nombre, id] of Object.entries(IC_DEPTOS)) {
+    const c = catState.get(String(id));
+    if (!c) { depsMal.push({ nuestro: nombre, id, problema: "el id no existe en el catálogo" }); continue; }
+    if (icNorm(c.name) !== icNorm(nombre)) {
+      depsMal.push({ nuestro: nombre, id, enCatalogo: c.name, problema: "el id apunta a otro departamento" });
+    }
+  }
+
+  // --- Zonas / barrios ---
+  // Varias entradas de IC_ZONAS comparten id a propósito: son alias para que el
+  // matching de texto agarre las variantes que escriben los agentes
+  // ("cerrito" y "cerrito de la victoria" -> 36). No son un error.
+  const inexistentes = [], distintos = [], coinciden = [];
+  const idsUsados = new Set();
+  for (const [depId, zonas] of Object.entries(IC_ZONAS)) {
+    for (const [nombre, id] of Object.entries(zonas)) {
+      idsUsados.add(String(id));
+      const c = catBarrio.get(String(id));
+      if (!c) { inexistentes.push({ depId: Number(depId), nuestro: nombre, id }); continue; }
+      const mismoDep = String(c.state_id) === String(depId);
+      if (icNorm(c.name) === icNorm(nombre) && mismoDep) { coinciden.push(id); continue; }
+      distintos.push({
+        depId: Number(depId), nuestro: nombre, id,
+        enCatalogo: c.name, depEnCatalogo: Number(c.state_id),
+        problema: !mismoDep ? "está en otro departamento" : "el nombre no coincide",
+      });
+    }
+  }
+
+  // Barrios del catálogo que no tenemos mapeados. Menos grave: el feed cae en la
+  // zona por defecto del departamento (IC_ZONA_DEFAULT).
+  const sinMapear = barrios
+    .filter((b) => !idsUsados.has(String(b.id)))
+    .map((b) => ({ id: b.id, nombre: b.name, depId: Number(b.state_id) }));
+
+  const porDep = {};
+  for (const b of sinMapear) porDep[b.depId] = (porDep[b.depId] || 0) + 1;
+
+  return {
+    catalogo: { departamentos: states.length, barrios: barrios.length },
+    nuestro: { departamentos: Object.keys(IC_DEPTOS).length, zonas: idsUsados.size },
+    // Lo que hay que mirar primero:
+    departamentosConProblema: depsMal,
+    zonasQueNoExisten: inexistentes,
+    zonasConNombreDistinto: distintos.slice(0, 80),
+    zonasConNombreDistintoTotal: distintos.length,
+    zonasOk: coinciden.length,
+    // Informativo:
+    barriosSinMapear: sinMapear.length,
+    barriosSinMapearPorDepartamento: porDep,
+    muestraSinMapear: sinMapear.slice(0, 40),
+    veredicto: (depsMal.length || inexistentes.length || distintos.length)
+      ? "Hay diferencias: revisá las listas antes de publicar."
+      : "El mapeo del feed XML coincide 100% con el catálogo de la API.",
   };
 });
 
