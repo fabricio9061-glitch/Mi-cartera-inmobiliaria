@@ -4598,6 +4598,52 @@ exports.icUbicaciones = onCall(async (request) => {
   };
 });
 
+/* BUSCADOR DEL CATÁLOGO. Busca ubicaciones de InfoCasas por nombre.
+
+   Existe porque los barrios se guardan en la subcolección "lotes" y las
+   subcolecciones NO heredan la regla de adminData/{doc}: desde el navegador no
+   se pueden leer. Sin esto habría que abrir Firestore a mano lote por lote.
+
+   Parámetros: q (texto, opcional), depId (número, opcional), todos (bool: trae
+   el listado completo del departamento, sin filtrar por texto).
+   Solo lee. */
+exports.icBuscarUbicacion = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const q = icNorm((request.data && request.data.q) || "");
+  const depId = request.data && request.data.depId != null ? String(request.data.depId) : null;
+  const todos = !!(request.data && request.data.todos);
+  if (!q && !todos) throw new HttpsError("invalid-argument", "Pasá q (texto) o todos:true con depId.");
+
+  const base = db.doc("adminData/infocasasUbicaciones");
+  const cab = await base.get();
+  if (!cab.exists) throw new HttpsError("failed-precondition", "Corré icUbicaciones primero.");
+  const lotes = await base.collection("lotes").get();
+  let items = [];
+  for (const d of lotes.docs) for (const it of (d.data().items || [])) items.push(it);
+  for (const st of (cab.data().catalogoStates || [])) items.push(st);
+
+  if (depId) items = items.filter((x) => String(x.state_id) === depId);
+  if (q) {
+    // Coincidencia por inclusión en ambos sentidos: "atlantida" encuentra
+    // "Atlántida Norte", y "ciudad del plata" encuentra "Ciudad del Plata".
+    items = items.filter((x) => {
+      const n = icNorm(x.name);
+      return n.includes(q) || q.includes(n);
+    });
+  }
+  items.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  return {
+    cantidad: items.length,
+    resultados: items.slice(0, 200).map((x) => ({
+      id: x.id, nombre: x.name, tipo: x.location_type, depId: Number(x.state_id),
+    })),
+  };
+});
+
 /* COBERTURA DEL MAPEO. Compara IC_DEPTOS e IC_ZONAS -las tablas que el feed XML
    viene usando desde siempre- contra el catálogo real de la API.
 
