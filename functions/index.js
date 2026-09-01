@@ -4448,7 +4448,9 @@ async function icFetch(path, { method = "GET", body = null, conCookie = false } 
   });
   const ok = res.status >= 200 && res.status < 300;
   if (!ok) logger.warn(`InfoCasas ${method} ${path} -> ${res.status}`, res.data);
-  return { ok, status: res.status, data: res.data };
+  // Se devuelve el content-type porque /location/download puede contestar un
+  // archivo (CSV) en vez de JSON y hay que saberlo para parsearlo bien.
+  return { ok, status: res.status, data: res.data, tipoContenido: String((res.headers && res.headers["content-type"]) || "") };
 }
 
 /* Trae el catálogo de ubicaciones de InfoCasas y lo guarda en Firestore.
@@ -4474,8 +4476,64 @@ exports.icUbicaciones = onCall(async (request) => {
                ? "La API Key fue rechazada. Revisá IC_API_KEY en el .env."
                : "Revisá IC_API_BASE o si cambió la ruta del catálogo." };
   }
-  const items = Array.isArray(r.data) ? r.data : (r.data && (r.data.data || r.data.results)) || [];
-  const tipo = (x) => String(x.location_type || x.locationType || "").toLowerCase();
+
+  /* El nombre "download" ya avisa que puede no ser JSON. Se prueban las formas
+     conocidas y, si ninguna sirve, se DEVUELVE LA FORMA REAL en vez de un cero
+     sin explicación: un catálogo vacío y un parser equivocado se ven igual desde
+     afuera, y eso nos costó una vuelta entera. */
+  const d = r.data;
+  let items = [];
+  let comoSeLeyo = "";
+
+  if (Array.isArray(d)) { items = d; comoSeLeyo = "array"; }
+  else if (d && typeof d === "object") {
+    for (const k of ["data", "results", "items", "locations", "content", "records", "rows"]) {
+      if (Array.isArray(d[k])) { items = d[k]; comoSeLeyo = `objeto.${k}`; break; }
+    }
+  } else if (typeof d === "string") {
+    const txt = d.trim();
+    if (txt.startsWith("[") || txt.startsWith("{")) {
+      try {
+        const j = JSON.parse(txt);
+        items = Array.isArray(j) ? j : (j.data || j.results || j.items || []);
+        comoSeLeyo = "json-en-texto";
+      } catch (e) { /* sigue abajo */ }
+    }
+    if (!items.length && txt.includes("\n")) {
+      // CSV o TSV. Se detecta el separador por la primera línea.
+      const lineas = txt.split(/\r?\n/).filter((l) => l.trim());
+      const cab = lineas[0] || "";
+      const sep = (cab.match(/;/g) || []).length > (cab.match(/,/g) || []).length ? ";"
+        : (cab.includes("\t") ? "\t" : ",");
+      const cols = cab.split(sep).map((c) => c.trim().replace(/^"|"$/g, ""));
+      items = lineas.slice(1).map((l) => {
+        const v = l.split(sep);
+        const o = {};
+        cols.forEach((c, i) => { o[c] = (v[i] || "").trim().replace(/^"|"$/g, ""); });
+        return o;
+      });
+      comoSeLeyo = `csv(sep="${sep === "\t" ? "tab" : sep}")`;
+    }
+  }
+
+  // Diagnóstico crudo: sale SIEMPRE, aunque el parseo haya funcionado.
+  const diagnostico = {
+    tipoContenido: r.tipoContenido,
+    tipoJs: Array.isArray(d) ? "array" : typeof d,
+    claves: d && typeof d === "object" && !Array.isArray(d) ? Object.keys(d).slice(0, 20) : null,
+    largoTexto: typeof d === "string" ? d.length : null,
+    inicio: typeof d === "string" ? d.slice(0, 500) : null,
+    primerItem: items[0] || null,
+    comoSeLeyo: comoSeLeyo || "no se pudo leer",
+  };
+
+  if (!items.length) {
+    return { ok: false, cantidad: 0,
+             pista: "La API respondió 200 pero no se reconoció el formato. Mirá 'diagnostico'.",
+             diagnostico };
+  }
+
+  const tipo = (x) => String(x.location_type || x.locationType || x.type || "").toLowerCase();
   const states = items.filter((x) => tipo(x) === "state");
   const barrios = items.filter((x) => tipo(x) === "neighbourhood");
   const otros = items.filter((x) => tipo(x) !== "state" && tipo(x) !== "neighbourhood");
@@ -4486,28 +4544,27 @@ exports.icUbicaciones = onCall(async (request) => {
       actualizado: new Date().toISOString(),
       cantidad: items.length,
       states: states.length, neighbourhoods: barrios.length, otros: otros.length,
-      // Los states son pocos y son la puerta de entrada al mapeo: van enteros.
-      catalogoStates: states,
-      // Para ver la forma real del dato sin abrir los lotes.
-      ejemploBarrio: barrios[0] || null,
+      comoSeLeyo,
+      catalogoStates: states.slice(0, 500),
+      ejemploBarrio: barrios[0] || items[0] || null,
       tiposVistos: [...new Set(items.map(tipo))],
     });
-    // Barrios en lotes de 400. Se borran los lotes viejos primero para que un
-    // catálogo más chico no deje registros fantasma del anterior.
     const lotes = base.collection("lotes");
     const previos = await lotes.get();
-    for (const d of previos.docs) await d.ref.delete();
-    for (let i = 0; i < barrios.length; i += 400) {
-      await lotes.doc(String(i / 400).padStart(3, "0")).set({ items: barrios.slice(i, i + 400) });
+    for (const doc of previos.docs) await doc.ref.delete();
+    const paraLotes = barrios.length ? barrios : items;
+    for (let i = 0; i < paraLotes.length; i += 400) {
+      await lotes.doc(String(i / 400).padStart(3, "0")).set({ items: paraLotes.slice(i, i + 400) });
     }
   } catch (e) { logger.warn("icUbicaciones: no se pudo guardar", e.message); }
 
   return {
     ok: true, cantidad: items.length,
-    states: states.length, neighbourhoods: barrios.length,
+    states: states.length, neighbourhoods: barrios.length, otros: otros.length,
     tiposVistos: [...new Set(items.map(tipo))],
+    diagnostico,
     muestraStates: states.slice(0, 25),
-    muestraBarrios: barrios.slice(0, 10),
+    muestraBarrios: (barrios.length ? barrios : items).slice(0, 10),
   };
 });
 
