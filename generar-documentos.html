@@ -401,6 +401,11 @@
             <div class="fld"><label>Reajuste cada (meses)</label><input id="ctReajuste" type="number" value="12"></div>
             <div class="fld"><label>Índice</label><input id="ctIndice" value="Índice de Precios del Consumo (IPC) publicado por el Instituto Nacional de Estadística"></div>
           </div>
+          <div class="row2">
+            <div class="fld"><label>Correo del arrendador (notificaciones)</label><input id="ctMailArrendador" type="email" placeholder="opcional"></div>
+            <div class="fld"><label>Correo del arrendatario (notificaciones)</label><input id="ctMailArrendatario" type="email" placeholder="opcional"></div>
+          </div>
+          <div class="hint" style="margin:-4px 0 10px">Si los completás, quedan pactados como vía válida de notificación. Usá casillas que se revisen: una notificación enviada ahí se tiene por válida aunque no se lea.</div>
           <div class="fld"><label>Fecha del documento</label><input id="ctFecha" type="date"></div>
 
           <button class="gen-btn" onclick="ctGenerarPDF()"><i class="fas fa-file-arrow-down"></i> Generar y descargar contrato</button>
@@ -759,6 +764,24 @@
          salvo aviso en contra. Distinto de la rescisión anticipada, que ACORTA
          un plazo más largo. Las dos llegan al mismo lugar, pero esta se explica
          mejor y es la redacción que ya venían usando los propietarios. */
+      /* PINTURA. Va opcional porque no en todos los contratos se entrega
+         pintado, y una cláusula fija mentiría en los que no corresponde.
+         Es necesaria: sin ella, DESOCUPACIÓN solo exige devolver "en el estado
+         del inventario, salvo el deterioro normal", y el desgaste de pintura
+         tras un año entra cómodo en ese "deterioro normal". La obligación de
+         devolver pintado se sostiene mejor si consta que se recibió así. */
+      { id:'pintura', fija:false, titulo:'PINTURA',
+        rotulo:'Pintura', ayuda:'Se entrega pintado y se devuelve pintado, a costo del inquilino. Sin esto, el desgaste de pintura cuenta como deterioro normal.',
+        campos:[{id:'pinturaEntrega', label:'¿Quién entrega pintado? (arrendadora / no aplica)'}],
+        texto:function(d){
+        var entrega = (d.pinturaEntrega||'arrendadora').toLowerCase();
+        var previo = entrega.indexOf('no')===0
+          ? ''
+          : 'Se establece de común acuerdo que la parte arrendadora entrega la unidad pintada, siendo el costo de la pintura, mano de obra y demás gastos a su cargo.\n\n';
+        return previo+
+          'La parte arrendataria se obliga a devolver la unidad pintada, en las mismas condiciones recibidas, siendo en este caso los gastos de pintura, mano de obra y demás, a su costo.\n\n'+
+          'El desgaste de la pintura derivado del uso no se considerará deterioro normal a los efectos de la cláusula de DESOCUPACIÓN Y ENTREGA DE LLAVES.'; } },
+
       { id:'prorroga', fija:false, titulo:'PRÓRROGA',
         rotulo:'Prórroga', ayuda:'Un año con opción a dos: el plazo se extiende solo, salvo que alguien avise que no quiere.',
         campos:[{id:'prorrogaPlazo', label:'Se prorroga por (ej: un (1) año más)'},
@@ -832,7 +855,17 @@
 
       { id:'domicilios', fija:true, titulo:'DOMICILIOS Y NOTIFICACIONES', texto:function(d){
         return 'Las partes constituyen domicilio especial a todos los efectos judiciales y extrajudiciales del presente contrato en los indicados en la comparecencia, donde se tendrán por válidas todas las notificaciones que se cursen, mientras no se comunique fehacientemente su modificación.\n\n'+
-          'Las comunicaciones podrán realizarse por telegrama colacionado con aviso de entrega, carta certificada o cualquier otro medio que deje constancia fehaciente de su recepción.'; } },
+          'Se fija sede judicial en la ciudad de '+(d.departamento||'Montevideo')+'.\n\n'+
+          'Las comunicaciones podrán realizarse por telegrama colacionado con aviso de entrega, carta certificada o cualquier otro medio que deje constancia fehaciente de su recepción.'+
+          /* Los correos solo se imprimen si se cargaron. Si no, la cláusula
+             termina en el párrafo anterior y no queda ningún "____" colgando.
+             Ojo con el efecto: pactado el correo, la notificación enviada ahí
+             se tiene por válida aunque el destinatario no la lea. */
+          ((d.mailArrendador || d.mailArrendatario)
+            ? '\n\nAsimismo, serán válidas todas las notificaciones que se cursen entre sí a los siguientes correos electrónicos:'+
+              (d.mailArrendador ? '\n\nParte arrendadora: '+d.mailArrendador : '')+
+              (d.mailArrendatario ? '\nParte arrendataria: '+d.mailArrendatario : '')
+            : ''); } },
 
       { id:'firma', fija:true, titulo:'FIRMA Y EJEMPLARES', texto:function(d){
         return 'La parte arrendataria declara recibir en este acto un ejemplar del presente contrato y del inventario correspondiente.\n\n'+
@@ -1218,6 +1251,7 @@
         // Mes adelantado = se paga el mes que empieza; vencido = el que terminó.
         // La agencia trabaja adelantado, pero el texto estaba fijo en vencido.
         modalidadPago: (function(){ var e=document.getElementById('ctModalidadPago'); return e?e.value:'adelantado'; })(),
+        mailArrendador:ctVal('ctMailArrendador'), mailArrendatario:ctVal('ctMailArrendatario'),
         banco:ctVal('ctBanco')||'____', tipoCuenta:ctVal('ctTipoCuenta')||'____',
         titular:ctVal('ctTitular')||'____', numeroCuenta:ctVal('ctNumeroCuenta')||'____',
         reajuste:ctVal('ctReajuste')||'12', indice:ctVal('ctIndice'),
@@ -1230,6 +1264,7 @@
         montoDeposito:ctVal('ctMontoDep'), mesesDeposito:ctVal('ctMesesDep'), diasDevolucion:ctVal('ctDiasDev'),
         tasaMora:ctVal('ct_tasaMora'), mesMinimo:ctVal('ct_mesMinimo'), preavisoResc:ctVal('ct_preavisoResc'),
         prorrogaPlazo:ctVal('ct_prorrogaPlazo'), prorrogaAviso:ctVal('ct_prorrogaAviso'), prorrogaQuien:ctVal('ct_prorrogaQuien'),
+        pinturaEntrega:ctVal('ct_pinturaEntrega'),
         penalidad:ctVal('ct_penalidad'), avisoInspeccion:ctVal('ct_avisoInspeccion'),
         coberturas:ctVal('ct_coberturas'), montoSeguro:ctVal('ct_montoSeguro'),
         ejemplares:ejemplares, ejemplaresLetras: (NUM_LETRAS[ejemplares]||String(ejemplares))
