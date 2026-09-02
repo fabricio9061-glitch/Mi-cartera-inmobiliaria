@@ -385,7 +385,16 @@
           <div class="ct-sec">7 · Política de la agencia</div>
           <div class="hint" style="margin:-6px 0 10px">Se definen una vez. Quedan guardadas en este navegador.</div>
           <div class="row2">
+            <div class="fld"><label>Modalidad de pago</label>
+              <select id="ctModalidadPago">
+                <option value="adelantado">Mes adelantado</option>
+                <option value="vencido">Mes vencido</option>
+              </select>
+              <div class="hint">Adelantado: se paga el mes que empieza. Vencido: el que terminó.</div>
+            </div>
             <div class="fld"><label>Día límite de pago</label><input id="ctDiaLimite" type="number" value="18"></div>
+          </div>
+          <div class="row2">
             <div class="fld"><label>Preaviso (días)</label><input id="ctPreaviso" type="number" value="60"></div>
           </div>
           <div class="row2">
@@ -665,7 +674,9 @@
 
       { id:'precio', fija:true, titulo:'PRECIO, FORMA DE PAGO Y REAJUSTE', texto:function(d){
         return 'El precio del arrendamiento se fija en la suma mensual de '+d.monedaTexto+' '+d.precioLetras+' ('+d.monedaSimbolo+' '+d.precioNumero+'), importe que regirá durante el primer año de vigencia del presente contrato.\n\n'+
-          'El alquiler será abonado a mes vencido, dentro de los primeros '+d.diaLimite+' días corridos de cada mes, correspondiendo cada pago al mes calendario inmediato anterior.\n\n'+
+          (d.modalidadPago==='vencido'
+            ? 'El alquiler será abonado a mes vencido, dentro de los primeros '+d.diaLimite+' días corridos de cada mes, correspondiendo cada pago al mes calendario inmediato anterior.\n\n'
+            : 'El alquiler será abonado a mes adelantado, dentro de los primeros '+d.diaLimite+' días corridos de cada mes, correspondiendo cada pago al mes calendario en curso.\n\n')+
           'El pago se realizará mediante depósito o transferencia bancaria a la cuenta indicada por la parte arrendadora, conforme a los siguientes datos:\n\n'+
           'Banco: '+d.banco+'\nTipo de cuenta: '+d.tipoCuenta+'\nTitular: '+d.titular+'\nNúmero de cuenta: '+d.numeroCuenta+'\nMoneda: '+d.monedaCuenta+'\n\n'+
           'En caso de que el contrato comience en un día distinto al primero del mes, el alquiler correspondiente al período comprendido entre la fecha de inicio y el último día de ese mes será calculado proporcionalmente, tomando como base el precio mensual pactado.\n\n'+
@@ -728,6 +739,28 @@
         texto:function(d){
         return 'El incumplimiento por parte de la arrendataria de cualquiera de las obligaciones asumidas en el presente contrato facultará a la parte arrendadora a exigir su cumplimiento o a solicitar la rescisión del contrato, en ambos casos con más los daños y perjuicios que correspondan.\n\n'+
           'Se considerarán incumplimientos graves, sin que la enumeración sea taxativa: la falta de pago del alquiler, la falta de pago de las obligaciones accesorias a cargo de la parte arrendataria, el cambio de destino sin autorización, la cesión o el subarriendo no autorizados, la realización de reformas no autorizadas y la falta de contratación o mantenimiento de la garantía pactada.'; } },
+
+      /* PRÓRROGA. Es la forma en que se pacta "un año con opción a dos" sin
+         estirar el plazo: el contrato dura el plazo pactado y se extiende solo
+         salvo aviso en contra. Distinto de la rescisión anticipada, que ACORTA
+         un plazo más largo. Las dos llegan al mismo lugar, pero esta se explica
+         mejor y es la redacción que ya venían usando los propietarios. */
+      { id:'prorroga', fija:false, titulo:'PRÓRROGA',
+        rotulo:'Prórroga', ayuda:'Un año con opción a dos: el plazo se extiende solo, salvo que alguien avise que no quiere.',
+        campos:[{id:'prorrogaPlazo', label:'Se prorroga por (ej: un (1) año más)'},
+                {id:'prorrogaAviso', label:'Aviso previo para NO prorrogar (días)'},
+                {id:'prorrogaQuien', label:'Puede no prorrogar (arrendataria / arrendadora / cualquiera)'}],
+        texto:function(d){
+        var quien = (d.prorrogaQuien||'').toLowerCase();
+        var sujeto = quien.indexOf('arrendataria')>=0 ? 'La parte arrendataria'
+                   : quien.indexOf('arrendadora')>=0 ? 'La parte arrendadora'
+                   : 'Cualquiera de las partes';
+        var contrario = quien.indexOf('arrendataria')>=0 ? 'la parte arrendadora'
+                      : quien.indexOf('arrendadora')>=0 ? 'la parte arrendataria'
+                      : 'la otra parte';
+        return 'Vencido el plazo pactado, el presente contrato se prorrogará automáticamente por '+(d.prorrogaPlazo||'____')+', en las mismas condiciones, salvo lo previsto en el párrafo siguiente.\n\n'+
+          sujeto+' podrá optar por no prorrogar el contrato, comunicándolo a '+contrario+' por medio fehaciente con una anticipación mínima de '+(d.prorrogaAviso||'____')+' días corridos a la fecha de vencimiento del plazo original.\n\n'+
+          'Durante la prórroga se mantendrá el régimen de reajuste pactado en la cláusula de PRECIO, FORMA DE PAGO Y REAJUSTE.'; } },
 
       { id:'rescisionAnt', fija:false, titulo:'RESCISIÓN ANTICIPADA',
         rotulo:'Rescisión anticipada', ayuda:'Sin esta cláusula el inquilino queda atado al plazo completo, sin salida pactada.',
@@ -1150,6 +1183,9 @@
         precioNumero: precio.toLocaleString('es-UY'),
         precioLetras: numeroALetras(precio),
         diaLimite:ctVal('ctDiaLimite')||'18',
+        // Mes adelantado = se paga el mes que empieza; vencido = el que terminó.
+        // La agencia trabaja adelantado, pero el texto estaba fijo en vencido.
+        modalidadPago: (function(){ var e=document.getElementById('ctModalidadPago'); return e?e.value:'adelantado'; })(),
         banco:ctVal('ctBanco')||'____', tipoCuenta:ctVal('ctTipoCuenta')||'____',
         titular:ctVal('ctTitular')||'____', numeroCuenta:ctVal('ctNumeroCuenta')||'____',
         reajuste:ctVal('ctReajuste')||'12', indice:ctVal('ctIndice'),
@@ -1161,6 +1197,7 @@
         regimen: (_destino==='vivienda' ? (ctVal('ctRegimen')||'libre') : 'comercial'), permiso: ctVal('ctPermiso'),
         montoDeposito:ctVal('ctMontoDep'), mesesDeposito:ctVal('ctMesesDep'), diasDevolucion:ctVal('ctDiasDev'),
         tasaMora:ctVal('ct_tasaMora'), mesMinimo:ctVal('ct_mesMinimo'), preavisoResc:ctVal('ct_preavisoResc'),
+        prorrogaPlazo:ctVal('ct_prorrogaPlazo'), prorrogaAviso:ctVal('ct_prorrogaAviso'), prorrogaQuien:ctVal('ct_prorrogaQuien'),
         penalidad:ctVal('ct_penalidad'), avisoInspeccion:ctVal('ct_avisoInspeccion'),
         coberturas:ctVal('ct_coberturas'), montoSeguro:ctVal('ct_montoSeguro'),
         ejemplares:ejemplares, ejemplaresLetras: (NUM_LETRAS[ejemplares]||String(ejemplares))
