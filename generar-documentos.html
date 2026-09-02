@@ -733,7 +733,12 @@
         rotulo:'Rescisión anticipada', ayuda:'Sin esta cláusula el inquilino queda atado al plazo completo, sin salida pactada.',
         campos:[{id:'mesMinimo', label:'A partir del mes'},{id:'preavisoResc', label:'Preaviso (días)'},{id:'penalidad', label:'Compensación'}],
         texto:function(d){
-        return 'La parte arrendataria podrá rescindir anticipadamente el presente contrato a partir del mes '+(d.mesMinimo||'____')+' de vigencia, comunicándolo por medio fehaciente con una anticipación mínima de '+(d.preavisoResc||'____')+' días corridos, y abonando en concepto de compensación '+(d.penalidad||'____')+'.'; } },
+        // Si no se pacta compensación, la frase NO se escribe. Antes salía
+        // "en concepto de compensación ____", y un espacio en blanco en un
+        // contrato firmado es una invitación a que alguien lo complete después.
+        var comp = (d.penalidad||'').trim();
+        return 'La parte arrendataria podrá rescindir anticipadamente el presente contrato a partir del mes '+(d.mesMinimo||'____')+' de vigencia, comunicándolo por medio fehaciente con una anticipación mínima de '+(d.preavisoResc||'____')+' días corridos'+
+          (comp ? ', y abonando en concepto de compensación '+comp : ', sin obligación de abonar compensación alguna')+'.'; } },
 
       { id:'inspeccion', fija:false, titulo:'INSPECCIÓN DEL INMUEBLE',
         rotulo:'Inspección del inmueble', ayuda:'Permite inspeccionar avisando con antelación.',
@@ -3489,7 +3494,20 @@
       ctAgregar('arrendador'); ctAgregar('arrendatario');
       ctPintarOpcionales();
       ctPintarGarantia();
-      var f=document.getElementById('ctFecha'); if(f && !f.value) f.value=new Date().toISOString().slice(0,10);
+      // La fecha del documento arranca en hoy, pero lo normal es que el contrato
+      // se firme el día en que empieza. Mientras no se toque a mano, sigue al
+      // campo Inicio; en cuanto se edita, queda fija y no se pisa más.
+      var f=document.getElementById('ctFecha');
+      if(f){
+        if(!f.value){ f.value=new Date().toISOString().slice(0,10); f.dataset.auto='1'; }
+        f.addEventListener('input', function(){ f.dataset.auto='0'; });
+      }
+      var ini=document.getElementById('ctInicio');
+      if(ini && f){
+        ini.addEventListener('change', function(){
+          if(f.dataset.auto!=='0' && ini.value){ f.value=ini.value; ctPreview(); }
+        });
+      }
       // Todo el panel repinta la vista previa al tocar cualquier campo.
       document.getElementById('formContrato').addEventListener('input', ctPreview);
       ['ctInicio','ctVencimiento'].forEach(function(id){
