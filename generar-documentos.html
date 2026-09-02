@@ -552,18 +552,18 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="rangos.js?v=20260821b"></script>
-  <script src="malave-config.js?v=20260830b"></script>
   <script>
     // ===== Datos FIJOS del membrete (no cambian) =====
     var EMPRESA = {
       nombre: 'MALAVE INMOBILIARIA',
       titular: 'Anibal Fabricio Malave Azocar',
       rut: '219505710017',
-      celular: '+598 94533006',
+      celular: '+598 94 029 297',
       direccion: 'José Antonio Cabrera 3558, Montevideo',
       email: 'Malaveinmobiliaria@gmail.com'
     };
 
+    var ADMIN_EMAIL = 'fabricio9061@gmail.com';
     var db, auth, agentes = [], props = [];
     var agenteLogueado = '';   // nombre del agente que está usando la página
     var tipoOperacion = 'arrendamiento', modoProp = 'lista';
@@ -682,7 +682,9 @@
 
       { id:'estado', fija:true, titulo:'ESTADO DEL INMUEBLE E INVENTARIO', texto:function(d){
         return 'La parte arrendataria declara haber examinado el inmueble y recibirlo en buenas condiciones de uso y conservación, de conformidad con el inventario que las partes suscriben en la fecha, el cual se considera parte integrante del presente contrato.\n\n'+
-          'La parte arrendataria responderá por los daños ocasionados por ella, sus empleados, colaboradores, técnicos, profesionales, clientes, proveedores o cualquier otra persona que ingrese al inmueble con motivo de la actividad desarrollada.'; } },
+          (d.esVivienda
+            ? 'La parte arrendataria responderá por los daños ocasionados por ella, los integrantes de su núcleo familiar y cualquier otra persona que ingrese al inmueble con su autorización.'
+            : 'La parte arrendataria responderá por los daños ocasionados por ella, sus empleados, colaboradores, técnicos, profesionales, clientes, proveedores o cualquier otra persona que ingrese al inmueble con motivo de la actividad desarrollada.'); } },
 
       { id:'conservacion', fija:true, titulo:'USO, CONSERVACIÓN Y MANTENIMIENTO', texto:function(d){
         return 'La parte arrendataria se obliga a usar el inmueble conforme al destino pactado y a conservarlo en buen estado, realizando por su cuenta las reparaciones locativas y de mantenimiento ordinario que resulten necesarias por el uso.\n\n'+
@@ -700,7 +702,8 @@
 
       { id:'consumos', fija:true, titulo:'PAGOS DE CONSUMOS, GASTOS Y TRIBUTOS', texto:function(d){
         return 'Serán de cargo de la parte arrendataria los pagos correspondientes a UTE, OSE, gas, internet, telefonía, gastos comunes ordinarios, tributo domiciliario, tarifa de saneamiento y demás consumos o servicios vinculados con el uso del inmueble, incluyendo los generados durante el mes en que se produzca la desocupación.\n\n'+
-          'También serán de cargo de la parte arrendataria las tasas, habilitaciones, permisos, multas, recargos y demás gastos originados por el funcionamiento de la actividad comercial desarrollada en el inmueble.\n\n'+
+          (d.esVivienda ? ''
+            : 'También serán de cargo de la parte arrendataria las tasas, habilitaciones, permisos, multas, recargos y demás gastos originados por el funcionamiento de la actividad comercial desarrollada en el inmueble.\n\n')+
           'Serán de cargo de la parte arrendadora la contribución inmobiliaria, el impuesto de enseñanza primaria, los gastos comunes extraordinarios y las reparaciones estructurales del inmueble, salvo acuerdo expreso y escrito en contrario.'; } },
 
       { id:'titularidad', fija:true, titulo:'TITULARIDAD DE LOS SERVICIOS', texto:function(d){
@@ -736,7 +739,7 @@
         rotulo:'Inspección del inmueble', ayuda:'Permite inspeccionar avisando con antelación.',
         campos:[{id:'avisoInspeccion', label:'Aviso previo (horas)'}],
         texto:function(d){
-        return 'La parte arrendadora, o quien esta designe, podrá inspeccionar el inmueble para verificar su estado de conservación y el cumplimiento de las obligaciones del presente contrato, previa coordinación con la parte arrendataria con una antelación no menor a '+(d.avisoInspeccion||'____')+' horas, y en horarios que no perjudiquen el desarrollo normal de la actividad comercial.'; } },
+        return 'La parte arrendadora, o quien esta designe, podrá inspeccionar el inmueble para verificar su estado de conservación y el cumplimiento de las obligaciones del presente contrato, previa coordinación con la parte arrendataria con una antelación no menor a '+(d.avisoInspeccion||'____')+' horas, y en horarios que no perjudiquen '+(d.esVivienda?'la normal habitabilidad del inmueble':'el desarrollo normal de la actividad comercial')+'.'; } },
 
       { id:'seguros', fija:false, titulo:'SEGUROS',
         rotulo:'Seguros', ayuda:'Obliga al inquilino a contratar un seguro propio.',
@@ -746,7 +749,9 @@
 
       { id:'responsabilidad', fija:true, titulo:'RESPONSABILIDAD', texto:function(d){
         return 'La parte arrendadora no será responsable por robos, hurtos, daños causados por terceros o accidentes que no le sean imputables. Esta disposición no libera a la parte arrendadora de las reparaciones y obligaciones que legalmente le correspondan respecto de la conservación y estructura del inmueble.\n\n'+
-          'La parte arrendataria será responsable por los daños derivados del desarrollo de su actividad comercial y por los actos de sus empleados, colaboradores, profesionales, clientes, proveedores o terceros vinculados al establecimiento.'; } },
+          (d.esVivienda
+            ? 'La parte arrendataria será responsable por los daños derivados del uso del inmueble y por los actos de los integrantes de su núcleo familiar y de las personas que ingresen con su autorización.'
+            : 'La parte arrendataria será responsable por los daños derivados del desarrollo de su actividad comercial y por los actos de sus empleados, colaboradores, profesionales, clientes, proveedores o terceros vinculados al establecimiento.'); } },
 
       { id:'entrega', fija:true, titulo:'ENTREGA DEL INMUEBLE Y DE LAS LLAVES', texto:function(d){
         return 'Al finalizar el contrato, el inmueble deberá ser entregado: a) totalmente desocupado de personas y bienes; b) limpio y en condiciones adecuadas de uso y conservación; c) con todas las llaves, controles y accesorios recibidos; d) en el estado establecido en el inventario, salvo el deterioro normal derivado del tiempo y del uso correcto; y e) con los consumos, gastos, tasas y demás obligaciones a cargo de la parte arrendataria debidamente abonados.\n\n'+
@@ -1129,6 +1134,11 @@
         entre1:ctVal('ctEntre1'), entre2:ctVal('ctEntre2'),
         barrio:ctVal('ctBarrio'), departamento:ctVal('ctDepartamento')||'Montevideo',
         padron:ctVal('ctPadron'), destino:ctVal('ctDestino')||'____',
+        // Las cláusulas fijas comparten plantilla entre vivienda y comercial.
+        // Sin esta bandera arrastraban texto de actividad comercial a un
+        // contrato de casa habitación, contradiciendo la cláusula de DESTINO
+        // que justamente prohíbe el uso comercial.
+        esVivienda: (_destino==='vivienda'),
         monedaTexto: moneda==='USD'?'dólares estadounidenses':'pesos uruguayos',
         monedaSimbolo: moneda==='USD'?'US$':'$',
         monedaCuenta: moneda==='USD'?'Dólares estadounidenses':'Pesos uruguayos',
@@ -1550,9 +1560,15 @@
       return d.getDate()+' de '+MESES[d.getMonth()]+' de '+d.getFullYear();
     }
     // Con la ciudad adelante, para el encabezado del documento.
+    // Devuelve SOLO la fecha. Antes anteponía 'Montevideo, ' y como las
+    // plantillas ya escriben "En la ciudad de X, el día ...", el resultado era
+    // "el día Montevideo, 2 de septiembre de 2026", con la ciudad repetida. Peor
+    // en la cláusula de plazo: "contado desde el día Montevideo, 4 de setiembre",
+    // donde la ciudad no pinta nada.
+    // Si algún documento necesita ciudad + fecha, la antepone él (ver el recibo
+    // de comisión, que la escribe en su membrete).
     function fechaLarga(iso){
-      var f=fechaSola(iso);
-      return f ? 'Montevideo, '+f : '';
+      return fechaSola(iso) || '';
     }
 
     // ===== Construcción del PDF (una sola fuente para preview Y descarga) =====
@@ -1566,7 +1582,10 @@
       var moneda=document.getElementById('fMoneda').value;
       var agente=agenteActual();
       var cuerpo=armarCuerpo();
-      var fecha=fechaLarga(document.getElementById('fFecha').value) || 'Montevideo, ___ de _______ de ____';
+      var fechaSuelta=fechaLarga(document.getElementById('fFecha').value);
+      // Acá la fecha va sola arriba a la derecha, sin "En la ciudad de..." antes,
+      // así que la ciudad se antepone en este punto y no dentro de fechaLarga().
+      var fecha=fechaSuelta ? 'Montevideo, '+fechaSuelta : 'Montevideo, ___ de _______ de ____';
 
       // ---- Membrete: datos a la izquierda ----
       var y=60;
@@ -3501,6 +3520,14 @@
     }
 
     // ===== Init =====
+    var firebaseConfig = {
+      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+      projectId: "mi-cartera-inmobiliaria",
+      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+      messagingSenderId: "923595024127",
+      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+    };
     firebase.initializeApp(firebaseConfig);
     auth=firebase.auth(); db=firebase.firestore();
 
