@@ -2968,6 +2968,28 @@ function icApiAge(anios) {
   return 5;
 }
 
+/* Moneda. Confirmado en la doc actualizada (Juan Pablo / Frank, 01/09/2026):
+   campo "currency", numérico, OPCIONAL, con 1 (USD) POR DEFECTO.
+
+   Ese default es peligroso para nosotros: si el campo no viaja, un alquiler de
+   $U 46.600 se publica como US$ 46.600. Por eso icApiCurrency() nunca devuelve
+   vacío y el payload lo manda SIEMPRE explícito, aunque coincida con el default.
+
+   Los códigos coinciden con los del feed XML (monedaAlquiler: 1 = USD, 2 = UYU),
+   verificado contra el código del feed. No hay inversión.
+
+   PENDIENTE de confirmar con InfoCasas:
+     · Si ahora aceptan VENTA en pesos. El feed convierte a dólares porque solo
+       admitían USD; con este campo esa conversión podría dejar de hacer falta.
+     · Si administration.price hereda esta moneda. Hoy los gastos comunes van
+       siempre en pesos (IDmonedagc: 2) y la API no tiene moneda propia para
+       ellos: un alquiler en dólares con gastos en pesos no se puede expresar. */
+const IC_API_MONEDA = { USD: 1, UYU: 2 };
+
+function icApiCurrency(moneda) {
+  return IC_API_MONEDA[String(moneda || "").toUpperCase()] || IC_API_MONEDA.USD;
+}
+
 /* stratum es un concepto colombiano. Para Uruguay va "Sin Especificar" = 110. */
 const IC_API_STRATUM_UY = 110;
 
