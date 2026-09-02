@@ -4521,6 +4521,11 @@ const IC_API_KEY = process.env.IC_API_KEY || "";
 // inmobiliaria. Hoy /client devuelve una sola: Malave Inmobiliaria,
 // 5f6430c5-a32f-11f1-bc84-06cab93c00b5 (verificado 31/08/2026).
 const IC_CLIENT_ID = process.env.IC_CLIENT_ID || "";
+// Código de agente de InfoCasas. Si el cliente no tiene ningún agente asociado,
+// la API rechaza la creación por autenticación. Se da de alta en el panel de
+// InfoCasas y el código se pone acá. Si un usuario del CRM tiene su propio
+// icAgentId, ese gana sobre este valor.
+const IC_CLIENT_AGENT = process.env.IC_CLIENT_AGENT || "";
 
 /* El client_id se pide una vez y se guarda en memoria. La instancia de la
    función vive un rato entre llamadas, así que esto ahorra un GET /client por
@@ -4719,6 +4724,267 @@ exports.icUbicaciones = onCall(async (request) => {
     muestraStates: states.slice(0, 25),
     muestraBarrios: (barrios.length ? barrios : items).slice(0, 10),
   };
+});
+
+/* ============================================================================
+   PUBLICACIÓN POR API (POST /listing)
+   ----------------------------------------------------------------------------
+   Convive con feedInfocasas (XML), que sigue vivo hasta el sunset. No se toca.
+
+   El flujo es ASÍNCRONO y en tres pasos:
+     1) POST /listing            -> devuelve task_id (NO publica todavía)
+     2) GET  /task/{task_id}     -> COMPLETED o ERROR
+     3) del resultado sale el listing_id, que hay que GUARDAR: es lo único que
+        después permite editar o dar de baja el aviso.
+   ========================================================================== */
+
+/* PROPERTY_CONDITION de la ficha -> "condition" de la API.
+   ATENCIÓN: los ids NO son los mismos que usa el feed XML. En el XML,
+   "buen estado" es 4; en la API, 4 es "Remodelado" y "Bueno" es 3. Copiar la
+   tabla del feed publicaría todas las propiedades usadas como remodeladas.
+   "usado" va a 0 (sin especificar): no afirmamos un estado que el agente no
+   declaró. */
+const IC_API_CONDICION = {
+  "nuevo": 1,            // Nueva marca
+  "buen estado": 3,      // Bueno
+  "renovado": 4,         // Remodelado
+  "en construccion": 6,  // Desarrollo
+  "usado": 0,            // Sin especificar
+};
+
+/* view_map: 0 punto geográfico, 1 oculto, 2 mostrar solo zona. */
+function icApiViewMap(ficha) {
+  const v = icNorm((ficha || {}).IC_UBICACION);
+  if (v === "punto exacto") return 0;
+  if (v === "punto aproximado") return 2;
+  return 0;
+}
+
+/* Arma el cuerpo del POST/PATCH /listing a partir de una propiedad del CRM.
+   Devuelve { ok, payload, faltan } — si faltan campos obligatorios no se
+   inventa nada: se informa y no se publica. */
+async function icApiPayload(p, propId, agente) {
+  const F = p.ficha || {};
+  const u = p.ubicacion || {};
+  const faltan = [];
+
+  const externalCode = String(F.PROPERTY_CODE || propId || "").trim();
+  if (!externalCode) faltan.push("código de propiedad");
+
+  const offer = IC_API_OFERTA[String(p.type || "").toLowerCase()];
+  if (!offer) faltan.push(`tipo de operación no reconocido: "${p.type || ""}"`);
+
+  const propertyType = IC_API_TIPO[icNorm(p.realEstateType)];
+  if (!propertyType) faltan.push(`tipo de propiedad no reconocido: "${p.realEstateType || ""}"`);
+
+  const price = Number(p.price) || 0;
+  if (!(price > 0)) faltan.push("precio");
+
+  // area es obligatorio y positivo. Se prefiere lo edificado; si no hay, total.
+  const ta = Number(p.totalArea) || 0, ca = Number(p.builtArea) || 0;
+  const area = ca > 0 ? ca : ta;
+  if (!(area > 0)) faltan.push("superficie");
+
+  const lat = Number(u.lat != null ? u.lat : p.lat);
+  const lng = Number(u.lng != null ? u.lng : p.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) faltan.push("pin de ubicación (lat/lng)");
+
+  const depId = IC_DEPTOS[icNorm(p.departamento || u.departamento)];
+  if (!depId) faltan.push(`departamento no reconocido: "${p.departamento || u.departamento || ""}"`);
+  const zona = depId ? icZona(depId, p.ciudad || u.ciudad, u.barrio) : null;
+  if (!zona) faltan.push("zona/barrio no mapeado");
+
+  // address.address tiene maxLength 120 en el esquema: se recorta.
+  const direccion = String(u.direccionVisible || u.direccion || "").trim().slice(0, 120);
+  if (!direccion) faltan.push("dirección");
+
+  const descripcion = String(p.description || "").trim();
+  if (!descripcion) faltan.push("descripción");
+
+  // listing_contact es obligatorio y necesita al menos un mail y un teléfono.
+  const mail = String((agente && agente.email) || "").trim();
+  const tel = String(p.ownerWhatsapp || (agente && agente.whatsapp) || "").trim();
+  if (!mail) faltan.push("correo del agente");
+  if (!tel) faltan.push("teléfono del agente");
+
+  // Hasta 30 fotos según el esquema. El feed corta en 15; acá se aprovecha el
+  // tope real, que es lo que mejora el aviso.
+  const imgs = (p.images || []).filter(Boolean).slice(0, 30);
+  if (!imgs.length) faltan.push("fotos");
+
+  if (faltan.length) return { ok: false, faltan };
+
+  const payload = {
+    external_code: externalCode,
+    client_id: await icClientId(),
+    offer,
+    property_type: propertyType,
+    description: descripcion + (externalCode ? `\n\nRef.: ${externalCode}` : ""),
+    price: Math.round(price),
+    // SIEMPRE explícito: el default de la API es USD, así que omitirlo
+    // publicaría un alquiler en pesos como si fueran dólares.
+    currency: icApiCurrency(p.currency),
+    area,
+    stratum: IC_API_STRATUM_UY,
+    address: { address: direccion },
+    locations: {
+      location_point: { longitude: lng, latitude: lat },
+      view_map: icApiViewMap(F),
+      estate_id: Number(depId),
+      // OJO: en el POST el campo va SIN la "u" (neighborhood), mientras que el
+      // catálogo CSV usa NEIGHBOURHOOD con "u". Escribirlo mal es rechazo.
+      neighborhood_id: Number(zona),
+    },
+    listing_contact: {
+      emails: [{ is_main: true, email: mail, sort_order: 0 }],
+      phones: [{ phone: tel, is_whatsapp_number: true, is_click_to_call: true, sort_order: 0 }],
+    },
+    photos: imgs.map((url, i) => ({ sort_order: i + 1, is_main: i === 0, image: url })),
+  };
+
+  const agentId = Number(IC_CLIENT_AGENT || (agente && agente.icAgentId) || 0);
+  if (agentId > 0) payload.client_agent = agentId;
+
+  const cond = IC_API_CONDICION[icNorm(F.PROPERTY_CONDITION)];
+  if (cond) payload.condition = cond;
+
+  const rooms = icApiRooms(p.bedrooms);
+  if (rooms) payload.rooms = rooms;
+  const baths = icApiBaths(p.bathrooms);
+  if (baths) payload.baths = baths;
+
+  const cocheras = Number(F.PARKING_LOTS || 0) || (p.garage === "yes" ? 1 : 0);
+  const garages = icApiGarages(cocheras);
+  if (garages) payload.garages = garages;
+
+  const plantas = icApiFloor(F.FLOORS);
+  if (plantas) payload.floor = plantas;
+  if (typeof F.UNIT_FLOOR === "number" && F.UNIT_FLOOR > 0) {
+    payload.interior_floors = icApiFloor(F.UNIT_FLOOR);
+  }
+
+  if (typeof F.PROPERTY_AGE === "number") payload.age = icApiAge(F.PROPERTY_AGE);
+
+  // living_area = área privada, solo para casa/lote según el esquema.
+  const terreno = Number(F.LAND_AREA || 0);
+  if (terreno > 0 && (propertyType === "house" || propertyType === "lot")) {
+    payload.living_area = terreno;
+  }
+
+  const cats = icApiCategories(F);
+  if (cats.length) payload.categories = cats;
+
+  // administration solo aplica al alquiler. No tiene moneda propia: queda
+  // pendiente de confirmar si hereda currency del listing.
+  if (offer === "rent") {
+    const gc = Number(p.commonExpenses) || 0;
+    payload.administration = gc > 0
+      ? { is_included: false, price: Math.round(gc) }
+      : { is_included: true };
+  }
+
+  const video = String(p.videoUrl || "");
+  if (/youtu\.?be/i.test(video)) payload.video = video;
+
+  return { ok: true, payload };
+}
+
+/* Consulta el estado de una tarea hasta que termina. La publicación es
+   asíncrona: el POST solo encola. Se consulta con espera creciente para no
+   golpear la API, que tiene límite de peticiones (429). */
+async function icEsperarTarea(taskId, intentos) {
+  const max = intentos || 8;
+  for (let i = 0; i < max; i++) {
+    await new Promise((r) => setTimeout(r, 1500 + i * 1500));
+    const r = await icFetch(`/task/${encodeURIComponent(taskId)}`, { conCookie: true });
+    if (!r.ok) {
+      if (r.status === 429) continue;  // throttled: se reintenta
+      return { ok: false, status: r.status, detalle: r.data };
+    }
+    const d = r.data || {};
+    const t = d.task || d;
+    const estado = String(t.status || t.state || "").toUpperCase();
+    if (estado === "COMPLETED" || estado === "ERROR" || estado === "FAILED") {
+      return { ok: estado === "COMPLETED", estado, detalle: d };
+    }
+  }
+  return { ok: false, estado: "TIMEOUT", detalle: "La tarea no terminó a tiempo. Se puede consultar más tarde con el task_id." };
+}
+
+/* Publica UNA propiedad en InfoCasas por API.
+   Guarda icListingId en la propiedad: sin ese id no se puede editar ni dar de
+   baja después. */
+exports.publicarEnInfocasas = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const propertyId = String((request.data && request.data.propertyId) || "");
+  if (!propertyId) throw new HttpsError("invalid-argument", "Falta la propiedad.");
+  const soloVistaPrevia = !!(request.data && request.data.dryRun);
+
+  const pSnap = await db.doc(`properties/${propertyId}`).get();
+  if (!pSnap.exists) throw new HttpsError("not-found", "La propiedad no existe.");
+  const p = pSnap.data();
+
+  const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+  const agente = uSnap && uSnap.exists ? uSnap.data() : {};
+
+  const armado = await icApiPayload(p, pSnap.id, agente);
+  if (!armado.ok) {
+    return { ok: false, faltan: armado.faltan,
+             pista: "La ficha no tiene todo lo que exige InfoCasas. No se envió nada." };
+  }
+
+  // dryRun devuelve el cuerpo sin enviarlo: sirve para revisar el mapeo antes
+  // de tocar el portal.
+  if (soloVistaPrevia) return { ok: true, dryRun: true, payload: armado.payload };
+
+  const r = await icFetch("/listing", { method: "POST", body: [armado.payload], conCookie: true });
+  if (!r.ok) {
+    logger.warn(`publicarEnInfocasas ${propertyId} -> ${r.status}`, r.data);
+    return { ok: false, status: r.status, detalle: r.data };
+  }
+
+  const d = r.data || {};
+  const taskId = d.task_id || d.taskId || (d.data && d.data.task_id) || null;
+  if (!taskId) return { ok: false, detalle: d, pista: "La API respondió 200 pero no devolvió task_id." };
+
+  await pSnap.ref.update({ icTaskId: taskId, icEnviadoAt: new Date().toISOString() });
+
+  const fin = await icEsperarTarea(taskId);
+  const info = (fin.detalle && (fin.detalle.task || fin.detalle)) || {};
+  const listingId = info.listing_id || info.listingId ||
+    (Array.isArray(info.results) && info.results[0] && info.results[0].listing_id) || null;
+
+  if (fin.ok && listingId) {
+    await pSnap.ref.update({
+      icListingId: String(listingId),
+      icEstado: "publicado",
+      icPublicadoAt: new Date().toISOString(),
+    });
+    await registrarLog(propertyId, "InfoCasas: publicado", true, `listing ${listingId}`);
+    return { ok: true, taskId, listingId };
+  }
+
+  await pSnap.ref.update({ icEstado: fin.estado === "TIMEOUT" ? "pendiente" : "error" });
+  await registrarLog(propertyId, "InfoCasas: publicación", false, `${fin.estado || ""} ${JSON.stringify(fin.detalle || "").slice(0, 300)}`);
+  return { ok: false, taskId, estado: fin.estado, detalle: fin.detalle };
+});
+
+/* Consulta una tarea ya encolada. Útil cuando la publicación dio TIMEOUT: el
+   task_id queda guardado en la propiedad y se puede retomar sin republicar. */
+exports.icEstadoTarea = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const taskId = String((request.data && request.data.taskId) || "");
+  if (!taskId) throw new HttpsError("invalid-argument", "Falta taskId.");
+  const r = await icFetch(`/task/${encodeURIComponent(taskId)}`, { conCookie: true });
+  return { ok: r.ok, status: r.status, detalle: r.data };
 });
 
 /* EXPLORADOR GENÉRICO (solo lectura). Hace GET a una ruta de la API y devuelve
