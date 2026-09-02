@@ -2899,6 +2899,91 @@ const IC_COMODIDADES = {
   5: { HAS_AIR_CONDITIONING: 103, HAS_ATTIC: 104, HAS_BALCONY: 105, HAS_HEATING: 109 },
 };
 
+/* ============================================================================
+   MAPEO PARA LA API NUEVA (POST /listing)
+   ----------------------------------------------------------------------------
+   Convive con las tablas del feed XML de arriba, que siguen vivas: InfoCasas
+   confirmó que ambas integraciones van a coexistir un tiempo antes del sunset.
+   NO se tocan IC_TIPO_PROP ni IC_COMODIDADES.
+
+   Diferencia principal: el XML usaba números para todo. La API usa strings para
+   tipo y oferta, y una lista ÚNICA de categorías para todos los tipos de
+   propiedad. Eso elimina IC_COMODIDADES, donde el mismo balcón era 41 en casa
+   y 1 en apartamento.
+   ========================================================================== */
+
+/* realEstateType del CRM -> property_type de la API. */
+const IC_API_TIPO = {
+  casa: "house", apartamento: "apartment", apto: "apartment",
+  terreno: "lot", local: "commercial", oficina: "office",
+  campo: "farm", chacra: "farm", quinta: "farm",
+  galpon: "industrial", deposito: "industrial", tinglado: "industrial",
+  garaje: "parking", cochera: "parking",
+  edificio: "building", hotel: "hotel",
+};
+
+/* p.type del CRM -> offer. "lease" es alquiler vacacional y hoy no se usa: el
+   CRM solo maneja sale y rent. Queda mapeado por si más adelante se agrega. */
+const IC_API_OFERTA = { sale: "sell", rent: "rent", temporada: "lease" };
+
+/* Booleanos de la ficha -> ids de "categories".
+   Lista única del Anexo, sin variar por tipo de propiedad.
+   OJO: varias claves caen en el MISMO id (balcón y terraza son 16; jardín y
+   patio son 70; las dos lavanderías son 25), así que el array final se
+   deduplica sí o sí.
+   HAS_MAID_ROOM (servicio) no tiene equivalente en la lista nueva: se pierde. */
+const IC_API_CATEGORIES = {
+  HAS_AIR_CONDITIONING: 36, HAS_ATTIC: 40, FURNISHED: 69, HAS_LIFT: 20,
+  HAS_BALCONY: 16, HAS_TERRACE: 16,
+  HAS_HEATING: 45, HAS_INDOOR_FIREPLACE: 8, HAS_NATURAL_GAS: 37,
+  HAS_GYM: 23, HAS_CABLE_TV: 34, HAS_JACUZZI: 10,
+  HAS_GARDEN: 70, HAS_PATIO: 70,
+  HAS_LAUNDRY: 25, HAS_COMMON_LAUNDRY: 25,
+  HAS_GRILL: 13, HAS_SWIMMING_POOL: 27, HAS_PLAYROOM: 28,
+  HAS_PARTY_ROOM: 29, HAS_SAUNA: 76,
+  HAS_DRESSING_ROOM: 18, HAS_CLOSETS: 216,
+  _DEPOSITO: 2,
+};
+
+/* Los enums de la API son escalones, no números libres: mandar 25 habitaciones
+   o 12 baños es rechazo. Cada helper recorta al tope de su enum. */
+function icApiTramo(n, max, masDe) {
+  const v = Math.round(Number(n) || 0);
+  if (v <= 0) return 0;
+  return v > max ? (masDe != null ? masDe : max) : v;
+}
+const icApiRooms   = (n) => icApiTramo(n, 19, 20);  // "más de 19" = 20
+const icApiBaths   = (n) => icApiTramo(n, 9, 10);   // "más de nueve" = 10
+const icApiGarages = (n) => icApiTramo(n, 10, 11);  // "más de 10" = 11
+const icApiFloor   = (n) => { const v = icApiTramo(n, 16, 18); return v; }; // "más de 16" = 18
+
+/* Antigüedad en años -> enum age. */
+function icApiAge(anios) {
+  const a = Number(anios);
+  if (!Number.isFinite(a) || a < 0) return 0;   // indefinido
+  if (a < 1) return 1;
+  if (a <= 8) return 2;
+  if (a <= 15) return 3;
+  if (a <= 30) return 4;
+  return 5;
+}
+
+/* stratum es un concepto colombiano. Para Uruguay va "Sin Especificar" = 110. */
+const IC_API_STRATUM_UY = 110;
+
+/* Arma el array de categories a partir de la ficha, ya deduplicado. */
+function icApiCategories(ficha) {
+  const f = ficha || {};
+  const ids = new Set();
+  for (const [clave, id] of Object.entries(IC_API_CATEGORIES)) {
+    if (clave === "_DEPOSITO") continue;
+    const v = f[clave];
+    if (v === true || v === "true" || v === 1 || v === "1") ids.add(id);
+  }
+  if (Number(f.WAREHOUSES || 0) > 0) ids.add(IC_API_CATEGORIES._DEPOSITO);
+  return [...ids];
+}
+
 function icNorm(s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim(); }
 // Escapa para XML y ELIMINA caracteres de control inválidos (quedan tab/salto de
 // línea, que sí son legales). Un solo carácter invisible pegado desde Word en UNA
