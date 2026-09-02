@@ -859,7 +859,15 @@
       { id:'devolucionViv', fija:true, soloVivienda:true, titulo:'DESOCUPACIÓN Y ENTREGA DE LLAVES', texto:function(d){
         var apertura = (d.regimen==='14219')
           ? 'Cumplido el plazo mínimo legal, la parte arrendataria podrá desocupar el inmueble comunicándolo por medio fehaciente con una anticipación mínima de '+d.preaviso+' días corridos.'
-          : 'La parte arrendataria deberá comunicar su intención de desocupar el inmueble por medio fehaciente, con una anticipación mínima de '+d.preaviso+' días corridos.';
+          /* Antes decía solo "deberá comunicar su intención de desocupar... con
+             una anticipación mínima de N días", sin decir CUÁNDO puede hacerlo.
+             Leída sola, habilitaba a irse en cualquier momento avisando con N
+             días, y eso vaciaba el plazo firme de la cláusula de PLAZO. Ahora se
+             ancla al vencimiento, y a la prórroga cuando está pactada. */
+          : ('La parte arrendataria deberá comunicar su intención de desocupar el inmueble al vencimiento del plazo'+
+             (ctOpcionalesOn['prorroga'] ? ', o de su prórroga si esta operase,' : '')+
+             ' por medio fehaciente y con una anticipación mínima de '+d.preaviso+' días corridos.\n\n'+
+             'Fuera de ese supuesto, la parte arrendataria no podrá desocupar el inmueble antes del vencimiento del plazo pactado, salvo que se hubiera convenido expresamente una cláusula de rescisión anticipada.');
         return apertura+'\n\n'+
           'Al finalizar el contrato, el inmueble deberá entregarse: a) totalmente desocupado de personas y bienes; b) limpio y en condiciones adecuadas de uso y conservación; c) con todas las llaves, controles y accesorios recibidos; d) en el estado establecido en el inventario, salvo el deterioro normal derivado del tiempo y del uso correcto; y e) con los consumos, gastos, tasas y demás obligaciones a cargo de la parte arrendataria debidamente abonados.\n\n'+
           'Las partes realizarán una inspección final del inmueble y su comparación con el inventario firmado al inicio. La entrega de llaves deberá efectuarse a la parte arrendadora o a persona expresamente autorizada, contra recibo escrito.'; } },
