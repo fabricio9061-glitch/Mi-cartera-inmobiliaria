@@ -273,6 +273,37 @@
       /* "Volver al inicio" no entra cómodo en pantallas chicas */
       .back-link span, .ad-back span{ display:none; }
     }
+
+    /* ===== Sitio (testimonios y solicitudes) ===== */
+    .st-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+    .st-tab{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:9px 16px;
+      cursor:pointer;font-family:inherit;font-size:.88rem;font-weight:600;color:var(--ink);
+      display:inline-flex;align-items:center;gap:8px}
+    .st-tab.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+    .st-tab b{background:#C9A227;color:#fff;border-radius:9px;padding:1px 7px;font-size:.75rem}
+    .st-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px;margin-bottom:11px}
+    .st-h{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:9px}
+    .st-h b{font-size:.95rem}
+    .st-rol{color:var(--muted,#6b7280);font-size:.82rem}
+    .st-when{margin-left:auto;color:var(--muted,#9aa0a6);font-size:.78rem}
+    .st-txt{font-style:italic;line-height:1.5;font-size:.9rem;background:rgba(0,0,0,.02);
+      border-radius:9px;padding:11px 13px;white-space:pre-wrap;word-break:break-word}
+    .st-rows{display:flex;flex-direction:column;gap:6px;font-size:.86rem}
+    .st-row{display:flex;gap:10px}
+    .st-row .lbl{min-width:78px;color:var(--muted,#6b7280)}
+    .st-row span{word-break:break-word}
+    .st-f{display:flex;align-items:center;gap:10px;margin-top:11px;flex-wrap:wrap}
+    .st-donde{color:var(--muted,#9aa0a6);font-size:.8rem}
+    .st-acts{margin-left:auto;display:flex;gap:7px;flex-wrap:wrap}
+    .st-bar{background:#fffdf5;border:1px solid #eee6cf;border-left:4px solid #C9A227;border-radius:12px;
+      padding:11px 15px;font-weight:700;margin-bottom:13px;color:#9a7d12;font-size:.88rem}
+    .st-bar.ok{border-left-color:#2ecc71;color:#27ae60;background:var(--card);border-color:var(--line)}
+    .st-chips{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:12px;
+      padding:4px;width:fit-content;flex-wrap:wrap;margin-bottom:14px}
+    .st-chip{border:none;background:transparent;cursor:pointer;border-radius:9px;padding:7px 14px;
+      font-size:.85rem;font-weight:600;color:var(--muted,#666);font-family:inherit}
+    .st-chip.on{background:var(--navy);color:#fff}
+    @media(max-width:640px){.st-acts{margin-left:0;width:100%}.st-when{margin-left:0;width:100%}}
 </style>
 </head>
 <body>
@@ -311,10 +342,18 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js"></script>
 <script src="rangos.js?v=20260821b"></script>
-  <script src="malave-config.js?v=20260830b"></script>
 <script>
+  var firebaseConfig = {
+    apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
+    authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
+    projectId: "mi-cartera-inmobiliaria",
+    storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
+    messagingSenderId: "923595024127",
+    appId: "1:923595024127:web:b7104adcba6387a5a84eca"
+  };
   firebase.initializeApp(firebaseConfig);
   var auth = firebase.auth(), db = firebase.firestore();
+  var ADMIN_EMAIL = "fabricio9061@gmail.com";
   var yo = null, seccion = 'bandeja';
 
   // ---- Utilidades ----
@@ -976,10 +1015,175 @@
     }catch(e){ console.error(e); toast('No se pudo guardar'); }
   }
 
-  function pintarSitio(c){
-    c.innerHTML = '<div class="vacio"><i class="fas fa-globe"></i><h3>Sitio</h3>' +
-      '<p>Testimonios y solicitudes todavía viven en el panel anterior.</p><p style="margin-top:14px"><a class="bd-btn" style="display:inline-block" href="index.html#admin">Abrir el panel anterior</a></p></div>';
+  /* ===== SITIO: testimonios y solicitudes de venta =====
+     Antes esta pestaña era un cartel que mandaba al panel anterior. Los botones
+     de aprobar, despublicar y eliminar existían, pero solo en index.html#admin,
+     así que había que saltar de un panel a otro para moderar un testimonio.
+
+     Las dos cosas llegan del sitio público, por eso comparten pestaña con dos
+     solapas: Testimonios (testimonials) y Solicitudes de venta (leadsVenta). */
+
+  var _stVer = 'testimonios', _stTesti = [], _stSol = [], _stSolF = 'nuevo';
+
+  function _stMs(v){
+    if(!v) return 0;
+    if(typeof v==='object' && typeof v.toDate==='function') return v.toDate().getTime();
+    if(typeof v==='object' && v.seconds) return v.seconds*1000;
+    var d=new Date(v); return isNaN(d.getTime())?0:d.getTime();
   }
+  function _stFecha(v){
+    var ms=_stMs(v);
+    return ms ? new Date(ms).toLocaleString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+  }
+  function _stWa(tel){
+    var d=String(tel||'').replace(/\D/g,'');
+    if(!d) return '';
+    if(d.indexOf('598')===0) return d;
+    if(d.charAt(0)==='0') d=d.slice(1);
+    return d.length<=9 ? '598'+d : d;
+  }
+  var _ST_TIPO={casa:'Casa',apartamento:'Apartamento',terreno:'Terreno',local:'Local',oficina:'Oficina',galpon:'Galpón',campo:'Campo',otro:'Otro'};
+
+  async function pintarSitio(c){
+    c.innerHTML = '<div class="ad-sec"><span>Cargando…</span><i></i></div>';
+    try{
+      var [ts, ls] = await Promise.all([
+        db.collection('testimonials').get(),
+        db.collection('leadsVenta').get().catch(function(){ return null; })
+      ]);
+      _stTesti = ts.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+      // Los pendientes primero: es lo único que pide una decisión.
+      _stTesti.sort(function(a,b){
+        if(!!a.approved !== !!b.approved) return a.approved ? 1 : -1;
+        return _stMs(b.createdAt) - _stMs(a.createdAt);
+      });
+      _stSol = ls ? ls.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); }) : [];
+      _stSol.sort(function(a,b){ return _stMs(b.createdAt) - _stMs(a.createdAt); });
+    }catch(e){
+      c.innerHTML = '<div class="vacio"><i class="fas fa-lock"></i><h3>No se pudo cargar</h3><p>'+
+        esc(e.code==='permission-denied' ? 'Sin permiso para leer testimonios o solicitudes.' : (e.message||e))+'</p></div>';
+      return;
+    }
+    renderSitio(c);
+  }
+
+  function renderSitio(c){
+    c = c || document.getElementById('cuerpo');
+    var pend = _stTesti.filter(function(t){ return !t.approved; }).length;
+    var nuevas = _stSol.filter(function(l){ return (l.estado||'nuevo')==='nuevo'; }).length;
+    var html = '<div class="st-tabs">'+
+      '<button class="st-tab'+(_stVer==='testimonios'?' on':'')+'" onclick="sitioVerTab(\'testimonios\')">'+
+        '<i class="fas fa-comment-dots"></i> Testimonios'+(pend?' <b>'+pend+'</b>':'')+'</button>'+
+      '<button class="st-tab'+(_stVer==='solicitudes'?' on':'')+'" onclick="sitioVerTab(\'solicitudes\')">'+
+        '<i class="fas fa-inbox"></i> Solicitudes de venta'+(nuevas?' <b>'+nuevas+'</b>':'')+'</button>'+
+      '</div><div id="stCuerpo"></div>';
+    c.innerHTML = html;
+    if(_stVer==='testimonios') renderTestis(); else renderSols();
+  }
+
+  function sitioVerTab(v){ _stVer=v; renderSitio(); }
+
+  function renderTestis(){
+    var c=document.getElementById('stCuerpo'); if(!c) return;
+    if(!_stTesti.length){
+      c.innerHTML='<div class="vacio"><i class="fas fa-comment-dots"></i><h3>Sin testimonios</h3>'+
+        '<p>Cuando alguien deje uno desde el sitio, aparece acá para que lo revises.</p></div>';
+      return;
+    }
+    var pend=_stTesti.filter(function(t){return !t.approved;});
+    var pub=_stTesti.filter(function(t){return t.approved;});
+    var tarjeta=function(t){
+      var donde = t.target==='agent' ? ('Perfil de '+(t.agentName||'agente')) : 'Inicio';
+      var estado = t.approved
+        ? '<span class="chip ok">Publicado</span>'
+        : '<span class="chip warn">Pendiente</span>';
+      var acciones = (t.approved
+        ? '<button class="bd-btn" onclick="stDespublicar(\''+escA(t.id)+'\')">Despublicar</button>'
+        : '<button class="bd-btn pri" onclick="stAprobar(\''+escA(t.id)+'\')">Aprobar</button>')+
+        '<button class="bd-btn" onclick="stBorrar(\''+escA(t.id)+'\')"><i class="fas fa-trash"></i></button>';
+      return '<div class="st-card">'+
+        '<div class="st-h"><b>'+esc(t.name||'Anónimo')+'</b>'+
+          (t.role?'<span class="st-rol">'+esc(t.role)+'</span>':'')+
+          estado+'<span class="st-when">'+esc(_stFecha(t.createdAt))+'</span></div>'+
+        '<div class="st-txt">'+esc(t.text||'')+'</div>'+
+        '<div class="st-f"><span class="st-donde"><i class="fas fa-map-pin"></i> '+esc(donde)+'</span>'+
+          '<span class="st-acts">'+acciones+'</span></div></div>';
+    };
+    var html='';
+    if(pend.length) html += '<div class="ad-sec"><span>Esperando revisión</span><b>'+pend.length+'</b><i></i></div>'+pend.map(tarjeta).join('');
+    if(pub.length)  html += '<div class="ad-sec"><span>Publicados</span><b>'+pub.length+'</b><i></i></div>'+pub.map(tarjeta).join('');
+    c.innerHTML=html;
+  }
+
+  async function stAprobar(id){
+    try{
+      await db.collection('testimonials').doc(id).update({approved:true});
+      var t=_stTesti.find(function(x){return x.id===id;}); if(t) t.approved=true;
+      _stTesti.sort(function(a,b){ if(!!a.approved!==!!b.approved) return a.approved?1:-1; return _stMs(b.createdAt)-_stMs(a.createdAt); });
+      renderSitio(); toast('Publicado'); contadores();
+    }catch(e){ console.error(e); toast('No se pudo publicar'); }
+  }
+  async function stDespublicar(id){
+    try{
+      await db.collection('testimonials').doc(id).update({approved:false});
+      var t=_stTesti.find(function(x){return x.id===id;}); if(t) t.approved=false;
+      renderSitio(); toast('Despublicado'); contadores();
+    }catch(e){ console.error(e); toast('No se pudo despublicar'); }
+  }
+  async function stBorrar(id){
+    // Borrar es definitivo y no hay papelera para testimonios: se confirma.
+    if(!confirm('¿Eliminar este testimonio? No se puede deshacer.')) return;
+    try{
+      await db.collection('testimonials').doc(id).delete();
+      _stTesti=_stTesti.filter(function(x){return x.id!==id;});
+      renderSitio(); toast('Eliminado'); contadores();
+    }catch(e){ console.error(e); toast('No se pudo eliminar'); }
+  }
+
+  function renderSols(){
+    var c=document.getElementById('stCuerpo'); if(!c) return;
+    var nuevas=_stSol.filter(function(l){return (l.estado||'nuevo')==='nuevo';}).length;
+    var chips=['nuevo','contactado','archivado','todos'].map(function(f){
+      var lbl={nuevo:'Nuevas',contactado:'Contactadas',archivado:'Archivadas',todos:'Todas'}[f];
+      return '<button class="st-chip'+(_stSolF===f?' on':'')+'" onclick="stSolFiltro(\''+f+'\')">'+lbl+'</button>';
+    }).join('');
+    var recs=_stSol.filter(function(l){ return _stSolF==='todos' || (l.estado||'nuevo')===_stSolF; });
+    var lista = recs.length ? recs.map(_stSolCard).join('')
+      : '<div class="vacio"><i class="fas fa-inbox"></i><h3>Nada por acá</h3><p>No hay solicitudes con ese filtro.</p></div>';
+    c.innerHTML='<div class="st-bar'+(nuevas?'':' ok')+'"><i class="fas fa-'+(nuevas?'bell':'check')+'"></i> '+
+      (nuevas? nuevas+(nuevas===1?' solicitud nueva sin contactar':' solicitudes nuevas sin contactar') : 'Todas las solicitudes fueron atendidas')+
+      '</div><div class="st-chips">'+chips+'</div>'+lista;
+  }
+  function stSolFiltro(f){ _stSolF=f; renderSols(); }
+
+  function _stSolCard(l){
+    var est=l.estado||'nuevo', wa=_stWa(l.telefono), r='';
+    r += '<div class="st-row"><span class="lbl">Teléfono</span><span>'+esc(l.telefono||'—')+'</span></div>';
+    if(l.email) r += '<div class="st-row"><span class="lbl">Email</span><span><a href="mailto:'+esc(l.email)+'">'+esc(l.email)+'</a></span></div>';
+    if(l.tipo)  r += '<div class="st-row"><span class="lbl">Quiere</span><span>'+esc(_ST_TIPO[l.tipo]||l.tipo)+'</span></div>';
+    if(l.zona)  r += '<div class="st-row"><span class="lbl">Zona</span><span>'+esc(l.zona)+'</span></div>';
+    if(l.mensaje) r += '<div class="st-row"><span class="lbl">Mensaje</span><span>'+esc(l.mensaje)+'</span></div>';
+    var f='';
+    if(wa) f += '<a class="bd-btn" href="https://wa.me/'+wa+'" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> WhatsApp</a>';
+    if(est!=='contactado') f += '<button class="bd-btn pri" onclick="stSolMarcar(\''+escA(l.id)+'\',\'contactado\')">Marcar contactada</button>';
+    if(est!=='archivado') f += '<button class="bd-btn" onclick="stSolMarcar(\''+escA(l.id)+'\',\'archivado\')">Archivar</button>';
+    else f += '<button class="bd-btn" onclick="stSolMarcar(\''+escA(l.id)+'\',\'nuevo\')">Reabrir</button>';
+    var badge={nuevo:'warn',contactado:'ok',archivado:''}[est]||'';
+    var lblE={nuevo:'Nueva',contactado:'Contactada',archivado:'Archivada'}[est]||est;
+    return '<div class="st-card"><div class="st-h"><b>'+esc(l.nombre||'(sin nombre)')+'</b>'+
+      '<span class="chip '+badge+'">'+lblE+'</span><span class="st-when">'+esc(_stFecha(l.createdAt))+'</span></div>'+
+      '<div class="st-rows">'+r+'</div><div class="st-f"><span class="st-acts">'+f+'</span></div></div>';
+  }
+  async function stSolMarcar(id,estado){
+    try{
+      await db.collection('leadsVenta').doc(id).update({estado:estado});
+      var l=_stSol.find(function(x){return x.id===id;}); if(l) l.estado=estado;
+      renderSitio();
+      toast(estado==='contactado'?'Marcada como contactada':estado==='archivado'?'Archivada':'Reabierta');
+      contadores();
+    }catch(e){ console.error(e); toast('No se pudo actualizar'); }
+  }
+
 
   // Contador de la bandeja en la pestaña, sin abrirla.
   async function contadores(){
