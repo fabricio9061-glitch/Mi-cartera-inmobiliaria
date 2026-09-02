@@ -729,10 +729,24 @@
 
       { id:'mora', fija:false, titulo:'MORA',
         rotulo:'Mora', ayuda:'Interés por atraso. OJO: la Ley 18.212 topea la tasa, y las cláusulas penales suman contra el mismo tope.',
-        campos:[{id:'tasaMora', label:'Interés moratorio (ej: 2% mensual)'}],
+        campos:[{id:'tasaMora', label:'Interés moratorio (se deja vacío = tope legal)'}],
         texto:function(d){
-        return 'La mora se producirá de pleno derecho por el solo vencimiento de los plazos pactados, sin necesidad de interpelación judicial o extrajudicial de ninguna especie.\n\n'+
-          'Todo atraso en el pago del alquiler o de las obligaciones accesorias devengará, desde el día siguiente al del vencimiento y hasta su efectiva cancelación, un interés moratorio de '+(d.tasaMora||'____')+'.'; } },
+        /* Esta cláusula pacta el INTERÉS y nada más.
+           Antes abría con "La mora se producirá de pleno derecho...", y eso
+           chocaba de frente con RÉGIMEN LEGAL APLICABLE, que reserva
+           expresamente la mora del alquiler a lo que disponga la ley. Leídas
+           juntas se anulaban. Cuándo se configura la mora lo resuelve aquella;
+           acá solo se fija cuánto se paga por el atraso.
+
+           El valor por defecto remite al tope de la Ley 18.212 en vez de dejar
+           un "____": el tope se calcula sobre las tasas medias que publica el
+           BCU cada trimestre, así que un número fijo escrito hoy puede quedar
+           fuera de tope durante la vigencia del contrato, y superarlo es delito.
+           Además un espacio en blanco en un contrato firmado es una invitación
+           a que alguien lo complete después. */
+        var tasa = (d.tasaMora||'').trim() ||
+          'la tasa máxima legal admitida por la Ley N.º 18.212 para intereses moratorios, vigente al momento de configurarse la mora';
+        return 'Todo atraso en el pago del alquiler o de las obligaciones accesorias devengará, desde el día siguiente al del vencimiento y hasta su efectiva cancelación, un interés moratorio de '+tasa+'.'; } },
 
       { id:'incumplimiento', fija:false, titulo:'INCUMPLIMIENTO Y RESCISIÓN',
         rotulo:'Incumplimiento y rescisión', ayuda:'Enumera qué se considera incumplimiento grave.',
@@ -777,7 +791,7 @@
         rotulo:'Inspección del inmueble', ayuda:'Permite inspeccionar avisando con antelación.',
         campos:[{id:'avisoInspeccion', label:'Aviso previo (horas)'}],
         texto:function(d){
-        return 'La parte arrendadora, o quien esta designe, podrá inspeccionar el inmueble para verificar su estado de conservación y el cumplimiento de las obligaciones del presente contrato, previa coordinación con la parte arrendataria con una antelación no menor a '+(d.avisoInspeccion||'____')+' horas, y en horarios que no perjudiquen '+(d.esVivienda?'la normal habitabilidad del inmueble':'el desarrollo normal de la actividad comercial')+'.'; } },
+        return 'La parte arrendadora, o quien ésta designe, podrá inspeccionar el inmueble para verificar su estado de conservación y el cumplimiento de las obligaciones del presente contrato, previa coordinación con la parte arrendataria con una antelación no menor a '+(d.avisoInspeccion||'____')+' horas, y en horarios que no perjudiquen '+(d.esVivienda?'la normal habitabilidad del inmueble':'el desarrollo normal de la actividad comercial')+'.'; } },
 
       { id:'seguros', fija:false, titulo:'SEGUROS',
         rotulo:'Seguros', ayuda:'Obliga al inquilino a contratar un seguro propio.',
@@ -1158,7 +1172,17 @@
     // ---- Recolección ----
     function ctVal(id){ var e=document.getElementById(id); return e?e.value.trim():''; }
     function ctListaPersonas(rol){
-      return ctPersonas[rol].filter(function(x){ return x.nombre.trim(); });
+      /* Se limpian los espacios sobrantes de TODOS los campos de la persona.
+         Antes solo se usaba .trim() para filtrar, pero el valor se copiaba tal
+         cual, y un espacio de más al final salía impreso en la comparecencia y
+         en los pies de firma: "Fernando Pérez Villalba ". */
+      return ctPersonas[rol]
+        .filter(function(x){ return x.nombre.trim(); })
+        .map(function(x){
+          var o = {};
+          for (var k in x) o[k] = (typeof x[k] === 'string') ? x[k].trim() : x[k];
+          return o;
+        });
     }
     function ctFraseParte(rol){
       var l=ctListaPersonas(rol);
