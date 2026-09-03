@@ -114,6 +114,7 @@
     </div>
 
     <div class="cards" id="tarjetas"></div>
+    <div class="aviso" id="avisoHuecos" style="display:none"></div>
 
     <div class="panel">
       <h2>Mes a mes</h2>
@@ -145,9 +146,16 @@
         <div class="fg"><label>Tipo</label><select id="gTipo" onchange="tipoCambio()"><option value="fijo">Fijo (mensual)</option><option value="puntual">Puntual</option></select></div>
         <div class="fg"><label id="lblDesde">Desde</label><input type="month" id="gDesde"></div>
         <div class="fg" id="wrapHasta"><label>Hasta (opcional)</label><input type="month" id="gHasta"></div>
-        <button class="btn" onclick="guardarGasto()"><i class="fas fa-plus"></i> Agregar</button>
+        <button class="btn" id="btnGuardar" onclick="guardarGasto()"><i class="fas fa-plus"></i> Agregar</button>
+        <button class="btn sec" id="btnCancelar" style="display:none" onclick="cancelarEdicion()">Cancelar</button>
       </div>
       <div id="tablaGastos"></div>
+    </div>
+
+    <div class="panel">
+      <h2>En qué se va la plata</h2>
+      <p class="ph">Gastos del período agrupados por categoría, de mayor a menor.</p>
+      <div id="porCategoria"></div>
     </div>
 
     <div class="panel">
@@ -218,10 +226,19 @@
 
   async function cargar(){
     try{
-      const [ps, gs] = await Promise.all([
+      const [ps, gs, rf] = await Promise.all([
         db.collection('properties').where('cierreConfirmado', '==', true).get(),
-        db.collection('agencyGastos').get()
+        db.collection('agencyGastos').get(),
+        db.collection('referidos').get().catch(() => null)
       ]);
+      /* Referidos: referidos/{uidReferido} guarda quién lo refirió y qué % cobra
+         sobre la ganancia de ese agente. Ese % también sale de la comisión de la
+         agencia, así que hay que descontarlo o el neto queda inflado. */
+      const refPorAgente = {};
+      if (rf) rf.forEach(d => {
+        const r = d.data();
+        refPorAgente[d.id] = { s: Number(r.pctSale) || 0, r: Number(r.pctRent) || 0 };
+      });
       _cierres = [];
       ps.forEach(d => {
         const p = d.data(), c = p.cierre;
@@ -235,12 +252,20 @@
         // Lo que se lleva el agente. Si el cierre lo trae explícito se respeta.
         const agente = (c.gananciaAgente != null && c.gananciaAgente !== '' && isFinite(Number(c.gananciaAgente)))
           ? Number(c.gananciaAgente) : 0;
+        // Participaciones de equipo: otros agentes que cobran un monto fijo de
+        // este cierre. Sale del mismo pozo, así que se resta.
+        const parts = Array.isArray(c.participantes) ? c.participantes : [];
+        const equipo = parts.reduce((a, x) => a + (Number(x.monto) || 0), 0);
+        // Referido: un % sobre la ganancia del agente que se lleva quien lo trajo.
+        const rp = refPorAgente[p.ownerId] || null;
+        const pctRef = rp ? (c.tipo === 'venta' ? rp.s : rp.r) : 0;
+        const referido = pctRef ? agente * pctRef / 100 : 0;
         _cierres.push({
           id: d.id, titulo: p.title || '(sin título)',
           mes: mesDe(c.fecha), fecha: c.fecha || '',
           moneda: c.moneda === 'UYU' ? 'UYU' : 'USD',
-          tipo: c.tipo || '', precio, bruto, agente,
-          neto: Math.max(0, bruto - agente),
+          tipo: c.tipo || '', precio, bruto, agente, equipo, referido,
+          neto: Math.max(0, bruto - agente - equipo - referido),
           agenteNombre: c.agenteNombre || ''
         });
       });
@@ -299,18 +324,53 @@
       gas: ms.reduce((a, m) => a + gas[mon][m], 0)
     });
     const tU = tot('USD'), tP = tot('UYU');
+    /* PUNTO DE EQUILIBRIO: cuánto necesita facturar la agencia POR MES para no
+       perder. Se calcula sobre los gastos FIJOS del último mes del período, que
+       es la foto vigente; los puntuales no entran porque no se repiten. */
+    const ultimo = ms.length ? ms[ms.length - 1] : null;
+    const fijosMes = mon => !ultimo ? 0 : _gastos
+      .filter(g => g.tipo === 'fijo' && (g.moneda === 'USD' ? 'USD' : 'UYU') === mon)
+      .reduce((a, g) => a + gastoEnMes(g, ultimo), 0);
+
     const tarj = (mon, t) => {
       const res = t.ing - t.gas;
       const margen = t.ing > 0 ? Math.round((res / t.ing) * 100) : null;
-      return '<div class="card"><div class="k">Ingresos ' + (mon === 'USD' ? 'USD' : 'pesos') + '</div>' +
-          '<div class="v">' + fmt(t.ing, mon) + '</div><div class="n">Neto de la agencia</div></div>' +
-        '<div class="card"><div class="k">Gastos ' + (mon === 'USD' ? 'USD' : 'pesos') + '</div>' +
-          '<div class="v">' + fmt(t.gas, mon) + '</div><div class="n">Fijos y puntuales</div></div>' +
-        '<div class="card"><div class="k">Resultado ' + (mon === 'USD' ? 'USD' : 'pesos') + '</div>' +
+      const n = Math.max(1, ms.length);
+      const eq = fijosMes(mon);
+      const etq = mon === 'USD' ? 'USD' : 'pesos';
+      return '<div class="card"><div class="k">Ingresos ' + etq + '</div>' +
+          '<div class="v">' + fmt(t.ing, mon) + '</div>' +
+          '<div class="n">' + fmt(t.ing / n, mon) + ' por mes en promedio</div></div>' +
+        '<div class="card"><div class="k">Gastos ' + etq + '</div>' +
+          '<div class="v">' + fmt(t.gas, mon) + '</div>' +
+          '<div class="n">' + fmt(t.gas / n, mon) + ' por mes en promedio</div></div>' +
+        '<div class="card"><div class="k">Resultado ' + etq + '</div>' +
           '<div class="v ' + (res >= 0 ? 'pos' : 'neg') + '">' + fmt(res, mon) + '</div>' +
-          '<div class="n">' + (margen == null ? 'Sin ingresos en el período' : 'Margen ' + margen + '%') + '</div></div>';
+          '<div class="n">' + (margen == null ? 'Sin ingresos en el período' : 'Margen ' + margen + '%') +
+          ' · ' + fmt(res / n, mon) + '/mes</div></div>' +
+        '<div class="card"><div class="k">Equilibrio ' + etq + '</div>' +
+          '<div class="v">' + fmt(eq, mon) + '</div>' +
+          '<div class="n">' + (eq > 0
+            ? 'Hay que facturar esto por mes para no perder'
+            : 'Cargá los gastos fijos para calcularlo') + '</div></div>';
     };
     document.getElementById('tarjetas').innerHTML = tarj('USD', tU) + tarj('UYU', tP);
+
+    // AVISO: meses con ingresos y CERO gastos. Casi siempre significa que falta
+    // cargar un gasto fijo con el "desde" correcto, no que no se gastó nada.
+    const huecos = [];
+    ['USD', 'UYU'].forEach(mon => ms.forEach(m => {
+      if (ing[mon][m] > 0 && gas[mon][m] === 0 && !huecos.includes(m)) huecos.push(m);
+    }));
+    const elAviso = document.getElementById('avisoHuecos');
+    if (huecos.length) {
+      elAviso.style.display = '';
+      elAviso.innerHTML = '<i class="fas fa-triangle-exclamation"></i> <b>' +
+        (huecos.length === 1 ? 'Un mes tiene' : huecos.length + ' meses tienen') +
+        ' ingresos y ningún gasto</b> (' + huecos.join(', ') + '). ' +
+        'Si en esos meses la agencia ya pagaba sueldos o alquiler, corregí el "desde" del gasto fijo: ' +
+        'se completa solo hacia atrás. Mientras tanto el resultado se ve mejor de lo que es.';
+    } else { elAviso.style.display = 'none'; }
 
     const graf = (mon, cont) => {
       const el = document.getElementById(cont);
@@ -339,6 +399,7 @@
     graf('USD', 'grafUSD'); graf('UYU', 'grafUYU');
 
     pintarGastos(ms);
+    pintarCategorias(ms);
     pintarIngresos(r);
   }
 
@@ -363,9 +424,40 @@
           '<td style="font-variant-numeric:tabular-nums;font-size:.82rem">' + esc(vig) + '</td>' +
           '<td class="num">' + fmt(g.monto, g.moneda) + '</td>' +
           '<td class="num"><b>' + fmt(enPeriodo, g.moneda) + '</b></td>' +
-          '<td class="num"><button class="btn danger mini" onclick="borrarGasto(\'' + esc(g.id) + '\')">' +
+          '<td class="num" style="white-space:nowrap">' +
+          '<button class="btn sec mini" onclick="editarGasto(\'' + esc(g.id) + '\')" title="Editar">' +
+          '<i class="fas fa-pen"></i></button> ' +
+          '<button class="btn danger mini" onclick="borrarGasto(\'' + esc(g.id) + '\')" title="Eliminar">' +
           '<i class="fas fa-trash"></i></button></td></tr>';
       }).join('') + '</tbody></table>';
+  }
+
+  /* En qué se va la plata. Ordenado de mayor a menor: lo primero de la lista es
+     donde conviene mirar si hay que recortar. */
+  function pintarCategorias(ms){
+    const el = document.getElementById('porCategoria');
+    const acum = { USD: {}, UYU: {} };
+    _gastos.forEach(g => {
+      const mon = g.moneda === 'USD' ? 'USD' : 'UYU';
+      const total = ms.reduce((a, m) => a + gastoEnMes(g, m), 0);
+      if (!total) return;
+      const cat = g.categoria || 'Otros';
+      acum[mon][cat] = (acum[mon][cat] || 0) + total;
+    });
+    const col = mon => {
+      const filas = Object.entries(acum[mon]).sort((a, b) => b[1] - a[1]);
+      if (!filas.length) return '<div class="vacio" style="padding:18px">Sin gastos en ' +
+        (mon === 'USD' ? 'dólares' : 'pesos') + '</div>';
+      const tot = filas.reduce((a, f) => a + f[1], 0);
+      return '<div class="barras">' + filas.map(([cat, v]) =>
+        '<div class="fila" style="grid-template-columns:112px 1fr">' +
+          '<span class="mes">' + esc(cat) + '</span>' +
+          '<div class="bg"><div class="bi gas" style="width:' + (v / filas[0][1] * 100) + '%"></div>' +
+          '<span class="bl">' + fmt(v, mon) + ' · ' + Math.round(v / tot * 100) + '%</span></div></div>').join('') +
+        '</div>';
+    };
+    el.innerHTML = '<div class="cols"><div><h3 style="font-size:1rem;margin-bottom:11px">Dólares</h3>' +
+      col('USD') + '</div><div><h3 style="font-size:1rem;margin-bottom:11px">Pesos</h3>' + col('UYU') + '</div></div>';
   }
 
   function pintarIngresos(r){
@@ -389,6 +481,38 @@
         '<td class="num"><b>' + fmt(x.neto, x.moneda) + '</b></td></tr>').join('') + '</tbody></table>';
   }
 
+  /* Editar: carga el gasto en el formulario y pasa a modo edición. Sin esto,
+     subir un sueldo obligaba a borrar y volver a escribir todo, y de paso se
+     perdía el historial de vigencias. */
+  let _editando = null;
+
+  function editarGasto(id){
+    const g = _gastos.find(x => x.id === id);
+    if (!g) return;
+    _editando = id;
+    document.getElementById('gConcepto').value = g.concepto || '';
+    document.getElementById('gCategoria').value = g.categoria || 'Otros';
+    document.getElementById('gMonto').value = g.monto || '';
+    document.getElementById('gMoneda').value = g.moneda || 'UYU';
+    document.getElementById('gTipo').value = g.tipo || 'fijo';
+    document.getElementById('gDesde').value = g.desde || '';
+    document.getElementById('gHasta').value = g.hasta || '';
+    tipoCambio();
+    document.getElementById('btnGuardar').innerHTML = '<i class="fas fa-check"></i> Guardar cambios';
+    document.getElementById('btnCancelar').style.display = '';
+    document.getElementById('gConcepto').focus();
+    document.getElementById('gConcepto').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function cancelarEdicion(){
+    _editando = null;
+    document.getElementById('gConcepto').value = '';
+    document.getElementById('gMonto').value = '';
+    document.getElementById('gHasta').value = '';
+    document.getElementById('btnGuardar').innerHTML = '<i class="fas fa-plus"></i> Agregar';
+    document.getElementById('btnCancelar').style.display = 'none';
+  }
+
   async function guardarGasto(){
     const concepto = document.getElementById('gConcepto').value.trim();
     const monto = Number(document.getElementById('gMonto').value) || 0;
@@ -406,10 +530,18 @@
         moneda: document.getElementById('gMoneda').value,
         createdAt: new Date().toISOString(), createdBy: _uid
       };
-      const ref = await db.collection('agencyGastos').add(doc);
-      _gastos.push(Object.assign({ id: ref.id }, doc));
-      document.getElementById('gConcepto').value = '';
-      document.getElementById('gMonto').value = '';
+      if (_editando) {
+        // No se pisa createdAt ni createdBy: sirven para saber quién lo cargó.
+        const { createdAt, createdBy, ...cambios } = doc;
+        cambios.updatedAt = new Date().toISOString();
+        await db.collection('agencyGastos').doc(_editando).update(cambios);
+        const i = _gastos.findIndex(x => x.id === _editando);
+        if (i >= 0) _gastos[i] = Object.assign({}, _gastos[i], cambios);
+      } else {
+        const ref = await db.collection('agencyGastos').add(doc);
+        _gastos.push(Object.assign({ id: ref.id }, doc));
+      }
+      cancelarEdicion();
       pintar();
     }catch(e){ console.error(e); alert('No se pudo guardar: ' + (e.message || e)); }
   }
