@@ -5064,6 +5064,16 @@ async function icApiPayload(p, propId, agente) {
   return { ok: true, payload };
 }
 
+/* El id de la tarea viene anidado como { task: { id } }. Antes se buscaba
+   task_id / taskId / data.task_id y ninguno existía: el POST creaba la tarea
+   pero la función no sabía con qué consultarla y devolvía "no devolvió task_id"
+   aunque la publicación estuviera en marcha. Se prueban todas las formas. */
+function icTaskId(d) {
+  if (!d || typeof d !== "object") return null;
+  const t = d.task || d.data || d;
+  return t.id || t.task_id || t.taskId || d.task_id || d.taskId || null;
+}
+
 /* Consulta el estado de una tarea hasta que termina. La publicación es
    asíncrona: el POST solo encola. Se consulta con espera creciente para no
    golpear la API, que tiene límite de peticiones (429). */
@@ -5079,9 +5089,13 @@ async function icEsperarTarea(taskId, intentos) {
     const d = r.data || {};
     const t = d.task || d;
     const estado = String(t.status || t.state || "").toUpperCase();
-    if (estado === "COMPLETED" || estado === "ERROR" || estado === "FAILED") {
-      return { ok: estado === "COMPLETED", estado, detalle: d };
-    }
+    /* READY es el estado con el que InfoCasas devuelve la tarea terminada bien;
+       antes solo se esperaba COMPLETED y toda publicación exitosa terminaba en
+       TIMEOUT. PENDING/PROCESSING/QUEUED siguen esperando. */
+    const OK = ["COMPLETED", "READY", "DONE", "SUCCESS", "FINISHED"];
+    const MAL = ["ERROR", "FAILED", "REJECTED", "CANCELLED"];
+    if (OK.includes(estado)) return { ok: true, estado, detalle: d };
+    if (MAL.includes(estado)) return { ok: false, estado, detalle: d };
   }
   return { ok: false, estado: "TIMEOUT", detalle: "La tarea no terminó a tiempo. Se puede consultar más tarde con el task_id." };
 }
@@ -5123,7 +5137,7 @@ exports.publicarEnInfocasas = onCall(async (request) => {
   }
 
   const d = r.data || {};
-  const taskId = d.task_id || d.taskId || (d.data && d.data.task_id) || null;
+  const taskId = icTaskId(d);
   if (!taskId) return { ok: false, detalle: d, pista: "La API respondió 200 pero no devolvió task_id." };
 
   await pSnap.ref.update({ icTaskId: taskId, icEnviadoAt: new Date().toISOString() });
@@ -5203,7 +5217,7 @@ exports.editarEnInfocasas = onCall(async (request) => {
     return { ok: false, status: r.status, detalle: r.data };
   }
   const d = r.data || {};
-  const taskId = d.task_id || d.taskId || (d.data && d.data.task_id) || null;
+  const taskId = icTaskId(d);
   if (!taskId) return { ok: false, detalle: d, pista: "La API respondió 200 pero no devolvió task_id." };
 
   await pSnap.ref.update({ icTaskId: taskId, icEnviadoAt: new Date().toISOString() });
@@ -5258,7 +5272,7 @@ exports.estadoEnInfocasas = onCall(async (request) => {
     return { ok: false, status: r.status, detalle: r.data };
   }
   const d = r.data || {};
-  const taskId = d.task_id || d.taskId || (d.data && d.data.task_id) || null;
+  const taskId = icTaskId(d);
   const fin = taskId ? await icEsperarTarea(taskId) : { ok: true, estado: "SIN_TAREA" };
 
   await pSnap.ref.update({
