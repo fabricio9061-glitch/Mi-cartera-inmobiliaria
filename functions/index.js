@@ -5095,9 +5095,14 @@ function icTaskId(d) {
    asíncrona: el POST solo encola. Se consulta con espera creciente para no
    golpear la API, que tiene límite de peticiones (429). */
 async function icEsperarTarea(taskId, intentos) {
-  const max = intentos || 8;
+  /* 12 intentos con espera creciente ≈ 2 minutos. Antes eran 8 (~50 s) y la
+     publicación de prueba tardó cinco minutos: toda publicación real habría
+     terminado en TIMEOUT aunque saliera bien. El TIMEOUT no pierde nada -el
+     task_id queda guardado y se consulta con icEstadoTarea- pero conviene que
+     el caso normal no dependa de eso. */
+  const max = intentos || 12;
   for (let i = 0; i < max; i++) {
-    await new Promise((r) => setTimeout(r, 1500 + i * 1500));
+    await new Promise((r) => setTimeout(r, 2000 + i * 2000));
     const r = await icFetch(`/task/${encodeURIComponent(taskId)}`, { conCookie: true });
     if (!r.ok) {
       if (r.status === 429) continue;  // throttled: se reintenta
@@ -5106,10 +5111,12 @@ async function icEsperarTarea(taskId, intentos) {
     const d = r.data || {};
     const t = d.task || d;
     const estado = String(t.status || t.state || "").toUpperCase();
-    /* READY es el estado con el que InfoCasas devuelve la tarea terminada bien;
-       antes solo se esperaba COMPLETED y toda publicación exitosa terminaba en
-       TIMEOUT. PENDING/PROCESSING/QUEUED siguen esperando. */
-    const OK = ["COMPLETED", "READY", "DONE", "SUCCESS", "FINISHED"];
+    /* READY NO es final: es "encolada". Verificado con la tarea de baja
+       16a61d3a, que devolvió READY al instante y pasó a COMPLETED setenta
+       segundos después. Contarlo como éxito hacía que la función avisara "listo"
+       antes de que la operación terminara, y un fallo posterior pasaba
+       inadvertido. Solo COMPLETED y equivalentes cierran la espera. */
+    const OK = ["COMPLETED", "DONE", "SUCCESS", "FINISHED"];
     const MAL = ["ERROR", "FAILED", "REJECTED", "CANCELLED"];
     if (OK.includes(estado)) return { ok: true, estado, detalle: d };
     if (MAL.includes(estado)) return { ok: false, estado, detalle: d };
