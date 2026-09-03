@@ -4883,6 +4883,27 @@ function icApiViewMap(ficha) {
   return 0;
 }
 
+/* Los teléfonos del CRM están guardados como los escribió cada agente: unos en
+   formato local ("099394554"), otros ya internacional ("+59893713410"). El feed
+   XML los mandaba crudos y InfoCasas los aceptaba, pero la API valida el formato
+   y devuelve 400 "Enter a valid phone number".
+
+   Uruguay: código 598, celulares de 9 dígitos que empiezan con 0 y se escriben
+   sin ese 0 al internacionalizar (099394554 -> +59899394554). */
+function icApiTelefono(tel) {
+  let d = String(tel || "").replace(/\D/g, "");
+  if (!d) return "";
+  if (d.startsWith("00")) d = d.slice(2);          // prefijo de salida
+  if (d.startsWith("598")) return "+" + d;          // ya viene con país
+  if (d.startsWith("0")) d = d.slice(1);            // 099... -> 99...
+  if (d.length < 8) return "";                      // demasiado corto: no se inventa
+  /* Si el campo trae DOS números ("099394554 / 22001234") quedarían pegados en
+     uno de 19 dígitos. Se toma el primero: en Uruguay, celular y fijo son 8
+     dígitos sin el 0. Más de 9 es que hay basura pegada. */
+  if (d.length > 9) d = d.slice(0, 8);
+  return "+598" + d;
+}
+
 /* Arma el cuerpo del POST/PATCH /listing a partir de una propiedad del CRM.
    Devuelve { ok, payload, faltan } — si faltan campos obligatorios no se
    inventa nada: se informa y no se publica. */
@@ -4935,9 +4956,14 @@ async function icApiPayload(p, propId, agente) {
 
   // listing_contact es obligatorio y necesita al menos un mail y un teléfono.
   const mail = String((agente && agente.email) || "").trim();
-  const tel = String(p.ownerWhatsapp || (agente && agente.whatsapp) || "").trim();
+  const telCrudo = String(p.ownerWhatsapp || (agente && agente.whatsapp) || "").trim();
+  const tel = icApiTelefono(telCrudo);
   if (!mail) faltan.push("correo del agente");
-  if (!tel) faltan.push("teléfono del agente");
+  if (!tel) {
+    faltan.push(telCrudo
+      ? `el teléfono "${telCrudo}" no tiene un formato válido`
+      : "teléfono del agente");
+  }
 
   // Hasta 30 fotos según el esquema. El feed corta en 15; acá se aprovecha el
   // tope real, que es lo que mejora el aviso.
