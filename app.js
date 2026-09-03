@@ -458,6 +458,7 @@
     const _verRenta = esCEO() ||
       (typeof Rangos !== 'undefined' && Rangos.esDireccion && Rangos.esDireccion(userProfile));
     document.getElementById('mvSideRenta')?.classList.toggle('hidden', !_verRenta);
+    document.getElementById('mvSideInteres')?.classList.toggle('hidden', !_verRenta);
     if (isAdminUser()) actualizarBadgePendientes();
     document.getElementById('mvSide')?.classList.add('open');
     document.getElementById('mvSideOverlay')?.classList.add('open');
