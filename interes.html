@@ -73,7 +73,16 @@
     .t5{ background:rgba(192,57,43,.15); color:#a5342a } .t4{ background:rgba(224,123,57,.18); color:#9c5510 }
     .t3{ background:rgba(201,162,39,.18); color:#8a6d12 } .t2{ background:rgba(127,147,173,.16); color:#5b6b80 }
     .t1,.t0{ background:var(--gray-100); color:var(--gray-400) }
-    .barras{ display:flex; flex-direction:column; gap:9px }
+    .barras{ display:flex; flex-direction:column; gap:14px }
+    .filaTop{ display:flex; flex-direction:column; gap:5px }
+    .filaTop:hover .ft-t{ text-decoration:underline }
+    .ft-h{ display:flex; align-items:baseline; gap:9px; flex-wrap:wrap }
+    .ft-t{ font-weight:600; font-size:.88rem; color:var(--primary) }
+    .ft-a{ font-size:.78rem; color:var(--gray-500) }
+    .ft-v{ margin-left:auto; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap }
+    .ft-m{ font-size:.76rem; color:var(--gray-400); font-variant-numeric:tabular-nums }
+    .filaTop .bg{ height:14px }
+    .desg{ display:block; font-size:.7rem; color:var(--gray-400); font-weight:400 }
     .fila{ display:grid; grid-template-columns:1fr 66px; gap:11px; align-items:center; font-size:.83rem }
     .bg{ position:relative; height:24px; background:var(--gray-100); border-radius:7px; overflow:hidden }
     .bi{ position:absolute; top:0; bottom:0; left:0; border-radius:7px; background:rgba(22,39,63,.75) }
@@ -158,7 +167,7 @@
 
     <div class="panel">
       <h2>Atención</h2>
-      <p class="ph">Mucha gente mira y nadie escribe. Suele ser precio o fotos, no falta de difusión.</p>
+      <p class="ph">Más de 30 vistas entre todos los portales y menos de 1% de contacto. Suele ser precio o fotos, no falta de difusión.</p>
       <div id="frias"></div>
     </div>
 
@@ -295,6 +304,11 @@
           destacada: p.featured === true, agente: p.ownerName || '',
           views, clics, dias, cML, cIC, consultas, vML, wML, qML,
           mlAt: p.mlMetricasAt || null,
+          /* Totales de TODAS las fuentes. La conversión con solo la web daba 0%
+             en casi todas —5 clics contra 276 vistas— mientras que en ML hay
+             1.556 visitas con 40 contactos. La columna estaba mintiendo. */
+          vistasTot: views + vML,
+          contactosTot: clics + wML + consultas + qML,
           // Movimiento de los últimos días contra la foto más vieja disponible.
           delta: (function(){
             const b = base[d.id];
@@ -311,7 +325,7 @@
              volumen, que no es lo mismo que lo que más interesa. */
           termo: dias ? (views + vML + (clics + wML) * 5 + (consultas + qML) * 15) / dias : null,
           vistasDia: dias ? views / dias : null,
-          conv: views > 0 ? (clics / views * 100) : null
+          conv: (views + vML) > 0 ? ((clics + wML + consultas + qML) / (views + vML) * 100) : null
         });
       });
       pintar();
@@ -342,7 +356,9 @@
     const l = filtradas();
     const sumV = l.reduce((a, p) => a + p.views, 0);
     const sumC = l.reduce((a, p) => a + p.clics, 0);
-    const conv = sumV > 0 ? (sumC / sumV * 100) : 0;
+    const sumVT = l.reduce((a, p) => a + p.vistasTot, 0);
+    const sumCT = l.reduce((a, p) => a + p.contactosTot, 0);
+    const conv = sumVT > 0 ? (sumCT / sumVT * 100) : 0;
     const sinDatos = l.filter(p => p.views === 0).length;
     const sumML = l.reduce((a, p) => a + p.cML, 0), sumIC = l.reduce((a, p) => a + p.cIC, 0);
     const sumVML = l.reduce((a, p) => a + p.vML, 0);
@@ -356,7 +372,7 @@
       '<div class="card"><div class="k">Clics a WhatsApp</div><div class="v">' + sumC.toLocaleString('es-UY') + '</div>' +
         '<div class="n">Desde la vitrina</div></div>' +
       '<div class="card"><div class="k">Conversión</div><div class="v">' + n1(conv) + '%</div>' +
-        '<div class="n">De los que miran, cuántos escriben</div></div>' +
+        '<div class="n">' + sumCT + ' contactos sobre ' + sumVT.toLocaleString('es-UY') + ' vistas</div></div>' +
       '<div class="card"><div class="k">Mercado Libre · 30 días</div><div class="v">' + sumVML.toLocaleString('es-UY') + '</div>' +
         '<div class="n">' + (sumVML ? sumWML + ' contactos · ' + sumQML + ' preguntas' : 'Todavía no se trajeron') + '</div></div>' +
       '<div class="card"><div class="k">Consultas de portales</div><div class="v">' + (sumML + sumIC).toLocaleString('es-UY') + '</div>' +
@@ -396,13 +412,16 @@
     el.innerHTML = top.map(p => {
       const col = TEMP_COLOR[tempNivel(p.termo)];
       const fl = flecha(p.delta);
-      return '<div class="fila"><div class="bg clic" onclick="abrirFicha(\'' + esc(p.id) + '\')" ' +
-        'title="Abrir la ficha de ' + esc(p.titulo) + '">' +
-        '<div class="bi" style="width:' + (p.termo / max * 100) + '%;background:' + col + '"></div>' +
-        '<span class="bl">' + esc(p.titulo.slice(0, 52)) + (p.destacada ? ' ⭐' : '') +
-        (p.agente ? '<b class="ag">' + esc(p.agente) + '</b>' : '') + '</span></div>' +
-        '<span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:' + col + '">' +
-        n1(p.termo) + fl + '</span></div>';
+      /* El nombre va ARRIBA de la barra, no adentro: adentro se cortaba contra el
+         borde y el agente quedaba a medias. Así se lee entero sin importar el
+         largo del título ni el ancho de la barra. */
+      return '<div class="filaTop clic" onclick="abrirFicha(\'' + esc(p.id) + '\')">' +
+        '<div class="ft-h"><span class="ft-t">' + esc(p.titulo) + (p.destacada ? ' ⭐' : '') + '</span>' +
+        (p.agente ? '<span class="ft-a">' + esc(p.agente) + '</span>' : '') +
+        '<span class="ft-v" style="color:' + col + '">' + n1(p.termo) + fl + '</span></div>' +
+        '<div class="bg"><div class="bi" style="width:' + (p.termo / max * 100) + '%;background:' + col + '"></div></div>' +
+        '<div class="ft-m">' + p.vistasTot + ' vistas · ' + p.contactosTot + ' contactos' +
+        (p.conv != null ? ' · ' + n1(p.conv) + '%' : '') + '</div></div>';
     }).join('');
   }
 
@@ -410,16 +429,18 @@
      clics no hay nada que concluir. */
   function pintarFrias(l){
     const el = document.getElementById('frias');
-    const f = l.filter(p => p.views >= 20 && p.conv != null && p.conv < 1.5)
-               .sort((a, b) => b.views - a.views).slice(0, 8);
+    // Se mira el total de todas las fuentes, no solo la web: una propiedad con
+    // 3 vistas propias y 137 en ML se juzga por las 140.
+    const f = l.filter(p => p.vistasTot >= 30 && p.conv != null && p.conv < 1)
+               .sort((a, b) => b.vistasTot - a.vistasTot).slice(0, 8);
     if (!f.length) {
       el.innerHTML = '<div class="vacio">Ninguna propiedad con muchas vistas y pocos contactos. Buena señal.</div>';
       return;
     }
     el.innerHTML = '<table><thead><tr><th>Propiedad</th><th>Precio</th><th class="num">Vistas</th>' +
-      '<th class="num">Clics</th><th class="num">Conversión</th></tr></thead><tbody>' +
+      '<th class="num">Contactos</th><th class="num">Conversión</th></tr></thead><tbody>' +
       f.map(p => '<tr><td>' + celdaProp(p) + '</td><td>' + esc(p.precio) + '</td>' +
-        '<td class="num">' + p.views + '</td><td class="num">' + p.clics + '</td>' +
+        '<td class="num">' + p.vistasTot + '</td><td class="num">' + p.contactosTot + '</td>' +
         '<td class="num" style="color:var(--danger);font-weight:600">' + n1(p.conv) + '%</td></tr>').join('') +
       '</tbody></table>';
   }
@@ -450,9 +471,8 @@
       '" onclick="ordenar(\'' + col + '\')">' + txt + (_ordCol === col ? (_ordAsc ? ' ↑' : ' ↓') : '') + '</th>';
     el.innerHTML = '<table><thead><tr><th>Propiedad</th><th>Precio</th><th>Estado</th>' +
       th('termo', 'Termómetro', 'num') + th('views', 'Vistas', 'num') + th('clics', 'Clics', 'num') +
-      th('vML', 'Vistas ML 30d', 'num') + th('wML', 'Cont. ML', 'num') + th('conv', 'Conversión', 'num') +
-      th('cML', 'Cons. ML', 'num') + th('cIC', 'Cons. IC', 'num') +
-      th('vistasDia', 'Vistas/día', 'num') + th('dias', 'Días', 'num') +
+      th('vistasTot', 'Vistas', 'num') + th('contactosTot', 'Contactos', 'num') +
+      th('conv', 'Conversión', 'num') + th('dias', 'Días', 'num') +
       '</tr></thead><tbody>' +
       orden.map(p => {
         const nivel = tempNivel(p.termo);
@@ -461,13 +481,15 @@
             (p.destacada ? '⭐ Destacada' : (p.estado === 'available' ? 'Disponible' : esc(p.estado))) + '</span></td>' +
           '<td class="num"><span class="term t' + nivel + '">' + (p.termo == null ? '—' : n1(p.termo)) + '</span>' +
             flecha(p.delta) + '</td>' +
-          '<td class="num">' + p.views + '</td><td class="num">' + p.clics + '</td>' +
-          '<td class="num"' + (p.vML ? ' style="font-weight:600"' : ' style="color:var(--gray-400)"') + '>' + p.vML + '</td>' +
-          '<td class="num"' + (p.wML ? ' style="font-weight:600"' : ' style="color:var(--gray-400)"') + '>' + p.wML + '</td>' +
-          '<td class="num">' + (p.conv == null ? '—' : n1(p.conv) + '%') + '</td>' +
-          '<td class="num"' + (p.cML ? ' style="font-weight:600"' : ' style="color:var(--gray-400)"') + '>' + p.cML + '</td>' +
-          '<td class="num"' + (p.cIC ? ' style="font-weight:600"' : ' style="color:var(--gray-400)"') + '>' + p.cIC + '</td>' +
-          '<td class="num">' + (p.vistasDia == null ? '—' : n1(p.vistasDia)) + '</td>' +
+          /* Un solo número por concepto, con el desglose en el tooltip. Antes eran
+             cinco columnas y la tabla se cortaba de lado. */
+          '<td class="num" title="' + p.views + ' en la web · ' + p.vML + ' en Mercado Libre">' +
+            '<b>' + p.vistasTot + '</b>' + (p.vML ? '<span class="desg">' + p.vML + ' ML</span>' : '') + '</td>' +
+          '<td class="num" title="' + p.clics + ' clics web · ' + p.wML + ' WhatsApp ML · ' +
+            p.cML + ' consultas ML · ' + p.qML + ' preguntas ML · ' + p.cIC + ' InfoCasas">' +
+            '<b>' + p.contactosTot + '</b></td>' +
+          '<td class="num"' + (p.conv != null && p.conv >= 2 ? ' style="color:var(--success);font-weight:600"' : '') + '>' +
+            (p.conv == null ? '—' : n1(p.conv) + '%') + '</td>' +
           '<td class="num" style="color:var(--gray-400)">' + (p.dias == null ? '—' : p.dias) + '</td></tr>';
       }).join('') + '</tbody></table>';
   }
