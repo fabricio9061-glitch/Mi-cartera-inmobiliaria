@@ -113,8 +113,11 @@
       meses siempre va a tener más que una de la semana pasada, aunque hoy no la mire nadie. Por eso el
       <b>termómetro</b> mide interés <b>por día publicado</b>, no el total: así se compara lo nuevo con lo viejo.
       <br><br>
-      Las interacciones <b>no pesan igual</b>: una vista vale 1, un clic a WhatsApp vale 5 y una consulta
-      de portal vale 15. Una vista es curiosidad, un clic es intención y una consulta es alguien que dejó
+      Los datos de Mercado Libre son de los <b>últimos 30 días</b> (los mismos que ves en el modal de
+      Portales); los de tu web son acumulados.
+      <br><br>
+      Las interacciones <b>no pesan igual</b>: una vista vale 1, un contacto vale 5 y una consulta
+      o pregunta vale 15. Una vista es curiosidad, un clic es intención y una consulta es alguien que dejó
       sus datos. Como referencia: <b>arriba de 3</b> es una propiedad caliente, <b>debajo de 0,5</b> casi
       no se mueve.
     </div>
@@ -128,7 +131,7 @@
         <select id="fDest" onchange="pintar()"><option value="">Todas</option><option value="si">Solo destacadas</option><option value="no">Sin destacar</option></select></div>
       <div class="fg"><label>Buscar</label><input id="fTexto" oninput="pintar()" placeholder="Título o barrio"></div>
       <div class="fg"><label>&nbsp;</label>
-        <button class="btn" id="btnML" onclick="traerML()"><i class="fas fa-rotate"></i> Traer visitas de ML</button></div>
+        <button class="btn" id="btnML" onclick="traerML()"><i class="fas fa-rotate"></i> Actualizar datos de ML</button></div>
     </div>
     <div id="estadoML" style="font-size:.82rem;color:var(--gray-500);margin:-8px 0 16px"></div>
 
@@ -221,8 +224,10 @@
   async function traerML(){
     const b = document.getElementById('btnML'), e = document.getElementById('estadoML');
     b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Consultando…';
+    // Es una llamada a ML por propiedad: con 42 tarda cerca de un minuto.
+    e.textContent = 'Consultando Mercado Libre propiedad por propiedad. Puede tardar un minuto.';
     try{
-      const r = await firebase.functions().httpsCallable('actualizarVisitasML')({});
+      const r = await firebase.functions().httpsCallable('actualizarMetricasML')({});
       const d = r.data || {};
       e.textContent = d.ok
         ? 'Listo: ' + d.actualizadas + ' de ' + d.propiedades + ' propiedades actualizadas' +
@@ -232,7 +237,7 @@
     }catch(err){
       e.textContent = 'No se pudo: ' + (err.message || err);
     }finally{
-      b.disabled = false; b.innerHTML = '<i class="fas fa-rotate"></i> Traer visitas de ML';
+      b.disabled = false; b.innerHTML = '<i class="fas fa-rotate"></i> Actualizar datos de ML';
     }
   }
 
@@ -276,22 +281,25 @@
         const dias = Number.isFinite(alta) ? Math.max(1, Math.round((hoy - alta) / 86400000)) : null;
         const views = Number(p.views) || 0, clics = Number(p.contactClicks) || 0;
         const cML = conML[d.id] || 0, cIC = conIC[d.id] || 0, consultas = cML + cIC;
-        // Visitas en Mercado Libre, traídas por actualizarVisitasML. Pesan igual
-        // que una vista de la web: es el mismo tipo de interacción.
-        const vML = Number(p.mlVisitas) || 0;
+        /* Métricas de Mercado Libre de los ÚLTIMOS 30 DÍAS, los mismos números
+           que muestra el modal de Portales. Antes se usaba un acumulado
+           histórico que no coincidía con lo que veías ahí. */
+        const vML = Number(p.mlVisitas30) || 0;
+        const wML = Number(p.mlWhatsapp30) || 0;
+        const qML = Number(p.mlPreguntas30) || 0;
         _props.push({
           id: d.id, titulo: p.title || '(sin título)',
           barrio: (p.ubicacion && (p.ubicacion.barrio || p.ubicacion.ciudad)) || p.ciudad || '',
           foto: (p.images && p.images[0]) || '', precio: precio(p),
           tipo: p.type || '', estado: p.status || 'available',
           destacada: p.featured === true, agente: p.ownerName || '',
-          views, clics, dias, cML, cIC, consultas, vML,
-          mlAt: p.mlVisitasAt || null,
+          views, clics, dias, cML, cIC, consultas, vML, wML, qML,
+          mlAt: p.mlMetricasAt || null,
           // Movimiento de los últimos días contra la foto más vieja disponible.
           delta: (function(){
             const b = base[d.id];
             if (!b) return null;
-            const antes = (Number(b.views) || 0) + (Number(b.mlVisitas) || 0) + (Number(b.contactClicks) || 0) * 5;
+            const antes = (Number(b.views) || 0) + (Number(b.mlVisitas30) || 0) + (Number(b.contactClicks) || 0) * 5;
             const ahora = views + vML + clics * 5;
             return { abs: ahora - antes, desde: b.fecha };
           })(),
@@ -301,7 +309,7 @@
              clic es intención, y una consulta de portal es una persona que dejó
              sus datos. Sumarlas planas haría ganar siempre a lo que tiene más
              volumen, que no es lo mismo que lo que más interesa. */
-          termo: dias ? (views + vML + clics * 5 + consultas * 15) / dias : null,
+          termo: dias ? (views + vML + (clics + wML) * 5 + (consultas + qML) * 15) / dias : null,
           vistasDia: dias ? views / dias : null,
           conv: views > 0 ? (clics / views * 100) : null
         });
@@ -338,6 +346,7 @@
     const sinDatos = l.filter(p => p.views === 0).length;
     const sumML = l.reduce((a, p) => a + p.cML, 0), sumIC = l.reduce((a, p) => a + p.cIC, 0);
     const sumVML = l.reduce((a, p) => a + p.vML, 0);
+    const sumWML = l.reduce((a, p) => a + p.wML, 0), sumQML = l.reduce((a, p) => a + p.qML, 0);
 
     document.getElementById('tarjetas').innerHTML =
       '<div class="card"><div class="k">Propiedades</div><div class="v">' + l.length + '</div>' +
@@ -348,8 +357,8 @@
         '<div class="n">Desde la vitrina</div></div>' +
       '<div class="card"><div class="k">Conversión</div><div class="v">' + n1(conv) + '%</div>' +
         '<div class="n">De los que miran, cuántos escriben</div></div>' +
-      '<div class="card"><div class="k">Visitas Mercado Libre</div><div class="v">' + sumVML.toLocaleString('es-UY') + '</div>' +
-        '<div class="n">' + (sumVML ? 'Actualizadas con el botón de abajo' : 'Todavía no se trajeron') + '</div></div>' +
+      '<div class="card"><div class="k">Mercado Libre · 30 días</div><div class="v">' + sumVML.toLocaleString('es-UY') + '</div>' +
+        '<div class="n">' + (sumVML ? sumWML + ' contactos · ' + sumQML + ' preguntas' : 'Todavía no se trajeron') + '</div></div>' +
       '<div class="card"><div class="k">Consultas de portales</div><div class="v">' + (sumML + sumIC).toLocaleString('es-UY') + '</div>' +
         '<div class="n">' + sumML + ' Mercado Libre · ' + sumIC + ' InfoCasas</div></div>' +
       '<div class="card"><div class="k">Sin una sola vista</div><div class="v">' + sinDatos + '</div>' +
@@ -441,7 +450,7 @@
       '" onclick="ordenar(\'' + col + '\')">' + txt + (_ordCol === col ? (_ordAsc ? ' ↑' : ' ↓') : '') + '</th>';
     el.innerHTML = '<table><thead><tr><th>Propiedad</th><th>Precio</th><th>Estado</th>' +
       th('termo', 'Termómetro', 'num') + th('views', 'Vistas', 'num') + th('clics', 'Clics', 'num') +
-      th('vML', 'Vistas ML', 'num') + th('conv', 'Conversión', 'num') +
+      th('vML', 'Vistas ML 30d', 'num') + th('wML', 'Cont. ML', 'num') + th('conv', 'Conversión', 'num') +
       th('cML', 'Cons. ML', 'num') + th('cIC', 'Cons. IC', 'num') +
       th('vistasDia', 'Vistas/día', 'num') + th('dias', 'Días', 'num') +
       '</tr></thead><tbody>' +
@@ -454,6 +463,7 @@
             flecha(p.delta) + '</td>' +
           '<td class="num">' + p.views + '</td><td class="num">' + p.clics + '</td>' +
           '<td class="num"' + (p.vML ? ' style="font-weight:600"' : ' style="color:var(--gray-400)"') + '>' + p.vML + '</td>' +
+          '<td class="num"' + (p.wML ? ' style="font-weight:600"' : ' style="color:var(--gray-400)"') + '>' + p.wML + '</td>' +
           '<td class="num">' + (p.conv == null ? '—' : n1(p.conv) + '%') + '</td>' +
           '<td class="num"' + (p.cML ? ' style="font-weight:600"' : ' style="color:var(--gray-400)"') + '>' + p.cML + '</td>' +
           '<td class="num"' + (p.cIC ? ' style="font-weight:600"' : ' style="color:var(--gray-400)"') + '>' + p.cIC + '</td>' +

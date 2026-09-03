@@ -2900,99 +2900,97 @@ const IC_COMODIDADES = {
 };
 
 /* ============================================================================
-   VISITAS DE MERCADO LIBRE
+   MÉTRICAS DE MERCADO LIBRE POR PROPIEDAD
    ----------------------------------------------------------------------------
-   El CRM solo mide su propia web: 'views' sube cuando alguien abre
-   propiedad.html. Pero el grueso del tráfico está en los portales, así que
-   decidir dónde invertir mirando solo la web propia lleva a la conclusión
-   equivocada.
+   El CRM solo medía su propia web ('views' sube cuando alguien abre
+   propiedad.html), pero el grueso del tráfico está en los portales.
 
-   ML expone las visitas por publicación en /visits/items?ids=... Esta función
-   las trae y las guarda en la propiedad, para que la herramienta de interés las
-   pueda sumar.
+   Se usan LOS MISMOS endpoints que el modal de Portales (estadoML), para que los
+   números coincidan. Son de VENTANA de 30 días, no acumulados: eso es mejor para
+   decidir dónde invertir, porque una propiedad publicada hace seis meses no le
+   gana automáticamente a una de la semana pasada.
 
-   Se guarda mlVisitas (acumulado) y mlVisitasAt (cuándo se consultó). No se
-   tocan 'views' ni 'contactClicks': son de la web propia y mezclarlos haría
-   imposible saber de dónde vino cada interacción.
+   No se puede reusar estadoML directamente: es un onCall atado al request del
+   agente. Acá se repiten las tres llamadas, con los mismos paths.
+
+   Se guarda en la propiedad y NO se tocan 'views' ni 'contactClicks', que son de
+   la web propia: mezclarlos haría imposible saber de dónde vino cada visita.
    ========================================================================== */
 
-/* Trae las visitas de todas las propiedades publicadas en ML.
-   Se llama a mano desde el panel o por el cron de abajo. */
-async function traerVisitasML() {
+async function mlMetricas30(itemId, token) {
+  const API = "https://api.mercadolibre.com";
+  const headers = { Authorization: `Bearer ${token}` };
+  const pedir = async (url, params) => {
+    try {
+      const r = await axios.get(API + url, { headers, params, timeout: 15000 });
+      const d = r.data || {};
+      if (typeof d.total_visits === "number") return d.total_visits;
+      if (typeof d.total === "number") return d.total;
+      if (Array.isArray(d.results)) return d.results.reduce((a, x) => a + (Number(x.total) || 0), 0);
+      return null;
+    } catch (e) { return null; }
+  };
+  const visitas = await pedir(`/items/${itemId}/visits/time_window`, { last: 30, unit: "day" });
+  const preguntas = await pedir(`/items/${itemId}/contacts/questions/time_window`, { last: 30, unit: "day" });
+  const whatsapp = await pedir(`/items/${itemId}/contacts/whatsapp/time_window`, { last: 30, unit: "day" });
+  return { visitas, preguntas, whatsapp };
+}
+
+async function traerMetricasML() {
   const token = await getValidToken();
-  const snap = await db.collection("properties").where("mlItemId", "!=", "").get();
+  const snap = await db.collection("properties").get();
   const items = [];
   snap.forEach((d) => {
-    const id = String(d.data().mlItemId || "").trim();
+    const id = String((d.data() || {}).mlItemId || "").trim();
     if (id) items.push({ ref: d.ref, propId: d.id, itemId: id });
   });
   if (!items.length) return { ok: true, propiedades: 0, actualizadas: 0, nota: "Ninguna propiedad tiene mlItemId." };
 
   let actualizadas = 0, fallos = 0;
-  const detalle = [];
-  // De a 20: el endpoint acepta varios ids por llamada y así no lo golpeamos
-  // una vez por propiedad.
-  for (let i = 0; i < items.length; i += 20) {
-    const lote = items.slice(i, i + 20);
-    const ids = lote.map((x) => x.itemId).join(",");
+  const ahora = new Date().toISOString();
+  const muestra = [];
+  for (const it of items) {
+    const m = await mlMetricas30(it.itemId, token);
+    if (m.visitas == null && m.preguntas == null && m.whatsapp == null) { fallos++; continue; }
     try {
-      const res = await axios({
-        url: `https://api.mercadolibre.com/visits/items?ids=${encodeURIComponent(ids)}`,
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 20000, validateStatus: () => true,
+      await it.ref.update({
+        mlVisitas30: m.visitas || 0,
+        mlPreguntas30: m.preguntas || 0,
+        mlWhatsapp30: m.whatsapp || 0,
+        mlMetricasAt: ahora,
       });
-      if (res.status !== 200) {
-        fallos += lote.length;
-        logger.warn(`traerVisitasML: lote ${i / 20} -> ${res.status}`, res.data);
-        continue;
-      }
-      const d = res.data || {};
-      const ahora = new Date().toISOString();
-      for (const it of lote) {
-        // La respuesta viene como { MLU123: 45, MLU456: 12 }.
-        const v = Number(d[it.itemId]);
-        if (!Number.isFinite(v)) continue;
-        await it.ref.update({ mlVisitas: v, mlVisitasAt: ahora });
-        actualizadas++;
-        detalle.push({ propertyId: it.propId, itemId: it.itemId, visitas: v });
-      }
-    } catch (e) {
-      fallos += lote.length;
-      logger.warn(`traerVisitasML: lote ${i / 20} falló`, e.message);
-    }
+      actualizadas++;
+      if (muestra.length < 10) muestra.push({ propertyId: it.propId, itemId: it.itemId, ...m });
+    } catch (e) { fallos++; logger.warn(`traerMetricasML ${it.propId}`, e.message); }
   }
-  return { ok: true, propiedades: items.length, actualizadas, fallos,
-           muestra: detalle.slice(0, 10) };
+  return { ok: true, propiedades: items.length, actualizadas, fallos, muestra };
 }
 
-exports.actualizarVisitasML = onCall(async (request) => {
+exports.actualizarMetricasML = onCall({ timeoutSeconds: 540 }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
   const email = String(request.auth.token.email || "").toLowerCase();
   if (!(await esDireccion(request.auth.uid, email))) {
     throw new HttpsError("permission-denied", "Solo la Dirección.");
   }
-  try {
-    return await traerVisitasML();
-  } catch (e) {
-    logger.error("actualizarVisitasML", e);
+  try { return await traerMetricasML(); }
+  catch (e) {
+    logger.error("actualizarMetricasML", e);
     return { ok: false, detalle: String(e.message || e) };
   }
 });
 
-/* Una vez por día. Además de mantener el número al día, deja una FOTO diaria en
+/* Una vez por día. Actualiza las métricas y deja una FOTO en
    properties/{id}/metricas/{YYYY-MM-DD}.
 
-   Esa foto es la pieza que hoy falta: los contadores son acumulados y sin fecha,
-   así que no se puede decir "esta propiedad subió esta semana". Guardando el
-   valor de cada día, en un mes hay tendencia real. Los datos empiezan a existir
-   desde que esto corre por primera vez: no se puede reconstruir hacia atrás. */
-exports.visitasMLDiario = onSchedule(
-  { schedule: "20 6 * * *", timeZone: "America/Montevideo" },
+   La foto sirve para lo que la ventana de 30 días no da: comparar semana contra
+   semana. Empieza a existir desde la primera corrida; no se reconstruye hacia
+   atrás porque los contadores no guardan cuándo subieron. */
+exports.metricasMLDiario = onSchedule(
+  { schedule: "20 6 * * *", timeZone: "America/Montevideo", timeoutSeconds: 540 },
   async () => {
-    let r;
-    try { r = await traerVisitasML(); }
-    catch (e) { logger.error("visitasMLDiario", e); return; }
+    let r = null;
+    try { r = await traerMetricasML(); }
+    catch (e) { logger.error("metricasMLDiario", e); }
 
     const hoy = new Date().toISOString().slice(0, 10);
     let fotos = 0;
@@ -3000,17 +2998,17 @@ exports.visitasMLDiario = onSchedule(
       const snap = await db.collection("properties").get();
       for (const d of snap.docs) {
         const p = d.data();
-        const vistas = Number(p.views) || 0;
-        const clics = Number(p.contactClicks) || 0;
-        const ml = Number(p.mlVisitas) || 0;
-        if (!vistas && !clics && !ml) continue;   // nada que fotografiar
+        const vistas = Number(p.views) || 0, clics = Number(p.contactClicks) || 0;
+        const ml = Number(p.mlVisitas30) || 0, wa = Number(p.mlWhatsapp30) || 0, pr = Number(p.mlPreguntas30) || 0;
+        if (!vistas && !clics && !ml && !wa && !pr) continue;
         await d.ref.collection("metricas").doc(hoy).set({
-          fecha: hoy, views: vistas, contactClicks: clics, mlVisitas: ml,
+          fecha: hoy, views: vistas, contactClicks: clics,
+          mlVisitas30: ml, mlWhatsapp30: wa, mlPreguntas30: pr,
         });
         fotos++;
       }
-    } catch (e) { logger.warn("visitasMLDiario: fotos", e.message); }
-    logger.info(`visitasMLDiario: ${r ? r.actualizadas : 0} visitas actualizadas, ${fotos} fotos guardadas`);
+    } catch (e) { logger.warn("metricasMLDiario: fotos", e.message); }
+    logger.info(`metricasMLDiario: ${r ? r.actualizadas : 0} actualizadas, ${fotos} fotos`);
   }
 );
 
