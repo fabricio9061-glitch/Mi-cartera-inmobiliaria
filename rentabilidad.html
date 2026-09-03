@@ -100,7 +100,7 @@
 
   <div class="wrap" id="app" style="display:none">
     <h1 class="titulo">Rentabilidad de la agencia</h1>
-    <p class="sub">Lo que entra por comisiones contra lo que cuesta sostener la operación.</p>
+    <p class="sub" id="subtitulo">Lo que entra por comisiones contra lo que cuesta sostener la operación.</p>
 
     <div class="barra">
       <div class="fg"><label>Desde</label><input type="month" id="fDesde"></div>
@@ -114,7 +114,6 @@
     </div>
 
     <div class="cards" id="tarjetas"></div>
-    <div class="aviso" id="avisoHuecos" style="display:none"></div>
 
     <div class="panel">
       <h2>Mes a mes</h2>
@@ -214,11 +213,13 @@
       return;
     }
     document.getElementById('app').style.display = '';
-    // Por defecto, los últimos 12 meses.
+    /* Por defecto: SOLO EL MES ACTUAL. Antes abría con los últimos 12 meses y el
+       promedio se repartía entre meses en los que la agencia todavía no se medía,
+       así que el número no decía nada. Para comparar varios meses se mueve el
+       "desde" a mano, y ahí el promedio sí tiene sentido. */
     const hoy = new Date();
-    const ini = new Date(hoy.getFullYear(), hoy.getMonth() - 11, 1);
     document.getElementById('fHasta').value = mesDe(hoy.toISOString());
-    document.getElementById('fDesde').value = mesDe(ini.toISOString());
+    document.getElementById('fDesde').value = mesDe(hoy.toISOString());
     document.getElementById('gDesde').value = mesDe(hoy.toISOString());
     tipoCambio();
     await cargar();
@@ -338,16 +339,19 @@
       const n = Math.max(1, ms.length);
       const eq = fijosMes(mon);
       const etq = mon === 'USD' ? 'USD' : 'pesos';
+      // El promedio solo se muestra cuando el período abarca más de un mes. Con
+      // un solo mes, "promedio" y "total" son el mismo número y confunde.
+      const prom = v => n > 1 ? fmt(v / n, mon) + ' por mes en promedio' : 'En el mes';
       return '<div class="card"><div class="k">Ingresos ' + etq + '</div>' +
           '<div class="v">' + fmt(t.ing, mon) + '</div>' +
-          '<div class="n">' + fmt(t.ing / n, mon) + ' por mes en promedio</div></div>' +
+          '<div class="n">' + prom(t.ing) + '</div></div>' +
         '<div class="card"><div class="k">Gastos ' + etq + '</div>' +
           '<div class="v">' + fmt(t.gas, mon) + '</div>' +
-          '<div class="n">' + fmt(t.gas / n, mon) + ' por mes en promedio</div></div>' +
+          '<div class="n">' + prom(t.gas) + '</div></div>' +
         '<div class="card"><div class="k">Resultado ' + etq + '</div>' +
           '<div class="v ' + (res >= 0 ? 'pos' : 'neg') + '">' + fmt(res, mon) + '</div>' +
           '<div class="n">' + (margen == null ? 'Sin ingresos en el período' : 'Margen ' + margen + '%') +
-          ' · ' + fmt(res / n, mon) + '/mes</div></div>' +
+          (n > 1 ? ' · ' + fmt(res / n, mon) + '/mes' : '') + '</div></div>' +
         '<div class="card"><div class="k">Equilibrio ' + etq + '</div>' +
           '<div class="v">' + fmt(eq, mon) + '</div>' +
           '<div class="n">' + (eq > 0
@@ -355,22 +359,12 @@
             : 'Cargá los gastos fijos para calcularlo') + '</div></div>';
     };
     document.getElementById('tarjetas').innerHTML = tarj('USD', tU) + tarj('UYU', tP);
+    const sub = document.getElementById('subtitulo');
+    if (sub) sub.textContent = ms.length === 1
+      ? 'Ingresos contra gastos de ' + ms[0] + '.'
+      : 'Ingresos contra gastos de ' + ms.length + ' meses, de ' + ms[0] + ' a ' + ms[ms.length - 1] + '.';
 
-    // AVISO: meses con ingresos y CERO gastos. Casi siempre significa que falta
-    // cargar un gasto fijo con el "desde" correcto, no que no se gastó nada.
-    const huecos = [];
-    ['USD', 'UYU'].forEach(mon => ms.forEach(m => {
-      if (ing[mon][m] > 0 && gas[mon][m] === 0 && !huecos.includes(m)) huecos.push(m);
-    }));
-    const elAviso = document.getElementById('avisoHuecos');
-    if (huecos.length) {
-      elAviso.style.display = '';
-      elAviso.innerHTML = '<i class="fas fa-triangle-exclamation"></i> <b>' +
-        (huecos.length === 1 ? 'Un mes tiene' : huecos.length + ' meses tienen') +
-        ' ingresos y ningún gasto</b> (' + huecos.join(', ') + '). ' +
-        'Si en esos meses la agencia ya pagaba sueldos o alquiler, corregí el "desde" del gasto fijo: ' +
-        'se completa solo hacia atrás. Mientras tanto el resultado se ve mejor de lo que es.';
-    } else { elAviso.style.display = 'none'; }
+
 
     const graf = (mon, cont) => {
       const el = document.getElementById(cont);
