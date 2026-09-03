@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interés por propiedad · MALAVE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+  <script src="malave-config.js?v=20260830b"></script>
+  <style>
+    :root{ --primary:#16273f; --navy:#16273f; --gold:#C9A227; --gray-50:#f7f8fa; --gray-100:#eef0f3;
+           --gray-200:#e3e6ea; --gray-400:#9aa3ad; --gray-500:#6b7480; --gray-600:#555;
+           --success:#1e7d4f; --danger:#c0392b; }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{ font-family:'Inter',sans-serif; background:var(--gray-50); color:#1d2733; line-height:1.5; }
+    h1,h2,h3{ font-family:'Cormorant Garamond',serif; }
+    .mv-head{ background:#fff; border-bottom:1px solid #eef1f5; position:sticky; top:0; z-index:60;
+      padding-top:env(safe-area-inset-top,0px); }
+    .mv-head-in{ max-width:1200px; margin:0 auto; padding:14px 20px; display:flex;
+      justify-content:space-between; align-items:center; gap:14px; }
+    .mv-head .logo{ display:flex; align-items:center; gap:10px; text-decoration:none; }
+    .mv-head .logo-img{ height:30px; width:auto; } .mv-head .logo-text{ height:19px; width:auto; }
+    .mv-head .back-link{ display:inline-flex; align-items:center; gap:7px; color:#6b7280;
+      font-size:.88rem; font-weight:500; padding:8px 15px; border:1px solid #eef1f5;
+      border-radius:999px; text-decoration:none; white-space:nowrap; }
+    .mv-head .back-link:hover{ background:#16273f; color:#fff; border-color:#16273f; }
+    @media (max-width:520px){ .mv-head-in{ padding:10px 14px } .mv-head .back-link span{ display:none } }
+
+    .wrap{ max-width:1200px; margin:0 auto; padding:26px 20px 70px; }
+    .titulo{ font-size:2rem; color:var(--primary); margin-bottom:4px; }
+    .sub{ color:var(--gray-500); font-size:.92rem; margin-bottom:20px; }
+    .barra{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:18px; }
+    .fg{ display:flex; flex-direction:column; gap:5px; }
+    .fg label{ font-size:.76rem; font-weight:600; color:var(--gray-500); text-transform:uppercase; letter-spacing:.04em; }
+    select,input{ font-family:inherit; font-size:.92rem; padding:9px 11px; border:1px solid var(--gray-200);
+      border-radius:9px; background:#fff; color:inherit; }
+    .btn{ background:var(--primary); color:#fff; border:none; border-radius:9px; padding:10px 17px;
+      font-family:inherit; font-size:.9rem; font-weight:600; cursor:pointer; display:inline-flex;
+      align-items:center; gap:8px; white-space:nowrap }
+    .btn:disabled{ opacity:.6; cursor:default }
+    .aviso{ background:#fffdf5; border:1px solid #eee6cf; border-left:4px solid var(--gold);
+      border-radius:11px; padding:11px 15px; font-size:.85rem; color:#8a6d12; margin-bottom:18px; }
+    .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:13px; margin-bottom:22px; }
+    .card{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:16px 18px; }
+    .card .k{ font-size:.76rem; color:var(--gray-500); text-transform:uppercase; letter-spacing:.05em; margin-bottom:7px; }
+    .card .v{ font-size:1.5rem; font-weight:700; font-variant-numeric:tabular-nums; }
+    .card .n{ font-size:.78rem; color:var(--gray-400); margin-top:5px; }
+    .panel{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:20px; margin-bottom:20px; }
+    .panel h2{ font-size:1.28rem; color:var(--primary); margin-bottom:3px; }
+    .panel .ph{ color:var(--gray-500); font-size:.84rem; margin-bottom:15px; }
+
+    table{ width:100%; border-collapse:collapse; font-size:.87rem; }
+    th{ text-align:left; font-size:.73rem; text-transform:uppercase; letter-spacing:.04em; color:var(--gray-500);
+        padding:8px 9px; border-bottom:1px solid var(--gray-200); white-space:nowrap; }
+    th.orden{ cursor:pointer; user-select:none } th.orden:hover{ color:var(--primary) }
+    th.act{ color:var(--primary) }
+    td{ padding:9px; border-bottom:1px solid var(--gray-100); vertical-align:middle; }
+    td.num,th.num{ text-align:right; font-variant-numeric:tabular-nums; }
+    tr:last-child td{ border-bottom:none }
+    .prop{ display:flex; align-items:center; gap:10px; min-width:230px }
+    .prop img{ width:44px; height:34px; object-fit:cover; border-radius:6px; background:var(--gray-100); flex:none }
+    .prop .t{ font-weight:600; line-height:1.25 }
+    .prop .m{ font-size:.76rem; color:var(--gray-400) }
+    .tag{ font-size:.72rem; padding:2px 8px; border-radius:20px; background:var(--gray-100); color:var(--gray-600); white-space:nowrap }
+    .tag.dest{ background:rgba(201,162,39,.16); color:#8a6d12 }
+    .term{ display:inline-block; min-width:52px; text-align:center; font-weight:700; font-size:.8rem;
+      padding:3px 9px; border-radius:20px; font-variant-numeric:tabular-nums }
+    .t5{ background:rgba(192,57,43,.14); color:#a5342a } .t4{ background:rgba(230,126,34,.16); color:#9c5510 }
+    .t3{ background:rgba(201,162,39,.16); color:#8a6d12 } .t2{ background:var(--gray-100); color:var(--gray-600) }
+    .t1{ background:var(--gray-100); color:var(--gray-400) }
+    .barras{ display:flex; flex-direction:column; gap:9px }
+    .fila{ display:grid; grid-template-columns:1fr 66px; gap:11px; align-items:center; font-size:.83rem }
+    .bg{ position:relative; height:24px; background:var(--gray-100); border-radius:7px; overflow:hidden }
+    .bi{ position:absolute; top:0; bottom:0; left:0; border-radius:7px; background:rgba(22,39,63,.75) }
+    .bl{ position:absolute; left:9px; top:50%; transform:translateY(-50%); font-size:.78rem; font-weight:600; color:#fff;
+      text-shadow:0 1px 2px rgba(0,0,0,.25); white-space:nowrap; max-width:calc(100% - 18px); overflow:hidden; text-overflow:ellipsis }
+    .vacio{ text-align:center; padding:34px 16px; color:var(--gray-400) }
+    .bloqueado{ max-width:460px; margin:90px auto; text-align:center }
+    .scroll{ overflow-x:auto }
+  </style>
+</head>
+<body>
+  <header class="mv-head">
+    <div class="mv-head-in">
+      <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
+      <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i> <span>Volver al inicio</span></a>
+    </div>
+  </header>
+
+  <div id="bloqueado" class="bloqueado" style="display:none">
+    <i class="fas fa-lock" style="font-size:2.2rem;color:var(--gray-400)"></i>
+    <h1 class="titulo" style="font-size:1.5rem;margin-top:14px">Solo Dirección</h1>
+    <p class="sub">Esta herramienta está reservada a CEO y COO.</p>
+  </div>
+
+  <div class="wrap" id="app" style="display:none">
+    <h1 class="titulo">Interés por propiedad</h1>
+    <p class="sub">Dónde conviene poner la plata de portales y destacados.</p>
+
+    <div class="aviso">
+      <b>Las vistas y los clics son contadores acumulados, sin fecha.</b> Una propiedad publicada hace seis
+      meses siempre va a tener más que una de la semana pasada, aunque hoy no la mire nadie. Por eso el
+      <b>termómetro</b> mide interés <b>por día publicado</b>, no el total: así se compara lo nuevo con lo viejo.
+      <br><br>
+      Las interacciones <b>no pesan igual</b>: una vista vale 1, un clic a WhatsApp vale 5 y una consulta
+      de portal vale 15. Una vista es curiosidad, un clic es intención y una consulta es alguien que dejó
+      sus datos. Como referencia: <b>arriba de 3</b> es una propiedad caliente, <b>debajo de 0,5</b> casi
+      no se mueve.
+    </div>
+
+    <div class="barra">
+      <div class="fg"><label>Operación</label>
+        <select id="fTipo" onchange="pintar()"><option value="">Todas</option><option value="sale">Venta</option><option value="rent">Alquiler</option></select></div>
+      <div class="fg"><label>Estado</label>
+        <select id="fEstado" onchange="pintar()"><option value="available">Disponibles</option><option value="">Todas</option></select></div>
+      <div class="fg"><label>Destacadas</label>
+        <select id="fDest" onchange="pintar()"><option value="">Todas</option><option value="si">Solo destacadas</option><option value="no">Sin destacar</option></select></div>
+      <div class="fg"><label>Buscar</label><input id="fTexto" oninput="pintar()" placeholder="Título o barrio"></div>
+      <div class="fg"><label>&nbsp;</label>
+        <button class="btn" id="btnML" onclick="traerML()"><i class="fas fa-rotate"></i> Traer visitas de ML</button></div>
+    </div>
+    <div id="estadoML" style="font-size:.82rem;color:var(--gray-500);margin:-8px 0 16px"></div>
+
+    <div class="aviso" id="avisoPermiso" style="display:none">
+      <b>No se pudieron leer las consultas de los portales.</b> Falta desplegar la regla de
+      <code>mlEventos</code> y <code>leadsPortales</code>: <code>firebase deploy --only firestore:rules</code>.
+      Mientras tanto el termómetro solo mide tu web.
+    </div>
+
+    <div class="cards" id="tarjetas"></div>
+
+    <div class="panel">
+      <h2>Las más calientes</h2>
+      <p class="ph">Interés por día publicado. Las de arriba son donde más rinde invertir.</p>
+      <div id="top" class="barras"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Atención</h2>
+      <p class="ph">Mucha gente mira y nadie escribe. Suele ser precio o fotos, no falta de difusión.</p>
+      <div id="frias"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Todas las propiedades</h2>
+      <p class="ph">Tocá un encabezado para ordenar. La conversión es cuántos de los que miran terminan escribiendo.</p>
+      <div class="scroll" id="tabla"></div>
+    </div>
+  </div>
+
+<script>
+  /* =========================================================================
+     INTERÉS POR PROPIEDAD — solo CEO y COO.
+
+     QUÉ MIDE: views (visitas a la ficha pública) y contactClicks (clics en el
+     botón de WhatsApp). Los dos son contadores ACUMULADOS: suben desde que la
+     propiedad se publicó y no guardan fecha.
+
+     POR QUÉ NO SE MUESTRA EL TOTAL A SECAS: una propiedad de hace seis meses
+     siempre le gana a una de la semana pasada aunque hoy nadie la mire. El
+     termómetro divide por días publicados, que es lo que permite comparar.
+
+     views cuenta VISITANTES ÚNICOS por navegador (countView usa localStorage),
+     no recargas. Para decidir dónde invertir eso es mejor.
+     ========================================================================= */
+
+  firebase.initializeApp(window.firebaseConfig);
+  const db = firebase.firestore(), auth = firebase.auth();
+
+  let _props = [], _ordCol = 'termo', _ordAsc = false, _sinPermiso = false;
+
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const n1 = v => (Math.round((Number(v) || 0) * 10) / 10).toLocaleString('es-UY');
+  const precio = p => (p.currency === 'UYU' ? '$ ' : 'US$ ') + (Number(p.price) || 0).toLocaleString('es-UY');
+
+  auth.onAuthStateChanged(async u => {
+    if (!u) { location.href = 'index.html'; return; }
+    let perfil = {};
+    try { const d = await db.doc('users/' + u.uid).get(); perfil = d.exists ? d.data() : {}; } catch (e) {}
+    const rango = String(perfil.rank || '').toLowerCase();
+    const esDir = rango === 'ceo' || rango === 'coo' ||
+      String(u.email || '').toLowerCase() === String(window.ADMIN_EMAIL || '').toLowerCase();
+    if (!esDir) { document.getElementById('bloqueado').style.display = ''; return; }
+    document.getElementById('app').style.display = '';
+    await cargar();
+  });
+
+  /* Las visitas de ML no se traen solas al abrir: es una llamada a la API de
+     Mercado Libre por cada lote de 20 propiedades y no hace falta hacerla en
+     cada visita a la página. El cron diario las mantiene al día; este botón es
+     para cuando querés el número del momento. */
+  async function traerML(){
+    const b = document.getElementById('btnML'), e = document.getElementById('estadoML');
+    b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Consultando…';
+    try{
+      const r = await firebase.functions().httpsCallable('actualizarVisitasML')({});
+      const d = r.data || {};
+      e.textContent = d.ok
+        ? 'Listo: ' + d.actualizadas + ' de ' + d.propiedades + ' propiedades actualizadas' +
+          (d.fallos ? ' · ' + d.fallos + ' fallaron' : '') + '.'
+        : 'No se pudo: ' + (d.detalle || 'error desconocido');
+      if (d.ok) await cargar();
+    }catch(err){
+      e.textContent = 'No se pudo: ' + (err.message || err);
+    }finally{
+      b.disabled = false; b.innerHTML = '<i class="fas fa-rotate"></i> Traer visitas de ML';
+    }
+  }
+
+  async function cargar(){
+    try{
+      /* Las consultas de portales viven en los crudos, no en gestiones: los leads
+         de Mercado Libre NO crean gestión (solo notificación, y esas se borran).
+         mlEventos y leadsPortales guardan propertyId y fecha, y no se borran
+         nunca, así que son la fuente confiable. */
+      const [snap, mlS, icS] = await Promise.all([
+        db.collection('properties').get(),
+        db.collection('mlEventos').get().catch(() => null),
+        db.collection('leadsPortales').get().catch(() => null)
+      ]);
+      _sinPermiso = !mlS || !icS;
+      const conML = {}, conIC = {};
+      if (mlS) mlS.forEach(d => { const x = d.data(); if (x.propertyId) conML[x.propertyId] = (conML[x.propertyId] || 0) + 1; });
+      if (icS) icS.forEach(d => { const x = d.data(); if (x.propertyId) conIC[x.propertyId] = (conIC[x.propertyId] || 0) + 1; });
+      const hoy = Date.now();
+      _props = [];
+      snap.forEach(d => {
+        const p = d.data();
+        const alta = p.createdAt ? Date.parse(p.createdAt) : NaN;
+        // Mínimo un día para no dividir por cero ni inflar a las de hoy.
+        const dias = Number.isFinite(alta) ? Math.max(1, Math.round((hoy - alta) / 86400000)) : null;
+        const views = Number(p.views) || 0, clics = Number(p.contactClicks) || 0;
+        const cML = conML[d.id] || 0, cIC = conIC[d.id] || 0, consultas = cML + cIC;
+        // Visitas en Mercado Libre, traídas por actualizarVisitasML. Pesan igual
+        // que una vista de la web: es el mismo tipo de interacción.
+        const vML = Number(p.mlVisitas) || 0;
+        _props.push({
+          id: d.id, titulo: p.title || '(sin título)',
+          barrio: (p.ubicacion && (p.ubicacion.barrio || p.ubicacion.ciudad)) || p.ciudad || '',
+          foto: (p.images && p.images[0]) || '', precio: precio(p),
+          tipo: p.type || '', estado: p.status || 'available',
+          destacada: p.featured === true, agente: p.ownerName || '',
+          views, clics, dias, cML, cIC, consultas, vML,
+          mlAt: p.mlVisitasAt || null,
+          /* Interés por día: la única forma de comparar una publicación nueva con
+             una vieja. Si no hay fecha de alta, no se inventa.
+             Los pesos NO son iguales a propósito: una vista es curiosidad, un
+             clic es intención, y una consulta de portal es una persona que dejó
+             sus datos. Sumarlas planas haría ganar siempre a lo que tiene más
+             volumen, que no es lo mismo que lo que más interesa. */
+          termo: dias ? (views + vML + clics * 5 + consultas * 15) / dias : null,
+          vistasDia: dias ? views / dias : null,
+          conv: views > 0 ? (clics / views * 100) : null
+        });
+      });
+      pintar();
+    }catch(e){
+      console.error(e);
+      document.getElementById('tarjetas').innerHTML =
+        '<div class="vacio">No se pudieron cargar las propiedades: ' + esc(e.code || e.message || e) + '</div>';
+    }
+  }
+
+  function filtradas(){
+    const t = document.getElementById('fTipo').value;
+    const e = document.getElementById('fEstado').value;
+    const d = document.getElementById('fDest').value;
+    const q = document.getElementById('fTexto').value.trim().toLowerCase();
+    return _props.filter(p =>
+      (!t || p.tipo === t) && (!e || p.estado === e) &&
+      (!d || (d === 'si' ? p.destacada : !p.destacada)) &&
+      (!q || (p.titulo + ' ' + p.barrio).toLowerCase().includes(q)));
+  }
+
+  function ordenar(col){
+    if (_ordCol === col) _ordAsc = !_ordAsc; else { _ordCol = col; _ordAsc = false; }
+    pintar();
+  }
+
+  function pintar(){
+    const l = filtradas();
+    const sumV = l.reduce((a, p) => a + p.views, 0);
+    const sumC = l.reduce((a, p) => a + p.clics, 0);
+    const conv = sumV > 0 ? (sumC / sumV * 100) : 0;
+    const sinDatos = l.filter(p => p.views === 0).length;
+    const sumML = l.reduce((a, p) => a + p.cML, 0), sumIC = l.reduce((a, p) => a + p.cIC, 0);
+    const sumVML = l.reduce((a, p) => a + p.vML, 0);
+
+    document.getElementById('tarjetas').innerHTML =
+      '<div class="card"><div class="k">Propiedades</div><div class="v">' + l.length + '</div>' +
+        '<div class="n">' + l.filter(p => p.destacada).length + ' destacadas</div></div>' +
+      '<div class="card"><div class="k">Vistas</div><div class="v">' + sumV.toLocaleString('es-UY') + '</div>' +
+        '<div class="n">Visitantes únicos acumulados</div></div>' +
+      '<div class="card"><div class="k">Clics a WhatsApp</div><div class="v">' + sumC.toLocaleString('es-UY') + '</div>' +
+        '<div class="n">Desde la vitrina</div></div>' +
+      '<div class="card"><div class="k">Conversión</div><div class="v">' + n1(conv) + '%</div>' +
+        '<div class="n">De los que miran, cuántos escriben</div></div>' +
+      '<div class="card"><div class="k">Visitas Mercado Libre</div><div class="v">' + sumVML.toLocaleString('es-UY') + '</div>' +
+        '<div class="n">' + (sumVML ? 'Actualizadas con el botón de abajo' : 'Todavía no se trajeron') + '</div></div>' +
+      '<div class="card"><div class="k">Consultas de portales</div><div class="v">' + (sumML + sumIC).toLocaleString('es-UY') + '</div>' +
+        '<div class="n">' + sumML + ' Mercado Libre · ' + sumIC + ' InfoCasas</div></div>' +
+      '<div class="card"><div class="k">Sin una sola vista</div><div class="v">' + sinDatos + '</div>' +
+        '<div class="n">' + (sinDatos ? 'Nadie las abrió todavía' : 'Todas tuvieron visitas') + '</div></div>';
+
+    const av = document.getElementById('avisoPermiso');
+    if (av) av.style.display = _sinPermiso ? '' : 'none';
+
+    pintarTop(l); pintarFrias(l); pintarTabla(l);
+  }
+
+  function pintarTop(l){
+    const el = document.getElementById('top');
+    const top = l.filter(p => p.termo != null && p.termo > 0).sort((a, b) => b.termo - a.termo).slice(0, 10);
+    if (!top.length) { el.innerHTML = '<div class="vacio">Todavía no hay movimiento para comparar.</div>'; return; }
+    const max = top[0].termo;
+    el.innerHTML = top.map(p =>
+      '<div class="fila"><div class="bg"><div class="bi" style="width:' + (p.termo / max * 100) + '%"></div>' +
+      '<span class="bl">' + esc(p.titulo.slice(0, 62)) + (p.destacada ? ' ⭐' : '') + '</span></div>' +
+      '<span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + n1(p.termo) + '</span></div>').join('');
+  }
+
+  /* Mucha vista y poco clic. Se pide un mínimo de 20 vistas: con 3 vistas y 0
+     clics no hay nada que concluir. */
+  function pintarFrias(l){
+    const el = document.getElementById('frias');
+    const f = l.filter(p => p.views >= 20 && p.conv != null && p.conv < 1.5)
+               .sort((a, b) => b.views - a.views).slice(0, 8);
+    if (!f.length) {
+      el.innerHTML = '<div class="vacio">Ninguna propiedad con muchas vistas y pocos contactos. Buena señal.</div>';
+      return;
+    }
+    el.innerHTML = '<table><thead><tr><th>Propiedad</th><th>Precio</th><th class="num">Vistas</th>' +
+      '<th class="num">Clics</th><th class="num">Conversión</th></tr></thead><tbody>' +
+      f.map(p => '<tr><td>' + celdaProp(p) + '</td><td>' + esc(p.precio) + '</td>' +
+        '<td class="num">' + p.views + '</td><td class="num">' + p.clics + '</td>' +
+        '<td class="num" style="color:var(--danger);font-weight:600">' + n1(p.conv) + '%</td></tr>').join('') +
+      '</tbody></table>';
+  }
+
+  function celdaProp(p){
+    return '<div class="prop">' + (p.foto
+      ? '<img src="' + esc(p.foto) + '" alt="" loading="lazy">'
+      : '<span style="width:44px;height:34px;border-radius:6px;background:var(--gray-100);flex:none"></span>') +
+      '<div><div class="t">' + esc(p.titulo.slice(0, 58)) + '</div>' +
+      '<div class="m">' + esc(p.barrio) + (p.agente ? ' · ' + esc(p.agente) : '') + '</div></div></div>';
+  }
+
+  function pintarTabla(l){
+    const el = document.getElementById('tabla');
+    if (!l.length) { el.innerHTML = '<div class="vacio">No hay propiedades con esos filtros.</div>'; return; }
+    const orden = l.slice().sort((a, b) => {
+      const va = a[_ordCol], vb = b[_ordCol];
+      // Las que no tienen dato van siempre al final, ordene como ordene.
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      return _ordAsc ? va - vb : vb - va;
+    });
+    const th = (col, txt, cls) => '<th class="orden ' + (cls || '') + (_ordCol === col ? ' act' : '') +
+      '" onclick="ordenar(\'' + col + '\')">' + txt + (_ordCol === col ? (_ordAsc ? ' ↑' : ' ↓') : '') + '</th>';
+    el.innerHTML = '<table><thead><tr><th>Propiedad</th><th>Precio</th><th>Estado</th>' +
+      th('termo', 'Termómetro', 'num') + th('views', 'Vistas', 'num') + th('clics', 'Clics', 'num') +
+      th('vML', 'Vistas ML', 'num') + th('conv', 'Conversión', 'num') +
+      th('cML', 'Cons. ML', 'num') + th('cIC', 'Cons. IC', 'num') +
+      th('vistasDia', 'Vistas/día', 'num') + th('dias', 'Días', 'num') +
+      '</tr></thead><tbody>' +
+      orden.map(p => {
+        const nivel = p.termo == null ? 1 : p.termo >= 3 ? 5 : p.termo >= 1.5 ? 4 : p.termo >= 0.6 ? 3 : p.termo > 0 ? 2 : 1;
+        return '<tr><td>' + celdaProp(p) + '</td><td style="white-space:nowrap">' + esc(p.precio) + '</td>' +
+          '<td><span class="tag' + (p.destacada ? ' dest' : '') + '">' +
+            (p.destacada ? '⭐ Destacada' : (p.estado === 'available' ? 'Disponible' : esc(p.estado))) + '</span></td>' +
+          '<td class="num"><span class="term t' + nivel + '">' + (p.termo == null ? '—' : n1(p.termo)) + '</span></td>' +
+          '<td class="num">' + p.views + '</td><td class="num">' + p.clics + '</td>' +
+          '<td class="num"' + (p.vML ? ' style="font-weight:600"' : ' style="color:var(--gray-400)"') + '>' + p.vML + '</td>' +
+          '<td class="num">' + (p.conv == null ? '—' : n1(p.conv) + '%') + '</td>' +
+          '<td class="num"' + (p.cML ? ' style="font-weight:600"' : ' style="color:var(--gray-400)"') + '>' + p.cML + '</td>' +
+          '<td class="num"' + (p.cIC ? ' style="font-weight:600"' : ' style="color:var(--gray-400)"') + '>' + p.cIC + '</td>' +
+          '<td class="num">' + (p.vistasDia == null ? '—' : n1(p.vistasDia)) + '</td>' +
+          '<td class="num" style="color:var(--gray-400)">' + (p.dias == null ? '—' : p.dias) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+</script>
+</body>
+</html>

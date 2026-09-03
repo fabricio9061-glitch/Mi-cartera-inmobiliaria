@@ -2900,6 +2900,121 @@ const IC_COMODIDADES = {
 };
 
 /* ============================================================================
+   VISITAS DE MERCADO LIBRE
+   ----------------------------------------------------------------------------
+   El CRM solo mide su propia web: 'views' sube cuando alguien abre
+   propiedad.html. Pero el grueso del tráfico está en los portales, así que
+   decidir dónde invertir mirando solo la web propia lleva a la conclusión
+   equivocada.
+
+   ML expone las visitas por publicación en /visits/items?ids=... Esta función
+   las trae y las guarda en la propiedad, para que la herramienta de interés las
+   pueda sumar.
+
+   Se guarda mlVisitas (acumulado) y mlVisitasAt (cuándo se consultó). No se
+   tocan 'views' ni 'contactClicks': son de la web propia y mezclarlos haría
+   imposible saber de dónde vino cada interacción.
+   ========================================================================== */
+
+/* Trae las visitas de todas las propiedades publicadas en ML.
+   Se llama a mano desde el panel o por el cron de abajo. */
+async function traerVisitasML() {
+  const token = await getValidToken();
+  const snap = await db.collection("properties").where("mlItemId", "!=", "").get();
+  const items = [];
+  snap.forEach((d) => {
+    const id = String(d.data().mlItemId || "").trim();
+    if (id) items.push({ ref: d.ref, propId: d.id, itemId: id });
+  });
+  if (!items.length) return { ok: true, propiedades: 0, actualizadas: 0, nota: "Ninguna propiedad tiene mlItemId." };
+
+  let actualizadas = 0, fallos = 0;
+  const detalle = [];
+  // De a 20: el endpoint acepta varios ids por llamada y así no lo golpeamos
+  // una vez por propiedad.
+  for (let i = 0; i < items.length; i += 20) {
+    const lote = items.slice(i, i + 20);
+    const ids = lote.map((x) => x.itemId).join(",");
+    try {
+      const res = await axios({
+        url: `https://api.mercadolibre.com/visits/items?ids=${encodeURIComponent(ids)}`,
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 20000, validateStatus: () => true,
+      });
+      if (res.status !== 200) {
+        fallos += lote.length;
+        logger.warn(`traerVisitasML: lote ${i / 20} -> ${res.status}`, res.data);
+        continue;
+      }
+      const d = res.data || {};
+      const ahora = new Date().toISOString();
+      for (const it of lote) {
+        // La respuesta viene como { MLU123: 45, MLU456: 12 }.
+        const v = Number(d[it.itemId]);
+        if (!Number.isFinite(v)) continue;
+        await it.ref.update({ mlVisitas: v, mlVisitasAt: ahora });
+        actualizadas++;
+        detalle.push({ propertyId: it.propId, itemId: it.itemId, visitas: v });
+      }
+    } catch (e) {
+      fallos += lote.length;
+      logger.warn(`traerVisitasML: lote ${i / 20} falló`, e.message);
+    }
+  }
+  return { ok: true, propiedades: items.length, actualizadas, fallos,
+           muestra: detalle.slice(0, 10) };
+}
+
+exports.actualizarVisitasML = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  try {
+    return await traerVisitasML();
+  } catch (e) {
+    logger.error("actualizarVisitasML", e);
+    return { ok: false, detalle: String(e.message || e) };
+  }
+});
+
+/* Una vez por día. Además de mantener el número al día, deja una FOTO diaria en
+   properties/{id}/metricas/{YYYY-MM-DD}.
+
+   Esa foto es la pieza que hoy falta: los contadores son acumulados y sin fecha,
+   así que no se puede decir "esta propiedad subió esta semana". Guardando el
+   valor de cada día, en un mes hay tendencia real. Los datos empiezan a existir
+   desde que esto corre por primera vez: no se puede reconstruir hacia atrás. */
+exports.visitasMLDiario = onSchedule(
+  { schedule: "20 6 * * *", timeZone: "America/Montevideo" },
+  async () => {
+    let r;
+    try { r = await traerVisitasML(); }
+    catch (e) { logger.error("visitasMLDiario", e); return; }
+
+    const hoy = new Date().toISOString().slice(0, 10);
+    let fotos = 0;
+    try {
+      const snap = await db.collection("properties").get();
+      for (const d of snap.docs) {
+        const p = d.data();
+        const vistas = Number(p.views) || 0;
+        const clics = Number(p.contactClicks) || 0;
+        const ml = Number(p.mlVisitas) || 0;
+        if (!vistas && !clics && !ml) continue;   // nada que fotografiar
+        await d.ref.collection("metricas").doc(hoy).set({
+          fecha: hoy, views: vistas, contactClicks: clics, mlVisitas: ml,
+        });
+        fotos++;
+      }
+    } catch (e) { logger.warn("visitasMLDiario: fotos", e.message); }
+    logger.info(`visitasMLDiario: ${r ? r.actualizadas : 0} visitas actualizadas, ${fotos} fotos guardadas`);
+  }
+);
+
+/* ============================================================================
    MAPEO PARA LA API NUEVA (POST /listing)
    ----------------------------------------------------------------------------
    Convive con las tablas del feed XML de arriba, que siguen vivas: InfoCasas
