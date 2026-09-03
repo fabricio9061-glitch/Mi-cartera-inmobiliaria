@@ -2942,6 +2942,9 @@ const IC_API_CATEGORIES = {
   HAS_GRILL: 13, HAS_SWIMMING_POOL: 27, HAS_PLAYROOM: 28,
   HAS_PARTY_ROOM: 29, HAS_SAUNA: 76,
   HAS_DRESSING_ROOM: 18, HAS_CLOSETS: 216,
+  HAS_INTERNET_ACCESS: 31,
+  // Mascotas es filtro de búsqueda en el portal: conviene no perderlo.
+  IS_SUITABLE_FOR_PETS: 222,
   _DEPOSITO: 2,
 };
 
@@ -4878,9 +4881,17 @@ async function icApiPayload(p, propId, agente) {
   // pendiente de confirmar si hereda currency del listing.
   if (offer === "rent") {
     const gc = Number(p.commonExpenses) || 0;
-    payload.administration = gc > 0
-      ? { is_included: false, price: Math.round(gc) }
-      : { is_included: true };
+    // Antes, sin gastos cargados se mandaba is_included: true, o sea que se le
+    // AFIRMABA a InfoCasas que están incluidos en el alquiler. Es una suposición
+    // y suele ser falsa: la ficha simplemente no tenía el dato. Publicar
+    // "gastos incluidos" cuando no lo están es un reclamo del inquilino.
+    if (gc > 0) {
+      payload.administration = { is_included: false, price: Math.round(gc) };
+    } else if (p.commonExpensesIncluded === true) {
+      payload.administration = { is_included: true };
+    } else {
+      return { ok: false, faltan: ["gastos comunes (o marcar que están incluidos)"] };
+    }
   }
 
   const video = String(p.videoUrl || "");
