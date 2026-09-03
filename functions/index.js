@@ -5071,15 +5071,16 @@ exports.editarEnInfocasas = onCall(async (request) => {
 
 /* Cambia el estado de un aviso: es la BAJA.
 
-   ⚠️  LOS CÓDIGOS DE ESTADO NO ESTÁN CONFIRMADOS. La documentación que tenemos
-   no expande el esquema ListingStatus. En la respuesta del GET se ve
-   "status": 0, y en las fotos el 3 es "Eliminado", pero NO se asume que sea la
-   misma escala: mandar el código equivocado puede despublicar avisos que están
-   bien o borrar los que solo había que pausar.
+   Estados confirmados en la documentación (02/09/2026): son STRINGS, no números.
+     ACTIVE  = activo
+     DELETED = eliminado
+   Solo esos dos. El "status": 0 que aparece en la respuesta del GET es otra
+   cosa y NO se usa acá: haberlo copiado habría mandado un número donde va texto.
 
-   Por eso esta función NO tiene un valor por defecto: el estado se pasa siempre
-   de forma explícita. Cuando InfoCasas confirme la lista, se agrega acá una
-   tabla con nombres y se deja de escribir números a mano. */
+   El cuerpo lleva TRES campos obligatorios: listing_id, client_id y status.
+
+   Sigue sin valor por defecto a propósito: DELETED borra el aviso del portal y
+   no es algo que deba pasar por omisión. */
 exports.estadoEnInfocasas = onCall(async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
   const email = String(request.auth.token.email || "").toLowerCase();
@@ -5087,11 +5088,11 @@ exports.estadoEnInfocasas = onCall(async (request) => {
     throw new HttpsError("permission-denied", "Solo la Dirección.");
   }
   const propertyId = String((request.data && request.data.propertyId) || "");
-  const estado = request.data && request.data.status;
+  const estado = String((request.data && request.data.status) || "").toUpperCase();
   if (!propertyId) throw new HttpsError("invalid-argument", "Falta la propiedad.");
-  if (estado == null || estado === "") {
+  if (estado !== "ACTIVE" && estado !== "DELETED") {
     throw new HttpsError("invalid-argument",
-      "Falta 'status'. No hay valor por defecto a propósito: los códigos de estado de InfoCasas todavía no están confirmados.");
+      "'status' debe ser ACTIVE o DELETED. No hay valor por defecto: DELETED borra el aviso del portal.");
   }
 
   const pSnap = await db.doc(`properties/${propertyId}`).get();
@@ -5100,7 +5101,7 @@ exports.estadoEnInfocasas = onCall(async (request) => {
   const listingId = String(p.icListingId || "");
   if (!listingId) return { ok: false, pista: "La propiedad no tiene icListingId: no está publicada por API." };
 
-  const body = [{ listing_id: listingId, status: Number(estado) }];
+  const body = [{ listing_id: listingId, client_id: await icClientId(), status: estado }];
   if (request.data && request.data.dryRun) return { ok: true, dryRun: true, payload: body };
 
   const r = await icFetch("/listing/status", { method: "PATCH", body, conCookie: true });
@@ -5113,8 +5114,11 @@ exports.estadoEnInfocasas = onCall(async (request) => {
   const fin = taskId ? await icEsperarTarea(taskId) : { ok: true, estado: "SIN_TAREA" };
 
   await pSnap.ref.update({
-    icStatusEnviado: Number(estado),
+    icStatusEnviado: estado,
     icStatusAt: new Date().toISOString(),
+    // Si se eliminó del portal, el listing_id deja de servir: se marca para no
+    // intentar editar un aviso que ya no existe.
+    ...(estado === "DELETED" && fin.ok ? { icEstado: "eliminado" } : {}),
   });
   await registrarLog(propertyId, "InfoCasas: cambio de estado", !!fin.ok, `status ${estado} · listing ${listingId}`);
   return { ok: !!fin.ok, taskId, estado: fin.estado, detalle: fin.detalle };
