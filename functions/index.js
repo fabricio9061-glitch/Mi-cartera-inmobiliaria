@@ -5141,10 +5141,33 @@ exports.icSuscribirWebhook = onCall(async (request) => {
   const url = String((request.data && request.data.url) || IC_WEBHOOK_URL || "");
   if (!url) throw new HttpsError("invalid-argument", "Falta la URL destino del webhook.");
 
+  /* El campo se llama "target", no "url" (confirmado en el esquema
+     WebhookSubscribePOST, 02/09/2026). Mandarlo como "url" no registraba nada.
+     client_id es opcional pero se manda a propósito: sin él llegarían las tareas
+     de TODOS los clientes del integrador, no solo las de Malave. */
   const r = await icFetch(`/webhook/${encodeURIComponent(hubId)}/subscribe`, {
-    method: "POST", body: { url }, conCookie: true,
+    method: "POST",
+    body: { target: url, client_id: await icClientId() },
+    conCookie: true,
   });
-  return { ok: r.ok, status: r.status, detalle: r.data, url };
+  return { ok: r.ok, status: r.status, detalle: r.data, target: url };
+});
+
+/* Desuscribe el webhook. Existe para poder revertir sin depender de ellos: si
+   la URL queda mal o hay que rotarla, primero se desuscribe y después se vuelve
+   a suscribir. */
+exports.icDesuscribirWebhook = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const hubId = String(IC_WEBHOOK_ID || (request.data && request.data.hubId) || "");
+  if (!hubId) throw new HttpsError("failed-precondition", "Falta IC_WEBHOOK_ID en el .env.");
+  const r = await icFetch(`/webhook/${encodeURIComponent(hubId)}/unsubscribe`, {
+    method: "POST", body: { client_id: await icClientId() }, conCookie: true,
+  });
+  return { ok: r.ok, status: r.status, detalle: r.data };
 });
 
 /* Recibe los avisos de tareas terminadas. Es público (InfoCasas no se
