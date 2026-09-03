@@ -70,9 +70,9 @@
     .tag.dest{ background:rgba(201,162,39,.16); color:#8a6d12 }
     .term{ display:inline-block; min-width:52px; text-align:center; font-weight:700; font-size:.8rem;
       padding:3px 9px; border-radius:20px; font-variant-numeric:tabular-nums }
-    .t5{ background:rgba(192,57,43,.14); color:#a5342a } .t4{ background:rgba(230,126,34,.16); color:#9c5510 }
-    .t3{ background:rgba(201,162,39,.16); color:#8a6d12 } .t2{ background:var(--gray-100); color:var(--gray-600) }
-    .t1{ background:var(--gray-100); color:var(--gray-400) }
+    .t5{ background:rgba(192,57,43,.15); color:#a5342a } .t4{ background:rgba(224,123,57,.18); color:#9c5510 }
+    .t3{ background:rgba(201,162,39,.18); color:#8a6d12 } .t2{ background:rgba(127,147,173,.16); color:#5b6b80 }
+    .t1,.t0{ background:var(--gray-100); color:var(--gray-400) }
     .barras{ display:flex; flex-direction:column; gap:9px }
     .fila{ display:grid; grid-template-columns:1fr 66px; gap:11px; align-items:center; font-size:.83rem }
     .bg{ position:relative; height:24px; background:var(--gray-100); border-radius:7px; overflow:hidden }
@@ -137,6 +137,13 @@
     <div class="panel">
       <h2>Las más calientes</h2>
       <p class="ph">Interés por día publicado. Las de arriba son donde más rinde invertir.</p>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;color:var(--gray-500);margin-bottom:13px">
+        <span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#c0392b;margin-right:5px;vertical-align:-1px"></i>Caliente (3+)</span>
+        <span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#e07b39;margin-right:5px;vertical-align:-1px"></i>Tibia (1,5–3)</span>
+        <span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#C9A227;margin-right:5px;vertical-align:-1px"></i>Se mueve (0,6–1,5)</span>
+        <span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#7f93ad;margin-right:5px;vertical-align:-1px"></i>Fría (menos de 0,6)</span>
+        <span id="legTend"></span>
+      </div>
       <div id="top" class="barras"></div>
     </div>
 
@@ -172,7 +179,18 @@
   firebase.initializeApp(window.firebaseConfig);
   const db = firebase.firestore(), auth = firebase.auth();
 
-  let _props = [], _ordCol = 'termo', _ordAsc = false, _sinPermiso = false;
+  let _props = [], _ordCol = 'termo', _ordAsc = false, _sinPermiso = false, _hayHistorial = false;
+
+  /* Escala de temperatura. El mismo color se usa en las barras y en la píldora
+     de la tabla, así que un vistazo alcanza para ubicar qué está caliente. */
+  function tempNivel(v){
+    if (v == null || v <= 0) return 0;
+    if (v >= 3) return 5;
+    if (v >= 1.5) return 4;
+    if (v >= 0.6) return 3;
+    return 2;
+  }
+  const TEMP_COLOR = ['#c9ced6', '#c9ced6', '#7f93ad', '#C9A227', '#e07b39', '#c0392b'];
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const n1 = v => (Math.round((Number(v) || 0) * 10) / 10).toLocaleString('es-UY');
@@ -218,11 +236,27 @@
          de Mercado Libre NO crean gestión (solo notificación, y esas se borran).
          mlEventos y leadsPortales guardan propertyId y fecha, y no se borran
          nunca, así que son la fuente confiable. */
-      const [snap, mlS, icS] = await Promise.all([
+      /* Las fotos diarias se leen como collection group: una sola consulta en vez
+         de recorrer las 42 propiedades. Solo los últimos 8 días, que es lo que
+         hace falta para comparar contra hace una semana. */
+      const hace8 = new Date(Date.now() - 8 * 86400000).toISOString().slice(0, 10);
+      const [snap, mlS, icS, mtS] = await Promise.all([
         db.collection('properties').get(),
         db.collection('mlEventos').get().catch(() => null),
-        db.collection('leadsPortales').get().catch(() => null)
+        db.collection('leadsPortales').get().catch(() => null),
+        db.collectionGroup('metricas').where('fecha', '>=', hace8).get().catch(() => null)
       ]);
+      /* Por propiedad, la foto más vieja del rango. La diferencia contra el valor
+         de hoy es el movimiento de la semana. Si no hay fotos todavía —el cron
+         recién empieza a correr— no se muestra tendencia en vez de inventarla. */
+      const base = {};
+      if (mtS) mtS.forEach(d => {
+        const propId = d.ref.parent.parent && d.ref.parent.parent.id;
+        if (!propId) return;
+        const x = d.data();
+        if (!base[propId] || x.fecha < base[propId].fecha) base[propId] = x;
+      });
+      _hayHistorial = !!(mtS && !mtS.empty);
       _sinPermiso = !mlS || !icS;
       const conML = {}, conIC = {};
       if (mlS) mlS.forEach(d => { const x = d.data(); if (x.propertyId) conML[x.propertyId] = (conML[x.propertyId] || 0) + 1; });
@@ -247,6 +281,14 @@
           destacada: p.featured === true, agente: p.ownerName || '',
           views, clics, dias, cML, cIC, consultas, vML,
           mlAt: p.mlVisitasAt || null,
+          // Movimiento de los últimos días contra la foto más vieja disponible.
+          delta: (function(){
+            const b = base[d.id];
+            if (!b) return null;
+            const antes = (Number(b.views) || 0) + (Number(b.mlVisitas) || 0) + (Number(b.contactClicks) || 0) * 5;
+            const ahora = views + vML + clics * 5;
+            return { abs: ahora - antes, desde: b.fecha };
+          })(),
           /* Interés por día: la única forma de comparar una publicación nueva con
              una vieja. Si no hay fecha de alta, no se inventa.
              Los pesos NO son iguales a propósito: una vista es curiosidad, un
@@ -310,7 +352,19 @@
     const av = document.getElementById('avisoPermiso');
     if (av) av.style.display = _sinPermiso ? '' : 'none';
 
+    const lt = document.getElementById('legTend');
+    if (lt) lt.innerHTML = _hayHistorial
+      ? '<span style="color:#1e7d4f">▲</span> movimiento de los últimos días'
+      : '<span style="color:var(--gray-400)">Sin historial todavía: la tendencia aparece cuando el proceso diario lleve unos días corriendo.</span>';
     pintarTop(l); pintarFrias(l); pintarTabla(l);
+  }
+
+  /* Flecha de tendencia. Solo se muestra si hay foto previa: sin historial no se
+     inventa un movimiento. */
+  function flecha(d){
+    if (!d || !d.abs) return '';
+    if (d.abs > 0) return ' <span style="color:#1e7d4f" title="Subió desde ' + d.desde + '">▲' + d.abs + '</span>';
+    return ' <span style="color:#9aa3ad" title="Sin cambios desde ' + d.desde + '">–</span>';
   }
 
   function pintarTop(l){
@@ -318,10 +372,15 @@
     const top = l.filter(p => p.termo != null && p.termo > 0).sort((a, b) => b.termo - a.termo).slice(0, 10);
     if (!top.length) { el.innerHTML = '<div class="vacio">Todavía no hay movimiento para comparar.</div>'; return; }
     const max = top[0].termo;
-    el.innerHTML = top.map(p =>
-      '<div class="fila"><div class="bg"><div class="bi" style="width:' + (p.termo / max * 100) + '%"></div>' +
-      '<span class="bl">' + esc(p.titulo.slice(0, 62)) + (p.destacada ? ' ⭐' : '') + '</span></div>' +
-      '<span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + n1(p.termo) + '</span></div>').join('');
+    el.innerHTML = top.map(p => {
+      const col = TEMP_COLOR[tempNivel(p.termo)];
+      const fl = flecha(p.delta);
+      return '<div class="fila"><div class="bg"><div class="bi" style="width:' + (p.termo / max * 100) +
+        '%;background:' + col + '"></div>' +
+        '<span class="bl">' + esc(p.titulo.slice(0, 58)) + (p.destacada ? ' ⭐' : '') + '</span></div>' +
+        '<span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:' + col + '">' +
+        n1(p.termo) + fl + '</span></div>';
+    }).join('');
   }
 
   /* Mucha vista y poco clic. Se pide un mínimo de 20 vistas: con 3 vistas y 0
@@ -370,11 +429,12 @@
       th('vistasDia', 'Vistas/día', 'num') + th('dias', 'Días', 'num') +
       '</tr></thead><tbody>' +
       orden.map(p => {
-        const nivel = p.termo == null ? 1 : p.termo >= 3 ? 5 : p.termo >= 1.5 ? 4 : p.termo >= 0.6 ? 3 : p.termo > 0 ? 2 : 1;
+        const nivel = tempNivel(p.termo);
         return '<tr><td>' + celdaProp(p) + '</td><td style="white-space:nowrap">' + esc(p.precio) + '</td>' +
           '<td><span class="tag' + (p.destacada ? ' dest' : '') + '">' +
             (p.destacada ? '⭐ Destacada' : (p.estado === 'available' ? 'Disponible' : esc(p.estado))) + '</span></td>' +
-          '<td class="num"><span class="term t' + nivel + '">' + (p.termo == null ? '—' : n1(p.termo)) + '</span></td>' +
+          '<td class="num"><span class="term t' + nivel + '">' + (p.termo == null ? '—' : n1(p.termo)) + '</span>' +
+            flecha(p.delta) + '</td>' +
           '<td class="num">' + p.views + '</td><td class="num">' + p.clics + '</td>' +
           '<td class="num"' + (p.vML ? ' style="font-weight:600"' : ' style="color:var(--gray-400)"') + '>' + p.vML + '</td>' +
           '<td class="num">' + (p.conv == null ? '—' : n1(p.conv) + '%') + '</td>' +

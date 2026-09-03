@@ -319,6 +319,33 @@ service cloud.firestore {
       allow update, delete: if esDireccion();
     }
 
+    // ============ FOTOS DIARIAS DE MÉTRICAS — SOLO Dirección ============
+    // properties/{id}/metricas/{fecha}: una foto por día de views, clics y
+    // visitas de ML. Es lo que permite decir "subió esta semana" en vez de solo
+    // "acumuló desde que se publicó".
+    // Va como collection group porque la herramienta las lee todas de una en vez
+    // de recorrer propiedad por propiedad. Las escribe el cron con Admin SDK.
+    match /{path=**}/metricas/{fecha} {
+      allow read: if esDireccion();
+      allow write: if false;
+    }
+
+    // ============ CRUDOS DE PORTALES — SOLO Dirección, solo lectura ============
+    // mlEventos: cada consulta de Mercado Libre. leadsPortales: cada lead de
+    // InfoCasas. Las dos guardan propertyId y fecha, y a diferencia de las
+    // notificaciones NO se borran, así que son la única fuente confiable para
+    // medir qué propiedad genera consultas en los portales.
+    // Escritura solo desde Cloud Functions con Admin SDK, que no pasa por estas
+    // reglas: por eso 'write: false' y no rompe nada.
+    match /mlEventos/{eventoId} {
+      allow read: if esDireccion();
+      allow write: if false;
+    }
+    match /leadsPortales/{leadId} {
+      allow read: if esDireccion();
+      allow write: if false;
+    }
+
     // ============ GASTOS DE LA AGENCIA — SOLO Dirección ============
     // Sueldos, BPS, alquiler y demás costos fijos. Es información sensible del
     // negocio: ni siquiera los agentes aprobados la ven. Los ingresos, en cambio,
