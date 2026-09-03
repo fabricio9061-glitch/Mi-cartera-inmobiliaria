@@ -4529,6 +4529,13 @@ const IC_CLIENT_ID = process.env.IC_CLIENT_ID || "";
 // InfoCasas y el código se pone acá. Si un usuario del CRM tiene su propio
 // icAgentId, ese gana sobre este valor.
 const IC_CLIENT_AGENT = process.env.IC_CLIENT_AGENT || "";
+// Webhook. El HUB.ID lo facilita InfoCasas (Frank, 01/09/2026). IC_WEBHOOK_URL
+// es la URL de icWebhook una vez desplegada. IC_WEBHOOK_TOKEN es el valor que
+// ellos mandan en el header VERIFY-TOKEN; si queda vacío el endpoint NO valida
+// nada y cualquiera puede inyectar eventos falsos.
+const IC_WEBHOOK_ID = process.env.IC_WEBHOOK_ID || "";
+const IC_WEBHOOK_URL = process.env.IC_WEBHOOK_URL || "";
+const IC_WEBHOOK_TOKEN = process.env.IC_WEBHOOK_TOKEN || "";
 
 /* El client_id se pide una vez y se guarda en memoria. La instancia de la
    función vive un rato entre llamadas, así que esto ahorra un GET /client por
@@ -4886,7 +4893,16 @@ async function icApiPayload(p, propId, agente) {
     // y suele ser falsa: la ficha simplemente no tenía el dato. Publicar
     // "gastos incluidos" cuando no lo están es un reclamo del inquilino.
     if (gc > 0) {
-      payload.administration = { is_included: false, price: Math.round(gc) };
+      // administration tiene su PROPIO currency, con el mismo default de USD
+      // (confirmado en la doc, 02/09/2026). Va explícito por la misma razón que
+      // el precio: omitirlo publicaría $24.600 de gastos como US$ 24.600.
+      // El feed XML ya asume pesos para gastos comunes (IDmonedagc: 2), así que
+      // se respeta ese criterio salvo que la propiedad diga otra cosa.
+      payload.administration = {
+        is_included: false,
+        price: Math.round(gc),
+        currency: icApiCurrency(p.commonExpensesCurrency || "UYU"),
+      };
     } else if (p.commonExpensesIncluded === true) {
       payload.administration = { is_included: true };
     } else {
@@ -4996,6 +5012,189 @@ exports.icEstadoTarea = onCall(async (request) => {
   if (!taskId) throw new HttpsError("invalid-argument", "Falta taskId.");
   const r = await icFetch(`/task/${encodeURIComponent(taskId)}`, { conCookie: true });
   return { ok: r.ok, status: r.status, detalle: r.data };
+});
+
+/* Actualiza un aviso ya publicado. Reusa el mismo armado que la publicación:
+   si el payload cambia, cambia para los dos y no se desincronizan.
+
+   Necesita icListingId, que quedó guardado al publicar. Sin ese id InfoCasas no
+   sabe qué aviso tocar: por eso publicar y guardar el id es un solo paso. */
+exports.editarEnInfocasas = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const propertyId = String((request.data && request.data.propertyId) || "");
+  if (!propertyId) throw new HttpsError("invalid-argument", "Falta la propiedad.");
+  const soloVistaPrevia = !!(request.data && request.data.dryRun);
+
+  const pSnap = await db.doc(`properties/${propertyId}`).get();
+  if (!pSnap.exists) throw new HttpsError("not-found", "La propiedad no existe.");
+  const p = pSnap.data();
+
+  const listingId = String(p.icListingId || "");
+  if (!listingId) {
+    return { ok: false, pista: "Esta propiedad no está publicada en InfoCasas por API (no tiene icListingId). Usá publicarEnInfocasas." };
+  }
+
+  const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+  const agente = uSnap && uSnap.exists ? uSnap.data() : {};
+
+  const armado = await icApiPayload(p, pSnap.id, agente);
+  if (!armado.ok) {
+    return { ok: false, faltan: armado.faltan,
+             pista: "La ficha ya no cumple con lo que exige InfoCasas. No se envió nada." };
+  }
+  const payload = { ...armado.payload, listing_id: listingId };
+  if (soloVistaPrevia) return { ok: true, dryRun: true, payload };
+
+  const r = await icFetch("/listing", { method: "PATCH", body: [payload], conCookie: true });
+  if (!r.ok) {
+    logger.warn(`editarEnInfocasas ${propertyId} -> ${r.status}`, r.data);
+    return { ok: false, status: r.status, detalle: r.data };
+  }
+  const d = r.data || {};
+  const taskId = d.task_id || d.taskId || (d.data && d.data.task_id) || null;
+  if (!taskId) return { ok: false, detalle: d, pista: "La API respondió 200 pero no devolvió task_id." };
+
+  await pSnap.ref.update({ icTaskId: taskId, icEnviadoAt: new Date().toISOString() });
+  const fin = await icEsperarTarea(taskId);
+  if (fin.ok) {
+    await pSnap.ref.update({ icEstado: "publicado", icActualizadoAt: new Date().toISOString() });
+    await registrarLog(propertyId, "InfoCasas: actualizado", true, `listing ${listingId}`);
+    return { ok: true, taskId, listingId };
+  }
+  await registrarLog(propertyId, "InfoCasas: actualización", false, `${fin.estado || ""}`);
+  return { ok: false, taskId, estado: fin.estado, detalle: fin.detalle };
+});
+
+/* Cambia el estado de un aviso: es la BAJA.
+
+   ⚠️  LOS CÓDIGOS DE ESTADO NO ESTÁN CONFIRMADOS. La documentación que tenemos
+   no expande el esquema ListingStatus. En la respuesta del GET se ve
+   "status": 0, y en las fotos el 3 es "Eliminado", pero NO se asume que sea la
+   misma escala: mandar el código equivocado puede despublicar avisos que están
+   bien o borrar los que solo había que pausar.
+
+   Por eso esta función NO tiene un valor por defecto: el estado se pasa siempre
+   de forma explícita. Cuando InfoCasas confirme la lista, se agrega acá una
+   tabla con nombres y se deja de escribir números a mano. */
+exports.estadoEnInfocasas = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const propertyId = String((request.data && request.data.propertyId) || "");
+  const estado = request.data && request.data.status;
+  if (!propertyId) throw new HttpsError("invalid-argument", "Falta la propiedad.");
+  if (estado == null || estado === "") {
+    throw new HttpsError("invalid-argument",
+      "Falta 'status'. No hay valor por defecto a propósito: los códigos de estado de InfoCasas todavía no están confirmados.");
+  }
+
+  const pSnap = await db.doc(`properties/${propertyId}`).get();
+  if (!pSnap.exists) throw new HttpsError("not-found", "La propiedad no existe.");
+  const p = pSnap.data();
+  const listingId = String(p.icListingId || "");
+  if (!listingId) return { ok: false, pista: "La propiedad no tiene icListingId: no está publicada por API." };
+
+  const body = [{ listing_id: listingId, status: Number(estado) }];
+  if (request.data && request.data.dryRun) return { ok: true, dryRun: true, payload: body };
+
+  const r = await icFetch("/listing/status", { method: "PATCH", body, conCookie: true });
+  if (!r.ok) {
+    logger.warn(`estadoEnInfocasas ${propertyId} -> ${r.status}`, r.data);
+    return { ok: false, status: r.status, detalle: r.data };
+  }
+  const d = r.data || {};
+  const taskId = d.task_id || d.taskId || (d.data && d.data.task_id) || null;
+  const fin = taskId ? await icEsperarTarea(taskId) : { ok: true, estado: "SIN_TAREA" };
+
+  await pSnap.ref.update({
+    icStatusEnviado: Number(estado),
+    icStatusAt: new Date().toISOString(),
+  });
+  await registrarLog(propertyId, "InfoCasas: cambio de estado", !!fin.ok, `status ${estado} · listing ${listingId}`);
+  return { ok: !!fin.ok, taskId, estado: fin.estado, detalle: fin.detalle };
+});
+
+/* Suscribe el webhook: InfoCasas avisa cuando una tarea termina, en vez de
+   tener que consultar /task con espera creciente. La documentación lo recomienda
+   como la forma ideal.
+
+   El HUB.ID lo facilita InfoCasas (nos lo pasó Frank el 01/09/2026) y va en
+   IC_WEBHOOK_ID del .env. La URL destino es la Cloud Function de abajo. */
+exports.icSuscribirWebhook = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const hubId = String(IC_WEBHOOK_ID || (request.data && request.data.hubId) || "");
+  if (!hubId) throw new HttpsError("failed-precondition", "Falta IC_WEBHOOK_ID en el .env.");
+  const url = String((request.data && request.data.url) || IC_WEBHOOK_URL || "");
+  if (!url) throw new HttpsError("invalid-argument", "Falta la URL destino del webhook.");
+
+  const r = await icFetch(`/webhook/${encodeURIComponent(hubId)}/subscribe`, {
+    method: "POST", body: { url }, conCookie: true,
+  });
+  return { ok: r.ok, status: r.status, detalle: r.data, url };
+});
+
+/* Recibe los avisos de tareas terminadas. Es público (InfoCasas no se
+   autentica con nuestro Firebase), así que valida el token que ellos mandan en
+   el header VERIFY-TOKEN antes de tocar nada.
+
+   Guarda SIEMPRE el cuerpo crudo en icWebhookEventos, aunque el procesamiento
+   falle: si algo no encaja, el dato real queda para mirarlo. Mismo criterio que
+   leadsPortales. */
+exports.icWebhook = onRequest(async (req, res) => {
+  if (req.method === "GET") { res.status(200).send("OK — webhook de InfoCasas activo (usar POST)"); return; }
+  if (req.method !== "POST") { res.status(405).send("Método no permitido"); return; }
+
+  const body = (typeof req.body === "object" && req.body) || {};
+  const esperado = String(IC_WEBHOOK_TOKEN || "");
+  if (esperado) {
+    const recibido = String(req.get("VERIFY-TOKEN") || req.get("verify-token") || body.verify_token || "");
+    if (recibido !== esperado) { res.status(401).send("Token inválido"); return; }
+  }
+
+  let ref = null;
+  try {
+    ref = await db.collection("icWebhookEventos").add({
+      recibido: new Date().toISOString(), body,
+      hubId: String(req.get("HUB-ID") || req.get("hub-id") || ""),
+      procesado: false,
+    });
+  } catch (e) { logger.warn("icWebhook: no se pudo guardar el crudo", e.message); }
+
+  // Se responde 200 enseguida: si tardamos, reintentan y duplicamos trabajo.
+  res.status(200).json({ ok: true });
+
+  try {
+    const t = body.task || body;
+    const externalCode = String(t.external_code || t.externalCode || "");
+    const listingId = t.listing_id || t.listingId || null;
+    const estado = String(t.status || t.state || "").toUpperCase();
+    if (!externalCode) return;
+
+    const q = await db.collection("properties")
+      .where("ficha.PROPERTY_CODE", "==", externalCode).limit(1).get();
+    if (q.empty) { logger.warn(`icWebhook: no encontré propiedad con código ${externalCode}`); return; }
+
+    const doc = q.docs[0];
+    const cambios = { icEstado: estado === "COMPLETED" ? "publicado" : "error",
+                      icWebhookAt: new Date().toISOString() };
+    if (listingId) cambios.icListingId = String(listingId);
+    await doc.ref.update(cambios);
+    await registrarLog(doc.id, "InfoCasas: webhook", estado === "COMPLETED", `${estado}${listingId ? " · listing " + listingId : ""}`);
+    if (ref) await ref.update({ procesado: true, propertyId: doc.id });
+  } catch (e) {
+    logger.error("icWebhook: error al procesar", e);
+    if (ref) { try { await ref.update({ procesado: false, error: String(e.message || e) }); } catch (e2) { /* nada */ } }
+  }
 });
 
 /* EXPLORADOR GENÉRICO (solo lectura). Hace GET a una ruta de la API y devuelve
