@@ -185,15 +185,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="malave-config.js?v=20260830b"></script>
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
-      authDomain: "mi-cartera-inmobiliaria.firebaseapp.com",
-      projectId: "mi-cartera-inmobiliaria",
-      storageBucket: "mi-cartera-inmobiliaria.firebasestorage.app",
-      messagingSenderId: "923595024127",
-      appId: "1:923595024127:web:b7104adcba6387a5a84eca"
-    };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
@@ -309,7 +302,7 @@
       // Badges
       const stLabels = { tasacion: 'PENDIENTE DE TASACIÓN', tasado: 'TASADO', reserved: 'RESERVADA', sold: 'VENDIDA', rented: 'ALQUILADA', archived: 'NO DISPONIBLE', cerrado_externo: 'NO DISPONIBLE' };
       document.getElementById('ppBadges').innerHTML =
-        `${p.featured&&st==='available'?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}` +
+        `${isEffectivelyFeatured(p)?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}` +
         `<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>` +
         `${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}` +
         `${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}` +
@@ -395,7 +388,6 @@
     // ===== Quién está mirando =====
     // Cliente sin sesión: solo las opciones de contacto (consultas).
     // Agente dueño de la propiedad o administrador: además, editar.
-    const ADMIN_EMAIL = 'fabricio9061@gmail.com';
     function chequearPermisos() {
       try {
         firebase.auth().onAuthStateChanged(u => {
