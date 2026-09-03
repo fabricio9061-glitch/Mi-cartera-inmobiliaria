@@ -5068,6 +5068,23 @@ async function icApiPayload(p, propId, agente) {
    task_id / taskId / data.task_id y ninguno existía: el POST creaba la tarea
    pero la función no sabía con qué consultarla y devolvía "no devolvió task_id"
    aunque la publicación estuviera en marcha. Se prueban todas las formas. */
+/* El listing_id viene en task.content[0].listing_id, no en task.listing_id.
+   Sin él no se puede editar ni dar de baja el aviso después, así que buscarlo en
+   el lugar equivocado dejaba la propiedad publicada pero huérfana. */
+function icListingIdDeTarea(d) {
+  if (!d || typeof d !== "object") return null;
+  const t = d.task || d;
+  if (Array.isArray(t.content)) {
+    for (const c of t.content) {
+      if (c && c.listing_id) return String(c.listing_id);
+    }
+  }
+  if (Array.isArray(t.results) && t.results[0] && t.results[0].listing_id) {
+    return String(t.results[0].listing_id);
+  }
+  return t.listing_id || t.listingId || null;
+}
+
 function icTaskId(d) {
   if (!d || typeof d !== "object") return null;
   const t = d.task || d.data || d;
@@ -5143,9 +5160,7 @@ exports.publicarEnInfocasas = onCall(async (request) => {
   await pSnap.ref.update({ icTaskId: taskId, icEnviadoAt: new Date().toISOString() });
 
   const fin = await icEsperarTarea(taskId);
-  const info = (fin.detalle && (fin.detalle.task || fin.detalle)) || {};
-  const listingId = info.listing_id || info.listingId ||
-    (Array.isArray(info.results) && info.results[0] && info.results[0].listing_id) || null;
+  const listingId = icListingIdDeTarea(fin.detalle);
 
   if (fin.ok && listingId) {
     await pSnap.ref.update({
@@ -5223,7 +5238,11 @@ exports.editarEnInfocasas = onCall(async (request) => {
   await pSnap.ref.update({ icTaskId: taskId, icEnviadoAt: new Date().toISOString() });
   const fin = await icEsperarTarea(taskId);
   if (fin.ok) {
-    await pSnap.ref.update({ icEstado: "publicado", icActualizadoAt: new Date().toISOString() });
+    const idNuevo = icListingIdDeTarea(fin.detalle);
+    await pSnap.ref.update({
+      icEstado: "publicado", icActualizadoAt: new Date().toISOString(),
+      ...(idNuevo ? { icListingId: idNuevo } : {}),
+    });
     await registrarLog(propertyId, "InfoCasas: actualizado", true, `listing ${listingId}`);
     return { ok: true, taskId, listingId };
   }
