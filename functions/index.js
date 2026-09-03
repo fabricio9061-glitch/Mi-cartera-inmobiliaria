@@ -2900,6 +2900,186 @@ const IC_COMODIDADES = {
 };
 
 /* ============================================================================
+   CASAS Y MÁS — integración por API
+   ----------------------------------------------------------------------------
+   Módulo aparte del de InfoCasas a propósito: las dos APIs no se parecen en
+   nada y compartir código las ataría sin ganancia. InfoCasas es asíncrona (POST
+   devuelve task_id y hay que consultar el estado); Casas y Más responde en el
+   momento con un código numérico.
+
+   Códigos de respuesta: 1 = OK · 2 = error al crear · 5 = key inválida.
+
+   ⚠️  NO HAY AMBIENTE DE PRUEBAS. El de ellos está en reestructuración y nos
+   pidieron hacer la primera publicación directo en producción. Por eso todas
+   las funciones que escriben tienen modo de ensayo (dryRun) y hay que revisar
+   el payload antes de mandar la primera.
+   ========================================================================== */
+
+const CYM_API_BASE = (process.env.CYM_API_BASE || "https://api.casasymas.com.uy").replace(/\/+$/, "");
+const CYM_API_KEY = process.env.CYM_API_KEY || "";
+const CYM_CALLBACK_URL = process.env.CYM_CALLBACK_URL || "";
+
+/* La clave viaja en el CUERPO como campo "key", no en un header. Ellos avisaron
+   que están migrando a header; cuando pase, se cambia acá y en ningún otro lado. */
+async function cymFetch(ruta, extra, method) {
+  if (!CYM_API_KEY) throw new HttpsError("failed-precondition", "Falta CYM_API_KEY en el .env.");
+  const url = CYM_API_BASE + (ruta.startsWith("/") ? ruta : "/" + ruta);
+  const body = { key: CYM_API_KEY, ...(extra || {}) };
+  try {
+    const res = await axios({
+      url, method: method || "POST",
+      headers: { "Content-Type": "application/json" },
+      data: body, timeout: 30000, validateStatus: () => true,
+    });
+    const d = res.data || {};
+    const codigo = Number(d.codigo);
+    return {
+      ok: res.status >= 200 && res.status < 300 && codigo === 1,
+      httpStatus: res.status, codigo,
+      mensaje: d.mensaje || "",
+      data: d,
+    };
+  } catch (e) {
+    logger.warn(`cymFetch ${method || "POST"} ${ruta}`, e.message);
+    return { ok: false, httpStatus: 0, codigo: null, mensaje: String(e.message || e), data: null };
+  }
+}
+
+/* realEstateType del CRM -> id de tipo de Casas y Más.
+   Los ids salen del comentario del endpoint de alta. Ojo que NO coinciden con
+   los de InfoCasas ni con los del feed XML: acá casa es 3, allá es "house". */
+const CYM_TIPO = {
+  apartamento: 1, apto: 1,
+  campo: 2, quinta: 2,
+  casa: 3,
+  local: 4,
+  terreno: 5,
+  oficina: 6,
+  chacra: 7,
+  galpon: 8, deposito: 8, tinglado: 8,
+  garaje: 9, cochera: 9,
+  edificio: 10,
+  negocio: 11,
+};
+
+/* Trae el catálogo de departamentos y zonas y lo guarda en Firestore.
+   Es el paso previo obligatorio: sin la equivalencia de barrios no se puede
+   publicar nada, porque la zona debe pertenecer al departamento indicado.
+   Solo lee. */
+exports.cymZonas = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const r = await cymFetch("/zonas", null, "GET");
+  if (!r.ok) {
+    return {
+      ok: false, httpStatus: r.httpStatus, codigo: r.codigo, mensaje: r.mensaje,
+      pista: r.codigo === 5
+        ? "Código 5: la key es inválida. Revisá CYM_API_KEY en el .env."
+        : "Revisá CYM_API_BASE o si cambió la ruta.",
+      crudo: r.data,
+    };
+  }
+  const locs = Array.isArray(r.data.localidades) ? r.data.localidades : [];
+  const deptos = [], zonas = [];
+  for (const L of locs) {
+    const depId = String(L.id), depNombre = String(L.nombre_departamento || "").trim();
+    deptos.push({ id: depId, nombre: depNombre });
+    for (const z of (Array.isArray(L.zonas) ? L.zonas : [])) {
+      zonas.push({ id: String(z.id), nombre: String(z.nombre_zona || "").trim(),
+                   depId, depNombre });
+    }
+  }
+  try {
+    const base = db.doc("adminData/cymZonas");
+    await base.set({
+      actualizado: new Date().toISOString(),
+      departamentos: deptos.length, zonas: zonas.length,
+      catalogoDeptos: deptos,
+    });
+    // En lotes, igual que el catálogo de InfoCasas: un documento tope en 1 MB.
+    const lotes = base.collection("lotes");
+    const previos = await lotes.get();
+    for (const d of previos.docs) await d.ref.delete();
+    for (let i = 0; i < zonas.length; i += 400) {
+      await lotes.doc(String(i / 400).padStart(3, "0")).set({ items: zonas.slice(i, i + 400) });
+    }
+  } catch (e) { logger.warn("cymZonas: no se pudo guardar", e.message); }
+
+  return {
+    ok: true, departamentos: deptos.length, zonas: zonas.length,
+    deptos,
+    muestraZonas: zonas.slice(0, 20),
+  };
+});
+
+/* Compara nuestros departamentos y barrios contra el catálogo de Casas y Más.
+   Con InfoCasas los ids coincidían con los del feed XML y nos ahorramos el
+   mapeo; acá arrancamos de cero, así que esta función es la que dice cuánto
+   trabajo manual queda.
+   Solo lee y compara. */
+exports.cymCobertura = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const base = db.doc("adminData/cymZonas");
+  const cab = await base.get();
+  if (!cab.exists) throw new HttpsError("failed-precondition", "Corré cymZonas primero.");
+  const lotes = await base.collection("lotes").get();
+  const zonas = [];
+  for (const d of lotes.docs) for (const z of (d.data().items || [])) zonas.push(z);
+  const deptos = cab.data().catalogoDeptos || [];
+
+  // Departamentos: se comparan por NOMBRE porque los ids no tienen por qué
+  // coincidir con los nuestros (en Casas y Más Montevideo es 1, en InfoCasas 10).
+  const porNombreDep = {};
+  for (const d of deptos) porNombreDep[icNorm(d.nombre)] = d;
+  const depsOk = [], depsFaltan = [];
+  for (const nuestro of Object.keys(IC_DEPTOS)) {
+    const c = porNombreDep[icNorm(nuestro)];
+    if (c) depsOk.push({ nuestro, cymId: c.id, cymNombre: c.nombre });
+    else depsFaltan.push(nuestro);
+  }
+
+  // Zonas: mismo criterio, por nombre dentro del departamento.
+  const porDep = {};
+  for (const z of zonas) {
+    (porDep[z.depId] = porDep[z.depId] || {})[icNorm(z.nombre)] = z;
+  }
+  const zonasOk = [], zonasFaltan = [];
+  for (const [depIdNuestro, misZonas] of Object.entries(IC_ZONAS)) {
+    const dep = depsOk.find((d) => String(IC_DEPTOS[d.nuestro]) === String(depIdNuestro));
+    if (!dep) continue;
+    const mapa = porDep[dep.cymId] || {};
+    const vistos = new Set();
+    for (const nombre of Object.keys(misZonas)) {
+      if (vistos.has(nombre)) continue;
+      vistos.add(nombre);
+      const c = mapa[icNorm(nombre)];
+      if (c) zonasOk.push({ nuestra: nombre, dep: dep.nuestro, cymId: c.id });
+      else zonasFaltan.push({ nuestra: nombre, dep: dep.nuestro });
+    }
+  }
+
+  return {
+    catalogo: { departamentos: deptos.length, zonas: zonas.length },
+    departamentosOk: depsOk.length,
+    departamentosSinEquivalente: depsFaltan,
+    zonasOk: zonasOk.length,
+    zonasSinEquivalente: zonasFaltan.length,
+    muestraFaltantes: zonasFaltan.slice(0, 40),
+    equivalenciaDeptos: depsOk,
+    veredicto: (depsFaltan.length || zonasFaltan.length)
+      ? "Faltan equivalencias: revisá las listas antes de publicar."
+      : "Todos los departamentos y zonas tienen equivalente en Casas y Más.",
+  };
+});
+
+/* ============================================================================
    MÉTRICAS DE MERCADO LIBRE POR PROPIEDAD
    ----------------------------------------------------------------------------
    El CRM solo medía su propia web ('views' sube cuando alguien abre
