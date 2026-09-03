@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rentabilidad de la agencia · MALAVE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="malave-config.js?v=20260830b"></script>
+  <style>
+    :root{ --primary:#16273f; --navy:#16273f; --gold:#C9A227; --gray-50:#f7f8fa; --gray-100:#eef0f3;
+           --gray-200:#e3e6ea; --gray-400:#9aa3ad; --gray-500:#6b7480; --gray-600:#555;
+           --success:#1e7d4f; --danger:#c0392b; }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{ font-family:'Inter',sans-serif; background:var(--gray-50); color:#1d2733; line-height:1.5; }
+    h1,h2,h3{ font-family:'Cormorant Garamond',serif; }
+    /* Cabecera idéntica al resto del CRM (ganancias, tasador, academy): mismo
+       logo en imagen y mismo botón de volver, para que no se note el salto. */
+    .mv-head{ background:#fff; border-bottom:1px solid #eef1f5; position:sticky; top:0; z-index:60;
+      padding-top:env(safe-area-inset-top,0px); }
+    .mv-head-in{ max-width:1200px; margin:0 auto; padding:14px 20px; display:flex;
+      justify-content:space-between; align-items:center; gap:14px; }
+    .mv-head .logo{ display:flex; align-items:center; gap:10px; text-decoration:none; }
+    .mv-head .logo-img{ height:30px; width:auto; } .mv-head .logo-text{ height:19px; width:auto; }
+    .mv-head .back-link{ display:inline-flex; align-items:center; gap:7px; color:#6b7280;
+      font-size:.88rem; font-weight:500; padding:8px 15px; border:1px solid #eef1f5;
+      border-radius:999px; text-decoration:none; white-space:nowrap;
+      transition:background .15s, color .15s, border-color .15s; }
+    .mv-head .back-link:hover{ background:#16273f; color:#fff; border-color:#16273f; }
+    @media (max-width:520px){ .mv-head-in{ padding:10px 14px; } .mv-head .back-link span{ display:none } }
+    .wrap{ max-width:1160px; margin:0 auto; padding:26px 20px 70px; }
+    .titulo{ font-size:2rem; color:var(--primary); margin-bottom:4px; }
+    .sub{ color:var(--gray-500); font-size:.92rem; margin-bottom:22px; }
+    .barra{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:22px; }
+    .fg{ display:flex; flex-direction:column; gap:5px; }
+    .fg label{ font-size:.76rem; font-weight:600; color:var(--gray-500); text-transform:uppercase; letter-spacing:.04em; }
+    input,select,textarea{ font-family:inherit; font-size:.92rem; padding:9px 11px; border:1px solid var(--gray-200);
+      border-radius:9px; background:#fff; color:inherit; }
+    input:focus,select:focus{ outline:2px solid rgba(201,162,39,.35); outline-offset:1px }
+    .btn{ background:var(--primary); color:#fff; border:none; border-radius:9px; padding:10px 17px;
+      font-family:inherit; font-size:.9rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
+    .btn.sec{ background:#fff; color:var(--primary); border:1px solid var(--gray-200); }
+    .btn.mini{ padding:6px 11px; font-size:.82rem; }
+    .btn.danger{ background:#fff; color:var(--danger); border:1px solid var(--gray-200); }
+
+    .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:13px; margin-bottom:24px; }
+    .card{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:16px 18px; }
+    .card .k{ font-size:.76rem; color:var(--gray-500); text-transform:uppercase; letter-spacing:.05em; margin-bottom:7px; }
+    .card .v{ font-size:1.5rem; font-weight:700; font-variant-numeric:tabular-nums; }
+    .card .v.pos{ color:var(--success) } .card .v.neg{ color:var(--danger) }
+    .card .n{ font-size:.78rem; color:var(--gray-400); margin-top:5px; }
+
+    .panel{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:20px; margin-bottom:20px; }
+    .panel h2{ font-size:1.28rem; color:var(--primary); margin-bottom:3px; }
+    .panel .ph{ color:var(--gray-500); font-size:.84rem; margin-bottom:15px; }
+    .cols{ display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    @media(max-width:820px){ .cols{ grid-template-columns:1fr } }
+
+    table{ width:100%; border-collapse:collapse; font-size:.88rem; }
+    th{ text-align:left; font-size:.74rem; text-transform:uppercase; letter-spacing:.04em;
+        color:var(--gray-500); padding:8px 9px; border-bottom:1px solid var(--gray-200); }
+    td{ padding:9px; border-bottom:1px solid var(--gray-100); vertical-align:middle; }
+    td.num,th.num{ text-align:right; font-variant-numeric:tabular-nums; }
+    tr:last-child td{ border-bottom:none }
+    .tag{ font-size:.72rem; padding:2px 8px; border-radius:20px; background:var(--gray-100); color:var(--gray-600); }
+    .tag.fijo{ background:rgba(201,162,39,.14); color:#8a6d12 }
+    .vacio{ text-align:center; padding:34px 16px; color:var(--gray-400); }
+    .aviso{ background:#fffdf5; border:1px solid #eee6cf; border-left:4px solid var(--gold);
+      border-radius:11px; padding:11px 15px; font-size:.85rem; color:#8a6d12; margin-bottom:18px; }
+    .barras{ display:flex; flex-direction:column; gap:11px; }
+    .fila{ display:grid; grid-template-columns:74px 1fr; gap:11px; align-items:center; font-size:.82rem; }
+    .fila .mes{ color:var(--gray-500); font-variant-numeric:tabular-nums; }
+    .bg{ position:relative; height:26px; background:var(--gray-100); border-radius:7px; overflow:hidden; }
+    .bi{ position:absolute; top:0; bottom:0; left:0; border-radius:7px; }
+    .bi.ing{ background:rgba(30,125,79,.7) } .bi.gas{ background:rgba(192,57,43,.65) }
+    .bl{ position:absolute; right:8px; top:50%; transform:translateY(-50%); font-size:.76rem; font-weight:600;
+      font-variant-numeric:tabular-nums; color:#1d2733 }
+    .leyenda{ display:flex; gap:16px; font-size:.8rem; color:var(--gray-500); margin-bottom:13px; }
+    .pt{ width:11px; height:11px; border-radius:3px; display:inline-block; margin-right:5px; vertical-align:-1px }
+    .bloqueado{ max-width:460px; margin:90px auto; text-align:center; }
+  </style>
+</head>
+<body>
+  <header class="mv-head">
+    <div class="mv-head-in">
+      <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
+      <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i> <span>Volver al inicio</span></a>
+    </div>
+  </header>
+
+  <div id="bloqueado" class="bloqueado" style="display:none">
+    <i class="fas fa-lock" style="font-size:2.2rem;color:var(--gray-400)"></i>
+    <h1 class="titulo" style="font-size:1.5rem;margin-top:14px">Solo Dirección</h1>
+    <p class="sub" id="bloqueadoTxt">Esta página muestra los números de la agencia.</p>
+  </div>
+
+  <div class="wrap" id="app" style="display:none">
+    <h1 class="titulo">Rentabilidad de la agencia</h1>
+    <p class="sub">Lo que entra por comisiones contra lo que cuesta sostener la operación.</p>
+
+    <div class="barra">
+      <div class="fg"><label>Desde</label><input type="month" id="fDesde"></div>
+      <div class="fg"><label>Hasta</label><input type="month" id="fHasta"></div>
+      <button class="btn sec" onclick="aplicar()"><i class="fas fa-filter"></i> Aplicar</button>
+    </div>
+
+    <div class="aviso">
+      Los montos <b>no se convierten entre monedas</b>: dólares y pesos se muestran por separado,
+      porque mezclarlos con una cotización del día daría un resultado que cambia solo.
+    </div>
+
+    <div class="cards" id="tarjetas"></div>
+
+    <div class="panel">
+      <h2>Mes a mes</h2>
+      <p class="ph">Ingresos contra gastos. La barra más larga de cada par manda la escala.</p>
+      <div class="leyenda">
+        <span><i class="pt" style="background:rgba(30,125,79,.7)"></i>Ingresos</span>
+        <span><i class="pt" style="background:rgba(192,57,43,.65)"></i>Gastos</span>
+      </div>
+      <div class="cols">
+        <div><h3 style="font-size:1rem;margin-bottom:11px">Dólares</h3><div id="grafUSD" class="barras"></div></div>
+        <div><h3 style="font-size:1rem;margin-bottom:11px">Pesos</h3><div id="grafUYU" class="barras"></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Gastos</h2>
+      <p class="ph">Los fijos se repiten solos cada mes desde que los cargás. Los puntuales cuentan una sola vez.</p>
+      <div class="barra">
+        <div class="fg"><label>Concepto</label><input id="gConcepto" placeholder="Ej: Sueldo Romina" maxlength="80"></div>
+        <div class="fg"><label>Categoría</label>
+          <select id="gCategoria">
+            <option>Sueldos</option><option>BPS</option><option>Fonasa</option><option>Alquiler</option>
+            <option>Servicios</option><option>Portales</option><option>Marketing</option>
+            <option>Contador</option><option>Impuestos</option><option>Otros</option>
+          </select>
+        </div>
+        <div class="fg"><label>Monto</label><input id="gMonto" type="number" min="0" step="0.01" placeholder="0"></div>
+        <div class="fg"><label>Moneda</label><select id="gMoneda"><option value="UYU">Pesos</option><option value="USD">Dólares</option></select></div>
+        <div class="fg"><label>Tipo</label><select id="gTipo" onchange="tipoCambio()"><option value="fijo">Fijo (mensual)</option><option value="puntual">Puntual</option></select></div>
+        <div class="fg"><label id="lblDesde">Desde</label><input type="month" id="gDesde"></div>
+        <div class="fg" id="wrapHasta"><label>Hasta (opcional)</label><input type="month" id="gHasta"></div>
+        <button class="btn" onclick="guardarGasto()"><i class="fas fa-plus"></i> Agregar</button>
+      </div>
+      <div id="tablaGastos"></div>
+    </div>
+
+    <div class="panel">
+      <h2>De dónde viene la plata</h2>
+      <p class="ph">Cierres confirmados en el período, ordenados por lo que le quedó a la agencia.</p>
+      <div id="tablaIngresos"></div>
+    </div>
+  </div>
+
+<script>
+  /* =========================================================================
+     RENTABILIDAD DE LA AGENCIA — solo CEO y COO.
+
+     INGRESOS: no se cargan a mano. Salen de las propiedades con
+     cierreConfirmado === true. De la comisión bruta de la agencia se RESTA lo
+     que se lleva el agente, así que lo que se muestra es lo que efectivamente
+     le queda a la inmobiliaria.
+
+     MONEDAS: dólares y pesos van SEPARADOS, sin convertir. Convertir exigiría
+     una cotización, y el resultado cambiaría solo con el dólar sin que haya
+     pasado nada en el negocio.
+
+     GASTOS: colección agencyGastos. Los fijos se repiten solos entre 'desde' y
+     'hasta'; los puntuales cuentan en su mes.
+     ========================================================================= */
+
+  firebase.initializeApp(window.firebaseConfig);
+  const db = firebase.firestore(), auth = firebase.auth();
+
+  let _cierres = [], _gastos = [], _uid = null;
+
+  const fmt = (n, mon) => (mon === 'USD' ? 'US$ ' : '$ ') +
+    (Math.round(Number(n) || 0)).toLocaleString('es-UY');
+  const mesDe = iso => { const d = new Date(iso); return isNaN(d) ? '' :
+    d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  function tipoCambio(){
+    const fijo = document.getElementById('gTipo').value === 'fijo';
+    document.getElementById('wrapHasta').style.display = fijo ? '' : 'none';
+    document.getElementById('lblDesde').textContent = fijo ? 'Desde' : 'Mes';
+  }
+
+  auth.onAuthStateChanged(async u => {
+    if (!u) { location.href = 'index.html'; return; }
+    _uid = u.uid;
+    let perfil = {};
+    try { const d = await db.doc('users/' + u.uid).get(); perfil = d.exists ? d.data() : {}; } catch (e) {}
+    const rango = String(perfil.rank || '').toLowerCase();
+    const esDir = rango === 'ceo' || rango === 'coo' ||
+      String(u.email || '').toLowerCase() === String(window.ADMIN_EMAIL || '').toLowerCase();
+    if (!esDir) {
+      document.getElementById('bloqueado').style.display = '';
+      document.getElementById('bloqueadoTxt').textContent =
+        'Esta página muestra los números de la agencia y está reservada a CEO y COO.';
+      return;
+    }
+    document.getElementById('app').style.display = '';
+    // Por defecto, los últimos 12 meses.
+    const hoy = new Date();
+    const ini = new Date(hoy.getFullYear(), hoy.getMonth() - 11, 1);
+    document.getElementById('fHasta').value = mesDe(hoy.toISOString());
+    document.getElementById('fDesde').value = mesDe(ini.toISOString());
+    document.getElementById('gDesde').value = mesDe(hoy.toISOString());
+    tipoCambio();
+    await cargar();
+  });
+
+  async function cargar(){
+    try{
+      const [ps, gs] = await Promise.all([
+        db.collection('properties').where('cierreConfirmado', '==', true).get(),
+        db.collection('agencyGastos').get()
+      ]);
+      _cierres = [];
+      ps.forEach(d => {
+        const p = d.data(), c = p.cierre;
+        if (!c || !c.precio) return;
+        const precio = Number(c.precio) || 0;
+        // Comisión BRUTA de la agencia: % del precio en venta, meses de alquiler
+        // en arrendamiento. Mismos valores por defecto que usa Mis Finanzas.
+        const bruto = (c.tipo === 'venta')
+          ? precio * ((c.agencyPct != null ? Number(c.agencyPct) : 3) / 100)
+          : precio * (c.agencyMonths != null ? Number(c.agencyMonths) : 1);
+        // Lo que se lleva el agente. Si el cierre lo trae explícito se respeta.
+        const agente = (c.gananciaAgente != null && c.gananciaAgente !== '' && isFinite(Number(c.gananciaAgente)))
+          ? Number(c.gananciaAgente) : 0;
+        _cierres.push({
+          id: d.id, titulo: p.title || '(sin título)',
+          mes: mesDe(c.fecha), fecha: c.fecha || '',
+          moneda: c.moneda === 'UYU' ? 'UYU' : 'USD',
+          tipo: c.tipo || '', precio, bruto, agente,
+          neto: Math.max(0, bruto - agente),
+          agenteNombre: c.agenteNombre || ''
+        });
+      });
+      _gastos = gs.docs.map(d => Object.assign({ id: d.id }, d.data()));
+      pintar();
+    }catch(e){
+      console.error(e);
+      document.getElementById('tarjetas').innerHTML =
+        '<div class="vacio">No se pudieron cargar los datos: ' + esc(e.code || e.message || e) + '</div>';
+    }
+  }
+
+  function rango(){
+    return { desde: document.getElementById('fDesde').value || '0000-00',
+             hasta: document.getElementById('fHasta').value || '9999-99' };
+  }
+  function aplicar(){ pintar(); }
+
+  function meses(desde, hasta){
+    const out = [];
+    let [y, m] = desde.split('-').map(Number);
+    const [hy, hm] = hasta.split('-').map(Number);
+    if (!y || !hy) return out;
+    // Tope de 36 meses: más que eso no se lee en pantalla y no aporta.
+    for (let i = 0; i < 36 && (y < hy || (y === hy && m <= hm)); i++) {
+      out.push(y + '-' + String(m).padStart(2, '0'));
+      m++; if (m > 12) { m = 1; y++; }
+    }
+    return out;
+  }
+
+  /* Cuánto pesa un gasto en un mes dado. Un fijo cuenta en cada mes de su
+     ventana; un puntual solo en el suyo. */
+  function gastoEnMes(g, mes){
+    if (g.tipo === 'fijo') {
+      if (g.desde && mes < g.desde) return 0;
+      if (g.hasta && mes > g.hasta) return 0;
+      return Number(g.monto) || 0;
+    }
+    return g.desde === mes ? (Number(g.monto) || 0) : 0;
+  }
+
+  function pintar(){
+    const r = rango(), ms = meses(r.desde, r.hasta);
+    const ing = { USD: {}, UYU: {} }, gas = { USD: {}, UYU: {} };
+    ms.forEach(m => { ing.USD[m] = 0; ing.UYU[m] = 0; gas.USD[m] = 0; gas.UYU[m] = 0; });
+
+    _cierres.forEach(c => { if (ing[c.moneda][c.mes] != null) ing[c.moneda][c.mes] += c.neto; });
+    _gastos.forEach(g => {
+      const mon = g.moneda === 'USD' ? 'USD' : 'UYU';
+      ms.forEach(m => { gas[mon][m] += gastoEnMes(g, m); });
+    });
+
+    const tot = mon => ({
+      ing: ms.reduce((a, m) => a + ing[mon][m], 0),
+      gas: ms.reduce((a, m) => a + gas[mon][m], 0)
+    });
+    const tU = tot('USD'), tP = tot('UYU');
+    const tarj = (mon, t) => {
+      const res = t.ing - t.gas;
+      const margen = t.ing > 0 ? Math.round((res / t.ing) * 100) : null;
+      return '<div class="card"><div class="k">Ingresos ' + (mon === 'USD' ? 'USD' : 'pesos') + '</div>' +
+          '<div class="v">' + fmt(t.ing, mon) + '</div><div class="n">Neto de la agencia</div></div>' +
+        '<div class="card"><div class="k">Gastos ' + (mon === 'USD' ? 'USD' : 'pesos') + '</div>' +
+          '<div class="v">' + fmt(t.gas, mon) + '</div><div class="n">Fijos y puntuales</div></div>' +
+        '<div class="card"><div class="k">Resultado ' + (mon === 'USD' ? 'USD' : 'pesos') + '</div>' +
+          '<div class="v ' + (res >= 0 ? 'pos' : 'neg') + '">' + fmt(res, mon) + '</div>' +
+          '<div class="n">' + (margen == null ? 'Sin ingresos en el período' : 'Margen ' + margen + '%') + '</div></div>';
+    };
+    document.getElementById('tarjetas').innerHTML = tarj('USD', tU) + tarj('UYU', tP);
+
+    const graf = (mon, cont) => {
+      const el = document.getElementById(cont);
+      const max = Math.max(1, ...ms.map(m => Math.max(ing[mon][m], gas[mon][m])));
+      if (!ms.length) { el.innerHTML = '<div class="vacio">Elegí un período</div>'; return; }
+      el.innerHTML = ms.map(m => {
+        const a = ing[mon][m], b = gas[mon][m];
+        return '<div class="fila"><span class="mes">' + m + '</span><div>' +
+          '<div class="bg" style="margin-bottom:3px"><div class="bi ing" style="width:' + (a / max * 100) + '%"></div>' +
+            '<span class="bl">' + fmt(a, mon) + '</span></div>' +
+          '<div class="bg"><div class="bi gas" style="width:' + (b / max * 100) + '%"></div>' +
+            '<span class="bl">' + fmt(b, mon) + '</span></div>' +
+          '</div></div>';
+      }).join('');
+    };
+    graf('USD', 'grafUSD'); graf('UYU', 'grafUYU');
+
+    pintarGastos(ms);
+    pintarIngresos(r);
+  }
+
+  function pintarGastos(ms){
+    const c = document.getElementById('tablaGastos');
+    if (!_gastos.length) {
+      c.innerHTML = '<div class="vacio"><i class="fas fa-receipt" style="font-size:1.7rem"></i>' +
+        '<p style="margin-top:9px">Todavía no cargaste gastos. Empezá por los sueldos y el alquiler.</p></div>';
+      return;
+    }
+    const orden = _gastos.slice().sort((a, b) =>
+      (a.tipo === b.tipo) ? String(a.categoria).localeCompare(String(b.categoria)) : (a.tipo === 'fijo' ? -1 : 1));
+    c.innerHTML = '<table><thead><tr><th>Concepto</th><th>Categoría</th><th>Tipo</th>' +
+      '<th>Vigencia</th><th class="num">Monto</th><th class="num">En el período</th><th></th></tr></thead><tbody>' +
+      orden.map(g => {
+        const enPeriodo = ms.reduce((a, m) => a + gastoEnMes(g, m), 0);
+        const vig = g.tipo === 'fijo'
+          ? (g.desde || '—') + (g.hasta ? ' → ' + g.hasta : ' → hoy')
+          : (g.desde || '—');
+        return '<tr><td>' + esc(g.concepto || '') + '</td><td>' + esc(g.categoria || '') + '</td>' +
+          '<td><span class="tag ' + (g.tipo === 'fijo' ? 'fijo' : '') + '">' + (g.tipo === 'fijo' ? 'Fijo' : 'Puntual') + '</span></td>' +
+          '<td style="font-variant-numeric:tabular-nums;font-size:.82rem">' + esc(vig) + '</td>' +
+          '<td class="num">' + fmt(g.monto, g.moneda) + '</td>' +
+          '<td class="num"><b>' + fmt(enPeriodo, g.moneda) + '</b></td>' +
+          '<td class="num"><button class="btn danger mini" onclick="borrarGasto(\'' + esc(g.id) + '\')">' +
+          '<i class="fas fa-trash"></i></button></td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  function pintarIngresos(r){
+    const c = document.getElementById('tablaIngresos');
+    const lista = _cierres.filter(x => x.mes >= r.desde && x.mes <= r.hasta)
+                          .sort((a, b) => b.neto - a.neto);
+    if (!lista.length) {
+      c.innerHTML = '<div class="vacio"><i class="fas fa-handshake" style="font-size:1.7rem"></i>' +
+        '<p style="margin-top:9px">No hay cierres confirmados en este período.</p></div>';
+      return;
+    }
+    c.innerHTML = '<table><thead><tr><th>Propiedad</th><th>Agente</th><th>Tipo</th><th>Mes</th>' +
+      '<th class="num">Operación</th><th class="num">Comisión bruta</th><th class="num">Al agente</th>' +
+      '<th class="num">A la agencia</th></tr></thead><tbody>' +
+      lista.map(x => '<tr><td>' + esc(x.titulo.slice(0, 60)) + '</td><td>' + esc(x.agenteNombre) + '</td>' +
+        '<td><span class="tag">' + esc(x.tipo) + '</span></td>' +
+        '<td style="font-variant-numeric:tabular-nums">' + esc(x.mes) + '</td>' +
+        '<td class="num">' + fmt(x.precio, x.moneda) + '</td>' +
+        '<td class="num">' + fmt(x.bruto, x.moneda) + '</td>' +
+        '<td class="num">' + fmt(x.agente, x.moneda) + '</td>' +
+        '<td class="num"><b>' + fmt(x.neto, x.moneda) + '</b></td></tr>').join('') + '</tbody></table>';
+  }
+
+  async function guardarGasto(){
+    const concepto = document.getElementById('gConcepto').value.trim();
+    const monto = Number(document.getElementById('gMonto').value) || 0;
+    const desde = document.getElementById('gDesde').value;
+    const tipo = document.getElementById('gTipo').value;
+    if (!concepto) { alert('Poné un concepto.'); return; }
+    if (!(monto > 0)) { alert('El monto tiene que ser mayor que cero.'); return; }
+    if (!desde) { alert(tipo === 'fijo' ? 'Indicá desde qué mes corre.' : 'Indicá el mes.'); return; }
+    const hasta = tipo === 'fijo' ? (document.getElementById('gHasta').value || null) : null;
+    if (hasta && hasta < desde) { alert('El "hasta" no puede ser anterior al "desde".'); return; }
+    try{
+      const doc = {
+        concepto, monto, tipo, desde, hasta,
+        categoria: document.getElementById('gCategoria').value,
+        moneda: document.getElementById('gMoneda').value,
+        createdAt: new Date().toISOString(), createdBy: _uid
+      };
+      const ref = await db.collection('agencyGastos').add(doc);
+      _gastos.push(Object.assign({ id: ref.id }, doc));
+      document.getElementById('gConcepto').value = '';
+      document.getElementById('gMonto').value = '';
+      pintar();
+    }catch(e){ console.error(e); alert('No se pudo guardar: ' + (e.message || e)); }
+  }
+
+  async function borrarGasto(id){
+    const g = _gastos.find(x => x.id === id);
+    if (!confirm('¿Eliminar "' + ((g && g.concepto) || 'este gasto') + '"? No se puede deshacer.')) return;
+    try{
+      await db.collection('agencyGastos').doc(id).delete();
+      _gastos = _gastos.filter(x => x.id !== id);
+      pintar();
+    }catch(e){ console.error(e); alert('No se pudo eliminar: ' + (e.message || e)); }
+  }
+</script>
+</body>
+</html>

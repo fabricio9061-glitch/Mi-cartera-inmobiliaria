@@ -319,6 +319,14 @@ service cloud.firestore {
       allow update, delete: if esDireccion();
     }
 
+    // ============ GASTOS DE LA AGENCIA — SOLO Dirección ============
+    // Sueldos, BPS, alquiler y demás costos fijos. Es información sensible del
+    // negocio: ni siquiera los agentes aprobados la ven. Los ingresos, en cambio,
+    // salen de properties y no necesitan regla nueva.
+    match /agencyGastos/{gastoId} {
+      allow read, write: if esDireccion();
+    }
+
     // ============ RECOMPENSAS (catálogo) — aprobados leen, admin escribe ============
     match /recompensas/{id} {
       allow read: if isApproved();

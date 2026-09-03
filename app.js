@@ -451,6 +451,13 @@
     document.body.classList.toggle('has-bottombar', !!currentUser);
     document.getElementById('mvSideRetiros')?.classList.toggle('hidden', !esCEO());
     document.getElementById('mvSidePapelera')?.classList.toggle('hidden', !esCEO());
+    // Rentabilidad la ven CEO y COO. Se usa Rangos.esDireccion en vez de esCEO()
+    // porque esCEO() NO incluye el rango 'coo': con esa función, la COO no vería
+    // la herramienta. (El resto de los ítems de Administración siguen en esCEO();
+    // si eso hay que cambiarlo, es una decisión aparte.)
+    const _verRenta = esCEO() ||
+      (typeof Rangos !== 'undefined' && Rangos.esDireccion && Rangos.esDireccion(userProfile));
+    document.getElementById('mvSideRenta')?.classList.toggle('hidden', !_verRenta);
     if (isAdminUser()) actualizarBadgePendientes();
     document.getElementById('mvSide')?.classList.add('open');
     document.getElementById('mvSideOverlay')?.classList.add('open');
