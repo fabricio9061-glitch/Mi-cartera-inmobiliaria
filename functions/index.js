@@ -4924,6 +4924,15 @@ async function icApiPayload(p, propId, agente) {
   const descripcion = String(p.description || "").trim();
   if (!descripcion) faltan.push("descripción");
 
+  /* El estado NO se validaba acá. El feed XML sí lo hace y activarDestacado
+     también, pero la publicación por API se saltaba el control: se podía mandar
+     al portal una propiedad archivada, vendida o alquilada.
+     'reserved' se deja pasar: sigue en el mercado y es normal publicarla. */
+  const estado = String(p.status || "available");
+  if (estado !== "available" && estado !== "reserved") {
+    faltan.push(`la propiedad está en estado "${estado}" y no debería publicarse`);
+  }
+
   // listing_contact es obligatorio y necesita al menos un mail y un teléfono.
   const mail = String((agente && agente.email) || "").trim();
   const tel = String(p.ownerWhatsapp || (agente && agente.whatsapp) || "").trim();
