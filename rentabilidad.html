@@ -314,9 +314,19 @@
 
     const graf = (mon, cont) => {
       const el = document.getElementById(cont);
-      const max = Math.max(1, ...ms.map(m => Math.max(ing[mon][m], gas[mon][m])));
-      if (!ms.length) { el.innerHTML = '<div class="vacio">Elegí un período</div>'; return; }
-      el.innerHTML = ms.map(m => {
+      /* Solo los meses con movimiento. Antes se pintaban los 12 del período y la
+         mayoría salían en cero, incluidos meses en los que la agencia todavía no
+         operaba: once filas vacías tapaban las dos que importaban.
+         Un mes con gastos y cero ingresos SÍ se muestra: es justamente el dato
+         que hay que ver. Solo se oculta el que no tiene nada. */
+      const conDatos = ms.filter(m => ing[mon][m] > 0 || gas[mon][m] > 0);
+      if (!conDatos.length) {
+        el.innerHTML = '<div class="vacio" style="padding:22px">Sin movimientos en ' +
+          (mon === 'USD' ? 'dólares' : 'pesos') + ' en este período.</div>';
+        return;
+      }
+      const max = Math.max(1, ...conDatos.map(m => Math.max(ing[mon][m], gas[mon][m])));
+      el.innerHTML = conDatos.map(m => {
         const a = ing[mon][m], b = gas[mon][m];
         return '<div class="fila"><span class="mes">' + m + '</span><div>' +
           '<div class="bg" style="margin-bottom:3px"><div class="bi ing" style="width:' + (a / max * 100) + '%"></div>' +
