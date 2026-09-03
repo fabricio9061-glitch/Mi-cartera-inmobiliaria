@@ -73,16 +73,20 @@
     .t5{ background:rgba(192,57,43,.15); color:#a5342a } .t4{ background:rgba(224,123,57,.18); color:#9c5510 }
     .t3{ background:rgba(201,162,39,.18); color:#8a6d12 } .t2{ background:rgba(127,147,173,.16); color:#5b6b80 }
     .t1,.t0{ background:var(--gray-100); color:var(--gray-400) }
-    .barras{ display:flex; flex-direction:column; gap:14px }
-    .filaTop{ display:flex; flex-direction:column; gap:5px }
+    .barras{ display:flex; flex-direction:column; gap:10px }
+    .filaTop{ display:flex; flex-direction:column; gap:3px }
     .filaTop:hover .ft-t{ text-decoration:underline }
-    .ft-h{ display:flex; align-items:baseline; gap:9px; flex-wrap:wrap }
-    .ft-t{ font-weight:600; font-size:.88rem; color:var(--primary) }
-    .ft-a{ font-size:.78rem; color:var(--gray-500) }
-    .ft-v{ margin-left:auto; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap }
-    .ft-m{ font-size:.76rem; color:var(--gray-400); font-variant-numeric:tabular-nums }
-    .filaTop .bg{ height:14px }
+    .ft-h{ display:flex; align-items:baseline; gap:8px }
+    .ft-t{ font-weight:600; font-size:.85rem; color:var(--primary); overflow:hidden;
+      text-overflow:ellipsis; white-space:nowrap; min-width:0 }
+    .ft-a{ font-size:.75rem; color:var(--gray-500); white-space:nowrap; flex:none }
+    .ft-v{ margin-left:auto; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; flex:none }
+    .ft-b{ display:flex; align-items:center; gap:10px }
+    .ft-b .bg{ height:10px; flex:1 }
+    .ft-m{ font-size:.73rem; color:var(--gray-400); font-variant-numeric:tabular-nums;
+      white-space:nowrap; flex:none }
     .desg{ display:block; font-size:.7rem; color:var(--gray-400); font-weight:400 }
+    @media(max-width:640px){ .ft-a{ display:none } .ft-m{ font-size:.7rem } }
     .fila{ display:grid; grid-template-columns:1fr 66px; gap:11px; align-items:center; font-size:.83rem }
     .bg{ position:relative; height:24px; background:var(--gray-100); border-radius:7px; overflow:hidden }
     .bi{ position:absolute; top:0; bottom:0; left:0; border-radius:7px; background:rgba(22,39,63,.75) }
@@ -97,6 +101,31 @@
     .vacio{ text-align:center; padding:34px 16px; color:var(--gray-400) }
     .bloqueado{ max-width:460px; margin:90px auto; text-align:center }
     .scroll{ overflow-x:auto }
+
+    /* CELULAR: la tabla no se comprime, se convierte en tarjetas. Con nueve
+       columnas en 380px las de la derecha quedaban ilegibles o directamente
+       cortadas. Cada fila pasa a ser un bloque con la etiqueta al lado del dato
+       (data-l), y el ordenar sigue funcionando desde el encabezado de arriba. */
+    @media(max-width:760px){
+      .wrap{ padding:18px 13px 60px }
+      .titulo{ font-size:1.55rem }
+      .panel{ padding:15px 13px }
+      .barra{ gap:8px } .barra .fg{ flex:1 1 132px }
+      .cards{ grid-template-columns:repeat(auto-fit,minmax(146px,1fr)); gap:9px }
+      .card{ padding:12px 13px } .card .v{ font-size:1.22rem }
+      .scroll{ overflow:visible }
+      table, thead, tbody, tr, td{ display:block; width:100% }
+      thead{ display:none }
+      tr{ border:1px solid var(--gray-200); border-radius:12px; padding:11px 13px; margin-bottom:10px }
+      td{ border:none; padding:4px 0; display:flex; justify-content:space-between; align-items:center; gap:12px }
+      td.num{ text-align:right }
+      td[data-l]:not([data-l=""])::before{ content:attr(data-l); color:var(--gray-500);
+        font-size:.76rem; text-transform:uppercase; letter-spacing:.03em; flex:none }
+      td[data-l=""]{ padding-bottom:8px; border-bottom:1px solid var(--gray-100); margin-bottom:5px }
+      .prop{ min-width:0 } .prop .t{ white-space:normal }
+      .prop .ir{ opacity:1 }
+      .desg{ display:inline; margin-left:6px }
+    }
   </style>
 </head>
 <body>
@@ -415,13 +444,17 @@
       /* El nombre va ARRIBA de la barra, no adentro: adentro se cortaba contra el
          borde y el agente quedaba a medias. Así se lee entero sin importar el
          largo del título ni el ancho de la barra. */
+      /* Dos líneas por propiedad, no tres: título con el valor a la derecha, y la
+         barra con las métricas al lado. Antes cada fila ocupaba tres renglones y
+         diez propiedades llenaban la pantalla. */
       return '<div class="filaTop clic" onclick="abrirFicha(\'' + esc(p.id) + '\')">' +
         '<div class="ft-h"><span class="ft-t">' + esc(p.titulo) + (p.destacada ? ' ⭐' : '') + '</span>' +
         (p.agente ? '<span class="ft-a">' + esc(p.agente) + '</span>' : '') +
         '<span class="ft-v" style="color:' + col + '">' + n1(p.termo) + fl + '</span></div>' +
-        '<div class="bg"><div class="bi" style="width:' + (p.termo / max * 100) + '%;background:' + col + '"></div></div>' +
-        '<div class="ft-m">' + p.vistasTot + ' vistas · ' + p.contactosTot + ' contactos' +
-        (p.conv != null ? ' · ' + n1(p.conv) + '%' : '') + '</div></div>';
+        '<div class="ft-b"><div class="bg"><div class="bi" style="width:' + (p.termo / max * 100) +
+        '%;background:' + col + '"></div></div>' +
+        '<span class="ft-m">' + p.vistasTot + ' vistas · ' + p.contactosTot + ' cont.' +
+        (p.conv != null ? ' · ' + n1(p.conv) + '%' : '') + '</span></div></div>';
     }).join('');
   }
 
@@ -439,9 +472,9 @@
     }
     el.innerHTML = '<table><thead><tr><th>Propiedad</th><th>Precio</th><th class="num">Vistas</th>' +
       '<th class="num">Contactos</th><th class="num">Conversión</th></tr></thead><tbody>' +
-      f.map(p => '<tr><td>' + celdaProp(p) + '</td><td>' + esc(p.precio) + '</td>' +
-        '<td class="num">' + p.vistasTot + '</td><td class="num">' + p.contactosTot + '</td>' +
-        '<td class="num" style="color:var(--danger);font-weight:600">' + n1(p.conv) + '%</td></tr>').join('') +
+      f.map(p => '<tr><td data-l="">' + celdaProp(p) + '</td><td data-l="Precio">' + esc(p.precio) + '</td>' +
+        '<td class="num" data-l="Vistas">' + p.vistasTot + '</td><td class="num" data-l="Contactos">' + p.contactosTot + '</td>' +
+        '<td class="num" data-l="Conversión" style="color:var(--danger);font-weight:600">' + n1(p.conv) + '%</td></tr>').join('') +
       '</tbody></table>';
   }
 
@@ -476,21 +509,21 @@
       '</tr></thead><tbody>' +
       orden.map(p => {
         const nivel = tempNivel(p.termo);
-        return '<tr><td>' + celdaProp(p) + '</td><td style="white-space:nowrap">' + esc(p.precio) + '</td>' +
-          '<td><span class="tag' + (p.destacada ? ' dest' : '') + '">' +
+        return '<tr><td data-l="">' + celdaProp(p) + '</td><td data-l="Precio" style="white-space:nowrap">' + esc(p.precio) + '</td>' +
+          '<td data-l="Estado"><span class="tag' + (p.destacada ? ' dest' : '') + '">' +
             (p.destacada ? '⭐ Destacada' : (p.estado === 'available' ? 'Disponible' : esc(p.estado))) + '</span></td>' +
-          '<td class="num"><span class="term t' + nivel + '">' + (p.termo == null ? '—' : n1(p.termo)) + '</span>' +
+          '<td class="num" data-l="Termómetro"><span class="term t' + nivel + '">' + (p.termo == null ? '—' : n1(p.termo)) + '</span>' +
             flecha(p.delta) + '</td>' +
           /* Un solo número por concepto, con el desglose en el tooltip. Antes eran
              cinco columnas y la tabla se cortaba de lado. */
-          '<td class="num" title="' + p.views + ' en la web · ' + p.vML + ' en Mercado Libre">' +
+          '<td class="num" data-l="Vistas" title="' + p.views + ' en la web · ' + p.vML + ' en Mercado Libre">' +
             '<b>' + p.vistasTot + '</b>' + (p.vML ? '<span class="desg">' + p.vML + ' ML</span>' : '') + '</td>' +
-          '<td class="num" title="' + p.clics + ' clics web · ' + p.wML + ' WhatsApp ML · ' +
+          '<td class="num" data-l="Contactos" title="' + p.clics + ' clics web · ' + p.wML + ' WhatsApp ML · ' +
             p.cML + ' consultas ML · ' + p.qML + ' preguntas ML · ' + p.cIC + ' InfoCasas">' +
             '<b>' + p.contactosTot + '</b></td>' +
-          '<td class="num"' + (p.conv != null && p.conv >= 2 ? ' style="color:var(--success);font-weight:600"' : '') + '>' +
+          '<td class="num" data-l="Conversión"' + (p.conv != null && p.conv >= 2 ? ' style="color:var(--success);font-weight:600"' : '') + '>' +
             (p.conv == null ? '—' : n1(p.conv) + '%') + '</td>' +
-          '<td class="num" style="color:var(--gray-400)">' + (p.dias == null ? '—' : p.dias) + '</td></tr>';
+          '<td class="num" data-l="Días" style="color:var(--gray-400)">' + (p.dias == null ? '—' : p.dias) + '</td></tr>';
       }).join('') + '</tbody></table>';
   }
 </script>

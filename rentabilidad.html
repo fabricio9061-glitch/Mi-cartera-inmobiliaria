@@ -82,6 +82,29 @@
     .leyenda{ display:flex; gap:16px; font-size:.8rem; color:var(--gray-500); margin-bottom:13px; }
     .pt{ width:11px; height:11px; border-radius:3px; display:inline-block; margin-right:5px; vertical-align:-1px }
     .bloqueado{ max-width:460px; margin:90px auto; text-align:center; }
+
+    /* CELULAR: las tablas pasan a tarjetas. Con ocho columnas de plata en 380px
+       los importes de la derecha quedaban cortados, que es justo lo que hay que
+       leer. Cada fila es un bloque con la etiqueta al lado del número. */
+    @media(max-width:760px){
+      .wrap{ padding:18px 13px 60px }
+      .titulo{ font-size:1.55rem }
+      .panel{ padding:15px 13px }
+      .cols{ grid-template-columns:1fr }
+      .barra{ gap:8px } .barra .fg{ flex:1 1 138px }
+      .cards{ grid-template-columns:repeat(auto-fit,minmax(146px,1fr)); gap:9px }
+      .card{ padding:12px 13px } .card .v{ font-size:1.22rem }
+      table, thead, tbody, tr, td{ display:block; width:100% }
+      thead{ display:none }
+      tr{ border:1px solid var(--gray-200); border-radius:12px; padding:11px 13px; margin-bottom:10px }
+      td{ border:none; padding:4px 0; display:flex; justify-content:space-between; align-items:center; gap:12px }
+      td.num{ text-align:right }
+      td[data-l]:not([data-l=""])::before{ content:attr(data-l); color:var(--gray-500);
+        font-size:.76rem; text-transform:uppercase; letter-spacing:.03em; flex:none }
+      td[data-l=""]:first-child{ padding-bottom:8px; border-bottom:1px solid var(--gray-100); margin-bottom:5px }
+      .fila{ grid-template-columns:88px 1fr !important }
+      .fila .mes{ font-size:.76rem }
+    }
   </style>
 </head>
 <body>
@@ -413,12 +436,12 @@
         const vig = g.tipo === 'fijo'
           ? (g.desde || '—') + (g.hasta ? ' → ' + g.hasta : ' → hoy')
           : (g.desde || '—');
-        return '<tr><td>' + esc(g.concepto || '') + '</td><td>' + esc(g.categoria || '') + '</td>' +
-          '<td><span class="tag ' + (g.tipo === 'fijo' ? 'fijo' : '') + '">' + (g.tipo === 'fijo' ? 'Fijo' : 'Puntual') + '</span></td>' +
-          '<td style="font-variant-numeric:tabular-nums;font-size:.82rem">' + esc(vig) + '</td>' +
-          '<td class="num">' + fmt(g.monto, g.moneda) + '</td>' +
-          '<td class="num"><b>' + fmt(enPeriodo, g.moneda) + '</b></td>' +
-          '<td class="num" style="white-space:nowrap">' +
+        return '<tr><td data-l="">' + '<b>' + esc(g.concepto || '') + '</b></td><td data-l="Categoría">' + esc(g.categoria || '') + '</td>' +
+          '<td data-l="Tipo"><span class="tag ' + (g.tipo === 'fijo' ? 'fijo' : '') + '">' + (g.tipo === 'fijo' ? 'Fijo' : 'Puntual') + '</span></td>' +
+          '<td data-l="Vigencia" style="font-variant-numeric:tabular-nums;font-size:.82rem">' + esc(vig) + '</td>' +
+          '<td class="num" data-l="Monto">' + fmt(g.monto, g.moneda) + '</td>' +
+          '<td class="num" data-l="En el período"><b>' + fmt(enPeriodo, g.moneda) + '</b></td>' +
+          '<td class="num" data-l="" style="white-space:nowrap">' +
           '<button class="btn sec mini" onclick="editarGasto(\'' + esc(g.id) + '\')" title="Editar">' +
           '<i class="fas fa-pen"></i></button> ' +
           '<button class="btn danger mini" onclick="borrarGasto(\'' + esc(g.id) + '\')" title="Eliminar">' +
@@ -466,13 +489,14 @@
     c.innerHTML = '<table><thead><tr><th>Propiedad</th><th>Agente</th><th>Tipo</th><th>Mes</th>' +
       '<th class="num">Operación</th><th class="num">Comisión bruta</th><th class="num">Al agente</th>' +
       '<th class="num">A la agencia</th></tr></thead><tbody>' +
-      lista.map(x => '<tr><td>' + esc(x.titulo.slice(0, 60)) + '</td><td>' + esc(x.agenteNombre) + '</td>' +
-        '<td><span class="tag">' + esc(x.tipo) + '</span></td>' +
-        '<td style="font-variant-numeric:tabular-nums">' + esc(x.mes) + '</td>' +
-        '<td class="num">' + fmt(x.precio, x.moneda) + '</td>' +
-        '<td class="num">' + fmt(x.bruto, x.moneda) + '</td>' +
-        '<td class="num">' + fmt(x.agente, x.moneda) + '</td>' +
-        '<td class="num"><b>' + fmt(x.neto, x.moneda) + '</b></td></tr>').join('') + '</tbody></table>';
+      lista.map(x => '<tr><td data-l=""><b>' + esc(x.titulo.slice(0, 60)) + '</b></td>' +
+        '<td data-l="Agente">' + esc(x.agenteNombre) + '</td>' +
+        '<td data-l="Tipo"><span class="tag">' + esc(x.tipo) + '</span></td>' +
+        '<td data-l="Mes" style="font-variant-numeric:tabular-nums">' + esc(x.mes) + '</td>' +
+        '<td class="num" data-l="Operación">' + fmt(x.precio, x.moneda) + '</td>' +
+        '<td class="num" data-l="Comisión bruta">' + fmt(x.bruto, x.moneda) + '</td>' +
+        '<td class="num" data-l="Al agente">' + fmt(x.agente, x.moneda) + '</td>' +
+        '<td class="num" data-l="A la agencia"><b>' + fmt(x.neto, x.moneda) + '</b></td></tr>').join('') + '</tbody></table>';
   }
 
   /* Editar: carga el gasto en el formulario y pasa a modo edición. Sin esto,
