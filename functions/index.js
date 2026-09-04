@@ -3079,6 +3079,327 @@ exports.cymCobertura = onCall(async (request) => {
   };
 });
 
+/* Zona de Casas y Más para una propiedad. Los departamentos coinciden con
+   IC_DEPTOS (verificado: los 19 con el mismo id), así que se reusa esa tabla.
+   Las zonas NO: hay que buscarlas por nombre en el catálogo guardado, porque
+   los ids son distintos a los de InfoCasas. */
+async function cymResolverZona(depNombre, ciudad, barrio) {
+  const depId = IC_DEPTOS[icNorm(depNombre)];
+  if (!depId) return { error: `departamento no reconocido: "${depNombre || ""}"` };
+  const base = db.doc("adminData/cymZonas");
+  const cab = await base.get();
+  if (!cab.exists) return { error: "falta el catálogo de zonas: corré cymZonas" };
+  const lotes = await base.collection("lotes").get();
+  const mapa = {};
+  for (const d of lotes.docs) {
+    for (const z of (d.data().items || [])) {
+      if (String(z.depId) === String(depId)) mapa[icNorm(z.nombre)] = z.id;
+    }
+  }
+  // Se prueba barrio y después ciudad, igual que hace icZona.
+  for (const cand of [barrio, ciudad]) {
+    const k = icNorm(cand);
+    if (k && mapa[k]) return { depId: String(depId), zonaId: String(mapa[k]) };
+  }
+  return { error: `zona no encontrada en Casas y Más: "${barrio || ciudad || ""}"` };
+}
+
+/* Arma el cuerpo del alta. Devuelve { ok, payload, faltan }.
+   Diferencia con InfoCasas: acá venta y alquiler son BANDERAS independientes con
+   su precio y moneda cada una, así que una propiedad podría publicarse en las
+   dos operaciones. El CRM hoy maneja una sola (p.type), así que se activa la que
+   corresponda. */
+async function cymPayload(p, propId, agente) {
+  const F = p.ficha || {}, u = p.ubicacion || {};
+  const faltan = [];
+
+  const tipo = CYM_TIPO[icNorm(p.realEstateType)];
+  if (!tipo) faltan.push(`tipo de propiedad no reconocido: "${p.realEstateType || ""}"`);
+
+  const precio = Number(p.price) || 0;
+  if (!(precio > 0)) faltan.push("precio");
+
+  const titulo = String(p.title || "").trim().slice(0, 200);   // máx 200 según la doc
+  if (!titulo) faltan.push("título");
+  const descripcion = String(p.description || "").trim().slice(0, 65000);
+  if (!descripcion) faltan.push("descripción");
+
+  const estado = String(p.status || "available");
+  if (estado !== "available" && estado !== "reserved") {
+    faltan.push(`la propiedad está en estado "${estado}" y no debería publicarse`);
+  }
+
+  const lat = Number(u.lat != null ? u.lat : p.lat);
+  const lng = Number(u.lng != null ? u.lng : p.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) faltan.push("pin de ubicación (lat/lng)");
+
+  const z = await cymResolverZona(p.departamento || u.departamento, p.ciudad || u.ciudad, u.barrio);
+  if (z.error) faltan.push(z.error);
+
+  // Entre 4 y 25 fotos. Menos de 4 lo rechaza la API.
+  const imgs = (p.images || []).filter(Boolean).slice(0, 25);
+  if (imgs.length < 4) faltan.push(`hacen falta al menos 4 fotos (tiene ${imgs.length})`);
+
+  if (faltan.length) return { ok: false, faltan };
+
+  const esVenta = String(p.type || "").toLowerCase() === "sale";
+  const moneda = String(p.currency || "").toUpperCase() === "UYU" ? "UYU" : "USD";
+  const ta = Number(p.totalArea) || 0, ca = Number(p.builtArea) || 0;
+
+  const payload = {
+    id_orig: String(F.PROPERTY_CODE || propId || ""),
+    activa: "1",
+    // Venta y alquiler son excluyentes acá porque el CRM maneja una sola
+    // operación por propiedad. Si algún día se permite ambas, se prenden las dos.
+    venta: esVenta ? 1 : 0,
+    precio_venta: esVenta ? Math.round(precio) : 0,
+    moneda_venta: esVenta ? moneda : "USD",
+    ocultar_venta: 0,
+    alquiler: esVenta ? 0 : 1,
+    precio_alquiler: esVenta ? 0 : Math.round(precio),
+    moneda_alquiler: esVenta ? "UYU" : moneda,
+    ocultar_alquiler: 0,
+    departamento: String(z.depId),
+    zona: String(z.zonaId),
+    coordenadas: `${lat},${lng}`,
+    tipo,
+    titulo,
+    titulo_venta: esVenta ? titulo : "",
+    titulo_alquiler: esVenta ? "" : titulo,
+    descripcion,
+    superficie: String(ta || ca || 0),
+    superficie_unidad: "m2",
+    superficie_construida: String(ca || 0),
+    superficie_terreno: String(Number(F.LAND_AREA || 0) || 0),
+    dormitorios: String(Number(p.bedrooms) || 0),
+    banios: String(Number(p.bathrooms) || 0),
+    garage: (Number(F.PARKING_LOTS || 0) > 0 || p.garage === "yes") ? 1 : 0,
+    contacto: {
+      nombre: String((agente && agente.name) || ""),
+      email: String((agente && agente.email) || ""),
+      telefono: icApiTelefono(p.ownerWhatsapp || (agente && agente.whatsapp)),
+      whatsapp: icApiTelefono(p.ownerWhatsapp || (agente && agente.whatsapp)),
+    },
+  };
+
+  // Gastos comunes, solo en alquiler.
+  if (!esVenta) {
+    const gc = Number(p.commonExpenses) || 0;
+    if (gc > 0) {
+      payload.gastos_comunes = String(Math.round(gc));
+      payload.moneda_gastos_comunes = String(p.commonExpensesCurrency || "UYU").toUpperCase();
+    }
+  }
+
+  if (typeof F.PROPERTY_AGE === "number" && F.PROPERTY_AGE > 0) {
+    payload.anio = String(new Date().getFullYear() - Math.round(F.PROPERTY_AGE));
+  }
+  if (F.HAS_SWIMMING_POOL === true) payload.piscina = 1;
+  if (F.HAS_GRILL === true) payload.parillero = "Si";
+  if (F.HAS_HEATING === true) payload.calefaccion = 1;
+  if (F.FURNISHED === true) payload.muebles = 1;
+  if (F.HAS_LIFT === true) payload.asensor = 1;          // así lo escriben ellos
+  if (F.HAS_LAUNDRY === true) payload.lavadero = 1;
+  if (F.IS_SUITABLE_FOR_PETS === true) payload.mascotas = 1;
+  if (F.HAS_SECURITY === true) payload.seguridad = "1";
+  if (Number(F.FLOORS || 0) > 0) payload.plantas = String(F.FLOORS);
+  if (Number(F.UNIT_FLOOR || 0) > 0) payload.piso = Number(F.UNIT_FLOOR);
+
+  const video = String(p.videoUrl || "");
+  const m = video.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+  if (m) payload.videos = [{ id_video: m[1], plataforma: "2" }];
+
+  if (CYM_CALLBACK_URL) payload.url_callback_consultas = CYM_CALLBACK_URL;
+
+  return { ok: true, payload, fotos: imgs };
+}
+
+/* Publica una propiedad en Casas y Más.
+   Son DOS llamadas: alta_propiedad devuelve el id, y con ese id se suben las
+   fotos. Se guarda cymId en la propiedad porque las consultas llegan
+   identificadas con el id DE ELLOS, no con el nuestro: sin guardarlo, un lead
+   no se puede asignar al agente dueño. */
+exports.publicarEnCasasYMas = onCall({ timeoutSeconds: 300 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const propertyId = String((request.data && request.data.propertyId) || "");
+  if (!propertyId) throw new HttpsError("invalid-argument", "Falta la propiedad.");
+  const soloVistaPrevia = !!(request.data && request.data.dryRun);
+
+  const pSnap = await db.doc(`properties/${propertyId}`).get();
+  if (!pSnap.exists) throw new HttpsError("not-found", "La propiedad no existe.");
+  const p = pSnap.data();
+  const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+  const agente = uSnap && uSnap.exists ? uSnap.data() : {};
+
+  const armado = await cymPayload(p, pSnap.id, agente);
+  if (!armado.ok) {
+    return { ok: false, faltan: armado.faltan,
+             pista: "La ficha no cumple con lo que exige Casas y Más. No se envió nada." };
+  }
+  if (soloVistaPrevia) {
+    return { ok: true, dryRun: true, payload: armado.payload, fotos: armado.fotos.length };
+  }
+
+  const r = await cymFetch("/alta_propiedad", armado.payload);
+  if (!r.ok) {
+    logger.warn(`publicarEnCasasYMas ${propertyId} -> código ${r.codigo}`, r.data);
+    return { ok: false, codigo: r.codigo, mensaje: r.mensaje,
+             pista: r.codigo === 5 ? "Key inválida." : "Error al crear la propiedad.",
+             detalle: r.data };
+  }
+  const cymId = String(r.data.id || "");
+  if (!cymId) return { ok: false, detalle: r.data, pista: "Respondió OK pero sin id." };
+
+  await pSnap.ref.update({
+    cymId, cymEstado: "publicado", cymPublicadoAt: new Date().toISOString(),
+  });
+
+  // Las fotos van en una segunda llamada, ya con el id.
+  const rf = await cymFetch("/subir_fotos", {
+    id_propiedad: cymId,
+    fotos: armado.fotos.map((url, i) => ({ foto: url, orden: String(i + 1) })),
+  });
+  if (!rf.ok) {
+    logger.warn(`publicarEnCasasYMas fotos ${propertyId} -> código ${rf.codigo}`, rf.data);
+  }
+  await registrarLog(propertyId, "Casas y Más: publicado", true,
+    `id ${cymId}${rf.ok ? " · " + armado.fotos.length + " fotos" : " · FOTOS FALLARON"}`);
+
+  return { ok: true, cymId, fotos: rf.ok ? armado.fotos.length : 0,
+           fotosOk: rf.ok, fotosDetalle: rf.ok ? null : rf.data };
+});
+
+/* Actualiza una propiedad ya publicada. Reusa el mismo armado que el alta. */
+exports.editarEnCasasYMas = onCall({ timeoutSeconds: 300 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const propertyId = String((request.data && request.data.propertyId) || "");
+  if (!propertyId) throw new HttpsError("invalid-argument", "Falta la propiedad.");
+  const pSnap = await db.doc(`properties/${propertyId}`).get();
+  if (!pSnap.exists) throw new HttpsError("not-found", "La propiedad no existe.");
+  const p = pSnap.data();
+  const cymId = String(p.cymId || "");
+  if (!cymId) return { ok: false, pista: "No está publicada en Casas y Más (falta cymId)." };
+
+  const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+  const agente = uSnap && uSnap.exists ? uSnap.data() : {};
+  const armado = await cymPayload(p, pSnap.id, agente);
+  if (!armado.ok) return { ok: false, faltan: armado.faltan };
+  if (request.data && request.data.dryRun) {
+    return { ok: true, dryRun: true, payload: { id: cymId, ...armado.payload } };
+  }
+
+  const r = await cymFetch("/modificar_propiedad", { id: cymId, ...armado.payload }, "PUT");
+  if (r.ok) {
+    await pSnap.ref.update({ cymActualizadoAt: new Date().toISOString() });
+    await registrarLog(propertyId, "Casas y Más: actualizado", true, `id ${cymId}`);
+  }
+  return { ok: r.ok, codigo: r.codigo, mensaje: r.mensaje, detalle: r.ok ? null : r.data };
+});
+
+/* Da de baja el aviso. */
+exports.bajaEnCasasYMas = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const propertyId = String((request.data && request.data.propertyId) || "");
+  if (!propertyId) throw new HttpsError("invalid-argument", "Falta la propiedad.");
+  const pSnap = await db.doc(`properties/${propertyId}`).get();
+  if (!pSnap.exists) throw new HttpsError("not-found", "La propiedad no existe.");
+  const cymId = String((pSnap.data() || {}).cymId || "");
+  if (!cymId) return { ok: false, pista: "No está publicada en Casas y Más." };
+
+  const r = await cymFetch("/eliminar_propiedad", { id: cymId });
+  if (r.ok) {
+    await pSnap.ref.update({ cymEstado: "eliminado", cymBajaAt: new Date().toISOString() });
+    await registrarLog(propertyId, "Casas y Más: baja", true, `id ${cymId}`);
+  }
+  return { ok: r.ok, codigo: r.codigo, mensaje: r.mensaje, detalle: r.ok ? null : r.data };
+});
+
+/* Receptor de consultas de Casas y Más. Se configura como
+   url_callback_consultas DENTRO del alta de cada propiedad.
+
+   La consulta identifica la propiedad con id_propiedad, que es el id DE ELLOS.
+   Por eso se busca por el campo cymId que guardamos al publicar; sin ese id el
+   lead entraría sin poder asignarse al agente dueño.
+
+   Público por necesidad. Guarda siempre el crudo en leadsPortales aunque el
+   procesamiento falle, igual que el de InfoCasas. */
+exports.leadCasasYMas = onRequest(async (req, res) => {
+  if (req.method === "GET") { res.status(200).send("OK — receptor de consultas de Casas y Más activo (usar POST)"); return; }
+  if (req.method !== "POST") { res.status(405).send("Método no permitido"); return; }
+
+  const body = (typeof req.body === "object" && req.body) || {};
+  const clave = String(process.env.CYM_LEAD_KEY || "");
+  if (clave) {
+    const recibida = String((req.query && req.query.clave) || body.key || "");
+    if (recibida !== clave) { res.status(401).send("Clave inválida"); return; }
+  }
+
+  let rawRef = null;
+  try {
+    rawRef = await db.collection("leadsPortales").add({
+      fuente: "casasymas", recibido: new Date().toISOString(), body,
+      query: req.query || {}, procesado: false,
+    });
+  } catch (e) { logger.warn("leadCasasYMas: no se pudo guardar el crudo", e.message); }
+
+  res.status(200).json({ ok: true });
+
+  try {
+    // La consulta puede venir suelta o dentro de "consultas".
+    const c = body.consultas || body.consulta || body;
+    const cymId = String(c.id_propiedad || "");
+    const nombre = String(c.nombre || "").trim() || "Consulta sin nombre";
+    const telefono = String(c.telefono || "").trim();
+    const email = String(c.email || "").trim();
+    const mensaje = String(c.mensaje || "").trim();
+
+    let propDoc = null;
+    if (cymId) {
+      const q = await db.collection("properties").where("cymId", "==", cymId).limit(1).get();
+      if (!q.empty) propDoc = q.docs[0];
+    }
+    if (rawRef) {
+      await rawRef.update({
+        procesado: true,
+        propertyId: propDoc ? propDoc.id : null,
+        cymId: cymId || null,
+      });
+    }
+    if (!propDoc) {
+      logger.warn(`leadCasasYMas: no encontré propiedad con cymId ${cymId}`);
+      return;
+    }
+    const p = propDoc.data();
+    const dueno = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+    if (dueno && dueno.exists) {
+      await crearNotificacion(
+        { uid: p.ownerId, ...dueno.data() },
+        { type: "lead_portal", propertyId: propDoc.id, propertyTitle: p.title || "",
+          userName: "Casas y Más",
+          text: `${nombre}${telefono ? " · " + telefono : ""}${email ? " · " + email : ""}` +
+                (mensaje ? `\n${mensaje}` : "") },
+        { title: "Consulta de Casas y Más", body: `${nombre} — ${p.title || ""}` },
+        `cym_${c.id || cymId}_${p.ownerId}`
+      );
+    }
+  } catch (e) {
+    logger.error("leadCasasYMas: error al procesar", e);
+    if (rawRef) { try { await rawRef.update({ error: String(e.message || e) }); } catch (e2) { /* nada */ } }
+  }
+});
+
 /* ============================================================================
    MÉTRICAS DE MERCADO LIBRE POR PROPIEDAD
    ----------------------------------------------------------------------------
