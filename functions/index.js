@@ -3138,8 +3138,12 @@ async function cymResolverZona(depNombre, ciudad, barrio) {
       if (String(z.depId) === String(depId)) mapa[icNorm(z.nombre)] = z.id;
     }
   }
-  // Se prueba barrio y después ciudad, igual que hace icZona.
-  for (const cand of [barrio, ciudad]) {
+  /* CIUDAD PRIMERO, barrio después. El campo "Ciudad/Barrio" del formulario es
+     lo que ESCRIBE el agente y llega en 'ciudad'; 'barrio' lo estima el
+     geocodificador al buscar la dirección en el mapa, y en Montevideo falla
+     seguido: una dirección de la Unión devolvió "Malvín Norte", que está a tres
+     kilómetros. Probar el barrio primero publicaba en el lugar equivocado. */
+  for (const cand of [ciudad, barrio]) {
     const k = icNorm(cand);
     if (k && mapa[k]) return { depId: String(depId), zonaId: String(mapa[k]) };
   }
@@ -3675,8 +3679,13 @@ function icTag(t, v) { return (v === undefined || v === null || v === "") ? "" :
 function icZona(depId, ciudad, barrio) {
   const z = IC_ZONAS[depId] || {};
   const b = icNorm(barrio), c = icNorm(ciudad);
-  if (b && z[b] != null) return z[b];
+  /* La CIUDAD manda sobre el barrio. 'ciudad' es el campo "Ciudad/Barrio" que
+     completa el agente; 'barrio' lo adivina el geocodificador y en Montevideo
+     se equivoca a menudo (una dirección de la Unión devolvió "Malvín Norte").
+     Antes se probaba el barrio primero, así que varias propiedades vienen
+     publicadas en la zona equivocada tanto en el feed XML como por API. */
   if (c && z[c] != null) return z[c];
+  if (b && z[b] != null) return z[b];
   return IC_ZONA_DEFAULT[depId] || null;
 }
 
