@@ -3079,6 +3079,48 @@ exports.cymCobertura = onCall(async (request) => {
   };
 });
 
+/* Busca zonas en el catálogo de Casas y Más por nombre o por id.
+
+   Existe por lo mismo que icBuscarUbicacion: las zonas se guardan en la
+   subcolección "lotes" y las subcolecciones NO heredan la regla de
+   adminData/{doc}, así que desde el navegador dan permission-denied.
+   Solo lee. */
+exports.cymBuscarZona = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const q = icNorm((request.data && request.data.q) || "");
+  const id = String((request.data && request.data.id) || "").trim();
+  const depId = request.data && request.data.depId != null ? String(request.data.depId) : null;
+  const todos = !!(request.data && request.data.todos);
+  if (!q && !id && !todos) throw new HttpsError("invalid-argument", "Pasá q, id, o todos:true con depId.");
+
+  const base = db.doc("adminData/cymZonas");
+  const cab = await base.get();
+  if (!cab.exists) throw new HttpsError("failed-precondition", "Corré cymZonas primero.");
+  const lotes = await base.collection("lotes").get();
+  let items = [];
+  for (const d of lotes.docs) for (const z of (d.data().items || [])) items.push(z);
+
+  if (depId) items = items.filter((z) => String(z.depId) === depId);
+  if (id) items = items.filter((z) => String(z.id) === id);
+  if (q) {
+    items = items.filter((z) => {
+      const n = icNorm(z.nombre);
+      return n.includes(q) || q.includes(n);
+    });
+  }
+  items.sort((a, b) => String(a.nombre).localeCompare(String(b.nombre)));
+  return {
+    cantidad: items.length,
+    resultados: items.slice(0, 200).map((z) => ({
+      id: z.id, nombre: z.nombre, depId: Number(z.depId), departamento: z.depNombre,
+    })),
+  };
+});
+
 /* Zona de Casas y Más para una propiedad. Los departamentos coinciden con
    IC_DEPTOS (verificado: los 19 con el mismo id), así que se reusa esa tabla.
    Las zonas NO: hay que buscarlas por nombre en el catálogo guardado, porque
