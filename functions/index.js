@@ -3260,6 +3260,61 @@ async function cymPayload(p, propId, agente) {
   return { ok: true, payload, fotos: imgs };
 }
 
+/* Prueba acotada del alta: manda SOLO los campos que la documentación lista
+   como obligatorios (key, títulos y precios según operación, departamento,
+   zona, tipo) y nada más.
+
+   Existe porque el alta completa devolvió el código 24, que no está
+   documentado, con mensaje vacío. Sin ambiente de pruebas la única forma de
+   encontrar el campo que molesta es ir sumando de a poco: si el mínimo pasa, se
+   agregan grupos hasta que falle; si el mínimo también falla, el problema no es
+   ningún campo opcional.
+
+   ⚠️ Si el mínimo funciona, CREA la propiedad de verdad en el portal. Por eso
+   por defecto hace dryRun y hay que pedir explícitamente que envíe. */
+exports.cymAltaMinima = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const propertyId = String((request.data && request.data.propertyId) || "");
+  if (!propertyId) throw new HttpsError("invalid-argument", "Falta la propiedad.");
+  const enviar = !!(request.data && request.data.enviar);
+  const extras = (request.data && request.data.extras) || {};
+
+  const pSnap = await db.doc(`properties/${propertyId}`).get();
+  if (!pSnap.exists) throw new HttpsError("not-found", "La propiedad no existe.");
+  const p = pSnap.data();
+  const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+  const agente = uSnap && uSnap.exists ? uSnap.data() : {};
+
+  const completo = await cymPayload(p, pSnap.id, agente);
+  if (!completo.ok) return { ok: false, faltan: completo.faltan };
+  const c = completo.payload;
+
+  // Solo los obligatorios, más lo que se pida sumar en 'extras'.
+  const minimo = {
+    venta: c.venta, precio_venta: c.precio_venta, moneda_venta: c.moneda_venta,
+    alquiler: c.alquiler, precio_alquiler: c.precio_alquiler, moneda_alquiler: c.moneda_alquiler,
+    departamento: c.departamento, zona: c.zona, tipo: c.tipo,
+    titulo: c.titulo, titulo_venta: c.titulo_venta, titulo_alquiler: c.titulo_alquiler,
+    descripcion: c.descripcion,
+    ...extras,
+  };
+  if (!enviar) return { ok: true, dryRun: true, payload: minimo, camposDelCompleto: Object.keys(c) };
+
+  const r = await cymFetch("/alta_propiedad", minimo);
+  return {
+    ok: r.ok, codigo: r.codigo, mensaje: r.mensaje,
+    httpStatus: r.httpStatus,
+    // El crudo completo: la respuesta puede traer detalle que no estamos leyendo.
+    crudo: r.data,
+    id: r.ok ? String(r.data.id || "") : null,
+    enviado: minimo,
+  };
+});
+
 /* Publica una propiedad en Casas y Más.
    Son DOS llamadas: alta_propiedad devuelve el id, y con ese id se suben las
    fotos. Se guarda cymId en la propiedad porque las consultas llegan
