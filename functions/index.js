@@ -3153,6 +3153,168 @@ function cymTexto(t) {
   return x.trim();
 }
 
+/* Cotejo por similitud de nombres de zona.
+
+   De las 50 zonas nuestras sin equivalente exacto en Casas y Más, la mayoría no
+   son zonas distintas: son la misma escrita de otra forma
+   ("veinticinco de agosto" / "25 de Agosto", "gregorio aznares" / "Gregorio
+   Aznárez"). Resolverlas a mano es tedioso y propenso a errores.
+
+   Se usa distancia de Levenshtein normalizada, más dos reglas baratas que
+   cubren la mayoría de los casos reales: números escritos con letra, y nombres
+   donde uno contiene al otro ("cerrito" dentro de "Cerrito de la Victoria").
+
+   NO se aplica automáticamente al publicar: esto solo PROPONE. Publicar en la
+   zona equivocada es peor que no publicar, así que las sugerencias se revisan y
+   recién ahí se guardan. */
+const CYM_NUMEROS = {
+  "veinticinco": "25", "dieciocho": "18", "diecinueve": "19", "treinta": "30",
+  "veinte": "20", "quince": "15", "doce": "12", "ocho": "8", "siete": "7",
+  "seis": "6", "cinco": "5", "cuatro": "4", "tres": "3", "dos": "2", "uno": "1",
+};
+
+function cymNormZona(s) {
+  let x = icNorm(s);
+  for (const [letra, num] of Object.entries(CYM_NUMEROS)) {
+    x = x.replace(new RegExp("\\b" + letra + "\\b", "g"), num);
+  }
+  // Palabras que no aportan a la identidad del lugar.
+  x = x.replace(/\b(barrio|villa|pueblo|balneario|ciudad|zona|de|del|al|la|el|los|las)\b/g, " ");
+  return x.replace(/\s+/g, " ").trim();
+}
+
+/* Levenshtein acotado: si la diferencia supera el umbral se corta antes de
+   terminar. Con 679 zonas contra 407 nuestras son muchas comparaciones. */
+function cymDistancia(a, b) {
+  if (a === b) return 0;
+  const m = a.length, n = b.length;
+  if (Math.abs(m - n) > 6) return 99;
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    const fila = [i];
+    for (let j = 1; j <= n; j++) {
+      fila[j] = Math.min(
+        prev[j] + 1,
+        fila[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+    prev = fila;
+  }
+  return prev[n];
+}
+
+/* Propone equivalencias para las zonas que no matchearon exacto.
+   Devuelve tres grupos: seguras (para aplicar), dudosas (para revisar) y sin
+   candidato. Solo lee: no guarda nada. */
+exports.cymSugerirZonas = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const base = db.doc("adminData/cymZonas");
+  const cab = await base.get();
+  if (!cab.exists) throw new HttpsError("failed-precondition", "Corré cymZonas primero.");
+  const lotes = await base.collection("lotes").get();
+  const catalogo = [];
+  for (const d of lotes.docs) for (const z of (d.data().items || [])) catalogo.push(z);
+
+  const deptos = cab.data().catalogoDeptos || [];
+  const porNombreDep = {};
+  for (const d of deptos) porNombreDep[icNorm(d.nombre)] = d.id;
+
+  const seguras = [], dudosas = [], sinCandidato = [];
+
+  for (const [depIdNuestro, misZonas] of Object.entries(IC_ZONAS)) {
+    // Nuestro id de departamento -> nombre -> id de Casas y Más.
+    const depNombre = Object.keys(IC_DEPTOS).find((k) => String(IC_DEPTOS[k]) === String(depIdNuestro));
+    const cymDepId = depNombre ? porNombreDep[icNorm(depNombre)] : null;
+    if (!cymDepId) continue;
+
+    const delDep = catalogo.filter((z) => String(z.depId) === String(cymDepId));
+    const exactas = {};
+    for (const z of delDep) exactas[icNorm(z.nombre)] = z;
+
+    const vistos = new Set();
+    for (const nuestra of Object.keys(misZonas)) {
+      if (vistos.has(nuestra)) continue;
+      vistos.add(nuestra);
+      if (exactas[icNorm(nuestra)]) continue;   // ya matcheaba exacto
+
+      const na = cymNormZona(nuestra);
+      let mejor = null, mejorD = 99, porContencion = false;
+
+      for (const z of delDep) {
+        const nb = cymNormZona(z.nombre);
+        if (!na || !nb) continue;
+        /* Uno contiene al otro: "cerrito" dentro de "cerrito victoria".
+           Pero la contención sola no alcanza: "puerto buceo" contiene "buceo" y
+           son barrios DISTINTOS y vecinos. Se exige que la parte sobrante sea
+           corta -un calificativo, no otro nombre-, así "cerrito victoria" pasa
+           y "puerto buceo" no. */
+        if (na === nb) { mejor = z; mejorD = 0; porContencion = false; break; }
+        const largo = na.length > nb.length ? na : nb;
+        const corto = na.length > nb.length ? nb : na;
+        if (largo.includes(corto) && (largo.length - corto.length) <= 10 &&
+            corto.length >= Math.ceil(largo.length * 0.55)) {
+          mejor = z; mejorD = 0; porContencion = true;
+          break;
+        }
+        const d = cymDistancia(na, nb);
+        if (d < mejorD) { mejorD = d; mejor = z; porContencion = false; }
+      }
+
+      const item = {
+        nuestra, dep: depNombre, cymDepId,
+        sugerida: mejor ? mejor.nombre : null,
+        cymZonaId: mejor ? mejor.id : null,
+        distancia: mejorD, porContencion,
+      };
+      // Umbral por largo: en nombres cortos una letra de diferencia ya es mucho.
+      const tope = na.length <= 6 ? 1 : na.length <= 12 ? 2 : 3;
+      if (mejor && mejorD === 0) seguras.push(item);
+      else if (mejor && mejorD <= tope) dudosas.push(item);
+      else sinCandidato.push({ ...item, sugerida: mejor ? mejor.nombre : null });
+    }
+  }
+
+  return {
+    seguras: seguras.length, dudosas: dudosas.length, sinCandidato: sinCandidato.length,
+    listaSeguras: seguras,
+    listaDudosas: dudosas,
+    listaSinCandidato: sinCandidato.slice(0, 40),
+    nota: "Nada se guarda todavía. Revisá las dudosas antes de aplicar.",
+  };
+});
+
+/* Guarda las equivalencias aprobadas en adminData/cymZonasManual.
+   cymResolverZona las consulta ANTES de buscar por nombre, así que una vez
+   guardada la equivalencia manda sobre cualquier coincidencia automática. */
+exports.cymGuardarZonas = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const pares = (request.data && request.data.pares) || [];
+  if (!Array.isArray(pares) || !pares.length) {
+    throw new HttpsError("invalid-argument", "Pasá 'pares': [{ nuestra, cymDepId, cymZonaId }]");
+  }
+  const ref = db.doc("adminData/cymZonasManual");
+  const prev = await ref.get();
+  const mapa = prev.exists ? (prev.data().mapa || {}) : {};
+  let guardadas = 0;
+  for (const p of pares) {
+    const k = icNorm(p.nuestra);
+    if (!k || !p.cymZonaId || !p.cymDepId) continue;
+    mapa[k] = { depId: String(p.cymDepId), zonaId: String(p.cymZonaId), nombre: p.sugerida || "" };
+    guardadas++;
+  }
+  await ref.set({ mapa, actualizado: new Date().toISOString(), por: request.auth.uid });
+  return { ok: true, guardadas, total: Object.keys(mapa).length };
+});
+
 /* Zona de Casas y Más para una propiedad. Los departamentos coinciden con
    IC_DEPTOS (verificado: los 19 con el mismo id), así que se reusa esa tabla.
    Las zonas NO: hay que buscarlas por nombre en el catálogo guardado, porque
@@ -3160,6 +3322,22 @@ function cymTexto(t) {
 async function cymResolverZona(depNombre, ciudad, barrio) {
   const depId = IC_DEPTOS[icNorm(depNombre)];
   if (!depId) return { error: `departamento no reconocido: "${depNombre || ""}"` };
+  /* El mapa manual manda sobre la coincidencia por nombre: si alguien revisó y
+     aprobó una equivalencia, esa gana. Es lo que resuelve los casos donde el
+     nombre no coincide ("25 de Agosto" vs "veinticinco de agosto"). */
+  try {
+    const man = await db.doc("adminData/cymZonasManual").get();
+    if (man.exists) {
+      const mapa = man.data().mapa || {};
+      for (const cand of [ciudad, barrio]) {
+        const k = icNorm(cand);
+        if (k && mapa[k] && String(mapa[k].depId) === String(depId)) {
+          return { depId: String(depId), zonaId: String(mapa[k].zonaId) };
+        }
+      }
+    }
+  } catch (e) { logger.warn("cymResolverZona: mapa manual", e.message); }
+
   const base = db.doc("adminData/cymZonas");
   const cab = await base.get();
   if (!cab.exists) return { error: "falta el catálogo de zonas: corré cymZonas" };
