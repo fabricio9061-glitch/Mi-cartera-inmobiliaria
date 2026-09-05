@@ -3121,6 +3121,38 @@ exports.cymBuscarZona = onCall(async (request) => {
   };
 });
 
+/* Casas y Más NO acepta caracteres de cuatro bytes: los emojis hacen fallar el
+   alta con el código 24 y el mensaje genérico "Ocurrió un error inesperado".
+   Verificado el 04/09/2026: la misma propiedad con emojis daba 24 y sin ellos
+   dio código 1.
+
+   Las descripciones de la agencia los usan bastante (🏡 ✔️ 📍 💰), así que no se
+   pueden mandar tal cual. Se traducen los que aportan sentido -las viñetas pasan
+   a guiones- y el resto se quita. Nunca se recorta la descripción: el texto
+   completo se mantiene, solo cambian los símbolos.
+
+   Los acentos y la ñ SÍ pasan: son de dos bytes y funcionaron sin problema. */
+function cymTexto(t) {
+  let x = String(t == null ? "" : t);
+  // Viñetas y marcas que hacen de lista -> guion.
+  x = x.replace(/[\u2714\u2705\u27A1\u2022\u25AA\u25CF\u2B50]\uFE0F?/g, "-");
+  // Cualquier otro símbolo de 4 bytes (pares suplentes) se elimina.
+  x = x.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "");
+  /* Y los pictogramas de 3 bytes: ✨ ☀ ★ ➤ y compañía. No hacen fallar el alta
+     -son de 3 bytes, no de 4- pero quedan raros mezclados con las viñetas ya
+     convertidas, así que se sacan por coherencia. */
+  x = x.replace(/[\u2190-\u21FF\u2300-\u23FF\u2460-\u24FF\u25A0-\u27BF\u2900-\u29FF\u2B00-\u2BFF]/g, "");
+  // Selectores de variación y espacios de ancho cero que quedan sueltos.
+  x = x.replace(/[\uFE0E\uFE0F\u200D\u200B]/g, "");
+  // Limpieza de lo que dejó atrás: guiones solos, espacios al inicio de línea,
+  // espacios dobles y saltos de más.
+  x = x.replace(/^[ \t]*-[ \t]*$/gm, "");
+  x = x.replace(/[ \t]{2,}/g, " ");
+  x = x.split("\n").map((l) => l.replace(/^[ \t]+/, "").replace(/[ \t]+$/, "")).join("\n");
+  x = x.replace(/\n{3,}/g, "\n\n");
+  return x.trim();
+}
+
 /* Zona de Casas y Más para una propiedad. Los departamentos coinciden con
    IC_DEPTOS (verificado: los 19 con el mismo id), así que se reusa esa tabla.
    Las zonas NO: hay que buscarlas por nombre en el catálogo guardado, porque
@@ -3165,9 +3197,10 @@ async function cymPayload(p, propId, agente) {
   const precio = Number(p.price) || 0;
   if (!(precio > 0)) faltan.push("precio");
 
-  const titulo = String(p.title || "").trim().slice(0, 200);   // máx 200 según la doc
+  // cymTexto saca los emojis: con ellos el alta falla con el código 24.
+  const titulo = cymTexto(p.title).slice(0, 200);   // máx 200 según la doc
   if (!titulo) faltan.push("título");
-  const descripcion = String(p.description || "").trim().slice(0, 65000);
+  const descripcion = cymTexto(p.description).slice(0, 65000);
   if (!descripcion) faltan.push("descripción");
 
   const estado = String(p.status || "available");
@@ -3498,6 +3531,125 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
   } catch (e) {
     logger.error("leadCasasYMas: error al procesar", e);
     if (rawRef) { try { await rawRef.update({ error: String(e.message || e) }); } catch (e2) { /* nada */ } }
+  }
+});
+
+/* ============================================================================
+   SINCRONIZACIÓN AUTOMÁTICA CON LOS PORTALES
+   ----------------------------------------------------------------------------
+   Hasta ahora, cuando un agente cambiaba el precio o las fotos, Mercado Libre se
+   enteraba solo (sincronizarEdicionML) pero InfoCasas y Casas y Más no: los
+   avisos se iban desactualizando en silencio y había que republicar a mano.
+
+   Se dispara con el mismo criterio que ML: solo cuando cambia el CONTENIDO
+   (CONTENT_FIELDS) o el ESTADO. Si solo cambiaron metadatos internos -icTaskId,
+   mlVisitas30, cymId- no hace nada, porque si no cada escritura del propio
+   sincronizador dispararía otra y se realimentaría.
+
+   Es un trigger separado del de ML a propósito: si un portal falla, no arrastra
+   a los otros dos.
+   ========================================================================== */
+
+/* Estados que sacan el aviso de los portales. 'reserved' se deja publicado: la
+   propiedad sigue en el mercado. Los mismos que ML_ESTADOS_SIN_ESPEJO se
+   ignoran, porque ahí la decisión de publicar todavía no está tomada. */
+const PORTAL_ESTADOS_FUERA = ["sold", "rented", "archived"];
+
+exports.sincronizarPortales = onDocumentUpdated("properties/{id}", async (event) => {
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+  const ref = event.data.after.ref;
+  const id = event.params.id;
+  if (!after) return;
+
+  const stBefore = (before && before.status) || "available";
+  const stAfter = after.status || "available";
+  const cambioEstado = stAfter !== stBefore;
+  const cambioContenido = contentChanged(before, after);
+  if (!cambioEstado && !cambioContenido) return;
+
+  /* Igual que en ML: si la decisión de publicación no está tomada, no se toca.
+     Se compara contra el STATUS de la propiedad, que es donde viven esos valores
+     ('cerrado_externo' espera la confirmación del admin desde la campanita). */
+  if (ML_ESTADOS_SIN_ESPEJO.includes(stAfter)) return;
+
+  const fuera = PORTAL_ESTADOS_FUERA.includes(stAfter);
+  const uSnap = after.ownerId ? await db.doc(`users/${after.ownerId}`).get() : null;
+  const agente = uSnap && uSnap.exists ? uSnap.data() : {};
+
+  /* ---------- InfoCasas ---------- */
+  if (after.icListingId && after.icEstado !== "eliminado") {
+    try {
+      if (fuera) {
+        const r = await icFetch("/listing/status", {
+          method: "PATCH", conCookie: true,
+          body: [{ listing_id: String(after.icListingId), client_id: await icClientId(), status: "DELETED" }],
+        });
+        if (r.ok) {
+          await ref.update({ icEstado: "eliminado", icStatusEnviado: "DELETED",
+                             icStatusAt: new Date().toISOString() });
+          await registrarLog(id, "InfoCasas: baja automática", true, `estado ${stAfter}`);
+        } else {
+          await registrarLog(id, "InfoCasas: baja automática", false, `HTTP ${r.status}`);
+        }
+      } else if (cambioContenido) {
+        const armado = await icApiPayload(after, id, agente);
+        if (!armado.ok) {
+          // No se reintenta ni se avisa al agente: la ficha quedó incompleta y
+          // el aviso viejo sigue publicado, que es mejor que borrarlo.
+          logger.warn(`sincronizarPortales ${id}: InfoCasas, ficha incompleta`, armado.faltan);
+        } else {
+          const r = await icFetch("/listing", {
+            method: "PATCH", conCookie: true,
+            body: [{ ...armado.payload, listing_id: String(after.icListingId) }],
+          });
+          await registrarLog(id, "InfoCasas: actualización automática", !!r.ok,
+            r.ok ? "" : `HTTP ${r.status}`);
+        }
+      }
+    } catch (e) {
+      logger.error(`sincronizarPortales ${id}: InfoCasas`, e);
+    }
+  }
+
+  /* ---------- Casas y Más ---------- */
+  if (after.cymId && after.cymEstado !== "eliminado") {
+    try {
+      if (fuera) {
+        const r = await cymFetch("/eliminar_propiedad", { id: String(after.cymId) });
+        if (r.ok) {
+          await ref.update({ cymEstado: "eliminado", cymBajaAt: new Date().toISOString() });
+          await registrarLog(id, "Casas y Más: baja automática", true, `estado ${stAfter}`);
+        } else {
+          await registrarLog(id, "Casas y Más: baja automática", false, `código ${r.codigo}`);
+        }
+      } else if (cambioContenido) {
+        const armado = await cymPayload(after, id, agente);
+        if (!armado.ok) {
+          logger.warn(`sincronizarPortales ${id}: Casas y Más, ficha incompleta`, armado.faltan);
+        } else {
+          const r = await cymFetch("/modificar_propiedad",
+            { id: String(after.cymId), ...armado.payload }, "PUT");
+          await registrarLog(id, "Casas y Más: actualización automática", !!r.ok,
+            r.ok ? "" : `código ${r.codigo}`);
+          /* Las fotos se re-suben solo si CAMBIARON. Mandarlas en cada edición
+             haría que el portal las reprocese aunque solo se haya tocado el
+             precio, y son hasta 25 descargas por vez. */
+          const fotosAntes = JSON.stringify((before && before.images) || []);
+          const fotosAhora = JSON.stringify(after.images || []);
+          if (r.ok && fotosAntes !== fotosAhora && armado.fotos.length >= 4) {
+            const rf = await cymFetch("/subir_fotos", {
+              id_propiedad: String(after.cymId),
+              fotos: armado.fotos.map((url, i) => ({ foto: url, orden: String(i + 1) })),
+            });
+            await registrarLog(id, "Casas y Más: fotos actualizadas", !!rf.ok,
+              rf.ok ? `${armado.fotos.length} fotos` : `código ${rf.codigo}`);
+          }
+        }
+      }
+    } catch (e) {
+      logger.error(`sincronizarPortales ${id}: Casas y Más`, e);
+    }
   }
 });
 
