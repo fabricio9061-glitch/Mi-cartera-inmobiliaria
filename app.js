@@ -958,9 +958,27 @@
     } catch (e) { /* si no está cargada la propiedad, se omite */ }
     return { tel, nombre, mail, agente };
   }
+  /* Normaliza un teléfono a formato internacional para wa.me.
+
+     Varios lugares hacían solo .replace(/\D/g,''), que borra el "+" pero DEJA el
+     cero inicial: "092535887" se enviaba tal cual y WhatsApp no reconocía el
+     número, así que no se podía escribir al agente. Se veía como "+092535887".
+
+     Uruguay: código 598, y los celulares se escriben sin el 0 al
+     internacionalizar (092535887 -> 59892535887). */
+  function waNum(tel) {
+    let d = String(tel == null ? '' : tel).replace(/\D/g, '');
+    if (!d) return '';
+    if (d.startsWith('00')) d = d.slice(2);
+    if (d.startsWith('598')) return d;
+    if (d.startsWith('0')) d = d.slice(1);
+    if (d.length < 8) return '';
+    if (d.length > 9) d = d.slice(0, 8);   // dos números pegados en un campo
+    return '598' + d;
+  }
+
   function notifWaLink(tel, titulo) {
-    const num = String(tel).replace(/\D/g, '');
-    const n2 = num.length <= 9 ? '598' + num.replace(/^0/, '') : num;
+    const n2 = waNum(tel);
     const msg = encodeURIComponent('Hola, te contacto de MALAVE Inmobiliaria por tu consulta' + (titulo ? ' sobre ' + titulo : '') + '.');
     return 'https://wa.me/' + n2 + '?text=' + msg;
   }
@@ -3250,7 +3268,7 @@
   function contactAgentWhatsapp() {
     const u = allUsers[currentProfileUserId];
     if (!u || !u.whatsapp) return;
-    const ph = u.whatsapp.replace(/\D/g, '');
+    const ph = waNum(u.whatsapp);
     window.open(`https://wa.me/${ph}?text=${encodeURIComponent(`Hola ${u.name||''}, vi tu perfil en MALAVE y me gustaría consultarte.`)}`, '_blank')
   }
 
@@ -3671,7 +3689,7 @@
     try { db.collection('properties').doc(id).update({ contactClicks: firebase.firestore.FieldValue.increment(1) }); } catch (e) {}
     p.contactClicks = (p.contactClicks || 0) + 1;
     const o = getOwnerInfo(p),
-      ph = (p.ownerWhatsapp || o.whatsapp || '59899000000').replace(/\D/g, ''),
+      ph = waNum(p.ownerWhatsapp || o.whatsapp || '59899000000'),
       m = `Hola, me interesa: ${p.title} - ${formatPrice(p.price,p.currency||'USD')} en ${getLocationString(p)}`;
     window.open(`https://wa.me/${ph}?text=${encodeURIComponent(m)}`, '_blank')
   }
@@ -5800,7 +5818,7 @@
     };
     g.innerHTML = list.map(c => {
       const ini = (c.name || '?').charAt(0).toUpperCase(),
-        ph = (c.phoneNormalized || c.phone || '').replace(/\D/g, ''),
+        ph = waNum(c.phoneNormalized || c.phone || ''),
         so = c.createdByName || c.ownerName;
       return `<div class="client-card" onclick="showClientProfile('${c.id}')" style="cursor:pointer"><div class="client-card-top"><div class="client-avatar">${ini}</div><div class="client-card-name"><h3>${mvEsc(c.name||'Sin nombre')}</h3>${so?`<div class="client-owner"><i class="fas fa-user-tie"></i> ${mvEsc(c.createdByName||c.ownerName)}</div>`:''}<div style="font-size:.74rem;color:var(--gray-500,#999);margin-top:3px"><i class="fas fa-home"></i> ${(c._propCount||0)>0?`${c._propCount} propiedad${c._propCount===1?'':'es'}`:'Sin propiedades'}</div></div><span class="client-status ${c.status||'nuevo'}">${CLIENT_STATUS[c.status]||c.status||'Nuevo'}</span></div>${c.interest&&il[c.interest]?`<div class="client-interest-tag">${il[c.interest]}</div>`:''}<div class="client-meta"><div class="client-meta-row"><i class="fas fa-phone"></i> ${c.phoneNormalized||((c.areaCode||'')+(c.phone||''))||'—'}</div>${c.email?`<div class="client-meta-row"><i class="fas fa-envelope"></i> ${mvEsc(c.email)}</div>`:''}${c.budget?`<div class="client-meta-row"><i class="fas fa-coins"></i> ${mvEsc(c.budget)}</div>`:''}${c.link?`<div class="client-meta-row"><i class="fas fa-link"></i> <a href="${c.link}" target="_blank" rel="noopener" style="color:var(--primary)" onclick="event.stopPropagation()">Ver link</a></div>`:''}</div>${c.notes?`<div class="client-notes-preview">${mvEsc(c.notes)}</div>`:''}<div class="client-actions">${ph?`<a class="ca-wa" href="https://wa.me/${ph}" target="_blank" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i> WhatsApp</a>`:''}<button class="ca-edit" onclick="event.stopPropagation();openClientModal('${c.id}')"><i class="fas fa-edit"></i> Editar</button><button class="ca-del" onclick="event.stopPropagation();deleteClient('${c.id}')"><i class="fas fa-trash"></i></button></div></div>`
     }).join('')
@@ -5829,7 +5847,7 @@
     if (c.createdByName || c.ownerName) meta.push(`<i class="fas fa-user-tie"></i> Creado por ${c.createdByName || c.ownerName}`);
     if (c.createdAt) meta.push(`<i class="fas fa-calendar"></i> ${new Date(c.createdAt).toLocaleDateString('es-UY')}`);
     document.getElementById('cpMeta').innerHTML = meta.join(' &nbsp;·&nbsp; ');
-    const wa = document.getElementById('cpWhatsapp'), ph = (phoneFull || '').replace(/\D/g, '');
+    const wa = document.getElementById('cpWhatsapp'), ph = waNum(phoneFull || '');
     if (ph) { wa.href = 'https://wa.me/' + ph; wa.style.display = '' } else { wa.style.display = 'none' }
     document.getElementById('cpNotes').innerHTML = c.notes ? `<div class="client-notes-preview">${mvEsc(c.notes)}</div>` : '';
     renderClientProfileProperties(id)
