@@ -2009,6 +2009,9 @@
     }
     const selTipo = d.status === 'closed' ? `<div class="ml-section">${mlTypeSelector(d.tiposDisponibles)}</div>` : '';
     const botones = [];
+    // La baja va SEPARADA de los botones de Mercado Libre: aplica a los tres
+    // portales, así que se muestra al final, después de todas las secciones.
+    const botonesBaja = [];
     if (d.permalink) botones.push(`<a href="${d.permalink}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost"><i class="fas fa-external-link-alt"></i> Ver aviso</a>`);
     if (d.status === 'paused' || d.status === 'closed') botones.push(`<button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-rotate-right"></i> Republicar</button>`);
     // La baja la EJECUTA el admin; el agente la PIDE. Motivos: en Mercado Libre
@@ -2022,20 +2025,25 @@
     const _pendiente = !!(_pB && _pB.despubPendiente);
     if (d.status !== 'closed') {
       if (isAdminUser()) {
-        botones.push(`<button class="ml-btn ml-btn-danger" onclick="bajaPropiedad()"><i class="fas fa-circle-stop"></i> Dar de baja</button>`);
+        botonesBaja.push(`<button class="ml-btn ml-btn-danger" onclick="bajaPropiedad()"><i class="fas fa-circle-stop"></i> Dar de baja de todos los portales</button>`);
         if (_pendiente) bajaHint = `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-hand"></i><div><strong>${mvEsc(_pB.bajaSolicitadaPor || 'Un agente')} pidió dar de baja esta propiedad.</strong>${_pB.bajaSolicitadaMotivo ? ` Motivo: ${mvEsc(_pB.bajaSolicitadaMotivo)}` : ''}<br>Resolvelo desde la campanita: <em>Despublicar</em> la saca de la web y de los portales; <em>Mantener publicada</em> descarta el pedido.</div></div></div>`;
       } else if (_pendiente) {
-        botones.push(`<button class="ml-btn ml-btn-ghost" disabled style="opacity:.65;cursor:default"><i class="fas fa-hourglass-half"></i> Baja solicitada</button>`);
+        botonesBaja.push(`<button class="ml-btn ml-btn-ghost" disabled style="opacity:.65;cursor:default"><i class="fas fa-hourglass-half"></i> Baja solicitada</button>`);
         bajaHint = `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-paper-plane"></i><div>Tu pedido de baja ya está con el administrador. Hasta que lo resuelva, la propiedad sigue publicada. Te va a llegar un aviso con la respuesta.</div></div></div>`;
       } else {
-        botones.push(`<button class="ml-btn ml-btn-danger" onclick="pedirBaja()"><i class="fas fa-circle-stop"></i> Pedir baja</button>`);
+        botonesBaja.push(`<button class="ml-btn ml-btn-danger" onclick="pedirBaja()"><i class="fas fa-circle-stop"></i> Pedir baja de todos los portales</button>`);
         bajaHint = `<div class="ml-section"><div class="ml-note info"><i class="fas fa-circle-info"></i><div>La baja la confirma el administrador. Si la operación se cerró con la agencia, no hace falta pedir nada: cerrá la <strong>gestión en Clientes</strong> y la propiedad se da de baja sola.</div></div></div>`;
       }
     }
     /* Los botones de Mercado Libre van con SU sección, antes de InfoCasas y Casas
        y Más. Antes quedaban al final de todo, así que "Ver aviso en Mercado
        Libre" aparecía debajo del de Casas y Más, lejos de los datos de ML. */
-    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}${selTipo}${bajaHint}<div class="ml-btns">${botones.join('')}</div><div id="secIC">${mlSeccionInfocasas()}</div><div id="secCYM">${mlSeccionCasasYMas()}</div></div>`
+    const bloqueBaja = botonesBaja.length
+      ? `<div class="ml-divider" style="margin-top:22px"><span class="tagchip" style="background:#fee2e2;color:#b91c1c">Sacar de circulación</span><span class="line"></span></div>` +
+        `<div style="font-size:.8rem;color:#8a93a0;margin-bottom:10px">Da de baja el aviso en <strong>todos los portales donde esté publicado</strong>. En Mercado Libre es irreversible.</div>` +
+        `<div class="ml-btns" style="margin-top:0">${botonesBaja.join('')}</div>`
+      : '';
+    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}${selTipo}${bajaHint}<div class="ml-btns">${botones.join('')}</div><div id="secIC">${mlSeccionInfocasas()}</div><div id="secCYM">${mlSeccionCasasYMas()}</div>${bloqueBaja}</div>`
   }
   async function republicarPropiedad() {
     if (!mlModalPropId) return;
