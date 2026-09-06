@@ -1580,6 +1580,8 @@
   let mlModalPropId = null;
   async function openMLModal(propertyId) {
     mlModalPropId = propertyId;
+    // En segundo plano: el modal no espera a los portales para abrirse.
+    cargarEstadoPortales(propertyId);
     openModal('mlModal');
     const body = document.getElementById('mlModalBody');
     ensureMLStyles();
@@ -1731,9 +1733,23 @@
       const link = (p.infocasasUrl && safeUrl(p.infocasasUrl))
         ? `<a href="${safeUrl(p.infocasasUrl)}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost" style="margin-top:10px;flex:none"><i class="fas fa-external-link-alt"></i> Ver aviso en InfoCasas</a>`
         : '';
+      /* InfoCasas no publica estadísticas, así que lo más útil que se puede
+         mostrar es cómo terminó la última tarea y, si falló, por qué. */
+      const t = _portalesData && _portalesData.infocasas && _portalesData.infocasas.tarea;
+      let tareaHtml = '';
+      if (t) {
+        const bien = t.estado === 'COMPLETED';
+        const msg = t.mensajes ? JSON.stringify(t.mensajes).slice(0, 200) : '';
+        tareaHtml = `<div class="ml-stats" style="margin-top:10px">
+          <div class="ml-stat"><span class="k">Última operación</span><span class="v" style="color:${bien ? '#1e7d4f' : '#c0392b'}">${bien ? 'Correcta' : (t.estado || 'Desconocida')}</span></div>
+          ${t.frPropertyId ? `<div class="ml-stat"><span class="k">Código en el portal</span><span class="v">${t.frPropertyId}</span></div>` : ''}
+        </div>${msg ? `<div class="ml-note warn" style="margin-top:8px"><i class="fas fa-circle-exclamation"></i><div>${msg}</div></div>` : ''}`;
+      } else if (!_portalesData) {
+        tareaHtml = '<div style="font-size:.78rem;color:#a8b0ba;margin-top:8px">Consultando el portal…</div>';
+      }
       return chip +
         `<div class="ml-note ok"><i class="fas fa-circle-check"></i><div><strong>Publicada por API${cuando ? ' el ' + cuando : ''}.</strong> Los cambios de precio, fotos y descripción se envían solos cuando editás la propiedad.${act ? ' Última actualización: ' + act + '.' : ''}</div></div>` +
-        link;
+        tareaHtml + link;
     }
 
     if (p.icEstado === 'eliminado') {
@@ -1753,7 +1769,6 @@
     if (!((p.images || []).filter(Boolean).length)) faltan.push('faltan fotos');
     if (!(p.departamento || u.departamento)) faltan.push('falta el departamento');
     if (!String(p.description || '').trim()) faltan.push('falta la descripción');
-    if (p.type === 'rent' && !(Number(p.commonExpenses) > 0)) faltan.push('faltan los gastos comunes');
 
     if (!faltan.length) {
       return chip + '<div class="ml-note"><i class="fas fa-circle-info"></i><div><strong>Lista para publicar.</strong> La ficha tiene todo lo que pide InfoCasas. La publicación la hace la Dirección.</div></div>';
@@ -1763,6 +1778,29 @@
 
   /* Sección de Casas y Más. No existía: el portal se integró después de que se
      escribió este modal. */
+  /* Datos vivos de los portales. Se piden en segundo plano al abrir el modal y
+     se repintan cuando llegan: el modal no espera, porque son llamadas a APIs
+     externas y bloquearlo lo haría sentir lento. */
+  let _portalesData = null, _portalesPid = null;
+
+  async function cargarEstadoPortales(pid) {
+    if (_portalesPid === pid && _portalesData) return;
+    _portalesPid = pid; _portalesData = null;
+    try {
+      const r = await firebase.functions().httpsCallable('estadoPortales')({ propertyId: pid });
+      if (_portalesPid !== pid) return;   // se cambió de propiedad mientras tanto
+      _portalesData = r.data || null;
+      const p = properties.find(pr => pr.id === pid);
+      const cont = document.getElementById('mlModalBody');
+      if (p && cont) {
+        // Se repintan solo las dos secciones, no todo el modal.
+        const ic = document.getElementById('secIC'), cy = document.getElementById('secCYM');
+        if (ic) ic.innerHTML = mlSeccionInfocasas(true);
+        if (cy) cy.innerHTML = mlSeccionCasasYMas(true);
+      }
+    } catch (e) { console.warn('estadoPortales:', e && e.message); }
+  }
+
   function mlSeccionCasasYMas() {
     const p = properties.find(pr => pr.id === mlModalPropId);
     if (!p) return '';
@@ -1771,8 +1809,26 @@
     if (p.cymId && p.cymEstado !== 'eliminado') {
       const cuando = p.cymPublicadoAt ? new Date(p.cymPublicadoAt).toLocaleDateString('es-UY') : '';
       const act = p.cymActualizadoAt ? new Date(p.cymActualizadoAt).toLocaleDateString('es-UY') : '';
+      /* Casas y Más sí informa las consultas por propiedad: es lo más parecido a
+         una métrica que ofrece, y es el dato que al agente le importa. */
+      const c = _portalesData && _portalesData.casasymas;
+      let statsHtml = '';
+      if (c && c.consultas != null) {
+        const ultimas = (c.ultimas || []).map(x =>
+          `<div style="font-size:.79rem;color:#6b7480;padding:3px 0">${mvEsc(x.nombre || 'Sin nombre')}` +
+          `<span style="color:#a8b0ba"> · ${mvEsc(String(x.fecha || '').slice(0, 10))}</span>` +
+          (x.respondida ? '<span style="color:#1e7d4f"> · respondida</span>' : '<span style="color:#c0392b"> · sin responder</span>') +
+          '</div>').join('');
+        statsHtml = `<div class="ml-stats" style="margin-top:10px">
+          <div class="ml-stat"><span class="k">Consultas recibidas</span><span class="v">${c.consultas}</span></div>
+          ${c.activaEnPortal != null ? `<div class="ml-stat"><span class="k">En el portal</span><span class="v" style="color:${c.activaEnPortal ? '#1e7d4f' : '#c0392b'}">${c.activaEnPortal ? 'Activa' : 'Inactiva'}</span></div>` : ''}
+        </div>${ultimas ? `<div style="margin-top:8px">${ultimas}</div>` : ''}`;
+      } else if (!_portalesData) {
+        statsHtml = '<div style="font-size:.78rem;color:#a8b0ba;margin-top:8px">Consultando el portal…</div>';
+      }
       return chip +
         `<div class="ml-note ok"><i class="fas fa-circle-check"></i><div><strong>Publicada${cuando ? ' el ' + cuando : ''}.</strong> Los cambios se envían solos cuando editás la propiedad.${act ? ' Última actualización: ' + act + '.' : ''}</div></div>` +
+        statsHtml +
         `<a href="https://casasymas.com.uy/propiedad/${encodeURIComponent(p.cymId)}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost" style="margin-top:10px;flex:none"><i class="fas fa-external-link-alt"></i> Ver aviso en Casas y Más</a>`;
     }
 
@@ -1807,7 +1863,7 @@
             ? `<div class="ml-note warn" style="margin-top:8px"><i class="fas fa-circle-info"></i><div>${d.error}</div></div>`
             : `<div class="ml-err">${d.error}</div>`)
         : '';
-      body.innerHTML = `<div class="ml-ui"><div class="ml-empty"><div class="ml-empty-ic"><i class="fas fa-tag"></i></div><h4>Todavía no está publicada</h4><p>Esta propiedad aún no está en Mercado Libre.</p></div>${_errHtml}<div class="ml-section">${mlTypeSelector(d.tiposDisponibles)}</div><div class="ml-btns"><button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-upload"></i> Publicar en Mercado Libre</button></div>${mlSeccionInfocasas()}${mlSeccionCasasYMas()}</div>`;
+      body.innerHTML = `<div class="ml-ui"><div class="ml-empty"><div class="ml-empty-ic"><i class="fas fa-tag"></i></div><h4>Todavía no está publicada</h4><p>Esta propiedad aún no está en Mercado Libre.</p></div>${_errHtml}<div class="ml-section">${mlTypeSelector(d.tiposDisponibles)}</div><div class="ml-btns"><button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-upload"></i> Publicar en Mercado Libre</button></div><div id="secIC">${mlSeccionInfocasas()}</div><div id="secCYM">${mlSeccionCasasYMas()}</div></div>`;
       return
     }
     if (d.error) {
@@ -1930,7 +1986,7 @@
         bajaHint = `<div class="ml-section"><div class="ml-note info"><i class="fas fa-circle-info"></i><div>La baja la confirma el administrador. Si la operación se cerró con la agencia, no hace falta pedir nada: cerrá la <strong>gestión en Clientes</strong> y la propiedad se da de baja sola.</div></div></div>`;
       }
     }
-    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}${mlSeccionInfocasas()}${mlSeccionCasasYMas()}${selTipo}${bajaHint}<div class="ml-btns">${botones.join('')}</div></div>`
+    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}<div id="secIC">${mlSeccionInfocasas()}</div><div id="secCYM">${mlSeccionCasasYMas()}</div>${selTipo}${bajaHint}<div class="ml-btns">${botones.join('')}</div></div>`
   }
   async function republicarPropiedad() {
     if (!mlModalPropId) return;

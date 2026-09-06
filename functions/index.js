@@ -3712,6 +3712,126 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
   }
 });
 
+/* Estado de una propiedad en InfoCasas y Casas y Más, para el modal de Portales.
+
+   Hasta ahora el modal solo mostraba dos líneas ("lista para publicar") mientras
+   que la sección de Mercado Libre traía visitas, preguntas y calidad del aviso.
+   La diferencia no era de diseño sino de datos: ML expone métricas por API y
+   los otros dos no tanto.
+
+   Lo que sí se puede traer:
+     · Casas y Más — GET /consultas filtrado por propiedad: cuántas consultas
+       recibió y cuáles fueron las últimas. Es lo más parecido a una métrica.
+       Y GET /propiedades para confirmar que el aviso sigue vivo en el portal.
+     · InfoCasas — no publica estadísticas (se lo preguntamos a Frank y no hubo
+       respuesta, y no hay endpoint en la documentación). Lo que sí sirve es el
+       estado de la última tarea: si la publicación terminó bien, o si falló, con
+       el motivo. Eso hoy queda guardado en icTaskId y no se muestra en ningún
+       lado.
+
+   Se cachea 30 minutos en la propiedad. Sin caché, cada apertura del modal
+   dispararía tres llamadas a APIs externas. */
+exports.estadoPortales = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const propertyId = String((request.data && request.data.propertyId) || "");
+  if (!propertyId) throw new HttpsError("invalid-argument", "Falta la propiedad.");
+
+  const pSnap = await db.doc(`properties/${propertyId}`).get();
+  if (!pSnap.exists) throw new HttpsError("not-found", "La propiedad no existe.");
+  const p = pSnap.data();
+  await exigirAgente(request, p);
+
+  const forzar = !!(request.data && request.data.forzar);
+  const cacheAt = p.portalesAt ? Date.parse(p.portalesAt) : 0;
+  if (!forzar && p.portalesCache && Date.now() - cacheAt < 30 * 60 * 1000) {
+    return { ...p.portalesCache, cacheado: true, consultadoAt: p.portalesAt };
+  }
+
+  const out = { infocasas: null, casasymas: null };
+
+  /* ---------- InfoCasas ---------- */
+  if (p.icListingId && p.icEstado !== "eliminado") {
+    const ic = {
+      publicado: true,
+      listingId: String(p.icListingId),
+      publicadoAt: p.icPublicadoAt || null,
+      actualizadoAt: p.icActualizadoAt || null,
+      estado: p.icEstado || null,
+      tarea: null,
+    };
+    // Estado de la última tarea: es lo único que InfoCasas informa.
+    if (p.icTaskId) {
+      try {
+        const r = await icFetch(`/task/${encodeURIComponent(p.icTaskId)}`, { conCookie: true });
+        if (r.ok) {
+          const t = (r.data && (r.data.task || r.data)) || {};
+          const cont = Array.isArray(t.content) ? t.content[0] : null;
+          ic.tarea = {
+            estado: String(t.status || "").toUpperCase(),
+            evento: t.event || null,
+            // Los mensajes de error vienen acá cuando algo falla.
+            mensajes: (cont && cont.messages && Object.keys(cont.messages).length) ? cont.messages : null,
+            frPropertyId: cont ? cont.fr_property_id || null : null,
+          };
+        }
+      } catch (e) { logger.warn(`estadoPortales ${propertyId}: tarea IC`, e.message); }
+    }
+    out.infocasas = ic;
+  } else if (p.icEstado === "eliminado") {
+    out.infocasas = { publicado: false, eliminado: true };
+  }
+
+  /* ---------- Casas y Más ---------- */
+  if (p.cymId && p.cymEstado !== "eliminado") {
+    const cym = {
+      publicado: true,
+      id: String(p.cymId),
+      url: `https://casasymas.com.uy/propiedad/${p.cymId}`,
+      publicadoAt: p.cymPublicadoAt || null,
+      actualizadoAt: p.cymActualizadoAt || null,
+      consultas: null, ultimas: null, activaEnPortal: null,
+    };
+    try {
+      const r = await cymFetch("/consultas", { id_propiedad: String(p.cymId) }, "GET");
+      if (r.ok) {
+        /* La respuesta trae "consultas" como objeto cuando hay una sola y como
+           array cuando hay varias. Se normaliza a array siempre. */
+        const c = r.data.consultas;
+        const lista = Array.isArray(c) ? c : (c ? [c] : []);
+        cym.consultas = lista.length;
+        cym.ultimas = lista
+          .slice()
+          .sort((a, b) => String(b.fecha || "").localeCompare(String(a.fecha || "")))
+          .slice(0, 5)
+          .map((x) => ({
+            nombre: x.nombre || "", fecha: x.fecha || "",
+            operacion: x.operacion || "",
+            respondida: !!(x.respuesta && x.respuesta.mensaje),
+          }));
+      }
+    } catch (e) { logger.warn(`estadoPortales ${propertyId}: consultas CYM`, e.message); }
+
+    try {
+      const r = await cymFetch("/propiedades", { id: String(p.cymId) }, "GET");
+      if (r.ok) {
+        const d = r.data.propiedades || r.data.propiedad || null;
+        const item = Array.isArray(d) ? d[0] : d;
+        if (item) cym.activaEnPortal = String(item.activa) === "1" || item.activa === 1;
+      }
+    } catch (e) { logger.warn(`estadoPortales ${propertyId}: propiedades CYM`, e.message); }
+
+    out.casasymas = cym;
+  } else if (p.cymEstado === "eliminado") {
+    out.casasymas = { publicado: false, eliminado: true };
+  }
+
+  try {
+    await pSnap.ref.update({ portalesCache: out, portalesAt: new Date().toISOString() });
+  } catch (e) { logger.warn("estadoPortales: no se pudo cachear", e.message); }
+
+  return { ...out, cacheado: false, consultadoAt: new Date().toISOString() };
+});
+
 /* ============================================================================
    SINCRONIZACIÓN AUTOMÁTICA CON LOS PORTALES
    ----------------------------------------------------------------------------
@@ -5977,21 +6097,23 @@ async function icApiPayload(p, propId, agente) {
     // AFIRMABA a InfoCasas que están incluidos en el alquiler. Es una suposición
     // y suele ser falsa: la ficha simplemente no tenía el dato. Publicar
     // "gastos incluidos" cuando no lo están es un reclamo del inquilino.
-    if (gc > 0) {
-      // administration tiene su PROPIO currency, con el mismo default de USD
-      // (confirmado en la doc, 02/09/2026). Va explícito por la misma razón que
-      // el precio: omitirlo publicaría $24.600 de gastos como US$ 24.600.
-      // El feed XML ya asume pesos para gastos comunes (IDmonedagc: 2), así que
-      // se respeta ese criterio salvo que la propiedad diga otra cosa.
-      payload.administration = {
-        is_included: false,
-        price: Math.round(gc),
-        currency: icApiCurrency(p.commonExpensesCurrency || "UYU"),
-      };
-    } else if (p.commonExpensesIncluded === true) {
+    /* Los campos vacíos de la ficha se rellenan con 0 automáticamente, así que
+       commonExpenses = 0 significa "no tiene gastos comunes", no "no se sabe".
+       Antes esto devolvía "faltan los gastos comunes" y BLOQUEABA la publicación
+       de cualquier casa sin gastos, que es la situación normal. El feed XML
+       nunca tuvo esa validación y publicaba bien.
+
+       administration tiene su PROPIO currency, con el mismo default de USD
+       (confirmado en la doc, 02/09/2026). Va explícito por la misma razón que el
+       precio: omitirlo publicaría $24.600 de gastos como US$ 24.600. */
+    if (p.commonExpensesIncluded === true) {
       payload.administration = { is_included: true };
     } else {
-      return { ok: false, faltan: ["gastos comunes (o marcar que están incluidos)"] };
+      payload.administration = {
+        is_included: false,
+        price: Math.round(gc),      // 0 = no tiene gastos comunes
+        currency: icApiCurrency(p.commonExpensesCurrency || "UYU"),
+      };
     }
   }
 
