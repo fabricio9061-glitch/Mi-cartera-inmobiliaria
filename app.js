@@ -451,14 +451,6 @@
     document.body.classList.toggle('has-bottombar', !!currentUser);
     document.getElementById('mvSideRetiros')?.classList.toggle('hidden', !esCEO());
     document.getElementById('mvSidePapelera')?.classList.toggle('hidden', !esCEO());
-    // Rentabilidad la ven CEO y COO. Se usa Rangos.esDireccion en vez de esCEO()
-    // porque esCEO() NO incluye el rango 'coo': con esa función, la COO no vería
-    // la herramienta. (El resto de los ítems de Administración siguen en esCEO();
-    // si eso hay que cambiarlo, es una decisión aparte.)
-    const _verRenta = esCEO() ||
-      (typeof Rangos !== 'undefined' && Rangos.esDireccion && Rangos.esDireccion(userProfile));
-    document.getElementById('mvSideRenta')?.classList.toggle('hidden', !_verRenta);
-    document.getElementById('mvSideInteres')?.classList.toggle('hidden', !_verRenta);
     if (isAdminUser()) actualizarBadgePendientes();
     document.getElementById('mvSide')?.classList.add('open');
     document.getElementById('mvSideOverlay')?.classList.add('open');
@@ -1720,31 +1712,91 @@
     const aviso = '';
     return `<div class="ml-label">Tipo de aviso</div><select id="mlTipoAviso" class="ml-select">${opts}</select>${aviso}`;
   }
-  // Estado de la propiedad frente al feed de InfoCasas, calculado con las MISMAS
-  // reglas que usa el backend. InfoCasas no ofrece estadísticas por API (su
-  // integración es el feed, de una sola vía): acá se ve si está sincronizando,
-  // por qué no, y el link al aviso si ya se pegó desde Compartir.
+  /* Sección de InfoCasas del modal de Portales.
+
+     Estaba escrita entera alrededor del FEED XML: hablaba de "en el feed", de
+     que InfoCasas sincronizaba periódicamente, y remataba con "InfoCasas no
+     ofrece estadísticas por API". Nada de eso vale desde que publicamos por API:
+     ahora hay icListingId, el aviso se actualiza solo al editar, y el estado se
+     sabe con precisión. El texto le estaba diciendo al agente algo falso. */
   function mlSeccionInfocasas() {
     const p = properties.find(pr => pr.id === mlModalPropId);
     if (!p) return '';
+    const chip = '<div class="ml-divider"><span class="tagchip" style="background:#dbeafe;color:#1d4ed8">InfoCasas</span><span class="line"></span></div>';
+
+    // Publicada por API: es el camino nuevo y el que manda.
+    if (p.icListingId && p.icEstado !== 'eliminado') {
+      const cuando = p.icPublicadoAt ? new Date(p.icPublicadoAt).toLocaleDateString('es-UY') : '';
+      const act = p.icActualizadoAt ? new Date(p.icActualizadoAt).toLocaleDateString('es-UY') : '';
+      const link = (p.infocasasUrl && safeUrl(p.infocasasUrl))
+        ? `<a href="${safeUrl(p.infocasasUrl)}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost" style="margin-top:10px;flex:none"><i class="fas fa-external-link-alt"></i> Ver aviso en InfoCasas</a>`
+        : '';
+      return chip +
+        `<div class="ml-note ok"><i class="fas fa-circle-check"></i><div><strong>Publicada por API${cuando ? ' el ' + cuando : ''}.</strong> Los cambios de precio, fotos y descripción se envían solos cuando editás la propiedad.${act ? ' Última actualización: ' + act + '.' : ''}</div></div>` +
+        link;
+    }
+
+    if (p.icEstado === 'eliminado') {
+      return chip + '<div class="ml-note warn"><i class="fas fa-circle-info"></i><div><strong>Dada de baja en InfoCasas.</strong> Se eliminó el aviso del portal.</div></div>';
+    }
+
+    /* Todavía no publicada por API: se muestra qué le falta a la ficha, con los
+       MISMOS requisitos que valida icApiPayload del lado del servidor. Si acá
+       dijera otra cosa, el agente corregiría lo que no es. */
     const EST = { tasacion: 'Pendiente de tasación', tasado: 'Tasada', reserved: 'Reservada', sold: 'Vendida', rented: 'Alquilada', cerrado_externo: 'Cerró por afuera', archived: 'Dada de baja' };
-    let motivo = '';
-    if (p.cierreConfirmado === true) motivo = 'tiene un cierre confirmado';
-    else if (p.status && p.status !== 'available') motivo = 'está en estado "' + (EST[p.status] || p.status) + '" y solo las disponibles van al feed';
-    else if (!p.ubicacion || p.ubicacion.lat == null || p.ubicacion.lng == null) motivo = 'no tiene el pin de ubicación en el mapa';
-    else if (!(Number(p.price) > 0)) motivo = 'no tiene precio cargado';
-    else if (!((p.images || []).filter(Boolean).length)) motivo = 'no tiene fotos';
-    else if (!(p.departamento || (p.ubicacion && p.ubicacion.departamento))) motivo = 'no tiene departamento asignado';
-    const enFeed = !motivo;
-    const corregible = !enFeed && !(p.status && p.status !== 'available') && p.cierreConfirmado !== true;
-    const estadoHtml = enFeed
-      ? '<div class="ml-note ok"><i class="fas fa-circle-check"></i><div><strong>En el feed:</strong> InfoCasas la sincroniza periódicamente. Los cambios de precio, fotos y descripción viajan solos en la próxima lectura.</div></div>'
-      : `<div class="ml-note warn"><i class="fas fa-circle-info"></i><div><strong>Fuera del feed:</strong> ${motivo}.${corregible ? ' Corregilo en <strong>Editar propiedad</strong> y entra sola.' : ''}</div></div>`;
-    const linkHtml = (p.infocasasUrl && safeUrl(p.infocasasUrl))
-      ? `<a href="${safeUrl(p.infocasasUrl)}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost" style="margin-top:10px;flex:none"><i class="fas fa-external-link-alt"></i> Ver aviso en InfoCasas</a>`
-      : (enFeed ? '<div style="font-size:.8rem;color:#8a93a0;margin-top:8px;line-height:1.45">Cuando el aviso esté en línea, pegá su link desde el botón <strong>Compartir</strong> de la tarjeta y va a aparecer acá.</div>' : '');
-    return `<div class="ml-divider"><span class="tagchip" style="background:#dbeafe;color:#1d4ed8">InfoCasas</span><span class="line"></span></div>${estadoHtml}${linkHtml}<div style="font-size:.74rem;color:#a8b0ba;margin-top:8px">InfoCasas no ofrece estadísticas por API: acá solo se ve el estado de sincronización.</div>`;
+    const u = p.ubicacion || {};
+    const faltan = [];
+    if (p.cierreConfirmado === true) faltan.push('tiene un cierre confirmado');
+    else if (p.status && p.status !== 'available' && p.status !== 'reserved') faltan.push('está en estado "' + (EST[p.status] || p.status) + '"');
+    if (u.lat == null || u.lng == null) faltan.push('falta el pin de ubicación en el mapa');
+    if (!(Number(p.price) > 0)) faltan.push('falta el precio');
+    if (!((p.images || []).filter(Boolean).length)) faltan.push('faltan fotos');
+    if (!(p.departamento || u.departamento)) faltan.push('falta el departamento');
+    if (!String(p.description || '').trim()) faltan.push('falta la descripción');
+    if (p.type === 'rent' && !(Number(p.commonExpenses) > 0)) faltan.push('faltan los gastos comunes');
+
+    if (!faltan.length) {
+      return chip + '<div class="ml-note"><i class="fas fa-circle-info"></i><div><strong>Lista para publicar.</strong> La ficha tiene todo lo que pide InfoCasas. La publicación la hace la Dirección.</div></div>';
+    }
+    return chip + `<div class="ml-note warn"><i class="fas fa-circle-info"></i><div><strong>No se puede publicar todavía:</strong> ${faltan.join(', ')}. Corregilo en <strong>Editar propiedad</strong>.</div></div>`;
   }
+
+  /* Sección de Casas y Más. No existía: el portal se integró después de que se
+     escribió este modal. */
+  function mlSeccionCasasYMas() {
+    const p = properties.find(pr => pr.id === mlModalPropId);
+    if (!p) return '';
+    const chip = '<div class="ml-divider"><span class="tagchip" style="background:#e0f2e9;color:#1e7d4f">Casas y Más</span><span class="line"></span></div>';
+
+    if (p.cymId && p.cymEstado !== 'eliminado') {
+      const cuando = p.cymPublicadoAt ? new Date(p.cymPublicadoAt).toLocaleDateString('es-UY') : '';
+      const act = p.cymActualizadoAt ? new Date(p.cymActualizadoAt).toLocaleDateString('es-UY') : '';
+      return chip +
+        `<div class="ml-note ok"><i class="fas fa-circle-check"></i><div><strong>Publicada${cuando ? ' el ' + cuando : ''}.</strong> Los cambios se envían solos cuando editás la propiedad.${act ? ' Última actualización: ' + act + '.' : ''}</div></div>` +
+        `<a href="https://casasymas.com.uy/propiedad/${encodeURIComponent(p.cymId)}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost" style="margin-top:10px;flex:none"><i class="fas fa-external-link-alt"></i> Ver aviso en Casas y Más</a>`;
+    }
+
+    if (p.cymEstado === 'eliminado') {
+      return chip + '<div class="ml-note warn"><i class="fas fa-circle-info"></i><div><strong>Dada de baja en Casas y Más.</strong></div></div>';
+    }
+
+    // Requisitos propios: acá el mínimo de fotos son 4, no 1.
+    const u = p.ubicacion || {};
+    const fotos = (p.images || []).filter(Boolean).length;
+    const faltan = [];
+    if (p.status && p.status !== 'available' && p.status !== 'reserved') faltan.push('no está disponible');
+    if (u.lat == null || u.lng == null) faltan.push('falta el pin de ubicación');
+    if (!(Number(p.price) > 0)) faltan.push('falta el precio');
+    if (fotos < 4) faltan.push(`hacen falta al menos 4 fotos (tiene ${fotos})`);
+    if (!(p.departamento || u.departamento)) faltan.push('falta el departamento');
+    if (!String(p.description || '').trim()) faltan.push('falta la descripción');
+
+    if (!faltan.length) {
+      return chip + '<div class="ml-note"><i class="fas fa-circle-info"></i><div><strong>Lista para publicar.</strong> La publicación la hace la Dirección.</div></div>';
+    }
+    return chip + `<div class="ml-note warn"><i class="fas fa-circle-info"></i><div><strong>No se puede publicar todavía:</strong> ${faltan.join(', ')}.</div></div>`;
+  }
+
   function renderMLStatus(d) {
     ensureMLStyles();
     const body = document.getElementById('mlModalBody');
@@ -1755,7 +1807,7 @@
             ? `<div class="ml-note warn" style="margin-top:8px"><i class="fas fa-circle-info"></i><div>${d.error}</div></div>`
             : `<div class="ml-err">${d.error}</div>`)
         : '';
-      body.innerHTML = `<div class="ml-ui"><div class="ml-empty"><div class="ml-empty-ic"><i class="fas fa-tag"></i></div><h4>Todavía no está publicada</h4><p>Esta propiedad aún no está en Mercado Libre.</p></div>${_errHtml}<div class="ml-section">${mlTypeSelector(d.tiposDisponibles)}</div><div class="ml-btns"><button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-upload"></i> Publicar en Mercado Libre</button></div>${mlSeccionInfocasas()}</div>`;
+      body.innerHTML = `<div class="ml-ui"><div class="ml-empty"><div class="ml-empty-ic"><i class="fas fa-tag"></i></div><h4>Todavía no está publicada</h4><p>Esta propiedad aún no está en Mercado Libre.</p></div>${_errHtml}<div class="ml-section">${mlTypeSelector(d.tiposDisponibles)}</div><div class="ml-btns"><button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-upload"></i> Publicar en Mercado Libre</button></div>${mlSeccionInfocasas()}${mlSeccionCasasYMas()}</div>`;
       return
     }
     if (d.error) {
@@ -1878,7 +1930,7 @@
         bajaHint = `<div class="ml-section"><div class="ml-note info"><i class="fas fa-circle-info"></i><div>La baja la confirma el administrador. Si la operación se cerró con la agencia, no hace falta pedir nada: cerrá la <strong>gestión en Clientes</strong> y la propiedad se da de baja sola.</div></div></div>`;
       }
     }
-    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}${mlSeccionInfocasas()}${selTipo}${bajaHint}<div class="ml-btns">${botones.join('')}</div></div>`
+    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}${mlSeccionInfocasas()}${mlSeccionCasasYMas()}${selTipo}${bajaHint}<div class="ml-btns">${botones.join('')}</div></div>`
   }
   async function republicarPropiedad() {
     if (!mlModalPropId) return;
