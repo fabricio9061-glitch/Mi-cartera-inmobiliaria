@@ -875,7 +875,12 @@
       document.getElementById('propBathrooms').value = p.bathrooms || '';
       document.getElementById('propTotalArea').value = p.totalArea || '';
       document.getElementById('propBuiltArea').value = p.builtArea || '';
-      document.getElementById('propExpenses').value = p.commonExpenses || '';
+      /* Ojo con el 0: `p.commonExpenses || ''` devuelve cadena vacía cuando los
+         gastos son 0, así que el campo aparecía en blanco. Desde que es
+         obligatorio, eso impedía guardar cualquier propiedad sin gastos comunes
+         aunque el dato existiera y valiera 0. */
+      document.getElementById('propExpenses').value =
+        (p.commonExpenses === 0 || p.commonExpenses) ? p.commonExpenses : '';
       document.getElementById('propDescription').value = p.description || '';
       document.getElementById('propVideo').value = p.videoUrl || '';
       document.getElementById('propWhatsapp').value = p.ownerWhatsapp || '';
