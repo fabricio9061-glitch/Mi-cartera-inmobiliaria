@@ -3712,6 +3712,132 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
   }
 });
 
+/* Revisión previa a la publicación masiva: dice qué propiedades publicarían bien
+   en cada portal y cuáles no, SIN enviar nada.
+
+   Con 42 propiedades, publicar a ciegas significa descubrir los problemas de a
+   uno y con avisos ya creados a medias. Esto los muestra todos antes. */
+exports.revisarParaPublicar = onCall({ timeoutSeconds: 300 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const portal = String((request.data && request.data.portal) || "casasymas");
+  const snap = await db.collection("properties").where("status", "==", "available").get();
+  const users = {};
+  (await db.collection("users").get()).forEach((d) => { users[d.id] = d.data(); });
+
+  const listas = [], conProblemas = [], yaPublicadas = [];
+  for (const d of snap.docs) {
+    const p = d.data();
+    const agente = users[p.ownerId] || {};
+    const titulo = String(p.title || "").slice(0, 55);
+
+    if (portal === "casasymas" && p.cymId && p.cymEstado !== "eliminado") {
+      yaPublicadas.push({ id: d.id, titulo, portalId: p.cymId }); continue;
+    }
+    if (portal === "infocasas" && p.icListingId && p.icEstado !== "eliminado") {
+      yaPublicadas.push({ id: d.id, titulo, portalId: p.icListingId }); continue;
+    }
+
+    const armado = portal === "casasymas"
+      ? await cymPayload(p, d.id, agente)
+      : await icApiPayload(p, d.id, agente);
+
+    if (armado.ok) listas.push({ id: d.id, titulo, agente: p.ownerName || "" });
+    else conProblemas.push({ id: d.id, titulo, agente: p.ownerName || "", faltan: armado.faltan });
+  }
+
+  // Qué falta más seguido: sirve para saber qué conviene arreglar primero.
+  const motivos = {};
+  for (const x of conProblemas) for (const f of x.faltan) {
+    const k = f.replace(/\(tiene \d+\)/, "").replace(/"[^"]*"/, "…").trim();
+    motivos[k] = (motivos[k] || 0) + 1;
+  }
+  return {
+    portal,
+    disponibles: snap.size,
+    listas: listas.length, conProblemas: conProblemas.length, yaPublicadas: yaPublicadas.length,
+    motivosMasComunes: Object.entries(motivos).sort((a, b) => b[1] - a[1]).map(([m, n]) => ({ motivo: m, propiedades: n })),
+    listaListas: listas,
+    listaConProblemas: conProblemas,
+  };
+});
+
+/* Publicación masiva. Publica SOLO las que pasan la revisión y para al primer
+   error inesperado.
+
+   'limite' acota cuántas se publican de una: sin ambiente de pruebas conviene
+   empezar con pocas, mirar cómo quedaron en el portal, y recién después el
+   resto. Por defecto son 5 justamente para que nadie publique 42 sin querer. */
+exports.publicarVarias = onCall({ timeoutSeconds: 540 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const portal = String((request.data && request.data.portal) || "casasymas");
+  const limite = Math.min(Number((request.data && request.data.limite) || 5), 25);
+  const ids = (request.data && request.data.ids) || null;
+
+  const snap = await db.collection("properties").where("status", "==", "available").get();
+  const users = {};
+  (await db.collection("users").get()).forEach((d) => { users[d.id] = d.data(); });
+
+  const hechas = [], saltadas = [];
+  let corte = null;
+
+  for (const d of snap.docs) {
+    if (hechas.length >= limite) break;
+    if (ids && !ids.includes(d.id)) continue;
+    const p = d.data();
+    const yaEsta = portal === "casasymas"
+      ? (p.cymId && p.cymEstado !== "eliminado")
+      : (p.icListingId && p.icEstado !== "eliminado");
+    if (yaEsta) { saltadas.push({ id: d.id, motivo: "ya publicada" }); continue; }
+
+    const agente = users[p.ownerId] || {};
+    const armado = portal === "casasymas"
+      ? await cymPayload(p, d.id, agente)
+      : await icApiPayload(p, d.id, agente);
+    if (!armado.ok) { saltadas.push({ id: d.id, motivo: armado.faltan.join(", ") }); continue; }
+
+    try {
+      if (portal === "casasymas") {
+        const r = await cymFetch("/alta_propiedad", armado.payload);
+        if (!r.ok) { corte = { id: d.id, codigo: r.codigo, detalle: r.data }; break; }
+        const cymId = String(r.data.id || "");
+        await d.ref.update({ cymId, cymEstado: "publicado", cymPublicadoAt: new Date().toISOString() });
+        const rf = await cymFetch("/subir_fotos", {
+          id_propiedad: cymId,
+          fotos: armado.fotos.map((u, i) => ({ foto: u, orden: String(i + 1) })),
+        });
+        hechas.push({ id: d.id, portalId: cymId, fotos: rf.ok ? armado.fotos.length : 0, fotosOk: rf.ok });
+      } else {
+        const r = await icFetch("/listing", { method: "POST", body: [armado.payload], conCookie: true });
+        if (!r.ok) { corte = { id: d.id, status: r.status, detalle: r.data }; break; }
+        const taskId = icTaskId(r.data);
+        await d.ref.update({ icTaskId: taskId, icEnviadoAt: new Date().toISOString() });
+        hechas.push({ id: d.id, taskId });
+      }
+      // Respiro entre publicaciones: los dos portales limitan las peticiones.
+      await new Promise((r) => setTimeout(r, 1200));
+    } catch (e) {
+      corte = { id: d.id, error: String(e.message || e) };
+      break;
+    }
+  }
+
+  return {
+    portal, publicadas: hechas.length, hechas, saltadas: saltadas.length, listaSaltadas: saltadas,
+    corte,
+    nota: corte
+      ? "Se frenó al primer error para no seguir publicando con algo mal. Revisá 'corte'."
+      : (hechas.length >= limite ? "Se alcanzó el límite. Volvé a correrlo para seguir." : "Terminó."),
+  };
+});
+
 /* Trae TODAS las consultas de Casas y Más y las cuenta por propiedad.
 
    Es lo único parecido a una métrica que ofrece el portal: no publican visitas

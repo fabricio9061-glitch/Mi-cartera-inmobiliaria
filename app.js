@@ -1778,6 +1778,29 @@
 
   /* Sección de Casas y Más. No existía: el portal se integró después de que se
      escribió este modal. */
+  async function publicarEnCYM(){
+    if (!mlModalPropId) return;
+    const p = properties.find(pr => pr.id === mlModalPropId) || {};
+    if (!confirm(`¿Publicar "${p.title || 'esta propiedad'}" en Casas y Más?\n\nEl aviso sale al portal real: no hay ambiente de pruebas.`)) return;
+    const id = mlModalPropId, body = document.getElementById('mlModalBody');
+    body.innerHTML = '<div class="ml-ui"><div class="ml-loading"><div class="sp"></div><p>Publicando en Casas y Más...</p></div></div>';
+    try {
+      const r = await firebase.functions().httpsCallable('publicarEnCasasYMas')({ propertyId: id });
+      const d = r.data || {};
+      if (d.ok) {
+        showToast('Casas y Más', `Publicada con ${d.fotos || 0} fotos`, 'fa-circle-check');
+        const pr = properties.find(x => x.id === id);
+        if (pr) { pr.cymId = d.cymId; pr.cymEstado = 'publicado'; pr.cymPublicadoAt = new Date().toISOString(); }
+      } else {
+        showToast('No se pudo publicar', (d.faltan || []).join(', ') || d.mensaje || 'Error', 'fa-circle-exclamation');
+      }
+    } catch (e) {
+      showToast('No se pudo publicar', e.message || e, 'fa-circle-exclamation');
+    }
+    _portalesPid = null;
+    openMLModal(id);
+  }
+
   /* Datos vivos de los portales. Se piden en segundo plano al abrir el modal y
      se repintan cuando llegan: el modal no espera, porque son llamadas a APIs
      externas y bloquearlo lo haría sentir lento. */
@@ -1848,7 +1871,12 @@
     if (!String(p.description || '').trim()) faltan.push('falta la descripción');
 
     if (!faltan.length) {
-      return chip + '<div class="ml-note"><i class="fas fa-circle-info"></i><div><strong>Lista para publicar.</strong> La publicación la hace la Dirección.</div></div>';
+      // El botón solo lo ve Dirección: publicar en el portal es decisión suya.
+      const btn = (typeof isAdminUser === 'function' && isAdminUser())
+        ? `<div class="ml-btns" style="margin-top:10px"><button class="ml-btn ml-btn-primary" onclick="publicarEnCYM()"><i class="fas fa-upload"></i> Publicar en Casas y Más</button></div>`
+        : '';
+      return chip + '<div class="ml-note"><i class="fas fa-circle-info"></i><div><strong>Lista para publicar.</strong>' +
+        (btn ? '' : ' La publicación la hace la Dirección.') + '</div></div>' + btn;
     }
     return chip + `<div class="ml-note warn"><i class="fas fa-circle-info"></i><div><strong>No se puede publicar todavía:</strong> ${faltan.join(', ')}.</div></div>`;
   }
@@ -2031,17 +2059,40 @@
   async function bajaPropiedad() {
     if (!mlModalPropId) return;
     if (!isAdminUser()) { showToast('Solo administradores', 'Para sacar la propiedad de circulación, cerrá su gestión en Clientes', 'fa-lock'); return; }
-    if (!confirm('¿Dar de baja este aviso en Mercado Libre?\n\nOJO: en ML esto es IRREVERSIBLE. El aviso no se reabre: republicar crea uno NUEVO y, si es de pago, se vuelve a cobrar.\n\nAdemás esto NO cambia el estado de la propiedad en el CRM: si la operación se cerró, cerrá la gestión en Clientes y el aviso se baja solo.')) return;
+    const _p = properties.find(pr => pr.id === mlModalPropId) || {};
+    /* La baja ahora saca la propiedad de los TRES portales, no solo de Mercado
+       Libre. Antes solo llamaba a bajaML: con el feed XML la propiedad
+       desaparecía sola de InfoCasas al cambiar de estado, así que PARECÍA que
+       bajaba en los dos. Con la API el aviso queda publicado hasta que alguien
+       lo baje, así que hay que hacerlo explícito. */
+    const _donde = ['Mercado Libre'];
+    if (_p.icListingId && _p.icEstado !== 'eliminado') _donde.push('InfoCasas');
+    if (_p.cymId && _p.cymEstado !== 'eliminado') _donde.push('Casas y Más');
+    if (!confirm(`¿Dar de baja este aviso en ${_donde.join(', ')}?\n\nOJO: en Mercado Libre es IRREVERSIBLE. El aviso no se reabre: republicar crea uno NUEVO y, si es de pago, se vuelve a cobrar.\n\nEsto NO cambia el estado de la propiedad en el CRM: si la operación se cerró, cerrá la gestión en Clientes y los avisos se bajan solos.`)) return;
     const id = mlModalPropId, body = document.getElementById('mlModalBody');
     ensureMLStyles();
     body.innerHTML = '<div class="ml-ui"><div class="ml-loading"><div class="sp"></div><p>Dando de baja...</p></div></div>';
+    const fallos = [];
     try {
       await firebase.functions().httpsCallable('bajaML')({ propertyId: id });
-      showToast('Mercado Libre', 'El aviso se dio de baja', 'fa-tag');
-      openMLModal(id)
-    } catch (e) {
-      body.innerHTML = `<div class="ml-ui"><div class="ml-err">No se pudo dar de baja: ${e.message || e}</div></div>`
+    } catch (e) { fallos.push('Mercado Libre: ' + (e.message || e)); }
+    // Cada portal por separado: que falle uno no debe frenar a los otros.
+    if (_p.icListingId && _p.icEstado !== 'eliminado') {
+      try {
+        const r = await firebase.functions().httpsCallable('estadoEnInfocasas')({ propertyId: id, status: 'DELETED' });
+        if (!r.data || !r.data.ok) fallos.push('InfoCasas: ' + ((r.data && r.data.estado) || 'no se pudo'));
+      } catch (e) { fallos.push('InfoCasas: ' + (e.message || e)); }
     }
+    if (_p.cymId && _p.cymEstado !== 'eliminado') {
+      try {
+        const r = await firebase.functions().httpsCallable('bajaEnCasasYMas')({ propertyId: id });
+        if (!r.data || !r.data.ok) fallos.push('Casas y Más: ' + ((r.data && r.data.mensaje) || 'no se pudo'));
+      } catch (e) { fallos.push('Casas y Más: ' + (e.message || e)); }
+    }
+    if (fallos.length) showToast('Baja parcial', fallos.join(' · '), 'fa-triangle-exclamation');
+    else showToast('Dada de baja', 'El aviso se sacó de ' + _donde.join(', '), 'fa-circle-check');
+    _portalesPid = null;   // se fuerza a releer el estado de los portales
+    openMLModal(id);
   }
 
   // ===== Cuentas de portales: credenciales compartidas de la inmobiliaria =====
