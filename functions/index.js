@@ -3712,6 +3712,36 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
   }
 });
 
+/* Explorador de solo lectura para Casas y Más, equivalente a icGet.
+
+   Se agregó porque el modal mostraba "En el portal: Inactiva" para avisos que
+   estaban perfectamente publicados: la lectura de GET /propiedades asumía una
+   estructura ({propiedades:[{activa:"1"}]}) que nunca verificamos contra la
+   respuesta real.
+
+   Solo GET. La ruta se pasa entera, y se rechaza cualquier cosa que escriba. */
+exports.cymGet = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  let ruta = String((request.data && request.data.path) || "").trim();
+  if (!ruta) throw new HttpsError("invalid-argument", "Falta 'path' (por ejemplo: /propiedades).");
+  if (!ruta.startsWith("/")) ruta = "/" + ruta;
+  if (/alta|modificar|eliminar|destacar|subir/i.test(ruta)) {
+    throw new HttpsError("permission-denied", "Esa ruta escribe. Desde acá solo se lee.");
+  }
+  const extra = (request.data && request.data.body) || {};
+  const r = await cymFetch(ruta, extra, "GET");
+  const d = r.data;
+  return {
+    ruta, ok: r.ok, codigo: r.codigo, mensaje: r.mensaje, httpStatus: r.httpStatus,
+    claves: d && typeof d === "object" ? Object.keys(d) : null,
+    crudo: d,
+  };
+});
+
 /* Revisión previa a la publicación masiva: dice qué propiedades publicarían bien
    en cada portal y cuáles no, SIN enviar nada.
 
@@ -4031,6 +4061,126 @@ exports.estadoPortales = onCall(async (request) => {
    propiedad sigue en el mercado. Los mismos que ML_ESTADOS_SIN_ESPEJO se
    ignoran, porque ahí la decisión de publicar todavía no está tomada. */
 const PORTAL_ESTADOS_FUERA = ["sold", "rented", "archived"];
+
+/* Publicación automática en Casas y Más.
+
+   No se dispara al CREAR la propiedad: una ficha recién creada no tiene fotos
+   todavía y Casas y Más exige un mínimo de 4, así que fallaría siempre. Se
+   dispara en cada edición y publica en cuanto la ficha cumple los requisitos.
+
+   InfoCasas queda AFUERA a propósito: sus 42 avisos están publicados por el feed
+   XML y ninguno tiene icListingId, así que publicar por API los DUPLICARÍA. Se
+   suma cuando esté resuelto qué pasa con el feed y llegue la key de producción.
+
+   CUPO: el plan es de 50 propiedades. Si se llena, la publicación fallaría en
+   silencio y nadie se enteraría hasta buscar el aviso. Por eso se cuenta antes y
+   se avisa a Dirección cuando queda poco o cuando ya no entra. */
+const CYM_CUPO = Number(process.env.CYM_CUPO || 50);
+
+exports.publicarAutoCasasYMas = onDocumentUpdated("properties/{id}", async (event) => {
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+  const ref = event.data.after.ref;
+  const id = event.params.id;
+  if (!after) return;
+
+  // Ya publicada, dada de baja o fuera del mercado: no se toca.
+  if (after.cymId && after.cymEstado !== "eliminado") return;
+  if (after.cymEstado === "eliminado") return;
+  const st = after.status || "available";
+  if (st !== "available" && st !== "reserved") return;
+  if (ML_ESTADOS_SIN_ESPEJO.includes(st)) return;
+
+  // Solo si la edición tocó el contenido: si no, cada escritura del propio
+  // publicador dispararía otra pasada.
+  if (!contentChanged(before, after)) return;
+
+  const uSnap = after.ownerId ? await db.doc(`users/${after.ownerId}`).get() : null;
+  const agente = uSnap && uSnap.exists ? uSnap.data() : {};
+  const armado = await cymPayload(after, id, agente);
+  if (!armado.ok) return;   // todavía le falta algo; se reintenta en la próxima edición
+
+  // Control de cupo ANTES de enviar.
+  try {
+    const pub = await db.collection("properties").where("cymEstado", "==", "publicado").get();
+    const usadas = pub.size;
+    if (usadas >= CYM_CUPO) {
+      await registrarLog(id, "Casas y Más: sin cupo", false, `${usadas} de ${CYM_CUPO} usadas`);
+      for (const u of await getDireccion()) {
+        await crearNotificacion(u, {
+          type: "portal_sin_cupo", propertyId: id, propertyTitle: after.title || "",
+          userName: "Casas y Más",
+          text: `No se pudo publicar "${after.title || "una propiedad"}": el plan está lleno (${usadas} de ${CYM_CUPO}). Hay que ampliar el cupo o dar de baja algún aviso.`,
+        }, { title: "Casas y Más sin cupo", body: `${usadas} de ${CYM_CUPO} publicadas` },
+        `cymcupo_${id}`);
+      }
+      return;
+    }
+    // Aviso preventivo cuando quedan pocos lugares.
+    if (CYM_CUPO - usadas <= 3) {
+      for (const u of await getDireccion()) {
+        await crearNotificacion(u, {
+          type: "portal_cupo_bajo", userName: "Casas y Más",
+          text: `Quedan ${CYM_CUPO - usadas} lugares libres en Casas y Más (${usadas} de ${CYM_CUPO}).`,
+        }, null, `cymcupobajo_${usadas}`);
+      }
+    }
+  } catch (e) { logger.warn(`publicarAutoCasasYMas ${id}: cupo`, e.message); }
+
+  try {
+    const r = await cymFetch("/alta_propiedad", armado.payload);
+    if (!r.ok) {
+      await registrarLog(id, "Casas y Más: alta automática", false, `código ${r.codigo}`);
+      return;
+    }
+    const cymId = String(r.data.id || "");
+    if (!cymId) return;
+    await ref.update({ cymId, cymEstado: "publicado", cymPublicadoAt: new Date().toISOString() });
+    const rf = await cymFetch("/subir_fotos", {
+      id_propiedad: cymId,
+      fotos: armado.fotos.map((u, i) => ({ foto: u, orden: String(i + 1) })),
+    });
+    await registrarLog(id, "Casas y Más: alta automática", true,
+      `id ${cymId}${rf.ok ? " · " + armado.fotos.length + " fotos" : " · FOTOS FALLARON"}`);
+
+    if (after.ownerId && uSnap && uSnap.exists) {
+      await crearNotificacion({ uid: after.ownerId, ...uSnap.data() }, {
+        type: "portal_publicada", propertyId: id, propertyTitle: after.title || "",
+        userName: "Casas y Más",
+        text: `Tu propiedad "${after.title || ""}" ya está publicada en Casas y Más.`,
+      }, { title: "Publicada en Casas y Más", body: after.title || "" }, `cympub_${id}`);
+    }
+  } catch (e) {
+    logger.error(`publicarAutoCasasYMas ${id}`, e);
+  }
+});
+
+/* Aviso a Dirección cuando una propiedad pasa a reservada. */
+exports.avisarReserva = onDocumentUpdated("properties/{id}", async (event) => {
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+  if (!after) return;
+  const antes = (before && before.status) || "available";
+  if (antes === "reserved" || after.status !== "reserved") return;
+
+  const id = event.params.id;
+  const uSnap = after.ownerId ? await db.doc(`users/${after.ownerId}`).get() : null;
+  const agente = uSnap && uSnap.exists ? uSnap.data() : {};
+  const quien = agente.name || after.ownerName || "un agente";
+  try {
+    for (const u of await getDireccion()) {
+      await crearNotificacion(u, {
+        type: "propiedad_reservada", propertyId: id, propertyTitle: after.title || "",
+        userName: "🔒 Propiedad reservada",
+        text: `${quien} marcó como reservada "${after.title || "una propiedad"}".`,
+      }, {
+        title: "Propiedad reservada",
+        body: `${quien} · ${after.title || ""}`,
+      }, `reserva_${id}_${u.uid}`);
+    }
+    await registrarLog(id, "Reservada", true, quien);
+  } catch (e) { logger.error(`avisarReserva ${id}`, e); }
+});
 
 exports.sincronizarPortales = onDocumentUpdated("properties/{id}", async (event) => {
   const before = event.data.before.data();

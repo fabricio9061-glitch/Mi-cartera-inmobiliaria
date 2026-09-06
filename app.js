@@ -451,6 +451,14 @@
     document.body.classList.toggle('has-bottombar', !!currentUser);
     document.getElementById('mvSideRetiros')?.classList.toggle('hidden', !esCEO());
     document.getElementById('mvSidePapelera')?.classList.toggle('hidden', !esCEO());
+    /* Rentabilidad e Interés las ven CEO y COO. Se usa Rangos.esDireccion en vez
+       de esCEO() porque esCEO() NO incluye el rango 'coo': con esa función, la
+       COO no vería las herramientas. Los demás ítems de Administración siguen
+       siendo solo del CEO, que es como está pensado. */
+    const _verDir = esCEO() ||
+      (typeof Rangos !== 'undefined' && Rangos.esDireccion && Rangos.esDireccion(userProfile));
+    document.getElementById('mvSideRenta')?.classList.toggle('hidden', !_verDir);
+    document.getElementById('mvSideInteres')?.classList.toggle('hidden', !_verDir);
     if (isAdminUser()) actualizarBadgePendientes();
     document.getElementById('mvSide')?.classList.add('open');
     document.getElementById('mvSideOverlay')?.classList.add('open');
@@ -2012,7 +2020,9 @@
     // La baja va SEPARADA de los botones de Mercado Libre: aplica a los tres
     // portales, así que se muestra al final, después de todas las secciones.
     const botonesBaja = [];
-    if (d.permalink) botones.push(`<a href="${d.permalink}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost"><i class="fas fa-external-link-alt"></i> Ver aviso</a>`);
+    // Dice de qué portal es: ahora conviven tres secciones y "Ver aviso" a secas
+    // no se entendía cuál era.
+    if (d.permalink) botones.push(`<a href="${d.permalink}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost"><i class="fas fa-external-link-alt"></i> Ver aviso en Mercado Libre</a>`);
     if (d.status === 'paused' || d.status === 'closed') botones.push(`<button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-rotate-right"></i> Republicar</button>`);
     // La baja la EJECUTA el admin; el agente la PIDE. Motivos: en Mercado Libre
     // cerrar un aviso es irreversible (no se reabre — hay que crear uno nuevo, y si
