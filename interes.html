@@ -307,9 +307,15 @@
       });
       _hayHistorial = !!(mtS && !mtS.empty);
       _sinPermiso = !mlS || !icS;
-      const conML = {}, conIC = {};
+      const conML = {}, conIC = {}, conCYM = {};
       if (mlS) mlS.forEach(d => { const x = d.data(); if (x.propertyId) conML[x.propertyId] = (conML[x.propertyId] || 0) + 1; });
-      if (icS) icS.forEach(d => { const x = d.data(); if (x.propertyId) conIC[x.propertyId] = (conIC[x.propertyId] || 0) + 1; });
+      // leadsPortales mezcla InfoCasas y Casas y Más: se separan por 'fuente'.
+      if (icS) icS.forEach(d => {
+        const x = d.data();
+        if (!x.propertyId) return;
+        if (x.fuente === 'casasymas') conCYM[x.propertyId] = (conCYM[x.propertyId] || 0) + 1;
+        else conIC[x.propertyId] = (conIC[x.propertyId] || 0) + 1;
+      });
       const hoy = Date.now();
       _props = [];
       snap.forEach(d => {
@@ -318,7 +324,13 @@
         // Mínimo un día para no dividir por cero ni inflar a las de hoy.
         const dias = Number.isFinite(alta) ? Math.max(1, Math.round((hoy - alta) / 86400000)) : null;
         const views = Number(p.views) || 0, clics = Number(p.contactClicks) || 0;
-        const cML = conML[d.id] || 0, cIC = conIC[d.id] || 0, consultas = cML + cIC;
+        const cML = conML[d.id] || 0, cIC = conIC[d.id] || 0;
+        /* Consultas de Casas y Más traídas por API (histórico completo). Se toma
+           el MAYOR entre esto y lo que llegó por callback: el callback solo cubre
+           desde que configuramos la URL, la API trae todo. Sumarlos duplicaría. */
+        const cCYM = Math.max(Number(p.cymConsultas) || 0, conCYM[d.id] || 0);
+        const sinResp = Number(p.cymSinResponder) || 0;
+        const consultas = cML + cIC + cCYM;
         /* Métricas de Mercado Libre de los ÚLTIMOS 30 DÍAS, los mismos números
            que muestra el modal de Portales. Antes se usaba un acumulado
            histórico que no coincidía con lo que veías ahí. */
@@ -331,7 +343,7 @@
           foto: (p.images && p.images[0]) || '', precio: precio(p),
           tipo: p.type || '', estado: p.status || 'available',
           destacada: p.featured === true, agente: p.ownerName || '',
-          views, clics, dias, cML, cIC, consultas, vML, wML, qML,
+          views, clics, dias, cML, cIC, consultas, vML, wML, qML, cCYM, sinResp,
           mlAt: p.mlMetricasAt || null,
           /* Totales de TODAS las fuentes. La conversión con solo la web daba 0%
              en casi todas —5 clics contra 276 vistas— mientras que en ML hay
@@ -390,6 +402,8 @@
     const conv = sumVT > 0 ? (sumCT / sumVT * 100) : 0;
     const sinDatos = l.filter(p => p.views === 0).length;
     const sumML = l.reduce((a, p) => a + p.cML, 0), sumIC = l.reduce((a, p) => a + p.cIC, 0);
+    const sumCYM = l.reduce((a, p) => a + p.cCYM, 0);
+    const sumSinResp = l.reduce((a, p) => a + p.sinResp, 0);
     const sumVML = l.reduce((a, p) => a + p.vML, 0);
     const sumWML = l.reduce((a, p) => a + p.wML, 0), sumQML = l.reduce((a, p) => a + p.qML, 0);
 
@@ -404,8 +418,9 @@
         '<div class="n">' + sumCT + ' contactos sobre ' + sumVT.toLocaleString('es-UY') + ' vistas</div></div>' +
       '<div class="card"><div class="k">Mercado Libre · 30 días</div><div class="v">' + sumVML.toLocaleString('es-UY') + '</div>' +
         '<div class="n">' + (sumVML ? sumWML + ' contactos · ' + sumQML + ' preguntas' : 'Todavía no se trajeron') + '</div></div>' +
-      '<div class="card"><div class="k">Consultas de portales</div><div class="v">' + (sumML + sumIC).toLocaleString('es-UY') + '</div>' +
-        '<div class="n">' + sumML + ' Mercado Libre · ' + sumIC + ' InfoCasas</div></div>' +
+      '<div class="card"><div class="k">Consultas de portales</div><div class="v">' + (sumML + sumIC + sumCYM).toLocaleString('es-UY') + '</div>' +
+        '<div class="n">' + sumML + ' ML · ' + sumIC + ' IC · ' + sumCYM + ' CyM' +
+        (sumSinResp ? '<br><b style="color:var(--danger)">' + sumSinResp + ' sin responder</b>' : '') + '</div></div>' +
       '<div class="card"><div class="k">Sin una sola vista</div><div class="v">' + sinDatos + '</div>' +
         '<div class="n">' + (sinDatos ? 'Nadie las abrió todavía' : 'Todas tuvieron visitas') + '</div></div>';
 
@@ -503,8 +518,12 @@
     const th = (col, txt, cls) => '<th class="orden ' + (cls || '') + (_ordCol === col ? ' act' : '') +
       '" onclick="ordenar(\'' + col + '\')">' + txt + (_ordCol === col ? (_ordAsc ? ' ↑' : ' ↓') : '') + '</th>';
     el.innerHTML = '<table><thead><tr><th>Propiedad</th><th>Precio</th><th>Estado</th>' +
-      th('termo', 'Termómetro', 'num') + th('views', 'Vistas', 'num') + th('clics', 'Clics', 'num') +
+      /* Antes había dos encabezados de más -'views' y 'clics'- que quedaron
+         cuando las columnas se consolidaron en Vistas y Contactos: la tabla
+         mostraba 9 títulos para 7 celdas y todo salía corrido. */
+      th('termo', 'Termómetro', 'num') +
       th('vistasTot', 'Vistas', 'num') + th('contactosTot', 'Contactos', 'num') +
+      th('cCYM', 'Cons. CyM', 'num') +
       th('conv', 'Conversión', 'num') + th('dias', 'Días', 'num') +
       '</tr></thead><tbody>' +
       orden.map(p => {
@@ -521,6 +540,7 @@
           '<td class="num" data-l="Contactos" title="' + p.clics + ' clics web · ' + p.wML + ' WhatsApp ML · ' +
             p.cML + ' consultas ML · ' + p.qML + ' preguntas ML · ' + p.cIC + ' InfoCasas">' +
             '<b>' + p.contactosTot + '</b></td>' +
+          '<td class="num" data-l="Cons. CyM"' + (p.sinResp ? ' style="color:var(--danger);font-weight:600" title="' + p.sinResp + ' sin responder"' : '') + '>' + p.cCYM + '</td>' +
           '<td class="num" data-l="Conversión"' + (p.conv != null && p.conv >= 2 ? ' style="color:var(--success);font-weight:600"' : '') + '>' +
             (p.conv == null ? '—' : n1(p.conv) + '%') + '</td>' +
           '<td class="num" data-l="Días" style="color:var(--gray-400)">' + (p.dias == null ? '—' : p.dias) + '</td></tr>';

@@ -3712,6 +3712,59 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
   }
 });
 
+/* Trae TODAS las consultas de Casas y Más y las cuenta por propiedad.
+
+   Es lo único parecido a una métrica que ofrece el portal: no publican visitas
+   ni clics, solo las consultas recibidas. Las que llegan por callback ya entran
+   en leadsPortales, pero eso solo cubre desde que configuramos la URL; esto trae
+   el histórico completo.
+
+   Guarda el conteo en cada propiedad (cymConsultas) para que la herramienta de
+   interés lo lea sin volver a llamar a la API. */
+exports.actualizarConsultasCYM = onCall({ timeoutSeconds: 300 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  // Sin id_propiedad devuelve todas.
+  const r = await cymFetch("/consultas", null, "GET");
+  if (!r.ok) {
+    return { ok: false, codigo: r.codigo, mensaje: r.mensaje, detalle: r.data };
+  }
+  const c = r.data.consultas;
+  const lista = Array.isArray(c) ? c : (c ? [c] : []);
+  const porProp = {};
+  for (const x of lista) {
+    const k = String(x.id_propiedad || "");
+    if (!k) continue;
+    porProp[k] = porProp[k] || { total: 0, sinResponder: 0, ultima: null };
+    porProp[k].total++;
+    if (!(x.respuesta && x.respuesta.mensaje)) porProp[k].sinResponder++;
+    const f = String(x.fecha || "");
+    if (f && (!porProp[k].ultima || f > porProp[k].ultima)) porProp[k].ultima = f;
+  }
+
+  // Se vuelcan a las propiedades que tengan ese cymId.
+  const snap = await db.collection("properties").get();
+  const ahora = new Date().toISOString();
+  let actualizadas = 0;
+  for (const d of snap.docs) {
+    const cymId = String((d.data() || {}).cymId || "");
+    if (!cymId) continue;
+    const v = porProp[cymId] || { total: 0, sinResponder: 0, ultima: null };
+    await d.ref.update({
+      cymConsultas: v.total,
+      cymSinResponder: v.sinResponder,
+      cymUltimaConsulta: v.ultima,
+      cymConsultasAt: ahora,
+    });
+    actualizadas++;
+  }
+  return { ok: true, consultasTotales: lista.length, propiedades: actualizadas,
+           conConsultas: Object.keys(porProp).length };
+});
+
 /* Estado de una propiedad en InfoCasas y Casas y Más, para el modal de Portales.
 
    Hasta ahora el modal solo mostraba dos líneas ("lista para publicar") mientras

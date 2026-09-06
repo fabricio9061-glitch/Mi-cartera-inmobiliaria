@@ -1986,7 +1986,10 @@
         bajaHint = `<div class="ml-section"><div class="ml-note info"><i class="fas fa-circle-info"></i><div>La baja la confirma el administrador. Si la operación se cerró con la agencia, no hace falta pedir nada: cerrá la <strong>gestión en Clientes</strong> y la propiedad se da de baja sola.</div></div></div>`;
       }
     }
-    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}<div id="secIC">${mlSeccionInfocasas()}</div><div id="secCYM">${mlSeccionCasasYMas()}</div>${selTipo}${bajaHint}<div class="ml-btns">${botones.join('')}</div></div>`
+    /* Los botones de Mercado Libre van con SU sección, antes de InfoCasas y Casas
+       y Más. Antes quedaban al final de todo, así que "Ver aviso en Mercado
+       Libre" aparecía debajo del de Casas y Más, lejos de los datos de ML. */
+    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}${selTipo}${bajaHint}<div class="ml-btns">${botones.join('')}</div><div id="secIC">${mlSeccionInfocasas()}</div><div id="secCYM">${mlSeccionCasasYMas()}</div></div>`
   }
   async function republicarPropiedad() {
     if (!mlModalPropId) return;
