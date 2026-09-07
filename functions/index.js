@@ -4021,11 +4021,26 @@ exports.estadoPortales = onCall(async (request) => {
     } catch (e) { logger.warn(`estadoPortales ${propertyId}: consultas CYM`, e.message); }
 
     try {
-      const r = await cymFetch("/propiedades", { id: String(p.cymId) }, "GET");
+      /* GET /propiedades IGNORA el filtro por id: devuelve siempre la cartera
+         entera. Antes se tomaba [0] de esa lista, o sea que el indicador mostraba
+         el estado de la PRIMERA propiedad, no de la que se estaba mirando.
+
+         Y el id a comparar es "id_propiedad" (el que devolvió el alta), no "id":
+         ese último es un código interno de ellos y no coincide con el nuestro. */
+      const r = await cymFetch("/propiedades", null, "GET");
       if (r.ok) {
-        const d = r.data.propiedades || r.data.propiedad || null;
-        const item = Array.isArray(d) ? d[0] : d;
-        if (item) cym.activaEnPortal = String(item.activa) === "1" || item.activa === 1;
+        const lista = Array.isArray(r.data.propiedades) ? r.data.propiedades : [];
+        const item = lista.find((x) => String(x.id_propiedad) === String(p.cymId));
+        if (item) {
+          cym.activaEnPortal = String(item.activa) === "1";
+          // El portal arma su propia URL con su slug: la que teníamos era inventada.
+          if (item.url) cym.url = String(item.url);
+          if (item.destacada != null) cym.destacada = String(item.destacada) === "1";
+        } else {
+          // No está en la cartera del portal: el aviso se cayó o lo borraron allá.
+          cym.activaEnPortal = false;
+          cym.noEncontrada = true;
+        }
       }
     } catch (e) { logger.warn(`estadoPortales ${propertyId}: propiedades CYM`, e.message); }
 
