@@ -4031,13 +4031,20 @@ exports.estadoPortales = onCall(async (request) => {
       if (r.ok) {
         const lista = Array.isArray(r.data.propiedades) ? r.data.propiedades : [];
         const item = lista.find((x) => String(x.id_propiedad) === String(p.cymId));
+        /* La respuesta NO trae ningún campo "activa": verificado contra la
+           respuesta real (los campos son id_propiedad, id_orig, precios, zona,
+           tipo, descripcion, titulo, destacada, editable, cantidad_fotos).
+           Buscarlo daba undefined y el modal decía "Inactiva" para avisos que
+           estaban perfectos.
+
+           Estar EN LA LISTA es la señal de que el aviso existe y está publicado;
+           si se dio de baja, desaparece. */
         if (item) {
-          cym.activaEnPortal = String(item.activa) === "1";
-          // El portal arma su propia URL con su slug: la que teníamos era inventada.
-          if (item.url) cym.url = String(item.url);
-          if (item.destacada != null) cym.destacada = String(item.destacada) === "1";
+          cym.activaEnPortal = true;
+          cym.fotosEnPortal = Number(item.cantidad_fotos) || 0;
+          cym.destacada = String(item.destacada) === "1";
         } else {
-          // No está en la cartera del portal: el aviso se cayó o lo borraron allá.
+          // No está en la cartera del portal: se cayó o lo borraron allá.
           cym.activaEnPortal = false;
           cym.noEncontrada = true;
         }

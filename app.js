@@ -1870,7 +1870,8 @@
           '</div>').join('');
         statsHtml = `<div class="ml-stats" style="margin-top:10px">
           <div class="ml-stat"><span class="k">Consultas recibidas</span><span class="v">${c.consultas}</span></div>
-          ${c.activaEnPortal != null ? `<div class="ml-stat"><span class="k">En el portal</span><span class="v" style="color:${c.activaEnPortal ? '#1e7d4f' : '#c0392b'}">${c.noEncontrada ? 'No aparece' : (c.activaEnPortal ? 'Activa' : 'Inactiva')}</span></div>` : ''}
+          ${c.activaEnPortal != null ? `<div class="ml-stat"><span class="k">En el portal</span><span class="v" style="color:${c.activaEnPortal ? '#1e7d4f' : '#c0392b'}">${c.activaEnPortal ? 'Publicada' : 'No aparece'}</span></div>` : ''}
+          ${c.fotosEnPortal ? `<div class="ml-stat"><span class="k">Fotos en el portal</span><span class="v">${c.fotosEnPortal}</span></div>` : ''}
           ${c.destacada ? '<div class="ml-stat"><span class="k">Destacada</span><span class="v" style="color:#C9A227">Sí</span></div>' : ''}
         </div>${ultimas ? `<div style="margin-top:8px">${ultimas}</div>` : ''}`;
       } else if (!_portalesData) {
@@ -1879,7 +1880,7 @@
       return chip +
         `<div class="ml-note ok"><i class="fas fa-circle-check"></i><div><strong>Publicada${cuando ? ' el ' + cuando : ''}.</strong> Los cambios se envían solos cuando editás la propiedad.${act ? ' Última actualización: ' + act + '.' : ''}</div></div>` +
         statsHtml +
-        `<a href="${(c && c.url) ? c.url : 'https://casasymas.com.uy/propiedad/' + encodeURIComponent(p.cymId)}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost" style="margin-top:10px;flex:none"><i class="fas fa-external-link-alt"></i> Ver aviso en Casas y Más</a>`;
+        `<a href="https://casasymas.com.uy/propiedad/${encodeURIComponent(p.cymId)}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost" style="margin-top:10px;flex:none"><i class="fas fa-external-link-alt"></i> Ver aviso en Casas y Más</a>`;
     }
 
     if (p.cymEstado === 'eliminado') {
