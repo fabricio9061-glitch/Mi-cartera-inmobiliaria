@@ -1616,7 +1616,11 @@
       const res = await firebase.functions().httpsCallable('estadoML')({ propertyId });
       if (mlModalPropId === propertyId) renderMLStatus(res.data)
     } catch (e) {
-      body.innerHTML = `<div class="ml-ui"><div class="ml-err">No se pudo consultar el estado: ${e.message || e}</div></div>`
+      /* Si la consulta a Mercado Libre falla entera -cuenta bloqueada, token
+         vencido, caída de su API- se muestra el error PERO igual las secciones
+         de los otros portales, que no tienen nada que ver. */
+      body.innerHTML = `<div class="ml-ui"><div class="ml-divider"><span class="tagchip" style="background:#fff3cd;color:#8a6d12">Mercado Libre</span><span class="line"></span></div><div class="ml-err">No se pudo consultar el estado: ${e.message || e}</div><div id="secIC">${mlSeccionInfocasas()}</div><div id="secCYM">${mlSeccionCasasYMas()}</div></div>`;
+      cargarEstadoPortales(mlModalPropId);
     }
   }
   // Estilos del modal de Mercado Libre (se inyectan una sola vez).
@@ -1923,7 +1927,10 @@
       return
     }
     if (d.error) {
-      body.innerHTML = `<div class="ml-ui"><div class="ml-err">${d.error}</div><div class="ml-btns"><button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-rotate-right"></i> Volver a publicar</button></div></div>`;
+      /* Un problema en Mercado Libre NO debe tapar los otros portales. Con la
+         cuenta bloqueada, el modal mostraba solo el error de ML y no dejaba ver
+         que InfoCasas y Casas y Más seguían publicadas y andando. */
+      body.innerHTML = `<div class="ml-ui"><div class="ml-divider"><span class="tagchip" style="background:#fff3cd;color:#8a6d12">Mercado Libre</span><span class="line"></span></div><div class="ml-err">${d.error}</div><div class="ml-btns"><button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-rotate-right"></i> Volver a publicar</button></div><div id="secIC">${mlSeccionInfocasas()}</div><div id="secCYM">${mlSeccionCasasYMas()}</div></div>`;
       return
     }
     const hp = d.health != null ? Math.round(d.health * 100) : null;
