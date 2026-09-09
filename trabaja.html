@@ -181,12 +181,33 @@
     if (e.dataTransfer.files && e.dataTransfer.files[0]) elegir(e.dataTransfer.files[0]);
   });
 
+  /* Tipo MIME según la extensión, con el del navegador como respaldo. */
+  const TIPOS = {
+    pdf: 'application/pdf',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+    webp: 'image/webp', heic: 'image/heic', gif: 'image/gif',
+  };
+  function tipoDe(f){
+    const ext = (f.name.split('.').pop() || '').toLowerCase();
+    if (TIPOS[ext]) return TIPOS[ext];
+    // Sin extensión conocida se usa lo que diga el navegador, y si tampoco sabe
+    // se manda como PDF: la regla lo acepta y el CEO ve el archivo igual.
+    return (f.type && f.type !== 'application/octet-stream') ? f.type : 'application/pdf';
+  }
+
   function elegir(f){
     if (!f) return;
     // Se valida acá además de en las reglas: así el error se ve al instante y no
     // después de subir 10 MB para que el servidor lo rechace.
     if (f.size > MAX) {
       aviso('El archivo pesa ' + (f.size / 1048576).toFixed(1) + ' MB y el máximo son 10 MB.');
+      return;
+    }
+    const ext = (f.name.split('.').pop() || '').toLowerCase();
+    if (!TIPOS[ext]) {
+      aviso('Ese formato no lo aceptamos. Mandá el CV en PDF, Word o una foto.');
       return;
     }
     _archivo = f;
@@ -221,7 +242,12 @@
         // Nombre único: sin esto dos "cv.pdf" se pisarían entre sí.
         const limpio = _archivo.name.replace(/[^\w.\-]+/g, '_').slice(-60);
         const ruta = 'postulaciones/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '_' + limpio;
-        const snap = await storage.ref(ruta).put(_archivo);
+        /* El contentType se declara a mano. El navegador no siempre lo manda
+           bien: en Windows un .docx suele llegar como application/octet-stream y
+           la regla de Storage, que exige el tipo exacto de Office, lo rechazaba
+           con "storage/unauthorized". Se deduce de la extensión y se envía
+           explícito, así la regla puede seguir siendo estricta. */
+        const snap = await storage.ref(ruta).put(_archivo, { contentType: tipoDe(_archivo) });
         cvUrl = await snap.ref.getDownloadURL();
         cvNombre = _archivo.name;
       }
