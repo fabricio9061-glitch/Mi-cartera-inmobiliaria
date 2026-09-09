@@ -346,6 +346,38 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ============ POSTULACIONES — "Trabajá con nosotros" ============
+    // Las crea cualquiera desde la web pública (nadie se postula estando
+    // logueado), pero SOLO el CEO las lee: traen datos personales de gente que no
+    // es cliente ni agente, y la decisión de contratar es suya.
+    //
+    // La creación va acotada igual que los testimonios: campos conocidos y con
+    // largo máximo. Sin eso, un endpoint público de escritura acepta cualquier
+    // cosa y de cualquier tamaño.
+    match /postulaciones/{postId} {
+      allow read: if esCEO();
+      allow create: if request.resource.data.keys().hasOnly(
+             ['nombre','email','telefono','experiencia','mensaje','cvUrl','cvNombre',
+              'createdAt','estado'])
+        && request.resource.data.keys().hasAll(['nombre','telefono','estado'])
+        && request.resource.data.estado == 'nueva'
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() >= 2
+        && request.resource.data.nombre.size() <= 80
+        && request.resource.data.telefono is string
+        && request.resource.data.telefono.size() >= 6
+        && request.resource.data.telefono.size() <= 30
+        && (!('email' in request.resource.data.keys())
+            || (request.resource.data.email is string && request.resource.data.email.size() <= 120))
+        && (!('mensaje' in request.resource.data.keys())
+            || (request.resource.data.mensaje is string && request.resource.data.mensaje.size() <= 1500))
+        && (!('experiencia' in request.resource.data.keys())
+            || (request.resource.data.experiencia is string && request.resource.data.experiencia.size() <= 60))
+        && (!('cvUrl' in request.resource.data.keys())
+            || (request.resource.data.cvUrl is string && request.resource.data.cvUrl.size() <= 700));
+      allow update, delete: if esCEO();
+    }
+
     // ============ GASTOS DE LA AGENCIA — SOLO Dirección ============
     // Sueldos, BPS, alquiler y demás costos fijos. Es información sensible del
     // negocio: ni siquiera los agentes aprobados la ven. Los ingresos, en cambio,

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trabajá con nosotros · MALAVE Inmobiliaria</title>
+  <meta name="description" content="Sumate al equipo de Malave Inmobiliaria. Enviá tu CV y contanos sobre vos.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+  <script src="malave-config.js?v=20260830b"></script>
+  <style>
+    :root{ --navy:#16273f; --gold:#C9A227; --gray-50:#f7f8fa; --gray-100:#eef0f3;
+           --gray-200:#e3e6ea; --gray-400:#9aa3ad; --gray-500:#6b7480; --danger:#c0392b; --ok:#1e7d4f }
+    *{ box-sizing:border-box; margin:0; padding:0 }
+    body{ font-family:'Inter',sans-serif; background:var(--gray-50); color:#1d2733; line-height:1.55 }
+    h1,h2{ font-family:'Cormorant Garamond',serif }
+    .mv-head{ background:#fff; border-bottom:1px solid #eef1f5; position:sticky; top:0; z-index:60;
+      padding-top:env(safe-area-inset-top,0px) }
+    .mv-head-in{ max-width:1100px; margin:0 auto; padding:14px 20px; display:flex;
+      justify-content:space-between; align-items:center; gap:14px }
+    .mv-head .logo{ display:flex; align-items:center; gap:10px; text-decoration:none }
+    .mv-head .logo-img{ height:30px } .mv-head .logo-text{ height:19px }
+    .mv-head .back-link{ display:inline-flex; align-items:center; gap:7px; color:#6b7280; font-size:.88rem;
+      font-weight:500; padding:8px 15px; border:1px solid #eef1f5; border-radius:999px; text-decoration:none }
+    .mv-head .back-link:hover{ background:var(--navy); color:#fff; border-color:var(--navy) }
+
+    .hero{ background:linear-gradient(135deg,#16273f,#1f3557); color:#fff; padding:56px 20px 48px; text-align:center }
+    .hero h1{ font-size:2.6rem; margin-bottom:10px }
+    .hero p{ opacity:.88; max-width:600px; margin:0 auto; font-size:1rem }
+    .wrap{ max-width:760px; margin:0 auto; padding:36px 20px 70px }
+
+    .porque{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin-bottom:34px }
+    .por{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:18px }
+    .por i{ color:var(--gold); font-size:1.2rem; margin-bottom:9px; display:block }
+    .por h3{ font-family:'Inter',sans-serif; font-size:.95rem; font-weight:600; margin-bottom:5px }
+    .por p{ font-size:.86rem; color:var(--gray-500) }
+
+    .card{ background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:28px 26px }
+    .card h2{ font-size:1.6rem; color:var(--navy); margin-bottom:4px }
+    .card .sub{ color:var(--gray-500); font-size:.9rem; margin-bottom:22px }
+    .fg{ margin-bottom:16px }
+    .fg label{ display:block; font-size:.83rem; font-weight:600; margin-bottom:6px }
+    .req{ color:var(--danger) }
+    input,select,textarea{ width:100%; font-family:inherit; font-size:.95rem; padding:11px 13px;
+      border:1px solid var(--gray-200); border-radius:10px; background:#fff; color:inherit }
+    input:focus,select:focus,textarea:focus{ outline:2px solid rgba(201,162,39,.35); outline-offset:1px }
+    textarea{ min-height:110px; resize:vertical }
+    .row2{ display:grid; grid-template-columns:1fr 1fr; gap:14px }
+    @media(max-width:560px){ .row2{ grid-template-columns:1fr } .hero h1{ font-size:2rem } }
+
+    .drop{ border:2px dashed var(--gray-200); border-radius:12px; padding:22px; text-align:center;
+      cursor:pointer; transition:border-color .15s, background .15s }
+    .drop:hover,.drop.on{ border-color:var(--gold); background:#fffdf5 }
+    .drop i{ font-size:1.5rem; color:var(--gray-400); display:block; margin-bottom:8px }
+    .drop .t{ font-size:.9rem; font-weight:600 }
+    .drop .h{ font-size:.78rem; color:var(--gray-400); margin-top:4px }
+    .archivo{ display:flex; align-items:center; gap:10px; background:var(--gray-50);
+      border:1px solid var(--gray-200); border-radius:10px; padding:10px 13px; font-size:.86rem }
+    .archivo .x{ margin-left:auto; color:var(--danger); cursor:pointer; background:none; border:none; font-size:1rem }
+    .btn{ width:100%; background:var(--navy); color:#fff; border:none; border-radius:11px; padding:14px;
+      font-family:inherit; font-size:.98rem; font-weight:600; cursor:pointer; margin-top:6px }
+    .btn:disabled{ opacity:.6; cursor:default }
+    .msg{ border-radius:11px; padding:13px 16px; font-size:.88rem; margin-bottom:16px; display:none }
+    .msg.err{ background:#fdeced; color:var(--danger); border:1px solid #f5c6cb; display:block }
+    .msg.ok{ background:#e8f6ee; color:var(--ok); border:1px solid #bfe3cd; display:block }
+    .gracias{ text-align:center; padding:44px 20px }
+    .gracias i{ font-size:3rem; color:var(--ok); margin-bottom:16px }
+    .gracias h2{ font-size:1.9rem; color:var(--navy); margin-bottom:8px }
+    .gracias p{ color:var(--gray-500) }
+    .nota{ font-size:.78rem; color:var(--gray-400); margin-top:14px; text-align:center }
+  </style>
+</head>
+<body>
+  <header class="mv-head">
+    <div class="mv-head-in">
+      <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
+      <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i> <span>Volver al inicio</span></a>
+    </div>
+  </header>
+
+  <section class="hero">
+    <h1>Trabajá con nosotros</h1>
+    <p>Buscamos gente con ganas de crecer en el rubro inmobiliario. No hace falta experiencia previa: te formamos.</p>
+  </section>
+
+  <div class="wrap">
+    <div class="porque">
+      <div class="por"><i class="fas fa-graduation-cap"></i><h3>Formación continua</h3><p>Capacitación desde el primer día, tengas o no experiencia.</p></div>
+      <div class="por"><i class="fas fa-chart-line"></i><h3>Crecimiento por rangos</h3><p>Tu comisión sube con tus resultados, no con la antigüedad.</p></div>
+      <div class="por"><i class="fas fa-users"></i><h3>Equipo que acompaña</h3><p>Trabajamos en conjunto y compartimos la cartera.</p></div>
+    </div>
+
+    <div class="card" id="tarjeta">
+      <h2>Contanos sobre vos</h2>
+      <p class="sub">Completá el formulario y nos ponemos en contacto.</p>
+
+      <div class="msg" id="msg"></div>
+
+      <div class="fg"><label>Nombre y apellido <span class="req">*</span></label>
+        <input type="text" id="fNombre" maxlength="80" placeholder="Ej: María González"></div>
+
+      <div class="row2">
+        <div class="fg"><label>Teléfono <span class="req">*</span></label>
+          <input type="tel" id="fTel" maxlength="30" placeholder="099 123 456"></div>
+        <div class="fg"><label>Correo</label>
+          <input type="email" id="fMail" maxlength="120" placeholder="tucorreo@ejemplo.com"></div>
+      </div>
+
+      <div class="fg"><label>Experiencia en el rubro</label>
+        <select id="fExp">
+          <option value="Sin experiencia">Sin experiencia, quiero empezar</option>
+          <option value="Menos de 1 año">Menos de 1 año</option>
+          <option value="1 a 3 años">1 a 3 años</option>
+          <option value="Más de 3 años">Más de 3 años</option>
+        </select></div>
+
+      <div class="fg"><label>Contanos por qué te interesa</label>
+        <textarea id="fMsg" maxlength="1500" placeholder="Un par de líneas sobre vos y qué buscás."></textarea></div>
+
+      <div class="fg"><label>Tu CV <span style="font-weight:400;color:var(--gray-400)">(opcional)</span></label>
+        <div class="drop" id="drop" onclick="document.getElementById('fCv').click()">
+          <i class="fas fa-cloud-arrow-up"></i>
+          <div class="t">Tocá para elegir el archivo</div>
+          <div class="h">PDF, Word o una foto. Hasta 10 MB.</div>
+        </div>
+        <input type="file" id="fCv" style="display:none"
+               accept=".pdf,.doc,.docx,image/*,application/pdf">
+        <div id="archivoBox" style="display:none;margin-top:10px"></div>
+      </div>
+
+      <button class="btn" id="btnEnviar" onclick="enviar()">Enviar mi postulación</button>
+      <p class="nota">Tus datos quedan solo en la inmobiliaria. No los compartimos con nadie.</p>
+    </div>
+  </div>
+
+<script>
+  /* =========================================================================
+     TRABAJÁ CON NOSOTROS — formulario público de postulaciones.
+
+     Escribe en la colección 'postulaciones' y, si adjuntan CV, sube el archivo
+     a Storage bajo postulaciones/. Las dos cosas están abiertas al público
+     porque quien se postula no tiene cuenta, así que las reglas acotan formato,
+     tamaño y campos: es la única escritura sin login además de los testimonios.
+
+     El CV lo lee SOLO el CEO: trae cédula, teléfono y a veces foto de alguien
+     que no es cliente ni agente.
+     ========================================================================= */
+
+  firebase.initializeApp(window.firebaseConfig);
+  const db = firebase.firestore();
+  const storage = firebase.storage();
+
+  let _archivo = null;
+  const MAX = 10 * 1024 * 1024;
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  function aviso(texto, tipo){
+    const m = $('msg');
+    m.className = 'msg ' + (tipo || 'err');
+    m.textContent = texto;
+    m.scrollIntoView({ behavior:'smooth', block:'center' });
+  }
+
+  $('fCv').addEventListener('change', e => elegir(e.target.files[0]));
+
+  // Arrastrar y soltar, que en escritorio es lo natural.
+  const drop = $('drop');
+  ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.add('on');
+  }));
+  ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.remove('on');
+  }));
+  drop.addEventListener('drop', e => {
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) elegir(e.dataTransfer.files[0]);
+  });
+
+  function elegir(f){
+    if (!f) return;
+    // Se valida acá además de en las reglas: así el error se ve al instante y no
+    // después de subir 10 MB para que el servidor lo rechace.
+    if (f.size > MAX) {
+      aviso('El archivo pesa ' + (f.size / 1048576).toFixed(1) + ' MB y el máximo son 10 MB.');
+      return;
+    }
+    _archivo = f;
+    $('msg').className = 'msg';
+    $('archivoBox').style.display = '';
+    $('archivoBox').innerHTML = '<div class="archivo"><i class="fas fa-paperclip"></i>' +
+      '<span>' + esc(f.name) + '</span>' +
+      '<span style="color:var(--gray-400)">' + (f.size / 1024).toFixed(0) + ' KB</span>' +
+      '<button class="x" onclick="quitar()" title="Quitar"><i class="fas fa-xmark"></i></button></div>';
+  }
+
+  function quitar(){
+    _archivo = null; $('fCv').value = '';
+    $('archivoBox').style.display = 'none'; $('archivoBox').innerHTML = '';
+  }
+
+  async function enviar(){
+    const nombre = $('fNombre').value.trim();
+    const tel = $('fTel').value.trim();
+    const mail = $('fMail').value.trim();
+    if (nombre.length < 2) { aviso('Escribí tu nombre y apellido.'); $('fNombre').focus(); return; }
+    if (tel.replace(/\D/g,'').length < 6) { aviso('Escribí un teléfono para poder contactarte.'); $('fTel').focus(); return; }
+    if (mail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) { aviso('Revisá el correo, parece incompleto.'); $('fMail').focus(); return; }
+
+    const btn = $('btnEnviar');
+    btn.disabled = true;
+    btn.textContent = _archivo ? 'Subiendo el CV…' : 'Enviando…';
+
+    try {
+      let cvUrl = '', cvNombre = '';
+      if (_archivo) {
+        // Nombre único: sin esto dos "cv.pdf" se pisarían entre sí.
+        const limpio = _archivo.name.replace(/[^\w.\-]+/g, '_').slice(-60);
+        const ruta = 'postulaciones/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '_' + limpio;
+        const snap = await storage.ref(ruta).put(_archivo);
+        cvUrl = await snap.ref.getDownloadURL();
+        cvNombre = _archivo.name;
+      }
+      btn.textContent = 'Enviando…';
+      const doc = {
+        nombre, telefono: tel, estado: 'nueva',
+        createdAt: new Date().toISOString(),
+        experiencia: $('fExp').value,
+      };
+      if (mail) doc.email = mail;
+      const msg = $('fMsg').value.trim();
+      if (msg) doc.mensaje = msg;
+      if (cvUrl) { doc.cvUrl = cvUrl; doc.cvNombre = cvNombre; }
+
+      await db.collection('postulaciones').add(doc);
+
+      $('tarjeta').innerHTML = '<div class="gracias"><i class="fas fa-circle-check"></i>' +
+        '<h2>¡Gracias, ' + esc(nombre.split(' ')[0]) + '!</h2>' +
+        '<p>Recibimos tu postulación. Si tu perfil encaja con lo que buscamos, te vamos a contactar.</p></div>';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+      console.error(e);
+      aviso('No se pudo enviar: ' + (e.message || e) + '. Probá de nuevo o escribinos por WhatsApp.');
+      btn.disabled = false;
+      btn.textContent = 'Enviar mi postulación';
+    }
+  }
+</script>
+</body>
+</html>
