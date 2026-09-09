@@ -2907,7 +2907,20 @@ const IC_COMODIDADES = {
    devuelve task_id y hay que consultar el estado); Casas y Más responde en el
    momento con un código numérico.
 
-   Códigos de respuesta: 1 = OK · 2 = error al crear · 5 = key inválida.
+   Códigos de respuesta (lista completa confirmada por Casas y Más, 07/09/2026;
+   la documentación solo tenía 1, 2 y 5):
+     1 = OK
+     2 = error al crear la propiedad
+     3 = error al modificar
+     4 = la propiedad no existe
+     5 = key incorrecta
+     6 = error al responder consulta
+     7 = sin publicaciones disponibles (CUPO LLENO)
+     8 = sin destacados disponibles
+    24 = error inesperado / genérico
+    25 = datos inválidos
+    26 = inmobiliaria inactiva
+   404 = ruta indefinida
 
    ⚠️  NO HAY AMBIENTE DE PRUEBAS. El de ellos está en reestructuración y nos
    pidieron hacer la primera publicación directo en producción. Por eso todas
@@ -2918,6 +2931,24 @@ const IC_COMODIDADES = {
 const CYM_API_BASE = (process.env.CYM_API_BASE || "https://api.casasymas.com.uy").replace(/\/+$/, "");
 const CYM_API_KEY = process.env.CYM_API_KEY || "";
 const CYM_CALLBACK_URL = process.env.CYM_CALLBACK_URL || "";
+
+const CYM_CODIGOS = {
+  1: "OK",
+  2: "Error al crear la propiedad",
+  3: "Error al modificar",
+  4: "La propiedad no existe en Casas y Más",
+  5: "La API Key es incorrecta",
+  6: "Error al responder la consulta",
+  7: "Sin publicaciones disponibles: el plan está lleno",
+  8: "Sin destacados disponibles: no hay cupo de destacados",
+  24: "Error inesperado. Suele ser por emojis u otros caracteres de 4 bytes",
+  25: "Datos inválidos en el envío",
+  26: "La inmobiliaria está inactiva en el portal",
+  404: "Ruta inexistente",
+};
+function cymMotivo(codigo) {
+  return CYM_CODIGOS[Number(codigo)] || `Código ${codigo} desconocido`;
+}
 
 /* La clave viaja en el CUERPO como campo "key", no en un header. Ellos avisaron
    que están migrando a header; cuando pase, se cambia acá y en ningún otro lado. */
@@ -2936,7 +2967,9 @@ async function cymFetch(ruta, extra, method) {
     return {
       ok: res.status >= 200 && res.status < 300 && codigo === 1,
       httpStatus: res.status, codigo,
-      mensaje: d.mensaje || "",
+      // Si ellos no mandan mensaje, se traduce el código: "Error al crear" a
+      // secas no le decía nada a nadie.
+      mensaje: d.mensaje || (codigo ? cymMotivo(codigo) : ""),
       data: d,
     };
   } catch (e) {
@@ -3669,13 +3702,20 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
   res.status(200).json({ ok: true });
 
   try {
-    // La consulta puede venir suelta o dentro de "consultas".
+    /* El callback NO tiene la misma forma que GET /consultas (confirmado por
+       Casas y Más, 07/09/2026): el identificador viene como "id_consulta" y no
+       como "id", y no incluye la respuesta porque se dispara al crearse.
+       Antes se leía c.id, que llegaba vacío y rompía la deduplicación de
+       notificaciones: la misma consulta podía avisar varias veces.
+       Igual se aceptan las dos formas por si algún día lo unifican. */
     const c = body.consultas || body.consulta || body;
+    const idConsulta = String(c.id_consulta || c.id || "");
     const cymId = String(c.id_propiedad || "");
     const nombre = String(c.nombre || "").trim() || "Consulta sin nombre";
     const telefono = String(c.telefono || "").trim();
     const email = String(c.email || "").trim();
     const mensaje = String(c.mensaje || "").trim();
+    const operacion = String(c.operacion || "").trim();
 
     let propDoc = null;
     if (cymId) {
@@ -3687,6 +3727,7 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
         procesado: true,
         propertyId: propDoc ? propDoc.id : null,
         cymId: cymId || null,
+        idConsulta: idConsulta || null,
       });
     }
     if (!propDoc) {
@@ -3701,9 +3742,12 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
         { type: "lead_portal", propertyId: propDoc.id, propertyTitle: p.title || "",
           userName: "Casas y Más",
           text: `${nombre}${telefono ? " · " + telefono : ""}${email ? " · " + email : ""}` +
+                (operacion ? ` · ${operacion}` : "") +
                 (mensaje ? `\n${mensaje}` : "") },
         { title: "Consulta de Casas y Más", body: `${nombre} — ${p.title || ""}` },
-        `cym_${c.id || cymId}_${p.ownerId}`
+        // El id determinístico usa id_consulta: con c.id llegaba vacío y dos
+        // entregas del mismo aviso creaban dos notificaciones.
+        `cym_${idConsulta || cymId + "_" + Date.now()}_${p.ownerId}`
       );
     }
   } catch (e) {
@@ -4094,10 +4138,10 @@ const PORTAL_ESTADOS_FUERA = ["sold", "rented", "archived"];
    XML y ninguno tiene icListingId, así que publicar por API los DUPLICARÍA. Se
    suma cuando esté resuelto qué pasa con el feed y llegue la key de producción.
 
-   CUPO: el plan es de 50 propiedades. Si se llena, la publicación fallaría en
-   silencio y nadie se enteraría hasta buscar el aviso. Por eso se cuenta antes y
-   se avisa a Dirección cuando queda poco o cuando ya no entra. */
-const CYM_CUPO = Number(process.env.CYM_CUPO || 50);
+   CUPO: no se cuenta de nuestro lado. El portal responde con el código 7 cuando
+   el plan está lleno, y con el 26 si la inmobiliaria está inactiva. Contar
+   propiedades acá sería adivinar: el cupo lo administran ellos y puede cambiar
+   sin que nos enteremos. Cuando pasa, se avisa a Dirección. */
 
 exports.publicarAutoCasasYMas = onDocumentUpdated("properties/{id}", async (event) => {
   const before = event.data.before.data();
@@ -4122,37 +4166,25 @@ exports.publicarAutoCasasYMas = onDocumentUpdated("properties/{id}", async (even
   const armado = await cymPayload(after, id, agente);
   if (!armado.ok) return;   // todavía le falta algo; se reintenta en la próxima edición
 
-  // Control de cupo ANTES de enviar.
-  try {
-    const pub = await db.collection("properties").where("cymEstado", "==", "publicado").get();
-    const usadas = pub.size;
-    if (usadas >= CYM_CUPO) {
-      await registrarLog(id, "Casas y Más: sin cupo", false, `${usadas} de ${CYM_CUPO} usadas`);
-      for (const u of await getDireccion()) {
-        await crearNotificacion(u, {
-          type: "portal_sin_cupo", propertyId: id, propertyTitle: after.title || "",
-          userName: "Casas y Más",
-          text: `No se pudo publicar "${after.title || "una propiedad"}": el plan está lleno (${usadas} de ${CYM_CUPO}). Hay que ampliar el cupo o dar de baja algún aviso.`,
-        }, { title: "Casas y Más sin cupo", body: `${usadas} de ${CYM_CUPO} publicadas` },
-        `cymcupo_${id}`);
-      }
-      return;
-    }
-    // Aviso preventivo cuando quedan pocos lugares.
-    if (CYM_CUPO - usadas <= 3) {
-      for (const u of await getDireccion()) {
-        await crearNotificacion(u, {
-          type: "portal_cupo_bajo", userName: "Casas y Más",
-          text: `Quedan ${CYM_CUPO - usadas} lugares libres en Casas y Más (${usadas} de ${CYM_CUPO}).`,
-        }, null, `cymcupobajo_${usadas}`);
-      }
-    }
-  } catch (e) { logger.warn(`publicarAutoCasasYMas ${id}: cupo`, e.message); }
-
+  /* El cupo NO se cuenta de nuestro lado: el portal devuelve el código 7
+     ("sin publicaciones disponibles") cuando el plan está lleno. Contar
+     propiedades acá sería adivinar, porque el cupo lo administran ellos y puede
+     cambiar sin que nos enteremos. */
   try {
     const r = await cymFetch("/alta_propiedad", armado.payload);
     if (!r.ok) {
-      await registrarLog(id, "Casas y Más: alta automática", false, `código ${r.codigo}`);
+      await registrarLog(id, "Casas y Más: alta automática", false, `${r.codigo}: ${r.mensaje}`);
+      // El cupo lleno y la inmobiliaria inactiva son problemas de la cuenta, no
+      // de esta propiedad: se avisa a Dirección porque nadie más va a notarlo.
+      if (r.codigo === 7 || r.codigo === 26) {
+        for (const u of await getDireccion()) {
+          await crearNotificacion(u, {
+            type: "portal_sin_cupo", propertyId: id, propertyTitle: after.title || "",
+            userName: "Casas y Más",
+            text: `No se pudo publicar "${after.title || "una propiedad"}": ${r.mensaje}.`,
+          }, { title: "Casas y Más", body: r.mensaje }, `cymcupo_${id}`);
+        }
+      }
       return;
     }
     const cymId = String(r.data.id || "");
@@ -4174,6 +4206,41 @@ exports.publicarAutoCasasYMas = onDocumentUpdated("properties/{id}", async (even
     }
   } catch (e) {
     logger.error(`publicarAutoCasasYMas ${id}`, e);
+  }
+});
+
+/* Aviso al CEO cuando llega una postulación desde "Trabajá con nosotros".
+
+   Va solo al CEO, no a Dirección: contratar es decisión suya y las postulaciones
+   traen datos personales de gente que no es cliente ni agente. Es el mismo
+   criterio que la regla de Firestore, que solo le deja leerlas a él. */
+exports.avisarPostulacion = onDocumentCreated("postulaciones/{id}", async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+  const p = snap.data() || {};
+  const id = event.params.id;
+  try {
+    const adm = await getAdminUser();
+    if (!adm) { logger.warn("avisarPostulacion: no encontré al admin"); return; }
+    const detalle = [p.telefono, p.email, p.experiencia].filter(Boolean).join(" · ");
+    await crearNotificacion(
+      adm,
+      {
+        type: "postulacion",
+        userName: "💼 Nueva postulación",
+        text: `${p.nombre || "Alguien"} quiere trabajar en la inmobiliaria.` +
+              (detalle ? `\n${detalle}` : "") +
+              (p.cvNombre ? `\nAdjuntó CV: ${p.cvNombre}` : "") +
+              (p.mensaje ? `\n"${String(p.mensaje).slice(0, 180)}"` : ""),
+      },
+      {
+        title: "Nueva postulación",
+        body: `${p.nombre || "Alguien"}${p.experiencia ? " · " + p.experiencia : ""}`,
+      },
+      `postulacion_${id}`
+    );
+  } catch (e) {
+    logger.error(`avisarPostulacion ${id}`, e);
   }
 });
 

@@ -341,6 +341,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
 <script src="rangos.js?v=20260821b"></script>
 <script>
   var firebaseConfig = {
@@ -1023,7 +1024,7 @@
      Las dos cosas llegan del sitio público, por eso comparten pestaña con dos
      solapas: Testimonios (testimonials) y Solicitudes de venta (leadsVenta). */
 
-  var _stVer = 'testimonios', _stTesti = [], _stSol = [], _stSolF = 'nuevo';
+  var _stVer = 'testimonios', _stTesti = [], _stSol = [], _stSolF = 'nuevo', _stPost = [];
 
   function _stMs(v){
     if(!v) return 0;
@@ -1047,9 +1048,12 @@
   async function pintarSitio(c){
     c.innerHTML = '<div class="ad-sec"><span>Cargando…</span><i></i></div>';
     try{
-      var [ts, ls] = await Promise.all([
+      var [ts, ls, ps] = await Promise.all([
         db.collection('testimonials').get(),
-        db.collection('leadsVenta').get().catch(function(){ return null; })
+        db.collection('leadsVenta').get().catch(function(){ return null; }),
+        // Solo el CEO puede leerlas: si es la COO, la consulta falla y la solapa
+        // queda vacía en vez de romper la pestaña entera.
+        db.collection('postulaciones').get().catch(function(){ return null; })
       ]);
       _stTesti = ts.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
       // Los pendientes primero: es lo único que pide una decisión.
@@ -1059,6 +1063,8 @@
       });
       _stSol = ls ? ls.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); }) : [];
       _stSol.sort(function(a,b){ return _stMs(b.createdAt) - _stMs(a.createdAt); });
+      _stPost = ps ? ps.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); }) : [];
+      _stPost.sort(function(a,b){ return _stMs(b.createdAt) - _stMs(a.createdAt); });
     }catch(e){
       c.innerHTML = '<div class="vacio"><i class="fas fa-lock"></i><h3>No se pudo cargar</h3><p>'+
         esc(e.code==='permission-denied' ? 'Sin permiso para leer testimonios o solicitudes.' : (e.message||e))+'</p></div>';
@@ -1071,14 +1077,19 @@
     c = c || document.getElementById('cuerpo');
     var pend = _stTesti.filter(function(t){ return !t.approved; }).length;
     var nuevas = _stSol.filter(function(l){ return (l.estado||'nuevo')==='nuevo'; }).length;
+    var postNuevas = _stPost.filter(function(x){ return (x.estado||'nueva')==='nueva'; }).length;
     var html = '<div class="st-tabs">'+
       '<button class="st-tab'+(_stVer==='testimonios'?' on':'')+'" onclick="sitioVerTab(\'testimonios\')">'+
         '<i class="fas fa-comment-dots"></i> Testimonios'+(pend?' <b>'+pend+'</b>':'')+'</button>'+
       '<button class="st-tab'+(_stVer==='solicitudes'?' on':'')+'" onclick="sitioVerTab(\'solicitudes\')">'+
         '<i class="fas fa-inbox"></i> Solicitudes de venta'+(nuevas?' <b>'+nuevas+'</b>':'')+'</button>'+
+      '<button class="st-tab'+(_stVer==='postulaciones'?' on':'')+'" onclick="sitioVerTab(\'postulaciones\')">'+
+        '<i class="fas fa-user-tie"></i> Postulaciones'+(postNuevas?' <b>'+postNuevas+'</b>':'')+'</button>'+
       '</div><div id="stCuerpo"></div>';
     c.innerHTML = html;
-    if(_stVer==='testimonios') renderTestis(); else renderSols();
+    if(_stVer==='testimonios') renderTestis();
+    else if(_stVer==='postulaciones') renderPost();
+    else renderSols();
   }
 
   function sitioVerTab(v){ _stVer=v; renderSitio(); }
@@ -1137,6 +1148,81 @@
       await db.collection('testimonials').doc(id).delete();
       _stTesti=_stTesti.filter(function(x){return x.id!==id;});
       renderSitio(); toast('Eliminado'); contadores();
+    }catch(e){ console.error(e); toast('No se pudo eliminar'); }
+  }
+
+  /* POSTULACIONES — "Trabajá con nosotros".
+     Solo las ve el CEO: traen datos personales de gente que no es cliente ni
+     agente, y la decisión de contratar es suya. */
+  var _ST_EXP_ORDEN = { 'Más de 3 años':0, '1 a 3 años':1, 'Menos de 1 año':2, 'Sin experiencia':3 };
+
+  function renderPost(){
+    var c=document.getElementById('stCuerpo'); if(!c) return;
+    if(!_stPost.length){
+      c.innerHTML='<div class="vacio"><i class="fas fa-user-tie"></i><h3>Sin postulaciones</h3>'+
+        '<p>Las que lleguen desde <b>Trabajá con nosotros</b> aparecen acá.</p></div>';
+      return;
+    }
+    var nuevas=_stPost.filter(function(x){return (x.estado||'nueva')==='nueva';});
+    var vistas=_stPost.filter(function(x){return (x.estado||'nueva')!=='nueva';});
+    var tarjeta=function(x){
+      var nueva=(x.estado||'nueva')==='nueva';
+      var wa=_stWa(x.telefono);
+      var r='';
+      r+='<div class="st-row"><span class="lbl">Teléfono</span><span>'+esc(x.telefono||'—')+'</span></div>';
+      if(x.email) r+='<div class="st-row"><span class="lbl">Correo</span><span><a href="mailto:'+esc(x.email)+'">'+esc(x.email)+'</a></span></div>';
+      if(x.experiencia) r+='<div class="st-row"><span class="lbl">Experiencia</span><span>'+esc(x.experiencia)+'</span></div>';
+      if(x.mensaje) r+='<div class="st-row"><span class="lbl">Mensaje</span><span>'+esc(x.mensaje)+'</span></div>';
+      var f='';
+      if(wa) f+='<a class="bd-btn" href="https://wa.me/'+wa+'" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> WhatsApp</a>';
+      /* El CV se descarga con un clic: se guardó la RUTA, no la URL, porque
+         pedir la URL desde la web pública es una lectura que solo el admin
+         puede hacer. Acá sí tenemos permiso, así que se resuelve al vuelo. */
+      if(x.cvRuta) f+='<button class="bd-btn pri" onclick="stVerCv(\''+escA(x.cvRuta)+'\',this)"><i class="fas fa-file-arrow-down"></i> Ver CV</button>';
+      if(nueva) f+='<button class="bd-btn" onclick="stPostEstado(\''+escA(x.id)+'\',\'vista\')">Marcar vista</button>';
+      else f+='<button class="bd-btn" onclick="stPostEstado(\''+escA(x.id)+'\',\'nueva\')">Marcar sin ver</button>';
+      f+='<button class="bd-btn" onclick="stPostBorrar(\''+escA(x.id)+'\')"><i class="fas fa-trash"></i></button>';
+      return '<div class="st-card"><div class="st-h"><b>'+esc(x.nombre||'(sin nombre)')+'</b>'+
+        (nueva?'<span class="chip warn">Nueva</span>':'<span class="chip">Vista</span>')+
+        (x.cvNombre?'<span class="chip" title="'+escA(x.cvNombre)+'"><i class="fas fa-paperclip"></i> CV</span>':'')+
+        '<span class="st-when">'+esc(_stFecha(x.createdAt))+'</span></div>'+
+        '<div class="st-rows">'+r+'</div><div class="st-f"><span class="st-acts">'+f+'</span></div></div>';
+    };
+    var html='';
+    if(nuevas.length) html+='<div class="ad-sec"><span>Sin revisar</span><b>'+nuevas.length+'</b><i></i></div>'+nuevas.map(tarjeta).join('');
+    if(vistas.length) html+='<div class="ad-sec"><span>Ya revisadas</span><b>'+vistas.length+'</b><i></i></div>'+vistas.map(tarjeta).join('');
+    c.innerHTML=html;
+  }
+
+  async function stVerCv(ruta, btn){
+    var txt = btn ? btn.innerHTML : '';
+    if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Abriendo…'; }
+    try{
+      var url = await firebase.storage().ref(ruta).getDownloadURL();
+      window.open(url, '_blank', 'noopener');
+    }catch(e){
+      console.error(e);
+      toast(e.code==='storage/object-not-found' ? 'El archivo ya no está' : 'No se pudo abrir el CV');
+    }finally{
+      if(btn){ btn.disabled=false; btn.innerHTML=txt; }
+    }
+  }
+
+  async function stPostEstado(id, estado){
+    try{
+      await db.collection('postulaciones').doc(id).update({estado:estado});
+      var x=_stPost.find(function(p){return p.id===id;}); if(x) x.estado=estado;
+      renderSitio(); contadores();
+    }catch(e){ console.error(e); toast('No se pudo actualizar'); }
+  }
+
+  async function stPostBorrar(id){
+    var x=_stPost.find(function(p){return p.id===id;});
+    if(!confirm('¿Eliminar la postulación de '+((x&&x.nombre)||'esta persona')+'?\n\nSe borra el registro. El archivo del CV queda en Storage.')) return;
+    try{
+      await db.collection('postulaciones').doc(id).delete();
+      _stPost=_stPost.filter(function(p){return p.id!==id;});
+      renderSitio(); toast('Eliminada'); contadores();
     }catch(e){ console.error(e); toast('No se pudo eliminar'); }
   }
 
