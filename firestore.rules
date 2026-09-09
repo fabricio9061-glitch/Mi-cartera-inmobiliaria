@@ -357,7 +357,7 @@ service cloud.firestore {
     match /postulaciones/{postId} {
       allow read: if esCEO();
       allow create: if request.resource.data.keys().hasOnly(
-             ['nombre','email','telefono','experiencia','mensaje','cvUrl','cvNombre',
+             ['nombre','email','telefono','experiencia','mensaje','cvRuta','cvNombre',
               'createdAt','estado'])
         && request.resource.data.keys().hasAll(['nombre','telefono','estado'])
         && request.resource.data.estado == 'nueva'
@@ -373,8 +373,11 @@ service cloud.firestore {
             || (request.resource.data.mensaje is string && request.resource.data.mensaje.size() <= 1500))
         && (!('experiencia' in request.resource.data.keys())
             || (request.resource.data.experiencia is string && request.resource.data.experiencia.size() <= 60))
-        && (!('cvUrl' in request.resource.data.keys())
-            || (request.resource.data.cvUrl is string && request.resource.data.cvUrl.size() <= 700));
+        /* Se guarda la RUTA del archivo, no la URL de descarga: pedir la URL es
+           una lectura y la regla de Storage solo deja leer al admin. El panel la
+           resuelve cuando hace falta. */
+        && (!('cvRuta' in request.resource.data.keys())
+            || (request.resource.data.cvRuta is string && request.resource.data.cvRuta.size() <= 300));
       allow update, delete: if esCEO();
     }
 

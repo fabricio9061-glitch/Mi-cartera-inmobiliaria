@@ -237,7 +237,7 @@
     btn.textContent = _archivo ? 'Subiendo el CV…' : 'Enviando…';
 
     try {
-      let cvUrl = '', cvNombre = '';
+      let cvRuta = '', cvNombre = '';
       if (_archivo) {
         // Nombre único: sin esto dos "cv.pdf" se pisarían entre sí.
         const limpio = _archivo.name.replace(/[^\w.\-]+/g, '_').slice(-60);
@@ -247,8 +247,15 @@
            la regla de Storage, que exige el tipo exacto de Office, lo rechazaba
            con "storage/unauthorized". Se deduce de la extensión y se envía
            explícito, así la regla puede seguir siendo estricta. */
-        const snap = await storage.ref(ruta).put(_archivo, { contentType: tipoDe(_archivo) });
-        cvUrl = await snap.ref.getDownloadURL();
+        await storage.ref(ruta).put(_archivo, { contentType: tipoDe(_archivo) });
+        /* NO se pide getDownloadURL: eso es una LECTURA, y la regla de Storage
+           solo permite leer al admin. El archivo se sube bien pero pedir la URL
+           daba "storage/unauthorized" y toda la postulación fallaba.
+
+           Se guarda la RUTA. El panel del CEO, que sí tiene permiso, resuelve la
+           URL cuando la necesita. Así los CV siguen siendo privados: nadie con el
+           enlace puede ver el de otro. */
+        cvRuta = ruta;
         cvNombre = _archivo.name;
       }
       btn.textContent = 'Enviando…';
@@ -260,7 +267,7 @@
       if (mail) doc.email = mail;
       const msg = $('fMsg').value.trim();
       if (msg) doc.mensaje = msg;
-      if (cvUrl) { doc.cvUrl = cvUrl; doc.cvNombre = cvNombre; }
+      if (cvRuta) { doc.cvRuta = cvRuta; doc.cvNombre = cvNombre; }
 
       await db.collection('postulaciones').add(doc);
 
