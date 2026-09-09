@@ -4244,6 +4244,34 @@ exports.avisarPostulacion = onDocumentCreated("postulaciones/{id}", async (event
   }
 });
 
+/* Al borrar una postulación, se borra también el CV de Storage.
+
+   Va como disparador y no en el botón del panel a propósito: así el archivo se
+   elimina venga de donde venga la baja (el panel, la consola de Firebase, un
+   script). Si dependiera del botón, cualquier borrado por otra vía dejaría el
+   archivo huérfano ocupando espacio para siempre, sin nada que lo referencie.
+
+   Es dato personal de alguien que no es cliente ni agente: si se descarta la
+   postulación, no hay motivo para conservar su CV. */
+exports.borrarCvPostulacion = onDocumentDeleted("postulaciones/{id}", async (event) => {
+  const p = (event.data && event.data.data()) || {};
+  const ruta = String(p.cvRuta || "");
+  if (!ruta) return;
+  // Guarda por las dudas: nunca borrar fuera de la carpeta de postulaciones.
+  if (!ruta.startsWith("postulaciones/")) {
+    logger.warn(`borrarCvPostulacion: ruta fuera de lugar, no se toca: ${ruta}`);
+    return;
+  }
+  try {
+    await admin.storage().bucket().file(ruta).delete();
+    logger.info(`borrarCvPostulacion: borrado ${ruta}`);
+  } catch (e) {
+    // Que el archivo ya no exista no es un error: puede haberse borrado a mano.
+    if (e && e.code === 404) return;
+    logger.warn(`borrarCvPostulacion: no se pudo borrar ${ruta}`, e.message);
+  }
+});
+
 /* Aviso a Dirección cuando una propiedad pasa a reservada. */
 exports.avisarReserva = onDocumentUpdated("properties/{id}", async (event) => {
   const before = event.data.before.data();

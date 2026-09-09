@@ -1218,7 +1218,8 @@
 
   async function stPostBorrar(id){
     var x=_stPost.find(function(p){return p.id===id;});
-    if(!confirm('¿Eliminar la postulación de '+((x&&x.nombre)||'esta persona')+'?\n\nSe borra el registro. El archivo del CV queda en Storage.')) return;
+    if(!confirm('¿Eliminar la postulación de '+((x&&x.nombre)||'esta persona')+'?'+
+      (x&&x.cvRuta ? '\n\nTambién se borra el CV adjunto.' : '')+'\n\nNo se puede deshacer.')) return;
     try{
       await db.collection('postulaciones').doc(id).delete();
       _stPost=_stPost.filter(function(p){return p.id!==id;});
