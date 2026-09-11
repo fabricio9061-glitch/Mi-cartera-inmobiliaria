@@ -5126,7 +5126,9 @@ function rolGestionInferido(g, cliente) {
 // baja solo. Se le manda al admin una confirmación con botones (campanita + push);
 // hasta que él decida, la propiedad se mantiene ("lo publicado se asume con permiso").
 // El flag despubPendiente evita duplicar el pedido si varios eventos coinciden.
-async function pedirConfirmacionDespublicar(propId, quienNombre, motivoTexto, tipoTerminal) {
+// 'solicitante' es el agente que marcó al propietario (perdido / cerró por afuera):
+// Dirección necesita saber a quién preguntarle antes de despublicar.
+async function pedirConfirmacionDespublicar(propId, quienNombre, motivoTexto, tipoTerminal, solicitante) {
   const ref = db.collection("properties").doc(propId);
   const snap = await ref.get();
   if (!snap.exists) return;
@@ -5135,7 +5137,7 @@ async function pedirConfirmacionDespublicar(propId, quienNombre, motivoTexto, ti
   if (p.despubPendiente === true) return; // ya hay una confirmación esperando
   const adm = await getAdminUser();
   if (!adm) return;
-  const texto = `${quienNombre} (propietario) ${motivoTexto}. Su propiedad "${p.title || "sin título"}" sigue publicada: confirmá si hay que despublicarla o mantenerla.`;
+  const texto = `${quienNombre} (propietario) ${motivoTexto}. Su propiedad "${p.title || "sin título"}" sigue publicada: confirmá si hay que despublicarla o mantenerla.${solicitante ? ` Lo marcó ${solicitante}.` : ""}`;
   await notificarDireccion({
     type: "despublicar_confirmar",
     propertyId: propId,
@@ -5143,9 +5145,13 @@ async function pedirConfirmacionDespublicar(propId, quienNombre, motivoTexto, ti
     userName: "Despublicar",
     userPhoto: null,
     text: texto,
+    // Campos sueltos para que la campanita arme la tarjeta sin tener que leer el texto.
+    solicitadoPor: solicitante || null,
+    propietarioNombre: quienNombre,
+    motivoTipo: tipoTerminal === "externo" ? "externo" : "perdido",
   }, {
     title: "🏠 Confirmá una despublicación",
-    body: `${p.title || "Una propiedad"} — el propietario ${motivoTexto}`,
+    body: `${p.title || "Una propiedad"} — el propietario ${motivoTexto}${solicitante ? ` (lo marcó ${solicitante})` : ""}`,
   });
   // La propiedad toma YA su estado terminal (para que el selector no muestre algo
   // sin sentido como "Pendiente de tasación"), guardando cuál era su estado de
@@ -5156,6 +5162,18 @@ async function pedirConfirmacionDespublicar(propId, quienNombre, motivoTexto, ti
   else if (tipoTerminal === "perdido") { upd.status = "cerrado_externo"; upd.motivoBaja = "propietario_perdido"; upd.motivoBajaTexto = "Propietario perdido"; }
   await ref.update(upd);
   logger.info(`[despublicar?] ${propId}: pedido de confirmación al admin (${motivoTexto}).`);
+}
+
+// Quién cambió la etapa de la gestión. Los triggers de Firestore no traen el usuario,
+// pero el CRM escribe el avance en el historial (con su autor) en la MISMA escritura
+// que cambia la etapa: la entrada que aparece recién es la de este cambio. Si no hay
+// entrada nueva (se guardó desde el modal de edición), se usa estadoPor.
+function autorCambioGestion(antes, ahora) {
+  const clave = (h) => `${h.tipo}|${h.fecha}|${h.autor}|${h.valor}`;
+  const previas = new Set((antes.historial || []).filter(Boolean).map(clave));
+  const nuevas = (ahora.historial || []).filter((h) => h && h.autor && !previas.has(clave(h)));
+  const ult = nuevas.filter((h) => h.tipo === "avance").pop() || nuevas.pop();
+  return (ult && ult.autor) || ahora.estadoPor || null;
 }
 
 exports.sincronizarPropiedadAlCerrarGestion = onDocumentUpdated("gestiones/{gid}", async (event) => {
@@ -5219,7 +5237,7 @@ exports.sincronizarPropiedadAlCerrarGestion = onDocumentUpdated("gestiones/{gid}
     if (rolGestionInferido(ahora, cliente) === "propietario") {
       const motivo = estAhora === "externo" ? "cerró la operación por afuera" : "se marcó como perdido";
       const tipoT = estAhora === "externo" ? "externo" : "perdido";
-      await pedirConfirmacionDespublicar(pid, (cliente && cliente.name) || ahora.clientName || "El propietario", motivo, tipoT);
+      await pedirConfirmacionDespublicar(pid, (cliente && cliente.name) || ahora.clientName || "El propietario", motivo, tipoT, autorCambioGestion(antes, ahora));
     }
   }
 });
@@ -5243,7 +5261,7 @@ exports.avisoDespublicarPorCliente = onDocumentUpdated("clients/{cid}", async (e
     const g = gd.data();
     if (!g.propertyId) continue;
     if (rolGestionInferido(g, after) !== "propietario") continue;
-    await pedirConfirmacionDespublicar(g.propertyId, after.name || g.clientName || "El propietario", motivo, (sitAhora === "externo" ? "externo" : "perdido"));
+    await pedirConfirmacionDespublicar(g.propertyId, after.name || g.clientName || "El propietario", motivo, (sitAhora === "externo" ? "externo" : "perdido"), after.situacionPor || null);
   }
 });
 

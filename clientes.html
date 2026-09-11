@@ -1944,7 +1944,9 @@
       // 'cerrado_agencia' = revertir el matiz "externo": vuelve a ser cierre normal.
       // Se guarda situacion vacía (deriva de la etapa cerrada) borrando 'externo'.
       var valorGuardado = (nueva === 'cerrado_agencia') ? firebase.firestore.FieldValue.delete() : nueva;
-      var upd = { situacion: valorGuardado, updatedAt: ahora };
+      // situacionPor: quién lo marcó. Si es "perdido" o "cerró por afuera", el backend
+      // lo usa para decirle a Dirección qué agente pidió despublicar.
+      var upd = { situacion: valorGuardado, situacionPor: (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente', updatedAt: ahora };
       if (nueva === 'pausa'){ upd.pausadoEn = ahora; upd.pausaSnoozeUntil = firebase.firestore.FieldValue.delete(); }
       else { upd.pausadoEn = firebase.firestore.FieldValue.delete(); upd.pausaSnoozeUntil = firebase.firestore.FieldValue.delete(); }
       db.collection('clients').doc(id).update(upd).then(function(){
@@ -2647,6 +2649,9 @@
       b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
       var data = {
         estadoGestion: document.getElementById('gestionEstado').value,
+        // Quién guardó: si la etapa pasa a Perdido / Cerró por afuera, Dirección ve
+        // qué agente pidió despublicar (este camino no escribe en el historial).
+        estadoPor: (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente',
         rol: document.getElementById('gestionRol').value,
         interes: document.getElementById('gestionInteres').value,
         presupuesto: document.getElementById('gestionPresupuesto').value.trim(),

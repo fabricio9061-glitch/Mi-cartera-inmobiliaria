@@ -909,6 +909,7 @@
         sendBrowserNotification('Nueva consulta', `${n.userName} consultó sobre "${n.propertyTitle}"`)
       });
       notifications = nn;
+      sanearDespublicaciones();
       renderNotifications()
     } catch (e) {
       console.error('Error loading notifications:', e)
@@ -1012,6 +1013,117 @@
     return t ? `<div class="notif-sub">${mvEsc(t)}</div>` : '';
   }
 
+  // ===== Despublicaciones: UNA decisión para toda la Dirección =====
+  // El backend crea una notificación POR PERSONA de Dirección (CEO y COO), así cada
+  // uno marca leído por su cuenta. Pero despublicar o mantener es una sola decisión:
+  // antes, si el CEO tocaba un botón se marcaba solo SU copia, y a la COO le seguían
+  // apareciendo los botones para algo que ya estaba resuelto.
+  // Ahora la fuente de verdad es la PROPIEDAD (despubPendiente), no la notificación:
+  // si la propiedad ya no tiene el pedido pendiente, la tarjeta se muestra resuelta
+  // para todos, incluso las viejas que quedaron colgadas antes de este cambio.
+  function miNombreDireccion() {
+    return (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Dirección';
+  }
+  function estadoDespub(n) {
+    if (n.handled) return { pendiente: false, resultado: n.resultado || 'resuelta', por: n.resueltaPor || '', at: n.resueltaAt || '' };
+    // Sin propiedades cargadas todavía no se sabe: se muestra como antes (con botones).
+    if (!window._propsCargadas) return { pendiente: true };
+    const p = properties.find(x => x.id === n.propertyId);
+    // No encontrada en memoria: no se asume nada (la consulta de propiedades ordena
+    // por createdAt y deja afuera las que no lo tienen). Si de verdad se eliminó,
+    // al tocar un botón se relee y se marca resuelta.
+    if (!p) return { pendiente: true };
+    // Si llegó otro aviso más nuevo de la misma propiedad, los botones van solo en ese.
+    const hayMasNuevo = notifications.some(m => m.type === 'despublicar_confirmar' && m.propertyId === n.propertyId
+      && m.id !== n.id && !m.handled && String(m.createdAt || '') > String(n.createdAt || ''));
+    if (p.despubPendiente === true) return hayMasNuevo ? { pendiente: false, resultado: 'resuelta', por: '' } : { pendiente: true };
+    const r = p.despubResolucion;
+    if (r && String(r.at || '') >= String(n.createdAt || '')) return { pendiente: false, resultado: r.resultado, por: r.por || '', at: r.at };
+    return { pendiente: false, resultado: p.status === 'archived' ? 'despublicada' : 'resuelta', por: '' };
+  }
+  // Deja las notificaciones en Firestore iguales a lo que muestra la pantalla: las que
+  // ya no tienen nada pendiente se marcan resueltas y leídas, así no suman al contador.
+  const _despubSaneadas = new Set();
+  function sanearDespublicaciones() {
+    if (!window._propsCargadas) return;
+    notifications.forEach(n => {
+      if (n.type !== 'despublicar_confirmar' || n.handled || _despubSaneadas.has(n.id)) return;
+      const e = estadoDespub(n);
+      if (e.pendiente) return;
+      _despubSaneadas.add(n.id);
+      const upd = { handled: true, resultado: e.resultado, read: true };
+      if (e.por) upd.resueltaPor = e.por;
+      if (e.at) upd.resueltaAt = e.at;
+      Object.assign(n, upd);
+      db.collection('notifications').doc(n.id).update(upd).catch(() => {});
+    });
+  }
+  // El motivo, en una línea, y QUIÉN hizo la solicitud. El texto que arma el backend
+  // repetía el título de la propiedad (que ya está en la línea gris de arriba) y
+  // terminaba cortado con "...". Los avisos nuevos traen los datos en campos sueltos;
+  // los viejos se leen del texto.
+  function motivoDespub(n, prop) {
+    const txt = String(n.text || '');
+    // Pedido manual de un agente (botón "Dar de baja" de la propiedad).
+    const ped = txt.match(/^(.+?) pide dar de baja/);
+    if (ped) {
+      const quien = (prop && prop.bajaSolicitadaPor) || ped[1];
+      const mot = (prop && prop.bajaSolicitadaMotivo) || ((txt.match(/Motivo: ([\s\S]*?)\s*Confirmá si hay/) || [])[1] || '').replace(/\.$/, '');
+      return { texto: mot ? `Pidió la baja: ${mot}` : 'Pidió dar de baja la propiedad', solicitante: quien };
+    }
+    // Automático: el agente marcó al propietario como perdido o "cerró por afuera".
+    const auto = txt.match(/^(.+?) \(propietario\) (.+?)\. Su propiedad/);
+    const duenio = n.propietarioNombre || (auto && auto[1]);
+    if (duenio) {
+      const afuera = n.motivoTipo ? n.motivoTipo === 'externo' : /afuera/i.test(auto ? auto[2] : '');
+      return { texto: `${duenio} (propietario) ${afuera ? 'cerró por afuera' : 'figura como perdido'}`, solicitante: n.solicitadoPor || '' };
+    }
+    return { texto: txt, solicitante: n.solicitadoPor || '' };
+  }
+  // Avisos viejos (anteriores a que el backend guardara solicitadoPor): se busca en el
+  // historial de la gestión quién la pasó a Perdido / Cerró por afuera, y se guarda en
+  // la notificación para no volver a buscarlo. Si la marca vino desde la situación del
+  // cliente (sin historial), no hay de dónde sacarlo y la tarjeta sale sin nombre.
+  const _despubBuscadas = new Set();
+  async function completarSolicitanteDespub(n) {
+    if (_despubBuscadas.has(n.id)) return;
+    _despubBuscadas.add(n.id);
+    try {
+      const q = await db.collection('gestiones').where('propertyId', '==', n.propertyId).get();
+      const limite = new Date(new Date(n.createdAt || Date.now()).getTime() + 5 * 60 * 1000).toISOString();
+      let mejor = null;
+      q.docs.forEach(d => (d.data().historial || []).forEach(h => {
+        if (!h || h.tipo !== 'avance' || !h.autor || !/^(Perdido|Cerró por afuera)$/.test(h.valor || '')) return;
+        if (String(h.fecha || '') > limite) return;
+        if (!mejor || String(h.fecha) > String(mejor.fecha)) mejor = h;
+      }));
+      if (!mejor) return;
+      n.solicitadoPor = mejor.autor;
+      db.collection('notifications').doc(n.id).update({ solicitadoPor: mejor.autor }).catch(() => {});
+      renderNotifications();
+    } catch (e) { /* sin nombre: la tarjeta se muestra igual */ }
+  }
+  function tarjetaDespub(n) {
+    const e = estadoDespub(n);
+    const ts = n.createdAt ? formatTimeAgo(n.createdAt) : '';
+    if (!e.pendiente) {
+      const R = {
+        despublicada: { t: 'Despublicada', ic: 'fa-box-archive', bg: '#f1f5f9', fg: '#64748b' },
+        mantenida:    { t: 'Se mantuvo publicada', ic: 'fa-circle-check', bg: '#dcfce7', fg: '#15803d' },
+        eliminada:    { t: 'La propiedad ya no existe', ic: 'fa-trash-can', bg: '#f1f5f9', fg: '#64748b' }
+      }[e.resultado] || { t: 'Ya resuelta', ic: 'fa-check', bg: '#f1f5f9', fg: '#64748b' };
+      const por = e.por ? ` por ${mvEsc(String(e.por).split(' ')[0])}` : '';
+      const cuando = e.at ? formatTimeAgo(e.at) : ts;
+      return `<div class="notification-item ${n.read ? '' : 'unread'}" onclick="verPropDesdeNotif(event,'${n.propertyId}')"><div class="notification-avatar" style="background:${R.bg};color:${R.fg}"><i class="fas ${R.ic}"></i></div><div class="notification-body"><p><strong>${R.t}${por}</strong></p>${notifSub(n.propertyTitle)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${cuando}</span></div></div></div>`;
+    }
+    const prop = window._propsCargadas ? properties.find(x => x.id === n.propertyId) : null;
+    const m = motivoDespub(n, prop);
+    if (!m.solicitante && !n.solicitadoPor && /\(propietario\)/.test(n.text || '')) completarSolicitanteDespub(n);
+    const lineas = [m.texto, m.solicitante ? `Solicitado por ${m.solicitante}` : ''].filter(Boolean).map(mvEsc).join('<br>');
+    const btn = 'border-radius:8px;padding:8px 14px;font-family:inherit;font-size:.8rem;font-weight:700;cursor:pointer';
+    return `<div class="notification-item ${n.read ? '' : 'unread'}" onclick="verPropDesdeNotif(event,'${n.propertyId}')"><div class="notification-avatar" style="background:#fee2e2;color:#b91c1c"><i class="fas fa-house-circle-xmark"></i></div><div class="notification-body"><p><strong>¿Despublicar propiedad?</strong></p>${notifSub(n.propertyTitle)}${lineas ? `<div class="notification-message"><span>${lineas}</span></div>` : ''}<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button onclick="confirmarDespublicacion(event,'${n.id}','${n.propertyId}')" style="border:none;background:#b91c1c;color:#fff;${btn}"><i class="fas fa-box-archive"></i> Despublicar</button><button onclick="mantenerPublicada(event,'${n.id}','${n.propertyId}')" style="border:1px solid var(--gray-200,#e5e7eb);background:#fff;color:var(--gray-600,#555);${btn}">Mantener</button></div><div class="notification-meta" style="margin-top:6px"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`;
+  }
+
   function renderNotifications() {
     const b = document.getElementById('notificationBadge'),
       be = document.getElementById('notificationBell'),
@@ -1078,12 +1190,7 @@
       }
       // Confirmación de despublicación (la ve el admin): botones de acción adentro.
       // Un propietario se perdió o cerró por afuera y su propiedad sigue publicada.
-      if (n.type === 'despublicar_confirmar') {
-        const acciones = n.handled
-          ? `<div class="notification-meta"><span class="notif-chip ${n.resultado === 'despublicada' ? 'no' : 'si'}"><i class="fas fa-${n.resultado === 'despublicada' ? 'box-archive' : 'check'}"></i> ${n.resultado === 'despublicada' ? 'Despublicada' : 'Se mantuvo publicada'}</span> <span><i class="far fa-clock"></i> ${ts}</span></div>`
-          : `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button onclick="confirmarDespublicacion(event,'${n.id}','${n.propertyId}')" style="border:none;background:#b91c1c;color:#fff;border-radius:8px;padding:6px 12px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer"><i class="fas fa-box-archive"></i> Despublicar</button><button onclick="mantenerPublicada(event,'${n.id}','${n.propertyId}')" style="border:1px solid var(--gray-200,#e5e7eb);background:#fff;color:var(--gray-600,#555);border-radius:8px;padding:6px 12px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">Mantener publicada</button></div><div class="notification-meta" style="margin-top:6px"><span><i class="far fa-clock"></i> ${ts}</span></div>`;
-        return `<div class="notification-item ${n.read ? '' : 'unread'}" onclick="verPropDesdeNotif(event,'${n.propertyId}')"><div class="notification-avatar" style="background:#fee2e2;color:#b91c1c"><i class="fas fa-house-circle-xmark"></i></div><div class="notification-body"><p><strong>¿Despublicar propiedad?</strong></p>${notifSub(n.propertyTitle)}${notifMsg(n.text)}${acciones}</div></div>`
-      }
+      if (n.type === 'despublicar_confirmar') return tarjetaDespub(n);
       // Respuesta al AGENTE sobre el pedido de baja que mandó (aprobado / rechazado).
       if (n.type === 'baja_resuelta') {
         const col = n.resultado === 'despublicada'
@@ -1182,7 +1289,7 @@
     const h = Math.floor(m / 60);
     if (h < 24) return `Hace ${h}h`;
     const dy = Math.floor(h / 24);
-    if (dy < 7) return `Hace ${dy} días`;
+    if (dy < 7) return `Hace ${dy} ${dy === 1 ? 'día' : 'días'}`;
     return d.toLocaleDateString('es')
   }
 
@@ -1403,61 +1510,116 @@
   }
   // Clic en el recordatorio de seguimiento: marca leído y va a la página de Clientes.
   function setNotifFiltro(f){ window._notifFiltro = f; renderNotifications(); }
-  // El admin confirmó: la propiedad se archiva (sale del sitio; el espejo de estado
+  // Cierra TODAS las copias pendientes del pedido (la de cada persona de Dirección)
+  // y deja anotado quién decidió.
+  async function cerrarAvisosDespub(pid, resultado, nidPropio) {
+    const upd = { handled: true, resultado, read: true, resueltaPor: miNombreDireccion(), resueltaAt: new Date().toISOString() };
+    try {
+      const q = await db.collection('notifications')
+        .where('type', '==', 'despublicar_confirmar').where('propertyId', '==', pid).get();
+      await Promise.all(q.docs.filter(d => d.id === nidPropio || !d.data().handled).map(d => d.ref.update(upd)));
+    } catch (e) {
+      // Si la consulta falla, al menos la propia; las demás se sanean solas al cargar.
+      console.warn('cerrarAvisosDespub:', e);
+      await db.collection('notifications').doc(nidPropio).update(upd);
+    }
+    notifications.filter(x => x.type === 'despublicar_confirmar' && x.propertyId === pid && (x.id === nidPropio || !x.handled))
+      .forEach(x => Object.assign(x, upd));
+  }
+  // Antes de actuar se relee la propiedad: si la otra persona de Dirección ya decidió
+  // y esta pantalla todavía no se enteró, no se pisa su decisión.
+  async function leerPedidoDespub(pid) {
+    const d = await db.collection('properties').doc(pid).get();
+    return d.exists ? { id: d.id, ...d.data() } : null;
+  }
+  function avisarDespubYaResuelta(fresca, nid) {
+    const r = fresca && fresca.despubResolucion;
+    const resultado = r ? r.resultado : !fresca ? 'eliminada' : fresca.status === 'archived' ? 'despublicada' : 'resuelta';
+    const upd = { handled: true, resultado, read: true };
+    if (r && r.por) upd.resueltaPor = r.por;
+    if (r && r.at) upd.resueltaAt = r.at;
+    db.collection('notifications').doc(nid).update(upd).catch(() => {});
+    const n = notifications.find(x => x.id === nid); if (n) Object.assign(n, upd);
+    renderNotifications();
+    showToast('Ya estaba resuelta', r && r.por ? `La resolvió ${r.por}` : 'Otra persona ya tomó la decisión', 'fa-info-circle');
+  }
+  function bloquearBotonesDespub(ev, si) {
+    const cont = ev && ev.currentTarget && ev.currentTarget.parentElement;
+    if (cont) cont.querySelectorAll('button').forEach(b => { b.disabled = si; b.style.opacity = si ? '.6' : ''; });
+    return cont;
+  }
+  // Dirección confirmó: la propiedad se archiva (sale del sitio; el espejo de estado
   // la baja de Mercado Libre y el feed de InfoCasas la excluye en la próxima lectura).
   async function confirmarDespublicacion(ev, nid, pid) {
     ev.stopPropagation();
+    const cont = bloquearBotonesDespub(ev, true);
     try {
+      const fresca = await leerPedidoDespub(pid);
+      if (!fresca || fresca.despubPendiente !== true) { avisarDespubYaResuelta(fresca, nid); return; }
       // Si el aviso vino de un "cerró por afuera", lo registramos en la propiedad
       // como motivo del archivado — así queda la memoria de por qué se dio de baja.
       const n0 = notifications.find(x => x.id === nid);
       const fueExterno = n0 && /afuera/i.test(n0.text || '');
+      const ahora = new Date().toISOString();
       const upd = {
         status: 'archived',
         despubPendiente: firebase.firestore.FieldValue.delete(),
         statusPrevioDespub: firebase.firestore.FieldValue.delete(),
-        archivedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        despubResolucion: { resultado: 'despublicada', por: miNombreDireccion(), uid: currentUser.uid, at: ahora },
+        archivedAt: ahora,
+        updatedAt: ahora
       };
       if (fueExterno) { upd.motivoBaja = 'cerro_externo'; upd.motivoBajaTexto = 'Cerró por afuera de la agencia'; }
       // Si la baja la pidió un agente, se guarda SU motivo: dentro de seis meses,
       // "lo pidió Ámbar porque el propietario la retiró" vale más que "archivada".
-      const pReq = properties.find(x => x.id === pid);
-      if (pReq && pReq.bajaSolicitadaMotivo) {
+      if (fresca.bajaSolicitadaMotivo) {
         upd.motivoBaja = upd.motivoBaja || 'pedido_agente';
-        upd.motivoBajaTexto = `${pReq.bajaSolicitadaPor || 'Un agente'}: ${pReq.bajaSolicitadaMotivo}`;
+        upd.motivoBajaTexto = `${fresca.bajaSolicitadaPor || 'Un agente'}: ${fresca.bajaSolicitadaMotivo}`;
       }
       await db.collection('properties').doc(pid).update(upd);
-      await db.collection('notifications').doc(nid).update({ handled: true, resultado: 'despublicada', read: true });
-      const n = notifications.find(x => x.id === nid); if (n) { n.handled = true; n.resultado = 'despublicada'; n.read = true; }
-      const p = properties.find(x => x.id === pid); if (p) p.status = 'archived';
+      await cerrarAvisosDespub(pid, 'despublicada', nid);
+      const p = properties.find(x => x.id === pid);
+      if (p) { p.status = 'archived'; delete p.despubPendiente; p.despubResolucion = upd.despubResolucion; }
       renderNotifications();
       showToast('Propiedad despublicada', 'Salió del sitio; los portales se sincronizan solos', 'fa-check');
-    } catch (e) { console.error('despublicar:', e); showToast('No se pudo despublicar', (e && e.message) || '', 'fa-exclamation-triangle'); }
+    } catch (e) {
+      console.error('despublicar:', e);
+      bloquearBotonesDespub({ currentTarget: cont && cont.firstElementChild }, false);
+      showToast('No se pudo despublicar', (e && e.message) || '', 'fa-exclamation-triangle');
+    }
   }
-  // El admin decidió mantenerla: se limpia el pedido (puede volver a avisarse si
+  // Dirección decidió mantenerla: se limpia el pedido (puede volver a avisarse si
   // más adelante otro evento del propietario lo justifica).
   async function mantenerPublicada(ev, nid, pid) {
     ev.stopPropagation();
+    const cont = bloquearBotonesDespub(ev, true);
     try {
+      const fresca = await leerPedidoDespub(pid);
+      if (!fresca || fresca.despubPendiente !== true) { avisarDespubYaResuelta(fresca, nid); return; }
       // La propiedad había tomado el estado terminal (cerró por afuera) al pedir la
-      // baja; si el admin decide mantenerla, se restaura su estado de publicación.
-      const p = properties.find(x => x.id === pid);
-      const previo = (p && p.statusPrevioDespub) || 'available';
+      // baja; si se decide mantenerla, se restaura su estado de publicación.
+      const previo = fresca.statusPrevioDespub || 'available';
+      const ahora = new Date().toISOString();
+      const resolucion = { resultado: 'mantenida', por: miNombreDireccion(), uid: currentUser.uid, at: ahora };
       await db.collection('properties').doc(pid).update({
         status: previo,
         despubPendiente: firebase.firestore.FieldValue.delete(),
         statusPrevioDespub: firebase.firestore.FieldValue.delete(),
         motivoBaja: firebase.firestore.FieldValue.delete(),
         motivoBajaTexto: firebase.firestore.FieldValue.delete(),
-        updatedAt: new Date().toISOString()
+        despubResolucion: resolucion,
+        updatedAt: ahora
       });
-      if (p) p.status = previo;
-      await db.collection('notifications').doc(nid).update({ handled: true, resultado: 'mantenida', read: true });
-      const n = notifications.find(x => x.id === nid); if (n) { n.handled = true; n.resultado = 'mantenida'; n.read = true; }
+      await cerrarAvisosDespub(pid, 'mantenida', nid);
+      const p = properties.find(x => x.id === pid);
+      if (p) { p.status = previo; delete p.despubPendiente; p.despubResolucion = resolucion; }
       renderNotifications();
       showToast('Se mantiene publicada', 'Vuelve a su estado anterior', 'fa-check');
-    } catch (e) { console.error(e); showToast('No se pudo guardar', '', 'fa-exclamation-triangle'); }
+    } catch (e) {
+      console.error(e);
+      bloquearBotonesDespub({ currentTarget: cont && cont.firstElementChild }, false);
+      showToast('No se pudo guardar', '', 'fa-exclamation-triangle');
+    }
   }
   async function handleCrmNotifClick(ni) {
     closeNotifications();
@@ -2779,6 +2941,9 @@
         id: d.id,
         ...d.data()
       }));
+      // Las notificaciones de despublicación leen el estado REAL de la propiedad;
+      // hasta que llega este primer snapshot no se puede saber, y no deben adivinar.
+      window._propsCargadas = true;
       renderProperties(properties.filter(enVitrina));
       updateStats();
       pedirSaludML();
