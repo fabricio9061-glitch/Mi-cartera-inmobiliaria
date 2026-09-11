@@ -35,7 +35,7 @@
     .hero{ position:relative; background:linear-gradient(115deg, #101d30 0%, var(--navy) 60%); overflow:hidden; color:#fff; }
     .hero::after{ content:''; position:absolute; inset:0; background:
       radial-gradient(circle at 80% 20%, rgba(201,162,39,.10), transparent 45%); pointer-events:none; }
-    .hero-in{ position:relative; z-index:2; padding:80px 0 90px; max-width:720px; }
+    .hero-in{ position:relative; z-index:2; padding-top:80px; padding-bottom:90px; max-width:768px; }
     .hero-badge{ display:inline-flex; align-items:center; gap:8px; background:rgba(201,162,39,.14); border:1px solid rgba(201,162,39,.3); color:var(--gold); padding:7px 16px; border-radius:30px; font-size:.82rem; font-weight:500; letter-spacing:.5px; margin-bottom:24px; }
     .hero h1{ font-size:3.4rem; line-height:1.1; font-weight:700; margin-bottom:8px; }
     .hero h1 .gold{ color:var(--gold); }
@@ -142,21 +142,6 @@
       .contact-grid{ grid-template-columns:1fr; gap:32px; }
       .highlight{ flex-direction:column; text-align:center; gap:24px; padding:40px 28px; }
     }
-    @media (max-width:600px){
-      .hero-in{ padding:54px 0 64px; }
-      .hero h1{ font-size:2.4rem; }
-      .hero p{ font-size:1rem; }
-      .section{ padding:56px 0; }
-      .section-head{ margin-bottom:38px; }
-      .section-head h2{ font-size:2rem; }
-      .benefits{ grid-template-columns:1fr; }
-      .header-cta .back-link span{ display:none; }
-      .btn-wa-sm span{ display:none; }
-      .fg-row{ grid-template-columns:1fr; }
-      .form-card{ padding:26px 20px; }
-      .footer-in{ flex-direction:column; gap:24px; }
-      .hero-actions .btn{ width:100%; }
-    }
   </style>
 <style>body{padding-top:env(safe-area-inset-top,0px)}.fh,header,.app-header,.topbar{padding-top:env(safe-area-inset-top,0px)}body>.fh,body>header{padding-top:0}
     /* ============================================================================
@@ -196,20 +181,136 @@
       .back-link span, .ad-back span{ display:none; }
     }
 
-    /* ===== Ajustes para celular =====
-       El principal: los campos usan .95rem (~15px) y iOS hace zoom automático en
-       cualquier campo de menos de 16px. Al tocar un input la página saltaba y se
-       desacomodaba sola. Con 16px deja de pasar; en escritorio no se nota. */
+    /* ============================================================================
+       AJUSTES PARA CELULAR
+       Dos errores de fondo desacomodaban todo:
+       1) .hero-in usaba "padding:54px 0 64px", que le borraba el margen lateral de
+          .wrap: el hero quedaba pegado al borde de la pantalla. (Arreglado arriba.)
+       2) .header-cta tenía width:100%: el grupo de botones empujaba al logo contra la
+          flecha y el botón de WhatsApp se estiraba como una barra verde.
+       ========================================================================== */
+    html{ -webkit-text-size-adjust:100%; }
+    #contacto{ scroll-margin-top:64px; }  /* que "Quiero vender" no quede tapado por el header */
+    @media (prefers-reduced-motion:no-preference){ html{ scroll-behavior:smooth; } }
+
+    /* En pantallas táctiles el :hover queda "pegado" después de tocar (la tarjeta o el
+       botón quedaba levantado). Solo animamos donde hay mouse. */
+    @media (hover:none){
+      .btn:hover, .benefit:hover{ transform:none; box-shadow:none; }
+      .wa-float:hover{ transform:none; }
+    }
+
     @media (max-width:600px){
-      .fg input, .fg select, .fg textarea{ font-size:16px }
-      /* Botones a lo ancho: en el celular no conviene que compitan por el renglón. */
-      .header-cta, .btn-wa-sm, .form-card button[type=submit]{ width:100%; justify-content:center }
-      /* Que el pie no quede debajo de la barra de gestos del iPhone. */
-      .footer{ padding-bottom:calc(28px + env(safe-area-inset-bottom,0px)) }
+      .wrap{ padding-left:20px; padding-right:20px; }
+
+      /* --- Header: logo a la izquierda, botones redondos compactos a la derecha --- */
+      .header-in{ height:60px; padding-top:10px; padding-bottom:10px; gap:12px; }
+      .logo{ gap:9px; min-width:0; }
+      .header-cta{ gap:8px; flex:0 0 auto; }
+      .header-cta .back-link span, .btn-wa-sm span{ display:none; }
+      .back-link{ width:40px; height:40px; padding:0 !important; justify-content:center; }
+      .btn-wa-sm{ width:40px; height:40px; padding:0; border-radius:50%; justify-content:center; font-size:1.15rem; overflow:hidden;
+                  transition:width .25s, margin .25s, opacity .2s, visibility .25s; }
+
+      /* --- WhatsApp: UN solo botón a la vista en cada momento ---
+         Antes había 5 (header, hero, contacto, pie y flotante). Ahora:
+         · Arriba de todo manda el botón grande del hero.
+         · Cuando ese botón sale de pantalla, aparece el del header (que es fijo y
+           sigue visible en toda la página, así que el flotante sobra).
+         La clase hero-wa-visible la maneja el script del final. */
+      body.hero-wa-visible .btn-wa-sm{ width:0; margin-left:-8px; opacity:0; visibility:hidden; }
+      .wa-float{ display:none; }
+      .contact-info{ display:none; }        /* repetía WhatsApp, y email/ubicación ya están en el pie */
+      #waFooter i{ display:none; }          /* el teléfono queda como dato, no como otro botón */
+
+      /* --- Hero --- */
+      .hero-in{ padding-top:36px; padding-bottom:56px; }
+      .hero-badge{ font-size:.78rem; letter-spacing:0; line-height:1.4; padding:8px 14px; border-radius:14px; margin-bottom:18px; align-items:flex-start; }
+      .hero-badge i{ margin-top:3px; font-size:.7rem; }
+      .hero h1{ font-size:clamp(2.2rem, 10vw, 2.7rem); line-height:1.08; margin-bottom:0; }
+      .hero-rule{ width:56px; margin:16px 0; }
+      .hero p{ font-size:1rem; margin-bottom:24px; }
+      .hero-actions{ flex-direction:column; gap:10px; }
+      .hero-actions .btn{ width:100%; padding:14px 20px; }
+
+      /* --- Secciones: menos aire vertical --- */
+      .section{ padding:44px 0; }
+      .section-head{ margin-bottom:24px; }
+      .section-head .kicker{ font-size:.75rem; letter-spacing:1.5px; margin-bottom:6px; }
+      .section-head h2, .contact-left h2, .form-card h3{ text-wrap:balance; }
+      .section-head h2{ font-size:clamp(1.8rem, 8vw, 2.1rem); margin-bottom:10px; }
+      .section-head p{ font-size:.95rem; }
+
+      /* --- Beneficios: lista con separadores en vez de 6 tarjetas sueltas --- */
+      .benefits{ grid-template-columns:1fr; gap:0; }
+      .benefit{ display:grid; grid-template-columns:44px 1fr; column-gap:14px; align-items:start;
+                padding:16px 0; background:transparent; border:0; border-bottom:1px solid var(--gray-100); border-radius:0; }
+      .benefit:first-child{ padding-top:0; }
+      .benefit:last-child{ border-bottom:0; padding-bottom:0; }
+      .benefit-ic{ grid-row:1 / span 3; width:44px; height:44px; border-radius:12px; margin:0; }
+      .benefit-ic i{ font-size:1.05rem; }
+      .benefit h3{ font-size:1.25rem; line-height:1.2; margin:1px 0 4px; }
+      .benefit p{ font-size:.92rem; line-height:1.55; }
+      .benefit .free{ justify-self:start; margin-top:8px; font-size:.68rem; padding:3px 10px; }
+
+      /* --- Banda "Vos no pagás la difusión" --- */
+      .highlight{ padding:26px 20px; gap:12px; border-radius:18px; }
+      .highlight::after{ width:240px; height:240px; }
+      .highlight-ic{ width:56px; height:56px; }
+      .highlight-ic i{ font-size:1.4rem; }
+      .highlight-tx h3{ font-size:1.5rem; line-height:1.15; margin-bottom:6px; }
+      .highlight-tx p{ font-size:.94rem; }
+
+      /* --- Pasos: número a la izquierda unido por una línea, como una secuencia --- */
+      .steps{ gap:0; margin-top:0; }
+      .step{ display:grid; grid-template-columns:44px 1fr; column-gap:16px; text-align:left; padding-bottom:20px; }
+      .step:last-child{ padding-bottom:0; }
+      .step:not(:last-child)::before{ content:''; position:absolute; left:21px; top:52px; bottom:8px; width:2px; background:rgba(201,162,39,.35); border-radius:2px; }
+      .step-num{ grid-row:1 / span 2; width:44px; height:44px; font-size:1.4rem; margin:0; }
+      .step h3{ font-size:1.25rem; line-height:1.2; margin:10px 0 4px; }
+      .step p{ grid-column:2; font-size:.92rem; }
+
+      /* --- Contacto + formulario --- */
+      .contact-grid{ gap:20px; }
+      .contact-left h2{ font-size:clamp(1.8rem, 8vw, 2.1rem); margin-bottom:8px; }
+      .contact-left p{ font-size:.96rem; margin-bottom:0; }
+      .form-card{ padding:22px 18px; border-radius:16px; }
+      .form-card h3{ font-size:1.35rem; line-height:1.2; margin-bottom:16px; }
+      .form-card .sub{ display:none; }      /* decía lo mismo que el párrafo de arriba */
+      .fg{ margin-bottom:14px; }
+      .fg label{ font-size:.82rem; margin-bottom:5px; }
+      /* iOS hace zoom automático en campos de menos de 16px. */
+      .fg input, .fg select, .fg textarea{ font-size:16px; padding:11px 13px; }
+      .fg textarea{ min-height:76px; }
+      /* Filas de 2 campos pasan a 1 columna; sin gap extra (cada .fg ya tiene margen). */
+      .fg-row{ grid-template-columns:1fr; gap:0; }
+      .form-submit{ padding:15px 16px; margin-top:2px; }
+      .form-note{ font-size:.76rem; margin-top:10px; line-height:1.5; }
+
+      /* --- Footer compacto: logo en línea, datos y enlaces en renglones, sin títulos --- */
+      .footer{ padding-top:28px; padding-bottom:calc(20px + env(safe-area-inset-bottom,0px)); }
+      .footer-in{ flex-direction:column; gap:14px; }
+      .footer-logo{ display:flex; align-items:center; gap:10px; }
+      .footer-logo img.iso{ height:26px; margin-bottom:0; }
+      .footer-logo img.txt{ height:13px; }
+      .footer-col h4{ display:none; }
+      .footer-col{ display:flex; flex-wrap:wrap; column-gap:18px; row-gap:2px; }
+      .footer-col a, .footer-col p{ margin:0; padding:3px 0; font-size:.86rem; }
+      .footer-col a[href="#contacto"]{ display:none; }   /* es esta misma página */
+      .footer-bottom{ margin-top:6px; padding-top:14px; font-size:.72rem; line-height:1.6; text-align:left; }
+      .footer-bottom .fb-part{ display:block; }
+      .footer-bottom .fb-sep, .footer-bottom .fb-tagline{ display:none; }
+
+      /* --- Toast --- */
+      .toast{ width:max-content; max-width:calc(100% - 32px); bottom:calc(20px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%) translateY(160px); }
+    }
+    /* Tipo de propiedad y Zona entran lado a lado a partir de ~380px (la mayoría de los celulares). */
+    @media (min-width:380px) and (max-width:600px){
+      .fg-row.fg-row-sm{ grid-template-columns:1fr 1fr; gap:12px; }
     }
 </style>
 </head>
-<body>
+<body class="hero-wa-visible">
 
   <!-- HEADER -->
   <header class="header">
@@ -330,14 +431,14 @@
           <h2>Empecemos hoy mismo</h2>
           <p>Dejanos tus datos y un asesor de MALAVE se contacta con vos para coordinar la tasación gratuita de tu propiedad.</p>
           <div class="contact-info">
-            <div class="ci-item">
+            <a href="#" id="waContact" class="ci-item">
               <div class="ci-ic"><i class="fab fa-whatsapp"></i></div>
               <div><b>WhatsApp</b><span>+598 94 029 297</span></div>
-            </div>
-            <div class="ci-item">
+            </a>
+            <a href="mailto:Malaveinmobiliaria@gmail.com" class="ci-item">
               <div class="ci-ic"><i class="fas fa-envelope"></i></div>
               <div><b>Email</b><span>Malaveinmobiliaria@gmail.com</span></div>
-            </div>
+            </a>
             <div class="ci-item">
               <div class="ci-ic"><i class="fas fa-location-dot"></i></div>
               <div><b>Ubicación</b><span>Montevideo, Uruguay</span></div>
@@ -363,7 +464,7 @@
                 <input type="email" id="fEmail" placeholder="tu@email.com">
               </div>
             </div>
-            <div class="fg-row">
+            <div class="fg-row fg-row-sm">
               <div class="fg">
                 <label>Tipo de propiedad</label>
                 <select id="fTipo">
@@ -414,12 +515,12 @@
       </div>
     </div>
     <div class="wrap">
-      <div class="footer-bottom">© <span id="year"></span> MALAVE Inmobiliaria · Operador inmobiliario (Ley N.º 20.380) · Conectamos propiedades con personas</div>
+      <div class="footer-bottom"><span class="fb-part">© <span id="year"></span> MALAVE Inmobiliaria</span><span class="fb-sep"> · </span><span class="fb-part">Operador inmobiliario (Ley N.º 20.380)</span><span class="fb-sep fb-tagline"> · </span><span class="fb-part fb-tagline">Conectamos propiedades con personas</span></div>
     </div>
   </footer>
 
   <!-- WhatsApp flotante -->
-  <a href="#" id="waFloat" class="wa-float" title="Escribinos por WhatsApp"><i class="fab fa-whatsapp"></i></a>
+  <a href="#" id="waFloat" class="wa-float" title="Escribinos por WhatsApp" aria-label="Escribinos por WhatsApp"><i class="fab fa-whatsapp"></i></a>
 
   <div class="toast" id="toast"><i class="fas fa-circle-check"></i><span id="toastMsg"></span></div>
 
@@ -431,10 +532,22 @@
     var WA_NUMBER = '59894029297'; // +598 94 029 297 en formato internacional
     var WA_MSG = encodeURIComponent('Hola MALAVE, quiero vender mi propiedad y me gustaría coordinar una tasación.');
     var waLink = 'https://wa.me/' + WA_NUMBER + '?text=' + WA_MSG;
-    ['waHeader','waHero','waFooter','waFloat'].forEach(function(id){
+    ['waHeader','waHero','waContact','waFooter','waFloat'].forEach(function(id){
       var el = document.getElementById(id); if (el) el.href = waLink;
     });
     document.getElementById('year').textContent = new Date().getFullYear();
+
+    // ===== WhatsApp en celular: un solo botón a la vista =====
+    // Mientras se ve el botón "Hablar por WhatsApp" del hero, el del header queda
+    // oculto; cuando ese botón sale de pantalla, aparece el del header (que es fijo).
+    // Solo tiene efecto en celular (ver CSS); en escritorio no cambia nada.
+    (function(){
+      var heroWa = document.getElementById('waHero');
+      if (!heroWa || !('IntersectionObserver' in window)){ document.body.classList.remove('hero-wa-visible'); return; }
+      new IntersectionObserver(function(entries){
+        document.body.classList.toggle('hero-wa-visible', entries[0].isIntersecting);
+      }, { rootMargin:'-60px 0px 0px 0px' }).observe(heroWa);
+    })();
 
     // ===== Skyline decorativo del hero =====
     document.getElementById('heroSkyline').innerHTML =
