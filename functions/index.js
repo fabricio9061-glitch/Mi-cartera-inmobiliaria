@@ -3559,63 +3559,222 @@ exports.cymAltaMinima = onCall(async (request) => {
   };
 });
 
+/* ============================================================================
+   CASAS Y MÁS — UN SOLO CAMINO PARA PUBLICAR Y REPUBLICAR
+   ----------------------------------------------------------------------------
+   Había cuatro lugares que daban de alta en Casas y Más, cada uno con su copia
+   de la lógica: el alta automática, el botón de Dirección, la publicación por
+   lote y (para editar) la sincronización. Ninguno tenía candado: dos ediciones
+   seguidas de una ficha recién completa disparaban dos altas y quedaban DOS
+   avisos. Y ninguno guardaba el error en la propiedad, así que el modal de
+   Portales no podía mostrar qué pasó.
+
+   cymPublicar es ahora la única puerta, con tres garantías:
+   1. CANDADO (transacción sobre la propiedad, igual que crearAvisoML): una sola
+      ejecución a la vez por propiedad. Un doble clic o dos triggers juntos no
+      pueden crear dos avisos.
+   2. IDEMPOTENCIA: si ya hay cymId, se ACTUALIZA ese aviso (modificar_propiedad).
+      Si no hay cymId pero el portal ya tiene un aviso con nuestro código
+      (id_orig), se ADOPTA en vez de crear otro: cubre el caso de un alta que
+      salió bien pero no llegó a guardarse acá.
+   3. ESTADO VISIBLE: el resultado queda en la propiedad (cymEstado,
+      cymUltimoError con un mensaje para el agente, cymFaltan, fechas, quién lo
+      hizo). El error técnico completo va a la bitácora (ml_logs) y al log de
+      Cloud Functions, nunca a la pantalla del agente.
+   ========================================================================== */
+const CYM_LOCK_MS = 4 * 60 * 1000;
+const CYM_PUBLICABLE = ["available", "reserved"];
+
+// Lo que devuelve cymPayload está pensado para el log; esto es para el agente.
+function cymFaltanAmigables(faltan) {
+  return (faltan || []).map((f) => {
+    const t = String(f || "");
+    if (/^tipo de propiedad/.test(t)) return "tipo de propiedad";
+    if (/^pin de ubicación/.test(t)) return "pin de ubicación en el mapa";
+    if (/^departamento no reconocido/.test(t)) return "departamento";
+    if (/^zona no encontrada/.test(t)) return "zona: el barrio no está asociado en Casas y Más (lo resuelve la Dirección)";
+    if (/catálogo de zonas/.test(t)) return "catálogo de zonas de Casas y Más (lo resuelve la Dirección)";
+    if (/^hacen falta al menos 4 fotos/.test(t)) return t.replace(/^hacen falta /, "");
+    if (/^la propiedad está en estado/.test(t)) return "que la propiedad esté Disponible o Reservada";
+    return t;
+  });
+}
+function cymErrorAmigable(codigo) {
+  if (codigo === 7) return "Casas y Más no tiene cupo: el plan de publicaciones está lleno. Ya le avisamos a la Dirección.";
+  if (codigo === 26) return "La cuenta de la inmobiliaria figura inactiva en Casas y Más. Ya le avisamos a la Dirección.";
+  if (codigo === 24) return "Casas y Más rechazó algún carácter del título o la descripción. Revisalos y volvé a intentar.";
+  return "No pudimos publicar la propiedad en Casas y Más. Podés volver a intentarlo.";
+}
+
+/* origen: "auto" (triggers), "manual" (botón Publicar), "republicar", "lote".
+   usuario: { uid, nombre } cuando la acción es manual. */
+async function cymPublicar(ref, id, { origen = "auto", usuario = null } = {}) {
+  const FV = admin.firestore.FieldValue;
+  const ahora = () => new Date().toISOString();
+  let p = null;
+  try {
+    await db.runTransaction(async (tx) => {
+      const fresh = await tx.get(ref);
+      if (!fresh.exists) return;
+      const d = fresh.data();
+      if (origen === "auto") {
+        // Lo automático solo DA DE ALTA lo que nunca estuvo. Una baja la decidió
+        // alguien: no se deshace sola. Y lo ya publicado lo actualiza sincronizarPortales.
+        if (d.cymId || d.cymEstado === "eliminado") return;
+        if (!CYM_PUBLICABLE.includes(d.status || "available")) return;
+      }
+      const lockAt = d.cymPublicandoAt ? Date.parse(d.cymPublicandoAt) : 0;
+      if (d.cymPublicando && Date.now() - lockAt < CYM_LOCK_MS) { p = { _enCurso: true }; return; }
+      tx.update(ref, { cymPublicando: true, cymPublicandoAt: ahora() });
+      p = d;
+    });
+  } catch (e) {
+    logger.error(`cymPublicar ${id}: no se pudo tomar el candado`, e.message);
+    return { ok: false, mensaje: cymErrorAmigable() };
+  }
+  if (!p) return { ok: false, omitido: true };
+  if (p._enCurso) return { ok: false, enCurso: true, mensaje: "Ya se está publicando en Casas y Más. Esperá unos segundos." };
+
+  const base = { cymPublicando: FV.delete(), cymPublicandoAt: FV.delete() };
+  if (usuario) base.cymUltimaAccion = { tipo: origen, por: usuario.nombre || "", uid: usuario.uid || "", at: ahora() };
+
+  try {
+    const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+    const agente = uSnap && uSnap.exists ? uSnap.data() : {};
+    const armado = await cymPayload(p, id, agente);
+    if (!armado.ok) {
+      const faltan = cymFaltanAmigables(armado.faltan);
+      await ref.update({ ...base, cymFaltan: faltan, cymRevisadoAt: ahora() });
+      if (origen !== "auto") await registrarLog(id, `Casas y Más: ${origen} sin enviar`, false, armado.faltan.join(", "));
+      return { ok: false, faltan };
+    }
+
+    const vivo = p.cymId && p.cymEstado !== "eliminado";
+    let cymId = vivo ? String(p.cymId) : "";
+    let nuevo = false, adoptado = false, r = null;
+
+    if (!cymId) {
+      // ¿Ya existe allá un aviso con nuestro código? Se adopta (solo si hay UNO).
+      const lista = await cymFetch("/propiedades", null, "GET");
+      if (lista.ok && Array.isArray(lista.data.propiedades)) {
+        const iguales = lista.data.propiedades.filter((x) => String(x.id_orig || "") === String(armado.payload.id_orig));
+        if (iguales.length === 1 && iguales[0].id_propiedad) {
+          cymId = String(iguales[0].id_propiedad);
+          adoptado = true;
+          await registrarLog(id, "Casas y Más: aviso existente recuperado", true, `id ${cymId}`);
+        }
+      }
+    }
+    if (cymId) {
+      r = await cymFetch("/modificar_propiedad", { id: cymId, ...armado.payload }, "PUT");
+      if (!r.ok && r.codigo === 4) cymId = "";   // allá ya no existe: se da de alta de nuevo
+    }
+    if (!cymId) {
+      r = await cymFetch("/alta_propiedad", armado.payload);
+      if (r.ok) {
+        cymId = String((r.data && r.data.id) || "");
+        nuevo = true;
+        if (!cymId) r = { ok: false, codigo: null, mensaje: "respondió OK pero sin id", data: r.data };
+      }
+    }
+
+    if (!r.ok) {
+      const upd = {
+        ...base,
+        cymUltimoError: { mensaje: cymErrorAmigable(r.codigo), codigo: r.codigo || null, accion: origen, at: ahora() },
+        cymFaltan: FV.delete(),
+      };
+      // Si nunca quedó publicada, el estado pasa a error. Si estaba publicada y
+      // falló la actualización, el aviso viejo sigue vivo: no se pisa el estado.
+      if (!vivo) upd.cymEstado = "error";
+      await ref.update(upd);
+      await registrarLog(id, `Casas y Más: ${origen}`, false,
+        `código ${r.codigo}: ${r.mensaje} · ${JSON.stringify(r.data || {}).slice(0, 500)}`);
+      logger.warn(`cymPublicar ${id} (${origen}) -> código ${r.codigo}`, r.data);
+      // Cupo lleno o cuenta inactiva: son problemas de la cuenta, no de la ficha.
+      if (r.codigo === 7 || r.codigo === 26) {
+        for (const u of await getDireccion()) {
+          await crearNotificacion(u, {
+            type: "portal_sin_cupo", propertyId: id, propertyTitle: p.title || "",
+            userName: "Casas y Más",
+            text: `No se pudo publicar "${p.title || "una propiedad"}": ${r.mensaje}.`,
+          }, { title: "Casas y Más", body: r.mensaje }, `cymcupo_${id}`);
+        }
+      }
+      return { ok: false, codigo: r.codigo || null, mensaje: cymErrorAmigable(r.codigo) };
+    }
+
+    // Fotos: siempre en el alta; en la republicación también, porque republicar
+    // es justamente "mandá todo de nuevo".
+    const rf = await cymFetch("/subir_fotos", {
+      id_propiedad: cymId,
+      fotos: armado.fotos.map((u, i) => ({ foto: u, orden: String(i + 1) })),
+    });
+    const upd = {
+      ...base,
+      cymId, cymEstado: "publicado",
+      cymActualizadoAt: ahora(),
+      cymOrigen: (nuevo || !p.cymOrigen) ? origen : p.cymOrigen,
+      cymFotosOk: !!rf.ok,
+      cymFaltan: FV.delete(),
+      cymUltimoError: rf.ok ? FV.delete()
+        : { mensaje: "El aviso quedó publicado, pero las fotos no se pudieron subir. Probá republicar.", codigo: rf.codigo || null, accion: "fotos", at: ahora(), parcial: true },
+      // Invalida la caché de estadoPortales: el modal tiene que ver el aviso nuevo.
+      portalesAt: FV.delete(),
+    };
+    if (nuevo || adoptado || !p.cymPublicadoAt || p.cymEstado === "eliminado") upd.cymPublicadoAt = ahora();
+    await ref.update(upd);
+    await registrarLog(id, `Casas y Más: ${nuevo ? "alta" : "actualización"} (${origen})`, true,
+      `id ${cymId}${rf.ok ? " · " + armado.fotos.length + " fotos" : " · FOTOS FALLARON: código " + rf.codigo}`);
+
+    if (nuevo && origen === "auto" && p.ownerId && uSnap && uSnap.exists) {
+      await crearNotificacion({ uid: p.ownerId, ...uSnap.data() }, {
+        type: "portal_publicada", propertyId: id, propertyTitle: p.title || "",
+        userName: "Casas y Más",
+        text: `Tu propiedad "${p.title || ""}" ya está publicada en Casas y Más.`,
+      }, { title: "Publicada en Casas y Más", body: p.title || "" }, `cympub_${id}`);
+    }
+    return { ok: true, cymId, nuevo, adoptado, fotos: rf.ok ? armado.fotos.length : 0, fotosOk: !!rf.ok };
+  } catch (e) {
+    logger.error(`cymPublicar ${id} (${origen})`, e);
+    await registrarLog(id, `Casas y Más: ${origen}`, false, String((e && e.message) || e));
+    try {
+      await ref.update({ ...base, cymUltimoError: { mensaje: cymErrorAmigable(), codigo: null, accion: origen, at: ahora() } });
+    } catch (e2) { /* si ni esto se puede, el candado vence solo en CYM_LOCK_MS */ }
+    return { ok: false, mensaje: cymErrorAmigable() };
+  }
+}
+
 /* Publica una propiedad en Casas y Más.
    Son DOS llamadas: alta_propiedad devuelve el id, y con ese id se suben las
    fotos. Se guarda cymId en la propiedad porque las consultas llegan
    identificadas con el id DE ELLOS, no con el nuestro: sin guardarlo, un lead
    no se puede asignar al agente dueño. */
 exports.publicarEnCasasYMas = onCall({ timeoutSeconds: 300 }, async (request) => {
-  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
-  const email = String(request.auth.token.email || "").toLowerCase();
-  if (!(await esDireccion(request.auth.uid, email))) {
-    throw new HttpsError("permission-denied", "Solo la Dirección.");
-  }
   const propertyId = String((request.data && request.data.propertyId) || "");
   if (!propertyId) throw new HttpsError("invalid-argument", "Falta la propiedad.");
-  const soloVistaPrevia = !!(request.data && request.data.dryRun);
-
   const pSnap = await db.doc(`properties/${propertyId}`).get();
   if (!pSnap.exists) throw new HttpsError("not-found", "La propiedad no existe.");
   const p = pSnap.data();
-  const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
-  const agente = uSnap && uSnap.exists ? uSnap.data() : {};
+  // Antes era solo Dirección: la publicación en Casas y Más era un paso manual
+  // suyo. Ahora la puede disparar el agente dueño (Publicar / Republicar /
+  // Reintentar desde el modal), igual que en Mercado Libre.
+  const { uid } = await exigirAgente(request, p);
 
-  const armado = await cymPayload(p, pSnap.id, agente);
-  if (!armado.ok) {
-    return { ok: false, faltan: armado.faltan,
-             pista: "La ficha no cumple con lo que exige Casas y Más. No se envió nada." };
-  }
-  if (soloVistaPrevia) {
+  if (request.data && request.data.dryRun) {
+    const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+    const armado = await cymPayload(p, pSnap.id, uSnap && uSnap.exists ? uSnap.data() : {});
+    if (!armado.ok) return { ok: false, faltan: cymFaltanAmigables(armado.faltan) };
     return { ok: true, dryRun: true, payload: armado.payload, fotos: armado.fotos.length };
   }
 
-  const r = await cymFetch("/alta_propiedad", armado.payload);
-  if (!r.ok) {
-    logger.warn(`publicarEnCasasYMas ${propertyId} -> código ${r.codigo}`, r.data);
-    return { ok: false, codigo: r.codigo, mensaje: r.mensaje,
-             pista: r.codigo === 5 ? "Key inválida." : "Error al crear la propiedad.",
-             detalle: r.data };
-  }
-  const cymId = String(r.data.id || "");
-  if (!cymId) return { ok: false, detalle: r.data, pista: "Respondió OK pero sin id." };
-
-  await pSnap.ref.update({
-    cymId, cymEstado: "publicado", cymPublicadoAt: new Date().toISOString(),
+  let nombre = "";
+  try { const u = await db.doc(`users/${uid}`).get(); nombre = (u.exists && (u.data().name || u.data().email)) || ""; } catch (e) { /* sin nombre */ }
+  const vivo = p.cymId && p.cymEstado !== "eliminado";
+  return await cymPublicar(pSnap.ref, propertyId, {
+    origen: vivo ? "republicar" : "manual",
+    usuario: { uid, nombre: nombre || String(request.auth.token.email || "") },
   });
-
-  // Las fotos van en una segunda llamada, ya con el id.
-  const rf = await cymFetch("/subir_fotos", {
-    id_propiedad: cymId,
-    fotos: armado.fotos.map((url, i) => ({ foto: url, orden: String(i + 1) })),
-  });
-  if (!rf.ok) {
-    logger.warn(`publicarEnCasasYMas fotos ${propertyId} -> código ${rf.codigo}`, rf.data);
-  }
-  await registrarLog(propertyId, "Casas y Más: publicado", true,
-    `id ${cymId}${rf.ok ? " · " + armado.fotos.length + " fotos" : " · FOTOS FALLARON"}`);
-
-  return { ok: true, cymId, fotos: rf.ok ? armado.fotos.length : 0,
-           fotosOk: rf.ok, fotosDetalle: rf.ok ? null : rf.data };
 });
 
 /* Actualiza una propiedad ya publicada. Reusa el mismo armado que el alta. */
@@ -3664,11 +3823,18 @@ exports.bajaEnCasasYMas = onCall(async (request) => {
   if (!cymId) return { ok: false, pista: "No está publicada en Casas y Más." };
 
   const r = await cymFetch("/eliminar_propiedad", { id: cymId });
-  if (r.ok) {
-    await pSnap.ref.update({ cymEstado: "eliminado", cymBajaAt: new Date().toISOString() });
-    await registrarLog(propertyId, "Casas y Más: baja", true, `id ${cymId}`);
+  // Código 4 = el aviso ya no existe en el portal: el resultado buscado ya está.
+  const ok = r.ok || r.codigo === 4;
+  if (ok) {
+    await pSnap.ref.update({
+      cymEstado: "eliminado", cymBajaAt: new Date().toISOString(),
+      cymUltimoError: admin.firestore.FieldValue.delete(), portalesAt: admin.firestore.FieldValue.delete(),
+    });
+    await registrarLog(propertyId, "Casas y Más: baja", true, `id ${cymId}${r.ok ? "" : " (ya no existía)"}`);
+  } else {
+    await registrarLog(propertyId, "Casas y Más: baja", false, `código ${r.codigo}: ${r.mensaje}`);
   }
-  return { ok: r.ok, codigo: r.codigo, mensaje: r.mensaje, detalle: r.ok ? null : r.data };
+  return { ok, codigo: r.codigo, mensaje: ok ? "" : "No pudimos dar de baja el aviso en Casas y Más. Podés volver a intentarlo." };
 });
 
 /* Receptor de consultas de Casas y Más. Se configura como
@@ -3879,15 +4045,11 @@ exports.publicarVarias = onCall({ timeoutSeconds: 540 }, async (request) => {
 
     try {
       if (portal === "casasymas") {
-        const r = await cymFetch("/alta_propiedad", armado.payload);
-        if (!r.ok) { corte = { id: d.id, codigo: r.codigo, detalle: r.data }; break; }
-        const cymId = String(r.data.id || "");
-        await d.ref.update({ cymId, cymEstado: "publicado", cymPublicadoAt: new Date().toISOString() });
-        const rf = await cymFetch("/subir_fotos", {
-          id_propiedad: cymId,
-          fotos: armado.fotos.map((u, i) => ({ foto: u, orden: String(i + 1) })),
-        });
-        hechas.push({ id: d.id, portalId: cymId, fotos: rf.ok ? armado.fotos.length : 0, fotosOk: rf.ok });
+        // Mismo camino que el alta automática y el botón: candado + sin duplicados.
+        const r = await cymPublicar(d.ref, d.id, { origen: "lote", usuario: { uid: request.auth.uid, nombre: email } });
+        if (r.enCurso) { saltadas.push({ id: d.id, motivo: "publicación en curso" }); continue; }
+        if (!r.ok) { corte = { id: d.id, codigo: r.codigo || null, detalle: r.mensaje || (r.faltan || []).join(", ") }; break; }
+        hechas.push({ id: d.id, portalId: r.cymId, fotos: r.fotos, fotosOk: r.fotosOk });
       } else {
         const r = await icFetch("/listing", { method: "POST", body: [armado.payload], conCookie: true });
         if (!r.ok) { corte = { id: d.id, status: r.status, detalle: r.data }; break; }
@@ -4146,67 +4308,36 @@ const PORTAL_ESTADOS_FUERA = ["sold", "rented", "archived"];
 exports.publicarAutoCasasYMas = onDocumentUpdated("properties/{id}", async (event) => {
   const before = event.data.before.data();
   const after = event.data.after.data();
-  const ref = event.data.after.ref;
-  const id = event.params.id;
   if (!after) return;
 
-  // Ya publicada, dada de baja o fuera del mercado: no se toca.
-  if (after.cymId && after.cymEstado !== "eliminado") return;
-  if (after.cymEstado === "eliminado") return;
+  // Ya publicada, dada de baja o fuera del mercado: no se toca (cymPublicar lo
+  // vuelve a verificar dentro del candado, con los datos frescos).
+  if (after.cymId || after.cymEstado === "eliminado") return;
   const st = after.status || "available";
-  if (st !== "available" && st !== "reserved") return;
-  if (ML_ESTADOS_SIN_ESPEJO.includes(st)) return;
+  if (!CYM_PUBLICABLE.includes(st)) return;
 
-  // Solo si la edición tocó el contenido: si no, cada escritura del propio
-  // publicador dispararía otra pasada.
-  if (!contentChanged(before, after)) return;
+  /* Se intenta cuando cambió el CONTENIDO o cuando la propiedad PASÓ a estar en el
+     mercado (por ejemplo, de Tasada a Disponible: eso también es "publicar").
+     Las escrituras del propio publicador (cymEstado, cymUltimoError...) no son
+     contenido, así que no se realimenta. */
+  const stAntes = (before && before.status) || "available";
+  const entroAlMercado = !CYM_PUBLICABLE.includes(stAntes);
+  if (!entroAlMercado && !contentChanged(before, after)) return;
 
-  const uSnap = after.ownerId ? await db.doc(`users/${after.ownerId}`).get() : null;
-  const agente = uSnap && uSnap.exists ? uSnap.data() : {};
-  const armado = await cymPayload(after, id, agente);
-  if (!armado.ok) return;   // todavía le falta algo; se reintenta en la próxima edición
+  await cymPublicar(event.data.after.ref, event.params.id, { origen: "auto" });
+});
 
-  /* El cupo NO se cuenta de nuestro lado: el portal devuelve el código 7
-     ("sin publicaciones disponibles") cuando el plan está lleno. Contar
-     propiedades acá sería adivinar, porque el cupo lo administran ellos y puede
-     cambiar sin que nos enteremos. */
-  try {
-    const r = await cymFetch("/alta_propiedad", armado.payload);
-    if (!r.ok) {
-      await registrarLog(id, "Casas y Más: alta automática", false, `${r.codigo}: ${r.mensaje}`);
-      // El cupo lleno y la inmobiliaria inactiva son problemas de la cuenta, no
-      // de esta propiedad: se avisa a Dirección porque nadie más va a notarlo.
-      if (r.codigo === 7 || r.codigo === 26) {
-        for (const u of await getDireccion()) {
-          await crearNotificacion(u, {
-            type: "portal_sin_cupo", propertyId: id, propertyTitle: after.title || "",
-            userName: "Casas y Más",
-            text: `No se pudo publicar "${after.title || "una propiedad"}": ${r.mensaje}.`,
-          }, { title: "Casas y Más", body: r.mensaje }, `cymcupo_${id}`);
-        }
-      }
-      return;
-    }
-    const cymId = String(r.data.id || "");
-    if (!cymId) return;
-    await ref.update({ cymId, cymEstado: "publicado", cymPublicadoAt: new Date().toISOString() });
-    const rf = await cymFetch("/subir_fotos", {
-      id_propiedad: cymId,
-      fotos: armado.fotos.map((u, i) => ({ foto: u, orden: String(i + 1) })),
-    });
-    await registrarLog(id, "Casas y Más: alta automática", true,
-      `id ${cymId}${rf.ok ? " · " + armado.fotos.length + " fotos" : " · FOTOS FALLARON"}`);
-
-    if (after.ownerId && uSnap && uSnap.exists) {
-      await crearNotificacion({ uid: after.ownerId, ...uSnap.data() }, {
-        type: "portal_publicada", propertyId: id, propertyTitle: after.title || "",
-        userName: "Casas y Más",
-        text: `Tu propiedad "${after.title || ""}" ya está publicada en Casas y Más.`,
-      }, { title: "Publicada en Casas y Más", body: after.title || "" }, `cympub_${id}`);
-    }
-  } catch (e) {
-    logger.error(`publicarAutoCasasYMas ${id}`, e);
-  }
+/* El alta automática nunca corría para una propiedad que se CREABA completa: el
+   formulario sube las fotos antes y guarda todo en una sola escritura, así que no
+   había edición que disparara el trigger de arriba. Esas propiedades quedaban
+   esperando que la Dirección las publicara a mano. */
+exports.publicarAutoCasasYMasAlCrear = onDocumentCreated("properties/{id}", async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+  const p = snap.data() || {};
+  if (p.cymId || p.cymEstado === "eliminado") return;   // restaurada desde la papelera
+  if (!CYM_PUBLICABLE.includes(p.status || "available")) return;
+  await cymPublicar(snap.ref, event.params.id, { origen: "auto" });
 });
 
 /* Aviso al CEO cuando llega una postulación desde "Trabajá con nosotros".
@@ -4375,7 +4506,16 @@ exports.sincronizarPortales = onDocumentUpdated("properties/{id}", async (event)
           const r = await cymFetch("/modificar_propiedad",
             { id: String(after.cymId), ...armado.payload }, "PUT");
           await registrarLog(id, "Casas y Más: actualización automática", !!r.ok,
-            r.ok ? "" : `código ${r.codigo}`);
+            r.ok ? "" : `código ${r.codigo}: ${r.mensaje}`);
+          // El modal de Portales muestra la última sincronización y si falló.
+          // Ninguno de estos campos es contenido: no vuelve a disparar el trigger.
+          await ref.update(r.ok
+            ? { cymActualizadoAt: new Date().toISOString(), cymUltimoError: admin.firestore.FieldValue.delete() }
+            : { cymUltimoError: {
+                  mensaje: r.codigo === 4
+                    ? "El aviso ya no existe en Casas y Más. Republicala para volver a publicarla."
+                    : "No pudimos enviar los últimos cambios a Casas y Más. Podés republicar para reintentar.",
+                  codigo: r.codigo || null, accion: "actualizar", at: new Date().toISOString() } });
           /* Las fotos se re-suben solo si CAMBIARON. Mandarlas en cada edición
              haría que el portal las reprocese aunque solo se haya tocado el
              precio, y son hasta 25 descargas por vez. */

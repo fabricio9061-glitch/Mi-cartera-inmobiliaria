@@ -1766,24 +1766,45 @@
   }
 
   let mlModalPropId = null;
-  async function openMLModal(propertyId) {
+  let _mlData = null;   // última respuesta de estadoML: la tarjeta de ML se repinta desde acá
+  /* El modal se arma de entrada con las TRES tarjetas. Antes mostraba solo un
+     "Consultando Mercado Libre..." y InfoCasas y Casas y Más no aparecían hasta
+     que ML respondía, aunque sus datos ya estaban en la propiedad. */
+  async function openMLModal(propertyId, opts) {
+    const conservar = !!(opts && opts.conservar);
+    if (!conservar || mlModalPropId !== propertyId) { for (const k in _portalFlash) delete _portalFlash[k]; }
     mlModalPropId = propertyId;
+    _mlData = null;
     // En segundo plano: el modal no espera a los portales para abrirse.
     cargarEstadoPortales(propertyId);
     openModal('mlModal');
-    const body = document.getElementById('mlModalBody');
     ensureMLStyles();
-    body.innerHTML = '<div class="ml-ui"><div class="ml-loading"><div class="sp"></div><p>Consultando Mercado Libre...</p></div></div>';
+    armarModalPortales();
     try {
       const res = await firebase.functions().httpsCallable('estadoML')({ propertyId });
       if (mlModalPropId === propertyId) renderMLStatus(res.data)
     } catch (e) {
       /* Si la consulta a Mercado Libre falla entera -cuenta bloqueada, token
-         vencido, caída de su API- se muestra el error PERO igual las secciones
-         de los otros portales, que no tienen nada que ver. */
-      body.innerHTML = `<div class="ml-ui"><div class="ml-divider"><span class="tagchip" style="background:#fff3cd;color:#8a6d12">Mercado Libre</span><span class="line"></span></div><div class="ml-err">No se pudo consultar el estado: ${e.message || e}</div><div id="secIC">${mlSeccionInfocasas()}</div><div id="secCYM">${mlSeccionCasasYMas()}</div></div>`;
-      cargarEstadoPortales(mlModalPropId);
+         vencido, caída de su API- falla SOLO su tarjeta: las otras siguen. */
+      console.error('estadoML:', e);
+      if (mlModalPropId !== propertyId) return;
+      const sec = document.getElementById('secML');
+      if (sec) sec.innerHTML = portalCard({
+        key: 'ml', nombre: 'Mercado Libre', color: PORTAL_COLOR.ml,
+        estado: { tono: 'err', texto: 'Sin conexión' },
+        notas: [{ tono: 'err', html: 'No pudimos consultar Mercado Libre. Probá de nuevo en unos minutos.' + detalleAdmin(e && e.message) }],
+        capacidades: { canPublish: true },
+        acciones: [{ id: 'consultar', texto: 'Reintentar', icono: 'fa-rotate-right', tipo: 'ghost', onclick: `openMLModal('${propertyId}',{conservar:true})`, cap: 'canPublish' }]
+      });
+      const sb = document.getElementById('secBaja'); if (sb) sb.innerHTML = bloqueBajaHtml(null);
     }
+  }
+  function armarModalPortales() {
+    const body = document.getElementById('mlModalBody');
+    if (!body) return;
+    body.innerHTML = `<div class="ml-ui">` +
+      `<div id="secML">${portalCard({ key: 'ml', nombre: 'Mercado Libre', color: PORTAL_COLOR.ml, estado: { tono: 'busy', texto: 'Consultando…' }, cuerpo: '<div class="ml-loading" style="padding:14px 0 6px"><div class="sp"></div><p>Consultando Mercado Libre...</p></div>' })}</div>` +
+      `<div id="secIC">${mlSeccionInfocasas()}</div><div id="secCYM">${mlSeccionCasasYMas()}</div><div id="secBaja"></div></div>`;
   }
   // Estilos del modal de Mercado Libre (se inyectan una sola vez).
   function ensureMLStyles() {
@@ -1861,6 +1882,38 @@
       .ml-loading .sp{ width:46px; height:46px; border-radius:50%; border:3px solid #eef0f3; border-top-color:#C9A227; margin:0 auto 14px; animation:mlspin .8s linear infinite; }
       .ml-loading p{ color:#8a93a0; font-size:.9rem; margin:0; }
       @keyframes mlspin{ to{ transform:rotate(360deg); } }
+      /* ===== Tarjeta de portal ===== */
+      .pc-card{ background:#fff; border:1px solid #e7eaee; border-radius:16px; padding:14px; margin-top:14px; }
+      #secML .pc-card{ margin-top:0; }
+      .pc-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+      .pc-name{ padding:4px 10px; border-radius:7px; font-weight:800; font-size:.74rem; letter-spacing:.03em; white-space:nowrap; }
+      .pc-pill{ display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:.76rem; padding:4px 11px; border-radius:999px; white-space:nowrap; min-width:0; }
+      .pc-pill .dot{ width:7px; height:7px; border-radius:50%; background:currentColor; flex:none; }
+      .pc-pill.ok{ background:#eaf7f0; color:#157a52; }
+      .pc-pill.warn{ background:#fff6e8; color:#8a5a00; }
+      .pc-pill.err{ background:#fdeced; color:#c0392b; }
+      .pc-pill.off{ background:#f1f5f9; color:#64748b; }
+      .pc-pill.idle{ background:#eef2f7; color:#16273f; }
+      .pc-pill.busy{ background:#fdf6e3; color:#7a611a; }
+      .pc-lead{ font-size:.88rem; color:#3a4658; line-height:1.5; }
+      .pc-meta{ display:flex; flex-direction:column; gap:5px; margin-top:10px; font-size:.79rem; color:#6a7280; }
+      .pc-meta i{ width:15px; text-align:center; color:#a8b0ba; margin-right:7px; }
+      .pc-faltan{ margin:8px 0 0; padding:0; list-style:none; display:flex; flex-wrap:wrap; gap:6px; }
+      .pc-faltan li{ background:#fff; border:1px solid #ffe2b0; color:#8a5a00; border-radius:999px; padding:3px 10px; font-size:.77rem; font-weight:600; line-height:1.35; }
+      .pc-card .ml-note{ margin-top:10px; }
+      .pc-card .ml-btns{ margin-top:12px; }
+      .pc-card .ml-btn{ padding:11px 14px; font-size:.87rem; }
+      .pc-card .ml-hero{ padding:16px 18px; }
+      .pc-card .ml-section:first-child{ margin-top:0; }
+      .ml-btn[disabled]{ opacity:.6; cursor:default; transform:none; }
+      .pc-det{ display:block; margin-top:5px; font-size:.72rem; opacity:.75; word-break:break-word; }
+      .pc-list{ margin-top:10px; border-top:1px solid #f1f3f5; padding-top:8px; }
+      .pc-list div{ font-size:.79rem; color:#6b7480; padding:3px 0; }
+      .pc-card .ml-stats{ gap:8px; flex-wrap:nowrap; }
+      .pc-card .ml-stat{ flex:1 1 0; min-width:0; flex-direction:column; align-items:flex-start; gap:5px; padding:10px 11px; }
+      .pc-card .ml-stat .t{ line-height:1.3; }
+      .pc-card .ml-webline{ gap:4px 12px; }
+      @media (max-width:420px){ .pc-card{ padding:12px; } .pc-card .ml-btn{ min-width:0; flex:1 1 auto; } .pc-card .ml-stat .n{ font-size:1.1rem; } }
     `;
     document.head.appendChild(s);
   }
@@ -1906,91 +1959,310 @@
     const aviso = '';
     return `<div class="ml-label">Tipo de aviso</div><select id="mlTipoAviso" class="ml-select">${opts}</select>${aviso}`;
   }
-  /* Sección de InfoCasas del modal de Portales.
+  /* ============================================================================
+     TARJETA DE PORTAL — componente reutilizable del modal de Portales
+     ----------------------------------------------------------------------------
+     Antes Mercado Libre tenía su interfaz y InfoCasas / Casas y Más eran bloques
+     de texto sueltos, cada uno con su formato. Ahora cada portal arma una
+     CONFIGURACIÓN y portalCard la dibuja igual para todos:
 
-     Estaba escrita entera alrededor del FEED XML: hablaba de "en el feed", de
-     que InfoCasas sincronizaba periódicamente, y remataba con "InfoCasas no
-     ofrece estadísticas por API". Nada de eso vale desde que publicamos por API:
-     ahora hay icListingId, el aviso se actualiza solo al editar, y el estado se
-     sabe con precisión. El texto le estaba diciendo al agente algo falso. */
+       { key, nombre, color:{bg,fg},
+         estado:{ tono:'ok'|'warn'|'err'|'off'|'idle'|'busy', texto },
+         lead, cuerpo, metricas:[{icono,color,valor,texto}], meta:[{icono,texto}],
+         pie, faltan:[texto], faltanPie, notas:[{tono,texto|html}],
+         capacidades:{ canPublish, canRepublish, canUpdate, canDeactivate,
+                       canViewExternalListing, hasMetrics },
+         acciones:[{ id, texto, icono, tipo, href|onclick, cap }] }
+
+     Cada acción declara qué capacidad necesita y solo aparece si el portal la
+     tiene. Sumar un portal nuevo = escribir su función de configuración.
+     ========================================================================== */
+  const PORTAL_COLOR = {
+    ml: { bg: '#fff159', fg: '#2d3277' },
+    infocasas: { bg: '#dbeafe', fg: '#1d4ed8' },
+    casasymas: { bg: '#e0f2e9', fg: '#1e7d4f' }
+  };
+  const PORTAL_NOMBRE = { ml: 'Mercado Libre', infocasas: 'InfoCasas', casasymas: 'Casas y Más' };
+  const _portalBusy = {};    // { casasymas: 'republicar' } mientras corre una acción
+  const _portalFlash = {};   // resultado de la última acción, por portal: { tono, texto }
+  const PC_ICONO = { ok: 'fa-circle-check', warn: 'fa-circle-exclamation', err: 'fa-circle-xmark', info: 'fa-circle-info', gold: 'fa-star' };
+
+  function portalCard(c) {
+    const cap = c.capacidades || {};
+    const busy = _portalBusy[c.key];
+    const textoBusy = busy === 'baja' ? 'Dando de baja…' : 'Publicando…';
+    const estado = busy ? { tono: 'busy', texto: textoBusy } : (c.estado || { tono: 'off', texto: '—' });
+    const pill = `<span class="pc-pill ${estado.tono}">${estado.tono === 'busy' ? '<i class="fas fa-spinner fa-spin"></i>' : '<span class="dot"></span>'}${mvEsc(estado.texto)}</span>`;
+    const nota = (n) => `<div class="ml-note ${n.tono === 'err' ? 'warn' : n.tono}"${n.tono === 'err' ? ' style="background:#fdeced;border-color:#f5c6c6;color:#a93226"' : ''}><i class="fas ${n.icono || PC_ICONO[n.tono] || 'fa-circle-info'}"${n.tono === 'err' ? ' style="color:#c0392b"' : ''}></i><div>${n.html != null ? n.html : mvEsc(n.texto)}</div></div>`;
+    const flash = _portalFlash[c.key];
+    // Mientras corre una acción, los avisos viejos (por ejemplo, el error anterior) se ocultan.
+    const notas = busy ? '' : [...(flash ? [flash] : []), ...(c.notas || [])].map(nota).join('');
+    const faltan = (c.faltan && c.faltan.length)
+      ? nota({ tono: 'warn', icono: 'fa-list-check', html: `<strong>Faltan datos para publicar</strong><ul class="pc-faltan">${c.faltan.map(f => `<li>${mvEsc(f)}</li>`).join('')}</ul>${c.faltanPie ? `<div style="margin-top:8px;font-size:.8rem">${c.faltanPie}</div>` : ''}` })
+      : '';
+    const metricas = (cap.hasMetrics && c.metricas && c.metricas.length)
+      ? `<div class="ml-stats" style="margin-top:10px">${c.metricas.map(m => `<div class="ml-stat"><i class="${m.icono}" style="color:${m.color || '#6a7280'}"></i><div><div class="n">${m.valor == null ? '—' : mvEsc(String(m.valor))}</div><div class="t">${mvEsc(m.texto)}</div></div></div>`).join('')}</div>`
+      : '';
+    const meta = (c.meta || []).filter(Boolean);
+    const metaHtml = meta.length ? `<div class="pc-meta">${meta.map(m => `<span><i class="${m.icono}"></i>${mvEsc(m.texto)}</span>`).join('')}</div>` : '';
+    const acciones = (c.acciones || []).filter(a => a && (!a.cap || cap[a.cap])).map(a => {
+      const cls = `ml-btn ml-btn-${a.tipo || 'ghost'}`;
+      if (a.href) return safeUrl(a.href) ? `<a href="${safeUrl(a.href)}" target="_blank" rel="noopener" class="${cls}"><i class="fas ${a.icono}"></i> ${mvEsc(a.texto)}</a>` : '';
+      const corriendo = busy && busy === a.id;
+      return `<button type="button" class="${cls}"${busy ? ' disabled' : ''} onclick="${a.onclick}">${corriendo ? '<i class="fas fa-spinner fa-spin"></i> ' + textoBusy : `<i class="fas ${a.icono}"></i> ${mvEsc(a.texto)}`}</button>`;
+    }).join('');
+    return `<section class="pc-card" id="pc-${c.key}"><div class="pc-head"><span class="pc-name" style="background:${c.color.bg};color:${c.color.fg}">${mvEsc(c.nombre)}</span>${pill}</div>` +
+      `${c.lead ? `<div class="pc-lead">${c.lead}</div>` : ''}${c.cuerpo || ''}${metricas}${metaHtml}${c.pie || ''}${faltan}${notas}` +
+      `${acciones ? `<div class="ml-btns">${acciones}</div>` : ''}</section>`;
+  }
+  // El error técnico no se le muestra al agente; a Dirección, chiquito, para diagnosticar.
+  function detalleAdmin(det) {
+    if (!det || !(typeof isAdminUser === 'function' && isAdminUser())) return '';
+    const t = typeof det === 'string' ? det : JSON.stringify(det);
+    return `<span class="pc-det">Detalle técnico (solo Dirección): ${mvEsc(t.slice(0, 240))}</span>`;
+  }
+  const pcFecha = (iso) => iso ? new Date(iso).toLocaleDateString('es-UY', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+  const pcFechaHora = (iso) => iso ? new Date(iso).toLocaleString('es-UY', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  // Mismo criterio que exigirAgente en el backend: el agente dueño o Dirección.
+  function puedeGestionarPortal(p) {
+    return (typeof isAdminUser === 'function' && isAdminUser()) || !!(currentUser && p && p.ownerId === currentUser.uid);
+  }
+  function propiedadPublicable(p) { return !p.status || p.status === 'available' || p.status === 'reserved'; }
+
+  /* ---------- InfoCasas ----------
+     La API de InfoCasas sigue en manos de la Dirección: la mayoría de las
+     propiedades están en el feed XML y publicarlas por API las duplicaría
+     (decisión pendiente). Por eso esta tarjeta no ofrece "Publicar": muestra el
+     estado, y a la Dirección le deja republicar lo que ya está publicado por API
+     (actualiza el mismo aviso, no crea otro). */
   function mlSeccionInfocasas() {
     const p = properties.find(pr => pr.id === mlModalPropId);
     if (!p) return '';
-    const chip = '<div class="ml-divider"><span class="tagchip" style="background:#dbeafe;color:#1d4ed8">InfoCasas</span><span class="line"></span></div>';
+    const admin = typeof isAdminUser === 'function' && isAdminUser();
+    const cfg = {
+      key: 'infocasas', nombre: 'InfoCasas', color: PORTAL_COLOR.infocasas, notas: [], meta: [],
+      capacidades: { canPublish: false, canRepublish: admin, canUpdate: true, canDeactivate: admin, canViewExternalListing: true, hasMetrics: false }
+    };
 
-    // Publicada por API: es el camino nuevo y el que manda.
     if (p.icListingId && p.icEstado !== 'eliminado') {
-      const cuando = p.icPublicadoAt ? new Date(p.icPublicadoAt).toLocaleDateString('es-UY') : '';
-      const act = p.icActualizadoAt ? new Date(p.icActualizadoAt).toLocaleDateString('es-UY') : '';
-      const link = (p.infocasasUrl && safeUrl(p.infocasasUrl))
-        ? `<a href="${safeUrl(p.infocasasUrl)}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost" style="margin-top:10px;flex:none"><i class="fas fa-external-link-alt"></i> Ver aviso en InfoCasas</a>`
-        : '';
-      /* InfoCasas no publica estadísticas, así que lo más útil que se puede
-         mostrar es cómo terminó la última tarea y, si falló, por qué. */
       const t = _portalesData && _portalesData.infocasas && _portalesData.infocasas.tarea;
-      let tareaHtml = '';
-      if (t) {
-        const bien = t.estado === 'COMPLETED';
-        const msg = t.mensajes ? JSON.stringify(t.mensajes).slice(0, 200) : '';
-        tareaHtml = `<div class="ml-stats" style="margin-top:10px">
-          <div class="ml-stat"><span class="k">Última operación</span><span class="v" style="color:${bien ? '#1e7d4f' : '#c0392b'}">${bien ? 'Correcta' : (t.estado || 'Desconocida')}</span></div>
-          ${t.frPropertyId ? `<div class="ml-stat"><span class="k">Código en el portal</span><span class="v">${t.frPropertyId}</span></div>` : ''}
-        </div>${msg ? `<div class="ml-note warn" style="margin-top:8px"><i class="fas fa-circle-exclamation"></i><div>${msg}</div></div>` : ''}`;
-      } else if (!_portalesData) {
-        tareaHtml = '<div style="font-size:.78rem;color:#a8b0ba;margin-top:8px">Consultando el portal…</div>';
+      const est = t ? String(t.estado || '') : '';
+      if (!t || est === 'COMPLETED') cfg.estado = { tono: 'ok', texto: 'Activa' };
+      else if (/PENDING|PROCESS|PROGRESS|QUEUED|RUNNING/.test(est)) cfg.estado = { tono: 'busy', texto: 'Procesando' };
+      else cfg.estado = { tono: 'err', texto: 'Con errores' };
+      cfg.lead = 'Publicada por API. Los cambios de precio, fotos y descripción se envían solos al editar la propiedad.';
+      cfg.meta = [
+        p.icPublicadoAt && { icono: 'far fa-calendar', texto: `Publicada el ${pcFecha(p.icPublicadoAt)}` },
+        { icono: 'fas fa-rotate', texto: p.icActualizadoAt ? `Última sincronización: ${pcFechaHora(p.icActualizadoAt)}` : 'Sin sincronizaciones todavía' },
+        t && t.frPropertyId && { icono: 'fas fa-hashtag', texto: `Código en el portal: ${t.frPropertyId}` },
+        !_portalesData && { icono: 'fas fa-spinner fa-spin', texto: 'Consultando el portal…' }
+      ];
+      if (cfg.estado.tono === 'err') {
+        cfg.notas.push({ tono: 'err', html: 'InfoCasas no aceptó la última actualización.' + (admin ? ' Podés republicar para reintentar.' : ' Ya lo puede revisar la Dirección.') + detalleAdmin(t.mensajes) });
       }
-      return chip +
-        `<div class="ml-note ok"><i class="fas fa-circle-check"></i><div><strong>Publicada por API${cuando ? ' el ' + cuando : ''}.</strong> Los cambios de precio, fotos y descripción se envían solos cuando editás la propiedad.${act ? ' Última actualización: ' + act + '.' : ''}</div></div>` +
-        tareaHtml + link;
+      cfg.acciones = [
+        { texto: 'Ver aviso', icono: 'fa-external-link-alt', href: p.infocasasUrl, cap: 'canViewExternalListing' },
+        { id: 'republicar', texto: 'Republicar', icono: 'fa-rotate-right', onclick: "portalAccion('infocasas','republicar')", cap: 'canRepublish' }
+      ];
+      return portalCard(cfg);
     }
 
     if (p.icEstado === 'eliminado') {
-      return chip + '<div class="ml-note warn"><i class="fas fa-circle-info"></i><div><strong>Dada de baja en InfoCasas.</strong> Se eliminó el aviso del portal.</div></div>';
+      cfg.estado = { tono: 'off', texto: 'Dada de baja' };
+      cfg.lead = 'Se eliminó el aviso de InfoCasas.';
+      return portalCard(cfg);
     }
 
-    /* Todavía no publicada por API: se muestra qué le falta a la ficha, con los
-       MISMOS requisitos que valida icApiPayload del lado del servidor. Si acá
+    if (p.cierreConfirmado === true || !propiedadPublicable(p)) {
+      cfg.estado = { tono: 'off', texto: 'No publicada' };
+      cfg.lead = p.cierreConfirmado === true ? 'Tiene un cierre confirmado: no se publica en portales.' : 'La propiedad no está Disponible, así que no se publica en portales.';
+      return portalCard(cfg);
+    }
+
+    /* Los MISMOS requisitos que valida icApiPayload del lado del servidor. Si acá
        dijera otra cosa, el agente corregiría lo que no es. */
-    const EST = { tasacion: 'Pendiente de tasación', tasado: 'Tasada', reserved: 'Reservada', sold: 'Vendida', rented: 'Alquilada', cerrado_externo: 'Cerró por afuera', archived: 'Dada de baja' };
     const u = p.ubicacion || {};
     const faltan = [];
-    if (p.cierreConfirmado === true) faltan.push('tiene un cierre confirmado');
-    else if (p.status && p.status !== 'available' && p.status !== 'reserved') faltan.push('está en estado "' + (EST[p.status] || p.status) + '"');
-    if (u.lat == null || u.lng == null) faltan.push('falta el pin de ubicación en el mapa');
-    if (!(Number(p.price) > 0)) faltan.push('falta el precio');
-    if (!((p.images || []).filter(Boolean).length)) faltan.push('faltan fotos');
-    if (!(p.departamento || u.departamento)) faltan.push('falta el departamento');
-    if (!String(p.description || '').trim()) faltan.push('falta la descripción');
-
-    if (!faltan.length) {
-      return chip + '<div class="ml-note"><i class="fas fa-circle-info"></i><div><strong>Lista para publicar.</strong> La ficha tiene todo lo que pide InfoCasas. La publicación la hace la Dirección.</div></div>';
+    if (u.lat == null || u.lng == null) faltan.push('pin de ubicación en el mapa');
+    if (!(Number(p.price) > 0)) faltan.push('precio');
+    if (!((p.images || []).filter(Boolean).length)) faltan.push('fotos');
+    if (!(p.departamento || u.departamento)) faltan.push('departamento');
+    if (!String(p.description || '').trim()) faltan.push('descripción');
+    if (faltan.length) {
+      cfg.estado = { tono: 'warn', texto: 'Faltan datos' };
+      cfg.faltan = faltan;
+      cfg.faltanPie = 'Completalos en <strong>Editar propiedad</strong>.';
+      return portalCard(cfg);
     }
-    return chip + `<div class="ml-note warn"><i class="fas fa-circle-info"></i><div><strong>No se puede publicar todavía:</strong> ${faltan.join(', ')}. Corregilo en <strong>Editar propiedad</strong>.</div></div>`;
+    cfg.estado = { tono: 'idle', texto: 'Lista para publicar' };
+    cfg.lead = 'La ficha tiene todo lo que pide InfoCasas. La publicación en InfoCasas la hace la Dirección.';
+    return portalCard(cfg);
   }
 
-  /* Sección de Casas y Más. No existía: el portal se integró después de que se
-     escribió este modal. */
-  async function publicarEnCYM(){
-    if (!mlModalPropId) return;
-    const p = properties.find(pr => pr.id === mlModalPropId) || {};
-    if (!confirm(`¿Publicar "${p.title || 'esta propiedad'}" en Casas y Más?\n\nEl aviso sale al portal real: no hay ambiente de pruebas.`)) return;
-    const id = mlModalPropId, body = document.getElementById('mlModalBody');
-    body.innerHTML = '<div class="ml-ui"><div class="ml-loading"><div class="sp"></div><p>Publicando en Casas y Más...</p></div></div>';
+  /* ---------- Casas y Más ----------
+     Se publica SOLA: al crear la propiedad o al editarla, en cuanto la ficha
+     cumple los requisitos (publicarAutoCasasYMas / ...AlCrear en el backend).
+     El agente ya no depende de la Dirección: si algo falló o faltaba un dato,
+     puede publicar / reintentar / republicar desde acá. Todo pasa por el mismo
+     camino del servidor (cymPublicar), que tiene candado y no duplica avisos. */
+  function faltanCasasYMasLocal(p) {
+    const u = p.ubicacion || {};
+    const fotos = (p.images || []).filter(Boolean).length;
+    const faltan = [];
+    if (!String(p.title || '').trim()) faltan.push('título');
+    if (!(Number(p.price) > 0)) faltan.push('precio');
+    if (!String(p.description || '').trim()) faltan.push('descripción');
+    if (u.lat == null || u.lng == null) faltan.push('pin de ubicación en el mapa');
+    if (!(p.departamento || u.departamento)) faltan.push('departamento');
+    if (fotos < 4) faltan.push(`al menos 4 fotos (tiene ${fotos})`);
+    return faltan;
+  }
+  function mlSeccionCasasYMas() {
+    const p = properties.find(pr => pr.id === mlModalPropId);
+    if (!p) return '';
+    const puede = puedeGestionarPortal(p);
+    const admin = typeof isAdminUser === 'function' && isAdminUser();
+    const cfg = {
+      key: 'casasymas', nombre: 'Casas y Más', color: PORTAL_COLOR.casasymas, notas: [], meta: [],
+      capacidades: { canPublish: puede, canRepublish: puede, canUpdate: true, canDeactivate: admin, canViewExternalListing: true, hasMetrics: true }
+    };
+    const c = _portalesData && _portalesData.casasymas;
+    const err = p.cymUltimoError || null;
+    const enCurso = p.cymPublicando && p.cymPublicandoAt && (Date.now() - Date.parse(p.cymPublicandoAt) < 4 * 60 * 1000);
+    const vivo = p.cymId && p.cymEstado !== 'eliminado' && p.cymEstado !== 'error';
+    const accion = (id, texto, icono, tipo, cap) => ({ id, texto, icono, tipo, cap, onclick: `portalAccion('casasymas','${id}')` });
+
+    if (enCurso && !_portalBusy.casasymas) {
+      cfg.estado = { tono: 'busy', texto: 'Publicando…' };
+      cfg.lead = 'Se está enviando la propiedad a Casas y Más. Tarda unos segundos.';
+      return portalCard(cfg);
+    }
+
+    if (vivo) {
+      const noAparece = !!(c && c.noEncontrada);
+      cfg.estado = noAparece ? { tono: 'warn', texto: 'No aparece en el portal' } : { tono: 'ok', texto: 'Activa' };
+      const quien = p.cymUltimaAccion && p.cymUltimaAccion.por;
+      cfg.lead = (p.cymOrigen === 'auto' ? 'Publicada automáticamente desde el CRM.'
+        : (p.cymOrigen && quien) ? `Publicada desde el CRM por ${mvEsc(quien)}.` : 'Publicada desde el CRM.') +
+        ' Los cambios se envían solos al editar la propiedad.';
+      if (c && c.consultas != null) {
+        cfg.metricas = [{ icono: 'fas fa-comments', color: '#2e86de', valor: c.consultas, texto: 'consultas recibidas' }];
+        if (c.fotosEnPortal) cfg.metricas.push({ icono: 'fas fa-images', color: '#1e9e6a', valor: c.fotosEnPortal, texto: 'fotos en el portal' });
+        const ultimas = (c.ultimas || []).map(x =>
+          `<div>${mvEsc(x.nombre || 'Sin nombre')}<span style="color:#a8b0ba"> · ${mvEsc(String(x.fecha || '').slice(0, 10))}</span>` +
+          (x.respondida ? '<span style="color:#1e7d4f"> · respondida</span>' : '<span style="color:#c0392b"> · sin responder</span>') + '</div>').join('');
+        if (ultimas) cfg.pie = `<div class="pc-list">${ultimas}</div>`;
+      }
+      cfg.meta = [
+        p.cymPublicadoAt && { icono: 'far fa-calendar', texto: `Publicada el ${pcFecha(p.cymPublicadoAt)}` },
+        { icono: 'fas fa-rotate', texto: p.cymActualizadoAt ? `Última sincronización: ${pcFechaHora(p.cymActualizadoAt)}` : 'Sin sincronizaciones todavía' },
+        !_portalesData && { icono: 'fas fa-spinner fa-spin', texto: 'Consultando el portal…' }
+      ];
+      if (c && c.destacada) cfg.notas.push({ tono: 'gold', icono: 'fa-star', texto: 'Destacada en Casas y Más.' });
+      if (noAparece) cfg.notas.push({ tono: 'warn', texto: 'El aviso no figura en la cartera de Casas y Más. Republicala para volver a publicarla.' });
+      if (err) cfg.notas.push({ tono: 'warn', texto: err.mensaje });
+      cfg.acciones = [
+        { texto: 'Ver aviso', icono: 'fa-external-link-alt', href: `https://casasymas.com.uy/propiedad/${encodeURIComponent(p.cymId)}`, cap: 'canViewExternalListing' },
+        accion('republicar', 'Republicar', 'fa-rotate-right', noAparece || err ? 'primary' : 'ghost', 'canRepublish')
+      ];
+      return portalCard(cfg);
+    }
+
+    if (!propiedadPublicable(p)) {
+      cfg.estado = { tono: 'off', texto: p.cymEstado === 'eliminado' ? 'Dada de baja' : 'No publicada' };
+      cfg.lead = 'La propiedad no está Disponible, así que no se publica en portales.';
+      return portalCard(cfg);
+    }
+
+    // Lo que falta: el servidor sabe más (por ejemplo, si el barrio está asociado
+    // en Casas y Más). Se usa su lista mientras no se haya editado la ficha después.
+    const servidorVigente = Array.isArray(p.cymFaltan) && p.cymFaltan.length && p.cymRevisadoAt && (!p.updatedAt || p.cymRevisadoAt >= p.updatedAt);
+    const faltan = servidorVigente ? p.cymFaltan : faltanCasasYMasLocal(p);
+    const pie = puede ? 'Completalos en <strong>Editar propiedad</strong> y guardá: se publica sola.' : 'Los completa el agente de la propiedad en Editar propiedad.';
+
+    if (p.cymEstado === 'eliminado') {
+      cfg.estado = { tono: 'off', texto: 'Dada de baja' };
+      cfg.lead = `El aviso se dio de baja en Casas y Más${p.cymBajaAt ? ' el ' + pcFecha(p.cymBajaAt) : ''}. No se vuelve a publicar solo.`;
+      if (faltan.length) { cfg.faltan = faltan; cfg.faltanPie = pie; }
+      else cfg.acciones = [accion('publicar', 'Republicar', 'fa-rotate-right', 'primary', 'canRepublish')];
+      return portalCard(cfg);
+    }
+
+    if (p.cymEstado === 'error' || err) {
+      cfg.estado = { tono: 'err', texto: 'Error al publicar' };
+      cfg.notas.push({ tono: 'err', texto: (err && err.mensaje) || 'No pudimos publicar la propiedad en Casas y Más. Podés volver a intentarlo.' });
+      if (err && err.at) cfg.meta = [{ icono: 'far fa-clock', texto: `Último intento: ${pcFechaHora(err.at)}` }];
+      if (faltan.length) { cfg.faltan = faltan; cfg.faltanPie = pie; }
+      else cfg.acciones = [accion('publicar', 'Reintentar publicación', 'fa-rotate-right', 'primary', 'canPublish')];
+      return portalCard(cfg);
+    }
+
+    if (faltan.length) {
+      cfg.estado = { tono: 'warn', texto: 'Faltan datos' };
+      cfg.faltan = faltan;
+      cfg.faltanPie = pie;
+      return portalCard(cfg);
+    }
+
+    cfg.estado = { tono: 'idle', texto: 'Lista para publicar' };
+    cfg.lead = 'La ficha tiene todo lo que pide Casas y Más.';
+    cfg.acciones = [accion('publicar', 'Publicar en Casas y Más', 'fa-upload', 'primary', 'canPublish')];
+    return portalCard(cfg);
+  }
+
+  /* ---------- Acciones por portal ----------
+     Mientras corre: la tarjeta dice "Publicando…" y sus botones quedan
+     deshabilitados (no hay doble clic posible). Al terminar: un aviso claro
+     dentro de la tarjeta, y los datos se releen del servidor. */
+  const PORTAL_ACCIONES = {
+    casasymas: { publicar: 'publicarEnCasasYMas', republicar: 'publicarEnCasasYMas' },
+    infocasas: { republicar: 'editarEnInfocasas' }
+  };
+  function repintarPortal(portal) {
+    if (portal === 'ml') { if (_mlData) renderMLStatus(_mlData); return; }
+    const el = document.getElementById(portal === 'infocasas' ? 'secIC' : 'secCYM');
+    if (el) el.innerHTML = portal === 'infocasas' ? mlSeccionInfocasas() : mlSeccionCasasYMas();
+  }
+  async function releerPropiedad(pid) {
     try {
-      const r = await firebase.functions().httpsCallable('publicarEnCasasYMas')({ propertyId: id });
-      const d = r.data || {};
-      if (d.ok) {
-        showToast('Casas y Más', `Publicada con ${d.fotos || 0} fotos`, 'fa-circle-check');
-        const pr = properties.find(x => x.id === id);
-        if (pr) { pr.cymId = d.cymId; pr.cymEstado = 'publicado'; pr.cymPublicadoAt = new Date().toISOString(); }
-      } else {
-        showToast('No se pudo publicar', (d.faltan || []).join(', ') || d.mensaje || 'Error', 'fa-circle-exclamation');
+      const d = await db.collection('properties').doc(pid).get();
+      if (!d.exists) return;
+      const i = properties.findIndex(x => x.id === pid);
+      const fresca = { id: d.id, ...d.data() };
+      if (i >= 0) properties[i] = fresca; else properties.push(fresca);
+    } catch (e) { /* el snapshot la trae igual en unos instantes */ }
+  }
+  async function portalAccion(portal, accion) {
+    const pid = mlModalPropId;
+    const fn = PORTAL_ACCIONES[portal] && PORTAL_ACCIONES[portal][accion];
+    if (!pid || !fn || _portalBusy[portal]) return;
+    const nombre = PORTAL_NOMBRE[portal];
+    _portalBusy[portal] = accion;
+    delete _portalFlash[portal];
+    repintarPortal(portal);
+    let flash;
+    try {
+      const d = (await firebase.functions().httpsCallable(fn)({ propertyId: pid })).data || {};
+      if (d.ok && d.fotosOk === false) flash = { tono: 'warn', texto: `Quedó publicada en ${nombre}, pero las fotos no se pudieron subir. Probá republicar.` };
+      else if (d.ok) flash = { tono: 'ok', texto: accion === 'republicar' ? `Listo: el aviso en ${nombre} quedó actualizado.` : `Listo: la propiedad ya está publicada en ${nombre}.` };
+      else if (d.enCurso) flash = { tono: 'info', texto: d.mensaje || `Ya se está publicando en ${nombre}.` };
+      else if (d.faltan && d.faltan.length) flash = { tono: 'warn', texto: 'No se envió nada: faltan datos (abajo te decimos cuáles).' };
+      else {
+        if (d.detalle || d.status || d.estado) console.error(`portalAccion ${portal}/${accion}:`, d);
+        flash = { tono: 'err', html: mvEsc(d.mensaje || `No pudimos publicar la propiedad en ${nombre}. Podés volver a intentarlo.`) + detalleAdmin(d.detalle || d.estado || d.status) };
       }
     } catch (e) {
-      showToast('No se pudo publicar', e.message || e, 'fa-circle-exclamation');
+      console.error(`portalAccion ${portal}/${accion}:`, e);
+      const sinPermiso = e && /permission-denied/.test(e.code || '');
+      flash = { tono: 'err', html: (sinPermiso ? 'Solo el agente dueño de la propiedad o la Dirección pueden hacer esto.' : `No pudimos publicar la propiedad en ${nombre}. Podés volver a intentarlo.`) + detalleAdmin(e && e.message) };
     }
-    _portalesPid = null;
-    openMLModal(id);
+    delete _portalBusy[portal];
+    if (mlModalPropId !== pid) return;
+    _portalFlash[portal] = flash;
+    showToast(nombre, flash.texto || (flash.tono === 'err' ? 'No se pudo completar' : ''), flash.tono === 'ok' ? 'fa-circle-check' : 'fa-circle-exclamation');
+    await releerPropiedad(pid);
+    repintarPortal(portal);
+    cargarEstadoPortales(pid, true);
   }
 
   /* Datos vivos de los portales. Se piden en segundo plano al abrir el modal y
@@ -1998,109 +2270,67 @@
      externas y bloquearlo lo haría sentir lento. */
   let _portalesData = null, _portalesPid = null;
 
-  async function cargarEstadoPortales(pid) {
-    if (_portalesPid === pid && _portalesData) return;
-    _portalesPid = pid; _portalesData = null;
+  async function cargarEstadoPortales(pid, forzar) {
+    if (!forzar && _portalesPid === pid && _portalesData) return;
+    _portalesPid = pid; if (!forzar) _portalesData = null;
     try {
-      const r = await firebase.functions().httpsCallable('estadoPortales')({ propertyId: pid });
+      const r = await firebase.functions().httpsCallable('estadoPortales')({ propertyId: pid, forzar: !!forzar });
       if (_portalesPid !== pid) return;   // se cambió de propiedad mientras tanto
       _portalesData = r.data || null;
-      const p = properties.find(pr => pr.id === pid);
-      const cont = document.getElementById('mlModalBody');
-      if (p && cont) {
-        // Se repintan solo las dos secciones, no todo el modal.
-        const ic = document.getElementById('secIC'), cy = document.getElementById('secCYM');
-        if (ic) ic.innerHTML = mlSeccionInfocasas(true);
-        if (cy) cy.innerHTML = mlSeccionCasasYMas(true);
-      }
+      if (mlModalPropId === pid) { repintarPortal('infocasas'); repintarPortal('casasymas'); }
     } catch (e) { console.warn('estadoPortales:', e && e.message); }
   }
 
-  function mlSeccionCasasYMas() {
-    const p = properties.find(pr => pr.id === mlModalPropId);
-    if (!p) return '';
-    const chip = '<div class="ml-divider"><span class="tagchip" style="background:#e0f2e9;color:#1e7d4f">Casas y Más</span><span class="line"></span></div>';
-
-    if (p.cymId && p.cymEstado !== 'eliminado') {
-      const cuando = p.cymPublicadoAt ? new Date(p.cymPublicadoAt).toLocaleDateString('es-UY') : '';
-      const act = p.cymActualizadoAt ? new Date(p.cymActualizadoAt).toLocaleDateString('es-UY') : '';
-      /* Casas y Más sí informa las consultas por propiedad: es lo más parecido a
-         una métrica que ofrece, y es el dato que al agente le importa. */
-      const c = _portalesData && _portalesData.casasymas;
-      let statsHtml = '';
-      if (c && c.consultas != null) {
-        const ultimas = (c.ultimas || []).map(x =>
-          `<div style="font-size:.79rem;color:#6b7480;padding:3px 0">${mvEsc(x.nombre || 'Sin nombre')}` +
-          `<span style="color:#a8b0ba"> · ${mvEsc(String(x.fecha || '').slice(0, 10))}</span>` +
-          (x.respondida ? '<span style="color:#1e7d4f"> · respondida</span>' : '<span style="color:#c0392b"> · sin responder</span>') +
-          '</div>').join('');
-        statsHtml = `<div class="ml-stats" style="margin-top:10px">
-          <div class="ml-stat"><span class="k">Consultas recibidas</span><span class="v">${c.consultas}</span></div>
-          ${c.activaEnPortal != null ? `<div class="ml-stat"><span class="k">En el portal</span><span class="v" style="color:${c.activaEnPortal ? '#1e7d4f' : '#c0392b'}">${c.activaEnPortal ? 'Publicada' : 'No aparece'}</span></div>` : ''}
-          ${c.fotosEnPortal ? `<div class="ml-stat"><span class="k">Fotos en el portal</span><span class="v">${c.fotosEnPortal}</span></div>` : ''}
-          ${c.destacada ? '<div class="ml-stat"><span class="k">Destacada</span><span class="v" style="color:#C9A227">Sí</span></div>' : ''}
-        </div>${ultimas ? `<div style="margin-top:8px">${ultimas}</div>` : ''}`;
-      } else if (!_portalesData) {
-        statsHtml = '<div style="font-size:.78rem;color:#a8b0ba;margin-top:8px">Consultando el portal…</div>';
-      }
-      return chip +
-        `<div class="ml-note ok"><i class="fas fa-circle-check"></i><div><strong>Publicada${cuando ? ' el ' + cuando : ''}.</strong> Los cambios se envían solos cuando editás la propiedad.${act ? ' Última actualización: ' + act + '.' : ''}</div></div>` +
-        statsHtml +
-        `<a href="https://casasymas.com.uy/propiedad/${encodeURIComponent(p.cymId)}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost" style="margin-top:10px;flex:none"><i class="fas fa-external-link-alt"></i> Ver aviso en Casas y Más</a>`;
-    }
-
-    if (p.cymEstado === 'eliminado') {
-      return chip + '<div class="ml-note warn"><i class="fas fa-circle-info"></i><div><strong>Dada de baja en Casas y Más.</strong></div></div>';
-    }
-
-    // Requisitos propios: acá el mínimo de fotos son 4, no 1.
-    const u = p.ubicacion || {};
-    const fotos = (p.images || []).filter(Boolean).length;
-    const faltan = [];
-    if (p.status && p.status !== 'available' && p.status !== 'reserved') faltan.push('no está disponible');
-    if (u.lat == null || u.lng == null) faltan.push('falta el pin de ubicación');
-    if (!(Number(p.price) > 0)) faltan.push('falta el precio');
-    if (fotos < 4) faltan.push(`hacen falta al menos 4 fotos (tiene ${fotos})`);
-    if (!(p.departamento || u.departamento)) faltan.push('falta el departamento');
-    if (!String(p.description || '').trim()) faltan.push('falta la descripción');
-
-    if (!faltan.length) {
-      // El botón solo lo ve Dirección: publicar en el portal es decisión suya.
-      const btn = (typeof isAdminUser === 'function' && isAdminUser())
-        ? `<div class="ml-btns" style="margin-top:10px"><button class="ml-btn ml-btn-primary" onclick="publicarEnCYM()"><i class="fas fa-upload"></i> Publicar en Casas y Más</button></div>`
-        : '';
-      return chip + '<div class="ml-note"><i class="fas fa-circle-info"></i><div><strong>Lista para publicar.</strong>' +
-        (btn ? '' : ' La publicación la hace la Dirección.') + '</div></div>' + btn;
-    }
-    return chip + `<div class="ml-note warn"><i class="fas fa-circle-info"></i><div><strong>No se puede publicar todavía:</strong> ${faltan.join(', ')}.</div></div>`;
+  /* ---------- Mercado Libre ----------
+     Toda la lógica de ML (calidad, faltantes, visitas, tipo de aviso, pagos) queda
+     como estaba: solo cambia el envoltorio, que ahora es la misma tarjeta que los
+     otros portales. La baja de ML NO se tocó: sigue siendo irreversible y la
+     ejecuta la Dirección desde "Sacar de circulación". */
+  function pintarTarjetaML(cfg, d) {
+    if (!document.getElementById('secML')) armarModalPortales();
+    const sec = document.getElementById('secML');
+    if (sec) sec.innerHTML = portalCard(cfg);
+    const sb = document.getElementById('secBaja');
+    if (sb) sb.innerHTML = bloqueBajaHtml(d);
   }
-
   function renderMLStatus(d) {
     ensureMLStyles();
-    const body = document.getElementById('mlModalBody');
+    _mlData = d;
+    const puedeML = puedeGestionarPortal(properties.find(pr => pr.id === mlModalPropId) || {});
+    const capML = (extra) => ({ canPublish: puedeML, canRepublish: puedeML, canUpdate: true, canDeactivate: isAdminUser(), canViewExternalListing: true, hasMetrics: true, ...(extra || {}) });
     if (!d.publicado) {
       const _esCupo = d.error && /avisos? gratis|gratuita|cupo/i.test(d.error);
-      const _errHtml = d.error
-        ? (_esCupo
-            ? `<div class="ml-note warn" style="margin-top:8px"><i class="fas fa-circle-info"></i><div>${d.error}</div></div>`
-            : `<div class="ml-err">${d.error}</div>`)
-        : '';
-      body.innerHTML = `<div class="ml-ui"><div class="ml-empty"><div class="ml-empty-ic"><i class="fas fa-tag"></i></div><h4>Todavía no está publicada</h4><p>Esta propiedad aún no está en Mercado Libre.</p></div>${_errHtml}<div class="ml-section">${mlTypeSelector(d.tiposDisponibles)}</div><div class="ml-btns"><button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-upload"></i> Publicar en Mercado Libre</button></div><div id="secIC">${mlSeccionInfocasas()}</div><div id="secCYM">${mlSeccionCasasYMas()}</div></div>`;
+      const notas = [];
+      if (d.error) {
+        if (_esCupo) notas.push({ tono: 'warn', texto: d.error });
+        else { console.error('Mercado Libre:', d.error); notas.push({ tono: 'err', html: 'No pudimos publicar la propiedad en Mercado Libre. Podés volver a intentarlo.' + detalleAdmin(d.error) }); }
+      }
+      pintarTarjetaML({
+        key: 'ml', nombre: 'Mercado Libre', color: PORTAL_COLOR.ml,
+        estado: d.error && !_esCupo ? { tono: 'err', texto: 'Error al publicar' } : { tono: 'idle', texto: 'No publicada' },
+        lead: 'Esta propiedad todavía no está en Mercado Libre.',
+        cuerpo: `<div class="ml-section">${mlTypeSelector(d.tiposDisponibles)}</div>`,
+        notas, capacidades: capML(),
+        acciones: [{ id: 'publicar', texto: d.error && !_esCupo ? 'Reintentar publicación' : 'Publicar en Mercado Libre', icono: d.error && !_esCupo ? 'fa-rotate-right' : 'fa-upload', tipo: 'primary', onclick: 'republicarPropiedad()', cap: 'canPublish' }]
+      }, d);
       return
     }
     if (d.error) {
-      /* Un problema en Mercado Libre NO debe tapar los otros portales. Con la
-         cuenta bloqueada, el modal mostraba solo el error de ML y no dejaba ver
-         que InfoCasas y Casas y Más seguían publicadas y andando. */
-      body.innerHTML = `<div class="ml-ui"><div class="ml-divider"><span class="tagchip" style="background:#fff3cd;color:#8a6d12">Mercado Libre</span><span class="line"></span></div><div class="ml-err">${d.error}</div><div class="ml-btns"><button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-rotate-right"></i> Volver a publicar</button></div><div id="secIC">${mlSeccionInfocasas()}</div><div id="secCYM">${mlSeccionCasasYMas()}</div></div>`;
+      /* Un problema en Mercado Libre NO debe tapar los otros portales. */
+      console.error('Mercado Libre:', d.error);
+      pintarTarjetaML({
+        key: 'ml', nombre: 'Mercado Libre', color: PORTAL_COLOR.ml,
+        estado: { tono: 'err', texto: 'Error' },
+        notas: [{ tono: 'err', html: 'No pudimos consultar el aviso en Mercado Libre. Podés volver a intentarlo.' + detalleAdmin(d.error) }],
+        capacidades: capML(),
+        acciones: [{ id: 'publicar', texto: 'Reintentar', icono: 'fa-rotate-right', tipo: 'primary', onclick: 'republicarPropiedad()', cap: 'canRepublish' }]
+      }, d);
       return
     }
     const hp = d.health != null ? Math.round(d.health * 100) : null;
     const _prop = properties.find(pr => pr.id === mlModalPropId) || {};
     const ringColor = hp == null ? '#aeb8c6' : (hp >= 70 ? '#3ddc97' : hp >= 40 ? '#f5b54a' : '#ff7a7a');
-    const stColors = { active: '#3ddc97', paused: '#f5b54a', closed: '#ff7a7a', under_review: '#f5b54a', inactive: '#aeb8c6', payment_required: '#f5b54a' };
-    const pillColor = stColors[d.status] || '#aeb8c6';
-    const hero = `<div class="ml-divider" style="margin-top:0"><span class="tagchip" style="background:#fff159;color:#2d3277">Mercado Libre</span><span class="line"></span></div><div class="ml-hero">${hp != null ? mlRing(hp, ringColor) : ''}<div class="ml-hero-info"><span class="ml-pill" style="color:${pillColor}"><span class="dot"></span>${mlStatusName(d.status)}</span><h4>${mlListingTypeName(d.listingType)}</h4><div class="sub">${hp != null ? 'Calidad del aviso ' + hp + '%' : 'Aviso publicado en Mercado Libre'}</div></div></div>`;
+    const hero = `<div class="ml-hero">${hp != null ? mlRing(hp, ringColor) : ''}<div class="ml-hero-info"><h4 style="margin-top:0">${mlListingTypeName(d.listingType)}</h4><div class="sub">${hp != null ? 'Calidad del aviso ' + hp + '%' : 'Aviso publicado en Mercado Libre'}</div></div></div>`;
     const _dash = (v) => (v != null ? v : '—');
     const _pregN = (d.preguntas && d.preguntas.total != null) ? d.preguntas.total : null;
     const _pregSR = (d.preguntas && d.preguntas.sinResponder) ? ` · ${d.preguntas.sinResponder} sin responder` : '';
@@ -2187,59 +2417,80 @@
       }
     }
     const selTipo = d.status === 'closed' ? `<div class="ml-section">${mlTypeSelector(d.tiposDisponibles)}</div>` : '';
-    const botones = [];
-    // La baja va SEPARADA de los botones de Mercado Libre: aplica a los tres
-    // portales, así que se muestra al final, después de todas las secciones.
-    const botonesBaja = [];
-    // Dice de qué portal es: ahora conviven tres secciones y "Ver aviso" a secas
-    // no se entendía cuál era.
-    if (d.permalink) botones.push(`<a href="${d.permalink}" target="_blank" rel="noopener" class="ml-btn ml-btn-ghost"><i class="fas fa-external-link-alt"></i> Ver aviso en Mercado Libre</a>`);
-    if (d.status === 'paused' || d.status === 'closed') botones.push(`<button class="ml-btn ml-btn-primary" onclick="republicarPropiedad()"><i class="fas fa-rotate-right"></i> Republicar</button>`);
-    // La baja la EJECUTA el admin; el agente la PIDE. Motivos: en Mercado Libre
-    // cerrar un aviso es irreversible (no se reabre — hay que crear uno nuevo, y si
-    // es de pago se vuelve a cobrar), y además no toca el estado de la propiedad en
-    // el CRM, con lo cual el aviso desaparecería de ML mientras la propiedad sigue
-    // figurando "Disponible" acá y en el feed de InfoCasas. El pedido del agente le
-    // llega al admin a la campanita y se resuelve ahí (Despublicar / Mantener).
-    let bajaHint = '';
+    const ML_TONO = { active: 'ok', paused: 'warn', closed: 'off', under_review: 'warn', inactive: 'off', payment_required: 'warn' };
+    const acciones = [
+      d.permalink && { texto: 'Ver aviso', icono: 'fa-external-link-alt', href: d.permalink, cap: 'canViewExternalListing' },
+      // Republicar solo donde ML lo permite sin duplicar: reactiva el pausado o
+      // crea uno nuevo si está finalizado. Con el aviso activo, la actualización
+      // ya es automática al editar (sincronizarEdicionML).
+      (d.status === 'paused' || d.status === 'closed') && { id: 'publicar', texto: 'Republicar', icono: 'fa-rotate-right', tipo: 'primary', onclick: 'republicarPropiedad()', cap: 'canRepublish' }
+    ];
+    pintarTarjetaML({
+      key: 'ml', nombre: 'Mercado Libre', color: PORTAL_COLOR.ml,
+      estado: { tono: ML_TONO[d.status] || 'off', texto: mlStatusName(d.status) },
+      cuerpo: `${hero}${interaccion}${pagoHint}${improve}${selTipo}`,
+      capacidades: capML(), acciones
+    }, d);
+  }
+
+  /* "Sacar de circulación": igual que antes (la Dirección da de baja; el agente
+     la pide), pero ahora se muestra aunque Mercado Libre no esté publicada si hay
+     avisos vivos en los otros portales, y dice en qué portales va a actuar.
+
+     La baja la EJECUTA el admin; el agente la PIDE. Motivos: en Mercado Libre
+     cerrar un aviso es irreversible (no se reabre — hay que crear uno nuevo, y si
+     es de pago se vuelve a cobrar), y además no toca el estado de la propiedad en
+     el CRM. El pedido del agente le llega al admin a la campanita. */
+  function portalesVivos(d) {
+    const p = properties.find(x => x.id === mlModalPropId) || {};
+    const vivos = [];
+    if (d && d.publicado && d.status && d.status !== 'closed') vivos.push('ml');
+    if (p.icListingId && p.icEstado !== 'eliminado') vivos.push('infocasas');
+    if (p.cymId && p.cymEstado !== 'eliminado' && p.cymEstado !== 'error') vivos.push('casasymas');
+    return vivos;
+  }
+  function bloqueBajaHtml(d) {
     const _pB = properties.find(x => x.id === mlModalPropId);
-    const _pendiente = !!(_pB && _pB.despubPendiente);
-    if (d.status !== 'closed') {
-      if (isAdminUser()) {
-        botonesBaja.push(`<button class="ml-btn ml-btn-danger" onclick="bajaPropiedad()"><i class="fas fa-circle-stop"></i> Dar de baja de todos los portales</button>`);
-        if (_pendiente) bajaHint = `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-hand"></i><div><strong>${mvEsc(_pB.bajaSolicitadaPor || 'Un agente')} pidió dar de baja esta propiedad.</strong>${_pB.bajaSolicitadaMotivo ? ` Motivo: ${mvEsc(_pB.bajaSolicitadaMotivo)}` : ''}<br>Resolvelo desde la campanita: <em>Despublicar</em> la saca de la web y de los portales; <em>Mantener publicada</em> descarta el pedido.</div></div></div>`;
-      } else if (_pendiente) {
-        botonesBaja.push(`<button class="ml-btn ml-btn-ghost" disabled style="opacity:.65;cursor:default"><i class="fas fa-hourglass-half"></i> Baja solicitada</button>`);
-        bajaHint = `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-paper-plane"></i><div>Tu pedido de baja ya está con el administrador. Hasta que lo resuelva, la propiedad sigue publicada. Te va a llegar un aviso con la respuesta.</div></div></div>`;
-      } else {
-        botonesBaja.push(`<button class="ml-btn ml-btn-danger" onclick="pedirBaja()"><i class="fas fa-circle-stop"></i> Pedir baja de todos los portales</button>`);
-        bajaHint = `<div class="ml-section"><div class="ml-note info"><i class="fas fa-circle-info"></i><div>La baja la confirma el administrador. Si la operación se cerró con la agencia, no hace falta pedir nada: cerrá la <strong>gestión en Clientes</strong> y la propiedad se da de baja sola.</div></div></div>`;
-      }
+    if (!_pB) return '';
+    const vivos = portalesVivos(d);
+    if (!vivos.length) return '';
+    const _pendiente = !!_pB.despubPendiente;
+    const botonesBaja = [];
+    let bajaHint = '';
+    if (isAdminUser()) {
+      botonesBaja.push(`<button class="ml-btn ml-btn-danger" onclick="bajaPropiedad()"><i class="fas fa-circle-stop"></i> Dar de baja de todos los portales</button>`);
+      if (_pendiente) bajaHint = `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-hand"></i><div><strong>${mvEsc(_pB.bajaSolicitadaPor || 'Un agente')} pidió dar de baja esta propiedad.</strong>${_pB.bajaSolicitadaMotivo ? ` Motivo: ${mvEsc(_pB.bajaSolicitadaMotivo)}` : ''}<br>Resolvelo desde la campanita: <em>Despublicar</em> la saca de la web y de los portales; <em>Mantener publicada</em> descarta el pedido.</div></div></div>`;
+    } else if (_pendiente) {
+      botonesBaja.push(`<button class="ml-btn ml-btn-ghost" disabled style="opacity:.65;cursor:default"><i class="fas fa-hourglass-half"></i> Baja solicitada</button>`);
+      bajaHint = `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-paper-plane"></i><div>Tu pedido de baja ya está con el administrador. Hasta que lo resuelva, la propiedad sigue publicada. Te va a llegar un aviso con la respuesta.</div></div></div>`;
+    } else {
+      botonesBaja.push(`<button class="ml-btn ml-btn-danger" onclick="pedirBaja()"><i class="fas fa-circle-stop"></i> Pedir baja de todos los portales</button>`);
+      bajaHint = `<div class="ml-section"><div class="ml-note info"><i class="fas fa-circle-info"></i><div>La baja la confirma el administrador. Si la operación se cerró con la agencia, no hace falta pedir nada: cerrá la <strong>gestión en Clientes</strong> y la propiedad se da de baja sola.</div></div></div>`;
     }
-    /* Los botones de Mercado Libre van con SU sección, antes de InfoCasas y Casas
-       y Más. Antes quedaban al final de todo, así que "Ver aviso en Mercado
-       Libre" aparecía debajo del de Casas y Más, lejos de los datos de ML. */
-    const bloqueBaja = botonesBaja.length
-      ? `<div class="ml-divider" style="margin-top:22px"><span class="tagchip" style="background:#fee2e2;color:#b91c1c">Sacar de circulación</span><span class="line"></span></div>` +
-        `<div style="font-size:.8rem;color:#8a93a0;margin-bottom:10px">Da de baja el aviso en <strong>todos los portales donde esté publicado</strong>. En Mercado Libre es irreversible.</div>` +
-        `<div class="ml-btns" style="margin-top:0">${botonesBaja.join('')}</div>`
-      : '';
-    body.innerHTML = `<div class="ml-ui">${hero}${interaccion}${pagoHint}${improve}${selTipo}${bajaHint}<div class="ml-btns">${botones.join('')}</div><div id="secIC">${mlSeccionInfocasas()}</div><div id="secCYM">${mlSeccionCasasYMas()}</div>${bloqueBaja}</div>`
+    const donde = vivos.map(k => PORTAL_NOMBRE[k]).join(', ');
+    return `<div class="ml-divider" style="margin-top:22px"><span class="tagchip" style="background:#fee2e2;color:#b91c1c">Sacar de circulación</span><span class="line"></span></div>` +
+      `<div style="font-size:.8rem;color:#8a93a0;margin-bottom:10px">Da de baja el aviso en <strong>${mvEsc(donde)}</strong>.${vivos.includes('ml') ? ' En Mercado Libre es irreversible.' : ''}</div>` +
+      bajaHint + `<div class="ml-btns" style="margin-top:10px">${botonesBaja.join('')}</div>`;
   }
   async function republicarPropiedad() {
-    if (!mlModalPropId) return;
+    if (!mlModalPropId || _portalBusy.ml) return;
     const sel = document.getElementById('mlTipoAviso');
     const listingType = sel ? sel.value : null;
-    const id = mlModalPropId, body = document.getElementById('mlModalBody');
-    ensureMLStyles();
-    body.innerHTML = '<div class="ml-ui"><div class="ml-loading"><div class="sp"></div><p>Publicando en Mercado Libre...</p></div></div>';
+    const id = mlModalPropId;
+    _portalBusy.ml = 'publicar';
+    delete _portalFlash.ml;
+    repintarPortal('ml');
     try {
       await firebase.functions().httpsCallable('republicarML')({ propertyId: id, listingType });
+      _portalFlash.ml = { tono: 'ok', texto: 'Listo: el aviso se envió a Mercado Libre.' };
       showToast('Mercado Libre', 'El aviso se envió a Mercado Libre', 'fa-tag');
-      openMLModal(id)
     } catch (e) {
-      body.innerHTML = `<div class="ml-ui"><div class="ml-err">No se pudo publicar: ${e.message || e}</div><div class="ml-btns"><button class="ml-btn ml-btn-ghost" onclick="openMLModal('${id}')"><i class="fas fa-rotate-right"></i> Reintentar</button></div></div>`
+      console.error('republicarML:', e);
+      _portalFlash.ml = { tono: 'err', html: 'No pudimos publicar la propiedad en Mercado Libre. Podés volver a intentarlo.' + detalleAdmin(e && e.message) };
+      showToast('Mercado Libre', 'No se pudo publicar', 'fa-circle-exclamation');
     }
+    delete _portalBusy.ml;
+    if (mlModalPropId === id) openMLModal(id, { conservar: true });
   }
   // El agente pide la baja: le llega al admin a la campanita, con el motivo.
   // No toca la propiedad — sigue publicada hasta que el admin decida.
@@ -2260,46 +2511,50 @@
       showToast('Pedido enviado', 'El administrador va a resolverlo y te avisa', 'fa-paper-plane');
       openMLModal(id)
     } catch (e) {
-      body.innerHTML = `<div class="ml-ui"><div class="ml-err">No se pudo enviar el pedido: ${e.message || e}</div></div>`
+      console.error('pedirBajaPropiedad:', e);
+      body.innerHTML = `<div class="ml-ui"><div class="ml-err">No pudimos enviar el pedido de baja. Podés volver a intentarlo.${detalleAdmin(e && e.message)}</div><div class="ml-btns"><button class="ml-btn ml-btn-ghost" onclick="openMLModal('${id}')"><i class="fas fa-arrow-left"></i> Volver</button></div></div>`
     }
   }
   async function bajaPropiedad() {
     if (!mlModalPropId) return;
     if (!isAdminUser()) { showToast('Solo administradores', 'Para sacar la propiedad de circulación, cerrá su gestión en Clientes', 'fa-lock'); return; }
-    const _p = properties.find(pr => pr.id === mlModalPropId) || {};
-    /* La baja ahora saca la propiedad de los TRES portales, no solo de Mercado
-       Libre. Antes solo llamaba a bajaML: con el feed XML la propiedad
-       desaparecía sola de InfoCasas al cambiar de estado, así que PARECÍA que
-       bajaba en los dos. Con la API el aviso queda publicado hasta que alguien
-       lo baje, así que hay que hacerlo explícito. */
-    const _donde = ['Mercado Libre'];
-    if (_p.icListingId && _p.icEstado !== 'eliminado') _donde.push('InfoCasas');
-    if (_p.cymId && _p.cymEstado !== 'eliminado') _donde.push('Casas y Más');
-    if (!confirm(`¿Dar de baja este aviso en ${_donde.join(', ')}?\n\nOJO: en Mercado Libre es IRREVERSIBLE. El aviso no se reabre: republicar crea uno NUEVO y, si es de pago, se vuelve a cobrar.\n\nEsto NO cambia el estado de la propiedad en el CRM: si la operación se cerró, cerrá la gestión en Clientes y los avisos se bajan solos.`)) return;
-    const id = mlModalPropId, body = document.getElementById('mlModalBody');
-    ensureMLStyles();
-    body.innerHTML = '<div class="ml-ui"><div class="ml-loading"><div class="sp"></div><p>Dando de baja...</p></div></div>';
+    const vivos = portalesVivos(_mlData);
+    if (!vivos.length) { showToast('Nada para dar de baja', 'No hay avisos publicados en ningún portal', 'fa-circle-info'); return; }
+    const _donde = vivos.map(k => PORTAL_NOMBRE[k]);
+    const avisoML = vivos.includes('ml') ? '\n\nOJO: en Mercado Libre es IRREVERSIBLE. El aviso no se reabre: republicar crea uno NUEVO y, si es de pago, se vuelve a cobrar.' : '';
+    if (!confirm(`¿Dar de baja este aviso en ${_donde.join(', ')}?${avisoML}\n\nEsto NO cambia el estado de la propiedad en el CRM: si la operación se cerró, cerrá la gestión en Clientes y los avisos se bajan solos.`)) return;
+    const id = mlModalPropId;
+    for (const k in _portalFlash) delete _portalFlash[k];
+    // Cada tarjeta muestra que está trabajando; las acciones quedan bloqueadas.
+    vivos.forEach(k => { _portalBusy[k] = 'baja'; });
+    ['ml', 'infocasas', 'casasymas'].forEach(repintarPortal);
+    document.querySelectorAll('#secBaja button').forEach(b => { b.disabled = true; });
+
+    /* Cada portal por separado y en paralelo: que falle uno no frena a los otros,
+       y cada tarjeta dice cómo le fue. La baja de ML es la MISMA llamada de
+       siempre (bajaML), con sus mismas validaciones. */
+    const tareas = {
+      ml: () => firebase.functions().httpsCallable('bajaML')({ propertyId: id }).then(() => ({ ok: true })),
+      infocasas: () => firebase.functions().httpsCallable('estadoEnInfocasas')({ propertyId: id, status: 'DELETED' }).then(r => ({ ok: !!(r.data && r.data.ok), detalle: r.data })),
+      casasymas: () => firebase.functions().httpsCallable('bajaEnCasasYMas')({ propertyId: id }).then(r => ({ ok: !!(r.data && r.data.ok), detalle: r.data }))
+    };
+    const resultados = await Promise.all(vivos.map(k => tareas[k]().catch(e => ({ ok: false, detalle: e && e.message }))));
     const fallos = [];
-    try {
-      await firebase.functions().httpsCallable('bajaML')({ propertyId: id });
-    } catch (e) { fallos.push('Mercado Libre: ' + (e.message || e)); }
-    // Cada portal por separado: que falle uno no debe frenar a los otros.
-    if (_p.icListingId && _p.icEstado !== 'eliminado') {
-      try {
-        const r = await firebase.functions().httpsCallable('estadoEnInfocasas')({ propertyId: id, status: 'DELETED' });
-        if (!r.data || !r.data.ok) fallos.push('InfoCasas: ' + ((r.data && r.data.estado) || 'no se pudo'));
-      } catch (e) { fallos.push('InfoCasas: ' + (e.message || e)); }
-    }
-    if (_p.cymId && _p.cymEstado !== 'eliminado') {
-      try {
-        const r = await firebase.functions().httpsCallable('bajaEnCasasYMas')({ propertyId: id });
-        if (!r.data || !r.data.ok) fallos.push('Casas y Más: ' + ((r.data && r.data.mensaje) || 'no se pudo'));
-      } catch (e) { fallos.push('Casas y Más: ' + (e.message || e)); }
-    }
-    if (fallos.length) showToast('Baja parcial', fallos.join(' · '), 'fa-triangle-exclamation');
+    vivos.forEach((k, i) => {
+      delete _portalBusy[k];
+      const r = resultados[i];
+      if (r.ok) _portalFlash[k] = { tono: 'ok', texto: `Dada de baja en ${PORTAL_NOMBRE[k]}.` };
+      else {
+        console.error(`baja ${k}:`, r.detalle);
+        fallos.push(PORTAL_NOMBRE[k]);
+        _portalFlash[k] = { tono: 'err', html: `No pudimos dar de baja el aviso en ${PORTAL_NOMBRE[k]}. Podés volver a intentarlo.` + detalleAdmin(r.detalle) };
+      }
+    });
+    if (fallos.length) showToast('Baja parcial', `No se pudo en ${fallos.join(', ')}. El detalle está en cada portal.`, 'fa-triangle-exclamation');
     else showToast('Dada de baja', 'El aviso se sacó de ' + _donde.join(', '), 'fa-circle-check');
     _portalesPid = null;   // se fuerza a releer el estado de los portales
-    openMLModal(id);
+    await releerPropiedad(id);
+    if (mlModalPropId === id) openMLModal(id, { conservar: true });
   }
 
   // ===== Cuentas de portales: credenciales compartidas de la inmobiliaria =====
