@@ -3934,9 +3934,10 @@ async function cymProcesarConsulta(crudo, origen) {
       await crearNotificacion(u, {
         type: "lead_portal", propertyId: null, propertyTitle: "",
         userName: "Casas y Más",
-        text: `Consulta sin propiedad identificada (${n.cymId || "sin id"}): ${n.nombre}` +
-              `${n.telefono ? " · " + n.telefono : ""}${n.email ? " · " + n.email : ""}` +
+        text: `Consulta sin propiedad identificada (${n.cymId || "sin id"}) — ` +
+              `Contacto: ${[n.nombre, n.telefono, n.email].filter(Boolean).join(" · ")}` +
               (n.mensaje ? `\n${n.mensaje}` : ""),
+        leadNombre: n.nombre, userPhone: n.telefono || null, leadEmail: n.email || null,
       }, { title: "Consulta de Casas y Más", body: n.nombre }, `cymsp_${clave}_${u.uid}`);
     }
     await db.doc(`cymConsultasVistas/${clave}`).update({ sinPropiedad: true }).catch(() => {});
@@ -3944,7 +3945,13 @@ async function cymProcesarConsulta(crudo, origen) {
   }
 
   const p = propDoc.data();
-  const texto = `${n.nombre}${n.telefono ? " · " + n.telefono : ""}${n.email ? " · " + n.email : ""}` +
+  /* MISMO formato que las consultas de Mercado Libre ("Contacto: Nombre · tel ·
+     mail"). La campanita saca de ahí el nombre para el titular y arma los botones
+     de WhatsApp, Llamar y Mail. Con el formato viejo (el nombre suelto al
+     principio) no lo reconocía: el aviso decía "Casas y Más" y no traía botones.
+     Los campos sueltos (leadNombre, userPhone...) van además del texto: son los
+     que manda el que no depende de adivinar con expresiones regulares. */
+  const texto = `Consulta de Casas y Más — Contacto: ${[n.nombre, n.telefono, n.email].filter(Boolean).join(" · ")}` +
                 (n.operacion ? ` · ${n.operacion}` : "") + (n.mensaje ? `\n${n.mensaje}` : "");
 
   /* Le llega al agente dueño y a la Dirección. Antes era solo al dueño: si el
@@ -3962,6 +3969,8 @@ async function cymProcesarConsulta(crudo, origen) {
     await crearNotificacion(u, {
       type: "lead_portal", propertyId: propDoc.id, propertyTitle: p.title || "",
       userName: "Casas y Más", text: texto,
+      leadNombre: n.nombre, userPhone: n.telefono || null, leadEmail: n.email || null,
+      leadMensaje: n.mensaje || null, leadFecha: n.fecha || null,
     }, { title: "Consulta de Casas y Más", body: `${n.nombre} — ${p.title || ""}` },
     `cym_${clave}_${u.uid}`);
   }

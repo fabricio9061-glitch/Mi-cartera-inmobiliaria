@@ -935,8 +935,30 @@
   // texto: nombre, teléfono y correo del interesado. Antes había que abrir la
   // notificación y copiar el número a mano, y encima el texto se cortaba justo
   // ahí. Esto lo saca afuera y lo deja a un toque.
+  // El agente que trabaja la propiedad: la Dirección recibe las de todo el equipo
+  // y sin esto no sabe de quién es hasta entrar.
+  function notifAgente(n) {
+    try {
+      const prop = (typeof properties !== 'undefined' && properties.length)
+        ? properties.find(p => p.id === n.propertyId) : null;
+      const uid = prop && prop.ownerId;
+      if (uid && uid !== (currentUser && currentUser.uid)) {
+        return (allUsers[uid] && (allUsers[uid].name || allUsers[uid].email)) || '';
+      }
+    } catch (e) { /* si no está cargada la propiedad, se omite */ }
+    return '';
+  }
   function notifDatos(n) {
     const txt = String(n.text || '');
+    /* Los avisos nuevos traen los datos del interesado en campos propios. Leerlos
+       de ahí es exacto; la lectura del texto de abajo queda para los avisos viejos
+       y para los portales que todavía no los mandan. */
+    if (n.leadNombre || n.leadEmail) {
+      return {
+        tel: n.userPhone || '', nombre: n.leadNombre || '', mail: n.leadEmail || '',
+        mensaje: n.leadMensaje || '', agente: notifAgente(n)
+      };
+    }
     let tel = n.userPhone || '';
     if (!tel) {
       // Se buscan tramos que parezcan número y se validan por sus dígitos, en vez
@@ -953,19 +975,10 @@
     const mm = txt.match(/Contacto:\s*([^·\n]+?)\s*[·\u00b7]/i);
     const nombre = mm ? mm[1].trim() : '';
     const me = txt.match(/[\w.+-]+@[\w-]+\.[\w.]+/);
-    const mail = me ? me[0] : '';
-    // El agente que trabaja la propiedad: el admin recibe las de todo el equipo y
-    // sin esto no sabe de quién es hasta entrar.
-    let agente = '';
-    try {
-      const prop = (typeof properties !== 'undefined' && properties.length)
-        ? properties.find(p => p.id === n.propertyId) : null;
-      const uid = prop && prop.ownerId;
-      if (uid && uid !== (currentUser && currentUser.uid)) {
-        agente = (allUsers[uid] && (allUsers[uid].name || allUsers[uid].email)) || '';
-      }
-    } catch (e) { /* si no está cargada la propiedad, se omite */ }
-    return { tel, nombre, mail, agente };
+    // El punto final de la oración quedaba pegado al mail ("...@hotmail.com."),
+    // así que el botón Mail abría una dirección inválida.
+    const mail = me ? me[0].replace(/\.+$/, '') : '';
+    return { tel, nombre, mail, mensaje: '', agente: notifAgente(n) };
   }
   /* Normaliza un teléfono a formato internacional para wa.me.
 
@@ -1255,7 +1268,7 @@
       const quien = d.nombre || n.userName;
       const via = d.nombre && n.userName && n.userName !== d.nombre ? ` <span class="notif-via">por ${mvEsc(n.userName)}</span>` : '';
       const resumen = d.nombre
-        ? [d.tel, d.mail].filter(Boolean).join(' · ')
+        ? [d.tel, d.mail].filter(Boolean).join(' · ') + (d.mensaje ? `\n${d.mensaje}` : '')
         : `${(n.text||'').substring(0,100)}${(n.text||'').length>100?'...':''}`;
       return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')">` +
         `<div class="notification-avatar">${n.userPhoto?`<img src="${n.userPhoto}" alt="">`:i}</div>` +
