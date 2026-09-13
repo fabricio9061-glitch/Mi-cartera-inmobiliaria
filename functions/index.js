@@ -3847,6 +3847,130 @@ exports.bajaEnCasasYMas = onCall(async (request) => {
 
    Público por necesidad. Guarda siempre el crudo en leadsPortales aunque el
    procesamiento falle, igual que el de InfoCasas. */
+/* ============================================================================
+   CONSULTAS DE CASAS Y MÁS — UN SOLO PROCESADOR, DOS FUENTES
+   ----------------------------------------------------------------------------
+   Hasta ahora las consultas dependían SOLO del callback (leadCasasYMas). Si el
+   callback no llega -porque la propiedad se publicó antes de que existiera la
+   URL, porque la firma no valida, o porque ellos no lo dispararon- la consulta
+   se pierde sin dejar rastro: el agente nunca se entera.
+
+   Ahora hay dos caminos que terminan en la MISMA función:
+     · el callback, que avisa al instante;
+     · un repaso programado (revisarConsultasCYM) que lee GET /consultas cada 10
+       minutos y levanta lo que el callback no trajo.
+
+   La deduplicación es por id_consulta y se hace con create() sobre
+   cymConsultasVistas/{id}: si el documento ya existe, la consulta ya se avisó.
+   Es atómico, así que el callback y el repaso pueden cruzarse sin duplicar nada.
+   ========================================================================== */
+
+// La respuesta del callback y la de GET /consultas no traen los mismos nombres.
+function cymNormalizarConsulta(c) {
+  const x = c || {};
+  return {
+    idConsulta: String(x.id_consulta || x.id || "").trim(),
+    cymId: String(x.id_propiedad || "").trim(),
+    idOrig: String(x.id_orig || "").trim(),
+    nombre: String(x.nombre || "").trim() || "Consulta sin nombre",
+    telefono: String(x.telefono || "").trim(),
+    email: String(x.email || "").trim(),
+    mensaje: String(x.mensaje || "").trim(),
+    operacion: String(x.operacion || "").trim(),
+    fecha: String(x.fecha || "").trim(),
+    respondida: !!(x.respuesta && x.respuesta.mensaje),
+  };
+}
+
+/* Busca la propiedad del CRM a la que corresponde una consulta.
+   Primero por cymId (el id que devolvió el alta). Si no aparece -por ejemplo, un
+   aviso cargado a mano en el portal, o uno que se republicó y cambió de id- se
+   intenta por nuestro propio código de referencia, que viaja en el alta como
+   id_orig y es el que se ve en el aviso (#MAL-XXXXX). */
+async function cymBuscarPropiedad(n) {
+  if (n.cymId) {
+    const q = await db.collection("properties").where("cymId", "==", n.cymId).limit(1).get();
+    if (!q.empty) return q.docs[0];
+  }
+  for (const code of [n.idOrig, n.cymId]) {
+    if (!code) continue;
+    const q = await db.collection("properties").where("ficha.PROPERTY_CODE", "==", code).limit(1).get();
+    if (!q.empty) return q.docs[0];
+    // id_orig puede ser directamente el id del documento (propiedades sin código).
+    const d = await db.doc(`properties/${code}`).get().catch(() => null);
+    if (d && d.exists) return d;
+  }
+  return null;
+}
+
+/* Procesa una consulta. Devuelve qué pasó, para que el llamador lo registre.
+   origen: "callback" | "repaso". */
+async function cymProcesarConsulta(crudo, origen) {
+  const n = cymNormalizarConsulta(crudo);
+  // Sin id no se puede deduplicar: se arma uno estable con lo que haya, para que
+  // dos entregas del mismo hecho no avisen dos veces.
+  const clave = n.idConsulta || `sinid_${n.cymId}_${n.fecha}_${n.email || n.telefono || n.nombre}`.slice(0, 300).replace(/[/\s]+/g, "_");
+
+  // Candado de una sola consulta: create() falla si ya existe.
+  try {
+    await db.doc(`cymConsultasVistas/${clave}`).create({
+      idConsulta: n.idConsulta || null, cymId: n.cymId || null,
+      fecha: n.fecha || null, origen, at: new Date().toISOString(),
+    });
+  } catch (e) {
+    if (e && (e.code === 6 || String(e.message).includes("ALREADY_EXISTS"))) {
+      return { estado: "duplicada", clave };
+    }
+    throw e;
+  }
+
+  const propDoc = await cymBuscarPropiedad(n);
+  if (!propDoc) {
+    /* La consulta existe pero no sabemos de qué propiedad es. Antes esto quedaba
+       en un log que nadie mira y el interesado se perdía. Ahora se le avisa a la
+       Dirección con los datos de contacto, que es lo que importa. */
+    logger.warn(`Casas y Más: consulta ${n.idConsulta || "(sin id)"} sin propiedad (id_propiedad ${n.cymId || "-"}, id_orig ${n.idOrig || "-"})`);
+    for (const u of await getDireccion()) {
+      await crearNotificacion(u, {
+        type: "lead_portal", propertyId: null, propertyTitle: "",
+        userName: "Casas y Más",
+        text: `Consulta sin propiedad identificada (${n.cymId || "sin id"}): ${n.nombre}` +
+              `${n.telefono ? " · " + n.telefono : ""}${n.email ? " · " + n.email : ""}` +
+              (n.mensaje ? `\n${n.mensaje}` : ""),
+      }, { title: "Consulta de Casas y Más", body: n.nombre }, `cymsp_${clave}_${u.uid}`);
+    }
+    await db.doc(`cymConsultasVistas/${clave}`).update({ sinPropiedad: true }).catch(() => {});
+    return { estado: "sin_propiedad", clave, cymId: n.cymId };
+  }
+
+  const p = propDoc.data();
+  const texto = `${n.nombre}${n.telefono ? " · " + n.telefono : ""}${n.email ? " · " + n.email : ""}` +
+                (n.operacion ? ` · ${n.operacion}` : "") + (n.mensaje ? `\n${n.mensaje}` : "");
+
+  /* Le llega al agente dueño y a la Dirección. Antes era solo al dueño: si el
+     agente no entraba al CRM en el día, la consulta quedaba sin responder y
+     nadie más se enteraba. Las consultas de portal son plata sobre la mesa. */
+  const destinos = [];
+  if (p.ownerId) {
+    const dueno = await db.doc(`users/${p.ownerId}`).get();
+    if (dueno.exists) destinos.push({ uid: p.ownerId, ...dueno.data() });
+  }
+  for (const u of await getDireccion()) {
+    if (!destinos.some((d) => d.uid === u.uid)) destinos.push(u);
+  }
+  for (const u of destinos) {
+    await crearNotificacion(u, {
+      type: "lead_portal", propertyId: propDoc.id, propertyTitle: p.title || "",
+      userName: "Casas y Más", text: texto,
+    }, { title: "Consulta de Casas y Más", body: `${n.nombre} — ${p.title || ""}` },
+    `cym_${clave}_${u.uid}`);
+  }
+  await db.doc(`cymConsultasVistas/${clave}`).update({ propertyId: propDoc.id }).catch(() => {});
+  await registrarLog(propDoc.id, `Casas y Más: consulta (${origen})`, true,
+    `${n.nombre}${n.telefono ? " · " + n.telefono : ""}`);
+  return { estado: "avisada", clave, propertyId: propDoc.id };
+}
+
 exports.leadCasasYMas = onRequest(async (req, res) => {
   if (req.method === "GET") { res.status(200).send("OK — receptor de consultas de Casas y Más activo (usar POST)"); return; }
   if (req.method !== "POST") { res.status(405).send("Método no permitido"); return; }
@@ -3870,13 +3994,14 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
     const firma = String(req.get("X-CasasYMas-Signature") || "");
     const ts = String(req.get("X-CasasYMas-Timestamp") || "");
     const crudo = req.rawBody ? req.rawBody.toString("utf8") : JSON.stringify(body);
-    if (!firma || !ts) { res.status(401).send("Falta la firma"); return; }
+    if (!firma || !ts) { await cymRegistrarRechazo(req, "sin_firma"); res.status(401).send("Falta la firma"); return; }
 
     // Ventana de 5 minutos: sin esto, alguien que capture un callback válido
     // puede reenviarlo indefinidamente y crearía consultas falsas.
     const edad = Math.abs(Date.now() / 1000 - Number(ts));
     if (!Number.isFinite(edad) || edad > 300) {
       logger.warn(`leadCasasYMas: timestamp fuera de ventana (${Math.round(edad)}s)`);
+      await cymRegistrarRechazo(req, "timestamp_vencido");
       res.status(401).send("Timestamp vencido");
       return;
     }
@@ -3889,6 +4014,7 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
     const a = Buffer.from(esperado, "utf8"), b = Buffer.from(recibida, "utf8");
     if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
       logger.warn("leadCasasYMas: firma inválida");
+      await cymRegistrarRechazo(req, "firma_invalida");
       res.status(401).send("Firma inválida");
       return;
     }
@@ -3899,7 +4025,7 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
   const clave = String(process.env.CYM_LEAD_KEY || "");
   if (clave) {
     const recibida = String((req.query && req.query.clave) || body.key || "");
-    if (recibida !== clave) { res.status(401).send("Clave inválida"); return; }
+    if (recibida !== clave) { await cymRegistrarRechazo(req, "clave_invalida"); res.status(401).send("Clave inválida"); return; }
   }
 
   let rawRef = null;
@@ -3915,56 +4041,192 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
   try {
     /* El callback NO tiene la misma forma que GET /consultas (confirmado por
        Casas y Más, 07/09/2026): el identificador viene como "id_consulta" y no
-       como "id", y no incluye la respuesta porque se dispara al crearse.
-       Antes se leía c.id, que llegaba vacío y rompía la deduplicación de
-       notificaciones: la misma consulta podía avisar varias veces.
-       Igual se aceptan las dos formas por si algún día lo unifican. */
+       como "id". Las dos formas las contempla cymNormalizarConsulta. */
     const c = body.consultas || body.consulta || body;
-    const idConsulta = String(c.id_consulta || c.id || "");
-    const cymId = String(c.id_propiedad || "");
-    const nombre = String(c.nombre || "").trim() || "Consulta sin nombre";
-    const telefono = String(c.telefono || "").trim();
-    const email = String(c.email || "").trim();
-    const mensaje = String(c.mensaje || "").trim();
-    const operacion = String(c.operacion || "").trim();
-
-    let propDoc = null;
-    if (cymId) {
-      const q = await db.collection("properties").where("cymId", "==", cymId).limit(1).get();
-      if (!q.empty) propDoc = q.docs[0];
-    }
+    const r = await cymProcesarConsulta(c, "callback");
     if (rawRef) {
       await rawRef.update({
-        procesado: true,
-        propertyId: propDoc ? propDoc.id : null,
-        cymId: cymId || null,
-        idConsulta: idConsulta || null,
+        procesado: true, resultado: r.estado,
+        propertyId: r.propertyId || null, idConsulta: r.clave || null,
       });
-    }
-    if (!propDoc) {
-      logger.warn(`leadCasasYMas: no encontré propiedad con cymId ${cymId}`);
-      return;
-    }
-    const p = propDoc.data();
-    const dueno = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
-    if (dueno && dueno.exists) {
-      await crearNotificacion(
-        { uid: p.ownerId, ...dueno.data() },
-        { type: "lead_portal", propertyId: propDoc.id, propertyTitle: p.title || "",
-          userName: "Casas y Más",
-          text: `${nombre}${telefono ? " · " + telefono : ""}${email ? " · " + email : ""}` +
-                (operacion ? ` · ${operacion}` : "") +
-                (mensaje ? `\n${mensaje}` : "") },
-        { title: "Consulta de Casas y Más", body: `${nombre} — ${p.title || ""}` },
-        // El id determinístico usa id_consulta: con c.id llegaba vacío y dos
-        // entregas del mismo aviso creaban dos notificaciones.
-        `cym_${idConsulta || cymId + "_" + Date.now()}_${p.ownerId}`
-      );
     }
   } catch (e) {
     logger.error("leadCasasYMas: error al procesar", e);
     if (rawRef) { try { await rawRef.update({ error: String(e.message || e) }); } catch (e2) { /* nada */ } }
   }
+});
+
+/* Un callback rechazado tiene que DEJAR RASTRO. Si no, un problema de firma se
+   ve exactamente igual que "nadie consultó todavía": silencio. Se guarda el
+   intento -sin procesarlo- y se le avisa a la Dirección una vez por día, porque
+   significa que hay consultas reales que no están entrando. */
+async function cymRegistrarRechazo(req, motivo) {
+  try {
+    const crudo = req.rawBody ? req.rawBody.toString("utf8").slice(0, 4000) : "";
+    await db.collection("leadsPortales").add({
+      fuente: "casasymas", recibido: new Date().toISOString(),
+      rechazado: true, motivo, procesado: false,
+      headers: {
+        firma: String(req.get("X-CasasYMas-Signature") || ""),
+        timestamp: String(req.get("X-CasasYMas-Timestamp") || ""),
+        // Sirve para ver si mandan los headers con OTRO nombre.
+        presentes: Object.keys(req.headers || {}).filter((h) => /casas|sign|token|hmac/i.test(h)),
+      },
+      crudo,
+    });
+    const hoy = new Date().toISOString().slice(0, 10);
+    for (const u of await getDireccion()) {
+      await crearNotificacion(u, {
+        type: "portal_error", userName: "Casas y Más",
+        text: `Llegó una consulta de Casas y Más y el CRM la rechazó (${motivo}). ` +
+              "No se está avisando al agente por esta vía. Revisá CYM_CALLBACK_SECRET.",
+      }, { title: "Casas y Más", body: "Consulta rechazada por validación" },
+      `cymrech_${hoy}_${motivo}_${u.uid}`);
+    }
+  } catch (e) { logger.warn("cymRegistrarRechazo:", e.message); }
+}
+
+/* ---------------------------------------------------------------------------
+   REPASO PROGRAMADO DE CONSULTAS
+   Red de seguridad del callback. Lee GET /consultas y avisa lo que no se avisó.
+
+   La PRIMERA corrida no notifica nada: marca como vistas las consultas que ya
+   existían. Si no, al desplegar esto saldrían de golpe avisos de todas las
+   consultas históricas del portal.
+   --------------------------------------------------------------------------- */
+const CYM_REPASO_DIAS = 15;   // ventana de consultas a mirar en cada corrida
+
+async function cymRepasarConsultas(origen) {
+  if (!CYM_API_KEY) return { ok: false, mensaje: "Falta CYM_API_KEY." };
+  const r = await cymFetch("/consultas", null, "GET");
+  if (!r.ok) {
+    logger.warn(`cymRepasarConsultas: ${r.codigo} ${r.mensaje}`);
+    return { ok: false, codigo: r.codigo, mensaje: r.mensaje };
+  }
+  const c = r.data && r.data.consultas;
+  const lista = Array.isArray(c) ? c : (c ? [c] : []);
+
+  const marcaRef = db.doc("adminData/cymRepasoConsultas");
+  const marca = await marcaRef.get();
+  const primera = !marca.exists;
+
+  // Solo las recientes: las viejas ya se avisaron o quedaron marcadas.
+  const desde = new Date(Date.now() - CYM_REPASO_DIAS * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const recientes = lista.filter((x) => String((x && x.fecha) || "").slice(0, 10) >= desde);
+
+  const res = { ok: true, total: lista.length, revisadas: recientes.length, avisadas: 0, duplicadas: 0, sinPropiedad: 0, primera };
+  for (const x of recientes) {
+    try {
+      if (primera) {
+        // Silenciosa: se marcan como vistas sin notificar.
+        const n = cymNormalizarConsulta(x);
+        const clave = n.idConsulta || `sinid_${n.cymId}_${n.fecha}_${n.email || n.telefono || n.nombre}`.slice(0, 300).replace(/[/\s]+/g, "_");
+        await db.doc(`cymConsultasVistas/${clave}`).create({
+          idConsulta: n.idConsulta || null, cymId: n.cymId || null, fecha: n.fecha || null,
+          origen: "inicial", at: new Date().toISOString(),
+        }).catch(() => {});
+        continue;
+      }
+      const out = await cymProcesarConsulta(x, origen || "repaso");
+      if (out.estado === "avisada") res.avisadas++;
+      else if (out.estado === "duplicada") res.duplicadas++;
+      else if (out.estado === "sin_propiedad") res.sinPropiedad++;
+    } catch (e) {
+      logger.error("cymRepasarConsultas: consulta con error", e);
+    }
+  }
+  await marcaRef.set({
+    ultimoAt: new Date().toISOString(), ultimoTotal: lista.length,
+    ultimoAvisadas: res.avisadas, ultimoOrigen: origen || "repaso",
+  }, { merge: true });
+  if (res.avisadas) {
+    logger.info(`cymRepasarConsultas: ${res.avisadas} consulta(s) que el callback no trajo.`);
+  }
+  return res;
+}
+
+/* Cada 10 minutos. Es una sola llamada a la API del portal por corrida. */
+exports.revisarConsultasCYM = onSchedule(
+  { schedule: "*/10 * * * *", timeZone: "America/Montevideo", timeoutSeconds: 300 },
+  async () => { await cymRepasarConsultas("repaso"); },
+);
+
+/* Mismo repaso, a pedido de la Dirección desde el CRM. */
+exports.repasarConsultasCYM = onCall({ timeoutSeconds: 300 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  return await cymRepasarConsultas("manual");
+});
+
+/* ---------------------------------------------------------------------------
+   DIAGNÓSTICO: por qué no llegan las consultas
+   Responde las tres preguntas de una, sin tener que mirar logs:
+     1. ¿Hay consultas en el portal?
+     2. ¿Llegó alguna vez un callback? ¿Se rechazó alguno?
+     3. ¿Los avisos publicados tienen registrada la URL del callback?
+   --------------------------------------------------------------------------- */
+exports.cymDiagnostico = onCall({ timeoutSeconds: 300 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const out = {
+    configuracion: {
+      callbackUrl: CYM_CALLBACK_URL || null,
+      secretoConfigurado: !!process.env.CYM_CALLBACK_SECRET,
+      claveConfigurada: !!process.env.CYM_LEAD_KEY,
+    },
+  };
+
+  // 1. Consultas que el portal tiene registradas.
+  const r = await cymFetch("/consultas", null, "GET");
+  if (r.ok) {
+    const c = r.data && r.data.consultas;
+    const lista = Array.isArray(c) ? c : (c ? [c] : []);
+    const ult = lista.slice().sort((a, b) => String(b.fecha || "").localeCompare(String(a.fecha || "")));
+    out.portal = {
+      consultas: lista.length,
+      ultima: ult[0] ? { fecha: ult[0].fecha || null, propiedad: ult[0].id_propiedad || null, nombre: ult[0].nombre || null } : null,
+      // Nombres de campo reales de la respuesta: si cambian, se ve acá.
+      camposDeUna: ult[0] ? Object.keys(ult[0]) : null,
+    };
+  } else {
+    out.portal = { error: r.mensaje, codigo: r.codigo };
+  }
+
+  // 2. Qué recibió nuestro endpoint.
+  const leads = await db.collection("leadsPortales").where("fuente", "==", "casasymas").get();
+  const rech = leads.docs.filter((d) => d.data().rechazado);
+  const ok = leads.docs.filter((d) => !d.data().rechazado);
+  const fechas = (arr) => arr.map((d) => d.data().recibido || "").sort();
+  out.callbacks = {
+    recibidos: ok.length,
+    ultimoRecibido: fechas(ok).slice(-1)[0] || null,
+    rechazados: rech.length,
+    ultimoRechazo: rech.length ? { at: fechas(rech).slice(-1)[0], motivo: rech[rech.length - 1].data().motivo } : null,
+    // Qué headers de firma llegaron: si viene vacío, no están firmando.
+    headersDelUltimoRechazo: rech.length ? rech[rech.length - 1].data().headers || null : null,
+  };
+
+  // 3. Avisos publicados y si el portal los tiene con callback.
+  const props = await db.collection("properties").where("cymEstado", "==", "publicado").get();
+  out.propiedades = { publicadas: props.size, conCymId: props.docs.filter((d) => d.data().cymId).length };
+
+  const marca = await db.doc("adminData/cymRepasoConsultas").get();
+  out.repaso = marca.exists ? marca.data() : { pendiente: "todavía no corrió" };
+
+  out.pista = !out.portal.consultas
+    ? "El portal no registra ninguna consulta: por ahí las visitas usan los botones de teléfono y WhatsApp, que NO generan consulta."
+    : out.callbacks.rechazados
+      ? "Llegaron callbacks y se rechazaron por validación: revisá CYM_CALLBACK_SECRET."
+      : out.callbacks.recibidos
+        ? "El callback funciona."
+        : "Hay consultas en el portal pero nunca llegó un callback: el repaso programado las levanta igual.";
+  return out;
 });
 
 /* Obtiene el callback_secret de Casas y Más.

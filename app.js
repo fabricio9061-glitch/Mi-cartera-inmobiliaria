@@ -1990,7 +1990,7 @@
   function portalCard(c) {
     const cap = c.capacidades || {};
     const busy = _portalBusy[c.key];
-    const textoBusy = busy === 'baja' ? 'Dando de baja…' : 'Publicando…';
+    const textoBusy = busy === 'baja' ? 'Dando de baja…' : busy === 'consultas' ? 'Buscando…' : 'Publicando…';
     const estado = busy ? { tono: 'busy', texto: textoBusy } : (c.estado || { tono: 'off', texto: '—' });
     const pill = `<span class="pc-pill ${estado.tono}">${estado.tono === 'busy' ? '<i class="fas fa-spinner fa-spin"></i>' : '<span class="dot"></span>'}${mvEsc(estado.texto)}</span>`;
     const nota = (n) => `<div class="ml-note ${n.tono === 'err' ? 'warn' : n.tono}"${n.tono === 'err' ? ' style="background:#fdeced;border-color:#f5c6c6;color:#a93226"' : ''}><i class="fas ${n.icono || PC_ICONO[n.tono] || 'fa-circle-info'}"${n.tono === 'err' ? ' style="color:#c0392b"' : ''}></i><div>${n.html != null ? n.html : mvEsc(n.texto)}</div></div>`;
@@ -2163,8 +2163,11 @@
       if (err) cfg.notas.push({ tono: 'warn', texto: err.mensaje });
       cfg.acciones = [
         { texto: 'Ver aviso', icono: 'fa-external-link-alt', href: `https://casasymas.com.uy/propiedad/${encodeURIComponent(p.cymId)}`, cap: 'canViewExternalListing' },
-        accion('republicar', 'Republicar', 'fa-rotate-right', noAparece || err ? 'primary' : 'ghost', 'canRepublish')
-      ];
+        accion('republicar', 'Republicar', 'fa-rotate-right', noAparece || err ? 'primary' : 'ghost', 'canRepublish'),
+        // Para Dirección: lee las consultas del portal sin esperar los 10 minutos
+        // del repaso automático.
+        admin && accion('consultas', 'Buscar consultas', 'fa-comments', 'ghost', 'canUpdate')
+      ].filter(Boolean);
       return portalCard(cfg);
     }
 
@@ -2215,7 +2218,7 @@
      deshabilitados (no hay doble clic posible). Al terminar: un aviso claro
      dentro de la tarjeta, y los datos se releen del servidor. */
   const PORTAL_ACCIONES = {
-    casasymas: { publicar: 'publicarEnCasasYMas', republicar: 'publicarEnCasasYMas' },
+    casasymas: { publicar: 'publicarEnCasasYMas', republicar: 'publicarEnCasasYMas', consultas: 'repasarConsultasCYM' },
     infocasas: { republicar: 'editarEnInfocasas' }
   };
   function repintarPortal(portal) {
@@ -2243,7 +2246,12 @@
     let flash;
     try {
       const d = (await firebase.functions().httpsCallable(fn)({ propertyId: pid })).data || {};
-      if (d.ok && d.fotosOk === false) flash = { tono: 'warn', texto: `Quedó publicada en ${nombre}, pero las fotos no se pudieron subir. Probá republicar.` };
+      /* Buscar consultas no publica nada: lee las que el portal tiene y avisa las
+         que no hubieran llegado por el callback. */
+      if (accion === 'consultas' && d.ok) flash = d.avisadas
+        ? { tono: 'ok', texto: `Encontramos ${d.avisadas} consulta${d.avisadas === 1 ? '' : 's'} que no había llegado. Ya está en la campanita.` }
+        : { tono: 'info', texto: d.primera ? 'Primer repaso: quedaron registradas las consultas que ya existían. Las próximas se avisan solas.' : `Sin consultas nuevas. El portal tiene ${d.total || 0} en total.` };
+      else if (d.ok && d.fotosOk === false) flash = { tono: 'warn', texto: `Quedó publicada en ${nombre}, pero las fotos no se pudieron subir. Probá republicar.` };
       else if (d.ok) flash = { tono: 'ok', texto: accion === 'republicar' ? `Listo: el aviso en ${nombre} quedó actualizado.` : `Listo: la propiedad ya está publicada en ${nombre}.` };
       else if (d.enCurso) flash = { tono: 'info', texto: d.mensaje || `Ya se está publicando en ${nombre}.` };
       else if (d.faltan && d.faltan.length) flash = { tono: 'warn', texto: 'No se envió nada: faltan datos (abajo te decimos cuáles).' };
