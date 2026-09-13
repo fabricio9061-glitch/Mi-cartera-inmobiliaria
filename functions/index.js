@@ -26,6 +26,7 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 // los de v1, que conviven sin problema con las funciones v2 de este archivo.
 const functionsV1 = require("firebase-functions/v1");
 const { setGlobalOptions } = require("firebase-functions/v2");
+const crypto = require("crypto");   // firma HMAC del callback de Casas y Más
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const axios = require("axios");
@@ -3851,6 +3852,50 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
   if (req.method !== "POST") { res.status(405).send("Método no permitido"); return; }
 
   const body = (typeof req.body === "object" && req.body) || {};
+
+  /* VALIDACIÓN DE FIRMA (Casas y Más, 12/09/2026).
+     Mandan dos headers: X-CasasYMas-Timestamp y X-CasasYMas-Signature, este
+     último con formato sha256=<hash>. Se firma HMAC-SHA256 sobre el string
+     "{timestamp}.{body}" con el callback_secret.
+
+     Se usa req.rawBody y NO JSON.stringify(req.body): Cloud Functions ya parseó
+     el cuerpo, y volver a serializarlo puede cambiar el orden de las claves o
+     los espacios, con lo cual la firma NUNCA coincidiría. rawBody es el buffer
+     original tal cual llegó, que es sobre lo que ellos firmaron.
+
+     Es OPCIONAL: mientras CYM_CALLBACK_SECRET esté vacío, las consultas se
+     aceptan igual que antes. Así configurarlo no interrumpe el servicio. */
+  const secret = String(process.env.CYM_CALLBACK_SECRET || "");
+  if (secret) {
+    const firma = String(req.get("X-CasasYMas-Signature") || "");
+    const ts = String(req.get("X-CasasYMas-Timestamp") || "");
+    const crudo = req.rawBody ? req.rawBody.toString("utf8") : JSON.stringify(body);
+    if (!firma || !ts) { res.status(401).send("Falta la firma"); return; }
+
+    // Ventana de 5 minutos: sin esto, alguien que capture un callback válido
+    // puede reenviarlo indefinidamente y crearía consultas falsas.
+    const edad = Math.abs(Date.now() / 1000 - Number(ts));
+    if (!Number.isFinite(edad) || edad > 300) {
+      logger.warn(`leadCasasYMas: timestamp fuera de ventana (${Math.round(edad)}s)`);
+      res.status(401).send("Timestamp vencido");
+      return;
+    }
+
+    const esperado = crypto.createHmac("sha256", secret)
+      .update(`${ts}.${crudo}`).digest("hex");
+    const recibida = firma.replace(/^sha256=/, "");
+    // Comparación en tiempo constante: comparar con === filtra información sobre
+    // el hash por el tiempo que tarda en fallar.
+    const a = Buffer.from(esperado, "utf8"), b = Buffer.from(recibida, "utf8");
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      logger.warn("leadCasasYMas: firma inválida");
+      res.status(401).send("Firma inválida");
+      return;
+    }
+  }
+
+  // Clave por query o cuerpo: quedó de antes de que existiera la firma. Se
+  // mantiene por si se prefiere ese método, pero la firma es lo bueno.
   const clave = String(process.env.CYM_LEAD_KEY || "");
   if (clave) {
     const recibida = String((req.query && req.query.clave) || body.key || "");
@@ -3920,6 +3965,49 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
     logger.error("leadCasasYMas: error al procesar", e);
     if (rawRef) { try { await rawRef.update({ error: String(e.message || e) }); } catch (e2) { /* nada */ } }
   }
+});
+
+/* Obtiene el callback_secret de Casas y Más.
+
+   Se consigue haciendo POST /modificar_inmobiliaria con la url_callback_consultas
+   ya configurada: la respuesta trae el secreto.
+
+   ⚠️  ES FIJO Y NO SE REGENERA. Aunque se vuelva a llamar al endpoint, sigue
+   siendo el mismo, así que hay que guardarlo bien la primera vez. Por eso esta
+   función además lo deja en adminData/cymSecret: si se pierde el .env, el valor
+   no se perdió.
+
+   Solo la Dirección, y el secreto vuelve completo una sola vez para copiarlo. */
+exports.cymObtenerSecret = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const url = String((request.data && request.data.url) || CYM_CALLBACK_URL || "");
+  if (!url) {
+    throw new HttpsError("failed-precondition",
+      "Falta la URL del callback. Cargá CYM_CALLBACK_URL en el .env o pasala como 'url'.");
+  }
+  const r = await cymFetch("/modificar_inmobiliaria", { url_callback_consultas: url });
+  if (!r.ok) {
+    return { ok: false, codigo: r.codigo, mensaje: r.mensaje, detalle: r.data };
+  }
+  const secret = String(r.data.callback_secret || "");
+  if (secret) {
+    try {
+      await db.doc("adminData/cymSecret").set({
+        secret, url, obtenidoAt: new Date().toISOString(), por: request.auth.uid,
+      });
+    } catch (e) { logger.warn("cymObtenerSecret: no se pudo guardar", e.message); }
+  }
+  return {
+    ok: true, url, secret,
+    pista: secret
+      ? "Copiá el secreto a CYM_CALLBACK_SECRET en functions/.env y redesplegá leadCasasYMas."
+      : "La respuesta no trajo callback_secret. Revisá el crudo.",
+    crudo: r.data,
+  };
 });
 
 /* Explorador de solo lectura para Casas y Más, equivalente a icGet.
