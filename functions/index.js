@@ -355,6 +355,90 @@ exports.mlNotificaciones = onRequest(async (req, res) => {
 });
 
 // Procesa cada evento guardado: resuelve el recurso en la API de ML, encuentra la
+/* El detalle de contacto de un lead de Mercado Libre no siempre llega con la
+   misma forma: a veces el teléfono es un texto, a veces un objeto
+   {area_code, number}, y a veces todo viene anidado dentro de "contact" o
+   "contact_info". Leer solo el nivel de arriba hacía que en algunos avisos el
+   teléfono quedara vacío y la notificación saliera sin los botones de WhatsApp y
+   Llamar, aunque el dato estuviera. Esto lo busca en todas esas formas. */
+function mlValorContacto(obj, claves) {
+  const cajas = [obj, obj && obj.contact, obj && obj.contact_info, obj && obj.lead,
+    obj && obj.buyer, obj && obj.sender, obj && obj.client].filter((c) => c && typeof c === "object");
+  for (const caja of cajas) {
+    for (const k of claves) {
+      const v = caja[k];
+      if (v == null || v === "") continue;
+      if (typeof v === "string" || typeof v === "number") return String(v).trim();
+      if (typeof v === "object") {
+        // Teléfono partido: { area_code: "98", number: "660754" }.
+        const num = [v.area_code, v.number, v.phone, v.value].filter(Boolean).join("");
+        if (num) return String(num).trim();
+      }
+    }
+  }
+  return "";
+}
+function mlContactoDeLead(l) {
+  const tel = mlValorContacto(l, ["phone", "contact_phone", "telephone", "cellphone", "mobile", "alternative_phone"]);
+  return {
+    nombre: mlValorContacto(l, ["name", "contact_name", "full_name", "first_name", "nickname"]),
+    telefono: tel.replace(/[^\d+]/g, "").length >= 8 ? tel : "",
+    email: mlValorContacto(l, ["email", "contact_email", "mail"]),
+  };
+}
+
+/* ---------------------------------------------------------------------------
+   VERIFICAR QUÉ MANDÓ MERCADO LIBRE EN CADA LEAD
+   Cuando una consulta llega sin teléfono hay dos explicaciones posibles: que la
+   persona no lo dejó, o que nosotros no lo leímos. Sin esto es imposible saber
+   cuál: el detalle del lead no queda guardado en ninguna parte.
+
+   Consulta /vis/users/{id}/leads/buyers, que devuelve los interesados con sus
+   datos de contacto, y muestra CRUDO qué campos vinieron con valor. Es solo de
+   lectura: no crea ni cambia nada.
+   --------------------------------------------------------------------------- */
+exports.mlVerificarLeads = onCall({ timeoutSeconds: 120 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const dias = Math.min(Math.max(Number((request.data && request.data.dias) || 7), 1), 60);
+  const token = await getValidToken();
+  const headers = { Authorization: `Bearer ${token}` };
+  const me = (await axios.get(`${API}/users/me`, { headers })).data;
+  const hasta = new Date(), desde = new Date(Date.now() - dias * 24 * 3600 * 1000);
+  const f = (d) => d.toISOString().slice(0, 10);
+  const url = `${API}/vis/users/${me.id}/leads/buyers?limit=50&offset=0` +
+              `&date_from=${f(desde)}&date_to=${f(hasta)}&include_guest=true`;
+  try {
+    const r = (await axios.get(url, { headers })).data || {};
+    const filas = (r.results || []).map((b) => ({
+      nombre: b.name || null,
+      email: b.email || null,
+      // Lo que importa: si ML entregó el teléfono o no. Se muestra tal cual vino.
+      telefono: b.phone || null,
+      tieneTelefono: !!b.phone,
+      tipos: (b.leads || []).map((l) => l.contact_type || l.channel).filter(Boolean),
+      fechas: (b.leads || []).map((l) => l.created_at).filter(Boolean),
+      itemIds: (b.leads || []).map((l) => l.item_id).filter(Boolean),
+      // Por si algún día mandan el dato con otro nombre.
+      camposDelBuyer: Object.keys(b),
+    }));
+    return {
+      ok: true, desde: f(desde), hasta: f(hasta), total: r.paging ? r.paging.total : filas.length,
+      conTelefono: filas.filter((x) => x.tieneTelefono).length,
+      sinTelefono: filas.filter((x) => !x.tieneTelefono).length,
+      leads: filas,
+    };
+  } catch (e) {
+    const det = e.response ? JSON.stringify(e.response.data).slice(0, 400) : String(e.message);
+    logger.warn("[mlVerificarLeads]", det);
+    // El 403 acá es el mismo permiso de inmobiliaria que ya falta para métricas.
+    return { ok: false, status: e.response ? e.response.status : null, detalle: det };
+  }
+});
+
 // propiedad por su aviso y le crea la notificación (app + push) al agente dueño.
 exports.procesarEventoML = onDocumentCreated("mlEventos/{id}", async (event) => {
   const snap = event.data;
@@ -396,7 +480,7 @@ exports.procesarEventoML = onDocumentCreated("mlEventos/{id}", async (event) => 
     const token = await getValidToken();
     const headers = { Authorization: `Bearer ${token}` };
 
-    let itemId = null, texto = "", titulo = "";
+    let itemId = null, texto = "", titulo = "", contacto = { nombre: "", telefono: "", email: "" }, camposLead = null;
     if (topic.startsWith("questions")) {
       const q = (await axios.get(`${API}${resource}`, { headers })).data || {};
       itemId = q.item_id;
@@ -410,9 +494,16 @@ exports.procesarEventoML = onDocumentCreated("mlEventos/{id}", async (event) => 
       try {
         const l = (await axios.get(`${API}${resource}`, { headers })).data || {};
         itemId = l.item_id || (l.item && l.item.id) || null;
-        const quien = [l.name || l.contact_name, l.phone || l.contact_phone, l.email || l.contact_email]
-          .filter(Boolean).join(" · ");
+        contacto = mlContactoDeLead(l);
+        const quien = [contacto.nombre, contacto.telefono, contacto.email].filter(Boolean).join(" · ");
         if (quien) texto = `Contacto: ${quien}`;
+        /* Si un lead llega sin teléfono, queda registrado con qué campos vino.
+           Así se distingue "la persona no dejó teléfono" de "lo mandaron con otro
+           nombre de campo", sin tener que esperar al siguiente. */
+        if (!contacto.telefono) {
+          camposLead = Object.keys(l).slice(0, 40);
+          logger.info(`[procesarEventoML] lead sin teléfono. Campos: ${camposLead.join(", ")}`);
+        }
       } catch (e) { /* sin permiso todavía: se notifica sin detalle */ }
     }
     if (!itemId) { const m = resource.match(/MLU\d+/); if (m) itemId = m[0]; }
@@ -429,6 +520,10 @@ exports.procesarEventoML = onDocumentCreated("mlEventos/{id}", async (event) => 
       userName: "Mercado Libre",
       userPhoto: null,
       text: `${titulo}${texto ? " — " + texto : ""}. Respondé desde la cuenta de Mercado Libre.`,
+      // Campos sueltos: la campanita arma los botones con esto y no leyendo el texto.
+      leadNombre: contacto.nombre || null,
+      userPhone: contacto.telefono || null,
+      leadEmail: contacto.email || null,
     };
     const push = { title: "📩 " + titulo, body: `${p.title || "Propiedad"}${texto ? " — " + texto.slice(0, 90) : ""}` };
     const destinos = [];
@@ -449,7 +544,10 @@ exports.procesarEventoML = onDocumentCreated("mlEventos/{id}", async (event) => 
     for (const d of destinos) {
       await crearNotificacion(d, aviso, push, `${claveRecurso}__${d.uid}`);
     }
-    await snap.ref.update({ estado: "procesado", itemId, propertyId: pDoc.id, agente: p.ownerId || null });
+    await snap.ref.update({
+      estado: "procesado", itemId, propertyId: pDoc.id, agente: p.ownerId || null,
+      contacto, camposLead: camposLead || null,
+    });
     logger.info(`[procesarEventoML] ${topic} -> ${itemId} -> "${p.title || pDoc.id}" (${destinos.length} destinos)`);
   } catch (e) {
     const detail = e.response ? JSON.stringify(e.response.data) : e.message;
