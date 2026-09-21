@@ -1333,7 +1333,12 @@ async function resolveMLLocation(p, token) {
     //    del departamento y tratar el valor del campo como barrio.
     if (!city) {
       city = cities.find((c) => norm(c.name) === norm(departamento)) || (cities.length === 1 ? cities[0] : null);
-      if (city && !barrio) barrio = ciudadCampo;
+      /* Lo que escribió el AGENTE manda sobre el barrio del geocodificador.
+         Antes era `if (!barrio) barrio = ciudadCampo`: el valor del agente solo
+         se usaba si NO había barrio del mapa, y casi siempre lo hay. Y el del
+         mapa se equivoca: una propiedad de la Unión venía como "Malvín Norte".
+         Es el mismo error que se corrigió en icZona y cymResolverZona. */
+      if (city && ciudadCampo) barrio = ciudadCampo;
     }
     if (!city) return loc;
     loc.city = { id: city.id };
@@ -1343,9 +1348,13 @@ async function resolveMLLocation(p, token) {
         _locCache.barrios.set(city.id, (await axios.get(`${API}/classified_locations/cities/${city.id}`, { headers })).data.neighborhoods || []);
       }
       const bs = _locCache.barrios.get(city.id);
+      /* Coincidencia exacta primero. La búsqueda por parecido se deja solo si
+         el nombre del portal CONTIENE al nuestro (La Paloma -> La Paloma
+         Tomkinson), no al revés: "puerto buceo".includes("buceo") mandaba una
+         propiedad de Puerto Buceo al barrio Buceo, que es otro. */
       const b =
         bs.find((x) => norm(x.name) === norm(barrio)) ||
-        bs.find((x) => norm(x.name).includes(norm(barrio)) || norm(barrio).includes(norm(x.name)));
+        bs.find((x) => norm(x.name).startsWith(norm(barrio) + " "));
       loc.neighborhood = b ? { id: b.id } : { name: barrio };
     }
     return loc;
@@ -4602,6 +4611,112 @@ exports.buscarZonasFaltantes = onCall({ timeoutSeconds: 120 }, async (request) =
   return {
     catalogos: { infocasas: icItems.length, casasymas: cymItems.length },
     resultados,
+  };
+});
+
+/* Revisa la LISTA de barrios del CRM contra los tres portales.
+
+   A diferencia de revisarBarrios -que mira las propiedades cargadas-, esta mira
+   las opciones que el agente puede elegir en el formulario. Si un barrio de la
+   lista no existe en un portal, la próxima propiedad que lo use va a publicarse
+   mal o no publicarse, aunque hoy ninguna lo tenga.
+
+   Recibe { lista: { "Montevideo": ["Aguada", ...], ... } } y por cada barrio dice:
+     · InfoCasas:     ok / comodín (cae a la zona genérica del departamento)
+     · Casas y Más:   ok / falla (no se puede publicar)
+     · Mercado Libre: ok / parecido / libre (ML recibe el nombre como texto y lo
+                      interpreta él, sin garantía)
+   Consulta la API de ubicaciones de Mercado Libre, así que tarda un poco.
+   Solo lee. */
+exports.revisarListaBarrios = onCall({ timeoutSeconds: 300 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const lista = (request.data && request.data.lista) || {};
+  if (typeof lista !== "object" || !Object.keys(lista).length) {
+    throw new HttpsError("invalid-argument", "Pasá lista: { departamento: [barrios] }.");
+  }
+
+  // Casas y Más: catálogo + mapa manual
+  const cymPorDep = {};
+  const cb = db.doc("adminData/cymZonas");
+  if ((await cb.get()).exists) {
+    for (const d of (await cb.collection("lotes").get()).docs) {
+      for (const z of (d.data().items || [])) {
+        (cymPorDep[z.depId] = cymPorDep[z.depId] || {})[icNorm(z.nombre)] = z.id;
+      }
+    }
+  }
+  const man = await db.doc("adminData/cymZonasManual").get();
+  const cymManual = man.exists ? (man.data().mapa || {}) : {};
+
+  // Mercado Libre: estados, ciudades y barrios
+  let mlStates = [];
+  const mlCities = new Map(), mlBarrios = new Map();
+  let mlError = null, headers = null;
+  try {
+    const token = await getValidToken();
+    headers = { Authorization: `Bearer ${token}` };
+    mlStates = (await axios.get(`${API}/classified_locations/countries/UY`, { headers })).data.states || [];
+  } catch (e) { mlError = String(e.message || e); }
+
+  const problemas = [];
+  let total = 0;
+  for (const [dep, barrios] of Object.entries(lista)) {
+    const depId = IC_DEPTOS[icNorm(dep)];
+    const zic = (depId && IC_ZONAS[depId]) || {};
+    const zcym = (depId && cymPorDep[String(depId)]) || {};
+
+    // ML: ciudades del departamento y su ciudad homónima
+    let cities = [], homonima = null, barriosHom = [];
+    if (!mlError) {
+      const st = mlStates.find((x) => icNorm(x.name) === icNorm(dep));
+      if (st) {
+        try {
+          if (!mlCities.has(st.id)) {
+            mlCities.set(st.id, (await axios.get(`${API}/classified_locations/states/${st.id}`, { headers })).data.cities || []);
+          }
+          cities = mlCities.get(st.id);
+          homonima = cities.find((c) => icNorm(c.name) === icNorm(dep)) || (cities.length === 1 ? cities[0] : null);
+          if (homonima) {
+            if (!mlBarrios.has(homonima.id)) {
+              mlBarrios.set(homonima.id, (await axios.get(`${API}/classified_locations/cities/${homonima.id}`, { headers })).data.neighborhoods || []);
+            }
+            barriosHom = mlBarrios.get(homonima.id);
+          }
+        } catch (e) { /* un departamento que falla no frena al resto */ }
+      }
+    }
+
+    for (const b of (barrios || [])) {
+      total++;
+      const n = icNorm(b);
+      const ic = zic[n] != null ? "ok" : "comodín";
+      const mc = cymManual[n];
+      const cym = ((mc && String(mc.depId) === String(depId)) || zcym[n]) ? "ok" : "falla";
+      let ml = "sin datos";
+      if (!mlError) {
+        if (cities.some((c) => icNorm(c.name) === n)) ml = "ok";
+        else if (barriosHom.some((x) => icNorm(x.name) === n)) ml = "ok";
+        else if (barriosHom.some((x) => icNorm(x.name).startsWith(n + " "))) ml = "parecido";
+        else ml = "libre";
+      }
+      if (ic !== "ok" || cym !== "ok" || (ml !== "ok" && ml !== "sin datos")) {
+        problemas.push({ departamento: dep, barrio: b, infocasas: ic, casasymas: cym, mercadolibre: ml });
+      }
+    }
+  }
+
+  return {
+    total, conProblemas: problemas.length, mlError,
+    resumen: {
+      infocasasComodin: problemas.filter((x) => x.infocasas === "comodín").length,
+      casasymasFalla: problemas.filter((x) => x.casasymas === "falla").length,
+      mercadolibreLibre: problemas.filter((x) => x.mercadolibre === "libre").length,
+    },
+    problemas,
   };
 });
 
