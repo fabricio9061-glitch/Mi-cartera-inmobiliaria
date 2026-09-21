@@ -3857,7 +3857,15 @@
       if (!u) { showState('ppfAuth'); return }
       currentUser = u;
       try { const d = await db.collection('users').doc(u.uid).get(); userProfile = d.exists ? d.data() : {} } catch (e) { userProfile = {} }
-      const isAdmin = (userProfile.email || u.email || '').toLowerCase() === ADMIN_EMAIL;
+      /* Dirección = CEO y COO. Antes solo comparaba el correo del CEO, así que la
+         COO veía "No tenés permiso para editar esta propiedad" aunque las reglas
+         de Firestore sí la dejan guardar (esDireccion incluye 'coo').
+         Es el mismo error que ya se había corregido en app.js (canEditProperty)
+         y que acá quedó sin corregir. Esta página no carga rangos.js, por eso se
+         mira el rango directo. */
+      const _rango = String(userProfile.rank || '').toLowerCase();
+      const isAdmin = (userProfile.email || u.email || '').toLowerCase() === ADMIN_EMAIL
+        || ((_rango === 'ceo' || _rango === 'coo') && userProfile.status === 'approved');
       if (userProfile.status !== 'approved' && !isAdmin) { showState('ppfAuth', { title: 'Cuenta pendiente', msg: 'Tu cuenta está pendiente de aprobación.' }); return }
       initDepartamentos();
       renderFicha();
