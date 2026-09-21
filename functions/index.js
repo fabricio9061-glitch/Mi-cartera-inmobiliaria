@@ -4539,6 +4539,103 @@ exports.icVincularAgentes = onCall(async (request) => {
   };
 });
 
+/* Revisión de barrios: qué propiedades tienen un barrio que no encuentra zona.
+
+   El problema que resuelve: cuando el barrio no coincide con nada, icZona NO
+   falla, cae en silencio a la zona genérica del departamento (IC_ZONA_DEFAULT:
+   para Canelones es la 140). La propiedad se publica, pero en una zona que no es
+   la suya, y nadie se entera. Así pasó con "Costa de Oro", que no es un barrio
+   sino una región.
+
+   Por cada propiedad dice cómo se resolvió la zona en cada portal:
+     · "ciudad"   -> coincidió el campo Ciudad/Barrio que escribe el agente. Bien.
+     · "barrio"   -> solo coincidió el barrio que estimó el geocodificador. Sirve,
+                     pero es menos confiable: conviene revisar la Ciudad/Barrio.
+     · "comodín"  -> (solo InfoCasas) no coincidió nada y cayó a la zona genérica.
+     · "falla"    -> no hay zona: no se puede publicar.
+   Solo lee. */
+exports.revisarBarrios = onCall({ timeoutSeconds: 120 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+
+  // Catálogo de Casas y Más y su mapa manual, cargados una sola vez.
+  const cymPorDep = {};
+  const baseCym = db.doc("adminData/cymZonas");
+  const cabCym = await baseCym.get();
+  if (cabCym.exists) {
+    for (const d of (await baseCym.collection("lotes").get()).docs) {
+      for (const z of (d.data().items || [])) {
+        (cymPorDep[z.depId] = cymPorDep[z.depId] || {})[icNorm(z.nombre)] = z.id;
+      }
+    }
+  }
+  const man = await db.doc("adminData/cymZonasManual").get();
+  const cymManual = man.exists ? (man.data().mapa || {}) : {};
+
+  const snap = await db.collection("properties").get();
+  const problemas = [];
+  let revisadas = 0;
+
+  for (const d of snap.docs) {
+    const p = d.data() || {};
+    const st = p.status || "available";
+    if (st !== "available" && st !== "reserved") continue;
+    revisadas++;
+    const u = p.ubicacion || {};
+    const depNombre = p.departamento || u.departamento || "";
+    const ciudad = p.ciudad || u.ciudad || "";
+    const barrio = u.barrio || "";
+    const depId = IC_DEPTOS[icNorm(depNombre)];
+
+    // InfoCasas
+    let ic;
+    if (!depId) ic = "falla";
+    else {
+      const z = IC_ZONAS[depId] || {};
+      if (icNorm(ciudad) && z[icNorm(ciudad)] != null) ic = "ciudad";
+      else if (icNorm(barrio) && z[icNorm(barrio)] != null) ic = "barrio";
+      else ic = IC_ZONA_DEFAULT[depId] ? "comodín" : "falla";
+    }
+
+    // Casas y Más (mismo orden que cymResolverZona: manual, después catálogo)
+    let cym = "falla";
+    if (depId) {
+      const mapa = cymPorDep[String(depId)] || {};
+      const mc = cymManual[icNorm(ciudad)], mb = cymManual[icNorm(barrio)];
+      if (icNorm(ciudad) && ((mc && String(mc.depId) === String(depId)) || mapa[icNorm(ciudad)])) cym = "ciudad";
+      else if (icNorm(barrio) && ((mb && String(mb.depId) === String(depId)) || mapa[icNorm(barrio)])) cym = "barrio";
+    }
+
+    if (ic !== "ciudad" || cym !== "ciudad") {
+      problemas.push({
+        id: d.id,
+        titulo: String(p.title || "").slice(0, 55),
+        agente: p.ownerName || "",
+        departamento: depNombre, ciudad, barrio,
+        infocasas: ic, casasymas: cym,
+      });
+    }
+  }
+
+  // Lo más grave primero: lo que no publica, después el comodín, después el barrio.
+  const peso = { falla: 0, "comodín": 1, barrio: 2, ciudad: 3 };
+  problemas.sort((a, b) =>
+    Math.min(peso[a.infocasas], peso[a.casasymas]) - Math.min(peso[b.infocasas], peso[b.casasymas]));
+
+  return {
+    revisadas,
+    conProblemas: problemas.length,
+    fallan: problemas.filter((x) => x.infocasas === "falla" || x.casasymas === "falla").length,
+    alComodin: problemas.filter((x) => x.infocasas === "comodín").length,
+    soloPorGeocodificador: problemas.filter((x) =>
+      x.infocasas !== "falla" && x.casasymas !== "falla" && x.infocasas !== "comodín").length,
+    problemas,
+  };
+});
+
 /* Revisión previa a la publicación masiva: dice qué propiedades publicarían bien
    en cada portal y cuáles no, SIN enviar nada.
 
