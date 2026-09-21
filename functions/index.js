@@ -387,6 +387,36 @@ function mlContactoDeLead(l) {
   };
 }
 
+/* El detalle de un lead (/vis/leads/{id}) no siempre trae el teléfono, pero el
+   listado de interesados (/vis/users/{id}/leads/buyers) agrupa por COMPRADOR y ahí
+   sí suele venir. Cuando el detalle viene sin número, se busca ahí por email (o por
+   nombre + aviso) antes de dar la consulta por incompleta.
+   Solo se consulta cuando falta el dato: no agrega llamadas al caso normal. */
+let _mlUserId = null;
+async function mlTelefonoDelComprador(contacto, itemId, headers) {
+  try {
+    if (!_mlUserId) _mlUserId = (await axios.get(`${API}/users/me`, { headers })).data.id;
+    const f = (d) => d.toISOString().slice(0, 10);
+    const url = `${API}/vis/users/${_mlUserId}/leads/buyers?limit=50&offset=0` +
+                `&date_from=${f(new Date(Date.now() - 3 * 24 * 3600 * 1000))}&date_to=${f(new Date())}&include_guest=true`;
+    const r = (await axios.get(url, { headers })).data || {};
+    const mail = String(contacto.email || "").toLowerCase();
+    const nom = String(contacto.nombre || "").toLowerCase();
+    const cand = (r.results || []).find((b) => {
+      if (!b.phone) return false;
+      if (mail && String(b.email || "").toLowerCase() === mail) return true;
+      if (nom && String(b.name || "").toLowerCase() === nom) {
+        return !itemId || b.item_id === itemId || (b.leads || []).some((l) => l.item_id === itemId);
+      }
+      return false;
+    });
+    return cand ? { telefono: String(cand.phone).trim(), via: mail && String(cand.email || "").toLowerCase() === mail ? "email" : "nombre" } : null;
+  } catch (e) {
+    logger.info(`[mlTelefonoDelComprador] no disponible: ${e.response ? e.response.status : e.message}`);
+    return null;
+  }
+}
+
 /* ---------------------------------------------------------------------------
    VERIFICAR QUÉ MANDÓ MERCADO LIBRE EN CADA LEAD
    Cuando una consulta llega sin teléfono hay dos explicaciones posibles: que la
@@ -406,6 +436,28 @@ exports.mlVerificarLeads = onCall({ timeoutSeconds: 120 }, async (request) => {
   const dias = Math.min(Math.max(Number((request.data && request.data.dias) || 7), 1), 60);
   const token = await getValidToken();
   const headers = { Authorization: `Bearer ${token}` };
+
+  /* Si se pasa el "resource" de un evento concreto (está guardado en mlEventos),
+     se vuelve a pedir ESE lead y se devuelve la respuesta tal cual. Es la forma
+     directa de responder "¿mandaron el teléfono o no?" para una consulta puntual,
+     sin conjeturas: lo que se ve es lo que contesta Mercado Libre. */
+  const recurso = String((request.data && request.data.resource) || "").trim();
+  if (recurso) {
+    try {
+      const l = (await axios.get(`${API}${recurso.startsWith("/") ? "" : "/"}${recurso}`, { headers })).data || {};
+      return {
+        ok: true, recurso,
+        // Cómo lo lee el CRM hoy.
+        leidoPorElCRM: mlContactoDeLead(l),
+        // Y la respuesta cruda, para comparar contra lo anterior.
+        respuesta: l,
+        campos: Object.keys(l),
+      };
+    } catch (e) {
+      const det = e.response ? JSON.stringify(e.response.data).slice(0, 400) : String(e.message);
+      return { ok: false, recurso, status: e.response ? e.response.status : null, detalle: det };
+    }
+  }
   const me = (await axios.get(`${API}/users/me`, { headers })).data;
   const hasta = new Date(), desde = new Date(Date.now() - dias * 24 * 3600 * 1000);
   const f = (d) => d.toISOString().slice(0, 10);
@@ -480,7 +532,8 @@ exports.procesarEventoML = onDocumentCreated("mlEventos/{id}", async (event) => 
     const token = await getValidToken();
     const headers = { Authorization: `Bearer ${token}` };
 
-    let itemId = null, texto = "", titulo = "", contacto = { nombre: "", telefono: "", email: "" }, camposLead = null;
+    let itemId = null, texto = "", titulo = "", contacto = { nombre: "", telefono: "", email: "" };
+    let camposLead = null, tipoContacto = null, telRecuperado = null;
     if (topic.startsWith("questions")) {
       const q = (await axios.get(`${API}${resource}`, { headers })).data || {};
       itemId = q.item_id;
@@ -495,15 +548,26 @@ exports.procesarEventoML = onDocumentCreated("mlEventos/{id}", async (event) => 
         const l = (await axios.get(`${API}${resource}`, { headers })).data || {};
         itemId = l.item_id || (l.item && l.item.id) || null;
         contacto = mlContactoDeLead(l);
+        // El tipo dice de dónde salió: whatsapp, call, question, schedule, quotation.
+        // Es lo que explica que unas consultas traigan teléfono y otras no.
+        tipoContacto = l.contact_type || l.channel || null;
+        if (!contacto.telefono) {
+          /* Segundo intento: el listado de interesados agrupa por comprador y suele
+             tener el teléfono aunque el detalle del lead no lo traiga. */
+          const rec = await mlTelefonoDelComprador(contacto, itemId, headers);
+          if (rec) {
+            contacto.telefono = rec.telefono;
+            telRecuperado = rec.via;
+            logger.info(`[procesarEventoML] teléfono recuperado del listado (por ${rec.via}).`);
+          } else {
+            /* Queda registrado con qué campos vino, para distinguir "la persona no
+               dejó teléfono" de "lo mandaron con otro nombre". */
+            camposLead = Object.keys(l).slice(0, 40);
+            logger.info(`[procesarEventoML] lead sin teléfono (tipo ${tipoContacto || "?"}). Campos: ${camposLead.join(", ")}`);
+          }
+        }
         const quien = [contacto.nombre, contacto.telefono, contacto.email].filter(Boolean).join(" · ");
         if (quien) texto = `Contacto: ${quien}`;
-        /* Si un lead llega sin teléfono, queda registrado con qué campos vino.
-           Así se distingue "la persona no dejó teléfono" de "lo mandaron con otro
-           nombre de campo", sin tener que esperar al siguiente. */
-        if (!contacto.telefono) {
-          camposLead = Object.keys(l).slice(0, 40);
-          logger.info(`[procesarEventoML] lead sin teléfono. Campos: ${camposLead.join(", ")}`);
-        }
       } catch (e) { /* sin permiso todavía: se notifica sin detalle */ }
     }
     if (!itemId) { const m = resource.match(/MLU\d+/); if (m) itemId = m[0]; }
@@ -547,6 +611,7 @@ exports.procesarEventoML = onDocumentCreated("mlEventos/{id}", async (event) => 
     await snap.ref.update({
       estado: "procesado", itemId, propertyId: pDoc.id, agente: p.ownerId || null,
       contacto, camposLead: camposLead || null,
+      tipoContacto, telRecuperado,
     });
     logger.info(`[procesarEventoML] ${topic} -> ${itemId} -> "${p.title || pDoc.id}" (${destinos.length} destinos)`);
   } catch (e) {
@@ -4409,6 +4474,62 @@ exports.cymGet = onCall(async (request) => {
   };
 });
 
+/* Vincula cada agente del CRM con su código de agente en InfoCasas.
+
+   GET /client/{id}/agent devuelve los agentes dados de alta en el portal con su
+   id numérico. Se cruzan con los usuarios del CRM por CORREO (sin distinguir
+   mayúsculas: en el portal figura "Fabricio9061@gmail.com") y se guarda el
+   código en users/{uid}.icAgentId. Con eso cada aviso sale con el contacto de
+   quien lo captó.
+
+   Los ids son distintos entre QA y producción, así que esto se corre una vez
+   por ambiente. Por defecto hace ensayo: con aplicar:true escribe. */
+exports.icVincularAgentes = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const aplicar = !!(request.data && request.data.aplicar);
+  const clientId = await icClientId();
+  const r = await icFetch(`/client/${encodeURIComponent(clientId)}/agent`);
+  if (!r.ok) return { ok: false, status: r.status, detalle: r.data };
+  const agentes = Array.isArray(r.data) ? r.data : (r.data && (r.data.data || r.data.results)) || [];
+
+  const porMail = {};
+  for (const a of agentes) {
+    const m = String(a.email || "").trim().toLowerCase();
+    if (m) porMail[m] = a;
+  }
+
+  const usuarios = await db.collection("users").get();
+  const vinculados = [], sinCodigo = [];
+  for (const d of usuarios.docs) {
+    const u = d.data() || {};
+    if (u.status !== "approved") continue;
+    const m = String(u.email || "").trim().toLowerCase();
+    const ag = porMail[m];
+    if (ag) {
+      vinculados.push({ nombre: u.name || m, email: m, icAgentId: Number(ag.id),
+                        anterior: u.icAgentId || null });
+      if (aplicar) await d.ref.update({ icAgentId: Number(ag.id) });
+      delete porMail[m];
+    } else {
+      sinCodigo.push({ nombre: u.name || m, email: m });
+    }
+  }
+  // Agentes del portal que no se encontraron en el CRM: correo distinto o de baja.
+  const sobrantes = Object.values(porMail).map((a) => ({ nombre: a.name, email: a.email, id: a.id }));
+
+  return {
+    ok: true, aplicado: aplicar, clientId,
+    agentesEnPortal: agentes.length,
+    vinculados, sinCodigo, sobrantes,
+    pista: aplicar ? "Listo: los códigos quedaron guardados."
+                   : "Ensayo: no se escribió nada. Revisá la lista y corré con aplicar:true.",
+  };
+});
+
 /* Revisión previa a la publicación masiva: dice qué propiedades publicarían bien
    en cada portal y cuáles no, SIN enviar nada.
 
@@ -7118,7 +7239,12 @@ async function icApiPayload(p, propId, agente) {
     photos: imgs.map((url, i) => ({ sort_order: i + 1, is_main: i === 0, image: url })),
   };
 
-  const agentId = Number(IC_CLIENT_AGENT || (agente && agente.icAgentId) || 0);
+  /* El agente PROPIO del usuario gana sobre el general. Antes estaba al revés
+     (IC_CLIENT_AGENT || icAgentId): con el general cargado, todos los avisos
+     salían con el contacto de la agencia sin importar quién los captó, que es
+     justo lo contrario de lo que se busca. El general queda como respaldo para
+     quien todavía no tenga código propio. */
+  const agentId = Number((agente && agente.icAgentId) || IC_CLIENT_AGENT || 0);
   if (agentId > 0) payload.client_agent = agentId;
 
   const cond = IC_API_CONDICION[icNorm(F.PROPERTY_CONDITION)];
