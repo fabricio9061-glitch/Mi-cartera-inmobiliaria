@@ -4491,6 +4491,15 @@ exports.icVincularAgentes = onCall(async (request) => {
     throw new HttpsError("permission-denied", "Solo la Dirección.");
   }
   const aplicar = !!(request.data && request.data.aplicar);
+  /* Equivalencias a mano: { "correo en el CRM": "correo en InfoCasas" }.
+     Hace falta cuando un agente no pudo registrarse en el portal con su correo
+     de siempre -por ejemplo porque ya lo usaba otra inmobiliaria- y quedó con
+     uno distinto. El correo del CRM es el de inicio de sesión y no se toca. */
+  const alias = {};
+  const ali = (request.data && request.data.alias) || {};
+  for (const [crm, portal] of Object.entries(ali)) {
+    alias[String(crm).trim().toLowerCase()] = String(portal).trim().toLowerCase();
+  }
   const clientId = await icClientId();
   const r = await icFetch(`/client/${encodeURIComponent(clientId)}/agent`);
   if (!r.ok) return { ok: false, status: r.status, detalle: r.data };
@@ -4508,12 +4517,12 @@ exports.icVincularAgentes = onCall(async (request) => {
     const u = d.data() || {};
     if (u.status !== "approved") continue;
     const m = String(u.email || "").trim().toLowerCase();
-    const ag = porMail[m];
+    const ag = porMail[alias[m] || m];
     if (ag) {
       vinculados.push({ nombre: u.name || m, email: m, icAgentId: Number(ag.id),
                         anterior: u.icAgentId || null });
       if (aplicar) await d.ref.update({ icAgentId: Number(ag.id) });
-      delete porMail[m];
+      delete porMail[alias[m] || m];
     } else {
       sinCodigo.push({ nombre: u.name || m, email: m });
     }
