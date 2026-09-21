@@ -440,7 +440,19 @@
       return;
     }
     yo = u;
-    ver('bandeja');
+    /* Abre la sección que venga en la dirección (admin.html#revisiones). Las
+       notificaciones de la campanita mandan acá con la pestaña en el hash; antes
+       el panel siempre arrancaba en Bandeja y había que buscar a mano.
+       Formato: "seccion" o "sitio-solapa" (sitio-testimonios, sitio-postulaciones). */
+    var _h = decodeURIComponent((location.hash || '').replace(/^#/, ''));
+    var _partes = _h.split('-');
+    var _sec = _partes[0];
+    if (['bandeja','equipo','revisiones','sitio'].indexOf(_sec) >= 0) {
+      if (_sec === 'sitio' && _partes[1]) _stVer = _partes[1];
+      ver(_sec);
+    } else {
+      ver('bandeja');
+    }
     contadores();
   });
 </script>
