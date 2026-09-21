@@ -7423,6 +7423,21 @@ async function icApiPayload(p, propId, agente) {
 /* El listing_id viene en task.content[0].listing_id, no en task.listing_id.
    Sin él no se puede editar ni dar de baja el aviso después, así que buscarlo en
    el lugar equivocado dejaba la propiedad publicada pero huérfana. */
+/* El número de la propiedad en el portal (fr_property_id). Es el que aparece en
+   la URL pública: infocasas.com.uy/detalle/{fr_property_id} (formato confirmado
+   por Frank, 19/09/2026). Con él el enlace se arma solo y nadie tiene que pegarlo.
+   Viene en task.content[0].fr_property_id, igual que el listing_id. */
+function icFrPropertyIdDeTarea(d) {
+  if (!d || typeof d !== "object") return null;
+  const t = d.task || d;
+  if (Array.isArray(t.content)) {
+    for (const c of t.content) {
+      if (c && c.fr_property_id) return String(c.fr_property_id);
+    }
+  }
+  return null;
+}
+
 function icListingIdDeTarea(d) {
   if (!d || typeof d !== "object") return null;
   const t = d.task || d;
@@ -7520,12 +7535,14 @@ exports.publicarEnInfocasas = onCall(async (request) => {
 
   const fin = await icEsperarTarea(taskId);
   const listingId = icListingIdDeTarea(fin.detalle);
+  const frId = icFrPropertyIdDeTarea(fin.detalle);
 
   if (fin.ok && listingId) {
     await pSnap.ref.update({
       icListingId: String(listingId),
       icEstado: "publicado",
       icPublicadoAt: new Date().toISOString(),
+      ...(frId ? { icFrPropertyId: frId } : {}),
     });
     await registrarLog(propertyId, "InfoCasas: publicado", true, `listing ${listingId}`);
     return { ok: true, taskId, listingId };
@@ -7598,9 +7615,11 @@ exports.editarEnInfocasas = onCall(async (request) => {
   const fin = await icEsperarTarea(taskId);
   if (fin.ok) {
     const idNuevo = icListingIdDeTarea(fin.detalle);
+    const frNuevo = icFrPropertyIdDeTarea(fin.detalle);
     await pSnap.ref.update({
       icEstado: "publicado", icActualizadoAt: new Date().toISOString(),
       ...(idNuevo ? { icListingId: idNuevo } : {}),
+      ...(frNuevo ? { icFrPropertyId: frNuevo } : {}),
     });
     await registrarLog(propertyId, "InfoCasas: actualizado", true, `listing ${listingId}`);
     return { ok: true, taskId, listingId };
@@ -7755,6 +7774,10 @@ exports.icWebhook = onRequest(async (req, res) => {
     const cambios = { icEstado: estado === "COMPLETED" ? "publicado" : "error",
                       icWebhookAt: new Date().toISOString() };
     if (listingId) cambios.icListingId = String(listingId);
+    // La publicación masiva no espera a que termine la tarea: el número del
+    // portal llega por el webhook, así que también se guarda acá.
+    const frWh = t.fr_property_id || t.frPropertyId || null;
+    if (frWh) cambios.icFrPropertyId = String(frWh);
     await doc.ref.update(cambios);
     await registrarLog(doc.id, "InfoCasas: webhook", estado === "COMPLETED", `${estado}${listingId ? " · listing " + listingId : ""}`);
     if (ref) await ref.update({ procesado: true, propertyId: doc.id });

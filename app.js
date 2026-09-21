@@ -2061,6 +2061,24 @@
      (decisión pendiente). Por eso esta tarjeta no ofrece "Publicar": muestra el
      estado, y a la Dirección le deja republicar lo que ya está publicado por API
      (actualiza el mismo aviso, no crea otro). */
+  /* Arma la URL pública del aviso en InfoCasas: infocasas.com.uy/detalle/{número}
+     (formato confirmado por Frank). El número sale, en orden:
+       1. icFrPropertyId, guardado al publicar por API;
+       2. el que devuelve la consulta en vivo al portal;
+       3. el que está al final de la URL que alguien pegó a mano.
+     Del pegado se toma SIN la query: las URLs copiadas del navegador traen
+     "?time=1788659433451", y ese número largo no es el de la propiedad. */
+  function icUrlAviso(p, t) {
+    let id = p.icFrPropertyId || (t && t.frPropertyId) || '';
+    if (!id && p.infocasasUrl) {
+      const sinQuery = String(p.infocasasUrl).split('?')[0].split('#')[0];
+      const m = sinQuery.match(/(\d{6,})\/?$/);
+      if (m) id = m[1];
+    }
+    if (id) return 'https://www.infocasas.com.uy/detalle/' + encodeURIComponent(id);
+    return (p.infocasasUrl && safeUrl(p.infocasasUrl)) || '';
+  }
+
   function mlSeccionInfocasas() {
     const p = properties.find(pr => pr.id === mlModalPropId);
     if (!p) return '';
@@ -2087,7 +2105,7 @@
         cfg.notas.push({ tono: 'err', html: 'InfoCasas no aceptó la última actualización.' + (admin ? ' Podés republicar para reintentar.' : ' Ya lo puede revisar la Dirección.') + detalleAdmin(t.mensajes) });
       }
       cfg.acciones = [
-        { texto: 'Ver aviso', icono: 'fa-external-link-alt', href: p.infocasasUrl, cap: 'canViewExternalListing' },
+        { texto: 'Ver aviso', icono: 'fa-external-link-alt', href: icUrlAviso(p, t), cap: 'canViewExternalListing' },
         { id: 'republicar', texto: 'Republicar', icono: 'fa-rotate-right', onclick: "portalAccion('infocasas','republicar')", cap: 'canRepublish' }
       ];
       return portalCard(cfg);
@@ -2118,6 +2136,18 @@
       cfg.estado = { tono: 'warn', texto: 'Faltan datos' };
       cfg.faltan = faltan;
       cfg.faltanPie = 'Completalos en <strong>Editar propiedad</strong>.';
+      return portalCard(cfg);
+    }
+    /* Con un enlace, el aviso YA está en InfoCasas: llegó por el feed XML, no por
+       la API, y por eso no tiene icListingId. Antes esto decía "Lista para
+       publicar", que confundía porque la propiedad estaba publicada. */
+    const urlFeed = icUrlAviso(p, null);
+    if (urlFeed) {
+      cfg.estado = { tono: 'ok', texto: 'Activa' };
+      cfg.lead = 'Publicada en InfoCasas por el feed. Todavía no se controla desde la API, así que los cambios tardan en reflejarse.';
+      cfg.acciones = [
+        { texto: 'Ver aviso', icono: 'fa-external-link-alt', href: urlFeed, cap: 'canViewExternalListing' }
+      ];
       return portalCard(cfg);
     }
     cfg.estado = { tono: 'idle', texto: 'Lista para publicar' };
