@@ -4539,6 +4539,72 @@ exports.icVincularAgentes = onCall(async (request) => {
   };
 });
 
+/* Busca en los catálogos de InfoCasas y Casas y Más una lista de barrios.
+
+   Existe para completar las tablas de equivalencias: la lista de barrios que
+   ofrece el CRM (uruguayData, en propiedad-form.html) tiene lugares reales
+   -Pueblo Edén, Guichón, Juanicó- que nunca se cargaron en IC_ZONAS, así que al
+   elegirlos la propiedad cae al comodín del departamento. Esto trae los números
+   correctos de cada portal para cargarlos.
+
+   Recibe { lista: [{ dep, barrio }] }. Por cada uno devuelve el candidato exacto
+   si lo hay, o los parecidos para elegir a mano. Solo lee. */
+exports.buscarZonasFaltantes = onCall({ timeoutSeconds: 120 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const lista = (request.data && request.data.lista) || [];
+  if (!Array.isArray(lista) || !lista.length) {
+    throw new HttpsError("invalid-argument", "Pasá lista: [{ dep, barrio }].");
+  }
+
+  // Catálogo de InfoCasas
+  const icItems = [];
+  const icBase = db.doc("adminData/infocasasUbicaciones");
+  if ((await icBase.get()).exists) {
+    for (const d of (await icBase.collection("lotes").get()).docs) {
+      for (const it of (d.data().items || [])) icItems.push(it);
+    }
+  }
+  // Catálogo de Casas y Más
+  const cymItems = [];
+  const cymBase = db.doc("adminData/cymZonas");
+  if ((await cymBase.get()).exists) {
+    for (const d of (await cymBase.collection("lotes").get()).docs) {
+      for (const z of (d.data().items || [])) cymItems.push(z);
+    }
+  }
+
+  const buscar = (items, depId, nombre, campoDep, campoNombre) => {
+    const q = icNorm(nombre);
+    const delDep = items.filter((x) => String(x[campoDep]) === String(depId));
+    const exacto = delDep.find((x) => icNorm(x[campoNombre]) === q);
+    if (exacto) return { exacto: { id: String(exacto.id), nombre: exacto[campoNombre] } };
+    const parecidos = delDep
+      .filter((x) => { const n = icNorm(x[campoNombre]); return n && (n.includes(q) || q.includes(n)); })
+      .slice(0, 4)
+      .map((x) => ({ id: String(x.id), nombre: x[campoNombre] }));
+    return { parecidos };
+  };
+
+  const resultados = lista.map(({ dep, barrio }) => {
+    const depId = IC_DEPTOS[icNorm(dep)];
+    if (!depId) return { dep, barrio, error: "departamento desconocido" };
+    return {
+      dep, barrio, depId,
+      infocasas: buscar(icItems, depId, barrio, "state_id", "name"),
+      casasymas: buscar(cymItems, depId, barrio, "depId", "nombre"),
+    };
+  });
+
+  return {
+    catalogos: { infocasas: icItems.length, casasymas: cymItems.length },
+    resultados,
+  };
+});
+
 /* Revisión de barrios: qué propiedades tienen un barrio que no encuentra zona.
 
    El problema que resuelve: cuando el barrio no coincide con nada, icZona NO
