@@ -1450,13 +1450,26 @@
 
   // Desde una notificación del panel: cierra la campanita, abre el Panel de
   // Administración y salta directo a la pestaña que corresponde.
+  /* Antes esto abría el panel VIEJO (showAdmin, dentro de index.html) aunque el
+     panel en uso es admin.html. Por eso "revisión nueva" y las demás llevaban a
+     la pantalla vieja.
+
+     Ahora manda a admin.html con la sección en el hash (admin.html#revisiones).
+     Los nombres de pestaña del panel viejo no coinciden con los del nuevo, así
+     que se traducen acá. */
+  const _PANEL_NUEVO = {
+    pending: 'equipo',                    // altas pendientes viven en Equipo
+    users: 'equipo',
+    revisiones: 'revisiones',
+    testimonials: 'sitio-testimonios',
+    solicitudes: 'sitio-solicitudes',
+    postulaciones: 'sitio-postulaciones',
+    bandeja: 'bandeja',
+  };
   function abrirPanelDesdeNotif(tab) {
     closeNotifications();
-    try {
-      if (typeof showAdmin === 'function') showAdmin();
-      else document.getElementById('adminBtn')?.click();
-      setTimeout(() => { try { showAdminTab(tab); } catch (e) {} }, 260);
-    } catch (e) { console.warn('No se pudo abrir el panel', e); }
+    const destino = _PANEL_NUEVO[tab] || 'bandeja';
+    window.location.href = 'admin.html#' + destino;
   }
 
   function closeNotifications() {
