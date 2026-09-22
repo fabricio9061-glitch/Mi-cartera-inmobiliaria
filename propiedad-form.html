@@ -732,7 +732,12 @@
           const n = `${Date.now()}_${i}_${f.name.replace(/[^a-zA-Z0-9.]/g,'_')}`;
           const r = storage.ref(`properties/${p}/${n}`);
           const b = await compressImageToBlob(f, 1200, .8, dup || 0);
-          const u = await r.put(b);
+          /* Se sube con Cache-Control largo. Sin esto Firebase Storage sirve la
+             foto como "no guardar" y el navegador la volvía a bajar entera cada
+             vez que se abría una propiedad: 1,5 a 2,5 segundos por foto, en cada
+             visita. Cada foto tiene un nombre único con la fecha, así que nunca
+             cambia y se puede guardar un año sin riesgo de mostrar una vieja. */
+          const u = await r.put(b, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000, immutable' });
           const url = await u.ref.getDownloadURL();
           clearTimeout(timer); resolve(url);
         } catch (e) { clearTimeout(timer); reject(e); }

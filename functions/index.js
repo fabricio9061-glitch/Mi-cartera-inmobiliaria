@@ -4720,6 +4720,61 @@ exports.revisarListaBarrios = onCall({ timeoutSeconds: 300 }, async (request) =>
   };
 });
 
+/* Agrega Cache-Control a las fotos que ya están en Storage.
+
+   Las fotos se subían sin Cache-Control, así que Firebase Storage las servía
+   como "no guardar" y el navegador las volvía a bajar enteras en cada visita:
+   medido, 1,5 a 2,6 segundos por foto, con la página ya lista en 0,4 s. Las
+   fotos nuevas ya se suben con el encabezado; esto corrige las existentes.
+
+   · properties/  -> un año, inmutable. Cada foto tiene nombre único con fecha,
+                     nunca se reescribe.
+   · users/       -> un día. La foto de perfil puede reemplazarse con el MISMO
+                     nombre; con un año se vería la vieja hasta que venza.
+
+   Por defecto hace ensayo. Con aplicar:true escribe. Procesa en tandas para no
+   pasarse del tiempo máximo. */
+exports.fijarCacheFotos = onCall({ timeoutSeconds: 540, memory: "512MiB" }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const aplicar = !!(request.data && request.data.aplicar);
+  const reglas = [
+    { prefijo: "properties/", cache: "public, max-age=31536000, immutable" },
+    { prefijo: "users/", cache: "public, max-age=86400" },
+  ];
+  const bucket = admin.storage().bucket();
+  const resumen = [];
+  for (const r of reglas) {
+    const [files] = await bucket.getFiles({ prefix: r.prefijo });
+    let yaEstaban = 0, aCambiar = 0, cambiados = 0, fallos = 0;
+    const pendientes = [];
+    for (const f of files) {
+      if (f.name.endsWith("/")) continue;              // "carpetas" vacías
+      const actual = (f.metadata && f.metadata.cacheControl) || "";
+      if (actual === r.cache) { yaEstaban++; continue; }
+      aCambiar++;
+      pendientes.push(f);
+    }
+    if (aplicar) {
+      // De a 20 en paralelo: rápido sin saturar la API de Storage.
+      for (let i = 0; i < pendientes.length; i += 20) {
+        const lote = pendientes.slice(i, i + 20);
+        const res = await Promise.allSettled(lote.map((f) => f.setMetadata({ cacheControl: r.cache })));
+        for (const x of res) { if (x.status === "fulfilled") cambiados++; else fallos++; }
+      }
+    }
+    resumen.push({ carpeta: r.prefijo, archivos: files.length, yaEstaban, aCambiar, cambiados, fallos });
+  }
+  return {
+    aplicado: aplicar, resumen,
+    pista: aplicar ? "Listo. La próxima visita las fotos deberían cargar desde el navegador."
+                   : "Ensayo: no se cambió nada. Corré con aplicar:true.",
+  };
+});
+
 /* Revisión de barrios: qué propiedades tienen un barrio que no encuentra zona.
 
    El problema que resuelve: cuando el barrio no coincide con nada, icZona NO
