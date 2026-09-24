@@ -4548,6 +4548,241 @@ exports.icVincularAgentes = onCall(async (request) => {
   };
 });
 
+/* ============================================================================
+   TOMAR EL CONTROL DE LOS AVISOS DE INFOCASAS
+   ----------------------------------------------------------------------------
+   La API edita y da de baja por listing_id, no por nuestro código. Los avisos
+   actuales los creó el feed XML, así que el CRM nunca recibió esos listing_id:
+   sincronizarPortales solo actúa sobre las propiedades que lo tienen guardado,
+   y hoy no lo tiene ninguna. Mientras sea así, ningún cambio de precio ni baja
+   sale por la API.
+
+   Esto lee TODOS los avisos de GET /listing (página por página), los cruza con
+   las propiedades del CRM y dice cuáles se pueden controlar y cuáles no.
+
+   Cruce, en este orden:
+     1. integrator_code = id del documento (lo que el feed manda en <id>)
+     2. integrator_code = código de la ficha (MAL-XXXXX), si ese código es único
+        (hay fichas con códigos de relleno como "000" repetidos)
+     3. número del aviso = icFrPropertyId, o el número al final de la URL de
+        InfoCasas que pegó un agente
+
+   Por defecto es un ENSAYO: no escribe nada y devuelve el informe.
+   Con aplicar:true, además:
+     · guarda icListingId, icFrPropertyId e icIntegratorCode en cada propiedad
+       que tiene UN solo aviso (las repetidas se deciden a mano);
+     · limpia los restos de las pruebas en QA: icListingId que no existen en
+       producción y harían fallar las ediciones.
+   En ningún caso escribe en InfoCasas: solo en nuestro Firestore.
+   ========================================================================== */
+
+const IC_ESTADO_CRM = {
+  available: "disponible", reserved: "reservada", sold: "vendida",
+  rented: "alquilada", archived: "archivada",
+};
+
+/* Lee todos los avisos siguiendo "next". De "next" se toman solo los
+   parámetros: la URL completa puede venir con otro host, y icFetch es el que
+   pone la clave, la cookie y el anti-caché. */
+async function icLeerTodosLosAvisos() {
+  const avisos = [];
+  const vistos = new Set();
+  let total = null;
+  let ruta = "/listing";
+  for (let pagina = 0; ruta && pagina < 60; pagina++) {
+    const r = await icFetch(ruta, { conCookie: true });
+    if (!r.ok) {
+      throw new HttpsError("unavailable", `InfoCasas respondió ${r.status} al leer ${ruta}.`);
+    }
+    const d = r.data || {};
+    const lista = Array.isArray(d) ? d : (d.results || d.data || []);
+    if (total == null) {
+      total = Array.isArray(d) || d.count == null ? null : Number(d.count);
+    }
+    let nuevos = 0;
+    for (const x of lista) {
+      const fr = String(x.frPropertyId || x.fr_property_id || "");
+      const listingId = String(x.id || x.listing_id || "");
+      const clave = fr || listingId || JSON.stringify(x);
+      if (vistos.has(clave)) continue;
+      vistos.add(clave);
+      nuevos++;
+      const cod = x.integratorCode != null ? x.integratorCode : x.integrator_code;
+      avisos.push({
+        fr,
+        listingId: listingId || null,
+        codigo: cod != null && String(cod).trim() ? String(cod).trim() : null,
+        estado: x.status != null ? String(x.status) : "",
+      });
+    }
+    ruta = null;
+    // Una página sin nada nuevo corta el ciclo: si "next" apuntara siempre a la
+    // misma página, esto daría vueltas para siempre.
+    if (!Array.isArray(d) && d.next && nuevos) {
+      try {
+        const u = new URL(String(d.next), IC_API_BASE);
+        u.searchParams.delete("_");
+        const qs = u.searchParams.toString();
+        if (qs) ruta = "/listing?" + qs;
+      } catch (e) { ruta = null; }
+      // Respiro entre páginas: la API corta con 429 si se le pide muy seguido.
+      if (ruta) await new Promise((res) => setTimeout(res, 300));
+    }
+  }
+  return { avisos, total: total == null ? avisos.length : total };
+}
+
+/* Cruza avisos con propiedades. No lee ni escribe nada. props: [{ id, data }]. */
+function icCruzarAvisos(avisos, props) {
+  const agregar = (mapa, k, v) => { if (!mapa.has(k)) mapa.set(k, []); mapa.get(k).push(v); };
+  const porId = new Map(), porCodigo = new Map(), porNumero = new Map();
+  for (const prop of props) {
+    const p = prop.data || {};
+    porId.set(prop.id, prop);
+    const cod = String((p.ficha && p.ficha.PROPERTY_CODE) || "").trim();
+    if (cod) agregar(porCodigo, cod, prop);
+    const numeros = new Set();
+    if (p.icFrPropertyId) numeros.add(String(p.icFrPropertyId));
+    if (p.infocasasUrl) {
+      // Sin la query: las URLs copiadas del navegador traen "?time=178…".
+      const m = String(p.infocasasUrl).split("?")[0].split("#")[0].match(/(\d{6,})\/?$/);
+      if (m) numeros.add(m[1]);
+    }
+    for (const n of numeros) agregar(porNumero, n, prop);
+  }
+
+  const filas = avisos.map((a) => {
+    let prop = null, via = null;
+    if (a.codigo && porId.has(a.codigo)) { prop = porId.get(a.codigo); via = "id"; }
+    else if (a.codigo && (porCodigo.get(a.codigo) || []).length === 1) { prop = porCodigo.get(a.codigo)[0]; via = "código"; }
+    else if (a.fr && (porNumero.get(a.fr) || []).length === 1) { prop = porNumero.get(a.fr)[0]; via = "número"; }
+    return { ...a, prop, via };
+  });
+
+  const porPropiedad = new Map();
+  for (const f of filas) if (f.prop) agregar(porPropiedad, f.prop.id, f);
+
+  const grupos = { listos: [], aBajar: [], sinNumero: [], sinPropiedad: [], repetidos: [], sinAviso: [] };
+  for (const f of filas) {
+    const st = f.prop ? ((f.prop.data || {}).status || "available") : null;
+    if (!f.listingId) grupos.sinNumero.push(f);
+    else if (!f.prop) grupos.sinPropiedad.push(f);
+    else if (porPropiedad.get(f.prop.id).length > 1) grupos.repetidos.push(f);
+    else if (PORTAL_ESTADOS_FUERA.includes(st)) grupos.aBajar.push(f);
+    else grupos.listos.push(f);
+  }
+  grupos.repetidos.sort((a, b) => a.prop.id.localeCompare(b.prop.id));
+  for (const prop of props) {
+    const p = prop.data || {};
+    if ((p.status || "available") !== "available" || p.cierreConfirmado === true) continue;
+    if (!porPropiedad.has(prop.id)) grupos.sinAviso.push(prop);
+  }
+  return { filas, grupos, porPropiedad };
+}
+
+function icLineaAviso(f) {
+  const partes = [`aviso ${f.fr || "?"}`, f.codigo ? `código ${f.codigo}` : "sin código"];
+  if (f.prop) {
+    const p = f.prop.data || {};
+    const cod = (p.ficha && p.ficha.PROPERTY_CODE) || f.prop.id;
+    const est = IC_ESTADO_CRM[p.status || "available"] || p.status;
+    partes.push(`→ ${cod} "${String(p.title || "").slice(0, 38)}" (${est}, por ${f.via})`);
+  } else {
+    partes.push("→ ninguna propiedad del CRM");
+  }
+  return partes.join(" · ");
+}
+
+exports.icTomarControl = onCall({ timeoutSeconds: 300 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const aplicar = !!(request.data && request.data.aplicar);
+
+  /* Si un aviso se agrega o se borra mientras se lee, las páginas se corren y
+     alguno queda repetido o salteado. Se vuelve a leer una vez antes de dar la
+     lista por incompleta. */
+  let lectura = await icLeerTodosLosAvisos();
+  if (lectura.avisos.length < lectura.total) {
+    const otra = await icLeerTodosLosAvisos();
+    if (otra.avisos.length > lectura.avisos.length) lectura = otra;
+  }
+  const { avisos, total } = lectura;
+  const snap = await db.collection("properties").get();
+  const props = snap.docs.map((d) => ({ id: d.id, data: d.data() || {}, ref: d.ref }));
+  const { filas, grupos } = icCruzarAvisos(avisos, props);
+
+  let guardadas = 0, limpiadas = 0;
+  if (aplicar) {
+    /* Con la lista incompleta no se escribe nada: la limpieza de restos de QA
+       le borraría el listing_id a una propiedad cuyo aviso quedó sin leer. */
+    if (avisos.length < total) {
+      throw new HttpsError("failed-precondition",
+        `Solo se pudieron leer ${avisos.length} de ${total} avisos. No se guardó nada: volvé a correrlo.`);
+    }
+    const FV = admin.firestore.FieldValue;
+    const ahora = new Date().toISOString();
+    const escritas = new Set();
+    /* Las que ya no están en el mercado también se guardan: con el listing_id
+       se pueden dar de baja por la API. Ninguno de estos campos es contenido,
+       así que no dispara sincronizarPortales ni la sincronización con ML. */
+    for (const f of [...grupos.listos, ...grupos.aBajar]) {
+      await f.prop.ref.update({
+        icListingId: f.listingId,
+        icFrPropertyId: f.fr || FV.delete(),
+        icIntegratorCode: f.codigo || FV.delete(),
+        icEstado: "publicado",
+        icTaskId: FV.delete(),
+        icTomadoAt: ahora,
+      });
+      escritas.add(f.prop.id);
+      guardadas++;
+    }
+    const enProduccion = new Set(avisos.map((a) => a.listingId).filter(Boolean));
+    for (const prop of props) {
+      const actual = prop.data.icListingId ? String(prop.data.icListingId) : "";
+      if (!actual || enProduccion.has(actual) || escritas.has(prop.id)) continue;
+      await prop.ref.update({
+        icListingId: FV.delete(), icFrPropertyId: FV.delete(), icTaskId: FV.delete(),
+        icEstado: FV.delete(), icPublicadoAt: FV.delete(), icQaLimpiadoAt: ahora,
+      });
+      limpiadas++;
+    }
+    await registrarLog("", "InfoCasas: tomar el control", true,
+      `${guardadas} con listing_id guardado, ${limpiadas} limpiadas de QA`);
+  }
+
+  const conNumero = avisos.filter((a) => a.listingId).length;
+  const conCodigo = avisos.filter((a) => a.codigo).length;
+  const estados = {}, vias = {};
+  for (const a of avisos) estados[a.estado || "?"] = (estados[a.estado || "?"] || 0) + 1;
+  for (const f of filas) if (f.via) vias[f.via] = (vias[f.via] || 0) + 1;
+
+  return {
+    aplicado: aplicar,
+    resumen: `InfoCasas: ${total} avisos (leídos ${avisos.length}) · con listing_id: ${conNumero} · ` +
+      `con código: ${conCodigo} · estados: ${Object.entries(estados).map(([k, v]) => `${k}×${v}`).join(", ")} · ` +
+      `cruzados por id ${vias.id || 0}, por código ${vias["código"] || 0}, por número ${vias["número"] || 0}`,
+    grupos: {
+      "Listos para controlar por API": grupos.listos.map(icLineaAviso),
+      "Publicados pero la propiedad ya no está en el mercado (hay que bajarlos)": grupos.aBajar.map(icLineaAviso),
+      "Sin listing_id: InfoCasas todavía no les dio número": grupos.sinNumero.map(icLineaAviso),
+      "No corresponden a ninguna propiedad del CRM": grupos.sinPropiedad.map(icLineaAviso),
+      "Más de un aviso para la misma propiedad": grupos.repetidos.map(icLineaAviso),
+      "Disponibles en el CRM sin aviso en InfoCasas (hay que publicarlas)": grupos.sinAviso.map((prop) => {
+        const p = prop.data || {};
+        return `${(p.ficha && p.ficha.PROPERTY_CODE) || prop.id} "${String(p.title || "").slice(0, 45)}" (${p.ownerName || "sin agente"})`;
+      }),
+    },
+    ...(aplicar ? { guardadas, limpiadas } : {}),
+    pista: aplicar
+      ? `Listo: ${guardadas} propiedades con su listing_id guardado${limpiadas ? `, ${limpiadas} limpiadas de las pruebas en QA` : ""}.`
+      : "Ensayo: no se guardó nada. Revisá los grupos antes de aplicar.",
+  };
+});
+
 /* Busca en los catálogos de InfoCasas y Casas y Más una lista de barrios.
 
    Existe para completar las tablas de equivalencias: la lista de barrios que
