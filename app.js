@@ -1793,14 +1793,40 @@
 
   let mlModalPropId = null;
   let _mlData = null;   // última respuesta de estadoML: la tarjeta de ML se repinta desde acá
-  /* El modal se arma de entrada con las TRES tarjetas. Antes mostraba solo un
-     "Consultando Mercado Libre..." y InfoCasas y Casas y Más no aparecían hasta
-     que ML respondía, aunque sus datos ya estaban en la propiedad. */
+  /* ============================================================================
+     MODAL DE PORTALES — una pestaña por portal
+     ----------------------------------------------------------------------------
+     Antes eran tres tarjetas una debajo de la otra y había que bajar para
+     encontrar la de cada portal. Ahora cada portal tiene su pestaña, con su
+     estado (el punto de color), sus propios botones y su gráfico de los últimos
+     30 días. El modal se abre en la última pestaña que se miró.
+
+     Se arma de entrada con las TRES tarjetas: InfoCasas y Casas y Más no esperan
+     a que responda Mercado Libre, porque sus datos ya están en la propiedad. Los
+     datos vivos (consultas, estado de la última tarea) llegan después y se
+     repintan. "Sacar de circulación" sigue abajo, fuera de las pestañas: actúa
+     sobre todos los portales a la vez. */
+  const PORTAL_TABS = [
+    { key: 'ml', sec: 'secML', nombre: 'Mercado Libre' },
+    { key: 'infocasas', sec: 'secIC', nombre: 'InfoCasas' },
+    { key: 'casasymas', sec: 'secCYM', nombre: 'Casas y Más' }
+  ];
+  function leerPestanaPortal() {
+    try { const k = localStorage.getItem('malavePortalTab'); return PORTAL_TABS.some(t => t.key === k) ? k : 'ml'; } catch (e) { return 'ml'; }
+  }
+  let _portalTab = leerPestanaPortal();
+  const _portalTono = {};    // tono del estado de cada portal: pinta el punto de su pestaña
+  let _portalesFirma = '';   // campos de portales de la propiedad abierta (ver refrescarPortalesAbiertos)
+
+  /* opts.conservar: mantiene el resultado de la última acción (se reabre después de actuar).
+     opts.portal: abre en esa pestaña (por ejemplo, desde un aviso de error de Mercado Libre). */
   async function openMLModal(propertyId, opts) {
     const conservar = !!(opts && opts.conservar);
     if (!conservar || mlModalPropId !== propertyId) { for (const k in _portalFlash) delete _portalFlash[k]; }
+    if (opts && opts.portal && PORTAL_TABS.some(t => t.key === opts.portal)) _portalTab = opts.portal;
     mlModalPropId = propertyId;
     _mlData = null;
+    _portalesFirma = firmaPortales(properties.find(x => x.id === propertyId));
     // En segundo plano: el modal no espera a los portales para abrirse.
     cargarEstadoPortales(propertyId);
     openModal('mlModal');
@@ -1811,7 +1837,7 @@
       if (mlModalPropId === propertyId) renderMLStatus(res.data)
     } catch (e) {
       /* Si la consulta a Mercado Libre falla entera -cuenta bloqueada, token
-         vencido, caída de su API- falla SOLO su tarjeta: las otras siguen. */
+         vencido, caída de su API- falla SOLO su pestaña: las otras siguen. */
       console.error('estadoML:', e);
       if (mlModalPropId !== propertyId) return;
       const sec = document.getElementById('secML');
@@ -1823,16 +1849,48 @@
         acciones: [{ id: 'consultar', texto: 'Reintentar', icono: 'fa-rotate-right', tipo: 'ghost', onclick: `openMLModal('${propertyId}',{conservar:true})`, cap: 'canPublish' }]
       });
       const sb = document.getElementById('secBaja'); if (sb) sb.innerHTML = bloqueBajaHtml(null);
+      pintarPestanas();
     }
   }
   function armarModalPortales() {
     const body = document.getElementById('mlModalBody');
     if (!body) return;
-    body.innerHTML = `<div class="ml-ui">` +
-      `<div id="secML">${portalCard({ key: 'ml', nombre: 'Mercado Libre', color: PORTAL_COLOR.ml, estado: { tono: 'busy', texto: 'Consultando…' }, cuerpo: '<div class="ml-loading" style="padding:14px 0 6px"><div class="sp"></div><p>Consultando Mercado Libre...</p></div>' })}</div>` +
-      `<div id="secIC">${mlSeccionInfocasas()}</div><div id="secCYM">${mlSeccionCasasYMas()}</div><div id="secBaja"></div></div>`;
+    for (const k in _portalTono) delete _portalTono[k];   // nada heredado de otra propiedad
+    const tabs = PORTAL_TABS.map(t =>
+      `<button type="button" class="pt-tab" role="tab" data-portal="${t.key}" onclick="portalTab('${t.key}')"><span class="pt-dot"></span><span class="pt-txt">${t.nombre}</span></button>`).join('');
+    const mlCargando = portalCard({ key: 'ml', nombre: 'Mercado Libre', color: PORTAL_COLOR.ml, estado: { tono: 'busy', texto: 'Consultando…' }, cuerpo: '<div class="ml-loading" style="padding:14px 0 6px"><div class="sp"></div><p>Consultando Mercado Libre...</p></div>' });
+    body.innerHTML = `<div class="ml-ui"><div class="pt-tabs" role="tablist">${tabs}</div>` +
+      `<div class="pt-panel" id="secML" role="tabpanel">${mlCargando}</div>` +
+      `<div class="pt-panel" id="secIC" role="tabpanel">${mlSeccionInfocasas()}</div>` +
+      `<div class="pt-panel" id="secCYM" role="tabpanel">${mlSeccionCasasYMas()}</div>` +
+      `<div id="secBaja"></div></div>`;
+    pintarPestanas();
   }
-  // Estilos del modal de Mercado Libre (se inyectan una sola vez).
+  function portalTab(k) {
+    if (!PORTAL_TABS.some(t => t.key === k)) return;
+    _portalTab = k;
+    try { localStorage.setItem('malavePortalTab', k); } catch (e) { /* sin almacenamiento: se usa la de por defecto */ }
+    pintarPestanas();
+  }
+  // Marca la pestaña activa (con el color del portal) y el punto de estado de cada una.
+  function pintarPestanas() {
+    PORTAL_TABS.forEach(t => {
+      const activo = t.key === _portalTab;
+      const b = document.querySelector(`#mlModalBody .pt-tab[data-portal="${t.key}"]`);
+      if (b) {
+        const c = PORTAL_COLOR[t.key];
+        b.classList.toggle('activo', activo);
+        b.setAttribute('aria-selected', activo ? 'true' : 'false');
+        b.style.background = activo ? c.bg : '';
+        b.style.color = activo ? c.fg : '';
+        const dot = b.querySelector('.pt-dot');
+        if (dot) dot.className = 'pt-dot ' + (_portalTono[t.key] || 'idle');
+      }
+      const panel = document.getElementById(t.sec);
+      if (panel) panel.classList.toggle('activo', activo);
+    });
+  }
+  // Estilos del modal de Portales (se inyectan una sola vez).
   function ensureMLStyles() {
     if (document.getElementById('mlUiStyles')) return;
     const s = document.createElement('style');
@@ -1908,9 +1966,27 @@
       .ml-loading .sp{ width:46px; height:46px; border-radius:50%; border:3px solid #eef0f3; border-top-color:#C9A227; margin:0 auto 14px; animation:mlspin .8s linear infinite; }
       .ml-loading p{ color:#8a93a0; font-size:.9rem; margin:0; }
       @keyframes mlspin{ to{ transform:rotate(360deg); } }
+      /* ===== Pestañas: una por portal ===== */
+      .pt-tabs{ display:flex; gap:4px; background:#f1f4f8; border-radius:14px; padding:4px; margin-bottom:12px; }
+      .pt-tab{ flex:1 1 0; min-width:0; display:flex; align-items:center; justify-content:center; gap:7px; border:0; background:transparent; border-radius:10px; padding:10px 8px; font-family:inherit; font-size:.84rem; font-weight:700; color:#5b6574; cursor:pointer; transition:background .15s, color .15s, box-shadow .15s; }
+      .pt-tab:hover{ color:#16273f; }
+      .pt-tab.activo{ box-shadow:0 1px 3px rgba(22,39,63,.16); }
+      .pt-tab:focus-visible{ outline:2px solid #C9A227; outline-offset:1px; }
+      .pt-txt{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .pt-dot{ flex:none; width:8px; height:8px; border-radius:50%; background:#94a3b8; }
+      .pt-dot.ok{ background:#1e9e6a; }
+      .pt-dot.warn{ background:#e0892a; }
+      .pt-dot.err{ background:#c0392b; }
+      .pt-dot.off{ background:#c3cad4; }
+      .pt-dot.busy{ background:#C9A227; animation:ptpulso 1.1s ease-in-out infinite; }
+      @keyframes ptpulso{ 50%{ opacity:.3; } }
+      .pt-panel{ display:none; }
+      .pt-panel.activo{ display:block; }
+      .pt-panel > .pc-card{ margin-top:0; }
+      .pt-panel .pc-name{ display:none; }
+      .pt-panel .pc-head{ justify-content:flex-start; }
       /* ===== Tarjeta de portal ===== */
       .pc-card{ background:#fff; border:1px solid #e7eaee; border-radius:16px; padding:14px; margin-top:14px; }
-      #secML .pc-card{ margin-top:0; }
       .pc-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
       .pc-name{ padding:4px 10px; border-radius:7px; font-weight:800; font-size:.74rem; letter-spacing:.03em; white-space:nowrap; }
       .pc-pill{ display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:.76rem; padding:4px 11px; border-radius:999px; white-space:nowrap; min-width:0; }
@@ -1939,7 +2015,7 @@
       .pc-card .ml-stat{ flex:1 1 0; min-width:0; flex-direction:column; align-items:flex-start; gap:5px; padding:10px 11px; }
       .pc-card .ml-stat .t{ line-height:1.3; }
       .pc-card .ml-webline{ gap:4px 12px; }
-      @media (max-width:420px){ .pc-card{ padding:12px; } .pc-card .ml-btn{ min-width:0; flex:1 1 auto; } .pc-card .ml-stat .n{ font-size:1.1rem; } }
+      @media (max-width:420px){ .pc-card{ padding:12px; } .pc-card .ml-btn{ min-width:0; flex:1 1 auto; } .pc-card .ml-stat .n{ font-size:1.1rem; } .pt-tab{ font-size:.76rem; padding:9px 4px; gap:5px; } .pt-dot{ width:7px; height:7px; } }
     `;
     document.head.appendChild(s);
   }
@@ -1988,20 +2064,19 @@
   /* ============================================================================
      TARJETA DE PORTAL — componente reutilizable del modal de Portales
      ----------------------------------------------------------------------------
-     Antes Mercado Libre tenía su interfaz y InfoCasas / Casas y Más eran bloques
-     de texto sueltos, cada uno con su formato. Ahora cada portal arma una
-     CONFIGURACIÓN y portalCard la dibuja igual para todos:
+     Cada portal arma una CONFIGURACIÓN y portalCard la dibuja igual para todos:
 
        { key, nombre, color:{bg,fg},
          estado:{ tono:'ok'|'warn'|'err'|'off'|'idle'|'busy', texto },
-         lead, cuerpo, metricas:[{icono,color,valor,texto}], meta:[{icono,texto}],
+         lead, cuerpo, metricas:[{icono,color,valor,texto}], grafico, meta:[{icono,texto}],
          pie, faltan:[texto], faltanPie, notas:[{tono,texto|html}],
          capacidades:{ canPublish, canRepublish, canUpdate, canDeactivate,
                        canViewExternalListing, hasMetrics },
          acciones:[{ id, texto, icono, tipo, href|onclick, cap }] }
 
      Cada acción declara qué capacidad necesita y solo aparece si el portal la
-     tiene. Sumar un portal nuevo = escribir su función de configuración.
+     tiene. Sumar un portal nuevo = escribir su función de configuración y
+     agregarlo a PORTAL_TABS.
      ========================================================================== */
   const PORTAL_COLOR = {
     ml: { bg: '#fff159', fg: '#2d3277' },
@@ -2009,15 +2084,17 @@
     casasymas: { bg: '#e0f2e9', fg: '#1e7d4f' }
   };
   const PORTAL_NOMBRE = { ml: 'Mercado Libre', infocasas: 'InfoCasas', casasymas: 'Casas y Más' };
-  const _portalBusy = {};    // { casasymas: 'republicar' } mientras corre una acción
+  const _portalBusy = {};    // { casasymas: 'actualizar' } mientras corre una acción
   const _portalFlash = {};   // resultado de la última acción, por portal: { tono, texto }
   const PC_ICONO = { ok: 'fa-circle-check', warn: 'fa-circle-exclamation', err: 'fa-circle-xmark', info: 'fa-circle-info', gold: 'fa-star' };
+  const PC_TEXTO_BUSY = { baja: 'Dando de baja…', consultas: 'Buscando…', actualizar: 'Enviando…' };
 
   function portalCard(c) {
     const cap = c.capacidades || {};
     const busy = _portalBusy[c.key];
-    const textoBusy = busy === 'baja' ? 'Dando de baja…' : busy === 'consultas' ? 'Buscando…' : 'Publicando…';
+    const textoBusy = PC_TEXTO_BUSY[busy] || 'Publicando…';
     const estado = busy ? { tono: 'busy', texto: textoBusy } : (c.estado || { tono: 'off', texto: '—' });
+    _portalTono[c.key] = estado.tono;   // el punto de la pestaña
     const pill = `<span class="pc-pill ${estado.tono}">${estado.tono === 'busy' ? '<i class="fas fa-spinner fa-spin"></i>' : '<span class="dot"></span>'}${mvEsc(estado.texto)}</span>`;
     const nota = (n) => `<div class="ml-note ${n.tono === 'err' ? 'warn' : n.tono}"${n.tono === 'err' ? ' style="background:#fdeced;border-color:#f5c6c6;color:#a93226"' : ''}><i class="fas ${n.icono || PC_ICONO[n.tono] || 'fa-circle-info'}"${n.tono === 'err' ? ' style="color:#c0392b"' : ''}></i><div>${n.html != null ? n.html : mvEsc(n.texto)}</div></div>`;
     const flash = _portalFlash[c.key];
@@ -2038,8 +2115,33 @@
       return `<button type="button" class="${cls}"${busy ? ' disabled' : ''} onclick="${a.onclick}">${corriendo ? '<i class="fas fa-spinner fa-spin"></i> ' + textoBusy : `<i class="fas ${a.icono}"></i> ${mvEsc(a.texto)}`}</button>`;
     }).join('');
     return `<section class="pc-card" id="pc-${c.key}"><div class="pc-head"><span class="pc-name" style="background:${c.color.bg};color:${c.color.fg}">${mvEsc(c.nombre)}</span>${pill}</div>` +
-      `${c.lead ? `<div class="pc-lead">${c.lead}</div>` : ''}${c.cuerpo || ''}${metricas}${metaHtml}${c.pie || ''}${faltan}${notas}` +
+      `${c.lead ? `<div class="pc-lead">${c.lead}</div>` : ''}${c.cuerpo || ''}${metricas}${c.grafico || ''}${metaHtml}${c.pie || ''}${faltan}${notas}` +
       `${acciones ? `<div class="ml-btns">${acciones}</div>` : ''}</section>`;
+  }
+  /* Gráfico de barras de los últimos 30 días. Lo usan los tres portales: Mercado
+     Libre (visitas) e InfoCasas y Casas y Más (consultas). serie = [{ date:
+     'AAAA-MM-DD', total }], el formato que devuelven estadoML y estadoPortales. */
+  function portalGrafico(o) {
+    const serie = Array.isArray(o.serie) ? o.serie : [];
+    if (serie.length < 2) return '';
+    const val = (x) => Number(x && x.total) || 0;
+    const fmt = (x) => { const dt = String((x && x.date) || '').slice(0, 10); return dt.length === 10 ? dt.slice(8, 10) + '/' + dt.slice(5, 7) : ''; };
+    const tot = serie.reduce((s, x) => s + val(x), 0);
+    const cab = `<span><i class="fas fa-chart-column" style="color:${o.color}"></i> ${mvEsc(o.titulo)}</span>`;
+    if (!tot) {
+      return `<div class="ml-chart"><div class="ml-chart-head">${cab}<small>últimos ${serie.length} días</small></div><div style="font-size:.82rem;color:#8a93a0;padding:6px 0 2px">${mvEsc(o.vacio || 'Todavía sin datos en este período.')}</div></div>`;
+    }
+    const max = Math.max.apply(null, serie.map(val));
+    const pico = serie.findIndex(x => val(x) === max);
+    const barras = serie.map((x, i) => {
+      const n = val(x);
+      const h = Math.max(5, Math.round(n / max * 100));
+      const num = (i === pico && n > 0) ? `<span class="ml-bar-num" style="bottom:calc(${h}% + 3px);color:${o.color}">${n}</span>` : '';
+      return `<div class="ml-bar" title="${fmt(x)}: ${n} ${n === 1 ? o.singular : o.plural}">${num}<div class="ml-bar-fill" style="height:${h}%;background:${o.color}${n === 0 ? ';opacity:.25' : ''}"></div></div>`;
+    }).join('');
+    const medio = serie[Math.floor(serie.length / 2)];
+    return `<div class="ml-chart"><div class="ml-chart-head">${cab}<span class="ml-chart-total">${tot} <small style="font-weight:600;color:#8a93a0">en ${serie.length} días</small></span></div>` +
+      `<div class="ml-chart-bars">${barras}</div><div class="ml-chart-axis"><span>${fmt(serie[0])}</span><span>${fmt(medio)}</span><span>${fmt(serie[serie.length - 1])}</span></div></div>`;
   }
   // El error técnico no se le muestra al agente; a Dirección, chiquito, para diagnosticar.
   function detalleAdmin(det) {
@@ -2054,13 +2156,8 @@
     return (typeof isAdminUser === 'function' && isAdminUser()) || !!(currentUser && p && p.ownerId === currentUser.uid);
   }
   function propiedadPublicable(p) { return !p.status || p.status === 'available' || p.status === 'reserved'; }
+  const accionBaja = (portal) => ({ id: 'baja', texto: 'Dar de baja', icono: 'fa-circle-stop', tipo: 'danger', cap: 'canDeactivate', onclick: `portalBaja('${portal}')` });
 
-  /* ---------- InfoCasas ----------
-     La API de InfoCasas sigue en manos de la Dirección: la mayoría de las
-     propiedades están en el feed XML y publicarlas por API las duplicaría
-     (decisión pendiente). Por eso esta tarjeta no ofrece "Publicar": muestra el
-     estado, y a la Dirección le deja republicar lo que ya está publicado por API
-     (actualiza el mismo aviso, no crea otro). */
   /* Arma la URL pública del aviso en InfoCasas: infocasas.com.uy/detalle/{número}
      (formato confirmado por Frank). El número sale, en orden:
        1. icFrPropertyId, guardado al publicar por API;
@@ -2079,79 +2176,162 @@
     return (p.infocasasUrl && safeUrl(p.infocasasUrl)) || '';
   }
 
+  /* ---------- InfoCasas ----------
+     Desde el 24/09/2026 se maneja entero por API (el feed XML está apagado),
+     igual que Casas y Más: se publica sola al crear o editar una propiedad
+     Disponible con la ficha completa, los cambios se envían solos, y el agente
+     dueño puede publicar, reintentar o actualizar desde acá. InfoCasas procesa
+     cada envío en unos minutos y avisa por el webhook: por eso los botones
+     mandan y vuelven enseguida, y el resultado aparece después (la pestaña se
+     actualiza sola si el modal sigue abierto). */
+  const IC_FALTAN_AMIGABLE = [
+    [/^pin de ubicaci/i, 'pin de ubicación en el mapa'],
+    [/^departamento no reconocido/i, 'departamento'],
+    [/^zona\/barrio no mapeado/i, 'barrio (InfoCasas no lo reconoce: avisale a la Dirección)'],
+    [/^tipo de propiedad no reconocido/i, 'tipo de propiedad'],
+    [/^tipo de operaci[oó]n no reconocido/i, 'tipo de operación (venta o alquiler)'],
+    [/^correo del agente/i, 'email del agente (en su perfil)'],
+    [/^tel[eé]fono del agente/i, 'WhatsApp del agente (en su perfil)']
+  ];
+  function icFaltanAmigable(lista) {
+    return (lista || []).map(f => { const m = IC_FALTAN_AMIGABLE.find(([re]) => re.test(String(f))); return m ? m[1] : String(f); })
+      .filter((f, i, a) => a.indexOf(f) === i);
+  }
+  // Los mismos requisitos que valida icApiPayload en el servidor (los que dependen
+  // solo de la ficha). Si acá dijera otra cosa, el agente corregiría lo que no es.
+  function faltanInfocasasLocal(p) {
+    const u = p.ubicacion || {};
+    const faltan = [];
+    if (!(Number(p.price) > 0)) faltan.push('precio');
+    if (!(Number(p.builtArea) > 0 || Number(p.totalArea) > 0)) faltan.push('superficie');
+    const lat = Number(u.lat != null ? u.lat : p.lat), lng = Number(u.lng != null ? u.lng : p.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) faltan.push('pin de ubicación en el mapa');
+    if (!(p.departamento || u.departamento)) faltan.push('departamento');
+    if (!String(u.direccionVisible || u.direccion || '').trim()) faltan.push('dirección');
+    if (!String(p.description || '').trim()) faltan.push('descripción');
+    if (!(p.images || []).filter(Boolean).length) faltan.push('fotos');
+    return faltan;
+  }
+  // Mismo criterio que icPublicable en el backend: solo Disponible y sin cierre confirmado.
+  const icPublicableLocal = (p) => (p.status || 'available') === 'available' && p.cierreConfirmado !== true;
+  function icMotivoNoPublicable(p) {
+    if (p.cierreConfirmado === true) return 'Tiene un cierre confirmado: no se publica en portales.';
+    if (p.status === 'reserved') return 'Está Reservada: se publica cuando vuelva a Disponible.';
+    return 'La propiedad no está Disponible, así que no se publica en portales.';
+  }
+
   function mlSeccionInfocasas() {
     const p = properties.find(pr => pr.id === mlModalPropId);
     if (!p) return '';
+    const puede = puedeGestionarPortal(p);
     const admin = typeof isAdminUser === 'function' && isAdminUser();
     const cfg = {
       key: 'infocasas', nombre: 'InfoCasas', color: PORTAL_COLOR.infocasas, notas: [], meta: [],
-      capacidades: { canPublish: false, canRepublish: admin, canUpdate: true, canDeactivate: admin, canViewExternalListing: true, hasMetrics: false }
+      capacidades: { canPublish: puede, canRepublish: puede, canUpdate: puede, canDeactivate: admin, canViewExternalListing: true, hasMetrics: true }
     };
+    const accion = (id, texto, icono, tipo, cap) => ({ id, texto, icono, tipo, cap, onclick: `portalAccion('infocasas','${id}')` });
+    const vivo = _portalesData && _portalesData.infocasas;
+    const err = p.icUltimoError || null;
 
+    // ---- Publicada: el aviso existe en el portal ----
     if (p.icListingId && p.icEstado !== 'eliminado') {
-      const t = _portalesData && _portalesData.infocasas && _portalesData.infocasas.tarea;
-      const est = t ? String(t.estado || '') : '';
-      if (!t || est === 'COMPLETED') cfg.estado = { tono: 'ok', texto: 'Activa' };
-      else if (/PENDING|PROCESS|PROGRESS|QUEUED|RUNNING/.test(est)) cfg.estado = { tono: 'busy', texto: 'Procesando' };
-      else cfg.estado = { tono: 'err', texto: 'Con errores' };
-      cfg.lead = 'Publicada por API. Los cambios de precio, fotos y descripción se envían solos al editar la propiedad.';
+      const t = vivo && vivo.tarea;
+      const est = t ? String(t.estado || '').toUpperCase() : '';
+      const procesando = /READY|PENDING|PROCESS|PROGRESS|QUEUED|RUNNING/.test(est);
+      const fallo = !procesando && (!!err || /ERROR|FAIL|REJECT|CANCEL/.test(est));
+      cfg.estado = procesando ? { tono: 'busy', texto: 'Actualizando' }
+        : fallo ? { tono: 'warn', texto: 'Desactualizada' }
+        : { tono: 'ok', texto: 'Activa' };
+      cfg.lead = 'Los cambios de precio, fotos y descripción se envían solos al editar la propiedad.';
+      if (vivo && vivo.consultas30 != null) {
+        cfg.metricas = [
+          { icono: 'fas fa-comments', color: '#1d4ed8', valor: vivo.consultas30, texto: 'consultas · 30 días' },
+          { icono: 'fas fa-inbox', color: '#64748b', valor: vivo.consultasTotal, texto: 'consultas en total' }
+        ];
+      }
+      if (vivo && vivo.serie) cfg.grafico = portalGrafico({ titulo: 'Consultas por día', color: '#1d4ed8', serie: vivo.serie, singular: 'consulta', plural: 'consultas', vacio: 'Todavía sin consultas en este período.' });
+      const codigo = p.icFrPropertyId || (t && t.frPropertyId);
       cfg.meta = [
         p.icPublicadoAt && { icono: 'far fa-calendar', texto: `Publicada el ${pcFecha(p.icPublicadoAt)}` },
         { icono: 'fas fa-rotate', texto: p.icActualizadoAt ? `Última sincronización: ${pcFechaHora(p.icActualizadoAt)}` : 'Sin sincronizaciones todavía' },
-        t && t.frPropertyId && { icono: 'fas fa-hashtag', texto: `Código en el portal: ${t.frPropertyId}` },
+        codigo && { icono: 'fas fa-hashtag', texto: `Código en el portal: ${codigo}` },
         !_portalesData && { icono: 'fas fa-spinner fa-spin', texto: 'Consultando el portal…' }
       ];
-      if (cfg.estado.tono === 'err') {
-        cfg.notas.push({ tono: 'err', html: 'InfoCasas no aceptó la última actualización.' + (admin ? ' Podés republicar para reintentar.' : ' Ya lo puede revisar la Dirección.') + detalleAdmin(t.mensajes) });
+      if (fallo) {
+        cfg.notas.push({ tono: 'warn', html: 'InfoCasas no aceptó los últimos cambios: el aviso sigue publicado con la versión anterior. ' +
+          (puede ? 'Tocá <strong>Actualizar</strong> para reintentar.' : 'Lo puede reintentar el agente de la propiedad.') + detalleAdmin((err && err.mensaje) || (t && t.mensajes)) });
+      } else if (procesando && !_portalFlash.infocasas) {
+        cfg.notas.push({ tono: 'info', texto: 'InfoCasas está procesando los últimos cambios. Se ven en el portal en unos minutos.' });
       }
       cfg.acciones = [
         { texto: 'Ver aviso', icono: 'fa-external-link-alt', href: icUrlAviso(p, t), cap: 'canViewExternalListing' },
-        { id: 'republicar', texto: 'Republicar', icono: 'fa-rotate-right', onclick: "portalAccion('infocasas','republicar')", cap: 'canRepublish' }
+        accion('actualizar', 'Actualizar', 'fa-rotate-right', fallo ? 'primary' : 'ghost', 'canUpdate'),
+        accionBaja('infocasas')
       ];
       return portalCard(cfg);
     }
 
+    // ---- Publicación enviada, esperando que InfoCasas confirme ----
+    if (p.icEstado === 'pendiente') {
+      const enviadoMs = p.icEnviadoAt ? Date.parse(p.icEnviadoAt) : 0;
+      if (enviadoMs && Date.now() - enviadoMs < 15 * 60 * 1000) {
+        cfg.estado = { tono: 'busy', texto: 'Publicando…' };
+        cfg.lead = `InfoCasas está procesando la publicación (enviada el ${pcFechaHora(p.icEnviadoAt)}). El aviso aparece solo en unos minutos: no hace falta quedarse mirando.`;
+        return portalCard(cfg);
+      }
+      // Más de 15 minutos sin respuesta: se ofrece reintentar. El servidor mira
+      // primero cómo terminó la tarea anterior, así que no duplica el aviso.
+      cfg.estado = { tono: 'warn', texto: 'Sin confirmar' };
+      cfg.lead = `InfoCasas todavía no confirmó la publicación${p.icEnviadoAt ? ` (enviada el ${pcFechaHora(p.icEnviadoAt)})` : ''}. Podés reintentar: si ya se había publicado, no se duplica.`;
+      cfg.acciones = [accion('publicar', 'Reintentar', 'fa-rotate-right', 'primary', 'canPublish')];
+      return portalCard(cfg);
+    }
+
+    const publicable = icPublicableLocal(p);
+    // Lo que falta: el servidor sabe más (por ejemplo, si el barrio existe en
+    // InfoCasas). Se usa su lista mientras no se haya editado la ficha después.
+    const servidorVigente = Array.isArray(p.icFaltan) && p.icFaltan.length && p.icRevisadoAt && (!p.updatedAt || p.icRevisadoAt >= p.updatedAt);
+    const faltan = servidorVigente ? icFaltanAmigable(p.icFaltan) : faltanInfocasasLocal(p);
+    const pie = puede ? 'Completalos en <strong>Editar propiedad</strong> y guardá: se publica sola.' : 'Los completa el agente de la propiedad en Editar propiedad.';
+
+    // ---- Dada de baja ----
     if (p.icEstado === 'eliminado') {
       cfg.estado = { tono: 'off', texto: 'Dada de baja' };
-      cfg.lead = 'Se eliminó el aviso de InfoCasas.';
+      const cuando = p.icStatusAt ? ` el ${pcFecha(p.icStatusAt)}` : '';
+      if (!publicable) {
+        cfg.lead = `El aviso se dio de baja en InfoCasas${cuando}. ${icMotivoNoPublicable(p)}`;
+        return portalCard(cfg);
+      }
+      cfg.lead = `El aviso se dio de baja en InfoCasas${cuando}. No se vuelve a publicar solo.`;
+      if (faltan.length) { cfg.faltan = faltan; cfg.faltanPie = pie; }
+      else cfg.acciones = [accion('publicar', 'Volver a publicar', 'fa-rotate-right', 'primary', 'canRepublish')];
       return portalCard(cfg);
     }
 
-    if (p.cierreConfirmado === true || !propiedadPublicable(p)) {
+    // ---- Nunca publicada ----
+    if (!publicable) {
       cfg.estado = { tono: 'off', texto: 'No publicada' };
-      cfg.lead = p.cierreConfirmado === true ? 'Tiene un cierre confirmado: no se publica en portales.' : 'La propiedad no está Disponible, así que no se publica en portales.';
+      cfg.lead = icMotivoNoPublicable(p);
       return portalCard(cfg);
     }
-
-    /* Los MISMOS requisitos que valida icApiPayload del lado del servidor. Si acá
-       dijera otra cosa, el agente corregiría lo que no es. */
-    const u = p.ubicacion || {};
-    const faltan = [];
-    if (u.lat == null || u.lng == null) faltan.push('pin de ubicación en el mapa');
-    if (!(Number(p.price) > 0)) faltan.push('precio');
-    if (!((p.images || []).filter(Boolean).length)) faltan.push('fotos');
-    if (!(p.departamento || u.departamento)) faltan.push('departamento');
-    if (!String(p.description || '').trim()) faltan.push('descripción');
+    if (p.icEstado === 'error') {
+      cfg.estado = { tono: 'err', texto: 'Error al publicar' };
+      cfg.notas.push({ tono: 'err', html: 'InfoCasas no aceptó la publicación. ' +
+        (puede ? 'Podés reintentar; si vuelve a fallar, avisale a la Dirección.' : 'Lo puede reintentar el agente de la propiedad.') + detalleAdmin(err && err.mensaje) });
+      if (err && err.at) cfg.meta = [{ icono: 'far fa-clock', texto: `Último intento: ${pcFechaHora(err.at)}` }];
+      if (faltan.length) { cfg.faltan = faltan; cfg.faltanPie = pie; }
+      else cfg.acciones = [accion('publicar', 'Reintentar publicación', 'fa-rotate-right', 'primary', 'canPublish')];
+      return portalCard(cfg);
+    }
     if (faltan.length) {
       cfg.estado = { tono: 'warn', texto: 'Faltan datos' };
       cfg.faltan = faltan;
-      cfg.faltanPie = 'Completalos en <strong>Editar propiedad</strong>.';
-      return portalCard(cfg);
-    }
-    /* Con un enlace, el aviso YA está en InfoCasas: llegó por el feed XML, no por
-       la API, y por eso no tiene icListingId. Antes esto decía "Lista para
-       publicar", que confundía porque la propiedad estaba publicada. */
-    const urlFeed = icUrlAviso(p, null);
-    if (urlFeed) {
-      cfg.estado = { tono: 'ok', texto: 'Activa' };
-      cfg.lead = 'Publicada en InfoCasas por el feed. Todavía no se controla desde la API, así que los cambios tardan en reflejarse.';
-      cfg.acciones = [
-        { texto: 'Ver aviso', icono: 'fa-external-link-alt', href: urlFeed, cap: 'canViewExternalListing' }
-      ];
+      cfg.faltanPie = pie;
       return portalCard(cfg);
     }
     cfg.estado = { tono: 'idle', texto: 'Lista para publicar' };
-    cfg.lead = 'La ficha tiene todo lo que pide InfoCasas. La publicación en InfoCasas la hace la Dirección.';
+    cfg.lead = 'La ficha tiene todo lo que pide InfoCasas. Se publica sola al guardar un cambio, o ahora con este botón.';
+    cfg.acciones = [accion('publicar', 'Publicar en InfoCasas', 'fa-upload', 'primary', 'canPublish')];
     return portalCard(cfg);
   }
 
@@ -2159,7 +2339,7 @@
      Se publica SOLA: al crear la propiedad o al editarla, en cuanto la ficha
      cumple los requisitos (publicarAutoCasasYMas / ...AlCrear en el backend).
      El agente ya no depende de la Dirección: si algo falló o faltaba un dato,
-     puede publicar / reintentar / republicar desde acá. Todo pasa por el mismo
+     puede publicar / reintentar / actualizar desde acá. Todo pasa por el mismo
      camino del servidor (cymPublicar), que tiene candado y no duplica avisos. */
   function faltanCasasYMasLocal(p) {
     const u = p.ubicacion || {};
@@ -2180,7 +2360,7 @@
     const admin = typeof isAdminUser === 'function' && isAdminUser();
     const cfg = {
       key: 'casasymas', nombre: 'Casas y Más', color: PORTAL_COLOR.casasymas, notas: [], meta: [],
-      capacidades: { canPublish: puede, canRepublish: puede, canUpdate: true, canDeactivate: admin, canViewExternalListing: true, hasMetrics: true }
+      capacidades: { canPublish: puede, canRepublish: puede, canUpdate: puede, canDeactivate: admin, canViewExternalListing: true, hasMetrics: true }
     };
     const c = _portalesData && _portalesData.casasymas;
     const err = p.cymUltimoError || null;
@@ -2196,33 +2376,43 @@
 
     if (vivo) {
       const noAparece = !!(c && c.noEncontrada);
-      cfg.estado = noAparece ? { tono: 'warn', texto: 'No aparece en el portal' } : { tono: 'ok', texto: 'Activa' };
+      cfg.estado = noAparece ? { tono: 'warn', texto: 'No aparece en el portal' }
+        : (err && err.accion === 'fotos') ? { tono: 'warn', texto: 'Fotos sin subir' }
+        : err ? { tono: 'warn', texto: 'Desactualizada' }
+        : { tono: 'ok', texto: 'Activa' };
       const quien = p.cymUltimaAccion && p.cymUltimaAccion.por;
       cfg.lead = (p.cymOrigen === 'auto' ? 'Publicada automáticamente desde el CRM.'
         : (p.cymOrigen && quien) ? `Publicada desde el CRM por ${mvEsc(quien)}.` : 'Publicada desde el CRM.') +
         ' Los cambios se envían solos al editar la propiedad.';
       if (c && c.consultas != null) {
-        cfg.metricas = [{ icono: 'fas fa-comments', color: '#2e86de', valor: c.consultas, texto: 'consultas recibidas' }];
-        if (c.fotosEnPortal) cfg.metricas.push({ icono: 'fas fa-images', color: '#1e9e6a', valor: c.fotosEnPortal, texto: 'fotos en el portal' });
+        cfg.metricas = [
+          c.consultas30 != null && { icono: 'fas fa-comments', color: '#1e7d4f', valor: c.consultas30, texto: 'consultas · 30 días' },
+          { icono: 'fas fa-inbox', color: '#64748b', valor: c.consultas, texto: 'consultas en total' },
+          c.fotosEnPortal && { icono: 'fas fa-images', color: '#2e86de', valor: c.fotosEnPortal, texto: 'fotos en el portal' }
+        ].filter(Boolean);
         const ultimas = (c.ultimas || []).map(x =>
           `<div>${mvEsc(x.nombre || 'Sin nombre')}<span style="color:#a8b0ba"> · ${mvEsc(String(x.fecha || '').slice(0, 10))}</span>` +
           (x.respondida ? '<span style="color:#1e7d4f"> · respondida</span>' : '<span style="color:#c0392b"> · sin responder</span>') + '</div>').join('');
         if (ultimas) cfg.pie = `<div class="pc-list">${ultimas}</div>`;
       }
+      if (c && c.serie) cfg.grafico = portalGrafico({ titulo: 'Consultas por día', color: '#1e7d4f', serie: c.serie, singular: 'consulta', plural: 'consultas', vacio: 'Todavía sin consultas en este período.' });
       cfg.meta = [
         p.cymPublicadoAt && { icono: 'far fa-calendar', texto: `Publicada el ${pcFecha(p.cymPublicadoAt)}` },
         { icono: 'fas fa-rotate', texto: p.cymActualizadoAt ? `Última sincronización: ${pcFechaHora(p.cymActualizadoAt)}` : 'Sin sincronizaciones todavía' },
         !_portalesData && { icono: 'fas fa-spinner fa-spin', texto: 'Consultando el portal…' }
       ];
       if (c && c.destacada) cfg.notas.push({ tono: 'gold', icono: 'fa-star', texto: 'Destacada en Casas y Más.' });
-      if (noAparece) cfg.notas.push({ tono: 'warn', texto: 'El aviso no figura en la cartera de Casas y Más. Republicala para volver a publicarla.' });
+      if (noAparece) cfg.notas.push({ tono: 'warn', texto: 'El aviso no figura en la cartera de Casas y Más. Tocá Volver a publicar para publicarla de nuevo.' });
       if (err) cfg.notas.push({ tono: 'warn', texto: err.mensaje });
       cfg.acciones = [
         { texto: 'Ver aviso', icono: 'fa-external-link-alt', href: `https://casasymas.com.uy/propiedad/${encodeURIComponent(p.cymId)}`, cap: 'canViewExternalListing' },
-        accion('republicar', 'Republicar', 'fa-rotate-right', noAparece || err ? 'primary' : 'ghost', 'canRepublish'),
+        // Actualizar vuelve a mandar la ficha completa y las fotos al MISMO aviso.
+        noAparece ? accion('republicar', 'Volver a publicar', 'fa-rotate-right', 'primary', 'canRepublish')
+          : accion('actualizar', 'Actualizar', 'fa-rotate-right', err ? 'primary' : 'ghost', 'canUpdate'),
         // Para Dirección: lee las consultas del portal sin esperar los 10 minutos
         // del repaso automático.
-        admin && accion('consultas', 'Buscar consultas', 'fa-comments', 'ghost', 'canUpdate')
+        admin && accion('consultas', 'Buscar consultas', 'fa-comments', 'ghost', 'canUpdate'),
+        accionBaja('casasymas')
       ].filter(Boolean);
       return portalCard(cfg);
     }
@@ -2243,7 +2433,7 @@
       cfg.estado = { tono: 'off', texto: 'Dada de baja' };
       cfg.lead = `El aviso se dio de baja en Casas y Más${p.cymBajaAt ? ' el ' + pcFecha(p.cymBajaAt) : ''}. No se vuelve a publicar solo.`;
       if (faltan.length) { cfg.faltan = faltan; cfg.faltanPie = pie; }
-      else cfg.acciones = [accion('publicar', 'Republicar', 'fa-rotate-right', 'primary', 'canRepublish')];
+      else cfg.acciones = [accion('publicar', 'Volver a publicar', 'fa-rotate-right', 'primary', 'canRepublish')];
       return portalCard(cfg);
     }
 
@@ -2270,17 +2460,19 @@
   }
 
   /* ---------- Acciones por portal ----------
-     Mientras corre: la tarjeta dice "Publicando…" y sus botones quedan
-     deshabilitados (no hay doble clic posible). Al terminar: un aviso claro
-     dentro de la tarjeta, y los datos se releen del servidor. */
+     Mientras corre: la pestaña dice "Publicando…" / "Enviando…" y sus botones
+     quedan deshabilitados (no hay doble clic posible). Al terminar: un aviso
+     claro dentro de la pestaña, y los datos se releen del servidor. */
   const PORTAL_ACCIONES = {
-    casasymas: { publicar: 'publicarEnCasasYMas', republicar: 'publicarEnCasasYMas', consultas: 'repasarConsultasCYM' },
-    infocasas: { republicar: 'editarEnInfocasas' }
+    casasymas: { publicar: 'publicarEnCasasYMas', republicar: 'publicarEnCasasYMas', actualizar: 'publicarEnCasasYMas', consultas: 'repasarConsultasCYM' },
+    infocasas: { publicar: 'publicarEnInfocasas', actualizar: 'editarEnInfocasas' }
   };
+  const PORTAL_VERBO = { actualizar: 'actualizar el aviso en', consultas: 'buscar las consultas de' };
   function repintarPortal(portal) {
     if (portal === 'ml') { if (_mlData) renderMLStatus(_mlData); return; }
     const el = document.getElementById(portal === 'infocasas' ? 'secIC' : 'secCYM');
     if (el) el.innerHTML = portal === 'infocasas' ? mlSeccionInfocasas() : mlSeccionCasasYMas();
+    pintarPestanas();
   }
   async function releerPropiedad(pid) {
     try {
@@ -2289,6 +2481,8 @@
       const i = properties.findIndex(x => x.id === pid);
       const fresca = { id: d.id, ...d.data() };
       if (i >= 0) properties[i] = fresca; else properties.push(fresca);
+      // Ya se repinta quien llamó: que el snapshot con lo mismo no lo vuelva a hacer.
+      if (pid === mlModalPropId) _portalesFirma = firmaPortales(fresca);
     } catch (e) { /* el snapshot la trae igual en unos instantes */ }
   }
   async function portalAccion(portal, accion) {
@@ -2296,6 +2490,7 @@
     const fn = PORTAL_ACCIONES[portal] && PORTAL_ACCIONES[portal][accion];
     if (!pid || !fn || _portalBusy[portal]) return;
     const nombre = PORTAL_NOMBRE[portal];
+    const verbo = PORTAL_VERBO[accion] || 'publicar la propiedad en';
     _portalBusy[portal] = accion;
     delete _portalFlash[portal];
     repintarPortal(portal);
@@ -2307,23 +2502,32 @@
       if (accion === 'consultas' && d.ok) flash = d.avisadas
         ? { tono: 'ok', texto: `Encontramos ${d.avisadas} consulta${d.avisadas === 1 ? '' : 's'} que no había llegado. Ya está en la campanita.` }
         : { tono: 'info', texto: d.primera ? 'Primer repaso: quedaron registradas las consultas que ya existían. Las próximas se avisan solas.' : `Sin consultas nuevas. El portal tiene ${d.total || 0} en total.` };
-      else if (d.ok && d.fotosOk === false) flash = { tono: 'warn', texto: `Quedó publicada en ${nombre}, pero las fotos no se pudieron subir. Probá republicar.` };
-      else if (d.ok) flash = { tono: 'ok', texto: accion === 'republicar' ? `Listo: el aviso en ${nombre} quedó actualizado.` : `Listo: la propiedad ya está publicada en ${nombre}.` };
+      else if (d.ok && d.fotosOk === false) flash = { tono: 'warn', texto: `Quedó publicada en ${nombre}, pero las fotos no se pudieron subir. Probá Actualizar.` };
+      // InfoCasas no responde en el momento: se envió y el resultado llega en unos minutos.
+      else if (d.ok && d.enviada) flash = { tono: 'ok', texto: d.mensaje || `Listo: se envió a ${nombre}.` };
+      else if (d.ok) flash = { tono: 'ok', texto: (accion === 'republicar' || accion === 'actualizar') ? `Listo: el aviso en ${nombre} quedó actualizado.` : `Listo: la propiedad ya está publicada en ${nombre}.` };
       else if (d.enCurso) flash = { tono: 'info', texto: d.mensaje || `Ya se está publicando en ${nombre}.` };
-      else if (d.faltan && d.faltan.length) flash = { tono: 'warn', texto: 'No se envió nada: faltan datos (abajo te decimos cuáles).' };
+      else if (d.faltan && d.faltan.length) {
+        // Con el aviso publicado la pestaña no muestra la lista de faltantes: va acá.
+        const lista = portal === 'infocasas' ? icFaltanAmigable(d.faltan) : d.faltan;
+        flash = accion === 'actualizar'
+          ? { tono: 'warn', html: `No se envió nada: faltan datos.<ul class="pc-faltan">${lista.map(f => `<li>${mvEsc(f)}</li>`).join('')}</ul>` }
+          : { tono: 'warn', texto: 'No se envió nada: faltan datos (abajo te decimos cuáles).' };
+      }
+      else if (d.omitido && d.mensaje) flash = { tono: 'info', texto: d.mensaje };
       else {
         if (d.detalle || d.status || d.estado) console.error(`portalAccion ${portal}/${accion}:`, d);
-        flash = { tono: 'err', html: mvEsc(d.mensaje || `No pudimos publicar la propiedad en ${nombre}. Podés volver a intentarlo.`) + detalleAdmin(d.detalle || d.estado || d.status) };
+        flash = { tono: 'err', html: mvEsc(d.mensaje || `No pudimos ${verbo} ${nombre}. Podés volver a intentarlo.`) + detalleAdmin(d.detalle || d.estado || d.status) };
       }
     } catch (e) {
       console.error(`portalAccion ${portal}/${accion}:`, e);
       const sinPermiso = e && /permission-denied/.test(e.code || '');
-      flash = { tono: 'err', html: (sinPermiso ? 'Solo el agente dueño de la propiedad o la Dirección pueden hacer esto.' : `No pudimos publicar la propiedad en ${nombre}. Podés volver a intentarlo.`) + detalleAdmin(e && e.message) };
+      flash = { tono: 'err', html: (sinPermiso ? 'Solo el agente dueño de la propiedad o la Dirección pueden hacer esto.' : `No pudimos ${verbo} ${nombre}. Podés volver a intentarlo.`) + detalleAdmin(e && e.message) };
     }
     delete _portalBusy[portal];
     if (mlModalPropId !== pid) return;
     _portalFlash[portal] = flash;
-    showToast(nombre, flash.texto || (flash.tono === 'err' ? 'No se pudo completar' : ''), flash.tono === 'ok' ? 'fa-circle-check' : 'fa-circle-exclamation');
+    showToast(nombre, flash.texto || (flash.tono === 'err' ? 'No se pudo completar' : 'Faltan datos'), flash.tono === 'ok' ? 'fa-circle-check' : 'fa-circle-exclamation');
     await releerPropiedad(pid);
     repintarPortal(portal);
     cargarEstadoPortales(pid, true);
@@ -2332,30 +2536,78 @@
   /* Datos vivos de los portales. Se piden en segundo plano al abrir el modal y
      se repintan cuando llegan: el modal no espera, porque son llamadas a APIs
      externas y bloquearlo lo haría sentir lento. */
-  let _portalesData = null, _portalesPid = null;
+  let _portalesData = null, _portalesPid = null, _portalesDataFirma = '', _repasoTareaT = null;
 
   async function cargarEstadoPortales(pid, forzar) {
-    if (!forzar && _portalesPid === pid && _portalesData) return;
-    _portalesPid = pid; if (!forzar) _portalesData = null;
+    /* Se reusan los datos si son de la misma propiedad y sus campos de portales no
+       cambiaron desde que se pidieron. Si cambiaron (por ejemplo, InfoCasas
+       confirmó con el modal cerrado), se piden de nuevo: si no, al reabrir
+       seguiría diciendo "Actualizando" con la tarea vieja. */
+    const firma = firmaPortales(properties.find(x => x.id === pid));
+    if (!forzar && _portalesPid === pid && _portalesData && _portalesDataFirma === firma) return;
+    _portalesPid = pid; _portalesDataFirma = firma;
+    if (!forzar) _portalesData = null;
     try {
       const r = await firebase.functions().httpsCallable('estadoPortales')({ propertyId: pid, forzar: !!forzar });
       if (_portalesPid !== pid) return;   // se cambió de propiedad mientras tanto
-      _portalesData = r.data || null;
-      if (mlModalPropId === pid) { repintarPortal('infocasas'); repintarPortal('casasymas'); }
-    } catch (e) { console.warn('estadoPortales:', e && e.message); }
+      _portalesData = r.data || {};
+      /* Si InfoCasas sigue procesando, se vuelve a mirar en un minuto mientras el
+         modal esté abierto: normalmente avisa por el webhook, pero si ese aviso
+         no llegara la pestaña no se quedaría en "Actualizando". */
+      clearTimeout(_repasoTareaT);
+      const tarea = _portalesData.infocasas && _portalesData.infocasas.tarea;
+      if (tarea && /READY|PENDING|PROCESS|PROGRESS|QUEUED|RUNNING/i.test(String(tarea.estado || ''))) {
+        _repasoTareaT = setTimeout(() => {
+          const m = document.getElementById('mlModal');
+          if (mlModalPropId === pid && m && m.classList.contains('active')) cargarEstadoPortales(pid, true);
+        }, 60000);
+      }
+    } catch (e) {
+      console.warn('estadoPortales:', e && e.message);
+      if (_portalesPid !== pid || _portalesData) return;
+      _portalesData = {};   // sin datos vivos: que no quede "Consultando el portal…" para siempre
+    }
+    if (mlModalPropId === pid) { repintarPortal('infocasas'); repintarPortal('casasymas'); }
+  }
+
+  /* Con el modal abierto, las pestañas de InfoCasas y Casas y Más se repintan
+     cuando cambia la propiedad (la escucha de propiedades llama acá). Así
+     "Publicando…" pasa a "Activa" sola cuando InfoCasas confirma por el webhook,
+     sin cerrar y volver a abrir. Solo reacciona a los campos de los portales:
+     las visitas o la salud de ML no la disparan. icWebhookAt cambia con cada
+     aviso de InfoCasas, también cuando termina una actualización del mismo aviso. */
+  const CAMPOS_PORTALES = ['status', 'cierreConfirmado', 'despubPendiente',
+    'icListingId', 'icEstado', 'icTaskId', 'icUltimoError', 'icActualizadoAt', 'icFaltan', 'icEnviadoAt', 'icStatusAt', 'icPublicadoAt', 'icFrPropertyId', 'icWebhookAt',
+    'cymId', 'cymEstado', 'cymPublicando', 'cymUltimoError', 'cymActualizadoAt', 'cymFaltan', 'cymPublicadoAt', 'cymBajaAt'];
+  function firmaPortales(p) { return p ? JSON.stringify(CAMPOS_PORTALES.map(k => (p[k] == null ? null : p[k]))) : ''; }
+  let _refrescoPortalesT = null;
+  function refrescarPortalesAbiertos() {
+    const m = document.getElementById('mlModal');
+    if (!mlModalPropId || !m || !m.classList.contains('active')) return;
+    const pid = mlModalPropId;
+    const firma = firmaPortales(properties.find(x => x.id === pid));
+    if (!firma || firma === _portalesFirma) return;
+    _portalesFirma = firma;
+    repintarPortal('infocasas');
+    repintarPortal('casasymas');
+    const sb = document.getElementById('secBaja');
+    if (sb && _mlData) sb.innerHTML = bloqueBajaHtml(_mlData);
+    // Consultas y estado de la última tarea: se piden de nuevo, sin apuro.
+    clearTimeout(_refrescoPortalesT);
+    _refrescoPortalesT = setTimeout(() => { if (mlModalPropId === pid) cargarEstadoPortales(pid, true); }, 1500);
   }
 
   /* ---------- Mercado Libre ----------
      Toda la lógica de ML (calidad, faltantes, visitas, tipo de aviso, pagos) queda
-     como estaba: solo cambia el envoltorio, que ahora es la misma tarjeta que los
-     otros portales. La baja de ML NO se tocó: sigue siendo irreversible y la
-     ejecuta la Dirección desde "Sacar de circulación". */
+     como estaba: solo cambia el envoltorio, que es la misma tarjeta que los
+     otros portales. La baja de ML sigue siendo irreversible y solo de la Dirección. */
   function pintarTarjetaML(cfg, d) {
     if (!document.getElementById('secML')) armarModalPortales();
     const sec = document.getElementById('secML');
     if (sec) sec.innerHTML = portalCard(cfg);
     const sb = document.getElementById('secBaja');
     if (sb) sb.innerHTML = bloqueBajaHtml(d);
+    pintarPestanas();
   }
   function renderMLStatus(d) {
     ensureMLStyles();
@@ -2398,26 +2650,7 @@
     const _dash = (v) => (v != null ? v : '—');
     const _pregN = (d.preguntas && d.preguntas.total != null) ? d.preguntas.total : null;
     const _pregSR = (d.preguntas && d.preguntas.sinResponder) ? ` · ${d.preguntas.sinResponder} sin responder` : '';
-    const _serie = Array.isArray(d.visitasSerie) ? d.visitasSerie : [];
-    let _chart = '';
-    if (_serie.length > 1) {
-      const _tot = _serie.reduce((s, x) => s + (x.total || 0), 0);
-      const _fmt = (x) => { const dt = String((x && x.date) || '').slice(0, 10); return dt.length === 10 ? dt.slice(8, 10) + '/' + dt.slice(5, 7) : ''; };
-      if (_tot > 0) {
-        const _max = Math.max.apply(null, _serie.map(x => x.total || 0));
-        let _peak = -1; _serie.forEach((x, i) => { if ((x.total || 0) === _max && _peak === -1) _peak = i; });
-        const _bars = _serie.map((x, i) => {
-          const nv = x.total || 0;
-          const h = Math.max(5, Math.round(nv / _max * 100));
-          const num = (i === _peak && nv > 0) ? `<span class="ml-bar-num" style="bottom:calc(${h}% + 3px)">${nv}</span>` : '';
-          return `<div class="ml-bar" title="${_fmt(x)}: ${nv} visita${nv === 1 ? '' : 's'}">${num}<div class="ml-bar-fill" style="height:${h}%${nv === 0 ? ';opacity:.25' : ''}"></div></div>`;
-        }).join('');
-        const _mid = _serie[Math.floor(_serie.length / 2)];
-        _chart = `<div class="ml-chart"><div class="ml-chart-head"><span><i class="fas fa-chart-column" style="color:#1e9e6a"></i> Visitas por día</span><span class="ml-chart-total">${_tot} <small style="font-weight:600;color:#8a93a0">en ${_serie.length} días</small></span></div><div class="ml-chart-bars">${_bars}</div><div class="ml-chart-axis"><span>${_fmt(_serie[0])}</span><span>${_fmt(_mid)}</span><span>${_fmt(_serie[_serie.length - 1])}</span></div></div>`;
-      } else {
-        _chart = `<div class="ml-chart"><div class="ml-chart-head"><span><i class="fas fa-chart-column" style="color:#1e9e6a"></i> Visitas por día</span><small>últimos ${_serie.length} días</small></div><div style="font-size:.82rem;color:#8a93a0;padding:6px 0 2px">Todavía sin visitas registradas en este período.</div></div>`;
-      }
-    }
+    const _chart = portalGrafico({ titulo: 'Visitas por día', color: '#1e9e6a', serie: d.visitasSerie, singular: 'visita', plural: 'visitas', vacio: 'Todavía sin visitas registradas en este período.' });
     const interaccion = `<div class="ml-section"><div class="ml-stats"><div class="ml-stat"><i class="fas fa-eye" style="color:#1e9e6a"></i><div><div class="n">${_dash(d.visitas)}</div><div class="t">visitas · 30 días</div></div></div><div class="ml-stat"><i class="fas fa-circle-question" style="color:#2e86de"></i><div><div class="n">${_dash(_pregN)}</div><div class="t">preguntas${_pregSR}</div></div></div><div class="ml-stat"><i class="fab fa-whatsapp" style="color:#25d366"></i><div><div class="n">${_dash(d.contactosWhatsapp)}</div><div class="t">contactos WhatsApp · 30 días</div></div></div></div>${_chart}<div class="ml-webline"><span>En tu web:</span><span><i class="fas fa-eye"></i> <b>${_prop.views || 0}</b> visitas</span><span><i class="fab fa-whatsapp" style="color:#25d366"></i> <b>${_prop.contactClicks || 0}</b> contactos</span><span style="color:#a8b0ba">· histórico del sitio</span></div></div>`;
     const pagoHint = d.status === 'payment_required' ? `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-circle-info"></i><div>El aviso está creado pero Mercado Libre exige pagar el tipo <strong>${mlListingTypeName(d.listingType)}</strong> para activarlo (se abona desde tu cuenta de ML, sección Publicaciones). Si no querés pagarlo, dale <strong>Dar de baja</strong> y volvé a publicarlo eligiendo otro tipo. Mientras no lo pagues, no se cobra nada.</div></div></div>` : '';
     // Qué falta para el 100%: lo MÁS confiable es comparar los atributos de la
@@ -2487,7 +2720,9 @@
       // Republicar solo donde ML lo permite sin duplicar: reactiva el pausado o
       // crea uno nuevo si está finalizado. Con el aviso activo, la actualización
       // ya es automática al editar (sincronizarEdicionML).
-      (d.status === 'paused' || d.status === 'closed') && { id: 'publicar', texto: 'Republicar', icono: 'fa-rotate-right', tipo: 'primary', onclick: 'republicarPropiedad()', cap: 'canRepublish' }
+      (d.status === 'paused' || d.status === 'closed') && { id: 'publicar', texto: 'Republicar', icono: 'fa-rotate-right', tipo: 'primary', onclick: 'republicarPropiedad()', cap: 'canRepublish' },
+      // Baja solo de Mercado Libre (Dirección). Es irreversible: portalBaja lo advierte.
+      d.status && d.status !== 'closed' && accionBaja('ml')
     ];
     pintarTarjetaML({
       key: 'ml', nombre: 'Mercado Libre', color: PORTAL_COLOR.ml,
@@ -2579,6 +2814,42 @@
       body.innerHTML = `<div class="ml-ui"><div class="ml-err">No pudimos enviar el pedido de baja. Podés volver a intentarlo.${detalleAdmin(e && e.message)}</div><div class="ml-btns"><button class="ml-btn ml-btn-ghost" onclick="openMLModal('${id}')"><i class="fas fa-arrow-left"></i> Volver</button></div></div>`
     }
   }
+  /* La baja de cada portal, en un solo lugar: la usan el botón "Dar de baja" de
+     cada pestaña y "Dar de baja de todos los portales". La de ML es la MISMA
+     llamada de siempre (bajaML), con sus mismas validaciones. */
+  const BAJA_POR_PORTAL = {
+    ml: (id) => firebase.functions().httpsCallable('bajaML')({ propertyId: id }).then(() => ({ ok: true })),
+    infocasas: (id) => firebase.functions().httpsCallable('estadoEnInfocasas')({ propertyId: id, status: 'DELETED' }).then(r => ({ ok: !!(r.data && r.data.ok), detalle: r.data })),
+    casasymas: (id) => firebase.functions().httpsCallable('bajaEnCasasYMas')({ propertyId: id }).then(r => ({ ok: !!(r.data && r.data.ok), detalle: r.data }))
+  };
+  // Baja de UN portal (solo Dirección): los otros quedan como están.
+  async function portalBaja(portal) {
+    const id = mlModalPropId;
+    if (!id || !BAJA_POR_PORTAL[portal] || _portalBusy[portal]) return;
+    if (!isAdminUser()) { showToast('Solo administradores', 'La baja de un aviso la hace la Dirección', 'fa-lock'); return; }
+    const nombre = PORTAL_NOMBRE[portal];
+    const extra = portal === 'ml'
+      ? '\n\nOJO: en Mercado Libre es IRREVERSIBLE. El aviso no se reabre: republicar crea uno NUEVO y, si es de pago, se vuelve a cobrar.'
+      : portal === 'infocasas' ? '\n\nSi después la volvés a publicar, InfoCasas crea un aviso nuevo.' : '';
+    if (!confirm(`¿Dar de baja el aviso en ${nombre}? Los otros portales quedan como están.${extra}\n\nEsto NO cambia el estado de la propiedad en el CRM.`)) return;
+    _portalBusy[portal] = 'baja';
+    delete _portalFlash[portal];
+    repintarPortal(portal);
+    let r;
+    try { r = await BAJA_POR_PORTAL[portal](id); } catch (e) { r = { ok: false, detalle: e && e.message }; }
+    delete _portalBusy[portal];
+    if (r.ok) {
+      _portalFlash[portal] = { tono: 'ok', texto: `Dada de baja en ${nombre}.` };
+      showToast(nombre, 'El aviso se dio de baja', 'fa-circle-check');
+    } else {
+      console.error(`baja ${portal}:`, r.detalle);
+      _portalFlash[portal] = { tono: 'err', html: `No pudimos dar de baja el aviso en ${nombre}. Podés volver a intentarlo.` + detalleAdmin(r.detalle) };
+      showToast(nombre, 'No se pudo dar de baja', 'fa-circle-exclamation');
+    }
+    _portalesPid = null;   // se fuerza a releer el estado de los portales
+    await releerPropiedad(id);
+    if (mlModalPropId === id) openMLModal(id, { conservar: true });
+  }
   async function bajaPropiedad() {
     if (!mlModalPropId) return;
     if (!isAdminUser()) { showToast('Solo administradores', 'Para sacar la propiedad de circulación, cerrá su gestión en Clientes', 'fa-lock'); return; }
@@ -2589,20 +2860,14 @@
     if (!confirm(`¿Dar de baja este aviso en ${_donde.join(', ')}?${avisoML}\n\nEsto NO cambia el estado de la propiedad en el CRM: si la operación se cerró, cerrá la gestión en Clientes y los avisos se bajan solos.`)) return;
     const id = mlModalPropId;
     for (const k in _portalFlash) delete _portalFlash[k];
-    // Cada tarjeta muestra que está trabajando; las acciones quedan bloqueadas.
+    // Cada pestaña muestra que está trabajando; las acciones quedan bloqueadas.
     vivos.forEach(k => { _portalBusy[k] = 'baja'; });
     ['ml', 'infocasas', 'casasymas'].forEach(repintarPortal);
     document.querySelectorAll('#secBaja button').forEach(b => { b.disabled = true; });
 
-    /* Cada portal por separado y en paralelo: que falle uno no frena a los otros,
-       y cada tarjeta dice cómo le fue. La baja de ML es la MISMA llamada de
-       siempre (bajaML), con sus mismas validaciones. */
-    const tareas = {
-      ml: () => firebase.functions().httpsCallable('bajaML')({ propertyId: id }).then(() => ({ ok: true })),
-      infocasas: () => firebase.functions().httpsCallable('estadoEnInfocasas')({ propertyId: id, status: 'DELETED' }).then(r => ({ ok: !!(r.data && r.data.ok), detalle: r.data })),
-      casasymas: () => firebase.functions().httpsCallable('bajaEnCasasYMas')({ propertyId: id }).then(r => ({ ok: !!(r.data && r.data.ok), detalle: r.data }))
-    };
-    const resultados = await Promise.all(vivos.map(k => tareas[k]().catch(e => ({ ok: false, detalle: e && e.message }))));
+    // Cada portal por separado y en paralelo: que falle uno no frena a los otros,
+    // y cada pestaña dice cómo le fue.
+    const resultados = await Promise.all(vivos.map(k => BAJA_POR_PORTAL[k](id).catch(e => ({ ok: false, detalle: e && e.message }))));
     const fallos = [];
     vivos.forEach((k, i) => {
       delete _portalBusy[k];
@@ -2614,7 +2879,7 @@
         _portalFlash[k] = { tono: 'err', html: `No pudimos dar de baja el aviso en ${PORTAL_NOMBRE[k]}. Podés volver a intentarlo.` + detalleAdmin(r.detalle) };
       }
     });
-    if (fallos.length) showToast('Baja parcial', `No se pudo en ${fallos.join(', ')}. El detalle está en cada portal.`, 'fa-triangle-exclamation');
+    if (fallos.length) showToast('Baja parcial', `No se pudo en ${fallos.join(', ')}. El detalle está en cada pestaña.`, 'fa-triangle-exclamation');
     else showToast('Dada de baja', 'El aviso se sacó de ' + _donde.join(', '), 'fa-circle-check');
     _portalesPid = null;   // se fuerza a releer el estado de los portales
     await releerPropiedad(id);
@@ -3266,6 +3531,8 @@
       renderProperties(properties.filter(enVitrina));
       updateStats();
       pedirSaludML();
+      // Con el modal de Portales abierto, sus pestañas se ponen al día solas.
+      refrescarPortalesAbiertos();
       // Si se refrescó la página estando en el PERFIL de un agente, su grilla se
       // pintó vacía antes de que llegaran las propiedades (carrera del snapshot):
       // repintarla ahora que ya están.
@@ -4418,7 +4685,7 @@
   // Cada entrada define cómo se ve y a dónde lleva. `urgencia`: 0 alta, 1 media, 2 baja.
   const BANDEJA_TIPOS = {
     despublicar_confirmar: { urgencia:0, icono:'fa-circle-stop', accion:'Resolver', ir:n => abrirCampana() },
-    ml_error:              { urgencia:0, icono:'fa-triangle-exclamation', accion:'Ver', ir:n => n.propertyId && openMLModal(n.propertyId) },
+    ml_error:              { urgencia:0, icono:'fa-triangle-exclamation', accion:'Ver', ir:n => n.propertyId && openMLModal(n.propertyId, { portal: 'ml' }) },
     refresh_token:         { urgencia:0, icono:'fa-key', accion:'Reconectar', ir:() => abrirCampana() },
     authorization_code:    { urgencia:0, icono:'fa-key', accion:'Reconectar', ir:() => abrirCampana() },
     retiro:                { urgencia:0, icono:'fa-money-bill-transfer', accion:'Ver', ir:() => location.href='retiros-admin.html' },
