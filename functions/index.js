@@ -4581,16 +4581,35 @@ const IC_ESTADO_CRM = {
   rented: "alquilada", archived: "archivada",
 };
 
-/* Lee todos los avisos siguiendo "next". De "next" se toman solo los
-   parámetros: la URL completa puede venir con otro host, y icFetch es el que
-   pone la clave, la cookie y el anti-caché. */
+/* Estado de cada aviso en InfoCasas (documentación de GET /listing). */
+const IC_ESTADO_AVISO = {
+  "0": "incompleto", "1": "desactivado", "2": "sin cupo", "4": "activo",
+  "5": "caducado", "7": "eliminado", "9": "con error", "10": "publicándose",
+  "11": "rechazado",
+};
+/* Desactivado, caducado y eliminado no se ven en el portal: no hay nada que
+   controlar ahí. Son los avisos viejos que no tienen listing_id. */
+const IC_ESTADOS_INACTIVOS = ["1", "5", "7"];
+
+/* Lee todos los avisos. Según la documentación de InfoCasas, "next" es el
+   NÚMERO de la página siguiente (no una dirección) y page_size cambia cuántos
+   vienen por página. La primera versión esperaba una dirección y se quedaba en
+   la primera página: leía 10 de 44. */
 async function icLeerTodosLosAvisos() {
+  const TAM = 100;
   const avisos = [];
   const vistos = new Set();
   let total = null;
-  let ruta = "/listing";
+  let conTam = true;
+  let ruta = `/listing?page_size=${TAM}`;
   for (let pagina = 0; ruta && pagina < 60; pagina++) {
-    const r = await icFetch(ruta, { conCookie: true });
+    let r = await icFetch(ruta, { conCookie: true });
+    if (!r.ok && pagina === 0 && conTam) {
+      // Si no aceptan page_size, se sigue con el tamaño de página de ellos.
+      conTam = false;
+      ruta = "/listing";
+      r = await icFetch(ruta, { conCookie: true });
+    }
     if (!r.ok) {
       throw new HttpsError("unavailable", `InfoCasas respondió ${r.status} al leer ${ruta}.`);
     }
@@ -4618,13 +4637,18 @@ async function icLeerTodosLosAvisos() {
     ruta = null;
     // Una página sin nada nuevo corta el ciclo: si "next" apuntara siempre a la
     // misma página, esto daría vueltas para siempre.
-    if (!Array.isArray(d) && d.next && nuevos) {
-      try {
-        const u = new URL(String(d.next), IC_API_BASE);
-        u.searchParams.delete("_");
-        const qs = u.searchParams.toString();
-        if (qs) ruta = "/listing?" + qs;
-      } catch (e) { ruta = null; }
+    const sig = Array.isArray(d) ? null : d.next;
+    if (sig != null && sig !== false && String(sig) !== "" && nuevos) {
+      if (/^\d+$/.test(String(sig))) {
+        ruta = "/listing?" + (conTam ? `page_size=${TAM}&` : "") + `page=${sig}`;
+      } else if (String(sig).includes("?")) {
+        // Por si algún día devuelven una dirección completa en vez del número.
+        try {
+          const u = new URL(String(sig), IC_API_BASE);
+          u.searchParams.delete("_");
+          ruta = "/listing?" + u.searchParams.toString();
+        } catch (e) { ruta = null; }
+      }
       // Respiro entre páginas: la API corta con 429 si se le pide muy seguido.
       if (ruta) await new Promise((res) => setTimeout(res, 300));
     }
@@ -4659,13 +4683,16 @@ function icCruzarAvisos(avisos, props) {
     return { ...a, prop, via };
   });
 
+  // Solo cuentan los avisos que se ven: uno desactivado no publica nada.
+  const inactivo = (f) => IC_ESTADOS_INACTIVOS.includes(String(f.estado));
   const porPropiedad = new Map();
-  for (const f of filas) if (f.prop) agregar(porPropiedad, f.prop.id, f);
+  for (const f of filas) if (f.prop && !inactivo(f)) agregar(porPropiedad, f.prop.id, f);
 
-  const grupos = { listos: [], aBajar: [], sinNumero: [], sinPropiedad: [], repetidos: [], sinAviso: [] };
+  const grupos = { listos: [], aBajar: [], sinNumero: [], sinPropiedad: [], repetidos: [], sinAviso: [], inactivos: [] };
   for (const f of filas) {
     const st = f.prop ? ((f.prop.data || {}).status || "available") : null;
-    if (!f.listingId) grupos.sinNumero.push(f);
+    if (inactivo(f)) grupos.inactivos.push(f);
+    else if (!f.listingId) grupos.sinNumero.push(f);
     else if (!f.prop) grupos.sinPropiedad.push(f);
     else if (porPropiedad.get(f.prop.id).length > 1) grupos.repetidos.push(f);
     else if (PORTAL_ESTADOS_FUERA.includes(st)) grupos.aBajar.push(f);
@@ -4681,7 +4708,8 @@ function icCruzarAvisos(avisos, props) {
 }
 
 function icLineaAviso(f) {
-  const partes = [`aviso ${f.fr || "?"}`, f.codigo ? `código ${f.codigo}` : "sin código"];
+  const est = IC_ESTADO_AVISO[String(f.estado)] || `estado ${f.estado || "?"}`;
+  const partes = [`aviso ${f.fr || "?"} (${est})`, f.codigo ? `código ${f.codigo}` : "sin código"];
   if (f.prop) {
     const p = f.prop.data || {};
     const cod = (p.ficha && p.ficha.PROPERTY_CODE) || f.prop.id;
@@ -4757,7 +4785,10 @@ exports.icTomarControl = onCall({ timeoutSeconds: 300 }, async (request) => {
   const conNumero = avisos.filter((a) => a.listingId).length;
   const conCodigo = avisos.filter((a) => a.codigo).length;
   const estados = {}, vias = {};
-  for (const a of avisos) estados[a.estado || "?"] = (estados[a.estado || "?"] || 0) + 1;
+  for (const a of avisos) {
+    const k = IC_ESTADO_AVISO[String(a.estado)] || `estado ${a.estado || "?"}`;
+    estados[k] = (estados[k] || 0) + 1;
+  }
   for (const f of filas) if (f.via) vias[f.via] = (vias[f.via] || 0) + 1;
 
   return {
@@ -4768,13 +4799,14 @@ exports.icTomarControl = onCall({ timeoutSeconds: 300 }, async (request) => {
     grupos: {
       "Listos para controlar por API": grupos.listos.map(icLineaAviso),
       "Publicados pero la propiedad ya no está en el mercado (hay que bajarlos)": grupos.aBajar.map(icLineaAviso),
-      "Sin listing_id: InfoCasas todavía no les dio número": grupos.sinNumero.map(icLineaAviso),
-      "No corresponden a ninguna propiedad del CRM": grupos.sinPropiedad.map(icLineaAviso),
+      "Activos sin listing_id: InfoCasas todavía no les dio número": grupos.sinNumero.map(icLineaAviso),
+      "Activos que no corresponden a ninguna propiedad del CRM (hay que bajarlos)": grupos.sinPropiedad.map(icLineaAviso),
       "Más de un aviso para la misma propiedad": grupos.repetidos.map(icLineaAviso),
       "Disponibles en el CRM sin aviso en InfoCasas (hay que publicarlas)": grupos.sinAviso.map((prop) => {
         const p = prop.data || {};
         return `${(p.ficha && p.ficha.PROPERTY_CODE) || prop.id} "${String(p.title || "").slice(0, 45)}" (${p.ownerName || "sin agente"})`;
       }),
+      "Desactivados o vencidos en InfoCasas (no se ven, no hace falta tocarlos)": grupos.inactivos.map(icLineaAviso),
     },
     ...(aplicar ? { guardadas, limpiadas } : {}),
     pista: aplicar
