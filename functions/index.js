@@ -5483,9 +5483,9 @@ const PORTAL_ESTADOS_FUERA = ["sold", "rented", "archived"];
    todavía y Casas y Más exige un mínimo de 4, así que fallaría siempre. Se
    dispara en cada edición y publica en cuanto la ficha cumple los requisitos.
 
-   InfoCasas queda AFUERA a propósito: sus 42 avisos están publicados por el feed
-   XML y ninguno tiene icListingId, así que publicar por API los DUPLICARÍA. Se
-   suma cuando esté resuelto qué pasa con el feed y llegue la key de producción.
+   InfoCasas tiene su propio disparador (publicarAutoInfocasas), que se despliega
+   recién con el feed XML apagado: con el XML prendido, publicar por API
+   duplicaría los avisos.
 
    CUPO: no se cuenta de nuestro lado. El portal responde con el código 7 cuando
    el plan está lleno, y con el 26 si la inmobiliaria está inactiva. Contar
@@ -5525,6 +5525,157 @@ exports.publicarAutoCasasYMasAlCrear = onDocumentCreated("properties/{id}", asyn
   if (p.cymId || p.cymEstado === "eliminado") return;   // restaurada desde la papelera
   if (!CYM_PUBLICABLE.includes(p.status || "available")) return;
   await cymPublicar(snap.ref, event.params.id, { origen: "auto" });
+});
+
+/* ============================================================================
+   PUBLICACIÓN AUTOMÁTICA EN INFOCASAS
+   ----------------------------------------------------------------------------
+   ⚠️  publicarAutoInfocasas y publicarAutoInfocasasAlCrear NO SE DESPLIEGAN
+   hasta que InfoCasas apague el feed XML. Con el XML prendido, el feed publica
+   la misma propiedad y quedaría repetida.
+
+   Hace para InfoCasas lo mismo que publicarAutoCasasYMas para Casas y Más: una
+   propiedad Disponible sin aviso se publica sola cuando se crea completa,
+   cuando cambia su contenido o cuando vuelve al mercado (por ejemplo, de
+   Alquilada a Disponible: la baja fue automática, así que la vuelta también).
+   Una baja hecha a mano no se deshace con una simple edición.
+
+   icPublicar es la única puerta, con candado (transacción) para que dos
+   disparos juntos no creen dos avisos. Si quedó una tarea de un intento
+   anterior, primero se mira cómo terminó: si publicó, se guarda ese listing_id
+   en vez de publicar otra vez.
+   ========================================================================== */
+const IC_LOCK_MS = 6 * 60 * 1000;
+const IC_TAREA_OK = ["COMPLETED", "DONE", "SUCCESS", "FINISHED"];
+const IC_TAREA_MAL = ["ERROR", "FAILED", "REJECTED", "CANCELLED"];
+
+function icPublicable(d) {
+  return (d.status || "available") === "available" && d.cierreConfirmado !== true;
+}
+
+async function icPublicar(ref, id, { reingreso = false } = {}) {
+  const FV = admin.firestore.FieldValue;
+  const ahora = () => new Date().toISOString();
+  let p = null;
+  try {
+    await db.runTransaction(async (tx) => {
+      const s = await tx.get(ref);
+      if (!s.exists) return;
+      const d = s.data() || {};
+      if (d.icListingId && d.icEstado !== "eliminado") return;    // ya tiene aviso vivo
+      if (d.icEstado === "eliminado" && !reingreso) return;       // una baja no se deshace sola
+      if (!icPublicable(d)) return;
+      const lockAt = d.icPublicandoAt ? Date.parse(d.icPublicandoAt) : 0;
+      if (d.icPublicando && Date.now() - lockAt < IC_LOCK_MS) return;
+      tx.update(ref, { icPublicando: true, icPublicandoAt: ahora() });
+      p = d;
+    });
+  } catch (e) {
+    logger.error(`icPublicar ${id}: no se pudo tomar el candado`, e.message);
+    return { ok: false };
+  }
+  if (!p) return { ok: false, omitido: true };
+  const soltar = { icPublicando: FV.delete(), icPublicandoAt: FV.delete() };
+
+  try {
+    // ¿Quedó una tarea de un intento anterior? Se mira cómo terminó.
+    if (p.icTaskId && p.icEstado === "pendiente") {
+      const r0 = await icFetch(`/task/${encodeURIComponent(p.icTaskId)}`, { conCookie: true });
+      const t0 = (r0.data && (r0.data.task || r0.data)) || {};
+      const est0 = String(t0.status || t0.state || "").toUpperCase();
+      const lid0 = r0.ok ? icListingIdDeTarea(r0.data) : null;
+      if (IC_TAREA_OK.includes(est0) && lid0) {
+        await ref.update({
+          ...soltar, icListingId: String(lid0),
+          icFrPropertyId: icFrPropertyIdDeTarea(r0.data) || FV.delete(),
+          icIntegratorCode: p.icIntegratorCode || id,
+          icEstado: "publicado", icPublicadoAt: ahora(), icUltimoError: FV.delete(),
+        });
+        await registrarLog(id, "InfoCasas: publicación recuperada", true, `listing ${lid0}`);
+        return { ok: true, recuperado: true, listingId: String(lid0) };
+      }
+      // Sigue en curso, o no se pudo consultar: publicar otra vez la duplicaría.
+      // Solo se sigue si terminó con error o si la tarea ya no existe (404).
+      if (!IC_TAREA_MAL.includes(est0) && r0.status !== 404) {
+        await ref.update(soltar);
+        return { ok: false, enCurso: true };
+      }
+    }
+
+    const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+    const armado = await icApiPayload(p, id, uSnap && uSnap.exists ? uSnap.data() : {});
+    if (!armado.ok) {
+      await ref.update({ ...soltar, icFaltan: armado.faltan, icRevisadoAt: ahora() });
+      return { ok: false, faltan: armado.faltan };
+    }
+
+    const r = await icFetch("/listing", { method: "POST", body: [armado.payload], conCookie: true });
+    const taskId = r.ok ? icTaskId(r.data) : null;
+    if (!taskId) {
+      await ref.update({
+        ...soltar, icEstado: "error", icFaltan: FV.delete(),
+        icUltimoError: { mensaje: `InfoCasas no aceptó el envío (HTTP ${r.status}).`, at: ahora() },
+      });
+      await registrarLog(id, "InfoCasas: publicación automática", false,
+        `HTTP ${r.status} ${JSON.stringify(r.data || "").slice(0, 300)}`);
+      return { ok: false, status: r.status };
+    }
+    await ref.update({ icTaskId: String(taskId), icEnviadoAt: ahora(), icEstado: "pendiente", icFaltan: FV.delete() });
+
+    const fin = await icEsperarTarea(taskId);
+    const listingId = icListingIdDeTarea(fin.detalle);
+    if (fin.ok && listingId) {
+      await ref.update({
+        ...soltar, icListingId: String(listingId),
+        icFrPropertyId: icFrPropertyIdDeTarea(fin.detalle) || FV.delete(),
+        icIntegratorCode: armado.payload.external_code,
+        icEstado: "publicado", icPublicadoAt: ahora(), icUltimoError: FV.delete(),
+      });
+      await registrarLog(id, "InfoCasas: publicación automática", true, `listing ${listingId}`);
+      return { ok: true, listingId: String(listingId) };
+    }
+    // TIMEOUT: queda "pendiente" con su task_id. Lo resuelve el webhook, o el
+    // próximo intento mira la tarea antes de publicar.
+    const cierre = { ...soltar };
+    if (fin.estado !== "TIMEOUT") {
+      cierre.icEstado = "error";
+      cierre.icUltimoError = {
+        mensaje: JSON.stringify((fin.detalle && (fin.detalle.task || fin.detalle)) || fin.estado || "").slice(0, 500),
+        at: ahora(),
+      };
+    }
+    await ref.update(cierre);
+    await registrarLog(id, "InfoCasas: publicación automática", false, String(fin.estado || ""));
+    return { ok: false, estado: fin.estado };
+  } catch (e) {
+    logger.error(`icPublicar ${id}`, e);
+    try { await ref.update(soltar); } catch (e2) { /* el candado vence solo */ }
+    await registrarLog(id, "InfoCasas: publicación automática", false, String((e && e.message) || e));
+    return { ok: false };
+  }
+}
+
+exports.publicarAutoInfocasas = onDocumentUpdated({ document: "properties/{id}", timeoutSeconds: 300 }, async (event) => {
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+  if (!after) return;
+  if (after.icListingId && after.icEstado !== "eliminado") return;
+  if (!icPublicable(after)) return;
+  // Se intenta cuando cambió el CONTENIDO o cuando la propiedad volvió al
+  // mercado. Las escrituras del propio publicador (icEstado, icTaskId...) no son
+  // contenido, así que no se realimenta.
+  const reingreso = !before || !icPublicable(before);
+  if (!reingreso && !contentChanged(before, after)) return;
+  await icPublicar(event.data.after.ref, event.params.id, { reingreso });
+});
+
+exports.publicarAutoInfocasasAlCrear = onDocumentCreated({ document: "properties/{id}", timeoutSeconds: 300 }, async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+  const p = snap.data() || {};
+  if (p.icListingId || p.icEstado === "eliminado") return;   // restaurada desde la papelera
+  if (!icPublicable(p)) return;
+  await icPublicar(snap.ref, event.params.id);
 });
 
 /* Aviso al CEO cuando llega una postulación desde "Trabajá con nosotros".
@@ -7760,8 +7911,17 @@ async function icApiPayload(p, propId, agente) {
   const u = p.ubicacion || {};
   const faltan = [];
 
-  const externalCode = String(F.PROPERTY_CODE || propId || "").trim();
+  /* external_code es el código con el que InfoCasas identifica el aviso. Los
+     avisos que vinieron del XML lo tienen con el id del documento (verificado
+     con icTomarControl el 24/09/2026: los 36 activos cruzaron por id), y ese id
+     es único; el código de la ficha no siempre lo es (hay fichas con "000").
+     Se respeta el que ya tenga el aviso (icIntegratorCode) para no cambiárselo
+     al editar. Antes se mandaba el MAL-XXXXX y cada edición le habría cambiado
+     el código a los 36 avisos. La referencia que ve el público en la
+     descripción sigue siendo el MAL-XXXXX. */
+  const externalCode = String(p.icIntegratorCode || propId || "").trim();
   if (!externalCode) faltan.push("código de propiedad");
+  const referencia = String(F.PROPERTY_CODE || "").trim();
 
   const offer = IC_API_OFERTA[String(p.type || "").toLowerCase()];
   if (!offer) faltan.push(`tipo de operación no reconocido: "${p.type || ""}"`);
@@ -7825,7 +7985,7 @@ async function icApiPayload(p, propId, agente) {
     client_id: await icClientId(),
     offer,
     property_type: propertyType,
-    description: descripcion + (externalCode ? `\n\nRef.: ${externalCode}` : ""),
+    description: descripcion + (referencia ? `\n\nRef.: ${referencia}` : ""),
     price: Math.round(price),
     // SIEMPRE explícito: el default de la API es USD, así que omitirlo
     // publicaría un alquiler en pesos como si fueran dólares.
@@ -8264,25 +8424,81 @@ exports.icWebhook = onRequest(async (req, res) => {
 
   try {
     const t = body.task || body;
-    const externalCode = String(t.external_code || t.externalCode || "");
-    const listingId = t.listing_id || t.listingId || null;
+    const cont = Array.isArray(t.content) ? (t.content[0] || {}) : {};
+    const externalCode = String(t.external_code || t.externalCode || cont.external_code ||
+      cont.integrator_code || "").trim();
+    const listingId = icListingIdDeTarea(body);
+    const frWh = icFrPropertyIdDeTarea(body) || t.fr_property_id || t.frPropertyId || null;
     const estado = String(t.status || t.state || "").toUpperCase();
-    if (!externalCode) return;
 
-    const q = await db.collection("properties")
-      .where("ficha.PROPERTY_CODE", "==", externalCode).limit(1).get();
-    if (q.empty) { logger.warn(`icWebhook: no encontré propiedad con código ${externalCode}`); return; }
+    /* La propiedad se busca por lo más firme primero:
+         1. el listing_id que ya tenemos guardado (ediciones y bajas);
+         2. el código de integrador, que en InfoCasas es el id del documento
+            (publicaciones nuevas y avisos que vinieron del XML);
+         3. el código de la ficha, por las publicaciones viejas de QA.
+       Antes se buscaba SOLO por el código de la ficha: con los avisos del XML,
+       cuyo código es el id del documento, no habría encontrado ninguna. */
+    let doc = null;
+    if (listingId) {
+      const q = await db.collection("properties").where("icListingId", "==", String(listingId)).limit(1).get();
+      if (!q.empty) doc = q.docs[0];
+    }
+    if (!doc && /^[A-Za-z0-9_-]{1,100}$/.test(externalCode)) {
+      const d = await db.doc(`properties/${externalCode}`).get();
+      if (d.exists) doc = d;
+    }
+    if (!doc && externalCode) {
+      const q = await db.collection("properties").where("ficha.PROPERTY_CODE", "==", externalCode).limit(2).get();
+      if (q.size === 1) doc = q.docs[0];
+    }
+    if (!doc) {
+      logger.warn(`icWebhook: no encontré la propiedad (listing ${listingId || "-"}, código ${externalCode || "-"})`);
+      if (ref) await ref.update({ procesado: false, sinPropiedad: true });
+      return;
+    }
 
-    const doc = q.docs[0];
-    const cambios = { icEstado: estado === "COMPLETED" ? "publicado" : "error",
-                      icWebhookAt: new Date().toISOString() };
-    if (listingId) cambios.icListingId = String(listingId);
-    // La publicación masiva no espera a que termine la tarea: el número del
-    // portal llega por el webhook, así que también se guarda acá.
-    const frWh = t.fr_property_id || t.frPropertyId || null;
-    if (frWh) cambios.icFrPropertyId = String(frWh);
+    const p = doc.data() || {};
+    const ahora = new Date().toISOString();
+    const FV = admin.firestore.FieldValue;
+    const TERMINADA = ["COMPLETED", "DONE", "SUCCESS", "FINISHED"];
+    const FALLIDA = ["ERROR", "FAILED", "REJECTED", "CANCELLED"];
+    const cambios = { icWebhookAt: ahora };
+    let bajaFallida = false;
+    if (TERMINADA.includes(estado)) {
+      /* Una baja terminada NO puede volver a marcar la propiedad como publicada:
+         sincronizarPortales ya la dejó en "eliminado". Antes cualquier tarea
+         terminada ponía "publicado", también la de una baja. */
+      if (p.icEstado !== "eliminado") {
+        cambios.icEstado = "publicado";
+        if (listingId) cambios.icListingId = String(listingId);
+        if (frWh) cambios.icFrPropertyId = String(frWh);
+        if (externalCode) cambios.icIntegratorCode = externalCode;
+      }
+      cambios.icUltimoError = FV.delete();
+    } else if (FALLIDA.includes(estado)) {
+      const msgs = cont.messages || t.messages || null;
+      cambios.icUltimoError = { mensaje: msgs ? JSON.stringify(msgs).slice(0, 500) : estado, at: ahora };
+      if (!p.icListingId) {
+        cambios.icEstado = "error";                 // la publicación nueva no salió
+      } else if (p.icEstado === "eliminado") {
+        /* Falló una BAJA: el aviso sigue activo en el portal. Se vuelve a
+           "publicado" para no creer que se bajó, y se avisa a la Dirección. */
+        cambios.icEstado = "publicado";
+        bajaFallida = true;
+      }
+      // Si falló una edición, el aviso sigue publicado con la versión anterior.
+    }
+    // Estados intermedios (READY y parecidos): solo queda la marca de tiempo.
     await doc.ref.update(cambios);
-    await registrarLog(doc.id, "InfoCasas: webhook", estado === "COMPLETED", `${estado}${listingId ? " · listing " + listingId : ""}`);
+    await registrarLog(doc.id, "InfoCasas: webhook", !FALLIDA.includes(estado),
+      `${estado || "sin estado"}${listingId ? " · listing " + listingId : ""}`);
+    if (bajaFallida) {
+      await notificarDireccion({
+        type: "portal_error", propertyId: doc.id, propertyTitle: p.title || "",
+        userName: "InfoCasas",
+        text: `InfoCasas no pudo dar de baja el aviso de "${p.title || "una propiedad"}": sigue publicado. Dalo de baja desde el panel de InfoCasas.`,
+      }, { title: "InfoCasas: baja fallida", body: p.title || "" });
+    }
     if (ref) await ref.update({ procesado: true, propertyId: doc.id });
   } catch (e) {
     logger.error("icWebhook: error al procesar", e);
