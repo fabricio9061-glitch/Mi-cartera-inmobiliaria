@@ -1026,6 +1026,16 @@ async function pickListingType(categoryId, token) {
   return (await listingTypesDisponibles(categoryId, token))[0] || "silver";
 }
 
+/* Moneda de los gastos comunes. Desde el 26/09/2026 el formulario la pide aparte
+   (commonExpensesCurrency): en Uruguay casi siempre son en pesos aunque la
+   propiedad se venda en dólares, y antes Mercado Libre los publicaba en la moneda
+   del precio (una venta en US$ con $U 6.500 de gastos salía con US$ 6.500).
+   Las propiedades que todavía no tienen el dato siguen como antes. */
+function monedaGastos(p) {
+  const m = String((p && (p.commonExpensesCurrency || p.currency)) || "").toUpperCase();
+  return m === "UYU" ? "UYU" : "USD";
+}
+
 // Valor razonable para un atributo obligatorio que no mapeamos explícitamente.
 function defaultAttrValue(a, p) {
   const id = a.id;
@@ -1038,9 +1048,9 @@ function defaultAttrValue(a, p) {
   if (id in numMap && numMap[id] != null && numMap[id] !== "") {
     if (a.value_type === "number_unit") {
       let unit = (a.allowed_units && a.allowed_units[0] && a.allowed_units[0].id) || a.default_unit || "";
-      // MAINTENANCE_FEE: unidad = moneda de la propiedad (USD/UYU), no la primera unidad.
+      // MAINTENANCE_FEE: unidad = moneda de los gastos (USD/UYU), no la primera unidad.
       if (id === "MAINTENANCE_FEE" && a.allowed_units && a.allowed_units.length) {
-        const wanted = (p && p.currency === "UYU") ? "UYU" : "USD";
+        const wanted = monedaGastos(p);
         const match = a.allowed_units.find((u) => u.id === wanted || norm(u.name) === norm(wanted));
         if (match) unit = match.id;
       }
@@ -1212,10 +1222,11 @@ async function addFeatureAttributes(categoryId, p, baseAttributes, token, catAtt
       if (v) { out.push({ id, value_id: v.id }); have.add(id); }
     } else if (vt === "number_unit") {
       let unit = (attr.allowed_units && attr.allowed_units[0] && attr.allowed_units[0].id) || attr.default_unit || "";
-      // Gastos comunes y precio por área: la unidad es una MONEDA. Hay que usar la
-      // moneda de la propiedad (USD/UYU) si la categoría la permite, no la primera unidad.
+      // Gastos comunes y precio por área: la unidad es una MONEDA, no la primera
+      // unidad de la lista. Los gastos van en su propia moneda; el precio por
+      // área, en la de la propiedad.
       if ((id === "MAINTENANCE_FEE" || id === "PRICE_PER_AREA_UNIT") && attr.allowed_units && attr.allowed_units.length) {
-        const wanted = (p && p.currency === "UYU") ? "UYU" : "USD";
+        const wanted = id === "MAINTENANCE_FEE" ? monedaGastos(p) : ((p && p.currency === "UYU") ? "UYU" : "USD");
         const match = attr.allowed_units.find((u) => u.id === wanted || norm(u.name) === norm(wanted));
         if (match) unit = match.id;
       }
@@ -1885,7 +1896,7 @@ exports.publicarEnML = onDocumentCreated("properties/{id}", async (event) => {
 // Campos de CONTENIDO de la propiedad. Si cambia alguno, hay que re-sincronizar.
 // Los metadatos internos (mlItemId, mlStatus, mlSyncedAt, mlError, mlPublishing...)
 // quedan fuera a propósito: así nuestras propias escrituras NO disparan un bucle.
-const CONTENT_FIELDS = ["title", "price", "currency", "description", "videoUrl", "images", "departamento", "ciudad", "direccion", "ubicacion", "bedrooms", "bathrooms", "totalArea", "builtArea", "commonExpenses", "garage", "type", "propertyType", "realEstateType", "ownerWhatsapp", "ownerName", "ficha"];
+const CONTENT_FIELDS = ["title", "price", "currency", "description", "videoUrl", "images", "departamento", "ciudad", "direccion", "ubicacion", "bedrooms", "bathrooms", "totalArea", "builtArea", "commonExpenses", "commonExpensesCurrency", "garage", "type", "propertyType", "realEstateType", "ownerWhatsapp", "ownerName", "ficha"];
 function contentChanged(before, after) {
   if (!before) return true;
   return CONTENT_FIELDS.some((f) => JSON.stringify(before[f]) !== JSON.stringify(after[f]));
@@ -6167,9 +6178,9 @@ function icApiAge(anios) {
    PENDIENTE de confirmar con InfoCasas:
      · Si ahora aceptan VENTA en pesos. El feed convierte a dólares porque solo
        admitían USD; con este campo esa conversión podría dejar de hacer falta.
-     · Si administration.price hereda esta moneda. Hoy los gastos comunes van
-       siempre en pesos (IDmonedagc: 2) y la API no tiene moneda propia para
-       ellos: un alquiler en dólares con gastos en pesos no se puede expresar. */
+     · (Resuelto) administration tiene su propio currency (ver icApiPayload):
+       se manda commonExpensesCurrency, que desde el 26/09/2026 el formulario
+       pide aparte, con pesos por defecto. */
 const IC_API_MONEDA = { USD: 1, UYU: 2 };
 
 function icApiCurrency(moneda) {
@@ -8139,8 +8150,8 @@ async function icApiPayload(p, propId, agente) {
   const cats = icApiCategories(F);
   if (cats.length) payload.categories = cats;
 
-  // administration solo aplica al alquiler. No tiene moneda propia: queda
-  // pendiente de confirmar si hereda currency del listing.
+  // administration solo aplica al alquiler y tiene su propia moneda (ver abajo):
+  // la de los gastos comunes, que el formulario pide aparte.
   if (offer === "rent") {
     const gc = Number(p.commonExpenses) || 0;
     // Antes, sin gastos cargados se mandaba is_included: true, o sea que se le

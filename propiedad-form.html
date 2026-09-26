@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=20260821j">
+  <link rel="stylesheet" href="styles.css?v=20260821l">
   <style>
     /* ==========================================================================
        ESTO ARREGLA TODOS LOS STICKY DE LA PÁGINA.
@@ -25,7 +25,10 @@
        ========================================================================== */
     html, body{ overflow-x:clip; }
 
-    :root{ --ink:#16273f; --paper:#f4f5f7; --card:#fff; --line:#e5e8ec; --muted:#6b7480; --gold:#C9A227; --gold-soft:rgba(201,162,39,.12); --ml:#ffe600; --ic:#ff7a00; --ok:#1e7d4f; --bad:#c0392b; }
+    :root{ --ink:#16273f; --paper:#f4f5f7; --card:#fff; --line:#e5e8ec; --muted:#6b7480; --gold:#C9A227; --gold-soft:rgba(201,162,39,.12); --ok:#1e7d4f; --bad:#c0392b; }
+    /* Colores de cada portal: los mismos de la ventana Portales (PORTAL_COLOR en
+       app.js). Antes InfoCasas era naranja acá y azul allá. */
+    .po-ml{ --bg:#fff159; --fg:#2d3277; } .po-ic{ --bg:#dbeafe; --fg:#1d4ed8; } .po-cym{ --bg:#e0f2e9; --fg:#1e7d4f; }
     body{ background:var(--paper); }
 
     /* ---- Header ---- */
@@ -34,20 +37,41 @@
     .pf-back{ display:inline-flex; align-items:center; gap:8px; color:var(--muted); font-size:14px; font-weight:500; padding:8px 16px; border:1px solid var(--line); border-radius:999px; cursor:pointer; background:none; transition:all .2s; }
     .pf-back:hover{ background:var(--ink); color:#fff; border-color:var(--ink); }
 
-    /* ---- Barra de calidad (la firma de la página) ---- */
+    /* ---- Barra de portales (la firma de la página) ----
+       Una ficha por portal, con los colores de la ventana Portales. El aro se va
+       llenando con lo que ese portal exige; el número de adentro es lo que le
+       falta, y con todo completo pasa a un tilde verde. Tocarla lleva al paso
+       "Revisar y publicar". Al lado, lo próximo que conviene completar. */
     .pf-cal{ background:var(--ink); color:#fff; position:sticky; top:var(--pf-hdr,77px); z-index:1090; box-shadow:0 6px 18px rgba(22,39,63,.18); }
-    .pf-cal-inner{ max-width:1120px; margin:0 auto; padding:10px 22px; display:grid; grid-template-columns:auto auto 1fr; gap:10px 26px; align-items:center; }
-    .pf-meter{ display:flex; align-items:center; gap:10px; min-width:210px; }
-    .pf-meter .dot{ width:10px; height:10px; border-radius:3px; flex:none; }
-    .pf-meter.ml .dot{ background:var(--ml); } .pf-meter.ic .dot{ background:var(--ic); }
-    .pf-meter .who{ font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:#c7cfdb; width:76px; flex:none; }
-    .pf-meter .bar{ flex:1; height:7px; background:rgba(255,255,255,.14); border-radius:99px; overflow:hidden; }
-    .pf-meter .bar i{ display:block; height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#8f7414,var(--gold)); transition:width .35s ease; }
-    .pf-meter.ic .bar i{ background:linear-gradient(90deg,#a24d00,var(--ic)); }
-    .pf-meter .pct{ font-variant-numeric:tabular-nums; font-weight:600; font-size:.92rem; width:44px; text-align:right; }
-    .pf-cal-hint{ font-size:.85rem; color:#dbe2ec; display:flex; align-items:center; gap:9px; min-width:0; }
-    .pf-cal-hint i{ color:var(--gold); flex:none; }
-    .pf-cal-hint span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pf-cal-inner{ max-width:1120px; margin:0 auto; padding:9px 22px; display:flex; align-items:center; gap:8px 20px; }
+    .pf-portales{ display:flex; gap:8px; flex:none; }
+    .pf-chip{ display:inline-flex; align-items:center; gap:8px; min-width:0; border:0; border-radius:99px;
+      padding:4px 13px 4px 4px; background:var(--bg); color:var(--fg); font-family:inherit; font-size:.8rem;
+      font-weight:600; line-height:1.2; white-space:nowrap; cursor:pointer; transition:box-shadow .15s, opacity .15s; }
+    .pf-chip:hover, .pf-chip:focus-visible{ box-shadow:0 0 0 2px rgba(255,255,255,.5); outline:none; }
+    .pf-chip .aro{ width:24px; height:24px; flex:none; border-radius:50%; position:relative; display:grid; place-items:center;
+      font-size:.64rem; font-weight:700; font-variant-numeric:tabular-nums;
+      background:conic-gradient(var(--fg) calc(var(--p, 0) * 1%), rgba(22,39,63,.15) 0); transition:background .3s; }
+    .pf-chip .aro::before{ content:''; position:absolute; inset:3px; border-radius:50%; background:var(--bg); }
+    .pf-chip .aro > *{ position:relative; }
+    .pf-chip.listo .aro{ background:var(--ok); color:#fff; font-size:.7rem; }
+    .pf-chip.listo .aro::before, .pf-chip.frenado .aro::before{ display:none; }
+    .pf-chip.frenado{ opacity:.75; }
+    .pf-chip.frenado .aro{ background:rgba(22,39,63,.16); font-size:.58rem; }
+    .pf-chip .corto{ display:none; }
+    .pf-chip .est{ font-weight:500; opacity:.8; }
+    .pf-cal-hint{ flex:1; min-width:0; display:flex; align-items:center; gap:9px; background:none; border:0; padding:6px 0;
+      color:#dbe2ec; font-family:inherit; font-size:.85rem; text-align:left; cursor:pointer; }
+    .pf-cal-hint > i:first-child{ color:var(--gold); flex:none; }
+    .pf-cal-hint span{ min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pf-cal-hint b{ color:#fff; font-weight:600; }
+    .pf-cal-hint small{ font-size:.78rem; color:#aab4c3; }
+    .pf-cal-hint .ir{ flex:none; font-size:.7rem; color:var(--gold); transition:transform .15s; }
+    .pf-cal-hint:hover .ir{ transform:translateX(3px); }
+    .pf-cal-hint:hover b{ text-decoration:underline; text-underline-offset:3px; text-decoration-color:rgba(255,255,255,.4); }
+    .pf-cal-hint.fin{ cursor:default; }
+    .pf-cal-hint.fin .ir{ display:none; }
+    .pf-cal-hint.fin:hover b{ text-decoration:none; }
 
     /* ---- Layout ---- */
     .pf-shell{ max-width:1120px; margin:0 auto; padding:26px 22px 70px; display:grid; grid-template-columns:230px minmax(0,1fr); gap:26px; align-items:start; }
@@ -63,7 +87,7 @@
     .pf-lede{ color:var(--muted); margin-bottom:22px; max-width:640px; }
 
     /* ---- Secciones ---- */
-    .pf-sec{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px 24px 14px; margin-bottom:18px; scroll-margin-top:130px; }
+    .pf-sec{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px 24px 14px; margin-bottom:18px; scroll-margin-top:calc(var(--pf-tope, 128px) + 4px); }
     .pf-sec-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:14px; }
     .pf-sec-head .n{ font-family:'Cormorant Garamond',serif; font-size:1.5rem; font-weight:700; color:var(--gold); line-height:1; flex:none; min-width:22px; }
     .pf-sec-head h3{ font-size:1.06rem; font-weight:600; color:var(--ink); margin:0; }
@@ -83,11 +107,7 @@
        lo que separa las partes es el espacio y alguna hairline. */
     .fx-bar{ display:flex; align-items:baseline; gap:10px; margin:2px 0 16px; }
     .fx-eyebrow{ font-size:.67rem; letter-spacing:.09em; text-transform:uppercase; color:#a8adb4; font-weight:600; }
-    .fx-cal{ margin-left:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end; }
-    .fx-cal-p{ font-size:.76rem; color:var(--muted); display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
-    .fx-cal-p b{ font-size:.6rem; font-weight:600; padding:2px 5px; border-radius:4px; color:var(--ink); }
-    .fx-cal-p b.ml{ background:var(--ml); }
-    .fx-cal-p b.ic{ background:var(--ic); color:#fff; }
+    .fx-cal{ margin-left:auto; display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
     .fx-cal-x{ font-size:.74rem; color:#a8adb4; }
 
     .fx-step{ border:none; background:none; }
@@ -192,12 +212,6 @@
     .fx-rev.on{ color:var(--ok); border-style:solid; border-color:rgba(30,125,79,.35); background:rgba(30,125,79,.07); }
 
     /* Panel "lo que falta" */
-    .fx-cal{ display:flex; align-items:center; flex-wrap:wrap; gap:7px 12px; padding-bottom:10px; margin-bottom:10px; border-bottom:1px solid var(--line); }
-    .fx-cal-p{ font-size:.82rem; font-weight:700; color:var(--ink); display:inline-flex; align-items:center; gap:6px; }
-    .fx-cal-p b{ font-size:.64rem; letter-spacing:.05em; padding:2px 6px; border-radius:5px; color:var(--ink); }
-    .fx-cal-p b.ml{ background:var(--ml); }
-    .fx-cal-p b.ic{ background:var(--ic); color:#fff; }
-    .fx-cal-x{ font-size:.78rem; color:var(--muted); flex:1; min-width:180px; }
     .fx-falt{ border:1px solid var(--line); border-radius:13px; background:var(--paper); padding:12px 14px; margin-bottom:14px; }
     .fx-falt:empty{ display:none; }
     .fx-falt.ok{ border-color:rgba(30,125,79,.3); background:rgba(30,125,79,.06); }
@@ -215,7 +229,10 @@
     /* Destello al saltar desde un chip: sin esto llegás al grupo sin saber cuál era */
     .fx-foco{ animation:fxFoco 2s ease; border-radius:9px; }
     @keyframes fxFoco{ 0%,30%{ background:rgba(201,162,39,.20); } 100%{ background:transparent; } }
-    .fx-ic-badge{ font-size:.66rem; font-weight:700; letter-spacing:.05em; background:rgba(255,122,0,.12); color:#b35600; border-radius:5px; padding:2px 6px; }
+    /* Etiqueta de portal: marca lo que ese portal exige además de lo obligatorio. */
+    .pts{ display:inline-flex; gap:4px; flex-wrap:wrap; vertical-align:middle; }
+    .pt{ display:inline-flex; align-items:center; font-size:.64rem; font-weight:700; letter-spacing:.02em; line-height:1.35;
+      padding:2px 7px; border-radius:5px; background:var(--bg); color:var(--fg); white-space:nowrap; }
     .fx-hidden{ display:none !important; }
     .fx-empty{ color:var(--muted); font-size:.86rem; padding:8px 2px 14px; display:none; }
 
@@ -239,9 +256,15 @@
     @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation-duration:.01s !important; } }
     @media (max-width:1020px){ .pf-shell{ grid-template-columns:1fr; } .pf-rail{ display:none; } }
     @media (max-width:640px){
-      .pf-cal-inner{ grid-template-columns:1fr 1fr; gap:8px 14px; padding:9px 16px; }
-      .pf-meter{ min-width:0; } .pf-meter .who{ width:auto; }
-      .pf-cal-hint{ grid-column:1 / -1; font-size:.8rem; }
+      /* Celular: las tres fichas en un renglón (con el nombre corto y lo que falta
+         adentro del aro) y la sugerencia abajo, a todo lo ancho. */
+      .pf-cal-inner{ flex-wrap:wrap; padding:8px 12px 6px; gap:5px; }
+      .pf-portales{ width:100%; gap:6px; }
+      .pf-chip{ flex:1 1 0; justify-content:center; padding:3px 9px 3px 3px; gap:6px; font-size:.76rem; }
+      .pf-chip .largo, .pf-chip .est{ display:none; }
+      .pf-chip .corto{ display:inline; }
+      .pf-cal-hint{ flex:1 1 100%; font-size:.8rem; padding:3px 0; }
+      .pf-cal-hint small{ display:none; }
       .pf-sec{ padding:16px 14px 8px; }
     }
   
@@ -346,6 +369,96 @@
          los botones de la barra. */
       .pf-wizard ~ .toast-container{ bottom:calc(104px + env(safe-area-inset-bottom,0px)); }
     }
+    /* ==========================================================================
+       PULIDO 26/09/2026
+       ========================================================================== */
+    /* Campo que frena el guardado: queda en rojo hasta que se corrige. */
+    #propertyForm input.pf-invalido, #propertyForm select.pf-invalido, #propertyForm textarea.pf-invalido{
+      border-color:var(--bad) !important; box-shadow:0 0 0 3px rgba(192,57,43,.12) !important; }
+    .pf-ayuda{ font-size:.76rem; color:var(--muted); line-height:1.45; margin-top:6px; }
+    .pf-corto{ display:none; }
+    .foto-proc{ font-size:.84rem; color:var(--muted); margin-top:8px; display:flex; align-items:center; gap:8px; }
+    .foto-proc i{ color:var(--gold); }
+    /* El "Paso 3 de 8" es un botón: en celular y tablet (donde no está el índice
+       lateral) abre la lista de pasos para saltar directo a cualquiera. */
+    .wiz-crumb{ background:none; border:0; padding:0; font-family:inherit; color:inherit; cursor:default; }
+    .wiz-crumb .chev{ display:none; }
+    @media (max-width:1020px){
+      .pf-wizard .wiz-crumb{ cursor:pointer; }
+      .pf-wizard .wiz-crumb .chev{ display:inline-block; font-size:.6rem; color:var(--gold); margin-left:6px; transition:transform .15s; }
+      .pf-wizard.menu-abierto .wiz-crumb .chev{ transform:rotate(180deg); }
+      .pf-rail.abierto{ display:block; position:fixed; left:12px; right:12px; top:auto;
+        bottom:var(--pf-menu-bajo,120px); max-height:min(62vh,470px); z-index:1300;
+        box-shadow:0 18px 50px rgba(22,39,63,.28); }
+      .pf-menu-fondo{ position:fixed; inset:0; background:rgba(22,39,63,.28); z-index:1250; }
+    }
+    /* Editando: "Guardar" está en todos los pasos. En el celular el "Atrás" queda
+       solo con la flecha para que entren los tres botones en un renglón. */
+    @media (max-width:640px){
+      .pf-wizard .wiz-nav.editando .wiz-back span{ display:none; }
+      .pf-wizard .wiz-nav.editando .wiz-back{ padding:13px 15px; }
+      .pf-wizard .wiz-nav.editando .wiz-next{ flex:1 1 0; background:var(--card); color:var(--ink); border:1px solid #dfe1e5; }
+      .pf-wizard .wiz-nav.editando #propertyBtn{ flex:1 1 0; }
+      .wiz-nav.editando .pf-largo{ display:none; }
+      .wiz-nav.editando .pf-corto{ display:inline; }
+    }
+    /* ==========================================================================
+       REDISEÑO PARA 3 PORTALES (26/09/2026)
+       ========================================================================== */
+    /* Monto con su moneda pegada: la moneda es parte del número, no otro campo. */
+    #propertyForm .pf-monto{ display:flex; }
+    #propertyForm .pf-monto select{ flex:0 0 auto; width:auto; min-width:74px; border-radius:8px 0 0 8px;
+      background-color:#f7f8fa; color:var(--ink); font-weight:600; }
+    #propertyForm .pf-monto input{ flex:1 1 auto; min-width:0; border-radius:0 8px 8px 0; margin-left:-1px; }
+    #propertyForm .pf-monto select:focus, #propertyForm .pf-monto input:focus{ position:relative; z-index:1; }
+    .pf-pin-row{ display:flex; align-items:center; gap:8px 14px; flex-wrap:wrap; margin-bottom:12px; }
+    .pf-pin-row .btn-mapa{ margin-bottom:0; }
+    .pf-pide{ font-size:.78rem; color:var(--muted); display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .pf-lede .pts{ margin:0 2px; }
+
+    /* ---- Paso 8: Revisar y publicar ---- */
+    .rv-aviso{ display:flex; gap:10px; align-items:flex-start; background:var(--gold-soft); border:1px solid rgba(201,162,39,.4);
+      color:#5f4a10; border-radius:12px; padding:11px 14px; margin-bottom:14px; font-size:.86rem; line-height:1.45; }
+    .rv-aviso > i{ color:var(--gold); margin-top:3px; flex:none; }
+    .rv-oblig{ border:1px solid rgba(192,57,43,.22); border-left:4px solid var(--bad); border-radius:12px; padding:11px 14px 6px; margin-bottom:14px; }
+    .rv-oblig-t{ font-size:.86rem; font-weight:700; color:#a2321f; display:flex; align-items:center; gap:8px; }
+    .rv-okline{ display:flex; align-items:center; gap:8px; font-size:.86rem; font-weight:600; color:var(--ok); margin-bottom:14px; }
+    .rv-portales{ display:grid; gap:10px; }
+    .rv-card{ border:1px solid var(--line); border-radius:13px; padding:12px 14px; background:var(--card); }
+    .rv-card.foco{ animation:fxFoco 2s ease; }
+    .rv-head{ display:flex; align-items:center; gap:8px 10px; flex-wrap:wrap; }
+    .rv-nombre{ font-size:.8rem; font-weight:700; padding:4px 10px; border-radius:7px; background:var(--bg); color:var(--fg); }
+    .rv-estado{ margin-left:auto; display:inline-flex; align-items:center; gap:6px; font-size:.82rem; font-weight:600; }
+    .rv-estado.ok{ color:var(--ok); } .rv-estado.warn{ color:#9a5b00; } .rv-estado.wait, .rv-estado.off{ color:var(--muted); }
+    .rv-pub{ display:inline-flex; align-items:center; gap:6px; font-size:.74rem; font-weight:600; color:var(--ok); }
+    .rv-pub::before{ content:''; width:7px; height:7px; border-radius:50%; background:currentColor; }
+    .rv-pub.pausada, .rv-pub.proceso{ color:var(--muted); }
+    .rv-lista{ list-style:none; margin:6px 0 0; padding:0; }
+    .rv-lista li{ border-top:1px solid #f0f0ee; }
+    .rv-lista li:first-child{ border-top:0; }
+    /* La fila entera es el botón: sin un "Completar" con borde en cada renglón. */
+    .rv-fila{ display:flex; align-items:center; gap:10px; width:calc(100% + 16px); margin:0 -8px; padding:9px 8px;
+      background:none; border:0; border-radius:8px; font-family:inherit; font-size:.86rem; color:var(--ink); text-align:left; }
+    button.rv-fila{ cursor:pointer; transition:background .12s; }
+    button.rv-fila:hover, button.rv-fila:focus-visible{ background:var(--paper); outline:none; }
+    .rv-fila > i:first-child{ flex:none; width:16px; text-align:center; font-size:.82rem; color:#c2c6cb; }
+    .rv-fila .tx{ flex:1; min-width:0; line-height:1.4; }
+    .rv-fila .tx b{ font-weight:600; }
+    .rv-fila em{ font-style:normal; font-size:.8rem; color:var(--muted); }
+    .rv-fila em::before{ content:' · '; }
+    .rv-fila .ir{ flex:none; font-size:.7rem; color:var(--gold); transition:transform .12s; }
+    button.rv-fila:hover .ir{ transform:translateX(2px); }
+    .rv-fila.hecho{ color:var(--muted); }
+    .rv-fila.hecho > i:first-child{ color:var(--ok); }
+    .rv-nota{ font-size:.8rem; color:var(--muted); line-height:1.45; margin-top:8px; }
+    .rv-sub{ display:flex; align-items:center; gap:8px; font-size:.7rem; letter-spacing:.08em; text-transform:uppercase;
+      color:#a8adb4; font-weight:600; margin:24px 0 10px; }
+    .rv-sub .cuenta{ margin-left:auto; letter-spacing:0; text-transform:none; font-size:.76rem; color:var(--muted); font-weight:500; }
+    @media (max-width:640px){
+      .rv-estado{ margin-left:0; flex-basis:100%; }
+      .rv-fila em{ display:block; margin-top:1px; }
+      .rv-fila em::before{ content:none; }
+    }
 </style>
 <style>
   /* Área segura superior (isla dinámica / notch) en toda la herramienta */
@@ -404,9 +517,8 @@
 
   <div class="pf-cal" id="pfCal" style="display:none">
     <div class="pf-cal-inner">
-      <div class="pf-meter ml"><span class="dot"></span><span class="who">Mercado Libre</span><span class="bar"><i id="calMLbar"></i></span><span class="pct" id="calMLpct">0%</span></div>
-      <div class="pf-meter ic"><span class="dot"></span><span class="who">InfoCasas</span><span class="bar"><i id="calICbar"></i></span><span class="pct" id="calICpct">0%</span></div>
-      <div class="pf-cal-hint"><i class="fas fa-lightbulb"></i><span id="calHint">Completá el aviso para subir la calidad en los dos portales.</span></div>
+      <div class="pf-portales" id="pfPortales" role="group" aria-label="Estado en cada portal"></div>
+      <button type="button" class="pf-cal-hint" id="pfSig" onclick="irAlSiguiente()"><i class="fas fa-lightbulb"></i><span id="calHint">Al guardar, la propiedad sale en Mercado Libre, InfoCasas y Casas y Más.</span><i class="fas fa-arrow-right ir"></i></button>
     </div>
   </div>
 
@@ -435,14 +547,14 @@
       <a href="javascript:void(0)" data-rail="5" onclick="wizIr(4);return false"><span class="tick"><i class="fas fa-check"></i></span> Fotos y video</a>
       <a href="javascript:void(0)" data-rail="6" onclick="wizIr(5);return false"><span class="tick"><i class="fas fa-check"></i></span> Título y descripción</a>
       <a href="javascript:void(0)" data-rail="7" onclick="wizIr(6);return false"><span class="tick"><i class="fas fa-check"></i></span> Precio</a>
-      <a href="javascript:void(0)" data-rail="8" onclick="wizIr(7);return false"><span class="tick"><i class="fas fa-check"></i></span> Contacto</a>
+      <a href="javascript:void(0)" data-rail="8" onclick="wizIr(7);return false"><span class="tick"><i class="fas fa-check"></i></span> Revisar y publicar</a>
     </aside>
 
     <div class="pf-main">
       <h1 id="ppfTitle">Nueva propiedad</h1>
-      <p class="pf-lede">Un solo formulario para los dos portales. Los campos con <span class="fx-req">*</span> son obligatorios.</p>
+      <p class="pf-lede">Al guardar, la propiedad sale sola en Mercado Libre, InfoCasas y Casas y Más. Los campos con <span class="fx-req">*</span> son obligatorios, y las etiquetas <span class="pts"><span class="pt po-ic">InfoCasas</span><span class="pt po-cym">Casas y Más</span></span> marcan lo que además pide ese portal.</p>
       <div id="propertyError" class="form-error hidden"></div>
-      <form onsubmit="handleSaveProperty(event)" id="propertyForm">
+      <form onsubmit="handleSaveProperty(event)" id="propertyForm" novalidate>
         <input type="hidden" id="editingPropertyId" value=""><input type="hidden" id="previousPrice" value="">
 
         <div class="pf-sec" id="sec1">
@@ -451,21 +563,21 @@
         </div>
 
         <div class="pf-sec" id="sec2">
-          <div class="pf-sec-head"><span class="n">2</span><div><h3>Ubicación</h3><small>El pin manda: sin coordenadas la propiedad no entra al feed de InfoCasas, y en ML mejora cómo aparece en el mapa.</small></div></div>
+          <div class="pf-sec-head"><span class="n">2</span><div><h3>Ubicación</h3><small>Departamento y barrio son obligatorios. Sin el pin, InfoCasas y Casas y Más no publican la propiedad; en Mercado Libre, mejora cómo aparece en el mapa.</small></div></div>
           <div class="form-row"><div class="form-group"><label>Departamento <span class="fx-req">*</span></label><select id="propDepartamento" required onchange="updateCiudades()"><option value="">Seleccionar...</option></select></div><div class="form-group"><label>Ciudad/Barrio <span class="fx-req">*</span></label><select id="propCiudad" required><option value="">Primero selecciona departamento</option></select></div></div>
-          <div class="form-row"><div class="form-group"><label>Calle</label><input type="text" id="propDireccion" placeholder="Ej: Av. 18 de Julio"></div><div class="form-group"><label>Número</label><input type="text" id="propNumeroPuerta" placeholder="1234"></div></div>
-          <button type="button" class="btn-mapa" onclick="buscarEnMapa()"><i class="fas fa-magnifying-glass-location"></i> Ubicar en el mapa</button>
+          <div class="form-row"><div class="form-group"><label for="propDireccion">Calle <span class="pts"><span class="pt po-ic">InfoCasas</span></span></label><input type="text" id="propDireccion" placeholder="Ej: Av. 18 de Julio"></div><div class="form-group"><label>Número</label><input type="text" id="propNumeroPuerta" placeholder="1234"></div></div>
+          <div class="pf-pin-row"><button type="button" class="btn-mapa" onclick="buscarEnMapa()"><i class="fas fa-magnifying-glass-location"></i> Ubicar en el mapa</button><span class="pf-pide">El pin lo piden <span class="pts"><span class="pt po-ic">InfoCasas</span><span class="pt po-cym">Casas y Más</span></span></span></div>
           <div id="propMapa"></div>
           <div class="ubicacion-estado" id="ubicacionEstado"></div>
         </div>
 
         <div class="pf-sec" id="sec3">
-          <div class="pf-sec-head"><span class="n">3</span><div><h3>Características principales</h3><small>Dormitorios, baños y superficies: van directo a los dos portales.</small></div></div>
-          <div class="form-row-4"><div class="form-group"><label>Dormitorios <span class="fx-req">*</span></label><input type="number" id="propBedrooms" placeholder="3" min="0"></div><div class="form-group"><label>Baños <span class="fx-req">*</span></label><input type="number" id="propBathrooms" placeholder="2" min="0"></div><div class="form-group"><label>Superficie total m² <span class="fx-req">*</span></label><input type="number" id="propTotalArea" required placeholder="100"></div><div class="form-group"><label>Área privada m² <span class="fx-req">*</span></label><input type="number" id="propBuiltArea" required placeholder="80"></div></div>
+          <div class="pf-sec-head"><span class="n">3</span><div><h3>Características principales</h3><small>Dormitorios, baños y superficies: van a los tres portales.</small></div></div>
+          <div class="form-row-4"><div class="form-group"><label>Dormitorios <span class="fx-req" id="reqDorms">*</span></label><input type="number" id="propBedrooms" placeholder="3" min="0"></div><div class="form-group"><label>Baños <span class="fx-req" id="reqBanos">*</span></label><input type="number" id="propBathrooms" placeholder="2" min="0"></div><div class="form-group"><label>Superficie total m² <span class="fx-req">*</span></label><input type="number" id="propTotalArea" required placeholder="100"></div><div class="form-group"><label>Área privada m² <span class="fx-req">*</span></label><input type="number" id="propBuiltArea" required placeholder="80"></div></div>
         </div>
 
         <div class="pf-sec" id="sec4">
-          <div class="pf-sec-head"><span class="n">4</span><div><h3>Ficha técnica</h3><small>Los campos oficiales de Mercado Libre para este inmueble, más los extras de InfoCasas.</small></div></div>
+          <div class="pf-sec-head"><span class="n">4</span><div><h3>Ficha técnica</h3><small>Los campos oficiales de Mercado Libre para este inmueble. InfoCasas y Casas y Más toman de acá lo que usan: cocheras, antigüedad, piscina, parrillero…</small></div></div>
           <div class="fx-toolbar">
             <div class="fx-search"><i class="fas fa-magnifying-glass"></i><input type="text" id="fichaSearch" placeholder="Buscar un campo... (ej: parrillero, piscina, antigüedad)" oninput="filtrarFicha()"></div>
             <button type="button" class="fx-btn" id="fxBtnModo" onclick="fxCambiarModo()">Ver todo</button>
@@ -476,34 +588,41 @@
         </div>
 
         <div class="pf-sec" id="sec5">
-          <div class="pf-sec-head"><span class="n">5</span><div><h3>Fotos y video</h3><small>Mínimo <b>12 fotos</b> obligatorias para publicar. La primera es la portada; la calidad de ML mejora cuantas más subas.</small></div></div>
-          <div class="form-group"><label>Fotos <span class="fx-req">*</span> <small style="color:var(--muted);font-weight:normal">(arrastrá para reordenar, máx 5MB cada una)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div class="foto-counter" id="fotoCounter"></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div><div style="font-size:.8rem;color:var(--muted);margin-top:8px"><i class="fas fa-shield-halved" style="color:var(--gold)"></i> A cada foto se le agrega automáticamente la marca de agua MALAVE (logo centrado y tenue) al guardar.</div></div>
+          <div class="pf-sec-head"><span class="n">5</span><div><h3>Fotos y video</h3><small>Mínimo <b>12 fotos</b> para publicar. La primera es la portada en los tres portales; cuantas más subas, mejor rinde el aviso.</small></div></div>
+          <div class="form-group"><label>Fotos <span class="fx-req">*</span> <small style="color:var(--muted);font-weight:normal">(arrastrá para reordenar)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Tocá acá o arrastrá las fotos</p><small>JPG, PNG o WebP · se achican solas antes de subir</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div class="foto-counter" id="fotoCounter"></div><div class="foto-proc" id="fotoProc" style="display:none"></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div><div style="font-size:.8rem;color:var(--muted);margin-top:8px"><i class="fas fa-shield-halved" style="color:var(--gold)"></i> A cada foto se le agrega automáticamente la marca de agua MALAVE (logo centrado y tenue).</div></div>
           <div class="form-group"><label>Video de YouTube (opcional)</label><input type="url" id="propVideo" placeholder="https://www.youtube.com/watch?v=..."><small style="color:var(--pf-gray,#6b7280);font-size:.78rem;display:block;margin-top:5px"><i class="fab fa-youtube" style="color:#ff0000"></i> Si lo dejás vacío, se muestra el video institucional de la agencia. Pegá un link (incluye Shorts) para usar uno propio de esta propiedad.</small></div>
         </div>
 
         <div class="pf-sec" id="sec6">
-          <div class="pf-sec-head"><span class="n">6</span><div><h3>Título y descripción</h3><small>ML permite hasta 200 caracteres de título: usá al menos 60 y sumá lo que la gente busca (tipo, barrio, dormitorios, extras). La descripción también viaja a InfoCasas con la Ref. del código.</small></div></div>
+          <div class="pf-sec-head"><span class="n">6</span><div><h3>Título y descripción</h3><small>El título admite hasta 200 caracteres: usá al menos 60 y sumá lo que la gente busca (tipo, barrio, dormitorios, extras). Sin descripción, InfoCasas y Casas y Más no la publican.</small></div></div>
           <div class="form-group"><label>Título <span class="fx-req">*</span></label><input type="text" id="propTitle" required maxlength="200" placeholder="Ej: Casa 3 dormitorios en Pocitos con jardín, parrillero y garaje doble" oninput="actualizarContadorTitulo()"></div>
           <div class="titulo-counter"><span id="tituloCount">0</span>/200</div>
-          <div class="form-group"><label>Descripción</label><textarea id="propDescription" rows="5" placeholder="Describe la propiedad..."></textarea></div>
+          <div class="form-group"><label for="propDescription">Descripción <span class="pts"><span class="pt po-ic">InfoCasas</span><span class="pt po-cym">Casas y Más</span></span></label><textarea id="propDescription" rows="6" placeholder="Contá cómo es la propiedad: ambientes, luz, estado, lo que hay cerca…"></textarea></div>
         </div>
 
         <div class="pf-sec" id="sec7">
-          <div class="pf-sec-head"><span class="n">7</span><div><h3>Precio</h3><small>Los gastos comunes se publican en la misma moneda elegida.</small></div></div>
-          <div class="form-row-3"><div class="form-group"><label>Precio <span class="fx-req">*</span></label><input type="number" id="propPrice" required placeholder="150000"></div><div class="form-group"><label>Moneda</label><select id="propCurrency"><option value="USD">USD</option><option value="UYU">UYU</option></select></div><div class="form-group"><label>Gastos Comunes <span class="fx-req">*</span></label><input type="number" id="propExpenses" required min="0" placeholder="0 si no tiene"></div></div>
+          <div class="pf-sec-head"><span class="n">7</span><div><h3>Precio</h3><small>Los gastos comunes llevan su propia moneda: casi siempre son en pesos, aunque la propiedad se venda en dólares.</small></div></div>
+          <div class="form-row">
+            <div class="form-group"><label for="propPrice">Precio <span class="fx-req">*</span></label><div class="pf-monto"><select id="propCurrency" aria-label="Moneda del precio"><option value="USD">US$</option><option value="UYU">$U</option></select><input type="number" id="propPrice" required min="0" inputmode="numeric" placeholder="150000"></div></div>
+            <div class="form-group"><label for="propExpenses">Gastos comunes <span class="fx-req">*</span></label><div class="pf-monto"><select id="propExpensesCurrency" aria-label="Moneda de los gastos comunes"><option value="UYU">$U</option><option value="USD">US$</option></select><input type="number" id="propExpenses" required min="0" inputmode="numeric" placeholder="0 si no tiene"></div><div class="pf-ayuda" id="gastosAyuda" style="display:none"></div></div>
+          </div>
         </div>
 
         <div class="pf-sec" id="sec8">
-          <div class="pf-sec-head"><span class="n">8</span><div><h3>Contacto</h3><small>El aviso siempre sale con el WhatsApp del perfil del agente dueño; este campo es solo para usar otro número puntual.</small></div></div>
-          <div class="form-group"><label>WhatsApp de Contacto (opcional)</label><input type="tel" id="propWhatsapp" placeholder="+598 99 123 456"></div>
+          <div class="pf-sec-head"><span class="n">8</span><div><h3>Revisar y publicar</h3><small>Así sale en cada portal. Al guardar, cada uno la toma por su cuenta: lo que le falte a uno no frena a los otros.</small></div></div>
+          <div class="rv-aviso" id="rvAviso" style="display:none"></div>
+          <div id="pfRevision"></div>
+          <div class="rv-sub">Contacto del aviso</div>
+          <div class="form-group"><label for="propWhatsapp">Otro WhatsApp para esta propiedad (opcional)</label><input type="tel" id="propWhatsapp" placeholder="+598 99 123 456"><div class="pf-ayuda" id="waAyuda"></div></div>
+          <div id="pfMejoras"></div>
         </div>
 
         <input type="hidden" id="propStatus" value="available">
         <div class="status-selector" id="statusSelector" style="display:none"></div>
 
         <div class="wiz-nav" id="wizNav">
-          <button type="button" class="wiz-back" id="wizBack" onclick="wizAtras()"><i class="fas fa-arrow-left"></i> Atrás</button>
-          <div class="wiz-crumb"><span class="s">Paso <b id="wizNumNow">1</b> de 8</span><span class="nm" id="wizNomNow">¿Qué vas a publicar?</span></div>
+          <button type="button" class="wiz-back" id="wizBack" onclick="wizAtras()"><i class="fas fa-arrow-left"></i> <span>Atrás</span></button>
+          <button type="button" class="wiz-crumb" id="wizCrumb" onclick="wizMenu()" aria-label="Ver todos los pasos"><span class="s">Paso <b id="wizNumNow">1</b> de 8<i class="fas fa-chevron-up chev"></i></span><span class="nm" id="wizNomNow">¿Qué vas a publicar?</span></button>
           <button type="button" class="wiz-next" id="wizNext" onclick="wizSiguiente()">Siguiente <i class="fas fa-arrow-right"></i></button>
           <button type="submit" class="btn-submit" id="propertyBtn"><i class="fas fa-check"></i> Publicar Propiedad</button>
         </div>
@@ -530,6 +649,22 @@
     storage.setMaxOperationRetryTime(30000);
 
     let currentUser = null, userProfile = null, selectedImages = [], draggedImageIndex = null, editingProperty = null, formClientId = null;
+
+    /* Estado agregado en el pulido (26/09/2026):
+       _sucio / _guardado / _salir  para avisar antes de irse con cambios sin guardar
+       _guardando                    evita el doble toque en Publicar
+       _idNueva                      id de la propiedad nueva, el mismo en cada reintento
+       _fotosEnProceso               fotos que todavía se están preparando
+       _duenio / _waDuenio           perfil del agente dueño y su WhatsApp (el que sale
+                                     si el campo "Otro WhatsApp" queda vacío) */
+    let _sucio = false, _guardado = false, _salir = false, _guardando = false, _idNueva = null, _fotosEnProceso = 0, _duenio = null, _waDuenio = '';
+    // Las fotos se achican a 1200 px antes de subir: este tope es solo para no
+    // trabar el teléfono con archivos gigantes. Antes era 5 MB y rechazaba fotos
+    // comunes de los celulares nuevos.
+    const MAX_FOTO_MB = 25;
+    function marcarSucio() { if (!_guardado) _sucio = true; }
+    // Teléfono uruguayo en dígitos nacionales: así "099 123 456" y "+598 99123456" son el mismo.
+    function normTel(t) { return String(t || '').replace(/\D/g, '').replace(/^598/, '').replace(/^0/, ''); }
 
     /* Solo lugares que EXISTEN en los portales. Se sacaron (19/09/2026) Costa de
        Oro, Vista Linda, Nueva Carrara y Puntas de Valdez: ninguno está en el
@@ -561,9 +696,17 @@
     };
 
     function goBack() {
+      if (_sucio && !_guardado && !confirm('Tenés cambios sin guardar. Si salís ahora, se pierden.\n\n¿Salir igual?')) return;
+      _salir = true;
       if (editingProperty) window.location.href = 'propiedad.html?id=' + editingProperty.id;
       else window.location.href = 'index.html';
     }
+    // Cerrar la pestaña, recargar o el gesto de "atrás" del celular con cambios
+    // sin guardar: el navegador pregunta antes de perder todo lo cargado.
+    window.addEventListener('beforeunload', e => {
+      if (!_sucio || _guardado || _salir) return;
+      e.preventDefault(); e.returnValue = '';
+    });
 
     function showState(which, opts = {}) {
       ['ppfLoading', 'ppfAuth', 'ppfErr', 'ppfFormWrap'].forEach(id => document.getElementById(id).style.display = 'none');
@@ -573,15 +716,16 @@
       if (typeof medirTope === 'function') setTimeout(medirTope, 0);
     }
 
+    // Las listas se arman de una sola vez (antes se re-dibujaban opción por opción).
     function initDepartamentos() {
       const s = document.getElementById('propDepartamento');
-      s.innerHTML = '<option value="">Seleccionar...</option>';
-      Object.keys(uruguayData).sort().forEach(d => { s.innerHTML += `<option value="${d}">${d}</option>` })
+      s.innerHTML = '<option value="">Seleccionar...</option>' +
+        Object.keys(uruguayData).sort().map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
     }
     function updateCiudades() {
       const d = document.getElementById('propDepartamento').value, c = document.getElementById('propCiudad');
-      c.innerHTML = '<option value="">Seleccionar...</option>';
-      if (d && uruguayData[d]) uruguayData[d].forEach(ciudad => { c.innerHTML += `<option value="${ciudad}">${ciudad}</option>` })
+      c.innerHTML = '<option value="">Seleccionar...</option>' +
+        ((d && uruguayData[d]) ? uruguayData[d].map(ci => `<option value="${esc(ci)}">${esc(ci)}</option>`).join('') : '');
     }
     function selectStatus(s) {
       document.querySelectorAll('.status-option').forEach(o => o.classList.remove('active'));
@@ -620,11 +764,12 @@
       } else mapaPin.setLatLng([lat, lng]);
       if (mapa.getZoom() < 15) mapa.setView([lat, lng], 16); else mapa.panTo([lat, lng]);
       actualizarEstadoUbicacion();
-      if (conReverse) reverseGeocode(lat, lng);
+      if (conReverse) { marcarSucio(); reverseGeocode(lat, lng); }
     }
     function quitarPin() {
       if (mapaPin) { mapa.removeLayer(mapaPin); mapaPin = null }
-      ubicacionState.lat = null; ubicacionState.lng = null; ubicacionState.barrio = '';
+      ubicacionState.lat = null; ubicacionState.lng = null; ubicacionState.barrio = ''; ubicacionState.sugerida = null;
+      marcarSucio();
       actualizarEstadoUbicacion();
     }
     function actualizarEstadoUbicacion() {
@@ -632,15 +777,15 @@
       if (!el) return;
       if (ubicacionState.lat != null) {
         el.innerHTML = `<span class="ok"><i class="fas fa-location-dot"></i> Pin fijado</span> (${ubicacionState.lat}, ${ubicacionState.lng})` +
-          (ubicacionState.barrio ? ` · Barrio detectado: <b>${ubicacionState.barrio}</b>` : '') +
+          (ubicacionState.barrio ? ` · Barrio detectado: <b>${esc(ubicacionState.barrio)}</b>` : '') +
           ` · Arrastrá el pin para ajustar · <a onclick="quitarPin()">quitar pin</a>` +
           (ubicacionState.sugerida
-            ? `<div class="ubic-sug"><i class="fas fa-map-pin"></i> El pin cae en <b>${
+            ? `<div class="ubic-sug"><i class="fas fa-map-pin"></i> El pin cae en <b>${esc(
                 [ubicacionState.sugerida.calle, ubicacionState.sugerida.numero].filter(Boolean).join(' ')
-              }</b> · <a onclick="usarDireccionDelPin()">usar esta dirección</a></div>`
+              )}</b> · <a onclick="usarDireccionDelPin()">usar esta dirección</a></div>`
             : '');
       } else {
-        el.innerHTML = `<i class="far fa-hand-pointer"></i> Tocá el mapa o usá "Ubicar en el mapa" para fijar el pin. No es obligatorio, pero mejora mucho la ubicación del aviso en Mercado Libre.`;
+        el.innerHTML = `<i class="far fa-hand-pointer"></i> Tocá el mapa o usá "Ubicar en el mapa" para fijar el pin. Sin pin, la propiedad no se publica en InfoCasas ni en Casas y Más.`;
       }
     }
     // Reemplaza la dirección escrita por la que corresponde al pin. Es un clic
@@ -653,7 +798,7 @@
       if (sug.numero) { ne.value = sug.numero; ne.dispatchEvent(new Event('input', { bubbles: true })); }
       ubicacionState.sugerida = null;
       actualizarEstadoUbicacion();
-      if (typeof toast === 'function') toast('Dirección actualizada según el pin');
+      showToast('Ubicación', 'Dirección actualizada según el pin.', 'fa-location-dot');
     }
 
     async function buscarEnMapa() {
@@ -692,20 +837,42 @@
     }
     // ================= FIN MAPA =================
 
-    function compressImageForPreview(f, m = 200) {
-      return new Promise(r => { const rd = new FileReader(); rd.onload = e => { const i = new Image(); i.onload = () => { const c = document.createElement('canvas'); let w = i.width, h = i.height; if (w > m) { h = (h * m) / w; w = m } c.width = w; c.height = h; c.getContext('2d').drawImage(i, 0, 0, w, h); r(c.toDataURL('image/jpeg', .6)) }; i.src = e.target.result }; rd.readAsDataURL(f) })
+    // ================= FOTOS =================
+    // Se leen con URL.createObjectURL y no con FileReader: el navegador decodifica
+    // el archivo directo, sin pasarlo antes a base64 (una foto de 8 MB se volvía
+    // 11 MB de texto en memoria). En el celular es lo que más se nota.
+    function leerFoto(f) {
+      return new Promise((res, rej) => {
+        const url = URL.createObjectURL(f);
+        const i = new Image();
+        i.onload = () => res({ img: i, url });
+        i.onerror = () => { URL.revokeObjectURL(url); rej(new Error('No se pudo leer ' + f.name + ' (formato no soportado)')); };
+        i.src = url;
+      });
     }
-    // Logo de marca de agua (se carga una vez)
+    function lienzoFoto(img, ancho) {
+      let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+      if (w > ancho) { h = (h * ancho) / w; w = ancho; }
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h));
+      const ctx = c.getContext('2d');
+      // Achicar con suavizado alto: la foto que llega a los portales se ve más nítida.
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      return c;
+    }
+    // Logo de marca de agua (se carga una vez). _wmLista avisa cuando está listo:
+    // las fotos se preparan apenas se eligen y ninguna puede salir sin la marca.
     var _wmLogo = null, _wmLogoReady = false;
-    (function preloadWatermark(){
+    const _wmLista = new Promise(function (listo) {
       try {
-        if (typeof MALAVE_LOGO_ISO === 'undefined') return;
+        if (typeof MALAVE_LOGO_ISO === 'undefined') return listo();
         var im = new Image();
-        im.onload = function(){ _wmLogo = im; _wmLogoReady = true; };
-        im.onerror = function(){ _wmLogoReady = false; };
+        im.onload = function () { _wmLogo = im; _wmLogoReady = true; listo(); };
+        im.onerror = function () { _wmLogoReady = false; listo(); };
         im.src = MALAVE_LOGO_ISO; // versión clara, se ve bien sobre fotos
-      } catch(e){ _wmLogoReady = false; }
-    })();
+      } catch (e) { _wmLogoReady = false; listo(); }
+    });
 
     function dibujarMarcaAgua(ctx, w, h){
       if (!_wmLogoReady || !_wmLogo) return; // si no cargó el logo, la foto va sin marca
@@ -722,16 +889,51 @@
       } catch(e){ /* si falla, la foto queda sin marca */ }
     }
 
-    function compressImageToBlob(f, m = 1200, q = .8, dup = 0) {
-      return new Promise((res, rej) => { const rd = new FileReader(); rd.onerror = () => rej(new Error('No se pudo leer ' + f.name)); rd.onload = e => { const i = new Image(); i.onerror = () => rej(new Error('No se pudo procesar ' + f.name + ' (formato no soportado)')); i.onload = () => { const c = document.createElement('canvas'); let w = i.width, h = i.height; if (w > m) { h = (h * m) / w; w = m } c.width = w; c.height = h; const ctx = c.getContext('2d'); ctx.drawImage(i, 0, 0, w, h); dibujarMarcaAgua(ctx, w, h); if (dup > 0) { ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fillRect((dup * 7) % Math.max(1, Math.floor(w) - 2), Math.floor(h) - 1, 1, 1); } c.toBlob(res, 'image/jpeg', q) }; i.src = e.target.result }; rd.readAsDataURL(f) })
+    // La versión que se sube: 1200 px y marca de agua. Si es una copia de otra foto,
+    // además sale como un archivo distinto, para que Mercado Libre no la descarte
+    // como repetida (compara el contenido, no el nombre del archivo).
+    function fotoParaSubir(img, dup, m, q) {
+      const c = lienzoFoto(img, m || 1200);
+      const ctx = c.getContext('2d'), w = c.width, h = c.height;
+      dibujarMarcaAgua(ctx, w, h);
+      let calidad = q || .8;
+      if (dup > 0) {
+        /* Antes la copia llevaba un solo píxel casi transparente, y la compresión
+           JPEG lo borraba: salía idéntica, byte a byte. Ahora cada copia se guarda
+           con una calidad apenas distinta y un tinte leve en un cuadradito de 8 px
+           del borde de abajo. A la vista es la misma foto; el archivo es otro. */
+        ctx.fillStyle = 'rgba(255,255,255,.06)';
+        ctx.fillRect(8 * (dup % Math.max(1, Math.floor(w / 8) - 1)), Math.max(0, h - 8), 8, 8);
+        calidad = Math.max(.7, calidad - .01 * Math.min(dup, 10));
+      }
+      return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('No se pudo preparar la foto')), 'image/jpeg', calidad));
     }
-    function _subirUna(f, p, i, ms, dup) {
+    // Respaldo: si una foto no quedó preparada al elegirla, se prepara al subir.
+    async function compressImageToBlob(f, m = 1200, q = .8, dup = 0) {
+      const { img, url } = await leerFoto(f);
+      try { return await fotoParaSubir(img, dup, m, q); } finally { URL.revokeObjectURL(url); }
+    }
+    /* Cada foto se prepara APENAS se elige, de a una: la miniatura y la versión
+       final, lista para subir. Antes todo eso pasaba recién al tocar "Publicar",
+       tres fotos grandes a la vez: era donde se iba el tiempo, y en el celular
+       podía quedarse sin memoria. Ahora al publicar solo se suben archivos chicos. */
+    async function prepararFoto(f, dup) {
+      await Promise.race([_wmLista, new Promise(r => setTimeout(r, 3000))]);
+      const { img, url } = await leerFoto(f);
+      try {
+        const preview = lienzoFoto(img, 200).toDataURL('image/jpeg', .6);
+        const blob = await fotoParaSubir(img, dup || 0);
+        return { preview, blob };
+      } finally { URL.revokeObjectURL(url); }
+    }
+    function _subirUna(im, p, i, ms) {
       return new Promise(async (resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('timeout')), ms || 75000);
         try {
-          const n = `${Date.now()}_${i}_${f.name.replace(/[^a-zA-Z0-9.]/g,'_')}`;
+          const nombre = String((im.file && im.file.name) || 'foto.jpg');
+          const n = `${Date.now()}_${i}_${nombre.replace(/[^a-zA-Z0-9.]/g,'_')}`;
           const r = storage.ref(`properties/${p}/${n}`);
-          const b = await compressImageToBlob(f, 1200, .8, dup || 0);
+          const b = im.blob || await compressImageToBlob(im.file, 1200, .8, im.dup || 0);
           /* Se sube con Cache-Control largo. Sin esto Firebase Storage sirve la
              foto como "no guardar" y el navegador la volvía a bajar entera cada
              vez que se abría una propiedad: 1,5 a 2,5 segundos por foto, en cada
@@ -743,20 +945,56 @@
         } catch (e) { clearTimeout(timer); reject(e); }
       });
     }
-    async function uploadImageToStorage(f, p, i, dup) {
-      try { return await _subirUna(f, p, i, 75000, dup); }
+    async function uploadImageToStorage(im, p, i) {
+      try { return await _subirUna(im, p, i, 75000); }
       catch (e1) {
         // Un reintento antes de rendirse (la señal pudo haber parpadeado).
-        try { return await _subirUna(f, p, i, 75000, dup); }
+        try { return await _subirUna(im, p, i, 75000); }
         catch (e2) {
           throw new Error('No se pudo subir la foto ' + (i + 1) + ' (conexión inestable o archivo dañado). Tocá "Guardar" de nuevo: las fotos que ya subieron no se vuelven a subir.');
         }
       }
     }
-    async function addImagesToPreview(fs) {
-      for (const f of fs) { if (f.size > 5 * 1024 * 1024) { alert(`La imagen ${f.name} excede 5MB`); continue } const pr = await compressImageForPreview(f); const _nu = { preview: pr, file: f, existing: false }; const _d = _proximoDup(_nu) - 1; if (_d > 0) _nu.dup = _d; selectedImages.push(_nu); renderImagePreviews() }
+    function nombresCortos(lista) {
+      const n = lista.slice(0, 3).join(', ');
+      return lista.length > 3 ? `${n} y ${lista.length - 3} más` : n;
     }
-    function handleImageSelect(e) { addImagesToPreview(Array.from(e.target.files)); e.target.value = '' }
+    function mostrarProcesoFotos() {
+      const el = document.getElementById('fotoProc');
+      if (!el) return;
+      if (_fotosEnProceso > 0) {
+        el.style.display = '';
+        el.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Preparando ${_fotosEnProceso === 1 ? '1 foto' : _fotosEnProceso + ' fotos'}…`;
+      } else { el.style.display = 'none'; el.innerHTML = ''; }
+    }
+    /* Una foto que el navegador no puede leer (HEIC en una PC, archivo dañado)
+       antes TRABABA la carga: las que venían después no se agregaban nunca y no
+       aparecía ningún mensaje. Ahora se saltea y se avisa al final, junto con las
+       demasiado pesadas, en un solo cartel en vez de una alerta por foto. */
+    async function addImagesToPreview(fs) {
+      const lista = Array.from(fs || []);
+      if (!lista.length) return;
+      const grandes = [], ilegibles = [];
+      _fotosEnProceso += lista.length;
+      mostrarProcesoFotos();
+      for (const f of lista) {
+        try {
+          if (f.type && !/^image\//i.test(f.type)) { ilegibles.push(f.name); continue; }
+          if (f.size > MAX_FOTO_MB * 1024 * 1024) { grandes.push(f.name); continue; }
+          const nu = { file: f, existing: false };
+          const d = _proximoDup(nu);
+          if (d > 0) nu.dup = d;
+          try { Object.assign(nu, await prepararFoto(f, d)); }
+          catch (e) { ilegibles.push(f.name); continue; }
+          selectedImages.push(nu);
+          marcarSucio();
+          renderImagePreviews();
+        } finally { _fotosEnProceso--; mostrarProcesoFotos(); }
+      }
+      if (grandes.length) showToast('Fotos demasiado pesadas', esc(`No se agregaron (más de ${MAX_FOTO_MB} MB): ${nombresCortos(grandes)}.`), 'fa-triangle-exclamation');
+      if (ilegibles.length) showToast('Fotos que no se pudieron leer', esc(`No se agregaron: ${nombresCortos(ilegibles)}. Si son HEIC del iPhone, exportalas como JPG.`), 'fa-triangle-exclamation');
+    }
+    function handleImageSelect(e) { addImagesToPreview(Array.from(e.target.files || [])); e.target.value = '' }
     function renderImagePreviews() {
       document.getElementById('imagePreviewGrid').innerHTML = selectedImages.map((im, i) => `<div class="image-preview-item ${i===0?'main':''}" data-idx="${i}" draggable="true" ondragstart="handleDragStart(event,${i})" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropImage(event,${i})" ondragend="handleDragEnd(event)"><img src="${im.preview}" alt=""><div class="drag-handle" title="Arrastrar para reordenar" ontouchstart="imgTouchStart(event,${i})"><i class="fas fa-grip-vertical"></i></div><div class="remove-image" title="Quitar esta foto" onclick="event.stopPropagation();removeImage(${i})"><i class="fas fa-times"></i></div></div>`).join('')
     }
@@ -775,16 +1013,15 @@
     }
     function _proximoDup(im) {
       const clave = claveFoto(im);
-      let max = 0;
-      selectedImages.forEach(x => { if (claveFoto(x) === clave && (x.dup || 0) > max) max = x.dup || 0; });
-      return max + 1;
+      const iguales = selectedImages.filter(x => claveFoto(x) === clave);
+      return iguales.length ? Math.max(...iguales.map(x => x.dup || 0)) + 1 : 0;
     }
-    function removeImage(i) { selectedImages.splice(i, 1); renderImagePreviews() }
+    function removeImage(i) { selectedImages.splice(i, 1); marcarSucio(); renderImagePreviews() }
     function handleDragStart(e, i) { draggedImageIndex = i; e.target.classList.add('dragging') }
     function handleDragOver(e) { e.preventDefault() }
     function handleDragEnter(e) { e.preventDefault(); if (e.target.closest('.image-preview-item')) e.target.closest('.image-preview-item').classList.add('drag-over') }
     function handleDragLeave(e) { if (e.target.closest('.image-preview-item')) e.target.closest('.image-preview-item').classList.remove('drag-over') }
-    function handleDropImage(e, ti) { e.preventDefault(); const it = e.target.closest('.image-preview-item'); if (it) it.classList.remove('drag-over'); if (draggedImageIndex !== null && draggedImageIndex !== ti) { const di = selectedImages[draggedImageIndex]; selectedImages.splice(draggedImageIndex, 1); selectedImages.splice(ti, 0, di); renderImagePreviews() } }
+    function handleDropImage(e, ti) { e.preventDefault(); const it = e.target.closest('.image-preview-item'); if (it) it.classList.remove('drag-over'); if (draggedImageIndex !== null && draggedImageIndex !== ti) { const di = selectedImages[draggedImageIndex]; selectedImages.splice(draggedImageIndex, 1); selectedImages.splice(ti, 0, di); marcarSucio(); renderImagePreviews() } }
     function handleDragEnd(e) { e.target.classList.remove('dragging'); draggedImageIndex = null; document.querySelectorAll('.image-preview-item').forEach(it => it.classList.remove('drag-over')) }
 
     // ---- Reordenar fotos en CELULAR (el drag de HTML5 no funciona con el dedo) ----
@@ -837,14 +1074,44 @@
         const di = selectedImages[tDragIdx];
         selectedImages.splice(tDragIdx, 1);
         selectedImages.splice(ti, 0, di);
+        marcarSucio();
         renderImagePreviews();
       }
       document.querySelectorAll('.image-preview-item').forEach(it => it.classList.remove('drag-over', 'dragging'));
       tDragIdx = null; tDragEl = null;
     }
+    // ---- Soltar fotos desde la computadora ----
+    // El recuadro decía "arrastrá imágenes" pero no escuchaba el soltar: el
+    // navegador abría la foto en la pestaña y se perdía todo lo cargado.
+    function traeArchivos(e) { return !!(e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')); }
+    function activarSoltarFotos() {
+      const area = document.getElementById('imageUploadArea');
+      if (area) {
+        ['dragenter', 'dragover'].forEach(ev => area.addEventListener(ev, e => {
+          if (!traeArchivos(e)) return;
+          e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; area.classList.add('dragover');
+        }));
+        area.addEventListener('dragleave', () => area.classList.remove('dragover'));
+        area.addEventListener('drop', e => {
+          area.classList.remove('dragover');
+          if (!traeArchivos(e)) return;
+          e.preventDefault();
+          addImagesToPreview(Array.from(e.dataTransfer.files || []));
+        });
+      }
+      // Una foto soltada fuera del recuadro no hace nada (antes reemplazaba la página).
+      window.addEventListener('dragover', e => { if (traeArchivos(e)) e.preventDefault(); });
+      window.addEventListener('drop', e => { if (traeArchivos(e)) e.preventDefault(); });
+    }
+    activarSoltarFotos();
+
     function updateUploadProgress(c, t) {
       const p = document.getElementById('uploadProgress'), f = document.getElementById('uploadProgressFill'), tx = document.getElementById('uploadProgressText');
-      p.classList.remove('hidden'); const pc = Math.round((c / t) * 100); f.style.width = `${pc}%`; tx.textContent = `Subiendo imagen ${c} de ${t}...`
+      p.classList.remove('hidden'); const pc = Math.round((c / t) * 100); f.style.width = `${pc}%`; tx.textContent = `Subiendo imagen ${c} de ${t}...`;
+      // Esa barra vive en el paso de Fotos, que no está a la vista cuando se
+      // publica desde el último paso: el avance se muestra también en el botón.
+      const b = document.getElementById('propertyBtn');
+      if (b && b.disabled) b.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Subiendo fotos ${c} de ${t}…`;
     }
     function showToast(t, m, i = 'fa-bell') {
       const c = document.getElementById('toastContainer'), toast = document.createElement('div');
@@ -852,9 +1119,10 @@
       c.appendChild(toast); setTimeout(() => { toast.classList.add('hiding'); setTimeout(() => toast.remove(), 300) }, 5000)
     }
 
+    function numOVacio(v) { return (v === 0 || v) ? v : ''; }
     function loadPropertyForEdit(p) {
       document.getElementById('ppfTitle').textContent = 'Editar propiedad';
-      document.getElementById('propertyBtn').innerHTML = '<i class="fas fa-save"></i> Guardar Cambios';
+      document.getElementById('propertyBtn').innerHTML = etiquetaGuardar(true);
       document.getElementById('editingPropertyId').value = p.id;
       document.getElementById('previousPrice').value = p.price || '';
       document.getElementById('propTitle').value = p.title || '';
@@ -868,7 +1136,7 @@
       const _selCiu = document.getElementById('propCiudad');
       const _ciuGuardada = p.ciudad || '';
       if (_ciuGuardada && !Array.from(_selCiu.options).some(o => o.value === _ciuGuardada)) {
-        _selCiu.insertAdjacentHTML('beforeend', `<option value="${_ciuGuardada}">${_ciuGuardada}</option>`);
+        _selCiu.appendChild(new Option(_ciuGuardada, _ciuGuardada));   // como texto, nunca como HTML
       }
       _selCiu.value = _ciuGuardada;
       const ub = p.ubicacion || {};
@@ -877,16 +1145,27 @@
       ubicacionState.barrio = ub.barrio || '';
       if (ub.lat != null && ub.lng != null) { mapa.setView([ub.lat, ub.lng], 16); setPin(ub.lat, ub.lng, false); setTimeout(() => mapa && mapa.invalidateSize(), 250) }
       else actualizarEstadoUbicacion();
-      document.getElementById('propPrice').value = p.price || '';
+      /* Los números en 0 se muestran como 0 y no en blanco (el mismo arreglo que ya
+         tenían los gastos comunes): un monoambiente tiene 0 dormitorios y un
+         terreno 0 m² edificados. En blanco, el terreno no se podía volver a guardar. */
+      document.getElementById('propPrice').value = numOVacio(p.price);
       document.getElementById('propCurrency').value = p.currency || 'USD';
+      // Las propiedades anteriores al campo no tienen la moneda de los gastos:
+      // arrancan en pesos, que es lo normal (y lo que ya asumían InfoCasas y Casas y Más).
+      document.getElementById('propExpensesCurrency').value = p.commonExpensesCurrency === 'USD' ? 'USD' : 'UYU';
+      const _gAyuda = document.getElementById('gastosAyuda');
+      if (_gAyuda && !p.commonExpensesCurrency && Number(p.commonExpenses) > 0 && (p.currency || 'USD') === 'USD') {
+        _gAyuda.innerHTML = '<i class="fas fa-circle-info" style="color:var(--gold)"></i> Revisá la moneda: hasta ahora Mercado Libre publicaba estos gastos en dólares, la moneda del precio.';
+        _gAyuda.style.display = '';
+      }
       document.getElementById('propType').value = p.type || 'sale';
       togglePropertyType();
       document.getElementById('propPropertyType').value = p.propertyType || 'common';
       document.getElementById('propRealEstateType').value = p.realEstateType || 'casa';
-      document.getElementById('propBedrooms').value = p.bedrooms || '';
-      document.getElementById('propBathrooms').value = p.bathrooms || '';
-      document.getElementById('propTotalArea').value = p.totalArea || '';
-      document.getElementById('propBuiltArea').value = p.builtArea || '';
+      document.getElementById('propBedrooms').value = numOVacio(p.bedrooms);
+      document.getElementById('propBathrooms').value = numOVacio(p.bathrooms);
+      document.getElementById('propTotalArea').value = numOVacio(p.totalArea);
+      document.getElementById('propBuiltArea').value = numOVacio(p.builtArea);
       /* Ojo con el 0: `p.commonExpenses || ''` devuelve cadena vacía cuando los
          gastos son 0, así que el campo aparecía en blanco. Desde que es
          obligatorio, eso impedía guardar cualquier propiedad sin gastos comunes
@@ -895,7 +1174,13 @@
         (p.commonExpenses === 0 || p.commonExpenses) ? p.commonExpenses : '';
       document.getElementById('propDescription').value = p.description || '';
       document.getElementById('propVideo').value = p.videoUrl || '';
-      document.getElementById('propWhatsapp').value = p.ownerWhatsapp || '';
+      /* El campo es solo para un número DISTINTO al del perfil. Antes se guardaba
+         siempre una copia del número del agente: si después lo cambiaba en su
+         perfil, el aviso seguía con el viejo. Esa copia ahora se muestra vacía
+         (el aviso sale igual con ese número) y al guardar se limpia. */
+      const _esDuenio = !currentUser || p.ownerId === currentUser.uid;
+      const _copiaPropia = _esDuenio && p.ownerWhatsapp && userProfile && userProfile.whatsapp && normTel(p.ownerWhatsapp) === normTel(userProfile.whatsapp);
+      document.getElementById('propWhatsapp').value = _copiaPropia ? '' : (p.ownerWhatsapp || '');
       selectStatus(p.status || 'available');
       togglePropertyType();
       renderFicha();
@@ -922,7 +1207,7 @@
     // FICHA TÉCNICA — catálogo COMPLETO generado del dump oficial de ML
     // (ml-ficha-salida.json) + extras de InfoCasas. Los nombres y opciones de las
     // listas son EXACTOS a los de ML: no editar a mano, regenerar desde el dump.
-    // Ids IC_* son extras de InfoCasas: el backend de ML los ignora y el feed los lee.
+    // Ids IC_* son extras de InfoCasas: el backend de ML los ignora y a InfoCasas se le mandan por la API.
     // ============================================================================
     const FICHA_TIPOS = {
       "casa": {
@@ -932,19 +1217,19 @@
             "label": "Cocheras",
             "type": "num",
             "req": true,
-            "help": "Cantidad de cocheras. Va a ML y como garajes a InfoCasas."
+            "help": "Cantidad de cocheras. Va a los tres portales."
           },
           {
             "id": "PROPERTY_AGE",
             "label": "Antigüedad",
             "type": "num",
-            "help": "Años de antigüedad. InfoCasas lo convierte en año de construcción."
+            "help": "Años de antigüedad. Va a los tres portales."
           },
           {
             "id": "LAND_AREA",
             "label": "Superficie de terreno",
             "type": "num",
-            "help": "m² del terreno. Si queda vacío, InfoCasas usa la superficie total."
+            "help": "m² del terreno. Va a los tres portales."
           },
           {
             "id": "BALCONY_AREA",
@@ -994,7 +1279,7 @@
               "Norte",
               "Este"
             ],
-            "help": "Orientación: viaja a los dos portales."
+            "help": "Hacia dónde da la propiedad. Va a Mercado Libre."
           }
         ],
         "Ambientes": [
@@ -1219,7 +1504,7 @@
               "Nocturno",
               "Virtual"
             ],
-            "help": "\"24 horas\" marca Portería 24 hs en InfoCasas; Diurno/Nocturno marcan Guardia."
+            "help": "Qué tipo de vigilancia tiene. Va a Mercado Libre."
           },
           {
             "id": "IN_GATED_COMMUNITY",
@@ -1259,7 +1544,7 @@
             "id": "PROPERTY_CODE",
             "label": "Código de la propiedad",
             "type": "text",
-            "help": "Se genera solo y no se repite jamás. Sale en ML y como Ref. en InfoCasas."
+            "help": "Se genera solo y no se repite jamás. Sale como referencia en los tres portales."
           }
         ],
         "Alquiler": [
@@ -1313,7 +1598,7 @@
               "Vista abierta",
               "Sin vista especial"
             ],
-            "help": "\"Mar\" marca Vista al Mar en InfoCasas."
+            "help": "Qué se ve desde la propiedad."
           },
           {
             "id": "IC_SOBRE",
@@ -1342,7 +1627,7 @@
             "id": "IC_TOUR3D",
             "label": "Tour 3D (link)",
             "type": "text",
-            "help": "Kuula, Matterport, etc. Va a InfoCasas y marca \"Con tour virtual\" en ML."
+            "help": "Kuula, Matterport, etc. Marca \"Con tour virtual\" en Mercado Libre."
           },
           {
             "id": "IC_UBICACION",
@@ -1375,7 +1660,7 @@
             "label": "Cocheras",
             "type": "num",
             "req": true,
-            "help": "Cantidad de cocheras. Va a ML y como garajes a InfoCasas."
+            "help": "Cantidad de cocheras. Va a los tres portales."
           },
           {
             "id": "WAREHOUSES",
@@ -1441,7 +1726,7 @@
               "Interno",
               "Lateral"
             ],
-            "help": "Frente, contrafrente, interno o lateral: viaja a los dos portales."
+            "help": "Frente, contrafrente, interno o lateral. Va a Mercado Libre."
           },
           {
             "id": "FACING",
@@ -1454,13 +1739,13 @@
               "Norte",
               "Este"
             ],
-            "help": "Orientación: viaja a los dos portales."
+            "help": "Hacia dónde da la propiedad. Va a Mercado Libre."
           },
           {
             "id": "PROPERTY_AGE",
             "label": "Antigüedad",
             "type": "num",
-            "help": "Años de antigüedad. InfoCasas lo convierte en año de construcción."
+            "help": "Años de antigüedad. Va a los tres portales."
           }
         ],
         "Ambientes": [
@@ -1689,7 +1974,7 @@
               "Nocturno",
               "Virtual"
             ],
-            "help": "\"24 horas\" marca Portería 24 hs en InfoCasas; Diurno/Nocturno marcan Guardia."
+            "help": "Qué tipo de vigilancia tiene. Va a Mercado Libre."
           },
           {
             "id": "HAS_GUEST_PARKING",
@@ -1723,7 +2008,7 @@
             "id": "PROPERTY_CODE",
             "label": "Código de la propiedad",
             "type": "text",
-            "help": "Se genera solo y no se repite jamás. Sale en ML y como Ref. en InfoCasas."
+            "help": "Se genera solo y no se repite jamás. Sale como referencia en los tres portales."
           }
         ],
         "Alquiler": [
@@ -1777,7 +2062,7 @@
               "Vista abierta",
               "Sin vista especial"
             ],
-            "help": "\"Mar\" marca Vista al Mar en InfoCasas."
+            "help": "Qué se ve desde la propiedad."
           },
           {
             "id": "IC_SOBRE",
@@ -1806,7 +2091,7 @@
             "id": "IC_TOUR3D",
             "label": "Tour 3D (link)",
             "type": "text",
-            "help": "Kuula, Matterport, etc. Va a InfoCasas y marca \"Con tour virtual\" en ML."
+            "help": "Kuula, Matterport, etc. Marca \"Con tour virtual\" en Mercado Libre."
           },
           {
             "id": "IC_UBICACION",
@@ -1859,7 +2144,7 @@
             "id": "PROPERTY_AGE",
             "label": "Antigüedad",
             "type": "num",
-            "help": "Años de antigüedad. InfoCasas lo convierte en año de construcción."
+            "help": "Años de antigüedad. Va a los tres portales."
           },
           {
             "id": "LOT_DISPOSITION",
@@ -1913,7 +2198,7 @@
             "id": "PROPERTY_CODE",
             "label": "Código de la propiedad",
             "type": "text",
-            "help": "Se genera solo y no se repite jamás. Sale en ML y como Ref. en InfoCasas."
+            "help": "Se genera solo y no se repite jamás. Sale como referencia en los tres portales."
           }
         ],
         "Alquiler": [
@@ -1967,7 +2252,7 @@
               "Vista abierta",
               "Sin vista especial"
             ],
-            "help": "\"Mar\" marca Vista al Mar en InfoCasas."
+            "help": "Qué se ve desde la propiedad."
           },
           {
             "id": "IC_SOBRE",
@@ -1996,7 +2281,7 @@
             "id": "IC_TOUR3D",
             "label": "Tour 3D (link)",
             "type": "text",
-            "help": "Kuula, Matterport, etc. Va a InfoCasas y marca \"Con tour virtual\" en ML."
+            "help": "Kuula, Matterport, etc. Marca \"Con tour virtual\" en Mercado Libre."
           },
           {
             "id": "IC_UBICACION",
@@ -2017,7 +2302,7 @@
             "label": "Cocheras",
             "type": "num",
             "req": true,
-            "help": "Cantidad de cocheras. Va a ML y como garajes a InfoCasas."
+            "help": "Cantidad de cocheras. Va a los tres portales."
           },
           {
             "id": "WAREHOUSES",
@@ -2035,7 +2320,7 @@
             "id": "PROPERTY_AGE",
             "label": "Antigüedad",
             "type": "num",
-            "help": "Años de antigüedad. InfoCasas lo convierte en año de construcción."
+            "help": "Años de antigüedad. Va a los tres portales."
           },
           {
             "id": "HAS_ELECTRIC_LIGHT",
@@ -2117,7 +2402,7 @@
             "id": "PROPERTY_CODE",
             "label": "Código de la propiedad",
             "type": "text",
-            "help": "Se genera solo y no se repite jamás. Sale en ML y como Ref. en InfoCasas."
+            "help": "Se genera solo y no se repite jamás. Sale como referencia en los tres portales."
           }
         ],
         "Alquiler": [
@@ -2171,7 +2456,7 @@
               "Vista abierta",
               "Sin vista especial"
             ],
-            "help": "\"Mar\" marca Vista al Mar en InfoCasas."
+            "help": "Qué se ve desde la propiedad."
           },
           {
             "id": "IC_SOBRE",
@@ -2200,7 +2485,7 @@
             "id": "IC_TOUR3D",
             "label": "Tour 3D (link)",
             "type": "text",
-            "help": "Kuula, Matterport, etc. Va a InfoCasas y marca \"Con tour virtual\" en ML."
+            "help": "Kuula, Matterport, etc. Marca \"Con tour virtual\" en Mercado Libre."
           },
           {
             "id": "IC_UBICACION",
@@ -2221,7 +2506,7 @@
             "label": "Cocheras",
             "type": "num",
             "req": true,
-            "help": "Cantidad de cocheras. Va a ML y como garajes a InfoCasas."
+            "help": "Cantidad de cocheras. Va a los tres portales."
           },
           {
             "id": "OFFICES",
@@ -2261,7 +2546,7 @@
               "Norte",
               "Este"
             ],
-            "help": "Orientación: viaja a los dos portales."
+            "help": "Hacia dónde da la propiedad. Va a Mercado Libre."
           },
           {
             "id": "DISPOSITION",
@@ -2274,13 +2559,13 @@
               "Interno",
               "Lateral"
             ],
-            "help": "Frente, contrafrente, interno o lateral: viaja a los dos portales."
+            "help": "Frente, contrafrente, interno o lateral. Va a Mercado Libre."
           },
           {
             "id": "PROPERTY_AGE",
             "label": "Antigüedad",
             "type": "num",
-            "help": "Años de antigüedad. InfoCasas lo convierte en año de construcción."
+            "help": "Años de antigüedad. Va a los tres portales."
           },
           {
             "id": "HAS_ELECTRIC_LIGHT",
@@ -2396,7 +2681,7 @@
             "id": "PROPERTY_CODE",
             "label": "Código de la propiedad",
             "type": "text",
-            "help": "Se genera solo y no se repite jamás. Sale en ML y como Ref. en InfoCasas."
+            "help": "Se genera solo y no se repite jamás. Sale como referencia en los tres portales."
           }
         ],
         "Alquiler": [
@@ -2450,7 +2735,7 @@
               "Vista abierta",
               "Sin vista especial"
             ],
-            "help": "\"Mar\" marca Vista al Mar en InfoCasas."
+            "help": "Qué se ve desde la propiedad."
           },
           {
             "id": "IC_SOBRE",
@@ -2479,7 +2764,7 @@
             "id": "IC_TOUR3D",
             "label": "Tour 3D (link)",
             "type": "text",
-            "help": "Kuula, Matterport, etc. Va a InfoCasas y marca \"Con tour virtual\" en ML."
+            "help": "Kuula, Matterport, etc. Marca \"Con tour virtual\" en Mercado Libre."
           },
           {
             "id": "IC_UBICACION",
@@ -2500,7 +2785,7 @@
             "label": "Cocheras",
             "type": "num",
             "req": true,
-            "help": "Cantidad de cocheras. Va a ML y como garajes a InfoCasas."
+            "help": "Cantidad de cocheras. Va a los tres portales."
           },
           {
             "id": "TYPE_OF_WAREHOUSE",
@@ -2516,7 +2801,7 @@
             "id": "PROPERTY_AGE",
             "label": "Antigüedad",
             "type": "num",
-            "help": "Años de antigüedad. InfoCasas lo convierte en año de construcción."
+            "help": "Años de antigüedad. Va a los tres portales."
           },
           {
             "id": "OFFICES",
@@ -2612,7 +2897,7 @@
             "id": "PROPERTY_CODE",
             "label": "Código de la propiedad",
             "type": "text",
-            "help": "Se genera solo y no se repite jamás. Sale en ML y como Ref. en InfoCasas."
+            "help": "Se genera solo y no se repite jamás. Sale como referencia en los tres portales."
           }
         ],
         "Alquiler": [
@@ -2666,7 +2951,7 @@
               "Vista abierta",
               "Sin vista especial"
             ],
-            "help": "\"Mar\" marca Vista al Mar en InfoCasas."
+            "help": "Qué se ve desde la propiedad."
           },
           {
             "id": "IC_SOBRE",
@@ -2695,7 +2980,7 @@
             "id": "IC_TOUR3D",
             "label": "Tour 3D (link)",
             "type": "text",
-            "help": "Kuula, Matterport, etc. Va a InfoCasas y marca \"Con tour virtual\" en ML."
+            "help": "Kuula, Matterport, etc. Marca \"Con tour virtual\" en Mercado Libre."
           },
           {
             "id": "IC_UBICACION",
@@ -2760,7 +3045,7 @@
             "id": "PROPERTY_AGE",
             "label": "Antigüedad",
             "type": "num",
-            "help": "Años de antigüedad. InfoCasas lo convierte en año de construcción."
+            "help": "Años de antigüedad. Va a los tres portales."
           },
           {
             "id": "FARM_HOUSE_AREA",
@@ -2830,7 +3115,7 @@
             "id": "PROPERTY_CODE",
             "label": "Código de la propiedad",
             "type": "text",
-            "help": "Se genera solo y no se repite jamás. Sale en ML y como Ref. en InfoCasas."
+            "help": "Se genera solo y no se repite jamás. Sale como referencia en los tres portales."
           }
         ],
         "Alquiler": [
@@ -2884,7 +3169,7 @@
               "Vista abierta",
               "Sin vista especial"
             ],
-            "help": "\"Mar\" marca Vista al Mar en InfoCasas."
+            "help": "Qué se ve desde la propiedad."
           },
           {
             "id": "IC_SOBRE",
@@ -2913,7 +3198,7 @@
             "id": "IC_TOUR3D",
             "label": "Tour 3D (link)",
             "type": "text",
-            "help": "Kuula, Matterport, etc. Va a InfoCasas y marca \"Con tour virtual\" en ML."
+            "help": "Kuula, Matterport, etc. Marca \"Con tour virtual\" en Mercado Libre."
           },
           {
             "id": "IC_UBICACION",
@@ -2955,7 +3240,7 @@
     //
     // Los campos de TODOS los pasos se renderizan igual y quedan siempre en el DOM
     // (solo se ocultan por CSS). Es deliberado: medio formulario lee los campos por
-    // getElementById('fc-...') — el guardado, el medidor de calidad, la validación.
+    // getElementById('fc-...') — el guardado, el estado por portal, la validación.
     // Si los pasos se armaran y desarmaran al navegar, se perdería lo escrito y
     // habría que reescribir todo eso.
     const FX_TITULOS = {
@@ -2968,7 +3253,9 @@
       'Seguridad': ['¿Qué seguridad tiene?', ''],
       'Condiciones': ['Condiciones de la operación', 'Cómo se atiende y con qué código se identifica.'],
       'Alquiler': ['Condiciones del alquiler', 'Garantía, disponibilidad y a quién se le alquila.'],
-      'InfoCasas': ['Datos para InfoCasas', 'Estos campos viajan solo al feed de InfoCasas, no a Mercado Libre.'],
+      // El grupo se sigue llamando "InfoCasas" por dentro (así está en el catálogo),
+      // pero ya no son "sus" datos: desde que se publica por API varios no viajan.
+      'InfoCasas': ['Datos extra del aviso', 'Estado del inmueble, vista, tour 3D y cómo se muestra el pin en InfoCasas.'],
       // Mitad de casilleros de un grupo partido en dos.
       'Datos del inmueble|tildar': ['¿Con qué cuenta?', '']
     };
@@ -3009,7 +3296,6 @@
         const campos = FICHA[grupo];
         const inputs = parte === 'tildar' ? [] : campos.filter(c => c.type);
         const bools = parte === 'datos' ? [] : campos.filter(c => !c.type);
-        const esIC = grupo === 'InfoCasas';
         let html = '';
         if (inputs.length) {
           html += '<div class="fx-inputs">' + inputs.map(c => {
@@ -3034,13 +3320,12 @@
           html += `<div class="fx-revrow"><button type="button" class="fx-rev" data-grupo-nombre="${esc(grupo)}" onclick="toggleRevisado(this,'${escAttr(grupo)}')"></button></div>`;
         }
         const t = (parte === 'tildar' && FX_TITULOS[grupo + '|tildar']) || FX_TITULOS[grupo] || [grupo, ''];
-        const badge = esIC ? ' <span class="fx-ic-badge">PORTAL</span>' : '';
         const cuenta = parte === 'tildar' ? '' : `<span class="fx-count" id="fxc-${gi}"></span>`;
         return `<section class="fx-step" data-paso="${idx}" data-grupo-nombre="${esc(grupo)}" data-parte="${parte}">
             <div class="fx-step-head">
               <div class="fx-step-top">
                 <button type="button" class="fx-atras" onclick="fxIr(${idx - 1})" aria-label="Paso anterior"><i class="fas fa-arrow-left"></i></button>
-                <div class="fx-step-t">${esc(t[0])}${badge}${cuenta}</div>
+                <div class="fx-step-t">${esc(t[0])}${cuenta}</div>
                 <span class="fx-paso-n"></span>
               </div>
               ${t[1] ? `<p class="fx-step-s">${esc(t[1])}</p>` : ''}
@@ -3053,7 +3338,7 @@
 
       wrap.innerHTML = `<div class="fx-bar">
           <span class="fx-eyebrow">Ficha técnica</span>
-          <span class="fx-cal" id="fxCal"></span>
+          <span class="fx-cal" id="fxCal"><span class="fx-cal-x">Cada portal toma de acá lo que usa</span>${etiquetasPortal(TODOS)}</span>
         </div>${cuerpos}`;
       wrap.className = 'fx-modo-' + fxModo;
       if (fxPaso >= pasos.length) fxPaso = Math.max(0, pasos.length - 1);
@@ -3168,7 +3453,15 @@
 
 
     // Al cambiar tipo de inmueble u operación: re-dibuja la ficha conservando lo cargado.
+    // Dormitorios y baños se exigen en casas y apartamentos (Mercado Libre los pide).
+    // En un terreno o un galpón el asterisco no tenía sentido.
+    function requisitosPorTipo() {
+      const t = _v('propRealEstateType');
+      const con = t === 'casa' || t === 'apartamento';
+      ['reqDorms', 'reqBanos'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = con ? '' : 'none'; });
+    }
     function onTipoChange() {
+      requisitosPorTipo();
       const prev = {};
       document.querySelectorAll('#fichaTecnica [id^="fc-"]').forEach(el => {
         const id = el.id.slice(3);
@@ -3281,7 +3574,7 @@
     // vivía en un recuadro aparte que decía "completá Cocheras en la ficha" y
     // después había que buscarlo entre 83 campos. Esto la trae al lado de los
     // campos: cada chip abre su grupo y pone el foco adentro.
-    // Los únicos campos de la FICHA que el medidor de calidad puntúa de verdad.
+    // Los campos de la FICHA que más mueven la calidad del aviso en los portales.
     // (Dormitorios, baños y superficies no están acá: viven en la sección 3 del
     // formulario, no en la ficha, y ya los cubre el cartel de calidad.)
     const FX_CLAVE = {
@@ -3316,29 +3609,6 @@
       const llenos = conDato.filter(c => !vacio(c)).length;
       const faltanMitad = Math.max(0, Math.ceil(conDato.length / 2) - llenos);
       const sinRev = gruposSinRevisar();
-
-      // Los 4 puntos de calidad que dependen de ESTA ficha (2 de los 12 de ML y
-      // 2 de los 10 de InfoCasas). El resto sale de fotos, pin, título y precio.
-      const _val = id => { const e = document.getElementById('fc-' + id); return e && String(e.value || '').trim() !== ''; };
-      let _tild = 0;
-      campos.forEach(c => { if (!c.type) { const e = document.getElementById('fc-' + c.id); if (e && e.checked) _tild++; } });
-      const puntos = [
-        { ok: _val('PARKING_LOTS'), txt: 'Cocheras', ml: true },
-        { ok: _val('PROPERTY_CONDITION'), txt: 'Estado del inmueble', ml: false },
-        { ok: conDato.length > 0 && llenos / conDato.length >= 0.5, txt: 'la mitad de los campos con dato', ml: true },
-        { ok: _tild >= 3, txt: '3 comodidades tildadas', ml: false }
-      ].filter(x => document.getElementById('fc-PARKING_LOTS') || x.txt !== 'Cocheras');
-      const gana = puntos.filter(x => x.ok).length;
-      const pend = puntos.filter(x => !x.ok).map(x => x.txt);
-      const txtML = (document.getElementById('calMLpct') || {}).textContent || '—';
-      const txtIC = (document.getElementById('calICpct') || {}).textContent || '—';
-      // La calidad va en la cabecera de la sección, no dentro del panel de
-      // pendientes: es contexto permanente, no una alerta.
-      const elCal = document.getElementById('fxCal');
-      if (elCal) elCal.innerHTML =
-          `<span class="fx-cal-x">La ficha aporta ${gana} de ${puntos.length}</span>` +
-          `<span class="fx-cal-p"><b class="ml">ML</b> ${esc(txtML)}</span>` +
-          `<span class="fx-cal-p"><b class="ic">IC</b> ${esc(txtIC)}</span>`;
 
       if (!bloq.length && !clave.length && !faltanMitad && !sinRev.length) {
         cont.className = 'fx-falt ok';
@@ -3508,81 +3778,454 @@
     }
 
     // ============================================================================
-    // CALIDAD DEL AVISO — dos medidores en vivo: qué tan completo está el aviso
-    // para Mercado Libre y para InfoCasas, con la próxima mejora sugerida.
+    // ESTADO POR PORTAL
+    // Al guardar, cada portal toma la propiedad por su cuenta (en el servidor:
+    // publicarEnML, publicarAutoInfocasas y publicarAutoCasasYMas). Acá se
+    // calcula qué le falta a cada uno con las MISMAS reglas que usa el servidor
+    // para armar el aviso:
+    //   · Mercado Libre: lo obligatorio del formulario (sin eso no se guarda).
+    //   · InfoCasas (icApiPayload): además pin, calle, descripción, una
+    //     superficie mayor a 0, un teléfono válido y el correo del agente.
+    //   · Casas y Más (cymPayload): además pin y descripción. Las 4 fotos que
+    //     pide ya las cubre el mínimo de 12.
+    // Lo único que no se puede saber desde acá es si el barrio está asociado en
+    // cada portal: eso lo resuelve la Dirección y se ve en la ventana Portales.
+    // Si cambia una regla en el servidor, hay que cambiarla también acá.
+    // Reemplaza a los dos medidores de "calidad" (ML e InfoCasas) de antes: eran
+    // un porcentaje inventado por nosotros y dejaban afuera a Casas y Más.
     // ============================================================================
+    const PORTALES = [
+      { k: 'ml', nombre: 'Mercado Libre', corto: 'ML' },
+      { k: 'ic', nombre: 'InfoCasas', corto: 'InfoCasas' },
+      { k: 'cym', nombre: 'Casas y Más', corto: 'Casas y Más' }
+    ];
+    const TODOS = PORTALES.map(p => p.k);
+    const NOMBRE_PORTAL = { ml: 'Mercado Libre', ic: 'InfoCasas', cym: 'Casas y Más' };
+    const NOMBRE_ESTADO = { reserved: 'Reservada', sold: 'Vendida', rented: 'Alquilada', archived: 'Archivada', tasacion: 'pendiente de tasación', tasado: 'Tasada', cerrado_externo: 'cerrada por fuera' };
+    const NOMBRE_PASO = ['Qué publicás', 'Ubicación', 'Características', 'Ficha técnica', 'Fotos y video', 'Título y descripción', 'Precio', 'Contacto'];
     function _v(id) { const e = document.getElementById(id); return e ? e.value : ''; }
     function _fc(id) { return document.getElementById('fc-' + id); }
+    function unirY(a) { return a.length <= 1 ? (a[0] || '') : a.slice(0, -1).join(', ') + ' y ' + a[a.length - 1]; }
+    function etiquetasPortal(ks) { return '<span class="pts">' + ks.map(k => `<span class="pt po-${k}">${NOMBRE_PORTAL[k]}</span>`).join('') + '</span>'; }
+    function videoValido(v) { return /^(https?:\/\/)?((www|m)\.)?(youtube\.com|youtu\.be)\//i.test(String(v || '').trim()); }
+    // La misma cuenta que icApiTelefono en el servidor: si de acá no sale un
+    // número, InfoCasas rechaza el aviso ("Enter a valid phone number").
+    function telValido(t) {
+      let d = String(t || '').replace(/\D/g, '');
+      if (!d) return false;
+      if (d.startsWith('00')) d = d.slice(2);
+      if (d.startsWith('598')) return true;
+      if (d.startsWith('0')) d = d.slice(1);
+      return d.length >= 8;
+    }
+    // Perfil del agente dueño: de ahí salen el correo y el WhatsApp del aviso.
+    // null si la propiedad es de otro agente y su perfil no se pudo leer.
+    function perfilDuenio() {
+      if (editingProperty && currentUser && editingProperty.ownerId && editingProperty.ownerId !== currentUser.uid) return _duenio;
+      return userProfile;
+    }
+    // Campos de la ficha que frenan el guardado: los obligatorios sin completar y
+    // cualquier número negativo. La misma regla sirve para el cartel al guardar,
+    // para las fichas de portal de arriba y para el paso de revisión.
+    function fichaFaltantes() {
+      return fichaCampos().filter(c => {
+        const el = document.getElementById('fc-' + c.id);
+        if (!el) return false;                    // no está en pantalla (grupo no renderizado)
+        const v = String(el.value || '').trim();
+        // Con "novalidate" el navegador ya no frena un número negativo: se revisa acá.
+        if (c.type === 'num' && v !== '' && !(parseFloat(v) >= (c.min != null ? c.min : 0))) return true;
+        if (!c.req) return false;
+        if (c.type === 'num') {
+          // Un numérico vacío se guarda como 0 (ver collectFicha), así que pedirlo
+          // "obligatorio" a secas no bloquea nada. Solo se exige de verdad cuando
+          // el campo declara un 'min': ahí el 0 no es una respuesta sino un campo
+          // sin llenar (0 meses de garantía no significa "sin garantía"). Los
+          // demás numéricos siguen autocompletándose con 0, porque para ellos el
+          // cero sí es un dato real (ej: 0 cocheras).
+          if (c.min == null) return false;
+          return v === '' || !(parseFloat(v) >= c.min);
+        }
+        return v === '';
+      });
+    }
+    // Los obligatorios de la ficha que de verdad se exigen (para contar el avance).
+    function fichaExigidos() {
+      return fichaCampos().filter(c => c.type && c.req && (c.type !== 'num' || c.min != null) && document.getElementById('fc-' + c.id));
+    }
+
+    /* Todo lo que hace falta para publicar, en el orden de los pasos. Cada punto:
+         paso      índice del asistente (0 = "Qué publicás")
+         campo     id del campo al que hay que ir (ficha: id del campo de la ficha)
+         portales  qué portales lo exigen
+         oblig     true si además frena el guardado (lo pide Mercado Libre y el
+                   formulario no guarda sin eso)
+         txt/det   cómo se nombra en las listas · hacer: cómo se pide en la barra */
+    function requisitos() {
+      const R = [];
+      const add = (o) => R.push(Object.assign({ portales: TODOS, oblig: true, det: '' }, o));
+      const tipo = _v('propRealEstateType');
+      const conDorms = tipo === 'casa' || tipo === 'apartamento';
+      const txt = id => String(_v(id) || '').trim();
+      const numOk = id => { const v = txt(id); return v !== '' && parseFloat(v) >= 0; };
+      const noNeg = id => { const v = txt(id); return v === '' || parseFloat(v) >= 0; };
+      const pin = ubicacionState.lat != null && ubicacionState.lng != null;
+
+      // Paso 2 · Ubicación
+      add({ clave: 'depto', paso: 1, campo: 'propDepartamento', txt: 'Departamento', hacer: 'Elegí el departamento', ok: !!txt('propDepartamento') });
+      add({ clave: 'ciudad', paso: 1, campo: 'propCiudad', txt: 'Ciudad o barrio', hacer: 'Elegí la ciudad o el barrio', ok: !!txt('propCiudad') });
+      // El servidor manda "calle número" juntos: con cualquiera de los dos le alcanza.
+      add({ clave: 'calle', paso: 1, campo: 'propDireccion', txt: 'Calle', hacer: 'Escribí la calle', portales: ['ic'], oblig: false, ok: !!(txt('propDireccion') || txt('propNumeroPuerta')) });
+      add({ clave: 'pin', paso: 1, campo: 'propMapa', txt: 'Pin en el mapa', hacer: 'Fijá el pin en el mapa', portales: ['ic', 'cym'], oblig: false, ok: pin });
+      // Paso 3 · Características
+      add({ clave: 'dorms', paso: 2, campo: 'propBedrooms', txt: 'Dormitorios', hacer: 'Cargá los dormitorios (0 si es monoambiente)', ok: conDorms ? numOk('propBedrooms') : noNeg('propBedrooms') });
+      add({ clave: 'banos', paso: 2, campo: 'propBathrooms', txt: 'Baños', hacer: 'Cargá los baños', ok: conDorms ? numOk('propBathrooms') : noNeg('propBathrooms') });
+      add({ clave: 'areaT', paso: 2, campo: 'propTotalArea', txt: 'Superficie total', hacer: 'Cargá la superficie total', ok: numOk('propTotalArea') });
+      add({ clave: 'areaP', paso: 2, campo: 'propBuiltArea', txt: 'Área privada', hacer: 'Cargá el área privada (0 si no tiene)', ok: numOk('propBuiltArea') });
+      // InfoCasas no publica sin alguna superficie mayor a 0. Se marca solo cuando
+      // las dos están cargadas y dan 0: si falta alguna, ya la pide lo obligatorio.
+      const sup = parseFloat(txt('propBuiltArea')) > 0 || parseFloat(txt('propTotalArea')) > 0;
+      add({ clave: 'sup', paso: 2, campo: 'propTotalArea', txt: 'Superficie mayor a 0', hacer: 'Cargá una superficie mayor a 0', portales: ['ic'], oblig: false, ok: sup || !numOk('propTotalArea') || !numOk('propBuiltArea') });
+      // Paso 4 · Ficha técnica
+      const malos = new Set(fichaFaltantes().map(c => c.id));
+      const vistos = new Set();
+      fichaExigidos().forEach(c => {
+        vistos.add(c.id);
+        add({ clave: 'fc:' + c.id, paso: 3, ficha: c.id, txt: c.label, det: 'ficha técnica', hacer: `Completá «${c.label}» en la ficha`, ok: !malos.has(c.id) });
+      });
+      fichaFaltantes().forEach(c => {
+        if (!vistos.has(c.id)) add({ clave: 'fc:' + c.id, paso: 3, ficha: c.id, txt: c.label, det: 'no puede ser negativo', hacer: `Corregí «${c.label}» en la ficha: no puede ser negativo`, ok: false });
+      });
+      const sinRev = gruposSinRevisar();
+      add({ clave: 'grupos', paso: 3, txt: 'Confirmar grupos', det: sinRev.length ? nombresCortos(sinRev) : '',
+            hacer: sinRev.length === 1 ? `Confirmá el grupo «${sinRev[0]}» de la ficha` : `Confirmá ${sinRev.length} grupos de la ficha`, ok: !sinRev.length });
+      // Paso 5 · Fotos y video
+      const nf = selectedImages.length;
+      add({ clave: 'fotos', paso: 4, campo: 'imageUploadArea', txt: nf ? `12 fotos (tenés ${nf})` : '12 fotos',
+            hacer: nf ? `Sumá fotos: tenés ${nf} de 12` : 'Subí las fotos (mínimo 12)', ok: nf >= 12 });
+      const vid = txt('propVideo');
+      if (vid && !videoValido(vid)) add({ clave: 'video', paso: 4, campo: 'propVideo', txt: 'Link del video', det: 'tiene que ser de YouTube', hacer: 'Revisá el link del video: tiene que ser de YouTube', ok: false });
+      // Paso 6 · Título y descripción
+      add({ clave: 'titulo', paso: 5, campo: 'propTitle', txt: 'Título', hacer: 'Escribí el título', ok: !!txt('propTitle') });
+      add({ clave: 'desc', paso: 5, campo: 'propDescription', txt: 'Descripción', hacer: 'Escribí la descripción', portales: ['ic', 'cym'], oblig: false, ok: !!txt('propDescription') });
+      // Paso 7 · Precio
+      add({ clave: 'precio', paso: 6, campo: 'propPrice', txt: 'Precio', hacer: 'Cargá el precio', ok: parseFloat(txt('propPrice')) > 0 });
+      add({ clave: 'gastos', paso: 6, campo: 'propExpenses', txt: 'Gastos comunes', hacer: 'Cargá los gastos comunes (0 si no tiene)', ok: numOk('propExpenses') });
+      // Paso 8 · Contacto: InfoCasas no publica sin un teléfono válido ni sin el
+      // correo del agente (listing_contact es obligatorio en su API).
+      // Si el perfil del dueño no se pudo leer, no se sabe qué número tiene y no se
+      // pide nada: el servidor sí lo lee. Pedirlo acá empujaría a otro agente a
+      // escribir SU número, que reemplazaría el del dueño en los tres portales.
+      // Lo que se escriba en el campo, en cambio, sí se revisa siempre.
+      const wa = txt('propWhatsapp');
+      const perfil = perfilDuenio();
+      if (wa || perfil) {
+        add({ clave: 'tel', paso: 7, campo: 'propWhatsapp', txt: 'WhatsApp del aviso', det: wa ? 'el número no es válido' : 'el perfil del agente no tiene',
+              hacer: wa ? 'Revisá el WhatsApp: el número no es válido' : 'Cargá un WhatsApp para el aviso', portales: ['ic'], oblig: false, ok: telValido(wa || _waDuenio) });
+      }
+      if (perfil && !String(perfil.email || '').trim()) {
+        add({ clave: 'mail', paso: 7, campo: null, txt: 'Correo del agente', det: 'falta en su perfil (Mi perfil)', hacer: 'Falta el correo en el perfil del agente', portales: ['ic'], oblig: false, ok: false });
+      }
+      return R;
+    }
+
+    /* Lo que no frena a nadie pero hace que el aviso rinda más. Es lo que antes
+       sumaba puntos en los medidores de calidad. */
+    function mejoras() {
+      const M = [];
+      const t = (_v('propTitle') || '').trim().length;
+      const d = (_v('propDescription') || '').trim().length;
+      M.push({ clave: 'titulo60', paso: 5, campo: 'propTitle', txt: 'Título de 60 caracteres o más', det: t < 60 ? `tiene ${t} · Mercado Libre busca por el título` : '',
+               hacer: t ? `Alargá el título (${t} de 60 caracteres)` : 'Escribí un título de 60 caracteres o más', ok: t >= 60 });
+      M.push({ clave: 'desc300', paso: 5, campo: 'propDescription', txt: 'Descripción de 300 caracteres o más', det: d < 300 ? `tiene ${d}` : '',
+               hacer: `Dale más cuerpo a la descripción (${d} de 300 caracteres)`, ok: d >= 300 });
+      const coch = _fc('PARKING_LOTS');
+      if (coch) M.push({ clave: 'cocheras', paso: 3, ficha: 'PARKING_LOTS', txt: 'Cocheras', det: 'Mercado Libre la pide · 0 si no tiene', hacer: 'Completá las cocheras en la ficha (0 si no tiene)', ok: String(coch.value || '').trim() !== '' });
+      const est = _fc('PROPERTY_CONDITION');
+      if (est) M.push({ clave: 'estado', paso: 3, ficha: 'PROPERTY_CONDITION', txt: 'Estado del inmueble', det: 'InfoCasas lo puntúa', hacer: 'Elegí el estado del inmueble en la ficha', ok: String(est.value || '').trim() !== '' });
+      let tot = 0, llenos = 0, tild = 0;
+      fichaCampos().forEach(c => {
+        const el = _fc(c.id);
+        if (!el) return;
+        if (!c.type) { if (el.checked) tild++; }
+        else { tot++; if (String(el.value || '').trim() !== '') llenos++; }
+      });
+      if (tot) M.push({ clave: 'mitad', paso: 3, txt: 'La mitad de la ficha con datos', det: `${llenos} de ${tot} · Mercado Libre puntúa desde la mitad`, hacer: `Completá más datos de la ficha (${llenos} de ${tot})`, ok: llenos / tot >= 0.5 });
+      M.push({ clave: 'comod', paso: 3, txt: 'Al menos 3 comodidades marcadas', det: tild < 3 ? `hay ${tild}` : '', hacer: 'Marcá en la ficha las comodidades que tenga', ok: tild >= 3 });
+      // El video no se sugiere en la barra de arriba: muchas propiedades no lo
+      // tienen y quedaría pidiéndolo para siempre. Solo figura en la lista.
+      const vid = String(_v('propVideo') || '').trim();
+      M.push({ clave: 'video', paso: 4, campo: 'propVideo', txt: 'Video de la propiedad en YouTube', det: '', hacer: 'Sumá un video de YouTube de la propiedad', ok: !!vid && videoValido(vid), soloLista: true });
+      return M;
+    }
+
+    // Algo que impide que el portal la publique aunque esté todo completo. Sigue lo
+    // que hace el servidor con cada estado: Reservada pausa el aviso de Mercado
+    // Libre, InfoCasas no la publica si no estaba (si estaba, sigue y se actualiza)
+    // y Casas y Más la publica igual. Vendida, Alquilada o Archivada la sacan.
+    function bloqueoPortal(k) {
+      const st = _v('propStatus') || 'available';
+      const p = editingProperty || {};
+      const pub = publicadoEn(k);
+      if (st === 'reserved') {
+        if (k === 'ml') return { titulo: 'En pausa', corto: 'en pausa', txt: 'Mientras esté Reservada, el aviso de Mercado Libre queda pausado.' };
+        if (k === 'ic' && !pub) return { titulo: 'No se publica', corto: 'en pausa', txt: 'Está Reservada: InfoCasas la publica cuando vuelva a Disponible.' };
+      } else if (st !== 'available') {
+        return { titulo: 'No se publica', corto: 'en pausa', txt: `La propiedad está ${NOMBRE_ESTADO[st] || st}: mientras tanto, los portales no la toman.` };
+      }
+      if (k === 'ic' && !pub && p.cierreConfirmado === true) {
+        return { titulo: 'No se publica', corto: 'cerrada', txt: 'Tiene un cierre confirmado: no se publica en InfoCasas.' };
+      }
+      if ((k === 'ic' && p.icEstado === 'eliminado') || (k === 'cym' && p.cymEstado === 'eliminado')) {
+        return { titulo: 'Dada de baja', corto: 'de baja', txt: 'Se dio de baja a mano, así que no se vuelve a publicar sola. Para publicarla de nuevo, usá la ventana Portales de la propiedad.' };
+      }
+      if (k === 'ml' && p.mlItemId && p.mlStatus === 'closed') {
+        return { titulo: 'Aviso cerrado', corto: 'cerrado', txt: 'El aviso de Mercado Libre está cerrado. Para publicarlo de nuevo, usá la ventana Portales de la propiedad.' };
+      }
+      return null;
+    }
+    // ¿Ya está en el portal? (solo al editar)
+    function publicadoEn(k) {
+      const p = editingProperty;
+      if (!p) return null;
+      if (k === 'ml') return (p.mlItemId && p.mlStatus !== 'closed') ? (p.mlStatus === 'paused' ? 'pausada' : 'si') : null;
+      if (k === 'ic') {
+        if (p.icListingId && p.icEstado !== 'eliminado') return 'si';
+        return (p.icEstado === 'pendiente' && p.icTaskId) ? 'proceso' : null;
+      }
+      if (k === 'cym') return (p.cymId && p.cymEstado !== 'eliminado') ? 'si' : null;
+      return null;
+    }
+    // El último intento del servidor falló (se ve con detalle en la ventana Portales).
+    function errorAnterior(k) {
+      const p = editingProperty || {};
+      const hubo = k === 'ml' ? (!p.mlItemId && !!p.mlError)
+        : k === 'ic' ? p.icEstado === 'error'
+        : (p.cymEstado === 'error' || (!p.cymId && !!p.cymUltimoError));
+      return hubo ? 'El último intento de publicarla dio error. Se vuelve a intentar sola cuando guardes un cambio; el detalle está en la ventana Portales.' : '';
+    }
+    // La única falta que no se puede ver desde acá: el barrio sin asociar en el portal.
+    function zonaPendiente(k) {
+      const p = editingProperty || {};
+      const lista = k === 'ic' ? p.icFaltan : k === 'cym' ? p.cymFaltan : null;
+      if (!Array.isArray(lista) || !lista.some(x => /zona|barrio no|cat[aá]logo/i.test(String(x)))) return '';
+      return `En el último intento, ${NOMBRE_PORTAL[k]} no reconoció el barrio. Eso lo resuelve la Dirección.`;
+    }
+    function resumenPortal(k, reqs) {
+      const mios = reqs.filter(r => r.portales.indexOf(k) >= 0);
+      const faltan = mios.filter(r => !r.ok);
+      const propios = faltan.filter(r => !r.oblig);   // lo que pide este portal además de lo obligatorio
+      const bloqueo = bloqueoPortal(k);
+      const pub = publicadoEn(k);
+      const notas = [];
+      // Dos cosas distintas: si ya está en el portal (pub, al lado del nombre) y
+      // qué pasa cuando se guarde (texto, a la derecha).
+      let tono, texto, avisarCambio = false;
+      const n = propios.length;
+      if (bloqueo) { tono = 'off'; texto = bloqueo.titulo; notas.push(bloqueo.txt); }
+      else if (!faltan.length) {
+        tono = 'ok';
+        if (pub === 'proceso') texto = 'InfoCasas la está procesando';
+        else if (pub) texto = 'Se actualiza al guardar';
+        // Una propiedad que ya existe se publica cuando cambia algo de su
+        // contenido (así lo dispara el servidor), no por guardarla igual.
+        else if (editingProperty) { texto = 'Lista para publicarse'; avisarCambio = true; }
+        else texto = 'Se publica al guardar';
+      } else if (!n) { tono = 'wait'; texto = pub ? 'Se actualiza cuando completes lo obligatorio' : 'Lista cuando completes lo obligatorio'; }
+      else { tono = 'warn'; texto = `${pub ? 'No se actualiza' : 'No se publica'}: ${n === 1 ? 'falta 1 dato' : `faltan ${n} datos`}`; }
+      if (!bloqueo && pub && n) notas.push('Mientras tanto sigue publicada como estaba.');
+      if (!bloqueo && !pub) {
+        const err = errorAnterior(k);
+        if (err) notas.push(err);
+        else if (avisarCambio) notas.push('Se publica sola cuando guardes algún cambio. Si no hay nada que cambiar, publicala desde la ventana Portales.');
+        const zona = zonaPendiente(k); if (zona) notas.push(zona);
+      }
+      return { k, total: mios.length, hechos: mios.length - faltan.length, faltan, propios, bloqueo, pub, tono, texto, notas, listo: !bloqueo && !faltan.length };
+    }
+
+    let _estado = null;   // el último cálculo (lo usan la barra y los botones "Completar")
     function calidadRecalc() {
       try {
-        const tipo = _v('propRealEstateType');
-        const sinDorms = ['terreno', 'campo', 'galpon', 'local', 'oficina'].includes(tipo);
-        const fotos = selectedImages.length;
-        const pin = ubicacionState.lat != null;
-        const titulo = (_v('propTitle') || '').length;
-        const desc = (_v('propDescription') || '').length;
-        const precio = parseFloat(_v('propPrice')) > 0;
-        const dorms = parseInt(_v('propBedrooms')) > 0 || sinDorms;
-        const banos = parseInt(_v('propBathrooms')) > 0 || sinDorms;
-        const areaT = parseFloat(_v('propTotalArea')) > 0;
-        const areaP = parseFloat(_v('propBuiltArea')) > 0 || ['terreno', 'campo'].includes(tipo);
-        const cochera = _fc('PARKING_LOTS') ? _fc('PARKING_LOTS').value !== '' : true;
-        const estado = _fc('PROPERTY_CONDITION') && _fc('PROPERTY_CONDITION').value !== '';
-        let tildadas = 0, typedLlenos = 0, typedTotal = 0;
-        fichaCampos().forEach(c => {
-          const el = document.getElementById('fc-' + c.id);
-          if (!el) return;
-          if (!c.type) { if (el.checked) tildadas++; }
-          else { typedTotal++; if (el.value !== '') typedLlenos++; }
-        });
-
-        // Mercado Libre: 12 puntos
-        const ml = [titulo >= 60, desc >= 300, fotos >= 6, fotos >= 10, pin, precio,
-                    dorms, banos, areaT, areaP, cochera, typedTotal > 0 && typedLlenos / typedTotal >= 0.5];
-        // InfoCasas: 10 puntos (el pin vale doble: sin pin no entra al feed)
-        const ic = [pin, pin, titulo > 0, desc >= 150, fotos >= 3, fotos >= 10, precio, areaT, estado, tildadas >= 3];
-
-        const pML = Math.round(100 * ml.filter(Boolean).length / ml.length);
-        const pIC = Math.round(100 * ic.filter(Boolean).length / ic.length);
-        document.getElementById('calMLbar').style.width = pML + '%';
-        document.getElementById('calMLpct').textContent = pML + '%';
-        document.getElementById('calICbar').style.width = pIC + '%';
-        document.getElementById('calICpct').textContent = pIC + '%';
-
-        // Próxima mejora, en orden de impacto
-        const hint =
-          !pin ? 'Fijá el pin en el mapa: sin coordenadas la propiedad no entra a InfoCasas.' :
-          fotos < 12 ? `Sumá fotos (${fotos}/12): son obligatorias para publicar.` :
-          !precio ? 'Cargá el precio.' :
-          fotos < 10 ? `Sumá fotos (${fotos}/10): con 10+ la calidad de ML vuela.` :
-          titulo < 60 ? `Alargá el título (${titulo}/60): sumá barrio, dormitorios y extras.` :
-          !estado ? 'Elegí el "Estado del inmueble" en la ficha (grupo InfoCasas).' :
-          !cochera ? 'Completá "Cocheras" en la ficha: ML lo pide como obligatorio.' :
-          desc < 300 ? 'Dale más cuerpo a la descripción (300+ caracteres).' :
-          tildadas < 3 ? 'Tildá las comodidades que tenga: alimentan los dos portales.' :
-          '¡Aviso completo! Así se publica con la mejor calidad en los dos portales.';
-        document.getElementById('calHint').textContent = hint;
-
-        // Ticks del índice lateral
-        const ticks = { 1: !!_v('propRealEstateType'), 2: !!(_v('propDepartamento') && _v('propCiudad')) && pin,
-          3: dorms && banos && areaT && areaP, 4: typedLlenos > 1 || tildadas > 0,
-          5: fotos >= 12, 6: titulo >= 30 && desc >= 150, 7: precio, 8: !!_v('propWhatsapp') };
-        document.querySelectorAll('#pfRail a').forEach(a => a.classList.toggle('done', !!ticks[a.dataset.rail]));
-
-        // Contador de fotos: el mínimo obligatorio para publicar es 12.
-        const fcEl = document.getElementById('fotoCounter');
-        if (fcEl) {
-          // Se cuentan las ÚNICAS: Mercado Libre descarta las repetidas, así que
-          // decir "12 fotos" con cuatro iguales sería mentirle al agente.
-          // Las repetidas cuentan para el mínimo, pero se avisan igual: doce fotos
-          // con cuatro iguales publican, aunque al que mira el aviso no le suman.
-          const unicas = fotosUnicas(), repes = fotos - unicas;
-          const aviso = repes ? ` <span style="color:var(--muted)">· ${repes} repetida${repes > 1 ? 's' : ''} — suman al mínimo, pero variar las tomas rinde más</span>` : '';
-          if (fotos >= 12) fcEl.innerHTML = `<span class="b" style="color:var(--ok)"><i class="fas fa-circle-check"></i> ${fotos} fotos — cumple el mínimo (12)</span>${aviso}`;
-          else fcEl.innerHTML = `<span class="b" style="color:var(--bad)"><i class="fas fa-triangle-exclamation"></i> ${fotos} de 12 fotos — faltan ${12 - fotos}</span>${aviso}`;
-        }
+        const reqs = requisitos();
+        const res = PORTALES.map(p => resumenPortal(p.k, reqs));
+        const mej = mejoras();
+        _estado = { reqs, res, mej };
+        pintarPortales(res);
+        pintarSiguiente(reqs, mej, res);
+        pintarRevision(reqs, res, mej);
+        pintarTicks(reqs);
+        pintarContadorFotos();
         updateFichaCounters();
-      } catch (e) { /* la calidad nunca debe romper el form */ }
+      } catch (e) { console.warn('[estado de portales]', e); /* nunca debe romper el form */ }
+    }
+
+    // Las tres fichas de la barra de arriba. El número adentro del aro es cuánto
+    // le falta a ese portal; el aro, cuánto ya está.
+    function pintarPortales(res) {
+      const cont = document.getElementById('pfPortales');
+      if (!cont) return;
+      cont.innerHTML = res.map(r => {
+        const p = PORTALES.find(x => x.k === r.k);
+        const n = r.faltan.length;
+        const pct = r.total ? Math.round(100 * r.hechos / r.total) : 100;
+        let cls = 'pf-chip po-' + r.k, dentro, est = '';
+        if (r.bloqueo) { cls += ' frenado'; dentro = '<i class="fas fa-pause"></i>'; est = r.bloqueo.corto; }
+        else if (r.listo) { cls += ' listo'; dentro = '<i class="fas fa-check"></i>'; }
+        else dentro = `<b>${n > 99 ? '99+' : n}</b>`;
+        const detalle = r.bloqueo ? r.bloqueo.titulo
+          : r.listo ? r.texto
+          : (n === 1 ? 'falta ' : `faltan ${n}: `) + nombresCortos(r.faltan.map(x => x.txt.toLowerCase()));
+        const titulo = `${p.nombre}: ${detalle}. Tocá para ver el detalle.`;
+        return `<button type="button" class="${cls}" onclick="verPortal('${r.k}')" title="${esc(titulo)}" aria-label="${esc(titulo)}">` +
+          `<span class="aro" style="--p:${pct}">${dentro}</span><span class="largo">${p.nombre}</span><span class="corto">${p.corto}</span>` +
+          (est ? `<span class="est">· ${esc(est)}</span>` : '') + '</button>';
+      }).join('');
+    }
+
+    // La sugerencia de la barra: lo próximo que falta desde el paso en que está.
+    // Si se saltó algo de un paso anterior, se lo recuerda cuando no queda nada
+    // más adelante. Con todo completo, pasa a las mejoras.
+    let _sigAccion = null;
+    function pintarSiguiente(reqs, mej, res) {
+      const el = document.getElementById('calHint'), btn = document.getElementById('pfSig');
+      if (!el || !btn) return;
+      const faltan = reqs.filter(r => !r.ok);
+      const r = faltan.find(x => x.paso >= wizPaso) || faltan[0];
+      let html, fin = false;
+      if (r) {
+        _sigAccion = { tipo: 'req', clave: r.clave };
+        const quien = r.oblig ? '' : ` <small>· lo ${r.portales.length > 1 ? 'piden' : 'pide'} ${esc(unirY(r.portales.map(k => NOMBRE_PORTAL[k])))}</small>`;
+        html = `<b>${esc(r.hacer)}</b>${quien}`;
+      } else {
+        const m = mej.find(x => !x.ok && !x.soloLista);
+        if (m) {
+          _sigAccion = { tipo: 'mejora', clave: m.clave };
+          html = `<b>${esc(m.hacer)}</b> <small>· para que rinda más</small>`;
+        } else {
+          _sigAccion = null; fin = true;
+          const listos = res.filter(x => x.listo).map(x => NOMBRE_PORTAL[x.k]);
+          html = listos.length === res.length ? '<b>Aviso completo:</b> sale en los tres portales.'
+            : listos.length ? `<b>Aviso completo.</b> Sale en ${esc(unirY(listos))}.`
+            : '<b>Aviso completo.</b>';
+        }
+      }
+      el.innerHTML = html;
+      btn.classList.toggle('fin', fin);
+      btn.setAttribute('aria-disabled', fin ? 'true' : 'false');
+    }
+    function irAlSiguiente() {
+      if (!_sigAccion) return;
+      if (_sigAccion.tipo === 'req') irARequisito(_sigAccion.clave);
+      else irAMejora(_sigAccion.clave);
+    }
+    function irARequisito(clave) {
+      const r = ((_estado && _estado.reqs) || requisitos()).find(x => x.clave === clave);
+      if (r) irAPunto(r);
+    }
+    function irAMejora(clave) {
+      const m = ((_estado && _estado.mej) || mejoras()).find(x => x.clave === clave);
+      if (m) irAPunto(m);
+    }
+    // Lleva al campo de un pendiente, abriendo su paso (y su grupo, si es de la ficha).
+    function irAPunto(r) {
+      if (r.paso === 3) {
+        if (wizOn()) wizIr(3, false);
+        setTimeout(() => {
+          if (r.ficha) { irACampo(r.ficha); return; }
+          if (r.clave === 'grupos') { const g = gruposSinRevisar()[0]; if (g) irAGrupo(g); return; }
+          if (r.clave === 'mitad') { const c = fichaCampos().find(x => x.type && _fc(x.id) && String(_fc(x.id).value || '').trim() === ''); if (c) { irACampo(c.id); return; } }
+          if (r.clave === 'comod') {
+            const chk = document.querySelector('#fichaTecnica .fx-step .fx-check');
+            const st = chk && chk.closest('.fx-step');
+            if (st && fxModo === 'pasos') { fxIr(parseInt(st.getAttribute('data-paso'), 10) || 0); return; }
+          }
+          const s = document.getElementById('sec4'); if (s) s.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 60);
+        return;
+      }
+      if (!r.campo) { verPortal('ic'); return; }   // el correo del agente no tiene campo acá
+      irAlCampo(r.campo, r.paso);
+    }
+    // Tocar una ficha de portal lleva a la revisión y resalta ese portal.
+    function verPortal(k) {
+      if (wizOn()) wizIr(WIZ_TOTAL - 1, false);
+      setTimeout(() => {
+        const c = document.getElementById('rv-' + k);
+        if (!c) return;
+        c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        c.classList.remove('foco'); void c.offsetWidth; c.classList.add('foco');
+      }, 80);
+    }
+
+    // Paso 8: lo obligatorio que falta, una tarjeta por portal y las mejoras.
+    // Cada pendiente es una fila entera que lleva a completarlo.
+    function filaRevision(o) {
+      const icono = o.hecho ? '<i class="fas fa-circle-check"></i>' : '<i class="far fa-circle"></i>';
+      const cuerpo = `${icono}<span class="tx">${o.txt}${o.det ? `<em>${o.det}</em>` : ''}</span>`;
+      return o.accion
+        ? `<li><button type="button" class="rv-fila" onclick="${o.accion}">${cuerpo}<i class="fas fa-chevron-right ir"></i></button></li>`
+        : `<li><div class="rv-fila${o.hecho ? ' hecho' : ''}">${cuerpo}</div></li>`;
+    }
+    function pintarRevision(reqs, res, mej) {
+      const cont = document.getElementById('pfRevision');
+      if (!cont) return;
+      const accion = r => (r.campo || r.paso === 3) ? `irARequisito('${escAttr(r.clave)}')` : '';
+      const oblig = reqs.filter(r => r.oblig && !r.ok);
+      let h;
+      if (oblig.length) {
+        // Una fila por paso (no una por dato): con una propiedad recién empezada
+        // eran trece renglones iguales. La fila lleva al primero que falta.
+        const pasos = [];
+        oblig.forEach(r => { let g = pasos.find(x => x.paso === r.paso); if (!g) pasos.push(g = { paso: r.paso, items: [] }); g.items.push(r); });
+        h = `<div class="rv-oblig"><div class="rv-oblig-t"><i class="fas fa-circle-exclamation"></i> Para poder guardar ${oblig.length === 1 ? 'falta 1 dato' : `faltan ${oblig.length} datos`}</div><ul class="rv-lista">` +
+          pasos.map(g => filaRevision({
+            txt: `<b>${esc(NOMBRE_PASO[g.paso] || '')}</b>`,
+            det: esc(unirY(g.items.map(x => x.txt.charAt(0).toLowerCase() + x.txt.slice(1)))),
+            accion: `irARequisito('${escAttr(g.items[0].clave)}')`
+          })).join('') + '</ul></div>';
+      } else {
+        h = '<div class="rv-okline"><i class="fas fa-circle-check"></i> Lo obligatorio está completo.</div>';
+      }
+      const ICONO = { ok: 'fa-circle-check', warn: 'fa-circle-exclamation', wait: 'fa-hourglass-half', off: 'fa-circle-pause' };
+      const PUB = { si: 'Publicada', pausada: 'Pausada', proceso: 'Publicándose' };
+      h += '<div class="rv-portales">' + res.map(r => {
+        let cuerpo = r.propios.length ? '<ul class="rv-lista">' + r.propios.map(x => filaRevision({ txt: esc(x.txt), det: esc(x.det || ''), accion: accion(x) })).join('') + '</ul>' : '';
+        r.notas.forEach(n => { cuerpo += `<div class="rv-nota">${esc(n)}</div>`; });
+        const pub = r.pub ? `<span class="rv-pub ${r.pub}">${PUB[r.pub]}</span>` : '';
+        return `<section class="rv-card po-${r.k}" id="rv-${r.k}"><div class="rv-head"><span class="rv-nombre">${NOMBRE_PORTAL[r.k]}</span>${pub}` +
+          `<span class="rv-estado ${r.tono}"><i class="fas ${ICONO[r.tono]}"></i> ${esc(r.texto)}</span></div>${cuerpo}</section>`;
+      }).join('') + '</div>';
+      cont.innerHTML = h;
+
+      const mc = document.getElementById('pfMejoras');
+      if (mc) {
+        const hechas = mej.filter(m => m.ok).length;
+        mc.innerHTML = `<div class="rv-sub">Para que el aviso rinda más <span class="cuenta">${hechas} de ${mej.length}</span></div><ul class="rv-lista rv-mejoras">` +
+          mej.map(m => filaRevision(m.ok
+            ? { txt: esc(m.txt), hecho: true }
+            : { txt: esc(m.txt), det: esc(m.det || ''), accion: `irAMejora('${escAttr(m.clave)}')` })).join('') + '</ul>';
+      }
+    }
+
+    // Tildes del índice: un paso queda tildado cuando no le falta nada; el último,
+    // cuando no le falta nada a ningún portal.
+    function pintarTicks(reqs) {
+      const ticks = {};
+      for (let i = 1; i <= WIZ_TOTAL; i++) ticks[i] = true;
+      reqs.forEach(r => { if (!r.ok) ticks[r.paso + 1] = false; });
+      ticks[WIZ_TOTAL] = reqs.every(r => r.ok);
+      document.querySelectorAll('#pfRail a').forEach(a => a.classList.toggle('done', !!ticks[a.dataset.rail]));
+    }
+
+    // Contador de fotos: el mínimo obligatorio para publicar es 12.
+    function pintarContadorFotos() {
+      const fcEl = document.getElementById('fotoCounter');
+      if (!fcEl) return;
+      // Se avisan las repetidas: suman al mínimo (se suben como archivos
+      // distintos), pero al que mira el aviso no le aportan.
+      const fotos = selectedImages.length, repes = fotos - fotosUnicas();
+      const aviso = repes ? ` <span style="color:var(--muted)">· ${repes} repetida${repes > 1 ? 's' : ''} — suman al mínimo, pero variar las tomas rinde más</span>` : '';
+      if (fotos >= 12) fcEl.innerHTML = `<span class="b" style="color:var(--ok)"><i class="fas fa-circle-check"></i> ${fotos} fotos — cumple el mínimo (12)</span>${aviso}`;
+      else fcEl.innerHTML = `<span class="b" style="color:var(--bad)"><i class="fas fa-triangle-exclamation"></i> ${fotos} de 12 fotos — faltan ${12 - fotos}</span>${aviso}`;
     }
     // Resalta en el índice lateral la sección que estás mirando. Sin esto el índice
     // es una lista de ocho tildes verdes que no te dice dónde estás parado.
@@ -3600,7 +4243,7 @@
       if (!hdr) return;
       const cal = (c && c.offsetParent !== null) ? c.offsetHeight : 0;
       const raiz = document.documentElement.style;
-      raiz.setProperty('--pf-hdr', hdr + 'px');          // dónde frena la barra de calidad
+      raiz.setProperty('--pf-hdr', hdr + 'px');          // dónde frena la barra de portales
       raiz.setProperty('--pf-tope', (hdr + cal + 10) + 'px'); // dónde frena el índice
     }
     window.addEventListener('resize', medirTope, { passive: true });
@@ -3647,8 +4290,37 @@
     // Enganches: recalcular cuando cambia cualquier cosa relevante, sin tocar la lógica original.
     document.addEventListener('DOMContentLoaded', () => {
       const f = document.getElementById('propertyForm');
-      if (f) { f.addEventListener('input', calidadDebounced); f.addEventListener('change', calidadDebounced); }
+      if (f) {
+        f.addEventListener('input', calidadDebounced); f.addEventListener('change', calidadDebounced);
+        // Cualquier cambio del agente queda "sin guardar", y el campo que se
+        // corrige deja de estar en rojo. Buscar en la ficha no es un cambio.
+        const alCambiar = e => {
+          const t = e.target;
+          if (!t || t.id === 'fichaSearch') return;
+          marcarSucio();
+          if (t.classList) t.classList.remove('pf-invalido');
+        };
+        f.addEventListener('input', alCambiar); f.addEventListener('change', alCambiar);
+        f.addEventListener('keydown', enterSinEnviar);
+      }
     });
+    /* Enter en un campo ya NO publica. Antes apretar Enter en el título, o en el
+       buscador de la ficha, disparaba el guardado entero con sus carteles de lo
+       que faltaba. Ahora pasa al campo siguiente del paso, como en el celular. */
+    function enterSinEnviar(e) {
+      if (e.key !== 'Enter' || e.isComposing) return;
+      const t = e.target;
+      if (!t || t.tagName !== 'INPUT') return;           // en la descripción, Enter es salto de línea
+      const tipo = String(t.type || '').toLowerCase();
+      if (['submit', 'button', 'checkbox', 'radio', 'file'].includes(tipo)) return;
+      e.preventDefault();
+      if (t.id === 'fichaSearch') { t.blur(); return; }
+      const zona = (wizOn() && document.querySelector('.pf-sec.wiz-actual')) || document.getElementById('propertyForm');
+      const campos = Array.from(zona.querySelectorAll('input, select, textarea')).filter(el =>
+        el.type !== 'hidden' && el.type !== 'checkbox' && el.type !== 'file' && !el.disabled && !el.readOnly && el.offsetParent !== null);
+      const i = campos.indexOf(t);
+      if (i >= 0 && i < campos.length - 1) campos[i + 1].focus(); else t.blur();
+    }
     const _renderImagePreviews = renderImagePreviews;
     renderImagePreviews = function () { _renderImagePreviews(); calidadRecalc(); };
     const _actualizarEstadoUbicacion = actualizarEstadoUbicacion;
@@ -3656,7 +4328,7 @@
     const _togglePropertyType = togglePropertyType;
     togglePropertyType = function () { _togglePropertyType(); onTipoChange(); };
     const _loadPropertyForEdit = loadPropertyForEdit;
-    loadPropertyForEdit = function (p) { _loadPropertyForEdit(p); document.getElementById('pfCal').style.display = ''; calidadRecalc(); };
+    loadPropertyForEdit = function (p) { _loadPropertyForEdit(p); document.getElementById('pfCal').style.display = ''; calidadRecalc(); _sucio = false; };
     const _showState = showState;
     showState = function (which, opts) { _showState(which, opts); document.getElementById('pfCal').style.display = (which === 'ppfFormWrap') ? '' : 'none'; };
 
@@ -3668,10 +4340,11 @@
     // ============================================================================
     const WIZ_TOTAL = 8;
     let wizPaso = 0;
-    const wizNombres = ['¿Qué vas a publicar?', 'Ubicación', 'Características principales', 'Ficha técnica', 'Fotos y video', 'Título y descripción', 'Precio', 'Contacto'];
+    const wizNombres = ['¿Qué vas a publicar?', 'Ubicación', 'Características principales', 'Ficha técnica', 'Fotos y video', 'Título y descripción', 'Precio', 'Revisar y publicar'];
     function wizOn() { const w = document.getElementById('ppfFormWrap'); return !!(w && w.classList.contains('pf-wizard')); }
     function wizIr(n, scroll) {
       if (scroll === undefined) scroll = true;
+      wizMenu(false);
       n = Math.max(0, Math.min(n, WIZ_TOTAL - 1));
       wizPaso = n;
       // Mostrar solo la sección del paso actual.
@@ -3689,15 +4362,27 @@
       const next = document.getElementById('wizNext');
       const pub = document.getElementById('propertyBtn');
       const ultimo = (n === WIZ_TOTAL - 1);
+      /* Editando, "Guardar" está en TODOS los pasos: para corregir el precio no
+         hace falta caminar hasta el último. Una propiedad nueva sigue el recorrido
+         completo y se publica al final. */
+      const editando = !!document.getElementById('editingPropertyId').value;
+      const barra = document.getElementById('wizNav');
+      if (barra) barra.classList.toggle('editando', editando);
       if (back) back.disabled = (n === 0);
       if (next) next.style.display = ultimo ? 'none' : '';
-      if (pub) pub.style.display = ultimo ? '' : 'none';
+      if (pub) pub.style.display = (ultimo || editando) ? '' : 'none';
       const num = document.getElementById('wizNumNow'); if (num) num.textContent = (n + 1);
       const nom = document.getElementById('wizNomNow'); if (nom) nom.textContent = wizNombres[n] || '';
       // El mapa vive en el paso 2 (índice 1). Se creó con la sección visible, pero
       // el modo libro la oculta: al volver a mostrarla hay que reajustar Leaflet o
       // dibuja gris/cortado.
       if (n === 1 && mapa) { setTimeout(() => mapa.invalidateSize(), 60); setTimeout(() => mapa.invalidateSize(), 260); }
+      // La revisión: al entrar queda "vista" tal como está; al salir, se apaga el aviso.
+      const avisoRv = document.getElementById('rvAviso');
+      if (avisoRv && !ultimo) avisoRv.style.display = 'none';
+      if (ultimo) marcarRevisionVista();
+      // La sugerencia de la barra depende del paso en que estás.
+      if (_estado) pintarSiguiente(_estado.reqs, _estado.mej, _estado.res);
       if (scroll) {
         const s = document.getElementById('sec' + (n + 1));
         if (s) s.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -3705,51 +4390,175 @@
     }
     function wizSiguiente() { wizIr(wizPaso + 1); }
     function wizAtras() { wizIr(wizPaso - 1); }
+    /* Lista de pasos en celular y tablet. El índice lateral se oculta en pantallas
+       de menos de 1020 px, así que para ir al paso 7 había que tocar "Siguiente"
+       seis veces. Tocando "Paso X de 8" aparece ese mismo índice, flotando sobre
+       la barra, con los tildes de lo que ya está completo. */
+    function wizMenu(abrir) {
+      const rail = document.getElementById('pfRail'), wrap = document.getElementById('ppfFormWrap');
+      if (!rail || !wrap) return;
+      const abierto = rail.classList.contains('abierto');
+      if (abrir === undefined) abrir = !abierto;
+      if (abrir && (!wizOn() || window.matchMedia('(min-width:1021px)').matches)) return;   // ahí el índice ya se ve
+      let fondo = document.getElementById('pfMenuFondo');
+      if (abrir) {
+        const nav = document.getElementById('wizNav');
+        const r = nav ? nav.getBoundingClientRect() : null;
+        const bajo = r ? Math.max(12, Math.round(window.innerHeight - r.top + 8)) : 120;
+        document.documentElement.style.setProperty('--pf-menu-bajo', bajo + 'px');
+        if (!fondo) {
+          fondo = document.createElement('div');
+          fondo.id = 'pfMenuFondo'; fondo.className = 'pf-menu-fondo';
+          fondo.addEventListener('click', () => wizMenu(false));
+          document.body.appendChild(fondo);
+        }
+        rail.classList.add('abierto'); wrap.classList.add('menu-abierto');
+      } else {
+        rail.classList.remove('abierto'); wrap.classList.remove('menu-abierto');
+        if (fondo) fondo.remove();
+      }
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') wizMenu(false); });
     function wizInit() {
       const w = document.getElementById('ppfFormWrap');
       if (w) w.classList.add('pf-wizard');
       wizIr(0, false);   // arranca en el paso 1 sin dar un salto de scroll
     }
 
+    // ================= VALIDACIÓN AL GUARDAR =================
+    /* El formulario tiene "novalidate". Antes los obligatorios los pedía el
+       navegador por su cuenta, pero en el modo por pasos esos campos están en
+       OTRO paso, ocultos, y el navegador no los puede mostrar: el botón de
+       publicar no hacía NADA y no decía por qué. Ahora se valida acá, se dice
+       qué falta y se lleva al agente hasta el campo. */
+    function basicosFaltantes() {
+      const tipo = _v('propRealEstateType');
+      const conDorms = tipo === 'casa' || tipo === 'apartamento';
+      const vacio = id => String(_v(id) || '').trim() === '';
+      const numMal = id => { const v = String(_v(id) || '').trim(); return v === '' || !(parseFloat(v) >= 0); };
+      // Vacío está bien, pero no un número negativo (antes lo frenaba el navegador).
+      const negativo = id => { const v = String(_v(id) || '').trim(); return v !== '' && !(parseFloat(v) >= 0); };
+      const falta = [];
+      const f = (cond, id, paso, label) => { if (cond) falta.push({ id, paso, label }); };
+      f(vacio('propDepartamento'), 'propDepartamento', 1, 'Departamento');
+      f(vacio('propCiudad'), 'propCiudad', 1, 'Ciudad/Barrio');
+      f(conDorms ? numMal('propBedrooms') : negativo('propBedrooms'), 'propBedrooms', 2, 'Dormitorios (0 si es monoambiente)');
+      f(conDorms ? numMal('propBathrooms') : negativo('propBathrooms'), 'propBathrooms', 2, 'Baños');
+      f(numMal('propTotalArea'), 'propTotalArea', 2, 'Superficie total');
+      f(numMal('propBuiltArea'), 'propBuiltArea', 2, 'Área privada (0 si no tiene)');
+      f(vacio('propTitle'), 'propTitle', 5, 'Título');
+      f(!(parseFloat(_v('propPrice')) > 0), 'propPrice', 6, 'Precio');
+      f(numMal('propExpenses'), 'propExpenses', 6, 'Gastos comunes (0 si no tiene)');
+      return falta;
+    }
+    function marcarInvalido(id) { const el = document.getElementById(id); if (el) el.classList.add('pf-invalido'); }
+    function limpiarInvalidos() { document.querySelectorAll('#propertyForm .pf-invalido').forEach(el => el.classList.remove('pf-invalido')); }
+    function irAlCampo(id, paso) {
+      if (wizOn() && paso != null) wizIr(paso, false);
+      const el = document.getElementById(id);
+      if (!el) return;
+      setTimeout(() => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) { try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); } }
+      }, 120);
+    }
+    // Frena si falta algo de estos pasos (índices del asistente: 1 = Ubicación).
+    function validarPasos(pasos) {
+      const falta = basicosFaltantes().filter(x => pasos.includes(x.paso));
+      if (!falta.length) return true;
+      falta.forEach(x => marcarInvalido(x.id));
+      alert('Falta completar:\n\n• ' + falta.map(x => x.label).join('\n• '));
+      irAlCampo(falta[0].id, falta[0].paso);
+      return false;
+    }
+    /* Antes de guardar, lo que algún portal no va a poder publicar se muestra
+       en la revisión (paso 8) en vez de un cartel del navegador. No frena el
+       guardado: si ya está mirando la revisión, o ya la vio así como está, se
+       guarda. Si no, lo lleva ahí una vez; tocando Guardar de nuevo, guarda.
+       Una propiedad nueva solo se publica desde ese paso, así que nunca se frena. */
+    let _firmaVista = null;
+    function firmaPortales() {
+      const reqs = requisitos();
+      return PORTALES.map(p => { const r = resumenPortal(p.k, reqs); return r.k + ':' + (r.bloqueo ? '-' : r.propios.map(x => x.clave).join(',')); }).join('|');
+    }
+    function marcarRevisionVista() { try { _firmaVista = firmaPortales(); } catch (e) { /* no frena nada */ } }
+    function estaALaVista(el) {
+      if (!el) return false;
+      const r = el.getBoundingClientRect();
+      return r.bottom > 0 && r.top < window.innerHeight && r.height > 0;
+    }
+    function confirmarPortales() {
+      try { return revisarAntesDeGuardar(); }
+      catch (e) { console.warn('[revisión antes de guardar]', e); return true; }   // un error acá nunca frena el guardado
+    }
+    function revisarAntesDeGuardar() {
+      if ((_v('propStatus') || 'available') !== 'available') return true;
+      const reqs = requisitos();
+      const sinTomar = PORTALES.map(p => resumenPortal(p.k, reqs)).filter(r => !r.bloqueo && r.propios.length);
+      if (!sinTomar.length) return true;
+      const viendo = wizOn() ? wizPaso === WIZ_TOTAL - 1 : estaALaVista(document.getElementById('pfRevision'));
+      if (viendo || firmaPortales() === _firmaVista) return true;
+      if (wizOn()) wizIr(WIZ_TOTAL - 1, false);
+      marcarRevisionVista();
+      const nombres = unirY(sinTomar.map(r => NOMBRE_PORTAL[r.k]));
+      const boton = document.getElementById('editingPropertyId').value ? 'Guardar' : 'Publicar';
+      const aviso = document.getElementById('rvAviso');
+      if (aviso) {
+        aviso.innerHTML = `<i class="fas fa-circle-info"></i><div>Se puede guardar así, pero <b>${esc(nombres)}</b> no ${sinTomar.length > 1 ? 'la toman' : 'la toma'} hasta que completes lo que falta. Completalo abajo o tocá <b>${boton}</b> otra vez para guardar igual.</div>`;
+        aviso.style.display = '';
+      }
+      setTimeout(() => { const s8 = document.getElementById('sec8'); if (s8) s8.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
+      return false;
+    }
+    function etiquetaGuardar(editando) {
+      if (editando === undefined) editando = !!document.getElementById('editingPropertyId').value;
+      return editando
+        ? '<i class="fas fa-save"></i><span class="pf-largo">Guardar Cambios</span><span class="pf-corto">Guardar</span>'
+        : '<i class="fas fa-check"></i> Publicar Propiedad';
+    }
+    // WhatsApp que sale si el campo queda vacío: el del perfil del agente dueño.
+    function ayudaWhatsapp() {
+      const el = document.getElementById('waAyuda'), inp = document.getElementById('propWhatsapp');
+      if (!el || !inp) return;
+      const ajena = !!(editingProperty && currentUser && editingProperty.ownerId !== currentUser.uid);
+      const quien = ajena ? 'de ' + ((_duenio && _duenio.name) || editingProperty.ownerName || 'el agente dueño') : 'de tu perfil';
+      if (_waDuenio) {
+        el.textContent = `Si lo dejás vacío, el aviso sale con el WhatsApp ${quien}: ${_waDuenio}.`;
+        inp.placeholder = _waDuenio;
+      } else if (ajena && !_duenio) {
+        // No se pudo leer su perfil: no se sabe qué número tiene, pero el servidor sí lo usa.
+        el.textContent = `Si lo dejás vacío, el aviso sale con el WhatsApp del perfil de ${editingProperty.ownerName || 'el agente dueño'}.`;
+      } else {
+        el.textContent = ajena
+          ? 'El agente dueño no tiene WhatsApp en su perfil: sin un teléfono, InfoCasas no publica el aviso.'
+          : 'Tu perfil no tiene WhatsApp: cargalo en Mi perfil o escribí uno acá. Sin teléfono, InfoCasas no publica el aviso.';
+      }
+    }
+
     async function handleSaveProperty(e) {
-      e.preventDefault();
+      if (e) e.preventDefault();
       if (!currentUser) { alert('Debes iniciar sesión'); return }
-      // El mínimo son 12 fotos cargadas. Las repetidas cuentan: al subirlas se
-      // guardan con nombre propio y un píxel distinto, así que a los portales
-      // llegan como fotos separadas. Una propiedad chica no siempre da doce
-      // tomas diferentes y no tiene sentido dejarla sin publicar por eso.
-      if (selectedImages.length < 12) {
-        const faltan = 12 - selectedImages.length;
-        alert('Se necesitan al menos 12 fotos para publicar.\n\nTenés ' + selectedImages.length + '. Faltan ' + faltan + '.');
-        if (wizOn()) wizIr(4); else { var _sec = document.getElementById('sec5'); if (_sec) _sec.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      if (_guardando) return;   // doble toque
+      if (_fotosEnProceso > 0) {
+        alert('Esperá un momento: todavía se están preparando las fotos.');
+        if (wizOn()) wizIr(4);
         return;
       }
-      // Campos obligatorios de la ficha (los del asterisco). Antes el asterisco
-      // era decorativo: se mostraba pero nada lo exigía.
-      const _faltantes = fichaCampos().filter(c => {
-        if (!c.req) return false;
-        const el = document.getElementById('fc-' + c.id);
-        if (!el) return false;                    // no está en pantalla (grupo no renderizado)
-        const v = String(el.value || '').trim();
-        if (c.type === 'num') {
-          // Un numérico vacío se guarda como 0 (ver collectFicha), así que pedirlo
-          // "obligatorio" a secas no bloquea nada. Solo se exige de verdad cuando
-          // el campo declara un 'min': ahí el 0 no es una respuesta sino un campo
-          // sin llenar (0 meses de garantía no significa "sin garantía"). Los
-          // demás numéricos siguen autocompletándose con 0, como hasta ahora,
-          // porque para ellos el cero sí es un dato real (ej: 0 cocheras).
-          if (c.min == null) return false;
-          return v === '' || !(parseFloat(v) >= c.min);
-        }
-        return v === '';
-      });
+      limpiarInvalidos();
+      // Se revisa en el orden de los pasos: lo primero que falta es lo primero que
+      // se muestra.
+      if (!validarPasos([1, 2])) return;
+      // Campos obligatorios de la ficha (los del asterisco) y números negativos.
+      // Antes el asterisco era decorativo: se mostraba pero nada lo exigía.
+      const _faltantes = fichaFaltantes();
       if (_faltantes.length) {
-        alert('Faltan campos obligatorios de la ficha técnica:\n\n• ' + _faltantes.map(c => c.label + (c.min != null ? ' (mínimo ' + c.min + ')' : '')).join('\n• '));
+        alert('Faltan o están mal estos campos de la ficha técnica:\n\n• ' + _faltantes.map(c => c.label + (c.type === 'num' ? ' (mínimo ' + (c.min != null ? c.min : 0) + ')' : '')).join('\n• '));
         const primero = document.getElementById('fc-' + _faltantes[0].id);
         if (primero) {
           if (wizOn()) wizIr(3, false);   // la ficha es el paso 4: mostrarla antes de saltar al campo
           const sec = primero.closest('.fx-step');
           if (sec) fxIr(parseInt(sec.getAttribute('data-paso'), 10) || 0);
+          primero.classList.add('pf-invalido');
           setTimeout(() => { primero.scrollIntoView({ behavior: 'smooth', block: 'center' }); primero.focus(); }, 320);
         }
         return;
@@ -3766,29 +4575,56 @@
         if (wizOn()) { wizIr(3, false); setTimeout(() => irAGrupo(_sinRev[0]), 90); } else { irAGrupo(_sinRev[0]); }
         return;
       }
+      // El mínimo son 12 fotos cargadas. Las repetidas cuentan: al subirlas se
+      // guardan con nombre propio y un píxel distinto, así que a los portales
+      // llegan como fotos separadas. Una propiedad chica no siempre da doce
+      // tomas diferentes y no tiene sentido dejarla sin publicar por eso.
+      if (selectedImages.length < 12) {
+        const faltan = 12 - selectedImages.length;
+        alert('Se necesitan al menos 12 fotos para publicar.\n\nTenés ' + selectedImages.length + '. Faltan ' + faltan + '.');
+        if (wizOn()) wizIr(4); else { var _sec = document.getElementById('sec5'); if (_sec) _sec.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        return;
+      }
+      // Con "novalidate" el navegador ya no revisa el link del video.
+      const _vid = String(_v('propVideo') || '').trim();
+      if (_vid && !videoValido(_vid)) {
+        marcarInvalido('propVideo');
+        alert('El video tiene que ser un link de YouTube. Si no tenés uno, dejá el campo vacío.');
+        irAlCampo('propVideo', 4);
+        return;
+      }
+      if (!validarPasos([5, 6])) return;
+      if (!confirmarPortales()) return;
+
       const b = document.getElementById('propertyBtn'), er = document.getElementById('propertyError'), ei = document.getElementById('editingPropertyId').value, pp = document.getElementById('previousPrice').value;
+      _guardando = true;
       b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; er.classList.add('hidden');
       try {
-        const pi = ei || db.collection('properties').doc().id, iu = [];
+        // El id de una propiedad nueva se fija la primera vez: si el guardado falla
+        // y se reintenta, las fotos que ya subieron quedan en la misma carpeta.
+        if (!ei && !_idNueva) _idNueva = db.collection('properties').doc().id;
+        const pi = ei || _idNueva, iu = [];
         // Subida EN PARALELO (3 canales): antes era foto por foto en fila, y una
         // sola foto con mala señal frenaba toda la cola. Además, si el guardado
         // falla a mitad de camino, cada foto recuerda su URL (uploadedUrl) y al
         // reintentar NO se vuelve a subir: se retoma donde quedó.
         const resultados = new Array(selectedImages.length);
         const tt = selectedImages.filter(im => !im.existing && !im.uploadedUrl).length;
+        if (tt) b.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Subiendo fotos 0 de ${tt}…`;
         let uc = 0, _idx = 0;
         const canal = async () => {
           while (_idx < selectedImages.length) {
             const i = _idx++; const im = selectedImages[i];
             if (im.existing) { resultados[i] = im.url; continue; }
             if (im.uploadedUrl) { resultados[i] = im.uploadedUrl; continue; }
-            const url = await uploadImageToStorage(im.file, pi, i, im.dup || 0);
+            const url = await uploadImageToStorage(im, pi, i);
             im.uploadedUrl = url;
             resultados[i] = url;
             uc++; updateUploadProgress(uc, tt);
           }
         };
         await Promise.all([canal(), canal(), canal()]);
+        b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
         resultados.forEach(u => { if (u) iu.push(u) });
         const ty = document.getElementById('propType').value, dp = document.getElementById('propDepartamento').value, cd = document.getElementById('propCiudad').value, np = parseInt(document.getElementById('propPrice').value);
         const ficha = collectFicha();
@@ -3807,27 +4643,42 @@
         };
         if (ubicacionState.lat != null && ubicacionState.lng != null) { ubicacion.lat = ubicacionState.lat; ubicacion.lng = ubicacionState.lng }
         ubicacion.direccionVisible = [ubicacion.calle, ubicacion.numero].filter(Boolean).join(' ');
+        /* WhatsApp: el campo es solo para un número DISTINTO al del perfil del dueño.
+           Antes, vacío se completaba con el WhatsApp de QUIEN GUARDABA: si la
+           Dirección editaba la propiedad de un agente, los portales pasaban a
+           mostrar el teléfono de la Dirección. Vacío = sin número propio, y el
+           servidor y la web usan el del perfil del agente dueño. */
+        const waCampo = String(document.getElementById('propWhatsapp').value || '').trim();
+        const esDuenio = !ei || !editingProperty || editingProperty.ownerId === currentUser.uid;
+        const esCopiaPropia = esDuenio && waCampo && userProfile.whatsapp && normTel(waCampo) === normTel(userProfile.whatsapp);
+        const waPuntual = (waCampo && !esCopiaPropia) ? waCampo : '';
         const pd = {
           title: document.getElementById('propTitle').value, departamento: dp, ciudad: cd, direccion: ubicacion.direccionVisible, ubicacion, location: `${cd}, ${dp}`,
-          price: np, currency: document.getElementById('propCurrency').value, type: ty, propertyType: document.getElementById('propPropertyType').value, realEstateType: document.getElementById('propRealEstateType').value, clientId: formClientId || null,
+          price: np, currency: document.getElementById('propCurrency').value,
+          // Moneda propia de los gastos comunes: la usan los tres portales.
+          commonExpensesCurrency: _v('propExpensesCurrency') === 'USD' ? 'USD' : 'UYU', type: ty, propertyType: document.getElementById('propPropertyType').value, realEstateType: document.getElementById('propRealEstateType').value, clientId: formClientId || null,
           bedrooms: parseInt(document.getElementById('propBedrooms').value) || 0, bathrooms: parseInt(document.getElementById('propBathrooms').value) || 0,
           totalArea: parseInt(document.getElementById('propTotalArea').value) || 0, builtArea: parseInt(document.getElementById('propBuiltArea').value) || 0,
           commonExpenses: parseInt(document.getElementById('propExpenses').value) || 0, garage: (ficha.PARKING_LOTS || 0) > 0 ? 'yes' : 'no', status: document.getElementById('propStatus').value,
-          images: iu, description: document.getElementById('propDescription').value, videoUrl: document.getElementById('propVideo').value || '', ownerWhatsapp: document.getElementById('propWhatsapp').value || userProfile.whatsapp, updatedAt: new Date().toISOString(),
+          images: iu, description: document.getElementById('propDescription').value, videoUrl: document.getElementById('propVideo').value || '', updatedAt: new Date().toISOString(),
           ficha,
           // Grupos de casilleros que el agente dio por revisados. Va aparte de
           // `ficha` a propósito: eso es la carga que viaja a Mercado Libre.
           fichaRevisado: fichaRevisado.slice()
         };
+        if (waPuntual) pd.ownerWhatsapp = waPuntual;
+        else if (ei) pd.ownerWhatsapp = firebase.firestore.FieldValue.delete();
         if (ei && pp && parseInt(pp) !== np) { pd.previousPrice = parseInt(pp); pd.priceChangedAt = new Date().toISOString() }
         if (ei) {
           await db.collection('properties').doc(ei).update(pd);
+          _guardado = true;
           showToast('Propiedad actualizada', 'Redirigiendo...', 'fa-check');
         } else {
           pd.ownerId = currentUser.uid; pd.ownerName = userProfile.name; pd.views = 0; pd.createdAt = new Date().toISOString();
           pd.agents = [currentUser.uid]; // lista de agentes que comparten la propiedad (empieza con el creador)
           pd.agentsInfo = [{ uid: currentUser.uid, name: userProfile.name || '' }]; // para mostrar nombres sin consultar
           await db.collection('properties').doc(pi).set(pd);
+          _guardado = true;
           // Si la propiedad nace desde un cliente, creamos su GESTIÓN automáticamente.
           if (formClientId) {
             try {
@@ -3859,9 +4710,14 @@
         }, 1200);
       } catch (err) {
         console.error('Error saving property:', err);
-        er.textContent = 'Error: ' + err.message; er.classList.remove('hidden');
-        b.disabled = false; b.innerHTML = ei ? '<i class="fas fa-save"></i> Guardar Cambios' : '<i class="fas fa-check"></i> Publicar Propiedad'
-      }
+        const msg = (err && err.message) || String(err);
+        er.textContent = 'No se pudo guardar: ' + msg; er.classList.remove('hidden');
+        // El recuadro de error está arriba de todo: sin esto, publicando desde el
+        // último paso, el error quedaba fuera de la vista.
+        showToast('No se pudo guardar', esc(msg), 'fa-triangle-exclamation');
+        try { er.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e2) {}
+        b.disabled = false; b.innerHTML = etiquetaGuardar();
+      } finally { _guardando = false; }
     }
 
     // Arranque: verificar sesión y modo (crear/editar)
@@ -3892,20 +4748,31 @@
           if (p.ownerId !== u.uid && !esAgenteCompartido && !isAdmin) { showState('ppfErr', { msg: 'No tenés permiso para editar esta propiedad.' }); return }
           editingProperty = p;
           formClientId = p.clientId || null;
+          // WhatsApp del dueño: el que sale en el aviso si el campo queda vacío.
+          if (p.ownerId === u.uid) _waDuenio = userProfile.whatsapp || '';
+          else {
+            try { const od = await db.collection('users').doc(p.ownerId).get(); _duenio = od.exists ? od.data() : {}; _waDuenio = _duenio.whatsapp || ''; } catch (e) { /* sin permiso para leerlo: no se adivina (ver requisitos) */ }
+          }
           showState('ppfFormWrap');
           initMapa();
           loadPropertyForEdit(p);
+          requisitosPorTipo();
+          ayudaWhatsapp();
           wizInit();
         } catch (e) { console.error(e); showState('ppfErr', { msg: 'Error al cargar la propiedad.' }) }
       } else {
         showState('ppfFormWrap');
         initMapa();
         document.getElementById('ppfTitle').textContent = 'Nueva propiedad';
-        if (userProfile.whatsapp) document.getElementById('propWhatsapp').value = userProfile.whatsapp;
+        // El campo ya no se completa con el número del agente: vacío = el de su perfil.
+        _waDuenio = userProfile.whatsapp || '';
+        ayudaWhatsapp();
         selectStatus('available');
         togglePropertyType();
+        requisitosPorTipo();
         actualizarEstadoUbicacion();
         wizInit();
+        _sucio = false;
         if (clientIdParam) {
           formClientId = clientIdParam;
           try {
