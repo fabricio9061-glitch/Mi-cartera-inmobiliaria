@@ -243,7 +243,7 @@
           <div class="fg">
             <label for="uEdad">Edad del <span class="lblBenef">usufructuario</span> <span class="hint">(años cumplidos a la fecha del contrato)</span></label>
             <input type="number" id="uEdad" min="0" max="120" step="1" inputmode="numeric" placeholder="Ej: 56">
-            <p class="help">La DGI toma como duración 70 años menos la edad.</p>
+            <p class="help">La DGI toma como duración 70 años menos la edad, y nunca menos de 3 años.</p>
             <button type="button" class="link-btn" id="btnNac" aria-expanded="false"><i class="fas fa-calendar-day"></i> Calcular la edad con la fecha de nacimiento</button>
             <div class="sub-box" id="boxNac" hidden>
               <div class="fg-row">
@@ -259,7 +259,7 @@
             <div class="fg"><label for="uAnios">Años</label><input type="number" id="uAnios" min="0" step="1" inputmode="numeric" placeholder="Ej: 4"></div>
             <div class="fg"><label for="uMeses">Meses <span class="hint">(opcional)</span></label><input type="number" id="uMeses" min="0" max="11" step="1" inputmode="numeric" placeholder="0"></div>
           </div>
-          <p class="help" style="margin:-6px 0 14px">Si hay meses sueltos, la DGI los cuenta como un año entero.</p>
+          <p class="help" style="margin:-6px 0 14px">Con plazo pactado no hay mínimo y el máximo es 70 años. Si hay meses sueltos, cuentan como un año entero.</p>
         </div>
 
         <details class="pdf-data" id="pdfData">
@@ -310,7 +310,7 @@
     </details>
 
     <div class="note">
-      <b>Importante:</b> cálculo orientativo según la guía y el cuadro de la DGI (art. 4 lit. A, Título 19 T.O. 1996 y art. 10 del Decreto 252/998). La duración nunca es menor a 3 años y las fracciones de año cuentan como un año entero. Si hay más de un usufructuario o condiciones especiales, confirmalo con el escribano.
+      <b>Importante:</b> cálculo orientativo según el cuadro vigente de la DGI y el art. 10 del Decreto 252/998 (ITP: art. 5 lit. A, Título 19 del Texto Ordenado 2023). De por vida, la duración nunca es menor a 3 años; con plazo pactado no hay mínimo y el máximo es 70 años. Las fracciones de año cuentan como un año entero. Si hay más de un usufructuario o condiciones especiales, confirmalo con el escribano.
     </div>
   </div>
 
@@ -325,21 +325,26 @@
   <script>
     /* ==========================================================================
        USUFRUCTO Y NUDA PROPIEDAD — según la guía de la DGI:
-       1. Se calcula el plazo que resta: el plazo fijo pactado, o, si es de por
-          vida, 70 menos la edad del usufructuario a la fecha del contrato.
-          Nunca menos de 3 años; las fracciones de año cuentan como año entero.
+       1. Se calcula el plazo que resta:
+          - De por vida (o sin plazo): 70 menos la edad del beneficiario a la
+            fecha del contrato, nunca menos de 3 años.
+          - Plazo pactado: el del contrato, sin mínimo y con un máximo de 70 años.
+          Las fracciones de año cuentan como año entero (art. 10 Decreto 252/998).
        2. Nuda propiedad = valor del inmueble × factor del cuadro (descuento
           racional compuesto al 6% anual). Usufructo = valor − nuda propiedad.
        3. Derecho de uso = 50% del usufructo; derecho de habitación = 25%.
        ========================================================================== */
 
     /* Cuadro "Nuda Propiedad – Usufructo – Derechos de Uso y Habitación" de la
-       DGI, copiado TAL CUAL está publicado. Dos filas no coinciden con la
+       DGI, copiado TAL CUAL está publicado. La versión vigente (publicada en
+       gub.uy el 27/09/2023) va de 1 a 70 años; la anterior (de 2020) empezaba en
+       3 y no aclaraba que el plazo pactado no tiene mínimo. Dos filas no coinciden con la
        fórmula 1 / 1,06^años: la de 25 años (dice 0,23599863; por fórmula da
        0,23299863, un error de tipeo en el tercer decimal) y la de 61 (diferencia
        en el octavo decimal, sin efecto práctico). Se usa el valor publicado para
        que el número coincida con el que ve el escribano en el cuadro oficial. */
     const FACTORES = {
+       1: 0.94339623,  2: 0.88999644,
        3: 0.83961928,  4: 0.79209366,  5: 0.74725817,  6: 0.70496054,  7: 0.66505711,
        8: 0.62741237,  9: 0.59189846, 10: 0.55839478, 11: 0.52678753, 12: 0.49696936,
       13: 0.46883902, 14: 0.44230096, 15: 0.41726506, 16: 0.39364628, 17: 0.37136442,
@@ -355,7 +360,8 @@
       63: 0.02545250, 64: 0.02401179, 65: 0.02265264, 66: 0.02137041, 67: 0.02016077,
       68: 0.01901959, 69: 0.01794301, 70: 0.01692737
     };
-    const VIDA_PROBABLE = 70, MINIMO = 3;
+    const VIDA_PROBABLE = 70, MINIMO_VIDA = 3, MAXIMO = 70;
+    function txtAnios(n) { return n + (n === 1 ? ' año' : ' años'); }
     const DERECHOS = {
       usufructo: { nombre: 'Usufructo', pct: 1, ayuda: 'El usufructuario usa la propiedad y se queda con sus frutos (por ejemplo, el alquiler).' },
       uso: { nombre: 'Derecho de uso', pct: 0.5, ayuda: 'Permite usar la propiedad para uno y su familia. La DGI lo valúa en el 50% del usufructo.' },
@@ -419,13 +425,13 @@
         const edad = parseFloat(raw);
         if (!isFinite(edad) || edad < 0 || edad > 120 || Math.floor(edad) !== edad) return { error: 'La edad tiene que ser un número entero entre 0 y 120.' };
         const bruto = VIDA_PROBABLE - edad;
-        const anios = Math.max(MINIMO, bruto);
-        const detalle = bruto >= MINIMO
+        const anios = Math.max(MINIMO_VIDA, bruto);
+        const detalle = bruto >= MINIMO_VIDA
           ? `70 años de vida probable − ${edad} de edad`
-          : `70 − ${edad} da ${bruto}: se toma el mínimo de ${MINIMO} años`;
-        const detallePdf = bruto >= MINIMO
+          : `70 − ${edad} da ${bruto}: se toma el mínimo de ${MINIMO_VIDA} años`;
+        const detallePdf = bruto >= MINIMO_VIDA
           ? `70 años de vida probable - ${edad} de edad`
-          : `70 - ${edad} da ${bruto}: se toma el mínimo de ${MINIMO} años`;
+          : `70 - ${edad} da ${bruto}: se toma el mínimo de ${MINIMO_VIDA} años`;
         return { anios, detalle, detallePdf, texto: `De por vida · ${benef()} de ${edad} ${edad === 1 ? 'año' : 'años'}` };
       }
       const rA = $('uAnios').value.trim(), rM = $('uMeses').value.trim();
@@ -434,19 +440,16 @@
       if (!isFinite(a) || !isFinite(m) || a < 0 || m < 0 || Math.floor(a) !== a || Math.floor(m) !== m) return { error: 'Los años y los meses tienen que ser números enteros.' };
       if (m >= 12) { a += Math.floor(m / 12); m = m % 12; }
       if (a === 0 && m === 0) return { error: 'Poné cuántos años (y meses) dura el derecho.' };
+      // Plazo pactado: sin mínimo y con un máximo de 70 años (nota del cuadro de la DGI).
       const bruto = a + (m > 0 ? 1 : 0);
-      const anios = Math.max(MINIMO, bruto);
+      const anios = Math.min(MAXIMO, bruto);
       const txtPlazo = a && m ? `${a} ${a === 1 ? 'año' : 'años'} y ${m} ${m === 1 ? 'mes' : 'meses'}` : a ? `${a} ${a === 1 ? 'año' : 'años'}` : `${m} ${m === 1 ? 'mes' : 'meses'}`;
       let detalle = m > 0 ? `${txtPlazo}: la fracción cuenta como año entero` : 'plazo pactado';
-      if (bruto < MINIMO) detalle = `${txtPlazo}: se toma el mínimo de ${MINIMO} años`;
+      if (bruto > MAXIMO) detalle = `${txtPlazo}: se toma el máximo de ${MAXIMO} años`;
       return { anios, detalle, detallePdf: detalle, texto: `Plazo fijo de ${txtPlazo}` };
     }
-    function factorPara(anios) {
-      if (FACTORES[anios] != null) return { f: FACTORES[anios], fuera: false };
-      // Más de 70 años (solo puede pasar con un plazo fijo): el cuadro termina en
-      // 70, se sigue con la misma fórmula del 6% anual y se avisa.
-      return { f: Math.round(Math.pow(1.06, -anios) * 1e8) / 1e8, fuera: true };
-    }
+    // El plazo siempre queda entre 1 y 70 años, así que siempre hay fila en el cuadro.
+    function factorPara(anios) { return FACTORES[Math.min(MAXIMO, Math.max(1, anios))]; }
 
     // ---------- Cálculo ----------
     function calcular() {
@@ -474,19 +477,19 @@
       marcarTabla(listo ? plazo.anios : null);
       if (!listo) { _ultimo = null; return null; }
 
-      const { f, fuera } = factorPara(plazo.anios);
+      const f = factorPara(plazo.anios);
       const nuda = valor * f;
       const usu = valor - nuda;
       const derechoValor = usu * d.pct;
       const nudaPct = f * 100, usuPct = 100 - nudaPct;
-      _ultimo = { mon, base, valor, plazo, f, fuera, nuda, usu, derecho, derechoValor, nudaPct, usuPct };
+      _ultimo = { mon, base, valor, plazo, f, nuda, usu, derecho, derechoValor, nudaPct, usuPct };
 
       $('rBase').textContent = base === 'real' ? 'Valor real de Catastro' : 'Precio de mercado';
       $('rValor').textContent = fmtMonto(valor, mon);
-      $('rPlazo').textContent = plazo.anios + ' años';
+      $('rPlazo').textContent = txtAnios(plazo.anios);
       $('rPlazoSub').textContent = plazo.detalle;
       $('rFactor').textContent = fmtNum(f, 8);
-      $('rFactorSub').textContent = fuera ? 'fuera del cuadro (más de 70 años): misma tasa del 6%' : 'tasa 6% anual';
+      $('rFactorSub').textContent = 'tasa 6% anual';
       $('rNuda').textContent = fmtMonto(nuda, mon);
       $('rNudaPct').textContent = fmtPct(nudaPct) + ' del valor';
       $('rUsu').textContent = fmtMonto(usu, mon);
@@ -508,7 +511,7 @@
     // ---------- Cuadro en pantalla ----------
     function pintarTabla() {
       $('tablaGrid').innerHTML = Object.keys(FACTORES).map(n =>
-        `<div data-anios="${n}"><b>${n} años</b><span>${fmtNum(FACTORES[n], 8)}</span></div>`).join('');
+        `<div data-anios="${n}"><b>${txtAnios(+n)}</b><span>${fmtNum(FACTORES[n], 8)}</span></div>`).join('');
     }
     function marcarTabla(anios) {
       document.querySelectorAll('#tablaGrid div').forEach(el => el.classList.toggle('usado', +el.dataset.anios === anios));
@@ -688,8 +691,8 @@
       informeFila(doc, 'Derecho que se constituye', d.nombre);
       informeFila(doc, r.base === 'real' ? 'Valor real de Catastro' : 'Precio de mercado (estimación)', fmtMonto(r.valor, r.mon));
       informeFila(doc, 'Duración', r.plazo.texto);
-      informeFila(doc, 'Plazo que se toma', r.plazo.anios + ' años', r.plazo.detallePdf);
-      informeFila(doc, 'Factor del cuadro DGI', fmtNum(r.f, 8), r.fuera ? 'Fuera del cuadro (más de 70 años): misma tasa del 6% anual' : 'Descuento racional compuesto, tasa 6% anual');
+      informeFila(doc, 'Plazo que se toma', txtAnios(r.plazo.anios), r.plazo.detallePdf);
+      informeFila(doc, 'Factor del cuadro DGI', fmtNum(r.f, 8), 'Descuento racional compuesto, tasa 6% anual');
       doc.y += 8;
 
       informeSeccion(doc, 'Resultado');
@@ -716,8 +719,8 @@
       informeSeccion(doc, 'Cómo se calcula');
       const pasos = [
         '1. Plazo: ' + (duracion === 'vida'
-          ? 'si es de por vida, 70 años (vida probable) menos la edad del ' + benef() + ' a la fecha del contrato.'
-          : 'el plazo pactado; las fracciones de año cuentan como un año entero.') + ' Nunca menos de 3 años.',
+          ? 'si es de por vida, 70 años (vida probable) menos la edad del ' + benef() + ' a la fecha del contrato, nunca menos de 3 años.'
+          : 'el plazo pactado, sin mínimo y con un máximo de 70 años; las fracciones de año cuentan como un año entero.'),
         '2. Nuda propiedad = valor del inmueble × factor del cuadro para ese plazo (' + fmtMonto(r.valor, r.mon) + ' × ' + fmtNum(r.f, 8) + ').',
         '3. Usufructo = valor del inmueble - nuda propiedad.'
       ];
@@ -725,7 +728,7 @@
       pasos.forEach(p => informeParrafo(doc, p, { color: TINTA, despues: 3 }));
       doc.y += 8;
 
-      informeNota(doc, 'Cálculo orientativo según la guía y el cuadro de Nuda Propiedad, Usufructo, Derechos de Uso y Habitación de la DGI (art. 4, literal A, Título 19 del Texto Ordenado 1996, y art. 10 del Decreto 252/998). ' + (r.base === 'real'
+      informeNota(doc, 'Cálculo orientativo según el cuadro de Nuda Propiedad, Usufructo, Derechos de Uso y Habitación de la DGI y el art. 10 del Decreto 252/998 (ITP: art. 5, literal A, del Título 19 del Texto Ordenado 2023). ' + (r.base === 'real'
         ? 'Sobre el valor real de Catastro da el valor fiscal que se usa para impuestos como el ITP.'
         : 'Sobre el precio de mercado es una estimación comercial; para impuestos se usa el valor real de Catastro.') +
         ' Si hay más de un usufructuario o condiciones especiales, confirmalo con el escribano. Este documento no reemplaza el asesoramiento notarial.');
