@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Usufructo y nuda propiedad · MALAVE</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <meta name="theme-color" content="#16273f">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root{
+      --navy:#16273f; --navy-2:#243447;
+      --gold:#c9a961; --gold-2:#C9A227; --gold-hover:#b8954a;
+      --gray-50:#f7f8fa; --gray-100:#eef0f3; --gray-300:#ccd1d8; --gray-400:#aab0b8; --gray-500:#8a8a8a; --gray-700:#4a4a4a;
+      --white:#fff; --success:#1e7d4f; --danger:#c0392b;
+    }
+    *{ margin:0; padding:0; box-sizing:border-box; }
+    html, body{ overflow-x:clip; }
+    body{ font-family:'Inter',sans-serif; color:var(--navy); background:var(--gray-50); line-height:1.6; }
+    h1,h2,h3{ font-family:'Cormorant Garamond',serif; }
+    a{ text-decoration:none; color:inherit; }
+    .wrap{ max-width:1080px; margin:0 auto; padding:0 20px; }
+
+    /* Encabezado */
+    .header{ background:#fff; border-bottom:1px solid var(--gray-100); position:sticky; top:0; z-index:50; }
+    .header-in{ display:flex; align-items:center; justify-content:space-between; }
+    .logo{ display:flex; align-items:center; gap:11px; }
+
+    /* Título */
+    .page-hero{ background:linear-gradient(115deg, #101d30 0%, var(--navy) 65%); color:#fff; padding:38px 0; }
+    .page-hero-in{ display:flex; align-items:center; gap:20px; }
+    .page-hero-ic{ width:64px; height:64px; border-radius:16px; background:rgba(201,162,39,.16); display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+    .page-hero-ic i{ font-size:1.6rem; color:var(--gold); }
+    .page-hero h1{ font-size:2.1rem; font-weight:700; margin:0; line-height:1.15; }
+    .page-hero p{ color:#c8cdd4; font-size:.96rem; font-weight:300; margin-top:6px; max-width:640px; }
+
+    /* Columnas */
+    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:24px; margin:30px 0 22px; align-items:start; }
+    .card{ background:#fff; border:1px solid var(--gray-100); border-radius:18px; padding:26px; }
+    .card h2{ font-size:1.5rem; font-weight:600; margin-bottom:4px; display:flex; align-items:center; gap:10px; }
+    .card h2 .num{ width:30px; height:30px; border-radius:50%; background:var(--navy); color:#fff; font-family:'Inter'; font-size:.9rem; font-weight:700; display:flex; align-items:center; justify-content:center; }
+    .card .card-sub{ color:var(--gray-500); font-size:.9rem; margin-bottom:20px; }
+
+    /* Campos */
+    .fg{ margin-bottom:16px; }
+    .fg > label, .fg-label{ display:block; font-size:.86rem; font-weight:600; color:var(--gray-700); margin-bottom:6px; }
+    .fg label .hint{ color:var(--gray-400); font-weight:400; font-size:.8rem; }
+    .fg input, .fg select{ width:100%; padding:12px 14px; border:1px solid var(--gray-300); border-radius:10px; font-family:inherit; font-size:.96rem; color:var(--navy); background:#fff; }
+    .fg input:focus, .fg select:focus{ outline:none; border-color:var(--gold-2); box-shadow:0 0 0 3px rgba(201,162,39,.12); }
+    .fg input.mal{ border-color:var(--danger); }
+    .fg-row{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .help{ font-size:.8rem; color:var(--gray-500); margin-top:7px; line-height:1.5; }
+    .help.err{ color:var(--danger); }
+    /* Monto con la moneda pegada */
+    .monto{ display:flex; }
+    .monto select{ width:auto !important; flex:0 0 auto; min-width:78px; border-radius:10px 0 0 10px !important; background:var(--gray-50) !important; font-weight:600; }
+    .monto input{ flex:1 1 auto; min-width:0; border-radius:0 10px 10px 0 !important; margin-left:-1px; }
+    .monto select:focus, .monto input:focus{ position:relative; z-index:1; }
+
+    /* Botones de opción (uno activo por grupo) */
+    .seg{ display:flex; gap:5px; background:#eef0f2; border-radius:12px; padding:4px; }
+    .seg-btn{ flex:1 1 0; border:none; background:none; font-family:inherit; font-size:.9rem; font-weight:600; color:#6a7280; padding:10px 8px; border-radius:9px; cursor:pointer; transition:background .15s, color .15s, box-shadow .15s; line-height:1.25; }
+    .seg-btn.active{ background:#fff; color:var(--navy); box-shadow:0 2px 8px rgba(0,0,0,.09); }
+    .seg-btn:focus-visible{ outline:2px solid var(--gold-2); outline-offset:1px; }
+    .link-btn{ background:none; border:none; padding:0; font-family:inherit; font-size:.84rem; font-weight:600; color:#8a6d1f; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+    .link-btn:hover{ text-decoration:underline; }
+    .sub-box{ background:var(--gray-50); border:1px solid var(--gray-100); border-radius:12px; padding:14px 14px 2px; margin-top:10px; }
+
+    /* Datos para el informe */
+    .pdf-data{ margin-top:6px; border-top:1px solid var(--gray-100); padding-top:4px; }
+    .pdf-data > summary{ list-style:none; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 0; cursor:pointer; font-weight:600; font-size:.95rem; }
+    .pdf-data > summary::-webkit-details-marker{ display:none; }
+    .pdf-data > summary i.fa-file-lines{ color:var(--gold-2); margin-right:8px; }
+    .pdf-data > summary small{ color:var(--gray-400); font-weight:400; font-size:.8rem; }
+    .pdf-data > summary .fa-chevron-down{ color:var(--gray-400); transition:transform .2s; }
+    .pdf-data[open] > summary .fa-chevron-down{ transform:rotate(180deg); }
+
+    /* Resultado */
+    .result-card{ background:var(--navy); color:#fff; border-radius:18px; padding:26px; position:sticky; top:84px; }
+    .result-card h2{ color:#fff; font-size:1.4rem; margin-bottom:12px; }
+    .res-line{ display:flex; justify-content:space-between; align-items:center; gap:14px; padding:11px 0; border-bottom:1px solid rgba(255,255,255,.1); font-size:.94rem; }
+    .res-line > span:first-child{ color:#c8cdd4; }
+    .res-line > span:first-child small{ display:block; color:#8a93a0; font-size:.76rem; line-height:1.4; }
+    .res-line .val{ font-weight:600; color:#fff; white-space:nowrap; text-align:right; }
+    .split{ margin:16px 0 4px; }
+    .split-bar{ display:flex; height:12px; border-radius:99px; overflow:hidden; background:rgba(255,255,255,.12); }
+    .split-bar span{ display:block; height:100%; transition:width .3s ease; }
+    .split-bar .nuda{ background:#8ea3bd; }
+    .split-bar .usu{ background:var(--gold-2); }
+    .split-ley{ display:flex; justify-content:space-between; font-size:.76rem; color:#aab4c3; margin-top:6px; }
+    .split-ley i{ display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+    .res-liquid{ background:rgba(201,162,39,.12); border:1px solid rgba(201,162,39,.3); border-radius:14px; padding:18px; margin-top:16px; text-align:center; }
+    .res-liquid .lbl{ color:var(--gold); font-size:.8rem; letter-spacing:1px; text-transform:uppercase; font-weight:600; }
+    .res-liquid .big{ font-size:2.3rem; font-weight:700; color:#fff; line-height:1.1; margin-top:6px; word-break:break-word; }
+    .res-liquid .pct{ color:#aab4c3; font-size:.82rem; margin-top:6px; }
+    .res-vacio{ color:#aab4c3; font-size:.9rem; padding:8px 0 4px; line-height:1.55; }
+
+    .actions{ display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
+    .btn{ display:inline-flex; align-items:center; justify-content:center; gap:9px; padding:13px 20px; border-radius:10px; font-size:.95rem; font-weight:600; cursor:pointer; border:none; font-family:inherit; transition:background .2s, transform .15s; }
+    .btn:active{ transform:scale(.98); }
+    .btn-gold{ background:var(--gold-2); color:#16273f; flex:1 1 auto; }
+    .btn-gold:hover{ background:var(--gold-hover); }
+    .btn-line{ background:transparent; color:#fff; border:1px solid rgba(255,255,255,.28); }
+    .btn-line:hover{ background:rgba(255,255,255,.08); }
+    .btn[disabled]{ opacity:.55; cursor:not-allowed; }
+
+    /* Cuadro de la DGI */
+    .tabla{ background:#fff; border:1px solid var(--gray-100); border-radius:18px; padding:4px 22px; margin-bottom:18px; }
+    .tabla > summary{ list-style:none; cursor:pointer; padding:16px 0; font-weight:600; display:flex; align-items:center; gap:10px; }
+    .tabla > summary::-webkit-details-marker{ display:none; }
+    .tabla > summary i:first-child{ color:var(--gold-2); }
+    .tabla > summary .fa-chevron-down{ margin-left:auto; color:var(--gray-400); transition:transform .2s; }
+    .tabla[open] > summary .fa-chevron-down{ transform:rotate(180deg); }
+    .tabla-intro{ font-size:.86rem; color:var(--gray-500); margin-bottom:12px; }
+    .tabla-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:2px 18px; padding-bottom:18px; }
+    .tabla-grid div{ display:flex; justify-content:space-between; padding:5px 8px; border-radius:7px; font-size:.84rem; font-variant-numeric:tabular-nums; }
+    .tabla-grid div b{ font-weight:600; color:var(--gray-700); }
+    .tabla-grid div span{ color:var(--navy); }
+    .tabla-grid div.usado{ background:rgba(201,162,39,.16); box-shadow:inset 0 0 0 1px rgba(201,162,39,.5); }
+
+    .note{ background:#fff8e6; border-left:3px solid var(--gold-2); border-radius:8px; padding:13px 16px; font-size:.84rem; color:var(--gray-700); line-height:1.6; margin-bottom:10px; }
+    .note b{ color:var(--navy); }
+    .footer{ text-align:center; color:var(--gray-400); font-size:.8rem; padding:26px 0 40px; }
+
+    #mvToast{ position:fixed; left:50%; bottom:calc(22px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%) translateY(20px); background:var(--navy); color:#fff; padding:12px 18px; border-radius:12px; font-size:.9rem; box-shadow:0 10px 30px rgba(22,39,63,.3); opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:200; max-width:calc(100% - 32px); }
+    #mvToast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+    @media (max-width:820px){
+      .grid{ grid-template-columns:1fr; gap:18px; }
+      .result-card{ position:static; }
+      .page-hero h1{ font-size:1.75rem; }
+      .tabla-grid{ grid-template-columns:repeat(3, 1fr); }
+    }
+    @media (max-width:520px){
+      .wrap{ padding:0 14px; }
+      .page-hero{ padding:26px 0; }
+      .page-hero-ic{ width:52px; height:52px; }
+      .page-hero-ic i{ font-size:1.3rem; }
+      .page-hero h1{ font-size:1.45rem; }
+      .page-hero p{ font-size:.88rem; }
+      .card{ padding:20px 16px; }
+      .card h2{ font-size:1.3rem; }
+      .fg-row{ grid-template-columns:1fr; gap:0; }
+      .result-card{ padding:22px 18px; }
+      .res-liquid .big{ font-size:1.9rem; }
+      .seg-btn{ font-size:.84rem; padding:10px 4px; }
+      .tabla{ padding:4px 14px; }
+      .tabla-grid{ grid-template-columns:repeat(2, 1fr); gap:2px 10px; }
+      .btn{ padding:13px 14px; }
+    }
+  </style>
+<style>
+  .fh,header,.app-header,.topbar{padding-top:env(safe-area-inset-top,0px)}
+    /* ============================================================================
+       CABECERA UNIFICADA — estándar tomado de finanzas.html (igual que el resto de
+       las herramientas): barra blanca pegada arriba y "Volver" con contorno.
+       ========================================================================== */
+    .header{ background:#fff !important; border-bottom:1px solid #eef1f5 !important; padding-top:env(safe-area-inset-top,0px); }
+    .header-in{ padding-top:14px; padding-bottom:14px; }
+    .back-link{
+      display:inline-flex !important; align-items:center; gap:7px;
+      color:#6b7280 !important; font-size:.88rem; font-weight:500;
+      padding:8px 15px !important; border:1px solid #eef1f5 !important;
+      border-radius:999px !important; text-decoration:none !important;
+      white-space:nowrap; background:#fff;
+      transition:background .15s, color .15s, border-color .15s;
+    }
+    .back-link:hover{ background:#16273f !important; color:#fff !important; border-color:#16273f !important; }
+    .logo-img{ height:30px !important; width:auto; }
+    .logo-text{ height:19px !important; width:auto; }
+    @media (max-width:520px){
+      .logo-img{ height:26px !important; }
+      .logo-text{ height:16px !important; }
+      .back-link{ padding:8px 13px !important; }
+      .back-link span{ display:none; }
+    }
+</style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="wrap header-in">
+      <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
+      <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i> <span>Volver al inicio</span></a>
+    </div>
+  </header>
+
+  <section class="page-hero">
+    <div class="wrap page-hero-in">
+      <div class="page-hero-ic"><i class="fas fa-scale-balanced"></i></div>
+      <div>
+        <h1>Usufructo y nuda propiedad</h1>
+        <p>Calculá el valor del usufructo, de la nuda propiedad y de los derechos de uso y habitación con el cuadro oficial de la DGI.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <div class="grid">
+      <!-- DATOS -->
+      <div class="card">
+        <h2><span class="num">1</span> Datos</h2>
+        <p class="card-sub">El resultado se actualiza mientras completás.</p>
+
+        <div class="fg">
+          <span class="fg-label">¿Qué derecho se constituye?</span>
+          <div class="seg" id="segDerecho" role="radiogroup" aria-label="Derecho que se constituye">
+            <button type="button" class="seg-btn active" data-v="usufructo" role="radio" aria-checked="true">Usufructo</button>
+            <button type="button" class="seg-btn" data-v="uso" role="radio" aria-checked="false">Uso</button>
+            <button type="button" class="seg-btn" data-v="habitacion" role="radio" aria-checked="false">Habitación</button>
+          </div>
+          <p class="help" id="helpDerecho">El usufructuario usa la propiedad y se queda con sus frutos (por ejemplo, el alquiler).</p>
+        </div>
+
+        <div class="fg">
+          <label for="uBase">¿Qué valor usás?</label>
+          <select id="uBase">
+            <option value="real">Valor real de Catastro (valor fiscal)</option>
+            <option value="mercado">Precio de mercado (estimación)</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label for="uValor">Valor del inmueble</label>
+          <div class="monto">
+            <select id="uMoneda" aria-label="Moneda"><option value="UYU">$U</option><option value="USD">US$</option></select>
+            <input type="number" id="uValor" min="0" step="any" inputmode="decimal" placeholder="Ej: 2500000">
+          </div>
+          <p class="help" id="helpBase">Es el que figura en la cédula catastral. El cuadro de la DGI se aplica sobre este valor.</p>
+        </div>
+
+        <div class="fg">
+          <span class="fg-label">¿Por cuánto tiempo?</span>
+          <div class="seg" id="segDuracion" role="radiogroup" aria-label="Duración">
+            <button type="button" class="seg-btn active" data-v="vida" role="radio" aria-checked="true">De por vida</button>
+            <button type="button" class="seg-btn" data-v="plazo" role="radio" aria-checked="false">Por un plazo fijo</button>
+          </div>
+        </div>
+
+        <div id="boxVida">
+          <div class="fg">
+            <label for="uEdad">Edad del <span class="lblBenef">usufructuario</span> <span class="hint">(años cumplidos a la fecha del contrato)</span></label>
+            <input type="number" id="uEdad" min="0" max="120" step="1" inputmode="numeric" placeholder="Ej: 56">
+            <p class="help">La DGI toma como duración 70 años menos la edad.</p>
+            <button type="button" class="link-btn" id="btnNac" aria-expanded="false"><i class="fas fa-calendar-day"></i> Calcular la edad con la fecha de nacimiento</button>
+            <div class="sub-box" id="boxNac" hidden>
+              <div class="fg-row">
+                <div class="fg"><label for="uNac">Fecha de nacimiento</label><input type="date" id="uNac"></div>
+                <div class="fg"><label for="uFechaContrato">Fecha del contrato</label><input type="date" id="uFechaContrato"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="boxPlazo" hidden>
+          <div class="fg-row">
+            <div class="fg"><label for="uAnios">Años</label><input type="number" id="uAnios" min="0" step="1" inputmode="numeric" placeholder="Ej: 4"></div>
+            <div class="fg"><label for="uMeses">Meses <span class="hint">(opcional)</span></label><input type="number" id="uMeses" min="0" max="11" step="1" inputmode="numeric" placeholder="0"></div>
+          </div>
+          <p class="help" style="margin:-6px 0 14px">Si hay meses sueltos, la DGI los cuenta como un año entero.</p>
+        </div>
+
+        <details class="pdf-data" id="pdfData">
+          <summary><span><i class="fas fa-file-lines"></i>Datos para el informe <small>(opcional)</small></span><i class="fas fa-chevron-down"></i></summary>
+          <div class="fg-row">
+            <div class="fg"><label for="iDireccion">Dirección del inmueble</label><input type="text" id="iDireccion" maxlength="120" placeholder="Ej: Av. Italia 1234"></div>
+            <div class="fg"><label for="iPadron">Padrón</label><input type="text" id="iPadron" maxlength="40" placeholder="Ej: 123.456"></div>
+          </div>
+          <div class="fg-row">
+            <div class="fg"><label for="iUsufructuario" id="lblUsufructuario">Usufructuario</label><input type="text" id="iUsufructuario" maxlength="80" placeholder="Nombre"></div>
+            <div class="fg"><label for="iNudo">Nudo propietario</label><input type="text" id="iNudo" maxlength="80" placeholder="Nombre"></div>
+          </div>
+        </details>
+      </div>
+
+      <!-- RESULTADO -->
+      <div class="result-card" id="resultCard" aria-live="polite">
+        <h2>Resultado</h2>
+        <div id="resVacio" class="res-vacio"><i class="fas fa-circle-info" style="color:var(--gold)"></i> Completá el valor del inmueble y la duración para ver el cálculo.</div>
+        <div id="resDatos" hidden>
+          <div class="res-line"><span>Valor del inmueble <small id="rBase">Valor real de Catastro</small></span><span class="val" id="rValor">—</span></div>
+          <div class="res-line"><span>Plazo que se toma <small id="rPlazoSub">—</small></span><span class="val" id="rPlazo">—</span></div>
+          <div class="res-line"><span>Factor del cuadro DGI <small id="rFactorSub">tasa 6% anual</small></span><span class="val" id="rFactor">—</span></div>
+          <div class="split">
+            <div class="split-bar"><span class="nuda" id="barNuda"></span><span class="usu" id="barUsu"></span></div>
+            <div class="split-ley"><span><i style="background:#8ea3bd"></i>Nuda propiedad</span><span><i style="background:#C9A227"></i>Usufructo</span></div>
+          </div>
+          <div class="res-line"><span>Nuda propiedad <small id="rNudaPct">—</small></span><span class="val" id="rNuda">—</span></div>
+          <div class="res-line"><span>Usufructo <small id="rUsuPct">—</small></span><span class="val" id="rUsu">—</span></div>
+          <div class="res-liquid">
+            <div class="lbl" id="rDestLbl">Valor del usufructo</div>
+            <div class="big" id="rDest">—</div>
+            <div class="pct" id="rDestSub"></div>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn btn-gold" id="btnPdf"><i class="fas fa-file-pdf"></i> Descargar informe</button>
+          <button type="button" class="btn btn-line" id="btnImprimir"><i class="fas fa-print"></i> Imprimir</button>
+          <button type="button" class="btn btn-line" id="btnReset" title="Empezar de nuevo" aria-label="Empezar de nuevo"><i class="fas fa-rotate-left"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <details class="tabla" id="tablaDGI">
+      <summary><i class="fas fa-table"></i> Ver el cuadro de la DGI <i class="fas fa-chevron-down"></i></summary>
+      <p class="tabla-intro">Factor por años de duración (tasa 6% anual). Nuda propiedad = valor del inmueble × factor; el usufructo es la diferencia. El derecho de uso vale el 50% del usufructo y el de habitación, el 25%.</p>
+      <div class="tabla-grid" id="tablaGrid"></div>
+    </details>
+
+    <div class="note">
+      <b>Importante:</b> cálculo orientativo según la guía y el cuadro de la DGI (art. 4 lit. A, Título 19 T.O. 1996 y art. 10 del Decreto 252/998). La duración nunca es menor a 3 años y las fracciones de año cuentan como un año entero. Si hay más de un usufructuario o condiciones especiales, confirmalo con el escribano.
+    </div>
+  </div>
+
+  <div class="footer">MALAVE Inmobiliaria · Operador inmobiliario (Ley N.º 20.380) · Calculadora orientativa de usufructo</div>
+  <div id="mvToast" role="status"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="malave-config.js?v=20260830b"></script>
+  <script src="malave-logos.js"></script>
+  <script>
+    /* ==========================================================================
+       USUFRUCTO Y NUDA PROPIEDAD — según la guía de la DGI:
+       1. Se calcula el plazo que resta: el plazo fijo pactado, o, si es de por
+          vida, 70 menos la edad del usufructuario a la fecha del contrato.
+          Nunca menos de 3 años; las fracciones de año cuentan como año entero.
+       2. Nuda propiedad = valor del inmueble × factor del cuadro (descuento
+          racional compuesto al 6% anual). Usufructo = valor − nuda propiedad.
+       3. Derecho de uso = 50% del usufructo; derecho de habitación = 25%.
+       ========================================================================== */
+
+    /* Cuadro "Nuda Propiedad – Usufructo – Derechos de Uso y Habitación" de la
+       DGI, copiado TAL CUAL está publicado. Dos filas no coinciden con la
+       fórmula 1 / 1,06^años: la de 25 años (dice 0,23599863; por fórmula da
+       0,23299863, un error de tipeo en el tercer decimal) y la de 61 (diferencia
+       en el octavo decimal, sin efecto práctico). Se usa el valor publicado para
+       que el número coincida con el que ve el escribano en el cuadro oficial. */
+    const FACTORES = {
+       3: 0.83961928,  4: 0.79209366,  5: 0.74725817,  6: 0.70496054,  7: 0.66505711,
+       8: 0.62741237,  9: 0.59189846, 10: 0.55839478, 11: 0.52678753, 12: 0.49696936,
+      13: 0.46883902, 14: 0.44230096, 15: 0.41726506, 16: 0.39364628, 17: 0.37136442,
+      18: 0.35034379, 19: 0.33051301, 20: 0.31180473, 21: 0.29415540, 22: 0.27750510,
+      23: 0.26179726, 24: 0.24697855, 25: 0.23599863, 26: 0.21981003, 27: 0.20736795,
+      28: 0.19563014, 29: 0.18455674, 30: 0.17411013, 31: 0.16425484, 32: 0.15495740,
+      33: 0.14618622, 34: 0.13791153, 35: 0.13010522, 36: 0.12274077, 37: 0.11579318,
+      38: 0.10923885, 39: 0.10305552, 40: 0.09722219, 41: 0.09171905, 42: 0.08652740,
+      43: 0.08162962, 44: 0.07700908, 45: 0.07265007, 46: 0.06853781, 47: 0.06465831,
+      48: 0.06099840, 49: 0.05754566, 50: 0.05428836, 51: 0.05121544, 52: 0.04831645,
+      53: 0.04558156, 54: 0.04300147, 55: 0.04056742, 56: 0.03827115, 57: 0.03610486,
+      58: 0.03406119, 59: 0.03213320, 60: 0.03031434, 61: 0.02859846, 62: 0.02697965,
+      63: 0.02545250, 64: 0.02401179, 65: 0.02265264, 66: 0.02137041, 67: 0.02016077,
+      68: 0.01901959, 69: 0.01794301, 70: 0.01692737
+    };
+    const VIDA_PROBABLE = 70, MINIMO = 3;
+    const DERECHOS = {
+      usufructo: { nombre: 'Usufructo', pct: 1, ayuda: 'El usufructuario usa la propiedad y se queda con sus frutos (por ejemplo, el alquiler).' },
+      uso: { nombre: 'Derecho de uso', pct: 0.5, ayuda: 'Permite usar la propiedad para uno y su familia. La DGI lo valúa en el 50% del usufructo.' },
+      habitacion: { nombre: 'Derecho de habitación', pct: 0.25, ayuda: 'Permite vivir en la propiedad. La DGI lo valúa en el 25% del usufructo.' }
+    };
+
+    const $ = (id) => document.getElementById(id);
+    let derecho = 'usufructo', duracion = 'vida', _ultimo = null, _agente = null;
+    // Con uso o habitación, quien tiene el derecho no es "usufructuario".
+    function benef() { return derecho === 'usufructo' ? 'usufructuario' : 'beneficiario'; }
+
+    // ---------- Formatos (Uruguay: punto de miles, coma decimal) ----------
+    function fmtMonto(n, mon) {
+      if (!isFinite(n)) return '—';
+      return (mon === 'USD' ? 'US$ ' : '$U ') + Math.round(n).toLocaleString('es-UY');
+    }
+    function fmtNum(n, dec) { return Number(n).toLocaleString('es-UY', { minimumFractionDigits: dec, maximumFractionDigits: dec }); }
+    function fmtPct(n) { return fmtNum(n, 2) + '%'; }
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+    function num(id) { const v = parseFloat($(id).value); return isFinite(v) ? v : NaN; }
+    function toast(msg) {
+      const t = $('mvToast'); t.textContent = msg; t.classList.add('show');
+      clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 3600);
+    }
+
+    // ---------- Botones de opción ----------
+    function activarSeg(id, onChange) {
+      const cont = $(id);
+      cont.addEventListener('click', (e) => {
+        const b = e.target.closest('.seg-btn'); if (!b) return;
+        cont.querySelectorAll('.seg-btn').forEach(x => { const on = x === b; x.classList.toggle('active', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); });
+        onChange(b.dataset.v);
+      });
+    }
+    function marcarSeg(id, v) {
+      $(id).querySelectorAll('.seg-btn').forEach(x => { const on = x.dataset.v === v; x.classList.toggle('active', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); });
+    }
+
+    // ---------- Edad a partir de la fecha de nacimiento ----------
+    function hoyISO() { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); }
+    function edadCumplida(nacISO, alISO) {
+      const n = new Date(nacISO + 'T12:00:00'), a = new Date((alISO || hoyISO()) + 'T12:00:00');
+      if (isNaN(n) || isNaN(a) || n > a) return NaN;
+      let e = a.getFullYear() - n.getFullYear();
+      if (a.getMonth() < n.getMonth() || (a.getMonth() === n.getMonth() && a.getDate() < n.getDate())) e--;
+      return e;
+    }
+    function edadDesdeFechas() {
+      if (!$('uNac').value) return;
+      const e = edadCumplida($('uNac').value, $('uFechaContrato').value);
+      if (isFinite(e)) { $('uEdad').value = e; }
+      calcular();
+    }
+
+    // ---------- El plazo que se toma ----------
+    /* Devuelve { anios, detalle, texto } o { error } o null si falta el dato. */
+    function plazoComputado() {
+      if (duracion === 'vida') {
+        const raw = $('uEdad').value.trim();
+        if (raw === '') return null;
+        const edad = parseFloat(raw);
+        if (!isFinite(edad) || edad < 0 || edad > 120 || Math.floor(edad) !== edad) return { error: 'La edad tiene que ser un número entero entre 0 y 120.' };
+        const bruto = VIDA_PROBABLE - edad;
+        const anios = Math.max(MINIMO, bruto);
+        const detalle = bruto >= MINIMO
+          ? `70 años de vida probable − ${edad} de edad`
+          : `70 − ${edad} da ${bruto}: se toma el mínimo de ${MINIMO} años`;
+        const detallePdf = bruto >= MINIMO
+          ? `70 años de vida probable - ${edad} de edad`
+          : `70 - ${edad} da ${bruto}: se toma el mínimo de ${MINIMO} años`;
+        return { anios, detalle, detallePdf, texto: `De por vida · ${benef()} de ${edad} ${edad === 1 ? 'año' : 'años'}` };
+      }
+      const rA = $('uAnios').value.trim(), rM = $('uMeses').value.trim();
+      if (rA === '' && rM === '') return null;
+      let a = rA === '' ? 0 : parseFloat(rA), m = rM === '' ? 0 : parseFloat(rM);
+      if (!isFinite(a) || !isFinite(m) || a < 0 || m < 0 || Math.floor(a) !== a || Math.floor(m) !== m) return { error: 'Los años y los meses tienen que ser números enteros.' };
+      if (m >= 12) { a += Math.floor(m / 12); m = m % 12; }
+      if (a === 0 && m === 0) return { error: 'Poné cuántos años (y meses) dura el derecho.' };
+      const bruto = a + (m > 0 ? 1 : 0);
+      const anios = Math.max(MINIMO, bruto);
+      const txtPlazo = a && m ? `${a} ${a === 1 ? 'año' : 'años'} y ${m} ${m === 1 ? 'mes' : 'meses'}` : a ? `${a} ${a === 1 ? 'año' : 'años'}` : `${m} ${m === 1 ? 'mes' : 'meses'}`;
+      let detalle = m > 0 ? `${txtPlazo}: la fracción cuenta como año entero` : 'plazo pactado';
+      if (bruto < MINIMO) detalle = `${txtPlazo}: se toma el mínimo de ${MINIMO} años`;
+      return { anios, detalle, detallePdf: detalle, texto: `Plazo fijo de ${txtPlazo}` };
+    }
+    function factorPara(anios) {
+      if (FACTORES[anios] != null) return { f: FACTORES[anios], fuera: false };
+      // Más de 70 años (solo puede pasar con un plazo fijo): el cuadro termina en
+      // 70, se sigue con la misma fórmula del 6% anual y se avisa.
+      return { f: Math.round(Math.pow(1.06, -anios) * 1e8) / 1e8, fuera: true };
+    }
+
+    // ---------- Cálculo ----------
+    function calcular() {
+      const mon = $('uMoneda').value, base = $('uBase').value;
+      const valor = num('uValor');
+      const plazo = plazoComputado();
+      const d = DERECHOS[derecho];
+      $('helpDerecho').textContent = d.ayuda;
+      document.querySelectorAll('.lblBenef').forEach(el => { el.textContent = benef(); });
+      $('lblUsufructuario').textContent = derecho === 'usufructo' ? 'Usufructuario' : 'Beneficiario del derecho';
+      $('helpBase').textContent = base === 'real'
+        ? 'Es el que figura en la cédula catastral. El cuadro de la DGI se aplica sobre este valor.'
+        : 'Sirve como estimación comercial. Para impuestos (ITP) se usa el valor real de Catastro.';
+      $('uEdad').classList.toggle('mal', !!(plazo && plazo.error && duracion === 'vida'));
+      let err = $('errPlazo');
+      if (plazo && plazo.error) {
+        if (!err) { err = document.createElement('p'); err.id = 'errPlazo'; err.className = 'help err'; }
+        err.textContent = plazo.error;
+        (duracion === 'vida' ? $('uEdad') : $('boxPlazo').querySelector('.fg-row')).insertAdjacentElement('afterend', err);
+      } else if (err) err.remove();
+
+      const listo = isFinite(valor) && valor > 0 && plazo && !plazo.error;
+      $('resVacio').hidden = !!listo;
+      $('resDatos').hidden = !listo;
+      marcarTabla(listo ? plazo.anios : null);
+      if (!listo) { _ultimo = null; return null; }
+
+      const { f, fuera } = factorPara(plazo.anios);
+      const nuda = valor * f;
+      const usu = valor - nuda;
+      const derechoValor = usu * d.pct;
+      const nudaPct = f * 100, usuPct = 100 - nudaPct;
+      _ultimo = { mon, base, valor, plazo, f, fuera, nuda, usu, derecho, derechoValor, nudaPct, usuPct };
+
+      $('rBase').textContent = base === 'real' ? 'Valor real de Catastro' : 'Precio de mercado';
+      $('rValor').textContent = fmtMonto(valor, mon);
+      $('rPlazo').textContent = plazo.anios + ' años';
+      $('rPlazoSub').textContent = plazo.detalle;
+      $('rFactor').textContent = fmtNum(f, 8);
+      $('rFactorSub').textContent = fuera ? 'fuera del cuadro (más de 70 años): misma tasa del 6%' : 'tasa 6% anual';
+      $('rNuda').textContent = fmtMonto(nuda, mon);
+      $('rNudaPct').textContent = fmtPct(nudaPct) + ' del valor';
+      $('rUsu').textContent = fmtMonto(usu, mon);
+      $('rUsuPct').textContent = fmtPct(usuPct) + ' del valor';
+      $('barNuda').style.width = nudaPct + '%';
+      $('barUsu').style.width = usuPct + '%';
+      if (derecho === 'usufructo') {
+        $('rDestLbl').textContent = 'Valor del usufructo';
+        $('rDest').textContent = fmtMonto(usu, mon);
+        $('rDestSub').textContent = 'Nuda propiedad: ' + fmtMonto(nuda, mon);
+      } else {
+        $('rDestLbl').textContent = 'Valor del ' + d.nombre.toLowerCase();
+        $('rDest').textContent = fmtMonto(derechoValor, mon);
+        $('rDestSub').textContent = (derecho === 'uso' ? '50%' : '25%') + ' del valor del usufructo (' + fmtMonto(usu, mon) + ')';
+      }
+      return _ultimo;
+    }
+
+    // ---------- Cuadro en pantalla ----------
+    function pintarTabla() {
+      $('tablaGrid').innerHTML = Object.keys(FACTORES).map(n =>
+        `<div data-anios="${n}"><b>${n} años</b><span>${fmtNum(FACTORES[n], 8)}</span></div>`).join('');
+    }
+    function marcarTabla(anios) {
+      document.querySelectorAll('#tablaGrid div').forEach(el => el.classList.toggle('usado', +el.dataset.anios === anios));
+    }
+
+    // ==========================================================================
+    // INFORME PDF — dibujado con jsPDF nativo (texto y formas), sin html2canvas:
+    // html2canvas se colgaba en Safari/iOS (ver mapa-cierres.html). Así sale igual
+    // en el celular que en la compu, con el texto nítido y el archivo liviano.
+    // Si el contenido no entra en una hoja, sigue en otra con el mismo pie.
+    // ==========================================================================
+    const NAVY = [22, 39, 63], GOLD = [201, 162, 39], GRIS = [107, 116, 128], TINTA = [22, 39, 63], CLARO = [247, 248, 250], LINEA = [228, 231, 236];
+    const ALTO_PIE = 52;
+    function fechaLarga(d) { return d.toLocaleDateString('es-UY', { day: 'numeric', month: 'long', year: 'numeric' }); }
+    function informeNuevo(titulo, bajada) {
+      const pdf = new window.jspdf.jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
+      const doc = { pdf, W: 595.28, H: 841.89, M: 44, y: 0, titulo };
+      const { W, M } = doc;
+      doc.limite = doc.H - ALTO_PIE - 50;      // deja lugar para "Preparado por" y el pie
+      pdf.setFillColor(...NAVY); pdf.rect(0, 0, W, 96, 'F');
+      pdf.setFillColor(...GOLD); pdf.rect(0, 96, W, 3, 'F');
+      let conLogo = false;
+      try { if (typeof MALAVE_LOGO_ISO !== 'undefined') { pdf.addImage(MALAVE_LOGO_ISO, 'PNG', M, 26, 46, 40, 'mvIso', 'FAST'); conLogo = true; } } catch (e) {}
+      try { if (typeof MALAVE_LOGO_TXT !== 'undefined') pdf.addImage(MALAVE_LOGO_TXT, 'PNG', M + 58, 39, 104, 14, 'mvTxt', 'FAST'); else throw 0; }
+      catch (e) { pdf.setTextColor(255, 255, 255); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(18); pdf.text('MALAVE', conLogo ? M + 58 : M, 52); }
+      pdf.setTextColor(255, 255, 255); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(15);
+      pdf.text(titulo, W - M, 42, { align: 'right' });
+      pdf.setTextColor(...GOLD); pdf.setFontSize(8); pdf.text(bajada, W - M, 57, { align: 'right' });
+      pdf.setTextColor(200, 205, 212); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.5);
+      pdf.text('Emitido el ' + fechaLarga(new Date()), W - M, 72, { align: 'right' });
+      doc.y = 130;
+      return doc;
+    }
+    // Si lo que viene no entra, se cierra la hoja con el pie y se sigue en otra.
+    function informeEspacio(doc, alto) {
+      if (doc.y + alto <= doc.limite) return;
+      const { pdf, W, M } = doc;
+      informeBanda(doc);
+      pdf.addPage();
+      pdf.setFillColor(...NAVY); pdf.rect(0, 0, W, 46, 'F');
+      pdf.setFillColor(...GOLD); pdf.rect(0, 46, W, 2, 'F');
+      try { if (typeof MALAVE_LOGO_ISO !== 'undefined') pdf.addImage(MALAVE_LOGO_ISO, 'PNG', M, 10, 29, 25, 'mvIso', 'FAST'); } catch (e) {}
+      pdf.setTextColor(255, 255, 255); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10.5);
+      pdf.text(doc.titulo + ' (continuación)', W - M, 28, { align: 'right' });
+      doc.y = 80;
+    }
+    function informeSeccion(doc, t) {
+      informeEspacio(doc, 22 + 46);            // que el título no quede solo al pie de la hoja
+      const { pdf, W, M } = doc;
+      pdf.setTextColor(...TINTA); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9.5);
+      pdf.text(t.toUpperCase(), M, doc.y, { charSpace: 0.5 });
+      pdf.setDrawColor(...GOLD); pdf.setLineWidth(1.2); pdf.line(M, doc.y + 6, W - M, doc.y + 6);
+      doc.y += 22;
+    }
+    function informeFila(doc, k, v, sub) {
+      const { pdf, W, M } = doc;
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10.5);
+      const lineas = pdf.splitTextToSize(String(v == null || v === '' ? '—' : v), 290);
+      const alto = lineas.length * 13 + (sub ? 11 : 0);
+      informeEspacio(doc, alto + 8);
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor(...GRIS);
+      pdf.text(k, M, doc.y);
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10.5); pdf.setTextColor(...TINTA);
+      pdf.text(lineas, W - M, doc.y, { align: 'right' });
+      if (sub) {
+        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.5); pdf.setTextColor(150, 156, 164);
+        pdf.text(sub, W - M, doc.y + lineas.length * 13, { align: 'right' });
+      }
+      pdf.setDrawColor(...LINEA); pdf.setLineWidth(0.6); pdf.line(M, doc.y + alto - 4, W - M, doc.y + alto - 4);
+      doc.y += alto + 8;
+    }
+    /* Cajas de resultado lado a lado. La destacada va en azul marino. */
+    function informeCajas(doc, items) {
+      const { pdf, W, M } = doc;
+      const gap = 10, n = items.length, w = (W - 2 * M - gap * (n - 1)) / n, h = 72;
+      informeEspacio(doc, h + 16);
+      items.forEach((it, i) => {
+        const x = M + i * (w + gap), y = doc.y;
+        if (it.destacado) { pdf.setFillColor(...NAVY); pdf.roundedRect(x, y, w, h, 8, 8, 'F'); }
+        else { pdf.setFillColor(...CLARO); pdf.setDrawColor(...LINEA); pdf.setLineWidth(0.8); pdf.roundedRect(x, y, w, h, 8, 8, 'FD'); }
+        pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.5);
+        if (it.destacado) pdf.setTextColor(...GOLD); else pdf.setTextColor(...GRIS);
+        pdf.text(it.t.toUpperCase(), x + 12, y + 19, { charSpace: 0.4 });
+        let fs = 17;
+        pdf.setFontSize(fs);
+        while (fs > 10 && pdf.getTextWidth(it.v) > w - 24) { fs -= 1; pdf.setFontSize(fs); }
+        if (it.destacado) pdf.setTextColor(255, 255, 255); else pdf.setTextColor(...TINTA);
+        pdf.text(it.v, x + 12, y + 43);
+        if (it.s) {
+          pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.5);
+          if (it.destacado) pdf.setTextColor(200, 205, 212); else pdf.setTextColor(...GRIS);
+          pdf.text(pdf.splitTextToSize(it.s, w - 24)[0], x + 12, y + 60);
+        }
+      });
+      doc.y += h + 16;
+    }
+    function informeParrafo(doc, txt, opts) {
+      const { pdf, W, M } = doc; opts = opts || {};
+      const tam = opts.tam || 9.5;
+      pdf.setFont('helvetica', opts.negrita ? 'bold' : 'normal'); pdf.setFontSize(tam);
+      const lineas = pdf.splitTextToSize(txt, W - 2 * M - (opts.sangria || 0));
+      informeEspacio(doc, lineas.length * tam * 1.35);
+      pdf.setFont('helvetica', opts.negrita ? 'bold' : 'normal'); pdf.setFontSize(tam);
+      pdf.setTextColor(...(opts.color || GRIS));
+      pdf.text(lineas, M + (opts.sangria || 0), doc.y);
+      doc.y += lineas.length * tam * 1.35 + (opts.despues != null ? opts.despues : 6);
+    }
+    function informeNota(doc, txt) {
+      const { pdf, W, M } = doc;
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.5);
+      const lineas = pdf.splitTextToSize(txt, W - 2 * M - 26);
+      const h = lineas.length * 11.5 + 16;
+      informeEspacio(doc, h);
+      pdf.setFillColor(255, 248, 230); pdf.rect(M, doc.y, W - 2 * M, h, 'F');
+      pdf.setFillColor(...GOLD); pdf.rect(M, doc.y, 3, h, 'F');
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.5);
+      pdf.setTextColor(...GRIS); pdf.text(lineas, M + 14, doc.y + 14);
+      doc.y += h + 12;
+    }
+    // Banda azul del pie, con los datos de la inmobiliaria (va en todas las hojas).
+    function informeBanda(doc) {
+      const { pdf, W, H, M } = doc;
+      const yPie = H - ALTO_PIE;
+      pdf.setFillColor(...NAVY); pdf.rect(0, yPie, W, ALTO_PIE, 'F');
+      pdf.setTextColor(...GOLD); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9);
+      pdf.text('MALAVE INMOBILIARIA', M, yPie + 21);
+      pdf.setTextColor(205, 210, 216); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8);
+      pdf.text('Tel: +598 94 029 297  ·  Malaveinmobiliaria@gmail.com  ·  malaveinmobiliaria.com', M, yPie + 35);
+      pdf.setTextColor(150, 156, 164); pdf.setFontSize(7.5);
+      pdf.text('Operador inmobiliario', W - M, yPie + 21, { align: 'right' });
+      pdf.text('Ley N.º 20.380', W - M, yPie + 33, { align: 'right' });
+    }
+    // Cierre: "Preparado por" (el agente con sesión iniciada), el pie y, si hay
+    // más de una hoja, el número de cada una.
+    function informePie(doc) {
+      const { pdf, W, H, M } = doc;
+      const yPie = H - ALTO_PIE;
+      if (_agente && (_agente.name || _agente.email)) {
+        const partes = [_agente.whatsapp, _agente.email].filter(Boolean).join('  ·  ');
+        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.5); pdf.setTextColor(...GRIS);
+        pdf.text('Preparado por', M, yPie - 30);
+        pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10); pdf.setTextColor(...TINTA);
+        pdf.text(String(_agente.name || 'Agente MALAVE'), M, yPie - 17);
+        if (partes) { pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.5); pdf.setTextColor(...GRIS); pdf.text(partes, W - M, yPie - 17, { align: 'right' }); }
+      }
+      informeBanda(doc);
+      const n = pdf.internal.getNumberOfPages();
+      if (n > 1) {
+        for (let i = 1; i <= n; i++) {
+          pdf.setPage(i);
+          pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7.5); pdf.setTextColor(150, 156, 164);
+          pdf.text('Hoja ' + i + ' de ' + n, W / 2, yPie + 21, { align: 'center' });
+        }
+        pdf.setPage(n);
+      }
+    }
+
+    function armarInforme() {
+      const r = calcular();
+      if (!r) {
+        toast('Completá el valor del inmueble y la duración para armar el informe.');
+        (isFinite(num('uValor')) && num('uValor') > 0 ? (duracion === 'vida' ? $('uEdad') : $('uAnios')) : $('uValor')).focus();
+        return null;
+      }
+      const d = DERECHOS[r.derecho];
+      const doc = informeNuevo(r.derecho === 'usufructo' ? 'INFORME DE USUFRUCTO' : 'INFORME DE ' + d.nombre.toUpperCase(), 'NUDA PROPIEDAD Y USUFRUCTO · CUADRO DGI');
+
+      const datos = [['Inmueble', $('iDireccion').value.trim()], ['Padrón', $('iPadron').value.trim()],
+                     [r.derecho === 'usufructo' ? 'Usufructuario' : 'Beneficiario del derecho', $('iUsufructuario').value.trim()], ['Nudo propietario', $('iNudo').value.trim()]].filter(x => x[1]);
+      if (datos.length) {
+        informeSeccion(doc, 'Datos del inmueble');
+        datos.forEach(x => informeFila(doc, x[0], x[1]));
+        doc.y += 6;
+      }
+
+      informeSeccion(doc, 'Parámetros del cálculo');
+      informeFila(doc, 'Derecho que se constituye', d.nombre);
+      informeFila(doc, r.base === 'real' ? 'Valor real de Catastro' : 'Precio de mercado (estimación)', fmtMonto(r.valor, r.mon));
+      informeFila(doc, 'Duración', r.plazo.texto);
+      informeFila(doc, 'Plazo que se toma', r.plazo.anios + ' años', r.plazo.detallePdf);
+      informeFila(doc, 'Factor del cuadro DGI', fmtNum(r.f, 8), r.fuera ? 'Fuera del cuadro (más de 70 años): misma tasa del 6% anual' : 'Descuento racional compuesto, tasa 6% anual');
+      doc.y += 8;
+
+      informeSeccion(doc, 'Resultado');
+      const cajas = [
+        { t: 'Nuda propiedad', v: fmtMonto(r.nuda, r.mon), s: fmtPct(r.nudaPct) + ' del valor' },
+        { t: 'Usufructo', v: fmtMonto(r.usu, r.mon), s: fmtPct(r.usuPct) + ' del valor', destacado: r.derecho === 'usufructo' }
+      ];
+      if (r.derecho !== 'usufructo') {
+        cajas.push({ t: d.nombre, v: fmtMonto(r.derechoValor, r.mon), s: (r.derecho === 'uso' ? '50%' : '25%') + ' del usufructo', destacado: true });
+      }
+      informeCajas(doc, cajas);
+
+      // Barra con la proporción nuda / usufructo
+      informeEspacio(doc, 36);
+      const { pdf, W, M } = doc;
+      const ancho = W - 2 * M, anchoNuda = ancho * r.f;
+      pdf.setFillColor(142, 163, 189); pdf.rect(M, doc.y, anchoNuda, 9, 'F');
+      pdf.setFillColor(...GOLD); pdf.rect(M + anchoNuda, doc.y, ancho - anchoNuda, 9, 'F');
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(...GRIS);
+      pdf.text('Nuda propiedad ' + fmtPct(r.nudaPct), M, doc.y + 21);
+      pdf.text('Usufructo ' + fmtPct(r.usuPct), W - M, doc.y + 21, { align: 'right' });
+      doc.y += 38;
+
+      informeSeccion(doc, 'Cómo se calcula');
+      const pasos = [
+        '1. Plazo: ' + (duracion === 'vida'
+          ? 'si es de por vida, 70 años (vida probable) menos la edad del ' + benef() + ' a la fecha del contrato.'
+          : 'el plazo pactado; las fracciones de año cuentan como un año entero.') + ' Nunca menos de 3 años.',
+        '2. Nuda propiedad = valor del inmueble × factor del cuadro para ese plazo (' + fmtMonto(r.valor, r.mon) + ' × ' + fmtNum(r.f, 8) + ').',
+        '3. Usufructo = valor del inmueble - nuda propiedad.'
+      ];
+      if (r.derecho !== 'usufructo') pasos.push('4. ' + d.nombre + ' = ' + (r.derecho === 'uso' ? '50%' : '25%') + ' del valor del usufructo.');
+      pasos.forEach(p => informeParrafo(doc, p, { color: TINTA, despues: 3 }));
+      doc.y += 8;
+
+      informeNota(doc, 'Cálculo orientativo según la guía y el cuadro de Nuda Propiedad, Usufructo, Derechos de Uso y Habitación de la DGI (art. 4, literal A, Título 19 del Texto Ordenado 1996, y art. 10 del Decreto 252/998). ' + (r.base === 'real'
+        ? 'Sobre el valor real de Catastro da el valor fiscal que se usa para impuestos como el ITP.'
+        : 'Sobre el precio de mercado es una estimación comercial; para impuestos se usa el valor real de Catastro.') +
+        ' Si hay más de un usufructuario o condiciones especiales, confirmalo con el escribano. Este documento no reemplaza el asesoramiento notarial.');
+      informePie(doc);
+      return doc.pdf;
+    }
+    function nombreArchivo() { return 'Usufructo_MALAVE_' + hoyISO() + '.pdf'; }
+    function descargar() {
+      let pdf;
+      try { pdf = armarInforme(); } catch (e) { console.error(e); toast('No se pudo armar el informe: ' + (e.message || e)); return; }
+      if (pdf) pdf.save(nombreArchivo());
+    }
+    function imprimir() {
+      let pdf;
+      try { pdf = armarInforme(); } catch (e) { console.error(e); toast('No se pudo armar el informe: ' + (e.message || e)); return; }
+      if (!pdf) return;
+      try {
+        pdf.autoPrint();
+        const w = window.open(pdf.output('bloburl'), '_blank');
+        if (!w) { pdf.save(nombreArchivo()); toast('Se descargó el informe: abrilo e imprimilo desde ahí.'); }
+      } catch (e) { pdf.save(nombreArchivo()); }
+    }
+
+    function reiniciar() {
+      ['uValor', 'uEdad', 'uNac', 'uAnios', 'uMeses', 'iDireccion', 'iPadron', 'iUsufructuario', 'iNudo'].forEach(id => { $(id).value = ''; });
+      $('uFechaContrato').value = hoyISO();
+      $('uBase').value = 'real'; $('uMoneda').value = 'UYU';
+      derecho = 'usufructo'; marcarSeg('segDerecho', derecho);
+      duracion = 'vida'; marcarSeg('segDuracion', duracion);
+      $('boxVida').hidden = false; $('boxPlazo').hidden = true;
+      calcular();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ---------- Arranque ----------
+    activarSeg('segDerecho', v => { derecho = v; calcular(); });
+    activarSeg('segDuracion', v => { duracion = v; $('boxVida').hidden = v !== 'vida'; $('boxPlazo').hidden = v !== 'plazo'; calcular(); });
+    $('uBase').addEventListener('change', () => {
+      // La moneda habitual de cada valor: Catastro en pesos, el mercado en dólares.
+      $('uMoneda').value = $('uBase').value === 'real' ? 'UYU' : 'USD';
+      calcular();
+    });
+    ['uValor', 'uMoneda', 'uEdad', 'uAnios', 'uMeses'].forEach(id => { $(id).addEventListener('input', calcular); $(id).addEventListener('change', calcular); });
+    ['uNac', 'uFechaContrato'].forEach(id => { $(id).addEventListener('change', edadDesdeFechas); $(id).addEventListener('input', edadDesdeFechas); });
+    $('btnNac').addEventListener('click', () => {
+      const abrir = $('boxNac').hidden;
+      $('boxNac').hidden = !abrir; $('btnNac').setAttribute('aria-expanded', abrir ? 'true' : 'false');
+      if (abrir && !$('uFechaContrato').value) $('uFechaContrato').value = hoyISO();
+      if (abrir) $('uNac').focus();
+    });
+    $('btnPdf').addEventListener('click', descargar);
+    $('btnImprimir').addEventListener('click', imprimir);
+    $('btnReset').addEventListener('click', reiniciar);
+    $('uFechaContrato').value = hoyISO();
+    pintarTabla();
+    calcular();
+
+    // Si el agente tiene la sesión iniciada, el informe lleva su nombre y contacto.
+    // Sin sesión la herramienta anda igual; solo no aparece "Preparado por".
+    try {
+      if (typeof firebase !== 'undefined' && window.firebaseConfig) {
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        firebase.auth().onAuthStateChanged(async (u) => {
+          if (!u) { _agente = null; return; }
+          try {
+            const d = await firebase.firestore().collection('users').doc(u.uid).get();
+            const p = d.exists ? d.data() : {};
+            _agente = { name: p.name || '', whatsapp: p.whatsapp || '', email: p.email || u.email || '' };
+          } catch (e) { _agente = { name: '', whatsapp: '', email: u.email || '' }; }
+        });
+      }
+    } catch (e) { /* sin Firebase: el informe sale sin "Preparado por" */ }
+  </script>
+</body>
+</html>
