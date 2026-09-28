@@ -1038,6 +1038,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
   <script src="malave-config.js?v=20260830b"></script>
+  <script src="rangos.js?v=20260821l"></script>
   <script>
     firebase.initializeApp(firebaseConfig);
     var auth = firebase.auth();
@@ -1047,6 +1048,9 @@
     var INTEREST_LABELS = { comprar:'<i class="fas fa-key"></i> Quiere comprar', alquilar:'<i class="fas fa-home"></i> Busca alquilar', vender:'<i class="fas fa-tag"></i> Quiere vender' };
 
     var currentUser = null, userProfile = null, isAdmin = false;
+    // isAdmin: el CEO (borrar clientes y el resto de lo exclusivo). esDir: la
+    // Dirección, CEO y COO, que además traspasa clientes, gestiones y propiedades.
+    var esDir = false;
     var clients = [];
     var misClientesOnly = true;
     var statFilter = 'all'; // filtro rápido por tarjeta de stat: all | nuevo | proceso | cerrado | atencion (banner de recontacto)
@@ -1263,10 +1267,15 @@
       }
       currentUser = user;
       isAdmin = (user.email||'').toLowerCase() === ADMIN_EMAIL;
+      esDir = isAdmin;
       loadVisits();
       // Cargar perfil del usuario (para createdByName)
       db.collection('users').doc(user.uid).get().then(function(d){
         userProfile = d.exists ? d.data() : { email:user.email };
+        esDir = isAdmin || (userProfile.status === 'approved' && (userProfile.rank === 'ceo' || userProfile.rank === 'coo'));
+        // La COO necesita saber de quién es cada cliente para no tocar lo del CEO:
+        // el equipo se lee una vez y se vuelve a pintar cuando llega.
+        if (esDir && !isAdmin) cargarAgentes().then(function(){ if (!_cargando) renderClients(); });
         document.getElementById('cLoading').style.display='none';
         document.getElementById('cAuth').style.display='none';
         document.getElementById('cContent').style.display='block';
@@ -1794,7 +1803,7 @@
       m.className = 'cc-menu';
       m.innerHTML =
         '<button onclick="cerrarMenuTarjeta();openClientModal(\''+escA(id)+'\')"><i class="fas fa-edit"></i> Editar cliente</button>' +
-        (isAdmin?'<button onclick="cerrarMenuTarjeta();abrirTraspaso(\''+escA(id)+'\')"><i class="fas fa-right-left"></i> Traspasar a otro agente</button>':'') +
+        (puedeTraspasarCliente(c)?'<button onclick="cerrarMenuTarjeta();abrirTraspaso(\''+escA(id)+'\')"><i class="fas fa-right-left"></i> Traspasar a otro agente</button>':'') +
         '<button onclick="cerrarMenuTarjeta();archiveClient(\''+escA(id)+'\','+(c.archived?'false':'true')+')"><i class="fas fa-box-archive"></i> '+(c.archived?'Desarchivar':'Archivar')+'</button>' +
         (isAdmin?'<button class="peligro" onclick="cerrarMenuTarjeta();deleteClient(\''+escA(id)+'\')"><i class="fas fa-trash"></i> Eliminar</button>':'');
       document.body.appendChild(m);
@@ -2625,7 +2634,7 @@
             ? '<div class="cp-inline-sel"><label>Propiedad</label><select'+propDisabled+' onchange="cambiarEstadoPropiedad(\''+g.propertyId+'\', this.value)">'+optsProp+'</select></div>' + ((prop && prop.despubPendiente) ? '<span class="despub-pend" title="Un propietario perdido: el admin decide desde la campanita si se despublica"><i class="fas fa-hourglass-half"></i> despublicación pendiente</span>' : '')
             : '<span class="cp-grow-noprop"><i class="fas fa-circle-info"></i> Propiedad no encontrada</span>') +
           (function(){ var _rg = rolDeGestion(g); return '<span class="g-rol '+_rg+'" title="Rol del cliente en esta gestión (se cambia con el lápiz)">'+(_rg==='propietario'?'Propietario':'Interesado')+'</span>'; })() +
-          (isAdmin
+          (puedeMoverDe(g.agentId || g.createdBy || g.ownerId || '')
             ? '<button class="cp-grow-agent cp-agent-btn" title="Cambiar el agente de esta gestión" onclick="cambiarAgenteGestion(\''+escA(g.id)+'\')"><i class="fas fa-user-tie"></i> '+esc(g.agentName||'Agente')+' <i class="fas fa-pen" style="font-size:.62rem;opacity:.6"></i></button>'
             : '<span class="cp-grow-agent"><i class="fas fa-user-tie"></i> '+esc(g.agentName||'Agente')+'</span>') +
           visitasGestionHtml(g) +
@@ -3295,11 +3304,12 @@
     }
 
 
-    // ===== TRASPASO DE CLIENTES (solo admin) =====
+    // ===== TRASPASO DE CLIENTES (Dirección: CEO y COO) =====
     // Pensado para cuando un agente se va: sus clientes tienen que quedar en manos
     // de alguien. A diferencia de "agregar a mi lista", esto SÍ cambia el dueño
-    // histórico (`createdBy`), así que es exclusivo del administrador y queda
-    // registrado en el propio cliente para poder reconstruir qué pasó.
+    // histórico (`createdBy`), así que es de la Dirección y queda registrado en
+    // el propio cliente para poder reconstruir qué pasó. La COO no mueve nada que
+    // esté a nombre del CEO (ver puedeMoverDe).
     var _agentes = [], _clientesFiltrados = [], _lote = null;
 
     // Barra que aparece solo cuando el admin filtró por @agente: ahí ya está
@@ -3321,6 +3331,11 @@
       renderClients();
     }
     function toggleSeleccion(id){
+      var cSel = clienteLocal(id);
+      if (!_seleccion.has(id) && cSel && !puedeTraspasarCliente(cSel)){
+        showToast('Ese cliente no se puede traspasar', 'Está a nombre de alguien de tu mismo rango o superior');
+        return;
+      }
       if (_seleccion.has(id)) _seleccion.delete(id); else _seleccion.add(id);
       // Se repinta solo la tarjeta tocada: repintar la grilla entera perdería el
       // scroll y en una lista de 160 clientes se nota.
@@ -3332,7 +3347,7 @@
       pintarBarraSeleccion();
     }
     function seleccionarTodos(){
-      (_clientesFiltrados||[]).forEach(function(c){ _seleccion.add(c.id); });
+      (_clientesFiltrados||[]).filter(puedeTraspasarCliente).forEach(function(c){ _seleccion.add(c.id); });
       renderClients();
     }
 
@@ -3340,13 +3355,15 @@
       var caja = document.getElementById('crmTraspaso');
       if (!caja || !_modoSeleccion) return;
       var n = _seleccion.size, total = (_clientesFiltrados||[]).length;
+      var enVista = (_clientesFiltrados||[]).filter(function(c){ return _seleccion.has(c.id); }).length;
+      var movibles = (_clientesFiltrados||[]).filter(puedeTraspasarCliente).length;
       document.getElementById('crmTraspasoTxt').innerHTML =
-        n ? '<b>'+n+'</b> de '+total+' seleccionado'+(n===1?'':'s')
+        n ? '<b>'+n+'</b> seleccionado'+(n===1?'':'s') + (enVista < n ? ' <span style="opacity:.75">('+(n-enVista)+' en otra vista)</span>' : '')
           : 'Tocá las tarjetas que quieras traspasar.';
       var acc = document.getElementById('crmTraspasoAcc');
       if (!acc) return;
       acc.innerHTML =
-        (n < total ? '<button class="crm-banner-btn ghost" onclick="seleccionarTodos()">Todos</button>' : '') +
+        (enVista < movibles ? '<button class="crm-banner-btn ghost" onclick="seleccionarTodos()">Todos</button>' : '') +
         '<button class="crm-banner-btn ghost" onclick="salirSeleccion()">Cancelar</button>' +
         (n ? '<button class="crm-banner-btn" onclick="abrirTraspasoLote()">Traspasar '+n+'</button>' : '');
     }
@@ -3356,7 +3373,10 @@
       if (!caja) return;
       // En modo selección la barra sigue visible aunque no haya filtro de agente:
       // se puede elegir sueltos desde cualquier vista.
-      if (!isAdmin || (!agenteFiltro && !_modoSeleccion) || !list.length){
+      // Filtrando por un agente cuya cartera no se puede mover (el CEO, para la
+      // COO) no se ofrece traspasar. Si ya se está eligiendo, la barra sigue: se
+      // puede seguir marcando en otras vistas.
+      if (!esDir || (!agenteFiltro && !_modoSeleccion) || !list.length || (!_modoSeleccion && !list.some(puedeTraspasarCliente))){
         caja.style.display='none';
         if (_modoSeleccion){ _modoSeleccion=false; _seleccion.clear(); }
         return;
@@ -3370,20 +3390,40 @@
         '<button class="crm-banner-btn ghost" onclick="entrarSeleccion()">Elegir cuáles</button>' +
         '<button class="crm-banner-btn" onclick="abrirTraspasoLote()">Traspasar todos</button>';
     }
+    // Se guardan TODOS los usuarios (para saber el rango de cada dueño) y, aparte,
+    // los que pueden recibir un traspaso (aprobados, o el CEO).
+    var _usuariosPorUid = null;
     function cargarAgentes(){
       if (_agentes.length) return Promise.resolve(_agentes);
       return db.collection('users').get().then(function(q){
-        _agentes = q.docs.map(function(d){ return Object.assign({ uid:d.id }, d.data()); })
+        var porUid = {};
+        _agentes = q.docs.map(function(d){ var u = Object.assign({ uid:d.id }, d.data()); porUid[d.id] = u; return u; })
           .filter(function(u){ return u.status === 'approved' || (u.email||'').toLowerCase() === ADMIN_EMAIL; })
           .sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
+        _usuariosPorUid = porUid;
         return _agentes;
       }).catch(function(){ return []; });
     }
+    // ¿Puedo mover lo que está a nombre de este usuario? El CEO, todo. La COO:
+    // lo suyo, lo de quien está por debajo de su rango y lo que quedó sin dueño
+    // (un agente que ya no existe); lo del CEO no. Es la misma regla que aplica
+    // el servidor al traspasar propiedades.
+    function puedeMoverDe(uid){
+      if (!esDir) return false;
+      if (isAdmin) return true;
+      if (!_usuariosPorUid) return false;          // todavía no se sabe quién es quién
+      if (!uid || (currentUser && uid === currentUser.uid)) return true;
+      var u = _usuariosPorUid[uid];
+      if (!u) return true;                         // cartera huérfana
+      if ((u.email||'').toLowerCase() === ADMIN_EMAIL || u.rank === 'ceo') return false;
+      var nivel = function(x){ var r = window.Rangos && Rangos.rango(x && x.rank); return r ? r.nivel : 0; };
+      return nivel(userProfile) > nivel(u);
+    }
+    function puedeTraspasarCliente(c){ return !!c && puedeMoverDe(c.createdBy || ''); }
 
     function abrirTraspaso(clientId){
-      if (!isAdmin) return;
       var c = null; for (var i=0;i<clients.length;i++){ if(clients[i].id===clientId){ c=clients[i]; break; } }
-      if (!c) return;
+      if (!c || !puedeTraspasarCliente(c)) return;
       cargarAgentes().then(function(ags){
         var opts = ags.filter(function(a){ return a.uid !== c.createdBy; })
           .map(function(a){ return '<option value="'+escA(a.uid)+'">'+esc(a.name||a.email)+'</option>'; }).join('');
@@ -3396,7 +3436,7 @@
           '<p class="dormido-p"><b>'+esc(c.name||'Este cliente')+'</b> figura a nombre de <b>'+esc(c.createdByName||'—')+'</b>. ' +
           'El nuevo dueño pasa a tenerlo en su lista y queda registrado quién hizo el traspaso.</p>' +
           '<div class="trs-sel"><label>Nuevo dueño</label><select id="trsDestino">'+opts+'</select></div>' +
-          (isAdmin ? '<label class="trs-chk"><input type="checkbox" id="trsArrastra" checked>' +
+          (esDir ? '<label class="trs-chk"><input type="checkbox" id="trsArrastra" checked>' +
             '<span>Traspasar también sus gestiones y propiedades</span></label>' +
             '<p class="dormido-p" style="margin-top:6px;font-size:.82rem">Se mueve solo lo que está a nombre de <b>'+esc(c.createdByName||'ese agente')+'</b>. ' +
             'Si el cliente tiene otras propiedades con otros agentes, esas no se tocan. ' +
@@ -3468,11 +3508,12 @@
     // distintos agentes, así que reasignar por cliente movería trabajo ajeno.
     // Mueve la gestión y su propiedad, y actualiza el contacto del aviso en ML.
     function cambiarAgenteGestion(gestionId){
-      if (!isAdmin) return;
+      if (!esDir) return;
       db.collection('gestiones').doc(gestionId).get().then(function(d){
         if (!d.exists){ showToast('No se encontró la gestión'); return; }
         var g = d.data();
         var actual = g.agentId || g.createdBy || g.ownerId || '';
+        if (!puedeMoverDe(actual)){ showToast('No podés cambiarla', 'La trabaja alguien de tu mismo rango o superior'); return; }
         return cargarAgentes().then(function(ags){
           var opts = ags.filter(function(a){ return a.uid !== actual; })
             .map(function(a){ return '<option value="'+escA(a.uid)+'">'+esc(a.name||a.email)+'</option>'; }).join('');
@@ -3561,7 +3602,7 @@
       }).then(function(res){
         var props = res.props;
         if (res.ajenas) showToast('Se respetaron '+res.ajenas+' gestión(es)', 'Están a nombre de otro agente y no se tocaron');
-        if (!props.length || !isAdmin) return null;
+        if (!props.length || !esDir) return null;
         return firebase.functions().httpsCallable('traspasarPropiedades')({
           propertyIds: props, aUid: destino.uid, soloDe: deUid || null
         }).then(function(r){
@@ -3572,6 +3613,7 @@
             showToast('Propiedades traspasadas', msg);
           }
           if (d.omitidas) showToast('Se respetaron '+d.omitidas+' propiedad(es)', 'Son de otro agente');
+          if (d.bloqueadas) showToast('Quedaron '+d.bloqueadas+' propiedad(es) sin mover', 'Están a nombre de alguien de tu mismo rango o superior');
           // Un aviso sin actualizar deja publicado el teléfono del agente anterior:
           // se avisa en vez de dejarlo pasar.
           if (d.avisosConError && d.avisosConError.length) {
@@ -3589,14 +3631,21 @@
     // Aparece cuando el admin filtra por @agente: ahí ya está viendo justo los
     // clientes que quiere mover, así que el botón actúa sobre lo que tiene delante.
     function abrirTraspasoLote(){
-      if (!isAdmin) return;
+      if (!esDir) return;
       var lista = _modoSeleccion
-        ? (_clientesFiltrados||[]).filter(function(c){ return _seleccion.has(c.id); })
+        ? clients.filter(function(c){ return _seleccion.has(c.id); })
         : (_clientesFiltrados || []);
       if (!lista.length){ showToast(_modoSeleccion?'No marcaste ninguno':'No hay clientes en la vista'); return; }
+      // La COO no mueve lo que está a nombre del CEO: esos quedan afuera y se avisa.
+      var fuera = lista.filter(function(c){ return !puedeTraspasarCliente(c); }).length;
+      lista = lista.filter(puedeTraspasarCliente);
+      if (!lista.length){ showToast('No podés traspasar esos clientes', 'Están a nombre de alguien de tu mismo rango o superior'); return; }
       _lote = lista;
       cargarAgentes().then(function(ags){
-        var origenNombre = lista[0].createdByName || 'ese agente';
+        var duenos = {};
+        lista.forEach(function(c){ duenos[c.createdByName || 'sin dueño'] = true; });
+        var nd = Object.keys(duenos);
+        var origenNombre = nd.length === 1 ? nd[0] : nd.length + ' agentes';
         var opts = ags.map(function(a){ return '<option value="'+escA(a.uid)+'">'+esc(a.name||a.email)+'</option>'; }).join('');
         var ov = document.createElement('div');
         ov.className = 'dormido-overlay';
@@ -3605,6 +3654,7 @@
           '<div class="dormido-head"><i class="fas fa-right-left"></i> Traspasar '+lista.length+' cliente'+(lista.length===1?'':'s')+'</div>' +
           '<p class="dormido-p">Se van a traspasar los <b>'+lista.length+'</b> clientes que estás viendo, hoy a nombre de <b>'+esc(origenNombre)+'</b>. ' +
           'Cada uno guarda el registro del traspaso. <b>No se puede deshacer de una sola vez.</b></p>' +
+          (fuera ? '<p class="dormido-p" style="font-size:.82rem">Quedan afuera <b>'+fuera+'</b> que están a nombre de alguien de tu mismo rango o superior.</p>' : '') +
           '<div class="trs-sel"><label>Nuevo dueño</label><select id="trsDestinoLote">'+opts+'</select></div>' +
           '<button class="dormido-opt" onclick="confirmarTraspasoLote()"><i class="fas fa-check"></i> Traspasar los '+lista.length+'</button>' +
           '<button class="dormido-cancel" onclick="this.closest(\'.dormido-overlay\').remove()">Cancelar</button>' +
@@ -3618,7 +3668,7 @@
       if (!sel) return;
       var destino = _agentes.filter(function(a){ return a.uid === sel.value; })[0];
       if (!destino) return;
-      var lista = (_lote || _clientesFiltrados || []).filter(function(c){ return c.createdBy !== destino.uid; });
+      var lista = (_lote || _clientesFiltrados || []).filter(function(c){ return c.createdBy !== destino.uid && puedeTraspasarCliente(c); });
       if (!lista.length){ showToast('Ya son todos de ese agente'); return; }
       var btn = document.querySelector('.dormido-opt');
       if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Traspasando...'; }

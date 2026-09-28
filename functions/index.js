@@ -106,6 +106,65 @@ async function esDireccion(uid, email) {
     return false;
   }
 }
+
+// ===== Niveles del organigrama (espejo de rangos.js) =====
+// Sirven para UNA sola regla: la Dirección no toca a nadie de nivel igual o
+// mayor al suyo. Así la COO administra al equipo, pero no al CEO ni a sí misma.
+// Si se agrega un rango en rangos.js, hay que sumarlo acá también.
+const NIVEL_RANGO = {
+  ceo: 100, coo: 90, gerente_comercial: 70,
+  asesor_elite: 50, asesor_senior: 40, asesor_semi_senior: 30, asesor_junior: 20,
+  finanzas: 40, administracion: 35, marketing: 35,
+};
+function esPerfilCEO(u) {
+  return !!u && (String(u.email || "").toLowerCase() === ADMIN_EMAIL || u.rank === "ceo");
+}
+function nivelDePerfil(u) {
+  if (!u) return 0;
+  if (esPerfilCEO(u)) return 100;
+  return NIVEL_RANGO[String(u.rank || "")] || 0;
+}
+
+/** Quién llama, siempre que sea Dirección: { uid, email, esCEO, nivel, nombre }.
+    Si no es Dirección, corta con permiso denegado. */
+async function exigirDireccion(request, mensaje) {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const uid = request.auth.uid;
+  const email = String(request.auth.token.email || "").toLowerCase();
+  let perfil = null;
+  try {
+    const s = await db.doc(`users/${uid}`).get();
+    perfil = s.exists ? s.data() : null;
+  } catch (e) {
+    // Ante la duda, NO se concede (igual que esDireccion).
+    logger.warn("exigirDireccion: no se pudo leer el perfil", e);
+  }
+  const aprobado = !!perfil && perfil.status === "approved";
+  const esCEO = email === ADMIN_EMAIL || (aprobado && perfil.rank === "ceo");
+  const esDir = esCEO || (aprobado && RANGOS_DIRECCION.includes(String(perfil.rank || "")));
+  if (!esDir) throw new HttpsError("permission-denied", mensaje || "Solo la Dirección.");
+  return {
+    uid, email, esCEO,
+    nivel: esCEO ? 100 : nivelDePerfil(perfil),
+    nombre: (perfil && perfil.name) || email,
+  };
+}
+
+/** ¿El actor puede administrar a ese usuario? Nadie a sí mismo ni al CEO; el
+    CEO a todos los demás, y el resto solo a niveles menores al suyo. Un usuario
+    que ya no existe (se borró) cuenta como nivel 0: su cartera quedó huérfana y
+    hay que poder repartirla. */
+function puedeAdministrarA(actor, objetivoUid, objetivo) {
+  if (!objetivoUid || objetivoUid === actor.uid) return false;
+  if (esPerfilCEO(objetivo)) return false;
+  if (actor.esCEO) return true;
+  return actor.nivel > nivelDePerfil(objetivo);
+}
+
+/** El destino de un traspaso tiene que poder trabajar: cuenta aprobada (o el CEO). */
+function destinoValido(u) {
+  return !!u && (u.status === "approved" || esPerfilCEO(u));
+}
 // Datos de la inmobiliaria que se muestran como contacto en los avisos de ML.
 const NOMBRE_INMOBILIARIA = process.env.ML_NOMBRE_INMOBILIARIA || "Inmobiliaria Malave";
 const EMAIL_INMOBILIARIA = process.env.ML_EMAIL_INMOBILIARIA || "inmobiliariamalave@gmail.com";
@@ -2573,9 +2632,10 @@ exports.republicarML = onCall(async (request) => {
 // InfoCasas y el propio CRM no necesitan nada: leen el dueño en cada consulta.
 // =====================================================================
 exports.traspasarCartera = onCall(async (request) => {
-  const email = (request.auth && request.auth.token && request.auth.token.email || "").toLowerCase();
-  const uid = request.auth && request.auth.uid;
-  if (!await esDireccion(uid, email)) throw new HttpsError("permission-denied", "Solo la Dirección puede traspasar una cartera.");
+  // Dirección (CEO y COO). La COO no mueve la cartera de alguien de su rango o
+  // superior: la regla se aplica acá, no solo escondiendo el botón del panel.
+  const actor = await exigirDireccion(request, "Solo la Dirección puede traspasar una cartera.");
+  const email = actor.email;
 
   const { deUid, aUid, mueve } = request.data || {};
   if (!deUid || !aUid) throw new HttpsError("invalid-argument", "Faltan los agentes.");
@@ -2589,6 +2649,10 @@ exports.traspasarCartera = onCall(async (request) => {
   if (!aSnap.exists) throw new HttpsError("not-found", "El agente destino no existe.");
   const de = deSnap.exists ? deSnap.data() : {};
   const a = aSnap.data();
+  if (!puedeAdministrarA(actor, deUid, deSnap.exists ? de : null)) {
+    throw new HttpsError("permission-denied", "No podés mover la cartera de alguien de tu mismo rango o superior.");
+  }
+  if (!destinoValido(a)) throw new HttpsError("failed-precondition", "El agente destino no tiene la cuenta aprobada.");
   const aNombre = a.name || a.email || "Agente";
   const ahora = new Date().toISOString();
 
@@ -2702,9 +2766,7 @@ exports.traspasarCartera = onCall(async (request) => {
 // Mercado Libre el contacto nuevo de cada aviso vivo.
 // =====================================================================
 exports.traspasarPropiedades = onCall(async (request) => {
-  const email = (request.auth && request.auth.token && request.auth.token.email || "").toLowerCase();
-  const uid = request.auth && request.auth.uid;
-  if (!await esDireccion(uid, email)) throw new HttpsError("permission-denied", "Solo la Dirección puede traspasar propiedades.");
+  const actor = await exigirDireccion(request, "Solo la Dirección puede traspasar propiedades.");
 
   const { propertyIds, aUid, soloDe } = request.data || {};
   if (!Array.isArray(propertyIds) || !propertyIds.length) throw new HttpsError("invalid-argument", "No se indicaron propiedades.");
@@ -2712,9 +2774,28 @@ exports.traspasarPropiedades = onCall(async (request) => {
 
   const aSnap = await db.collection("users").doc(aUid).get();
   if (!aSnap.exists) throw new HttpsError("not-found", "El agente destino no existe.");
+  if (!destinoValido(aSnap.data())) throw new HttpsError("failed-precondition", "El agente destino no tiene la cuenta aprobada.");
   const aNombre = aSnap.data().name || aSnap.data().email || "Agente";
   const ahora = new Date().toISOString();
-  const resumen = { propiedades: 0, omitidas: 0, avisosActualizados: 0, avisosConError: [] };
+  const resumen = { propiedades: 0, omitidas: 0, bloqueadas: 0, avisosActualizados: 0, avisosConError: [] };
+
+  // La COO mueve lo suyo y lo de quien está por debajo de ella; lo del CEO no.
+  // El CEO mueve todo, como siempre.
+  const duenos = new Map();
+  async function puedeMoverDe(ownerUid) {
+    if (actor.esCEO || !ownerUid || ownerUid === actor.uid) return true;
+    if (!duenos.has(ownerUid)) {
+      let u = null;
+      try {
+        const s = await db.collection("users").doc(ownerUid).get();
+        u = s.exists ? s.data() : null;
+      } catch (e) {
+        u = { rank: "ceo" };   // si no se pudo leer, no se concede
+      }
+      duenos.set(ownerUid, u);
+    }
+    return puedeAdministrarA(actor, ownerUid, duenos.get(ownerUid));
+  }
 
   let token = null;
   try { token = await getValidToken(); } catch (e) { logger.warn("traspasarPropiedades: sin token de ML —", e.message); }
@@ -2729,6 +2810,7 @@ exports.traspasarPropiedades = onCall(async (request) => {
     // Un cliente puede tener varias propiedades con distintos agentes. Si se
     // indica de quién se está traspasando, no se tocan las de los demás.
     if (soloDe && p.ownerId !== soloDe) { resumen.omitidas = (resumen.omitidas || 0) + 1; continue; }
+    if (!(await puedeMoverDe(p.ownerId))) { resumen.bloqueadas++; continue; }
     const agentes = Array.isArray(p.agents) ? p.agents.filter((x) => x !== p.ownerId) : [];
     if (!agentes.includes(aUid)) agentes.push(aUid);
     await ref.update({
@@ -7667,25 +7749,31 @@ exports.vencerDestacados = onSchedule(
    solo el trigger limpiarPerfilAlBorrarse.
    ========================================================================== */
 exports.eliminarAgente = onCall(async (request) => {
-  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
-  const email = String(request.auth.token.email || "").toLowerCase();
-  const uid = request.auth.uid;
+  // Borrar una cuenta es irreversible. La hace la Dirección: el CEO a cualquiera
+  // (menos a sí mismo) y la COO solo a quien está por debajo de su rango.
+  const actor = await exigirDireccion(request, "Solo la Dirección puede eliminar una cuenta.");
   const objetivo = String((request.data && request.data.uid) || "");
   if (!objetivo) throw new HttpsError("invalid-argument", "Falta el agente.");
-
-  // Borrar una cuenta es irreversible: solo el CEO, igual que retiros y papelera.
-  let esCEO = email === ADMIN_EMAIL;
-  if (!esCEO) {
-    const me = await db.doc(`users/${uid}`).get();
-    esCEO = me.exists && me.data().rank === "ceo" && me.data().status === "approved";
-  }
-  if (!esCEO) throw new HttpsError("permission-denied", "Solo el CEO puede eliminar una cuenta.");
-  if (objetivo === uid) throw new HttpsError("failed-precondition", "No podés eliminar tu propia cuenta.");
+  if (objetivo === actor.uid) throw new HttpsError("failed-precondition", "No podés eliminar tu propia cuenta.");
 
   const oSnap = await db.doc(`users/${objetivo}`).get();
   const o = oSnap.exists ? oSnap.data() : null;
-  if (o && (o.rank === "ceo" || String(o.email || "").toLowerCase() === ADMIN_EMAIL)) {
+  if (esPerfilCEO(o)) {
     throw new HttpsError("failed-precondition", "La cuenta del CEO no se puede eliminar.");
+  }
+  // Red de seguridad: aunque su perfil no existiera, la cuenta del CEO se
+  // reconoce por el correo con el que inicia sesión.
+  try {
+    const cuenta = await admin.auth().getUser(objetivo);
+    if (String(cuenta.email || "").toLowerCase() === ADMIN_EMAIL) {
+      throw new HttpsError("failed-precondition", "La cuenta del CEO no se puede eliminar.");
+    }
+  } catch (e) {
+    if (e instanceof HttpsError) throw e;
+    // Sin cuenta en Authentication: más abajo se limpia solo el perfil.
+  }
+  if (!puedeAdministrarA(actor, objetivo, o)) {
+    throw new HttpsError("permission-denied", "No podés eliminar a alguien de tu mismo rango o superior.");
   }
 
   const quien = (o && (o.name || o.email)) || objetivo;
@@ -7702,8 +7790,171 @@ exports.eliminarAgente = onCall(async (request) => {
       throw new HttpsError("internal", "No se pudo eliminar la cuenta: " + (e.message || ""));
     }
   }
-  await registrarLog("", "agente eliminado", true, `${quien}${authBorrada ? "" : " (solo perfil: no tenía cuenta)"}`);
+  await registrarLog("", "agente eliminado", true, `${quien}${authBorrada ? "" : " (solo perfil: no tenía cuenta)"} · por ${actor.nombre}`);
   return { ok: true, authBorrada };
+});
+
+/* ============================================================================
+   FICHAS DE REUNIÓN INDIVIDUAL (admin.html → Desempeño)
+   ----------------------------------------------------------------------------
+   La Dirección arma la ficha de cada agente: los números salen solos del CRM y
+   el resto (diagnóstico, compromisos, plan) se escribe en la reunión. Acá se
+   GUARDAN, para ver en la próxima reunión qué se había acordado.
+
+   Van por esta función y no directo a Firestore a propósito: la colección
+   fichasReunion no tiene regla para nadie, así que ningún agente puede leer lo
+   que se escribió sobre él o sobre un compañero. Rige la regla de niveles de
+   siempre: la COO ve y escribe las fichas de quien está por debajo de ella; las
+   de ella (si el CEO le hace una) solo las ve el CEO.
+   ========================================================================== */
+const FICHA_ESTADOS = ["verde", "amarillo", "rojo"];
+const FICHA_FILAS = ["contactos", "seguimientos", "reuniones", "visitas", "tasaciones", "propiedades", "cierres"];
+const FICHA_ITEMS_AMARILLO = ["contactos", "seguimientos", "reuniones", "crm", "puntual"];
+const FICHA_ITEMS_ROJO = ["contactos", "seguimientos", "reuniones", "captacion", "crm"];
+
+// Se guarda solo lo que la ficha tiene, con largo máximo: nada de lo que mande
+// el navegador entra tal cual.
+function fichaLimpia(f, agente) {
+  const T = (v, max) => String(v == null ? "" : v).replace(/\r\n?/g, "\n").trim().slice(0, max);
+  const N = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.min(99999, Math.round(n))) : 0; };
+  const F = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || "")) ? String(v) : "");
+  const E = (v) => (FICHA_ESTADOS.includes(v) ? v : "");
+  const meses = (Array.isArray(f.meses) ? f.meses : []).slice(0, 2).map((m) => ({
+    clave: /^\d{4}-\d{2}$/.test(String(m && m.clave)) ? String(m.clave) : "",
+    etiqueta: T(m && m.etiqueta, 20),
+  }));
+  const actividad = (Array.isArray(f.actividad) ? f.actividad : [])
+    .filter((r) => r && FICHA_FILAS.includes(r.clave))
+    .slice(0, FICHA_FILAS.length)
+    .map((r) => ({
+      clave: r.clave,
+      etiqueta: T(r.etiqueta, 40),
+      valores: (Array.isArray(r.valores) ? r.valores : []).slice(0, 2).map(N),
+      obs: T(r.obs, 160),
+    }));
+  const plan = (p, claves) => ({
+    items: (p && Array.isArray(p.items) ? p.items : [])
+      .filter((i) => i && claves.includes(i.clave))
+      .map((i) => ({ clave: i.clave, marcado: i.marcado === true, texto: T(i.texto, 160) })),
+    revision: F(p && p.revision),
+  });
+  const d = f.diagnostico || {};
+  const c = f.compromisos || {};
+  return {
+    agenteUid: agente.uid,
+    agenteNombre: T(f.agenteNombre || agente.nombre, 120),
+    fecha: F(f.fecha) || new Date().toISOString().slice(0, 10),
+    lider: T(f.lider, 120),
+    estado: E(f.estado),
+    estadoSugerido: E(f.estadoSugerido),
+    motivoSugerido: T(f.motivoSugerido, 300),
+    meses,
+    actividad,
+    objetivo20: T(f.objetivo20, 600),
+    objetivoMes: T(f.objetivoMes, 600),
+    diagnostico: {
+      avance: T(d.avance, 600), falto: T(d.falto, 600), obstaculos: T(d.obstaculos, 600),
+      mejorar: T(d.mejorar, 600), apoyo: T(d.apoyo, 600),
+    },
+    compromisos: {
+      semanal: T(c.semanal, 300), mensual: T(c.mensual, 300),
+      acciones: T(c.acciones, 900), proximaRevision: F(c.proximaRevision),
+    },
+    planAmarillo: plan(f.planAmarillo, FICHA_ITEMS_AMARILLO),
+    planRojo: plan(f.planRojo, FICHA_ITEMS_ROJO),
+    observaciones: T(f.observaciones, 1500),
+    cartera: T(f.cartera, 400),
+  };
+}
+
+exports.fichaReunion = onCall(async (request) => {
+  const actor = await exigirDireccion(request, "Las fichas de reunión son de la Dirección.");
+  const datos = request.data || {};
+  const accion = String(datos.accion || "");
+  const col = db.collection("fichasReunion");
+
+  // Perfil del agente y control de nivel en un solo paso.
+  async function agenteAdministrable(agenteUid) {
+    const uidA = String(agenteUid || "");
+    if (!uidA) throw new HttpsError("invalid-argument", "Falta el agente.");
+    const s = await db.collection("users").doc(uidA).get();
+    const u = s.exists ? s.data() : null;
+    if (!u) throw new HttpsError("not-found", "El agente no existe.");
+    if (!puedeAdministrarA(actor, uidA, u)) {
+      throw new HttpsError("permission-denied", "No podés ver ni escribir fichas de alguien de tu mismo rango o superior.");
+    }
+    return { uid: uidA, nombre: u.name || u.email || "Agente" };
+  }
+  // Más nueva primero: por fecha de la reunión y, a igual fecha, por la última edición.
+  const masNuevaPrimero = (a, b) => String(b.fecha || "").localeCompare(String(a.fecha || "")) ||
+    String(b.actualizadoAt || "").localeCompare(String(a.actualizadoAt || ""));
+
+  if (accion === "resumen") {
+    // La última ficha de cada agente que el que pregunta puede administrar.
+    const [fs, us] = await Promise.all([col.get(), db.collection("users").get()]);
+    const usuarios = new Map(us.docs.map((d) => [d.id, d.data()]));
+    const porAgente = {};
+    fs.docs.forEach((d) => {
+      const x = d.data();
+      if (!x.agenteUid || !puedeAdministrarA(actor, x.agenteUid, usuarios.get(x.agenteUid) || null)) return;
+      const r = {
+        id: d.id, agenteUid: x.agenteUid, fecha: x.fecha || "", estado: x.estado || "",
+        proximaRevision: (x.compromisos && x.compromisos.proximaRevision) || "",
+        lider: x.lider || "", actualizadoAt: x.actualizadoAt || x.creadoAt || "", cantidad: 1,
+      };
+      const prev = porAgente[x.agenteUid];
+      if (!prev) { porAgente[x.agenteUid] = r; return; }
+      r.cantidad = prev.cantidad + 1;
+      if (masNuevaPrimero(r, prev) < 0) porAgente[x.agenteUid] = r;
+      else prev.cantidad = r.cantidad;
+    });
+    return { fichas: porAgente };
+  }
+
+  if (accion === "listar") {
+    const ag = await agenteAdministrable(datos.agenteUid);
+    const q = await col.where("agenteUid", "==", ag.uid).get();
+    const lista = q.docs.map((d) => Object.assign({ id: d.id }, d.data())).sort(masNuevaPrimero).slice(0, 30);
+    return { fichas: lista };
+  }
+
+  if (accion === "guardar") {
+    const f = datos.ficha || {};
+    const ag = await agenteAdministrable(f.agenteUid);
+    const limpia = fichaLimpia(f, ag);
+    const ahora = new Date().toISOString();
+    limpia.actualizadoAt = ahora;
+    limpia.actualizadoPor = actor.nombre;
+    limpia.actualizadoPorUid = actor.uid;
+    if (f.id) {
+      const ref = col.doc(String(f.id));
+      const s = await ref.get();
+      if (!s.exists) throw new HttpsError("not-found", "Esa ficha ya no existe.");
+      const vieja = s.data();
+      if (vieja.agenteUid !== ag.uid) throw new HttpsError("failed-precondition", "La ficha es de otro agente.");
+      limpia.creadoAt = vieja.creadoAt || ahora;
+      limpia.creadoPor = vieja.creadoPor || actor.nombre;
+      limpia.creadoPorUid = vieja.creadoPorUid || actor.uid;
+      await ref.set(limpia);
+      return { id: ref.id, actualizadoAt: ahora };
+    }
+    limpia.creadoAt = ahora;
+    limpia.creadoPor = actor.nombre;
+    limpia.creadoPorUid = actor.uid;
+    const ref = await col.add(limpia);
+    return { id: ref.id, actualizadoAt: ahora };
+  }
+
+  if (accion === "borrar") {
+    const ref = col.doc(String(datos.id || ""));
+    const s = await ref.get();
+    if (!s.exists) return { ok: true };
+    await agenteAdministrable(s.data().agenteUid);
+    await ref.delete();
+    return { ok: true };
+  }
+
+  throw new HttpsError("invalid-argument", "Acción desconocida.");
 });
 
 /* ============================================================================

@@ -444,19 +444,20 @@
     const rl = document.getElementById('mvSideRole'); if (rl) rl.textContent = isAdminUser() ? 'Administrador' : 'Agente';
     initMenuDatos();
     cargarFinanzasMenu();
-    document.getElementById('mvSideAdminGroup')?.classList.toggle('hidden', !esCEO());
-    document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !esCEO());
+    /* El Panel de Administración, Rentabilidad e Interés los ve la Dirección
+       (CEO y COO). Se usa Rangos.esDireccion en vez de esCEO() porque esCEO() NO
+       incluye el rango 'coo': con esa función, la COO no vería nada de esto.
+       Retiros y Papelera siguen siendo solo del CEO (plata y borrado definitivo),
+       y adentro del panel la COO no ve cargos, comisiones ni dinero y puntos. */
+    const _verDir = esCEO() ||
+      (typeof Rangos !== 'undefined' && Rangos.esDireccion && Rangos.esDireccion(userProfile));
+    document.getElementById('mvSideAdminGroup')?.classList.toggle('hidden', !_verDir);
+    document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !_verDir);
     // Barra inferior móvil: visible para cualquier usuario logueado
     document.getElementById('mvBottomBar')?.classList.toggle('hidden', !currentUser);
     document.body.classList.toggle('has-bottombar', !!currentUser);
     document.getElementById('mvSideRetiros')?.classList.toggle('hidden', !esCEO());
     document.getElementById('mvSidePapelera')?.classList.toggle('hidden', !esCEO());
-    /* Rentabilidad e Interés las ven CEO y COO. Se usa Rangos.esDireccion en vez
-       de esCEO() porque esCEO() NO incluye el rango 'coo': con esa función, la
-       COO no vería las herramientas. Los demás ítems de Administración siguen
-       siendo solo del CEO, que es como está pensado. */
-    const _verDir = esCEO() ||
-      (typeof Rangos !== 'undefined' && Rangos.esDireccion && Rangos.esDireccion(userProfile));
     document.getElementById('mvSideRenta')?.classList.toggle('hidden', !_verDir);
     document.getElementById('mvSideInteres')?.classList.toggle('hidden', !_verDir);
     if (isAdminUser()) actualizarBadgePendientes();
