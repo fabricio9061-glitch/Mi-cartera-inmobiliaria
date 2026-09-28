@@ -46,8 +46,8 @@
     .btn-new:hover{ background:var(--navy-2); }
 
     /* Stats */
-    .crm-stats{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom:22px; }
-    .crm-stat{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:16px 20px; min-width:140px; flex:1; box-shadow:0 1px 3px rgba(16,39,63,.04); cursor:pointer; transition:transform .15s, box-shadow .15s, border-color .15s; }
+    .crm-stats{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
+    .crm-stat{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:16px 20px; min-width:0; box-shadow:0 1px 3px rgba(16,39,63,.04); cursor:pointer; transition:transform .15s, box-shadow .15s, border-color .15s; }
     .crm-stat:hover{ transform:translateY(-2px); box-shadow:0 8px 20px rgba(16,39,63,.08); border-color:var(--gray-300); }
     .crm-stat.active{ border-color:var(--gold-2); box-shadow:0 0 0 2px rgba(201,162,39,.18); }
     .crm-stat-top{ display:flex; align-items:center; gap:11px; }
@@ -63,27 +63,75 @@
     .crm-stat-trend.flat{ color:var(--gray-400); font-weight:500; }
     .crm-stat-trend span{ color:var(--gray-400); font-weight:400; }
 
-    /* Toolbar */
-    .crm-filtros{ display:flex; flex-wrap:wrap; gap:9px; align-items:center; padding:12px 14px; margin-bottom:14px; background:var(--gray-50,#f7f8fa); border:1px solid var(--gray-200); border-radius:12px; }
-    .crm-mas{ cursor:pointer; white-space:nowrap; }
-    .crm-mas.on{ background:var(--navy); color:#fff; border-color:var(--navy); }
-    .crm-mas span:not(:empty){ display:inline-flex; align-items:center; justify-content:center; min-width:17px; height:17px; padding:0 4px; margin-left:6px; border-radius:99px; background:var(--gold); color:var(--navy); font-size:.66rem; font-weight:700; }
-    .crm-limpiar{ border:none; background:none; color:var(--gray-500); font-family:inherit; font-size:.82rem; font-weight:600; cursor:pointer; padding:6px 10px; }
-    .crm-limpiar:hover{ color:var(--navy); text-decoration:underline; }
-    .crm-toolbar{ display:flex; gap:12px; margin-bottom:22px; flex-wrap:wrap; align-items:center; }
+    /* ===== Barra de búsqueda y filtros ===== */
+    .crm-toolbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; background:#fff; border:1px solid var(--gray-200);
+      border-radius:14px; padding:10px; margin-bottom:12px; box-shadow:0 1px 3px rgba(16,39,63,.04); }
     .crm-search{ flex:1; min-width:220px; position:relative; }
-    .crm-search i{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--gray-400); }
-    .crm-search input{ width:100%; padding:12px 14px 12px 40px; border:1px solid var(--gray-300); border-radius:11px; font-family:inherit; font-size:.95rem; }
-    .crm-search input:focus{ outline:none; border-color:var(--gold-2); box-shadow:0 0 0 3px rgba(201,162,39,.12); }
-    .crm-filter{ border:1px solid var(--gray-300); border-radius:11px; padding:12px 14px; font-family:inherit; font-size:.95rem; background:#fff; }
-    .crm-filter:focus{ outline:none; border-color:var(--gold-2); }
+    .crm-search > i{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--gray-400); pointer-events:none; }
+    .crm-search input{ width:100%; padding:11px 40px; border:1px solid transparent; background:var(--gray-50); border-radius:10px;
+      font-family:inherit; font-size:.95rem; color:var(--navy); transition:background .15s, border-color .15s, box-shadow .15s; }
+    .crm-search input::placeholder{ color:var(--gray-400); }
+    .crm-search input:focus{ outline:none; background:#fff; border-color:var(--gold-2); box-shadow:0 0 0 3px rgba(201,162,39,.12); }
+    .crm-search-x{ position:absolute; right:6px; top:50%; transform:translateY(-50%); width:30px; height:30px; border:none;
+      background:none; color:var(--gray-400); border-radius:8px; cursor:pointer; font-size:.9rem; }
+    .crm-search-x:hover{ background:var(--gray-100); color:var(--navy); }
+    .crm-search-x[hidden]{ display:none; }
+    .crm-btn{ border:1px solid var(--gray-200); background:#fff; color:var(--navy); border-radius:10px; padding:10px 15px;
+      font-family:inherit; font-size:.9rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:8px;
+      white-space:nowrap; transition:background .15s, border-color .15s, color .15s; }
+    .crm-btn:hover{ background:var(--gray-50); border-color:var(--gray-300); }
+    .crm-btn.on{ background:var(--navy); color:#fff; border-color:var(--navy); }
+    .crm-btn.apagado{ opacity:.55; pointer-events:none; }
+    .crm-badge:not(:empty){ display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px;
+      border-radius:99px; background:var(--gold-2); color:var(--navy); font-size:.68rem; font-weight:700; }
+    /* Panel de filtros (plegable) */
+    .crm-filtros{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:16px 18px; margin-bottom:14px;
+      box-shadow:0 1px 3px rgba(16,39,63,.04); }
+    .crf-grid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+    .crf{ display:flex; flex-direction:column; gap:6px; min-width:0; }
+    .crf > span, .crf-lbl{ font-size:.68rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--gray-500); }
+    .crf select, .crf-rango input{ width:100%; padding:10px 12px; border:1px solid var(--gray-300); border-radius:10px;
+      font-family:inherit; font-size:.9rem; color:var(--navy); background:#fff; }
+    .crf select{ cursor:pointer; }
+    .crf select:focus, .crf-rango input:focus{ outline:none; border-color:var(--gold-2); box-shadow:0 0 0 3px rgba(201,162,39,.12); }
+    .crf-fecha{ margin-top:16px; padding-top:14px; border-top:1px solid var(--gray-100); }
+    .crf-lbl{ display:flex; align-items:center; gap:7px; margin-bottom:10px; }
+    .crf-lbl i{ color:var(--gold-2); font-size:.8rem; }
+    .crf-pills{ display:flex; flex-wrap:wrap; gap:7px; }
+    .crf-pill{ border:1px solid var(--gray-200); background:var(--gray-50); color:var(--gray-700); border-radius:99px; padding:7px 13px;
+      font-family:inherit; font-size:.82rem; font-weight:500; cursor:pointer; white-space:nowrap; transition:all .13s; flex:none; }
+    .crf-pill:hover{ border-color:var(--gray-300); background:#fff; }
+    .crf-pill.on{ background:var(--navy); border-color:var(--navy); color:#fff; }
+    .crf-pill i{ font-size:.75rem; margin-right:4px; opacity:.8; }
+    .crf-rango{ display:flex; gap:12px; margin-top:12px; flex-wrap:wrap; }
+    .crf-rango label{ display:flex; flex-direction:column; gap:5px; font-size:.72rem; font-weight:600; color:var(--gray-500);
+      flex:1; min-width:150px; max-width:220px; }
+    .crf-pie{ display:flex; justify-content:flex-end; margin-top:12px; }
+    .crm-limpiar{ border:none; background:none; color:var(--gray-500); font-family:inherit; font-size:.84rem; font-weight:600; cursor:pointer;
+      padding:6px 10px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; }
+    .crm-limpiar:hover{ color:var(--navy); background:var(--gray-50); }
+    /* Resultado: cuántos hay, qué filtros están puestos y el orden */
+    .crm-resbar{ display:flex; align-items:center; justify-content:space-between; gap:10px 16px; flex-wrap:wrap; margin:4px 0 14px; }
+    .crm-res-info{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }
+    .crm-count{ font-size:.86rem; color:var(--gray-500); margin-right:4px; }
+    .crm-count b{ color:var(--navy); font-weight:700; }
+    .crm-chips{ display:contents; }
+    .crm-chip{ display:inline-flex; align-items:center; gap:6px; background:#fdf8e8; border:1px solid #eedfae; color:#7a5f10;
+      border-radius:99px; padding:3px 4px 3px 11px; font-size:.78rem; font-weight:600; max-width:100%; }
+    .crm-chip button{ border:none; background:rgba(122,95,16,.1); color:inherit; width:20px; height:20px; border-radius:50%; cursor:pointer;
+      font-size:.66rem; display:inline-flex; align-items:center; justify-content:center; flex:none; }
+    .crm-chip button:hover{ background:rgba(122,95,16,.22); }
+    .crm-orden{ display:flex; align-items:center; gap:8px; font-size:.8rem; color:var(--gray-500); font-weight:600; margin-left:auto; }
+    .crm-orden select{ border:1px solid var(--gray-200); background:#fff; border-radius:9px; padding:7px 10px; font-family:inherit;
+      font-size:.84rem; color:var(--navy); cursor:pointer; }
+    .crm-orden select:disabled{ opacity:.55; cursor:default; }
 
     /* Grid de clientes */
     .crm-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr)); gap:16px; }
-    .client-card{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:13px 14px; transition:transform .15s, box-shadow .15s; display:flex; flex-direction:column; }
-    .client-card:hover{ transform:translateY(-3px); box-shadow:0 12px 30px rgba(16,39,63,.1); }
+    .client-card{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:14px 15px; transition:transform .15s, box-shadow .15s, border-color .15s; display:flex; flex-direction:column; box-shadow:0 1px 2px rgba(16,39,63,.04); }
+    .client-card:hover{ transform:translateY(-2px); box-shadow:0 10px 26px rgba(16,39,63,.09); }
     .client-card-top{ display:flex; align-items:flex-start; gap:10px; margin-bottom:9px; }
-    .client-avatar{ width:38px; height:38px; border-radius:50%; background:var(--navy); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.95rem; flex:0 0 auto; }
+    .client-avatar{ width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,#2c4160,var(--navy)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:.8rem; letter-spacing:.03em; flex:0 0 auto; }
     .client-card-name{ flex:1; min-width:0; }
     .client-card-name h3{ font-family:'Inter'; font-size:.98rem; font-weight:600; color:var(--navy); }
     .client-owner{ font-size:.74rem; color:var(--gold-hover); margin-top:2px; }
@@ -227,7 +275,9 @@
     .cc-grupo span{ font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--gray-500); }
     .cc-grupo b{ font-size:.7rem; font-weight:600; color:var(--gray-400); }
     .cc-grupo i{ flex:1; height:1px; background:var(--gray-200); }
-    .cc-top{ display:flex; align-items:center; gap:11px; }
+    .cc-top{ display:grid; grid-template-columns:auto minmax(0,1fr) auto; grid-template-areas:'av nom acc' 'av sub sub'; column-gap:12px; row-gap:2px; align-items:center; }
+    .cc-top > .client-avatar{ grid-area:av; align-self:start; }
+    .cc-acc{ grid-area:acc; display:flex; align-items:center; gap:2px; margin-right:-6px; }
     /* El chip de etapa vuelve a la tarjeta: el encabezado del grupo puede quedar
        fuera de pantalla al scrollear y ahí la tarjeta sola no decía en qué etapa está. */
     .cc-etapa{ font-size:.68rem; font-weight:600; padding:2px 8px; border-radius:99px; white-space:nowrap;
@@ -240,14 +290,18 @@
     .cc-etapa.cerrado{ background:#dcfce7; color:#15803d; }
     .cc-etapa.perdido{ background:#fee2e2; color:#991b1b; }
     .cc-etapa.singestion, .cc-etapa.sinavance{ background:#fef3c7; color:#92400e; }
-    .cc-meta i{ margin-right:3px; opacity:.7; }
-    .cc-id{ flex:1; min-width:0; }
-    .cc-id h3{ font-size:.98rem; font-weight:600; color:var(--navy); margin:0; display:flex; align-items:center; gap:7px; }
-    .cc-tel{ font-size:.82rem; color:var(--gray-600); margin-top:3px; white-space:nowrap;
-      overflow:hidden; text-overflow:ellipsis; }
-    .cc-meta{ font-size:.73rem; color:var(--gray-400); margin-top:2px; line-height:1.4;
-      display:flex; flex-wrap:wrap; gap:0 4px; }
-    .cc-meta > span{ white-space:nowrap; }
+    /* El nombre va solo en su renglón y se corta con "..." si es largo. */
+    .cc-nom{ grid-area:nom; display:flex; align-items:center; gap:8px; min-width:0; }
+    .cc-nom h3{ font-family:'Inter',sans-serif; font-size:.98rem; font-weight:600; color:var(--navy); margin:0; min-width:0;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cc-nom .client-archived-tag{ margin-left:0; flex:none; }
+    .cc-sub{ grid-area:sub; display:flex; align-items:center; gap:9px; min-width:0; }
+    .cc-sub .cc-etapa{ flex:none; }
+    .cc-tel{ font-size:.82rem; color:var(--gray-600); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+    .cc-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:5px 14px; margin-top:12px; padding-top:10px;
+      border-top:1px solid var(--gray-100); font-size:.74rem; color:var(--gray-500); line-height:1.4; }
+    .cc-meta > span{ display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
+    .cc-meta > span > i{ color:var(--gray-400); font-size:.7rem; }
     .cc-ico{ flex:none; width:32px; height:32px; border:none; background:none; border-radius:8px; color:var(--gray-400);
       display:flex; align-items:center; justify-content:center; font-size:.95rem; cursor:pointer; transition:background .13s, color .13s; text-decoration:none; }
     .cc-ico:hover{ background:var(--gray-100); color:var(--navy); }
@@ -268,7 +322,7 @@
     /* El pulso queda pegado abajo: con las tarjetas a la misma altura, el aire
        sobrante va al medio y no entre el pulso y el borde. */
     .cc-nota, .cc-pulso{ flex:none; }
-    .cc-top{ margin-bottom:auto; }
+    .cc-meta{ margin-bottom:auto; }
     /* Menú de tres puntos */
     .cc-menu{ position:fixed; z-index:3400; background:#fff; border:1px solid var(--gray-200); border-radius:12px;
       box-shadow:0 14px 40px rgba(10,20,35,.18); padding:6px; min-width:186px; }
@@ -328,7 +382,6 @@
     .ca-del{ color:var(--danger) !important; } .ca-del:hover{ border-color:#e3a9a2; background:#fff0ee; }
     .ca-archive{ color:var(--gray-600) !important; } .ca-archive:hover{ border-color:var(--gold-2); color:var(--gold-2) !important; background:#fffdf6; }
     .client-card.archived{ opacity:.6; background:var(--gray-50); }
-    .client-card.archived::after{ content:'Archivado'; position:absolute; }
     .client-archived-tag{ display:inline-block; font-size:.66rem; font-weight:600; color:var(--gray-500); background:var(--gray-100); padding:3px 9px; border-radius:20px; margin-left:8px; }
     .crm-empty{ grid-column:1/-1; text-align:center; padding:50px 20px; color:var(--gray-500); }
     .crm-empty i{ font-size:2.4rem; color:var(--gray-300); margin-bottom:12px; }
@@ -561,17 +614,26 @@
     .hist-meta i{ color:var(--gray-400); margin-right:3px; }
 
     @media (max-width:768px){
-      .crm-grid{ grid-template-columns:1fr; }
-      .crm-stat{ min-width:calc(50% - 7px); }
+      .crm-grid{ grid-template-columns:minmax(0,1fr); }
+      .crm-stats{ grid-template-columns:1fr 1fr; }
       .cp-grid{ grid-template-columns:1fr; }
     }
     @media (max-width:560px){
       .wrap{ padding:0 16px; }
       .crm-header h1{ font-size:1.7rem; }
       .btn-new{ width:100%; justify-content:center; }
-      .crm-toolbar{ flex-direction:column; align-items:stretch; }
-      .crm-search{ min-width:0; width:100%; }
-      .crm-filter{ width:100%; }
+      .crm-toolbar{ padding:8px; gap:8px; }
+      .crm-search{ flex:1 1 100%; min-width:0; }
+      .crm-search input{ font-size:16px; }
+      .crm-toolbar .crm-btn{ flex:1 1 0; justify-content:center; }
+      .crm-filtros{ padding:14px; }
+      .crf-grid{ gap:10px; }
+      .crf select, .crf-rango input{ font-size:16px; }
+      /* Los atajos de fecha, en una fila que se desliza de costado */
+      .crf-pills{ flex-wrap:nowrap; overflow-x:auto; margin:0 -14px; padding:0 14px 4px; scrollbar-width:none; }
+      .crf-pills::-webkit-scrollbar{ display:none; }
+      .crf-rango label{ max-width:none; min-width:0; }
+      .crm-orden span{ display:none; }
       .crm-stat{ padding:15px 16px; }
       .crm-stat-num{ font-size:30px; }
       .fg-row{ grid-template-columns:1fr; gap:0; }
@@ -597,6 +659,58 @@
     .link-del:hover{ color:var(--danger,#c0392b); }
     .client-meta-row.link-row a{ color:var(--gold,#C9A227); text-decoration:none; }
     .client-meta-row.link-row a:hover{ text-decoration:underline; }
+    /* ===== Rediseño de la lista ===== */
+    .crm-stat-trend.link{ cursor:pointer; }
+    .crm-stat-trend.link:hover span{ text-decoration:underline; }
+    .crm-grid > *{ min-width:0; }
+    .client-card:focus-visible{ outline:2px solid var(--gold-2); outline-offset:2px; }
+    .cc-meta .cc-enlista{ gap:0; margin-left:0; }
+    .cc-grupo{ margin:10px 0 0; }
+    .cc-grupo:first-child{ margin-top:0; }
+    /* Esqueleto mientras cargan los clientes */
+    .crm-stat-sk{ cursor:default; pointer-events:none; min-height:94px; }
+    .crm-stat-sk i, .cc-skel span{ display:block; border-radius:7px; background:linear-gradient(90deg,#eef0f3 25%,#f7f8fa 50%,#eef0f3 75%);
+      background-size:200% 100%; animation:crmSkel 1.3s ease-in-out infinite; }
+    .crm-stat-sk i:first-child{ width:38px; height:38px; border-radius:11px; margin-bottom:12px; }
+    .crm-stat-sk i:last-child{ width:55%; height:12px; }
+    .cc-skel{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:16px; min-height:124px; position:relative; }
+    .cc-skel .a{ position:absolute; left:16px; top:16px; width:40px; height:40px; border-radius:50%; }
+    .cc-skel .l1{ margin-left:52px; width:52%; height:13px; margin-top:4px; }
+    .cc-skel .l2{ margin-left:52px; width:34%; height:11px; margin-top:10px; }
+    .cc-skel .l3{ width:78%; height:10px; margin-top:30px; }
+    @keyframes crmSkel{ 0%{ background-position:100% 0; } 100%{ background-position:-100% 0; } }
+    /* Aviso: título y detalle. Oculto de verdad cuando no hay aviso (antes asomaba). */
+    .toast{ opacity:0; pointer-events:none; transition:transform .3s, opacity .25s; max-width:calc(100% - 32px);
+      bottom:calc(24px + env(safe-area-inset-bottom,0px)); }
+    .toast.show{ opacity:1; }
+    #toastMsg{ display:flex; flex-direction:column; gap:1px; line-height:1.35; }
+    #toastMsg small{ font-size:.8rem; color:#c8cdd4; font-weight:400; }
+    .solo-cel{ display:none; }
+    @media (max-width:768px){
+      .crf-grid{ grid-template-columns:1fr 1fr; }
+    }
+    @media (max-width:560px){
+      /* Arriba de la lista iba más de una pantalla de título, botones y tarjetas
+         de números antes del primer cliente. Ahora es compacto. */
+      .crm-header{ flex-wrap:nowrap; align-items:center; margin-bottom:16px; }
+      .crm-header .btn-new{ width:auto; padding:11px 15px; flex:none; }
+      .solo-pc{ display:none; }
+      .solo-cel{ display:inline; }
+      .crm-stats{ gap:10px; margin-bottom:14px; }
+      .crm-stat{ padding:12px 13px; border-radius:12px; }
+      .crm-stat-top{ gap:10px; }
+      .crm-stat-ico{ width:32px; height:32px; border-radius:9px; font-size:.85rem; }
+      .crm-stat-num{ font-size:25px; }
+      .crm-stat-label{ font-size:11.5px; }
+      .crm-stat-trend{ display:none; }
+      .crm-stat{ position:relative; }
+      .crm-stat-trend.up{ display:inline-flex; position:absolute; top:9px; right:10px; margin:0; font-size:11.5px; }
+      .crm-stat-trend.up span{ display:none; }
+      .crm-recall, .crm-banner{ padding:10px 12px; gap:10px; }
+      .crm-recall .txt{ font-size:.82rem; }
+      .crm-recall button{ padding:8px 11px; }
+      .client-card{ padding:13px 13px 13px 14px; }
+    }
   </style>
 <style>
   /* Área segura superior (isla dinámica / notch) en toda la herramienta */
@@ -668,43 +782,70 @@
     <div class="wrap page-wrap">
       <div class="crm-header">
         <div><h1>Clientes <button class="crm-help-btn" onclick="abrirAyudaEstados()" title="¿Qué significa cada estado?"><i class="fas fa-circle-info"></i></button></h1><p id="crmSubtitle">Gestiona tus clientes y prospectos</p></div>
-        <button class="btn-new" onclick="openClientModal()"><i class="fas fa-plus"></i> Nuevo Cliente</button>
+        <button class="btn-new" onclick="openClientModal()"><i class="fas fa-plus"></i><span class="solo-pc">Nuevo cliente</span><span class="solo-cel">Nuevo</span></button>
       </div>
 
       <div class="crm-stats" id="crmStats"></div>
 
       <div class="crm-toolbar">
-        <div class="crm-search"><i class="fas fa-search"></i><input type="text" id="clientSearch" placeholder="Buscar por nombre, teléfono o @agente..." oninput="renderClients()"></div>
-        <button type="button" class="crm-filter" id="misClientesBtn" onclick="toggleMisClientes()" title="Estás viendo solo tus clientes. Tocá para ver los de toda la inmobiliaria." style="cursor:pointer;white-space:nowrap;background:var(--primary);color:#fff;border-color:var(--primary)"><i class="fas fa-user"></i> Mis clientes</button>
-        <button type="button" class="crm-filter crm-mas" id="btnMasFiltros" onclick="toggleFiltros()"><i class="fas fa-sliders"></i> Filtros<span id="filtrosCount"></span></button>
+        <div class="crm-search"><i class="fas fa-search"></i><input type="text" id="clientSearch" placeholder="Buscar por nombre, teléfono o @agente..." oninput="buscarDiferido()" autocomplete="off" enterkeyhint="search"><button type="button" class="crm-search-x" id="clientSearchX" onclick="limpiarBusqueda()" title="Borrar la búsqueda" aria-label="Borrar la búsqueda" hidden><i class="fas fa-xmark"></i></button></div>
+        <button type="button" class="crm-btn on" id="misClientesBtn" onclick="toggleMisClientes()" title="Estás viendo solo tus clientes. Tocá para ver los de toda la inmobiliaria."><i class="fas fa-user"></i> Mis clientes</button>
+        <button type="button" class="crm-btn" id="btnMasFiltros" onclick="toggleFiltros()" aria-expanded="false" aria-controls="crmFiltros"><i class="fas fa-sliders"></i> Filtros<span class="crm-badge" id="filtrosCount"></span></button>
       </div>
 
-      <!-- Filtros secundarios: plegados. Se usan poco y en la barra principal
-           competían con el buscador, que es lo que se usa siempre. -->
+      <!-- Filtros: plegados. El buscador es lo que se usa siempre; esto, a veces.
+           Lo que esté puesto se ve igual abajo, en los chips del resultado. -->
       <div class="crm-filtros" id="crmFiltros" style="display:none">
-        <select class="crm-filter" id="clientStatusFilter" onchange="statFilter='all';renderClients()">
-          <option value="">Todos los estados</option>
-          <option value="nuevo">Nuevo</option><option value="singestion">Sin gestionar / sin avance</option><option value="contactado">Contactado</option>
-          <option value="seguimiento">En seguimiento</option><option value="visita">Visita agendada</option>
-          <option value="negociacion">En negociación</option><option value="cartera">En cartera</option><option value="cerrado">Cerrado</option><option value="perdido">Perdido</option>
-        </select>
-        <select class="crm-filter" id="clientSituacionFilter" onchange="statFilter='all';renderClients()" title="Situación del cliente">
-          <option value="">Toda situación</option>
-          <option value="activo">Solo activos</option>
-          <option value="pausa">En pausa</option>
-          <option value="externo">Cerró por afuera</option>
-          <option value="perdido">Solo perdidos</option>
-        </select>
-        <select class="crm-filter" id="clientInterestFilter" onchange="renderClients()">
-          <option value="">Todo interés</option>
-          <option value="comprar">Comprar</option><option value="alquilar">Alquilar</option><option value="vender">Vender</option>
-        </select>
-        <select class="crm-filter" id="clientArchivedFilter" onchange="renderClients()">
-          <option value="active">Activos</option>
-          <option value="archived">Archivados</option>
-          <option value="all">Todos</option>
-        </select>
-        <button type="button" class="crm-limpiar" onclick="limpiarFiltros()">Limpiar</button>
+        <div class="crf-grid">
+          <label class="crf"><span>Etapa</span>
+            <select id="clientStatusFilter" onchange="statFilter='all';renderClients()">
+              <option value="">Todas</option>
+              <option value="nuevo">Nuevo</option><option value="singestion">Sin gestionar / sin avance</option><option value="contactado">Contactado</option>
+              <option value="seguimiento">En seguimiento</option><option value="visita">Visita agendada</option>
+              <option value="negociacion">En negociación</option><option value="cartera">En cartera</option><option value="cerrado">Cerrado</option><option value="perdido">Perdido</option>
+            </select>
+          </label>
+          <label class="crf"><span>Situación</span>
+            <select id="clientSituacionFilter" onchange="statFilter='all';renderClients()">
+              <option value="">Todas</option>
+              <option value="activo">Solo activos</option>
+              <option value="pausa">En pausa</option>
+              <option value="externo">Cerró por afuera</option>
+              <option value="perdido">Solo perdidos</option>
+            </select>
+          </label>
+          <label class="crf"><span>Interés</span>
+            <select id="clientInterestFilter" onchange="renderClients()">
+              <option value="">Todos</option>
+              <option value="comprar">Comprar</option><option value="alquilar">Alquilar</option><option value="vender">Vender</option>
+            </select>
+          </label>
+          <label class="crf"><span>Mostrar</span>
+            <select id="clientArchivedFilter" onchange="renderClients()">
+              <option value="active">Activos</option>
+              <option value="archived">Archivados</option>
+              <option value="all">Todos</option>
+            </select>
+          </label>
+        </div>
+        <div class="crf-fecha">
+          <div class="crf-lbl"><i class="fas fa-calendar-plus"></i> Fecha de alta del cliente</div>
+          <div class="crf-pills" id="fechaPills">
+            <button type="button" class="crf-pill on" data-f="" onclick="setFechaFiltro('')">Cualquiera</button>
+            <button type="button" class="crf-pill" data-f="hoy" onclick="setFechaFiltro('hoy')">Hoy</button>
+            <button type="button" class="crf-pill" data-f="7" onclick="setFechaFiltro('7')">Últimos 7 días</button>
+            <button type="button" class="crf-pill" data-f="30" onclick="setFechaFiltro('30')">Últimos 30 días</button>
+            <button type="button" class="crf-pill" data-f="mes" onclick="setFechaFiltro('mes')">Este mes</button>
+            <button type="button" class="crf-pill" data-f="mesant" onclick="setFechaFiltro('mesant')">Mes pasado</button>
+            <button type="button" class="crf-pill" data-f="anio" onclick="setFechaFiltro('anio')">Este año</button>
+            <button type="button" class="crf-pill" data-f="rango" onclick="setFechaFiltro('rango')"><i class="fas fa-calendar-days"></i>Elegir fechas</button>
+          </div>
+          <div class="crf-rango" id="fechaRango" style="display:none">
+            <label>Desde<input type="date" id="fechaDesde" onchange="alCambiarRango()"></label>
+            <label>Hasta<input type="date" id="fechaHasta" onchange="alCambiarRango()"></label>
+          </div>
+        </div>
+        <div class="crf-pie"><button type="button" class="crm-limpiar" onclick="limpiarFiltros()"><i class="fas fa-rotate-left"></i> Limpiar filtros</button></div>
       </div>
 
       <div class="crm-banner" id="crmTraspaso" style="display:none;background:#eef2f7;border-color:#d6dde6">
@@ -725,6 +866,18 @@
         <button class="cerrar" onclick="silenciarBannerRecall()" title="Ocultar este aviso unos días"><i class="fas fa-times"></i></button>
       </div>
 
+      <div class="crm-resbar">
+        <div class="crm-res-info"><span class="crm-count" id="crmCount"></span><span class="crm-chips" id="crmChips"></span></div>
+        <label class="crm-orden"><span>Ordenar</span>
+          <select id="clientOrden" onchange="renderClients()">
+            <option value="etapa">Por etapa</option>
+            <option value="nuevos">Alta más reciente</option>
+            <option value="antiguos">Alta más antigua</option>
+            <option value="actividad">Última actividad</option>
+            <option value="nombre">Nombre (A–Z)</option>
+          </select>
+        </label>
+      </div>
       <div class="crm-grid" id="crmGrid"></div>
     </div>
   </div>
@@ -1022,7 +1175,17 @@
 
     function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     function escA(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
-    function showToast(msg){ var t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); },3000); }
+    // Aviso corto. Acepta un segundo texto con el detalle: varias partes ya lo
+    // pasaban (ej. "Propietario perdido" + qué pasa ahora), pero la función lo
+    // ignoraba y el detalle nunca se veía. Un aviso nuevo reemplaza al anterior.
+    var _toastT = null;
+    function showToast(msg, detalle){
+      var t = document.getElementById('toast');
+      document.getElementById('toastMsg').innerHTML = detalle ? '<b>'+esc(msg)+'</b><small>'+esc(detalle)+'</small>' : esc(msg);
+      t.classList.add('show');
+      clearTimeout(_toastT);
+      _toastT = setTimeout(function(){ t.classList.remove('show'); }, detalle ? 5200 : 3200);
+    }
     function normalizePhone(raw){ var d=String(raw||'').replace(/[^\d+]/g,''); if(d.startsWith('+'))d=d.slice(1); if(d.startsWith('598'))d=d.slice(3); d=d.replace(/^0+/,''); return d?'+598'+d:''; }
 
     // Formato lindo de teléfono: +598 99 123 456 (móvil UY) / fallback con grupos
@@ -1118,7 +1281,13 @@
     });
 
     // ===== Carga de clientes (CRM compartido: todos ven todos) =====
+    // Se leen clientes, gestiones y propiedades una sola vez. Las propiedades
+    // quedan guardadas para el perfil: antes, cada vez que se abría un cliente,
+    // se volvía a leer la colección entera de propiedades.
+    var _cargando = false, _errorCarga = null;
     function loadClients(){
+      _cargando = true; _errorCarga = null;
+      renderClients();
       db.collection('clients').get().then(function(q){
         clients = q.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
         // Contar gestiones por cliente: gestiones reales + propiedades viejas (clientId) que aún no son gestión
@@ -1130,15 +1299,17 @@
           // ---- Agregado por cliente a partir de sus gestiones ----
           // La gestión es la unidad de verdad (una por propiedad). De acá sale:
           // qué gestión MANDA (la activa más avanzada, define la etiqueta),
-          // y la última actividad (lo último que se tocó en cualquiera).
+          // la última actividad (lo último que se tocó en cualquiera) y los
+          // intereses (comprar/alquilar/vender), que viven en cada gestión.
           var gestPorCliente = {}; // clientId -> set de propertyId (solo para el contador visible)
           var aggGest = {};        // clientId -> resumen de gestiones reales
           gSnap.docs.forEach(function(d){
             var g = d.data();
             if (!g.clientId) return;
             (gestPorCliente[g.clientId] = gestPorCliente[g.clientId] || {})[g.propertyId||('g'+d.id)] = true;
-            var a = aggGest[g.clientId] = aggGest[g.clientId] || { total:0, activas:0, cerradas:0, ts:'', manda:null, ult:null };
+            var a = aggGest[g.clientId] = aggGest[g.clientId] || { total:0, activas:0, cerradas:0, ts:'', manda:null, ult:null, intereses:{} };
             a.total++;
+            if (g.interes) a.intereses[g.interes] = true;
             var ts = g.updatedAt || g.createdAt || '';
             if (ts > a.ts) a.ts = ts;
             if (!a.ult || ts > a.ult.ts) a.ult = { id: d.id, ts: ts };
@@ -1157,50 +1328,64 @@
               a.manda = { id: d.id, estado: e, prio: pe, ts: ts, creada: g.createdAt || ts };
             }
           });
-          // Sumar propiedades viejas con clientId que todavía no tienen gestión (solo para el contador)
-          pSnap.docs.forEach(function(d){
-            var cid = d.data().clientId;
-            if (cid){ var set = gestPorCliente[cid] = gestPorCliente[cid] || {}; if(!set[d.id]) set[d.id]=true; }
+          // Propiedades: quedan en memoria para el perfil, y las viejas con
+          // clientId que todavía no tienen gestión suman al contador.
+          allProperties = pSnap.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
+          allProperties.sort(function(a,b){ return (a.title||'').localeCompare(b.title||''); });
+          allProperties.forEach(function(p){
+            if (p.clientId){ var set = gestPorCliente[p.clientId] = gestPorCliente[p.clientId] || {}; if (!set[p.id]) set[p.id] = true; }
           });
-          clients.forEach(function(c){
-            c._gestionCount = gestPorCliente[c.id] ? Object.keys(gestPorCliente[c.id]).length : 0;
-            var a = aggGest[c.id];
-            // La gestión sobre la que actúa el cambio rápido: la que manda; si todo
-            // está cerrado/perdido, la última (cambiarle el estado la "reabre").
-            c._gestionPrincipal = a ? (a.manda ? a.manda.id : (a.ult ? a.ult.id : null)) : null;
-            // Última actividad: lo más reciente entre gestiones y la propia ficha.
-            c._lastActivity = [ (a && a.ts) || '', c.updatedAt || '', c.createdAt || '' ].sort().pop();
-            c._diasSinContacto = diasDesde(c._lastActivity);
-            // ---- Etiqueta del cliente (estado derivado; nunca se escribe en la base) ----
-            if (a && a.total){
-              if (a.activas){
-                c._rollupStatus = a.manda.estado;
-                // OPCIÓN A: tener una gestión con propiedad ya significa "En cartera".
-                // Si el agente asoció una propiedad pero dejó el AVANCE en "nuevo"
-                // (no lo movió), el sistema NO lo muestra como nuevo: el piso es
-                // "cartera". El selector puede subirlo más, nunca dejarlo en nuevo.
-                var pisoIdx = ESTADO_PRIORIDAD.indexOf('cartera');
-                var actualIdx = ESTADO_PRIORIDAD.indexOf(c._rollupStatus);
-                if (actualIdx >= 0 && actualIdx < pisoIdx) c._rollupStatus = 'cartera';
-              } else {
-                // Todas terminadas: si ganó alguna es Cerrado; si no, Perdido.
-                c._rollupStatus = a.cerradas ? 'cerrado' : (a.externas ? 'externo' : (a.perdidas ? 'perdido' : 'singestion'));
-              }
-            } else {
-              // SIN ninguna gestión real: la etapa vieja guardada en el cliente ya no
-              // vale (era del modelo anterior). Un cliente sin gestiones no puede
-              // estar "en cartera" ni en etapas de proceso: es "Sin gestionar".
-              var st = c.status || 'nuevo';
-              if (['contactado','seguimiento','visita','negociacion','cartera'].indexOf(st) >= 0) st = 'singestion';
-              c._rollupStatus = st;
-              if (c._rollupStatus === 'nuevo' && diasDesde(c.createdAt) > SEGUIMIENTO.diasNuevo) c._rollupStatus = 'singestion';
-            }
-          });
+          clients.forEach(function(c){ derivarCliente(c, aggGest[c.id], gestPorCliente[c.id]); });
+          _cargando = false;
           renderClients();
           aplicarDeepLink();
-        }).catch(function(){ renderClients(); aplicarDeepLink(); });
-      }).catch(function(e){ console.error('Error cargando clientes:', e); renderClients(); });
+        }).catch(function(e){ console.error('Error armando la lista:', e); _cargando = false; renderClients(); aplicarDeepLink(); });
+      }).catch(function(e){
+        console.error('Error cargando clientes:', e);
+        _cargando = false; _errorCarga = e;
+        renderClients();
+      });
     }
+
+    // Datos calculados de un cliente: nunca se escriben en la base. Se usa al
+    // cargar y al crear un cliente nuevo (así no hay que releer todo).
+    function derivarCliente(c, a, setGest){
+      c._gestionCount = setGest ? Object.keys(setGest).length : 0;
+      // La gestión sobre la que actúa el cambio rápido: la que manda; si todo
+      // está cerrado/perdido, la última (cambiarle el estado la "reabre").
+      c._gestionPrincipal = a ? (a.manda ? a.manda.id : (a.ult ? a.ult.id : null)) : null;
+      // Última actividad: lo más reciente entre gestiones y la propia ficha.
+      c._lastActivity = [ (a && a.ts) || '', c.updatedAt || '', c.createdAt || '' ].sort().pop();
+      c._diasSinContacto = diasDesde(c._lastActivity);
+      // Intereses: los de sus gestiones y, si tenía, el viejo guardado en el cliente.
+      c._intereses = a ? Object.keys(a.intereses || {}) : [];
+      if (c.interest && c._intereses.indexOf(c.interest) < 0) c._intereses.push(c.interest);
+      // ---- Etiqueta del cliente (estado derivado; nunca se escribe en la base) ----
+      if (a && a.total){
+        if (a.activas){
+          c._rollupStatus = a.manda.estado;
+          // OPCIÓN A: tener una gestión con propiedad ya significa "En cartera".
+          // Si el agente asoció una propiedad pero dejó el AVANCE en "nuevo"
+          // (no lo movió), el sistema NO lo muestra como nuevo: el piso es
+          // "cartera". El selector puede subirlo más, nunca dejarlo en nuevo.
+          var pisoIdx = ESTADO_PRIORIDAD.indexOf('cartera');
+          var actualIdx = ESTADO_PRIORIDAD.indexOf(c._rollupStatus);
+          if (actualIdx >= 0 && actualIdx < pisoIdx) c._rollupStatus = 'cartera';
+        } else {
+          // Todas terminadas: si ganó alguna es Cerrado; si no, Perdido.
+          c._rollupStatus = a.cerradas ? 'cerrado' : (a.externas ? 'externo' : (a.perdidas ? 'perdido' : 'singestion'));
+        }
+      } else {
+        // SIN ninguna gestión real: la etapa vieja guardada en el cliente ya no
+        // vale (era del modelo anterior). Un cliente sin gestiones no puede
+        // estar "en cartera" ni en etapas de proceso: es "Sin gestionar".
+        var st = c.status || 'nuevo';
+        if (['contactado','seguimiento','visita','negociacion','cartera'].indexOf(st) >= 0) st = 'singestion';
+        c._rollupStatus = st;
+        if (c._rollupStatus === 'nuevo' && diasDesde(c.createdAt) > SEGUIMIENTO.diasNuevo) c._rollupStatus = 'singestion';
+      }
+    }
+    function clienteLocal(id){ for (var i=0;i<clients.length;i++){ if (clients[i].id===id) return clients[i]; } return null; }
 
     // ===== Enlace directo desde una propiedad =====
     // La grilla de Propiedades ya no ofrece borrar: ofrece "dar de baja", y eso
@@ -1223,13 +1408,13 @@
           var data = d.exists ? d.data() : null;
           if (!data || !data.clientId){ showToast('No se encontró esa gestión'); limpiar(); return; }
           _focoGestion = gid;
-          showClientProfile(data.clientId);
           limpiar();
+          showClientProfile(data.clientId);
         }).catch(function(e){ console.error('deep link:', e); showToast('No se pudo abrir la gestión'); limpiar(); });
         return;
       }
-      showClientProfile(cid);
       limpiar();
+      showClientProfile(cid);
     }
     function resaltarGestion(gid){
       setTimeout(function(){
@@ -1242,7 +1427,40 @@
     }
 
     // ===== Render lista + stats =====
+    // El buscador redibuja con una pausa corta: con 160 tarjetas, redibujar en
+    // cada tecla se sentía trabado en el celular.
+    var _buscarT = null;
+    function buscarDiferido(){
+      var x = document.getElementById('clientSearchX');
+      if (x) x.hidden = !document.getElementById('clientSearch').value;
+      clearTimeout(_buscarT);
+      _buscarT = setTimeout(renderClients, 140);
+    }
+    function limpiarBusqueda(){
+      var s = document.getElementById('clientSearch');
+      s.value = '';
+      document.getElementById('clientSearchX').hidden = true;
+      renderClients();
+      s.focus();
+    }
+    function etiquetaEtapa(rs){ return rs==='singestion' ? 'Sin gestionar' : rs==='sinavance' ? 'Sin avance' : (GESTION_ESTADO[rs] || rs); }
+    // Orden de los grupos en la vista "por etapa": los más avanzados arriba,
+    // después los que esperan gestión y al final los terminados. Antes "Sin
+    // gestionar", "Cerrado" y "Perdido" empataban y se intercalaban, y el mismo
+    // encabezado aparecía varias veces en la lista.
+    var ORDEN_ETAPA = ['cartera','negociacion','visita','seguimiento','contactado','nuevo','singestion','sinavance','cerrado','externo','perdido'];
+    function rangoEtapa(rs){ var i = ORDEN_ETAPA.indexOf(rs); return i < 0 ? ORDEN_ETAPA.length : i; }
+    function mesDeAlta(iso){
+      if (!iso) return 'Sin fecha de alta';
+      var d = new Date(iso); if (isNaN(d)) return 'Sin fecha de alta';
+      var t = d.toLocaleDateString('es-UY', { month:'long', year:'numeric' });
+      return t.charAt(0).toUpperCase() + t.slice(1);
+    }
+    function ordenElegido(){ var o = document.getElementById('clientOrden'); return (o && o.value) || 'etapa'; }
+
     function renderClients(){
+      if (_cargando){ pintarCargando(); return; }
+      if (_errorCarga && !clients.length){ pintarErrorCarga(); return; }
       var rawTerm = (document.getElementById('clientSearch').value||'').trim();
       // Filtro por AGENTE con "@": escribir "@ana" muestra los clientes de Ana.
       // Puede combinarse con texto: "@ana pocitos" filtra agente + búsqueda.
@@ -1260,19 +1478,25 @@
       var sf = document.getElementById('clientStatusFilter').value;
       var sfSit = (document.getElementById('clientSituacionFilter')||{}).value || '';
       var inf = document.getElementById('clientInterestFilter').value;
+      var arf = document.getElementById('clientArchivedFilter').value;
+      var rango = rangoFechaActivo();
+      guardarVista();
 
       // Stats sobre el estado REAL (el de la gestión más reciente de cada cliente)
+      // y sobre el alcance elegido: tus clientes o todos. Antes contaban siempre
+      // toda la inmobiliaria mientras la lista mostraba solo los tuyos, y los
+      // números no coincidían con lo que se veía abajo.
       var st = { total:0, nuevo:0, proceso:0, cerrado:0 };
-      var nuevosMes=0, nuevosMesPrev=0, frescos=0, enPausa=0, pausaDespierta=0;
+      var nuevosMes=0, frescos=0;
       var now=new Date(), y=now.getFullYear(), m=now.getMonth();
-      var iniMes=new Date(y,m,1).toISOString(), iniPrev=new Date(y,m-1,1).toISOString();
+      var iniMes=new Date(y,m,1).toISOString();
       clients.forEach(function(c){
         if (c.archived) return; // las stats reflejan clientes no archivados
+        if (misClientesOnly && !esMio(c)) return;
         st.total++;
         var sit = situacionDe(c);
-        var ca = c.createdAt || '';
-        if (ca >= iniMes) nuevosMes++; else if (ca >= iniPrev) nuevosMesPrev++;
-        if (sit === 'pausa'){ enPausa++; if (pausaVencida(c)) pausaDespierta++; return; }
+        if ((c.createdAt || '') >= iniMes) nuevosMes++;
+        if (sit === 'pausa') return;
         // 'externo' y 'perdido' no entran en el embudo. 'cerrado' SÍ cuenta como
         // cerrado (es una operación ganada), aunque sea situación derivada.
         if (sit === 'externo' || sit === 'perdido') return;
@@ -1281,8 +1505,9 @@
         if (b==='nuevo') st.nuevo++; else if (b==='proceso') st.proceso++; else if (b==='cerrado') st.cerrado++;
         if (rst==='nuevo') frescos++; // "nuevo" de verdad (dentro de la primera semana)
       });
+      // El "+N este mes" filtra por fecha de alta: es la pregunta que responde.
       var totalTrend = nuevosMes>0
-        ? '<div class="crm-stat-trend up"><i class="fas fa-arrow-up"></i> +'+nuevosMes+' <span>este mes</span></div>'
+        ? '<div class="crm-stat-trend up link" role="button" title="Ver los que se dieron de alta este mes" onclick="event.stopPropagation();setFechaFiltro(\'mes\')"><i class="fas fa-arrow-up"></i> +'+nuevosMes+' <span>este mes</span></div>'
         : '<div class="crm-stat-trend flat"><i class="fas fa-minus"></i> sin altas este mes</div>';
       function statCard(bucket, num, label, ico, trendHtml){
         return '<div class="crm-stat'+(statFilter===bucket?' active':'')+'" onclick="filterByStat(\''+bucket+'\')" title="Filtrar por '+label.toLowerCase()+'">' +
@@ -1292,12 +1517,10 @@
         '</div>';
       }
       document.getElementById('crmStats').innerHTML =
-        statCard('total',   st.total,   'Total clientes', 'fa-users',    totalTrend) +
+        statCard('total',   st.total,   misClientesOnly ? 'Tus clientes' : 'Total clientes', 'fa-users', totalTrend) +
         statCard('nuevo',   st.nuevo,   'Por gestionar',  'fa-user-plus','<div class="crm-stat-trend flat">incluye '+frescos+(frescos===1?' nuevo':' nuevos')+'</div>') +
         statCard('proceso', st.proceso, 'En proceso',     'fa-spinner',  '<div class="crm-stat-trend flat">con seguimiento</div>') +
         statCard('cerrado', st.cerrado, 'Cerrados',       'fa-circle-check','<div class="crm-stat-trend flat">ganados</div>');
-
-      var arf = document.getElementById('clientArchivedFilter').value;
 
       // Banner de pausados que "despertaron" (pasaron los 3 meses). Aparece arriba
       // del de recontacto; su botón filtra la vista a esos pausados para revisarlos.
@@ -1307,8 +1530,8 @@
         if (despiertos.length){
           pbBox.style.display = 'flex';
           document.getElementById('crmPausaTxt').innerHTML = despiertos.length===1
-            ? '<b>1 cliente en pausa</b> cumplió '+MESES_PAUSA+' meses. ¿Lo retomás o lo dejás guardado otro tiempo?'
-            : '<b>'+despiertos.length+' clientes en pausa</b> cumplieron '+MESES_PAUSA+' meses. Revisá si conviene retomarlos.';
+            ? '<b>1 cliente en pausa</b> cumplió '+MESES_PAUSA+' meses.<span class="solo-pc"> ¿Lo retomás o lo dejás guardado otro tiempo?</span>'
+            : '<b>'+despiertos.length+' clientes en pausa</b> cumplieron '+MESES_PAUSA+' meses.<span class="solo-pc"> Revisá si conviene retomarlos.</span>';
           var pbBtn = document.getElementById('crmPausaBtn');
           pbBtn.textContent = sfSit==='pausa' ? 'Ver todos' : 'Revisarlos';
           pbBtn.classList.toggle('off', sfSit==='pausa');
@@ -1323,8 +1546,8 @@
         if (pendientes.length && !bannerRecallSilenciado()){
           rcBox.style.display = 'flex';
           document.getElementById('crmRecallTxt').innerHTML = pendientes.length===1
-            ? '<b>1 cliente</b> se está enfriando para su etapa. Un mensaje corto puede reactivarlo.'
-            : '<b>'+pendientes.length+' clientes</b> se están enfriando o dormidos para su etapa. Un mensaje corto puede reactivarlos.';
+            ? '<b>1 cliente</b> se está enfriando<span class="solo-pc"> para su etapa. Un mensaje corto puede reactivarlo</span>.'
+            : '<b>'+pendientes.length+' clientes</b> se están enfriando o dormidos<span class="solo-pc"> para su etapa. Un mensaje corto puede reactivarlos</span>.';
           var rcBtn = document.getElementById('crmRecallBtn');
           rcBtn.textContent = statFilter==='atencion' ? 'Ver todos' : 'Verlos';
           rcBtn.classList.toggle('off', statFilter==='atencion');
@@ -1334,6 +1557,8 @@
         }
       }
 
+      var buscando = !!(term || agenteFiltro);
+      var base = 0; // los del alcance, sin filtros: para el "12 de 40"
       var list = clients.filter(function(c){
         // El teléfono se compara SOLO por dígitos: guardado va como
         // "+598 99 138 332" y el agente escribe "99138332". Comparar los textos
@@ -1346,147 +1571,213 @@
           || (c.email||'').toLowerCase().indexOf(term)>=0;
         var archMatch = arf==='all' ? true : (arf==='archived' ? !!c.archived : !c.archived);
         // Buscar amplía el alcance a TODA la inmobiliaria, aunque estés parado en
-        // "Tus clientes". El motivo: el buscador ya lo hacía con "@agente" (por eso
-        // agenteFiltro está en esta línea desde antes) pero no con nombre ni
-        // teléfono, así que buscar a alguien que existe pero es de otro agente
-        // devolvía vacío y parecía que el cliente no estaba cargado.
-        // Es temporal y no pisa tu preferencia: al borrar la búsqueda volvés a ver
-        // solo los tuyos, sin tener que tocar el botón.
-        var buscando = !!(term || agenteFiltro);
+        // "Tus clientes": buscar a alguien que existe pero es de otro agente
+        // devolvía vacío y parecía que el cliente no estaba cargado. Es temporal
+        // y no pisa tu preferencia: al borrar la búsqueda volvés a ver los tuyos.
         var mio = (buscando || !misClientesOnly) || esMio(c);
         var agMatch = !agenteFiltro || (((c.createdByName||c.ownerName||c.agentName||'').toLowerCase()).indexOf(agenteFiltro) >= 0);
+        if (m && archMatch && mio && agMatch) base++;
         var rs = rollupStatus(c);
         var matchStatus = !sf || rs===sf || (sf==='singestion' && rs==='sinavance');
         var matchSit = !sfSit || situacionDe(c)===sfSit;
         var enEmbudo = situacionDe(c)!=='pausa' && situacionDe(c)!=='externo' && situacionDe(c)!=='perdido';
         var matchBucket = statFilter==='all' || (statFilter==='atencion' ? paraRecontactar(c) : (enEmbudo && statBucket(rs)===statFilter));
-        return m && archMatch && mio && agMatch && matchStatus && matchSit && matchBucket && (!inf || c.interest===inf);
+        // El interés vive en cada gestión: antes se miraba solo el campo viejo del
+        // cliente y el filtro no encontraba a los clientes cargados después.
+        var matchInteres = !inf || (c._intereses || (c.interest ? [c.interest] : [])).indexOf(inf) >= 0;
+        var matchFecha = !rango || enRango(c.createdAt, rango);
+        return m && archMatch && mio && agMatch && matchStatus && matchSit && matchBucket && matchInteres && matchFecha;
       });
+
       // ===== ORDEN =====
-      // Lo elige el agente. Antes era uno solo y fijo, y para encontrar algo había
-      // que scrollear. El único criterio implícito que se conserva es "los míos
-      // primero", y solo en el orden por actividad: en los demás mandaría sobre lo
-      // que el agente pidió y el resultado se volvería impredecible.
-      // Orden fijo por etapa comercial: los más avanzados arriba y, dentro de cada
-      // etapa, por actividad reciente. La única excepción es la vista de recontacto,
-      // donde lo que importa es quién lleva más tiempo sin que lo toquen.
-      var orden = (statFilter==='atencion') ? 'atencion' : 'etapa';
+      // Lo elige el agente (abajo a la derecha): por etapa, por fecha de alta,
+      // por actividad o por nombre. La vista de recontacto manda su propio orden:
+      // ahí lo que importa es quién lleva más tiempo sin que lo toquen.
+      var orden = (statFilter==='atencion') ? 'atencion' : ordenElegido();
+      var nom = function(a,b){ return (a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'}); };
       list.sort(function(a,b){
-        if (orden==='nombre') return (a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'});
-        if (orden==='nuevos') return (b.createdAt||'').localeCompare(a.createdAt||'')
-          || (a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'});
+        if (orden==='nombre') return nom(a,b);
+        // Los que no tienen fecha de alta van al final en los dos sentidos.
+        if (orden==='nuevos') return (b.createdAt||'').localeCompare(a.createdAt||'') || nom(a,b);
+        if (orden==='antiguos') return (a.createdAt||'9999').localeCompare(b.createdAt||'9999') || nom(a,b);
         if (orden==='atencion'){
           // El más abandonado arriba, y los que ni siquiera tienen fecha al final.
-          var aa = a._lastActivity||'\uffff', ba = b._lastActivity||'\uffff';
-          return aa.localeCompare(ba) || (a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'});
+          return (a._lastActivity||'9999').localeCompare(b._lastActivity||'9999') || nom(a,b);
         }
         if (orden==='etapa'){
-          var ai = ESTADO_PRIORIDAD.indexOf(rollupStatus(a));
-          var bi = ESTADO_PRIORIDAD.indexOf(rollupStatus(b));
-          if (ai !== bi) return bi - ai;   // el más avanzado primero
-          return (b._lastActivity||'').localeCompare(a._lastActivity||'')
-            || (a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'});
+          var ai = rangoEtapa(rollupStatus(a)), bi = rangoEtapa(rollupStatus(b));
+          if (ai !== bi) return ai - bi;
+          return (b._lastActivity||'').localeCompare(a._lastActivity||'') || nom(a,b);
         }
-        // Nada de "los míos primero": era una regla invisible que partía la lista
-        // en dos grupos y hacía que el orden pareciera arbitrario. Para eso está
-        // el filtro "Mis clientes", que sí se ve.
-        var r = (b._lastActivity||'').localeCompare(a._lastActivity||'');
-        return r || (a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'});
+        // Última actividad: lo que se movió más recién, arriba.
+        return (b._lastActivity||'').localeCompare(a._lastActivity||'') || nom(a,b);
       });
 
       // El traspaso en lote actúa sobre lo que el admin está viendo, así que
       // necesita la lista ya filtrada.
-      contarFiltros();
+      var nFiltros = contarFiltros();
       _clientesFiltrados = list;
       pintarBarraTraspaso(agenteFiltro, list);
+      pintarResultados(list.length, base, buscando, nFiltros, rango);
+      var sOrden = document.getElementById('clientOrden');
+      if (sOrden){
+        sOrden.disabled = statFilter==='atencion';
+        sOrden.title = statFilter==='atencion' ? 'En "para recontactar" van primero los que llevan más tiempo sin contacto' : '';
+      }
 
       var g = document.getElementById('crmGrid');
       if (!list.length){
-        g.innerHTML = '<div class="crm-empty"><i class="fas fa-user-friends"></i><h3>'+(clients.length===0?'Aún no hay clientes':'Sin resultados')+'</h3><p>'+(clients.length===0?'Agregá el primero con el botón Nuevo Cliente':'Probá con otros filtros')+'</p></div>';
+        // El vacío dice por qué está vacío y ofrece la salida que corresponde.
+        var hayFiltros = nFiltros > 0 || statFilter !== 'all' || buscando;
+        var titulo = 'Sin resultados', texto = 'No hay clientes para mostrar.', boton = '';
+        if (!clients.length){ titulo = 'Aún no hay clientes'; texto = 'Agregá el primero con el botón Nuevo cliente.'; }
+        else if (hayFiltros){
+          texto = 'No hay clientes con esa búsqueda o esos filtros.';
+          boton = '<button type="button" class="crm-btn" style="margin-top:14px" onclick="limpiarTodo()"><i class="fas fa-filter-circle-xmark"></i> Limpiar búsqueda y filtros</button>';
+        } else if (misClientesOnly){
+          titulo = 'Todavía no tenés clientes propios'; texto = 'Los que cargues o sumes a tu lista aparecen acá.';
+          boton = '<button type="button" class="crm-btn" style="margin-top:14px" onclick="toggleMisClientes()"><i class="fas fa-users"></i> Ver todos los clientes</button>';
+        }
+        g.innerHTML = '<div class="crm-empty"><i class="fas fa-user-friends"></i><h3>'+titulo+'</h3><p>'+texto+'</p>'+boton+'</div>';
         return;
       }
-      // ===== TARJETA COMPACTA CON ENCABEZADOS POR ETAPA =====
-      // La lista ya venía ordenada por etapa, pero eso no se veía: se leía como
-      // desorden. Ahora cada cambio de etapa abre su encabezado con el conteo.
-      // Y de la tarjeta se fue todo lo que se repetía idéntico en las 162:
-      // el agente (salvo cuando NO sos vos), el chip de etapa (lo dice el grupo)
-      // y tres de los cuatro botones, que pasan al menú de tres puntos.
-      var etapaActual = null;
+      // Encabezados de grupo: por etapa (el orden de siempre) o por mes de alta
+      // cuando se ordena por fecha. El conteo de cada grupo se hace una sola vez.
+      var grupoDe = orden==='etapa' ? function(c){ return etiquetaEtapa(rollupStatus(c)); }
+                  : (orden==='nuevos' || orden==='antiguos') ? function(c){ return mesDeAlta(c.createdAt); } : null;
+      var conteo = {};
+      if (grupoDe) list.forEach(function(c){ var k = grupoDe(c); conteo[k] = (conteo[k]||0) + 1; });
+      var actual = null;
       g.innerHTML = list.map(function(c){
-        var ini = (c.name||'?').charAt(0).toUpperCase();
-        var ph = (c.phoneNormalized || c.phone || '').replace(/\D/g,'');
-        var otrosEnLista = listaDe(c).filter(function(x){ return x.uid !== c.createdBy; });
-        var phoneDisp = c.phoneNormalized || ((c.areaCode||'')+(c.phone||''));
-        var nGest = c._gestionCount || 0;
-        var rs = rollupStatus(c);
-        var etapaLabel = rs==='singestion' ? 'Sin gestionar' : rs==='sinavance' ? 'Sin avance' : (GESTION_ESTADO[rs] || rs);
-        var sit = situacionDe(c);
-        var pl = pulsoDe(c);
-        var altaTxt = c.createdAt ? fechaCorta(c.createdAt) : '';
-
-        // Encabezado de grupo cuando cambia la etapa.
         var cab = '';
-        if (etapaLabel !== etapaActual){
-          etapaActual = etapaLabel;
-          var cuantos = list.filter(function(x){
-            var r = rollupStatus(x);
-            var l = r==='singestion' ? 'Sin gestionar' : r==='sinavance' ? 'Sin avance' : (GESTION_ESTADO[r] || r);
-            return l === etapaLabel;
-          }).length;
-          cab = '<div class="cc-grupo"><span>'+esc(etapaLabel)+'</span><b>'+cuantos+'</b><i></i></div>';
+        if (grupoDe){
+          var k = grupoDe(c);
+          if (k !== actual){ actual = k; cab = '<div class="cc-grupo"><span>'+esc(k)+'</span><b>'+conteo[k]+'</b><i></i></div>'; }
         }
+        return cab + tarjetaCliente(c);
+      }).join('');
+    }
 
-        var borde = '';
-        if (sit === 'activo'){
-          if (pl === 'dormido') borde = ' bl-dormido';
-          else if (pl === 'enfriando') borde = ' bl-enfriando';
-        } else { borde = ' bl-' + sit; }
+    // ===== Tarjeta del cliente =====
+    // Nombre solo en su renglón (antes compartía el renglón con la etapa y en el
+    // celular se partía en dos), etapa y teléfono debajo, y al pie los datos con
+    // íconos: alta, gestiones y agente (este último solo si no sos vos).
+    function tarjetaCliente(c){
+      var nombre = c.name || 'Sin nombre';
+      var ph = (c.phoneNormalized || c.phone || '').replace(/\D/g,'');
+      var otrosEnLista = listaDe(c).filter(function(x){ return x.uid !== c.createdBy; });
+      var phoneDisp = c.phoneNormalized || ((c.areaCode||'')+(c.phone||''));
+      var nGest = c._gestionCount || 0;
+      var rs = rollupStatus(c);
+      var sit = situacionDe(c);
+      var pl = pulsoDe(c);
 
-        var sel = _modoSeleccion && _seleccion.has(c.id);
-        var accion = _modoSeleccion ? 'toggleSeleccion(\''+c.id+'\')' : 'showClientProfile(\''+c.id+'\')';
+      var borde = '';
+      if (sit === 'activo'){
+        if (pl === 'dormido') borde = ' bl-dormido';
+        else if (pl === 'enfriando') borde = ' bl-enfriando';
+      } else { borde = ' bl-' + sit; }
 
-        // La línea gris: teléfono · gestiones · alta. El agente SOLO si no sos vos:
-        // repetir tu propio nombre 160 veces no informa nada, verlo en el ajeno sí.
-        // Dos renglones FIJOS. Antes era uno solo que envolvía cuando no entraba, y
-        // como el largo depende de la fecha ("5 jun." entra, "17 jun." no), la
-        // fecha saltaba de renglón según el cliente. Ahora siempre está en el mismo lugar.
-        var meta = [];
-        meta.push('<span>'+(nGest>0 ? nGest+' gestión'+(nGest===1?'':'es') : 'Sin gestiones')+'</span>');
-        if (!esMio(c) && (c.createdByName||c.ownerName)) meta.push('<span>'+esc(c.createdByName||c.ownerName)+'</span>');
-        if (altaTxt) meta.push('<span title="Cliente desde el '+escA(fechaCorta(c.createdAt, true))+'"><i class="fas fa-calendar-plus"></i> '+esc(altaTxt)+'</span>');
+      var sel = _modoSeleccion && _seleccion.has(c.id);
+      var accion = _modoSeleccion ? 'toggleSeleccion(\''+c.id+'\')' : 'showClientProfile(\''+c.id+'\')';
 
-        // La barra de pulso: solo cuando hay algo que hacer. Lo normal no lleva cartel.
-        var mnu = 'event.stopPropagation();abrirMenuSituacion(event,\''+c.id+'\')';
-        var pulso = '';
-        if (sit === 'pausa') pulso = '<div class="cc-pulso pausa" role="button" onclick="'+mnu+'"><i class="fas fa-circle-pause"></i><span>En pausa</span><u>Reactivar</u></div>';
-        else if (sit === 'externo') pulso = '<div class="cc-pulso externo" role="button" onclick="'+mnu+'"><i class="fas fa-arrow-right-from-bracket"></i><span>Cerró por afuera</span></div>';
-        else if (sit === 'perdido') pulso = '<div class="cc-pulso perdido"><i class="fas fa-circle-xmark"></i><span>Perdido</span></div>';
-        else if (sit === 'cerrado') pulso = '<div class="cc-pulso cerrado"><i class="fas fa-circle-check"></i><span>Operación cerrada</span></div>';
-        else if (pl === 'dormido') pulso = '<div class="cc-pulso dormido" role="button" onclick="event.stopPropagation();preguntarDormido(\''+c.id+'\')"><i class="fas fa-moon"></i><span>Sin contacto hace '+(c._diasSinContacto!=null?c._diasSinContacto:'?')+' días</span><u>Decidir</u></div>';
-        else if (pl === 'enfriando') pulso = '<div class="cc-pulso enfriando" role="button" onclick="event.stopPropagation();preguntarDormido(\''+c.id+'\')"><i class="fas fa-temperature-half"></i><span>Sin contacto hace '+(c._diasSinContacto!=null?c._diasSinContacto:'?')+' días</span><u>Decidir</u></div>';
+      var meta = [];
+      if (c.createdAt) meta.push('<span title="Cliente desde el '+escA(fechaCorta(c.createdAt, true))+'"><i class="fas fa-calendar-plus"></i>'+esc(fechaCorta(c.createdAt))+'</span>');
+      meta.push('<span><i class="fas fa-handshake"></i>'+(nGest===1 ? '1 gestión' : nGest>1 ? nGest+' gestiones' : 'Sin gestiones')+'</span>');
+      if (!esMio(c) && (c.createdByName||c.ownerName)) meta.push('<span><i class="fas fa-user-tie"></i>'+esc(c.createdByName||c.ownerName)+'</span>');
+      if (otrosEnLista.length){
+        meta.push('<span class="cc-enlista" title="También lo trabajan: '+escA(otrosEnLista.map(function(x){return x.nombre;}).join(', '))+'">'+
+          otrosEnLista.slice(0,3).map(function(x){ return '<span>'+esc(iniciales(x.nombre))+'</span>'; }).join('')+
+          (otrosEnLista.length>3?'<span>+'+(otrosEnLista.length-3)+'</span>':'')+'</span>');
+      }
 
-        return cab + '<div class="client-card'+(c.archived?' archived':'')+(sit!=='activo'?' fuera-activo':'')+borde+
-          (_modoSeleccion?' cc-selmodo':'')+(sel?' cc-sel':'')+'" onclick="'+accion+'" style="cursor:pointer;position:relative">' +
-          (_modoSeleccion?'<span class="cc-check"><i class="fas fa-check"></i></span>':'') +
-          '<div class="cc-top">' +
-            '<div class="client-avatar">'+esc(ini)+'</div>' +
-            '<div class="cc-id">' +
-              '<h3>'+esc(c.name||'Sin nombre')+(c.archived?'<span class="client-archived-tag">Archivado</span>':'')+
-                '<span class="cc-etapa '+rs+'" role="button" title="Cambiar etapa" onclick="event.stopPropagation();abrirMenuEtapa(event,\''+c.id+'\')">'+esc(etapaLabel)+' <i class="fas fa-chevron-down"></i></span>' +
-              '</h3>' +
-              (phoneDisp?'<div class="cc-tel">'+esc(fmtPhone(phoneDisp))+'</div>':'') +
-              '<div class="cc-meta">'+meta.join('<span>·</span>')+
-                (otrosEnLista.length?'<span class="cc-enlista" title="También lo trabajan: '+escA(otrosEnLista.map(function(x){return x.nombre;}).join(', '))+'">'+
-                  otrosEnLista.slice(0,3).map(function(x){ return '<span>'+esc(iniciales(x.nombre))+'</span>'; }).join('')+
-                  (otrosEnLista.length>3?'<span>+'+(otrosEnLista.length-3)+'</span>':'')+'</span>':'')+'</div>' +
-            '</div>' +
-            (ph?'<a class="cc-ico wa" href="https://wa.me/'+ph+'" target="_blank" onclick="event.stopPropagation()" title="WhatsApp"><i class="fab fa-whatsapp"></i></a>':'') +
+      // La barra de pulso: solo cuando hay algo que hacer. Lo normal no lleva cartel.
+      var mnu = 'event.stopPropagation();abrirMenuSituacion(event,\''+c.id+'\')';
+      var dias = c._diasSinContacto!=null ? c._diasSinContacto : '?';
+      var pulso = '';
+      if (sit === 'pausa') pulso = '<div class="cc-pulso pausa" role="button" onclick="'+mnu+'"><i class="fas fa-circle-pause"></i><span>En pausa</span><u>Reactivar</u></div>';
+      else if (sit === 'externo') pulso = '<div class="cc-pulso externo" role="button" onclick="'+mnu+'"><i class="fas fa-arrow-right-from-bracket"></i><span>Cerró por afuera</span></div>';
+      else if (sit === 'perdido') pulso = '<div class="cc-pulso perdido"><i class="fas fa-circle-xmark"></i><span>Perdido</span></div>';
+      else if (sit === 'cerrado') pulso = '<div class="cc-pulso cerrado"><i class="fas fa-circle-check"></i><span>Operación cerrada</span></div>';
+      else if (pl === 'dormido') pulso = '<div class="cc-pulso dormido" role="button" onclick="event.stopPropagation();preguntarDormido(\''+c.id+'\')"><i class="fas fa-moon"></i><span>Sin contacto hace '+dias+' días</span><u>Decidir</u></div>';
+      else if (pl === 'enfriando') pulso = '<div class="cc-pulso enfriando" role="button" onclick="event.stopPropagation();preguntarDormido(\''+c.id+'\')"><i class="fas fa-temperature-half"></i><span>Sin contacto hace '+dias+' días</span><u>Decidir</u></div>';
+
+      return '<div class="client-card'+(c.archived?' archived':'')+(sit!=='activo'?' fuera-activo':'')+borde+
+        (_modoSeleccion?' cc-selmodo':'')+(sel?' cc-sel':'')+'" data-id="'+escA(c.id)+'" tabindex="0" onclick="'+accion+'" style="cursor:pointer;position:relative">' +
+        (_modoSeleccion?'<span class="cc-check"><i class="fas fa-check"></i></span>':'') +
+        '<div class="cc-top">' +
+          '<div class="client-avatar">'+esc(iniciales(nombre))+'</div>' +
+          '<div class="cc-nom"><h3 title="'+escA(nombre)+'">'+esc(nombre)+'</h3>'+(c.archived?'<span class="client-archived-tag">Archivado</span>':'')+'</div>' +
+          '<div class="cc-acc">' +
+            (ph?'<a class="cc-ico wa" href="https://wa.me/'+ph+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="WhatsApp"><i class="fab fa-whatsapp"></i></a>':'') +
             '<button class="cc-ico" onclick="abrirMenuTarjeta(event,\''+c.id+'\')" title="Más acciones"><i class="fas fa-ellipsis-vertical"></i></button>' +
           '</div>' +
-          pulso +
-          (c.notes?'<div class="cc-nota">'+esc(c.notes)+'</div>':'') +
-        '</div>';
+          '<div class="cc-sub">' +
+            '<span class="cc-etapa '+rs+'" role="button" title="Cambiar etapa" onclick="event.stopPropagation();abrirMenuEtapa(event,\''+c.id+'\')">'+esc(etiquetaEtapa(rs))+' <i class="fas fa-chevron-down"></i></span>' +
+            (phoneDisp?'<span class="cc-tel">'+esc(fmtPhone(phoneDisp))+'</span>':'') +
+          '</div>' +
+        '</div>' +
+        '<div class="cc-meta">'+meta.join('')+'</div>' +
+        pulso +
+        (c.notes?'<div class="cc-nota">'+esc(c.notes)+'</div>':'') +
+      '</div>';
+    }
+
+    // ===== Resultado: cuántos hay y qué filtros están puestos =====
+    // Los filtros quedan a la vista como chips, con una X para sacarlos, aunque
+    // el panel esté cerrado: si no, la lista quedaba recortada sin explicación.
+    function pintarResultados(n, base, buscando, nFiltros, rango){
+      var cnt = document.getElementById('crmCount');
+      if (cnt){
+        var filtrado = nFiltros > 0 || statFilter !== 'all';
+        cnt.innerHTML = buscando ? '<b>'+n+'</b> resultado'+(n===1?'':'s')
+          : filtrado ? '<b>'+n+'</b> de '+base+' cliente'+(base===1?'':'s')
+          : '<b>'+n+'</b> cliente'+(n===1?'':'s');
+      }
+      var box = document.getElementById('crmChips');
+      if (!box) return;
+      var chips = [];
+      var texto = function(id){ var e = document.getElementById(id); return (e && e.value && e.selectedIndex >= 0) ? e.options[e.selectedIndex].text : ''; };
+      if (statFilter !== 'all') chips.push([statFilter==='atencion' ? 'Para recontactar' : ({ nuevo:'Por gestionar', proceso:'En proceso', cerrado:'Cerrados' }[statFilter] || statFilter), 'stat']);
+      if (texto('clientStatusFilter')) chips.push(['Etapa: '+texto('clientStatusFilter'), 'clientStatusFilter']);
+      if (texto('clientSituacionFilter')) chips.push(['Situación: '+texto('clientSituacionFilter'), 'clientSituacionFilter']);
+      if (texto('clientInterestFilter')) chips.push(['Interés: '+texto('clientInterestFilter'), 'clientInterestFilter']);
+      var arch = document.getElementById('clientArchivedFilter');
+      if (arch && arch.value !== 'active') chips.push([arch.value==='archived' ? 'Solo archivados' : 'Con archivados', 'clientArchivedFilter']);
+      if (rango) chips.push(['Alta: '+rango.etiqueta, 'fecha']);
+      box.innerHTML = chips.map(function(ch){
+        return '<span class="crm-chip">'+esc(ch[0])+'<button type="button" onclick="quitarFiltro(\''+ch[1]+'\')" title="Quitar este filtro" aria-label="Quitar filtro: '+escA(ch[0])+'"><i class="fas fa-xmark"></i></button></span>';
       }).join('');
+    }
+    function quitarFiltro(k){
+      if (k === 'stat') statFilter = 'all';
+      else if (k === 'fecha'){ _fechaFiltro = ''; pintarPills(); }
+      else if (k === 'clientArchivedFilter') document.getElementById(k).value = 'active';
+      else { var e = document.getElementById(k); if (e) e.value = ''; }
+      renderClients();
+    }
+
+    // ===== Estados de carga =====
+    function pintarCargando(){
+      updateMisBtn();
+      var sk = '';
+      for (var i=0;i<4;i++) sk += '<div class="crm-stat crm-stat-sk"><i></i><i></i></div>';
+      document.getElementById('crmStats').innerHTML = sk;
+      var t = '';
+      for (var j=0;j<6;j++) t += '<div class="cc-skel"><span class="a"></span><span class="l1"></span><span class="l2"></span><span class="l3"></span></div>';
+      document.getElementById('crmGrid').innerHTML = t;
+      var cnt = document.getElementById('crmCount'); if (cnt) cnt.textContent = 'Cargando clientes…';
+      var ch = document.getElementById('crmChips'); if (ch) ch.innerHTML = '';
+    }
+    // Antes, si la carga fallaba se veía "Aún no hay clientes", como si no hubiera
+    // ninguno cargado. Ahora dice que falló y deja reintentar.
+    function pintarErrorCarga(){
+      document.getElementById('crmStats').innerHTML = '';
+      var cnt = document.getElementById('crmCount'); if (cnt) cnt.textContent = '';
+      var ch = document.getElementById('crmChips'); if (ch) ch.innerHTML = '';
+      document.getElementById('crmGrid').innerHTML = '<div class="crm-empty"><i class="fas fa-triangle-exclamation" style="color:#d97706"></i>' +
+        '<h3>No se pudieron cargar los clientes</h3><p>Revisá la conexión y probá de nuevo.</p>' +
+        '<button type="button" class="crm-btn" style="margin-top:14px" onclick="loadClients()"><i class="fas fa-rotate-right"></i> Reintentar</button></div>';
     }
 
     // Menú de la tarjeta: etapa, editar, archivar y eliminar. Salen de la tarjeta
@@ -1992,11 +2283,20 @@
       var c = clients.find(function(x){ return x.id===id; });
       if (!c){ return; }
       currentProfileId = id;
+      // Se recuerda dónde estaba la lista para volver al mismo lugar, y se suma
+      // una entrada al historial: así el "atrás" del celular vuelve a la lista
+      // en vez de salir de Clientes.
+      if (document.getElementById('cContent').style.display !== 'none') _scrollLista = window.scrollY || window.pageYOffset || 0;
+      try {
+        var urlPerfil = location.pathname + location.search + '#perfil';
+        if (!_perfilEnHistorial){ history.pushState({ perfil: id }, '', urlPerfil); _perfilEnHistorial = true; }
+        else history.replaceState({ perfil: id }, '', urlPerfil);
+      } catch(e){}
       document.getElementById('cContent').style.display = 'none';
       document.getElementById('cProfile').style.display = 'block';
       window.scrollTo(0,0);
 
-      document.getElementById('cpAvatar').textContent = (c.name||'?').charAt(0).toUpperCase();
+      document.getElementById('cpAvatar').textContent = iniciales(c.name);
       document.getElementById('cpName').textContent = c.name||'Cliente';
       // El estado ahora es por gestión, no del cliente: ocultamos el badge general del encabezado.
       var stEl = document.getElementById('cpStatus');
@@ -2045,18 +2345,46 @@
       cargarNotas(id);
 
       // Gestiones del cliente: primero cargamos las propiedades (para el selector y las tarjetas), luego las gestiones
-      cargarPropiedadesSelect().then(function(){ renderGestiones(id); });
+      // Las propiedades ya vinieron con la lista: solo se leen si faltan.
+      (allProperties.length ? Promise.resolve() : cargarPropiedadesSelect()).then(function(){ renderGestiones(id); });
     }
+    var _scrollLista = 0, _perfilEnHistorial = false;
     function closeProfile(){
+      // Si abrir el perfil sumó una entrada al historial, se cierra volviendo
+      // atrás (lo termina el evento popstate) para que el historial quede prolijo.
+      if (_perfilEnHistorial){
+        _perfilEnHistorial = false;
+        try { history.back(); return; } catch(e){}
+      }
+      cerrarPerfilUI();
+    }
+    function cerrarPerfilUI(){
       document.getElementById('cProfile').style.display = 'none';
       document.getElementById('cContent').style.display = 'block';
       currentProfileId = null;
+      // Lo que se hizo en el perfil (una nota, un cambio de etapa) se ve en la
+      // lista, y la lista vuelve a donde estaba.
+      renderClients();
+      window.scrollTo(0, _scrollLista || 0);
     }
+    window.addEventListener('popstate', function(e){
+      var abierto = document.getElementById('cProfile').style.display === 'block';
+      var st = (e && e.state) || {};
+      if (st.perfil){
+        // "Adelante" hacia un perfil que se había cerrado: se vuelve a abrir.
+        if (!abierto && clienteLocal(st.perfil)){ _perfilEnHistorial = true; showClientProfile(st.perfil); }
+      } else if (abierto){
+        _perfilEnHistorial = false;
+        cerrarPerfilUI();
+      }
+    });
     // ===== Propiedades del cliente (Etapa 3) =====
     function fmtPrice(p, c){ return (c==='UYU'?'$U':'US$') + ' ' + (p||0).toLocaleString('es-UY'); }
     function locStr(p){ return (p.ciudad && p.departamento) ? (p.ciudad+', '+p.departamento) : (p.location||'Uruguay'); }
     var PROP_STATUS = { tasacion:'Pendiente de tasación', tasado:'Tasado', available:'Disponible', reserved:'Reservada', sold:'Vendida', rented:'Alquilada', cerrado_externo:'Cerró por afuera', archived:'Dada de baja' };
-    var GESTION_ESTADO = { nuevo:'Nuevo', contactado:'Contactado', seguimiento:'En seguimiento', visita:'Visita agendada', negociacion:'En negociación', cartera:'En cartera', cerrado:'Cerrado', externo:'Cerró por afuera', perdido:'Perdido' };
+    // prop_eliminada no se elige a mano (los menús lo filtran), pero hace falta el
+    // nombre: sin esto la gestión de una propiedad borrada mostraba "undefined".
+    var GESTION_ESTADO = { nuevo:'Nuevo', contactado:'Contactado', seguimiento:'En seguimiento', visita:'Visita agendada', negociacion:'En negociación', cartera:'En cartera', cerrado:'Cerrado', externo:'Cerró por afuera', perdido:'Perdido', prop_eliminada:'Propiedad eliminada' };
     var GESTION_INTERES = { comprar:'Comprar', alquilar:'Alquilar', vender:'Vender' };
     var allProperties = []; // cache de propiedades para el selector
 
@@ -2885,23 +3213,23 @@
         data.createdAt = new Date().toISOString();
         op = db.collection('clients').add(data);
       }
-      op.then(function(){
+      op.then(function(ref){
         closeClientModal();
         showToast(id ? 'Cliente actualizado' : 'Cliente agregado');
-        loadClients();
-        // Si el perfil de este cliente está abierto, refrescarlo
-        if (id && currentProfileId === id){
-          setTimeout(function(){
-            // esperar a que loadClients actualice el array
-            db.collection('clients').doc(id).get().then(function(d){
-              if (d.exists){
-                var idx = clients.findIndex(function(x){ return x.id===id; });
-                if (idx>=0) clients[idx] = Object.assign({ id:id }, d.data(), { _propCount: clients[idx]._propCount });
-                if (document.getElementById('cProfile').style.display === 'block') showClientProfile(id);
-              }
-            });
-          }, 300);
-        }
+        // Se actualiza la lista en memoria: antes cada guardado volvía a leer
+        // clientes, gestiones y propiedades completos.
+        if (id){
+          var c = clienteLocal(id);
+          if (c){ Object.assign(c, data); c._lastActivity = data.updatedAt; c._diasSinContacto = 0; }
+          renderClients();
+          // Si el perfil de este cliente está abierto, se refresca.
+          if (currentProfileId === id && document.getElementById('cProfile').style.display === 'block') showClientProfile(id);
+        } else if (ref && ref.id){
+          var nuevo = Object.assign({ id: ref.id }, data);
+          derivarCliente(nuevo, null, null);
+          clients.push(nuevo);
+          renderClients();
+        } else loadClients();
       }).catch(function(err){
         er.textContent = 'Error: ' + err.message; er.classList.remove('hidden');
       }).finally(function(){
@@ -2996,7 +3324,7 @@
       if (_seleccion.has(id)) _seleccion.delete(id); else _seleccion.add(id);
       // Se repinta solo la tarjeta tocada: repintar la grilla entera perdería el
       // scroll y en una lista de 160 clientes se nota.
-      var card = document.querySelector('.client-card[onclick*="'+id+'"]');
+      var card = document.querySelector('.client-card[data-id="'+id+'"]');
       if (card){
         var on = _seleccion.has(id);
         card.classList.toggle('cc-sel', on);
@@ -3322,30 +3650,24 @@
       var hayBusqueda = !!((document.getElementById('clientSearch')||{}).value||'').trim();
       var b = document.getElementById('misClientesBtn');
       if (b){
+        b.classList.remove('on', 'apagado');
         if (misClientesOnly && hayBusqueda){
           // Mientras buscás, el alcance lo manda la búsqueda: tocar el botón no
           // cambiaría un solo resultado. Así que deja de ser un botón y pasa a
           // ser un cartel de estado, apagado y sin clic. Al borrar la búsqueda
           // vuelve solo a tu preferencia.
           b.innerHTML = '<i class="fas fa-users"></i> Viendo todos';
-          b.style.background = ''; b.style.color = ''; b.style.borderColor = '';
-          b.style.opacity = '.55'; b.style.pointerEvents = 'none';
+          b.classList.add('apagado');
           b.title = 'Mientras buscás se muestran todos los clientes de la inmobiliaria';
-        } else {
-          b.style.opacity = ''; b.style.pointerEvents = '';
-          // La etiqueta dice DÓNDE ESTÁS PARADO, no a dónde te lleva. Antes decía
-          // el destino ("Todos los clientes" cuando estabas viendo los tuyos) y no
-          // había forma de saber si era un estado o una acción.
+        } else if (misClientesOnly){
+          // La etiqueta dice DÓNDE ESTÁS PARADO, no a dónde te lleva.
           // Relleno oscuro = hay un filtro puesto. Contorno = sin filtrar.
-          if (misClientesOnly){
-            b.innerHTML = '<i class="fas fa-user"></i> Mis clientes';
-            b.style.background = 'var(--primary)'; b.style.color = '#fff'; b.style.borderColor = 'var(--primary)';
-            b.title = 'Estás viendo solo tus clientes. Tocá para ver los de toda la inmobiliaria.';
-          } else {
-            b.innerHTML = '<i class="fas fa-users"></i> Todos los clientes';
-            b.style.background = ''; b.style.color = ''; b.style.borderColor = '';
-            b.title = 'Estás viendo todos los clientes. Tocá para ver solo los tuyos.';
-          }
+          b.innerHTML = '<i class="fas fa-user"></i> Mis clientes';
+          b.classList.add('on');
+          b.title = 'Estás viendo solo tus clientes. Tocá para ver los de toda la inmobiliaria.';
+        } else {
+          b.innerHTML = '<i class="fas fa-users"></i> Todos los clientes';
+          b.title = 'Estás viendo todos los clientes. Tocá para ver solo los tuyos.';
         }
       }
       var s = document.getElementById('crmSubtitle');
@@ -3360,16 +3682,25 @@
       var caja = document.getElementById('crmFiltros');
       var btn = document.getElementById('btnMasFiltros');
       var abierto = caja.style.display !== 'none';
-      caja.style.display = abierto ? 'none' : 'flex';
+      caja.style.display = abierto ? 'none' : 'block';
       btn.classList.toggle('on', !abierto);
+      btn.setAttribute('aria-expanded', abierto ? 'false' : 'true');
     }
     function limpiarFiltros(){
       ['clientStatusFilter','clientSituacionFilter','clientInterestFilter'].forEach(function(id){
         var e=document.getElementById(id); if(e) e.value='';
       });
       var a=document.getElementById('clientArchivedFilter'); if(a) a.value='active';
+      _fechaFiltro = '';
+      ['fechaDesde','fechaHasta'].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; });
+      pintarPills();
       statFilter='all';
       renderClients();
+    }
+    function limpiarTodo(){
+      var s = document.getElementById('clientSearch'); if (s) s.value = '';
+      var x = document.getElementById('clientSearchX'); if (x) x.hidden = true;
+      limpiarFiltros();
     }
     // El contador avisa que hay filtros puestos aunque el panel esté plegado:
     // si no, quedaría una lista recortada sin explicación a la vista.
@@ -3380,9 +3711,105 @@
       });
       var a=document.getElementById('clientArchivedFilter');
       if(a && a.value!=='active') n++;
+      if (rangoFechaActivo()) n++;
       var b=document.getElementById('filtrosCount');
       if(b) b.textContent = n ? String(n) : '';
       return n;
+    }
+
+    // ---- Filtro por fecha de alta (createdAt del cliente) ----
+    // Atajos (hoy, 7 y 30 días, este mes, mes pasado, este año) o un rango de
+    // fechas. Se cuenta por día local: "hoy" es desde las 0 h de hoy.
+    var _fechaFiltro = '';
+    function setFechaFiltro(f){
+      _fechaFiltro = f || '';
+      pintarPills();
+      if (_fechaFiltro === 'rango'){
+        var d = document.getElementById('fechaDesde');
+        if (d && !d.value && !document.getElementById('fechaHasta').value) setTimeout(function(){ try { d.focus(); } catch(e){} }, 30);
+      }
+      renderClients();
+    }
+    function pintarPills(){
+      var pills = document.querySelectorAll('#fechaPills .crf-pill');
+      for (var i=0;i<pills.length;i++) pills[i].classList.toggle('on', (pills[i].getAttribute('data-f')||'') === _fechaFiltro);
+      var r = document.getElementById('fechaRango');
+      if (r) r.style.display = _fechaFiltro === 'rango' ? 'flex' : 'none';
+    }
+    // Si "desde" quedó después de "hasta", se dan vuelta: es lo que se quiso decir.
+    function alCambiarRango(){
+      var d = document.getElementById('fechaDesde'), h = document.getElementById('fechaHasta');
+      if (d.value && h.value && d.value > h.value){ var t = d.value; d.value = h.value; h.value = t; }
+      renderClients();
+    }
+    function fDMY(ymd){ var p = String(ymd||'').split('-'); return p.length === 3 ? p[2]+'/'+p[1]+'/'+p[0] : ymd; }
+    // Devuelve { desde, hasta, etiqueta } con desde incluido y hasta excluido,
+    // o null si no hay filtro de fecha.
+    function rangoFechaActivo(){
+      var f = _fechaFiltro;
+      if (!f) return null;
+      var hoy = new Date(); hoy.setHours(0,0,0,0);
+      var d = null, h = null, et = '';
+      if (f === 'hoy'){ d = hoy; et = 'hoy'; }
+      else if (f === '7'){ d = new Date(hoy); d.setDate(d.getDate() - 6); et = 'últimos 7 días'; }
+      else if (f === '30'){ d = new Date(hoy); d.setDate(d.getDate() - 29); et = 'últimos 30 días'; }
+      else if (f === 'mes'){ d = new Date(hoy.getFullYear(), hoy.getMonth(), 1); et = 'este mes'; }
+      else if (f === 'mesant'){
+        d = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1); h = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+        et = d.toLocaleDateString('es-UY', { month:'long', year:'numeric' });
+      }
+      else if (f === 'anio'){ d = new Date(hoy.getFullYear(), 0, 1); et = 'este año'; }
+      else if (f === 'rango'){
+        var vd = (document.getElementById('fechaDesde')||{}).value || '', vh = (document.getElementById('fechaHasta')||{}).value || '';
+        if (vd) d = new Date(vd + 'T00:00:00');
+        if (vh){ h = new Date(vh + 'T00:00:00'); h.setDate(h.getDate() + 1); }
+        if (!d && !h) return null;
+        et = (d && h) ? (vd === vh ? 'el ' + fDMY(vd) : 'del ' + fDMY(vd) + ' al ' + fDMY(vh)) : (d ? 'desde el ' + fDMY(vd) : 'hasta el ' + fDMY(vh));
+      }
+      else return null;
+      return { desde: d, hasta: h, etiqueta: et };
+    }
+    // Un cliente sin fecha de alta no entra en ningún rango.
+    function enRango(iso, r){
+      if (!iso) return false;
+      var t = new Date(iso);
+      if (isNaN(t)) return false;
+      if (r.desde && t < r.desde) return false;
+      if (r.hasta && t >= r.hasta) return false;
+      return true;
+    }
+
+    // ---- La vista se recuerda mientras la pestaña esté abierta ----
+    // Filtros, orden y "mis clientes / todos" siguen como los dejaste al volver
+    // de editar una propiedad o de la agenda. La búsqueda no se guarda.
+    var VISTA_KEY = 'crmClientesVista';
+    function guardarVista(){
+      try {
+        var v = function(id){ var e = document.getElementById(id); return e ? e.value : ''; };
+        sessionStorage.setItem(VISTA_KEY, JSON.stringify({
+          mis: misClientesOnly, orden: v('clientOrden'), etapa: v('clientStatusFilter'), sit: v('clientSituacionFilter'),
+          interes: v('clientInterestFilter'), archivo: v('clientArchivedFilter'), fecha: _fechaFiltro, desde: v('fechaDesde'), hasta: v('fechaHasta')
+        }));
+      } catch(e){}
+    }
+    function cargarVista(){
+      try {
+        var d = JSON.parse(sessionStorage.getItem(VISTA_KEY) || 'null');
+        if (!d) return;
+        var poner = function(id, val){
+          var e = document.getElementById(id);
+          if (!e || val == null) return;
+          for (var i=0;i<e.options.length;i++){ if (e.options[i].value === val){ e.value = val; return; } }
+        };
+        misClientesOnly = d.mis !== false;
+        poner('clientOrden', d.orden); poner('clientStatusFilter', d.etapa); poner('clientSituacionFilter', d.sit);
+        poner('clientInterestFilter', d.interes); poner('clientArchivedFilter', d.archivo);
+        var re = /^\d{4}-\d{2}-\d{2}$/;
+        document.getElementById('fechaDesde').value = re.test(d.desde||'') ? d.desde : '';
+        document.getElementById('fechaHasta').value = re.test(d.hasta||'') ? d.hasta : '';
+        _fechaFiltro = ['','hoy','7','30','mes','mesant','anio','rango'].indexOf(d.fecha) >= 0 ? d.fecha : '';
+        pintarPills();
+      } catch(e){}
     }
 
     function toggleMisClientes(){
@@ -3390,10 +3817,13 @@
       updateMisBtn();
       renderClients();
     }
+    // Archivar y eliminar actualizan la lista en memoria: antes cada uno volvía a
+    // leer clientes, gestiones y propiedades completos.
     function archiveClient(id, archive){
       db.collection('clients').doc(id).update({ archived: archive }).then(function(){
+        var c = clienteLocal(id); if (c) c.archived = archive;
         showToast(archive ? 'Cliente archivado' : 'Cliente desarchivado');
-        loadClients();
+        renderClients();
       }).catch(function(e){ showToast('No se pudo archivar'); console.error(e); });
     }
 
@@ -3401,11 +3831,26 @@
       if (!isAdmin){ showToast('Solo el administrador puede eliminar clientes. Podés archivarlo.'); return; }
       if (!confirm('¿Eliminar este cliente DEFINITIVAMENTE? Esta acción no se puede deshacer. Si solo querés ocultarlo, archivalo en su lugar.')) return;
       db.collection('clients').doc(id).delete().then(function(){
+        clients = clients.filter(function(x){ return x.id !== id; });
         showToast('Cliente eliminado');
-        if (currentProfileId === id) closeProfile();
-        loadClients();
+        if (currentProfileId === id) closeProfile(); else renderClients();
       }).catch(function(e){ showToast('No se pudo eliminar'); console.error(e); });
     }
+
+    // ===== Arranque de la vista =====
+    // El scroll lo maneja la página (volver del perfil al mismo lugar de la lista).
+    try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch(e){}
+    // Si se recargó con el perfil abierto, se empieza desde la lista.
+    if (location.hash === '#perfil'){ try { history.replaceState(null, '', location.pathname + location.search); } catch(e){} }
+    cargarVista();
+    // En el celular el texto de ayuda del buscador no entraba entero.
+    try { if (window.matchMedia('(max-width:560px)').matches) document.getElementById('clientSearch').placeholder = 'Nombre, teléfono o @agente'; } catch(e){}
+    // Las tarjetas se abren también con Enter (teclado).
+    document.getElementById('crmGrid').addEventListener('keydown', function(e){
+      if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.classList && e.target.classList.contains('client-card')){
+        e.preventDefault(); e.target.click();
+      }
+    });
   </script>
 <script src="fcm-init.js"></script>
 </body>

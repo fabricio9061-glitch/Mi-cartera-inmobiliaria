@@ -466,11 +466,17 @@
         _barrioElegido = BARRIOS.some((b) => b[0] === d.barrio) ? d.barrio : null;
       } catch (e) {}
     }
-    // Vuelve al ejemplo. Los datos del informe (cliente, padrón...) no se tocan.
+    // Vuelve al ejemplo y deja en blanco los datos del informe. Antes solo
+    // tocaba los números: el cliente, el padrón, la dirección y el barrio
+    // quedaban (y como todo se guarda en el navegador, seguían ahí al volver
+    // a entrar), así que parecía que el botón no hacía nada.
     function resetCalc() {
       Object.keys(DEFECTO).forEach((id) => { $(id).value = DEFECTO[id]; });
+      ['dCliente', 'dPadron', 'dDireccion', 'dBarrio'].forEach((id) => { $(id).value = ''; $(id).style.borderColor = ''; });
       _barrioElegido = null; mostrarBarrio();
+      if ($('pdfDataBody').style.display !== 'none') togglePdfData();
       calcular();
+      toast('Listo: volvió al ejemplo y los datos del informe quedaron en blanco.');
     }
 
     function togglePdfData() {
