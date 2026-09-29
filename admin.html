@@ -324,6 +324,8 @@
     .dz-pill.verde{background:#e8f6ee;color:#1f9d55}
     .dz-pill.amarillo{background:#fdf5e1;color:#b7791f}
     .dz-pill.rojo{background:#fdecec;color:#c62828}
+    .dz-pill.nuevo{background:#e8efff;color:#1d4ed8}
+    .rs b.dz-c-nuevo{color:#1d4ed8}
     .dz-est small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
       font-size:.72rem;color:var(--muted);margin-top:4px;line-height:1.35}
     .dz-mets{flex:1;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;min-width:0}
@@ -1578,8 +1580,15 @@
   var DZ_ESTADOS = {
     verde:    { txt:'Verde',    col:'#1f9d55' },
     amarillo: { txt:'Amarillo', col:'#b7791f' },
-    rojo:     { txt:'Rojo',     col:'#c62828' }
+    rojo:     { txt:'Rojo',     col:'#c62828' },
+    // No es un estado de la ficha en papel: marca al que recién entró, que
+    // todavía no tiene actividad para medir. En la ficha el estado lo elige el líder.
+    nuevo:    { txt:'Nuevo',    col:'#1d4ed8' }
   };
+  var DZ_ESTADOS_FICHA = ['verde', 'amarillo', 'rojo'];
+  // Días de arranque: en ese tiempo el asesor figura como "Nuevo" y no se lo
+  // pinta de amarillo ni de rojo. Hasta el mes no se lo marca en rojo.
+  var DZ_NUEVO_DIAS = 14;
   // Días hasta la próxima revisión según cómo quedó (lo que dice la ficha en papel).
   var DZ_REVISION = { verde:20, amarillo:15, rojo:12 };
   var DZ_PLAN_AM = [
@@ -1620,6 +1629,15 @@
     var d = p.length === 3 ? new Date(+p[0], +p[1] - 1, +p[2]) : new Date();
     d.setDate(d.getDate() + n);
     return dzYMD(d);
+  }
+  // Días de calendario entre dos momentos (de medianoche a medianoche).
+  function dzDiasEntre(desde, hasta){
+    var a = new Date(desde); a.setHours(0, 0, 0, 0);
+    var b = new Date(hasta); b.setHours(0, 0, 0, 0);
+    return Math.max(0, Math.round((b - a) / DZ_DIA));
+  }
+  function dzTextoIngreso(d){
+    return d === 0 ? 'Ingresó hoy' : d === 1 ? 'Ingresó ayer' : 'Ingresó hace ' + d + ' días';
   }
   // Acepta lo que haya en la base: ISO, 'AAAA-MM-DD', Timestamp de Firestore o milisegundos.
   function dzFecha(v){
@@ -1733,20 +1751,50 @@
     Object.keys(repetidos).forEach(function(n){ delete porNombre[n]; });
 
     var ev = {};
+    // Nada anterior al alta de un asesor puede ser suyo. Es la red de seguridad
+    // para lo que llega por un traspaso: una propiedad cargada hace 16 días por
+    // otro agente no puede ser "actividad" del que entró hoy.
+    var altaDe = {};
+    users.forEach(function(u){ var a = dzFecha(u.createdAt); if (a) altaDe[u.id] = +a; });
     var poner = function(uid, t, f, x){
       if (!uid || !f || !porUid[uid]) return;
+      if (altaDe[uid] && +f < altaDe[uid] - DZ_DIA) return;
       (ev[uid] = ev[uid] || []).push({ t: t, f: f, x: x || {} });
     };
     var dueno = function(o){ return o.createdBy || o.agentId || o.ownerId || ''; };
+    // De quién era un cliente o una propiedad en una fecha. Los traspasos quedan
+    // anotados (de quién, a quién y cuándo): lo que pasó antes de un traspaso es
+    // del agente anterior, no del que lo recibió. Antes se le contaba todo al
+    // dueño de hoy, y el que recibía una cartera heredaba la actividad vieja.
+    var historialTraspasos = function(o){
+      return (Array.isArray(o.traspasos) ? o.traspasos : [])
+        .filter(function(x){ return x && dzFecha(x.fecha); })
+        .sort(function(a, b){ return dzFecha(a.fecha) - dzFecha(b.fecha); });
+    };
+    var duenoEn = function(o, f, actual){
+      if (!f) return actual;
+      var tr = historialTraspasos(o);
+      for (var i = 0; i < tr.length; i++) if (+f < +dzFecha(tr[i].fecha)) return tr[i].de || '';
+      // Propiedades traspasadas antes de que se guardara el historial: solo se
+      // sabe cuándo fue el último traspaso, no quién la tenía. Lo anterior a esa
+      // fecha no es del dueño actual.
+      if (!tr.length && o.traspasoAt && +f < +(dzFecha(o.traspasoAt) || 0)) return '';
+      return actual;
+    };
+    var esComercial = function(u){
+      var r = u && window.Rangos && Rangos.rango(u.rank);
+      return !!u && (!r || r.grupo === 'Comercial');
+    };
     var gestPorCliente = {};
     gestiones.forEach(function(g){ if (g.clientId) (gestPorCliente[g.clientId] = gestPorCliente[g.clientId] || []).push(g); });
 
     // Contactos: clientes nuevos a su nombre.
     clients.forEach(function(c){
       var src = String(c.source || '').toLowerCase();
-      poner(dueno(c), 'contactos', dzFecha(c.createdAt), { portal: DZ_LEADS.indexOf(src) >= 0 });
+      var fc = dzFecha(c.createdAt);
+      poner(duenoEn(c, fc, dueno(c)), 'contactos', fc, { portal: DZ_LEADS.indexOf(src) >= 0 });
       // "Solo mantenerlo activo" en un cliente sin gestiones deja la marca en el cliente.
-      if (c.ultimoContacto) poner(dueno(c), 'seguimientos', dzFecha(c.ultimoContacto));
+      if (c.ultimoContacto){ var fu = dzFecha(c.ultimoContacto); poner(duenoEn(c, fu, dueno(c)), 'seguimientos', fu); }
     });
     // Seguimientos: notas...
     Object.keys(notas || {}).forEach(function(cid){
@@ -1764,7 +1812,14 @@
           var autor = porNombre[dzNorm(h.autor)];
           if (autor) poner(autor, 'seguimientos', f);
         }
-        if (h.tipo === 'avance' && dzNorm(h.valor) === 'cerrado' && agG && f) gestCerradas.push({ uid: agG, prop: g.propertyId || ('g:' + g.id), f: f });
+        if (h.tipo === 'avance' && dzNorm(h.valor) === 'cerrado' && f){
+          // El cierre es del asesor que lo registró aunque después la gestión haya
+          // cambiado de agente. Si lo marcó la Dirección, es del agente de la
+          // gestión; si lo cerró alguien que ya no está en el equipo, de nadie.
+          var cerro = h.autor ? porNombre[dzNorm(h.autor)] : null;
+          var quien = !h.autor ? agG : !cerro ? '' : esComercial(porUid[cerro]) ? cerro : agG;
+          if (quien) gestCerradas.push({ uid: quien, prop: g.propertyId || ('g:' + g.id), f: f });
+        }
       });
     });
     // Agenda: cuentan las que ya pasaron; las que vienen se avisan aparte.
@@ -1790,12 +1845,14 @@
     // Propiedades publicadas y cierres del mapa.
     props.forEach(function(p){
       var enTasacion = p.status === 'tasacion' || p.status === 'tasado';
-      poner(p.ownerId, enTasacion ? 'propiedadesEnTasacion' : 'propiedades', dzFecha(p.createdAt));
+      var fp = dzFecha(p.createdAt);
+      // La captación es de quien cargó la propiedad, no del que la recibió después.
+      poner(duenoEn(p, fp, p.ownerId), enTasacion ? 'propiedadesEnTasacion' : 'propiedades', fp);
       var c = p.cierre;
       if (c && typeof c === 'object'){
         var fc = dzFecha(c.fecha) || dzFecha(c.registradoEl);
         if (!fc) return;
-        var quienes = [c.agenteUid || p.ownerId];
+        var quienes = [c.agenteUid || duenoEn(p, fc, p.ownerId)];
         (Array.isArray(c.participantes) ? c.participantes : []).forEach(function(x){ if (x && x.uid) quienes.push(x.uid); });
         quienes.forEach(function(uid){
           if (uid) cierres[uid + '|' + p.id] = { uid: uid, f: fc, registrado: true, confirmado: p.cierreConfirmado === true };
@@ -1912,33 +1969,42 @@
         if (e.t === 'contactos') ct30++;
       } else if (edad <= 60 * DZ_DIA) a60++;
     });
-    var dias = null;
-    if (ultima){
-      var h0 = new Date(ahora); h0.setHours(0, 0, 0, 0);
-      var u0 = new Date(ultima); u0.setHours(0, 0, 0, 0);
-      dias = Math.max(0, Math.round((h0 - u0) / DZ_DIA));
-    }
-    var r = { a30: a30, a60: a60, dias: dias };
+    var dias = ultima ? dzDiasEntre(ultima, ahora) : null;
     var alta = dzFecha(u && u.createdAt);
-    var nuevo = alta && (ahora - alta) < 21 * DZ_DIA;
-    if (!a30 && nuevo){
-      r.estado = 'amarillo';
-      r.motivo = 'Ingresó hace ' + Math.max(1, Math.floor((ahora - alta) / DZ_DIA)) + ' días y todavía no registra actividad.';
+    var diasAlta = alta ? dzDiasEntre(+alta, ahora) : null;
+    var r = { a30: a30, a60: a60, dias: dias, diasAlta: diasAlta };
+    var ingreso = dzTextoIngreso(diasAlta);
+    // Recién entrado: todavía no hay nada que medir. Figura como "Nuevo" y no se
+    // lo pinta de amarillo ni de rojo por lo que no tuvo tiempo de hacer.
+    if (diasAlta !== null && diasAlta < DZ_NUEVO_DIAS){
+      r.estado = 'nuevo';
+      r.motivo = a30 ? ingreso + ': lleva ' + dzPlural(a30, 'acción registrada', 'acciones registradas') + '.'
+        : ingreso + ': está en su período de arranque.';
       return r;
     }
-    if (dias === null){ r.estado = 'rojo'; r.motivo = 'No tiene actividad registrada en el CRM.'; return r; }
-    if (!a30){ r.estado = 'rojo'; r.motivo = 'No registró actividad en los últimos 30 días (la última fue hace ' + dias + ' días).'; return r; }
-    if (dias >= 14){ r.estado = 'rojo'; r.motivo = 'Hace ' + dias + ' días que no registra actividad.'; return r; }
-    if (a60 >= 10 && a30 < a60 * 0.4){
-      r.estado = 'rojo';
-      r.motivo = 'Su actividad cayó fuerte: ' + a30 + ' acciones en los últimos 30 días contra ' + a60 + ' en los 30 anteriores.';
+    // Menos de un mes: no hay un mes anterior contra el cual compararlo, y lo
+    // peor que se le sugiere es amarillo.
+    var recien = diasAlta !== null && diasAlta < 30;
+    var ventana = recien ? 'desde que ingresó' : 'en 30 días';
+    if (dias === null){
+      r.estado = recien ? 'amarillo' : 'rojo';
+      r.motivo = recien ? ingreso + ' y todavía no registra actividad.' : 'No tiene actividad registrada en el CRM.';
       return r;
+    }
+    if (!recien){
+      if (!a30){ r.estado = 'rojo'; r.motivo = 'No registró actividad en los últimos 30 días (la última fue hace ' + dias + ' días).'; return r; }
+      if (dias >= 14){ r.estado = 'rojo'; r.motivo = 'Hace ' + dias + ' días que no registra actividad.'; return r; }
+      if (a60 >= 10 && a30 < a60 * 0.4){
+        r.estado = 'rojo';
+        r.motivo = 'Su actividad cayó fuerte: ' + a30 + ' acciones en los últimos 30 días contra ' + a60 + ' en los 30 anteriores.';
+        return r;
+      }
     }
     var m = [];
     if (dias >= 7) m.push('hace ' + dias + ' días que no registra actividad');
-    if (a60 > 0 && a30 < a60 * 0.8) m.push('bajó de ' + a60 + ' a ' + a30 + ' acciones en 30 días');
-    if (!vr30) m.push('no tuvo visitas ni reuniones en 30 días');
-    if (!ct30) m.push('no sumó contactos nuevos en 30 días');
+    if (!recien && a60 > 0 && a30 < a60 * 0.8) m.push('bajó de ' + a60 + ' a ' + a30 + ' acciones en 30 días');
+    if (!vr30) m.push('no tuvo visitas ni reuniones ' + ventana);
+    if (!ct30) m.push('no sumó contactos nuevos ' + ventana);
     if (m.length){
       r.estado = 'amarillo';
       r.motivo = m.join('; ').replace(/^./, function(c){ return c.toUpperCase(); }) + '.';
@@ -2051,7 +2117,7 @@
     var filas = dzAgentes().map(function(u){
       return { u: u, m: dzMetricas(u.id, meses), s: dzSugerencia(u.id, u), f: _dzFichas[u.id] || null };
     });
-    var PRI = { rojo: 0, amarillo: 1, verde: 2 };
+    var PRI = { rojo: 0, amarillo: 1, nuevo: 2, verde: 3 };
     filas.sort(function(a, b){
       if (_dzOrden === 'prioridad'){
         var d = (PRI[a.s.estado] - PRI[b.s.estado]) || ((dzVencida(b.f) ? 1 : 0) - (dzVencida(a.f) ? 1 : 0));
@@ -2059,7 +2125,7 @@
       }
       return (a.u.name || '').localeCompare(b.u.name || '', 'es', { sensitivity: 'base' });
     });
-    var cuenta = { verde: 0, amarillo: 0, rojo: 0 };
+    var cuenta = { verde: 0, amarillo: 0, rojo: 0, nuevo: 0 };
     filas.forEach(function(x){ cuenta[x.s.estado]++; });
     var venc = filas.filter(function(x){ return dzVencida(x.f); }).length;
     var h = '';
@@ -2071,9 +2137,11 @@
       '<div class="rs"><b class="dz-c-verde">' + cuenta.verde + '</b><span>En verde</span></div>' +
       '<div class="rs"><b class="dz-c-amarillo">' + cuenta.amarillo + '</b><span>En amarillo</span></div>' +
       '<div class="rs"><b class="dz-c-rojo">' + cuenta.rojo + '</b><span>En rojo</span></div>' +
+      (cuenta.nuevo ? '<div class="rs"><b class="dz-c-nuevo">' + cuenta.nuevo + '</b><span>' + (cuenta.nuevo === 1 ? 'Nuevo' : 'Nuevos') + '</span></div>' : '') +
       '<div class="rs"><b' + (venc ? ' class="dz-c-rojo"' : '') + '>' + (_dzFichasError ? '—' : venc) + '</b><span>Revisiones vencidas</span></div>' +
     '</div>';
     h += '<p class="dz-nota">El estado lo sugiere el CRM con la actividad de los últimos 30 días; en la ficha lo confirmás o lo cambiás. ' +
+      'Los que ingresaron hace menos de ' + DZ_NUEVO_DIAS + ' días figuran como <b>Nuevo</b>, y lo que reciben por un traspaso no cuenta como actividad suya. ' +
       'Los números grandes son de <b>' + dzNombreMes(meses[1]).toLowerCase() + '</b> y los chicos, de ' + dzNombreMes(meses[0]).toLowerCase() + '.' +
       (_dzFichasError ? ' <b>No se pudo leer el historial de reuniones.</b>' : '') + '</p>';
     if (!filas.length){
@@ -2091,8 +2159,9 @@
         '<span><i class="l">' + e[0] + '</i><i class="c">' + (e[1] || e[0]) + '</i></span><em>' + ab + ' ' + a + '</em></div>';
     };
     var e = DZ_ESTADOS[x.s.estado];
-    var ult = x.s.dias == null ? 'Sin actividad registrada'
-      : 'Última actividad: ' + (x.s.dias === 0 ? 'hoy' : x.s.dias === 1 ? 'ayer' : 'hace ' + x.s.dias + ' días');
+    var ult = x.s.dias != null
+      ? 'Última actividad: ' + (x.s.dias === 0 ? 'hoy' : x.s.dias === 1 ? 'ayer' : 'hace ' + x.s.dias + ' días')
+      : (x.s.diasAlta != null && x.s.diasAlta < 30 ? dzTextoIngreso(x.s.diasAlta) : 'Sin actividad registrada');
     var reu = '';
     if (x.f){
       var eF = DZ_ESTADOS[x.f.estado];
@@ -2143,7 +2212,8 @@
     var f = {
       id: null, agenteUid: uid, agenteNombre: u.name || u.email || 'Agente',
       fecha: hoy, lider: (miPerfil && miPerfil.name) || (yo && yo.email) || '',
-      estado: s.estado, estadoSugerido: s.estado, motivoSugerido: s.motivo,
+      // Con "Nuevo" la ficha arranca sin estado marcado: lo elige el líder.
+      estado: DZ_ESTADOS_FICHA.indexOf(s.estado) >= 0 ? s.estado : '', estadoSugerido: s.estado, motivoSugerido: s.motivo,
       meses: meses.map(function(k){ return { clave: k, etiqueta: dzNombreMes(k) }; }),
       actividad: act,
       objetivo20: '', objetivoMes: '',
@@ -2354,7 +2424,7 @@
         return '<button type="button" class="' + k + (f.estado === k ? ' on' : '') + '" data-estado="' + k + '"><i></i> ' + DZ_ESTADOS[k].txt + '</button>';
       }).join('') + '</div>' +
       (sug ? '<div class="fr-sug">Sugerido por el CRM: <b style="color:' + sug.col + '">' + sug.txt + '</b>. ' + esc(f.motivoSugerido) +
-        (f.estado !== f.estadoSugerido ? ' <button type="button" class="fr-link" data-estado="' + f.estadoSugerido + '">Usar el sugerido</button>' : '') + '</div>' : '') +
+        (f.estado !== f.estadoSugerido && DZ_ESTADOS_FICHA.indexOf(f.estadoSugerido) >= 0 ? ' <button type="button" class="fr-link" data-estado="' + f.estadoSugerido + '">Usar el sugerido</button>' : '') + '</div>' : '') +
       '</div></section>';
     // 2. Objetivos
     h += '<section class="fr-sec"><h4><span class="fr-num">2</span><span class="fr-h4t">Objetivos acordados</span>' +
@@ -2487,7 +2557,7 @@
 
   // ---- Acciones ----
   function frEstado(k){
-    if (!DZ_ESTADOS[k]) return;
+    if (DZ_ESTADOS_FICHA.indexOf(k) < 0) return;
     var f = _fr.ficha;
     f.estado = k;
     if (!_fr.revManual) f.compromisos.proximaRevision = dzSumarDias(f.fecha, DZ_REVISION[k]);

@@ -2675,6 +2675,12 @@ exports.traspasarCartera = onCall(async (request) => {
         ownerWhatsapp: admin.firestore.FieldValue.delete(),
         traspasoAt: ahora,
         updatedAt: ahora,
+        // De quién era: el Desempeño le sigue contando la captación a quien la
+        // cargó, no al que la recibió (igual que los clientes).
+        traspasos: admin.firestore.FieldValue.arrayUnion({
+          de: deUid, deNombre: de.name || de.email || "", a: aUid, aNombre,
+          fecha: ahora, por: email, motivo: "traspaso de cartera",
+        }),
       });
       resumen.propiedades++;
       if (p.mlItemId) propsConAviso.push({ id: doc.id, mlItemId: p.mlItemId });
@@ -2817,6 +2823,12 @@ exports.traspasarPropiedades = onCall(async (request) => {
       ownerId: aUid, ownerName: aNombre, agents: agentes,
       ownerWhatsapp: admin.firestore.FieldValue.delete(),
       traspasoAt: ahora, updatedAt: ahora,
+      // De quién era: el Desempeño le sigue contando la captación a quien la
+      // cargó, no al que la recibió.
+      traspasos: admin.firestore.FieldValue.arrayUnion({
+        de: p.ownerId || null, deNombre: p.ownerName || "", a: aUid, aNombre,
+        fecha: ahora, por: actor.email || actor.nombre || "", motivo: "traspaso de propiedades",
+      }),
     });
     resumen.propiedades++;
 
