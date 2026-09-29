@@ -303,6 +303,7 @@ async function crearNotificacion(destino, campos, push, idUnico) {
     createdAt: new Date().toISOString(),
     ...campos,
   };
+  let notifId = idUnico || "";
   if (idUnico) {
     try {
       await db.collection("notifications").doc(idUnico).create(doc);
@@ -318,42 +319,101 @@ async function crearNotificacion(destino, campos, push, idUnico) {
     }
   } else {
     try {
-      await db.collection("notifications").add(doc);
+      const ref = await db.collection("notifications").add(doc);
+      notifId = ref.id;
     } catch (e) { logger.warn("No se pudo crear la notificación:", e.message); }
   }
-  if (push && destino.fcmToken) {
-    try {
-      await admin.messaging().send({
-        token: destino.fcmToken,
-        notification: { title: push.title, body: push.body },
-        data: {
-          type: campos.type || "info",
-          // El service worker necesita estos datos para armar la notificación
-          // cuando la app está CERRADA: en segundo plano no tiene acceso al
-          // bloque 'notification', solo a 'data'.
-          title: String(push.title || ""),
-          body: String(push.body || ""),
-          propertyId: String(campos.propertyId || ""),
-        },
-        // Sin 'webpush.headers.Urgency: high' los navegadores pueden retrasar o
-        // directamente descartar el push cuando la pestaña no está activa. Es la
-        // causa habitual de que solo lleguen con la app abierta.
-        webpush: {
-          headers: { Urgency: "high", TTL: "86400" },
-          notification: {
-            title: push.title,
-            body: push.body,
-            icon: "/icon192.png",
-            badge: "/icon192.png",
-            requireInteraction: false,
-          },
-          fcmOptions: { link: "https://malaveinmobiliaria.com/index.html" },
-        },
-        android: { priority: "high" },
-        apns: { headers: { "apns-priority": "10" } },
-      });
-    } catch (e) { logger.warn("No se pudo enviar el push FCM:", e.message); }
+  if (push) await enviarPush(destino, campos, push, notifId);
+}
+
+// Tokens de TODOS los dispositivos del usuario (celular, compu…). Se leen del
+// perfil en el momento y no del objeto que trae cada llamador: muchos copian solo
+// fcmToken, y ese es el de UN dispositivo (el último que se abrió). Por eso antes
+// el push llegaba solo a ese: si el agente usaba el celular y la compu, al otro
+// no le llegaba nada.
+async function tokensPushDe(destino) {
+  let perfil = null, leido = false;
+  try {
+    const s = await db.doc(`users/${destino.uid}`).get();
+    leido = true;
+    if (s.exists) perfil = s.data() || {};
+  } catch (e) { logger.warn(`tokensPushDe: no se pudo leer el perfil de ${destino.uid}:`, e.message); }
+  const lista = [];
+  const sumar = (t) => { if (t && typeof t === "string" && !lista.includes(t)) lista.push(t); };
+  if (leido) {
+    // Lo que dice el perfil AHORA manda: si alguien cerró sesión en un dispositivo
+    // y sacó su token, no se le manda aunque el llamador traiga una copia vieja.
+    if (perfil && Array.isArray(perfil.fcmTokens)) perfil.fcmTokens.forEach(sumar);
+    if (perfil) sumar(perfil.fcmToken);
+    return { lista, principal: perfil ? perfil.fcmToken : null };
   }
+  // No se pudo leer el perfil: se usa el token que trajo el llamador (como antes).
+  sumar(destino.fcmToken);
+  return { lista, principal: destino.fcmToken };
+}
+
+// Manda el push a cada dispositivo. Los tokens que FCM da por muertos (la app
+// se desinstaló, se borraron los datos del navegador, se revocó el permiso) se
+// sacan del perfil para no seguir intentando.
+async function enviarPush(destino, campos, push, notifId) {
+  const { lista, principal } = await tokensPushDe(destino);
+  if (!lista.length) return;
+  const base = {
+    notification: { title: push.title, body: push.body },
+    data: {
+      type: campos.type || "info",
+      // El service worker necesita estos datos para armar la notificación
+      // cuando la app está CERRADA: en segundo plano no tiene acceso al
+      // bloque 'notification', solo a 'data'.
+      title: String(push.title || ""),
+      body: String(push.body || ""),
+      propertyId: String(campos.propertyId || ""),
+      // Con esto el clic en la notificación abre ESE aviso (y lo marca leído),
+      // y la página no lo repite si también lo avisa ella.
+      notifId: String(notifId || ""),
+      subtipo: String(campos.subtipo || ""),
+    },
+    // Sin 'webpush.headers.Urgency: high' los navegadores pueden retrasar o
+    // directamente descartar el push cuando la pestaña no está activa. Es la
+    // causa habitual de que solo lleguen con la app abierta.
+    webpush: {
+      headers: { Urgency: "high", TTL: "86400" },
+      notification: {
+        title: push.title,
+        body: push.body,
+        icon: "/icon-192.png",
+        badge: "/iso-malave-white.png",
+        requireInteraction: false,
+      },
+      fcmOptions: { link: "https://malaveinmobiliaria.com/index.html" + (notifId ? "?aviso=" + encodeURIComponent(notifId) : "") },
+    },
+    android: { priority: "high" },
+    apns: { headers: { "apns-priority": "10" } },
+  };
+  let res;
+  try {
+    res = await admin.messaging().sendEach(lista.map((token) => ({ ...base, token })));
+  } catch (e) {
+    logger.warn("No se pudo enviar el push FCM:", e.message);
+    return;
+  }
+  const muertos = [];
+  res.responses.forEach((r, i) => {
+    if (r.success) return;
+    const code = r.error && r.error.code;
+    if (code === "messaging/registration-token-not-registered" || code === "messaging/invalid-registration-token") muertos.push(lista[i]);
+    else logger.warn(`Push a ${destino.uid} falló:`, (r.error && r.error.message) || code);
+  });
+  if (!muertos.length) return;
+  const upd = { fcmTokens: admin.firestore.FieldValue.arrayRemove(...muertos) };
+  if (principal && muertos.includes(principal)) {
+    const vivos = lista.filter((t) => !muertos.includes(t));
+    upd.fcmToken = vivos.length ? vivos[vivos.length - 1] : admin.firestore.FieldValue.delete();
+  }
+  try {
+    await db.doc(`users/${destino.uid}`).update(upd);
+    logger.info(`enviarPush: ${muertos.length} dispositivo(s) sin push quitados de ${destino.uid}.`);
+  } catch (e) { logger.warn("No se pudieron limpiar los tokens muertos:", e.message); }
 }
 
 // Avisa de un error de Mercado Libre al agente dueño de la propiedad y al admin.

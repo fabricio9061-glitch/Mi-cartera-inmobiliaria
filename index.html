@@ -271,6 +271,140 @@
     .login-olvide a{ color:var(--gray-600,#5b6472); cursor:pointer; text-decoration:underline }
     .login-olvide a:hover{ color:var(--primary,#16273f) }
   </style>
+  <style>
+    /* ================================================================
+       CAMPANITA v3 — notificaciones agrupadas por día, con filtros, punto de
+       "sin leer" y acciones a un toque. Va acá (y no en styles.css) porque solo
+       la usa el inicio y así pisa a las reglas v2 sin tocar las demás páginas.
+       ================================================================ */
+    .notification-dropdown{ width:440px; max-height:min(610px, calc(100vh - 86px)); border-radius:16px; }
+    .notification-header{ padding:12px 10px 10px 16px; gap:8px; background:#fff; }
+    .notification-header h3{ font-family:'Jost',sans-serif; font-size:1.04rem; font-weight:600; color:#16273f; gap:9px; margin:0; flex:1; min-width:0; }
+    .nt-nuevas{ background:#f6efd9; color:#8a6a10; font-size:.68rem; font-weight:700; padding:3px 9px; border-radius:999px; letter-spacing:.01em; white-space:nowrap; }
+    .nt-volver{ display:none; border:none; background:transparent; width:36px; height:36px; border-radius:50%; color:#16273f; font-size:1rem; cursor:pointer; flex:none; align-items:center; justify-content:center; margin-left:-8px; }
+    .nt-volver:active{ background:#f2f4f7; }
+    .notification-actions{ gap:2px; flex:none; }
+    .notification-actions button{ color:#4b5563; font-size:.76rem; padding:7px 10px; border-radius:9px; }
+    .notification-actions button:hover:not([disabled]){ background:#f3f5f8; color:#16273f; }
+    .notification-actions button[disabled]{ opacity:.35; cursor:default; }
+    .notification-actions .btn-clear{ color:#9aa3ad; width:34px; justify-content:center; padding:7px 0; }
+    .notification-actions .btn-clear:hover:not([disabled]){ background:#fdecec; color:#b91c1c; }
+
+    .notif-filtros-bar .notif-filtros{ padding:8px 14px 10px; gap:6px; }
+    .notif-filtros-bar:empty{ display:none; }
+    .notif-chip{ display:inline-flex; align-items:center; gap:6px; padding:5px 12px; font-size:.76rem; color:#5b6472; border-color:#e5e8ec; }
+    .notif-chip:hover{ border-color:#C9A227; color:#16273f; }
+    .notif-chip.active{ background:#16273f; border-color:#16273f; color:#fff; }
+    .nt-chip-n{ min-width:17px; height:17px; padding:0 5px; border-radius:99px; background:#C9A227; color:#fff; font-size:.64rem; font-weight:700; display:inline-flex; align-items:center; justify-content:center; line-height:1; }
+    .notif-chip.active .nt-chip-n{ background:#fff; color:#16273f; }
+
+    .nt-grupo{ position:sticky; top:0; z-index:2; padding:10px 16px 5px; font-size:.64rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#98a1ac; background:#fff; box-shadow:0 1px 0 #f1f3f6; }
+
+    .nt-item{ position:relative; display:flex; gap:12px; padding:11px 10px 12px 16px; cursor:pointer; border-bottom:1px solid #f1f3f6; transition:background .15s; outline:none; }
+    .nt-item:hover{ background:#f8f9fb; }
+    .nt-item:focus-visible{ box-shadow:inset 0 0 0 2px #C9A227; }
+    .nt-item.nt-nueva{ background:#fcf9f0; }
+    .nt-item.nt-nueva:hover{ background:#f8f2e2; }
+    .nt-item.nt-foco{ animation:ntFoco 2.6s ease; }
+    @keyframes ntFoco{ 0%,45%{ background:#f3e6bf; box-shadow:inset 3px 0 0 #C9A227; } 100%{ box-shadow:inset 3px 0 0 transparent; } }
+    .nt-av{ position:relative; width:40px; height:40px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center; font-size:.95rem; }
+    .nt-av img{ width:100%; height:100%; border-radius:50%; object-fit:cover; }
+    .nt-c-lead{ background:linear-gradient(135deg,#16273f,#2e4a72); color:#fff; font-weight:600; font-size:.82rem; letter-spacing:.03em; }
+    .nt-c-azul{ background:#e3edfd; color:#1d4ed8; }
+    .nt-c-celeste{ background:#e0f2fe; color:#0369a1; }
+    .nt-c-rojo{ background:#fde8e8; color:#b91c1c; }
+    .nt-c-ambar{ background:#fdf1d4; color:#a15c07; }
+    .nt-c-naranja{ background:#ffedd9; color:#c2410c; }
+    .nt-c-verde{ background:#dcf5e5; color:#15803d; }
+    .nt-c-violeta{ background:#ede9fe; color:#6d28d9; }
+    .nt-c-indigo{ background:#e5e8ff; color:#4338ca; }
+    .nt-c-gris{ background:#eef1f5; color:#64748b; }
+    .nt-cuerpo{ flex:1; min-width:0; }
+    .nt-fila{ display:flex; align-items:baseline; gap:6px; min-width:0; }
+    .nt-tit{ font-size:.875rem; font-weight:600; color:#16273f; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .nt-nueva .nt-tit{ font-weight:700; }
+    .nt-via{ flex:none; font-size:.72rem; color:#8a94a1; white-space:nowrap; }
+    .nt-via::before{ content:'· '; }
+    .nt-hora{ flex:none; margin-left:auto; padding-left:6px; font-size:.7rem; color:#9aa3ad; white-space:nowrap; }
+    .nt-fila .nt-punto{ align-self:center; }
+    .nt-nueva .nt-hora{ color:#a5801a; font-weight:600; }
+    .nt-ctx{ margin-top:1px; font-size:.76rem; color:#6b7480; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .nt-txt{ margin-top:4px; font-size:.8rem; line-height:1.42; color:#4b5563; white-space:pre-line; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .nt-item:not(.nt-nueva) .nt-txt{ color:#6b7280; }
+    .nt-abierta .nt-txt{ display:block; -webkit-line-clamp:unset; line-clamp:unset; }
+    .nt-pista{ margin-top:5px; font-size:.72rem; color:#8a94a1; display:flex; flex-wrap:wrap; align-items:center; gap:3px 12px; }
+    .nt-pista span{ display:inline-flex; align-items:center; gap:5px; }
+    .nt-pista i{ font-size:.68rem; }
+    .nt-item .notif-acc{ margin-top:9px; gap:6px; }
+    .nt-item .notif-btn{ padding:6px 12px; font-size:.76rem; font-family:inherit; cursor:pointer; line-height:1.2; }
+    .notif-btn.ok{ border-color:#d9dee5; color:#16273f; }
+    .notif-btn.ok:hover{ border-color:#16273f; }
+    .notif-btn.peligro{ background:#b91c1c; border-color:#b91c1c; color:#fff; }
+    .notif-btn.peligro:hover{ background:#991b1b; border-color:#991b1b; }
+    .notif-btn[disabled]{ opacity:.55; cursor:default; transform:none; }
+    /* Punto de "sin leer": se toca para marcarla leída (o, en una leída, para
+       volver a dejarla sin leer; en la compu aparece al pasar el mouse). */
+    .nt-punto{ flex:none; width:22px; height:22px; margin:-4px -4px -4px 2px; border:none; background:transparent; padding:0; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    .nt-punto::after{ content:''; width:9px; height:9px; border-radius:50%; box-shadow:inset 0 0 0 1.5px transparent; transition:background .15s, box-shadow .15s; }
+    .nt-nueva .nt-punto::after{ background:#C9A227; }
+    .nt-punto:hover{ background:rgba(22,39,63,.06); }
+    @media (hover:hover){ .nt-item:not(.nt-nueva):hover .nt-punto::after{ box-shadow:inset 0 0 0 1.5px #c3cad3; } }
+    .nt-item:not(.nt-nueva) .nt-punto{ pointer-events:none; }
+    @media (hover:hover){ .nt-item:not(.nt-nueva) .nt-punto{ pointer-events:auto; } }
+
+    .nt-push{ display:flex; align-items:center; gap:11px; margin:10px 12px 6px; padding:10px 12px; border-radius:12px; background:#faf6ea; border:1px solid #f0e6c6; }
+    .nt-push > i{ color:#a5801a; font-size:.95rem; flex:none; }
+    .nt-push div{ flex:1; min-width:0; }
+    .nt-push b{ display:block; font-size:.8rem; color:#16273f; }
+    .nt-push span{ display:block; font-size:.72rem; color:#6b7480; line-height:1.35; }
+    .nt-push button{ flex:none; border:none; background:#C9A227; color:#fff; border-radius:9px; padding:7px 12px; font-family:inherit; font-size:.76rem; font-weight:600; cursor:pointer; }
+
+    .nt-vacio{ padding:46px 28px; text-align:center; color:#8a94a1; }
+    .nt-vacio i{ display:block; font-size:1.9rem; color:#cfd5dc; margin-bottom:12px; }
+    .nt-vacio b{ display:block; font-size:.92rem; color:#16273f; margin-bottom:4px; }
+    .nt-vacio span{ display:block; font-size:.8rem; line-height:1.45; max-width:300px; margin:0 auto; }
+    .nt-pie{ padding:12px 16px 16px; text-align:center; }
+    .nt-mas{ border:1px solid #e3e7ec; background:#fff; color:#16273f; border-radius:999px; padding:8px 18px; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; }
+    .nt-mas:hover:not([disabled]){ border-color:#C9A227; }
+    .nt-mas[disabled]{ opacity:.7; cursor:default; }
+
+    /* Cargando: renglones "fantasma" en vez de un spinner suelto. */
+    .nt-esq{ display:flex; gap:12px; padding:14px 16px; border-bottom:1px solid #f1f3f6; }
+    .nt-esq span{ width:40px; height:40px; border-radius:50%; flex:none; }
+    .nt-esq i{ flex:1; display:block; position:relative; height:40px; }
+    .nt-esq i::before, .nt-esq i::after{ content:''; position:absolute; left:0; height:10px; border-radius:6px; }
+    .nt-esq i::before{ top:5px; width:62%; }
+    .nt-esq i::after{ top:24px; width:88%; }
+    .nt-esq span, .nt-esq i::before, .nt-esq i::after{ background:linear-gradient(90deg,#f0f2f5 0%,#f7f8fa 50%,#f0f2f5 100%); background-size:200% 100%; animation:ntBrillo 1.2s linear infinite; }
+    @keyframes ntBrillo{ from{ background-position:200% 0; } to{ background-position:-200% 0; } }
+
+    /* Toast de un aviso nuevo: se toca y lleva a él. */
+    .toast.toast-aviso.tocable{ cursor:pointer; }
+    .toast.toast-aviso .toast-icon.nt-c-lead, .toast.toast-aviso .toast-icon[class*="nt-c-"]{ font-size:.95rem; }
+    .toast.toast-aviso .toast-content{ min-width:0; }
+    .toast.toast-aviso .toast-content p{ overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+
+    @media (max-width:640px){
+      .notification-dropdown{ width:100%; max-height:none; border-radius:0; }
+      .nt-volver{ display:flex; }
+      .notification-header{ padding:10px 8px 8px 16px; }
+      .notification-header h3{ font-size:1.12rem; }
+      .notification-actions span{ display:none; }
+      .notification-actions button{ width:40px; height:40px; justify-content:center; padding:0; font-size:.95rem; }
+      .notification-actions .btn-clear{ width:40px; }
+      .nt-item{ padding:13px 12px 13px 16px; }
+      .nt-av{ width:44px; height:44px; }
+      .nt-tit{ font-size:.92rem; }
+      .nt-ctx{ font-size:.8rem; }
+      .nt-txt{ font-size:.84rem; }
+      .nt-hora{ font-size:.72rem; }
+      .nt-item .notif-btn{ padding:8px 13px; font-size:.8rem; }
+      .nt-esq span{ width:44px; height:44px; }
+    }
+    @media (max-width:640px){
+      .notification-dropdown .notification-header{ padding-top:calc(10px + env(safe-area-inset-top, 0px)); }
+    }
+  </style>
 </head>
 <body>
       <div class="notification-overlay" id="notificationOverlay" onclick="closeNotifications()"></div>
@@ -281,7 +415,7 @@
         </div>
         <div class="as-body" id="agentSearchBody"></div>
       </div>
-      <div class="notification-dropdown" id="notificationDropdown"><div class="notification-header"><h3><i class="fas fa-comments"></i> Consultas</h3><div class="notification-actions"><button onclick="markAllAsRead(event)"><i class="fas fa-check-double"></i> Leídas</button><button class="btn-clear" onclick="clearAllNotifications(event)"><i class="fas fa-trash"></i> Limpiar</button></div></div><div class="notif-filtros-bar" id="notifFiltrosBar"></div><div class="notification-list" id="notificationList"><div class="notification-empty"><i class="fas fa-bell-slash"></i><p>No tenés consultas</p></div></div></div>
+      <div class="notification-dropdown" id="notificationDropdown" role="dialog" aria-label="Notificaciones"><div class="notification-header"><button class="nt-volver" onclick="closeNotifications()" aria-label="Volver"><i class="fas fa-arrow-left"></i></button><h3>Notificaciones <span class="nt-nuevas hidden" id="ntNuevas"></span></h3><div class="notification-actions"><button id="ntBtnLeidas" onclick="markAllAsRead(event)" title="Marcar todas como leídas" aria-label="Marcar todas como leídas"><i class="fas fa-check-double"></i><span>Marcar leídas</span></button><button id="ntBtnBorrar" class="btn-clear" onclick="clearAllNotifications(event)" title="Borrar las que ya leíste" aria-label="Borrar las notificaciones leídas"><i class="fas fa-trash-can"></i></button></div></div><div class="notif-filtros-bar" id="notifFiltrosBar"></div><div class="notification-list" id="notificationList"><div class="nt-vacio"><i class="fas fa-bell"></i><b>No tenés notificaciones</b></div></div></div>
 
   <!-- Banner para activar notificaciones. Arranca oculto (display:none) y solo
        lo muestra refrescarBannerNotif() cuando hay sesión y falta el permiso.
@@ -962,7 +1096,7 @@
   </script>
   <script src="malave-config.js?v=20260830b"></script>
   <script src="rangos.js?v=20260821l"></script>
-  <script src="app.js?v=20260929a"></script>
+  <script src="app.js?v=20260929n"></script>
   <!-- ====== MENÚ DEL VISITANTE (celular) ======
        En celular la barra oculta los enlaces del encabezado; este menú es la
        forma de llegar a "Vendé tu propiedad", "Trabajá con nosotros" y al acceso
@@ -1314,11 +1448,11 @@
     .testi-enviar:disabled{ opacity:.6; cursor:not-allowed; }
   </style>
 
-  <!-- Barra inferior móvil (solo usuarios logueados): Inicio · Consultas · Perfil · Menú -->
+  <!-- Barra inferior móvil (solo usuarios logueados): Inicio · Buscar · Avisos · Perfil · Menú -->
   <nav class="mv-bottombar hidden" id="mvBottomBar">
     <button class="bb-item active" id="bbInicio" onclick="bbGo('inicio')"><i class="fas fa-house"></i><span>Inicio</span></button>
     <button class="bb-item" id="bbBuscar" onclick="bbGo('buscar')"><i class="fas fa-magnifying-glass"></i><span>Buscar</span></button>
-    <button class="bb-item" id="bbNotif" onclick="bbGo('notif')"><i class="fas fa-bell"></i><span>Consultas</span><span class="bb-badge hidden" id="bbBadge">0</span></button>
+    <button class="bb-item" id="bbNotif" onclick="bbGo('notif')" aria-label="Notificaciones"><i class="fas fa-bell"></i><span>Avisos</span><span class="bb-badge hidden" id="bbBadge">0</span></button>
     <button class="bb-item" id="bbPerfil" onclick="bbGo('perfil')"><span class="bb-avatar" id="bbAvatar"><i class="fas fa-user"></i></span><span>Perfil</span></button>
     <button class="bb-item" id="bbMenu" onclick="bbGo('menu')"><i class="fas fa-bars"></i><span>Menú</span></button>
   </nav>

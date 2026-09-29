@@ -30,6 +30,10 @@
   // "Registration failed - push service error" y rompe la llamada. Aislando
   // Messaging en otra app, las llamadas a las funciones (estado/republicar/baja
   // de ML) dejan de verse afectadas.
+  // fcm-init.js (el de las demás páginas) usa esta MISMA app 'messaging': así
+  // cada dispositivo tiene UN solo token, lo registre la página que lo registre.
+  // Antes fcm-init usaba la app principal y cada dispositivo tenía dos tokens
+  // que se pisaban entre sí en el perfil a cada carga.
   let messaging = null;
   try {
     const msgApp = firebase.apps.find((a) => a.name === 'messaging') || firebase.initializeApp(firebaseConfig, 'messaging');
@@ -37,119 +41,147 @@
   } catch (e) {
     console.log('FCM no soportado en este navegador')
   }
+  // Esta página muestra sus propios avisos (campanita y toasts): fcm-init.js no
+  // registra nada ni muestra nada acá, para que ningún aviso salga dos veces.
+  window.__mvAvisosPropios = true;
 
-  // IMPORTANTE: Reemplazar con tu VAPID Key de Firebase Console
   const VAPID_KEY = 'BK8DjPgkooF91Ou9js1FOaX9VtJwVDqFaXpGePoYosqWcmpy5MBrtW0YauhWjWpYP1yUVvM9IzT4toFYLdEI8Ko';
+  let _miTokenPush = null;   // token de push de ESTE dispositivo (si lo hay)
 
   async function setupFCM() {
     if (!currentUser) return;
     try {
-      // 1. Verificar soporte de Service Worker
-      if (!('serviceWorker' in navigator)) {
-        console.log('Service Workers no soportados');
-        return;
-      }
-
-      // 2. Solicitar permiso de notificaciones
+      if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
+      // Si el permiso ya está concedido vuelve al instante, sin preguntar nada.
       const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        console.log('Permiso de notificaciones denegado');
-        return;
-      }
-
-      // messaging puede no estar listo todavía; lo inicializamos si hace falta.
-      if (!messaging && firebase.messaging) {
-        try { messaging = firebase.messaging(); } catch (e) { console.warn('messaging no disponible', e); return; }
-      }
+      if (permission !== 'granted') return;
       if (!messaging) return;
-
-      // 3. Registrar Service Worker
       const reg = await navigator.serviceWorker.register('firebase-messaging-sw.js');
-      console.log('Service Worker registrado:', reg.scope);
-
-      // 4. Esperar a que el SW esté activo
       await navigator.serviceWorker.ready;
-
-      // 5. Obtener token FCM
-      const token = await messaging.getToken({
-        vapidKey: VAPID_KEY,
-        serviceWorkerRegistration: reg
-      });
-
-      if (token) {
-        console.log('FCM Token obtenido:', token.substring(0, 20) + '...');
-
-        // 6. Guardar token en Firestore
-        const userRef = db.collection('users').doc(currentUser.uid);
-        const doc = await userRef.get();
-        const currentToken = doc.data()?.fcmToken;
-
-        if (currentToken !== token) {
-          await userRef.update({
-            fcmToken: token,
-            fcmTokenUpdatedAt: new Date().toISOString(),
-            notificationsEnabled: true,
-            deviceInfo: {
-              userAgent: navigator.userAgent,
-              platform: navigator.platform,
-              language: navigator.language
-            }
-          });
-          console.log('FCM Token guardado en Firestore');
-          showToast('Notificaciones activadas', 'Vas a recibir alertas de tus eventos', 'fa-bell');
-        }
-      } else {
-        console.log('No se pudo obtener token FCM');
-      }
+      const token = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+      if (!token) { console.log('No se pudo obtener token FCM'); return; }
+      _miTokenPush = token;
+      window.__mvTokenPush = token;
+      await guardarTokenPush(token);
     } catch (err) {
       console.error('Error configurando FCM:', err);
-      // No mostrar error al usuario, las notificaciones locales seguirán funcionando
+      // Sin push igual quedan la campanita en vivo y los avisos con la app abierta.
     }
   }
 
-  // Escuchar notificaciones en primer plano
-  if (messaging) {
-    messaging.onMessage(payload => {
-      console.log('Notificación recibida en primer plano:', payload);
-      const n = payload.notification || {};
-      const d = payload.data || {};
-      showToast(n.title || d.title || 'Recordatorio', n.body || d.body || 'Tenés un evento próximo', 'fa-bell');
-      // También mostrar notificación nativa si está en primer plano
-      if (Notification.permission === 'granted') {
-        new Notification(n.title || 'Recordatorio', {
-          body: n.body || 'Tenés un evento próximo',
-          icon: 'https://cdn-icons-png.flaticon.com/512/1946/1946488.png',
-          badge: 'https://cdn-icons-png.flaticon.com/128/1946/1946488.png',
-          vibrate: [200, 100, 200]
-        });
-      }
-    });
+  // Guarda el token del dispositivo en el perfil, solo si algo cambió.
+  // - fcmToken: el del último dispositivo usado (lo que leían las versiones
+  //   anteriores del servidor, que mandaban a UN solo dispositivo).
+  // - fcmTokens: los de TODOS los dispositivos del usuario. Con esto el push
+  //   llega al celular Y a la compu; antes llegaba solo al último que se abrió.
+  async function guardarTokenPush(token) {
+    if (!currentUser) return;
+    const ref = db.collection('users').doc(currentUser.uid);
+    const snap = await ref.get();
+    const d = (snap.exists && snap.data()) || {};
+    if (d.fcmToken !== token) {
+      await ref.update({
+        fcmToken: token,
+        fcmTokenUpdatedAt: new Date().toISOString(),
+        notificationsEnabled: true,
+        deviceInfo: { userAgent: navigator.userAgent, platform: navigator.platform, language: navigator.language }
+      });
+      console.log('FCM Token guardado en Firestore');
+    }
+    if (!(Array.isArray(d.fcmTokens) && d.fcmTokens.includes(token))) {
+      // Escritura aparte: si las reglas no dejaran escribir este campo, lo de
+      // arriba ya quedó guardado y el push sigue andando como antes.
+      try { await ref.update({ fcmTokens: firebase.firestore.FieldValue.arrayUnion(token) }); }
+      catch (e) { console.warn('No se pudo sumar este dispositivo a fcmTokens:', e && e.message); }
+    }
   }
 
-  // Escuchar mensajes del Service Worker (cuando hace clic en notificación)
+  // Al salir de la cuenta, este dispositivo deja de recibir los push de ESTA
+  // cuenta (si no, en una compu compartida le seguirían llegando los avisos del
+  // anterior). Tiene tope de tiempo: nunca demora la salida más de 1,5 s.
+  async function quitarTokenDeEsteDispositivo() {
+    const tok = _miTokenPush;
+    if (!tok || !currentUser) return;
+    const ref = db.collection('users').doc(currentUser.uid);
+    const trabajo = (async () => {
+      const snap = await ref.get();
+      const d = (snap.exists && snap.data()) || {};
+      if (d.fcmToken === tok) {
+        const otros = (Array.isArray(d.fcmTokens) ? d.fcmTokens : []).filter((t) => t && t !== tok);
+        await ref.update({ fcmToken: otros.length ? otros[otros.length - 1] : firebase.firestore.FieldValue.delete() });
+      }
+      if (Array.isArray(d.fcmTokens) && d.fcmTokens.includes(tok)) {
+        await ref.update({ fcmTokens: firebase.firestore.FieldValue.arrayRemove(tok) });
+      }
+    })();
+    await Promise.race([trabajo.catch(() => {}), new Promise((r) => setTimeout(r, 1500))]);
+    _miTokenPush = null;
+    window.__mvTokenPush = null;
+  }
+
+  // Push que llega con la app ABIERTA y a la vista: el service worker no muestra
+  // la notificación del sistema y se lo pasa a la página. La campanita ya se
+  // entera sola por el listener en vivo (con su toast), así que acá solo se
+  // muestra algo si el listener no está andando. Antes el mismo aviso salía hasta
+  // tres veces: el toast de acá, una notificación de acá y otra de fcm-init.js.
+  // Tipos que crea el servidor junto con su aviso en la campanita.
+  const _TIPOS_CAMPANITA = new Set(['ml_lead', 'consulta_infocasas', 'lead_portal', 'crm_seguimiento', 'crm_pausa',
+    'vencimiento_alquiler', 'ficha_incompleta', 'despublicar_confirmar', 'baja_resuelta', 'propiedad_reservada',
+    'destacado_vencido', 'portal_publicada', 'portal_sin_cupo', 'portal_error', 'ml_error', 'refresh_token',
+    'authorization_code', 'retiro', 'retiro_estado', 'admin_pendiente', 'postulacion', 'revision_rechazada', 'info']);
+  function pushEnPrimerPlano(p) {
+    const d = (p && p.datos) || {};
+    // Si es un aviso de la campanita y el listener en vivo anda, el toast lo pone
+    // él. Los push que no tienen aviso en la campanita (por ejemplo, los
+    // recordatorios de la agenda) se muestran acá siempre.
+    const deLaCampanita = !!d.notifId || _TIPOS_CAMPANITA.has(d.type);
+    if (deLaCampanita && (_notifUnsub || notificationCheckInterval)) return;
+    const agenda = !!d.visitId || /recordatorio|reminder|visita|agenda|evento/i.test(d.type || '');
+    const url = (p && p.url) || (agenda ? 'agenda.html' : '');
+    toastAviso({
+      titulo: (p && p.titulo) || 'MALAVE',
+      texto: (p && p.cuerpo) || '',
+      icono: agenda ? 'fa-calendar-alt' : 'fa-bell',
+      alTocar: url ? () => irAUrlDeAviso(url) : null
+    });
+  }
+  if (messaging) {
+    // Solo lo usa la versión ANTERIOR del service worker (la nueva manda 'mvPush').
+    try {
+      messaging.onMessage(payload => {
+        const n = (payload && payload.notification) || {}, d = (payload && payload.data) || {};
+        pushEnPrimerPlano({ titulo: n.title || d.title, cuerpo: n.body || d.body, datos: d });
+      });
+    } catch (e) { /* sin soporte */ }
+  }
+
+  // Mensajes del service worker: push con la app a la vista (mvPush) y clic en
+  // una notificación del sistema estando esta pestaña abierta (mvAbrir).
+  // Al push se le contesta "lo mostré": si ninguna pestaña contesta, el service
+  // worker muestra la notificación del sistema igual.
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', event => {
-      console.log('Mensaje del SW:', event.data);
-      if (event.data?.action === 'openCalendar') {
-        openCalendarModal();
+      const m = event.data || {};
+      if (m.mvPush) {
+        pushEnPrimerPlano(m);
+        try { if (event.ports && event.ports[0]) event.ports[0].postMessage({ mostrado: true }); } catch (e) { /* sin canal */ }
       }
+      else if (m.mvAbrir) abrirAvisoDesdeUrl(m.mvAbrir);
+      else if (m.action === 'openCalendar') openCalendarModal();   // versión anterior del service worker (igual que antes)
     });
   }
 
-  // Función para enviar notificación de prueba (para debug)
+  // Prueba (para soporte): muestra un aviso del sistema en este dispositivo.
   async function testNotification() {
-    if (Notification.permission === 'granted') {
-      new Notification('🔔 Notificación de prueba', {
-        body: '¡Las notificaciones están funcionando correctamente!',
-        icon: 'https://cdn-icons-png.flaticon.com/512/1946/1946488.png',
-        vibrate: [200, 100, 200, 100, 200]
-      });
-      showToast('Test exitoso', 'Las notificaciones locales funcionan', 'fa-check');
-    } else {
-      const perm = await Notification.requestPermission();
-      if (perm === 'granted') testNotification();
-      else showToast('Permiso denegado', 'Habilitá las notificaciones en tu navegador', 'fa-exclamation-triangle');
-    }
+    if (!('Notification' in window)) { showToast('Sin soporte', 'Este navegador no muestra notificaciones', 'fa-bell-slash'); return; }
+    let perm = Notification.permission;
+    if (perm !== 'granted') perm = await Notification.requestPermission();
+    if (perm !== 'granted') { showToast('Permiso denegado', 'Habilitá las notificaciones en tu navegador', 'fa-exclamation-triangle'); return; }
+    const ok = await mostrarAvisoSistema('🔔 Notificación de prueba', {
+      body: '¡Las notificaciones están funcionando correctamente!', tag: 'mv-prueba', data: { url: 'index.html?avisos=1' }
+    });
+    if (ok) showToast('Test exitoso', 'Las notificaciones de este dispositivo funcionan', 'fa-check');
+    else showToast('No se pudo mostrar', 'El navegador no dejó mostrar la notificación', 'fa-exclamation-triangle');
   }
 
     const uruguayData = {
@@ -388,6 +420,7 @@
       if (Notification.permission === 'granted') {
         showToast('¡Listo!', 'Notificaciones activadas correctamente', 'fa-bell');
         ocultarBannerNotif();
+        renderNotifications();
       } else {
         showToast('No se activaron', 'No diste permiso de notificaciones', 'fa-bell-slash');
       }
@@ -418,19 +451,33 @@
     const b = document.getElementById('notifBanner'); if (b) b.style.display = 'none';
   }
 
-  function sendBrowserNotification(t, b, tag = 'notification') {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      const notif = new Notification(t, {
-        body: b,
-        icon: 'https://cdn-icons-png.flaticon.com/512/1946/1946488.png',
-        badge: 'https://cdn-icons-png.flaticon.com/128/1946/1946488.png',
-        tag: tag,
-        renotify: true,
-        vibrate: [200, 100, 200]
-      });
-      notif.onclick = () => window.focus();
-    }
+  // Aviso del SISTEMA (el que aparece fuera de la página, como un push).
+  // Se muestra a través del service worker: así anda también en Android —donde
+  // `new Notification()` no existe y tiraba error— y el clic lo maneja el
+  // service worker, que enfoca la app o abre el lugar correcto. Si no hay
+  // service worker se usa el aviso simple del navegador. Devuelve true si salió.
+  async function mostrarAvisoSistema(titulo, opciones) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+    const o = Object.assign({ icon: 'icon-192.png', badge: 'iso-malave-white.png' }, opciones || {});
+    try {
+      const reg = ('serviceWorker' in navigator) ? await navigator.serviceWorker.getRegistration() : null;
+      if (reg && reg.showNotification) { await reg.showNotification(titulo, o); return true; }
+    } catch (e) { /* se intenta con el aviso simple */ }
+    try {
+      const simple = Object.assign({}, o);
+      delete simple.actions;   // las acciones solo existen en los avisos del service worker
+      const n = new Notification(titulo, simple);
+      n.onclick = () => {
+        window.focus();
+        const u = o.data && o.data.url;
+        if (u) irAUrlDeAviso(u);
+        n.close();
+      };
+      return true;
+    } catch (e) { return false; }
   }
+  // Nombre anterior, por compatibilidad.
+  function sendBrowserNotification(t, b, tag) { return mostrarAvisoSistema(t, { body: b, tag: tag || undefined }); }
 
   async function uploadImageToStorage(f, p, i) {
     const n = `${Date.now()}_${i}_${f.name.replace(/[^a-zA-Z0-9.]/g,'_')}`,
@@ -884,6 +931,11 @@
       const title = v.title || evLabel;
       const detail = v.clientName ? ` - ${v.clientName}` : '';
 
+      // Los avisos del sistema salen por el service worker (mostrarAvisoSistema).
+      // Antes se usaba `new Notification(...)`: en Android no existe y en la compu
+      // no acepta "acciones", así que tiraba error ANTES de guardar reminded24h /
+      // reminded2h y el recordatorio se repetía cada minuto. Ahora el aviso no
+      // puede frenar el guardado.
       try {
         // RECORDATORIO 24H
         if (v.reminder24h && !v.reminded24h && h <= 24 && h > 2) {
@@ -892,23 +944,10 @@
 
           // Toast en la app
           showToast(notifTitle, notifBody, 'fa-calendar-alt');
-
-          // Notificación del sistema (funciona aunque la pestaña esté en segundo plano)
-          if (Notification.permission === 'granted') {
-            const notif = new Notification(notifTitle, {
-              body: notifBody,
-              icon: 'https://cdn-icons-png.flaticon.com/512/1946/1946488.png',
-              badge: 'https://cdn-icons-png.flaticon.com/128/1946/1946488.png',
-              tag: 'reminder-24h-' + v.id,
-              renotify: true,
-              requireInteraction: true,
-              vibrate: [200, 100, 200]
-            });
-            notif.onclick = () => {
-              window.focus();
-              openCalendarModal()
-            };
-          }
+          // Notificación del sistema (se ve aunque la pestaña esté en segundo plano)
+          mostrarAvisoSistema(notifTitle, {
+            body: notifBody, tag: 'reminder-24h-' + v.id, requireInteraction: true, data: { url: 'agenda.html' }
+          });
 
           await db.collection('visits').doc(v.id).update({
             reminded24h: true
@@ -925,27 +964,11 @@
 
           // Toast en la app
           showToast(notifTitle, notifBody, 'fa-clock');
-
           // Notificación del sistema
-          if (Notification.permission === 'granted') {
-            const notif = new Notification(notifTitle, {
-              body: notifBody,
-              icon: 'https://cdn-icons-png.flaticon.com/512/1946/1946488.png',
-              badge: 'https://cdn-icons-png.flaticon.com/128/1946/1946488.png',
-              tag: 'reminder-2h-' + v.id,
-              renotify: true,
-              requireInteraction: true,
-              vibrate: [200, 100, 200, 100, 200],
-              actions: [{
-                action: 'open',
-                title: 'Ver agenda'
-              }]
-            });
-            notif.onclick = () => {
-              window.focus();
-              openCalendarModal()
-            };
-          }
+          mostrarAvisoSistema(notifTitle, {
+            body: notifBody, tag: 'reminder-2h-' + v.id, requireInteraction: true, data: { url: 'agenda.html' },
+            actions: [{ action: 'open', title: 'Ver agenda' }]
+          });
 
           await db.collection('visits').doc(v.id).update({
             reminded2h: true
@@ -965,34 +988,94 @@
     visitReminderInterval = setInterval(checkVisitReminders, 60000)
   }
 
-  // Notifications
-  // Consultas del agente: EN VIVO. Antes se releían las 50 cada 10 segundos —50
-  // lecturas × 6 por minuto por cada agente con el inicio abierto, unas 18.000
-  // lecturas por hora aunque no llegara nada—. Con un listener, Firestore manda
-  // la lista una vez y después solo lo que cambia: la consulta nueva aparece al
-  // instante y cuesta una lectura, no cincuenta.
-  // Mismo pedido que antes: índice compuesto (ownerId, createdAt desc). Si el
-  // listener falla, se vuelve al sondeo viejo (más espaciado) para no quedar ciego.
+  // ==========================================================================
+  // NOTIFICACIONES (la campanita)
+  // --------------------------------------------------------------------------
+  // EN VIVO: Firestore manda la lista una vez y después solo lo que cambia (una
+  // lectura por aviso nuevo, no cincuenta cada 10 segundos). Mismo pedido de
+  // siempre: índice compuesto (ownerId, createdAt desc). Si el listener falla,
+  // se vuelve al sondeo cada 30 s para no quedar ciego.
+  // Las 50 más nuevas quedan en vivo; "Ver anteriores" trae de a 30 más.
+  // ==========================================================================
+  const NOTIF_LIMITE = 50;
+  const NOTIF_PAGINA = 30;
   let _notifUnsub = null, _notifPrimera = true, _notifUltimoMs = 0, _pendInterval = null;
   let _notifsCargadas = false;
+  let _notifVivas = [];                 // la ventana en vivo (las 50 más nuevas)
+  let _notifViejas = [];                // lo que se trajo con "Ver anteriores"
+  let _notifSueltas = [];               // traídas de a una (un push de un aviso muy viejo)
+  let _notifHayMasViejas = false;
+  let _notifCargandoMas = false;
+  const _notifAnunciadas = new Set();   // ya avisadas con toast o aviso del sistema
+  let _notifReloj = null;               // repinta "hace X min" con el panel abierto
+  let _notifFoco = null;                // { id, hasta }: la que se resalta al abrir desde un aviso
+  const _notifAbiertas = new Set();     // tarjetas desplegadas (texto completo)
+  let _avisoPendiente = null;           // ?aviso=ID en la dirección (viene de tocar un push)
   const _msDe = (v) => (v && typeof v.toMillis === 'function') ? v.toMillis() : (Date.parse(v) || 0);
+
+  // Viene de tocar una notificación del sistema: index.html?aviso=ID abre la
+  // campanita en ese aviso (y ?avisos=1, la campanita). Se limpia la dirección
+  // para que al recargar no se vuelva a abrir.
+  (function leerAvisoDeLaDireccion() {
+    try {
+      const u = new URL(window.location.href);
+      const id = u.searchParams.get('aviso');
+      if (!id && !u.searchParams.has('avisos')) return;
+      _avisoPendiente = { id: id || null };
+      u.searchParams.delete('aviso'); u.searchParams.delete('avisos');
+      history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+    } catch (e) { /* navegador viejo: se ignora */ }
+  })();
+
   function procesarNotificaciones(nn) {
     // Solo se avisa lo que es NUEVO de verdad (creado después de lo último que se
-    // vio): si se borra una consulta y entra una vieja en la ventana de 50, esa no
-    // es "nueva" aunque esté sin leer.
-    if (!_notifPrimera) {
-      nn.filter(n => !n.read && _msDe(n.createdAt) > _notifUltimoMs).forEach(n => {
-        showToast('Nueva consulta', `${n.userName} consultó sobre "${n.propertyTitle}"`, 'fa-comment');
-        sendBrowserNotification('Nueva consulta', `${n.userName} consultó sobre "${n.propertyTitle}"`)
-      });
-    }
+    // vio): si se borra un aviso y entra uno viejo en la ventana de 50, ese no es
+    // "nuevo" aunque esté sin leer.
+    const nuevas = _notifPrimera ? [] : nn.filter(n => !n.read && !_notifAnunciadas.has(n.id) && _msDe(n.createdAt) > _notifUltimoMs);
     _notifPrimera = false;
     nn.forEach(n => { const ms = _msDe(n.createdAt); if (ms > _notifUltimoMs) _notifUltimoMs = ms; });
-    notifications = nn;
+    // Si ya se estaba mirando más atrás, lo que se cae de la ventana en vivo
+    // (porque entró uno nuevo arriba) pasa a "anteriores": no desaparece de golpe.
+    if (_notifViejas.length) {
+      const ids = new Set(nn.map(n => n.id));
+      const caidas = _notifVivas.filter(v => !ids.has(v.id));
+      _notifViejas = caidas.concat(_notifViejas).filter((v, i, a) => !ids.has(v.id) && a.findIndex(x => x.id === v.id) === i);
+    }
+    _notifVivas = nn;
+    unirNotificaciones();
     _notifsCargadas = true;
     sanearDespublicaciones();
-    renderNotifications()
+    renderNotifications();
+    if (nuevas.length) anunciarNuevas(nuevas);
+    aplicarAvisoPendiente();
   }
+  // Una sola lista, de la más nueva a la más vieja (la usan también las
+  // decisiones de despublicación y la bandeja vieja).
+  function unirNotificaciones() {
+    const ids = new Set();
+    notifications = _notifVivas.concat(_notifViejas, _notifSueltas)
+      .filter(n => !ids.has(n.id) && ids.add(n.id))
+      .sort((a, b) => _msDe(b.createdAt) - _msDe(a.createdAt));
+  }
+  function buscarAviso(id) { return notifications.find(n => n.id === id) || null; }
+  function quitarAvisosLocales(ids) {
+    const s = ids instanceof Set ? ids : new Set(ids);
+    _notifVivas = _notifVivas.filter(n => !s.has(n.id));
+    _notifViejas = _notifViejas.filter(n => !s.has(n.id));
+    _notifSueltas = _notifSueltas.filter(n => !s.has(n.id));
+    unirNotificaciones();
+  }
+  // ¿Puede haber más avisos atrás de los que están cargados?
+  function hayMasAtras() {
+    return _notifViejas.length ? _notifHayMasViejas : _notifVivas.length >= NOTIF_LIMITE;
+  }
+  // El más viejo de lo cargado EN ORDEN (ventana en vivo + páginas): desde ahí
+  // sigue "Ver anteriores". Las sueltas no cuentan (saltearían avisos del medio).
+  function _cursorNotif() {
+    const l = _notifViejas.length ? _notifViejas : _notifVivas;
+    return l.reduce((min, n) => (!min || _msDe(n.createdAt) < _msDe(min.createdAt)) ? n : min, null);
+  }
+
   async function loadNotifications() {
     if (!currentUser) return;
     if (_notifUnsub) return;   // en vivo: ya está al día
@@ -1001,7 +1084,7 @@
       const s = await db.collection('notifications')
         .where('ownerId', '==', currentUser.uid)
         .orderBy('createdAt', 'desc')
-        .limit(50)
+        .limit(NOTIF_LIMITE)
         .get();
       procesarNotificaciones(s.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
@@ -1023,10 +1106,10 @@
       _notifUnsub = db.collection('notifications')
         .where('ownerId', '==', uid)
         .orderBy('createdAt', 'desc')
-        .limit(50)
+        .limit(NOTIF_LIMITE)
         .onSnapshot(
           s => procesarNotificaciones(s.docs.map(d => ({ id: d.id, ...d.data() }))),
-          err => { console.warn('Consultas en vivo no disponibles, se consulta cada 30 s:', err && err.message); _notifUnsub = null; sondear(); }
+          err => { console.warn('Notificaciones en vivo no disponibles, se consulta cada 30 s:', err && err.message); _notifUnsub = null; sondear(); }
         );
     } catch (e) { _notifUnsub = null; sondear(); }
     // Registros pendientes de aprobación (Dirección): cambian poco, alcanza con
@@ -1042,13 +1125,16 @@
     }
     if (_pendInterval) { clearInterval(_pendInterval); _pendInterval = null; }
     _notifsCargadas = false;
+    _notifVivas = []; _notifViejas = []; _notifSueltas = []; _notifHayMasViejas = false; _notifCargandoMas = false;
+    _notifAnunciadas.clear();
+    detenerRelojPanel();
+    pintarContadores(0, false);
   }
 
-
+  // ---- Datos del interesado (consultas de portales) ----
   // De las consultas de portales, lo que se necesita para actuar está adentro del
-  // texto: nombre, teléfono y correo del interesado. Antes había que abrir la
-  // notificación y copiar el número a mano, y encima el texto se cortaba justo
-  // ahí. Esto lo saca afuera y lo deja a un toque.
+  // texto: nombre, teléfono y correo del interesado. Esto lo saca afuera y lo deja
+  // a un toque (WhatsApp, Llamar, Mail).
   // El agente que trabaja la propiedad: la Dirección recibe las de todo el equipo
   // y sin esto no sabe de quién es hasta entrar.
   function notifAgente(n) {
@@ -1118,23 +1204,13 @@
     const msg = encodeURIComponent('Hola, te contacto de MALAVE Inmobiliaria por tu consulta' + (titulo ? ' sobre ' + titulo : '') + '.');
     return 'https://wa.me/' + n2 + '?text=' + msg;
   }
-
-  // Caja de mensaje de las notificaciones. Existe para que las 9 plantillas
-  // dibujen exactamente lo mismo: antes cada una recortaba a un largo distinto
-  // (140, 150, 160, 170) y encima el CSS volvía a recortar por altura, así que
-  // el resultado dependía de cuál te tocara.
-  // El texto va dentro de un <span>: el recorte por líneas (-webkit-line-clamp)
-  // tiene que ir en un elemento SIN padding, porque el overflow corta en el borde
-  // del padding y no del contenido — por eso se veía media línea asomando abajo
-  // de la caja gris. La caja (fondo, padding, barra lateral) queda en el div y el
-  // recorte en el span.
+  // Caja de mensaje y línea gris (versión anterior de las tarjetas; quedan por
+  // compatibilidad con código que todavía las use).
   function notifMsg(text) {
     const t = String(text == null ? '' : text).trim();
     if (!t) return '';
     return `<div class="notification-message"><span>${mvEsc(t)}</span></div>`;
   }
-  // Segunda línea, gris: el contexto (normalmente la propiedad). Va aparte del
-  // titular para que en cada tarjeta haya UNA sola cosa en negrita.
   function notifSub(text) {
     const t = String(text == null ? '' : text).trim();
     return t ? `<div class="notif-sub">${mvEsc(t)}</div>` : '';
@@ -1230,185 +1306,767 @@
       renderNotifications();
     } catch (e) { /* sin nombre: la tarjeta se muestra igual */ }
   }
-  function tarjetaDespub(n) {
-    const e = estadoDespub(n);
-    const ts = n.createdAt ? formatTimeAgo(n.createdAt) : '';
-    if (!e.pendiente) {
-      const R = {
-        despublicada: { t: 'Despublicada', ic: 'fa-box-archive', bg: '#f1f5f9', fg: '#64748b' },
-        mantenida:    { t: 'Se mantuvo publicada', ic: 'fa-circle-check', bg: '#dcfce7', fg: '#15803d' },
-        eliminada:    { t: 'La propiedad ya no existe', ic: 'fa-trash-can', bg: '#f1f5f9', fg: '#64748b' }
-      }[e.resultado] || { t: 'Ya resuelta', ic: 'fa-check', bg: '#f1f5f9', fg: '#64748b' };
-      const por = e.por ? ` por ${mvEsc(String(e.por).split(' ')[0])}` : '';
-      const cuando = e.at ? formatTimeAgo(e.at) : ts;
-      return `<div class="notification-item ${n.read ? '' : 'unread'}" onclick="verPropDesdeNotif(event,'${n.propertyId}')"><div class="notification-avatar" style="background:${R.bg};color:${R.fg}"><i class="fas ${R.ic}"></i></div><div class="notification-body"><p><strong>${R.t}${por}</strong></p>${notifSub(n.propertyTitle)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${cuando}</span></div></div></div>`;
-    }
-    const prop = window._propsCargadas ? properties.find(x => x.id === n.propertyId) : null;
-    const m = motivoDespub(n, prop);
-    if (!m.solicitante && !n.solicitadoPor && /\(propietario\)/.test(n.text || '')) completarSolicitanteDespub(n);
-    const lineas = [m.texto, m.solicitante ? `Solicitado por ${m.solicitante}` : ''].filter(Boolean).map(mvEsc).join('<br>');
-    const btn = 'border-radius:8px;padding:8px 14px;font-family:inherit;font-size:.8rem;font-weight:700;cursor:pointer';
-    return `<div class="notification-item ${n.read ? '' : 'unread'}" onclick="verPropDesdeNotif(event,'${n.propertyId}')"><div class="notification-avatar" style="background:#fee2e2;color:#b91c1c"><i class="fas fa-house-circle-xmark"></i></div><div class="notification-body"><p><strong>¿Despublicar propiedad?</strong></p>${notifSub(n.propertyTitle)}${lineas ? `<div class="notification-message"><span>${lineas}</span></div>` : ''}<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button onclick="confirmarDespublicacion(event,'${n.id}','${n.propertyId}')" style="border:none;background:#b91c1c;color:#fff;${btn}"><i class="fas fa-box-archive"></i> Despublicar</button><button onclick="mantenerPublicada(event,'${n.id}','${n.propertyId}')" style="border:1px solid var(--gray-200,#e5e7eb);background:#fff;color:var(--gray-600,#555);${btn}">Mantener</button></div><div class="notification-meta" style="margin-top:6px"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`;
-  }
 
-  function renderNotifications() {
-    const b = document.getElementById('notificationBadge'),
-      be = document.getElementById('notificationBell'),
-      l = document.getElementById('notificationList'),
-      uc = notifications.filter(n => !n.read).length;
-    // Espejo del contador en la barra inferior móvil
-    const bb = document.getElementById('bbBadge');
-    if (bb) { bb.textContent = uc > 99 ? '99+' : uc; bb.classList.toggle('hidden', uc === 0); }
-    if (uc > 0) {
-      b.textContent = uc > 99 ? '99+' : uc;
-      b.classList.remove('hidden');
-      be.classList.add('has-unread')
-    } else {
-      b.classList.add('hidden');
-      be.classList.remove('has-unread')
+  // ---- Catálogo: cómo se ve y adónde lleva cada tipo de aviso ----
+  // UN solo lugar para todos los tipos que crea el servidor. Antes cada tipo tenía
+  // su plantilla y los que no tenían (reservas, destacados, portales, postulaciones,
+  // informes rechazados…) caían en la de "consulta": salían con la inicial de un
+  // emoji como avatar y, al tocarlos, abrían una propiedad aunque no hubiera ninguna.
+  const _NT_FAMILIAS = [['consultas', 'Consultas'], ['clientes', 'Clientes'], ['propiedades', 'Propiedades'], ['gestion', 'Gestión']];
+  let _reEmoji = /^[\u2190-\u2bff\u2600-\u27bf\ud83c-\udbff\udc00-\udfff\ufe0f\u200d\s]+/;
+  try { _reEmoji = new RegExp('^[\\p{Extended_Pictographic}\\u200d\\ufe0f\\s]+', 'u'); } catch (e) { /* navegador viejo: queda el de arriba */ }
+  // "💸 Laura Pérez" -> "Laura Pérez": el ícono ya lo pone el avatar.
+  const _sinEmoji = (s) => String(s == null ? '' : s).replace(_reEmoji, '').trim();
+  const _cap = (s) => { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); };
+  function _portalDe(nombre) {
+    const s = String(nombre || '').toLowerCase();
+    if (s.includes('mercado')) return 'ml';
+    if (s.includes('infocasas')) return 'infocasas';
+    if (s.includes('casas')) return 'casasymas';
+    return '';
+  }
+  function _iniciales(nombre) {
+    const p = String(nombre || '').trim().split(/\s+/).filter(w => w && !/^(de|del|la|las|los|y)$/i.test(w));
+    return ((p[0] || '?').charAt(0) + (p.length > 1 ? p[p.length - 1].charAt(0) : '')).toUpperCase();
+  }
+  function _fechaCorta(iso) {
+    const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso || '');
+  }
+  // Mercado Libre arma el texto como "<qué pasó> — <detalle>. Respondé desde la
+  // cuenta de Mercado Libre.": se separan las partes para no repetir lo que ya
+  // dicen el titular y los botones.
+  function _partesTextoML(txt) {
+    const t = String(txt || '').replace(/\s*Respondé desde la cuenta de Mercado Libre\.?\s*$/i, '').trim();
+    const i = t.indexOf(' — ');
+    return {
+      cabeza: (i >= 0 ? t.slice(0, i) : t).replace(/\.$/, '').trim(),
+      detalle: i >= 0 ? t.slice(i + 3).replace(/\.$/, '').trim() : ''
+    };
+  }
+  const _PANEL_SUBTIPO = {
+    alta:       { t: 'Alta de agente',          ic: 'fa-user-plus',          col: 'indigo',  tab: 'pending' },
+    testimonio: { t: 'Testimonio para aprobar', ic: 'fa-star',               col: 'ambar',   tab: 'testimonials' },
+    solicitud:  { t: 'Solicitud de venta',      ic: 'fa-envelope-open-text', col: 'verde',   tab: 'solicitudes' },
+    revision:   { t: 'Revisión para mirar',     ic: 'fa-calculator',         col: 'celeste', tab: 'revisiones' }
+  };
+
+  // Devuelve cómo mostrar un aviso: familia (filtro), ícono y color, titular,
+  // contexto, texto, botones y adónde lleva el clic (ir). También el texto del
+  // toast y del aviso del sistema.
+  function modeloNotif(n) {
+    const tipo = n.type || '';
+    const pid = n.propertyId || '';
+    const prop = n.propertyTitle || '';
+    const m = { fam: 'propiedades', ic: 'fa-bell', col: 'gris', titulo: '', via: '', ctx: '', txt: '', pista: '',
+      persona: false, contacto: null, agente: '', boton: null, ir: null, urgente: false };
+    const alProp = pid ? { a: 'prop', pid } : null;
+    const portales = (portal) => pid ? { a: 'portales', pid, portal } : null;
+    const esConsulta = tipo === 'ml_lead' || tipo === 'consulta_infocasas' || tipo === 'lead_portal'
+      || (!tipo && (n.userPhone || n.leadNombre || n.text));   // consultas viejas, sin tipo
+    if (esConsulta) {
+      const d = notifDatos(n);
+      m.fam = 'consultas'; m.ic = 'fa-comment-dots'; m.col = 'azul'; m.urgente = true;
+      m.agente = d.agente;
+      let nombre = d.nombre, mensaje = d.mensaje || '';
+      if (tipo === 'ml_lead') {
+        m.via = 'Mercado Libre';
+        const p = _partesTextoML(n.text);
+        if (!mensaje && p.detalle && !/^Contacto:/i.test(p.detalle)) mensaje = p.detalle;
+        if (/pregunta/i.test(p.cabeza)) m.pista = 'Se responde desde Mercado Libre';
+        if (!nombre) nombre = /pregunta/i.test(p.cabeza) ? 'Pregunta en Mercado Libre' : 'Interesado en Mercado Libre';
+        else m.persona = true;
+      } else if (tipo === 'consulta_infocasas') {
+        m.via = 'InfoCasas';
+        nombre = nombre || n.userName || '';
+        m.persona = !!nombre;
+        nombre = nombre || 'Consulta de InfoCasas';
+        if (!mensaje && n.text && n.text !== 'Consulta recibida desde InfoCasas') mensaje = n.text;
+      } else if (tipo === 'lead_portal') {
+        m.via = n.userName || 'Portal';
+        m.persona = !!nombre;
+        nombre = nombre || 'Consulta de ' + m.via;
+        if (!pid) {
+          // Sin propiedad identificada: el servidor manda el código del aviso en el
+          // portal, que es lo que sirve para ubicarla.
+          const cod = (String(n.text || '').match(/sin propiedad identificada \(([^)]+)\)/i) || [])[1];
+          if (cod) m.pista = `Código del aviso en ${m.via}: ${cod}`;
+          else if (!mensaje) mensaje = n.text || '';
+        } else if (!mensaje && !n.leadNombre) mensaje = n.text || '';
+      } else {
+        nombre = nombre || n.userName || 'Consulta';
+        m.persona = !!(d.nombre || n.userName);
+        mensaje = mensaje || String(n.text || '');
+      }
+      m.titulo = nombre;
+      m.ctx = prop || (tipo === 'lead_portal' ? 'Sin propiedad identificada' : '');
+      m.txt = mensaje;
+      if ((d.tel && waNum(d.tel)) || d.mail) m.contacto = { tel: d.tel && waNum(d.tel) ? d.tel : '', mail: d.mail };
+      m.ir = alProp || { a: 'expandir' };
+      m.toastTitulo = 'Nueva consulta' + (m.via ? ' · ' + m.via : '');
+      m.toastTexto = m.persona ? nombre + (prop ? ' — ' + prop : '') : (prop || nombre);
+      return m;
     }
-    if (notifications.length === 0) {
-      // Mientras llega la primera respuesta no se dice "no hay": todavía no se sabe.
-      l.innerHTML = (currentUser && !_notifsCargadas) || (!currentUser && perfilVisible())
-        ? '<div class="notification-empty"><i class="fas fa-spinner fa-spin"></i><p>Cargando consultas…</p></div>'
-        : '<div class="notification-empty"><i class="fas fa-bell-slash"></i><p>No tenés consultas</p></div>';
-      return
-    }
-    // Familia de cada notificación, para el filtro Clientes / Propiedades.
-    // Clientes: recordatorios del CRM (seguimiento, pausa). Propiedades: consultas
-    // de portales/web y (más adelante) vencimientos de alquiler.
-    const familiaDe = (n) => (n.type === 'crm_seguimiento' || n.type === 'crm_pausa') ? 'clientes' : (n.type === 'retiro' || n.type === 'retiro_estado') ? 'finanzas' : (n.type === 'admin_pendiente') ? 'panel' : 'propiedades';
-    const filtro = window._notifFiltro || 'all';
-    const visibles = notifications.filter(n => filtro === 'all' || familiaDe(n) === filtro);
-    const nCli = notifications.filter(n => familiaDe(n) === 'clientes').length;
-    const nFin = notifications.filter(n => familiaDe(n) === 'finanzas').length;
-    const nPan = notifications.filter(n => familiaDe(n) === 'panel').length;
-    const nProp = notifications.length - nCli - nFin - nPan;
-    const chip = (val, txt) => `<button class="notif-chip ${filtro===val?'active':''}" onclick="setNotifFiltro('${val}')">${txt}</button>`;
-    const barra = `<div class="notif-filtros">${chip('all','Todas')}${chip('clientes','Clientes'+(nCli?' ('+nCli+')':''))}${chip('propiedades','Propiedades'+(nProp?' ('+nProp+')':''))}${nFin?chip('finanzas','Finanzas ('+nFin+')'):''}${nPan?chip('panel','Panel ('+nPan+')'):''}</div>`;
-    // Los filtros viven en una barra FIJA (no se van al scrollear la lista).
-    const fb = document.getElementById('notifFiltrosBar');
-    if (fb) fb.innerHTML = barra;
-    const pre = fb ? '' : barra;
-    if (!visibles.length){
-      l.innerHTML = pre + '<div class="notification-empty" style="padding:24px 12px"><i class="fas fa-bell-slash"></i><p>Sin avisos en esta categoría</p></div>';
-      return;
-    }
-    l.innerHTML = pre + visibles.map(n => {
-      const i = (n.userName || 'A').charAt(0).toUpperCase(),
-        ts = n.createdAt ? formatTimeAgo(n.createdAt) : '';
-      // Pendientes del Panel de Administración (altas, testimonios, solicitudes, revisiones).
-      if (n.type === 'admin_pendiente') {
-        const S = {
-          alta:       { bg:'#e0e7ff', fg:'#4338ca', ic:'fa-user-plus',        tab:'pending' },
-          testimonio: { bg:'#fef3c7', fg:'#a16207', ic:'fa-star',             tab:'testimonials' },
-          solicitud:  { bg:'#dcfce7', fg:'#15803d', ic:'fa-envelope-open-text', tab:'solicitudes' },
-          revision:   { bg:'#e0f2fe', fg:'#0369a1', ic:'fa-calculator',       tab:'revisiones' }
-        }[n.subtipo] || { bg:'#eef1f5', fg:'#475569', ic:'fa-clipboard-check', tab:'pending' };
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="abrirPanelDesdeNotif('${S.tab}')"><div class="notification-avatar" style="background:${S.bg};color:${S.fg}"><i class="fas ${S.ic}"></i></div><div class="notification-body"><p><strong>${mvEsc(n.userName||'Pendiente')}</strong></p>${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
-      }
-      // Aviso al AGENTE del estado de su retiro (aprobado / pagado / rechazado).
-      if (n.type === 'retiro_estado') {
-        const pagado = /acredit/i.test(n.text || '') || /💰/.test(n.userName || '');
-        const rechaz = /rechaz/i.test(n.userName || '');
-        const col = rechaz ? { bg:'#fee2e2', fg:'#b91c1c', ic:'fa-circle-xmark' } : pagado ? { bg:'#dcfce7', fg:'#15803d', ic:'fa-sack-dollar' } : { bg:'#dbeafe', fg:'#1d4ed8', ic:'fa-circle-check' };
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="window.location.href='finanzas.html'"><div class="notification-avatar" style="background:${col.bg};color:${col.fg}"><i class="fas ${col.ic}"></i></div><div class="notification-body"><p><strong>${mvEsc(n.userName||'Retiro')}</strong></p>${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
-      }
-      // Aviso al ADMIN de una solicitud de retiro nueva.
-      if (n.type === 'retiro') {
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="window.location.href='retiros-admin.html'"><div class="notification-avatar" style="background:#fef3c7;color:#a16207"><i class="fas fa-money-bill-transfer"></i></div><div class="notification-body"><p><strong>Solicitud de retiro</strong></p>${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
-      }
-      // Confirmación de despublicación (la ve el admin): botones de acción adentro.
-      // Un propietario se perdió o cerró por afuera y su propiedad sigue publicada.
-      if (n.type === 'despublicar_confirmar') return tarjetaDespub(n);
-      // Respuesta al AGENTE sobre el pedido de baja que mandó (aprobado / rechazado).
-      if (n.type === 'baja_resuelta') {
-        const col = n.resultado === 'despublicada'
-          ? { bg:'#dcfce7', fg:'#15803d', ic:'fa-circle-check' }
-          : { bg:'#e0f2fe', fg:'#0369a1', ic:'fa-rotate-left' };
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar" style="background:${col.bg};color:${col.fg}"><i class="fas ${col.ic}"></i></div><div class="notification-body"><p><strong>${mvEsc(n.userName||'Pedido de baja')}</strong></p>${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
-      }
-      // Aviso de ficha incompleta en ML: dorado, clic hacia la propiedad para editarla.
-      if (n.type === 'ficha_incompleta') {
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar" style="background:#fef9c3;color:#a16207"><i class="fas fa-clipboard-list"></i></div><div class="notification-body"><p><strong>Ficha incompleta</strong></p>${notifSub(n.propertyTitle)}${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
-      }
-      // Aviso de vencimiento de alquiler: naranja, clic hacia la propiedad.
-      if (n.type === 'vencimiento_alquiler') {
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')"><div class="notification-avatar" style="background:#ffedd5;color:#c2410c"><i class="fas fa-house-circle-exclamation"></i></div><div class="notification-body"><p><strong>Alquiler por vencer</strong></p>${notifSub(n.propertyTitle)}${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
-      }
-      // Recordatorio de clientes EN PAUSA: azul, clic hacia Clientes.
-      if (n.type === 'crm_pausa') {
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleCrmNotifClick('${n.id}')"><div class="notification-avatar" style="background:#dbeafe;color:#2563eb"><i class="fas fa-circle-pause"></i></div><div class="notification-body"><p><strong>Clientes en pausa</strong></p>${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div></div></div>`
-      }
-      // Recordatorio del CRM (clientes sin contacto): formato propio y clic hacia Clientes,
-      // porque el formato estándar de abajo asume una consulta sobre una propiedad.
-      if (n.type === 'crm_seguimiento') {
-        // El nombre del cliente manda en el titular. Antes decía "Seguimiento de
-        // clientes" —igual en las cinco tarjetas— y el dato que importa quedaba
-        // enterrado en el párrafo gris. Ahora se lee de un vistazo a quién hay
-        // que llamar. Los nombres vienen del campo 'clientes'; si la notificación
-        // es vieja y no lo tiene, se cae al título de siempre.
+    switch (tipo) {
+      case 'crm_seguimiento': {
         const nombres = Array.isArray(n.clientes) ? n.clientes : [];
         const cuantos = Number(n.cuantos) || nombres.length;
-        let titulo = 'Seguimiento de clientes';
-        if (cuantos === 1 && nombres[0]) {
-          titulo = mvEsc(nombres[0]);
-        } else if (cuantos > 1) {
-          titulo = cuantos + ' clientes sin contacto';
-        }
-        const sub = (cuantos > 1 && nombres.length)
-          ? nombres.slice(0, 3).join(' · ') + (cuantos > nombres.slice(0, 3).length ? ' y ' + (cuantos - 3) + ' más' : '')
-          : (n.diasMax ? 'Hace ' + n.diasMax + ' días sin contacto' : '');
-        return `<div class="notification-item ${n.read?'':'unread'}"><div class="notification-avatar" style="background:#fef3c7;color:#b45309"><i class="fas fa-user-clock"></i></div><div class="notification-body">` +
-          `<p><strong>${titulo}</strong></p>` +
-          notifSub(sub) +
-          `<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span></div>` +
-          `<div class="notif-acciones"><button class="notif-btn ok" onclick="event.stopPropagation();handleCrmNotifClick('${n.id}')">` +
-          `<i class="fas fa-arrow-right"></i> ${cuantos > 1 ? 'Ver los ' + cuantos : 'Retomar'}</button></div>` +
-          `</div></div>`
+        Object.assign(m, { fam: 'clientes', ic: 'fa-user-clock', col: 'ambar' });
+        m.titulo = cuantos === 1 && nombres[0] ? nombres[0] : cuantos > 1 ? `${cuantos} clientes sin contacto` : 'Clientes para recontactar';
+        m.ctx = cuantos > 1 && nombres.length
+          ? nombres.slice(0, 3).join(' · ') + (cuantos > 3 ? ` y ${cuantos - 3} más` : '')
+          : (n.diasMax ? `Hace ${n.diasMax} días sin contacto` : '');
+        if (!nombres.length) m.txt = n.text || '';
+        m.boton = { txt: cuantos > 1 ? `Ver los ${cuantos}` : 'Retomar', ic: 'fa-arrow-right' };
+        m.ir = { a: 'url', url: 'clientes.html' };
+        m.toastTitulo = 'Clientes para recontactar';
+        break;
       }
-      // Avisos de SISTEMA (errores de portal, tokens vencidos). Caían en la
-      // plantilla genérica de abajo, que arma el avatar con la inicial del
-      // "usuario": para Mercado Libre daba una "M" idéntica a la de una consulta
-      // real. Un problema y un cliente interesado se veían igual. Acá llevan
-      // color e ícono propios, como el resto de los avisos que piden atención.
-      if (n.type === 'ml_error' || n.type === 'refresh_token' || n.type === 'authorization_code') {
-        const esToken = n.type !== 'ml_error';
-        const col = esToken ? { bg:'#fef3c7', fg:'#b45309', ic:'fa-key' }
-                            : { bg:'#fee2e2', fg:'#b91c1c', ic:'fa-triangle-exclamation' };
-        const titulo = esToken ? 'Reconectar el portal' : 'No se pudo sincronizar';
-        return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId||''}')"><div class="notification-avatar" style="background:${col.bg};color:${col.fg}"><i class="fas ${col.ic}"></i></div><div class="notification-body"><p><strong>${titulo}</strong>${n.userName?` <span class="notif-via">en ${mvEsc(n.userName)}</span>`:''}</p>${notifSub(n.propertyTitle)}${notifMsg(n.text)}<div class="notification-meta"><span><i class="far fa-clock"></i> ${ts}</span>${n.agente?`<span class="notif-agente"><i class="fas fa-user-tie"></i> ${mvEsc(n.agente)}</span>`:''}</div></div></div>`
+      case 'crm_pausa':
+        Object.assign(m, { fam: 'clientes', ic: 'fa-circle-pause', col: 'azul', titulo: 'Clientes en pausa para revisar', txt: n.text || '' });
+        m.ir = { a: 'url', url: 'clientes.html' };
+        break;
+      case 'vencimiento_alquiler': {
+        const t = String(n.text || '');
+        const x = t.match(/(vence en \d+ días?|ya venció) \(fin de contrato ([\d-]+)\)/i);
+        Object.assign(m, { ic: 'fa-house-circle-exclamation', col: 'naranja', titulo: /ya venció/i.test(t) ? 'Alquiler vencido' : 'Alquiler por vencer', ctx: prop });
+        m.txt = x ? `${_cap(x[1])} (fin de contrato ${_fechaCorta(x[2])}). Confirmá con el propietario si renueva o vuelve al mercado.` : t;
+        m.ir = alProp;
+        break;
       }
-      const d = notifDatos(n);
-      // El titular pasa a ser el interesado, no el portal: "Magela consultó por
-      // Mercado Libre" dice más que "Mercado Libre consultó".
-      const quien = d.nombre || n.userName;
-      const via = d.nombre && n.userName && n.userName !== d.nombre ? ` <span class="notif-via">por ${mvEsc(n.userName)}</span>` : '';
-      const resumen = d.nombre
-        ? [d.tel, d.mail].filter(Boolean).join(' · ') + (d.mensaje ? `\n${d.mensaje}` : '')
-        : `${(n.text||'').substring(0,100)}${(n.text||'').length>100?'...':''}`;
-      return `<div class="notification-item ${n.read?'':'unread'}" onclick="handleNotificationClick('${n.id}','${n.propertyId}')">` +
-        `<div class="notification-avatar">${n.userPhoto?`<img src="${n.userPhoto}" alt="">`:i}</div>` +
-        `<div class="notification-body">` +
-          // Antes el titular era "<b>Quién</b> por Portal · <b>Título de la propiedad</b>":
-          // dos negritas compitiendo en un renglón que se iba a tres líneas y
-          // empujaba todo. Ahora manda una sola cosa —el interesado— y la
-          // propiedad baja a la línea gris de contexto, igual que en el resto.
-          `<p><strong>${mvEsc(quien)}</strong>${via}</p>` +
-          notifSub(n.propertyTitle) +
-          (resumen ? `<div class="notification-message"><span>${mvEsc(resumen)}</span></div>` : '') +
-          `<div class="notification-meta">` +
-            `<span><i class="far fa-clock"></i> ${ts}</span>` +
-            (d.agente ? `<span class="notif-agente"><i class="fas fa-user-tie"></i> ${mvEsc(d.agente)}</span>` : '') +
-          `</div>` +
-          (d.tel || d.mail ? `<div class="notif-acc">` +
-            (d.tel ? `<a class="notif-btn wa" href="${notifWaLink(d.tel, n.propertyTitle)}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i> WhatsApp</a>` +
-                     `<a class="notif-btn" href="tel:${String(d.tel).replace(/[^\d+]/g,'')}" onclick="event.stopPropagation()"><i class="fas fa-phone"></i> Llamar</a>` : '') +
-            (d.mail ? `<a class="notif-btn" href="mailto:${mvEsc(d.mail)}" onclick="event.stopPropagation()"><i class="fas fa-envelope"></i> Mail</a>` : '') +
-          `</div>` : '') +
-        `</div></div>`
-    }).join('')
+      case 'ficha_incompleta':
+        Object.assign(m, { ic: 'fa-clipboard-list', col: 'ambar', titulo: 'Completá la ficha', ctx: prop, txt: n.text || '' });
+        if (pid) { m.ir = { a: 'form', pid }; m.boton = { txt: 'Completar', ic: 'fa-pen' }; }
+        break;
+      case 'despublicar_confirmar':
+        Object.assign(m, { ic: 'fa-house-circle-xmark', col: 'rojo', titulo: '¿Despublicar propiedad?', ctx: prop, urgente: true });
+        m.ir = alProp;
+        m.toastTitulo = 'Decisión pendiente: ¿despublicar?';
+        break;
+      case 'baja_resuelta': {
+        const ok = n.resultado ? n.resultado === 'despublicada' : /aprobada/i.test(n.userName || '');
+        Object.assign(m, { ic: ok ? 'fa-circle-check' : 'fa-rotate-left', col: ok ? 'verde' : 'celeste',
+          titulo: ok ? 'Baja aprobada' : 'La propiedad sigue publicada', ctx: prop, txt: n.text || '' });
+        m.ir = alProp;
+        break;
+      }
+      case 'propiedad_reservada': {
+        const quien = (String(n.text || '').match(/^(.+?) marcó como reservada/) || [])[1];
+        Object.assign(m, { ic: 'fa-lock', col: 'violeta', titulo: 'Propiedad reservada', ctx: prop, txt: quien ? `La marcó ${quien}.` : (n.text || '') });
+        m.ir = alProp;
+        break;
+      }
+      case 'destacado_vencido':
+        Object.assign(m, { ic: 'fa-star', col: 'ambar', titulo: 'Terminó un destacado', ctx: prop, txt: n.text || '' });
+        m.ir = alProp;
+        break;
+      case 'portal_publicada':
+        Object.assign(m, { ic: 'fa-circle-check', col: 'verde', titulo: `Publicada en ${n.userName || 'el portal'}`, ctx: prop });
+        m.ir = alProp;
+        break;
+      case 'portal_sin_cupo':
+        Object.assign(m, { ic: 'fa-ban', col: 'rojo', titulo: `Sin lugar en ${n.userName || 'el portal'}`, ctx: prop, txt: n.text || '' });
+        m.ir = portales(_portalDe(n.userName) || 'casasymas');
+        break;
+      case 'portal_error':
+        Object.assign(m, { ic: 'fa-triangle-exclamation', col: 'rojo', titulo: `Revisar ${n.userName || 'el portal'}`, ctx: prop, txt: n.text || '' });
+        m.ir = portales(_portalDe(n.userName) || 'ml');
+        break;
+      case 'ml_error':
+        Object.assign(m, { ic: 'fa-triangle-exclamation', col: 'rojo', titulo: 'Problema en Mercado Libre', ctx: prop, txt: n.text || '' });
+        m.ir = portales('ml');
+        break;
+      case 'refresh_token':
+      case 'authorization_code':
+        Object.assign(m, { fam: 'gestion', ic: 'fa-key', col: 'ambar', titulo: 'Reconectar Mercado Libre', txt: n.text || '' });
+        m.ir = { a: 'url', url: 'cuentas.html' };
+        break;
+      case 'retiro':
+        Object.assign(m, { fam: 'gestion', ic: 'fa-money-bill-transfer', col: 'ambar', titulo: 'Solicitud de retiro', txt: n.text || '' });
+        m.toastTexto = _sinEmoji(n.userName);
+        m.boton = { txt: 'Revisar', ic: 'fa-arrow-right' };
+        m.ir = { a: 'url', url: 'retiros-admin.html' };
+        break;
+      case 'retiro_estado': {
+        const t = _sinEmoji(n.userName) || 'Tu retiro';
+        const rech = /rechaz/i.test(t), pag = /acredit/i.test(t + ' ' + (n.text || ''));
+        Object.assign(m, { fam: 'gestion', ic: rech ? 'fa-circle-xmark' : pag ? 'fa-sack-dollar' : 'fa-circle-check',
+          col: rech ? 'rojo' : pag ? 'verde' : 'azul', titulo: t, txt: n.text || '' });
+        m.ir = { a: 'url', url: 'finanzas.html' };
+        break;
+      }
+      case 'admin_pendiente': {
+        const S = _PANEL_SUBTIPO[n.subtipo] || { t: _sinEmoji(n.userName) || 'Pendiente del panel', ic: 'fa-clipboard-check', col: 'gris', tab: 'bandeja' };
+        Object.assign(m, { fam: 'gestion', ic: S.ic, col: S.col, titulo: S.t, txt: n.text || '' });
+        m.ir = { a: 'panel', tab: S.tab };
+        break;
+      }
+      case 'postulacion':
+        Object.assign(m, { fam: 'gestion', ic: 'fa-briefcase', col: 'indigo', titulo: 'Nueva postulación', txt: n.text || '' });
+        m.ir = { a: 'panel', tab: 'postulaciones' };
+        break;
+      case 'revision_rechazada': {
+        const que = String(n.propertyTitle || n.text || '');
+        Object.assign(m, { fam: 'gestion', ic: 'fa-file-circle-xmark', col: 'rojo', titulo: 'Informe rechazado', ctx: _cap(n.propertyTitle || ''), txt: n.text || '' });
+        m.ir = { a: 'url', url: /gastos/i.test(que) ? 'gastos.html' : /terreno/i.test(que) ? 'terreno.html' : 'tasador.html' };
+        break;
+      }
+      default:
+        Object.assign(m, { titulo: _sinEmoji(n.userName) || 'Aviso', ctx: prop, txt: n.text || '' });
+        m.ir = alProp;
+    }
+    return m;
   }
+
+  // ---- Destinos ----
+  // Adónde lleva un aviso cuando llega como notificación del sistema (la misma
+  // lógica que usa el service worker): lo que se resuelve en la campanita
+  // (consultas, decisiones, errores) abre el inicio con ese aviso a la vista.
+  function urlDeAviso(n) {
+    const m = modeloNotif(n);
+    const ir = m.ir || {};
+    let url = 'index.html';
+    if (ir.a === 'url') url = ir.url;
+    else if (ir.a === 'panel') url = 'admin.html#' + (_PANEL_NUEVO[ir.tab] || 'bandeja');
+    else if (ir.a === 'form') url = 'propiedad-form.html?id=' + encodeURIComponent(ir.pid);
+    else if (ir.a === 'prop' && m.fam !== 'consultas' && n.type !== 'despublicar_confirmar') url = 'propiedad.html?id=' + encodeURIComponent(ir.pid);
+    const u = new URL(url, window.location.href);
+    u.searchParams.set('aviso', n.id);
+    return u.href;
+  }
+  function irAUrlDeAviso(url) {
+    try {
+      const x = new URL(url, window.location.href);
+      if (x.origin === window.location.origin && /\/(index\.html)?$/.test(x.pathname)) { abrirAvisoDesdeUrl(x.href); return; }
+      window.location.href = x.href;
+    } catch (e) { /* dirección inválida */ }
+  }
+  // Clic del service worker con esta pestaña abierta, o dirección con ?aviso=.
+  function abrirAvisoDesdeUrl(url) {
+    try {
+      const u = new URL(url, window.location.href);
+      const id = u.searchParams.get('aviso');
+      if (!id && !u.searchParams.has('avisos')) return;
+      if (_notifsCargadas) abrirAviso(id || null);
+      else _avisoPendiente = { id: id || null };
+    } catch (e) { /* dirección inválida */ }
+  }
+  function aplicarAvisoPendiente() {
+    if (!_avisoPendiente || !_notifsCargadas) return;
+    const id = _avisoPendiente.id;
+    _avisoPendiente = null;
+    abrirAviso(id);
+  }
+  const _esCelular = () => window.matchMedia('(max-width: 640px)').matches;
+  function ejecutarDestino(ir) {
+    if (!ir) return;
+    if (ir.a === 'prop') { closeNotifications(); openPropertyTab(ir.pid); }
+    else if (ir.a === 'form') { closeNotifications(); openPropertyFormTab(ir.pid); }
+    else if (ir.a === 'portales') {
+      closeNotifications();
+      // El modal de portales necesita la propiedad en memoria; si no está, a su página.
+      if (properties.some(p => p.id === ir.pid)) openMLModal(ir.pid, { portal: ir.portal || 'ml' });
+      else openPropertyTab(ir.pid);
+    }
+    else if (ir.a === 'panel') abrirPanelDesdeNotif(ir.tab);
+    else if (ir.a === 'url') { closeNotifications(); window.location.href = ir.url; }
+  }
+  // Clic en un aviso: queda leído y lleva a donde corresponde.
+  function clicAviso(id) {
+    const n = buscarAviso(id);
+    if (!n) return;
+    const ir = modeloNotif(n).ir;
+    if (!ir || ir.a === 'expandir') {
+      // Sin adónde ir (una consulta sin propiedad): se despliega el texto completo.
+      if (_notifAbiertas.has(id)) _notifAbiertas.delete(id); else _notifAbiertas.add(id);
+      if (!n.read) marcarLeida(id); else renderNotifications();
+      return;
+    }
+    const sale = ir.a === 'url' || ir.a === 'panel' || (ir.a === 'prop' && _esCelular());
+    if (!sale) {
+      // Pestaña nueva o modal: se abre YA, dentro del clic (si no, el navegador
+      // puede bloquear la pestaña nueva), y la lectura se guarda en paralelo.
+      ejecutarDestino(ir);
+      marcarLeida(id);
+      return;
+    }
+    // Se va de esta página: primero se guarda la lectura (si la página se cierra
+    // antes, se pierde), con tope de tiempo para no trabar el clic.
+    Promise.race([marcarLeida(id), new Promise(r => setTimeout(r, 1200))]).then(() => ejecutarDestino(ir));
+  }
+  // Compatibilidad con los nombres anteriores.
+  function handleNotificationClick(ni) { clicAviso(ni); }
+  function handleCrmNotifClick(ni) { clicAviso(ni); }
+
+  // ---- Leída / no leída ----
+  // Se marca en pantalla al instante y se guarda atrás; si no se pudo guardar,
+  // vuelve como estaba.
+  function marcarLeida(id, valor = true) {
+    const n = buscarAviso(id);
+    if (!n || !!n.read === valor) return Promise.resolve();
+    n.read = valor;
+    renderNotifications();
+    return db.collection('notifications').doc(id).update({ read: valor }).catch(e => {
+      if (e && e.code === 'not-found') { quitarAvisosLocales([id]); renderNotifications(); return; }
+      n.read = !valor;
+      renderNotifications();
+      console.warn('No se pudo marcar la notificación:', e && e.message);
+    });
+  }
+  function alternarLeida(id) { const n = buscarAviso(id); if (n) marcarLeida(id, !n.read); }
+
+  // Escribe en lotes de a 400 (Firestore acepta hasta 500 por lote). Si un lote
+  // falla (por ejemplo, un aviso que otro dispositivo ya borró), ese tramo se
+  // reintenta de a uno para que un solo documento no frene a los demás.
+  // Devuelve los ids que no se pudieron escribir.
+  async function escribirEnLotes(ids, operar) {
+    const fallidos = [];
+    for (let i = 0; i < ids.length; i += 400) {
+      const tramo = ids.slice(i, i + 400);
+      try {
+        const b = db.batch();
+        tramo.forEach(id => operar(b, db.collection('notifications').doc(id)));
+        await b.commit();
+      } catch (e) {
+        const r = await Promise.allSettled(tramo.map(id => {
+          const uno = db.batch();
+          operar(uno, db.collection('notifications').doc(id));
+          return uno.commit();
+        }));
+        r.forEach((x, j) => { if (x.status === 'rejected' && !(x.reason && x.reason.code === 'not-found')) fallidos.push(tramo[j]); });
+      }
+    }
+    return fallidos;
+  }
+  // "Marcar leídas": TODAS las sin leer, no solo las 50 cargadas (antes las más
+  // viejas quedaban sin leer para siempre y el contador nunca bajaba a cero).
+  async function markAllAsRead(e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    if (!currentUser) return;
+    const ids = new Set(notifications.filter(n => !n.read).map(n => n.id));
+    notifications.forEach(n => { n.read = true; });
+    renderNotifications();
+    try {
+      const s = await db.collection('notifications').where('ownerId', '==', currentUser.uid).where('read', '==', false).get();
+      s.docs.forEach(d => ids.add(d.id));
+    } catch (err) { console.warn('No se pudieron buscar las anteriores sin leer:', err && err.message); }
+    if (!ids.size) return;
+    const fallidos = await escribirEnLotes([...ids], (b, ref) => b.update(ref, { read: true }));
+    if (fallidos.length) {
+      fallidos.forEach(id => { const n = buscarAviso(id); if (n) n.read = false; });
+      renderNotifications();
+      showToast('No se pudieron marcar todas', `Quedaron ${fallidos.length} sin marcar. Probá de nuevo.`, 'fa-exclamation-triangle');
+    } else {
+      showToast('Listo', ids.size === 1 ? '1 notificación marcada como leída' : `${ids.size} notificaciones marcadas como leídas`, 'fa-check-double');
+    }
+  }
+  // Decisión pendiente: nunca se borra con la limpieza (el botón está adentro).
+  const _esDecisionPendiente = (n) => n && n.type === 'despublicar_confirmar' && !n.handled;
+
+  // ---- Toasts y avisos del sistema para lo nuevo ----
+  // Toast que se puede tocar: lleva al aviso. El texto dice lo que es (antes
+  // TODO salía como "Nueva consulta: X consultó sobre Y", también un retiro o un
+  // error de un portal).
+  function toastAviso({ titulo, texto, icono, color, alTocar }) {
+    const c = document.getElementById('toastContainer');
+    if (!c) return;
+    const t = document.createElement('div');
+    t.className = 'toast toast-aviso' + (alTocar ? ' tocable' : '');
+    t.setAttribute('role', 'status');
+    t.innerHTML = `<div class="toast-icon${color ? ' nt-c-' + color : ''}"><i class="fas ${icono || 'fa-bell'}"></i></div><div class="toast-content"><strong></strong><p></p></div>`;
+    t.querySelector('strong').textContent = titulo || '';
+    t.querySelector('p').textContent = texto || '';
+    const cerrar = () => { t.classList.add('hiding'); setTimeout(() => t.remove(), 300); };
+    if (alTocar) t.addEventListener('click', (ev) => { ev.stopPropagation(); cerrar(); alTocar(); });
+    c.appendChild(t);
+    setTimeout(cerrar, 6500);
+  }
+  // Título y texto cortos de un aviso, para el toast y el aviso del sistema.
+  function textosAviso(m) {
+    const titulo = m.toastTitulo || m.titulo;
+    let texto = m.toastTexto || '';
+    if (!texto) {
+      const partes = [];
+      if (m.toastTitulo && m.titulo !== m.toastTitulo) partes.push(m.titulo);
+      if (m.ctx) partes.push(m.ctx);
+      texto = partes.join(' — ') || m.txt || '';
+    }
+    texto = String(texto).replace(/\s+/g, ' ').trim();
+    return { titulo, texto: texto.length > 140 ? texto.slice(0, 137) + '…' : texto };
+  }
+  function anunciarNuevas(nuevas) {
+    nuevas.forEach(n => _notifAnunciadas.add(n.id));
+    const panel = document.getElementById('notificationDropdown');
+    if (document.visibilityState === 'visible' && panel && panel.classList.contains('active')) {
+      // Con la campanita abierta el aviso aparece arriba de todo: se resalta en vez de tapar con un toast.
+      _notifFoco = { id: nuevas[0].id, hasta: Date.now() + 2600 };
+      renderNotifications();
+      return;
+    }
+    if (document.visibilityState === 'visible') {
+      if (nuevas.length > 2) {
+        toastAviso({ titulo: `${nuevas.length} notificaciones nuevas`, texto: 'Tocá para verlas', icono: 'fa-bell', alTocar: () => abrirAviso(null) });
+        return;
+      }
+      nuevas.forEach(n => {
+        const m = modeloNotif(n), t = textosAviso(m);
+        toastAviso({ titulo: t.titulo, texto: t.texto, icono: m.ic, color: m.col, alTocar: () => abrirAviso(n.id) });
+      });
+      return;
+    }
+    // Pestaña en segundo plano: aviso del sistema. Lleva la misma etiqueta que el
+    // push del servidor (mv-ID), así en el dispositivo que recibe el push nunca
+    // salen dos: el segundo reemplaza al primero sin volver a sonar.
+    nuevas.slice(0, 3).forEach(n => {
+      const m = modeloNotif(n), t = textosAviso(m);
+      mostrarAvisoSistema(t.titulo, {
+        body: t.texto, tag: 'mv-' + n.id, renotify: false, requireInteraction: !!m.urgente,
+        data: { url: urlDeAviso(n), tipo: n.type || '', notifId: n.id }
+      });
+    });
+  }
+
+  // ---- Contadores: campanita, barra de abajo, pestaña del navegador e ícono de la app ----
+  const _tituloBase = String(document.title || 'MALAVE').replace(/^\(\d+\+?\)\s*/, '');
+  let _ultimoContador = null;
+  function pintarContadores(uc, mas) {
+    const txt = uc > 99 ? '99+' : uc + (mas ? '+' : '');
+    const b = document.getElementById('notificationBadge'),
+      be = document.getElementById('notificationBell'),
+      bb = document.getElementById('bbBadge');
+    if (b) { b.textContent = txt; b.classList.toggle('hidden', uc === 0); }
+    if (be) be.classList.toggle('has-unread', uc > 0);
+    if (bb) { bb.textContent = txt; bb.classList.toggle('hidden', uc === 0); }
+    const clave = currentUser ? txt + '|' + uc : 'fuera';
+    if (clave === _ultimoContador) return;
+    _ultimoContador = clave;
+    // "(3) MALAVE | Inmobiliaria": se ve desde otra pestaña que hay algo nuevo.
+    document.title = currentUser && uc ? `(${txt}) ${_tituloBase}` : _tituloBase;
+    // Número sobre el ícono de la app instalada (celular y compu, donde se pueda).
+    try {
+      if (navigator.setAppBadge) {
+        const p = currentUser && uc ? navigator.setAppBadge(uc) : navigator.clearAppBadge();
+        if (p && p.catch) p.catch(() => {});
+      }
+    } catch (e) { /* sin soporte */ }
+  }
+
+  // ---- Pintado ----
+  const _cssId = (id) => (window.CSS && CSS.escape) ? CSS.escape(String(id)) : String(id).replace(/["\\]/g, '\\$&');
+  function horaCorta(t) {
+    const d = new Date(t);
+    if (isNaN(d)) return '';
+    const s = Math.floor((Date.now() - d) / 1000);
+    if (s < 60) return 'Ahora';
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m} min`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h} h`;
+    const dy = Math.floor(h / 24);
+    if (dy < 7) return dy === 1 ? '1 día' : `${dy} días`;
+    const f = d.toLocaleDateString('es-UY', { day: 'numeric', month: 'short' }).replace('.', '');
+    return d.getFullYear() !== new Date().getFullYear() ? `${f} ${d.getFullYear()}` : f;
+  }
+  function grupoDeFecha(t) {
+    const d = new Date(t);
+    if (isNaN(d)) return 'Anteriores';
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const dia = new Date(d); dia.setHours(0, 0, 0, 0);
+    const dif = Math.round((hoy - dia) / 86400000);
+    if (dif <= 0) return 'Hoy';
+    if (dif === 1) return 'Ayer';
+    if (dif < 7) return 'Esta semana';
+    return 'Anteriores';
+  }
+  function _puntoLeida(n) {
+    return `<button class="nt-punto" data-acc="leida" title="${n.read ? 'Marcar como no leída' : 'Marcar como leída'}" aria-label="${n.read ? 'Marcar como no leída' : 'Marcar como leída'}"></button>`;
+  }
+  function _claseItem(n, extra) {
+    const foco = _notifFoco && _notifFoco.id === n.id && Date.now() < _notifFoco.hasta;
+    return 'nt-item' + (n.read ? '' : ' nt-nueva') + (foco ? ' nt-foco' : '') + (_notifAbiertas.has(n.id) ? ' nt-abierta' : '') + (extra ? ' ' + extra : '');
+  }
+  function avatarNotif(n, m) {
+    const foto = n.userPhoto ? safeUrl(n.userPhoto) : '';
+    if (foto) return `<div class="nt-av"><img src="${foto}" alt="" loading="lazy"></div>`;
+    if (m.persona) return `<div class="nt-av nt-c-lead">${mvEsc(_iniciales(m.titulo))}</div>`;
+    return `<div class="nt-av nt-c-${m.col}"><i class="fas ${m.ic}"></i></div>`;
+  }
+  function accionesNotif(n, m) {
+    const a = [];
+    if (m.contacto) {
+      const { tel, mail } = m.contacto;
+      if (tel) {
+        a.push(`<a class="notif-btn wa" data-acc="contacto" href="${notifWaLink(tel, n.propertyTitle)}" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> WhatsApp</a>`);
+        a.push(`<a class="notif-btn" data-acc="contacto" href="tel:${String(tel).replace(/[^\d+]/g, '')}"><i class="fas fa-phone"></i> Llamar</a>`);
+      }
+      if (mail) a.push(`<a class="notif-btn" data-acc="contacto" href="mailto:${mvEsc(mail)}"><i class="fas fa-envelope"></i> Mail</a>`);
+    }
+    if (m.boton) a.push(`<button class="notif-btn ok" data-acc="ir"><i class="fas ${m.boton.ic || 'fa-arrow-right'}"></i> ${mvEsc(m.boton.txt)}</button>`);
+    return a.length ? `<div class="notif-acc">${a.join('')}</div>` : '';
+  }
+  // Renglón de arriba: titular, por dónde llegó, hace cuánto y el punto de "sin leer".
+  function _filaAviso(n, titulo, via, hora) {
+    return `<div class="nt-fila"><span class="nt-tit">${titulo}</span>${via ? `<span class="nt-via">${mvEsc(via)}</span>` : ''}` +
+      `<span class="nt-hora">${hora}</span>${_puntoLeida(n)}</div>`;
+  }
+  // Renglón chico de abajo: de qué agente es (lo ve la Dirección) y alguna aclaración.
+  function _metaAviso(m) {
+    const p = [];
+    if (m.agente) p.push(`<span><i class="fas fa-user-tie"></i> ${mvEsc(m.agente)}</span>`);
+    if (m.pista) p.push(`<span><i class="fas fa-circle-info"></i> ${mvEsc(m.pista)}</span>`);
+    return p.length ? `<div class="nt-pista">${p.join('')}</div>` : '';
+  }
+  function htmlAviso(n) {
+    if (n.type === 'despublicar_confirmar') return tarjetaDespub(n);
+    const m = modeloNotif(n);
+    return `<div class="${_claseItem(n)}" data-id="${mvEsc(n.id)}" role="button" tabindex="0">` +
+      avatarNotif(n, m) +
+      `<div class="nt-cuerpo">` +
+        _filaAviso(n, mvEsc(m.titulo), m.via, horaCorta(n.createdAt)) +
+        (m.ctx ? `<div class="nt-ctx">${mvEsc(m.ctx)}</div>` : '') +
+        (m.txt ? `<div class="nt-txt">${mvEsc(m.txt)}</div>` : '') +
+        _metaAviso(m) +
+        accionesNotif(n, m) +
+      `</div>` +
+    `</div>`;
+  }
+  function tarjetaDespub(n) {
+    const e = estadoDespub(n);
+    const hora = horaCorta(n.createdAt);
+    const ctx = n.propertyTitle ? `<div class="nt-ctx">${mvEsc(n.propertyTitle)}</div>` : '';
+    if (!e.pendiente) {
+      const R = {
+        despublicada: { t: 'Despublicada', ic: 'fa-box-archive', col: 'gris' },
+        mantenida:    { t: 'Se mantuvo publicada', ic: 'fa-circle-check', col: 'verde' },
+        eliminada:    { t: 'La propiedad ya no existe', ic: 'fa-trash-can', col: 'gris' }
+      }[e.resultado] || { t: 'Ya resuelta', ic: 'fa-check', col: 'gris' };
+      const por = e.por ? ` por ${mvEsc(String(e.por).split(' ')[0])}` : '';
+      return `<div class="${_claseItem(n)}" data-id="${mvEsc(n.id)}" role="button" tabindex="0">` +
+        `<div class="nt-av nt-c-${R.col}"><i class="fas ${R.ic}"></i></div>` +
+        `<div class="nt-cuerpo">${_filaAviso(n, R.t + por, '', e.at ? horaCorta(e.at) : hora)}${ctx}</div>` +
+        `</div>`;
+    }
+    const prop = window._propsCargadas ? properties.find(x => x.id === n.propertyId) : null;
+    const mo = motivoDespub(n, prop);
+    if (!mo.solicitante && !n.solicitadoPor && /\(propietario\)/.test(n.text || '')) completarSolicitanteDespub(n);
+    return `<div class="${_claseItem(n, 'nt-decision')}" data-id="${mvEsc(n.id)}" role="button" tabindex="0">` +
+      `<div class="nt-av nt-c-rojo"><i class="fas fa-house-circle-xmark"></i></div>` +
+      `<div class="nt-cuerpo">` +
+        _filaAviso(n, '¿Despublicar propiedad?', '', hora) + ctx +
+        (mo.texto ? `<div class="nt-txt">${mvEsc(mo.texto)}</div>` : '') +
+        (mo.solicitante ? `<div class="nt-pista"><span><i class="fas fa-user"></i> Lo pidió ${mvEsc(mo.solicitante)}</span></div>` : '') +
+        `<div class="notif-acc"><button class="notif-btn peligro" data-acc="despublicar"><i class="fas fa-box-archive"></i> Despublicar</button><button class="notif-btn" data-acc="mantener">Mantener</button></div>` +
+      `</div></div>`;
+  }
+  // Aviso dentro del panel cuando este dispositivo no recibe notificaciones.
+  function bannerPushPanel() {
+    if (!currentUser) return '';
+    const ua = navigator.userAgent || '';
+    const esIOS = /iphone|ipad|ipod/i.test(ua);
+    const instalada = window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    let tit, txt, btn;
+    if (esIOS && !instalada) {
+      tit = 'Recibí los avisos en tu iPhone'; txt = 'Agregá la app a tu pantalla de inicio y activalos desde ahí.'; btn = 'Cómo';
+    } else if (!('Notification' in window) || Notification.permission === 'granted') {
+      return '';
+    } else if (Notification.permission === 'denied') {
+      tit = 'Avisos bloqueados en este navegador'; txt = 'Desbloquealos para enterarte al instante de cada consulta.'; btn = 'Cómo';
+    } else {
+      tit = 'Activá los avisos en este dispositivo'; txt = 'Te llega una alerta con cada consulta, aunque tengas la app cerrada.'; btn = 'Activar';
+    }
+    return `<div class="nt-push"><i class="fas fa-bell-slash"></i><div><b>${tit}</b><span>${txt}</span></div><button data-acc="activar">${btn}</button></div>`;
+  }
+  function _vacio(ic, tit, txt) {
+    return `<div class="nt-vacio"><i class="fas ${ic}"></i><b>${tit}</b>${txt ? `<span>${txt}</span>` : ''}</div>`;
+  }
+  function renderNotifications() {
+    const l = document.getElementById('notificationList');
+    const uc = notifications.filter(n => !n.read).length;
+    const cursor = _cursorNotif();
+    pintarContadores(uc, !!(uc && hayMasAtras() && cursor && !cursor.read));
+    if (!l) return;
+    conectarPanelNotif();
+    // Cabecera: cuántas nuevas y qué acciones tienen sentido.
+    const pill = document.getElementById('ntNuevas');
+    if (pill) { pill.textContent = uc === 1 ? '1 nueva' : `${uc > 99 ? '99+' : uc} nuevas`; pill.classList.toggle('hidden', !uc); }
+    const bl = document.getElementById('ntBtnLeidas'); if (bl) bl.disabled = !uc;
+    const bd = document.getElementById('ntBtnBorrar'); if (bd) bd.disabled = !notifications.some(n => n.read && !_esDecisionPendiente(n));
+    const fb = document.getElementById('notifFiltrosBar');
+    // Mientras llega la primera respuesta no se dice "no hay": todavía no se sabe.
+    if ((currentUser && !_notifsCargadas) || (!currentUser && perfilVisible())) {
+      if (fb) fb.innerHTML = '';
+      l.innerHTML = '<div class="nt-esq" aria-label="Cargando notificaciones"><span></span><i></i></div>'.repeat(4);
+      return;
+    }
+    const banner = bannerPushPanel();
+    if (!notifications.length) {
+      if (fb) fb.innerHTML = '';
+      l.innerHTML = banner + _vacio('fa-bell', 'No tenés notificaciones', 'Acá te avisamos de consultas nuevas, clientes para recontactar y novedades de tus propiedades.');
+      return;
+    }
+    // Filtros: Todas, Sin leer y una por familia que tenga avisos (con sus no leídas).
+    const modelos = new Map(notifications.map(n => [n.id, modeloNotif(n)]));
+    const cuenta = {}, sinLeer = {};
+    notifications.forEach(n => { const f = modelos.get(n.id).fam; cuenta[f] = (cuenta[f] || 0) + 1; if (!n.read) sinLeer[f] = (sinLeer[f] || 0) + 1; });
+    let filtro = window._notifFiltro || 'todas';
+    if (filtro === 'all') filtro = 'todas';
+    if (filtro !== 'todas' && filtro !== 'sinleer' && !cuenta[filtro]) filtro = 'todas';
+    window._notifFiltro = filtro;
+    const chip = (k, t, num) => `<button class="notif-chip${filtro === k ? ' active' : ''}" data-filtro="${k}">${t}${num ? `<span class="nt-chip-n">${num > 99 ? '99+' : num}</span>` : ''}</button>`;
+    const barra = `<div class="notif-filtros">${chip('todas', 'Todas', 0)}${chip('sinleer', 'Sin leer', uc)}${_NT_FAMILIAS.filter(([k]) => cuenta[k]).map(([k, t]) => chip(k, t, sinLeer[k] || 0)).join('')}</div>`;
+    if (fb) fb.innerHTML = barra;
+    const visibles = notifications.filter(n => filtro === 'todas' || (filtro === 'sinleer' ? !n.read : modelos.get(n.id).fam === filtro));
+    let html = banner;
+    if (!visibles.length) {
+      html += filtro === 'sinleer'
+        ? _vacio('fa-circle-check', 'Estás al día', 'No tenés notificaciones sin leer.')
+        : _vacio('fa-bell-slash', 'Nada por acá', 'No hay notificaciones en esta categoría.');
+    } else {
+      let grupo = '';
+      visibles.forEach(n => {
+        const g = grupoDeFecha(n.createdAt);
+        if (g !== grupo) { grupo = g; html += `<div class="nt-grupo">${g}</div>`; }
+        html += htmlAviso(n);
+      });
+    }
+    if (hayMasAtras()) {
+      html += `<div class="nt-pie"><button class="nt-mas" data-acc="mas"${_notifCargandoMas ? ' disabled' : ''}>${_notifCargandoMas ? '<i class="fas fa-spinner fa-spin"></i> Cargando…' : 'Ver anteriores'}</button></div>`;
+    }
+    l.innerHTML = html;
+  }
+
+  // Un solo manejador para todo el panel (en vez de un onclick con el id metido
+  // en cada tarjeta): tocar la tarjeta, el punto de leída, los botones, los filtros.
+  let _panelNotifConectado = false;
+  function conectarPanelNotif() {
+    if (_panelNotifConectado) return;
+    const l = document.getElementById('notificationList');
+    const fb = document.getElementById('notifFiltrosBar');
+    if (!l) return;
+    _panelNotifConectado = true;
+    l.addEventListener('click', (ev) => {
+      const acc = ev.target.closest('[data-acc]');
+      const item = ev.target.closest('.nt-item');
+      const id = item ? item.getAttribute('data-id') : null;
+      if (acc) {
+        const que = acc.getAttribute('data-acc');
+        if (que === 'contacto') { if (id) marcarLeida(id); return; }   // el enlace sigue su curso
+        ev.preventDefault();
+        if (que === 'leida') { if (id) alternarLeida(id); return; }
+        if (que === 'mas') { verAnteriores(); return; }
+        if (que === 'activar') { activarNotificaciones(); return; }
+        if (que === 'ir') { if (id) clicAviso(id); return; }
+        if (que === 'despublicar' || que === 'mantener') {
+          const n = id && buscarAviso(id);
+          if (!n) return;
+          const falso = { stopPropagation() {}, currentTarget: acc };
+          // Mismo camino de siempre: releen la propiedad, deciden y dejan todas
+          // las copias de Dirección resueltas y leídas.
+          if (que === 'despublicar') confirmarDespublicacion(falso, n.id, n.propertyId);
+          else mantenerPublicada(falso, n.id, n.propertyId);
+        }
+        return;
+      }
+      if (item && !ev.target.closest('a,button')) clicAviso(id);
+    });
+    l.addEventListener('keydown', (ev) => {
+      if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.classList && ev.target.classList.contains('nt-item')) {
+        ev.preventDefault();
+        clicAviso(ev.target.getAttribute('data-id'));
+      }
+    });
+    if (fb) fb.addEventListener('click', (ev) => {
+      const c = ev.target.closest('[data-filtro]');
+      if (c) setNotifFiltro(c.getAttribute('data-filtro'));
+    });
+  }
+  function setNotifFiltro(f) {
+    window._notifFiltro = f;
+    renderNotifications();
+    const l = document.getElementById('notificationList');
+    if (l) l.scrollTop = 0;
+  }
+
+  // "Ver anteriores": de a 30, después de la última cargada.
+  async function verAnteriores() {
+    if (_notifCargandoMas || !currentUser) return;
+    const ult = _cursorNotif();
+    if (!ult) return;
+    _notifCargandoMas = true;
+    renderNotifications();
+    try {
+      const s = await db.collection('notifications')
+        .where('ownerId', '==', currentUser.uid)
+        .orderBy('createdAt', 'desc')
+        .startAfter(ult.createdAt)
+        .limit(NOTIF_PAGINA)
+        .get();
+      const ids = new Set(_notifVivas.concat(_notifViejas).map(n => n.id));
+      const pagina = s.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => !ids.has(x.id));
+      _notifViejas = _notifViejas.concat(pagina);
+      // Si una suelta ya vino en la página, queda en su lugar de la lista.
+      const enPagina = new Set(pagina.map(x => x.id));
+      _notifSueltas = _notifSueltas.filter(x => !enPagina.has(x.id));
+      _notifHayMasViejas = s.docs.length >= NOTIF_PAGINA;
+      unirNotificaciones();
+      sanearDespublicaciones();
+    } catch (e) {
+      console.warn('Ver anteriores:', e && e.message);
+      showToast('No se pudieron cargar', 'Probá de nuevo en un momento', 'fa-exclamation-triangle');
+    } finally {
+      _notifCargandoMas = false;
+      renderNotifications();
+    }
+  }
+
+  // Abre la campanita y, si viene un id, lleva a ese aviso, lo resalta y lo
+  // marca leído. Si no está entre los cargados (es más viejo), lo busca.
+  async function abrirAviso(id) {
+    let n = id ? buscarAviso(id) : null;
+    if (id && !n && currentUser) {
+      try {
+        const d = await db.collection('notifications').doc(id).get();
+        if (d.exists && d.data().ownerId === currentUser.uid) {
+          n = { id: d.id, ...d.data() };
+          _notifSueltas.push(n);
+          unirNotificaciones();
+        }
+      } catch (e) { /* sin permiso o borrado: se abre la campanita igual */ }
+    }
+    if (n) {
+      window._notifFiltro = 'todas';
+      _notifFoco = { id: n.id, hasta: Date.now() + 2600 };
+    }
+    abrirPanelNotif();
+    if (!n) return;
+    if (!n.read) marcarLeida(n.id); else renderNotifications();
+    requestAnimationFrame(() => {
+      const el = document.querySelector('.nt-item[data-id="' + _cssId(n.id) + '"]');
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+    });
+  }
+  function abrirPanelNotif() {
+    const d = document.getElementById('notificationDropdown');
+    if (!d) return;
+    if (_esCelular()) {
+      if (typeof closeSideMenu === 'function') closeSideMenu();
+      cerrarBuscadorAgentes(true);
+      document.querySelectorAll('.bb-item').forEach(b => b.classList.remove('active'));
+      document.getElementById('bbNotif')?.classList.add('active');
+    }
+    if (!d.classList.contains('active')) toggleNotifications({ stopPropagation() {} });
+    else renderNotifications();
+  }
+
+  // Repinta los "hace X min" mientras el panel está abierto.
+  function iniciarRelojPanel() {
+    detenerRelojPanel();
+    _notifReloj = setInterval(() => {
+      const d = document.getElementById('notificationDropdown');
+      if (d && d.classList.contains('active')) renderNotifications(); else detenerRelojPanel();
+    }, 60000);
+  }
+  function detenerRelojPanel() { if (_notifReloj) { clearInterval(_notifReloj); _notifReloj = null; } }
 
   function formatTimeAgo(t) {
     const d = new Date(t),
@@ -1422,6 +2080,7 @@
     if (dy < 7) return `Hace ${dy} ${dy === 1 ? 'día' : 'días'}`;
     return d.toLocaleDateString('es')
   }
+  const relTime = formatTimeAgo;   // la bandeja vieja la usaba sin que existiera
 
   // Bloqueo del scroll del fondo mientras el panel está abierto (en celular).
   // Sin esto, scrollear la lista arrastraba la página de atrás: el "se mueve raro".
@@ -1444,8 +2103,8 @@
     const isOpen = d.classList.toggle('active');
     o.classList.toggle('active', isOpen);
     if (isOpen && window.matchMedia('(max-width: 640px)').matches) _notifLock();
-    if (!isOpen) _notifUnlock();
-    if (isOpen) { renderNotifications(); loadNotifications(); }
+    if (!isOpen) { _notifUnlock(); detenerRelojPanel(); }
+    if (isOpen) { renderNotifications(); loadNotifications(); iniciarRelojPanel(); }
   }
 
   // Navegación de la barra inferior móvil (Inicio · Consultas · Perfil · Menú)
@@ -1595,6 +2254,7 @@
   function closeNotifications() {
     document.getElementById('notificationDropdown').classList.remove('active');
     document.getElementById('notificationOverlay').classList.remove('active');
+    detenerRelojPanel();
     sincronizarBloqueoFondo();
     // Si la barra inferior está, el foco vuelve a Inicio
     const bn = document.getElementById('bbNotif');
@@ -1619,12 +2279,18 @@
     const d = document.getElementById('notificationDropdown'),
       b = document.getElementById('notificationBell');
     // Clic afuera cierra el panel — pero la BARRA INFERIOR no es "afuera"
-    // (sus botones lo abren/navegan) y el cierre pasa por closeNotifications
-    // para que overlay, bloqueo de scroll y pestaña activa queden coherentes.
-    if (d && d.classList.contains('active')
-        && !d.contains(e.target)
-        && !(b && b.contains(e.target))
-        && !e.target.closest('#mvBottomBar')) closeNotifications();
+    // (sus botones lo abren/navegan), tampoco un toast (abre el aviso en el
+    // panel), y el cierre pasa por closeNotifications para que overlay, bloqueo
+    // de scroll y pestaña activa queden coherentes.
+    // Se mira el CAMINO del clic tal como era al tocar (composedPath): si el
+    // clic repinta el panel (un filtro, el punto de "leída"), el elemento tocado
+    // ya no está en la página y contains() decía "afuera", así que el panel se
+    // cerraba solo al elegir un filtro.
+    if (!d || !d.classList.contains('active')) return;
+    const camino = typeof e.composedPath === 'function' ? e.composedPath() : [];
+    const toca = (el) => !!el && (camino.includes(el) || el.contains(e.target));
+    if (toca(d) || toca(b) || toca(document.getElementById('mvBottomBar')) || toca(document.getElementById('toastContainer'))) return;
+    closeNotifications();
   });
   // Ver la propiedad desde una notificación (funciona aunque esté archivada:
   // la carga del array; si no está en memoria, la trae de Firestore).
@@ -1638,24 +2304,6 @@
     if (!p) { showToast('La propiedad ya no existe', 'Puede estar en la papelera', 'fa-info-circle'); return; }
     openPropertyTab(pid);
   }
-  async function handleNotificationClick(ni, pi) {
-    closeNotifications();
-    try {
-      await db.collection('notifications').doc(ni).update({
-        read: true
-      });
-      const n = notifications.find(nt => nt.id === ni);
-      if (n) n.read = true;
-      renderNotifications()
-    } catch (e) {
-      console.error('Error marking notification as read:', e)
-    }
-    // Misma puerta que la grilla del inicio: la página dedicada, no el modal.
-    closeNotifications();
-    openPropertyTab(pi)
-  }
-  // Clic en el recordatorio de seguimiento: marca leído y va a la página de Clientes.
-  function setNotifFiltro(f){ window._notifFiltro = f; renderNotifications(); }
   // Cierra TODAS las copias pendientes del pedido (la de cada persona de Dirección)
   // y deja anotado quién decidió.
   async function cerrarAvisosDespub(pid, resultado, nidPropio) {
@@ -1767,33 +2415,6 @@
       showToast('No se pudo guardar', '', 'fa-exclamation-triangle');
     }
   }
-  async function handleCrmNotifClick(ni) {
-    closeNotifications();
-    try {
-      await db.collection('notifications').doc(ni).update({ read: true });
-      const n = notifications.find(nt => nt.id === ni);
-      if (n) n.read = true;
-      renderNotifications()
-    } catch (e) { /* si no se pudo marcar, igual navegamos */ }
-    window.location.href = 'clientes.html'
-  }
-  async function markAllAsRead(e) {
-    e.stopPropagation();
-    const u = notifications.filter(n => !n.read);
-    if (u.length === 0) return;
-    try {
-      const p = u.map(n => db.collection('notifications').doc(n.id).update({
-        read: true
-      }));
-      await Promise.all(p);
-      notifications.forEach(n => n.read = true);
-      renderNotifications();
-      showToast('Listo', 'Todas las consultas marcadas como leídas', 'fa-check')
-    } catch (e) {
-      console.error('Error marking all as read:', e)
-    }
-  }
-
   // Auth
   auth.onAuthStateChanged(async u => {
     if (u) {
@@ -3653,8 +4274,10 @@
     }
   }
 
-  function logout() {
+  async function logout() {
     borrarSesionRecordada();
+    // Antes de salir (después ya no hay permiso para escribir en el perfil).
+    await quitarTokenDeEsteDispositivo();
     auth.signOut();
     showHome();
     document.getElementById('userDropdown')?.classList.remove('active')
@@ -3701,6 +4324,13 @@
       // Las notificaciones de despublicación leen el estado REAL de la propiedad;
       // hasta que llega este primer snapshot no se puede saber, y no deben adivinar.
       window._propsCargadas = true;
+      // Las decisiones de despublicación dependen del estado real de la propiedad:
+      // con las propiedades al día se resuelven solas (y el contador baja).
+      if (_notifsCargadas) {
+        sanearDespublicaciones();
+        const _nd = document.getElementById('notificationDropdown');
+        if (_nd && _nd.classList.contains('active')) renderNotifications();
+      }
       // Respeta la búsqueda que tenga puesta el visitante. Antes cada cambio en
       // cualquier propiedad (una visita nueva suma al contador) repintaba la
       // grilla entera sin filtros y la búsqueda se perdía sola.
@@ -4963,10 +5593,7 @@
   };
   const BANDEJA_DEF = { urgencia:2, icono:'fa-bell', accion:'Ver', ir:() => abrirCampana() };
 
-  function abrirCampana(){
-    const d = document.getElementById('notificationDropdown');
-    if (d) d.classList.add('active');
-  }
+  function abrirCampana(){ abrirPanelNotif(); }
 
   // Cuenta lo que espera decisión, para el globito de la pestaña.
   function bandejaPendientes(){
@@ -6620,27 +7247,28 @@
   function copyShareLink() {
     _copiarTexto(_urlCompartir(), 'Enlace copiado', 'El link está listo para compartir');
   }
-  // Limpiar notificaciones
+  // "Borrar leídas": borra SOLO lo que ya se leyó. Antes "Limpiar" borraba TODO
+  // —también lo sin leer y las decisiones de despublicación pendientes, que tienen
+  // los botones adentro— y con más de 500 avisos fallaba entero (es el máximo de
+  // un lote de Firestore). Ahora va en lotes y deja lo importante.
   async function clearAllNotifications(e) {
-    e.stopPropagation();
+    if (e && e.stopPropagation) e.stopPropagation();
     if (!currentUser) return;
-    if (!confirm('¿Eliminar todas las consultas?')) return;
+    if (!confirm('¿Borrar las notificaciones que ya leíste?\n\nLas que no leíste y las decisiones pendientes se quedan.')) return;
+    const ids = new Set(notifications.filter(n => n.read && !_esDecisionPendiente(n)).map(n => n.id));
     try {
-      const snap = await db.collection('notifications').where('ownerId', '==', currentUser.uid).get();
-      if (snap.empty) {
-        showToast('Sin consultas', 'No hay consultas para eliminar', 'fa-info-circle');
-        return
-      }
-      const batch = db.batch();
-      snap.docs.forEach(doc => batch.delete(doc.ref));
-      await batch.commit();
-      notifications = [];
-      renderNotifications();
-      showToast('Bandeja limpia', 'Todas las consultas fueron eliminadas', 'fa-trash')
-    } catch (err) {
-      console.error('Error clearing notifications:', err);
-      showToast('Error', 'No se pudieron eliminar: ' + err.message, 'fa-exclamation-circle')
-    }
+      // También las leídas que no están cargadas (más viejas que las de la lista).
+      const s = await db.collection('notifications').where('ownerId', '==', currentUser.uid).where('read', '==', true).get();
+      s.docs.forEach(d => { if (!_esDecisionPendiente({ id: d.id, ...d.data() })) ids.add(d.id); });
+    } catch (err) { console.warn('No se pudieron buscar las anteriores leídas:', err && err.message); }
+    if (!ids.size) { showToast('Nada para borrar', 'No hay notificaciones leídas', 'fa-info-circle'); return; }
+    const lista = [...ids];
+    quitarAvisosLocales(lista);   // se van de la pantalla al instante
+    renderNotifications();
+    const fallidos = await escribirEnLotes(lista, (b, ref) => b.delete(ref));
+    const ok = lista.length - fallidos.length;
+    if (fallidos.length) showToast('No se pudieron borrar todas', `Se borraron ${ok}; quedaron ${fallidos.length}.`, 'fa-exclamation-triangle');
+    else showToast('Listo', ok === 1 ? 'Se borró 1 notificación leída' : `Se borraron ${ok} notificaciones leídas`, 'fa-trash-can');
   }
 
   // Image Handling
