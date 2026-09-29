@@ -96,7 +96,7 @@
             }
           });
           console.log('FCM Token guardado en Firestore');
-          showToast('Notificaciones activadas', 'Recibirás alertas de tus eventos', 'fa-bell');
+          showToast('Notificaciones activadas', 'Vas a recibir alertas de tus eventos', 'fa-bell');
         }
       } else {
         console.log('No se pudo obtener token FCM');
@@ -113,11 +113,11 @@
       console.log('Notificación recibida en primer plano:', payload);
       const n = payload.notification || {};
       const d = payload.data || {};
-      showToast(n.title || d.title || 'Recordatorio', n.body || d.body || 'Tienes un evento próximo', 'fa-bell');
+      showToast(n.title || d.title || 'Recordatorio', n.body || d.body || 'Tenés un evento próximo', 'fa-bell');
       // También mostrar notificación nativa si está en primer plano
       if (Notification.permission === 'granted') {
         new Notification(n.title || 'Recordatorio', {
-          body: n.body || 'Tienes un evento próximo',
+          body: n.body || 'Tenés un evento próximo',
           icon: 'https://cdn-icons-png.flaticon.com/512/1946/1946488.png',
           badge: 'https://cdn-icons-png.flaticon.com/128/1946/1946488.png',
           vibrate: [200, 100, 200]
@@ -148,7 +148,7 @@
     } else {
       const perm = await Notification.requestPermission();
       if (perm === 'granted') testNotification();
-      else showToast('Permiso denegado', 'Habilita las notificaciones en tu navegador', 'fa-exclamation-triangle');
+      else showToast('Permiso denegado', 'Habilitá las notificaciones en tu navegador', 'fa-exclamation-triangle');
     }
   }
 
@@ -188,6 +188,73 @@
     selectedCalendarDate = null,
     visitReminderInterval = null,
     selectedEventType = 'visit';
+
+  // ===== Sesión recordada =====
+  // Firebase tarda entre medio segundo y un par de segundos en confirmar la
+  // sesión: primero la recupera del navegador y después lee el perfil en
+  // Firestore. Mientras tanto la página se veía como la de un visitante (menú de
+  // invitado, sin la barra de abajo) y recién ahí "se iniciaba sesión" sola. Le
+  // pasaba al agente cada vez que volvía al inicio desde una herramienta.
+  // Ahora se guarda una ficha mínima del perfil (nombre, foto, rango) y con ella
+  // se pinta el encabezado de agente al instante. Es solo la cara de la pantalla:
+  // los datos y los permisos siguen esperando a Firebase, y si Firebase dice que
+  // no hay sesión, la ficha se borra y vuelve la vista de visitante.
+  // El <head> de index.html lee la misma clave para no mostrar ni un cuadro del
+  // menú de invitado: si se cambia el nombre de la clave, cambiarlo allá también.
+  const MV_SESION_KEY = 'mvSesion';
+  const MV_SESION_VIDA = 30 * 864e5;
+  function leerSesionRecordada() {
+    try {
+      const s = JSON.parse(localStorage.getItem(MV_SESION_KEY) || 'null');
+      if (s && s.uid && Date.now() - (Number(s.t) || 0) < MV_SESION_VIDA) return s;
+    } catch (e) { }
+    return null;
+  }
+  let _sesionPrevia = leerSesionRecordada();
+  // Pasa a true cuando Firebase dio su respuesta definitiva (hay sesión con perfil
+  // aprobado, o no hay sesión). Hasta entonces manda la ficha recordada.
+  let _authResuelto = false;
+  function guardarSesionRecordada() {
+    if (!currentUser || !userProfile) return;
+    const s = {
+      uid: currentUser.uid,
+      name: userProfile.name || '',
+      profilePhoto: userProfile.profilePhoto || '',
+      email: userProfile.email || currentUser.email || '',
+      rank: userProfile.rank || '',
+      role: userProfile.role || '',
+      t: Date.now()
+    };
+    try { localStorage.setItem(MV_SESION_KEY, JSON.stringify(s)); } catch (e) { }
+    _sesionPrevia = s;
+  }
+  function borrarSesionRecordada() {
+    try { localStorage.removeItem(MV_SESION_KEY); } catch (e) { }
+    _sesionPrevia = null;
+    document.documentElement.classList.remove('mv-sesion');
+  }
+  // Quién "parece" estar: el usuario confirmado o, mientras Firebase no respondió,
+  // el de la ficha recordada. Solo para pintar; nunca para escribir datos.
+  function perfilVisible() {
+    if (currentUser && userProfile) return userProfile;
+    return (!_authResuelto && _sesionPrevia) ? _sesionPrevia : null;
+  }
+  function uidVisible() {
+    if (currentUser) return currentUser.uid;
+    return (!_authResuelto && _sesionPrevia) ? _sesionPrevia.uid : null;
+  }
+  function esDireccionPerfil(p) {
+    if (!p) return false;
+    if ((p.email || '').toLowerCase() === ADMIN_EMAIL) return true;
+    return !!(window.Rangos && Rangos.esDireccion(p));
+  }
+  // "COO — Director de Operaciones" es largo para una etiqueta: queda la sigla.
+  function etiquetaRango(p) {
+    if (!p) return '';
+    let t = (window.Rangos && Rangos.etiqueta(p)) || '';
+    if (!t && (p.email || '').toLowerCase() === ADMIN_EMAIL) t = 'Dirección';
+    return String(t || 'Agente').split(' — ')[0];
+  }
 
   const eventTypeLabels = {
     visit: 'Visita',
@@ -436,34 +503,41 @@
 
   // User Dropdown
   function openSideMenu() {
-    if (!currentUser) { openModal('loginModal'); return; }
-    // Volcar datos del usuario en la cabecera del panel
-    const av = document.getElementById('mvSideAv');
-    if (av) av.innerHTML = (userProfile && userProfile.profilePhoto) ? `<img src="${safeUrl(userProfile.profilePhoto)}" alt="">` : '<i class="fas fa-user"></i>';
-    const nm = document.getElementById('mvSideName'); if (nm) nm.textContent = (userProfile && userProfile.name) || 'Usuario';
-    const rl = document.getElementById('mvSideRole'); if (rl) rl.textContent = isAdminUser() ? 'Administrador' : 'Agente';
-    initMenuDatos();
-    cargarFinanzasMenu();
-    /* El Panel de Administración, Rentabilidad e Interés los ve la Dirección
-       (CEO y COO). Se usa Rangos.esDireccion en vez de esCEO() porque esCEO() NO
-       incluye el rango 'coo': con esa función, la COO no vería nada de esto.
-       Retiros y Papelera siguen siendo solo del CEO (plata y borrado definitivo),
-       y adentro del panel la COO no ve cargos, comisiones ni dinero y puntos. */
-    const _verDir = esCEO() ||
-      (typeof Rangos !== 'undefined' && Rangos.esDireccion && Rangos.esDireccion(userProfile));
-    document.getElementById('mvSideAdminGroup')?.classList.toggle('hidden', !_verDir);
-    document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !_verDir);
-    // Barra inferior móvil: visible para cualquier usuario logueado
-    document.getElementById('mvBottomBar')?.classList.toggle('hidden', !currentUser);
-    document.body.classList.toggle('has-bottombar', !!currentUser);
-    document.getElementById('mvSideRetiros')?.classList.toggle('hidden', !esCEO());
-    document.getElementById('mvSidePapelera')?.classList.toggle('hidden', !esCEO());
-    document.getElementById('mvSideRenta')?.classList.toggle('hidden', !_verDir);
-    document.getElementById('mvSideInteres')?.classList.toggle('hidden', !_verDir);
-    if (isAdminUser()) actualizarBadgePendientes();
+    // Con la ficha recordada el menú abre aunque Firebase todavía no haya
+    // confirmado: son enlaces a otras páginas, y cada una valida su sesión.
+    if (!perfilVisible()) { openModal('loginModal'); return; }
+    pintarMenuLateral();
     document.getElementById('mvSide')?.classList.add('open');
     document.getElementById('mvSideOverlay')?.classList.add('open');
     document.getElementById('mvSide')?.setAttribute('aria-hidden', 'false');
+  }
+  // Vuelca el perfil en la cabecera del menú y decide qué grupos se ven. Se llama
+  // al abrir y otra vez si la sesión se confirma con el menú ya abierto.
+  function pintarMenuLateral() {
+    const perfil = perfilVisible();
+    if (!perfil) return;
+    const foto = perfil.profilePhoto ? safeUrl(perfil.profilePhoto) : '';
+    const av = document.getElementById('mvSideAv');
+    if (av) av.innerHTML = foto ? `<img src="${foto}" alt="">` : `<span>${mvEsc((perfil.name || 'U').trim().charAt(0).toUpperCase())}</span>`;
+    const nm = document.getElementById('mvSideName'); if (nm) nm.textContent = perfil.name || 'Usuario';
+    // El rango real ("Asesor Senior", "COO"...). Antes decía solo "Administrador"
+    // o "Agente", y la COO figuraba como Administrador.
+    const rl = document.getElementById('mvSideRole'); if (rl) rl.textContent = etiquetaRango(perfil);
+    initMenuDatos();
+    if (currentUser) cargarFinanzasMenu();
+    /* El Panel de Administración, Rentabilidad e Interés los ve la Dirección
+       (CEO y COO). esDireccionPerfil incluye el rango 'coo' (esCEO() no).
+       Retiros y Papelera siguen siendo solo del CEO (plata y borrado definitivo),
+       y adentro del panel la COO no ve cargos, comisiones ni dinero y puntos. */
+    const verDir = esDireccionPerfil(perfil);
+    const esCeo = (perfil.email || '').toLowerCase() === ADMIN_EMAIL || perfil.rank === 'ceo';
+    document.getElementById('mvSideAdminGroup')?.classList.toggle('hidden', !verDir);
+    document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !verDir);
+    document.getElementById('mvSideRetiros')?.classList.toggle('hidden', !esCeo);
+    document.getElementById('mvSidePapelera')?.classList.toggle('hidden', !esCeo);
+    document.getElementById('mvSideRenta')?.classList.toggle('hidden', !verDir);
+    document.getElementById('mvSideInteres')?.classList.toggle('hidden', !verDir);
+    if (currentUser && isAdminUser()) actualizarBadgePendientes();
   }
   function closeSideMenu() {
     document.getElementById('mvSide')?.classList.remove('open');
@@ -482,14 +556,18 @@
   function buildTourSteps(){
     var steps = [
       { sel:null, t:'¡Bienvenido a MALAVÉ! 👋', d:'Te muestro en un minuto las herramientas del menú. Podés saltarlo cuando quieras.' },
-      { sel:'a[href="agenda.html"]', t:'Mi Agenda', d:'Agendá visitas, reuniones y entregas. Podés vincular un cliente y una propiedad a cada evento.' },
-      { sel:'a[href="clientes.html"]', t:'Clientes', d:'Tu cartera de clientes. Cargá prospectos, seguí gestiones y mirá su actividad.' },
-      { sel:'a[href="recompensas.html"]', t:'Recompensas', d:'Sumás puntos por cada operación cerrada y los canjeás por premios.' },
-      { sel:'a[href="tasador.html"]', t:'Tasador', d:'Calculá el valor estimado de una propiedad con comparables.' },
-      { sel:'a[href="mapa-cierres.html"]', t:'Mapa de cierres', d:'Mirá en el mapa las ventas y alquileres cerrados del equipo.' },
-      { sel:'a[href="gastos.html"]', t:'Gastos y comisiones', d:'Calculá comisiones, gastos e impuestos de una operación.' },
-      { sel:'a[href="ganancias.html"]', t:'Mis ganancias', d:'Cuánto ganás según tu comisión en cada operación.' },
-      { sel:'a[href="generar-documentos.html"]', t:'Recursos', d:'Generá contratos, recibos e inventarios con el membrete de la agencia, y guardá las cuentas de los portales.' },
+      // Los selectores van dentro de #mvSide: el ícono de agenda del encabezado
+      // también es a[href="agenda.html"] y aparecía primero en la página, así
+      // que el recorrido resaltaba ese ícono (oculto en celular) y no el menú.
+      { sel:'#mvSide a[href="agenda.html"]', t:'Mi Agenda', d:'Agendá visitas, reuniones y entregas. Podés vincular un cliente y una propiedad a cada evento.' },
+      { sel:'#mvSide a[href="clientes.html"]', t:'Clientes', d:'Tu cartera de clientes. Cargá prospectos, seguí gestiones y mirá su actividad.' },
+      { sel:'#mvSide a[href="finanzas.html"]', t:'Mis finanzas', d:'Tu saldo a cobrar, tus puntos y los retiros que pediste.' },
+      { sel:'#mvSide a[href="mapa-cierres.html"]', t:'Mapa de cierres', d:'Mirá en el mapa las ventas y alquileres cerrados del equipo.' },
+      { sel:'#mvSide a[href="tasador.html"]', t:'Tasador', d:'Calculá el valor estimado de una propiedad con comparables.' },
+      { sel:'#mvSide a[href="gastos.html"]', t:'Gastos del cliente', d:'Calculá gastos, comisiones e impuestos de una operación para el comprador o el vendedor.' },
+      { sel:'#mvSide a[href="ganancias.html"]', t:'Mi comisión', d:'Cuánto ganás según tu comisión en cada operación.' },
+      { sel:'#mvSide a[href="recompensas.html"]', t:'Recompensas', d:'Sumás puntos por cada operación cerrada y los canjeás por premios.' },
+      { sel:'#mvSide a[href="generar-documentos.html"]', t:'Recursos', d:'Generá contratos, recibos e inventarios con el membrete de la agencia, y guardá las cuentas de los portales.' },
       { sel:null, t:'¡Listo! 🎉', d:'Abrí el menú ☰ cuando quieras. Podés volver a ver este recorrido tocando "Tutorial" en el menú.' }
     ];
     return steps.filter(function(s){ return !s.sel || document.querySelector(s.sel); });
@@ -888,30 +966,44 @@
   }
 
   // Notifications
+  // Consultas del agente: EN VIVO. Antes se releían las 50 cada 10 segundos —50
+  // lecturas × 6 por minuto por cada agente con el inicio abierto, unas 18.000
+  // lecturas por hora aunque no llegara nada—. Con un listener, Firestore manda
+  // la lista una vez y después solo lo que cambia: la consulta nueva aparece al
+  // instante y cuesta una lectura, no cincuenta.
+  // Mismo pedido que antes: índice compuesto (ownerId, createdAt desc). Si el
+  // listener falla, se vuelve al sondeo viejo (más espaciado) para no quedar ciego.
+  let _notifUnsub = null, _notifPrimera = true, _notifUltimoMs = 0, _pendInterval = null;
+  let _notifsCargadas = false;
+  const _msDe = (v) => (v && typeof v.toMillis === 'function') ? v.toMillis() : (Date.parse(v) || 0);
+  function procesarNotificaciones(nn) {
+    // Solo se avisa lo que es NUEVO de verdad (creado después de lo último que se
+    // vio): si se borra una consulta y entra una vieja en la ventana de 50, esa no
+    // es "nueva" aunque esté sin leer.
+    if (!_notifPrimera) {
+      nn.filter(n => !n.read && _msDe(n.createdAt) > _notifUltimoMs).forEach(n => {
+        showToast('Nueva consulta', `${n.userName} consultó sobre "${n.propertyTitle}"`, 'fa-comment');
+        sendBrowserNotification('Nueva consulta', `${n.userName} consultó sobre "${n.propertyTitle}"`)
+      });
+    }
+    _notifPrimera = false;
+    nn.forEach(n => { const ms = _msDe(n.createdAt); if (ms > _notifUltimoMs) _notifUltimoMs = ms; });
+    notifications = nn;
+    _notifsCargadas = true;
+    sanearDespublicaciones();
+    renderNotifications()
+  }
   async function loadNotifications() {
     if (!currentUser) return;
+    if (_notifUnsub) return;   // en vivo: ya está al día
     try {
-      // Antes esto se traía TODAS las notificaciones del usuario, las ordenaba en
-      // el navegador y recién ahí se quedaba con 50: el resto se descargaba y se
-      // tiraba. Y 'notifications' no se limpia sola, así que crece para siempre.
-      // Ahora ordena y corta Firestore, que es quien tiene que hacerlo.
-      // Requiere el índice compuesto (ownerId, createdAt desc); si no existe,
-      // Firestore lo rechaza y el catch de abajo deja la lista como estaba.
+      // Ordena y corta Firestore (antes se traían todas y se tiraba el resto).
       const s = await db.collection('notifications')
         .where('ownerId', '==', currentUser.uid)
         .orderBy('createdAt', 'desc')
         .limit(50)
         .get();
-      const nn = s.docs.map(d => ({ id: d.id, ...d.data() }));
-      const oi = new Set(notifications.map(n => n.id)),
-        bn = nn.filter(n => !oi.has(n.id) && !n.read);
-      if (bn.length > 0 && notifications.length > 0) bn.forEach(n => {
-        showToast('Nueva consulta', `${n.userName} consultó sobre "${n.propertyTitle}"`, 'fa-comment');
-        sendBrowserNotification('Nueva consulta', `${n.userName} consultó sobre "${n.propertyTitle}"`)
-      });
-      notifications = nn;
-      sanearDespublicaciones();
-      renderNotifications()
+      procesarNotificaciones(s.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error('Error loading notifications:', e)
     }
@@ -919,16 +1011,37 @@
 
   function startNotificationPolling() {
     if (!currentUser) return;
-    loadNotifications();
-    if (notificationCheckInterval) clearInterval(notificationCheckInterval);
-    notificationCheckInterval = setInterval(() => { loadNotifications(); if (isAdminUser()) actualizarBadgePendientes(); }, 10000)
+    stopNotificationPolling();
+    _notifPrimera = true; _notifUltimoMs = 0;
+    const uid = currentUser.uid;
+    const sondear = () => {
+      if (notificationCheckInterval || !currentUser || currentUser.uid !== uid) return;
+      loadNotifications();
+      notificationCheckInterval = setInterval(loadNotifications, 30000);
+    };
+    try {
+      _notifUnsub = db.collection('notifications')
+        .where('ownerId', '==', uid)
+        .orderBy('createdAt', 'desc')
+        .limit(50)
+        .onSnapshot(
+          s => procesarNotificaciones(s.docs.map(d => ({ id: d.id, ...d.data() }))),
+          err => { console.warn('Consultas en vivo no disponibles, se consulta cada 30 s:', err && err.message); _notifUnsub = null; sondear(); }
+        );
+    } catch (e) { _notifUnsub = null; sondear(); }
+    // Registros pendientes de aprobación (Dirección): cambian poco, alcanza con
+    // mirar cada minuto (antes iba pegado al sondeo de 10 s).
+    if (isAdminUser()) { actualizarBadgePendientes(); _pendInterval = setInterval(actualizarBadgePendientes, 60000); }
   }
 
   function stopNotificationPolling() {
+    if (_notifUnsub) { try { _notifUnsub(); } catch (e) { } _notifUnsub = null; }
     if (notificationCheckInterval) {
       clearInterval(notificationCheckInterval);
       notificationCheckInterval = null
     }
+    if (_pendInterval) { clearInterval(_pendInterval); _pendInterval = null; }
+    _notifsCargadas = false;
   }
 
 
@@ -1155,7 +1268,10 @@
       be.classList.remove('has-unread')
     }
     if (notifications.length === 0) {
-      l.innerHTML = '<div class="notification-empty"><i class="fas fa-bell-slash"></i><p>No tienes consultas</p></div>';
+      // Mientras llega la primera respuesta no se dice "no hay": todavía no se sabe.
+      l.innerHTML = (currentUser && !_notifsCargadas) || (!currentUser && perfilVisible())
+        ? '<div class="notification-empty"><i class="fas fa-spinner fa-spin"></i><p>Cargando consultas…</p></div>'
+        : '<div class="notification-empty"><i class="fas fa-bell-slash"></i><p>No tenés consultas</p></div>';
       return
     }
     // Familia de cada notificación, para el filtro Clientes / Propiedades.
@@ -1329,7 +1445,7 @@
     o.classList.toggle('active', isOpen);
     if (isOpen && window.matchMedia('(max-width: 640px)').matches) _notifLock();
     if (!isOpen) _notifUnlock();
-    if (isOpen) loadNotifications()
+    if (isOpen) { renderNotifications(); loadNotifications(); }
   }
 
   // Navegación de la barra inferior móvil (Inicio · Consultas · Perfil · Menú)
@@ -1382,7 +1498,10 @@
       else { toggleNotifications({ stopPropagation: () => {} }); marcar('bbNotif'); }
     } else if (tab === 'perfil') {
       closeNotifications(); closeSideMenu(); cerrarBuscadorAgentes(true);
-      if (currentUser) showProfile(currentUser.uid);
+      // uidVisible: también con la sesión recordada, antes de que Firebase
+      // confirme (al confirmar, el perfil se repinta con los botones de edición).
+      const uidP = uidVisible();
+      if (uidP) showProfile(uidP);
       marcar('bbPerfil');
     } else if (tab === 'menu') {
       closeNotifications(); cerrarBuscadorAgentes(true);
@@ -1427,7 +1546,7 @@
     if (!body) return;
     const q = _normTxt((document.getElementById('agentSearchInput')?.value || '').trim());
     const users = Object.entries(allUsers).map(([uid, u]) => ({ uid, ...u })).filter(u => u.name);
-    const fila = u => `<div class="as-row" onclick="elegirAgenteBusqueda('${u.uid}')">${u.profilePhoto ? `<img class="as-av" src="${safeUrl(u.profilePhoto)}" alt="">` : `<div class="as-av as-ini">${mvEsc((u.name || '?').charAt(0).toUpperCase())}</div>`}<div class="as-info"><b>${mvEsc(u.name)}</b><small>${(u.email || '').toLowerCase() === ADMIN_EMAIL ? 'Administrador' : 'Agente'}</small></div><i class="fas fa-chevron-right as-go"></i></div>`;
+    const fila = u => `<div class="as-row" onclick="elegirAgenteBusqueda('${u.uid}')">${u.profilePhoto ? `<img class="as-av" src="${safeUrl(u.profilePhoto)}" alt="">` : `<div class="as-av as-ini">${mvEsc((u.name || '?').charAt(0).toUpperCase())}</div>`}<div class="as-info"><b>${mvEsc(u.name)}</b><small>${mvEsc(etiquetaRango(u))}</small></div><i class="fas fa-chevron-right as-go"></i></div>`;
     if (!q) {
       const recs = _agentesRecientes.map(uid => users.find(u => u.uid === uid)).filter(Boolean);
       body.innerHTML = recs.length
@@ -1678,6 +1797,12 @@
   // Auth
   auth.onAuthStateChanged(async u => {
     if (u) {
+      // La ficha recordada es de OTRA cuenta (se entró con otro usuario en otra
+      // pestaña): no se sigue mostrando la cara equivocada mientras se lee el perfil.
+      if (!currentUser && _sesionPrevia && _sesionPrevia.uid !== u.uid) {
+        _sesionPrevia = null;
+        pintarEncabezadoSesion(null);
+      }
       // Con conexión lenta, esta lectura podía fallar y dejar un "login fantasma"
       // (autenticado pero sin perfil, pantalla como deslogueado). Un reintento y,
       // si tampoco, aviso claro en vez de silencio.
@@ -1721,7 +1846,9 @@
         if (userProfile.status === 'approved' || userProfile.email.toLowerCase() === ADMIN_EMAIL) {
           currentUser = u;
           allUsers[u.uid] = userProfile;
+          _authResuelto = true;
           updateUI();
+          alCambiarSesion();
           // No pedimos permiso automáticamente (iOS lo bloquea si no es por gesto del
           // usuario). Mostramos el banner con botón "Activar"; si ya está concedido,
           // setupFCM refresca el token en silencio.
@@ -1737,6 +1864,8 @@
         }
       }
     } else {
+      const habiaSesion = !!currentUser || (!_authResuelto && !!_sesionPrevia);
+      _authResuelto = true;
       currentUser = null;
       userProfile = null;
       notifications = [];
@@ -1744,21 +1873,28 @@
       stopNotificationPolling();
       if (visitReminderInterval) clearInterval(visitReminderInterval);
       const _nb = document.getElementById('notifBanner'); if (_nb) _nb.style.display = 'none';
-      updateUI()
+      borrarSesionRecordada();
+      updateUI();
+      if (habiaSesion) alCambiarSesion();
     }
   });
 
-  function updateUI() {
+  // Encabezado, barra de abajo y menú de invitado según quién está: un perfil
+  // (confirmado o recordado) o null para el visitante. updateUI lo usa con el
+  // perfil real y el arranque con la ficha recordada, así las dos caras salen
+  // del mismo código y no pueden diferir.
+  function pintarEncabezadoSesion(perfil) {
+    const con = !!perfil;
     // Barra inferior móvil (estilo app): visible solo con sesión iniciada.
-    document.getElementById('mvBottomBar')?.classList.toggle('hidden', !currentUser);
+    document.getElementById('mvBottomBar')?.classList.toggle('hidden', !con);
     // Lupa de búsqueda de agentes (escritorio)
-    document.getElementById('agentSearchBtn')?.classList.toggle('hidden', !currentUser);
-    document.body.classList.toggle('has-bottombar', !!currentUser);
+    document.getElementById('agentSearchBtn')?.classList.toggle('hidden', !con);
+    document.body.classList.toggle('has-bottombar', con);
+    document.documentElement.classList.toggle('mv-sesion', con);
+    const foto = con && perfil.profilePhoto ? safeUrl(perfil.profilePhoto) : '';
     // La pestaña Perfil muestra la FOTO del agente (como Facebook)
     const bba = document.getElementById('bbAvatar');
-    if (bba) bba.innerHTML = (currentUser && userProfile && userProfile.profilePhoto)
-      ? `<img src="${safeUrl(userProfile.profilePhoto)}" alt="">`
-      : '<i class="fas fa-user"></i>';
+    if (bba) bba.innerHTML = foto ? `<img src="${foto}" alt="">` : '<i class="fas fa-user"></i>';
     const ng = document.getElementById('nav-guest'),
       nu = document.getElementById('nav-user'),
       un = document.getElementById('userName'),
@@ -1767,29 +1903,62 @@
       ua = document.getElementById('userAvatar'),
       hb = document.getElementById('heroButtons'),
       bnp = document.getElementById('btnNewProperty');
-    if (currentUser && userProfile) {
+    if (con) {
       ng?.classList.add('hidden');
       nu?.classList.remove('hidden');
       hb?.classList.add('hidden');
       bnp?.classList.remove('hidden');
-      if (un) un.textContent = userProfile.name || 'Usuario';
-      const i = (userProfile.name || 'U').charAt(0).toUpperCase();
-      if (ua) ua.innerHTML = userProfile.profilePhoto ? `<img src="${safeUrl(userProfile.profilePhoto)}" alt="">` : i;
-      if (isAdminUser()) {
-        ab?.classList.remove('hidden');
-        abt?.classList.remove('hidden')
-      } else {
-        ab?.classList.add('hidden');
-        abt?.classList.add('hidden')
-      }
-      loadClients()
+      if (un) un.textContent = perfil.name || 'Usuario';
+      if (ua) ua.innerHTML = foto ? `<img src="${foto}" alt="">` : mvEsc((perfil.name || 'U').charAt(0).toUpperCase());
+      const dir = esDireccionPerfil(perfil);
+      ab?.classList.toggle('hidden', !dir);
+      abt?.classList.toggle('hidden', !dir);
     } else {
       ng?.classList.remove('hidden');
       nu?.classList.add('hidden');
       hb?.classList.remove('hidden');
       bnp?.classList.add('hidden');
-      clients = []
     }
+  }
+
+  function updateUI() {
+    const perfil = (currentUser && userProfile) ? userProfile : null;
+    pintarEncabezadoSesion(perfil);
+    if (perfil) {
+      guardarSesionRecordada();
+      programarCargaClientes();
+    } else {
+      clients = [];
+      _clientesCargados = false;
+    }
+  }
+
+  // Arranque: si hay ficha recordada y Firebase todavía no contestó, se pinta la
+  // cara de agente. Se llama al terminar de cargar app.js (el encabezado ya existe)
+  // y otra vez con el DOM completo (la barra de abajo y el menú están después
+  // del <script> en index.html).
+  function pintarSesionProvisoria() {
+    if (currentUser || _authResuelto || !_sesionPrevia) return;
+    pintarEncabezadoSesion(_sesionPrevia);
+  }
+
+  // Firebase terminó de decidir (entró la sesión o no había). Lo que se pintó
+  // con la ficha recordada se repinta con los datos reales.
+  function alCambiarSesion() {
+    // Las tarjetas: los botones de edición dependen de quién está. Antes, si las
+    // propiedades llegaban antes que la sesión, el agente no veía esos botones
+    // hasta que cambiara alguna propiedad.
+    if (window._propsCargadas || _vitrinaDeCache) refrescarVitrina();
+    const side = document.getElementById('mvSide');
+    if (side && side.classList.contains('open')) {
+      if (currentUser) pintarMenuLateral(); else closeSideMenu();
+    }
+    // El perfil abierto (propio o ajeno): se repinta para que aparezcan (o se
+    // vayan) los botones de editar.
+    const pp = document.getElementById('profilePage');
+    if (currentProfileUserId && pp && !pp.classList.contains('hidden')) showProfile(currentProfileUserId);
+    const nd = document.getElementById('notificationDropdown');
+    if (nd && nd.classList.contains('active')) renderNotifications();
   }
 
   let mlModalPropId = null;
@@ -3485,6 +3654,7 @@
   }
 
   function logout() {
+    borrarSesionRecordada();
     auth.signOut();
     showHome();
     document.getElementById('userDropdown')?.classList.remove('active')
@@ -3493,7 +3663,7 @@
     const f = e.target.files[0];
     if (!f || !currentUser) return;
     try {
-      showToast('Subiendo foto...', 'Por favor espera', 'fa-spinner');
+      showToast('Subiendo foto...', 'Esperá un momento', 'fa-spinner');
       const pu = await uploadProfilePhoto(f, currentUser.uid);
       await db.collection('users').doc(currentUser.uid).update({
         profilePhoto: pu
@@ -3526,22 +3696,90 @@
         id: d.id,
         ...d.data()
       }));
+      const veniaDeCache = _vitrinaDeCache;
+      _vitrinaDeCache = false;
       // Las notificaciones de despublicación leen el estado REAL de la propiedad;
       // hasta que llega este primer snapshot no se puede saber, y no deben adivinar.
       window._propsCargadas = true;
-      renderProperties(properties.filter(enVitrina));
+      // Respeta la búsqueda que tenga puesta el visitante. Antes cada cambio en
+      // cualquier propiedad (una visita nueva suma al contador) repintaba la
+      // grilla entera sin filtros y la búsqueda se perdía sola.
+      pintarVitrinaActual();
       updateStats();
       pedirSaludML();
+      guardarVitrina();
       // Con el modal de Portales abierto, sus pestañas se ponen al día solas.
       refrescarPortalesAbiertos();
       // Si se refrescó la página estando en el PERFIL de un agente, su grilla se
-      // pintó vacía antes de que llegaran las propiedades (carrera del snapshot):
-      // repintarla ahora que ya están.
+      // pintó antes de que llegaran las propiedades (carrera del snapshot) o con
+      // la copia guardada, que solo tiene las disponibles: repintarla ahora.
       if (typeof currentProfileUserId !== 'undefined' && currentProfileUserId && window.location.hash.startsWith('#perfil/')) {
         const _pg = document.getElementById('profilePropertiesGrid');
-        if (_pg && !_pg.querySelector('.property-card')) showProfile(currentProfileUserId);
+        if (veniaDeCache || (_pg && !_pg.querySelector('.property-card'))) showProfile(currentProfileUserId);
       }
     })
+  }
+  function pintarVitrinaActual() {
+    if (document.getElementById('filterSearch')) filterProperties();
+    else renderProperties(properties.filter(enVitrina));
+  }
+
+  // ===== Vitrina recordada =====
+  // Al volver al inicio, la grilla aparecía recién cuando Firestore respondía
+  // (uno o dos segundos con el spinner). Ahora se guarda una copia liviana de lo
+  // que está a la vista —solo propiedades disponibles, solo los campos que usan
+  // la tarjeta, el buscador y Compartir— y se pinta al instante. Cuando llega la
+  // lista real, la reemplaza sin que se note.
+  // Son datos públicos (lo mismo que ve cualquier visitante): nada del CRM.
+  const MV_VITRINA_KEY = 'mvVitrina1';
+  const CAMPOS_VITRINA = ['title', 'price', 'previousPrice', 'currency', 'type', 'propertyType', 'status',
+    'ciudad', 'departamento', 'location', 'bedrooms', 'bathrooms', 'totalArea', 'builtArea', 'garage',
+    'featured', 'featuredHasta', 'createdAt', 'ownerId', 'ownerName', 'ownerPhoto', 'ownerWhatsapp',
+    'views', 'contactClicks', 'clientId', 'mlItemId', 'mlHealth', 'mlHealthAt', 'mlPermalink',
+    'codigo', 'PROPERTY_CODE', 'icListingId', 'icEstado', 'icFrPropertyId', 'infocasasUrl', 'cymId', 'cymEstado'];
+  let _vitrinaDeCache = false, _vitrinaT = null;
+  // La grilla se pintó con algún agente todavía sin datos (nombre/foto): cuando
+  // llegan los perfiles se repinta una vez.
+  let _faltanDuenos = false;
+  // Las fechas de Firestore (Timestamp) no sobreviven a JSON: se guardan en texto.
+  const _planoCache = (v) => (v && typeof v.toMillis === 'function') ? new Date(v.toMillis()).toISOString() : v;
+  function guardarVitrina() {
+    clearTimeout(_vitrinaT);
+    _vitrinaT = setTimeout(() => {
+      try {
+        const vis = properties.filter(enVitrina).slice(0, 300);
+        const props = vis.map(p => {
+          const o = { id: p.id };
+          CAMPOS_VITRINA.forEach(k => { if (p[k] !== undefined && p[k] !== null && p[k] !== '') o[k] = _planoCache(p[k]); });
+          if (p.images && p.images[0]) o.images = [p.images[0]];
+          const cod = p.ficha && (p.ficha.PROPERTY_CODE || p.ficha.property_code);
+          if (cod) o.ficha = { PROPERTY_CODE: cod };
+          return o;
+        });
+        const owners = {};
+        vis.forEach(p => {
+          const u = allUsers[p.ownerId];
+          if (u && !owners[p.ownerId]) owners[p.ownerId] = { name: u.name || '', profilePhoto: u.profilePhoto || '', whatsapp: u.whatsapp || '', instagram: u.instagram || '', rank: u.rank || '', _cache: true };
+        });
+        localStorage.setItem(MV_VITRINA_KEY, JSON.stringify({ t: Date.now(), props, owners }));
+      } catch (e) {
+        // Sin lugar en el navegador (o modo privado): se sigue sin copia.
+        try { localStorage.removeItem(MV_VITRINA_KEY); } catch (e2) { }
+      }
+    }, 1500);
+  }
+  function pintarVitrinaRecordada() {
+    try {
+      const c = JSON.parse(localStorage.getItem(MV_VITRINA_KEY) || 'null');
+      if (!c || !Array.isArray(c.props) || !c.props.length) return;
+      if (Date.now() - (Number(c.t) || 0) > 14 * 864e5) return;
+      if (window._propsCargadas) return;   // la lista real ya llegó
+      Object.entries(c.owners || {}).forEach(([uid, o]) => { if (!allUsers[uid]) allUsers[uid] = o; });
+      properties = c.props;
+      _vitrinaDeCache = true;
+      renderProperties(properties.filter(enVitrina));
+      updateStats();
+    } catch (e) { /* copia rota: se espera la lista real */ }
   }
 
   function getUserInfo(ui) {
@@ -3563,8 +3801,14 @@
     }
   }
 
+  // Siempre con punto de miles, como se escribe en Uruguay (US$ 245.000). Antes
+  // dependía del idioma del navegador y en uno en inglés salía "245,000".
+  // (A mano y no con toLocaleString: en español los números de 4 cifras salen
+  // sin punto, "US$ 1500", y un alquiler en dólares quedaba distinto al resto.)
   function formatPrice(p, c) {
-    return `${c==='UYU'?'$U':'US$'} ${(p||0).toLocaleString()}`
+    const n = Number(p) || 0;
+    const txt = Number.isInteger(n) ? String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.') : n.toLocaleString('es-UY', { maximumFractionDigits: 2 });
+    return `${c==='UYU'?'$U':'US$'} ${txt}`
   }
 
   function getLocationString(p) {
@@ -3610,12 +3854,18 @@
       if (prioA !== prioB) return prioA - prioB;
       return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     });
+    // Quién mira: el usuario confirmado o, mientras Firebase responde, el de la
+    // sesión recordada. Así las tarjetas del agente salen con sus botones desde
+    // el primer cuadro (todo lo que esos botones hacen pasa igual por Firebase).
+    const yo = uidVisible();
+    const dirV = currentUser ? isAdminUser() : esDireccionPerfil(perfilVisible());
+    if (tg === 'propertiesGrid') _faltanDuenos = sorted.some(p => !allUsers[p.ownerId] || allUsers[p.ownerId]._cache);
     g.innerHTML = sorted.map(p => {
       const o = getOwnerInfo(p),
         oi = (o.name || 'U').charAt(0).toUpperCase(),
         c = p.currency || 'USD',
         l = getLocationString(p),
-        ce = canEditProperty(p),
+        ce = !!yo && (yo === p.ownerId || dirV),
         hi = o.instagram && o.instagram.includes('instagram.com'),
         st = p.status || 'available',
         hop = p.previousPrice && p.previousPrice > p.price,
@@ -3629,7 +3879,7 @@
         archived: 'DADA DE BAJA'
       };
       const stLabel = stLabels[st] || '';
-      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button>${anilloML(p)}<button class="btn-feature ${isFeatured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${isFeatured?`Destacada · vence en ${diasDeDestacado(p)} d. Tocá para cambiar la propiedad`:'Destacar'}"><i class="fas fa-star"></i></button>${isAdminUser()?`<button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar (solo admin)"><i class="fas fa-trash"></i></button>`:`<button class="card-action-btn baja" onclick="event.stopPropagation();irAGestion('${p.id}')" title="Dar de baja — se hace cerrando la gestión del cliente"><i class="fas fa-circle-stop"></i></button>`}</div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${safeUrl(o.profilePhoto)}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-meta"><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div>${chipCliente(p)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span>${ce?`<span class="card-views" title="Tocaron Contactar"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${p.contactClicks||0}</span>`:''}</div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
+      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy" decoding="async">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button>${anilloML(p)}<button class="btn-feature ${isFeatured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${isFeatured?`Destacada · vence en ${diasDeDestacado(p)} d. Tocá para cambiar la propiedad`:'Destacar'}"><i class="fas fa-star"></i></button>${dirV?`<button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar (solo admin)"><i class="fas fa-trash"></i></button>`:`<button class="card-action-btn baja" onclick="event.stopPropagation();irAGestion('${p.id}')" title="Dar de baja — se hace cerrando la gestión del cliente"><i class="fas fa-circle-stop"></i></button>`}</div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${safeUrl(o.profilePhoto)}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-meta"><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div>${chipCliente(p)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span>${ce?`<span class="card-views" title="Tocaron Contactar"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${p.contactClicks||0}</span>`:''}</div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
     }).join('')
   }
 
@@ -3876,13 +4126,15 @@
   }
 
   function filterProperties() {
-    const s = document.getElementById('filterSearch').value.toLowerCase(),
+    // Sin tildes ni mayúsculas: "malvin" encuentra "Malvín" y "cordon", "Cordón"
+    // (en el celular casi nadie escribe los acentos).
+    const s = _normTxt(document.getElementById('filterSearch').value.trim()),
       t = document.getElementById('filterType').value,
       b = parseInt(document.getElementById('filterBedrooms').value) || 0,
       mp = parseInt(document.getElementById('filterPrice').value) || Infinity;
     const f = properties.filter(p => {
       if (!enVitrina(p)) return false;
-      const l = getLocationString(p).toLowerCase();
+      const l = _normTxt(getLocationString(p));
       // El CÓDIGO también busca. Vive dentro de la ficha (PROPERTY_CODE), así que
       // no se veía desde acá y buscar "MAL-B5CMW" no devolvía nada — justo el dato
       // que el agente tiene a mano cuando el cliente le pasa una referencia.
@@ -3890,7 +4142,7 @@
       // "B5CMW" encuentren lo mismo.
       const cod = codigoDePropiedad(p);
       const sN = s.replace(/[\s-]/g, '');
-      if (s && !p.title.toLowerCase().includes(s) && !l.includes(s)
+      if (s && !_normTxt(p.title).includes(s) && !l.includes(s)
            && !(sN && cod && cod.includes(sN))) return false;
       if (t && p.type !== t) return false;
       if (b && (p.bedrooms || 0) < b) return false;
@@ -3921,7 +4173,8 @@
     currentProfileUserId = ui;
     window.location.hash = `perfil/${ui}`;
     let ud = allUsers[ui];
-    if (!ud) {
+    // _cache: datos mínimos de la copia de la vitrina (sin bio, redes ni correo).
+    if (!ud || ud._cache) {
       const d = await db.collection('users').doc(ui).get();
       ud = d.exists ? d.data() : {
         name: 'Usuario',
@@ -4021,8 +4274,9 @@
   }
 
   function showMyProfile() {
-    if (currentUser) {
-      showProfile(currentUser.uid);
+    const uid = uidVisible();
+    if (uid) {
+      showProfile(uid);
       document.getElementById('userDropdown')?.classList.remove('active')
     }
   }
@@ -4070,6 +4324,10 @@
   // (misma regla que el mapa de cierres) y los puntos de recompensa (1 por cada
   // US$100 de su ganancia). No duplica datos: es la misma fuente que ya existe.
   let _finBusy = false;
+  // Última vez que se calcularon saldo y puntos del menú. Son cinco consultas
+  // (propiedades, equipos, referidos, retiros...): antes se repetían cada vez que
+  // se abría el menú. Ahora, a lo sumo una vez cada dos minutos.
+  let _finUltima = 0;
   // Calcula el estado financiero de CUALQUIER agente (saldo USD/UYU y puntos).
   // Misma lógica que el menú personal: cierres propios + participaciones en equipo
   // + referidos − retiros, MÁS los ajustes manuales del admin (correcciones
@@ -4177,6 +4435,7 @@
 
   async function cargarFinanzasMenu() {
     if (_finBusy || !currentUser) return;
+    if (Date.now() - _finUltima < 120000) return;
     _finBusy = true;
     try {
       // Config de puntos (para convertir pesos y saber el valor del punto)
@@ -4289,6 +4548,7 @@
       }
       if (puntosEl) puntosEl.textContent = pts.toLocaleString('es-UY');
       pintarNivelMenu(expUSD);
+      _finUltima = Date.now();
     } catch (e) {
       console.warn('[finanzas menú]', e && e.message);
       ['mvFinUsd','mvFinUyu','mvFinPuntos'].forEach(function(id){ var e=document.getElementById(id); if(e) e.textContent='—'; });
@@ -6149,85 +6409,160 @@
   }
 
   async function toggleFeatured(id) {
+    // Con la copia guardada de la vitrina a la vista todavía no están los datos
+    // completos (ni la sesión confirmada): destacar espera a la lista real.
+    if (!window._propsCargadas || !currentUser) { showToast('Un segundo…', 'Estamos terminando de cargar las propiedades', 'fa-spinner'); return; }
     const p = properties.find(pr => pr.id === id);
     if (!p) return;
     if (isEffectivelyFeatured(p)) return abrirModalDestacado(id);
     return destacarPropiedad(id, false);
   }
 
-  // Funciones de compartir
+  // ===== Compartir una propiedad =====
+  // La ventana muestra la ficha (foto, precio, zona), las redes y el link de la
+  // web. Para el equipo suma los LINKS DIRECTOS de cada portal, que ahora salen
+  // solos de lo que guarda cada publicación:
+  //   · Mercado Libre: el permalink que guarda el servidor al publicar.
+  //   · InfoCasas: infocasas.com.uy/detalle/{número} con el número que guarda la
+  //     publicación por API (icUrlAviso). Antes había que pegarlo a mano; pegar
+  //     queda solo como último recurso para avisos viejos sin ese número.
+  //   · Casas y Más: casasymas.com.uy/propiedad/{id}.
   let currentShareProperty = null;
+
+  function urlPropiedadWeb(id) {
+    return `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}propiedad.html?id=${encodeURIComponent(id)}`;
+  }
 
   function openShareModal(id) {
     const p = properties.find(pr => pr.id === id);
     if (!p) return;
     currentShareProperty = p;
-    const url = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}propiedad.html?id=${id}`;
-    document.getElementById('shareTitle').textContent = p.title;
+    const url = urlPropiedadWeb(id);
+    document.getElementById('shareTitle').textContent = p.title || 'Propiedad';
     document.getElementById('sharePrice').textContent = formatPrice(p.price, p.currency || 'USD') + (p.type === 'rent' ? '/mes' : '');
     document.getElementById('shareLocation').textContent = getLocationString(p);
+    const img = document.getElementById('shareImg');
+    if (img) {
+      const f = p.images && p.images[0] ? safeUrl(p.images[0]) : '';
+      img.innerHTML = f ? `<img src="${f}" alt="">` : '<i class="fas fa-house"></i>';
+    }
+    const op = document.getElementById('shareOp');
+    if (op) { op.textContent = p.type === 'rent' ? 'Alquiler' : 'Venta'; op.className = 'shr-op ' + (p.type === 'rent' ? 'rent' : 'sale'); }
     document.getElementById('shareUrlInput').value = url;
+    // "Más apps" (Instagram, Mensajes, Telegram...) = la hoja de compartir del
+    // teléfono. Solo aparece donde el navegador la ofrece.
+    const nat = document.getElementById('shareNativo');
+    if (nat) nat.hidden = !navigator.share;
     _icEditando = false;
     renderSharePortales(p);
     openModal('shareModal')
   }
 
-  // ----- Links de los portales (Mercado Libre / InfoCasas) en el modal de compartir -----
-  // Solo visible con sesión iniciada: es una herramienta para los agentes.
-  // ML: el permalink lo guarda el backend al publicar (p.mlPermalink), es automático.
-  // InfoCasas: asigna su propia URL al importar el feed y el sistema no la conoce,
-  // así que el dueño (o el admin) la pega una vez acá y queda guardada para todos.
+  // Links de cada portal para una propiedad. estado: 'ok' (hay link), 'espera'
+  // (publicándose), 'no' (no está publicada), 'sinlink' (publicada, sin link).
+  function linksPortales(p) {
+    const out = [];
+    // Mercado Libre
+    let mlUrl = safeUrl(p.mlPermalink);
+    if (!mlUrl && p.mlItemId) {
+      const m = String(p.mlItemId).match(/^([A-Z]{3})(\d+)$/);
+      if (m) mlUrl = `https://articulo.mercadolibre.com.uy/${m[1]}-${m[2]}`;
+    }
+    out.push({ key: 'ml', nombre: 'Mercado Libre', sigla: 'ML', url: mlUrl, estado: mlUrl ? 'ok' : 'no', nota: mlUrl ? '' : 'No está publicada en Mercado Libre' });
+    // InfoCasas
+    const icVivo = p.icListingId && p.icEstado !== 'eliminado' && p.icEstado !== 'error';
+    const icUrl = icUrlAviso(p);
+    if (icVivo && p.icEstado === 'pendiente' && !p.icFrPropertyId) {
+      out.push({ key: 'ic', nombre: 'InfoCasas', sigla: 'IC', url: '', estado: 'espera', nota: 'Publicándose: el link aparece solo cuando InfoCasas la confirma' });
+    } else if ((icVivo || p.infocasasUrl) && icUrl) {
+      out.push({ key: 'ic', nombre: 'InfoCasas', sigla: 'IC', url: icUrl, estado: 'ok', nota: '' });
+    } else if (icVivo) {
+      out.push({ key: 'ic', nombre: 'InfoCasas', sigla: 'IC', url: '', estado: 'sinlink', nota: 'Publicada, pero sin el número del aviso' });
+    } else {
+      out.push({ key: 'ic', nombre: 'InfoCasas', sigla: 'IC', url: '', estado: 'no', nota: 'No está publicada en InfoCasas' });
+    }
+    // Casas y Más
+    const cymVivo = p.cymId && p.cymEstado !== 'eliminado' && p.cymEstado !== 'error';
+    out.push(cymVivo
+      ? { key: 'cym', nombre: 'Casas y Más', sigla: 'CM', url: `https://casasymas.com.uy/propiedad/${encodeURIComponent(p.cymId)}`, estado: 'ok', nota: '' }
+      : { key: 'cym', nombre: 'Casas y Más', sigla: 'CM', url: '', estado: 'no', nota: 'No está publicada en Casas y Más' });
+    return out;
+  }
+
   let _icEditando = false;
   function renderSharePortales(p){
     const box = document.getElementById('sharePortales');
     if (!box) return;
-    if (!currentUser){ box.style.display = 'none'; box.innerHTML = ''; return; }
+    // Solo el equipo: es una herramienta de trabajo, no algo del visitante.
+    if (!currentUser){ box.hidden = true; box.innerHTML = ''; return; }
     const puedeEditar = (p.ownerId === currentUser.uid) || isAdminUser();
-    const fila = (tag, tagStyle, inner) => `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;min-height:34px"><span style="flex:none;padding:3px 8px;border-radius:6px;font-weight:700;font-size:11px;${tagStyle}">${tag}</span>${inner}</div>`;
-    const urlSpan = u => `<span style="flex:1;min-width:0;font-size:12px;color:var(--gray-500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${mvEsc(u)}">${mvEsc(u)}</span>`;
-    const btnCopiar = cual => `<button onclick="copiarLinkPortal('${cual}')" style="flex:none;border:1px solid var(--gray-200,#e5e7eb);background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;color:var(--gray-700,#374151)"><i class="fas fa-copy"></i> Copiar</button>`;
-    const btnAbrir = u => safeUrl(u) ? `<a href="${safeUrl(u)}" target="_blank" rel="noopener" style="flex:none;color:var(--gray-400);padding:6px" title="Abrir el aviso"><i class="fas fa-external-link-alt"></i></a>` : '';
-    const vacio = t => `<span style="flex:1;font-size:12px;color:var(--gray-400)">${t}</span>`;
-
-    let ml;
-    if (p.mlPermalink) ml = urlSpan(p.mlPermalink) + btnCopiar('ml') + btnAbrir(p.mlPermalink);
-    else ml = vacio('Sin publicar en Mercado Libre');
-
-    let ic;
-    if (p.infocasasUrl && !_icEditando){
-      ic = urlSpan(p.infocasasUrl) + btnCopiar('ic') + btnAbrir(p.infocasasUrl) +
-        (puedeEditar ? `<button onclick="editarLinkInfocasas()" style="flex:none;border:none;background:transparent;color:var(--gray-400);cursor:pointer;padding:6px" title="Cambiar el link"><i class="fas fa-pen"></i></button>` : '');
-    } else if (puedeEditar){
-      ic = `<input id="icUrlInput" type="url" placeholder="Pegá el link del aviso en InfoCasas" value="${mvEsc(p.infocasasUrl||'')}" style="flex:1;min-width:0;padding:7px 10px;border:1px solid var(--gray-200,#e5e7eb);border-radius:8px;font-size:12px;font-family:inherit">` +
-        `<button onclick="guardarLinkInfocasas()" style="flex:none;border:none;background:var(--accent,#C9A227);color:#fff;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600">Guardar</button>`;
-    } else {
-      ic = vacio('El dueño todavía no cargó el link');
-    }
-
-    box.innerHTML =
-      `<div style="font-size:11px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.4px;margin:0 0 10px"><i class="fas fa-store"></i> Links en los portales</div>` +
-      fila('ML', 'background:#fff159;color:#2d3277', ml) +
-      fila('IC', 'background:#dbeafe;color:#1d4ed8', ic);
-    box.style.display = 'block';
+    const links = [{ key: 'web', nombre: 'Web MALAVE', sigla: 'M', url: urlPropiedadWeb(p.id), estado: 'ok', nota: '' }].concat(linksPortales(p));
+    const acciones = (l) => `<div class="shr-pl-acc">
+        <button type="button" onclick="copiarLinkPortal('${l.key}')" title="Copiar el link" aria-label="Copiar el link de ${l.nombre}"><i class="fas fa-copy"></i></button>
+        <button type="button" class="wa" onclick="compartirPortalWhatsApp('${l.key}')" title="Mandar por WhatsApp" aria-label="Mandar por WhatsApp el link de ${l.nombre}"><i class="fab fa-whatsapp"></i></button>
+        <a href="${l.url}" target="_blank" rel="noopener" title="Abrir el aviso" aria-label="Abrir el aviso en ${l.nombre}"><i class="fas fa-arrow-up-right-from-square"></i></a>
+      </div>`;
+    const filas = links.map(l => {
+      let cuerpo, extra = '';
+      if (l.estado === 'ok') {
+        const corto = l.url.replace(/^https?:\/\/(www\.)?/, '');
+        cuerpo = `<span class="shr-pl-url" title="${mvEsc(l.url)}">${mvEsc(corto)}</span>`;
+      } else {
+        cuerpo = `<span class="shr-pl-nota">${mvEsc(l.nota)}</span>`;
+      }
+      // InfoCasas sin número (avisos viejos): se puede pegar a mano, y el que ya
+      // se pegó se puede corregir.
+      if (l.key === 'ic' && puedeEditar && (l.estado === 'sinlink' || (l.estado === 'ok' && p.infocasasUrl && !p.icFrPropertyId))) {
+        extra = _icEditando
+          ? `<div class="shr-pl-pegar"><input id="icUrlInput" type="url" placeholder="Pegá el link del aviso en InfoCasas" value="${mvEsc(p.infocasasUrl||'')}"><button type="button" onclick="guardarLinkInfocasas()">Guardar</button></div>`
+          : `<button type="button" class="shr-pl-mini" onclick="editarLinkInfocasas()"><i class="fas fa-pen"></i> ${p.infocasasUrl ? 'Corregir link' : 'Pegar link'}</button>`;
+      }
+      return `<div class="shr-pl ${l.estado === 'ok' ? '' : 'off'}">
+          <span class="shr-pl-logo ${l.key}">${l.sigla}</span>
+          <div class="shr-pl-tx"><strong>${l.nombre}${l.estado === 'espera' ? ' <i class="fas fa-spinner fa-spin"></i>' : ''}</strong>${cuerpo}${extra}</div>
+          ${l.estado === 'ok' ? acciones(l) : ''}
+        </div>`;
+    }).join('');
+    const hayVarios = links.filter(l => l.estado === 'ok').length > 1;
+    box.innerHTML = `<div class="shr-sec">Links directos <span>para el equipo</span></div>${filas}` +
+      (hayVarios ? `<button type="button" class="shr-todos" onclick="copiarTodosLosLinks()"><i class="fas fa-clone"></i> Copiar todos los links</button>` : '');
+    box.hidden = false;
   }
 
-  function copiarLinkPortal(cual){
-    const p = currentShareProperty; if (!p) return;
-    const url = cual === 'ml' ? p.mlPermalink : p.infocasasUrl;
-    if (!url) return;
-    const nombre = cual === 'ml' ? 'Mercado Libre' : 'InfoCasas';
-    navigator.clipboard.writeText(url).then(() => {
-      showToast('Link copiado', 'El aviso de ' + nombre + ' está listo para pegar', 'fa-link');
-    }).catch(() => {
+  function _linkPortal(cual) {
+    const p = currentShareProperty; if (!p) return null;
+    if (cual === 'web') return { nombre: 'la web', url: urlPropiedadWeb(p.id) };
+    const l = linksPortales(p).find(x => x.key === cual);
+    return l && l.url ? { nombre: l.nombre, url: l.url } : null;
+  }
+  function _copiarTexto(texto, titulo, detalle) {
+    const ok = () => showToast(titulo, detalle, 'fa-link');
+    const aMano = () => {
       const t = document.createElement('textarea');
-      t.value = url; document.body.appendChild(t); t.select();
-      try { document.execCommand('copy'); showToast('Link copiado', 'El aviso de ' + nombre + ' está listo para pegar', 'fa-link'); }
-      catch (e) { showToast('No se pudo copiar', 'Copialo a mano desde el botón de abrir', 'fa-exclamation-triangle'); }
+      t.value = texto; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+      document.body.appendChild(t); t.select();
+      try { document.execCommand('copy'); ok(); }
+      catch (e) { showToast('No se pudo copiar', 'Mantené apretado el link para copiarlo', 'fa-exclamation-triangle'); }
       t.remove();
-    });
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texto).then(ok).catch(aMano);
+    else aMano();
+  }
+  function copiarLinkPortal(cual){
+    const l = _linkPortal(cual); if (!l) return;
+    _copiarTexto(l.url, 'Link copiado', cual === 'web' ? 'El link de la web está listo para pegar' : 'El aviso de ' + l.nombre + ' está listo para pegar');
+  }
+  function compartirPortalWhatsApp(cual) {
+    const l = _linkPortal(cual); if (!l) return;
+    window.open(`https://wa.me/?text=${encodeURIComponent(getShareText() + '\n' + l.url)}`, '_blank');
+  }
+  function copiarTodosLosLinks() {
+    const p = currentShareProperty; if (!p) return;
+    const filas = [`MALAVE: ${urlPropiedadWeb(p.id)}`].concat(linksPortales(p).filter(l => l.url).map(l => `${l.nombre}: ${l.url}`));
+    _copiarTexto(getShareText() + '\n' + filas.join('\n'), 'Links copiados', 'La ficha y los links de cada portal, listos para pegar');
   }
 
-  function editarLinkInfocasas(){ _icEditando = true; if (currentShareProperty) renderSharePortales(currentShareProperty); }
+  function editarLinkInfocasas(){ _icEditando = true; if (currentShareProperty) renderSharePortales(currentShareProperty); setTimeout(() => document.getElementById('icUrlInput')?.focus(), 50); }
 
   async function guardarLinkInfocasas(){
     const p = currentShareProperty; if (!p) return;
@@ -6252,36 +6587,38 @@
   function getShareText() {
     if (!currentShareProperty) return '';
     const p = currentShareProperty;
-    return `${p.type==='sale'?'🏠 EN VENTA':'🔑 EN ALQUILER'}: ${p.title}\n💰 ${formatPrice(p.price,p.currency||'USD')}${p.type==='rent'?'/mes':''}\n📍 ${getLocationString(p)}\n${p.bedrooms?`🛏 ${p.bedrooms} dormitorios `:''} ${p.bathrooms?`🚿 ${p.bathrooms} baños`:''}\n`
+    const det = [p.bedrooms ? `🛏 ${p.bedrooms} dormitorio${p.bedrooms == 1 ? '' : 's'}` : '', p.bathrooms ? `🚿 ${p.bathrooms} baño${p.bathrooms == 1 ? '' : 's'}` : '', p.totalArea ? `📐 ${p.totalArea} m²` : ''].filter(Boolean).join(' · ');
+    return `${p.type==='sale'?'🏠 EN VENTA':'🔑 EN ALQUILER'}: ${p.title}\n💰 ${formatPrice(p.price,p.currency||'USD')}${p.type==='rent'?'/mes':''}\n📍 ${getLocationString(p)}` + (det ? `\n${det}` : '') + '\n';
   }
+  const _urlCompartir = () => document.getElementById('shareUrlInput').value;
 
   function shareToWhatsApp() {
-    const url = document.getElementById('shareUrlInput').value;
-    const text = encodeURIComponent(getShareText() + '\n' + url);
-    window.open(`https://wa.me/?text=${text}`, '_blank')
+    window.open(`https://wa.me/?text=${encodeURIComponent(getShareText() + '\n' + _urlCompartir())}`, '_blank')
   }
-
   function shareToFacebook() {
-    const url = encodeURIComponent(document.getElementById('shareUrlInput').value);
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank')
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(_urlCompartir())}`, '_blank')
   }
-
   function shareToTwitter() {
-    const url = document.getElementById('shareUrlInput').value;
-    const text = encodeURIComponent(getShareText());
-    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(url)}`, '_blank')
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(getShareText())}&url=${encodeURIComponent(_urlCompartir())}`, '_blank')
   }
-
+  function shareToTelegram() {
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(_urlCompartir())}&text=${encodeURIComponent(getShareText())}`, '_blank')
+  }
+  function shareToLinkedin() {
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(_urlCompartir())}`, '_blank')
+  }
+  function shareToEmail() {
+    const p = currentShareProperty || {};
+    window.location.href = `mailto:?subject=${encodeURIComponent((p.title || 'Propiedad') + ' | MALAVE')}&body=${encodeURIComponent(getShareText() + '\n' + _urlCompartir())}`;
+  }
+  // La hoja de compartir del teléfono: Instagram, Mensajes, Telegram, Gmail…
+  function compartirNativo() {
+    const p = currentShareProperty || {};
+    if (!navigator.share) { copyShareLink(); return; }
+    navigator.share({ title: (p.title || 'Propiedad') + ' | MALAVE', text: getShareText(), url: _urlCompartir() }).catch(() => {});
+  }
   function copyShareLink() {
-    const input = document.getElementById('shareUrlInput');
-    input.select();
-    input.setSelectionRange(0, 99999);
-    navigator.clipboard.writeText(input.value).then(() => {
-      showToast('Enlace copiado', 'El link está listo para compartir', 'fa-link')
-    }).catch(() => {
-      document.execCommand('copy');
-      showToast('Enlace copiado', 'El link está listo para compartir', 'fa-link')
-    })
+    _copiarTexto(_urlCompartir(), 'Enlace copiado', 'El link está listo para compartir');
   }
   // Limpiar notificaciones
   async function clearAllNotifications(e) {
@@ -6396,7 +6733,7 @@
     renderImagePreviews();
     togglePropertyType();
     selectStatus('available');
-    document.getElementById('propCiudad').innerHTML = '<option value="">Primero selecciona departamento</option>';
+    document.getElementById('propCiudad').innerHTML = '<option value="">Primero elegí el departamento</option>';
     document.getElementById('uploadProgress').classList.add('hidden')
   }
 
@@ -6530,17 +6867,38 @@
         id: d.id,
         ...d.data()
       }));
-      try {
-        const ps = await db.collection('properties').get();
-        const counts = {};
-        ps.docs.forEach(d => { const cid = d.data().clientId; if (cid) counts[cid] = (counts[cid] || 0) + 1 });
-        clients.forEach(c => { c._propCount = counts[c.id] || 0 })
-      } catch (e) { console.warn('No se pudo contar propiedades por cliente', e) }
+      // Propiedades por cliente: se cuentan con las que ya están en memoria (el
+      // listener de la vitrina trae TODAS). Antes se volvía a descargar la
+      // colección entera de propiedades solo para contar.
+      contarPropiedadesPorCliente();
       renderClients();
       completarChipsCliente()
     } catch (e) {
       console.error('Error cargando clientes:', e)
     }
+  }
+  function contarPropiedadesPorCliente() {
+    const counts = {};
+    properties.forEach(p => { if (p.clientId) counts[p.clientId] = (counts[p.clientId] || 0) + 1 });
+    clients.forEach(c => { c._propCount = counts[c.id] || 0 });
+  }
+  // Los clientes solo le ponen el nombre del propietario a las tarjetas del
+  // equipo. Se piden UNA vez por visita y después de lo que se ve primero
+  // (encabezado y propiedades): antes se descargaban todos los clientes (y otra
+  // vez todas las propiedades) cada vez que se pintaba el encabezado.
+  let _clientesCargados = false, _clientesT = null;
+  function programarCargaClientes() {
+    if (_clientesCargados || _clientesT) return;
+    const correr = () => {
+      _clientesT = null;
+      if (!currentUser || _clientesCargados) return;
+      _clientesCargados = true;
+      loadClients();
+    };
+    _clientesT = setTimeout(() => {
+      if ('requestIdleCallback' in window) requestIdleCallback(correr, { timeout: 2500 });
+      else correr();
+    }, 900);
   }
 
   function showCRM() {
@@ -6555,7 +6913,7 @@
     document.getElementById('crmPage').classList.remove('hidden');
     window.location.hash = 'clientes';
     const sub = document.getElementById('crmSubtitle');
-    if (sub) sub.textContent = isAdminUser() ? 'Todos los clientes de la inmobiliaria' : 'Gestiona tus clientes y prospectos';
+    if (sub) sub.textContent = isAdminUser() ? 'Todos los clientes de la inmobiliaria' : 'Gestioná tus clientes y prospectos';
     loadClients()
   }
 
@@ -6587,7 +6945,7 @@
     });
     list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     if (list.length === 0) {
-      g.innerHTML = `<div class="crm-empty" style="grid-column:1/-1"><i class="fas fa-user-friends"></i><h3>${clients.length===0?'Aún no tienes clientes':'Sin resultados'}</h3><p>${clients.length===0?'Agrega tu primer cliente con el botón Nuevo Cliente':'Probá con otros filtros de búsqueda'}</p></div>`;
+      g.innerHTML = `<div class="crm-empty" style="grid-column:1/-1"><i class="fas fa-user-friends"></i><h3>${clients.length===0?'Todavía no tenés clientes':'Sin resultados'}</h3><p>${clients.length===0?'Agregá tu primer cliente con el botón Nuevo Cliente':'Probá con otros filtros de búsqueda'}</p></div>`;
       return
     }
     const il = {
@@ -6748,7 +7106,21 @@
     }
   }
   initDepartamentos();
-  _usersReady.catch(() => {}).then(() => loadProperties());
+  // Arranque del inicio, en este orden:
+  // 1) La cara de agente con la sesión recordada (sin esperar a Firebase).
+  pintarSesionProvisoria();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', pintarSesionProvisoria);
+  // 2) La grilla con la copia guardada, al instante.
+  pintarVitrinaRecordada();
+  // 3) Propiedades y agentes EN PARALELO. Antes las propiedades esperaban a que
+  //    terminara la lista de agentes: dos viajes al servidor uno detrás del otro.
+  //    La tarjeta ya tiene el nombre del agente guardado en la propiedad; cuando
+  //    llegan los perfiles (foto, Instagram) se repinta si hacía falta.
+  loadProperties();
+  _usersReady.then(() => {
+    if (_faltanDuenos && (window._propsCargadas || _vitrinaDeCache)) refrescarVitrina();
+    if (window._propsCargadas) guardarVitrina();
+  }).catch(() => {});
   handleHash();
 
 

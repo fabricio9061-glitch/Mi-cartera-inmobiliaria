@@ -14,13 +14,65 @@
   <meta property="og:url" content="" id="ogUrl">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="icon-512.png">
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <!-- Preconexiones: el teléfono abre de antemano la conexión con los servidores
+       que va a usar (fuentes, íconos, Firebase, fotos). Ahorra un viaje de ida y
+       vuelta por servidor, que en datos móviles son unos cientos de milisegundos. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <link rel="preconnect" href="https://www.gstatic.com">
+  <link rel="preconnect" href="https://firestore.googleapis.com">
+  <link rel="dns-prefetch" href="https://firebasestorage.googleapis.com">
+  <link rel="dns-prefetch" href="https://images.unsplash.com">
+  <!-- Cinzel se sacó: no la usaba ninguna parte del inicio. -->
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#243447">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="styles.css?v=20260821l">
+  <script>
+    /* ===== Sesión recordada (ver "Sesión recordada" en app.js) =====
+       Si el agente ya entró antes en este navegador, la página arranca con su
+       encabezado y su barra de abajo, en lugar de mostrar el de visitante hasta
+       que Firebase confirma la sesión. Firebase igual confirma después: si no hay
+       sesión, app.js borra la ficha y vuelve la vista de visitante. */
+    (function () {
+      try {
+        var s = JSON.parse(localStorage.getItem('mvSesion') || 'null');
+        if (s && s.uid && Date.now() - (Number(s.t) || 0) < 30 * 864e5) {
+          window.__mvSesion = s;
+          document.documentElement.classList.add('mv-sesion');
+        }
+      } catch (e) {}
+    })();
+    // Nombre y foto en el encabezado, apenas existe (se llama justo después).
+    function mvSesionTemprana() {
+      var s = window.__mvSesion;
+      if (!s) return;
+      var g = document.getElementById('nav-guest'), u = document.getElementById('nav-user');
+      if (g) g.classList.add('hidden');
+      if (u) u.classList.remove('hidden');
+      var n = document.getElementById('userName');
+      if (n) n.textContent = s.name || 'Usuario';
+      var a = document.getElementById('userAvatar');
+      if (a) {
+        var f = /^https?:\/\/[^\s'"<>\\]+$/i.test(s.profilePhoto || '') ? s.profilePhoto : '';
+        if (f) { var im = new Image(); im.alt = ''; im.src = f; a.innerHTML = ''; a.appendChild(im); }
+        else a.textContent = String(s.name || 'U').charAt(0).toUpperCase();
+      }
+    }
+  </script>
+  <style>
+    /* Sesión recordada: la cara de agente desde el primer cuadro (ver arriba). */
+    html.mv-sesion #nav-guest{ display:none !important; }
+    @media (max-width:640px){
+      html.mv-sesion .mv-bottombar{ display:grid !important; grid-template-columns:repeat(5,1fr); }
+      html.mv-sesion body{ padding-bottom:calc(63px + env(safe-area-inset-bottom,0px)); }
+      html.mv-sesion .notification-bell, html.mv-sesion .user-info{ display:none !important; }
+    }
+  </style>
   <style>
     /* ============ INICIO V2 (mockup) — autocontenido, no pisa styles.css ============ */
     :root{ --mvNavy: var(--primary, #16273f); --mvGold: #C9A227; }
@@ -58,6 +110,11 @@
     .mv-field input:focus, .mv-field select:focus{ outline:none; border-color: var(--mvGold); box-shadow:0 0 0 3px rgba(201,162,39,.14); }
     .mv-search-btn{ background: var(--mvNavy); color:#fff; border:none; border-radius:12px; padding:13px 26px; font-family:inherit; font-size:.95rem; font-weight:500; cursor:pointer; display:inline-flex; align-items:center; gap:9px; flex:0 0 auto; transition:transform .15s ease, box-shadow .15s ease; }
     .mv-search-btn:hover{ transform:translateY(-1px); box-shadow:0 8px 18px rgba(16,29,48,.25); }
+    .mv-input-ic{ position:relative; }
+    .mv-input-ic > i{ position:absolute; left:13px; top:50%; transform:translateY(-50%); color:#a0a8b3; font-size:.85rem; pointer-events:none; }
+    .mv-field .mv-input-ic input{ padding-left:36px; -webkit-appearance:none; appearance:none; }
+    .mv-field input[type=search]::-webkit-search-decoration{ -webkit-appearance:none; }
+    .mv-seg{ display:none; }
     .mv-sec-head{ display:flex; justify-content:space-between; align-items:flex-end; gap:14px; flex-wrap:wrap; }
     .mv-link-all{ color:var(--mvNavy); font-size:.9rem; font-weight:500; text-decoration:none; display:inline-flex; align-items:center; gap:8px; padding-bottom:4px; border-bottom:1px solid transparent; transition:all .2s; }
     .mv-link-all:hover{ color:var(--mvGold); border-bottom-color:var(--mvGold); }
@@ -188,11 +245,21 @@
       .mv-stat-num{ font-size:16px !important; line-height:1; }
       .mv-stat-lbl{ font-size:8.5px !important; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-      /* Buscador: pegado al hero (menos hueco), campos apilados, botón dorado ancho */
+      /* Buscador compacto: búsqueda a lo ancho, operación en tres botones,
+         dormitorios y precio de a dos, botón dorado a lo ancho. */
       .mv-search-wrap{ margin-top:-24px !important; }
-      .mv-search{ display:flex !important; flex-direction:column !important; align-items:stretch !important; gap:12px !important; padding:16px !important; }
-      .mv-search > .mv-field, .mv-search > .mv-field.grow{ flex:0 0 auto !important; width:100% !important; margin:0 !important; }
-      .mv-search-btn{ flex:0 0 auto !important; width:100% !important; justify-content:center; background:var(--gold,#c9a961); color:#fff; font-weight:600; padding:14px; font-size:16px; }
+      .mv-search{ display:grid !important; grid-template-columns:1fr 1fr; gap:10px !important; padding:14px !important; border-radius:18px; }
+      .mv-search > .mv-field{ min-width:0; margin:0 !important; gap:5px; }
+      .mv-search > .mv-field.grow, .mv-search > .mv-seg, .mv-search > .mv-search-btn{ grid-column:1 / -1; }
+      .mv-search .mv-f-op{ display:none !important; }
+      .mv-search .mv-field.grow > label{ display:none; }
+      .mv-search .mv-field label{ font-size:.68rem; letter-spacing:.05em; }
+      .mv-search .mv-field input, .mv-search .mv-field select{ font-size:15px; padding:11px 12px; border-radius:11px; }
+      .mv-search .mv-input-ic input{ padding:13px 12px 13px 38px; font-size:16px; }
+      .mv-seg{ display:flex; gap:4px; padding:4px; background:#f1f3f6; border-radius:12px; }
+      .mv-seg button{ flex:1 1 0; border:none; background:transparent; border-radius:9px; padding:9px 6px; font-family:inherit; font-size:14px; font-weight:500; color:#5b6472; cursor:pointer; transition:background .15s, color .15s, box-shadow .15s; }
+      .mv-seg button.on{ background:#fff; color:#16273f; font-weight:600; box-shadow:0 1px 4px rgba(16,29,48,.12); }
+      .mv-search-btn{ width:100% !important; justify-content:center; background:var(--gold,#c9a961); color:#fff; font-weight:600; padding:13px; font-size:16px; }
 
       /* "Propiedades destacadas": encabezado centrado y ordenado */
       .mv-sec-head{ flex-direction:column !important; align-items:center !important; text-align:center !important; gap:8px !important; }
@@ -214,7 +281,7 @@
         </div>
         <div class="as-body" id="agentSearchBody"></div>
       </div>
-      <div class="notification-dropdown" id="notificationDropdown"><div class="notification-header"><h3><i class="fas fa-comments"></i> Consultas</h3><div class="notification-actions"><button onclick="markAllAsRead(event)"><i class="fas fa-check-double"></i> Leídas</button><button class="btn-clear" onclick="clearAllNotifications(event)"><i class="fas fa-trash"></i> Limpiar</button></div></div><div class="notif-filtros-bar" id="notifFiltrosBar"></div><div class="notification-list" id="notificationList"><div class="notification-empty"><i class="fas fa-bell-slash"></i><p>No tienes consultas</p></div></div></div>
+      <div class="notification-dropdown" id="notificationDropdown"><div class="notification-header"><h3><i class="fas fa-comments"></i> Consultas</h3><div class="notification-actions"><button onclick="markAllAsRead(event)"><i class="fas fa-check-double"></i> Leídas</button><button class="btn-clear" onclick="clearAllNotifications(event)"><i class="fas fa-trash"></i> Limpiar</button></div></div><div class="notif-filtros-bar" id="notifFiltrosBar"></div><div class="notification-list" id="notificationList"><div class="notification-empty"><i class="fas fa-bell-slash"></i><p>No tenés consultas</p></div></div></div>
 
   <!-- Banner para activar notificaciones. Arranca oculto (display:none) y solo
        lo muestra refrescarBannerNotif() cuando hay sesión y falta el permiso.
@@ -252,7 +319,7 @@
   </script>
   <header class="header"><div class="container"><div class="header-content">
     <div class="logo" onclick="showHome()"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></div>
-    <nav class="nav" id="nav-guest"><a href="#" onclick="showHome()">Inicio</a><a href="#propiedades">Propiedades</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('rent')">Alquiler</a><a class="mv-navx" href="#porque" onclick="mvFiltrar('sale')">Venta</a><a class="mv-navx" href="#porque">Nosotros</a><a class="mv-navx" href="#contacto">Contacto</a><a href="vender.html" class="mv-sell-link" style="color:#C9A227;font-weight:600;">Vendé tu propiedad</a><a href="trabaja.html" class="mv-sell-link" style="color:#C9A227;font-weight:600;">Trabajá con nosotros</a><button class="agent-access" onclick="openModal('loginModal')" title="Acceso para agentes"><i class="fas fa-lock"></i> Acceso agentes</button><button class="mv-burger" id="mvBurger" onclick="abrirMenuVisitante()" aria-label="Menú"><i class="fas fa-bars"></i></button></nav>
+    <nav class="nav" id="nav-guest"><a href="#" onclick="showHome()">Inicio</a><a href="#propiedades">Propiedades</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('rent')">Alquiler</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('sale')">Venta</a><a class="mv-navx" href="#porque">Nosotros</a><a class="mv-navx" href="#contacto">Contacto</a><a href="vender.html" class="mv-sell-link" style="color:#C9A227;font-weight:600;">Vendé tu propiedad</a><a href="trabaja.html" class="mv-sell-link" style="color:#C9A227;font-weight:600;">Trabajá con nosotros</a><button class="agent-access" onclick="openModal('loginModal')" title="Acceso para agentes"><i class="fas fa-lock"></i> Acceso agentes</button><button class="mv-burger" id="mvBurger" onclick="abrirMenuVisitante()" aria-label="Menú"><i class="fas fa-bars"></i></button></nav>
     <nav class="nav hidden" id="nav-user"><a href="#" onclick="showHome()">Inicio</a><a href="#propiedades">Propiedades</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('rent')">Alquiler</a><a class="mv-navx" href="#propiedades" onclick="mvFiltrar('sale')">Venta</a>
       <a class="calendar-btn" id="calendarBtn" href="agenda.html" title="Mi Agenda"><i class="fas fa-calendar-alt"></i></a>
       <div class="agent-search-btn hidden" id="agentSearchBtn" onclick="toggleBuscadorAgentes(event)" title="Buscar agentes"><i class="fas fa-magnifying-glass"></i></div>
@@ -264,14 +331,15 @@
       </div>
     </nav>
   </div></div></header>
+  <script>mvSesionTemprana();</script>
 
   <main id="mainContent">
     <section class="hero mv-hero"><div class="container mv-hero-grid">
       <div class="mv-hero-deco" aria-hidden="true"><svg viewBox="0 0 120 320" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 10 L80 80 L10 150" stroke="#C9A227" stroke-width="1.5"/><path d="M30 170 L100 240 L30 310" stroke="#C9A227" stroke-width="1.5" opacity=".55"/><rect x="58" y="120" width="52" height="52" stroke="#C9A227" stroke-width="1.2" opacity=".4"/></svg></div>
       <div class="mv-hero-copy">
-        <h1>Encuentra la propiedad<br><span>de tus sueños</span></h1>
+        <h1>Encontrá la propiedad<br><span>de tus sueños</span></h1>
         <div class="mv-hero-rule"></div>
-        <p>Explora nuestra amplia selección de propiedades en venta y alquiler en todo Uruguay.</p>
+        <p>Explorá nuestra selección de propiedades en venta y alquiler en todo Uruguay.</p>
         <div class="hero-buttons" id="heroButtons"></div>
         <div class="mv-hero-stats">
           <div class="mv-stat"><div class="mv-stat-ic"><i class="fas fa-house"></i></div><div><div class="mv-stat-num" id="statTotal">0</div><div class="mv-stat-lbl">Propiedades</div></div></div>
@@ -281,14 +349,19 @@
           <div class="mv-stat"><div class="mv-stat-ic"><i class="fas fa-key"></i></div><div><div class="mv-stat-num" id="statRent">0</div><div class="mv-stat-lbl">En Alquiler</div></div></div>
         </div>
       </div>
-      <div class="mv-hero-media" aria-hidden="true"><img id="heroPhoto" class="show" alt="" src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1400&q=80" loading="eager"></div>
+      <div class="mv-hero-media" aria-hidden="true"><img id="heroPhoto" class="show" alt="" src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1400&q=80" srcset="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&q=72 800w, https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&q=75 1200w, https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1600&q=78 1600w" sizes="(max-width: 768px) 100vw, 55vw" loading="eager" fetchpriority="high" decoding="async"></div>
     </div></section>
-    <section class="container mv-search-wrap"><div class="mv-search">
-      <div class="mv-field grow"><label>¿Qué estás buscando?</label><input type="text" id="filterSearch" placeholder="Ubicación, barrio, edificio..."></div>
-      <div class="mv-field"><label>Tipo de operación</label><select id="filterType"><option value="">Todos</option><option value="sale">Venta</option><option value="rent">Alquiler</option></select></div>
-      <div class="mv-field"><label>Habitaciones</label><select id="filterBedrooms"><option value="">Todas</option><option value="1">1+</option><option value="2">2+</option><option value="3">3+</option><option value="4">4+</option></select></div>
-      <div class="mv-field"><label>Precio máximo</label><input type="number" id="filterPrice" placeholder="Precio máximo"></div>
-      <button class="mv-search-btn" onclick="filterProperties()"><i class="fas fa-magnifying-glass"></i> Buscar</button>
+    <!-- Buscador. Filtra mientras se escribe y al cambiar cada opción (el botón
+         queda para el que lo busca). En celular la operación son tres botones y
+         dormitorios y precio van de a dos: antes eran cuatro campos apilados que
+         ocupaban una pantalla entera antes de la primera propiedad. -->
+    <section class="container mv-search-wrap"><div class="mv-search" id="mvSearch" role="search">
+      <div class="mv-field grow"><label for="filterSearch">¿Qué estás buscando?</label><div class="mv-input-ic"><i class="fas fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="filterSearch" placeholder="Barrio, ciudad o código" enterkeyhint="search" autocomplete="off" oninput="mvBuscarEnVivo()" onkeydown="if(event.key==='Enter'){event.preventDefault();mvBuscar(true)}"></div></div>
+      <div class="mv-seg" id="mvSeg" role="group" aria-label="Tipo de operación"><button type="button" data-op="" class="on" aria-pressed="true" onclick="mvOperacion('')">Todas</button><button type="button" data-op="sale" aria-pressed="false" onclick="mvOperacion('sale')">Venta</button><button type="button" data-op="rent" aria-pressed="false" onclick="mvOperacion('rent')">Alquiler</button></div>
+      <div class="mv-field mv-f-op"><label for="filterType">Tipo de operación</label><select id="filterType" onchange="mvSyncSeg();filterProperties()"><option value="">Todos</option><option value="sale">Venta</option><option value="rent">Alquiler</option></select></div>
+      <div class="mv-field mv-f-mini"><label for="filterBedrooms">Dormitorios</label><select id="filterBedrooms" onchange="filterProperties()"><option value="">Todos</option><option value="1">1 o más</option><option value="2">2 o más</option><option value="3">3 o más</option><option value="4">4 o más</option></select></div>
+      <div class="mv-field mv-f-mini"><label for="filterPrice">Precio máximo</label><input type="number" id="filterPrice" inputmode="numeric" min="0" placeholder="Sin tope" oninput="mvBuscarEnVivo()"></div>
+      <button class="mv-search-btn" onclick="mvBuscar(true)"><i class="fas fa-magnifying-glass"></i> Buscar</button>
     </div></section>
     <section class="container" id="propiedades">
       <div class="section-header mv-sec-head"><div><h2 class="section-title">Propiedades destacadas</h2><p class="section-subtitle" id="propertiesCount">Cargando...</p></div><a class="mv-link-all" href="#propiedades" onclick="mvVerTodas(event)">Ver todas las propiedades <i class="fas fa-arrow-right"></i></a></div>
@@ -497,7 +570,7 @@
   </section></main>
 
   <main id="crmPage" class="hidden"><section class="crm-panel container">
-    <div class="crm-header"><div><h1>Clientes</h1><p id="crmSubtitle">Gestiona tus clientes y prospectos</p></div><button class="btn-new-client" onclick="openClientModal()"><i class="fas fa-plus"></i> Nuevo Cliente</button></div>
+    <div class="crm-header"><div><h1>Clientes</h1><p id="crmSubtitle">Gestioná tus clientes y prospectos</p></div><button class="btn-new-client" onclick="openClientModal()"><i class="fas fa-plus"></i> Nuevo Cliente</button></div>
     <div class="crm-stats-row" id="crmStats"></div>
     <div class="crm-toolbar">
       <div class="crm-search"><i class="fas fa-search"></i><input type="text" id="clientSearch" placeholder="Buscar por nombre, teléfono o email..." oninput="renderClients()"></div>
@@ -543,7 +616,7 @@
   <!-- Modals -->
   <div class="modal" id="loginModal"><div class="modal-content"><div class="modal-header"><h2>Iniciar Sesión</h2><button class="modal-close" onclick="closeModal('loginModal')"><i class="fas fa-times"></i></button></div><div class="modal-body"><div id="loginError" class="form-error hidden"></div><form onsubmit="handleLogin(event)"><div class="form-group"><label>Correo Electrónico</label><input type="email" id="loginEmail" required placeholder="tu@email.com"></div><div class="form-group"><label>Contraseña</label><div class="pass-wrap"><input type="password" id="loginPassword" required placeholder="••••••••"><button type="button" class="pass-eye" onclick="toggleVerPass(this)" aria-label="Mostrar contraseña" tabindex="-1"><i class="fas fa-eye"></i></button></div></div><div class="checkbox-group"><input type="checkbox" id="rememberMe"><label for="rememberMe">Recordar mi usuario</label></div><button type="submit" class="btn-submit" id="loginBtn">Iniciar Sesión</button><p class="login-olvide"><a onclick="recuperarPass()">¿Olvidaste tu contraseña?</a></p></form></div><div class="modal-footer">¿Agente nuevo? <a onclick="switchModal('loginModal','registerModal')">Registrate aquí</a></div></div></div>
 
-  <div class="modal" id="registerModal"><div class="modal-content"><div class="modal-header"><h2>Crear Cuenta</h2><button class="modal-close" onclick="closeModal('registerModal')"><i class="fas fa-times"></i></button></div><div class="modal-body"><div id="registerError" class="form-error hidden"></div><div id="registerSuccess" class="form-success hidden"></div><form onsubmit="handleRegister(event)" id="registerForm"><div class="form-group"><label>Nombre Completo *</label><input type="text" id="registerName" required placeholder="Tu nombre"></div><div class="form-group"><label>Correo Electrónico *</label><input type="email" id="registerEmail" required placeholder="tu@email.com"></div><div class="form-group"><label>WhatsApp *</label><input type="tel" id="registerWhatsapp" required placeholder="+598 99 123 456"></div><div class="form-group"><label>Instagram (opcional)</label><input type="url" id="registerInstagram" placeholder="https://instagram.com/tu_usuario"><small>Ingresa el link completo de tu perfil</small></div><div class="form-row"><div class="form-group"><label>Contraseña *</label><div class="pass-wrap"><input type="password" id="registerPassword" required minlength="6" placeholder="Mínimo 6 caracteres"><button type="button" class="pass-eye" onclick="toggleVerPass(this)" aria-label="Mostrar contraseña" tabindex="-1"><i class="fas fa-eye"></i></button></div></div><div class="form-group"><label>Confirmar *</label><div class="pass-wrap"><input type="password" id="registerConfirm" required placeholder="Repetir"><button type="button" class="pass-eye" onclick="toggleVerPass(this)" aria-label="Mostrar contraseña" tabindex="-1"><i class="fas fa-eye"></i></button></div></div></div><p style="font-size:13px;color:var(--gray-500);margin-bottom:20px;padding:12px;background:rgba(201,162,39,.1);border-radius:8px"><i class="fas fa-info-circle" style="color:var(--gold)"></i> Tu cuenta quedará <strong>pendiente</strong> hasta que el administrador la apruebe.</p><button type="submit" class="btn-submit" id="registerBtn">Crear Cuenta</button></form></div><div class="modal-footer">¿Ya tienes cuenta? <a onclick="switchModal('registerModal','loginModal')">Inicia sesión</a></div></div></div>
+  <div class="modal" id="registerModal"><div class="modal-content"><div class="modal-header"><h2>Crear Cuenta</h2><button class="modal-close" onclick="closeModal('registerModal')"><i class="fas fa-times"></i></button></div><div class="modal-body"><div id="registerError" class="form-error hidden"></div><div id="registerSuccess" class="form-success hidden"></div><form onsubmit="handleRegister(event)" id="registerForm"><div class="form-group"><label>Nombre Completo *</label><input type="text" id="registerName" required placeholder="Tu nombre"></div><div class="form-group"><label>Correo Electrónico *</label><input type="email" id="registerEmail" required placeholder="tu@email.com"></div><div class="form-group"><label>WhatsApp *</label><input type="tel" id="registerWhatsapp" required placeholder="+598 99 123 456"></div><div class="form-group"><label>Instagram (opcional)</label><input type="url" id="registerInstagram" placeholder="https://instagram.com/tu_usuario"><small>Ingresá el link completo de tu perfil</small></div><div class="form-row"><div class="form-group"><label>Contraseña *</label><div class="pass-wrap"><input type="password" id="registerPassword" required minlength="6" placeholder="Mínimo 6 caracteres"><button type="button" class="pass-eye" onclick="toggleVerPass(this)" aria-label="Mostrar contraseña" tabindex="-1"><i class="fas fa-eye"></i></button></div></div><div class="form-group"><label>Confirmar *</label><div class="pass-wrap"><input type="password" id="registerConfirm" required placeholder="Repetir"><button type="button" class="pass-eye" onclick="toggleVerPass(this)" aria-label="Mostrar contraseña" tabindex="-1"><i class="fas fa-eye"></i></button></div></div></div><p style="font-size:13px;color:var(--gray-500);margin-bottom:20px;padding:12px;background:rgba(201,162,39,.1);border-radius:8px"><i class="fas fa-info-circle" style="color:var(--gold)"></i> Tu cuenta quedará <strong>pendiente</strong> hasta que el administrador la apruebe.</p><button type="submit" class="btn-submit" id="registerBtn">Crear Cuenta</button></form></div><div class="modal-footer">¿Ya tenés cuenta? <a onclick="switchModal('registerModal','loginModal')">Iniciá sesión</a></div></div></div>
 
   <!-- (detalle de propiedad: ahora vive en propiedad.html) -->
 
@@ -551,15 +624,15 @@
     <form onsubmit="handleSaveProperty(event)" id="propertyForm">
       <input type="hidden" id="editingPropertyId" value=""><input type="hidden" id="previousPrice" value="">
       <div class="form-group"><label>Título *</label><input type="text" id="propTitle" required placeholder="Ej: Apartamento moderno"></div>
-      <div class="form-row"><div class="form-group"><label>Departamento *</label><select id="propDepartamento" required onchange="updateCiudades()"><option value="">Seleccionar...</option></select></div><div class="form-group"><label>Ciudad/Barrio *</label><select id="propCiudad" required><option value="">Primero selecciona departamento</option></select></div></div>
+      <div class="form-row"><div class="form-group"><label>Departamento *</label><select id="propDepartamento" required onchange="updateCiudades()"><option value="">Seleccionar...</option></select></div><div class="form-group"><label>Ciudad/Barrio *</label><select id="propCiudad" required><option value="">Primero elegí el departamento</option></select></div></div>
       <div class="form-group"><label>Dirección (opcional)</label><input type="text" id="propDireccion" placeholder="Ej: Av. 18 de Julio 1234"></div>
       <div class="form-row-3"><div class="form-group"><label>Precio *</label><input type="number" id="propPrice" required placeholder="150000"></div><div class="form-group"><label>Moneda</label><select id="propCurrency"><option value="USD">USD</option><option value="UYU">UYU</option></select></div></div>
       <div class="form-row"><div class="form-group"><label>Tipo de Operación</label><select id="propType" onchange="togglePropertyType()"><option value="sale">Venta</option><option value="rent">Alquiler</option></select></div><div class="form-group" id="propertyTypeGroup"><label>Tipo de Propiedad</label><select id="propPropertyType"><option value="common">Padrón Común</option><option value="ph">PH</option></select></div></div>
       <div class="form-row-4"><div class="form-group"><label>Habitaciones</label><input type="number" id="propBedrooms" placeholder="3" min="0"></div><div class="form-group"><label>Baños</label><input type="number" id="propBathrooms" placeholder="2" min="0"></div><div class="form-group"><label>Área Total m² *</label><input type="number" id="propTotalArea" required placeholder="100"></div><div class="form-group"><label>Área Edificada m² *</label><input type="number" id="propBuiltArea" required placeholder="80"></div></div>
       <div class="form-row"><div class="form-group"><label>Gastos Comunes</label><input type="number" id="propExpenses" placeholder="150"></div><div class="form-group"><label>¿Tiene Garaje?</label><select id="propGarage"><option value="no">No</option><option value="yes">Sí</option></select></div></div>
       <div class="form-group"><label>Estado de la Propiedad</label><div class="status-selector" id="statusSelector"><div class="status-option available active" onclick="selectStatus('available')"><i class="fas fa-check-circle"></i> Disponible</div><div class="status-option reserved" onclick="selectStatus('reserved')"><i class="fas fa-clock"></i> Reservada</div><div class="status-option sold" onclick="selectStatus('sold')"><i class="fas fa-handshake"></i> Vendida</div><div class="status-option rented" onclick="selectStatus('rented')"><i class="fas fa-key"></i> Alquilada</div><div class="status-option archived" onclick="selectStatus('archived')"><i class="fas fa-archive"></i> Archivada</div></div><input type="hidden" id="propStatus" value="available"></div>
-      <div class="form-group"><label>Fotos * <small style="color:var(--gray-500);font-weight:normal">(arrastra para reordenar, máx 5MB cada una)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Haz clic o arrastra imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div></div>
-      <div class="form-group"><label>Descripción</label><textarea id="propDescription" rows="3" placeholder="Describe la propiedad..."></textarea></div>
+      <div class="form-group"><label>Fotos * <small style="color:var(--gray-500);font-weight:normal">(arrastrá para reordenar, máx 5MB cada una)</small></label><div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()"><i class="fas fa-cloud-upload-alt"></i><p>Tocá o arrastrá imágenes</p><small>JPG, PNG, WebP - Máximo 5MB por imagen</small></div><input type="file" id="imageInput" multiple accept="image/*" style="display:none" onchange="handleImageSelect(event)"><div class="image-preview-grid" id="imagePreviewGrid"></div><div class="upload-progress hidden" id="uploadProgress"><div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div><div class="upload-progress-text" id="uploadProgressText">Subiendo imágenes...</div></div></div>
+      <div class="form-group"><label>Descripción</label><textarea id="propDescription" rows="3" placeholder="Describí la propiedad..."></textarea></div>
       <div class="form-group"><label>WhatsApp de Contacto</label><input type="tel" id="propWhatsapp" placeholder="+598 99 123 456"></div>
       <button type="submit" class="btn-submit" id="propertyBtn"><i class="fas fa-check"></i> Publicar Propiedad</button>
     </form>
@@ -589,7 +662,7 @@
       </div>
       <input type="hidden" id="eventType" value="visit">
     </div>
-    <div class="form-group" id="visitPropertyGroup"><label>Propiedad (opcional)</label><select id="visitProperty"><option value="">-- Sin propiedad asociada --</option></select><small>Puedes dejar sin seleccionar si el evento no está relacionado con una propiedad</small></div>
+    <div class="form-group" id="visitPropertyGroup"><label>Propiedad (opcional)</label><select id="visitProperty"><option value="">-- Sin propiedad asociada --</option></select><small>Podés dejarlo sin elegir si el evento no tiene que ver con una propiedad</small></div>
     <div class="form-group"><label>Título / Descripción *</label><input type="text" id="visitTitle" required placeholder="Ej: Visita con Juan, Reunión con propietario..."></div>
     <div class="form-group"><label>Persona de Contacto</label><input type="text" id="visitClient" placeholder="Nombre del cliente/contacto"></div>
     <div class="form-group"><label>Teléfono de Contacto</label><input type="tel" id="visitPhone" placeholder="+598 99 123 456"></div>
@@ -643,17 +716,115 @@
   <div class="modal" id="mlModal"><div class="modal-content"><div class="modal-header"><h2><i class="fas fa-store" style="color:#ffd400"></i> Portales</h2><button class="modal-close" onclick="closeModal('mlModal')"><i class="fas fa-times"></i></button></div><div class="modal-body" id="mlModalBody"></div></div></div>
   <div class="modal" id="portalAccountsModal"><div class="modal-content"><div class="modal-header"><h2><i class="fas fa-key" style="color:var(--accent)"></i> Cuentas y herramientas</h2><button class="modal-close" onclick="closeModal('portalAccountsModal')"><i class="fas fa-times"></i></button></div><div class="modal-body"><p style="color:var(--gray-500,#888);font-size:.88rem;margin-bottom:14px">Usuarios y contraseñas de las cuentas oficiales de la inmobiliaria. Copialos y publicá en cada portal.</p><div id="portalAccountsList"></div><button class="btn-secondary hidden" id="btnAddPortal" style="margin-top:14px;width:100%" onclick="openEditPortal()"><i class="fas fa-plus"></i> Agregar cuenta</button></div></div></div>
   <div class="modal" id="editPortalModal"><div class="modal-content"><div class="modal-header"><h2 id="editPortalTitle">Nueva cuenta</h2><button class="modal-close" onclick="closeModal('editPortalModal')"><i class="fas fa-times"></i></button></div><div class="modal-body"><input type="hidden" id="portalEditId"><div class="form-group"><label>Categoría</label><select id="portalCategory"><option value="portal">Portal inmobiliario</option><option value="herramienta">Herramienta (Canva, ChatGPT...)</option><option value="otro">Otro</option></select></div><div class="form-group"><label>Nombre</label><input type="text" id="portalName" placeholder="Ej: InfoCasas, Canva, ChatGPT"></div><div class="form-group"><label>Link del portal</label><input type="url" id="portalUrl" placeholder="https://www.infocasas.com.uy"></div><div class="form-group"><label>Usuario</label><input type="text" id="portalUser" placeholder="usuario o email"></div><div class="form-group"><label>Contraseña</label><input type="text" id="portalPass" placeholder="contraseña de la cuenta"></div><div class="form-group"><label>Notas (opcional)</label><textarea id="portalNotes" rows="2" placeholder="Ej: cuenta plan premium, vence en marzo"></textarea></div><button class="btn-submit" onclick="savePortalAccount()"><i class="fas fa-save"></i> Guardar</button></div></div></div>
-  <div class="modal share-modal" id="shareModal"><div class="modal-content"><div class="modal-header"><h2><i class="fas fa-share-alt" style="color:var(--accent)"></i> Compartir Propiedad</h2><button class="modal-close" onclick="closeModal('shareModal')"><i class="fas fa-times"></i></button></div><div class="modal-body">
-    <div class="share-preview" id="sharePreview" style="margin-bottom:20px;padding:16px;background:var(--gray-50);border-radius:var(--radius-md)"><h4 id="shareTitle" style="margin-bottom:8px"></h4><p id="sharePrice" style="color:var(--accent);font-weight:600;margin-bottom:4px"></p><p id="shareLocation" style="font-size:13px;color:var(--gray-500)"></p></div>
-    <div class="share-options">
-      <div class="share-option whatsapp" onclick="shareToWhatsApp()"><i class="fab fa-whatsapp"></i><span>Compartir en WhatsApp</span></div>
-      <div class="share-option facebook" onclick="shareToFacebook()"><i class="fab fa-facebook-f"></i><span>Compartir en Facebook</span></div>
-      <div class="share-option twitter" onclick="shareToTwitter()"><i class="fab fa-twitter"></i><span>Compartir en Twitter</span></div>
-      <div class="share-option copy" onclick="copyShareLink()"><i class="fas fa-link"></i><span>Copiar enlace</span></div>
+  <!-- ===== Compartir propiedad =====
+       Ficha con foto, redes en una grilla y el link de la web. El equipo ve además
+       los LINKS DIRECTOS de cada portal (Mercado Libre, InfoCasas, Casas y Más),
+       que salen solos de cada publicación: ya no hay que pegar ninguno a mano.
+       En celular se abre como hoja desde abajo, como el compartir del teléfono. -->
+  <div class="modal share-modal shr-modal" id="shareModal"><div class="modal-content shr-card" role="dialog" aria-modal="true" aria-labelledby="shrTitulo">
+    <div class="shr-head"><span class="shr-grab" aria-hidden="true"></span><h2 id="shrTitulo">Compartir propiedad</h2><button class="shr-x" onclick="closeModal('shareModal')" aria-label="Cerrar"><i class="fas fa-xmark"></i></button></div>
+    <div class="modal-body shr-body">
+      <div class="shr-prev" id="sharePreview">
+        <div class="shr-prev-img" id="shareImg"><i class="fas fa-house"></i></div>
+        <div class="shr-prev-tx"><span class="shr-op sale" id="shareOp">Venta</span><strong id="shareTitle"></strong><span class="shr-prev-precio" id="sharePrice"></span><span class="shr-prev-lugar"><i class="fas fa-location-dot"></i> <span id="shareLocation"></span></span></div>
+      </div>
+      <div class="shr-redes">
+        <button type="button" class="shr-red" onclick="shareToWhatsApp()"><span class="shr-ic wa"><i class="fab fa-whatsapp"></i></span>WhatsApp</button>
+        <button type="button" class="shr-red" onclick="shareToFacebook()"><span class="shr-ic fb"><i class="fab fa-facebook-f"></i></span>Facebook</button>
+        <button type="button" class="shr-red" onclick="shareToEmail()"><span class="shr-ic em"><i class="fas fa-envelope"></i></span>Correo</button>
+        <button type="button" class="shr-red" onclick="copyShareLink()"><span class="shr-ic cp"><i class="fas fa-link"></i></span>Copiar link</button>
+        <button type="button" class="shr-red" onclick="shareToTelegram()"><span class="shr-ic tg"><i class="fab fa-telegram"></i></span>Telegram</button>
+        <button type="button" class="shr-red" onclick="shareToTwitter()"><span class="shr-ic x"><i class="fab fa-x-twitter"></i></span>X</button>
+        <button type="button" class="shr-red" onclick="shareToLinkedin()"><span class="shr-ic li"><i class="fab fa-linkedin-in"></i></span>LinkedIn</button>
+        <button type="button" class="shr-red" id="shareNativo" onclick="compartirNativo()" hidden><span class="shr-ic mas"><i class="fas fa-ellipsis"></i></span>Más apps</button>
+      </div>
+      <div class="shr-url"><i class="fas fa-globe" aria-hidden="true"></i><input type="text" id="shareUrlInput" readonly onclick="this.select()" aria-label="Link de la propiedad"><button type="button" onclick="copyShareLink()">Copiar</button></div>
+      <div id="sharePortales" class="shr-portales" hidden></div>
     </div>
-    <div class="share-url"><input type="text" id="shareUrlInput" readonly><button onclick="copyShareLink()">Copiar</button></div>
-    <div id="sharePortales" style="display:none;margin-top:16px;padding-top:14px;border-top:1px solid var(--gray-100,#f1f5f9)"></div>
-  </div></div></div>
+  </div></div>
+  <style>
+    /* ===== Compartir propiedad ===== */
+    .shr-card{ max-width:460px !important; padding:0; overflow:hidden; display:flex; flex-direction:column; }
+    .shr-head{ position:relative; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:18px 20px 12px; flex:none; }
+    .shr-head h2{ margin:0; font-family:'Cormorant Garamond',serif; font-size:1.55rem; font-weight:700; color:#16273f; }
+    .shr-grab{ display:none; }
+    .shr-x{ width:36px; height:36px; border-radius:50%; border:none; background:#f1f3f6; color:#5b6472; font-size:1rem; cursor:pointer; flex:none; }
+    .shr-x:hover{ background:#e6e9ee; }
+    .shr-body{ padding:4px 20px 20px !important; overflow-y:auto; }
+    .shr-prev{ display:flex; gap:13px; align-items:center; padding:10px; border:1px solid #eceef2; border-radius:14px; background:#fafbfc; }
+    .shr-prev-img{ width:84px; height:68px; border-radius:10px; overflow:hidden; flex:none; background:#e9edf2; color:#aab3bf; display:flex; align-items:center; justify-content:center; font-size:1.3rem; }
+    .shr-prev-img img{ width:100%; height:100%; object-fit:cover; }
+    .shr-prev-tx{ min-width:0; display:flex; flex-direction:column; gap:2px; }
+    .shr-prev-tx strong{ font-size:.92rem; color:#16273f; line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .shr-op{ align-self:flex-start; font-size:.6rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; padding:2px 8px; border-radius:999px; margin-bottom:2px; }
+    .shr-op.sale{ background:#16273f; color:#fff; }
+    .shr-op.rent{ background:#f5ecd0; color:#8a6a10; }
+    .shr-prev-precio{ font-family:'Cormorant Garamond',serif; font-size:1.12rem; font-weight:700; color:#16273f; }
+    .shr-prev-lugar{ font-size:.76rem; color:#8a93a0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .shr-prev-lugar i{ color:#C9A227; font-size:.7rem; }
+    .shr-redes{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px 6px; margin:18px 0 16px; }
+    .shr-red{ display:flex; flex-direction:column; align-items:center; gap:7px; background:none; border:none; padding:4px 0; cursor:pointer; font-family:inherit; font-size:.74rem; font-weight:500; color:#4a5565; border-radius:12px; }
+    .shr-red[hidden]{ display:none; }
+    .shr-ic{ width:50px; height:50px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:1.3rem; transition:transform .15s, box-shadow .15s; }
+    @media (hover:hover){ .shr-red:hover .shr-ic{ transform:translateY(-2px); box-shadow:0 8px 16px rgba(16,29,48,.18); } }
+    .shr-red:active .shr-ic{ transform:scale(.94); }
+    .shr-ic.wa{ background:#25D366; } .shr-ic.fb{ background:#1877F2; } .shr-ic.em{ background:#6b7788; }
+    .shr-ic.cp{ background:#16273f; } .shr-ic.tg{ background:#229ED9; } .shr-ic.x{ background:#111; }
+    .shr-ic.li{ background:#0A66C2; } .shr-ic.mas{ background:#eef0f3; color:#16273f; }
+    .shr-url{ display:flex; align-items:center; gap:8px; padding:6px 6px 6px 12px; border:1px solid #e3e7ed; border-radius:12px; background:#fff; }
+    .shr-url > i{ color:#a0a8b3; font-size:.85rem; }
+    .shr-url input{ flex:1; min-width:0; border:none; background:none; font-family:inherit; font-size:.82rem; color:#5b6472; outline:none; }
+    .shr-url button{ flex:none; border:none; background:#C9A227; color:#fff; border-radius:9px; padding:8px 14px; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; }
+    .shr-url button:hover{ filter:brightness(1.06); }
+    .shr-portales{ margin-top:18px; padding-top:16px; border-top:1px dashed #e3e7ed; }
+    .shr-portales[hidden]{ display:none; }
+    .shr-sec{ font-size:.68rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#16273f; margin:0 0 10px; }
+    .shr-sec span{ color:#a0a8b3; font-weight:600; letter-spacing:.04em; text-transform:none; margin-left:4px; }
+    .shr-pl{ display:flex; align-items:center; gap:11px; padding:9px 0; border-bottom:1px solid #f1f3f6; }
+    .shr-pl:last-of-type{ border-bottom:none; }
+    .shr-pl-logo{ width:36px; height:36px; border-radius:10px; flex:none; display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:800; letter-spacing:.02em; }
+    .shr-pl-logo.web{ background:#16273f; color:#C9A227; }
+    .shr-pl-logo.ml{ background:#fff159; color:#2d3277; }
+    .shr-pl-logo.ic{ background:#dbeafe; color:#1d4ed8; }
+    .shr-pl-logo.cym{ background:#dcf5e7; color:#1e7d4f; }
+    .shr-pl.off .shr-pl-logo{ filter:grayscale(1); opacity:.45; }
+    .shr-pl-tx{ flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+    .shr-pl-tx strong{ font-size:.86rem; color:#27313f; }
+    .shr-pl-url{ font-size:.74rem; color:#8a93a0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .shr-pl-nota{ font-size:.74rem; color:#a0a8b3; }
+    .shr-pl-acc{ display:flex; gap:6px; flex:none; }
+    .shr-pl-acc button, .shr-pl-acc a{ width:34px; height:34px; border-radius:9px; border:1px solid #e3e7ed; background:#fff; color:#5b6472; display:flex; align-items:center; justify-content:center; font-size:.85rem; cursor:pointer; text-decoration:none; transition:border-color .15s, color .15s; }
+    .shr-pl-acc button:hover, .shr-pl-acc a:hover{ border-color:#C9A227; color:#a8861c; }
+    .shr-pl-acc .wa{ color:#1faa52; }
+    .shr-pl-mini{ align-self:flex-start; margin-top:5px; border:none; background:#f1f3f6; color:#5b6472; border-radius:7px; padding:4px 9px; font-family:inherit; font-size:.72rem; font-weight:600; cursor:pointer; }
+    .shr-pl-pegar{ display:flex; gap:6px; margin-top:6px; }
+    .shr-pl-pegar input{ flex:1; min-width:0; padding:7px 9px; border:1px solid #e3e7ed; border-radius:8px; font-family:inherit; font-size:.78rem; }
+    .shr-pl-pegar button{ border:none; background:#C9A227; color:#fff; border-radius:8px; padding:7px 11px; font-family:inherit; font-size:.76rem; font-weight:600; cursor:pointer; }
+    .shr-todos{ width:100%; margin-top:12px; display:flex; align-items:center; justify-content:center; gap:8px; padding:11px; border-radius:11px; border:1px solid #16273f; background:#fff; color:#16273f; font-family:inherit; font-size:.84rem; font-weight:600; cursor:pointer; transition:background .15s, color .15s; }
+    .shr-todos:hover{ background:#16273f; color:#fff; }
+    /* Celular: hoja que sube desde abajo (no pantalla completa). */
+    @media (max-width:640px){
+      .modal.shr-modal{ align-items:flex-end !important; background:rgba(12,22,38,.55); }
+      .modal.shr-modal .shr-card{ height:auto !important; max-height:92dvh !important; border-radius:22px 22px 0 0 !important; padding-top:0 !important; animation:shrSube .28s cubic-bezier(.2,.8,.2,1) !important; }
+      .shr-grab{ display:block; position:absolute; top:7px; left:50%; transform:translateX(-50%); width:40px; height:4px; border-radius:4px; background:#d6dbe2; }
+      .shr-head{ padding:20px 16px 10px; }
+      .shr-body{ padding:2px 16px calc(18px + env(safe-area-inset-bottom,0px)) !important; max-height:none !important; }
+      .shr-redes{ gap:14px 4px; }
+      .shr-ic{ width:52px; height:52px; }
+    }
+    @keyframes shrSube{ from{ transform:translateY(40px); opacity:.4; } to{ transform:none; opacity:1; } }
+  </style>
+  <script>
+    /* Compartir se cierra tocando afuera (la zona oscura) o con Escape, como la
+       hoja de compartir del teléfono. Los otros modales no: tienen formularios y
+       un toque de más haría perder lo escrito. */
+    (function () {
+      var m = document.getElementById('shareModal');
+      if (!m) return;
+      m.addEventListener('click', function (e) { if (e.target === m && typeof closeModal === 'function') closeModal('shareModal'); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && m.classList.contains('active') && typeof closeModal === 'function') closeModal('shareModal'); });
+    })();
+  </script>
   <script>
     // ===== Inicio v2: testimonios, accesos rapidos y newsletter =====
     // Testimonios de EJEMPLO (se muestran con etiqueta "Ejemplo"). Los reales aprobados
@@ -695,14 +866,46 @@
     document.addEventListener('DOMContentLoaded', function(){ if (document.getElementById('mvTestiText')) { mvShowTesti(0); mvTestiAuto(); mvCargarTestimonios(); } });
     function mvFiltrar(tipo) {
       const s = document.getElementById('filterType'); if (s) s.value = tipo;
+      mvSyncSeg();
       if (typeof filterProperties === 'function') filterProperties();
       const sec = document.getElementById('propiedades'); if (sec) sec.scrollIntoView({ behavior: 'smooth' });
     }
     function mvVerTodas(e) {
       if (e) e.preventDefault();
       ['filterSearch', 'filterPrice', 'filterType', 'filterBedrooms'].forEach(function(id){ const el = document.getElementById(id); if (el) el.value = ''; });
+      mvSyncSeg();
       if (typeof filterProperties === 'function') filterProperties();
       const sec = document.getElementById('propiedades'); if (sec) sec.scrollIntoView({ behavior: 'smooth' });
+    }
+    // Botones de operación del buscador (celular): espejo del desplegable.
+    function mvSyncSeg() {
+      var v = (document.getElementById('filterType') || {}).value || '';
+      document.querySelectorAll('#mvSeg button').forEach(function (b) {
+        var on = b.getAttribute('data-op') === v;
+        b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+    function mvOperacion(op) {
+      var s = document.getElementById('filterType'); if (s) s.value = op;
+      mvSyncSeg();
+      if (typeof filterProperties === 'function') filterProperties();
+    }
+    // Búsqueda mientras se escribe, con una pausa corta para no repintar a cada letra.
+    var _mvBuscarT = null;
+    function mvBuscarEnVivo() {
+      clearTimeout(_mvBuscarT);
+      _mvBuscarT = setTimeout(function () { if (typeof filterProperties === 'function') filterProperties(); }, 250);
+    }
+    // Botón Buscar / Enter: filtra ya, cierra el teclado y, en celular, baja a
+    // los resultados (quedaban debajo del buscador, fuera de la pantalla).
+    function mvBuscar(irAResultados) {
+      clearTimeout(_mvBuscarT);
+      if (typeof filterProperties === 'function') filterProperties();
+      if (!irAResultados) return;
+      var a = document.activeElement; if (a && a.tagName === 'INPUT' && a.blur) a.blur();
+      if (window.matchMedia('(max-width: 768px)').matches) {
+        var sec = document.getElementById('propiedades'); if (sec) sec.scrollIntoView({ behavior: 'smooth' });
+      }
     }
     async function mvNewsletter(e) {
       e.preventDefault();
@@ -759,219 +962,304 @@
   </script>
   <script src="malave-config.js?v=20260830b"></script>
   <script src="rangos.js?v=20260821l"></script>
-  <script src="app.js?v=20260928a"></script>
-  <!-- ====== MENÚ LATERAL DERECHO ====== -->
-  <!-- MENÚ DEL VISITANTE (celular).
-       En celular la barra oculta todos los enlaces (#nav-guest a {display:none})
-       y solo quedaba "Acceso agentes". El menú lateral que ya existía es para
-       agentes logueados, así que un cliente en el teléfono no tenía forma de
-       llegar a "Vendé tu propiedad" ni a "Trabajá con nosotros".
-       Acceso agentes va acá adentro: los agentes tienen inicio automático, así
-       que ese botón casi no se usa y ocupaba el lugar más visible de la barra. -->
+  <script src="app.js?v=20260929a"></script>
+  <!-- ====== MENÚ DEL VISITANTE (celular) ======
+       En celular la barra oculta los enlaces del encabezado; este menú es la
+       forma de llegar a "Vendé tu propiedad", "Trabajá con nosotros" y al acceso
+       de agentes (que va acá adentro: los agentes tienen inicio automático). -->
   <div class="mv-vis-overlay" id="mvVisOverlay" onclick="cerrarMenuVisitante()"></div>
-  <aside class="mv-vis" id="mvVis" aria-hidden="true">
+  <aside class="mv-vis" id="mvVis" aria-hidden="true" aria-label="Menú">
     <div class="mv-vis-head">
       <img src="texto-malave.png" alt="MALAVE" class="mv-vis-logo">
       <button class="mv-vis-x" onclick="cerrarMenuVisitante()" aria-label="Cerrar"><i class="fas fa-xmark"></i></button>
     </div>
     <nav class="mv-vis-nav">
       <a href="#" onclick="cerrarMenuVisitante();showHome();return false;"><i class="fas fa-house"></i> Inicio</a>
-      <a href="#propiedades" onclick="cerrarMenuVisitante()"><i class="fas fa-building"></i> Propiedades</a>
-      <a href="#propiedades" onclick="cerrarMenuVisitante();mvFiltrar('rent')"><i class="fas fa-key"></i> Alquiler</a>
-      <a href="#propiedades" onclick="cerrarMenuVisitante();mvFiltrar('sale')"><i class="fas fa-tag"></i> Venta</a>
+      <a href="#propiedades" onclick="cerrarMenuVisitante();mvVerTodas(event)"><i class="fas fa-building"></i> Propiedades</a>
+      <a href="#propiedades" onclick="cerrarMenuVisitante();mvFiltrar('sale')"><i class="fas fa-tag"></i> En venta</a>
+      <a href="#propiedades" onclick="cerrarMenuVisitante();mvFiltrar('rent')"><i class="fas fa-key"></i> En alquiler</a>
       <a href="#porque" onclick="cerrarMenuVisitante()"><i class="fas fa-circle-info"></i> Nosotros</a>
       <a href="#contacto" onclick="cerrarMenuVisitante()"><i class="fas fa-envelope"></i> Contacto</a>
-      <div class="mv-vis-sep"></div>
-      <a href="vender.html" class="mv-vis-gold"><i class="fas fa-hand-holding-dollar"></i> Vendé tu propiedad</a>
+      <a href="vender.html" class="mv-vis-cta">
+        <span class="mv-vis-cta-ic"><i class="fas fa-hand-holding-dollar"></i></span>
+        <span class="mv-vis-cta-tx"><strong>Vendé tu propiedad</strong><small>Tasación gratis, fotos y video profesionales</small></span>
+        <i class="fas fa-chevron-right mv-vis-cta-go"></i>
+      </a>
       <a href="trabaja.html" class="mv-vis-gold"><i class="fas fa-user-tie"></i> Trabajá con nosotros</a>
-      <div class="mv-vis-sep"></div>
-      <a href="#" onclick="cerrarMenuVisitante();openModal('loginModal');return false;"><i class="fas fa-lock"></i> Acceso agentes</a>
     </nav>
     <div class="mv-vis-pie">
-      <a href="https://wa.me/59894029297" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> +598 94 029 297</a>
+      <a class="mv-vis-wa" href="https://wa.me/59894029297" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> Escribinos por WhatsApp</a>
+      <div class="mv-vis-pie-fila">
+        <a class="mv-vis-ig" href="https://www.instagram.com/malave.inmobiliaria/" target="_blank" rel="noopener" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+        <a class="mv-vis-acceso" href="#" onclick="cerrarMenuVisitante();openModal('loginModal');return false;"><i class="fas fa-lock"></i> Acceso agentes</a>
+      </div>
     </div>
   </aside>
 
+  <!-- ====== MENÚ DEL AGENTE (panel lateral) ======
+       Arriba, el agente con su rango real; tocando el nombre se despliegan saldo,
+       puntos y nivel (plegados por defecto, se recuerda). Después los cuatro
+       accesos de todos los días en grande, las herramientas en tarjetas de a dos
+       (antes eran diecisiete renglones que obligaban a scrollear) y, para la
+       Dirección, su propio bloque. Tutorial, contraseña y salir quedan fijos abajo. -->
   <div class="mv-side-overlay" id="mvSideOverlay" onclick="closeSideMenu()"></div>
-  <aside class="mv-side" id="mvSide" aria-hidden="true">
+  <aside class="mv-side" id="mvSide" aria-hidden="true" aria-label="Menú del agente">
     <div class="mv-side-head">
-      <button type="button" class="mv-side-user" id="mvSideUser" onclick="toggleMenuDatos()" aria-expanded="false" aria-controls="mvSideDatos">
-        <div class="mv-side-av" id="mvSideAv"><i class="fas fa-user"></i></div>
-        <div class="mv-side-quien"><strong id="mvSideName">Usuario</strong><span id="mvSideRole">Agente</span></div>
-        <i class="fas fa-chevron-down mv-side-caret" id="mvSideCaret" aria-hidden="true"></i>
-      </button>
-      <button class="mv-side-close" onclick="closeSideMenu()" aria-label="Cerrar"><i class="fas fa-times"></i></button>
-    </div>
-    <!-- Saldo, puntos y nivel: plegados por defecto. Se abren tocando el nombre.
-         Son datos de consulta, no accesos: tenerlos siempre abiertos empujaba
-         media lista de menú fuera de la pantalla. -->
-    <div class="mv-side-datos" id="mvSideDatos" hidden>
-    <div class="mv-side-finanzas" id="mvSideFinanzas">
-      <a class="mv-fin-saldo" href="finanzas.html" title="Ver mis finanzas y solicitar cobros">
-        <span class="mv-fin-cap"><i class="fas fa-wallet"></i> Saldo a cobrar</span>
-        <span class="mv-fin-val" id="mvFinUsd">US$ 0</span>
-        <span class="mv-fin-val uyu" id="mvFinUyu">$U 0</span>
-      </a>
-      <a class="mv-fin-pts" href="finanzas.html" title="Ver mis puntos">
-        <i class="fas fa-star"></i>
-        <span class="mv-fin-ptsnum" id="mvFinPuntos">—</span>
-        <span class="mv-fin-ptslbl">puntos</span>
-      </a>
-    </div>
-    <!-- Nivel del agente. Dos filas y nada más: rango + cuánto falta arriba, barra
-         abajo. El detalle completo está en el botón de información — dentro del
-         menú, cada renglón que ocupa es un acceso que el agente no ve. -->
-    <div class="mv-nivel" id="mvNivel" hidden>
-      <div class="mv-nivel-top">
-        <span class="mv-nivel-rango" id="mvNivelRango">—</span>
-        <span class="mv-nivel-meta" id="mvNivelMeta"></span>
-        <button type="button" class="mv-nivel-info" id="mvNivelInfo" onclick="verBeneficiosRango()" aria-label="Qué gano subiendo de nivel"><i class="fas fa-circle-info"></i></button>
+      <div class="mv-side-top">
+        <button type="button" class="mv-side-user" id="mvSideUser" onclick="toggleMenuDatos()" aria-expanded="false" aria-controls="mvSideDatos" title="Saldo, puntos y nivel">
+          <div class="mv-side-av" id="mvSideAv"><i class="fas fa-user"></i></div>
+          <div class="mv-side-quien"><strong id="mvSideName">Usuario</strong><span class="mv-side-rol" id="mvSideRole">Agente</span></div>
+          <span class="mv-side-caret-wrap" aria-hidden="true"><i class="fas fa-chevron-down mv-side-caret" id="mvSideCaret"></i></span>
+        </button>
+        <button class="mv-side-close" onclick="closeSideMenu()" aria-label="Cerrar"><i class="fas fa-xmark"></i></button>
       </div>
-      <div class="mv-nivel-barra"><span id="mvNivelFill"></span></div>
+      <div class="mv-side-datos" id="mvSideDatos" hidden>
+        <div class="mv-side-finanzas" id="mvSideFinanzas">
+          <a class="mv-fin-saldo" href="finanzas.html" title="Ver mis finanzas y solicitar cobros">
+            <span class="mv-fin-cap"><i class="fas fa-wallet"></i> Saldo a cobrar</span>
+            <span class="mv-fin-val" id="mvFinUsd">US$ 0</span>
+            <span class="mv-fin-val uyu" id="mvFinUyu">$U 0</span>
+          </a>
+          <a class="mv-fin-pts" href="finanzas.html" title="Ver mis puntos">
+            <i class="fas fa-star"></i>
+            <span class="mv-fin-ptsnum" id="mvFinPuntos">—</span>
+            <span class="mv-fin-ptslbl">puntos</span>
+          </a>
+        </div>
+        <!-- Nivel del agente: rango + cuánto falta, y la barra. El detalle, en el botón de información. -->
+        <div class="mv-nivel" id="mvNivel" hidden>
+          <div class="mv-nivel-top">
+            <span class="mv-nivel-rango" id="mvNivelRango">—</span>
+            <span class="mv-nivel-meta" id="mvNivelMeta"></span>
+            <button type="button" class="mv-nivel-info" id="mvNivelInfo" onclick="verBeneficiosRango()" aria-label="Qué gano subiendo de nivel"><i class="fas fa-circle-info"></i></button>
+          </div>
+          <div class="mv-nivel-barra"><span id="mvNivelFill"></span></div>
+        </div>
+      </div>
     </div>
-    </div><!-- /mv-side-datos -->
+
     <nav class="mv-side-nav">
-      <button class="mv-side-item mv-side-dup" onclick="closeSideMenu();showMyProfile()"><i class="fas fa-user"></i> Mi Perfil</button>
-      <a class="mv-side-item mv-side-dup mv-side-fin" href="finanzas.html"><i class="fas fa-wallet"></i> Mis Finanzas</a>
+      <div class="mv-rapidos">
+        <!-- "Mi perfil" solo en compu: en celular está fijo en la barra de abajo. -->
+        <button type="button" class="mv-rapido mv-side-dup" onclick="closeSideMenu();showMyProfile()"><i class="fas fa-user"></i><span>Mi perfil</span></button>
+        <a class="mv-rapido" href="agenda.html"><i class="fas fa-calendar-days"></i><span>Agenda</span></a>
+        <a class="mv-rapido" href="clientes.html"><i class="fas fa-address-book"></i><span>Clientes</span></a>
+        <a class="mv-rapido" href="finanzas.html"><i class="fas fa-wallet"></i><span>Finanzas</span></a>
+        <a class="mv-rapido" href="mapa-cierres.html"><i class="fas fa-map-location-dot"></i><span>Cierres</span></a>
+      </div>
 
-      <div class="mv-side-group">Mi trabajo</div>
-      <a class="mv-side-item" href="agenda.html"><i class="fas fa-calendar-alt"></i> Mi Agenda</a>
-      <a class="mv-side-item" href="clientes.html"><i class="fas fa-address-book"></i> Clientes</a>
-      <a class="mv-side-item" href="mapa-cierres.html"><i class="fas fa-map-location-dot"></i> Mapa de cierres</a>
+      <!-- Dos grupos y no "Calculadoras": cuánto VALE una propiedad y cuánto
+           DINERO deja la operación son preguntas distintas. -->
+      <section class="mv-grupo">
+        <h3 class="mv-side-group">Cuánto vale</h3>
+        <div class="mv-grid">
+          <a class="mv-side-item" href="tasador.html"><i class="fas fa-calculator"></i><span>Tasar propiedad</span></a>
+          <a class="mv-side-item" href="terreno.html"><i class="fas fa-ruler-combined"></i><span>Tasar terreno</span></a>
+          <a class="mv-side-item ancho" href="usufructo.html"><i class="fas fa-scale-balanced"></i><span>Usufructo y nuda propiedad</span></a>
+        </div>
+      </section>
+      <section class="mv-grupo">
+        <h3 class="mv-side-group">Cuánto deja la operación</h3>
+        <div class="mv-grid">
+          <a class="mv-side-item" href="ganancias.html"><i class="fas fa-sack-dollar"></i><span>Mi comisión</span></a>
+          <a class="mv-side-item" href="gastos.html"><i class="fas fa-file-invoice-dollar"></i><span>Gastos del cliente</span></a>
+          <a class="mv-side-item ancho" href="inversion.html"><i class="fas fa-hand-holding-dollar"></i><span>Rentabilidad para inversores</span></a>
+        </div>
+      </section>
+      <section class="mv-grupo">
+        <h3 class="mv-side-group">Crecer</h3>
+        <div class="mv-grid">
+          <a class="mv-side-item" href="recompensas.html"><i class="fas fa-trophy"></i><span>Recompensas</span></a>
+          <a class="mv-side-item" href="academy.html"><i class="fas fa-graduation-cap"></i><span>Malavé Academy</span></a>
+        </div>
+      </section>
+      <section class="mv-grupo">
+        <h3 class="mv-side-group">Recursos</h3>
+        <div class="mv-grid">
+          <a class="mv-side-item" href="generar-documentos.html"><i class="fas fa-file-signature"></i><span>Generar documentos</span></a>
+          <a class="mv-side-item" href="cuentas.html"><i class="fas fa-key"></i><span>Cuentas de portales</span></a>
+        </div>
+      </section>
 
-      <!-- Dos grupos en vez de uno. "Calculadoras" mezclaba dos preguntas
-           distintas: cuánto VALE una propiedad y cuánto DINERO deja la operación.
-           Y los nombres no decían de quién era la plata: "Mis ganancias" calcula
-           la comisión del agente y "Gastos y comisiones" lo que pagan comprador y
-           vendedor — dos cosas opuestas con nombres casi iguales. -->
-      <div class="mv-side-group">Cuánto vale</div>
-      <a class="mv-side-item" href="tasador.html"><i class="fas fa-calculator"></i> Tasar propiedad</a>
-      <a class="mv-side-item" href="terreno.html"><i class="fas fa-ruler-combined"></i> Tasar terreno</a>
-      <a class="mv-side-item" href="usufructo.html"><i class="fas fa-scale-balanced"></i> Usufructo y nuda propiedad</a>
-
-      <div class="mv-side-group">Cuánto deja la operación</div>
-      <a class="mv-side-item" href="ganancias.html"><i class="fas fa-sack-dollar"></i> Mi comisión</a>
-      <a class="mv-side-item" href="gastos.html"><i class="fas fa-file-invoice-dollar"></i> Gastos del cliente</a>
-      <a class="mv-side-item" href="inversion.html"><i class="fas fa-hand-holding-dollar"></i> Rentabilidad para inversores</a>
-
-      <div class="mv-side-group">Recompensas y formación</div>
-      <a class="mv-side-item" href="recompensas.html"><i class="fas fa-trophy"></i> Recompensas</a>
-      <a class="mv-side-item" href="academy.html"><i class="fas fa-graduation-cap"></i> Malavé Academy</a>
-
-      <div class="mv-side-group">Recursos</div>
-      <a class="mv-side-item" href="generar-documentos.html"><i class="fas fa-file-signature"></i> Generar documentos</a>
-      <a class="mv-side-item" href="cuentas.html"><i class="fas fa-key"></i> Cuentas de portales</a>
-
-      <div class="mv-side-group mv-side-admin hidden" id="mvSideAdminGroup">Administración</div>
-      <button class="mv-side-item mv-side-admin hidden" id="mvSideAdmin" onclick="closeSideMenu();location.href='admin.html'"><i class="fas fa-shield-halved"></i> Panel de Administración <span class="mv-pend-badge" id="mvPendBadge" style="display:none"></span></button>
-      <a class="mv-side-item mv-side-admin hidden" id="mvSideRetiros" href="retiros-admin.html"><i class="fas fa-money-check-dollar"></i> Retiros de agentes</a>
-      <a class="mv-side-item mv-side-admin hidden" id="mvSidePapelera" href="papelera.html"><i class="fas fa-trash-can"></i> Papelera</a>
-      <a class="mv-side-item mv-side-admin hidden" id="mvSideRenta" href="rentabilidad.html"><i class="fas fa-chart-line"></i> Rentabilidad de la agencia</a>
-      <a class="mv-side-item mv-side-admin hidden" id="mvSideInteres" href="interes.html"><i class="fas fa-fire"></i> Interés por propiedad</a>
-
-      <div class="mv-side-sep"></div>
-      <button class="mv-side-item" onclick="startTour()"><i class="fas fa-circle-question"></i> Tutorial</button>
-      <button class="mv-side-item" onclick="closeSideMenu();cambiarPass()"><i class="fas fa-key"></i> Cambiar contraseña</button>
-      <button class="mv-side-item mv-side-out" onclick="closeSideMenu();logout()"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
+      <!-- Dirección (CEO y COO). Retiros y Papelera, solo el CEO. -->
+      <section class="mv-grupo mv-dir hidden" id="mvSideAdminGroup">
+        <h3 class="mv-side-group"><i class="fas fa-shield-halved"></i> Dirección</h3>
+        <button type="button" class="mv-dir-panel" id="mvSideAdmin" onclick="closeSideMenu();location.href='admin.html'">
+          <i class="fas fa-gauge-high"></i>
+          <span class="mv-dir-tx"><strong>Panel de administración</strong><small>Equipo, revisiones, bandeja y sitio</small></span>
+          <span class="mv-pend-badge" id="mvPendBadge" style="display:none" title="Registros esperando aprobación"></span>
+          <i class="fas fa-chevron-right mv-dir-go"></i>
+        </button>
+        <div class="mv-grid">
+          <a class="mv-side-item mv-side-admin hidden" id="mvSideRetiros" href="retiros-admin.html"><i class="fas fa-money-check-dollar"></i><span>Retiros de agentes</span></a>
+          <a class="mv-side-item mv-side-admin hidden" id="mvSidePapelera" href="papelera.html"><i class="fas fa-trash-can"></i><span>Papelera</span></a>
+          <a class="mv-side-item mv-side-admin hidden" id="mvSideRenta" href="rentabilidad.html"><i class="fas fa-chart-line"></i><span>Rentabilidad de la agencia</span></a>
+          <a class="mv-side-item mv-side-admin hidden" id="mvSideInteres" href="interes.html"><i class="fas fa-fire"></i><span>Interés por propiedad</span></a>
+        </div>
+      </section>
     </nav>
+
+    <div class="mv-side-pie">
+      <button type="button" onclick="startTour()"><i class="fas fa-circle-question"></i><span>Tutorial</span></button>
+      <button type="button" onclick="closeSideMenu();cambiarPass()"><i class="fas fa-key"></i><span>Contraseña</span></button>
+      <button type="button" class="salir" onclick="closeSideMenu();logout()"><i class="fas fa-arrow-right-from-bracket"></i><span>Salir</span></button>
+    </div>
   </aside>
   <style>
     /* ===== Menú del visitante ===== */
-    /* El encabezado tiene fondo BLANCO (.header { background: var(--white) }),
-       así que el botón va en azul marino. Al principio lo puse blanco asumiendo
-       una barra oscura y quedaba invisible: estaba ahí y respondía al toque,
-       pero no se veía. */
+    /* El encabezado tiene fondo BLANCO: el botón va en azul marino (blanco quedaba invisible). */
     .mv-burger{ display:none; background:none; border:1px solid #e3e6ea; color:#16273f;
       width:42px; height:42px; border-radius:10px; cursor:pointer; font-size:1.1rem; align-items:center;
       justify-content:center; flex:none; transition:background .15s }
     .mv-burger:active{ background:#eef0f3 }
-    .mv-vis-overlay{ position:fixed; inset:0; background:rgba(16,29,48,.5); opacity:0; visibility:hidden;
-      transition:opacity .25s; z-index:3000 }
+    .mv-vis-overlay{ position:fixed; inset:0; background:rgba(12,22,38,.55); opacity:0; visibility:hidden;
+      transition:opacity .25s, visibility .25s; z-index:3000 }
     .mv-vis-overlay.open{ opacity:1; visibility:visible }
-    .mv-vis{ position:fixed; top:0; right:0; bottom:0; width:min(320px,86vw); background:#16273f;
-      color:#fff; z-index:3001; transform:translateX(100%); transition:transform .25s ease;
+    .mv-vis{ position:fixed; top:0; right:0; bottom:0; width:min(330px,88vw); color:#fff; z-index:3001;
+      background:radial-gradient(120% 70% at 100% 0%, rgba(201,162,39,.16), rgba(201,162,39,0) 55%), linear-gradient(160deg,#101d30,#16273f 70%);
+      transform:translateX(100%); visibility:hidden; transition:transform .28s cubic-bezier(.4,0,.2,1), visibility 0s linear .28s;
       display:flex; flex-direction:column; padding-top:env(safe-area-inset-top,0px) }
-    .mv-vis.open{ transform:translateX(0) }
-    .mv-vis-head{ display:flex; align-items:center; justify-content:space-between; padding:18px 20px 14px;
-      border-bottom:1px solid rgba(255,255,255,.1) }
+    .mv-vis.open{ transform:translateX(0); visibility:visible; transition:transform .28s cubic-bezier(.4,0,.2,1), visibility 0s; box-shadow:-18px 0 50px rgba(12,22,38,.3) }
+    .mv-vis-head{ display:flex; align-items:center; justify-content:space-between; padding:18px 18px 14px 22px;
+      border-bottom:1px solid rgba(255,255,255,.08) }
     .mv-vis-logo{ height:18px; filter:brightness(0) invert(1) }
-    .mv-vis-x{ background:none; border:none; color:rgba(255,255,255,.75); font-size:1.3rem; cursor:pointer; padding:4px }
-    .mv-vis-nav{ flex:1; overflow-y:auto; padding:12px 0 }
-    .mv-vis-nav a{ display:flex; align-items:center; gap:13px; padding:14px 22px; color:rgba(255,255,255,.9);
-      text-decoration:none; font-size:.95rem }
-    .mv-vis-nav a:active{ background:rgba(255,255,255,.08) }
-    .mv-vis-nav a i{ width:20px; text-align:center; color:rgba(255,255,255,.5); font-size:.95rem }
-    .mv-vis-gold{ color:#C9A227 !important; font-weight:600 }
-    .mv-vis-gold i{ color:#C9A227 !important }
-    .mv-vis-sep{ height:1px; background:rgba(255,255,255,.1); margin:10px 22px }
-    .mv-vis-pie{ padding:16px 22px calc(18px + env(safe-area-inset-bottom,0px));
-      border-top:1px solid rgba(255,255,255,.1) }
-    .mv-vis-pie a{ display:flex; align-items:center; gap:9px; color:#25D366; text-decoration:none;
-      font-size:.9rem; font-weight:600 }
-    /* La hamburguesa y el ocultamiento del botón solo en celular: en escritorio
-       los enlaces de la barra se ven y el menú no hace falta. */
+    .mv-vis-x{ width:38px; height:38px; border-radius:50%; border:none; background:rgba(255,255,255,.08); color:#fff; font-size:1.05rem; cursor:pointer }
+    .mv-vis-nav{ flex:1; overflow-y:auto; padding:10px 12px }
+    .mv-vis-nav > a{ display:flex; align-items:center; gap:13px; padding:13px 12px; color:rgba(255,255,255,.92);
+      text-decoration:none; font-size:.97rem; border-radius:12px }
+    .mv-vis-nav > a:active{ background:rgba(255,255,255,.08) }
+    .mv-vis-nav > a > i{ width:22px; text-align:center; color:rgba(255,255,255,.45); font-size:.95rem }
+    .mv-vis-cta{ margin:12px 0 6px; padding:14px !important; gap:12px !important; background:linear-gradient(135deg,#C9A227,#b8912a);
+      color:#16273f !important; border-radius:16px !important; box-shadow:0 10px 24px rgba(201,162,39,.25) }
+    .mv-vis-cta-ic{ width:40px; height:40px; border-radius:12px; background:rgba(22,39,63,.14); display:flex; align-items:center; justify-content:center; flex:none; font-size:1.05rem }
+    .mv-vis-cta-tx{ flex:1; min-width:0 }
+    .mv-vis-cta-tx strong{ display:block; font-size:.98rem }
+    .mv-vis-cta-tx small{ display:block; font-size:.74rem; opacity:.8; margin-top:2px }
+    .mv-vis-cta-go{ color:rgba(22,39,63,.6) !important; width:auto !important }
+    .mv-vis-gold{ color:#e6c65c !important; font-weight:600 }
+    .mv-vis-gold i{ color:#e6c65c !important }
+    .mv-vis-pie{ padding:14px 18px calc(16px + env(safe-area-inset-bottom,0px)); border-top:1px solid rgba(255,255,255,.08) }
+    .mv-vis-wa{ display:flex; align-items:center; justify-content:center; gap:9px; padding:12px; border-radius:12px; background:#25D366;
+      color:#fff; text-decoration:none; font-size:.92rem; font-weight:600 }
+    .mv-vis-wa i{ font-size:1.15rem }
+    .mv-vis-pie-fila{ display:flex; align-items:center; gap:10px; margin-top:12px }
+    .mv-vis-ig{ width:38px; height:38px; border-radius:50%; border:1px solid rgba(255,255,255,.2); color:#fff; display:flex; align-items:center; justify-content:center; text-decoration:none }
+    .mv-vis-acceso{ margin-left:auto; display:inline-flex; align-items:center; gap:7px; color:rgba(255,255,255,.6); font-size:.84rem; text-decoration:none; padding:8px 4px }
+    .mv-vis-acceso i{ font-size:.75rem }
+    /* La hamburguesa y el ocultamiento del botón, solo en celular. */
     @media (max-width:768px){
       .mv-burger{ display:inline-flex }
       #nav-guest .agent-access{ display:none }
     }
 
-    .mv-side-overlay{ position:fixed; inset:0; background:rgba(16,29,48,.5); opacity:0; visibility:hidden; transition:opacity .25s; z-index:3000; }
+    /* ===== Menú del agente (panel lateral) ===== */
+    .mv-side-overlay{ position:fixed; inset:0; background:rgba(12,22,38,.55); opacity:0; visibility:hidden; transition:opacity .25s, visibility .25s; z-index:3000; }
     .mv-side-overlay.open{ opacity:1; visibility:visible; }
-    .mv-side{ position:fixed; top:0; right:0; height:100%; width:330px; max-width:88vw; background:linear-gradient(120deg,#101d30,var(--primary,#16273f)); box-shadow:-12px 0 40px rgba(16,29,48,.18); transform:translateX(100%); transition:transform .3s cubic-bezier(.4,0,.2,1); z-index:3001; display:flex; flex-direction:column; }
-    @media (max-width: 560px){ .mv-side{ width:100%; max-width:100%; } }
-    .mv-side.open{ transform:translateX(0); }
-    .mv-side-head{ color:#fff; padding:22px 20px; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
-    /* El bloque del usuario ahora es un botón: abre y cierra saldo, puntos y nivel.
-       Se resetean los estilos de <button> porque hereda fondo, borde y fuente. */
-    .mv-side-user{ display:flex; align-items:center; gap:13px; flex:1; min-width:0;
-      background:none; border:none; padding:6px 8px 6px 0; margin:-6px 0; border-radius:12px;
-      font-family:inherit; color:inherit; text-align:left; cursor:pointer;
-      transition:background .15s; }
-    /* Solo con mouse: en pantallas táctiles el :hover queda fijo después del
-       toque y el bloque se ve resaltado permanentemente. */
+    /* Cerrado queda invisible del todo (visibility), no solo corrido afuera: su
+       sombra se veía como una franja gris en el borde derecho de la página, y con
+       el teclado se podía llegar a sus enlaces sin verlos. */
+    .mv-side{ position:fixed; top:0; right:0; height:100%; width:380px; max-width:92vw; background:#f4f5f7;
+      transform:translateX(100%); visibility:hidden; transition:transform .3s cubic-bezier(.4,0,.2,1), visibility 0s linear .3s;
+      z-index:3001; display:flex; flex-direction:column; overflow:hidden; }
+    .mv-side.open{ transform:translateX(0); visibility:visible; transition:transform .3s cubic-bezier(.4,0,.2,1), visibility 0s; box-shadow:-20px 0 60px rgba(12,22,38,.28); }
+    #mvSide{ padding-top:0 !important; }
+    @media (max-width:560px){ .mv-side{ width:100%; max-width:100%; } }
+    .mv-side-head{ flex:none; position:relative; color:#fff; padding:calc(18px + env(safe-area-inset-top,0px)) 16px 16px;
+      background:radial-gradient(120% 140% at 100% 0%, rgba(201,162,39,.22) 0%, rgba(201,162,39,0) 46%), linear-gradient(135deg,#0e1a2c 0%, #16273f 58%, #1f3656 100%); }
+    .mv-side-top{ display:flex; align-items:center; gap:10px; }
+    .mv-side-user{ flex:1; min-width:0; display:flex; align-items:center; gap:13px; background:none; border:none; color:inherit;
+      font-family:inherit; text-align:left; cursor:pointer; padding:6px; margin:-6px; border-radius:14px; transition:background .15s; }
     @media (hover:hover){ .mv-side-user:hover{ background:rgba(255,255,255,.06); } }
-    .mv-side-quien{ min-width:0; flex:1; }
-    .mv-side-user strong, .mv-side-user span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    /* La flecha es la única señal de que esto se toca: gira 180° al abrir. */
-    .mv-side-caret{ flex:none; font-size:.75rem; color:rgba(255,255,255,.5);
-      transition:transform .25s ease, color .15s; }
-    @media (hover:hover){ .mv-side-user:hover .mv-side-caret{ color:rgba(255,255,255,.85); } }
-    .mv-side-user[aria-expanded="true"] .mv-side-caret{ transform:rotate(180deg); }
-    .mv-side-datos[hidden]{ display:none; }
-    .mv-side-datos{ animation:mvDatosIn .22s ease; }
-    @keyframes mvDatosIn{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:none; } }
-    .mv-side-av{ width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,.12); border:1px solid rgba(201,162,39,.6); display:flex; align-items:center; justify-content:center; font-size:1.2rem; overflow:hidden; flex:0 0 auto; }
+    .mv-side-av{ width:56px; height:56px; border-radius:50%; flex:none; overflow:hidden; display:flex; align-items:center; justify-content:center;
+      background:rgba(255,255,255,.1); border:2px solid #C9A227; box-shadow:0 0 0 4px rgba(201,162,39,.15);
+      font-family:'Cormorant Garamond',serif; font-size:1.6rem; font-weight:700; color:#fff; }
     .mv-side-av img{ width:100%; height:100%; object-fit:cover; }
-    .mv-side-user strong{ display:block; font-size:1.02rem; line-height:1.2; }
-    .mv-side-user span{ display:block; font-size:.78rem; color:rgba(255,255,255,.65); margin-top:3px; }
-    .mv-side-finanzas{ display:flex; align-items:stretch; gap:9px; padding:0 20px 16px; }
-    .mv-fin-saldo{ flex:1; display:flex; flex-direction:column; gap:2px; background:rgba(255,255,255,.09); border-radius:12px; padding:11px 14px; text-decoration:none; transition:background .15s; }
+    .mv-side-quien{ flex:1; min-width:0; }
+    .mv-side-quien strong{ display:block; font-size:1.08rem; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .mv-side-rol{ display:inline-block; max-width:100%; margin-top:6px; padding:3px 10px; border-radius:999px; font-size:.64rem; font-weight:700;
+      letter-spacing:.09em; text-transform:uppercase; color:#ecd68c; background:rgba(201,162,39,.14); border:1px solid rgba(201,162,39,.42);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:top; }
+    .mv-side-caret-wrap{ flex:none; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.09); }
+    .mv-side-caret{ font-size:.68rem; color:rgba(255,255,255,.8); transition:transform .25s ease; }
+    .mv-side-user[aria-expanded="true"] .mv-side-caret{ transform:rotate(180deg); }
+    .mv-side-close{ flex:none; width:38px; height:38px; border-radius:50%; border:none; cursor:pointer; background:rgba(255,255,255,.1); color:#fff; font-size:1.05rem; transition:background .2s; }
+    .mv-side-close:hover{ background:rgba(255,255,255,.2); }
+    .mv-side-datos[hidden]{ display:none; }
+    .mv-side-datos{ margin-top:14px; animation:mvDatosIn .22s ease; }
+    @keyframes mvDatosIn{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:none; } }
+    .mv-side-finanzas{ display:flex; align-items:stretch; gap:9px; }
+    .mv-fin-saldo{ flex:1; display:flex; flex-direction:column; gap:2px; background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.08); border-radius:13px; padding:11px 14px; text-decoration:none; transition:background .15s; }
     .mv-fin-saldo:hover{ background:rgba(255,255,255,.14); }
-    .mv-fin-cap{ font-size:.64rem; color:rgba(255,255,255,.55); text-transform:uppercase; letter-spacing:.05em; font-weight:600; display:flex; align-items:center; gap:6px; margin-bottom:3px; }
-    .mv-fin-cap i{ color:var(--gold,#C9A227); }
-    .mv-fin-val{ font-size:1.05rem; font-weight:700; color:#fff; line-height:1.25; white-space:nowrap; }
+    .mv-fin-cap{ font-size:.64rem; color:rgba(255,255,255,.6); text-transform:uppercase; letter-spacing:.06em; font-weight:600; display:flex; align-items:center; gap:6px; margin-bottom:3px; }
+    .mv-fin-cap i{ color:#C9A227; }
+    .mv-fin-val{ font-size:1.08rem; font-weight:700; color:#fff; line-height:1.25; white-space:nowrap; }
     .mv-fin-val.uyu{ font-size:.95rem; color:rgba(255,255,255,.82); }
-    .mv-fin-pts{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; min-width:70px; background:rgba(201,162,39,.14); border-radius:12px; padding:9px 12px; text-decoration:none; transition:background .15s; }
-    .mv-fin-pts:hover{ background:rgba(201,162,39,.24); }
-    .mv-fin-pts>i{ font-size:.82rem; color:var(--gold,#C9A227); margin-bottom:2px; }
+    .mv-fin-pts{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; min-width:74px; background:rgba(201,162,39,.16); border:1px solid rgba(201,162,39,.3); border-radius:13px; padding:9px 12px; text-decoration:none; transition:background .15s; }
+    .mv-fin-pts:hover{ background:rgba(201,162,39,.26); }
+    .mv-fin-pts>i{ font-size:.82rem; color:#C9A227; margin-bottom:2px; }
     .mv-fin-ptsnum{ font-size:1.15rem; font-weight:700; color:#fff; line-height:1; }
-    .mv-fin-ptslbl{ font-size:.62rem; color:rgba(255,255,255,.55); text-transform:uppercase; letter-spacing:.04em; }
-    .mv-pend-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px; background:#e11d48; color:#fff; border-radius:20px; font-size:.72rem; font-weight:700; margin-left:auto; }
-    .mv-side-close{ background:rgba(255,255,255,.1); border:none; color:#fff; width:34px; height:34px; border-radius:50%; cursor:pointer; font-size:1rem; flex:0 0 auto; transition:background .2s; }
-    .mv-side-close:hover{ background:rgba(255,255,255,.22); }
-    .mv-side-nav{ padding:14px 12px; overflow-y:auto; flex:1; background:#fff; }
-    .mv-side-item{ width:100%; display:flex; align-items:center; gap:13px; background:none; border:none; text-align:left; padding:13px 14px; border-radius:11px; font-family:inherit; font-size:.96rem; font-weight:500; color:var(--gray-700,#374151); cursor:pointer; transition:background .18s, color .18s; }
-    .mv-side-item:hover{ background:var(--gray-50,#f5f6f8); color:var(--primary,#16273f); }
-    .mv-side-item i{ width:34px; height:34px; flex:none; display:inline-flex; align-items:center; justify-content:center; border-radius:9px; background:rgba(201,162,39,.1); color:var(--accent,#C9A227); font-size:.95rem; transition:background .18s; }
-    .mv-side-item:hover i{ background:rgba(201,162,39,.2); }
-    .mv-side-group{ font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--gray-400,#9aa3af); padding:15px 14px 6px; }
-    .mv-side-group.mv-side-admin{ color:var(--gray-400,#9aa3af); }
-    .mv-side-group:first-child{ padding-top:2px; }
-    .mv-side-admin i{ background:rgba(16,39,63,.07); color:var(--primary,#16273f); }
-        .mv-side-out{ color:#c0392b; }
-    .mv-side-out i{ background:rgba(192,57,43,.1); color:#c0392b; }
-    .mv-side-sep{ height:1px; background:var(--gray-200,#eceef1); margin:10px 12px; }
+    .mv-fin-ptslbl{ font-size:.62rem; color:rgba(255,255,255,.6); text-transform:uppercase; letter-spacing:.04em; }
+    .mv-side-datos .mv-nivel{ margin:9px 0 0; }
+    .mv-side-nav{ flex:1; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:14px 14px 18px; }
+    .mv-rapidos{ display:flex; gap:8px; }
+    .mv-rapido{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; gap:7px; padding:12px 4px 10px;
+      background:#fff; border:1px solid #e6e9ee; border-radius:15px; color:#16273f; text-decoration:none; font-family:inherit;
+      font-size:.74rem; font-weight:600; cursor:pointer; box-shadow:0 1px 2px rgba(16,29,48,.04); transition:transform .15s, box-shadow .15s, border-color .15s; }
+    .mv-rapido i{ width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; background:#16273f; color:#C9A227; font-size:1.02rem; }
+    .mv-rapido span{ max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .mv-grupo{ margin-top:16px; }
+    .mv-side-group{ margin:0 2px 8px; font-family:'Jost',sans-serif; font-size:.67rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#8a93a0; display:flex; align-items:center; gap:7px; }
+    .mv-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .mv-side-item{ display:flex; align-items:center; gap:10px; min-height:54px; padding:9px 10px; background:#fff; border:1px solid #e6e9ee; border-radius:13px;
+      color:#27313f; text-decoration:none; font-family:inherit; font-size:.84rem; font-weight:500; line-height:1.2; cursor:pointer;
+      transition:border-color .15s, box-shadow .15s, transform .15s; }
+    .mv-side-item.ancho{ grid-column:1 / -1; }
+    .mv-side-item i{ flex:none; width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:rgba(201,162,39,.13); color:#a4821a; font-size:.9rem; }
+    @media (hover:hover){
+      .mv-rapido:hover{ transform:translateY(-2px); box-shadow:0 8px 18px rgba(16,29,48,.10); border-color:#e2d3a0; }
+      .mv-side-item:hover{ border-color:#e2d3a0; box-shadow:0 6px 14px rgba(16,29,48,.07); transform:translateY(-1px); }
+    }
+    .mv-rapido:active, .mv-side-item:active{ transform:scale(.97); }
+    .mv-dir{ background:#fff; border:1px solid #e1e5eb; border-radius:16px; padding:12px; }
+    .mv-dir .mv-side-group{ color:#16273f; }
+    .mv-dir .mv-side-group i{ color:#C9A227; }
+    .mv-dir-panel{ width:100%; display:flex; align-items:center; gap:11px; padding:11px 12px; margin-bottom:8px; border:none; border-radius:12px;
+      background:linear-gradient(135deg,#16273f,#223a5c); color:#fff; font-family:inherit; text-align:left; cursor:pointer; }
+    .mv-dir-panel > i:first-child{ width:36px; height:36px; border-radius:10px; background:rgba(201,162,39,.2); color:#e6c65c; display:flex; align-items:center; justify-content:center; flex:none; }
+    .mv-dir-tx{ flex:1; min-width:0; }
+    .mv-dir-tx strong{ display:block; font-size:.9rem; }
+    .mv-dir-tx small{ display:block; font-size:.7rem; color:rgba(255,255,255,.65); margin-top:2px; }
+    .mv-dir-go{ color:rgba(255,255,255,.5); font-size:.75rem; }
+    .mv-dir .mv-side-item{ background:#f6f7f9; border-color:#edf0f3; }
+    .mv-dir .mv-side-item i{ background:rgba(22,39,63,.08); color:#16273f; }
+    .mv-pend-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 7px; background:#e11d48; color:#fff; border-radius:22px; font-size:.72rem; font-weight:700; }
+    .mv-side-pie{ flex:none; display:flex; gap:8px; padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px)); background:#fff; border-top:1px solid #e6e9ee; }
+    .mv-side-pie button{ flex:1; display:flex; align-items:center; justify-content:center; gap:7px; padding:10px 6px; border-radius:11px; border:1px solid #e1e5eb;
+      background:#fff; color:#4a5565; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; transition:background .15s; }
+    .mv-side-pie button:hover{ background:#f5f6f8; }
+    .mv-side-pie .salir{ color:#c0392b; border-color:#f1d3cf; }
+    .mv-side-pie .salir:hover{ background:#fdf1ef; }
     .mv-soon{ margin-left:auto; font-size:.66rem; letter-spacing:.03em; background:var(--gray-100,#eef0f3); color:var(--gray-500,#8a8a8a); padding:3px 9px; border-radius:999px; font-weight:600; text-transform:uppercase; }
+    @media (max-width:640px){
+      /* "Mi perfil" está en la barra de abajo. */
+      .mv-side-dup{ display:none !important; }
+      /* Con la barra de abajo, el menú termina justo encima de ella (que queda a
+         la vista: "Menú" marcado, y un toque en otra pestaña lo cierra). */
+      body.has-bottombar #mvSide{ height:auto !important; top:0 !important; bottom:calc(63px + env(safe-area-inset-bottom,0px)) !important; }
+      body.has-bottombar .mv-side-pie{ padding-bottom:10px; }
+    }
+
+    /* ===== Barra de abajo (celular) =====
+       Alto fijo para todas las pestañas: la de Perfil, con la foto, quedaba más
+       baja que las otras. Y un poco más opaca: donde el teléfono no aplica el
+       desenfoque, el texto de la página se leía a través de la barra. */
+    @media (max-width:640px){
+      .mv-bottombar{ background:rgba(22,39,63,.94) !important; }
+      .mv-bottombar .bb-item{ height:62px; box-sizing:border-box; padding:9px 3px 8px; justify-content:flex-start; gap:5px; }
+      .mv-bottombar .bb-item > i, .mv-bottombar .bb-avatar{ width:24px; height:24px; display:flex; align-items:center; justify-content:center; flex:none; }
+      body.has-bottombar{ padding-bottom:calc(63px + env(safe-area-inset-bottom,0px)) !important; }
+    }
+
     /* Cuentas y herramientas: categorías y tarjetas */
     .mv-pa-cat{ margin:18px 0 10px; font-size:.74rem; letter-spacing:.12em; text-transform:uppercase; color:var(--gray-500,#8a8a8a); font-weight:600; display:flex; align-items:center; gap:9px; }
     .mv-pa-cat::before{ content:''; width:22px; height:22px; border-radius:7px; background:var(--primary,#16273f); display:inline-block; -webkit-mask:var(--mv-cat-ic) center/14px no-repeat; mask:var(--mv-cat-ic) center/14px no-repeat; }
@@ -994,30 +1282,6 @@
     .mv-pa-actions .ed:hover{ border-color:var(--accent,#C9A227); color:var(--accent,#C9A227); }
     .mv-pa-actions .de{ color:#c0392b; }
     .mv-pa-actions .de:hover{ background:#fff0ee; border-color:#e3a9a2; }
-    @media (max-width:560px){
-      /* ===== Menú compacto en celular =====
-         Diecisiete filas a lo ancho obligaban a scrollear todo el panel. Las
-         herramientas (calculadoras, formación, recursos) pasan a dos columnas:
-         son etiquetas cortas y entran de a pares sin apretarse. Las secciones de
-         trabajo y administración quedan a lo ancho porque son las que más se usan
-         y conviene que sigan siendo blancos grandes. */
-      .mv-side-head{ padding:16px 16px; }
-      .mv-side-nav{ padding:8px 10px 20px; }
-      .mv-side-item{ font-size:.92rem; padding:10px 12px; gap:11px; border-radius:10px; }
-      .mv-side-item i{ width:28px; height:28px; font-size:.8rem; border-radius:8px; }
-      .mv-side-group{ padding:13px 12px 5px; font-size:.66rem; }
-      .mv-side-sep{ margin:8px 12px; }
-
-    }
-    /* "Mi Perfil" y "Mis Finanzas" salen del menú solo donde la barra inferior
-       los cubre. En escritorio la barra es display:none y el menú es la ÚNICA
-       navegación que queda: sacarlos ahí dejaba el perfil sin ninguna puerta.
-       El corte es 640px, el mismo de .mv-bottombar, no el de la compactación. */
-    /* En celular se ocultan los accesos que ya están en otro lado. "Mi Perfil"
-       sigue oculto porque está fijo en la barra de abajo. "Mis Finanzas" volvió:
-       su atajo era tocar la tarjeta del saldo, y esa tarjeta ahora arranca
-       plegada, así que sin este ítem quedaba a tres toques de distancia. */
-    @media (max-width:640px){ .mv-side-dup:not(.mv-side-fin){ display:none; } }
   </style>
   <!-- ===== Modal: dejar testimonio ===== -->
   <div class="testi-modal" id="testimonioModal">
