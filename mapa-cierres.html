@@ -4,119 +4,32 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Mapa de cierres · MALAVÉ</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <meta name="theme-color" content="#16273f">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
-    :root{ --gold:#c9a227; --ink:#1c1c1c; --bg:#f4f5f7; --line:#e4e6ea; --venta:#27ae60; --alq:#2e86de; }
+    :root{
+      --navy:#16273f; --gold:#C9A227; --gold-d:#8a6d12; --gold-bg:#fdf8ec;
+      --ink:#1d2733; --muted:#6b7480; --soft:#9aa3ad; --line:#e5e8ec; --line-2:#eef0f3; --bg:#f4f5f7;
+      --venta:#27ae60; --venta-d:#1e7d4f; --venta-bg:#e8f5ee;
+      --alq:#2e86de; --alq-d:#1f6fbf; --alq-bg:#e8f1fc;
+      --pend:#a86408; --pend-bg:#fdf3e1; --bad:#c0392b; --bad-bg:#fdecea;
+      --head-h:67px;
+      --sombra:0 1px 2px rgba(22,39,63,.04), 0 6px 20px rgba(22,39,63,.06);
+    }
     *{ box-sizing:border-box; margin:0; padding:0; }
-    body{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--ink); padding:18px; }
-    .wrap{ max-width:960px; margin:0 auto; }
-    .top{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
-    .top h1{ font-size:1.5rem; display:flex; align-items:center; gap:10px; }
-    .top h1 i{ color:var(--gold); }
-    .top-actions{ display:flex; gap:10px; align-items:center; }
-    .back{ color:#666; text-decoration:none; font-size:.9rem; display:inline-flex; align-items:center; gap:6px; }
-    .back:hover{ color:var(--ink); }
-    .btn{ border:none; cursor:pointer; border-radius:10px; padding:10px 16px; font-size:.9rem; font-weight:600; display:inline-flex; align-items:center; gap:7px; }
-    .btn-gold{ background:var(--gold); color:#1a1a1a; }
-    .btn-gold:hover{ filter:brightness(1.05); }
-    .btn-ghost{ background:#fff; border:1px solid var(--line); color:#444; }
-    .toolbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
-    .chips{ display:flex; gap:6px; background:#fff; border:1px solid var(--line); border-radius:12px; padding:4px; }
-    .chip{ border:none; background:transparent; cursor:pointer; border-radius:9px; padding:7px 14px; font-size:.86rem; font-weight:600; color:#666; }
-    .chip.active{ background:var(--ink); color:#fff; }
-    .legend{ display:flex; gap:14px; align-items:center; font-size:.82rem; color:#666; margin-left:auto; }
-    .legend span{ display:inline-flex; align-items:center; gap:6px; }
-    .dot{ width:12px; height:12px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px #ddd; }
-    #mapaCierres{ height:460px; border-radius:14px; border:1px solid var(--line); overflow:hidden; z-index:1; }
-    .count{ font-size:.9rem; color:#777; margin:16px 0 10px; font-weight:600; }
-    .cierre-card{ background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:10px; display:flex; align-items:center; gap:14px; cursor:pointer; transition:.15s; }
-    .cierre-card:hover{ border-color:var(--gold); box-shadow:0 2px 8px rgba(0,0,0,.06); }
-    .tag{ font-size:.72rem; font-weight:700; padding:4px 10px; border-radius:20px; flex:0 0 auto; }
-    .cc-main{ flex:1; min-width:0; }
-    .cc-price{ font-weight:700; font-size:1.02rem; }
-    .cc-sub{ font-size:.88rem; color:#444; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .cc-meta{ font-size:.8rem; color:#888; margin-top:2px; }
-    .cc-date{ font-size:.8rem; color:#999; flex:0 0 auto; }
-    .empty{ text-align:center; color:#999; padding:36px 20px; background:#fff; border:1px solid var(--line); border-radius:14px; }
-    /* Modal */
-    .overlay{ position:fixed; inset:0; background:rgba(16,29,48,.5); display:none; align-items:center; justify-content:center; z-index:4000; padding:16px; }
-    .overlay.open{ display:flex; }
-    .modal{ background:#fff; border-radius:16px; width:560px; max-width:100%; max-height:92vh; overflow:auto; padding:22px; }
-    .modal h2{ font-size:1.2rem; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
-    .modal h2 i{ color:var(--gold); }
-    .modal .sub{ font-size:.85rem; color:#888; margin-bottom:16px; }
-    .fg{ margin-bottom:14px; }
-    .fg label{ display:block; font-size:.82rem; font-weight:600; color:#444; margin-bottom:5px; }
-    .fg select, .fg input{ width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:.92rem; }
-    .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    .reg-info{ background:#faf8f0; border:1px solid #ecd9a0; border-radius:10px; padding:10px 12px; font-size:.85rem; line-height:1.5; color:#5a4a12; margin-bottom:14px; }
-    .tipo-toggle{ display:flex; gap:8px; }
-    .tipo-toggle label{ flex:1; border:1px solid var(--line); border-radius:10px; padding:10px; text-align:center; cursor:pointer; font-weight:600; font-size:.9rem; }
-    .tipo-toggle input{ display:none; }
-    .tipo-toggle input:checked + span{ color:#fff; }
-    .tipo-toggle label:has(input[value="venta"]:checked){ background:var(--venta); border-color:var(--venta); }
-    .tipo-toggle label:has(input[value="alquiler"]:checked){ background:var(--alq); border-color:var(--alq); }
-    #regMapa{ height:220px; border-radius:10px; border:1px solid var(--line); overflow:hidden; margin-top:6px; }
-    .reg-hint{ font-size:.78rem; color:#999; margin-top:6px; }
-    .modal-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
-    #mvToastWrap{ position:fixed; right:16px; bottom:16px; z-index:99999; display:flex; flex-direction:column; gap:10px; max-width:360px; }
-    .mv-toast{ background:var(--ink); color:#fff; border-left:4px solid var(--gold); border-radius:12px; padding:12px 14px; box-shadow:0 8px 24px rgba(0,0,0,.3); opacity:0; transform:translateY(10px); transition:.25s; font-size:.9rem; }
-    .mv-toast.show{ opacity:1; transform:translateY(0); }
-    .mv-toast.err{ border-left-color:#e74c3c; }
-    @media(max-width:640px){
-      #mapaCierres{ height:300px; }
-      .grid2{ grid-template-columns:1fr; }
-      .top{ gap:10px; }
-      .top h1{ font-size:1.3rem; }
-      .top-actions{ width:100%; flex-wrap:wrap; gap:8px; }
-      .top-actions .back{ flex:1 1 100%; }
-      .top-actions .btn{ flex:1; justify-content:center; padding:10px 12px; font-size:.84rem; }
-      .toolbar{ gap:8px; }
-      .chips{ width:100%; }
-      .chip{ flex:1; text-align:center; padding:8px 6px; }
-      .legend{ margin-left:0; }
-      /* Popup del mapa: compacto para que no tape la pantalla en el celular */
-      .leaflet-popup-content-wrapper{ max-width:230px; }
-      .leaflet-popup-content{ margin:10px 12px; font-size:.82rem; }
-      .leaflet-popup-content > div{ min-width:0 !important; }
-      .leaflet-popup-content img{ height:78px !important; }
-    }
-      .cc-thumb{ width:74px; height:56px; border-radius:9px; object-fit:cover; flex:none; background:#eef0f2; }
-    .cc-thumb-ph{ width:74px; height:56px; border-radius:9px; flex:none; background:#eef0f2; display:flex; align-items:center; justify-content:center; color:#b7bec7; }
-    .cc-actions{ display:flex; gap:7px; flex-wrap:wrap; margin-top:7px; }
-    /* --- Móvil: la tarjeta de cierre se reorganiza para no apretarse --- */
-    @media (max-width:640px){
-      .cierre-card{ flex-wrap:wrap; align-items:flex-start; gap:10px; padding:12px; position:relative; }
-      .cc-thumb, .cc-thumb-ph{ width:60px; height:60px; }
-      .cierre-card .tag{ order:3; }
-      .cc-main{ flex:1 1 100%; order:4; }
-      .cc-price{ font-size:1.15rem; }
-      .cc-sub{ white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
-      .cc-date{ position:absolute; top:12px; right:12px; font-size:.72rem; }
-      .cc-actions{ gap:6px; }
-      .cc-actions .cc-btn{ flex:1; justify-content:center; padding:8px 6px; font-size:.72rem; }
-    }
-    .cc-btn{ border:1px solid #ddd; background:#fff; color:#444; border-radius:8px; padding:4px 10px; font-size:.74rem; font-weight:600; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:5px; font-family:inherit; }
-    .cc-btn:hover{ border-color:#16273f; color:#16273f; }
-    .cc-btn.gold{ background:#C9A227; border-color:#C9A227; color:#fff; }
-    .cc-btn.gold:hover{ opacity:.9; }
-    .ref-row{ display:grid; grid-template-columns:1fr 1fr 84px 84px; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid #f0f1f3; }
-    .ref-row b{ font-size:.9rem; color:#16273f; font-weight:600; }
-    .ref-row select,.ref-row input{ width:100%; padding:8px 9px; border:1px solid #ddd; border-radius:8px; font-family:inherit; font-size:.86rem; }
-    .ref-head{ display:grid; grid-template-columns:1fr 1fr 84px 84px; gap:8px; font-size:.72rem; color:#999; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding-bottom:4px; }
-    @media (max-width:560px){ .ref-row,.ref-head{ grid-template-columns:1fr; } .ref-head span:not(:first-child){ display:none; } }
-  </style>
-<style>
-  /* Área segura superior (isla dinámica / notch) en toda la herramienta */
-  body{ padding-top: env(safe-area-inset-top, 0px); }
-  .fh, header, .app-header, .topbar{ padding-top: env(safe-area-inset-top, 0px); }
-  body > .fh, body > header{ padding-top: 0; }
+    html{ -webkit-text-size-adjust:100%; }
+    body{ font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--ink); line-height:1.45; }
+    body.bloqueo{ overflow:hidden; }
+    [hidden]{ display:none !important; }
+    button, input, select{ font-family:inherit; }
 
-    /* ===== Cabecera estándar de las herramientas =====
-       Copiada de finanzas.html, que es la que mejor quedaba: "Volver" como botón
-       con contorno redondeado que se rellena al pasar el mouse, en vez de un
-       enlace suelto. Antes cada herramienta tenía la suya y algunas ni logo. */
+    /* ===== Cabecera estándar de las herramientas (igual que finanzas y el resto).
+       El margen de la barra de estado del celular lo reserva EL HEADER, no el
+       body: antes lo hacían los dos y en el iPhone quedaba un hueco doble. ===== */
     .mv-head{ background:#fff; border-bottom:1px solid #eef1f5; position:sticky; top:0; z-index:60;
       padding-top:env(safe-area-inset-top,0px); }
     .mv-head-in{ max-width:1200px; margin:0 auto; padding:14px 20px; display:flex;
@@ -134,18 +47,316 @@
       .mv-head .back-link{ padding:8px 13px; }
     }
 
-    /* Fila de título + acciones. En el celular el título va arriba y los botones
-       abajo repartidos, en vez de apretarse todos en un renglón. */
-    .mv-toolbar{ display:flex; align-items:center; justify-content:space-between;
-      gap:12px; flex-wrap:wrap; margin-bottom:18px; }
-    .mv-toolbar h1{ margin:0; display:flex; align-items:center; gap:10px; min-width:0; }
-    .mv-toolbar-acc{ display:flex; gap:9px; align-items:center; flex-wrap:wrap; }
-    @media (max-width:640px){
-      .mv-toolbar h1{ flex:1 0 100%; font-size:1.5rem; }
-      .mv-toolbar-acc{ flex:1 0 100%; }
-      .mv-toolbar-acc > *{ flex:1; justify-content:center; text-align:center; }
+    .wrap{ max-width:1200px; margin:0 auto; padding:22px 20px 64px; }   /* mismo ancho que la cabecera: el logo y el título quedan alineados */
+    .mv-toolbar{ display:flex; align-items:flex-end; justify-content:space-between; gap:14px 18px; flex-wrap:wrap; margin-bottom:18px; }
+    .mv-toolbar h1{ font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:2.25rem; color:var(--navy); line-height:1.05; }
+    .lede{ color:var(--muted); font-size:.92rem; margin-top:5px; max-width:640px; }
+    .mv-toolbar-acc{ display:flex; gap:10px; flex-wrap:wrap; }
+
+    .btn{ border:1px solid transparent; cursor:pointer; border-radius:11px; padding:10px 16px; font-size:.9rem; font-weight:600;
+      display:inline-flex; align-items:center; justify-content:center; gap:8px; line-height:1.2; text-decoration:none;
+      transition:filter .15s, background .15s, border-color .15s, color .15s; }
+    .btn-gold{ background:var(--gold); color:var(--navy); }
+    .btn-gold:hover{ filter:brightness(1.06); }
+    .btn-ghost{ background:#fff; border-color:var(--line); color:#39424e; }
+    .btn-ghost:hover{ border-color:var(--navy); color:var(--navy); }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; filter:none; }
+
+    /* ===== Estados (cargando / sin sesión) ===== */
+    .estado{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:50px 24px; text-align:center; color:var(--muted); }
+    .estado .big{ font-size:1.9rem; color:#c9ced6; display:block; margin-bottom:12px; }
+    .estado h3{ font-family:'Cormorant Garamond',Georgia,serif; font-size:1.6rem; color:var(--navy); margin-bottom:6px; }
+    .estado .btn{ margin-top:16px; }
+    .esq i{ display:block; background:linear-gradient(90deg,#eceff3 0%,#f6f7f9 50%,#eceff3 100%); background-size:200% 100%; animation:brillo 1.2s ease-in-out infinite; border-radius:14px; }
+    .esq-kpis{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+    .esq-kpis i{ height:92px; }
+    .esq-split{ display:grid; grid-template-columns:minmax(0,1fr); gap:16px; }
+    .esq-split .m{ height:380px; }
+    .esq-split .c{ height:118px; margin-bottom:12px; }
+    @keyframes brillo{ 0%{ background-position:100% 0 } 100%{ background-position:-100% 0 } }
+
+    /* ===== Tarjetas de resumen: también son el filtro principal ===== */
+    .kpis{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:14px; }
+    .kpi{ text-align:left; background:#fff; border:1px solid var(--line); border-radius:14px; padding:13px 16px 12px; cursor:pointer;
+      color:inherit; transition:border-color .15s, box-shadow .15s; position:relative; min-width:0; }
+    .kpi:hover{ border-color:#cfd5dc; box-shadow:0 3px 12px rgba(22,39,63,.07); }
+    .kpi.on{ border-color:var(--navy); box-shadow:inset 0 0 0 1px var(--navy); }
+    .kpi .k-l{ font-size:.72rem; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); font-weight:600; display:flex; align-items:center; gap:7px; white-space:nowrap; }
+    .kpi .k-l .fas{ color:var(--soft); font-size:.8rem; }
+    .kpi .k-n{ display:block; font-size:1.8rem; font-weight:700; color:var(--navy); margin:3px 0 0; font-variant-numeric:tabular-nums; line-height:1.15; }
+    .kpi .k-s{ display:block; font-size:.78rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .kpi.alerta .k-n{ color:var(--pend); }
+    .kpi.alerta .k-l .fas{ color:var(--pend); }
+    .kpi.alerta::after{ content:''; position:absolute; top:13px; right:14px; width:8px; height:8px; border-radius:50%; background:#e0a23a; box-shadow:0 0 0 4px rgba(224,162,58,.18); }
+
+    .filtros{ display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+    .buscar{ flex:1 1 260px; position:relative; min-width:0; }
+    .buscar input{ width:100%; padding:10px 12px 10px 38px; border:1px solid var(--line); border-radius:11px; background:#fff; font-size:.9rem; color:var(--ink); }
+    .buscar .fas{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--soft); font-size:.85rem; pointer-events:none; }
+    .sel{ appearance:none; -webkit-appearance:none; padding:10px 34px 10px 13px; border:1px solid var(--line); border-radius:11px; font-size:.88rem; color:var(--ink); cursor:pointer;
+      background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7480' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center; }
+    .buscar input:focus, .sel:focus{ outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.15); }
+
+    /* ===== Lista + mapa ===== */
+    .split{ display:grid; grid-template-columns:minmax(0,1fr); gap:16px; }
+    .mapa-col{ order:0; min-width:0; } .lista-col{ order:1; min-width:0; }
+    .mapa-wrap{ position:relative; height:clamp(300px,52vh,470px); border-radius:16px; overflow:hidden; border:1px solid var(--line); background:#e9edf1; box-shadow:var(--sombra); }
+    #mapaCierres{ position:absolute; inset:0; z-index:1; }
+    .mapa-wrap.full{ position:fixed; inset:0; height:auto; border-radius:0; border:none; z-index:3500; }
+    /* En la computadora la columna del mapa es "sticky" y eso encierra su z-index:
+       sin esto, la cabecera y las fotos de la lista quedaban por encima del mapa a pantalla completa. */
+    body.mapa-full .mapa-col{ z-index:3500; }
+    .map-tools{ position:absolute; top:12px; right:12px; z-index:600; display:flex; flex-direction:column; gap:8px; }
+    .map-tools button{ width:38px; height:38px; border-radius:10px; border:1px solid rgba(0,0,0,.08); background:#fff; color:var(--navy); box-shadow:0 2px 8px rgba(0,0,0,.14); cursor:pointer; font-size:.95rem; }
+    .map-tools button:hover{ background:#f4f6f8; }
+    .full .map-tools{ top:calc(12px + env(safe-area-inset-top,0px)); }
+    .full .leaflet-top{ top:env(safe-area-inset-top,0px); }
+    .leyenda{ position:absolute; left:12px; bottom:12px; z-index:600; background:rgba(255,255,255,.95); border-radius:10px; padding:7px 11px; display:flex; gap:12px; font-size:.74rem; color:#46505c; box-shadow:0 2px 8px rgba(0,0,0,.12); pointer-events:none; }
+    .lg{ display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:5px; vertical-align:-1px; flex:none; }
+    .lg-venta{ background:var(--venta); }
+    .lg-alq{ background:var(--alq); }
+    .lg-pend{ background:#fff; border:2.5px solid #7d8794; }
+    .map-hint{ position:absolute; inset:0; z-index:550; display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; background:rgba(22,39,63,.42); color:#fff; font-weight:600; font-size:.95rem; opacity:0; pointer-events:none; transition:opacity .25s; }
+    .map-hint.show{ opacity:1; }
+    .barrios-pane path{ pointer-events:none; }
+
+    .lista-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:2px 2px 10px; font-size:.86rem; color:var(--muted); }
+    .lista-head b{ color:var(--navy); }
+    .link{ background:none; border:none; color:var(--gold-d); font-weight:600; font-size:.84rem; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+
+    @media (min-width:1000px){
+      .split{ grid-template-columns:minmax(380px,460px) minmax(0,1fr); gap:20px; align-items:start; }
+      .lista-col{ order:0; } .mapa-col{ order:1; position:sticky; top:calc(var(--head-h) + 16px); }
+      .mapa-wrap{ height:calc(100vh - var(--head-h) - 32px); min-height:460px; }
+      .esq-split{ grid-template-columns:minmax(380px,460px) minmax(0,1fr); gap:20px; }
+      .esq-split .m{ height:560px; }
     }
-</style>
+
+    /* ===== Tarjeta de cierre ===== */
+    .cc{ display:grid; grid-template-columns:104px minmax(0,1fr); grid-template-areas:"foto body" "foto acc"; column-gap:13px;
+      background:#fff; border:1px solid var(--line); border-radius:14px; padding:11px; margin-bottom:11px; cursor:pointer;
+      transition:border-color .15s, box-shadow .15s; }
+    .cc:hover{ border-color:#cfd5dc; box-shadow:0 4px 14px rgba(22,39,63,.07); }
+    .cc.sel{ border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.2); }
+    .cc-foto{ grid-area:foto; position:relative; border-radius:10px; overflow:hidden; background:#eef0f3; min-height:108px; }
+    .cc-foto img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+    .cc-foto.sin-foto::before{ content:"\f03e"; font-family:"Font Awesome 6 Free"; font-weight:400; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#c3c9d1; font-size:1.4rem; }
+    .tipo{ font-size:.63rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:3px 8px; border-radius:999px; color:#fff; background:var(--venta-d); white-space:nowrap; }
+    .tipo.alquiler{ background:var(--alq-d); }
+    .cc-foto .tipo{ position:absolute; left:7px; top:7px; box-shadow:0 1px 4px rgba(0,0,0,.2); }
+    .cc-body{ grid-area:body; min-width:0; display:flex; flex-direction:column; gap:2px; }
+    .cc-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+    .cc-precio{ font-size:1.1rem; font-weight:700; color:var(--navy); font-variant-numeric:tabular-nums; line-height:1.25; }
+    .cc-precio small{ font-size:.74rem; color:var(--muted); font-weight:500; margin-left:2px; }
+    .cc-sub{ font-size:.76rem; color:var(--muted); }
+    .cc-tit{ font-size:.88rem; font-weight:500; color:var(--ink); line-height:1.3; margin-top:3px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .cc-meta{ font-size:.76rem; color:var(--muted); margin-top:1px; }
+    .cc-quien{ font-size:.76rem; color:#46505c; margin-top:3px; }
+    .cc-quien .fas{ color:var(--soft); margin-right:3px; }
+    .tuyo{ display:inline-block; font-size:.66rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--gold-d); background:var(--gold-bg); border:1px solid #ecd9a0; border-radius:999px; padding:1px 7px; }
+    .cc-acc{ grid-area:acc; align-self:end; display:flex; gap:6px; align-items:center; justify-content:flex-end; flex-wrap:wrap; margin-top:8px; }
+    .cc-acc .b.ok{ margin-right:auto; }
+    .st{ display:inline-flex; align-items:center; gap:5px; font-size:.7rem; font-weight:700; padding:3px 9px; border-radius:999px; border:none; white-space:nowrap; flex:none; }
+    .st.ok{ background:var(--venta-bg); color:var(--venta-d); }
+    .st.pend{ background:var(--pend-bg); color:var(--pend); }
+    button.st{ cursor:pointer; }
+    button.st.ok:hover{ background:#dcefe4; }
+    .b{ height:32px; padding:0 11px; border:1px solid var(--line); background:#fff; border-radius:9px; font-size:.76rem; font-weight:600; color:#39424e;
+      display:inline-flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; text-decoration:none; white-space:nowrap; transition:.15s; }
+    .b:hover{ border-color:var(--navy); color:var(--navy); }
+    .b.ic{ width:32px; padding:0; }
+    .b.ok{ background:var(--venta-d); border-color:var(--venta-d); color:#fff; }
+    .b.ok:hover{ filter:brightness(1.08); color:#fff; }
+    .b.gold{ background:var(--gold-bg); border-color:#ecd9a0; color:var(--gold-d); }
+    .b.gold:hover{ border-color:var(--gold); color:var(--gold-d); }
+    .b.del:hover{ border-color:#e3b8b1; color:var(--bad); background:#fff7f6; }
+    .b:disabled{ opacity:.6; cursor:wait; }
+
+    .vacio{ text-align:center; color:var(--muted); background:#fff; border:1px dashed #d8dde3; border-radius:14px; padding:34px 20px; font-size:.9rem; }
+    .vacio > .fas{ font-size:1.6rem; color:#c9ced6; display:block; margin-bottom:10px; }
+    .vacio h3{ font-family:'Cormorant Garamond',Georgia,serif; font-size:1.45rem; color:var(--navy); margin-bottom:4px; }
+    .vacio .btn{ margin-top:14px; }
+    .vacio.err{ color:var(--bad); border-color:#f0c9c3; }
+
+    /* ===== Globo del mapa ===== */
+    .leaflet-container{ font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+    .leaflet-popup-content-wrapper{ border-radius:14px; padding:0; overflow:hidden; box-shadow:0 14px 34px rgba(16,25,40,.26); }
+    .leaflet-popup-content{ margin:0; line-height:1.4; }
+    .pp-foto{ width:100%; height:112px; object-fit:cover; display:block; background:#eef0f3; }
+    .pp-b{ padding:11px 14px 12px; }
+    .pp-t{ display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:.72rem; color:var(--muted); }
+    .pp-precio{ font-size:1.08rem; font-weight:700; color:var(--navy); margin-top:6px; font-variant-numeric:tabular-nums; }
+    .pp-precio small{ font-weight:500; font-size:.72rem; color:var(--muted); margin-left:3px; }
+    .pp-tit{ font-size:.84rem; color:var(--ink); margin-top:1px; }
+    .pp-meta{ font-size:.75rem; color:var(--muted); margin-top:3px; }
+    .pp-ag{ font-size:.75rem; color:#46505c; margin-top:4px; }
+    .pp-ag .fas{ color:var(--soft); margin-right:3px; }
+    .pp-pie{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px; padding-top:9px; border-top:1px solid var(--line-2); flex-wrap:wrap; }
+    .pp-est{ display:flex; gap:6px; align-items:center; }
+    .pp-est .b{ height:28px; font-size:.72rem; padding:0 9px; }
+    .pp-acc{ display:flex; gap:12px; font-size:.75rem; font-weight:700; }
+    .leaflet-container .pp-acc a{ color:var(--navy); text-decoration:none; cursor:pointer; }
+    .leaflet-container .pp-acc a:hover{ text-decoration:underline; }
+    .leaflet-container .pp-acc a.del{ color:var(--bad); }
+    .pp-foto-si .leaflet-popup-close-button{ color:#fff !important; text-shadow:0 1px 4px rgba(0,0,0,.7); font-size:22px !important; top:4px !important; right:4px !important; }
+    .tt-precio{ font-weight:700; color:var(--navy); border-radius:8px; border:none; box-shadow:0 3px 10px rgba(0,0,0,.18); padding:4px 8px; font-size:.78rem; }
+    @media (max-width:640px){
+      .leaflet-popup-content{ width:230px !important; }
+      .pp-foto{ height:92px; }
+    }
+
+    /* ===== Ventanas ===== */
+    .overlay{ position:fixed; inset:0; background:rgba(16,25,40,.55); display:none; align-items:center; justify-content:center; z-index:4000; padding:18px; }
+    .overlay.open{ display:flex; animation:aparece .16s ease; }
+    @keyframes aparece{ from{ opacity:0 } to{ opacity:1 } }
+    .modal{ background:#fff; border-radius:18px; width:640px; max-width:100%; max-height:calc(100vh - 36px); max-height:calc(100dvh - 36px); display:flex; flex-direction:column; box-shadow:0 24px 64px rgba(16,25,40,.32); overflow:hidden; }
+    .modal-ref{ width:760px; }
+    .mh{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:20px 22px 14px; border-bottom:1px solid var(--line-2); }
+    .mh h2{ font-family:'Cormorant Garamond',Georgia,serif; font-size:1.7rem; font-weight:700; color:var(--navy); line-height:1.1; }
+    .mh .sub{ font-size:.84rem; color:var(--muted); margin-top:4px; }
+    .x{ width:36px; height:36px; border-radius:10px; border:1px solid var(--line); background:#fff; color:#56606c; cursor:pointer; flex:none; font-size:1rem; }
+    .x:hover{ border-color:var(--navy); color:var(--navy); }
+    .mb{ padding:4px 22px 18px; overflow:auto; flex:1; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+    .mf{ padding:14px 22px calc(14px + env(safe-area-inset-bottom,0px)); border-top:1px solid var(--line-2); display:flex; gap:10px; justify-content:flex-end; background:#fff; }
+    @media (max-width:640px){
+      .overlay{ padding:0; align-items:flex-end; }
+      .modal{ width:100%; max-height:94vh; max-height:94dvh; border-radius:18px 18px 0 0; }
+      .op-elegir{ grid-template-columns:1fr; }
+      .mh{ padding:16px 16px 12px; } .mh h2{ font-size:1.5rem; }
+      .mb{ padding:2px 16px 16px; }
+      .mf{ padding-left:16px; padding-right:16px; }
+      .mf .btn{ flex:1; }
+    }
+
+    .rs{ padding:16px 0 18px; border-bottom:1px dashed var(--line); }
+    .rs:last-child{ border-bottom:none; }
+    .rs-h{ display:flex; align-items:center; gap:10px; font-weight:700; font-size:.76rem; letter-spacing:.07em; text-transform:uppercase; color:var(--navy); margin-bottom:12px; }
+    .rs-h .n{ width:22px; height:22px; border-radius:50%; background:var(--navy); color:#fff; font-size:.72rem; display:inline-flex; align-items:center; justify-content:center; letter-spacing:0; flex:none; }
+    .rs-h .opt{ text-transform:none; letter-spacing:0; font-weight:500; color:var(--soft); font-size:.78rem; }
+    .rs-h .b-add{ margin-left:auto; text-transform:none; letter-spacing:0; border:1px solid #e3cf95; background:var(--gold-bg); color:var(--gold-d); border-radius:9px; padding:6px 11px; font-size:.78rem; font-weight:600; cursor:pointer; }
+    .rs-h .b-add:hover{ border-color:var(--gold); }
+    .fg{ margin-bottom:12px; }
+    .fg:last-child{ margin-bottom:0; }
+    .fg > label, .sublbl{ display:block; font-size:.8rem; font-weight:600; color:#39424e; margin-bottom:6px; }
+    .fg > label small{ font-weight:400; color:var(--soft); }
+    .fg input, .fg select, .inp, .reg-part-row select, .reg-part-row input, .geo input{ width:100%; border:1px solid #dde2e8; border-radius:10px; padding:10px 12px; font-size:.95rem; background:#fff; color:var(--ink); }
+    .fg input:focus, .fg select:focus, .reg-part-row select:focus, .reg-part-row input:focus, .geo input:focus{ outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.15); }
+    .fg select:disabled{ background:#f7f8fa; color:var(--ink); }
+    .hint{ display:block; font-size:.76rem; color:var(--muted); margin-top:6px; line-height:1.45; }
+    .hint.top{ margin:-4px 0 10px; }
+    .hint a{ color:var(--gold-d); font-weight:600; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+    .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .mt{ margin-top:12px; }
+    .precio-in{ display:flex; }
+    .precio-in select{ width:auto !important; flex:none; border-radius:10px 0 0 10px !important; border-right:none !important; background:#f7f8fa !important; font-weight:600; padding-right:8px !important; }
+    .precio-in input{ border-radius:0 10px 10px 0 !important; min-width:0; }
+    .precio-in .pre{ display:flex; align-items:center; padding:0 11px; border:1px solid #dde2e8; border-right:none; border-radius:10px 0 0 10px; background:#f7f8fa; font-weight:600; font-size:.88rem; color:#46505c; }
+    .tipo-toggle{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .tipo-toggle label{ position:relative; border:1px solid var(--line); border-radius:11px; padding:11px; cursor:pointer; font-weight:600; font-size:.92rem; color:#39424e;
+      display:flex; align-items:center; justify-content:center; gap:8px; transition:.15s; }
+    .tipo-toggle label:hover{ border-color:#cfd5dc; }
+    .tipo-toggle input{ position:absolute; opacity:0; pointer-events:none; }
+    .tipo-toggle label.on.venta{ background:var(--venta-d); border-color:var(--venta-d); color:#fff; }
+    .tipo-toggle label.on.alquiler{ background:var(--alq-d); border-color:var(--alq-d); color:#fff; }
+    .ri{ display:flex; gap:12px; align-items:center; background:#f8f9fb; border:1px solid var(--line-2); border-radius:12px; padding:10px; }
+    .ri img, .ri .ph{ width:66px; height:54px; border-radius:8px; object-fit:cover; flex:none; background:#e9ecf0; display:flex; align-items:center; justify-content:center; color:#c3c9d1; }
+    .ri b{ display:block; font-size:.9rem; color:var(--navy); line-height:1.3; }
+    .ri .m{ font-size:.77rem; color:var(--muted); }
+    .op-elegir{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+    .op-elegir label{ display:flex; gap:9px; align-items:flex-start; border:1px solid var(--line); border-radius:11px; padding:10px 12px; cursor:pointer; font-size:.84rem; color:#39424e; transition:.15s; }
+    .op-elegir input{ margin-top:3px; accent-color:var(--navy); flex:none; }
+    .op-elegir b{ display:block; color:var(--navy); font-weight:600; }
+    .op-elegir small{ display:block; color:var(--muted); font-size:.76rem; margin-top:1px; }
+    .op-elegir label.on{ border-color:var(--navy); box-shadow:inset 0 0 0 1px var(--navy); background:#f8f9fb; }
+    .aviso{ display:flex; gap:10px; align-items:flex-start; font-size:.8rem; line-height:1.45; border-radius:11px; padding:10px 12px; margin-top:10px; }
+    .aviso .fas{ margin-top:2px; flex:none; }
+    .aviso.info{ background:#eef4fb; color:#1f4f82; }
+    .aviso.warn{ background:#fff7e6; color:#7a5200; border:1px solid #f1dcaa; }
+    .aviso.bad{ background:var(--bad-bg); color:#962c20; }
+    .resumen{ background:#f8f9fb; border:1px solid var(--line-2); border-radius:10px; padding:9px 12px; font-size:.82rem; color:#46505c; margin-top:10px; }
+    .resumen b{ color:var(--navy); }
+    .resumen span{ color:var(--muted); }
+    .pts{ margin-top:8px; font-size:.8rem; color:var(--gold-d); background:var(--gold-bg); border:1px solid #efe0b3; border-radius:10px; padding:8px 11px; }
+    .reg-part-row{ display:grid; grid-template-columns:minmax(0,1fr) 140px 40px; gap:8px; margin-bottom:8px; }
+    .reg-part-m{ position:relative; }
+    .reg-part-m .mon{ position:absolute; left:11px; top:50%; transform:translateY(-50%); font-size:.8rem; color:var(--muted); font-weight:600; pointer-events:none; }
+    .reg-part-m input{ padding-left:42px !important; }
+    .reg-part-x{ border:1px solid #ecc8c2; background:#fff; color:var(--bad); border-radius:10px; cursor:pointer; }
+    .reg-part-x:hover{ background:#fff5f4; }
+    .geo{ display:flex; gap:8px; margin-bottom:10px; }
+    .geo input{ flex:1; min-width:0; }
+    .geo .btn{ padding:9px 14px; flex:none; }
+    #regMapa{ height:250px; border-radius:12px; border:1px solid var(--line); overflow:hidden; z-index:1; }
+    .reg-pin{ color:#c9a227; font-size:36px; line-height:1; filter:drop-shadow(0 2px 2px rgba(0,0,0,.4)); }
+    .reg-pin .fas{ display:block; }
+    .puntaje{ display:flex; gap:6px; }
+    .puntaje button{ flex:1; max-width:46px; height:38px; border:1px solid var(--line); border-radius:9px; background:#fff; font-weight:700; color:#56606c; cursor:pointer; font-size:.88rem; }
+    .puntaje button:hover{ border-color:#cfd5dc; }
+    .puntaje button.on{ background:var(--navy); border-color:var(--navy); color:#fff; }
+
+    /* ===== Referidos ===== */
+    .ref-head, .ref-row{ display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1.3fr) 92px 92px; gap:10px; align-items:center; }
+    .ref-head{ font-size:.7rem; color:var(--soft); font-weight:700; text-transform:uppercase; letter-spacing:.06em; padding:12px 0 6px; }
+    .ref-row{ padding:9px 0; border-bottom:1px solid var(--line-2); }
+    .ref-row:last-child{ border-bottom:none; }
+    .ref-ag{ display:flex; align-items:center; gap:10px; min-width:0; }
+    .ref-ag b{ font-size:.9rem; color:var(--navy); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .av{ width:32px; height:32px; border-radius:50%; background:#eef1f6; color:var(--navy); font-size:.72rem; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none; }
+    .ref-c span{ display:none; }
+    .ref-row select, .ref-row input{ width:100%; padding:9px 10px; border:1px solid #dde2e8; border-radius:9px; font-size:.86rem; background:#fff; }
+    .ref-row.con .av{ background:var(--gold-bg); color:var(--gold-d); }
+    @media (max-width:600px){
+      .ref-head{ display:none; }
+      .ref-row{ grid-template-columns:1fr 1fr; gap:8px 10px; padding:12px 0; }
+      .ref-ag{ grid-column:1 / -1; }
+      .ref-c:first-of-type{ grid-column:1 / -1; }
+      .ref-c span{ display:block; font-size:.72rem; color:var(--muted); font-weight:600; margin-bottom:4px; }
+    }
+
+    /* ===== Avisos flotantes ===== */
+    #mvToastWrap{ position:fixed; right:18px; bottom:18px; z-index:99999; display:flex; flex-direction:column; gap:10px; max-width:380px; }
+    .mv-toast{ display:flex; gap:10px; align-items:flex-start; background:var(--navy); color:#fff; border-left:4px solid var(--gold); border-radius:12px; padding:12px 14px; box-shadow:0 10px 28px rgba(16,25,40,.3);
+      opacity:0; transform:translateY(10px); transition:.25s; font-size:.88rem; line-height:1.4; }
+    .mv-toast .fas{ margin-top:2px; color:var(--gold); }
+    .mv-toast.show{ opacity:1; transform:none; }
+    .mv-toast.err{ border-left-color:#e74c3c; }
+    .mv-toast.err .fas{ color:#ff8a7a; }
+
+    /* ===== Celular ===== */
+    @media (max-width:900px){
+      .kpis{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+      .esq-kpis{ grid-template-columns:repeat(2,1fr); }
+    }
+    @media (max-width:640px){
+      .wrap{ padding:16px 14px 50px; }
+      .mv-toolbar{ margin-bottom:14px; }
+      .mv-toolbar h1{ font-size:1.9rem; }
+      .lede{ font-size:.86rem; }
+      .mv-toolbar-acc{ width:100%; }
+      .mv-toolbar-acc .btn{ flex:1; }
+      .kpi{ padding:11px 12px 10px; border-radius:12px; }
+      .kpi .k-n{ font-size:1.5rem; }
+      .kpi .k-l{ font-size:.66rem; letter-spacing:.05em; }
+      .kpi .k-s{ font-size:.72rem; }
+      .kpi.alerta::after{ top:11px; right:11px; }
+      .filtros{ gap:8px; }
+      .buscar{ flex:1 1 100%; }
+      .filtros .sel{ flex:1 1 0; min-width:0; }
+      .mapa-wrap{ border-radius:14px; }
+      .leyenda{ gap:9px; font-size:.7rem; padding:6px 9px; left:10px; bottom:24px; transition:opacity .2s; }   /* arriba de la atribución del mapa */
+      .con-globo .leyenda{ opacity:0; }   /* con un globo abierto la leyenda le tapaba la punta */
+      .cc{ grid-template-columns:92px minmax(0,1fr); column-gap:11px; padding:10px; }
+      /* Con varias acciones (admin), los botones pasan a una fila propia a lo ancho. */
+      .cc:not(.pocas){ grid-template-areas:"foto body" "acc acc"; }
+      .cc:not(.pocas) .cc-acc{ margin-top:10px; padding-top:9px; border-top:1px solid var(--line-2); }
+      .cc-foto{ min-height:96px; }
+      .cc-precio{ font-size:1.02rem; }
+      .grid2{ grid-template-columns:1fr; }
+      .reg-part-row{ grid-template-columns:minmax(0,1fr) 118px 40px; }
+      #mvToastWrap{ left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom,0px)); max-width:none; }
+      .geo .btn span{ display:none; }
+    }
+  </style>
 </head>
 <body>
   <header class="mv-head">
@@ -155,287 +366,744 @@
     </div>
   </header>
 
-  <div class="wrap">
+  <main class="wrap">
     <div class="mv-toolbar">
-      <h1><i class="fas fa-map-location-dot"></i> Mapa de cierres</h1>
+      <div>
+        <h1>Mapa de cierres</h1>
+        <p class="lede" id="lede">Las ventas y alquileres que cerró el equipo.</p>
+      </div>
       <div class="mv-toolbar-acc">
-        <button class="btn" id="btnRef" onclick="openRef()" style="display:none;background:#fff;border:1px solid #ddd;color:#444"><i class="fas fa-people-arrows"></i> Referidos</button>
-        <button class="btn btn-gold" id="btnReg" onclick="openReg()" style="display:none"><i class="fas fa-plus"></i> Registrar cierre</button>
+        <button type="button" class="btn btn-ghost" id="btnRef" onclick="openRef()" hidden><i class="fas fa-people-arrows"></i> Referidos</button>
+        <button type="button" class="btn btn-gold" id="btnReg" onclick="openReg()" hidden><i class="fas fa-plus"></i> Registrar cierre</button>
       </div>
     </div>
 
-    <div id="loadingState" class="empty"><i class="fas fa-spinner fa-spin"></i> Cargando…</div>
-    <div id="authState" class="empty" style="display:none"><i class="fas fa-lock" style="font-size:1.6rem;color:#ccc;display:block;margin-bottom:10px"></i><span id="authMsg">Tenés que iniciar sesión.</span></div>
+    <div id="loadingState" class="esq" aria-busy="true" aria-label="Cargando">
+      <div class="esq-kpis"><i></i><i></i><i></i><i></i></div>
+      <div class="esq-split"><div><i class="c"></i><i class="c"></i><i class="c"></i></div><i class="m"></i></div>
+    </div>
+    <div id="authState" class="estado" hidden>
+      <i class="fas fa-lock big"></i>
+      <h3 id="authTit">Acceso para agentes</h3>
+      <p id="authMsg">Tenés que iniciar sesión.</p>
+      <a class="btn btn-ghost" href="index.html">Ir al inicio</a>
+    </div>
 
-    <div id="content" style="display:none">
-      <div class="toolbar">
-        <div class="chips">
-          <button class="chip active" id="chip-todos" onclick="setFiltro('todos')">Todos</button>
-          <button class="chip" id="chip-venta" onclick="setFiltro('venta')">Ventas</button>
-          <button class="chip" id="chip-alquiler" onclick="setFiltro('alquiler')">Alquileres</button>
+    <div id="content" hidden>
+      <div class="kpis" id="kpis"></div>
+      <div class="filtros">
+        <div class="buscar"><i class="fas fa-magnifying-glass"></i><input type="search" id="fBuscar" placeholder="Buscar por barrio, tipo o propiedad…" oninput="onBuscar()" autocomplete="off"></div>
+        <select class="sel" id="fAnio" onchange="setAnio(this.value)" aria-label="Año" hidden></select>
+        <select class="sel" id="fAgente" onchange="setAgente(this.value)" aria-label="Agente" hidden></select>
+      </div>
+      <div class="split">
+        <div class="mapa-col">
+          <div class="mapa-wrap" id="mapaWrap">
+            <div id="mapaCierres"></div>
+            <div class="map-tools">
+              <button type="button" onclick="ajustarVista(true)" title="Ver todos los cierres" aria-label="Ver todos los cierres"><i class="fas fa-crosshairs"></i></button>
+              <button type="button" id="btnFull" onclick="toggleFull()" title="Pantalla completa" aria-label="Pantalla completa"><i class="fas fa-maximize"></i></button>
+            </div>
+            <div class="leyenda" aria-hidden="true">
+              <span><i class="lg lg-venta"></i>Venta</span><span><i class="lg lg-alq"></i>Alquiler</span><span><i class="lg lg-pend"></i>Sin confirmar</span>
+            </div>
+            <div class="map-hint" id="mapHint">Hacé clic en el mapa para acercar con la rueda</div>
+          </div>
         </div>
-        <div class="legend">
-          <span><i class="dot" style="background:var(--venta)"></i> Venta</span>
-          <span><i class="dot" style="background:var(--alq)"></i> Alquiler</span>
+        <div class="lista-col">
+          <div class="lista-head"><span id="count"></span><button type="button" class="link" id="btnLimpiar" onclick="limpiarFiltros()" hidden>Limpiar filtros</button></div>
+          <div id="lista"></div>
         </div>
       </div>
-      <div id="mapaCierres"></div>
-      <div class="count" id="count"></div>
-      <div id="lista"></div>
+    </div>
+  </main>
+
+  <!-- Referidos entre agentes (solo admin) -->
+  <div class="overlay" id="refModal" aria-hidden="true">
+    <div class="modal modal-ref" role="dialog" aria-modal="true" aria-labelledby="refTitulo">
+      <div class="mh">
+        <div>
+          <h2 id="refTitulo">Referidos entre agentes</h2>
+          <p class="sub">Si un agente fue referido por otro, el referente cobra un <b>% de la ganancia del agente</b> en cada cierre. Se paga aparte: no se le descuenta nada al agente. El recibo de cada cierre lo calcula solo.</p>
+        </div>
+        <button type="button" class="x" onclick="closeRef()" aria-label="Cerrar"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="mb">
+        <div class="ref-head"><span>Agente</span><span>Referido por</span><span>% venta</span><span>% alquiler</span></div>
+        <div id="refRows"></div>
+      </div>
+      <div class="mf">
+        <button type="button" class="btn btn-ghost" onclick="closeRef()">Cancelar</button>
+        <button type="button" class="btn btn-gold" id="refSave" onclick="guardarReferidos(this)"><i class="fas fa-floppy-disk"></i> Guardar referidos</button>
+      </div>
     </div>
   </div>
 
-  <!-- Modal registrar cierre -->
-  <div class="overlay" id="refModal">
-    <div class="modal">
-      <h2><i class="fas fa-people-arrows"></i> Referidos entre agentes</h2>
-      <div class="sub">Si un agente fue referido por otro, el referente cobra un <b>% de la ganancia del agente</b> en cada cierre. Se paga aparte: no se le descuenta nada al agente. El recibo de cada cierre lo calcula solo.</div>
-      <div class="ref-head"><span>Agente</span><span>Referido por</span><span>% venta</span><span>% alquiler</span></div>
-      <div id="refRows"></div>
-      <div class="modal-actions">
-        <button class="btn" onclick="closeRef()" style="background:#fff;border:1px solid #ddd;color:#444">Cancelar</button>
-        <button class="btn btn-gold" onclick="guardarReferidos()"><i class="fas fa-save"></i> Guardar referidos</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="overlay" id="regModal">
-    <div class="modal">
-      <h2><i class="fas fa-handshake"></i> Registrar cierre</h2>
-      <div class="sub">Quedan guardados la ubicación, características, el precio del cierre y la ganancia del agente (de ahí salen sus puntos de Recompensas).</div>
-
-      <div class="fg">
-        <label>Propiedad</label>
-        <select id="regProp" onchange="onPropSelect()"></select>
-      </div>
-      <div id="regInfo"></div>
-
-      <div class="fg" id="regAgenteWrap" style="display:none">
-        <label>Agente del cierre</label>
-        <select id="regAgente" onchange="onAgenteSelect()"></select>
-        <div style="font-size:.78rem;color:#999;margin-top:5px">El cierre, la ganancia y los puntos de Recompensas quedan a nombre de este agente (arranca en el dueño de la propiedad).</div>
-      </div>
-
-      <div class="fg">
-        <label>Tipo de cierre</label>
-        <div class="tipo-toggle">
-          <label><input type="radio" name="regTipo" value="venta" checked><span>Venta</span></label>
-          <label><input type="radio" name="regTipo" value="alquiler"><span>Alquiler</span></label>
+  <!-- Registrar / editar cierre -->
+  <div class="overlay" id="regModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="regTitulo">
+      <div class="mh">
+        <div>
+          <h2 id="regTitulo">Registrar cierre</h2>
+          <p class="sub" id="regSub">Queda en el mapa y, cuando el admin lo confirma, suma a Mis Finanzas y a los puntos de Recompensas.</p>
         </div>
+        <button type="button" class="x" onclick="closeReg()" aria-label="Cerrar"><i class="fas fa-xmark"></i></button>
       </div>
+      <div class="mb" id="regBody">
+        <section class="rs">
+          <div class="rs-h"><span class="n">1</span>Propiedad</div>
+          <div class="fg">
+            <label for="regProp">Propiedad</label>
+            <select id="regProp" onchange="onPropSelect()"></select>
+          </div>
+          <div id="regInfo"></div>
+          <div class="op-elegir" id="regOpWrap" hidden>
+            <label><input type="radio" name="regOp" value="corregir" checked onchange="onOpChange()"><span><b>Corregir ese cierre</b><small id="regOpTxt"></small></span></label>
+            <label><input type="radio" name="regOp" value="nueva" onchange="onOpChange()"><span><b>Es una operación nueva</b><small>Se volvió a vender o a alquilar</small></span></label>
+          </div>
+          <div class="fg mt" id="regAgenteWrap" hidden>
+            <label for="regAgente">Agente del cierre</label>
+            <select id="regAgente" onchange="onAgenteSelect()"></select>
+            <small class="hint">El cierre, la ganancia y los puntos de Recompensas quedan a nombre de este agente (arranca en el dueño de la propiedad).</small>
+          </div>
+          <div id="regAviso"></div>
+        </section>
 
-      <div class="grid2">
-        <div class="fg"><label>Precio de cierre</label><input type="number" id="regPrecio" placeholder="0"></div>
-        <div class="fg"><label>Moneda</label><select id="regMoneda"><option value="USD">US$</option><option value="UYU">$U</option></select></div>
-      </div>
+        <section class="rs">
+          <div class="rs-h"><span class="n">2</span>Operación</div>
+          <div class="tipo-toggle" role="radiogroup" aria-label="Tipo de cierre">
+            <label class="on venta"><input type="radio" name="regTipo" value="venta" checked><i class="fas fa-sign-hanging"></i> Venta</label>
+            <label><input type="radio" name="regTipo" value="alquiler"><i class="fas fa-key"></i> Alquiler</label>
+          </div>
+          <div class="grid2 mt">
+            <div class="fg">
+              <label for="regPrecio" id="regPrecioLbl">Precio de cierre</label>
+              <div class="precio-in"><select id="regMoneda" aria-label="Moneda"><option value="USD">US$</option><option value="UYU">$U</option></select><input type="number" id="regPrecio" min="0" step="1" inputmode="decimal" placeholder="0"></div>
+              <small class="hint" id="regPubHint"></small>
+            </div>
+            <div class="fg">
+              <label for="regFecha">Fecha del cierre</label>
+              <input type="date" id="regFecha">
+            </div>
+          </div>
+        </section>
 
-      <div class="fg" id="regPartesWrap">
-        <label id="regPartesLabel">Comisión de la inmobiliaria <small style="color:#aaa">— cargá lo que paga cada parte (0 si no paga)</small></label>
-        <div class="grid2">
-          <div class="fg" style="margin:0"><label id="regLblComprador" style="font-size:.82rem">Comprador %</label><input type="number" id="regPctComprador" min="0" step="0.1" placeholder="3"></div>
-          <div class="fg" style="margin:0"><label id="regLblVendedor" style="font-size:.82rem">Vendedor %</label><input type="number" id="regPctVendedor" min="0" step="0.1" placeholder="3"></div>
-        </div>
-        <div id="regComResumen" style="font-size:.78rem;color:#8a6d12;background:rgba(201,162,39,.1);border-radius:8px;padding:7px 10px;margin-top:8px;display:none"></div>
-      </div>
+        <section class="rs">
+          <div class="rs-h"><span class="n">3</span>Comisión y ganancia</div>
+          <div class="fg" id="regPartesWrap">
+            <label id="regPartesLabel">Comisión de la inmobiliaria</label>
+            <div class="grid2">
+              <div><label class="sublbl" id="regLblComprador" for="regPctComprador">Comprador (%)</label><input class="inp" type="number" id="regPctComprador" min="0" step="0.1" inputmode="decimal"></div>
+              <div><label class="sublbl" id="regLblVendedor" for="regPctVendedor">Vendedor (%)</label><input class="inp" type="number" id="regPctVendedor" min="0" step="0.1" inputmode="decimal"></div>
+            </div>
+            <div class="resumen" id="regComResumen" hidden></div>
+          </div>
+          <div class="fg">
+            <label for="regGanancia" id="regGanLabel">Tu ganancia <small>(lo que te quedó, sin IVA)</small></label>
+            <div class="precio-in"><span class="pre" id="regGanMon">US$</span><input type="number" id="regGanancia" min="0" step="1" inputmode="decimal" placeholder="0"></div>
+            <small class="hint" id="regGanHint"></small>
+            <div class="pts" id="regPts" hidden></div>
+          </div>
+        </section>
 
-      <div class="grid2">
-        <div class="fg"><label id="regGanLabel">Tu ganancia <small style="color:#aaa">(lo que te quedó, sin IVA)</small></label><input type="number" id="regGanancia" placeholder="0"></div>
-        <div class="fg"><label>&nbsp;</label><div style="font-size:.78rem;color:#999;padding-top:10px">Se calcula sola: comisión de cada parte × tu %. Podés cobrar por una o ambas partes. Corregila a mano si el número real fue otro.</div></div>
-      </div>
+        <section class="rs" id="regEquipoWrap">
+          <div class="rs-h"><span class="n">4</span>¿Cerraron en equipo? <span class="opt">opcional</span>
+            <button type="button" class="b-add" id="regAddAgente" onclick="agregarParticipante()"><i class="fas fa-plus"></i> Agregar agente</button></div>
+          <p class="hint top">Sumá a los otros agentes que participaron y cuánto le toca a cada uno. Cada uno lo ve en su saldo y suma sus puntos.</p>
+          <div id="regParticipantes"></div>
+          <small class="hint" id="regEquipoRes"></small>
+        </section>
 
-      <div class="fg" id="regEquipoWrap">
-        <label style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <span><i class="fas fa-users" style="color:var(--gold,#C9A227)"></i> ¿Cerraste en equipo?</span>
-          <button type="button" id="regAddAgente" onclick="agregarParticipante()" style="border:1px solid #d9c48a;background:#fdf8ec;color:#8a6d12;border-radius:8px;padding:6px 12px;font-family:inherit;font-size:.8rem;font-weight:600;cursor:pointer"><i class="fas fa-plus"></i> Agregar agente</button>
-        </label>
-        <small style="color:#aaa;display:block;margin:-2px 0 8px">Sumá a los agentes que participaron y escribí cuánto le toca a cada uno. Cada uno lo verá en su saldo y sumará sus puntos.</small>
-        <div id="regParticipantes"></div>
-      </div>
-      <div class="grid2">
-        <div class="fg"><label>Fecha del cierre</label><input type="date" id="regFecha"></div>
-        <div class="fg"><label>&nbsp;</label><div style="font-size:.78rem;color:#999;padding-top:10px">El alquiler es por mes.</div></div>
-      </div>
-      <div class="grid2">
-        <div class="fg"><label>Construcción (1-5) <small style="color:#aaa">opcional</small></label><input type="number" id="regCons" min="1" max="5" placeholder="3"></div>
-        <div class="fg"><label>Ubicación (1-5) <small style="color:#aaa">opcional</small></label><input type="number" id="regUbi" min="1" max="5" placeholder="3"></div>
-      </div>
+        <section class="rs">
+          <div class="rs-h"><span class="n">5</span>Ubicación en el mapa</div>
+          <div class="geo">
+            <input type="search" id="regDir" placeholder="Buscar una dirección (calle y número)" autocomplete="off">
+            <button type="button" class="btn btn-ghost" onclick="buscarDireccion()" aria-label="Buscar la dirección"><i class="fas fa-magnifying-glass"></i><span>Buscar</span></button>
+          </div>
+          <div id="regMapa"></div>
+          <small class="hint" id="regGeoHint">Si la propiedad ya tiene ubicación, aparece marcada. Tocá el mapa o arrastrá el pin para ajustarla.</small>
+        </section>
 
-      <div class="fg">
-        <label>Ubicación en el mapa</label>
-        <div id="regMapa"></div>
-        <div class="reg-hint">Si la propiedad ya tiene ubicación, aparece marcada. Tocá el mapa o arrastrá el pin para ajustarla.</div>
+        <section class="rs">
+          <div class="rs-h"><span class="n">6</span>Calificación <span class="opt">opcional</span></div>
+          <div class="grid2">
+            <div><span class="sublbl">Construcción</span><div class="puntaje" data-campo="regCons"></div></div>
+            <div><span class="sublbl">Ubicación</span><div class="puntaje" data-campo="regUbi"></div></div>
+          </div>
+          <small class="hint">1 = floja · 5 = excelente. Sirve para comparar precios entre cierres parecidos.</small>
+          <input type="hidden" id="regCons"><input type="hidden" id="regUbi">
+        </section>
       </div>
-
-      <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="closeReg()">Cancelar</button>
-        <button class="btn btn-gold" id="regSave" onclick="guardarCierre()"><i class="fas fa-floppy-disk"></i> Guardar cierre</button>
+      <div class="mf">
+        <button type="button" class="btn btn-ghost" onclick="closeReg()">Cancelar</button>
+        <button type="button" class="btn btn-gold" id="regSave" onclick="guardarCierre()"><i class="fas fa-floppy-disk"></i> <span id="regSaveTxt">Guardar cierre</span></button>
       </div>
     </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="malave-logos.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="malave-config.js?v=20260830b"></script>
   <script>
+    /* =========================================================================
+       MAPA DE CIERRES
+
+       QUÉ ESCRIBE (y quién lo lee — no cambiar los nombres de estos campos):
+       · properties/{id}.cierre = { tipo, precio, moneda, fecha, construccion,
+         ubicacionScore, lat, lng, m2, dormitorios, banos, realEstateType, barrio,
+         precioPublicado, gananciaAgente, comisionComprador, comisionVendedor,
+         ambasPartes, agenteUid, agenteNombre, participantes[], registradoEl,
+         agencyPct (venta) | agencyMonths (alquiler), editadoEl (si se corrigió) }
+         + status 'sold'/'rented' + ubicacion.lat/lng.
+         Lo leen: Mis Finanzas (app.js y finanzas.html), Recompensas, Rentabilidad,
+         Comisiones del panel, Desempeño (admin.html) y el backend (portales y
+         puntos). status dispara la baja/alta en Mercado Libre e InfoCasas.
+       · properties/{id}.cierreConfirmado (true/false). Solo el admin.
+       · referidos/{uidAgente} = { referrerUid, referrerNombre, pctSale, pctRent, updatedAt }.
+
+       agencyPct / agencyMonths: la comisión total de la inmobiliaria en ESE
+       cierre (suma de las dos partes). Rentabilidad y Comisiones ya los leían,
+       pero nadie los guardaba y siempre caían al 3% / 1 mes por defecto.
+
+       VELOCIDAD: al abrir se leen SOLO las propiedades con cierre (antes se
+       bajaban todas). Las del selector se cargan recién al tocar "Registrar
+       cierre", y jsPDF recién al pedir un recibo. Si la consulta filtrada
+       fallara, se cae a leer todo como antes.
+       ========================================================================= */
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
 
     const COL = { venta: '#27ae60', alquiler: '#2e86de' };
+    const DEF_PARTES = { venta: [3, 3], alquiler: [1, 0] };   // mismos valores de siempre si se dejan vacíos
+    const CENTRO = [-34.9011, -56.1645];
+    const TESELAS = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const JSPDF_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    const HOVER = !!(window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches);
+
     let curUser = null, curProfile = {}, isAdmin = false;
-    let allProps = [], cierres = [], editableProps = [], vista = [];
-    let filtro = 'todos';
-    let map = null, capa = [];
+    const porId = {};          // una sola copia de cada propiedad, la comparten mapa, lista y formulario
+    let cierres = [];          // propiedades con cierre ubicado
+    let vista = [];            // lo que queda después de los filtros
+    let editableProps = [];    // las que el usuario puede cerrar (se cargan al abrir el formulario)
+    let agentesList = [];      // agentes aprobados
+    let referidosMap = {};     // referidos/{uidAgente}
+    const filtro = { modo: 'todos', anio: '', agente: '', q: '' };
+    let map = null, capa = null, marcadores = {}, grupos = [], selId = null, _rehaciendo = false;
     let regMap = null, regPin = null, regLatLng = null, selProp = null;
+    let regModo = 'nuevo', regPrefill = false, regSucio = false;
+    let regToken = 0;          // cada apertura/selección del formulario; lo asíncrono viejo se descarta
+    let regOp = null;          // propiedad que ya tiene cierre: 'corregir' ese cierre o registrar una operación 'nueva'
+    let pinManual = false;     // el pin lo puso la persona: la búsqueda automática de la dirección no lo pisa
+    let ganManual = false;     // true cuando la ganancia la escribió alguien (o vino del cierre guardado)
+    let ganGuardada = false;   // la ganancia vino del cierre que se está corrigiendo
 
-    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-    function fmtMoney(v, m){ return (m==='UYU' ? '$U ' : 'US$ ') + Number(v||0).toLocaleString('es-UY'); }
-    function fmtFecha(s){ if(!s) return ''; const d=new Date(s); if(isNaN(d.getTime())) return s; return d.toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'}); }
-    function show(id){ ['loadingState','authState','content'].forEach(x=>{ const e=document.getElementById(x); if(e) e.style.display = x===id?'block':'none'; }); }
+    // ---------- Utilidades ----------
+    const $ = (id) => document.getElementById(id);
+    function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])); }
+    const arg = (v) => esc(JSON.stringify(String(v)));          // para onclick="f(...)"
+    function fmtMoney(v, m){ return (m === 'UYU' ? '$U ' : 'US$ ') + Number(v || 0).toLocaleString('es-UY'); }
+    function fmtRedondo(v, m){ return (m === 'UYU' ? '$U ' : 'US$ ') + Math.round(Number(v) || 0).toLocaleString('es-UY'); }
+    function fmtNum(n){ return Number(n || 0).toLocaleString('es-UY', { maximumFractionDigits: 2 }); }
+    function fmtMeses(n){ return Number(n) === 1 ? '1 mes' : fmtNum(n) + ' meses'; }
+    function fmtPm2(v, m){ return (m === 'UYU' ? '$U ' : 'US$ ') + Math.round(v).toLocaleString('es-UY') + '/m²'; }
+    function simbolo(m){ return (m || $('regMoneda').value) === 'UYU' ? '$U' : 'US$'; }
+    // "2026-09-28" es una fecha del calendario, no un instante: new Date() la tomaría
+    // como medianoche UTC y en Uruguay (UTC-3) se mostraba el día anterior.
+    function fechaLocal(s){
+      if (!s) return null;
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s));
+      if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+      const d = new Date(s); return isNaN(d.getTime()) ? null : d;
+    }
+    function fmtFecha(s){ const d = fechaLocal(s); if (!d) return s || ''; return d.toLocaleDateString('es-UY', { day:'2-digit', month:'2-digit', year:'numeric' }); }
+    function fmtFechaCorta(s){ const d = fechaLocal(s); if (!d) return ''; return d.toLocaleDateString('es-UY', { day:'numeric', month:'short', year:'numeric' }).replace(/\./g, ''); }
+    // Fecha de hoy EN URUGUAY (toISOString da la de Greenwich: después de las 21 h ya es mañana).
+    function hoyISO(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+    function norm(s){ return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+    function iniciales(n){ return String(n || '?').trim().split(/\s+/).slice(0, 2).map(x => x[0] || '').join('').toUpperCase(); }
+    function mediana(a){ if (!a.length) return 0; const s = a.slice().sort((x, y) => x - y), k = Math.floor(s.length / 2); return s.length % 2 ? s[k] : (s[k - 1] + s[k]) / 2; }
+    function escritorio(){ return !!(window.matchMedia && matchMedia('(min-width: 1000px)').matches); }
+    function show(id){ ['loadingState', 'authState', 'content'].forEach(x => { const e = $(x); if (e) e.hidden = (x !== id); }); }
     function toast(msg, err){
-      let c=document.getElementById('mvToastWrap'); if(!c){ c=document.createElement('div'); c.id='mvToastWrap'; document.body.appendChild(c); }
-      const t=document.createElement('div'); t.className='mv-toast'+(err?' err':''); t.textContent=msg; c.appendChild(t);
-      setTimeout(()=>t.classList.add('show'),10); setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); },3800);
+      let c = $('mvToastWrap'); if (!c){ c = document.createElement('div'); c.id = 'mvToastWrap'; c.setAttribute('role', 'status'); document.body.appendChild(c); }
+      const t = document.createElement('div'); t.className = 'mv-toast' + (err ? ' err' : '');
+      t.innerHTML = '<i class="fas fa-' + (err ? 'circle-exclamation' : 'circle-check') + '"></i><div></div>';
+      t.lastChild.textContent = msg; c.appendChild(t);
+      setTimeout(() => t.classList.add('show'), 10);
+      setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, err ? 5200 : 3800);
     }
-    function tipoDeProp(p){ return p.type==='rent' ? 'alquiler' : 'venta'; }
-
-    function coleccionar(){
-      cierres = allProps.filter(p => p.cierre && p.cierre.lat != null && p.cierre.lng != null);
+    function ocupado(btn, on){
+      if (!btn) return;
+      if (on){ if (btn.dataset.html == null) btn.dataset.html = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+      else { btn.disabled = false; if (btn.dataset.html != null){ btn.innerHTML = btn.dataset.html; delete btn.dataset.html; } }
+    }
+    function tipoDeProp(p){ return p.type === 'rent' ? 'alquiler' : 'venta'; }
+    function tieneCierre(p){ return !!(p && p.cierre && p.cierre.lat != null && p.cierre.lng != null); }
+    function fotoDe(p){ return (Array.isArray(p.images) && p.images[0]) || ''; }
+    function agenteDe(p){ return (p.cierre && p.cierre.agenteUid) || p.ownerId || ''; }
+    function nombreAgente(uid){ const a = agentesList.find(x => x.uid === uid); return a ? a.name : ''; }
+    function tieneGan(c){ return c && c.gananciaAgente != null && c.gananciaAgente !== '' && isFinite(Number(c.gananciaAgente)); }
+    function precioM2(c){ const m = Number(c.m2) || 0, pr = Number(c.precio) || 0; return (c.tipo === 'venta' && m > 0 && pr > 0) ? pr / m : 0; }
+    function esMio(p){
+      if (!curUser) return false;
+      const c = p.cierre || {}, uid = curUser.uid;
+      if (c.agenteUid ? c.agenteUid === uid : p.ownerId === uid) return true;
+      return Array.isArray(c.participantes) && c.participantes.some(x => x && x.uid === uid);
+    }
+    // Un agente corrige SUS cierres mientras no estén confirmados; el admin, todos.
+    function puedeEditar(p){
+      if (isAdmin) return true;
+      if (!curUser || p.cierreConfirmado === true) return false;
+      const uid = curUser.uid, c = p.cierre || {};
+      if ((c.agenteUid || p.ownerId) !== uid) return false;      // solo SUS cierres, no el de un compañero
+      return p.ownerId === uid || (Array.isArray(p.agents) && p.agents.indexOf(uid) >= 0);
+    }
+    function unir(id, data){
+      if (porId[id]){ Object.assign(porId[id], data); return porId[id]; }
+      const p = Object.assign({ id }, data); porId[id] = p; return p;
     }
 
-    // Límites de los barrios de Montevideo: líneas finas por encima del mapa base.
-    // Fuente: datos abiertos de la Intendencia (vía vierja/geojson_montevideo),
-    // simplificados y servidos como barrios-montevideo.geojson desde el propio sitio.
-    var barriosLayer = null;
-    function cargarBarrios(targetMap){
-      if(barriosLayer){ barriosLayer.addTo(targetMap); return; }
-      fetch('barrios-montevideo.geojson')
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(geo){
-          if(!geo) return;
-          barriosLayer = L.geoJSON(geo, {
-            style: { color:'#16273f', weight:1, opacity:0.35, fill:false, interactive:false }
-          }).addTo(targetMap);
-        })
-        .catch(function(){ /* si no carga, el mapa sigue funcionando igual */ });
+    // ---------- Lecturas ----------
+    let _todasLeidas = false, _editables = null, _agentes = null, _cfgPts = null, cfgPts = null;
+    async function leerCierres(){
+      try{
+        // Firestore devuelve solo los documentos que TIENEN cierre.lat (numérico).
+        const q = await db.collection('properties').where('cierre.lat', '>=', -90).get();
+        return q.docs.map(d => unir(d.id, d.data()));
+      }catch(e){
+        console.warn('[mapa] consulta de cierres no disponible, leo todas las propiedades:', e && (e.code || e.message));
+        const q = await db.collection('properties').get();
+        _todasLeidas = true;
+        return q.docs.map(d => unir(d.id, d.data()));
+      }
+    }
+    function cargarEditables(){
+      if (_editables) return _editables;
+      _editables = (async () => {
+        const uid = curUser.uid;
+        let lista;
+        if (_todasLeidas) lista = Object.values(porId);
+        else if (isAdmin) lista = (await db.collection('properties').get()).docs.map(d => unir(d.id, d.data()));
+        else {
+          try{
+            const [a, b] = await Promise.all([
+              db.collection('properties').where('ownerId', '==', uid).get(),
+              db.collection('properties').where('agents', 'array-contains', uid).get()
+            ]);
+            lista = a.docs.concat(b.docs).map(d => unir(d.id, d.data()));
+          }catch(e){
+            lista = (await db.collection('properties').get()).docs.map(d => unir(d.id, d.data()));
+          }
+        }
+        const vistos = {};
+        editableProps = lista.filter(p => {
+          if (vistos[p.id]) return false; vistos[p.id] = 1;
+          return isAdmin || p.ownerId === uid || (Array.isArray(p.agents) && p.agents.indexOf(uid) >= 0);
+        });
+        return editableProps;
+      })();
+      _editables.catch(() => { _editables = null; });
+      return _editables;
+    }
+    // Agentes aprobados. Al admin le hace falta el % de comisión de cada uno;
+    // a un agente solo los nombres (para sumar compañeros al cierre en equipo).
+    function cargarAgentes(){
+      if (_agentes) return _agentes;
+      _agentes = db.collection('users').where('status', '==', 'approved').get().then(us => {
+        agentesList = us.docs.map(d => {
+          const u = d.data() || {}, a = { uid: d.id, name: (u.name || u.email || 'Agente') };
+          if (isAdmin){
+            const fb = (u.commissionPct != null && u.commissionPct !== '') ? Number(u.commissionPct) : 0;
+            a.sale = (u.commissionSale != null && u.commissionSale !== '') ? Number(u.commissionSale) : fb;
+            a.rent = (u.commissionRent != null && u.commissionRent !== '') ? Number(u.commissionRent) : fb;
+          }
+          return a;
+        }).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+        return agentesList;
+      }).catch(e => { console.warn('[mapa] agentes', e && e.message); _agentes = null; return agentesList; });
+      return _agentes;
+    }
+    function cargarReferidos(){
+      return db.collection('referidos').get()
+        .then(rf => { referidosMap = {}; rf.docs.forEach(d => { referidosMap[d.id] = d.data(); }); })
+        .catch(() => { referidosMap = {}; });
+    }
+    function cfgPuntos(){
+      if (_cfgPts) return _cfgPts;
+      cfgPts = { puntosPor100: 1, valorPunto: 0.05, dolarPesos: 40 };
+      _cfgPts = db.collection('config').doc('recompensas').get()
+        .then(d => { if (d.exists) cfgPts = Object.assign(cfgPts, d.data()); return cfgPts; })
+        .catch(() => cfgPts);
+      return _cfgPts;
     }
 
-    function initMap(){
-      if(map){ setTimeout(()=>map.invalidateSize(),150); return; }
-      map = L.map('mapaCierres', { scrollWheelZoom:false }).setView([-34.9011,-56.1645], 11);
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(map);
-      cargarBarrios(map);
-      setTimeout(()=>map.invalidateSize(),200);
+    async function cargar(promCierres){
+      try{
+        const extra = isAdmin ? [cargarAgentes(), cargarReferidos()] : [];
+        const [lista] = await Promise.all([promCierres].concat(extra));
+        cierres = lista.filter(tieneCierre);
+        show('content');
+        $('btnReg').hidden = false;
+        $('btnRef').hidden = !isAdmin;
+        $('lede').textContent = isAdmin
+          ? 'Todos los cierres del equipo. Confirmá los pendientes, generá los recibos y mirá dónde se está vendiendo.'
+          : 'Las ventas y alquileres que cerró el equipo: sirven de referencia de precios por barrio.';
+        pintarFiltros();
+        initMap();
+        refrescar(true);
+        // El admin es el único que genera recibos: jsPDF se baja cuando el navegador está libre.
+        if (isAdmin){
+          const precargar = () => asegurarPDF().catch(() => {});
+          if ('requestIdleCallback' in window) requestIdleCallback(precargar, { timeout: 6000 }); else setTimeout(precargar, 2500);
+        }
+      }catch(e){
+        console.error(e);
+        show('content');
+        $('kpis').innerHTML = '';
+        $('lista').innerHTML = '<div class="vacio err"><i class="fas fa-triangle-exclamation"></i>No se pudieron cargar los cierres. ' + esc(e.message || e)
+          + '<br><button type="button" class="btn btn-ghost" onclick="location.reload()"><i class="fas fa-rotate-right"></i> Reintentar</button></div>';
+      }
     }
 
-    function popupHTML(p){
+    // ---------- Filtros ----------
+    function pasaFiltros(p, sinModo){
       const c = p.cierre;
-      let s = '<div style="min-width:180px">';
-      s += '<div style="font-weight:700;color:'+(COL[c.tipo]||'#333')+'">'+(c.tipo==='venta'?'Venta':'Alquiler')+' · '+fmtMoney(c.precio,c.moneda)+'</div>';
-      s += '<div style="font-size:.85rem;margin-top:4px">'+esc(p.title||'Propiedad')+'</div>';
-      s += '<div style="font-size:.8rem;color:#666;margin-top:4px">';
-      if(c.m2) s += c.m2+' m² · ';
-      s += esc(c.realEstateType||'');
-      if(c.dormitorios||c.banos) s += '<br>'+(c.dormitorios||0)+' dorm · '+(c.banos||0)+' baños';
-      if(c.barrio) s += '<br>📍 '+esc(c.barrio);
-      if(c.fecha) s += '<br>📅 '+fmtFecha(c.fecha);
-      s += '</div>';
-      if(Array.isArray(p.images) && p.images[0]) s = '<div style="min-width:210px"><img src="'+esc(p.images[0])+'" style="width:100%;height:96px;object-fit:cover;border-radius:8px;margin-bottom:7px">' + s.slice('<div style="min-width:180px">'.length);
-      s += '<div style="margin-top:6px"><a href="propiedad.html?id='+esc(p.id)+'" target="_blank" style="font-size:.78rem;font-weight:700;color:#16273f;text-decoration:underline">Ver propiedad &rarr;</a>'
-        + (isAdmin ? ' &nbsp;·&nbsp; <a onclick="eliminarCierre(\''+p.id+'\')" style="font-size:.78rem;font-weight:700;color:#c0392b;text-decoration:underline;cursor:pointer">Eliminar cierre</a>' : '')
-        + '</div>';
-      var conf = p.cierreConfirmado === true;
-      s += '<div style="margin-top:7px;border-top:1px solid #eee;padding-top:6px">' + (conf
-        ? '<span style="font-size:.72rem;font-weight:700;color:#27ae60">&#10003; Confirmado</span>'
-          + (isAdmin ? ' <button onclick="quitarConfirmacion(\''+p.id+'\')" title="Volver a pendiente" style="margin-left:6px;border:1px solid #e3b8b1;background:#fff;color:#c0392b;border-radius:7px;padding:3px 9px;font-size:.7rem;font-weight:600;cursor:pointer">Quitar</button>' : '')
-        : '<span style="font-size:.72rem;font-weight:700;color:#C9A227">Pendiente de confirmar</span>'
-          + (isAdmin ? ' <button onclick="confirmarCierre(\''+p.id+'\')" style="margin-left:6px;border:none;background:#27ae60;color:#fff;border-radius:7px;padding:4px 9px;font-size:.72rem;font-weight:600;cursor:pointer">Confirmar</button>' : '')
-      ) + '</div>';
-      s += '</div>';
+      if (filtro.anio && String(c.fecha || '').slice(0, 4) !== filtro.anio) return false;
+      if (filtro.agente && agenteDe(p) !== filtro.agente) return false;
+      if (filtro.q){
+        const t = norm([p.title, c.barrio, p.ubicacion && p.ubicacion.barrio, c.realEstateType, c.tipo, isAdmin ? c.agenteNombre : ''].join(' '));
+        if (!norm(filtro.q).split(/\s+/).filter(Boolean).every(w => t.indexOf(w) >= 0)) return false;
+      }
+      if (sinModo) return true;
+      if (filtro.modo === 'venta') return c.tipo === 'venta';
+      if (filtro.modo === 'alquiler') return c.tipo === 'alquiler';
+      if (filtro.modo === 'pendientes') return p.cierreConfirmado !== true;
+      if (filtro.modo === 'mios') return esMio(p);
+      return true;
+    }
+    function filtrosActivos(){ return filtro.modo !== 'todos' || !!filtro.anio || !!filtro.agente || !!filtro.q; }
+    function setModo(m){ filtro.modo = (filtro.modo === m) ? 'todos' : m; refrescar(true); }
+    function setAnio(v){ filtro.anio = v; refrescar(true); }
+    function setAgente(v){ filtro.agente = v; refrescar(true); }
+    let _tBuscar = null;
+    function onBuscar(){ clearTimeout(_tBuscar); _tBuscar = setTimeout(() => { filtro.q = $('fBuscar').value.trim(); refrescar(true); }, 180); }
+    function limpiarFiltros(sinPintar){
+      filtro.modo = 'todos'; filtro.anio = ''; filtro.agente = ''; filtro.q = '';
+      $('fBuscar').value = ''; $('fAnio').value = ''; $('fAgente').value = '';
+      if (!sinPintar) refrescar(true);
+    }
+    function pintarFiltros(){
+      const anios = Array.from(new Set(cierres.map(p => String(p.cierre.fecha || '').slice(0, 4)).filter(y => /^\d{4}$/.test(y)))).sort().reverse();
+      const sa = $('fAnio');
+      sa.innerHTML = '<option value="">Todos los años</option>' + anios.map(y => '<option value="' + y + '">' + y + '</option>').join('');
+      if (anios.indexOf(filtro.anio) < 0) filtro.anio = '';
+      sa.value = filtro.anio;
+      sa.hidden = anios.length < 2;
+      const sg = $('fAgente');
+      if (!isAdmin){ sg.hidden = true; return; }
+      const ags = {};
+      cierres.forEach(p => {
+        const uid = agenteDe(p); if (!uid) return;
+        if (!ags[uid]) ags[uid] = { nom: p.cierre.agenteNombre || nombreAgente(uid) || p.ownerName || 'Agente', n: 0 };
+        ags[uid].n++;
+      });
+      const lista = Object.keys(ags).map(uid => ({ uid, nom: ags[uid].nom, n: ags[uid].n })).sort((a, b) => a.nom.localeCompare(b.nom, 'es'));
+      sg.innerHTML = '<option value="">Todos los agentes</option>' + lista.map(a => '<option value="' + esc(a.uid) + '">' + esc(a.nom) + ' (' + a.n + ')</option>').join('');
+      if (!lista.some(a => a.uid === filtro.agente)) filtro.agente = '';
+      sg.value = filtro.agente;
+      sg.hidden = lista.length < 2;
+    }
+    function pintarKpis(){
+      const base = cierres.filter(p => pasaFiltros(p, true));
+      const ventas = base.filter(p => p.cierre.tipo === 'venta'), alqs = base.filter(p => p.cierre.tipo === 'alquiler');
+      const pm2 = mediana(ventas.filter(p => p.cierre.moneda !== 'UYU').map(p => precioM2(p.cierre)).filter(x => x > 0));
+      const enPesos = alqs.filter(p => p.cierre.moneda === 'UYU'), enDolares = alqs.filter(p => p.cierre.moneda !== 'UYU');
+      const grupoAlq = enPesos.length >= enDolares.length ? enPesos : enDolares;
+      const monAlq = grupoAlq === enPesos ? 'UYU' : 'USD';
+      const medAlq = mediana(grupoAlq.map(p => Number(p.cierre.precio) || 0).filter(x => x > 0));
+      const pend = base.filter(p => p.cierreConfirmado !== true).length;
+      const mios = base.filter(esMio).length;
+      const t = (modo, lbl, n, sub, extra) => '<button type="button" class="kpi' + (filtro.modo === modo ? ' on' : '') + (extra || '') + '" onclick="setModo(\'' + modo + '\')" aria-pressed="' + (filtro.modo === modo) + '">'
+        + '<span class="k-l">' + lbl + '</span><b class="k-n">' + n + '</b><span class="k-s">' + sub + '</span></button>';
+      let h = t('todos', '<i class="fas fa-handshake"></i> Cierres', base.length, filtro.anio ? 'en ' + filtro.anio : 'en total')
+        + t('venta', '<i class="lg lg-venta"></i> Ventas', ventas.length, pm2 ? 'Mediana ' + esc(fmtPm2(pm2, 'USD')) : (ventas.length ? 'Sin m² para comparar' : 'Ninguna todavía'))
+        + t('alquiler', '<i class="lg lg-alq"></i> Alquileres', alqs.length, medAlq ? 'Mediana ' + esc(fmtRedondo(medAlq, monAlq)) + '/mes' : (alqs.length ? '—' : 'Ninguno todavía'));
+      h += isAdmin
+        ? t('pendientes', '<i class="fas fa-clock"></i> Por confirmar', pend, pend ? 'Tocá para revisarlos' : 'Todo confirmado', pend ? ' alerta' : '')
+        : t('mios', '<i class="fas fa-user"></i> Tuyos', mios, mios ? 'Cerrados por vos' : 'Todavía ninguno');
+      $('kpis').innerHTML = h;
+    }
+    function refrescar(ajustar){
+      vista = cierres.filter(p => pasaFiltros(p)).sort((a, b) =>
+        String(b.cierre.fecha || '').localeCompare(String(a.cierre.fecha || '')) ||
+        String(b.cierre.registradoEl || '').localeCompare(String(a.cierre.registradoEl || '')));
+      if (selId && !vista.some(p => p.id === selId)) selId = null;
+      pintarKpis(); renderMarcadores(ajustar); renderLista();
+    }
+
+    // ---------- Mapa ----------
+    // Límites de los barrios de Montevideo (datos abiertos de la Intendencia,
+    // servidos como barrios-montevideo.geojson desde el propio sitio). Van en una
+    // capa propia, DEBAJO de los puntos. El archivo se baja una vez y cada mapa
+    // arma su capa: antes se compartía la misma y, al abrir "Registrar cierre",
+    // las líneas se mudaban al mapa del formulario y el principal las perdía.
+    let _barrios = null;
+    function cargarBarrios(m){
+      if (!_barrios) _barrios = fetch('barrios-montevideo.geojson').then(r => r.ok ? r.json() : null).catch(() => null);
+      if (!m.getPane('barrios')){ const pn = m.createPane('barrios'); pn.style.zIndex = 350; pn.classList.add('barrios-pane'); }
+      _barrios.then(geo => {
+        if (!geo) return;
+        L.geoJSON(geo, { pane: 'barrios', interactive: false, style: { color: '#16273f', weight: 1, opacity: 0.3, fill: false, interactive: false } }).addTo(m);
+      });
+    }
+    let _tRes = null, _tHint = null;
+    function initMap(){
+      if (map){ setTimeout(() => map.invalidateSize(), 150); return; }
+      map = L.map('mapaCierres', { scrollWheelZoom: false }).setView(CENTRO, 12);
+      L.tileLayer(TESELAS, { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+      cargarBarrios(map);
+      capa = L.layerGroup().addTo(map);
+      map.on('zoomend', posicionarGrupos);
+      map.on('popupopen', () => $('mapaWrap').classList.add('con-globo'));
+      map.on('popupclose', () => $('mapaWrap').classList.remove('con-globo'));
+      // La rueda del mouse no hace zoom hasta que se hace clic en el mapa: así la
+      // página se puede scrollear por encima sin que el mapa se trague el gesto.
+      map.on('click', () => map.scrollWheelZoom.enable());
+      const cont = map.getContainer();
+      cont.addEventListener('mouseleave', () => { if (!$('mapaWrap').classList.contains('full')) map.scrollWheelZoom.disable(); });
+      cont.addEventListener('wheel', () => {
+        if (map.scrollWheelZoom.enabled() || !HOVER) return;
+        const h = $('mapHint'); h.classList.add('show'); clearTimeout(_tHint); _tHint = setTimeout(() => h.classList.remove('show'), 1300);
+      }, { passive: true });
+      window.addEventListener('resize', () => { clearTimeout(_tRes); _tRes = setTimeout(() => { if (map) map.invalidateSize(); }, 150); });
+      setTimeout(() => map.invalidateSize(), 200);
+    }
+    function estiloMarcador(p, sel){
+      const col = COL[p.cierre.tipo] || '#8b95a1';
+      const conf = p.cierreConfirmado === true;
+      const s = conf
+        ? { radius: 8, color: '#fff', weight: 2, opacity: 1, fillColor: col, fillOpacity: 1 }
+        : { radius: 7.5, color: col, weight: 3, opacity: 1, fillColor: '#fff', fillOpacity: 1 };
+      if (sel){ s.radius = 11.5; s.weight = 3; if (conf) s.color = '#16273f'; else { s.fillColor = col; s.fillOpacity = 0.28; } }
+      return s;
+    }
+    function renderMarcadores(ajustar){
+      if (!map) return;
+      _rehaciendo = true; capa.clearLayers(); _rehaciendo = false;
+      marcadores = {};
+      const porPos = {};
+      vista.forEach(p => {
+        const c = p.cierre, lat = Number(c.lat), lng = Number(c.lng);
+        const mk = L.circleMarker([lat, lng], estiloMarcador(p, p.id === selId));
+        mk.bindPopup(() => popupHTML(p), { maxWidth: 280, minWidth: 250, autoPanPadding: [24, 24], className: fotoDe(p) ? 'pp-foto-si' : 'pp-foto-no' });
+        if (HOVER) mk.bindTooltip(esc(fmtMoney(c.precio, c.moneda)) + (c.tipo === 'alquiler' ? '/mes' : '') + (c.barrio ? ' · ' + esc(c.barrio) : ''), { direction: 'top', offset: [0, -9], className: 'tt-precio' });
+        mk.on('click', () => seleccionar(p.id, 'mapa'));
+        mk.on('popupclose', () => { if (!_rehaciendo && selId === p.id){ selId = null; pintarSeleccion(); } });
+        mk.addTo(capa);
+        marcadores[p.id] = mk;
+        const k = lat.toFixed(5) + ',' + lng.toFixed(5);
+        (porPos[k] = porPos[k] || { lat, lng, ids: [] }).ids.push(p.id);
+      });
+      grupos = Object.values(porPos).filter(g => g.ids.length > 1);
+      posicionarGrupos();
+      if (selId && marcadores[selId]) marcadores[selId].bringToFront();
+      if (ajustar) ajustarVista(false);
+    }
+    // Cierres en la misma dirección (mismo edificio): se abren en ronda alrededor
+    // del punto para que se puedan tocar todos. Solo se mueve el dibujo.
+    function posicionarGrupos(){
+      if (!map) return;
+      const z = map.getZoom();
+      grupos.forEach(g => {
+        const c = map.project([g.lat, g.lng], z), n = g.ids.length, r = n > 6 ? 18 : 12;
+        g.ids.forEach((id, i) => {
+          const a = 2 * Math.PI * i / n - Math.PI / 2, mk = marcadores[id];
+          if (mk) mk.setLatLng(map.unproject(L.point(c.x + r * Math.cos(a), c.y + r * Math.sin(a)), z));
+        });
+      });
+    }
+    function ajustarVista(animar){
+      if (!map) return;
+      const pts = vista.map(p => [Number(p.cierre.lat), Number(p.cierre.lng)]);
+      if (!pts.length) return;
+      // En la computadora el mapa arranca más abajo que el borde de la pantalla
+      // hasta que se scrollea: los puntos se centran en la parte que SE VE.
+      const r = map.getContainer().getBoundingClientRect();
+      const abajo = $('mapaWrap').classList.contains('full') ? 0 : Math.max(0, Math.min(r.bottom - window.innerHeight, r.height * 0.55));
+      if (pts.length === 1){ map.setView(pts[0], 15, { animate: !!animar }); if (abajo) map.panBy([0, abajo / 2], { animate: false }); }
+      else map.fitBounds(pts, { paddingTopLeft: [46, 46], paddingBottomRight: [46, 46 + abajo], maxZoom: 15, animate: !!animar });
+    }
+    function toggleFull(){
+      const w = $('mapaWrap'), on = !w.classList.contains('full');
+      w.classList.toggle('full', on);
+      document.body.classList.toggle('mapa-full', on);
+      document.body.classList.toggle('bloqueo', on || !!document.querySelector('.overlay.open'));
+      const b = $('btnFull');
+      b.innerHTML = '<i class="fas fa-' + (on ? 'minimize' : 'maximize') + '"></i>';
+      b.title = on ? 'Salir de pantalla completa' : 'Pantalla completa';
+      b.setAttribute('aria-label', b.title);
+      if (map){
+        if (on) map.scrollWheelZoom.enable(); else map.scrollWheelZoom.disable();
+        // Cambió el tamaño: si no hay un cierre abierto, se vuelven a encuadrar todos.
+        setTimeout(() => { map.invalidateSize(); if (!document.querySelector('.leaflet-popup')) ajustarVista(false); }, 80);
+      }
+    }
+    function metaTexto(p){
+      const c = p.cierre, v = [];
+      if (c.barrio) v.push(c.barrio);
+      if (c.realEstateType) v.push(c.realEstateType);
+      if (Number(c.m2) > 0) v.push(fmtNum(c.m2) + ' m²');
+      if (Number(c.dormitorios) > 0) v.push(c.dormitorios + ' dorm');
+      if (Number(c.banos) > 0) v.push(c.banos + (Number(c.banos) === 1 ? ' baño' : ' baños'));
+      return v.join(' · ');
+    }
+    // Estado del cierre. Para el admin, "Confirmado" es un botón: tocarlo lo vuelve a Pendiente (con confirmación).
+    function pillEstado(p){
+      if (p.cierreConfirmado === true) return isAdmin
+        ? '<button type="button" class="st ok" onclick="quitarConfirmacion(' + arg(p.id) + ', this)" title="Confirmado. Tocá para volver a Pendiente"><i class="fas fa-circle-check"></i> Confirmado</button>'
+        : '<span class="st ok"><i class="fas fa-circle-check"></i> Confirmado</span>';
+      return '<span class="st pend" title="Falta que el admin lo confirme"><i class="fas fa-clock"></i> Pendiente</span>';
+    }
+    function botonConfirmar(p){
+      return (isAdmin && p.cierreConfirmado !== true) ? '<button type="button" class="b ok" onclick="confirmarCierre(' + arg(p.id) + ', this)"><i class="fas fa-check"></i> Confirmar</button>' : '';
+    }
+    function popupHTML(p){
+      const c = p.cierre, foto = fotoDe(p), pm = precioM2(c);
+      let s = '<div class="pp">';
+      if (foto) s += '<img class="pp-foto" src="' + esc(foto) + '" alt="" onerror="this.remove()">';
+      s += '<div class="pp-b">'
+        + '<div class="pp-t"><span class="tipo ' + (c.tipo === 'alquiler' ? 'alquiler' : 'venta') + '">' + (c.tipo === 'alquiler' ? 'Alquiler' : 'Venta') + '</span><span>' + esc(fmtFechaCorta(c.fecha)) + '</span></div>'
+        + '<div class="pp-precio">' + esc(fmtMoney(c.precio, c.moneda)) + (c.tipo === 'alquiler' ? '<small>/mes</small>' : '') + (pm ? '<small>· ' + esc(fmtPm2(pm, c.moneda)) + '</small>' : '') + '</div>'
+        + '<div class="pp-tit">' + esc(p.title || 'Propiedad') + '</div>'
+        + '<div class="pp-meta">' + esc(metaTexto(p)) + '</div>';
+      if (isAdmin && (c.agenteNombre || p.ownerName)) s += '<div class="pp-ag"><i class="fas fa-user-tie"></i>' + esc(c.agenteNombre || p.ownerName) + (tieneGan(c) ? ' · ganancia ' + esc(fmtMoney(c.gananciaAgente, c.moneda)) : '') + '</div>';
+      s += '<div class="pp-pie"><div class="pp-est">' + pillEstado(p) + botonConfirmar(p) + '</div><div class="pp-acc">'
+        + '<a href="propiedad.html?id=' + encodeURIComponent(p.id) + '" target="_blank" rel="noopener">Ver propiedad &rarr;</a>'
+        + (isAdmin ? '<a class="del" onclick="eliminarCierre(' + arg(p.id) + ')">Eliminar</a>' : '')
+        + '</div></div></div></div>';
       return s;
     }
 
-    function renderMapa(){
-      capa.forEach(m=>map.removeLayer(m)); capa=[];
-      const pts=[];
-      vista.forEach(p=>{
-        const c=p.cierre; const color=COL[c.tipo]||'#888';
-        const mk = L.circleMarker([c.lat,c.lng], { radius:9, color:'#fff', weight:2, fillColor:color, fillOpacity:0.9 });
-        mk.bindPopup(popupHTML(p));
-        mk.addTo(map); capa.push(mk);
-        pts.push([c.lat,c.lng]);
-      });
-      if(pts.length){ try{ map.fitBounds(pts, { padding:[40,40], maxZoom:15 }); }catch(e){} }
+    // ---------- Selección mapa ↔ lista ----------
+    function scrollHasta(el){
+      const r = el.getBoundingClientRect(), tope = ($('mapaWrap').classList.contains('full') ? 0 : document.querySelector('.mv-head').offsetHeight) + 10;
+      if (r.top < tope) window.scrollBy({ top: r.top - tope, behavior: 'smooth' });
+      else if (r.bottom > window.innerHeight - 10) window.scrollBy({ top: r.bottom - window.innerHeight + 16, behavior: 'smooth' });
+    }
+    function pintarSeleccion(){
+      document.querySelectorAll('.cc.sel').forEach(e => e.classList.remove('sel'));
+      if (selId){ const card = $('cc-' + selId); if (card) card.classList.add('sel'); }
+      Object.keys(marcadores).forEach(id => { const p = porId[id]; if (p && p.cierre) marcadores[id].setStyle(estiloMarcador(p, id === selId)); });
+      if (selId && marcadores[selId]) marcadores[selId].bringToFront();
+    }
+    function seleccionar(id, origen){
+      selId = id;
+      pintarSeleccion();
+      const mk = marcadores[id];
+      if (origen === 'lista' && mk && map){
+        if (!escritorio()){
+          const w = $('mapaWrap'), tope = document.querySelector('.mv-head').offsetHeight + 8;
+          window.scrollTo({ top: w.getBoundingClientRect().top + window.scrollY - tope, behavior: 'smooth' });
+        }
+        map.setView(mk.getLatLng(), Math.max(map.getZoom(), 15), { animate: true });
+        setTimeout(() => { if (marcadores[id]) marcadores[id].openPopup(); }, escritorio() ? 280 : 480);
+      }
+      if (origen === 'mapa' && escritorio()){ const card = $('cc-' + id); if (card) scrollHasta(card); }
+    }
+    function resaltar(id, on){
+      const mk = marcadores[id], p = porId[id];
+      if (!mk || !p || !p.cierre) return;
+      mk.setStyle(estiloMarcador(p, on || id === selId));
+      if (on) mk.bringToFront();
+    }
+    function enfocarCierre(id){
+      const mk = marcadores[id]; if (!mk || !map) return;
+      map.setView(mk.getLatLng(), Math.max(map.getZoom(), 15), { animate: true });
+      setTimeout(() => { if (marcadores[id]) marcadores[id].openPopup(); }, 300);
+      const card = $('cc-' + id); if (card && escritorio()) scrollHasta(card);
     }
 
-    function cardHTML(p, idx){
-      const c=p.cierre;
-      let meta = (c.m2?c.m2+' m² · ':'') + esc(c.realEstateType||'');
-      if(c.barrio) meta += ' · ' + esc(c.barrio);
-      const thumb = (Array.isArray(p.images) && p.images[0])
-        ? '<img class="cc-thumb" src="'+esc(p.images[0])+'" alt="" loading="lazy">'
-        : '<div class="cc-thumb-ph"><i class="fas fa-image"></i></div>';
-      return '<div class="cierre-card" onclick="focusCierre('+idx+')">'
-        + thumb
-        + '<span class="tag" style="background:'+COL[c.tipo]+'22;color:'+COL[c.tipo]+'">'+(c.tipo==='venta'?'Venta':'Alquiler')+'</span>'
-        + '<div class="cc-main"><div class="cc-price">'+fmtMoney(c.precio,c.moneda)+'</div>'
-        + '<div class="cc-sub">'+esc(p.title||'Propiedad')+'</div>'
-        + '<div class="cc-meta">'+meta+'</div>'
-        + (p.cierreConfirmado===true
-            ? '<div style="font-size:.72rem;font-weight:700;color:#27ae60;margin-top:3px">&#10003; Confirmado'+(isAdmin?' <button onclick="event.stopPropagation();quitarConfirmacion(\''+p.id+'\')" title="Volver a pendiente" style="margin-left:5px;border:1px solid #e3b8b1;background:#fff;color:#c0392b;border-radius:6px;padding:2px 8px;font-size:.68rem;font-weight:600;cursor:pointer">Quitar</button>':'')+'</div>'
-            : '<div style="font-size:.72rem;font-weight:700;color:#C9A227;margin-top:3px">Pendiente'+(isAdmin?' <button onclick="event.stopPropagation();confirmarCierre(\''+p.id+'\')" style="margin-left:4px;border:none;background:#27ae60;color:#fff;border-radius:6px;padding:3px 8px;font-size:.7rem;font-weight:600;cursor:pointer">Confirmar</button>':'')+'</div>')
-        + '<div class="cc-actions" onclick="event.stopPropagation()">'
-        +   '<a class="cc-btn" href="propiedad.html?id='+esc(p.id)+'" target="_blank"><i class="fas fa-house"></i> Ver propiedad</a>'
-        +   (isAdmin ? '<button class="cc-btn gold" onclick="generarRecibo(\''+p.id+'\', this)"><i class="fas fa-file-invoice-dollar"></i> Recibo</button>' : '')
-        +   (isAdmin ? '<button class="cc-btn" style="border-color:#e3b8b1;color:#c0392b" onclick="eliminarCierre(\''+p.id+'\')"><i class="fas fa-trash-can"></i> Eliminar</button>' : '')
+    // ---------- Lista ----------
+    function cardHTML(p){
+      const c = p.cierre, foto = fotoDe(p), pm = precioM2(c), id = arg(p.id), mio = esMio(p);
+      let quien = '';
+      if (isAdmin){
+        const eq = Array.isArray(c.participantes) && c.participantes.length
+          ? ' · <span title="' + esc(c.participantes.map(x => (x.nombre || 'Agente') + ': ' + fmtMoney(x.monto, c.moneda)).join('\n')) + '">+' + c.participantes.length + ' en equipo</span>' : '';
+        quien = '<div class="cc-quien"><i class="fas fa-user-tie"></i>' + esc(c.agenteNombre || p.ownerName || 'Sin agente')
+          + (tieneGan(c) ? ' · ganancia ' + esc(fmtMoney(c.gananciaAgente, c.moneda)) : '') + eq + '</div>';
+      } else if (mio){
+        const uid = curUser.uid, parte = (c.agenteUid ? c.agenteUid === uid : p.ownerId === uid)
+          ? (tieneGan(c) ? Number(c.gananciaAgente) : null)
+          : ((c.participantes || []).find(x => x && x.uid === uid) || {}).monto;
+        quien = '<div class="cc-quien"><span class="tuyo">Tuyo</span>' + (parte != null ? ' · tu parte ' + esc(fmtMoney(parte, c.moneda)) : '') + '</div>';
+      }
+      let acc = botonConfirmar(p);
+      acc += '<a class="b ic" href="propiedad.html?id=' + encodeURIComponent(p.id) + '" target="_blank" rel="noopener" title="Ver la propiedad" aria-label="Ver la propiedad"><i class="fas fa-arrow-up-right-from-square"></i></a>';
+      if (isAdmin) acc += '<button type="button" class="b gold" onclick="generarRecibo(' + id + ', this)" title="Recibo de comisión en PDF"><i class="fas fa-file-invoice-dollar"></i> Recibo</button>';
+      if (puedeEditar(p)) acc += '<button type="button" class="b ic" onclick="openReg(' + id + ')" title="Corregir el cierre" aria-label="Corregir el cierre"><i class="fas fa-pen"></i></button>';
+      if (isAdmin) acc += '<button type="button" class="b ic del" onclick="eliminarCierre(' + id + ')" title="Eliminar el cierre" aria-label="Eliminar el cierre"><i class="fas fa-trash-can"></i></button>';
+      const tipo = c.tipo === 'alquiler' ? 'alquiler' : 'venta';
+      const pocas = (acc.match(/class="b[ "]/g) || []).length <= 2;
+      return '<article class="cc' + (pocas ? ' pocas' : '') + (p.id === selId ? ' sel' : '') + '" id="cc-' + esc(p.id) + '" data-id="' + esc(p.id) + '">'
+        + '<div class="cc-foto' + (foto ? '' : ' sin-foto') + '">' + (foto ? '<img src="' + esc(foto) + '" alt="" loading="lazy" decoding="async" onerror="this.parentNode.classList.add(\'sin-foto\');this.remove()">' : '')
+        +   '<span class="tipo ' + tipo + '">' + (tipo === 'venta' ? 'Venta' : 'Alquiler') + '</span></div>'
+        + '<div class="cc-body">'
+        +   '<div class="cc-top"><span class="cc-precio">' + esc(fmtMoney(c.precio, c.moneda)) + (tipo === 'alquiler' ? '<small>/mes</small>' : '') + '</span>'
+        +     pillEstado(p) + '</div>'
+        +   '<div class="cc-sub">' + [pm ? esc(fmtPm2(pm, c.moneda)) : '', esc(fmtFechaCorta(c.fecha))].filter(Boolean).join(' · ') + '</div>'
+        +   '<h3 class="cc-tit">' + esc(p.title || 'Propiedad') + '</h3>'
+        +   '<div class="cc-meta">' + esc(metaTexto(p)) + '</div>'
+        +   quien
         + '</div>'
-        + '</div>'
-        + '<div class="cc-date">'+fmtFecha(c.fecha)+'</div></div>';
+        + '<div class="cc-acc">' + acc + '</div></article>';
     }
-
     function renderLista(){
-      const wrap=document.getElementById('lista');
-      document.getElementById('count').textContent = vista.length + (vista.length===1?' cierre registrado':' cierres registrados');
-      if(!vista.length){ wrap.innerHTML='<div class="empty">Todavía no hay cierres con este filtro. Tocá “Registrar cierre” para sumar el primero.</div>'; return; }
-      wrap.innerHTML = vista.map((p,i)=>cardHTML(p,i)).join('');
+      const wrap = $('lista'), total = cierres.length, n = vista.length;
+      $('count').innerHTML = '<b>' + n + '</b> ' + (n === 1 ? 'cierre' : 'cierres') + (n !== total ? ' de ' + total : '') + (n ? ' · los más recientes primero' : '');
+      $('btnLimpiar').hidden = !filtrosActivos();
+      if (!total){
+        wrap.innerHTML = '<div class="vacio"><i class="fas fa-map-location-dot"></i><h3>Todavía no hay cierres</h3>'
+          + 'Cuando se cierre una venta o un alquiler, registralo acá: queda en el mapa y suma a las ganancias del agente.'
+          + '<br><button type="button" class="btn btn-gold" onclick="openReg()"><i class="fas fa-plus"></i> Registrar el primero</button></div>';
+        return;
+      }
+      if (!n){
+        wrap.innerHTML = '<div class="vacio"><i class="fas fa-filter-circle-xmark"></i>No hay cierres con estos filtros.'
+          + '<br><button type="button" class="btn btn-ghost" onclick="limpiarFiltros()">Ver todos</button></div>';
+        return;
+      }
+      wrap.innerHTML = vista.map(cardHTML).join('');
+      wrap.querySelectorAll('.cc').forEach(el => {
+        const id = el.dataset.id;
+        el.addEventListener('click', (e) => { if (e.target.closest('a,button')) return; seleccionar(id, 'lista'); });
+        if (HOVER){ el.addEventListener('mouseenter', () => resaltar(id, true)); el.addEventListener('mouseleave', () => resaltar(id, false)); }
+      });
+    }
+    // Después de una acción: se repinta sin mover el mapa y, si el globo estaba abierto, sigue abierto.
+    function repintar(id){
+      const abierto = !!(id && marcadores[id] && marcadores[id].isPopupOpen());
+      refrescar(false);
+      if (abierto && marcadores[id]) marcadores[id].openPopup();
     }
 
-    function refrescar(){
-      vista = cierres.filter(p => filtro==='todos' || p.cierre.tipo===filtro)
-        .sort((a,b)=> String(b.cierre.fecha||'').localeCompare(String(a.cierre.fecha||'')));
-      renderMapa(); renderLista();
-    }
-
-    function setFiltro(f){
-      filtro=f;
-      ['todos','venta','alquiler'].forEach(x=>document.getElementById('chip-'+x).classList.toggle('active', x===f));
-      refrescar();
-    }
-
-    function focusCierre(i){
-      const p=vista[i]; if(!p) return;
-      map.setView([p.cierre.lat, p.cierre.lng], 16);
-      if(capa[i]) capa[i].openPopup();
-      document.getElementById('mapaCierres').scrollIntoView({ behavior:'smooth', block:'center' });
-    }
-
+    // ---------- Acciones del admin ----------
     // Borra el cierre COMPLETO (registrado por error): sale del mapa y de Recompensas,
     // y la propiedad vuelve a Disponible -> el backend republica en ML (aviso nuevo,
     // Plata, pago; el finalizado no se puede reabrir) y vuelve al feed de InfoCasas.
     async function eliminarCierre(id){
-      if(!isAdmin) return;
-      const p = cierres.find(x=>x.id===id) || allProps.find(x=>x.id===id);
-      if(!p || !p.cierre) return;
+      if (!isAdmin) return;
+      const p = porId[id];
+      if (!p || !p.cierre) return;
       const msg = '¿Eliminar este cierre por completo?\n\n'
-        + '\u2022 Desaparece del mapa de cierres y de Recompensas.\n'
-        + '\u2022 "'+(p.title||'La propiedad')+'" vuelve a DISPONIBLE.\n'
-        + '\u2022 Su aviso de ML quedó finalizado (no se puede reabrir): se va a publicar UNO NUEVO en Plata (pago) y la propiedad vuelve al feed de InfoCasas.';
-      if(!confirm(msg)) return;
-      if(!confirm('Última confirmación: ¿seguro que este cierre fue un error y hay que borrarlo?')) return;
+        + '• Desaparece del mapa de cierres y de Recompensas.\n'
+        + '• "' + (p.title || 'La propiedad') + '" vuelve a DISPONIBLE.\n'
+        + '• Su aviso de ML quedó finalizado (no se puede reabrir): se va a publicar UNO NUEVO en Plata (pago) y la propiedad vuelve al feed de InfoCasas.';
+      if (!confirm(msg)) return;
+      if (!confirm('Última confirmación: ¿seguro que este cierre fue un error y hay que borrarlo?')) return;
       try{
         await db.collection('properties').doc(id).update({
           cierre: firebase.firestore.FieldValue.delete(),
@@ -443,121 +1111,145 @@
           status: 'available',
           updatedAt: new Date().toISOString()
         });
+        if (map) map.closePopup();                 // antes de tocar los datos: el globo abierto todavía los usa
+        if (selId === id) selId = null;
+        cierres = cierres.filter(x => x.id !== id);
         delete p.cierre; delete p.cierreConfirmado; p.status = 'available';
-        cierres = allProps.filter(x => x.cierre && x.cierre.lat != null && x.cierre.lng != null);
-        refrescar();
+        pintarFiltros(); refrescar(false);
         toast('Cierre eliminado: la propiedad volvió a Disponible y se está republicando en ML.');
       }catch(e){
         console.warn('eliminarCierre', e);
-        toast(e && e.code==='permission-denied'
+        toast(e && e.code === 'permission-denied'
           ? 'Firestore lo bloqueó: publicá las reglas actualizadas que te pasé y probá de nuevo.'
-          : ('No se pudo eliminar: '+(e.message||e)), true);
+          : ('No se pudo eliminar: ' + (e.message || e)), true);
       }
     }
-    async function quitarConfirmacion(id){
-      if(!isAdmin) return;
-      if(!confirm('¿Quitar la confirmación de este cierre?\n\nVuelve a "Pendiente" y los puntos de Recompensas del agente se descuentan solos hasta que lo confirmes de nuevo.')) return;
-      const p = cierres.find(x=>x.id===id) || allProps.find(x=>x.id===id);
-      if(!p) return;
+    async function quitarConfirmacion(id, btn){
+      if (!isAdmin) return;
+      if (!confirm('¿Quitar la confirmación de este cierre?\n\nVuelve a "Pendiente" y los puntos de Recompensas del agente se descuentan solos hasta que lo confirmes de nuevo.')) return;
+      const p = porId[id];
+      if (!p) return;
+      ocupado(btn, true);
       try{
         await db.collection('properties').doc(id).update({ cierreConfirmado: false, updatedAt: new Date().toISOString() });
         p.cierreConfirmado = false;
-        refrescar();
+        repintar(id);
         toast('Confirmación quitada: el cierre volvió a Pendiente');
       }catch(e){
         console.warn('quitarConfirmacion', e);
-        toast('No se pudo quitar la confirmación: '+(e.code||e.message||e), true);
+        ocupado(btn, false);
+        toast('No se pudo quitar la confirmación: ' + (e.code || e.message || e), true);
       }
     }
-    async function confirmarCierre(id){
-      if(!isAdmin) return;
-      const p = cierres.find(x=>x.id===id) || allProps.find(x=>x.id===id);
-      if(!p) return;
+    async function confirmarCierre(id, btn){
+      if (!isAdmin) return;
+      const p = porId[id];
+      if (!p) return;
+      ocupado(btn, true);
       try{
         await db.collection('properties').doc(id).update({ cierreConfirmado: true, updatedAt: new Date().toISOString() });
         p.cierreConfirmado = true;
-        refrescar();
-        toast('Cierre confirmado \u2713');
+        repintar(id);
+        toast('Cierre confirmado ✓');
       }catch(e){
         console.warn('confirmarCierre', e);
-        toast(e && e.code==='permission-denied' ? 'Solo el admin puede confirmar cierres.' : ('No se pudo confirmar: '+(e.message||e)), true);
+        ocupado(btn, false);
+        toast(e && e.code === 'permission-denied' ? 'Solo el admin puede confirmar cierres.' : ('No se pudo confirmar: ' + (e.message || e)), true);
       }
     }
 
-    // ---- Referidos entre agentes (solo admin) ----
+    // ---------- Referidos entre agentes (solo admin) ----------
     // referidos/{uidAgente} = { referrerUid, referrerNombre, pctSale, pctRent }.
     // El referente cobra pct% de la GANANCIA del agente en cada cierre (se paga aparte).
-    let referidosMap = {};
     function openRef(){
-      if(!isAdmin) return;
-      const rows = document.getElementById('refRows');
-      rows.innerHTML = agentesList.map(a=>{
-        const r = referidosMap[a.uid] || {};
-        const ops = '<option value="">— nadie —</option>' + agentesList.filter(x=>x.uid!==a.uid)
-          .map(x=>'<option value="'+esc(x.uid)+'"'+(r.referrerUid===x.uid?' selected':'')+'>'+esc(x.name)+'</option>').join('');
-        return '<div class="ref-row" data-uid="'+esc(a.uid)+'">'
-          + '<b>'+esc(a.name)+'</b>'
-          + '<select class="ref-sel">'+ops+'</select>'
-          + '<input type="number" class="ref-sale" min="0" max="100" placeholder="% venta" value="'+(r.pctSale!=null?r.pctSale:'')+'">'
-          + '<input type="number" class="ref-rent" min="0" max="100" placeholder="% alq." value="'+(r.pctRent!=null?r.pctRent:'')+'">'
-          + '</div>';
-      }).join('');
-      document.getElementById('refModal').classList.add('open');
+      if (!isAdmin) return;
+      const rows = $('refRows');
+      rows.innerHTML = !agentesList.length
+        ? '<div class="vacio"><i class="fas fa-users-slash"></i>No se pudo cargar la lista de agentes. Recargá la página.</div>'
+        : agentesList.map(a => {
+          const r = referidosMap[a.uid] || {};
+          const ops = '<option value="">Nadie</option>' + agentesList.filter(x => x.uid !== a.uid)
+            .map(x => '<option value="' + esc(x.uid) + '"' + (r.referrerUid === x.uid ? ' selected' : '') + '>' + esc(x.name) + '</option>').join('');
+          return '<div class="ref-row' + (r.referrerUid ? ' con' : '') + '" data-uid="' + esc(a.uid) + '">'
+            + '<div class="ref-ag"><span class="av">' + esc(iniciales(a.name)) + '</span><b>' + esc(a.name) + '</b></div>'
+            + '<label class="ref-c"><span>Referido por</span><select class="ref-sel" onchange="this.closest(\'.ref-row\').classList.toggle(\'con\', !!this.value)">' + ops + '</select></label>'
+            + '<label class="ref-c"><span>% venta</span><input type="number" class="ref-sale" min="0" max="100" step="0.5" placeholder="% venta" value="' + (r.pctSale != null ? esc(r.pctSale) : '') + '"></label>'
+            + '<label class="ref-c"><span>% alquiler</span><input type="number" class="ref-rent" min="0" max="100" step="0.5" placeholder="% alq." value="' + (r.pctRent != null ? esc(r.pctRent) : '') + '"></label>'
+            + '</div>';
+        }).join('');
+      abrirOverlay('refModal');
     }
-    function closeRef(){ document.getElementById('refModal').classList.remove('open'); }
-    async function guardarReferidos(){
+    function closeRef(){ cerrarOverlay('refModal'); }
+    async function guardarReferidos(btn){
       const filas = Array.from(document.querySelectorAll('#refRows .ref-row'));
+      const cambios = [];
+      for (const f of filas){
+        const uid = f.dataset.uid;
+        const refUid = f.querySelector('.ref-sel').value;
+        const pctSale = parseFloat(f.querySelector('.ref-sale').value) || 0;
+        const pctRent = parseFloat(f.querySelector('.ref-rent').value) || 0;
+        if (pctSale < 0 || pctSale > 100 || pctRent < 0 || pctRent > 100){ toast('Los porcentajes van de 0 a 100 (' + (nombreAgente(uid) || 'agente') + ').', true); return; }
+        const prev = referidosMap[uid];
+        if (refUid){
+          // Solo se escribe lo que cambió (antes se reescribían todas las filas cada vez).
+          if (prev && prev.referrerUid === refUid && Number(prev.pctSale) === pctSale && Number(prev.pctRent) === pctRent) continue;
+          const refAg = agentesList.find(x => x.uid === refUid) || {};
+          cambios.push({ uid, data: { referrerUid: refUid, referrerNombre: refAg.name || '', pctSale, pctRent, updatedAt: new Date().toISOString() } });
+        } else if (prev) cambios.push({ uid, data: null });
+      }
+      if (!cambios.length){ toast('No había cambios para guardar'); closeRef(); return; }
+      ocupado(btn, true);
       try{
-        for(const f of filas){
-          const uid = f.dataset.uid;
-          const refUid = f.querySelector('.ref-sel').value;
-          const pctSale = parseFloat(f.querySelector('.ref-sale').value) || 0;
-          const pctRent = parseFloat(f.querySelector('.ref-rent').value) || 0;
-          if(refUid){
-            const refAg = agentesList.find(x=>x.uid===refUid) || {};
-            const data = { referrerUid: refUid, referrerNombre: refAg.name || '', pctSale, pctRent, updatedAt: new Date().toISOString() };
-            await db.collection('referidos').doc(uid).set(data);
-            referidosMap[uid] = data;
-          } else if(referidosMap[uid]){
-            await db.collection('referidos').doc(uid).delete();
-            delete referidosMap[uid];
-          }
+        for (const c of cambios){
+          if (c.data){ await db.collection('referidos').doc(c.uid).set(c.data); referidosMap[c.uid] = c.data; }
+          else { await db.collection('referidos').doc(c.uid).delete(); delete referidosMap[c.uid]; }
         }
+        ocupado(btn, false);
         toast('Referidos guardados');
         closeRef();
-      }catch(e){ console.error(e); toast('No se pudieron guardar los referidos: '+(e.code||e.message), true); }
+      }catch(e){ console.error(e); ocupado(btn, false); toast('No se pudieron guardar los referidos: ' + (e.code || e.message), true); }
     }
 
-    // ---- Recibo de comisión en PDF (solo admin) ----
-    let cfgPts = null;
-    async function cfgPuntos(){
-      if(cfgPts) return cfgPts;
-      cfgPts = { puntosPor100: 1, valorPunto: 0.05, dolarPesos: 40 };
-      try{ const d = await db.collection('config').doc('recompensas').get(); if(d.exists) cfgPts = Object.assign(cfgPts, d.data()); }catch(e){}
-      return cfgPts;
+    // ---------- Recibo de comisión en PDF (solo admin) ----------
+    // jsPDF (≈350 KB) y los logos se bajan recién acá: el agente que solo mira el
+    // mapa no los descarga nunca.
+    let _pdf = null;
+    function cargarScript(src){
+      return new Promise((ok, mal) => { const s = document.createElement('script'); s.src = src; s.async = true; s.onload = () => ok(); s.onerror = () => mal(new Error('No se pudo cargar ' + src)); document.head.appendChild(s); });
+    }
+    function asegurarPDF(){
+      if (window.jspdf && window.jspdf.jsPDF && typeof MALAVE_LOGO_ISO !== 'undefined') return Promise.resolve();
+      if (!_pdf){
+        _pdf = Promise.all([
+          (window.jspdf && window.jspdf.jsPDF) ? null : cargarScript(JSPDF_URL),
+          (typeof MALAVE_LOGO_ISO !== 'undefined') ? null : cargarScript('malave-logos.js').catch(() => null)   // sin logo sale la "M"
+        ]).catch(e => { _pdf = null; throw e; });
+      }
+      return _pdf;
     }
     async function generarRecibo(id, btn){
-      const p = cierres.find(x=>x.id===id) || allProps.find(x=>x.id===id);
-      if(!p || !p.cierre){ toast('No encontré el cierre', true); return; }
+      const p = porId[id];
+      if (!p || !p.cierre){ toast('No encontré el cierre', true); return; }
       const c = p.cierre;
       const prev = btn ? btn.innerHTML : '';
-      if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+      if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
       try{
+        await asegurarPDF();
         const cfg = await cfgPuntos();
         const gan = Number(c.gananciaAgente);
-        const tieneGan = isFinite(gan) && c.gananciaAgente != null && c.gananciaAgente !== '';
-        const ganUSD = !tieneGan ? 0 : (c.moneda==='UYU' ? (cfg.dolarPesos>0 ? gan/cfg.dolarPesos : 0) : gan);
-        const pts = Math.floor(ganUSD/100) * (Number(cfg.puntosPor100)||1);
+        const tieneGanancia = isFinite(gan) && c.gananciaAgente != null && c.gananciaAgente !== '';
+        const ganUSD = !tieneGanancia ? 0 : (c.moneda === 'UYU' ? (cfg.dolarPesos > 0 ? gan / cfg.dolarPesos : 0) : gan);
+        const pts = Math.floor(ganUSD / 100) * (Number(cfg.puntosPor100) || 1);
         const rawCode = p.ficha && p.ficha.PROPERTY_CODE;
         const code = (rawCode && String(rawCode).trim().length >= 4) ? String(rawCode).trim() : ('C-' + String(p.id).slice(-6).toUpperCase());
         const hoy = new Date().toLocaleDateString('es-UY', { day:'numeric', month:'long', year:'numeric' });
         const dir = [ (p.ubicacion && p.ubicacion.calle) || p.direccion, (p.ubicacion && p.ubicacion.numero) ].filter(Boolean).join(' ');
         const lugar = [p.ciudad, p.departamento].filter(Boolean).join(', ');
         const ref = referidosMap[c.agenteUid];
-        const refPct = ref ? Number(c.tipo==='venta' ? ref.pctSale : ref.pctRent) || 0 : 0;
-        const refMonto = (tieneGan && refPct > 0) ? Math.round(gan * refPct / 100) : 0;
-        let refNombre = ref ? (ref.referrerNombre || ((agentesList.find(a=>a.uid===ref.referrerUid)||{}).name || '')) : '';
-        if (refMonto > 0 && !refNombre && ref.referrerUid) {
+        const refPct = ref ? Number(c.tipo === 'venta' ? ref.pctSale : ref.pctRent) || 0 : 0;
+        const refMonto = (tieneGanancia && refPct > 0) ? Math.round(gan * refPct / 100) : 0;
+        let refNombre = ref ? (ref.referrerNombre || ((agentesList.find(a => a.uid === ref.referrerUid) || {}).name || '')) : '';
+        if (refMonto > 0 && !refNombre && ref.referrerUid){
           try { const ru = await db.collection('users').doc(ref.referrerUid).get(); if (ru.exists) refNombre = ru.data().name || ru.data().email || ''; } catch(e){}
         }
 
@@ -619,7 +1311,7 @@
         pdf.setFont('helvetica','normal'); pdf.setFontSize(9);
         pdf.text('Comisión sin IVA', M+22, y+42);
         pdf.setTextColor(255,255,255); pdf.setFont('helvetica','bold'); pdf.setFontSize(22);
-        pdf.text(tieneGan ? fmtMoney(gan, c.moneda) : '—', W-M-22, y+40, { align:'right' });
+        pdf.text(tieneGanancia ? fmtMoney(gan, c.moneda) : '—', W-M-22, y+40, { align:'right' });
         y += 62+16;
 
         // ---- Puntos y referido (cajas informativas) ----
@@ -655,338 +1347,664 @@
         pdf.save('Recibo_'+code+'_'+nomAg+'.pdf');
         toast('Recibo generado');
       }catch(e){ console.error(e); toast('No se pudo generar el recibo: '+(e.message||e), true); }
-      if(btn){ btn.disabled = false; btn.innerHTML = prev; }
+      if (btn){ btn.disabled = false; btn.innerHTML = prev; }
     }
 
-    // ---- Registrar cierre ----
-    let agentesList = [];
-    let ganManual = false; // true cuando el usuario escribió la ganancia a mano
+    // ---------- Ventanas ----------
+    function abrirOverlay(id){ const o = $(id); o.classList.add('open'); o.setAttribute('aria-hidden', 'false'); document.body.classList.add('bloqueo'); }
+    function cerrarOverlay(id){
+      const o = $(id); o.classList.remove('open'); o.setAttribute('aria-hidden', 'true');
+      if (!document.querySelector('.overlay.open') && !$('mapaWrap').classList.contains('full')) document.body.classList.remove('bloqueo');
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if ($('regModal').classList.contains('open')) closeReg();
+      else if ($('refModal').classList.contains('open')) closeRef();
+      else if ($('mapaWrap').classList.contains('full')) toggleFull();
+    });
 
+    // ---------- Registrar / corregir cierre ----------
+    function tipoSel(){ return (document.querySelector('input[name="regTipo"]:checked') || {}).value || 'venta'; }
+    function pintarTipo(){
+      document.querySelectorAll('.tipo-toggle label').forEach(l => {
+        const i = l.querySelector('input');
+        l.classList.toggle('on', i.checked); l.classList.toggle('venta', i.checked && i.value === 'venta'); l.classList.toggle('alquiler', i.checked && i.value === 'alquiler');
+      });
+      $('regPrecioLbl').textContent = tipoSel() === 'alquiler' ? 'Alquiler mensual' : 'Precio de cierre';
+    }
+    function setTipo(t){ const r = document.querySelector('input[name="regTipo"][value="' + t + '"]'); if (r) r.checked = true; pintarTipo(); }
     // % de comisión del agente del cierre (el elegido por el admin, o el propio).
     function comisionDelAgente(){
-      const de = (u)=>{
-        const fb = (u.commissionPct!=null && u.commissionPct!=='') ? Number(u.commissionPct) : 0;
-        return { sale:(u.commissionSale!=null && u.commissionSale!=='') ? Number(u.commissionSale) : fb,
-                 rent:(u.commissionRent!=null && u.commissionRent!=='') ? Number(u.commissionRent) : fb };
+      const de = (u) => {
+        const fb = (u.commissionPct != null && u.commissionPct !== '') ? Number(u.commissionPct) : 0;
+        return { sale: (u.commissionSale != null && u.commissionSale !== '') ? Number(u.commissionSale) : fb,
+                 rent: (u.commissionRent != null && u.commissionRent !== '') ? Number(u.commissionRent) : fb };
       };
-      if(isAdmin){
-        const sel = document.getElementById('regAgente');
-        if(sel && sel.value){ const a = agentesList.find(x=>x.uid===sel.value); if(a) return { sale:a.sale||0, rent:a.rent||0 }; }
+      if (isAdmin){
+        const sel = $('regAgente');
+        if (sel && sel.value){ const a = agentesList.find(x => x.uid === sel.value); return a ? { sale: a.sale || 0, rent: a.rent || 0 } : { sale: 0, rent: 0 }; }
       }
       return de(curProfile || {});
     }
-    // Ajusta las etiquetas de las partes según sea venta (%) o alquiler (meses).
-    function ajustarPartesLabels(){
-      const tipo = (document.querySelector('input[name="regTipo"]:checked')||{}).value || 'venta';
-      const lc = document.getElementById('regLblComprador'), lv = document.getElementById('regLblVendedor');
-      const cont = document.getElementById('regPartesLabel');
-      const pc = document.getElementById('regPctComprador'), pv = document.getElementById('regPctVendedor');
-      if(tipo==='venta'){
-        if(lc) lc.textContent = 'Comprador %'; if(lv) lv.textContent = 'Vendedor %';
-        if(cont) cont.innerHTML = 'Comisión de la inmobiliaria <small style="color:#aaa">— % que paga cada parte (0 si no paga)</small>';
-        if(pc) pc.placeholder='3'; if(pv) pv.placeholder='3';
+    function uidPrincipal(){ return (isAdmin && $('regAgente').value) ? $('regAgente').value : curUser.uid; }
+    // Etiquetas y valores de las partes según sea venta (%) o alquiler (meses).
+    // Los valores por defecto ahora se ven escritos (antes eran gris de ejemplo y
+    // no se notaba que el cálculo los usaba igual).
+    function ajustarPartesLabels(conDefaults){
+      const tipo = tipoSel(), pc = $('regPctComprador'), pv = $('regPctVendedor');
+      if (tipo === 'venta'){
+        $('regLblComprador').textContent = 'Comprador (%)'; $('regLblVendedor').textContent = 'Vendedor (%)';
+        $('regPartesLabel').innerHTML = 'Comisión de la inmobiliaria <small>— % del precio que paga cada parte (0 si no paga)</small>';
+        pc.placeholder = '3'; pv.placeholder = '3'; pc.step = pv.step = '0.1';
       } else {
-        if(lc) lc.textContent = 'Inquilino (meses)'; if(lv) lv.textContent = 'Propietario (meses)';
-        if(cont) cont.innerHTML = 'Comisión de la inmobiliaria <small style="color:#aaa">— meses de alquiler que paga cada parte (0 si no paga)</small>';
-        if(pc) pc.placeholder='1'; if(pv) pv.placeholder='0';
+        $('regLblComprador').textContent = 'Inquilino (meses)'; $('regLblVendedor').textContent = 'Propietario (meses)';
+        $('regPartesLabel').innerHTML = 'Comisión de la inmobiliaria <small>— meses de alquiler que paga cada parte (0 si no paga)</small>';
+        pc.placeholder = '1'; pv.placeholder = '0'; pc.step = pv.step = '0.5';
       }
+      if (conDefaults){ pc.value = DEF_PARTES[tipo][0]; pv.value = DEF_PARTES[tipo][1]; }
+    }
+    // Suma de las dos partes (vacío = valor por defecto, como siempre).
+    function partesTotal(tipo){
+      const c = parseFloat($('regPctComprador').value), v = parseFloat($('regPctVendedor').value), d = DEF_PARTES[tipo];
+      return (isNaN(c) ? d[0] : c) + (isNaN(v) ? d[1] : v);
     }
     // Comisión inmobiliaria = suma de ambas partes. Venta: precio × (%compr + %vend).
     // Alquiler: (meses inquilino + meses propietario) × precio mensual.
-    function comInmobiliariaTotal(precio, tipo){
-      const c = parseFloat(document.getElementById('regPctComprador').value);
-      const v = parseFloat(document.getElementById('regPctVendedor').value);
-      // Defaults si están vacíos: venta 3/3, alquiler 1/0 (una parte)
-      const cc = isNaN(c) ? (tipo==='venta'?3:1) : c;
-      const vv = isNaN(v) ? (tipo==='venta'?3:0) : v;
-      if(tipo==='venta') return precio * (cc + vv) / 100;
-      return precio * (cc + vv); // meses
-    }
-    // Precarga la ganancia: comisión total (ambas partes) × % del agente. Editable.
+    function comInmobiliariaTotal(precio, tipo){ return tipo === 'venta' ? precio * partesTotal(tipo) / 100 : precio * partesTotal(tipo); }
     function recalcGanancia(){
-      const el = document.getElementById('regGanancia');
-      const precio = parseFloat(document.getElementById('regPrecio').value);
-      const tipo = (document.querySelector('input[name="regTipo"]:checked')||{}).value || 'venta';
-      const cur = document.getElementById('regMoneda').value || 'USD';
-      const simb = cur==='UYU' ? '$U' : 'US$';
-      const comTot = (precio>0) ? comInmobiliariaTotal(precio, tipo) : 0;
-      // Resumen visible de la comisión inmobiliaria
-      const res = document.getElementById('regComResumen');
-      if(res){
-        if(comTot>0){ res.style.display='block'; res.textContent = 'Comisión de la inmobiliaria: ' + simb + ' ' + Math.round(comTot).toLocaleString('es-UY'); }
-        else res.style.display='none';
+      const el = $('regGanancia');
+      const precio = parseFloat($('regPrecio').value);
+      const tipo = tipoSel();
+      const cur = $('regMoneda').value || 'USD';
+      $('regGanMon').textContent = simbolo(cur);
+      document.querySelectorAll('#regParticipantes .mon').forEach(s => { s.textContent = simbolo(cur); });
+      const comTot = (precio > 0) ? comInmobiliariaTotal(precio, tipo) : 0;
+      const res = $('regComResumen');
+      if (comTot > 0){
+        const tot = partesTotal(tipo);
+        res.hidden = false;
+        res.innerHTML = 'Comisión de la inmobiliaria: <b>' + esc(fmtRedondo(comTot, cur)) + '</b> <span>(' + (tipo === 'venta' ? fmtNum(tot) + '% de ' : fmtMeses(tot) + ' de ') + esc(fmtRedondo(precio, cur)) + ')</span>';
+      } else res.hidden = true;
+      const com = comisionDelAgente(), pct = tipo === 'venta' ? com.sale : com.rent;
+      const otro = isAdmin && $('regAgente').value && $('regAgente').value !== curUser.uid;
+      const quien = otro ? (nombreSel() || 'el agente') : '';
+      $('regGanLabel').innerHTML = otro ? 'Ganancia del agente <small>(lo que le quedó, sin IVA)</small>' : 'Tu ganancia <small>(lo que te quedó, sin IVA)</small>';
+      $('regGanHint').textContent = ganManual
+        ? (ganGuardada ? 'Es la ganancia que se cargó en el cierre. Si la borrás, se vuelve a calcular sola.' : 'La escribiste a mano. Si la borrás, se vuelve a calcular sola.')
+        : (pct > 0
+          ? 'Se calcula sola: comisión de la inmobiliaria × ' + fmtNum(pct) + '% ' + (otro ? 'de ' + quien : 'tuyo') + '. Si el número real fue otro, corregila.'
+          : (otro ? quien + ' no tiene' : 'No tenés') + ' % de comisión cargado: escribí la ganancia a mano.');
+      if (!ganManual){
+        if (!precio || precio <= 0) el.value = '';
+        else if (pct > 0) el.value = Math.round(comTot * pct / 100);   // sin % del agente no se inventa nada
       }
-      if(ganManual) return;
-      if(!precio || precio<=0){ el.value=''; return; }
-      const com = comisionDelAgente();
-      const pct = (tipo==='venta') ? com.sale : com.rent;
-      if(!(pct > 0)) return; // sin % del agente configurado no se inventa nada
-      el.value = Math.round(comTot * pct / 100);
+      pintarPuntos(); pintarEquipo();
+    }
+    function pintarPuntos(){
+      const el = $('regPts'), g = parseFloat($('regGanancia').value), cur = $('regMoneda').value;
+      if (!(g > 0)){ el.hidden = true; return; }
+      const cfg = cfgPts || { puntosPor100: 1, dolarPesos: 40 };
+      const usd = cur === 'UYU' ? (cfg.dolarPesos > 0 ? g / cfg.dolarPesos : 0) : g;
+      const pts = Math.floor(usd / 100) * (Number(cfg.puntosPor100) || 1);
+      el.hidden = false;
+      el.innerHTML = '<i class="fas fa-coins"></i> ' + (pts > 0
+        ? '≈ <b>' + pts.toLocaleString('es-UY') + ' ' + (pts === 1 ? 'punto' : 'puntos') + '</b> de Recompensas cuando se confirme el cierre.'
+        : 'Menos de US$ 100 de ganancia: este cierre no suma puntos de Recompensas.');
     }
     (function(){
-      const p = document.getElementById('regPrecio');
-      if(p) p.addEventListener('input', recalcGanancia);
-      const g = document.getElementById('regGanancia');
-      if(g) g.addEventListener('input', ()=>{ ganManual = g.value !== ''; });
-      ['regPctComprador','regPctVendedor'].forEach(id=>{ const e=document.getElementById(id); if(e) e.addEventListener('input', recalcGanancia); });
-      document.querySelectorAll('input[name="regTipo"]').forEach(r=>r.addEventListener('change', ()=>{ ajustarPartesLabels(); recalcGanancia(); }));
-      const m = document.getElementById('regMoneda'); if(m) m.addEventListener('change', recalcGanancia);
+      $('regPrecio').addEventListener('input', recalcGanancia);
+      $('regGanancia').addEventListener('input', () => { ganManual = $('regGanancia').value !== ''; ganGuardada = false; recalcGanancia(); });
+      ['regPctComprador', 'regPctVendedor'].forEach(id => $(id).addEventListener('input', recalcGanancia));
+      document.querySelectorAll('input[name="regTipo"]').forEach(r => r.addEventListener('change', () => { pintarTipo(); ajustarPartesLabels(true); recalcGanancia(); avisos(); }));
+      $('regMoneda').addEventListener('change', recalcGanancia);
+      $('regDir').addEventListener('keydown', (e) => { if (e.key === 'Enter'){ e.preventDefault(); buscarDireccion(); } });
+      // Elegir propiedad o agente no cuenta como "cargar datos": cerrar sin más no pregunta.
+      const ensucia = (e) => { if (e.target && (e.target.id === 'regProp' || e.target.id === 'regAgente' || e.target.name === 'regOp')) return; regSucio = true; };
+      $('regBody').addEventListener('input', ensucia);
+      $('regBody').addEventListener('change', ensucia);
+      document.querySelectorAll('.puntaje').forEach(cont => {
+        cont.innerHTML = [1, 2, 3, 4, 5].map(v => '<button type="button" data-v="' + v + '" aria-label="' + v + ' de 5">' + v + '</button>').join('');
+        cont.addEventListener('click', (e) => {
+          const b = e.target.closest('button'); if (!b) return;
+          const campo = cont.dataset.campo, v = +b.dataset.v;
+          setPuntaje(campo, +$(campo).value === v ? '' : v); regSucio = true;
+        });
+      });
     })();
+    function setPuntaje(campo, v){
+      const n = parseInt(v, 10), ok = n >= 1 && n <= 5;
+      $(campo).value = ok ? n : '';
+      document.querySelectorAll('.puntaje[data-campo="' + campo + '"] button').forEach(b => b.classList.toggle('on', ok && +b.dataset.v === n));
+    }
+
     // ===== Agentes participantes (cierre en equipo) =====
     // El agente principal ya tiene su parte en "Tu ganancia". Acá se suman los DEMÁS
     // participantes con su monto fijo; cada uno verá su parte en su saldo y sus puntos.
     let _partIdx = 0;
-    function agregarParticipante(uidPre, montoPre){
-      const cont = document.getElementById('regParticipantes');
-      if(!cont) return;
+    // Opciones del selector de un compañero. Si el guardado ya no está en la lista
+    // (dejó la inmobiliaria, o la lista no cargó), se conserva con su nombre.
+    function opcionesEquipo(selUid, nombrePre){
+      const principal = uidPrincipal();
+      let h = '<option value="">Elegí un agente</option>' + agentesList.filter(a => a.uid !== principal || a.uid === selUid)
+        .map(a => '<option value="' + esc(a.uid) + '"' + (selUid === a.uid ? ' selected' : '') + '>' + esc(a.name) + '</option>').join('');
+      if (selUid && !agentesList.some(a => a.uid === selUid))
+        h += '<option value="' + esc(selUid) + '" data-nombre="' + esc(nombrePre || 'Agente') + '" selected>' + esc(nombrePre || 'Agente') + (agentesList.length ? ' (inactivo)' : '') + '</option>';
+      return h;
+    }
+    // Cuando cambia el agente del cierre, se rearman las listas (esconder opciones no anda en el iPhone).
+    function refrescarOpcionesEquipo(){
+      document.querySelectorAll('#regParticipantes .reg-part-ag').forEach(s => {
+        const v = s.value, opt = s.selectedOptions && s.selectedOptions[0];
+        s.innerHTML = opcionesEquipo(v, opt && opt.dataset.nombre);
+        s.value = v;
+      });
+    }
+    async function agregarParticipante(uidPre, montoPre, nombrePre, tk){
+      const cont = $('regParticipantes');
+      if (!cont) return false;
+      if (!agentesList.length) await cargarAgentes();
+      if (tk != null && tk !== regToken) return false;
+      // Uno nuevo necesita la lista; uno que ya estaba guardado se conserva igual.
+      if (!agentesList.length && !uidPre){ toast('No se pudo cargar la lista de agentes. Probá de nuevo en un momento.', true); return false; }
       const id = 'part_' + (_partIdx++);
-      // El principal no puede elegirse a sí mismo como participante extra
-      const principalUid = (isAdmin && document.getElementById('regAgente') && document.getElementById('regAgente').value)
-        ? document.getElementById('regAgente').value : curUser.uid;
-      const opciones = '<option value="">— elegí un agente —</option>' +
-        agentesList.filter(a => a.uid !== principalUid)
-          .map(a => '<option value="'+esc(a.uid)+'"'+(uidPre===a.uid?' selected':'')+'>'+esc(a.name)+'</option>').join('');
       const row = document.createElement('div');
       row.className = 'reg-part-row';
       row.id = id;
-      row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px';
-      row.innerHTML =
-        '<select class="reg-part-ag" style="flex:1;padding:9px 10px;border:1px solid #ddd;border-radius:8px;font-family:inherit">'+opciones+'</select>' +
-        '<input type="number" class="reg-part-monto" placeholder="Monto" value="'+(montoPre||'')+'" style="width:110px;padding:9px 10px;border:1px solid #ddd;border-radius:8px;font-family:inherit">' +
-        '<button type="button" onclick="document.getElementById(\''+id+'\').remove()" style="border:1px solid #ecc8c2;background:#fff;color:#c0392b;border-radius:8px;width:36px;height:38px;cursor:pointer;flex:none" title="Quitar"><i class="fas fa-trash"></i></button>';
+      row.innerHTML = '<select class="reg-part-ag" aria-label="Agente">' + opcionesEquipo(uidPre, nombrePre) + '</select>'
+        + '<div class="reg-part-m"><span class="mon">' + simbolo() + '</span><input type="number" class="reg-part-monto" min="0" step="1" inputmode="decimal" placeholder="Monto" value="' + (montoPre != null ? esc(montoPre) : '') + '"></div>'
+        + '<button type="button" class="reg-part-x" onclick="quitarParticipante(\'' + id + '\')" title="Quitar" aria-label="Quitar"><i class="fas fa-xmark"></i></button>';
+      row.addEventListener('input', pintarEquipo); row.addEventListener('change', pintarEquipo);
       cont.appendChild(row);
+      pintarEquipo();
+      return true;
     }
-    // Devuelve los participantes cargados (con nombre resuelto), validados.
-    function leerParticipantes(){
+    function quitarParticipante(id){ const r = $(id); if (r) r.remove(); regSucio = true; pintarEquipo(); }
+    function pintarEquipo(){
+      const el = $('regEquipoRes'); if (!el) return;
+      let tot = 0, n = 0;
+      document.querySelectorAll('#regParticipantes .reg-part-row').forEach(r => { const m = parseFloat(r.querySelector('.reg-part-monto').value); if (r.querySelector('.reg-part-ag').value && m > 0){ tot += m; n++; } });
+      el.textContent = n ? 'En total ' + fmtRedondo(tot, $('regMoneda').value) + ' para ' + n + (n === 1 ? ' agente' : ' agentes') + ', aparte de la ganancia del agente del cierre.' : '';
+    }
+    // Participantes cargados (con nombre resuelto). Avisa si una fila quedó a medias.
+    function leerParticipantes(principal){
+      const out = [], vistos = {};
       const rows = document.querySelectorAll('#regParticipantes .reg-part-row');
-      const out = [];
-      rows.forEach(r => {
-        const uid = r.querySelector('.reg-part-ag').value;
-        const monto = parseFloat(r.querySelector('.reg-part-monto').value);
-        if(uid && !isNaN(monto) && monto > 0){
-          const ag = agentesList.find(a => a.uid === uid) || {};
-          out.push({ uid: uid, nombre: ag.name || 'Agente', monto: Math.round(monto*100)/100 });
-        }
-      });
-      return out;
+      for (const r of rows){
+        const sel = r.querySelector('.reg-part-ag'), uid = sel.value;
+        const txt = r.querySelector('.reg-part-monto').value, monto = parseFloat(txt);
+        if (!uid && !txt) continue;                                     // fila vacía: se ignora
+        const opt = sel.selectedOptions && sel.selectedOptions[0];
+        const nombre = (agentesList.find(a => a.uid === uid) || {}).name || (opt && opt.dataset.nombre) || 'Agente';
+        if (!uid) return { error: 'Elegí a qué agente le corresponde el monto de ' + fmtRedondo(monto, $('regMoneda').value) + ' (o quitá esa fila).' };
+        if (isNaN(monto) || monto <= 0) return { error: 'Poné cuánto le toca a ' + nombre + ' (o quitalo del equipo).' };
+        if (uid === principal) return { error: nombre + ' ya es el agente del cierre: su parte va en la ganancia, no en el equipo.' };
+        if (vistos[uid]) return { error: nombre + ' está dos veces en el equipo.' };
+        vistos[uid] = 1;
+        out.push({ uid: uid, nombre: nombre, monto: Math.round(monto * 100) / 100 });
+      }
+      return { lista: out };
     }
 
-    function llenarAgentes(defUid){
-      const wrap = document.getElementById('regAgenteWrap');
-      if(!isAdmin || !agentesList.length){ if(wrap) wrap.style.display='none'; return; }
-      wrap.style.display = '';
-      const sel = document.getElementById('regAgente');
-      sel.innerHTML = '<option value="">— Todos los agentes —</option>'
-        + agentesList.map(a=>'<option value="'+esc(a.uid)+'">'+esc(a.name)+'</option>').join('');
-      sel.value = (defUid && agentesList.some(a=>a.uid===defUid)) ? defUid : '';
-      onAgenteSelect();
-    }
-    // Al elegir un agente: se filtran SUS propiedades y se ajusta la etiqueta de ganancia.
-    function onAgenteSelect(){
-      const sel = document.getElementById('regAgente'), lbl = document.getElementById('regGanLabel');
-      const uid = (isAdmin && sel) ? sel.value : '';
-      // Refiltrar el selector de propiedades conservando la elegida si sigue en la lista.
-      const propSel = document.getElementById('regProp');
-      const actual = propSel.value;
-      llenarPicker(uid);
-      if(actual && Array.from(propSel.options).some(o=>o.value===actual)) propSel.value = actual;
-      else if(actual){ propSel.value=''; selProp=null; document.getElementById('regInfo').innerHTML=''; }
-      if(lbl){
-        const esOtro = isAdmin && uid && uid !== curUser.uid;
-        lbl.innerHTML = esOtro
-          ? 'Ganancia del agente <small style="color:#aaa">(lo que le quedó, sin IVA)</small>'
-          : 'Tu ganancia <small style="color:#aaa">(lo que te quedó, sin IVA)</small>';
+    // Agente del cierre (solo admin). Si el guardado ya no está aprobado, se ofrece
+    // igual "(inactivo)" para no tener que pasarle su cierre a otro al corregirlo.
+    function llenarAgentes(defUid, filtrarPicker, nombreDef){
+      const wrap = $('regAgenteWrap'), sel = $('regAgente');
+      if (!isAdmin){ wrap.hidden = true; return; }
+      const extra = (defUid && !agentesList.some(a => a.uid === defUid) && nombreDef)
+        ? '<option value="' + esc(defUid) + '" data-nombre="' + esc(nombreDef) + '">' + esc(nombreDef) + (agentesList.length ? ' (inactivo)' : '') + '</option>' : '';
+      if (!agentesList.length && !extra){
+        wrap.hidden = true; sel.innerHTML = '';
+        if (filtrarPicker !== false && regModo === 'nuevo' && !$('regProp').disabled) llenarPicker('');
+        refrescarOpcionesEquipo(); avisos(); recalcGanancia();
+        return;
       }
-      recalcGanancia();
+      wrap.hidden = false;
+      sel.innerHTML = '<option value="">Elegí el agente</option>' + agentesList.map(a => '<option value="' + esc(a.uid) + '">' + esc(a.name) + '</option>').join('') + extra;
+      sel.value = (defUid && (extra || agentesList.some(a => a.uid === defUid))) ? defUid : '';
+      onAgenteSelect(filtrarPicker);
+    }
+    function nombreSel(){
+      const sel = $('regAgente'), opt = sel.selectedOptions && sel.selectedOptions[0];
+      return nombreAgente(sel.value) || (opt && opt.dataset.nombre) || '';
+    }
+    // Si el admin elige el agente a mano (antes de la propiedad o para cambiarlo),
+    // la lista de propiedades se filtra a las de ese agente, como siempre.
+    function onAgenteSelect(filtrarPicker){
+      const uid = isAdmin ? $('regAgente').value : '';
+      if (filtrarPicker !== false && regModo === 'nuevo' && !$('regProp').disabled){
+        const propSel = $('regProp'), actual = propSel.value;
+        llenarPicker(uid);
+        if (actual && Array.from(propSel.options).some(o => o.value === actual && !o.disabled)) propSel.value = actual;
+        else if (actual){ propSel.value = ''; selProp = null; $('regInfo').innerHTML = ''; mostrarOp(false); pintarPublicado(); }
+      }
+      refrescarOpcionesEquipo();
+      avisos(); recalcGanancia();
+    }
+    function etiquetaProp(p, conAgente){
+      const dir = p.direccion || (p.ubicacion && p.ubicacion.barrio) || p.barrio || p.location || '';
+      let s = (p.title || '(sin título)') + (dir ? ' — ' + dir : '');
+      if (isAdmin && conAgente && p.ownerName) s += ' · ' + p.ownerName;
+      return s;
+    }
+    // Un agente no puede pisar un cierre confirmado ni el cierre de otro agente.
+    function bloqueoPara(p){
+      if (isAdmin || !p || !p.cierre) return '';
+      if (p.cierreConfirmado === true) return 'confirmado';
+      if ((p.cierre.agenteUid || p.ownerId) !== curUser.uid) return 'cierre de otro agente';
+      return '';
     }
     function llenarPicker(uidFiltro){
-      const sel=document.getElementById('regProp');
-      const lista = uidFiltro
-        ? editableProps.filter(p => p.ownerId===uidFiltro || (Array.isArray(p.agents) && p.agents.indexOf(uidFiltro)>=0))
-        : editableProps;
-      const opts = lista.map(p=>{
-        const dir = p.direccion || (p.ubicacion && p.ubicacion.barrio) || p.barrio || p.location || '';
-        return '<option value="'+p.id+'">'+esc((p.title || '(sin título)') + (dir ? ' — ' + dir : ''))+'</option>';
-      }).join('');
-      sel.innerHTML = '<option value="">— Elegí una propiedad —</option>' + opts;
+      const sel = $('regProp');
+      const lista = (uidFiltro
+        ? editableProps.filter(p => p.ownerId === uidFiltro || (Array.isArray(p.agents) && p.agents.indexOf(uidFiltro) >= 0))
+        : editableProps.slice()).sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'es'));
+      if (!lista.length){ sel.innerHTML = '<option value="">' + (uidFiltro ? 'Este agente no tiene propiedades cargadas' : 'No tenés propiedades para registrar un cierre') + '</option>'; return; }
+      const grupos = [
+        { t: 'Vendidas o alquiladas, sin cierre en el mapa', f: p => !p.cierre && (p.status === 'sold' || p.status === 'rented') },
+        { t: 'Disponibles y reservadas', f: p => !p.cierre && (!p.status || p.status === 'available' || p.status === 'reserved') },
+        { t: 'Con cierre registrado', f: p => !!p.cierre },
+        { t: 'Otras', f: () => true }
+      ];
+      const usados = {};
+      let html = '<option value="">Elegí una propiedad</option>';
+      grupos.forEach(g => {
+        const items = lista.filter(p => !usados[p.id] && g.f(p));
+        if (!items.length) return;
+        items.forEach(p => { usados[p.id] = 1; });
+        html += '<optgroup label="' + esc(g.t) + '">' + items.map(p => {
+          const bloq = bloqueoPara(p);
+          return '<option value="' + esc(p.id) + '"' + (bloq ? ' disabled' : '') + '>' + esc(etiquetaProp(p, !uidFiltro)) + (bloq ? ' · ' + bloq : '') + '</option>';
+        }).join('') + '</optgroup>';
+      });
+      sel.innerHTML = html;
+    }
+    function pintarInfo(p){
+      const foto = fotoDe(p), m2 = p.builtArea || p.totalArea || 0;
+      const meta = [m2 ? fmtNum(m2) + ' m²' : '', p.realEstateType || '', (p.bedrooms || 0) + ' dorm', (p.bathrooms || 0) + ' baños'].filter(Boolean).join(' · ');
+      const dueno = p.ownerName || nombreAgente(p.ownerId);
+      $('regInfo').innerHTML = '<div class="ri">' + (foto ? '<img src="' + esc(foto) + '" alt="" onerror="this.style.visibility=\'hidden\'">' : '<span class="ph"><i class="far fa-image"></i></span>')
+        + '<div><b>' + esc(p.title || 'Propiedad') + '</b><div class="m">' + esc(meta) + '</div>'
+        + '<div class="m">Publicada en ' + esc(fmtMoney(p.price, p.currency)) + (dueno && (isAdmin || p.ownerId !== curUser.uid) ? ' · de ' + esc(dueno) : '') + '</div></div></div>';
+    }
+    function pintarPublicado(){
+      const h = $('regPubHint'), p = selProp;
+      if (!p || !(Number(p.price) > 0)){ h.innerHTML = tipoSel() === 'alquiler' ? 'El alquiler se carga por mes.' : ''; return; }
+      h.innerHTML = 'Publicada en ' + esc(fmtMoney(p.price, p.currency)) + ' · <a onclick="usarPublicado()">usar ese precio</a>';
+    }
+    function usarPublicado(){
+      if (!selProp) return;
+      $('regPrecio').value = selProp.price;
+      $('regMoneda').value = selProp.currency === 'UYU' ? 'UYU' : 'USD';
+      regSucio = true; recalcGanancia();
+    }
+    // ¿Se corrige el cierre que la propiedad ya tiene, o es una operación nueva?
+    function esCorreccion(){ return !!(selProp && selProp.cierre && regOp !== 'nueva'); }
+    function mostrarOp(mostrar){
+      const w = $('regOpWrap');
+      w.hidden = !mostrar;
+      if (!mostrar) return;
+      const c = selProp.cierre;
+      $('regOpTxt').textContent = (c.tipo === 'alquiler' ? 'Alquiler' : 'Venta') + ' del ' + fmtFecha(c.fecha) + ' · se actualiza ese mismo cierre';
+      document.querySelector('input[name="regOp"][value="' + (regOp === 'nueva' ? 'nueva' : 'corregir') + '"]').checked = true;
+      pintarOp();
+    }
+    function pintarOp(){ document.querySelectorAll('.op-elegir label').forEach(l => l.classList.toggle('on', l.querySelector('input').checked)); }
+    function avisos(){
+      const el = $('regAviso'), p = selProp;
+      if (!el) return;
+      let h = '';
+      const bloq = bloqueoPara(p);
+      if (p && p.cierre){
+        if (bloq === 'confirmado') h += '<div class="aviso bad"><i class="fas fa-lock"></i><div>Este cierre ya está confirmado. Si hay que corregir algo, pedíselo al admin.</div></div>';
+        else if (bloq) h += '<div class="aviso bad"><i class="fas fa-lock"></i><div>Este cierre es de ' + esc(p.cierre.agenteNombre || 'otro agente') + ': solo esa persona o el admin lo pueden corregir.</div></div>';
+        else if (regOp === 'nueva'){
+          h += '<div class="aviso warn"><i class="fas fa-triangle-exclamation"></i><div>El cierre anterior (' + (p.cierre.tipo === 'alquiler' ? 'alquiler' : 'venta') + ' del ' + esc(fmtFecha(p.cierre.fecha)) + (p.cierre.agenteNombre ? ', de ' + esc(p.cierre.agenteNombre) : '')
+            + ') se reemplaza: deja de figurar en el mapa y de sumar en sus ganancias.' + (isAdmin && p.cierreConfirmado === true ? ' El nuevo queda pendiente hasta que lo confirmes.' : '') + '</div></div>';
+        } else {
+          if (isAdmin && p.cierreConfirmado === true) h += '<div class="aviso warn"><i class="fas fa-circle-check"></i><div>Está confirmado: lo que cambies se ve al instante en Mis Finanzas y en Recompensas.</div></div>';
+          if (p.status !== 'sold' && p.status !== 'rented') h += '<div class="aviso info"><i class="fas fa-circle-info"></i><div>La propiedad volvió a estar publicada: corregir este cierre no cambia su estado ni toca los portales.</div></div>';
+        }
+      }
+      // Mis Finanzas (y los puntos del servidor) le acreditan la ganancia al DUEÑO
+      // de la propiedad, no al agente del cierre. Si no coinciden, se avisa.
+      if (p && p.ownerId && !bloq && !(isAdmin && !$('regAgente').value)){
+        const principal = uidPrincipal();
+        if (principal && principal !== p.ownerId){
+          const dueno = p.ownerName || nombreAgente(p.ownerId) || 'otro agente';
+          const quien = isAdmin ? (nombreSel() || 'el agente elegido') : 'vos';
+          h += '<div class="aviso warn"><i class="fas fa-triangle-exclamation"></i><div>La propiedad es de <b>' + esc(dueno) + '</b>. Mis Finanzas le acredita la ganancia al dueño de la propiedad, no a ' + esc(quien) + '. '
+            + (isAdmin ? 'Si la cerraron juntos, elegí a ' + esc(dueno) + ' como agente del cierre y sumá a ' + esc(quien) + ' en «¿Cerraron en equipo?».'
+                       : 'Lo mejor es que ' + esc(dueno) + ' registre el cierre y te sume en «¿Cerraron en equipo?».') + '</div></div>';
+        }
+      }
+      el.innerHTML = h;
+      $('regSave').disabled = !!bloq;
+    }
+    function tituloModo(){
+      const ed = regModo === 'editar';
+      $('regTitulo').textContent = ed ? 'Corregir cierre' : 'Registrar cierre';
+      $('regSaveTxt').textContent = ed ? 'Guardar cambios' : 'Guardar cierre';
+    }
+    function limpiarOperacion(){
+      $('regPrecio').value = ''; $('regGanancia').value = ''; ganManual = false; ganGuardada = false;
+      $('regParticipantes').innerHTML = ''; $('regEquipoRes').textContent = '';
+      setPuntaje('regCons', ''); setPuntaje('regUbi', '');
+      $('regFecha').value = hoyISO();
+    }
+    function resetReg(){
+      selProp = null; regLatLng = null; regPrefill = false; regSucio = false; ganManual = false; ganGuardada = false;
+      regOp = null; pinManual = false;
+      $('regProp').disabled = false;
+      $('regInfo').innerHTML = ''; $('regAviso').innerHTML = ''; $('regOpWrap').hidden = true;
+      $('regPrecio').value = ''; $('regGanancia').value = '';
+      $('regParticipantes').innerHTML = ''; $('regEquipoRes').textContent = '';
+      setTipo('venta'); ajustarPartesLabels(true);
+      $('regComResumen').hidden = true; $('regPts').hidden = true;
+      setPuntaje('regCons', ''); setPuntaje('regUbi', '');
+      $('regFecha').value = hoyISO();
+      $('regMoneda').value = 'USD';
+      $('regDir').value = '';
+      $('regGeoHint').textContent = 'Si la propiedad ya tiene ubicación, aparece marcada. Tocá el mapa o arrastrá el pin para ajustarla.';
+      $('regAgenteWrap').hidden = true;
+      $('regSave').disabled = false;
+      $('regBody').scrollTop = 0;
+      if (regPin && regMap){ regMap.removeLayer(regPin); regPin = null; }
+      pintarPublicado();
     }
 
     function initRegMap(){
-      if(regMap){ setTimeout(()=>regMap.invalidateSize(),100); return; }
-      regMap = L.map('regMapa').setView([-34.9011,-56.1645], 11);
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(regMap);
+      if (regMap){ setTimeout(() => regMap.invalidateSize(), 120); return; }
+      regMap = L.map('regMapa', { scrollWheelZoom: false }).setView(CENTRO, 12);
+      L.tileLayer(TESELAS, { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(regMap);
       cargarBarrios(regMap);
-      regMap.on('click', e=> setRegPin(e.latlng.lat, e.latlng.lng));
-      setTimeout(()=>regMap.invalidateSize(),120);
+      regMap.on('click', e => { regMap.scrollWheelZoom.enable(); pinManual = true; setRegPin(e.latlng.lat, e.latlng.lng); regSucio = true; });
+      regMap.getContainer().addEventListener('mouseleave', () => regMap.scrollWheelZoom.disable());
+      setTimeout(() => regMap.invalidateSize(), 120);
     }
-    function setRegPin(lat,lng){
-      regLatLng = { lat: Math.round(lat*1e6)/1e6, lng: Math.round(lng*1e6)/1e6 };
-      if(!regPin){
-        regPin = L.marker([lat,lng], { draggable:true }).addTo(regMap);
-        regPin.on('dragend', ()=>{ const p=regPin.getLatLng(); setRegPin(p.lat,p.lng); });
-      } else regPin.setLatLng([lat,lng]);
-      if(regMap.getZoom()<14) regMap.setView([lat,lng],15); else regMap.panTo([lat,lng]);
+    const PIN = () => L.divIcon({ className: 'reg-pin', html: '<i class="fas fa-location-dot"></i>', iconSize: [28, 36], iconAnchor: [14, 34] });
+    function setRegPin(lat, lng){
+      if (!regMap) initRegMap();
+      regLatLng = { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6 };
+      if (!regPin){
+        regPin = L.marker([lat, lng], { draggable: true, icon: PIN() }).addTo(regMap);
+        regPin.on('dragend', () => { const p = regPin.getLatLng(); pinManual = true; setRegPin(p.lat, p.lng); regSucio = true; });
+      } else regPin.setLatLng([lat, lng]);
+      if (regMap.getZoom() < 14) regMap.setView([lat, lng], 15); else regMap.panTo([lat, lng]);
     }
-
+    function quitarPin(){ if (regPin && regMap){ regMap.removeLayer(regPin); regPin = null; } regLatLng = null; }
+    function direccionDe(p){ const ub = p.ubicacion || {}; return [ub.calle || p.direccion || '', ub.numero || ''].filter(Boolean).join(' ').trim(); }
+    // Pin de la propiedad: sus coordenadas guardadas o, si no tiene, su dirección.
+    function pinDePropiedad(p){
+      const ub = p.ubicacion || {};
+      const lat = (ub.lat != null ? ub.lat : p.lat), lng = (ub.lng != null ? ub.lng : p.lng);
+      if (lat != null && lng != null) setRegPin(Number(lat), Number(lng));
+      else { quitarPin(); geocodearPropiedad(p); }
+    }
+    async function geocodificar(q){
+      const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=uy&accept-language=es&q=' + encodeURIComponent(q));
+      const j = await r.json();
+      return (j && j.length) ? { lat: +j[0].lat, lng: +j[0].lon } : null;
+    }
     // Si la propiedad no tiene coordenadas guardadas, se busca su dirección y se
     // planta el pin igual (el agente puede ajustarlo arrastrándolo).
     async function geocodearPropiedad(p){
       const ub = p.ubicacion || {};
-      const calle = [ub.calle || p.direccion || '', ub.numero || ''].filter(Boolean).join(' ').trim();
+      const calle = direccionDe(p);
       const q = [calle, p.ciudad || ub.ciudad || '', p.departamento || ub.departamento || '', 'Uruguay'].filter(Boolean).join(', ');
-      if(!q || q === 'Uruguay') return;
+      if (!q || q === 'Uruguay') return;
+      const tk = regToken;
       try{
-        const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=uy&accept-language=es&q='+encodeURIComponent(q));
-        const j = await r.json();
-        if(j && j.length){ regMap.setView([+j[0].lat, +j[0].lon], calle ? 16 : 13); setRegPin(+j[0].lat, +j[0].lon); }
+        const r = await geocodificar(q);
+        if (tk !== regToken || selProp !== p || pinManual) return;   // cambió algo mientras buscaba: no pisar
+        if (r){ regMap.setView([r.lat, r.lng], calle ? 16 : 13); setRegPin(r.lat, r.lng); $('regGeoHint').textContent = 'Ubicación aproximada según la dirección: revisá el pin y arrastralo si hace falta.'; }
         else toast('No encontré la dirección de la propiedad: marcá el pin a mano en el mapa', true);
       }catch(e){ /* sin geocoder no pasa nada: el pin se marca a mano */ }
     }
-
-    function openReg(){
-      selProp=null; regLatLng=null;
-      document.getElementById('regProp').value='';
-      document.getElementById('regInfo').innerHTML='';
-      document.getElementById('regPrecio').value='';
-      document.getElementById('regPrecio').placeholder='0';
-      document.getElementById('regGanancia').value='';
-      const _pc = document.getElementById('regParticipantes'); if(_pc) _pc.innerHTML = '';
-      ganManual = false;
-      document.getElementById('regPctComprador').value='';
-      document.getElementById('regPctVendedor').value='';
-      document.getElementById('regComResumen').style.display='none';
-      ajustarPartesLabels();
-      document.getElementById('regCons').value='';
-      document.getElementById('regUbi').value='';
-      document.getElementById('regFecha').value = new Date().toISOString().slice(0,10);
-      document.querySelector('input[name="regTipo"][value="venta"]').checked = true;
-      llenarAgentes('');
-      if(regPin && regMap){ regMap.removeLayer(regPin); regPin=null; }
-      document.getElementById('regModal').classList.add('open');
-      setTimeout(()=>{ initRegMap(); }, 60);
+    async function buscarDireccion(){
+      const txt = $('regDir').value.trim();
+      if (!txt){ $('regDir').focus(); return; }
+      const p = selProp || {}, ub = p.ubicacion || {};
+      const q = [txt, p.ciudad || ub.ciudad || '', p.departamento || ub.departamento || '', 'Uruguay'].filter(Boolean).join(', ');
+      try{
+        const r = await geocodificar(q);
+        if (r){ pinManual = true; setRegPin(r.lat, r.lng); regMap.setView([r.lat, r.lng], 16); regSucio = true; $('regGeoHint').textContent = 'Revisá que el pin quede sobre la propiedad; si no, arrastralo.'; }
+        else toast('No encontré esa dirección. Probá con calle y número, o marcá el pin a mano.', true);
+      }catch(e){ toast('No se pudo buscar la dirección. Marcá el pin a mano en el mapa.', true); }
     }
-    function closeReg(){ document.getElementById('regModal').classList.remove('open'); }
 
+    async function openReg(idEditar){
+      const edit = (typeof idEditar === 'string' && porId[idEditar] && porId[idEditar].cierre) ? porId[idEditar] : null;
+      if (edit && !puedeEditar(edit)){ toast(edit.cierreConfirmado === true ? 'Este cierre ya está confirmado: si hay que corregir algo, pedíselo al admin.' : 'No podés corregir este cierre.', true); return; }
+      const tk = ++regToken;
+      resetReg();
+      regModo = edit ? 'editar' : 'nuevo';
+      tituloModo();
+      abrirOverlay('regModal');
+      initRegMap();
+      cfgPuntos().then(pintarPuntos);
+      const sel = $('regProp');
+      const sigue = () => tk === regToken && $('regModal').classList.contains('open');
+      if (edit){
+        sel.innerHTML = '<option value="' + esc(edit.id) + '">' + esc(etiquetaProp(edit, false)) + '</option>';
+        sel.value = edit.id; sel.disabled = true;
+        await cargarAgentes();
+        if (!sigue()) return;
+        selProp = edit; regOp = 'corregir';
+        pintarInfo(edit);
+        $('regDir').value = direccionDe(edit);
+        if (!(await prefillDesdeCierre(edit, tk)) || !sigue()) return;
+        regPrefill = false; regSucio = false;
+        avisos(); pintarPublicado(); recalcGanancia();
+        return;
+      }
+      sel.disabled = true;
+      sel.innerHTML = '<option value="">Cargando propiedades…</option>';
+      try{ await Promise.all([cargarEditables(), cargarAgentes()]); }
+      catch(e){ if (!sigue()) return; console.warn(e); sel.innerHTML = '<option value="">No se pudieron cargar las propiedades</option>'; toast('No se pudieron cargar las propiedades: ' + (e.message || e), true); return; }
+      if (!sigue()) return;
+      sel.disabled = false;
+      if (isAdmin) llenarAgentes('', true); else llenarPicker('');
+      recalcGanancia();
+    }
+    function closeReg(){
+      if (regSucio && !confirm('¿Cerrar sin guardar? Se pierde lo que cargaste.')) return;
+      regSucio = false;
+      regToken++;                        // lo que estuviera cargando en segundo plano ya no aplica
+      cerrarOverlay('regModal');
+    }
     function onPropSelect(){
-      const id=document.getElementById('regProp').value;
-      selProp = editableProps.find(p=>p.id===id) || null;
-      const info=document.getElementById('regInfo');
-      if(!selProp){ info.innerHTML=''; return; }
-      const p=selProp;
-      const tt = document.querySelector('input[name="regTipo"][value="'+tipoDeProp(p)+'"]');
-      if(tt) tt.checked = true;
-      document.getElementById('regMoneda').value = p.currency || 'USD';
-      if(isAdmin) llenarAgentes(p.ownerId || curUser.uid);
-      const m2 = p.builtArea || p.totalArea || 0;
-      info.innerHTML = '<div class="reg-info"><b>'+esc(p.title||'Propiedad')+'</b><br>'
-        + (m2?m2+' m² · ':'') + esc(p.realEstateType||'') + ' · ' + (p.bedrooms||0) + ' dorm · ' + (p.bathrooms||0) + ' baños<br>'
-        + 'Precio publicado: ' + fmtMoney(p.price, p.currency) + '</div>';
-      const ub = p.ubicacion || {};
-      const lat = (ub.lat!=null ? ub.lat : p.lat), lng = (ub.lng!=null ? ub.lng : p.lng);
-      if(lat!=null && lng!=null){ setRegPin(lat,lng); }
-      else { geocodearPropiedad(p); }
+      const id = $('regProp').value, p = id ? porId[id] : null;
+      if (!p){
+        regToken++;
+        selProp = null; $('regInfo').innerHTML = ''; $('regAviso').innerHTML = ''; mostrarOp(false);
+        if (regPrefill || regOp === 'nueva'){ regPrefill = false; regModo = 'nuevo'; limpiarOperacion(); tituloModo(); }
+        regOp = null;
+        pintarPublicado(); recalcGanancia(); return;
+      }
+      seleccionarPropiedad(p);
+    }
+    // Datos para un cierre NUEVO de esta propiedad (tipo y moneda de la propiedad,
+    // comisión por defecto, agente = dueño, pin de la propiedad).
+    function prepararNuevo(p, limpiar){
+      regModo = 'nuevo'; regPrefill = false;
+      if (limpiar) limpiarOperacion();
+      const t = tipoDeProp(p);
+      if (t !== tipoSel() || limpiar){ setTipo(t); ajustarPartesLabels(true); }
+      $('regMoneda').value = p.currency || 'USD';
+      if (!$('regMoneda').value) $('regMoneda').value = 'USD';
+      tituloModo();
+      if (isAdmin) llenarAgentes(p.ownerId || curUser.uid, false, p.ownerName);
+      pinDePropiedad(p);
+    }
+    async function seleccionarPropiedad(p){
+      const tk = ++regToken;
+      const venia = regPrefill || regOp === 'nueva';
+      selProp = p; pinManual = false;
+      pintarInfo(p);
+      $('regDir').value = direccionDe(p);
+      if (p.cierre && !bloqueoPara(p)){
+        regOp = 'corregir';
+        mostrarOp(true);
+        if (!(await prefillDesdeCierre(p, tk))) return;
+        avisos(); pintarPublicado(); recalcGanancia();
+        return;
+      }
+      regOp = null; mostrarOp(false);
+      prepararNuevo(p, venia);
+      avisos(); pintarPublicado(); recalcGanancia();
+    }
+    async function onOpChange(){
+      const v = (document.querySelector('input[name="regOp"]:checked') || {}).value, p = selProp;
+      regOp = v === 'nueva' ? 'nueva' : 'corregir';
+      pintarOp();
+      if (!p) return;
+      const tk = ++regToken;
+      pinManual = false;
+      if (regOp === 'nueva') prepararNuevo(p, true);
+      else if (!(await prefillDesdeCierre(p, tk))) return;
+      avisos(); pintarPublicado(); recalcGanancia();
+    }
+    // Carga en el formulario el cierre guardado. Devuelve false si en el medio
+    // se cerró el formulario o se eligió otra cosa (no hay que seguir).
+    async function prefillDesdeCierre(p, tk){
+      const c = p.cierre;
+      regModo = 'editar'; regPrefill = true;
+      setTipo(c.tipo === 'alquiler' ? 'alquiler' : 'venta');
+      ajustarPartesLabels(false);
+      // Cierres viejos sin las partes cargadas: se dejan vacías (el cálculo usa los
+      // valores por defecto, como siempre) para no cambiarles los números al corregir otra cosa.
+      $('regPctComprador').value = c.comisionComprador != null ? c.comisionComprador : '';
+      $('regPctVendedor').value = c.comisionVendedor != null ? c.comisionVendedor : '';
+      $('regPrecio').value = c.precio != null ? c.precio : '';
+      $('regMoneda').value = c.moneda === 'UYU' ? 'UYU' : 'USD';
+      $('regFecha').value = /^\d{4}-\d{2}-\d{2}$/.test(c.fecha || '') ? c.fecha : hoyISO();
+      $('regGanancia').value = tieneGan(c) ? c.gananciaAgente : '';
+      ganManual = $('regGanancia').value !== ''; ganGuardada = ganManual;
+      setPuntaje('regCons', c.construccion); setPuntaje('regUbi', c.ubicacionScore);
+      if (isAdmin) llenarAgentes(c.agenteUid || p.ownerId || curUser.uid, false, c.agenteNombre || p.ownerName);
+      $('regParticipantes').innerHTML = ''; $('regEquipoRes').textContent = '';
+      for (const x of (Array.isArray(c.participantes) ? c.participantes : [])){
+        if (!x || !x.uid) continue;
+        await agregarParticipante(x.uid, x.monto, x.nombre, tk);
+        if (tk !== regToken) return false;
+      }
+      if (c.lat != null && c.lng != null) setRegPin(Number(c.lat), Number(c.lng)); else pinDePropiedad(p);
+      tituloModo();
+      return true;
     }
 
     async function guardarCierre(){
-      if(!selProp){ toast('Elegí una propiedad', true); return; }
-      const tipo = (document.querySelector('input[name="regTipo"]:checked')||{}).value || tipoDeProp(selProp);
-      const precio = parseFloat(document.getElementById('regPrecio').value);
-      if(!precio || precio<=0){ toast('Poné el precio de cierre', true); return; }
-      const gan = parseFloat(document.getElementById('regGanancia').value);
-      if(isNaN(gan) || gan < 0){ toast('Poné la ganancia del agente: lo que le quedó del cierre (se calcula en Mis ganancias)', true); return; }
+      if (!selProp){ toast('Elegí una propiedad', true); $('regProp').focus(); return; }
+      const bloq = bloqueoPara(selProp);
+      if (bloq){ toast(bloq === 'confirmado' ? 'Este cierre ya está confirmado: si hay que corregir algo, pedíselo al admin.' : 'Este cierre es de otro agente: solo esa persona o el admin lo pueden corregir.', true); return; }
+      const tipo = tipoSel() || tipoDeProp(selProp);
+      const precio = parseFloat($('regPrecio').value);
+      if (!precio || precio <= 0){ toast('Poné el precio de cierre', true); $('regPrecio').focus(); return; }
+      const gan = parseFloat($('regGanancia').value);
+      if (isNaN(gan) || gan < 0){ toast('Poné la ganancia del agente: lo que le quedó del cierre (se calcula en Mis ganancias)', true); $('regGanancia').focus(); return; }
       // A nombre de quién queda el cierre: el admin puede registrarlo por un agente.
       // Los puntos de Recompensas van al agente elegido, no a quien carga el cierre.
       let cierreAgUid = curUser.uid, cierreAgNom = curProfile.name || curUser.email || 'Agente';
-      if(isAdmin){
-        const selAg = document.getElementById('regAgente');
-        if(selAg && agentesList.length && !selAg.value){ toast('Elegí el agente del cierre', true); return; }
-        if(selAg && selAg.value){
+      if (isAdmin){
+        const selAg = $('regAgente');
+        if (selAg && !$('regAgenteWrap').hidden && !selAg.value){ toast('Elegí el agente del cierre', true); selAg.focus(); return; }
+        if (selAg && selAg.value){
           cierreAgUid = selAg.value;
-          const ag = agentesList.find(a=>a.uid===selAg.value);
-          if(ag) cierreAgNom = ag.name;
+          cierreAgNom = nombreSel() || cierreAgNom;
         }
       }
-      if(!regLatLng){ toast('Marcá la ubicación en el mapa', true); return; }
-      const moneda = document.getElementById('regMoneda').value || 'USD';
-      const fecha = document.getElementById('regFecha').value || new Date().toISOString().slice(0,10);
-      const cons = parseInt(document.getElementById('regCons').value) || null;
-      const ubi = parseInt(document.getElementById('regUbi').value) || null;
+      const equipo = leerParticipantes(cierreAgUid);
+      if (equipo.error){ toast(equipo.error, true); return; }
+      if (!regLatLng){ toast('Marcá la ubicación en el mapa', true); $('regMapa').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+      const moneda = $('regMoneda').value || 'USD';
+      const fecha = $('regFecha').value || hoyISO();
+      const cons = parseInt($('regCons').value) || null;
+      const ubi = parseInt($('regUbi').value) || null;
       const p = selProp;
-      const cierre = {
+      const previo = (p.cierre && typeof p.cierre === 'object') ? p.cierre : null;
+      const correccion = esCorreccion();
+      // Al corregir se conservan las características del momento del cierre.
+      const foto = (k, actual) => (correccion && previo[k] != null && previo[k] !== '') ? previo[k] : actual;
+      const pc = parseFloat($('regPctComprador').value), pv = parseFloat($('regPctVendedor').value);
+      const ahora = new Date().toISOString();
+      let cierre = {
         tipo, precio, moneda, fecha,
         construccion: cons, ubicacionScore: ubi,
         lat: regLatLng.lat, lng: regLatLng.lng,
-        m2: p.builtArea || p.totalArea || 0, dormitorios: p.bedrooms || 0, banos: p.bathrooms || 0,
-        realEstateType: p.realEstateType || '', barrio: (p.ubicacion && p.ubicacion.barrio) || p.barrio || '',
-        precioPublicado: p.price || 0,
+        m2: foto('m2', p.builtArea || p.totalArea || 0), dormitorios: foto('dormitorios', p.bedrooms || 0), banos: foto('banos', p.bathrooms || 0),
+        realEstateType: foto('realEstateType', p.realEstateType || ''), barrio: foto('barrio', (p.ubicacion && p.ubicacion.barrio) || p.barrio || ''),
+        precioPublicado: foto('precioPublicado', p.price || 0),
         gananciaAgente: gan,
-        comisionComprador: (function(){ const v=parseFloat(document.getElementById('regPctComprador').value); return isNaN(v)?null:v; })(),
-        comisionVendedor: (function(){ const v=parseFloat(document.getElementById('regPctVendedor').value); return isNaN(v)?null:v; })(),
-        ambasPartes: (function(){ const c=parseFloat(document.getElementById('regPctComprador').value)||0, v=parseFloat(document.getElementById('regPctVendedor').value)||0; return c>0 && v>0; })(),
+        comisionComprador: isNaN(pc) ? null : pc,
+        comisionVendedor: isNaN(pv) ? null : pv,
+        ambasPartes: (pc || 0) > 0 && (pv || 0) > 0,
         agenteUid: cierreAgUid, agenteNombre: cierreAgNom,
-        participantes: leerParticipantes(),
-        registradoEl: new Date().toISOString()
+        participantes: equipo.lista,
+        registradoEl: (correccion && previo.registradoEl) || ahora
       };
-      const btn=document.getElementById('regSave'); btn.disabled=true;
+      // Comisión total de la inmobiliaria en este cierre, con los nombres que ya
+      // leen Rentabilidad y Comisiones. Solo si se cargó al menos una parte.
+      if (!isNaN(pc) || !isNaN(pv)){
+        const totPartes = Math.round(partesTotal(tipo) * 100) / 100;
+        if (tipo === 'venta') cierre.agencyPct = totPartes; else cierre.agencyMonths = totPartes;
+      }
+      if (correccion) cierre.editadoEl = ahora;
+      const upd = { cierre: cierre, updatedAt: ahora };
+      // El estado de la propiedad (que baja o sube los avisos en los portales) solo
+      // se toca en una operación nueva, o si la propiedad ya figura vendida/alquilada.
+      if (!correccion || p.status === 'sold' || p.status === 'rented') upd.status = (tipo === 'venta' ? 'sold' : 'rented');
+      // Operación nueva sobre un cierre confirmado: la nueva arranca pendiente.
+      if (isAdmin && previo && !correccion && p.cierreConfirmado === true) upd.cierreConfirmado = false;
+      upd['ubicacion.lat'] = regLatLng.lat;
+      upd['ubicacion.lng'] = regLatLng.lng;
+      const btn = $('regSave'); ocupado(btn, true);
       try{
-        const upd = { cierre: cierre, status: (tipo==='venta' ? 'sold' : 'rented'), updatedAt: new Date().toISOString() };
-        upd['ubicacion.lat'] = regLatLng.lat;
-        upd['ubicacion.lng'] = regLatLng.lng;
-        await db.collection('properties').doc(p.id).update(upd);
-        p.cierre = cierre; p.status = upd.status;
-        if(!p.ubicacion) p.ubicacion = {};
+        const ref = db.collection('properties').doc(p.id);
+        try{ await ref.update(upd); }
+        catch(e1){
+          // Red de seguridad: si las reglas de Firestore no aceptaran los campos
+          // nuevos (agencyPct / agencyMonths / editadoEl), se guarda exactamente
+          // como lo hacía la versión anterior en vez de fallar.
+          if (!(e1 && e1.code === 'permission-denied')) throw e1;
+          const comoAntes = Object.assign({}, cierre);
+          delete comoAntes.agencyPct; delete comoAntes.agencyMonths; delete comoAntes.editadoEl;
+          upd.cierre = comoAntes;
+          await ref.update(upd);
+          cierre = comoAntes;
+          console.warn('[mapa] Firestore no aceptó agencyPct/editadoEl: se guardó el cierre sin esos campos.');
+        }
+        p.cierre = cierre;
+        if (upd.status) p.status = upd.status;
+        if (upd.cierreConfirmado === false) p.cierreConfirmado = false;
+        if (!p.ubicacion) p.ubicacion = {};
         p.ubicacion.lat = regLatLng.lat; p.ubicacion.lng = regLatLng.lng;
-        coleccionar(); refrescar();
-        toast('Cierre registrado ✓');
-        closeReg();
+        if (cierres.indexOf(p) < 0) cierres.push(p);
+        regSucio = false;
+        regToken++;
+        ocupado(btn, false);
+        cerrarOverlay('regModal');
+        if (!pasaFiltros(p)) limpiarFiltros(true);   // que se vea lo que se acaba de guardar
+        pintarFiltros();
+        selId = p.id;
+        refrescar(false);
+        enfocarCierre(p.id);
+        toast(correccion ? 'Cierre actualizado ✓' : 'Cierre registrado ✓');
       }catch(e){
         console.warn('guardarCierre', e);
-        toast(e && e.code==='permission-denied' ? 'No tenés permiso para editar esta propiedad.' : ('No se pudo guardar: ' + (e.message||e)), true);
-      }finally{ btn.disabled=false; }
-    }
-
-    async function cargar(){
-      try{
-        const q = await db.collection('properties').get();
-        allProps = q.docs.map(d=>({ id:d.id, ...d.data() }));
-        editableProps = allProps.filter(p => isAdmin || p.ownerId===curUser.uid || (Array.isArray(p.agents) && p.agents.indexOf(curUser.uid)>=0));
-        // El admin puede registrar cierres a nombre de cualquier agente aprobado.
-        if(isAdmin && !agentesList.length){
-          try{
-            const us = await db.collection('users').where('status','==','approved').get();
-            agentesList = us.docs.map(d=>{
-              const u = d.data();
-              const fb = (u.commissionPct!=null && u.commissionPct!=='') ? Number(u.commissionPct) : 0;
-              return { uid:d.id, name:(u.name || u.email || 'Agente'),
-                sale:(u.commissionSale!=null && u.commissionSale!=='') ? Number(u.commissionSale) : fb,
-                rent:(u.commissionRent!=null && u.commissionRent!=='') ? Number(u.commissionRent) : fb };
-            }).sort((a,b)=>a.name.localeCompare(b.name));
-          }catch(e){ agentesList = []; }
-          try{
-            const rf = await db.collection('referidos').get();
-            referidosMap = {}; rf.docs.forEach(d=>{ referidosMap[d.id] = d.data(); });
-          }catch(e){ referidosMap = {}; }
-        }
-        coleccionar();
-        show('content');
-        document.getElementById('btnReg').style.display = '';
-        if(isAdmin) document.getElementById('btnRef').style.display = '';
-        initMap();
-        llenarPicker();
-        refrescar();
-      }catch(e){
-        show('content');
-        document.getElementById('lista').innerHTML = '<div class="empty" style="color:#c0392b">No se pudieron cargar las propiedades. '+esc(e.message||e)+'</div>';
+        ocupado(btn, false);
+        toast(e && e.code === 'permission-denied' ? 'No tenés permiso para editar esta propiedad.' : ('No se pudo guardar: ' + (e.message || e)), true);
       }
     }
 
-    auth.onAuthStateChanged(async u=>{
-      if(!u){ show('authState'); document.getElementById('authMsg').textContent='Tenés que iniciar sesión.'; return; }
-      curUser=u;
-      try{ const d=await db.collection('users').doc(u.uid).get(); curProfile=d.exists?d.data():{}; }catch(e){ curProfile={}; }
+    // ---------- Sesión ----------
+    auth.onAuthStateChanged(async u => {
+      if (!u){ show('authState'); $('authTit').textContent = 'Acceso para agentes'; $('authMsg').textContent = 'Tenés que iniciar sesión.'; return; }
+      curUser = u;
+      try{ const d = await db.collection('users').doc(u.uid).get(); curProfile = d.exists ? d.data() : {}; }catch(e){ curProfile = {}; }
       isAdmin = (curProfile.email || u.email || '').toLowerCase() === ADMIN_EMAIL;
-      if(curProfile.status!=='approved' && !isAdmin){ show('authState'); document.getElementById('authMsg').textContent='Tu cuenta está pendiente de aprobación.'; return; }
-      cargar();
+      // Como antes: nada de cierres para una cuenta que todavía no está aprobada.
+      if (curProfile.status !== 'approved' && !isAdmin){ show('authState'); $('authTit').textContent = 'Cuenta pendiente'; $('authMsg').textContent = 'Tu cuenta está pendiente de aprobación.'; return; }
+      cargar(leerCierres());
     });
   </script>
 <script src="fcm-init.js"></script>
