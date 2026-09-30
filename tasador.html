@@ -52,6 +52,21 @@
     .tas-ant-aviso{ margin:2px 0 12px; border:1px solid #fcd34d; background:#fffbeb; color:#78350f; border-radius:10px; padding:10px 12px; font-size:.82rem; line-height:1.45; display:flex; gap:10px; align-items:flex-start; }
     .tas-ant-aviso[hidden]{ display:none; }
     .tas-ant-aviso > i{ color:#d97706; margin-top:3px; flex:none; }
+    /* Asistente de calificaciones */
+    .tas-asist{margin:2px 0 12px; border:1px solid #d9d2f5; background:#f7f5ff; color:#3b2f73; border-radius:10px; padding:11px 13px; font-size:.82rem; line-height:1.45; display:flex; gap:10px; align-items:flex-start; }
+    .tas-asist[hidden]{ display:none; }
+    .tas-asist > i{ color:#6d5bd0; margin-top:3px; flex:none; }
+    .tas-asist > div{ flex:1; min-width:0; }
+    .tas-asist .asist-btn{ margin-top:8px; border:none; background:#4c3fa3; color:#fff; border-radius:8px; padding:7px 12px; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; display:inline-flex; gap:7px; align-items:center; }
+    .tas-asist .asist-btn:disabled{ opacity:.6; cursor:default; }
+    .asist-ops{ display:flex; flex-direction:column; gap:7px; margin-top:9px; }
+    .asist-op{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#fff; border:1px solid #e3def8; border-radius:9px; padding:8px 10px; }
+    .asist-op-txt{ flex:1; min-width:180px; }
+    .asist-op-txt b{ color:#2a2160; }
+    .asist-op-res{ font-size:.78rem; color:#6b6490; }
+    .asist-op-txt .nw{ white-space:nowrap; }
+    .asist-op button{ border:1px solid #4c3fa3; background:#fff; color:#4c3fa3; border-radius:8px; padding:6px 12px; font-family:inherit; font-size:.78rem; font-weight:700; cursor:pointer; }
+    .asist-op button:hover{ background:#4c3fa3; color:#fff; }
     .tas-ant-aviso button{ margin-top:8px; border:none; background:var(--primary,#16273f); color:#fff; border-radius:8px; padding:7px 12px; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; display:inline-flex; gap:7px; align-items:center; }
     .tas-ant-row input, .tas-ant-row select{ width:100%; padding:9px; border:1px solid var(--gray-200,#e3e6ea); border-radius:8px; font-family:inherit; font-size:.88rem; background:#fff; }
     .tas-ant-row input:focus, .tas-ant-row select:focus{ outline:none; border-color:#C9A227; }
@@ -209,14 +224,14 @@
         <h3 class="tas-h3"><span class="tas-step">1</span> Inmueble a tasar</h3>
         <div class="tas-fields">
           <div class="tas-f"><label>m&sup2; construidos</label><input type="number" id="tasM2" placeholder="99" oninput="calcTasador()"></div>
-          <div class="tas-f"><label>Construcción (1-5)</label><input type="number" id="tasCons" min="1" max="5" placeholder="3" oninput="calcTasador()"></div>
-          <div class="tas-f"><label>Ubicación (1-5)</label><input type="number" id="tasUbi" min="1" max="5" placeholder="3" oninput="calcTasador()"></div>
+          <div class="tas-f"><label id="tasConsLbl">Construcción (1-3)</label><input type="number" id="tasCons" min="1" max="3" placeholder="3" oninput="calcTasador()"></div>
+          <div class="tas-f"><label id="tasUbiLbl">Ubicación (1-3)</label><input type="number" id="tasUbi" min="1" max="3" placeholder="3" oninput="calcTasador()"></div>
         </div>
         <div class="tas-fields two">
           <div class="tas-f"><label>Dormitorios <small>(opcional)</small></label><input type="number" id="tasDorm" min="0" placeholder="2" oninput="calcTasador()"></div>
           <div class="tas-f"><label>Baños <small>(opcional)</small></label><input type="number" id="tasBath" min="0" placeholder="2" oninput="calcTasador()"></div>
         </div>
-        <p class="tas-hint">Asigná a la construcción y a la ubicación un valor del 1 (peor) al 5 (mejor). Si recién empezás, usá del 1 al 3 y reservá los valores altos para diferencias muy notorias. Dormitorios y baños son a título informativo: quedan en el PDF pero no alteran el cálculo.</p>
+        <p class="tas-hint"><span id="tasHintEscala">Asigná a la construcción y a la ubicación un valor del 1 (peor) al 3 (mejor). El 4 y el 5 quedan para la Dirección, en diferencias muy notorias.</span> Dormitorios y baños son a título informativo: quedan en el PDF pero no alteran el cálculo.</p>
       </div>
 
       <div class="tas-card">
@@ -231,6 +246,7 @@
         <div class="tas-ant-head"><span>m&sup2;</span><span>Const.</span><span>Ubic.</span><span id="tasHeadValor">Precio (USD)</span><span>Tipo</span><span>Asimilador de oferta <i class="fas fa-circle-info tas-ig" title="Para inmuebles en oferta: factor por el que se multiplica el valor publicado (0,85 = se asume venta 15% por debajo). Solo editable cuando el tipo es Oferta."></i></span></div>
         <div id="tasAntList"></div>
         <div class="tas-ant-aviso" id="tasAntAviso" hidden></div>
+        <div class="tas-asist" id="tasAsist" hidden></div>
         <div class="tas-defrow">
           <label>Asimilador por defecto</label><input type="number" id="tasDefAsim" min="0.5" max="1" step="0.01" value="0.85" oninput="aplicarDefAsim()">
           <button class="tas-reset" onclick="cargarEjemplo()"><i class="fas fa-flask"></i> Cargar ejemplo</button>
@@ -304,7 +320,7 @@
       <div class="tas-card">
         <h3 class="tas-mini-h"><i class="fas fa-file-lines"></i> Notas del cálculo</h3>
         <div class="tas-notes"><ul>
-          <li id="tasNotaUnidad">Los antecedentes se comparan en USD por m&sup2;. El valor de la propiedad es el valor por m&sup2; estimado por los m&sup2; construidos.</li>
+          <li id="tasNotaUnidad">Con precios totales, la regresión se hace sobre los precios y da directamente el valor de la propiedad (como la planilla).</li>
           <li>El asimilador de oferta es editable y se aplica solo a comparables en oferta.</li>
           <li>El rango está calculado al 90% de confianza.</li>
           <li>Revisá los antecedentes y ajustá los factores para mejorar la estimación.</li>
@@ -376,11 +392,11 @@
       { m2: '', cons: '', ubi: '', valor: '', tipo: 'oferta', asim: DEF_ASIM },
       { m2: '', cons: '', ubi: '', valor: '', tipo: 'oferta', asim: DEF_ASIM }
     ];
-    // Cómo se carga el valor de los antecedentes. Lo natural es el PRECIO de la
-    // publicación (es lo que el agente tiene a mano); el método compara por m², así
-    // que el sistema lo divide solo por los m² de cada antecedente. También se puede
-    // cargar directo en USD por m², como en la planilla original. El resultado es
-    // exactamente el mismo de las dos formas.
+    // Cómo se carga el valor de los antecedentes: el PRECIO de la publicación (lo
+    // que el agente tiene a mano) o el valor en USD por m². Se calcula como la
+    // planilla, con lo que se cargó: con precios, la regresión va sobre los precios
+    // y da el valor de la propiedad; con USD por m², va sobre el m² y da el valor
+    // del m², que se multiplica por los m² construidos.
     let modoValor = 'total';
     function setModoValor(m) {
       if (m !== 'total' && m !== 'm2') return;
@@ -396,11 +412,28 @@
       var h = document.getElementById('tasHeadValor'); if (h) h.textContent = total ? 'Precio (USD)' : 'USD por m²';
       var t = document.getElementById('tasHintValor');
       if (t) t.innerHTML = total
-        ? 'Cargá el <b>precio total</b> de cada antecedente (el de la publicación o el de venta): el sistema lo divide por sus m² para compararlos.'
-        : 'Cargá el valor de cada antecedente en <b>USD por m²</b> (precio ÷ m²).';
+        ? 'Cargá el <b>precio total</b> de cada antecedente (el de la publicación o el de venta). Se calcula con los precios, igual que la planilla; debajo de cada uno ves su valor por m².'
+        : 'Cargá el valor de cada antecedente en <b>USD por m²</b> (precio ÷ m²). Se calcula el valor del m² y se multiplica por los m² del inmueble.';
       var n = document.getElementById('tasNotaUnidad');
-      if (n) n.innerHTML = (total ? 'Los antecedentes se cargan con su precio total y se comparan en USD por m&sup2; (precio ÷ m&sup2;). ' : 'Los antecedentes se cargan en USD por m&sup2;. ') +
-        'El valor de la propiedad es el valor por m&sup2; estimado por los m&sup2; construidos.';
+      if (n) n.innerHTML = total
+        ? 'Con precios totales, la regresión se hace sobre los precios y da directamente el valor de la propiedad (como la planilla).'
+        : 'Con valores por m&sup2;, la regresión da el valor del m&sup2;, que multiplicado por los m&sup2; construidos da el valor de la propiedad.';
+    }
+
+    // Construcción y ubicación: del 1 al 3 para los agentes. El 4 y el 5 quedan
+    // para la Dirección, que los pone a mano en las diferencias muy notorias.
+    function califMax() { return esDireccionTas ? 5 : 3; }
+    function pintarEscala() {
+      var mx = califMax();
+      [['tasCons', 'tasConsLbl', 'Construcción'], ['tasUbi', 'tasUbiLbl', 'Ubicación']].forEach(function(x){
+        var i = document.getElementById(x[0]), l = document.getElementById(x[1]);
+        if (i) i.max = mx;
+        if (l) l.textContent = x[2] + ' (1-' + mx + ')';
+      });
+      var h = document.getElementById('tasHintEscala');
+      if (h) h.textContent = esDireccionTas
+        ? 'Asigná a la construcción y a la ubicación un valor del 1 (peor) al 3 (mejor). Como Dirección podés usar 4 y 5 para diferencias muy notorias (los agentes llegan hasta 3).'
+        : 'Asigná a la construcción y a la ubicación un valor del 1 (peor) al 3 (mejor). El 4 y el 5 quedan para la Dirección, en diferencias muy notorias.';
     }
 
     function renderTasAntecedentes() {
@@ -412,8 +445,8 @@
         }
         return '<div class="tas-ant-row" data-n="Antecedente ' + (i + 1) + '">' +
           campo('m²', 'placeholder="m²"', 'm2') +
-          campo('Construcción (1-5)', 'min="1" max="5" placeholder="1-5"', 'cons') +
-          campo('Ubicación (1-5)', 'min="1" max="5" placeholder="1-5"', 'ubi') +
+          campo('Construcción (1-' + califMax() + ')', 'min="1" max="' + califMax() + '" placeholder="1-' + califMax() + '"', 'cons') +
+          campo('Ubicación (1-' + califMax() + ')', 'min="1" max="' + califMax() + '" placeholder="1-' + califMax() + '"', 'ubi') +
           (function(){
             // Campo de texto y no de número: así el precio se puede escribir como
             // se escribe acá (210.700) sin que el navegador lo lea como 210,7.
@@ -453,14 +486,15 @@
       renderTasAntecedentes(); calcTasador();
     }
     function cargarEjemplo() {
-      // Datos exactos de la planilla de referencia (resultado esperado ~1913 USD/m2),
-      // cargados como precio total: 2.100 USD/m² × 113 m² = USD 237.300, etc.
-      modoValor = 'total'; pintarModo();
+      // Datos exactos de la planilla de referencia, que viene cargada en USD por m²
+      // (resultado: USD 1.913 el m²). Se cargan igual, así da lo mismo que la planilla.
+      modoValor = 'm2'; pintarModo();
+      ajustesAsistente = [];
       tasAntecedentes = [
-        { m2: 113, cons: 2, ubi: 2, valor: 237300, tipo: 'oferta', asim: 0.85 },
-        { m2: 99, cons: 2, ubi: 3, valor: 217800, tipo: 'oferta', asim: 0.85 },
-        { m2: 123, cons: 3, ubi: 3, valor: 307500, tipo: 'oferta', asim: 0.85 },
-        { m2: 98, cons: 3, ubi: 2, valor: 196000, tipo: 'oferta', asim: 0.85 }
+        { m2: 113, cons: 2, ubi: 2, valor: 2100, tipo: 'oferta', asim: 0.85 },
+        { m2: 99, cons: 2, ubi: 3, valor: 2200, tipo: 'oferta', asim: 0.85 },
+        { m2: 123, cons: 3, ubi: 3, valor: 2500, tipo: 'oferta', asim: 0.85 },
+        { m2: 98, cons: 3, ubi: 2, valor: 2000, tipo: 'oferta', asim: 0.85 }
       ];
       document.getElementById('tasM2').value = 99;
       document.getElementById('tasCons').value = 3;
@@ -480,6 +514,7 @@
       ['tasM2','tasCons','tasUbi','tasDorm','tasBath'].forEach(function(id){ document.getElementById(id).value = ''; });
       document.getElementById('tasDefAsim').value = DEF_ASIM;
       modoValor = 'total'; pintarModo();
+      ajustesAsistente = [];
       try { localStorage.removeItem(LS_KEY); } catch (e) {}
       REPORT_FIELDS.forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
       renderTasAntecedentes(); calcTasador();
@@ -497,6 +532,7 @@
           bath: document.getElementById('tasBath').value,
           defAsim: document.getElementById('tasDefAsim').value,
           modo: modoValor,
+          asist: ajustesAsistente,
           ant: tasAntecedentes,
           rep: rep
         }));
@@ -521,6 +557,7 @@
           var vals = tasAntecedentes.map(function(a){ return parsearMonto(a.valor); }).filter(function(v){ return v !== null; });
           modoValor = (!vals.length || vals.some(function(v){ return v > VALOR_M2_MAX; })) ? 'total' : 'm2';
         }
+        ajustesAsistente = Array.isArray(d.asist) ? d.asist : [];
         if (d.rep) REPORT_FIELDS.forEach(id => { const el = document.getElementById(id); if (el && d.rep[id]) el.value = d.rep[id]; });
       } catch (e) {}
     }
@@ -542,6 +579,9 @@
     function fmt(n) { return 'USD ' + Math.round(n).toLocaleString('es-UY'); }
     // Porcentaje con coma decimal, como se escribe en Uruguay (4,4%).
     function fmtPct(n) { return Number(n).toLocaleString('es-UY', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'; }
+    // La incertidumbre con dos decimales, como la muestra la planilla (5,47%): el
+    // límite es 5,10% y con uno solo no se veía si se pasaba o no.
+    function fmtIncert(n) { return Number(n).toLocaleString('es-UY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%'; }
     // Número corto para las etiquetas de la gráfica.
     function fmtCorto(v) {
       return v >= 1e6
@@ -633,6 +673,52 @@
       return 'MAL-' + d.getFullYear() + '-' + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
     }
 
+    // El método de la planilla, sin tocar la pantalla: lo usan el cálculo y el
+    // asistente que busca calificaciones. Devuelve { error } o el resultado.
+    function tasarModelo(ants, bM2, bCons, bUbi) {
+      var A = ants.map(function(a){ return [1, a.m2, a.cons, a.ubi]; });
+      var Y = ants.map(function(a){ return a.valor * a.asim; });
+      var inv = tasInvert(A);
+      if (!inv) return { error: 'singular' };
+      var K = inv.map(function(row){ return row.reduce(function(s, v, j){ return s + v * Y[j]; }, 0); });
+      // K0 (la primera) puede ser negativa sin problema. Pero si K1, K2 o K3 son
+      // negativas, hay una incongruencia: algún antecedente contradice a los demás
+      // (ej: más m² o mejor ubicación pero menor valor).
+      var kNeg = [];
+      for (var ki = 1; ki <= 3; ki++){ if (K[ki] < 0) kNeg.push(ki); }
+      // Valor por proyección directa (referencia)
+      var proj = K[0] + K[1]*bM2 + K[2]*bCons + K[3]*bUbi;
+      if (!isFinite(proj) || proj <= 0) return { error: 'invalido' };
+      // ===== Método del Excel: ajustar cada comparable hacia el inmueble a tasar =====
+      // Para cada antecedente i: ci = (1 + K1*(m2_t - m2_i)/Vi) * (1 + K2*(cons_t - cons_i)/Vi) * (1 + K3*(ubi_t - ubi_i)/Vi)
+      // bi = Vi_asimilado * ci ;  valor = promedio(bi) ;  s = desviación muestral(bi)
+      var K1 = K[1], K2 = K[2], K3 = K[3];
+      var bs = ants.map(function(a){
+        var vi = a.valor * a.asim;
+        var cM2  = 1 + K1 * (bM2  - a.m2)   / vi;
+        var cCon = 1 + K2 * (bCons - a.cons) / vi;
+        var cUbi = 1 + K3 * (bUbi - a.ubi)  / vi;
+        return vi * cM2 * cCon * cUbi;
+      });
+      // El valor sale en la unidad de lo cargado: precio de la propiedad o USD por m².
+      var valor = bs.reduce(function(s,v){ return s+v; }, 0) / bs.length;
+      if (!isFinite(valor) || valor <= 0) return { error: 'invalido' };
+      var varB = bs.reduce(function(s,v){ return s + Math.pow(v - valor, 2); }, 0) / (bs.length - 1);
+      var sDev = Math.sqrt(Math.max(varB, 0));
+      return {
+        K: K, kNeg: kNeg, proj: proj, bs: bs, valor: valor, sDev: sDev,
+        incert: 0.01 + 0.03 + (sDev * 1.177) / valor,
+        // Dispersión: qué tan separados están los comparables ajustados (en %)
+        dispPct: (sDev / valor) * 100
+      };
+    }
+
+    // Lo que entra a la regresión, como en la planilla: el precio (si se cargaron
+    // precios) o el valor por m² (si se cargó por m²).
+    function entradaModelo(ants, total) {
+      return ants.map(function(a){ return { m2: a.m2, cons: a.cons, ubi: a.ubi, valor: total ? a.cargado : a.valor, asim: a.asim }; });
+    }
+
     function calcTasador() {
       guardarLocal();
       function num(v) { var n = parseFloat(v); return isNaN(n) ? null : n; }
@@ -647,6 +733,7 @@
         el.style.fontWeight = warn ? '600' : '';
       }
       function clearOut() {
+        pintarAsistente(null);
         ['tasResValue','tasResRange','tasResUnc'].forEach(function(id){ document.getElementById(id).innerHTML = '&mdash;'; });
         document.getElementById('tasResUncSub').textContent = '';
         document.getElementById('tasResM2').textContent = '';
@@ -673,12 +760,12 @@
       }
       if (bM2 === null || bCons === null || bUbi === null) { clearOut(); setMsg('Completá los datos del inmueble a tasar.'); return; }
       // ===== Datos fuera de rango: mejor frenar que mandar un informe absurdo =====
-      function fueraDeEscala(v) { return v < 1 || v > 5; }
+      function fueraDeEscala(v) { return v < 1 || v > califMax(); }
       if (bM2 <= 0 || ants.some(function(a){ return a.m2 <= 0; })) {
         clearOut(); setMsg('Los m² tienen que ser mayores que cero.', true); return;
       }
       if (fueraDeEscala(bCons) || fueraDeEscala(bUbi) || ants.some(function(a){ return fueraDeEscala(a.cons) || fueraDeEscala(a.ubi); })) {
-        clearOut(); setMsg('Construcción y ubicación se califican del 1 al 5.', true); return;
+        clearOut(); setMsg(esDireccionTas ? 'Construcción y ubicación se califican del 1 al 5.' : 'Construcción y ubicación se califican del 1 al 3 (el 4 y el 5 los usa solo la Dirección).', true); return;
       }
       if (ants.some(function(a){ return a.valor <= 0; })) {
         clearOut(); setMsg('El valor de cada antecedente tiene que ser mayor que cero.', true); return;
@@ -732,49 +819,39 @@
         setMsg('Revisá el antecedente ' + imposibles.join(', ') + ': el valor por m² que resulta no es posible.', true);
         return;
       }
-      var A = ants.map(function(a){ return [1, a.m2, a.cons, a.ubi]; });
-      var Y = ants.map(function(a){ return a.valor * a.asim; });
-      var inv = tasInvert(A);
-      if (!inv) { clearOut(); setMsg('Los antecedentes son incongruentes (matriz singular): tienen que ser distintos entre sí. Cambiá m², construcción o ubicación para que no se repitan combinaciones idénticas.', true); return; }
-      var K = inv.map(function(row){ return row.reduce(function(s, v, j){ return s + v * Y[j]; }, 0); });
+      // Se calcula como la planilla, con lo que se cargó. Antes los precios se
+      // pasaban a m² antes de calcular y el resultado no coincidía con la planilla.
+      var entrada = entradaModelo(ants, total);
+      var mod = tasarModelo(entrada, bM2, bCons, bUbi);
+      var paraAsist = { ants: entrada, enTotal: total, bM2: bM2, bCons: bCons, bUbi: bUbi };
+      if (mod.error === 'singular') { clearOut(); setMsg('Los antecedentes son incongruentes (matriz singular): tienen que ser distintos entre sí. Cambiá m², construcción o ubicación para que no se repitan combinaciones idénticas.', true); return; }
+      if (mod.error) {
+        clearOut(); setMsg('El resultado no es válido con estos datos. Revisá los antecedentes.', true);
+        pintarAsistente(Object.assign(paraAsist, { kNegativas: [], incert: null, invalido: true }));
+        return;
+      }
+      var K = mod.K, bs = mod.bs, incert = mod.incert, dispPct = mod.dispPct;
       // ===== Chequeo de coherencia de antecedentes (regla del Excel) =====
-      // K0 (la primera) puede ser negativa sin problema. Pero si K1, K2 o K3 son
-      // negativas, hay una incongruencia: algún antecedente contradice a los demás
-      // (ej: más m² o mejor ubicación pero menor valor). Se avisa cuál.
       var kNombres = ['', 'm² (K₁)', 'construcción (K₂)', 'ubicación (K₃)'];
-      var kNegativas = [];
-      for (var ki = 1; ki <= 3; ki++){ if (K[ki] < 0) kNegativas.push(kNombres[ki]); }
-      // Valor por proyección directa (referencia)
-      var proj = K[0] + K[1]*bM2 + K[2]*bCons + K[3]*bUbi;
-      if (!isFinite(proj) || proj <= 0) { clearOut(); setMsg('El resultado no es válido con estos datos. Revisá los antecedentes.', true); return; }
-      // ===== Método del Excel: ajustar cada comparable hacia el inmueble a tasar =====
-      // Para cada antecedente i: ci = (1 + K1*(m2_t - m2_i)/Vi) * (1 + K2*(cons_t - cons_i)/Vi) * (1 + K3*(ubi_t - ubi_i)/Vi)
-      // bi = Vi_asimilado * ci ;  valor = promedio(bi) ;  s = desviación muestral(bi)
-      var K1 = K[1], K2 = K[2], K3 = K[3];
-      var bs = ants.map(function(a){
-        var vi = a.valor * a.asim;
-        var cM2  = 1 + K1 * (bM2  - a.m2)   / vi;
-        var cCon = 1 + K2 * (bCons - a.cons) / vi;
-        var cUbi = 1 + K3 * (bUbi - a.ubi)  / vi;
-        return vi * cM2 * cCon * cUbi;
-      });
-      var valorM2 = bs.reduce(function(s,v){ return s+v; }, 0) / bs.length;
-      if (!isFinite(valorM2) || valorM2 <= 0) { clearOut(); setMsg('El resultado no es válido con estos datos. Revisá los antecedentes.', true); return; }
-      var varB = bs.reduce(function(s,v){ return s + Math.pow(v - valorM2, 2); }, 0) / (bs.length - 1);
-      var sDev = Math.sqrt(Math.max(varB, 0));
-      var incert = 0.01 + 0.03 + (sDev * 1.177) / valorM2;
-      // Dispersión: qué tan separados están los comparables ajustados (en %)
-      var dispPct = (sDev / valorM2) * 100;
-      var minM2 = valorM2 * (1 - incert), maxM2 = valorM2 * (1 + incert);
-      // Los antecedentes se cargan por m²: el valor de la propiedad es el valor
-      // del m² por los m² construidos. Antes se mostraba el del m² como si fuera
-      // el de la propiedad ("USD 1.913" para un apartamento de 99 m²).
-      var valorTotal = valorM2 * bM2, minTotal = minM2 * bM2, maxTotal = maxM2 * bM2;
+      var kNegativas = mod.kNeg.map(function(k){ return kNombres[k]; });
+      var valorM2, minM2, maxM2, valorTotal, minTotal, maxTotal;
+      if (total) {
+        // Con precios, el resultado ya es el valor de la propiedad; el del m² es
+        // ese valor dividido por los m² construidos.
+        valorTotal = mod.valor; minTotal = valorTotal * (1 - incert); maxTotal = valorTotal * (1 + incert);
+        valorM2 = valorTotal / bM2; minM2 = minTotal / bM2; maxM2 = maxTotal / bM2;
+      } else {
+        // Con USD por m², el resultado es el valor del m²: la propiedad vale eso
+        // por los m² construidos (antes se mostraba el del m² como si fuera el de
+        // la propiedad: "USD 1.913" para un apartamento de 99 m²).
+        valorM2 = mod.valor; minM2 = valorM2 * (1 - incert); maxM2 = valorM2 * (1 + incert);
+        valorTotal = valorM2 * bM2; minTotal = minM2 * bM2; maxTotal = maxM2 * bM2;
+      }
       document.getElementById('tasResValue').textContent = fmt(valorTotal);
       document.getElementById('tasResM2').textContent = fmt(valorM2) + ' por m² × ' + bM2.toLocaleString('es-UY') + ' m²';
       document.getElementById('tasResRange').textContent = fmt(minTotal) + ' – ' + fmt(maxTotal);
       document.getElementById('tasResRangeM2').textContent = fmt(minM2) + ' – ' + Math.round(maxM2).toLocaleString('es-UY') + ' por m²';
-      document.getElementById('tasResUnc').textContent = '± ' + fmtPct(incert * 100);
+      document.getElementById('tasResUnc').textContent = '± ' + fmtIncert(incert * 100);
       document.getElementById('tasResUncSub').textContent = incert > 0.051 ? 'Nivel alto' : 'Nivel medio';
       document.getElementById('tasModelN').textContent = '4 comparables';
       document.getElementById('tasModelDisp').textContent = fmtPct(dispPct);
@@ -785,18 +862,162 @@
         antecedentes: ants,
         valorM2: valorM2, minM2: minM2, maxM2: maxM2,
         valorTotal: valorTotal, minTotal: minTotal, maxTotal: maxTotal,
-        compsTotales: bs.map(function(b){ return b * bM2; }),
+        enTotal: total,
+        compsTotales: total ? bs.slice() : bs.map(function(b){ return b * bM2; }),
         incert: incert*100, dispPct: dispPct,
-        _bs: bs, _K: K, _kNegativas: kNegativas
+        // _bs: cada comparable ajustado, en la unidad de lo cargado; _factores: cuánto
+        // se ajustó cada uno (el "Ajuste" de la tabla del informe).
+        _bs: bs, _factores: bs.map(function(b, i){ var v = entrada[i].valor * entrada[i].asim; return v ? b / v : 1; }),
+        _K: K, _kNegativas: kNegativas
       };
       drawChart(ultimoResultado);
+      pintarAsistente(Object.assign(paraAsist, { kNegativas: kNegativas, incert: incert }));
       if (kNegativas.length){
         setMsg('⚠ Antecedentes incongruentes: el coeficiente de ' + kNegativas.join(' y ') + ' dio negativo. Esto pasa cuando un antecedente contradice a los demás (por ejemplo, una propiedad con más ' + (kNegativas.length===1?kNegativas[0].split(' ')[0]:'atributos') + ' pero menor valor). Revisá los 4 antecedentes y ajustá el que esté fuera de línea para una tasación confiable.', true);
       } else {
         setMsg(incert > 0.051
-          ? 'La incertidumbre supera el 5,1%: los antecedentes son dispares. Buscá comparables más parecidos entre sí para una estimación más confiable.'
+          ? 'La incertidumbre supera el 5,10%: los antecedentes son dispares. Buscá comparables más parecidos entre sí para una estimación más confiable.'
           : 'Tasación basada en los 4 antecedentes cargados mediante análisis comparativo de mercado.');
       }
+    }
+
+    // ===== Asistente: calificaciones que hacen cerrar la tasación =====
+    // Con 4 antecedentes la cuenta pasa exacta por los 4: lo que decide si "cierra"
+    // (coeficientes positivos e incertidumbre de hasta 5,1%) son las calificaciones
+    // de construcción y ubicación, que son criterio del agente. El asistente prueba
+    // todas las combinaciones del 1 al 3 de los antecedentes (6.561) y propone las
+    // que cierran cambiando lo menos posible lo que cargó el agente. El inmueble a
+    // tasar, los m² y los precios no se tocan: son datos.
+    // No aplica nada solo, a propósito: con el mismo ejemplo de la planilla,
+    // cambiando una o dos calificaciones cierra igual con ± 4 o 5%, pero el valor va
+    // de USD 185.000 a 215.000. Las calificaciones mueven el valor bastante más que lo
+    // que dice la incertidumbre, así que las elige el agente según cómo es cada
+    // propiedad, y lo que cambió queda registrado para la revisión de la Dirección.
+    const INCERT_OK = 0.051;
+    // Si nada baja de 5,1%, se ofrece lo que quede hasta 8%; más que eso no sirve
+    // de tasación: el problema son los antecedentes, no las calificaciones.
+    const INCERT_CASI = 0.08;
+    let ajustesAsistente = [];
+    var _asist = { firma: '', ops: null, nivel: 0, motivo: '' };
+    function firmaAsistente(e) {
+      return JSON.stringify([e.enTotal, e.bM2, e.bCons, e.bUbi, e.ants.map(function(a){ return [a.m2, a.cons, a.ubi, a.valor, a.asim]; })]);
+    }
+    function nombreCampo(c) { return c === 'cons' ? 'construcción' : 'ubicación'; }
+    function buscarCalificaciones(e) {
+      var ants = e.ants;
+      // Cada calificación prueba 1, 2 y 3 (y la que tiene, si la Dirección puso 4 o 5).
+      var doms = [];
+      ants.forEach(function(a){
+        [a.cons, a.ubi].forEach(function(v){ var d = [1, 2, 3]; if (d.indexOf(v) < 0) d.push(v); doms.push(d); });
+      });
+      // Sensatez: el m² que resulta no puede alejarse más de un 25% de lo que
+      // valen los comparables (la mediana, así uno fuera de línea no la arrastra).
+      var porM2 = function(v, m2){ return e.enTotal ? v / m2 : v; };
+      var vis = ants.map(function(a){ return porM2(a.valor * a.asim, a.m2); }).sort(function(a, b){ return a - b; });
+      var med = (vis[1] + vis[2]) / 2, lo = med * 0.75, hi = med * 1.25;
+      // Si lo cargado ya da coeficientes bien y solo la incertidumbre es alta, una
+      // opción que no llega a 5,1% tiene que mejorarla de verdad para mostrarse.
+      var techoCasi = (!e.invalido && !e.kNegativas.length && e.incert != null) ? Math.min(INCERT_CASI, e.incert - 0.003) : INCERT_CASI;
+      var cierran = [], casi = [], idx = doms.map(function(){ return 0; });
+      for (;;) {
+        var prueba = ants.map(function(a, i){ return { m2: a.m2, valor: a.valor, asim: a.asim, cons: doms[2*i][idx[2*i]], ubi: doms[2*i+1][idx[2*i+1]] }; });
+        var r = tasarModelo(prueba, e.bM2, e.bCons, e.bUbi);
+        var rM2 = r.error ? 0 : porM2(r.valor, e.bM2);
+        if (!r.error && !r.kNeg.length && rM2 >= lo && rM2 <= hi && r.bs.every(function(b){ return b > 0; })) {
+          var cambios = [], dist = 0;
+          prueba.forEach(function(p, i){
+            ['cons', 'ubi'].forEach(function(c){
+              if (p[c] !== ants[i][c]) { cambios.push({ i: i, campo: c, de: ants[i][c], a: p[c] }); dist += Math.abs(p[c] - ants[i][c]); }
+            });
+          });
+          var op = { cambios: cambios, dist: dist, total: e.enTotal ? r.valor : r.valor * e.bM2, incert: r.incert };
+          if (cambios.length && r.incert <= INCERT_OK) cierran.push(op);
+          else if (cambios.length && r.incert <= techoCasi) casi.push(op);
+        }
+        var k = 0;
+        while (k < idx.length) { idx[k]++; if (idx[k] < doms[k].length) break; idx[k] = 0; k++; }
+        if (k === idx.length) break;
+      }
+      // Las que cierran: primero las que menos cambian lo cargado. Las que no llegan
+      // a 5,1%: primero las de menor incertidumbre.
+      cierran.sort(function(a, b){ return a.cambios.length - b.cambios.length || a.dist - b.dist || a.incert - b.incert; });
+      casi.sort(function(a, b){ return a.incert - b.incert || a.cambios.length - b.cambios.length || a.dist - b.dist; });
+      return cierran.length ? { nivel: 1, ops: cierran.slice(0, 3) } : casi.length ? { nivel: 2, ops: casi.slice(0, 3) } : { nivel: 0, ops: [] };
+    }
+    // El antecedente que más se aparta de los demás (por su m² ya asimilado).
+    function masDistinto(ants, enTotal) {
+      var vis = ants.map(function(a){ return enTotal ? a.valor * a.asim / a.m2 : a.valor * a.asim; });
+      var mejor = null;
+      vis.forEach(function(v, i){
+        var otros = vis.filter(function(_, j){ return j !== i; }).sort(function(a, b){ return a - b; });
+        var med = otros[1];
+        var dif = Math.abs(v - med) / med;
+        if (!mejor || dif > mejor.dif) mejor = { i: i, v: v, med: med, dif: dif };
+      });
+      return mejor;
+    }
+    function pintarAsistente(e) {
+      var el = document.getElementById('tasAsist');
+      if (!el) return;
+      // Sin datos (o incompletos) se esconde y recuerda lo último; si ya cierra, se olvida.
+      if (!e) { el.hidden = true; return; }
+      var cierra = !e.invalido && !e.kNegativas.length && e.incert <= INCERT_OK;
+      if (cierra) { el.hidden = true; el.innerHTML = ''; _asist = { firma: '', ops: null, nivel: 0 }; return; }
+      var firma = firmaAsistente(e);
+      if (firma !== _asist.firma) { _asist = { firma: firma, ops: null, nivel: 0, e: e }; }
+      _asist.e = e;
+      var motivo = e.invalido ? 'con estas calificaciones el resultado no es válido'
+        : e.kNegativas.length ? 'el coeficiente de ' + e.kNegativas.join(' y ') + ' dio negativo'
+        : 'la incertidumbre es de ± ' + fmtIncert(e.incert * 100) + ' (más de 5,10%)';
+      // Un comparable muy distinto a los demás se avisa antes que nada: cambiar
+      // calificaciones para acomodarlo no arregla que no sea comparable.
+      var md = masDistinto(e.ants, e.enTotal);
+      var ojo = md.dif > 0.35
+        ? '<div style="margin-top:7px"><b>Ojo:</b> el antecedente ' + (md.i + 1) + ' se aparta mucho de los demás (' + fmt(md.v) + ' el m², los otros rondan ' + fmt(md.med) + '). Antes de cambiar calificaciones, revisá que de verdad sea comparable.</div>'
+        : '';
+      var html = '<i class="fas fa-wand-magic-sparkles"></i><div>';
+      if (!_asist.ops) {
+        html += '<b>La tasación no cierra:</b> ' + motivo + '. El asistente prueba todas las calificaciones del 1 al 3 de los antecedentes y te muestra las que la hacen cerrar cambiando lo menos posible.' +
+          '<div><button type="button" class="asist-btn" onclick="usarAsistente()"><i class="fas fa-magnifying-glass"></i> Buscar calificaciones que cierren</button></div>';
+      } else if (!_asist.ops.length) {
+        html += '<b>Con estos antecedentes no cierra con calificaciones del 1 al 3.</b> ' +
+          'El que más se aparta es el <b>antecedente ' + (md.i + 1) + '</b> (' + fmt(md.v) + ' el m², los demás rondan ' + fmt(md.med) + '): probá cambiarlo por otro más parecido al inmueble.';
+      } else {
+        html += (_asist.nivel === 1
+          ? '<b>Estas calificaciones hacen cerrar la tasación.</b> '
+          : '<b>Ninguna combinación del 1 al 3 baja la incertidumbre de 5,10%;</b> estas al menos dejan los coeficientes bien. ') +
+          'Elegí la que describa mejor a cada propiedad: cada opción da otro valor, así que no elijas por el número. Lo que cambies queda registrado para la revisión.' +
+          '<div class="asist-ops">' + _asist.ops.map(function(o, k){
+            return '<div class="asist-op"><div class="asist-op-txt">' +
+              o.cambios.map(function(c){ return '<b>Antecedente ' + (c.i + 1) + '</b>: ' + nombreCampo(c.campo) + ' <span class="nw">' + c.de + ' → ' + c.a + '</span>'; }).join('<br>') +
+              '<div class="asist-op-res">Queda en ' + fmt(o.total) + ' · ± ' + fmtIncert(o.incert * 100) + '</div></div>' +
+              '<button type="button" onclick="usarOpcionAsistente(' + k + ')">Usar esta</button></div>';
+          }).join('') + '</div>' + ojo;
+      }
+      el.innerHTML = html + '</div>';
+      el.hidden = false;
+    }
+    function usarAsistente() {
+      if (!_asist.e) return;
+      var b = document.querySelector('#tasAsist .asist-btn');
+      if (b) { b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...'; }
+      // Un respiro para que se vea "Buscando" (son 6.561 cuentas: tarda un instante).
+      setTimeout(function(){
+        var r = buscarCalificaciones(_asist.e);
+        _asist.ops = r.ops; _asist.nivel = r.nivel;
+        pintarAsistente(_asist.e);
+      }, 30);
+    }
+    function usarOpcionAsistente(k) {
+      var o = _asist.ops && _asist.ops[k];
+      if (!o) return;
+      var fecha = new Date().toISOString();
+      o.cambios.forEach(function(c){
+        tasAntecedentes[c.i][c.campo] = c.a;
+        ajustesAsistente.push({ antecedente: c.i + 1, campo: nombreCampo(c.campo), de: c.de, a: c.a, fecha: fecha });
+      });
+      renderTasAntecedentes(); calcTasador();
+      showToast('Calificaciones cambiadas', 'Revisá que describan bien a cada propiedad: el cambio queda registrado para la revisión.', 'fa-wand-magic-sparkles');
     }
 
     // ===== Gráfica "Comparables vs. estimado" =====
@@ -1117,7 +1338,7 @@
       var cols = [
         { t: 'N°', w: 22, al: 'center' }, { t: 'm²', w: 34, al: 'right' }, { t: 'Const.', w: 38, al: 'center' },
         { t: 'Ubic.', w: 34, al: 'center' }, { t: 'Tipo', w: 48, al: 'left' }, { t: 'Precio', w: 74, al: 'right' }, { t: 'Valor m²', w: 62, al: 'right' },
-        { t: 'Asimil.', w: 42, al: 'right' }, { t: 'Ajuste', w: 48, al: 'right' }, { t: 'Valor ajustado m²', w: 0, al: 'right' }
+        { t: 'Asimil.', w: 42, al: 'right' }, { t: 'Ajuste', w: 48, al: 'right' }, { t: d.enTotal ? 'Valor ajustado' : 'Valor ajustado m²', w: 0, al: 'right' }
       ];
       var fijo = cols.reduce(function(s, c){ return s + c.w; }, 0);
       cols[cols.length - 1].w = ancho - fijo;
@@ -1151,10 +1372,11 @@
         pDraw(pdf, [236,238,241], 0.6); pdf.line(M, y + hFila, M + ancho, y + hFila);
         y += hFila;
       });
-      // Fila final: el promedio de los ajustados es el valor por m² estimado
+      // Fila final: el promedio de los ajustados es el valor estimado (de la
+      // propiedad si se cargaron precios, del m² si se cargó por m²)
       pFill(pdf, [250,245,228]); pdf.rect(M, y, ancho, hFila + 2, 'F');
-      pF(pdf, 'bold', 7.8, PDF.goldOsc); pT(pdf, 'PROMEDIO DE LOS VALORES AJUSTADOS = VALOR POR m² ESTIMADO', M + pad, y + 14, { cs: 0.2 });
-      pF(pdf, 'bold', 9, PDF.navy); pT(pdf, fmt(d.valorM2), M + ancho - pad, y + 14.3, { align: 'right' });
+      pF(pdf, 'bold', 7.8, PDF.goldOsc); pT(pdf, d.enTotal ? 'PROMEDIO DE LOS VALORES AJUSTADOS = VALOR ESTIMADO' : 'PROMEDIO DE LOS VALORES AJUSTADOS = VALOR POR m² ESTIMADO', M + pad, y + 14, { cs: 0.2 });
+      pF(pdf, 'bold', 9, PDF.navy); pT(pdf, fmt(d.enTotal ? d.total : d.valorM2), M + ancho - pad, y + 14.3, { align: 'right' });
       doc.y = y + hFila + 2 + 10;
     }
 
@@ -1176,7 +1398,7 @@
       pF(pdf, 'normal', 7.8, PDF.gris); pT(pdf, 'construidos', c2, y + 54);
       if (d.terrenoTxt) { pF(pdf, 'normal', 7.4, PDF.gris); pT(pdf, 'Terreno: ' + d.terrenoTxt, c2, y + 73); }
       pF(pdf, 'bold', 6.4, PDF.gris2); pT(pdf, 'INDICADORES', c3, y + 19, { cs: 0.5 });
-      [['Incertidumbre: ', '± ' + fmtPct(d.incert)], ['Dispersión: ', fmtPct(d.disp)], ['Nivel de confianza: ', '90%']].forEach(function(p, i){
+      [['Incertidumbre: ', '± ' + fmtIncert(d.incert)], ['Dispersión: ', fmtPct(d.disp)], ['Nivel de confianza: ', '90%']].forEach(function(p, i){
         var by = y + 38 + i * 15;
         pF(pdf, 'normal', 8, PDF.texto); pT(pdf, p[0], c3, by);
         var w = pMedir(pdf, pdfTxt(p[0]));
@@ -1268,7 +1490,7 @@
       pEspacio(doc, 50);
       var y = doc.y - 1;
       var y1 = pDatos(pdf, [['Método', 'Regresión lineal múltiple'], ['Variables', 'm², construcción, ubicación'], ['Comparables', '4 antecedentes']], M, y, colW, 78);
-      var y2 = pDatos(pdf, [['Dispersión', fmtPct(d.disp)], ['Incertidumbre', '± ' + fmtPct(d.incert)], ['Nivel de confianza', '90%']], M + colW + gap, y, colW, 94);
+      var y2 = pDatos(pdf, [['Dispersión', fmtPct(d.disp)], ['Incertidumbre', '± ' + fmtIncert(d.incert)], ['Nivel de confianza', '90%']], M + colW + gap, y, colW, 94);
       doc.y = Math.max(y1, y2) + 18;
     }
     // Texto con subíndices dibujados a mano (las fuentes del PDF no traen "₀").
@@ -1286,16 +1508,18 @@
     function pFormula(doc, d) {
       var pdf = doc.pdf, M = doc.M, W = doc.W, ancho = W - 2 * M, K = d.K || [0,0,0,0];
       var expl = 'Con los coeficientes de la regresión, cada comparable se ajusta a las características del inmueble (m² = ' +
-        d.m2Txt + ', construcción = ' + d.consTxt + ', ubicación = ' + d.ubiTxt + '): es el valor ajustado de la tabla. El valor por m² estimado es el ' +
-        '**promedio de los cuatro valores ajustados** (' + nb(fmt(d.valorM2)) + ') y, multiplicado por los ' + nb(d.m2Txt + ' m²') +
-        ' construidos, da el valor de la propiedad. La incertidumbre surge de la dispersión de esos valores.';
+        d.m2Txt + ', construcción = ' + d.consTxt + ', ubicación = ' + d.ubiTxt + '): es el valor ajustado de la tabla. ' + (d.enTotal
+        ? 'El valor de la propiedad es el **promedio de los cuatro valores ajustados** (' + nb(fmt(d.total)) + ') y, dividido por los ' + nb(d.m2Txt + ' m²') +
+          ' construidos, da ' + nb(fmt(d.valorM2)) + ' por m².'
+        : 'El valor por m² estimado es el **promedio de los cuatro valores ajustados** (' + nb(fmt(d.valorM2)) + ') y, multiplicado por los ' + nb(d.m2Txt + ' m²') +
+          ' construidos, da el valor de la propiedad.') + ' La incertidumbre surge de la dispersión de esos valores.';
       var tam = 7.6, ih = 11.4, lineas = pPartirRico(pdf, expl, tam, ancho - 32);
       var alto = 14 + 32 + 14 + 10 + lineas.length * ih + 8;
       pEspacio(doc, alto + 12);
       var y = doc.y;
       pFill(pdf, PDF.claro); pDraw(pdf, PDF.linea, 0.7); pdf.roundedRect(M, y, ancho, alto, 7, 7, 'FD');
       pFill(pdf, [255,255,255]); pDraw(pdf, PDF.linea, 0.7); pdf.roundedRect(M + 16, y + 14, ancho - 32, 32, 4, 4, 'FD');
-      pSubindices(pdf, [['Valor por m² = K',0],['0',1],[' + K',0],['1',1],['·m² + K',0],['2',1],['·construcción + K',0],['3',1],['·ubicación',0]],
+      pSubindices(pdf, [[(d.enTotal ? 'Valor = K' : 'Valor por m² = K'),0],['0',1],[' + K',0],['1',1],['·m² + K',0],['2',1],['·construcción + K',0],['3',1],['·ubicación',0]],
         W / 2, y + 33.5, 9.4, 'courier', PDF.navy, 'center');
       pSubindices(pdf, [['K',0],['0',1],[' = ' + fmtNum(K[0]) + '      K',0],['1',1],[' = ' + fmtNum(K[1]) + '      K',0],['2',1],[' = ' + fmtNum(K[2]) + '      K',0],['3',1],[' = ' + fmtNum(K[3]),0]],
         M + 16, y + 63, 8.2, 'helvetica', PDF.tinta, 'left');
@@ -1426,10 +1650,12 @@
       doc.y = Math.max(fC, fI) + 20;
       pCajaValor(doc, d);
       pSeccion(doc, 'doc', '¿CÓMO SE LLEGÓ A ESTE RESULTADO?', { min: 60 });
-      pParrafo(doc, 'Se utilizó el **Método Comparativo de Mercado**, basado en el análisis de propiedades similares en la misma zona. El inmueble se compara con antecedentes ofertados o vendidos, y se ajustan las diferencias en atributos relevantes (superficie, calidad constructiva y ubicación) mediante **regresión lineal múltiple**. Así se obtiene un valor por m² de mercado objetivo, que multiplicado por la superficie construida da el valor de la propiedad, junto con un rango de confianza estadística.', { despues: 20 });
+      pParrafo(doc, 'Se utilizó el **Método Comparativo de Mercado**, basado en el análisis de propiedades similares en la misma zona. El inmueble se compara con antecedentes ofertados o vendidos, y se ajustan las diferencias en atributos relevantes (superficie, calidad constructiva y ubicación) mediante **regresión lineal múltiple**. Así se obtiene ' + (d.enTotal ? 'un valor de mercado objetivo para la propiedad' : 'un valor por m² de mercado objetivo, que multiplicado por la superficie construida da el valor de la propiedad') + ', junto con un rango de confianza estadística.', { despues: 20 });
       pSeccion(doc, 'chart', 'ANTECEDENTES UTILIZADOS (COMPARABLES)', { min: 164 });
       pTablaComparables(doc, d);
-      pParrafo(doc, 'Precio: el de la publicación o el de venta. Valor m²: precio ÷ m². Los ajustes se calculan según las diferencias de superficie, construcción y ubicación respecto al inmueble tasado. El "valor ajustado" representa el m² de cada comparable llevado a las características del inmueble.', { tam: 7.2, color: [150,156,164], colorB: PDF.gris, despues: 8 });
+      pParrafo(doc, 'Precio: el de la publicación o el de venta. Valor m²: precio ÷ m². Los ajustes se calculan según las diferencias de superficie, construcción y ubicación respecto al inmueble tasado. ' + (d.enTotal
+        ? 'El "valor ajustado" es lo que valdría el inmueble según cada comparable, llevado a sus características.'
+        : 'El "valor ajustado" representa el m² de cada comparable llevado a las características del inmueble.'), { tam: 7.2, color: [150,156,164], colorB: PDF.gris, despues: 8 });
     }
     function pHojaAnalisis(doc, d) {
       pSeccion(doc, 'chart', 'RANGO DE VALOR ESTIMADO', { min: 192, antes: 12 });
@@ -1453,7 +1679,7 @@
       pGlosario(doc, [
         ['Incertidumbre', 'Margen de error del valor estimado, expresado como ± un porcentaje. Cuanto más parecidos son los comparables, menor es la incertidumbre.'],
         ['Dispersión', 'Qué tan separados están los valores de los comparables ajustados entre sí. Una dispersión baja indica antecedentes consistentes.'],
-        ['Valor ajustado', 'El valor por m² de cada comparable corregido para reflejar las características del inmueble tasado (superficie, construcción y ubicación).'],
+        ['Valor ajustado', (d.enTotal ? 'El valor de cada comparable' : 'El valor por m² de cada comparable') + ' corregido para reflejar las características del inmueble tasado (superficie, construcción y ubicación).'],
         ['Nivel de confianza', 'Probabilidad (90%) de que el valor real se encuentre dentro del rango indicado.']
       ]);
       pSeccion(doc, 'home', 'VALIDEZ Y ALCANCE', { min: 90 });
@@ -1491,10 +1717,10 @@
         incert: r.incert, disp: r.dispPct, K: r._K, compsTotales: r.compsTotales, asimTxt: asimTxt,
         terrenoTxt: conUnidad(rep.repInmTerreno, 'm²'),
         inmuebleTxt: (rep.repInmTipo || 'Propiedad') + (dirCompleta ? ' · ' + dirCompleta : ''),
+        enTotal: !!r.enTotal,
         comps: r.antecedentes.map(function(a, i){
-          var vi = a.valor * a.asim, aj = r._bs[i];
           return { n: i + 1, m2: a.m2, cons: a.cons, ubi: a.ubi, tipo: a.tipo === 'oferta' ? 'Oferta' : 'Vendido', valor: a.valor, precio: a.precio,
-                   asim: a.tipo === 'oferta' ? a.asim : 1, ajustePct: vi ? (aj / vi - 1) * 100 : 0, ajustado: aj };
+                   asim: a.tipo === 'oferta' ? a.asim : 1, ajustePct: ((r._factores ? r._factores[i] : 1) - 1) * 100, ajustado: r._bs[i] };
         }),
         cliente: [['Nombre', rep.repCliNombre], ['Teléfono', rep.repCliTel], ['Email', rep.repCliEmail],
                   ['Solicitado por', rep.repCliSolicitado || 'Contacto directo'], ['Fecha de solicitud', fechaCorta]],
@@ -1601,10 +1827,13 @@
           dormitorios: r.inmueble.dorm || '', banos: r.inmueble.bath || '',
           antecedentes: (r.antecedentes || []).length,
           cliente: rv('repCliNombre'), tipoInm: rv('repInmTipo'), direccion: rv('repInmDir'),
-          barrio: rv('repInmBarrio'), departamento: rv('repInmDepto'), padron: rv('repInmPadron')
+          barrio: rv('repInmBarrio'), departamento: rv('repInmDepto'), padron: rv('repInmPadron'),
+          // Las calificaciones que se cambiaron con el asistente: la Dirección las
+          // ve al revisar la tasación.
+          asistente: ajustesAsistente.slice(-20).map(function(x){ return { antecedente: x.antecedente, campo: x.campo, de: x.de, a: x.a }; })
         },
         // valor, min y max son del inmueble entero; precioM2 es el valor por m².
-        resultado: { valor: Math.round(r.valorTotal || 0), min: Math.round(r.minTotal || 0), max: Math.round(r.maxTotal || 0), precioM2: Math.round(r.valorM2 || 0), incertidumbre: +((r.incert || 0).toFixed(1)) },
+        resultado: { valor: Math.round(r.valorTotal || 0), min: Math.round(r.minTotal || 0), max: Math.round(r.maxTotal || 0), precioM2: Math.round(r.valorM2 || 0), incertidumbre: +((r.incert || 0).toFixed(2)) },
         nro: nroInforme(),
         // La Dirección aprueba las tasaciones. Si la hizo la Dirección, nace
         // aprobada: mandarla a revisión la dejaba esperando su propia firma, con
@@ -1694,6 +1923,7 @@
         var mh = document.getElementById('tasMisHint');
         if (mh) mh.textContent = 'Tus tasaciones quedan aprobadas al guardarlas: podés descargar el PDF enseguida.';
       }
+      pintarEscala();
       cargarLocal();
       pintarModo();
       renderTasAntecedentes();

@@ -152,6 +152,8 @@
       gap:8px;flex-wrap:wrap;margin-bottom:3px}
     .rev-sub{font-size:.79rem;color:var(--muted)}
     .rev-motivo{margin-top:5px;font-size:.78rem;color:#b91c1c}
+    .rev-asist{margin-top:5px;font-size:.78rem;color:#4c3fa3;line-height:1.45}
+    .rev-asist i{margin-right:5px}
     .rev-chip{font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:999px;
       display:inline-flex;align-items:center;gap:4px;text-transform:uppercase;letter-spacing:.04em}
     .rev-chip.pend{background:#fef3c7;color:#b45309}
@@ -1383,6 +1385,12 @@
         '<div class="rev-tit">'+esc(t.label)+(val?' · US$ '+Number(val).toLocaleString('es-UY'):'')+' '+estado+'</div>'+
         '<div class="rev-sub">'+esc(r._agente)+(dato?' · '+esc(dato):'')+(r.fecha?' · '+esc(r.fecha):'')+'</div>'+
         (r.motivoRechazo?'<div class="rev-motivo">Motivo: '+esc(r.motivoRechazo)+'</div>':'')+
+        // Calificaciones que el agente cambió con el asistente del tasador: con otras
+        // calificaciones la misma tasación da otro valor, así que se ve al revisar.
+        ((r.datos && Array.isArray(r.datos.asistente) && r.datos.asistente.length)
+          ? '<div class="rev-asist"><i class="fas fa-wand-magic-sparkles"></i>Calificaciones cambiadas con el asistente: '+
+            esc(r.datos.asistente.map(function(x){ return 'antecedente '+x.antecedente+', '+x.campo+' '+x.de+' → '+x.a; }).join(' · '))+'</div>'
+          : '')+
       '</div>'+
       '<div class="rev-acc">'+pdf+acciones+'</div>'+
     '</div>';
