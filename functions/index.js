@@ -2690,40 +2690,73 @@ exports.republicarML = onCall(async (request) => {
 // fue. Por eso, además de reasignar, acá se empuja a ML el contacto nuevo de
 // cada aviso vivo.
 // InfoCasas y el propio CRM no necesitan nada: leen el dueño en cada consulta.
+// Lo usan el traspaso de Equipo y la baja de un agente (eliminarAgente), que
+// ya no deja nada a nombre de una cuenta que no existe.
 // =====================================================================
-exports.traspasarCartera = onCall(async (request) => {
-  // Dirección (CEO y COO). La COO no mueve la cartera de alguien de su rango o
-  // superior: la regla se aplica acá, no solo escondiendo el botón del panel.
-  const actor = await exigirDireccion(request, "Solo la Dirección puede traspasar una cartera.");
-  const email = actor.email;
 
-  const { deUid, aUid, mueve } = request.data || {};
-  if (!deUid || !aUid) throw new HttpsError("invalid-argument", "Faltan los agentes.");
-  if (deUid === aUid) throw new HttpsError("invalid-argument", "El origen y el destino son el mismo agente.");
-  const quiere = Object.assign({ propiedades: true, clientes: true, gestiones: true }, mueve || {});
+// Hoy en Uruguay (AAAA-MM-DD), el mismo formato con que la agenda guarda la fecha.
+function hoyUruguay() {
+  try { return new Date().toLocaleDateString("en-CA", { timeZone: "America/Montevideo" }); }
+  catch (e) { return new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10); }
+}
 
-  const [deSnap, aSnap] = await Promise.all([
-    db.collection("users").doc(deUid).get(),
-    db.collection("users").doc(aUid).get(),
-  ]);
-  if (!aSnap.exists) throw new HttpsError("not-found", "El agente destino no existe.");
-  const de = deSnap.exists ? deSnap.data() : {};
-  const a = aSnap.data();
-  if (!puedeAdministrarA(actor, deUid, deSnap.exists ? de : null)) {
-    throw new HttpsError("permission-denied", "No podés mover la cartera de alguien de tu mismo rango o superior.");
+// Pasa a `aUid` lo que está a nombre de `deUid`.
+//   quiere: { propiedades, clientes, gestiones, agenda } — qué se mueve.
+//   op.de / op.a: perfiles de origen y destino (op.de vacío si la cuenta del que
+//   se fue ya no existe: cartera huérfana; el nombre sale entonces de lo que movió).
+//   op.limpiar: además, sacarlo de donde figura como ayudante en lo ajeno. Solo
+//   en la baja: si sigue en la agencia, esos lugares siguen siendo suyos.
+async function moverCartera(actor, deUid, aUid, quiere, op) {
+  // Una sola mudanza por cartera a la vez: si el panel se reintenta mientras la
+  // primera sigue andando (con muchos avisos puede tardar minutos), dos traspasos
+  // de lo mismo a destinos distintos se pisarían documento por documento.
+  const soltar = await tomarCandadoCartera(deUid);
+  try {
+    return await moverCarteraSinCandado(actor, deUid, aUid, quiere, op);
+  } finally {
+    await soltar();
   }
-  if (!destinoValido(a)) throw new HttpsError("failed-precondition", "El agente destino no tiene la cuenta aprobada.");
-  const aNombre = a.name || a.email || "Agente";
-  const ahora = new Date().toISOString();
+}
 
-  const resumen = { propiedades: 0, clientes: 0, gestiones: 0, avisosActualizados: 0, avisosConError: [] };
+// El candado vence solo a los 6 minutos (la función corta a los 5): si algo
+// se colgó, no queda trabado para siempre.
+async function tomarCandadoCartera(deUid) {
+  const ref = db.collection("traspasosEnCurso").doc(String(deUid));
+  const ahora = Date.now();
+  await db.runTransaction(async (tx) => {
+    const s = await tx.get(ref);
+    if (s.exists && ahora - (Number(s.data().t) || 0) < 6 * 60 * 1000) {
+      throw new HttpsError("aborted", "Esa cartera ya se está pasando a otro agente. Esperá un momento a que termine.");
+    }
+    tx.set(ref, { t: ahora, fecha: new Date(ahora).toISOString() });
+  });
+  return async () => { try { await ref.delete(); } catch (e) { /* vence solo */ } };
+}
+
+async function moverCarteraSinCandado(actor, deUid, aUid, quiere, op) {
+  op = op || {};
+  const de = op.de || {};
+  const a = op.a || {};
+  const FV = admin.firestore.FieldValue;
+  const aNombre = a.name || a.email || "Agente";
+  let deNombre = de.name || de.email || "";
+  const por = actor.email || actor.nombre || "";
+  const motivo = op.motivo || "traspaso de cartera";
+  const ahora = new Date().toISOString();
+  // Registro del traspaso en cada cosa movida: de quién era, a quién pasó y
+  // quién lo hizo. El Desempeño le sigue contando la captación a quien la cargó.
+  const registro = (nombreViejo) => ({
+    de: deUid, deNombre: deNombre || nombreViejo || "", a: aUid, aNombre, fecha: ahora, por, motivo,
+  });
+  const resumen = { propiedades: 0, clientes: 0, gestiones: 0, agenda: 0, avisosActualizados: 0, avisosConError: [] };
 
   // ---- Propiedades ----
-  let propsConAviso = [];
+  const propsConAviso = [];
   if (quiere.propiedades) {
     const q = await db.collection("properties").where("ownerId", "==", deUid).get();
     for (const doc of q.docs) {
       const p = doc.data();
+      if (!deNombre && p.ownerName) deNombre = p.ownerName;
       const agentes = Array.isArray(p.agents) ? p.agents.filter((x) => x !== deUid) : [];
       if (!agentes.includes(aUid)) agentes.push(aUid);
       await doc.ref.update({
@@ -2732,15 +2765,10 @@ exports.traspasarCartera = onCall(async (request) => {
         agents: agentes,
         // El WhatsApp propio de la propiedad pisa al del perfil: si queda el del
         // agente que se fue, el traspaso no serviría de nada.
-        ownerWhatsapp: admin.firestore.FieldValue.delete(),
+        ownerWhatsapp: FV.delete(),
         traspasoAt: ahora,
         updatedAt: ahora,
-        // De quién era: el Desempeño le sigue contando la captación a quien la
-        // cargó, no al que la recibió (igual que los clientes).
-        traspasos: admin.firestore.FieldValue.arrayUnion({
-          de: deUid, deNombre: de.name || de.email || "", a: aUid, aNombre,
-          fecha: ahora, por: email, motivo: "traspaso de cartera",
-        }),
+        traspasos: FV.arrayUnion(registro(p.ownerName)),
       });
       resumen.propiedades++;
       if (p.mlItemId) propsConAviso.push({ id: doc.id, mlItemId: p.mlItemId });
@@ -2752,18 +2780,20 @@ exports.traspasarCartera = onCall(async (request) => {
     const q = await db.collection("clients").where("createdBy", "==", deUid).get();
     for (const doc of q.docs) {
       const c = doc.data();
+      if (!deNombre && c.createdByName) deNombre = c.createdByName;
       const lista = (Array.isArray(c.enLista) ? c.enLista : []).filter((x) => x && x.uid !== deUid && x.uid !== aUid);
       lista.push({ uid: aUid, nombre: aNombre, desde: ahora });
-      await doc.ref.update({
+      const cambios = {
         createdBy: aUid,
         createdByName: aNombre,
         enLista: lista,
         updatedAt: ahora,
-        traspasos: admin.firestore.FieldValue.arrayUnion({
-          de: deUid, deNombre: de.name || de.email || "", a: aUid, aNombre,
-          fecha: ahora, por: email, motivo: "traspaso de cartera",
-        }),
-      });
+        traspasos: FV.arrayUnion(registro(c.createdByName)),
+      };
+      // Los que entraron por un portal guardan el agente en dos campos más.
+      if (c.agentId === deUid) cambios.agentId = aUid;
+      if (c.ownerId === deUid) { cambios.ownerId = aUid; cambios.ownerName = aNombre; }
+      await doc.ref.update(cambios);
       resumen.clientes++;
     }
   }
@@ -2772,7 +2802,7 @@ exports.traspasarCartera = onCall(async (request) => {
   if (quiere.gestiones) {
     // La gestión guarda el agente en varios campos y la tarjeta del CRM muestra
     // agentName: si solo se cambia createdBy, en pantalla sigue figurando el que
-    // se fue. Se buscan por los dos campos porque no todas las gestiones viejas
+    // se fue. Se buscan por los tres campos porque no todas las gestiones viejas
     // tienen agentId.
     const vistos = new Set();
     for (const campo of ["createdBy", "agentId", "ownerId"]) {
@@ -2790,11 +2820,35 @@ exports.traspasarCartera = onCall(async (request) => {
     }
   }
 
+  // ---- Agenda: lo que tenía por delante ----
+  // Las visitas y reuniones ya agendadas no pueden quedar en el calendario de
+  // alguien que no las va a atender. Lo pasado queda como historia de quien lo
+  // hizo. Los recordatorios se vuelven a mandar, ahora al que la recibe.
+  if (quiere.agenda) {
+    const hoy = hoyUruguay();
+    const q = await db.collection("visits").where("userId", "==", deUid).get();
+    for (const doc of q.docs) {
+      const v = doc.data();
+      if (!v.date || String(v.date) < hoy) continue;
+      await doc.ref.update({
+        userId: aUid,
+        updatedAt: ahora,
+        reminded24h: false,
+        reminded2h: false,
+        traspaso: { de: deUid, deNombre: deNombre || "", fecha: ahora },
+      });
+      resumen.agenda++;
+    }
+  }
+
+  // ---- Lo ajeno donde figuraba (solo en la baja) ----
+  if (op.limpiar) resumen.rastros = await limpiarRastros(deUid);
+
   // ---- Mercado Libre: contacto nuevo en cada aviso vivo ----
   if (propsConAviso.length) {
     let token = null;
     try { token = await getValidToken(); }
-    catch (e) { logger.warn("traspasarCartera: sin token de ML —", e.message); }
+    catch (e) { logger.warn("moverCartera: sin token de ML —", e.message); }
     if (token) {
       const headers = { Authorization: `Bearer ${token}` };
       for (const item of propsConAviso) {
@@ -2806,7 +2860,7 @@ exports.traspasarCartera = onCall(async (request) => {
         } catch (e) {
           const detalle = (e.response && e.response.data && (e.response.data.message || e.response.data.error)) || e.message;
           resumen.avisosConError.push({ itemId: item.mlItemId, error: String(detalle).slice(0, 120) });
-          logger.warn(`traspasarCartera: no se pudo actualizar ${item.mlItemId} —`, detalle);
+          logger.warn(`moverCartera: no se pudo actualizar ${item.mlItemId} —`, detalle);
         }
       }
     } else {
@@ -2814,14 +2868,94 @@ exports.traspasarCartera = onCall(async (request) => {
     }
   }
 
-  // ---- Registro del traspaso ----
-  await db.collection("traspasos").add({
-    de: deUid, deNombre: de.name || de.email || "", a: aUid, aNombre,
-    por: email, fecha: ahora, resumen,
-  });
+  // ---- Registro del traspaso (si se movió algo) ----
+  if (resumen.propiedades + resumen.clientes + resumen.gestiones + resumen.agenda > 0) {
+    await db.collection("traspasos").add({
+      de: deUid, deNombre: deNombre || "", a: aUid, aNombre,
+      por, fecha: ahora, motivo, resumen,
+    });
+  }
 
-  logger.info(`Traspaso ${de.name || deUid} -> ${aNombre}: ${resumen.propiedades} propiedades, ${resumen.clientes} clientes, ${resumen.avisosActualizados} avisos actualizados`);
+  logger.info(`Traspaso ${deNombre || deUid} -> ${aNombre} (${motivo}): ${resumen.propiedades} propiedades, ${resumen.clientes} clientes, ${resumen.gestiones} gestiones, ${resumen.agenda} eventos, ${resumen.avisosActualizados} avisos actualizados`);
   return resumen;
+}
+
+// Saca a un agente que se va de lo AJENO donde figura: co-agente de propiedades
+// de otros y "también lo trabajan" de clientes de otros. Sin esto, su nombre
+// seguía apareciendo en fichas de clientes después de borrado.
+async function limpiarRastros(uid) {
+  const FV = admin.firestore.FieldValue;
+  let n = 0;
+  const qa = await db.collection("properties").where("agents", "array-contains", uid).get();
+  for (const doc of qa.docs) {
+    await doc.ref.update({ agents: FV.arrayRemove(uid) });
+    n++;
+  }
+  // enLista guarda objetos ({ uid, nombre, desde }): no se puede consultar por
+  // uid, así que se recorre. Pasa una sola vez, al borrar una cuenta.
+  const qc = await db.collection("clients").get();
+  for (const doc of qc.docs) {
+    const l = doc.data().enLista;
+    if (!Array.isArray(l) || !l.some((x) => x && x.uid === uid)) continue;
+    await doc.ref.update({ enLista: l.filter((x) => !(x && x.uid === uid)) });
+    n++;
+  }
+  return n;
+}
+
+// ¿Qué tiene todavía a su nombre? Solo interesa si hay algo (limit 1): es el
+// control que impide borrar una cuenta y dejar su cartera a nombre de nadie.
+async function carteraPendiente(uid) {
+  const hay = async (q) => !(await q.limit(1).get()).empty;
+  const r = {
+    propiedades: await hay(db.collection("properties").where("ownerId", "==", uid)),
+    clientes: await hay(db.collection("clients").where("createdBy", "==", uid)),
+    gestiones: false,
+    agenda: false,
+  };
+  for (const campo of ["createdBy", "agentId", "ownerId"]) {
+    if (r.gestiones) break;
+    r.gestiones = await hay(db.collection("gestiones").where(campo, "==", uid));
+  }
+  const hoy = hoyUruguay();
+  const vs = await db.collection("visits").where("userId", "==", uid).get();
+  r.agenda = vs.docs.some((d) => String(d.data().date || "") >= hoy);
+  return r;
+}
+
+// Hasta 5 minutos: con muchos avisos publicados, cada uno se actualiza en
+// Mercado Libre por separado y el minuto de siempre no alcanzaba.
+exports.traspasarCartera = onCall({ timeoutSeconds: 300 }, async (request) => {
+  // Dirección (CEO y COO). La COO no mueve la cartera de alguien de su rango o
+  // superior: la regla se aplica acá, no solo escondiendo el botón del panel.
+  const actor = await exigirDireccion(request, "Solo la Dirección puede traspasar una cartera.");
+
+  const { deUid, aUid, mueve } = request.data || {};
+  if (!deUid || !aUid) throw new HttpsError("invalid-argument", "Faltan los agentes.");
+  if (deUid === aUid) throw new HttpsError("invalid-argument", "El origen y el destino son el mismo agente.");
+  // La agenda solo se mueve si se pide: un panel viejo (sin esa opción) no la toca.
+  const quiere = Object.assign({ propiedades: true, clientes: true, gestiones: true, agenda: false }, mueve || {});
+
+  const [deSnap, aSnap] = await Promise.all([
+    db.collection("users").doc(deUid).get(),
+    db.collection("users").doc(aUid).get(),
+  ]);
+  if (!aSnap.exists) throw new HttpsError("not-found", "El agente destino no existe.");
+  const de = deSnap.exists ? deSnap.data() : {};
+  const a = aSnap.data();
+  // Si la cuenta de origen ya no existe (se borró antes de que la baja obligara
+  // a pasar la cartera), su cartera quedó huérfana y hay que poder repartirla.
+  if (!puedeAdministrarA(actor, deUid, deSnap.exists ? de : null)) {
+    throw new HttpsError("permission-denied", "No podés mover la cartera de alguien de tu mismo rango o superior.");
+  }
+  if (!destinoValido(a)) throw new HttpsError("failed-precondition", "El agente destino no tiene la cuenta aprobada.");
+
+  // Si su cuenta ya no existe, además se lo saca de lo ajeno donde figuraba
+  // (co-agente, "también lo trabajan"), como hace la baja de ahora.
+  return await moverCartera(actor, deUid, aUid, quiere, {
+    de, a, motivo: deSnap.exists ? "traspaso de cartera" : "cartera de un agente eliminado",
+    limpiar: !deSnap.exists,
+  });
 });
 
 
@@ -8008,12 +8142,20 @@ exports.vencerDestacados = onSchedule(
    agente esperando aprobación.
    Acá se borra la cuenta de Authentication. El perfil de Firestore lo limpia
    solo el trigger limpiarPerfilAlBorrarse.
+
+   Y antes de borrar, su cartera pasa a otro (aUid). Borrar sin traspasar dejaba
+   las propiedades publicadas con el nombre y el WhatsApp del que se fue, sus
+   clientes sin nadie que los atienda (y sin recordatorios), y ya no había de
+   dónde reasignarlos: el botón "Transferir cartera" está en su fila de Equipo,
+   que desaparece con la cuenta. Ahora, si tiene algo a su nombre, no se borra
+   hasta que se diga a quién pasa.
    ========================================================================== */
-exports.eliminarAgente = onCall(async (request) => {
+exports.eliminarAgente = onCall({ timeoutSeconds: 300 }, async (request) => {
   // Borrar una cuenta es irreversible. La hace la Dirección: el CEO a cualquiera
   // (menos a sí mismo) y la COO solo a quien está por debajo de su rango.
   const actor = await exigirDireccion(request, "Solo la Dirección puede eliminar una cuenta.");
   const objetivo = String((request.data && request.data.uid) || "");
+  const aUid = String((request.data && request.data.aUid) || "");
   if (!objetivo) throw new HttpsError("invalid-argument", "Falta el agente.");
   if (objetivo === actor.uid) throw new HttpsError("failed-precondition", "No podés eliminar tu propia cuenta.");
 
@@ -8038,6 +8180,29 @@ exports.eliminarAgente = onCall(async (request) => {
   }
 
   const quien = (o && (o.name || o.email)) || objetivo;
+
+  // ---- Su cartera: primero se pasa, después se borra ----
+  let resumen = null;
+  if (aUid) {
+    if (aUid === objetivo) throw new HttpsError("invalid-argument", "Elegí a otro agente para quedarse con su cartera.");
+    const aSnap = await db.doc(`users/${aUid}`).get();
+    if (!aSnap.exists) throw new HttpsError("not-found", "El agente que iba a recibir la cartera no existe.");
+    if (!destinoValido(aSnap.data())) throw new HttpsError("failed-precondition", "El agente que iba a recibir la cartera no tiene la cuenta aprobada.");
+    // Si algo falla acá, la cuenta NO se borra: lo que ya se movió queda movido
+    // y al reintentar se sigue con lo que falta.
+    resumen = await moverCartera(actor, objetivo, aUid,
+      { propiedades: true, clientes: true, gestiones: true, agenda: true },
+      { de: o || {}, a: aSnap.data(), motivo: "baja del agente", limpiar: true });
+  } else {
+    const p = await carteraPendiente(objetivo);
+    const tiene = [p.propiedades && "propiedades", p.clientes && "clientes", p.gestiones && "gestiones", p.agenda && "visitas agendadas"].filter(Boolean);
+    if (tiene.length) {
+      const lista = tiene.length === 1 ? tiene[0] : tiene.slice(0, -1).join(", ") + " y " + tiene[tiene.length - 1];
+      throw new HttpsError("failed-precondition", `${quien} todavía tiene ${lista} a su nombre. Elegí a quién pasan antes de eliminar la cuenta.`);
+    }
+    await limpiarRastros(objetivo);
+  }
+
   let authBorrada = false;
   try {
     await admin.auth().deleteUser(objetivo);
@@ -8048,12 +8213,17 @@ exports.eliminarAgente = onCall(async (request) => {
       try { await db.doc(`users/${objetivo}`).delete(); } catch (e2) { /* ya no estaba */ }
     } else {
       logger.error("eliminarAgente:", e);
-      throw new HttpsError("internal", "No se pudo eliminar la cuenta: " + (e.message || ""));
+      throw new HttpsError("internal", "No se pudo eliminar la cuenta: " + (e.message || "") +
+        (resumen ? " (su cartera ya pasó al agente elegido)" : ""));
     }
   }
-  await registrarLog("", "agente eliminado", true, `${quien}${authBorrada ? "" : " (solo perfil: no tenía cuenta)"} · por ${actor.nombre}`);
-  return { ok: true, authBorrada };
+  const movido = resumen
+    ? ` · cartera: ${resumen.propiedades} prop., ${resumen.clientes} clientes, ${resumen.gestiones} gestiones, ${resumen.agenda} eventos`
+    : "";
+  await registrarLog("", "agente eliminado", true, `${quien}${authBorrada ? "" : " (solo perfil: no tenía cuenta)"}${movido} · por ${actor.nombre}`);
+  return Object.assign({ ok: true, authBorrada }, resumen || {});
 });
+
 
 /* ============================================================================
    FICHAS DE REUNIÓN INDIVIDUAL (admin.html → Desempeño)

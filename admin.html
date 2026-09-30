@@ -103,9 +103,11 @@
     .met b.nada{color:var(--muted-2)}
     .met span{display:block;font-size:.63rem;color:var(--muted-2);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
 
-    .cpk{flex-direction:row;align-items:center;gap:9px}
-    .cpk input{width:17px;height:17px;flex:none}
-    .cpk span{font-size:.9rem}
+    /* Casillas del traspaso: .cp las ponía como campo de texto (casilla a lo ancho
+       y la etiqueta en mayúsculas debajo). Con dos clases gana siempre. */
+    .cp.cpk{display:flex;flex-direction:row;align-items:center;gap:10px;margin-bottom:11px;cursor:pointer}
+    .cp.cpk input{width:17px;height:17px;flex:none;padding:0;margin:0;accent-color:var(--navy);cursor:pointer}
+    .cp.cpk span{display:inline;margin:0;font-size:.9rem;font-weight:500;text-transform:none;letter-spacing:0;color:var(--ink)}
     .kb{flex:none;width:32px;height:32px;border:none;background:none;border-radius:8px;color:var(--muted-2);
       cursor:pointer;font-size:.95rem;transition:background .13s,color .13s}
     .kb:hover{background:var(--paper);color:var(--ink)}
@@ -122,6 +124,16 @@
     .slide-f{display:flex;gap:9px;padding:16px 20px;border-top:1px solid var(--line)}
     .slide-f .bd-btn{flex:1;justify-content:center}
     .bd-btn.pri{background:var(--navy);color:#fff;border-color:var(--navy)}
+    .bd-btn.peligro{background:var(--bad);color:#fff;border-color:var(--bad)}
+    .bd-btn:disabled{opacity:.6;cursor:default}
+    /* Cartera a nombre de cuentas que ya no existen */
+    .huerf-nota{display:flex;gap:10px;align-items:flex-start;padding:12px 16px;background:#fffbeb;border-bottom:1px solid #fde68a;
+      color:#92400e;font-size:.82rem;line-height:1.5}
+    .huerf-nota i{color:var(--warn);margin-top:3px;flex:none}
+    .av.huerf{background:#fef2f2;color:var(--bad);font-size:.95rem}
+    .baja-alerta{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;margin:0 0 16px;background:#fef2f2;
+      border:1px solid #fecaca;border-radius:12px;color:#991b1b;font-size:.86rem;line-height:1.5}
+    .baja-alerta i{margin-top:3px;flex:none}
     .cp{display:block;margin-bottom:15px}
     .cp span{display:block;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}
     .cp input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:.92rem;color:var(--ink)}
@@ -646,21 +658,31 @@
       return;
     }
     yo = u;
-    /* Abre la sección que venga en la dirección (admin.html#revisiones). Las
-       notificaciones de la campanita mandan acá con la pestaña en el hash; antes
-       el panel siempre arrancaba en Bandeja y había que buscar a mano.
-       Formato: "seccion" o "sitio-solapa" (sitio-testimonios, sitio-postulaciones). */
-    var _h = decodeURIComponent((location.hash || '').replace(/^#/, ''));
-    var _partes = _h.split('-');
-    var _sec = _partes[0];
-    if (['bandeja','equipo','desempeno','revisiones','sitio'].indexOf(_sec) >= 0) {
-      if (_sec === 'sitio' && _partes[1]) _stVer = _partes[1];
-      ver(_sec);
-    } else {
-      ver('bandeja');
-    }
-    contadores();
+    // El panel está repartido en tres <script>: se arranca cuando el HTML terminó
+    // de cargar, así ya existen todas las secciones. Si la sesión se resolvía
+    // antes (datos en caché), la primera pantalla quedaba en blanco con
+    // "pintarDesempeno is not defined".
+    cuandoCargue(function(){
+      /* Abre la sección que venga en la dirección (admin.html#revisiones). Las
+         notificaciones de la campanita mandan acá con la pestaña en el hash; antes
+         el panel siempre arrancaba en Bandeja y había que buscar a mano.
+         Formato: "seccion" o "sitio-solapa" (sitio-testimonios, sitio-postulaciones). */
+      var _h = decodeURIComponent((location.hash || '').replace(/^#/, ''));
+      var _partes = _h.split('-');
+      var _sec = _partes[0];
+      if (['bandeja','equipo','desempeno','revisiones','sitio'].indexOf(_sec) >= 0) {
+        if (_sec === 'sitio' && _partes[1]) _stVer = _partes[1];
+        ver(_sec);
+      } else {
+        ver('bandeja');
+      }
+      contadores();
+    });
   });
+  function cuandoCargue(fn){
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once: true });
+    else fn();
+  }
 </script>
 <script>
   // ==========================================================================
@@ -748,23 +770,37 @@
   // ==========================================================================
   // EQUIPO
   // ==========================================================================
-  var _agentes = [];
+  var _agentes = [], _huerfanos = {};
   async function pintarEquipo(c){
     try{
       // Las cuatro métricas salen de tres consultas. Clientes se cuenta acá
       // porque sin ese dato "1 propiedad" no distingue al que no trabaja del
       // que trabaja y todavía no cerró.
-      var [us, props, clis, cfg] = await Promise.all([
+      var hoyUY = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Montevideo' });
+      var [us, props, clis, cfg, vis] = await Promise.all([
         db.collection('users').get(),
         db.collection('properties').get(),
         db.collection('clients').get(),
-        db.collection('adminData').doc('comisiones').get().catch(()=>null)
+        db.collection('adminData').doc('comisiones').get().catch(()=>null),
+        // Solo las de hoy en adelante: son las que alguien tiene que atender.
+        db.collection('visits').where('date', '>=', hoyUY).get().catch(()=>null)
       ]);
       var propsPorAgente = {}, clisPorAgente = {};
       props.docs.forEach(d => { var p=d.data(); if(p.ownerId) propsPorAgente[p.ownerId]=(propsPorAgente[p.ownerId]||0)+1; });
       clis.docs.forEach(d => { var x=d.data(); if(x.archived) return; if(x.createdBy) clisPorAgente[x.createdBy]=(clisPorAgente[x.createdBy]||0)+1; });
 
       var todos = us.docs.map(d => ({id:d.id, ...d.data()}));
+      // Cartera HUÉRFANA: propiedades y clientes a nombre de cuentas que ya no
+      // existen (agentes eliminados antes de que la baja obligara a pasarla).
+      // Se ve acá mismo porque es donde se decide a quién pasa.
+      var existe = {};
+      todos.forEach(u => { existe[u.id] = true; });
+      var huerf = {};
+      var hDe = (uid, nombre) => { var h = huerf[uid] = huerf[uid] || { uid: uid, nombre: '', props: 0, clis: 0, vis: 0 }; if (!h.nombre && nombre) h.nombre = nombre; return h; };
+      props.docs.forEach(d => { var p=d.data(); if(p.ownerId && !existe[p.ownerId]) hDe(p.ownerId, p.ownerName).props++; });
+      clis.docs.forEach(d => { var x=d.data(); if(x.createdBy && !existe[x.createdBy]) { var h = hDe(x.createdBy, x.createdByName); if (!x.archived) h.clis++; } });
+      if (vis) vis.docs.forEach(d => { var v=d.data(); if(v.userId && !existe[v.userId] && String(v.date||'') >= hoyUY) hDe(v.userId, '').vis++; });
+      _huerfanos = huerf;
       var pendientes = todos.filter(u => u.status==='pending');
       // Los que no tienen acceso van al final: siguen en la lista por su historial.
       var equipo = todos.filter(u => u.status!=='pending').sort((a,b) =>
@@ -803,6 +839,20 @@
         '<div class="rs"><b'+(tSaldo>0?' class="ok"':'')+'>'+(tSaldo>0?plata(tSaldo,'USD'):'—')+'</b><span>A cobrar</span></div>' +
         (sinAct?'<div class="rs"><b class="warn">'+sinAct+'</b><span>Sin actividad</span></div>':'') +
       '</div>';
+      var hl = Object.values(huerf).filter(h => h.props || h.clis || h.vis)
+        .sort((a,b) => (b.props+b.clis+b.vis) - (a.props+a.clis+a.vis));
+      if (hl.length){
+        var tx = (n, s, p) => n + ' ' + (n === 1 ? s : p);
+        html += '<div class="ad-sec"><span>Cartera sin agente</span><b>'+hl.length+'</b><i></i></div><div class="card" id="eqHuerfanos">' +
+          '<div class="huerf-nota"><i class="fas fa-triangle-exclamation"></i><span>Quedó a nombre de cuentas que ya no existen: esas propiedades siguen publicadas con el nombre y el WhatsApp de esa persona, y nadie atiende a esos clientes ni a esas visitas. Pasalas a alguien del equipo.</span></div>' +
+          hl.map(h =>
+            '<div class="row"><div class="av huerf"><i class="fas fa-user-slash"></i></div>' +
+            '<div class="id"><div class="id-n"><b>'+esc(h.nombre || 'Agente sin nombre')+'</b><span class="chip gris">Cuenta eliminada</span></div>' +
+            '<div class="id-s">'+[h.props ? tx(h.props, 'propiedad', 'propiedades') : '', h.clis ? tx(h.clis, 'cliente', 'clientes') : '',
+              h.vis ? tx(h.vis, 'visita agendada', 'visitas agendadas') : ''].filter(Boolean).join(' · ')+'</div></div>' +
+            '<button class="bd-btn pri" onclick="traspasar(\''+escA(h.uid)+'\')"><i class="fas fa-right-left"></i> Reasignar</button>' +
+            '</div>').join('') + '</div>';
+      }
       html += '<div class="ad-sec"><span>Equipo</span><b>'+equipo.length+'</b><i></i></div>' +
         '<div class="card" id="eqLista">' + equipo.map(u => fila(u, propsPorAgente[u.id]||0, clisPorAgente[u.id]||0)).join('') + '</div>';
 
@@ -845,12 +895,37 @@
     return acc;
   }
   // Quitar el acceso es lo que conviene cuando alguien se va: no entra más y
-  // se conserva todo su historial. Se puede devolver.
-  async function quitarAcceso(id){
+  // se conserva todo su historial. Se puede devolver. Si se va, en el mismo paso
+  // se puede pasar su cartera: si no, sus propiedades siguen publicadas con su
+  // nombre y su WhatsApp, y sus clientes sin nadie que los atienda.
+  function quitarAcceso(id){
     var u = agente(id); if (!u || !puedoAdministrar(u)) return;
-    if (!confirm('¿Quitarle el acceso a ' + (u.name || u.email || 'este agente') + '?\n\nNo va a poder entrar al CRM. Sus clientes, propiedades y cierres quedan como están: si se va, transferí antes su cartera.\n\nEl acceso se le puede devolver cuando quieras.')) return;
-    try{ await db.collection('users').doc(id).update({status:'rejected'}); toast('Acceso quitado'); ver('equipo'); }
-    catch(e){ console.error(e); toast(msgPermiso(e, 'No se pudo quitar el acceso')); }
+    var quien = u.name || u.email || 'este agente';
+    var tiene = carteraTexto(id);
+    abrirPanel('Quitar acceso a ' + quien,
+      '<p class="cp-nota" style="margin-top:0">No va a poder entrar al CRM. Se conserva todo su historial y el acceso se le puede devolver cuando quieras.</p>' +
+      (tiene ? '<p class="cp-nota">Tiene a su nombre <b>' + tiene + '</b>. Si se va de la agencia, pasalos a otro agente: si no, sus propiedades siguen publicadas con su nombre y su WhatsApp.</p>' : '') +
+      '<label class="cp"><span>Su cartera</span><select id="qaDestino"><option value="">Queda a su nombre</option>' + opcionesDestino(id, true) + '</select></label>' +
+      '<p class="cp-nota">Si elegís a alguien, pasan sus propiedades, clientes, gestiones y visitas agendadas, y los avisos de Mercado Libre pasan a su teléfono.</p>',
+      function(){ return confirmarQuitarAcceso(id); },
+      { boton: 'Quitar acceso', peligro: true, ocupado: 'Guardando...', bloquear: true });
+  }
+  async function confirmarQuitarAcceso(id){
+    var sel = document.getElementById('qaDestino'), destino = sel ? sel.value : '';
+    var d = null;
+    // Primero la cartera: si eso falla, no se le quita el acceso y se puede reintentar.
+    if (destino){
+      try{ d = (await firebase.functions().httpsCallable('traspasarCartera', { timeout: 330000 })({ deUid: id, aUid: destino,
+        mueve: { propiedades: true, clientes: true, gestiones: true, agenda: true } })).data || {}; }
+      catch(e){ console.error(e); toast(((e && e.message) || 'No se pudo pasar su cartera') + '. No se le quitó el acceso.'); return; }
+    }
+    try{ await db.collection('users').doc(id).update({status:'rejected'}); }
+    catch(e){ console.error(e); toast(msgPermiso(e, 'No se pudo quitar el acceso') + (d ? ' (su cartera ya pasó)' : '')); return; }
+    cerrarPanel();
+    var partes = d ? resumenTraspaso(d) : '';
+    toast('Acceso quitado' + (partes ? '. ' + partes + ' pasaron a ' + nombreDe(destino) : ''));
+    if (d) avisarAvisosML(d);
+    ver('equipo');
   }
   async function devolverAcceso(id){
     var u = agente(id); if (!u || !puedoAdministrar(u)) return;
@@ -934,72 +1009,131 @@
   // guardan adentro el teléfono del agente que los creó, así que el traspaso
   // también empuja el contacto nuevo aviso por aviso. InfoCasas y el CRM leen el
   // dueño en cada consulta, así que ahí se corrige solo.
+  // También sirve para la cartera HUÉRFANA: la que quedó a nombre de una cuenta
+  // que ya no existe (agentes eliminados antes de que la baja obligara a pasarla).
   function traspasar(id){
-    var u = agente(id); if(!u || !puedoAdministrar(u)) return;
+    var u = agente(id), h = !u && _huerfanos[id];
+    if(!u && !h) return;
+    if(u && !puedoAdministrar(u)) return;
+    var nombre = u ? (u.name||u.email||'agente') : (h.nombre||'un agente eliminado');
     // Destino: solo cuentas que pueden trabajar (aprobadas, o el CEO).
-    var otros = _agentes.filter(function(a){
-      return a.id !== id && (a.status === 'approved' || (a.email||'').toLowerCase() === ADMIN_EMAIL);
-    });
-    if(!otros.length){ toast('No hay otro agente al que transferirle'); return; }
-    var opts = otros.map(function(a){
-      return '<option value="'+escA(a.id)+'">'+esc(a.name||a.email||'Agente')+'</option>';
-    }).join('');
-    abrirPanel('Transferir cartera de '+(u.name||'agente'),
-      '<p class="cp-nota" style="margin-top:0">Todo lo que esté a nombre de <b>'+esc(u.name||u.email||'')+
-      '</b> pasa al agente que elijas. Los avisos publicados en Mercado Libre se actualizan con el teléfono del agente nuevo.</p>'+
+    var opts = opcionesDestino(id);
+    if(!opts){ toast('No hay otro agente al que transferirle'); return; }
+    abrirPanel((h?'Reasignar la cartera de ':'Transferir cartera de ')+nombre,
+      '<p class="cp-nota" style="margin-top:0">'+(h
+        ? 'Lo que quedó a nombre de <b>'+esc(nombre)+'</b> (su cuenta ya no existe) pasa al agente que elijas.'
+        : 'Todo lo que esté a nombre de <b>'+esc(nombre)+'</b> pasa al agente que elijas.')+
+      ' Los avisos publicados en Mercado Libre se actualizan con el teléfono del agente nuevo.</p>'+
       '<label class="cp"><span>Nuevo responsable</span><select id="trDestino">'+opts+'</select></label>'+
       '<label class="cp cpk"><input type="checkbox" id="trProps" checked><span>Propiedades</span></label>'+
       '<label class="cp cpk"><input type="checkbox" id="trClis" checked><span>Clientes</span></label>'+
       '<label class="cp cpk"><input type="checkbox" id="trGest" checked><span>Gestiones</span></label>'+
+      '<label class="cp cpk"><input type="checkbox" id="trAgenda" checked><span>Visitas y reuniones agendadas (de hoy en adelante)</span></label>'+
       '<p class="cp-nota">Puede demorar si hay muchos avisos publicados: cada uno se actualiza por separado.</p>',
-      function(){ return confirmarTraspaso(id); });
+      function(){ return confirmarTraspaso(id); },
+      h ? { boton: 'Reasignar', ocupado: 'Reasignando...', bloquear: true } : { boton: 'Transferir', ocupado: 'Transfiriendo...', bloquear: true });
   }
 
+  // Las llamadas al servidor que mueven una cartera esperan un poco más que los
+  // 5 minutos que puede tardar el servidor: con muchos avisos de Mercado Libre,
+  // el minuto de siempre cortaba la espera aunque el traspaso siguiera andando.
   async function confirmarTraspaso(deId){
     var destino = document.getElementById('trDestino').value;
+    var ag = document.getElementById('trAgenda');
     var mueve = {
       propiedades: document.getElementById('trProps').checked,
       clientes: document.getElementById('trClis').checked,
-      gestiones: document.getElementById('trGest').checked
+      gestiones: document.getElementById('trGest').checked,
+      agenda: !!(ag && ag.checked)
     };
-    if(!mueve.propiedades && !mueve.clientes && !mueve.gestiones){ toast('Elegí al menos una cosa para transferir'); return; }
+    if(!mueve.propiedades && !mueve.clientes && !mueve.gestiones && !mueve.agenda){ toast('Elegí al menos una cosa para transferir'); return; }
     var r;
-    try{ r = await firebase.functions().httpsCallable('traspasarCartera')({ deUid: deId, aUid: destino, mueve: mueve }); }
+    try{ r = await firebase.functions().httpsCallable('traspasarCartera', { timeout: 330000 })({ deUid: deId, aUid: destino, mueve: mueve }); }
     catch(e){ console.error(e); toast((e && e.message) || 'No se pudo transferir'); return; }
     var d = r.data || {};
     cerrarPanel();
+    var partes = resumenTraspaso(d);
+    var msg = partes ? 'Pasaron a '+nombreDe(destino)+': '+partes : 'No había nada para transferir';
+    if(d.avisosActualizados) msg += '. Avisos de ML actualizados: '+d.avisosActualizados;
+    toast(msg);
+    avisarAvisosML(d);
+    ver('equipo');
+  }
+
+  // "12 propiedades, 30 clientes y 4 gestiones", a partir de lo que devuelve el servidor.
+  function resumenTraspaso(d){
     var partes = [];
     if(d.propiedades) partes.push(d.propiedades+' propiedad'+(d.propiedades===1?'':'es'));
     if(d.clientes) partes.push(d.clientes+' cliente'+(d.clientes===1?'':'s'));
     if(d.gestiones) partes.push(d.gestiones+' gestión'+(d.gestiones===1?'':'es'));
-    var msg = partes.length ? 'Se transfirieron '+partes.join(', ') : 'No había nada para transferir';
-    if(d.avisosActualizados) msg += '. Avisos de ML actualizados: '+d.avisosActualizados;
-    toast(msg);
-    // Los avisos que no se pudieron actualizar hay que decirlos: si no, el
-    // teléfono viejo queda publicado y nadie se entera.
-    if(d.avisosConError && d.avisosConError.length){
+    if(d.agenda) partes.push(d.agenda+' evento'+(d.agenda===1?'':'s')+' de agenda');
+    return partes.length < 2 ? (partes[0]||'') : partes.slice(0,-1).join(', ')+' y '+partes[partes.length-1];
+  }
+  // Los avisos que no se pudieron actualizar hay que decirlos: si no, el
+  // teléfono viejo queda publicado y nadie se entera.
+  function avisarAvisosML(d){
+    if(d && d.avisosConError && d.avisosConError.length){
       alert('Quedaron '+d.avisosConError.length+' aviso(s) de Mercado Libre sin actualizar el contacto.\n\n'+
         d.avisosConError.map(function(x){ return '· '+x.itemId+': '+x.error; }).join('\n')+
         '\n\nRevisalos desde la propiedad y volvé a publicar si hace falta.');
     }
-    ver('equipo');
+  }
+  function nombreDe(uid){ var a = agente(uid); return a ? (a.name||a.email||'Agente') : 'el agente elegido'; }
+  // Quiénes pueden recibir una cartera: cuentas que trabajan (aprobadas, o el
+  // CEO), menos la de origen. Por defecto queda elegido el que está usando el
+  // panel, salvo que se pida no preseleccionar a nadie.
+  function opcionesDestino(excluir, sinPreseleccion){
+    return _agentes.filter(function(a){
+      return a.id !== excluir && (a.status === 'approved' || (a.email||'').toLowerCase() === ADMIN_EMAIL);
+    }).sort(function(a,b){ return (a.name||a.email||'').localeCompare(b.name||b.email||'','es',{sensitivity:'base'}); })
+      .map(function(a){
+        var mio = !!(yo && a.id === yo.uid);
+        return '<option value="'+escA(a.id)+'"'+(mio && !sinPreseleccion?' selected':'')+'>'+esc(a.name||a.email||'Agente')+(mio?' (vos)':'')+'</option>';
+      }).join('');
+  }
+  // Lo que un agente tiene a su nombre, en texto: "12 propiedades y 30 clientes".
+  function carteraTexto(id){
+    var nP = (_eqDatos && _eqDatos.props[id]) || 0, nC = (_eqDatos && _eqDatos.clis[id]) || 0;
+    return [nP ? nP+' propiedad'+(nP===1?'':'es') : '', nC ? nC+' cliente'+(nC===1?'':'s') : ''].filter(Boolean).join(' y ');
   }
 
-  async function eliminar(id){
+  // Se avisa explícitamente que se borra la CUENTA, no solo la ficha: antes se
+  // borraba el perfil, la persona volvía a iniciar sesión y el sistema le
+  // recreaba el perfil en 'pending'. Parecía eliminado y no lo estaba.
+  // Y su cartera pasa a otro en el mismo paso: antes se pedía "transferí antes
+  // su cartera", pero si no se hacía, todo quedaba a nombre de una cuenta que ya
+  // no existe (con su nombre y su WhatsApp en la web) y sin botón para
+  // reasignarlo, porque el botón estaba en su fila, que desaparece con él.
+  function eliminar(id){
     var u = agente(id);
     if (!u || !puedoAdministrar(u)) return;
     var quien = u.name || u.email || 'este usuario';
-    // Se avisa explícitamente que se borra la CUENTA, no solo la ficha: antes se
-    // borraba el perfil, la persona volvía a iniciar sesión y el sistema le
-    // recreaba el perfil en 'pending'. Parecía eliminado y no lo estaba.
-    if(!confirm('¿Eliminar la cuenta de ' + quien + '?\n\nSe borra el acceso al CRM y su ficha. No se puede deshacer.\n\nSi solo se va del equipo, conviene "Quitar acceso" (en este mismo menú): no entra más y se conserva su historial de cierres. Antes de eliminarlo, transferí su cartera.')) return;
-    try{
-      await firebase.functions().httpsCallable('eliminarAgente')({ uid: id });
-      toast('Cuenta eliminada'); ver('equipo');
-    }catch(e){
-      console.error(e);
-      toast((e && e.message) || 'No se pudo eliminar');
-    }
+    var opts = opcionesDestino(id);
+    if (!opts){ toast('No hay otro agente que pueda quedarse con su cartera'); return; }
+    var tiene = carteraTexto(id);
+    abrirPanel('Eliminar la cuenta de ' + quien,
+      '<div class="baja-alerta"><i class="fas fa-triangle-exclamation"></i><span>Se borra su acceso al CRM y su ficha. <b>No se puede deshacer.</b></span></div>' +
+      '<p class="cp-nota">' + (tiene
+        ? 'Tiene a su nombre <b>' + tiene + '</b>, con sus gestiones y las visitas que tenga agendadas. Antes de borrar la cuenta, todo eso pasa al agente que elijas.'
+        : 'No tiene propiedades ni clientes a su nombre. Si aparece algo más (gestiones o visitas agendadas), pasa al agente que elijas.') +
+      ' Los avisos de Mercado Libre pasan a su teléfono.</p>' +
+      '<label class="cp"><span>' + (tiene ? 'Su cartera pasa a' : 'Si tiene algo, pasa a') + '</span><select id="elDestino">' + opts + '</select></label>' +
+      '<p class="cp-nota">Si solo se va del equipo y querés conservar su historial (cierres, desempeño y tasaciones), usá "Quitar acceso", en este mismo menú.</p>',
+      function(){ return confirmarEliminar(id); },
+      { boton: tiene ? 'Pasar su cartera y eliminar' : 'Eliminar la cuenta', peligro: true, ocupado: 'Eliminando...', bloquear: true });
+  }
+  async function confirmarEliminar(id){
+    var sel = document.getElementById('elDestino'), destino = sel ? sel.value : '';
+    if (!destino){ toast('Elegí quién se queda con su cartera'); return; }
+    var r;
+    try{ r = await firebase.functions().httpsCallable('eliminarAgente', { timeout: 330000 })({ uid: id, aUid: destino }); }
+    catch(e){ console.error(e); toast((e && e.message) || 'No se pudo eliminar'); return; }
+    var d = (r && r.data) || {};
+    cerrarPanel();
+    var partes = resumenTraspaso(d);
+    toast('Cuenta eliminada' + (partes ? '. ' + partes + ' pasaron a ' + nombreDe(destino) : ''));
+    avisarAvisosML(d);
+    ver('equipo');
   }
   async function guardarComision(){
     if (!soyCEO) return;
@@ -1017,24 +1151,38 @@
   // `guardar` es una FUNCIÓN, no un texto. Antes se metía como texto dentro de
   // onclick="..." y el id del agente venía entre comillas dobles: cerraban el
   // atributo y el botón quedaba muerto. Acá se ata con addEventListener.
-  function abrirPanel(titulo, cuerpo, guardar){
+  // op.boton / op.peligro / op.ocupado: texto y color del botón principal (por
+  // defecto "Guardar"), para acciones que no son guardar, como eliminar.
+  // op.bloquear: mientras corre, el panel no se cierra. Pasar una cartera o
+  // eliminar una cuenta puede tardar minutos; si se cerraba y se volvía a abrir,
+  // se podía mandar lo mismo dos veces (y a destinos distintos).
+  function abrirPanel(titulo, cuerpo, guardar, op){
+    op = op || {};
+    var etq = op.boton || 'Guardar';
     cerrarPanel();
     var w=document.createElement('div');
     w.className='slide';
-    w.onclick=function(e){ if(e.target===w) cerrarPanel(); };
+    var ocupado = false;
+    var cerrar = function(){ if (ocupado){ toast('Esperá a que termine'); return; } cerrarPanel(); };
+    w.onclick=function(e){ if(e.target===w) cerrar(); };
     w.innerHTML='<div class="slide-box"><div class="slide-h"><b>'+esc(titulo)+'</b>'+
       '<button class="kb" data-cerrar><i class="fas fa-xmark"></i></button></div>'+
       '<div class="slide-b">'+cuerpo+'</div>'+
       (guardar?'<div class="slide-f"><button class="bd-btn" data-cerrar>Cancelar</button>'+
-        '<button class="bd-btn pri" data-guardar>Guardar</button></div>':'')+'</div>';
+        '<button class="bd-btn '+(op.peligro?'peligro':'pri')+'" data-guardar>'+esc(etq)+'</button></div>':'')+'</div>';
     document.body.appendChild(w);
-    w.querySelectorAll('[data-cerrar]').forEach(b => b.addEventListener('click', cerrarPanel));
+    w.querySelectorAll('[data-cerrar]').forEach(b => b.addEventListener('click', cerrar));
     var g = w.querySelector('[data-guardar]');
+    var cierres = function(on){ w.querySelectorAll('[data-cerrar]').forEach(b => { b.disabled = !on; }); };
     if (g && guardar) g.addEventListener('click', function(){
-      g.disabled = true; g.textContent = 'Guardando...';
+      g.disabled = true; g.textContent = op.ocupado || 'Guardando...';
+      if (op.bloquear){ ocupado = true; cierres(false); }
       Promise.resolve(guardar()).catch(function(e){
         console.error(e); toast('No se pudo guardar');
-      }).then(function(){ if(document.body.contains(g)){ g.disabled=false; g.textContent='Guardar'; } });
+      }).then(function(){
+        ocupado = false;
+        if(document.body.contains(g)){ g.disabled=false; g.textContent=etq; cierres(true); }
+      });
     });
   }
   function campo(lbl, id, val, tipo, extra){
