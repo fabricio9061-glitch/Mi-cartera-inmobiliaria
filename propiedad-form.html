@@ -4684,12 +4684,19 @@
             try {
               let clientName = '';
               try { const cd = await db.collection('clients').doc(formClientId).get(); if (cd.exists) clientName = cd.data().name || ''; } catch (e) {}
+              // Es SU propiedad: el cliente es el dueño (propietario) y la captación
+              // ya está hecha, así que la gestión nace "En cartera". Antes nacía en
+              // "nuevo" y sin rol: si el cliente había entrado como consulta de un
+              // portal, el sistema lo tomaba por interesado en su propia propiedad.
+              const _ahoraG = new Date().toISOString();
               await db.collection('gestiones').add({
                 clientId: formClientId,
                 clientName: clientName,
                 propertyId: pi,
                 propertyTitle: pd.title || '',
-                estadoGestion: 'nuevo',
+                rol: 'propietario',
+                estadoGestion: 'cartera',
+                historial: [{ tipo: 'avance', valor: 'En cartera', autor: userProfile.name || currentUser.email || 'Agente', fecha: _ahoraG }],
                 interes: pd.type === 'rent' ? 'alquilar' : 'vender',
                 presupuesto: '',
                 link: '',

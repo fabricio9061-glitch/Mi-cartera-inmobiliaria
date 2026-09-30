@@ -3040,6 +3040,22 @@ exports.avisarResolucionBaja = onDocumentUpdated("properties/{id}", async (event
   const antes = event.data.before.data() || {};
   const ahora = event.data.after.data() || {};
   if (antes.despubPendiente !== true || ahora.despubPendiente === true) return;
+  const r = ahora.despubResolucion || {};
+  // Dirección eligió "Mantener publicada" (la resolución la escribe la campanita,
+  // sin 'motivo'; las que trae 'motivo' las escribe el propio sistema). Si el pedido
+  // venía de un propietario que cerró por afuera o se perdió, su gestión vuelve a
+  // "En cartera": la propiedad sigue con la agencia.
+  if (r.resultado === "mantenida" && !r.motivo && ahora.status !== "archived" && ahora.status !== "cerrado_externo") {
+    try { await reactivarGestionesPropietario(event.params.id, r.por || null, antes.despubGestionId || null); }
+    catch (e) { logger.warn("avisarResolucionBaja: no se pudo reactivar la gestión del propietario:", e.message); }
+  }
+  // El dato de qué gestión la había sacado de circulación ya cumplió su función.
+  if (ahora.despubGestionId) {
+    try { await event.data.after.ref.update({ despubGestionId: admin.firestore.FieldValue.delete() }); } catch (e) { /* se limpia la próxima vez */ }
+  }
+  // Si la operación se cerró con la agencia mientras esperaba, el pedido de baja
+  // quedó sin objeto: no se le avisa "baja rechazada" a nadie.
+  if (r.motivo === "gestion_cerrada") return;
   const uid = antes.bajaSolicitadaUid;
   if (!uid) return; // pedido automático (cerró por afuera), no lo pidió nadie a mano
   const titulo = ahora.title || antes.title || "una propiedad";
@@ -6557,7 +6573,15 @@ exports.recordatorioSeguimiento = onSchedule(
 
     // Agregado por cliente — MISMO criterio que clientes.html: manda la gestión
     // ACTIVA más avanzada; la última actividad es lo último tocado en cualquiera.
+    // Igual que en la pantalla: el dueño de una propiedad (propietario) está como
+    // mínimo "En cartera" aunque su gestión haya quedado en "nuevo", y "cerró por
+    // afuera" y "propiedad eliminada" también son terminales. Antes este aviso
+    // contaba como "nuevo" a propietarios que Clientes mostraba "En cartera", y
+    // les llegaba un "sin contacto" que en la pantalla no aparecía.
     const PRIORIDAD = ["nuevo", "contactado", "seguimiento", "visita", "negociacion", "cartera"];
+    const TERMINALES = ["cerrado", "perdido", "externo", "prop_eliminada"];
+    const clientePorId = {};
+    cliSnap.docs.forEach((d) => { clientePorId[d.id] = d.data(); });
     const agg = {};
     gestSnap.docs.forEach((d) => {
       const g = d.data();
@@ -6566,8 +6590,10 @@ exports.recordatorioSeguimiento = onSchedule(
       a.total++;
       const ts = g.updatedAt || g.createdAt || "";
       if (ts > a.ts) a.ts = ts;
-      const e = g.estadoGestion || "nuevo";
-      if (e === "cerrado" || e === "perdido") return;
+      let e = g.estadoGestion || "nuevo";
+      if (g.propertyId && rolGestionInferido(g, clientePorId[g.clientId]) === "propietario" &&
+          PRIORIDAD.indexOf(e) >= 0 && PRIORIDAD.indexOf(e) < PRIORIDAD.indexOf("cartera")) e = "cartera";
+      if (TERMINALES.includes(e)) return;
       a.activas++;
       const p = PRIORIDAD.indexOf(e);
       if (p > a.prio) { a.prio = p; a.estado = e; }
@@ -6584,8 +6610,13 @@ exports.recordatorioSeguimiento = onSchedule(
         if (!a.activas) return; // todas las gestiones cerradas/perdidas: nada para recordar
         estado = a.estado;
       } else {
-        estado = c.status || "nuevo";
-        if (estado === "cerrado" || estado === "perdido") return;
+        // Sin gestiones: la etapa elegida a mano para el cliente ("etapa"); las
+        // etapas viejas guardadas en "status" cuentan como "nuevo" (en la
+        // pantalla figuran "Sin gestionar").
+        const ETAPAS_CLIENTE = ["nuevo", "contactado", "seguimiento", "visita", "negociacion", "externo", "perdido"];
+        estado = (c.etapa && ETAPAS_CLIENTE.includes(c.etapa)) ? c.etapa : (c.status || "nuevo");
+        if (!c.etapa && PRIORIDAD.includes(estado)) estado = "nuevo";
+        if (TERMINALES.includes(estado)) return;
       }
       // El eje SITUACIÓN manda: pausados, cerrados por afuera y perdidos no reciben
       // el aviso de "sin contacto" (los pausados tienen su propio recordatorio).
@@ -6645,7 +6676,7 @@ exports.recordatorioSeguimiento = onSchedule(
       const extra = lista.length > 3 ? ` y ${lista.length - 3} más` : "";
       const texto = lista.length === 1
         ? `${nombres} lleva ${lista[0].dias} días sin contacto. Entrá a Clientes para retomarlo.`
-        : `${lista.length} clientes llevan más de ${RECORDATORIO_DIAS} días sin contacto: ${nombres}${extra}. Entrá a Clientes para retomarlos.`;
+        : `${lista.length} clientes están sin contacto para su etapa: ${nombres}${extra}. Entrá a Clientes para retomarlos.`;
       await crearNotificacion(
         destino,
         {
@@ -6858,6 +6889,13 @@ function rolGestionInferido(g, cliente) {
   return "propietario";
 }
 
+// Estados en los que la propiedad sigue "en juego": publicada, reservada o en
+// camino a publicarse. Una gestión de PROPIETARIO que termina sin la agencia
+// (cerró por afuera / perdido) no puede dejarla en ninguno de estos.
+const ESTADOS_PROP_EN_JUEGO = ["available", "reserved", "tasacion", "tasado"];
+// Motivos que pone este mismo circuito (no un pedido de baja manual de un agente).
+const MOTIVOS_BAJA_DE_GESTION = ["cerro_externo", "propietario_perdido"];
+
 // La agencia perdió al propietario (gestión perdida, cerró por afuera o perdido a
 // nivel cliente): su propiedad NO puede seguir publicada sin permiso, pero nada se
 // baja solo. Se le manda al admin una confirmación con botones (campanita + push);
@@ -6865,40 +6903,107 @@ function rolGestionInferido(g, cliente) {
 // El flag despubPendiente evita duplicar el pedido si varios eventos coinciden.
 // 'solicitante' es el agente que marcó al propietario (perdido / cerró por afuera):
 // Dirección necesita saber a quién preguntarle antes de despublicar.
-async function pedirConfirmacionDespublicar(propId, quienNombre, motivoTexto, tipoTerminal, solicitante) {
+async function pedirConfirmacionDespublicar(propId, quienNombre, motivoTexto, tipoTerminal, solicitante, gestionId) {
   const ref = db.collection("properties").doc(propId);
-  const snap = await ref.get();
-  if (!snap.exists) return;
-  const p = snap.data();
-  if (p.status && p.status !== "available" && p.status !== "reserved") return; // ya no está en el mercado
-  if (p.despubPendiente === true) return; // ya hay una confirmación esperando
-  const adm = await getAdminUser();
-  if (!adm) return;
-  const texto = `${quienNombre} (propietario) ${motivoTexto}. Su propiedad "${p.title || "sin título"}" sigue publicada: confirmá si hay que despublicarla o mantenerla.${solicitante ? ` Lo marcó ${solicitante}.` : ""}`;
-  await notificarDireccion({
-    type: "despublicar_confirmar",
-    propertyId: propId,
-    propertyTitle: p.title || "una propiedad",
-    userName: "Despublicar",
-    userPhoto: null,
-    text: texto,
-    // Campos sueltos para que la campanita arme la tarjeta sin tener que leer el texto.
-    solicitadoPor: solicitante || null,
-    propietarioNombre: quienNombre,
-    motivoTipo: tipoTerminal === "externo" ? "externo" : "perdido",
-  }, {
-    title: "🏠 Confirmá una despublicación",
-    body: `${p.title || "Una propiedad"} — el propietario ${motivoTexto}${solicitante ? ` (lo marcó ${solicitante})` : ""}`,
+  const gref = gestionId ? db.collection("gestiones").doc(gestionId) : null;
+  // PRIMERO la propiedad sale de circulación y DESPUÉS se avisa. Va en una
+  // transacción que vuelve a leer la gestión: si mientras tanto la reactivaron
+  // (la marcaron "Cerró por afuera" y enseguida "En cartera"), no se toca nada.
+  // Antes se avisaba primero y se escribía al final, y en ese hueco la propiedad
+  // podía quedar fuera de circulación con la gestión ya activa.
+  const r = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return null;
+    if (gref) {
+      const gs = await tx.get(gref);
+      const e = gs.exists ? (gs.data().estadoGestion || "nuevo") : null;
+      if (e !== "externo" && e !== "perdido") return null;
+    }
+    const p = snap.data();
+    const st = p.status || "available";
+    // Ya salió del mercado (vendida, alquilada, dada de baja o ya cerrada por
+    // afuera). Antes solo se miraban Disponible y Reservada: una propiedad en
+    // tasación quedaba "Pendiente de tasación" con el propietario perdido.
+    if (!ESTADOS_PROP_EN_JUEGO.includes(st)) return null;
+    const upd = { status: "cerrado_externo", updatedAt: new Date().toISOString() };
+    if (tipoTerminal === "externo") { upd.motivoBaja = "cerro_externo"; upd.motivoBajaTexto = "Cerró por afuera de la agencia"; }
+    else { upd.motivoBaja = "propietario_perdido"; upd.motivoBajaTexto = "Propietario perdido"; }
+    // Qué gestión la sacó de circulación: solo esa la devuelve al reactivarse, y
+    // es la que vuelve a "En cartera" si Dirección decide mantenerla.
+    upd.despubGestionId = gestionId || admin.firestore.FieldValue.delete();
+    const yaPendiente = p.despubPendiente === true;
+    if (!yaPendiente) { upd.despubPendiente = true; upd.statusPrevioDespub = st; }
+    else if (!p.statusPrevioDespub) upd.statusPrevioDespub = st;
+    tx.update(ref, upd);
+    // Si ya había un pedido esperando del mismo circuito, no se repite el aviso.
+    // Si el que esperaba era un pedido de baja manual, sí se avisa: Dirección
+    // tiene que saber que ahora además el propietario cerró por afuera o se perdió.
+    return { p, st, avisar: !yaPendiente || !!p.bajaSolicitadaUid };
   });
-  // La propiedad toma YA su estado terminal (para que el selector no muestre algo
-  // sin sentido como "Pendiente de tasación"), guardando cuál era su estado de
-  // publicación por si el admin decide mantenerla. Sigue en los portales hasta
-  // que el admin confirme la baja desde la campanita.
-  const upd = { despubPendiente: true, statusPrevioDespub: p.status || "available" };
-  if (tipoTerminal === "externo") { upd.status = "cerrado_externo"; upd.motivoBaja = "cerro_externo"; upd.motivoBajaTexto = "Cerró por afuera de la agencia"; }
-  else if (tipoTerminal === "perdido") { upd.status = "cerrado_externo"; upd.motivoBaja = "propietario_perdido"; upd.motivoBajaTexto = "Propietario perdido"; }
-  await ref.update(upd);
-  logger.info(`[despublicar?] ${propId}: pedido de confirmación al admin (${motivoTexto}).`);
+  if (!r) return;
+  if (!r.avisar) {
+    logger.info(`[despublicar?] ${propId}: ya había un pedido esperando; pasa a cerrado_externo (${motivoTexto}).`);
+    return;
+  }
+  const p = r.p, st = r.st;
+  const enTasacion = st === "tasacion" || st === "tasado";
+  const texto = `${quienNombre} (propietario) ${motivoTexto}. Su propiedad "${p.title || "sin título"}" ${enTasacion ? "estaba en tasación" : "sigue publicada"}: confirmá si hay que ${enTasacion ? "darla de baja" : "despublicarla"} o mantenerla.${solicitante ? ` Lo marcó ${solicitante}.` : ""}`;
+  // La propiedad ya salió de circulación aunque el aviso falle (queda "baja
+  // pendiente" a la vista): nunca "Cerró por afuera" con la propiedad Disponible.
+  try {
+    await notificarDireccion({
+      type: "despublicar_confirmar",
+      propertyId: propId,
+      propertyTitle: p.title || "una propiedad",
+      userName: "Despublicar",
+      userPhoto: null,
+      text: texto,
+      // Campos sueltos para que la campanita arme la tarjeta sin tener que leer el texto.
+      solicitadoPor: solicitante || null,
+      propietarioNombre: quienNombre,
+      motivoTipo: tipoTerminal === "externo" ? "externo" : "perdido",
+    }, {
+      title: "🏠 Confirmá una despublicación",
+      body: `${p.title || "Una propiedad"} — el propietario ${motivoTexto}${solicitante ? ` (lo marcó ${solicitante})` : ""}`,
+    });
+  } catch (e) { logger.error(`[despublicar?] ${propId}: no se pudo avisar a Dirección:`, e.message); }
+  logger.info(`[despublicar?] ${propId}: pedido de confirmación a Dirección (${motivoTexto}).`);
+}
+
+// Dirección decidió MANTENER publicada una propiedad cuyo propietario había
+// cerrado por afuera o figuraba perdido: entonces el propietario sigue con la
+// agencia y su gestión vuelve a "En cartera". Sin esto quedaba la contradicción
+// que se veía en Clientes: avance "Cerró por afuera" con la propiedad Disponible.
+async function reactivarGestionesPropietario(propId, por, gestionId) {
+  // Si se sabe qué gestión la sacó de circulación, vuelve SOLO esa (no una gestión
+  // vieja de un dueño anterior que quedó "perdido" en la historia). Los pedidos
+  // de antes de este cambio no lo guardaban: ahí vuelven las del propietario.
+  const docs = [];
+  if (gestionId) {
+    const d = await db.collection("gestiones").doc(gestionId).get();
+    if (d.exists) docs.push({ id: d.id, data: () => d.data(), ref: db.collection("gestiones").doc(gestionId) });
+  } else {
+    const gs = await db.collection("gestiones").where("propertyId", "==", propId).get();
+    gs.docs.forEach((x) => docs.push(x));
+  }
+  const ahora = new Date().toISOString();
+  for (const gd of docs) {
+    const g = gd.data();
+    if (g.propertyId !== propId) continue;
+    if (g.estadoGestion !== "externo" && g.estadoGestion !== "perdido") continue;
+    let cliente = null;
+    try { if (g.clientId) { const cd = await db.doc(`clients/${g.clientId}`).get(); if (cd.exists) cliente = cd.data(); } } catch (e) { /* sin datos del cliente */ }
+    if (rolGestionInferido(g, cliente) !== "propietario") continue;
+    await gd.ref.update({
+      estadoGestion: "cartera",
+      updatedAt: ahora,
+      historial: admin.firestore.FieldValue.arrayUnion({
+        tipo: "avance", valor: "En cartera", autor: por ? `${por} (Dirección)` : "Dirección", fecha: ahora,
+        nota: "Dirección decidió mantener la propiedad publicada",
+      }),
+    });
+    logger.info(`[mantener publicada] ${propId}: la gestión ${gd.id} vuelve a En cartera.`);
+  }
 }
 
 // Quién cambió la etapa de la gestión. Los triggers de Firestore no traen el usuario,
@@ -6918,24 +7023,104 @@ exports.sincronizarPropiedadAlCerrarGestion = onDocumentUpdated("gestiones/{gid}
   const ahora = (event.data.after && event.data.after.data()) || {};
   const estAntes = antes.estadoGestion || "nuevo";
   const estAhora = ahora.estadoGestion || "nuevo";
-  if (estAntes === estAhora) return; // cambió otra cosa (una nota, etc.)
+  // "Volver a sincronizar": el CRM agrega al historial una entrada de tipo
+  // "sincronizar" cuando ve que la gestión y su propiedad no coinciden (datos de
+  // antes de este arreglo). Se vuelve a aplicar la regla del estado ACTUAL, sin
+  // tener que cambiar la etapa de ida y vuelta.
+  const claveH = (h) => `${h.tipo}|${h.fecha}|${h.autor}|${h.valor}`;
+  const previasH = new Set((antes.historial || []).filter(Boolean).map(claveH));
+  const resincronizar = (ahora.historial || []).some((h) => h && h.tipo === "sincronizar" && !previasH.has(claveH(h)));
+  // Corregir el ROL también cambia las reglas (el dueño saca la propiedad de
+  // circulación al perderse; el interesado no): se vuelven a aplicar.
+  const cambioRol = (antes.rol || null) !== (ahora.rol || null);
+  if (estAntes === estAhora && !resincronizar && !cambioRol) return; // cambió otra cosa (una nota, etc.)
   const pid = ahora.propertyId;
   if (!pid) return;
+  const gid = event.params.gid;
   const ref = db.collection("properties").doc(pid);
   const snap = await ref.get();
   if (!snap.exists) return;
-  const p = snap.data();
+  let p = snap.data();
+  const borrar = () => admin.firestore.FieldValue.delete();
+  const ya = () => new Date().toISOString();
+  const quien = autorCambioGestion(antes, ahora);
+  // El rol (y el cliente) se leen una sola vez y solo si hacen falta.
+  let _cliente, _rol = null;
+  const rol = async () => {
+    if (_rol) return _rol;
+    _cliente = null;
+    try {
+      if (ahora.clientId) { const cd = await db.doc(`clients/${ahora.clientId}`).get(); if (cd.exists) _cliente = cd.data(); }
+    } catch (e) { /* sin datos del cliente */ }
+    _rol = rolGestionInferido(ahora, _cliente);
+    return _rol;
+  };
+  // ¿El pedido de despublicación que está esperando lo generó este circuito (y no
+  // un pedido de baja que hizo un agente a mano, que sigue su propio camino)?
+  const pedidoDeGestion = (x) => x.despubPendiente === true && !x.bajaSolicitadaUid;
+  const porGestion = (x) => MOTIVOS_BAJA_DE_GESTION.includes(x.motivoBaja);
 
+  // Devuelve la propiedad a su estado anterior si ESTA gestión la había sacado de
+  // circulación, y da por resuelto el pedido a Dirección. Si la sacó otra gestión
+  // (otro dueño de la misma propiedad), no se toca. Si Dirección ya la dio de
+  // baja (archivada), tampoco: no se vuelve a publicar sola.
+  const restaurar = async () => {
+    if (p.despubGestionId && p.despubGestionId !== gid) return;
+    // Pedidos de antes de este cambio (sin despubGestionId): solo un propietario
+    // (o una gestión a la que le acaban de corregir el rol) puede haberla sacado.
+    if (!p.despubGestionId && !cambioRol && (await rol()) !== "propietario") return;
+    const resolucion = { resultado: "mantenida", por: quien || "Agente", at: ya(), motivo: "gestion_reabierta" };
+    if (p.status === "cerrado_externo" && (porGestion(p) || pedidoDeGestion(p))) {
+      const previo = ESTADOS_PROP_EN_JUEGO.includes(p.statusPrevioDespub) ? p.statusPrevioDespub : "available";
+      const upd = { status: previo, motivoBaja: borrar(), motivoBajaTexto: borrar(), despubGestionId: borrar(), updatedAt: ya() };
+      // Un pedido de baja que hizo un agente a mano sigue esperando a Dirección.
+      if (pedidoDeGestion(p)) Object.assign(upd, { despubPendiente: borrar(), statusPrevioDespub: borrar(), despubResolucion: resolucion });
+      await ref.update(upd);
+      logger.info(`[gestión reactivada] Propiedad ${pid} -> ${previo}.`);
+    } else if (pedidoDeGestion(p) && ESTADOS_PROP_EN_JUEGO.includes(p.status || "available")) {
+      // La propiedad ya estaba otra vez en juego, pero quedó colgado el pedido de
+      // despublicación: Dirección seguía viendo "¿Despublicar?" de un propietario
+      // que sigue con la agencia.
+      await ref.update({
+        despubPendiente: borrar(), statusPrevioDespub: borrar(), motivoBaja: borrar(), motivoBajaTexto: borrar(),
+        despubGestionId: borrar(), despubResolucion: resolucion, updatedAt: ya(),
+      });
+      logger.info(`[gestión reactivada] Propiedad ${pid}: se cierra el pedido de despublicación que había quedado.`);
+    }
+  };
+
+  // (1) Salió de "Cerrado": se revierte SOLO lo que este trigger había marcado.
+  if (estAntes === "cerrado" && estAhora !== "cerrado") {
+    const f = p.finalizadaPorGestion;
+    if (f && f.gestionId === gid && (p.status === "sold" || p.status === "rented")) {
+      await ref.update({
+        status: "available",
+        finalizadaPorGestion: borrar(),
+        contratoPendiente: borrar(),
+        contratoPendienteGestion: borrar(),
+        updatedAt: ya(),
+      });
+      logger.info(`[gestión reabierta] Propiedad ${pid} -> available.`);
+      p = Object.assign({}, p, { status: "available" });
+      delete p.finalizadaPorGestion;
+    }
+  }
+
+  // (2) Cerrado con la agencia: la propiedad pasa a Vendida / Alquilada.
   if (estAhora === "cerrado") {
-    // Solo si la propiedad estaba disponible o reservada: un estado ya
-    // definido (vendida por el Mapa de cierres, en tasación, etc.) se respeta.
-    if (p.status && p.status !== "available" && p.status !== "reserved") return;
+    if (estAntes === "cerrado" && !resincronizar) return;   // solo se corrigió el rol
+    // Solo si estaba disponible o reservada: un estado ya definido (vendida por el
+    // Mapa de cierres, en tasación, etc.) se respeta. Excepción: si había salido de
+    // circulación por este mismo circuito (se había marcado perdido o cerró por
+    // afuera y al final se cerró con la agencia), el cierre manda.
+    const enLimbo = p.status === "cerrado_externo" && (pedidoDeGestion(p) || porGestion(p));
+    if (!enLimbo && p.status && p.status !== "available" && p.status !== "reserved") return;
     const esAlquiler = p.type === "rent";
     const nuevoEstado = esAlquiler ? "rented" : "sold";
     const upd = {
       status: nuevoEstado,
-      finalizadaPorGestion: { gestionId: event.params.gid, fecha: new Date().toISOString() },
-      updatedAt: new Date().toISOString(),
+      finalizadaPorGestion: { gestionId: gid, fecha: ya() },
+      updatedAt: ya(),
     };
     // Alquiler = pausa con fecha. Si todavía no tiene un contrato vigente cargado,
     // marcamos contratoPendiente: el front pedirá fecha de fin e inquilino. La venta
@@ -6944,39 +7129,43 @@ exports.sincronizarPropiedadAlCerrarGestion = onDocumentUpdated("gestiones/{gid}
       const hayVigente = Array.isArray(p.contratos) && p.contratos.some((c) => c && c.vigente);
       if (!hayVigente) {
         upd.contratoPendiente = true;
-        upd.contratoPendienteGestion = event.params.gid; // para vincular el inquilino
+        upd.contratoPendienteGestion = gid; // para vincular el inquilino
       }
+    }
+    if (enLimbo) {
+      // Vendida o alquilada: cualquier pedido de baja que esperaba quedó sin objeto.
+      Object.assign(upd, {
+        despubPendiente: borrar(), statusPrevioDespub: borrar(), motivoBaja: borrar(), motivoBajaTexto: borrar(), despubGestionId: borrar(),
+        bajaSolicitadaUid: borrar(), bajaSolicitadaPor: borrar(), bajaSolicitadaAt: borrar(), bajaSolicitadaMotivo: borrar(),
+        despubResolucion: { resultado: "resuelta", por: quien || "Agente", at: ya(), motivo: "gestion_cerrada" },
+      });
     }
     await ref.update(upd);
     logger.info(`[gestión cerrada] Propiedad ${pid} -> ${nuevoEstado}${upd.contratoPendiente ? " (contrato pendiente)" : ""}.`);
-  } else if (estAntes === "cerrado") {
-    // Se reabrió la gestión: revertir solo lo que este trigger marcó.
-    const f = p.finalizadaPorGestion;
-    if (f && f.gestionId === event.params.gid && (p.status === "sold" || p.status === "rented")) {
-      await ref.update({
-        status: "available",
-        finalizadaPorGestion: admin.firestore.FieldValue.delete(),
-        contratoPendiente: admin.firestore.FieldValue.delete(),
-        contratoPendienteGestion: admin.firestore.FieldValue.delete(),
-        updatedAt: new Date().toISOString(),
-      });
-      logger.info(`[gestión reabierta] Propiedad ${pid} -> available.`);
-    }
-  } else if ((estAhora === "perdido" && estAntes !== "perdido") || (estAhora === "externo" && estAntes !== "externo")) {
-    // Se perdió la gestión, o cerró por afuera. Según el ROL del cliente:
-    //  - Interesado: no toca la propiedad (perder un candidato no la baja).
-    //  - Propietario: se perdió la captación / cerró sin la agencia -> la propiedad
-    //    no puede seguir publicada sin permiso: confirmación al admin.
-    let cliente = null;
-    try {
-      if (ahora.clientId) { const cd = await db.doc(`clients/${ahora.clientId}`).get(); if (cd.exists) cliente = cd.data(); }
-    } catch (e) { /* sin datos del cliente */ }
-    if (rolGestionInferido(ahora, cliente) === "propietario") {
-      const motivo = estAhora === "externo" ? "cerró la operación por afuera" : "se marcó como perdido";
-      const tipoT = estAhora === "externo" ? "externo" : "perdido";
-      await pedirConfirmacionDespublicar(pid, (cliente && cliente.name) || ahora.clientName || "El propietario", motivo, tipoT, autorCambioGestion(antes, ahora));
-    }
+    return;
   }
+
+  // (3) Perdido o cerró por afuera. Según el ROL del cliente:
+  //  - Propietario: se perdió la captación / cerró sin la agencia -> la propiedad
+  //    sale de circulación y Dirección confirma la baja de los portales.
+  //  - Interesado: no toca la propiedad (perder un candidato no la baja). Si antes
+  //    figuraba como dueño y la había sacado de circulación, vuelve a como estaba.
+  if (estAhora === "perdido" || estAhora === "externo") {
+    if (await rol() === "propietario") {
+      const motivo = estAhora === "externo" ? "cerró la operación por afuera" : "se marcó como perdido";
+      await pedirConfirmacionDespublicar(pid, (_cliente && _cliente.name) || ahora.clientName || "El propietario", motivo, estAhora, quien, gid);
+    } else if (cambioRol || resincronizar) {
+      await restaurar();
+    }
+    return;
+  }
+  if (estAhora === "prop_eliminada") return;
+
+  // (4) La gestión está ACTIVA. Si venía de "perdido" / "cerró por afuera" (o se pidió
+  // resincronizar, o se corrigió el rol) y la propiedad había salido de circulación
+  // por esta gestión, vuelve a su estado anterior: una gestión activa nunca queda
+  // con la propiedad "Cerró por afuera".
+  if (estAntes === "perdido" || estAntes === "externo" || resincronizar || cambioRol) await restaurar();
 });
 
 // =====================================================================
