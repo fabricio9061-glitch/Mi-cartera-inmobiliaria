@@ -11,6 +11,11 @@
   <link rel="stylesheet" href="styles.css?v=20260821j">
   <style>
     body{ background:var(--gray-50,#f5f6f8); }
+    /* styles.css corta el desborde horizontal con overflow-x:hidden, y eso convierte
+       la página en un contenedor con scroll propio: lo "pegado" (la ficha con el
+       valor, la cabecera) dejaba de acompañar al bajar. clip corta igual, sin eso.
+       Donde el navegador no lo conoce, queda como estaba. */
+    html, body{ overflow-x:clip; }
     .tp-header{ background:#fff; box-shadow:var(--shadow-sm,0 1px 3px rgba(0,0,0,.08)); position:sticky; top:0; z-index:1000; }
     .tp-header-inner{ max-width:1180px; margin:0 auto; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
     .tp-back{ display:inline-flex; align-items:center; gap:8px; color:var(--gray-600,#555); font-size:14px; font-weight:500; padding:9px 18px; border:1px solid var(--gray-300,#ddd); border-radius:999px; cursor:pointer; background:none; text-decoration:none; transition:all .25s; }
@@ -22,12 +27,24 @@
     .tp-state a{ display:inline-block; margin-top:18px; background:var(--primary,#16273f); color:#fff; padding:11px 26px; border-radius:999px; text-decoration:none; }
     .tp-spinner{ width:46px; height:46px; border:4px solid var(--gray-200,#eee); border-top-color:var(--primary,#16273f); border-radius:50%; animation:tpspin 1s linear infinite; margin-bottom:18px; }
     @keyframes tpspin{ to{ transform:rotate(360deg); } }
-    .pa-page-head{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
+    .pa-page-head{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:24px; }
+    .pa-page-head > div:nth-child(2){ flex:1; min-width:240px; }
+    .tas-head-acc{ display:flex; gap:8px; flex-wrap:wrap; }
     .pa-page-ic{ width:56px; height:56px; border-radius:15px; background:linear-gradient(135deg,#101d30,var(--primary,#16273f)); color:#C9A227; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex:0 0 auto; }
     .pa-page-title{ font-family:'Cormorant Garamond',serif; font-size:2rem; color:var(--primary,#16273f); margin:0; font-weight:700; }
     .pa-page-sub{ color:var(--gray-500,#8a8a8a); margin:4px 0 0; font-size:.92rem; max-width:560px; }
     .mv-soon{ font-size:.66rem; letter-spacing:.03em; background:#eef0f3; color:#8a8a8a; padding:3px 9px; border-radius:999px; font-weight:600; text-transform:uppercase; vertical-align:middle; }
-    .tas-grid{ display:grid; grid-template-columns:1fr 1.55fr; gap:18px; align-items:start; }
+    /* ===== Mesa de trabajo: los pasos a la izquierda y la ficha con el valor a la
+       derecha, siempre a la vista mientras se cargan los antecedentes. En celular va
+       todo en una columna y la ficha queda entre los antecedentes y el informe. ===== */
+    .tas-mesa{ display:grid; grid-template-columns:minmax(0,1fr) 350px; grid-template-areas:"p1 ficha" "p2 ficha" "p3 ficha" "det ficha"; gap:18px 22px; align-items:start; }
+    .tas-p1{ grid-area:p1; } .tas-p2{ grid-area:p2; } .tas-p3{ grid-area:p3; } .tas-det{ grid-area:det; }
+    .tas-ficha-col{ grid-area:ficha; position:sticky; top:86px; align-self:start; }
+    .tas-paso{ display:flex; align-items:center; gap:12px; margin:0 0 16px; }
+    .tas-paso-n{ width:30px; height:30px; border-radius:50%; background:#C9A227; color:#fff; display:grid; place-items:center; font-weight:600; font-size:.92rem; line-height:1; flex:none; }
+    .tas-paso h2{ font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:600; color:var(--primary,#16273f); margin:0; line-height:1.1; }
+    .tas-paso p{ margin:2px 0 0; font-size:.8rem; color:var(--gray-500,#8a8a8a); }
+    .tas-fields5{ display:grid; grid-template-columns:1.15fr 1fr 1fr .95fr .95fr; gap:12px; }
     .tas-card{ background:#fff; border:1px solid var(--gray-200,#e3e6ea); border-radius:16px; padding:22px; }
     .tas-h3{ font-size:1.05rem; color:var(--primary,#16273f); margin:0 0 16px; display:flex; align-items:center; gap:10px; }
     .tas-h3 small{ color:var(--gray-400,#aaa); font-weight:400; font-size:.82rem; }
@@ -39,8 +56,10 @@
     .tas-f input, .tas-f select{ width:100%; padding:10px 11px; border:1px solid var(--gray-200,#e3e6ea); border-radius:9px; font-family:inherit; font-size:.92rem; background:#fff; }
     .tas-f input:focus, .tas-f select:focus{ outline:none; border-color:#C9A227; }
     .tas-hint{ font-size:.8rem; color:var(--gray-500,#8a8a8a); line-height:1.55; margin:14px 0 0; }
-    .tas-ant-head{ display:grid; grid-template-columns:.75fr .6fr .6fr 1fr .8fr 1.15fr; gap:8px; font-size:.72rem; color:var(--gray-500,#8a8a8a); padding:0 2px 8px; font-weight:600; align-items:end; }
-    .tas-ant-row{ display:grid; grid-template-columns:.75fr .6fr .6fr 1fr .8fr 1.15fr; gap:8px; margin-bottom:8px; align-items:start; }
+    .tas-ant-head{ display:grid; grid-template-columns:22px .75fr .55fr .55fr 1.05fr .8fr 1.2fr; gap:8px; font-size:.72rem; color:var(--gray-500,#8a8a8a); padding:0 2px 8px; font-weight:600; align-items:end; }
+    .tas-ant-row{ display:grid; grid-template-columns:22px .75fr .55fr .55fr 1.05fr .8fr 1.2fr; gap:8px; margin-bottom:8px; align-items:start; }
+    /* Número del antecedente: el asistente y los avisos hablan de "antecedente 3" */
+    .tas-ant-n{ height:38px; display:grid; place-items:center; font-size:.86rem; font-weight:600; color:#b08d1e; }
     /* Cómo se carga el valor de los antecedentes: precio total o USD por m² */
     .tas-modo{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin:-2px 0 14px; }
     .tas-modo-lbl{ font-size:.78rem; color:var(--gray-500,#8a8a8a); }
@@ -53,20 +72,20 @@
     .tas-ant-aviso[hidden]{ display:none; }
     .tas-ant-aviso > i{ color:#d97706; margin-top:3px; flex:none; }
     /* Asistente de calificaciones */
-    .tas-asist{margin:2px 0 12px; border:1px solid #d9d2f5; background:#f7f5ff; color:#3b2f73; border-radius:10px; padding:11px 13px; font-size:.82rem; line-height:1.45; display:flex; gap:10px; align-items:flex-start; }
+    .tas-asist{margin:2px 0 12px; border:1px solid #d6dde8; background:#f1f4f9; color:#23324a; border-radius:10px; padding:11px 13px; font-size:.82rem; line-height:1.45; display:flex; gap:10px; align-items:flex-start; }
     .tas-asist[hidden]{ display:none; }
-    .tas-asist > i{ color:#6d5bd0; margin-top:3px; flex:none; }
+    .tas-asist > i{ color:#b08d1e; margin-top:3px; flex:none; }
     .tas-asist > div{ flex:1; min-width:0; }
-    .tas-asist .asist-btn{ margin-top:8px; border:none; background:#4c3fa3; color:#fff; border-radius:8px; padding:7px 12px; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; display:inline-flex; gap:7px; align-items:center; }
+    .tas-asist .asist-btn{ margin-top:8px; border:none; background:var(--primary,#16273f); color:#fff; border-radius:8px; padding:7px 12px; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; display:inline-flex; gap:7px; align-items:center; }
     .tas-asist .asist-btn:disabled{ opacity:.6; cursor:default; }
     .asist-ops{ display:flex; flex-direction:column; gap:7px; margin-top:9px; }
-    .asist-op{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#fff; border:1px solid #e3def8; border-radius:9px; padding:8px 10px; }
+    .asist-op{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#fff; border:1px solid #dfe4ec; border-radius:9px; padding:8px 10px; }
     .asist-op-txt{ flex:1; min-width:180px; }
-    .asist-op-txt b{ color:#2a2160; }
-    .asist-op-res{ font-size:.78rem; color:#6b6490; }
+    .asist-op-txt b{ color:var(--primary,#16273f); }
+    .asist-op-res{ font-size:.78rem; color:#6b7280; }
     .asist-op-txt .nw{ white-space:nowrap; }
-    .asist-op button{ border:1px solid #4c3fa3; background:#fff; color:#4c3fa3; border-radius:8px; padding:6px 12px; font-family:inherit; font-size:.78rem; font-weight:700; cursor:pointer; }
-    .asist-op button:hover{ background:#4c3fa3; color:#fff; }
+    .asist-op button{ border:1px solid var(--primary,#16273f); background:#fff; color:var(--primary,#16273f); border-radius:8px; padding:6px 12px; font-family:inherit; font-size:.78rem; font-weight:700; cursor:pointer; }
+    .asist-op button:hover{ background:var(--primary,#16273f); color:#fff; }
     .tas-ant-aviso button{ margin-top:8px; border:none; background:var(--primary,#16273f); color:#fff; border-radius:8px; padding:7px 12px; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; display:inline-flex; gap:7px; align-items:center; }
     .tas-ant-row input, .tas-ant-row select{ width:100%; padding:9px; border:1px solid var(--gray-200,#e3e6ea); border-radius:8px; font-family:inherit; font-size:.88rem; background:#fff; }
     .tas-ant-row input:focus, .tas-ant-row select:focus{ outline:none; border-color:#C9A227; }
@@ -78,23 +97,46 @@
     .tas-asim .asim-num{ width:52px; text-align:center; flex:0 0 auto; padding:7px 4px; }
     .tas-asim .asim-num:disabled{ background:var(--gray-50,#f5f6f8); color:var(--gray-400,#aaa); }
     .tas-asim .asim-lock{ color:var(--gray-300,#ccc); font-size:.8rem; flex:0 0 auto; width:12px; }
-    .tas-defrow{ display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-top:6px; flex-wrap:wrap; }
+    .tas-defrow{ display:flex; align-items:center; justify-content:flex-start; gap:10px; margin-top:6px; flex-wrap:wrap; }
     .tas-defrow label{ font-size:.78rem; color:var(--gray-500,#8a8a8a); }
     .tas-defrow input{ width:64px; padding:7px; border:1px solid var(--gray-200,#e3e6ea); border-radius:8px; font-family:inherit; font-size:.85rem; text-align:center; }
     .tas-reset{ border:1px solid var(--gray-200,#e3e6ea); background:#fff; border-radius:8px; padding:7px 12px; font-size:.82rem; cursor:pointer; font-family:inherit; color:var(--gray-600,#555); display:inline-flex; align-items:center; gap:7px; transition:all .18s; }
     .tas-reset:hover{ border-color:#C9A227; color:#C9A227; }
     .tas-ig{ color:var(--gray-400,#bbb); font-size:.8rem; cursor:help; }
-    .tas-result{ background:linear-gradient(135deg,#101d30,var(--primary,#16273f)); color:#fff; border-radius:16px; padding:24px 26px; margin-top:18px; display:grid; grid-template-columns:1.35fr 1.25fr .8fr; gap:16px; align-items:center; transition:box-shadow .3s; }
-    .tas-result.ok{ box-shadow:0 14px 40px rgba(16,29,48,.25); }
-    .tas-res-cell{ text-align:center; }
-    .tas-res-cell.main{ border-right:1px solid rgba(255,255,255,.14); display:flex; flex-direction:column; align-items:center; gap:4px; }
-    .tas-res-label{ font-size:.74rem; color:rgba(255,255,255,.6); letter-spacing:.06em; text-transform:uppercase; }
-    .tas-res-value{ font-family:'Cormorant Garamond',serif; font-size:2.6rem; font-weight:700; color:#C9A227; line-height:1.05; }
-    .tas-res-cell strong{ font-size:1.12rem; display:block; margin-top:5px; }
-    .tas-res-cell .sub{ font-size:.72rem; color:rgba(255,255,255,.5); margin-top:3px; }
-    .tas-res-cell.main .sub{ font-size:.8rem; color:rgba(255,255,255,.62); margin-top:0; }
-    .tas-res-msg{ grid-column:1/-1; text-align:center; color:rgba(255,255,255,.72); font-size:.85rem; margin:6px 0 0; padding-top:14px; border-top:1px solid rgba(255,255,255,.12); }
-    .tas-bottom{ display:grid; grid-template-columns:1fr 1.25fr 1fr; gap:18px; margin-top:18px; align-items:start; }
+    /* ===== La ficha de la tasación: el valor en vivo, el medidor contra el límite
+       de 5,10% de la planilla y el botón para enviarla ===== */
+    .tas-ficha{ background:linear-gradient(165deg,#101d30,var(--primary,#16273f) 72%); color:#fff; border-radius:18px; padding:20px 22px 18px; box-shadow:0 18px 40px rgba(16,29,48,.2); scroll-margin-top:92px; }
+    .tas-ficha-top{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .tas-ficha-lbl{ font-size:.8rem; color:rgba(255,255,255,.64); }
+    .tas-estado{ font-size:.72rem; font-weight:600; padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.1); color:rgba(255,255,255,.72); display:inline-flex; gap:6px; align-items:center; white-space:nowrap; }
+    .tas-estado.si{ background:rgba(34,197,94,.17); color:#86efac; }
+    .tas-estado.no{ background:rgba(245,158,11,.18); color:#fcd34d; }
+    .tas-res-value{ display:block; font-family:'Cormorant Garamond',serif; font-size:3.05rem; font-weight:700; color:#C9A227; line-height:1; margin:12px 0 7px; }
+    .tas-ficha .sub{ display:block; font-size:.8rem; color:rgba(255,255,255,.6); margin-top:2px; }
+    /* El corte de la ficha: línea punteada con dos muescas del color de la página */
+    .tas-corte{ position:relative; border-top:1.5px dashed rgba(255,255,255,.22); margin:18px -22px 16px; }
+    .tas-corte::before, .tas-corte::after{ content:''; position:absolute; top:-11px; width:20px; height:20px; border-radius:50%; background:var(--gray-50,#f5f6f8); }
+    .tas-corte::before{ left:-10px; } .tas-corte::after{ right:-10px; }
+    .tas-fila{ margin-bottom:16px; }
+    .tas-fila strong{ display:block; font-size:1.05rem; font-weight:600; margin-top:3px; }
+    .tas-fila-inc{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+    .tas-fila-inc strong{ margin:0; font-size:1.15rem; }
+    .tas-medidor{ position:relative; height:8px; border-radius:99px; background:rgba(255,255,255,.13); margin:10px 0 6px; }
+    .tas-medidor-fill{ position:absolute; left:0; top:0; bottom:0; width:0; border-radius:99px; background:#C9A227; transition:width .35s ease, background-color .2s; }
+    .tas-medidor.pasa .tas-medidor-fill{ background:#f59e0b; }
+    .tas-medidor.lejos .tas-medidor-fill{ background:#ef4444; }
+    .tas-medidor-lim{ position:absolute; top:-5px; bottom:-5px; left:51%; width:2px; margin-left:-1px; background:#fff; border-radius:2px; }
+    .tas-medidor-esc{ display:flex; justify-content:space-between; font-size:.68rem; color:rgba(255,255,255,.46); }
+    .tas-res-msg{ font-size:.82rem; line-height:1.5; color:rgba(255,255,255,.76); margin:14px 0 0; }
+    .tas-ficha .tas-export{ width:100%; margin-top:16px; background:#C9A227; color:#16273f; border:none; border-radius:11px; padding:12px; font-family:inherit; font-size:.92rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:9px; }
+    .tas-ficha .tas-export:hover:not(:disabled){ background:#d4ae33; }
+    .tas-ficha .tas-export:disabled{ background:rgba(255,255,255,.14); color:rgba(255,255,255,.5); cursor:not-allowed; }
+    .tas-ficha-pie{ text-align:center; font-size:.76rem; color:rgba(255,255,255,.55); margin-top:9px; min-height:1em; }
+    /* Barra del celular: el valor a mano cuando la ficha quedó fuera de la pantalla */
+    .tas-barra{ display:none; }
+    /* Detalle del cálculo */
+    .tas-det-grid{ display:grid; grid-template-columns:1.25fr 1fr; gap:22px; align-items:start; }
+    .tas-det-sub{ font-size:.86rem; font-weight:600; color:var(--primary,#16273f); margin:0 0 8px; }
     .tas-mini-h{ font-size:.98rem; color:var(--primary,#16273f); margin:0 0 14px; display:flex; align-items:center; gap:9px; }
     .tas-mini-h i{ color:#C9A227; }
     .tas-model-row{ display:flex; justify-content:space-between; align-items:baseline; padding:9px 0; border-bottom:1px solid var(--gray-100,#eef0f3); font-size:.88rem; }
@@ -104,9 +146,6 @@
     .tas-notes li{ font-size:.82rem; color:var(--gray-600,#555); line-height:1.5; margin-bottom:10px; padding-left:24px; position:relative; list-style:none; }
     .tas-notes li::before{ content:'\f058'; font-family:'Font Awesome 6 Free'; font-weight:900; color:#C9A227; position:absolute; left:0; top:1px; font-size:.85rem; }
     .tas-notes ul{ margin:0; padding:0; }
-    .tas-export{ width:100%; margin-top:14px; background:var(--primary,#16273f); color:#fff; border:none; border-radius:10px; padding:11px; font-family:inherit; font-size:.9rem; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:9px; transition:transform .15s; }
-    .tas-export:hover{ transform:translateY(-1px); }
-    .tas-export:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
     .tas-saved{ text-align:center; font-size:.82rem; color:var(--gray-500,#8a8a8a); margin-top:22px; display:flex; align-items:center; justify-content:center; gap:8px; }
     /* Gráfica "Comparables vs. estimado": franja del rango con mínimo y máximo */
     .tas-chart-cap{ font-size:.78rem; color:var(--gray-500,#8a8a8a); margin:-6px 0 10px; line-height:1.45; }
@@ -122,15 +161,26 @@
     svg .cmp-cap{ fill:var(--gray-500,#8a8a8a); font-size:8.5px; font-weight:600; letter-spacing:.06em; font-family:'Jost',sans-serif; }
     svg .cmp-lim-txt{ fill:var(--primary,#16273f); font-size:12.5px; font-weight:700; font-family:'Jost',sans-serif; }
     svg .cmp-est-txt{ fill:#a8821a; font-size:12.5px; font-weight:700; font-family:'Jost',sans-serif; }
-    @media (max-width:1000px){ .tas-grid{ grid-template-columns:1fr; } .tas-bottom{ grid-template-columns:1fr; } .tas-result{ grid-template-columns:1fr 1fr; } .tas-res-cell.main{ grid-column:1/-1; border-right:none; border-bottom:1px solid rgba(255,255,255,.14); padding-bottom:14px; } }
+    @media (max-width:1060px){
+      .tas-mesa{ grid-template-columns:minmax(0,1fr); grid-template-areas:"p1" "p2" "ficha" "p3" "det"; }
+      .tas-ficha-col{ position:static; }
+      .tas-barra{ position:fixed; left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom,0px)); z-index:900; display:flex; align-items:center; gap:12px; background:var(--primary,#16273f); color:#fff; border-radius:14px; padding:9px 10px 9px 16px; box-shadow:0 10px 30px rgba(16,29,48,.35); transform:translateY(150%); transition:transform .25s ease; }
+      .tas-barra.on{ transform:none; }
+      .tas-barra b{ display:block; font-family:'Cormorant Garamond',serif; font-size:1.45rem; line-height:1.05; color:#C9A227; }
+      .tas-barra span{ display:block; font-size:.74rem; color:rgba(255,255,255,.7); }
+      .tas-barra button{ margin-left:auto; background:#C9A227; color:#16273f; border:none; border-radius:9px; padding:9px 13px; font-family:inherit; font-size:.82rem; font-weight:700; cursor:pointer; }
+      #mvToastWrap{ bottom:84px; }
+      .tas-det-grid{ grid-template-columns:1fr; }
+    }
+    @media (max-width:760px){ .tas-fields5{ grid-template-columns:1fr 1fr; } .tas-fields5 .tas-f:first-child{ grid-column:1/-1; } }
     @media (max-width:560px){
       .pa-page-title{ font-size:1.6rem; }
       .tas-fields{ grid-template-columns:1fr 1fr; }
-      .tas-res-value{ font-size:2.2rem; }
-      .tas-result{ grid-template-columns:1fr; }
+      .tas-res-value{ font-size:2.6rem; }
+      .tas-ant-n{ display:none; }
       .tas-ant-head{ display:none; }
       .tas-ant-row{ grid-template-columns:1fr 1fr; gap:7px 9px; padding:12px; border:1px solid var(--gray-100,#eef0f3); border-radius:10px; }
-      .tas-ant-row::before{ content:attr(data-n); grid-column:1/-1; font-size:.8rem; font-weight:600; color:var(--primary,#16273f); }
+      .tas-ant-row::before{ content:attr(data-n); grid-column:1/-1; font-family:'Cormorant Garamond',serif; font-size:1.1rem; font-weight:700; color:var(--primary,#16273f); }
       .tas-ant-row .tas-asim-cell{ grid-column:1/-1; }
       .tas-cell-lbl{ display:block; }
       svg .cmp-cap{ font-size:10px; }
@@ -138,17 +188,22 @@
       svg .cmp-val, svg .cmp-txt{ font-size:11px; }
     }
     .tas-report{ padding:0 !important; overflow:hidden; }
-    .tas-report-toggle{ width:100%; display:flex; align-items:center; justify-content:space-between; background:none; border:none; padding:18px 22px; font-family:inherit; font-size:1.02rem; color:var(--primary,#16273f); cursor:pointer; font-weight:600; }
-    .tas-report-toggle i.fa-file-signature{ color:#C9A227; margin-right:9px; }
-    .tas-report-toggle small{ color:var(--gray-400,#aaa); font-weight:400; font-size:.82rem; }
+    .tas-report-toggle{ width:100%; display:flex; align-items:center; gap:12px; background:none; border:none; padding:20px 22px; font-family:inherit; color:var(--primary,#16273f); cursor:pointer; text-align:left; }
+    .tas-report-toggle .tas-paso{ margin:0; flex:1; min-width:0; }
+    .tas-rep-estado{ font-size:.74rem; font-weight:600; color:#b45309; background:#fffbeb; border-radius:999px; padding:4px 10px; white-space:nowrap; }
+    .tas-rep-estado.ok{ color:#15803d; background:#ecfdf3; }
     .tas-report-toggle .fa-chevron-down{ transition:transform .25s; color:var(--gray-400,#aaa); }
     .tas-report-toggle.open .fa-chevron-down{ transform:rotate(180deg); }
     .tas-report-body{ padding:0 22px 22px; }
     .tas-report-cols{ display:grid; grid-template-columns:1fr 1fr; gap:24px; }
-    .tas-report-h{ font-size:.82rem; letter-spacing:.05em; text-transform:uppercase; color:var(--primary,#16273f); margin:0 0 12px; padding-bottom:8px; border-bottom:2px solid #C9A227; }
+    .tas-report-h{ font-size:.92rem; font-weight:600; color:var(--primary,#16273f); margin:0 0 12px; padding-bottom:8px; border-bottom:1.5px solid rgba(201,162,39,.55); }
+    .tas-oblig{ color:#b08d1e; font-weight:700; }
     .tas-report-grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     .tas-report-body .tas-f{ margin-bottom:11px; }
-    @media (max-width:760px){ .tas-report-cols{ grid-template-columns:1fr; gap:18px; } }
+    @media (max-width:760px){ .tas-report-cols{ grid-template-columns:1fr; gap:18px; } .tas-rep-estado{ display:none; } }
+    /* Foco visible con teclado, y sin animaciones para quien las tiene desactivadas */
+    .tas-card input:focus-visible, .tas-card select:focus-visible, .tas-card button:focus-visible, .tas-ficha button:focus-visible, .tas-reset:focus-visible, .tas-modo-op:focus-visible{ outline:2px solid #C9A227; outline-offset:2px; }
+    @media (prefers-reduced-motion: reduce){ .tas-medidor-fill, .tas-barra, .tas-report-toggle .fa-chevron-down{ transition:none; } }
   
     /* Toast */
     #mvToastWrap{ position:fixed; right:16px; bottom:16px; z-index:99999; display:flex; flex-direction:column; gap:10px; max-width:360px; }
@@ -216,26 +271,28 @@
   <div class="tp-wrap" id="tpContent" style="display:none">
     <div class="pa-page-head">
       <div class="pa-page-ic"><i class="fas fa-calculator"></i></div>
-      <div><h1 class="pa-page-title">Tasaciones</h1><p class="pa-page-sub">Estimá el valor de un inmueble por el método de regresión, comparándolo con antecedentes de la zona.</p></div>
+      <div><h1 class="pa-page-title">Tasaciones</h1><p class="pa-page-sub">Estimá el valor de un inmueble comparándolo con 4 antecedentes de la zona, con el método de la planilla.</p></div>
+      <div class="tas-head-acc">
+        <button class="tas-reset" onclick="cargarEjemplo()"><i class="fas fa-flask"></i> Cargar ejemplo</button>
+        <button class="tas-reset" onclick="resetTasador()"><i class="fas fa-rotate-right"></i> Restablecer</button>
+      </div>
     </div>
 
-    <div class="tas-grid">
-      <div class="tas-card">
-        <h3 class="tas-h3"><span class="tas-step">1</span> Inmueble a tasar</h3>
-        <div class="tas-fields">
+    <div class="tas-mesa">
+      <section class="tas-card tas-p1">
+        <div class="tas-paso"><span class="tas-paso-n">1</span><div><h2>Inmueble a tasar</h2><p>Lo que se va a tasar: m² construidos y sus calificaciones.</p></div></div>
+        <div class="tas-fields5">
           <div class="tas-f"><label>m&sup2; construidos</label><input type="number" id="tasM2" placeholder="99" oninput="calcTasador()"></div>
           <div class="tas-f"><label id="tasConsLbl">Construcción (1-3)</label><input type="number" id="tasCons" min="1" max="3" placeholder="3" oninput="calcTasador()"></div>
           <div class="tas-f"><label id="tasUbiLbl">Ubicación (1-3)</label><input type="number" id="tasUbi" min="1" max="3" placeholder="3" oninput="calcTasador()"></div>
+          <div class="tas-f"><label>Dormitorios</label><input type="number" id="tasDorm" min="0" placeholder="2" oninput="calcTasador()"></div>
+          <div class="tas-f"><label>Baños</label><input type="number" id="tasBath" min="0" placeholder="2" oninput="calcTasador()"></div>
         </div>
-        <div class="tas-fields two">
-          <div class="tas-f"><label>Dormitorios <small>(opcional)</small></label><input type="number" id="tasDorm" min="0" placeholder="2" oninput="calcTasador()"></div>
-          <div class="tas-f"><label>Baños <small>(opcional)</small></label><input type="number" id="tasBath" min="0" placeholder="2" oninput="calcTasador()"></div>
-        </div>
-        <p class="tas-hint"><span id="tasHintEscala">Asigná a la construcción y a la ubicación un valor del 1 (peor) al 3 (mejor). El 4 y el 5 quedan para la Dirección, en diferencias muy notorias.</span> Dormitorios y baños son a título informativo: quedan en el PDF pero no alteran el cálculo.</p>
-      </div>
+        <p class="tas-hint"><span id="tasHintEscala">Asigná a la construcción y a la ubicación un valor del 1 (peor) al 3 (mejor). El 4 y el 5 quedan para la Dirección, en diferencias muy notorias.</span> Dormitorios y baños van al informe, no cambian el cálculo.</p>
+      </section>
 
-      <div class="tas-card">
-        <h3 class="tas-h3"><span class="tas-step">2</span> Antecedentes de la zona <small>(exactamente 4, distintos entre sí)</small></h3>
+      <section class="tas-card tas-p2">
+        <div class="tas-paso"><span class="tas-paso-n">2</span><div><h2>Antecedentes de la zona</h2><p>Exactamente 4, distintos entre sí.</p></div></div>
         <div class="tas-modo">
           <span class="tas-modo-lbl">El valor de cada antecedente es:</span>
           <span class="tas-modo-grp" role="radiogroup" aria-label="Cómo se carga el valor de los antecedentes">
@@ -243,93 +300,95 @@
             <button type="button" class="tas-modo-op" data-modo="m2" role="radio" onclick="setModoValor('m2')">USD por m²</button>
           </span>
         </div>
-        <div class="tas-ant-head"><span>m&sup2;</span><span>Const.</span><span>Ubic.</span><span id="tasHeadValor">Precio (USD)</span><span>Tipo</span><span>Asimilador de oferta <i class="fas fa-circle-info tas-ig" title="Para inmuebles en oferta: factor por el que se multiplica el valor publicado (0,85 = se asume venta 15% por debajo). Solo editable cuando el tipo es Oferta."></i></span></div>
+        <div class="tas-ant-head"><span></span><span>m&sup2;</span><span>Const.</span><span>Ubic.</span><span id="tasHeadValor">Precio (USD)</span><span>Tipo</span><span>Asimilador de oferta <i class="fas fa-circle-info tas-ig" title="Para inmuebles en oferta: factor por el que se multiplica el valor publicado (0,85 = se asume venta 15% por debajo). Solo editable cuando el tipo es Oferta."></i></span></div>
         <div id="tasAntList"></div>
         <div class="tas-ant-aviso" id="tasAntAviso" hidden></div>
         <div class="tas-asist" id="tasAsist" hidden></div>
         <div class="tas-defrow">
-          <label>Asimilador por defecto</label><input type="number" id="tasDefAsim" min="0.5" max="1" step="0.01" value="0.85" oninput="aplicarDefAsim()">
-          <button class="tas-reset" onclick="cargarEjemplo()"><i class="fas fa-flask"></i> Cargar ejemplo</button>
-          <button class="tas-reset" onclick="resetTasador()"><i class="fas fa-rotate-right"></i> Restablecer</button>
+          <label for="tasDefAsim">Asimilador por defecto</label><input type="number" id="tasDefAsim" min="0.5" max="1" step="0.01" value="0.85" oninput="aplicarDefAsim()">
         </div>
-        <p class="tas-hint"><span id="tasHintValor"></span> Si está en <b>oferta</b>, podés ajustar su asimilador con el control deslizante o escribiendo el valor: el sistema aplica el factor automáticamente al valor publicado. Los marcados como <b>vendido</b> usan 1,00 (valor real).</p>
-      </div>
-    </div>
+        <p class="tas-hint"><span id="tasHintValor"></span> A los que están en <b>oferta</b> se les aplica el asimilador; los <b>vendidos</b> usan 1,00 (valor real).</p>
+      </section>
 
-    <div class="tas-result" id="tasResult">
-      <div class="tas-res-cell main"><span class="tas-res-label">Valor estimado de la propiedad</span><span class="tas-res-value" id="tasResValue">&mdash;</span><span class="sub" id="tasResM2"></span></div>
-      <div class="tas-res-cell"><span class="tas-res-label">Rango (90% de confianza)</span><strong id="tasResRange">&mdash;</strong><span class="sub" id="tasResRangeM2">valor total de la propiedad</span></div>
-      <div class="tas-res-cell"><span class="tas-res-label">Incertidumbre</span><strong id="tasResUnc">&mdash;</strong><span class="sub" id="tasResUncSub"></span></div>
-      <p class="tas-res-msg" id="tasResMsg">Completá el inmueble y los 4 antecedentes para ver la estimación en tiempo real.</p>
-    </div>
+      <aside class="tas-ficha-col">
+        <div class="tas-ficha" id="tasResult" aria-live="polite">
+          <div class="tas-ficha-top"><span class="tas-ficha-lbl">Valor estimado de la propiedad</span><span class="tas-estado" id="tasEstado"><i class="fas fa-pen"></i> Incompleta</span></div>
+          <span class="tas-res-value" id="tasResValue">&mdash;</span>
+          <span class="sub" id="tasResM2"></span>
+          <div class="tas-corte"></div>
+          <div class="tas-fila"><span class="tas-ficha-lbl">Rango con 90% de confianza</span><strong id="tasResRange">&mdash;</strong><span class="sub" id="tasResRangeM2">valor total de la propiedad</span></div>
+          <div class="tas-fila" style="margin-bottom:0">
+            <div class="tas-fila-inc"><span class="tas-ficha-lbl">Incertidumbre</span><strong id="tasResUnc">&mdash;</strong></div>
+            <div class="tas-medidor" id="tasMedidor" role="meter" aria-label="Incertidumbre contra el límite de 5,10%" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><div class="tas-medidor-fill" id="tasMedidorFill"></div><div class="tas-medidor-lim"></div></div>
+            <div class="tas-medidor-esc"><span>0%</span><span>límite 5,10%</span><span>10%</span></div>
+            <span class="sub" id="tasResUncSub"></span>
+          </div>
+          <p class="tas-res-msg" id="tasResMsg">Completá el inmueble y los 4 antecedentes para ver la estimación en tiempo real.</p>
+          <button class="tas-export" id="tasExportBtn" onclick="exportarPDF()" disabled><i class="fas fa-paper-plane"></i> Enviar a revisión</button>
+          <div class="tas-ficha-pie" id="tasAutoSave"></div>
+        </div>
+      </aside>
 
-    <div style="text-align:center; margin:14px 0 4px">
-      <span id="tasAutoSave" style="font-size:.82rem; opacity:.7"></span>
-    </div>
+      <section class="tas-card tas-report tas-p3">
+        <button type="button" class="tas-report-toggle open" onclick="toggleReportForm()" aria-expanded="true">
+          <div class="tas-paso"><span class="tas-paso-n">3</span><div><h2>Datos para el informe</h2><p>El nombre del cliente, el padrón y la dirección son obligatorios para enviarla.</p></div></div>
+          <span class="tas-rep-estado" id="tasRepEstado"></span>
+          <i class="fas fa-chevron-down" id="tasReportChevron"></i>
+        </button>
+        <div class="tas-report-body" id="tasReportBody" style="display:block">
+          <div class="tas-report-cols">
+            <div>
+              <h4 class="tas-report-h">Cliente</h4>
+              <div class="tas-f"><label for="repCliNombre">Nombre y apellido <span class="tas-oblig">*</span></label><input type="text" id="repCliNombre" placeholder="Ej: Juan Pérez" oninput="guardarLocal()"></div>
+              <div class="tas-f"><label for="repCliTel">Teléfono</label><input type="text" id="repCliTel" placeholder="Ej: 094 123 456" oninput="guardarLocal()"></div>
+              <div class="tas-f"><label for="repCliEmail">Email</label><input type="text" id="repCliEmail" placeholder="cliente@email.com" oninput="guardarLocal()"></div>
+              <div class="tas-f"><label for="repCliSolicitado">Solicitado por</label><input type="text" id="repCliSolicitado" placeholder="Ej: Contacto directo" oninput="guardarLocal()"></div>
+            </div>
+            <div>
+              <h4 class="tas-report-h">Inmueble</h4>
+              <div class="tas-report-grid2">
+                <div class="tas-f"><label for="repInmTipo">Tipo</label><input type="text" id="repInmTipo" placeholder="Casa / Apto" oninput="guardarLocal()"></div>
+                <div class="tas-f"><label for="repInmUso">Uso</label><input type="text" id="repInmUso" placeholder="Residencial" oninput="guardarLocal()"></div>
+                <div class="tas-f"><label for="repInmPadron">Padrón <span class="tas-oblig">*</span></label><input type="text" id="repInmPadron" placeholder="123.456" oninput="guardarLocal()"></div>
+                <div class="tas-f"><label for="repInmAntig">Antigüedad</label><input type="text" id="repInmAntig" placeholder="15 años" oninput="guardarLocal()"></div>
+              </div>
+              <div class="tas-f"><label for="repInmDir">Dirección <span class="tas-oblig">*</span></label><input type="text" id="repInmDir" placeholder="Av. Italia 1234" oninput="guardarLocal()"></div>
+              <div class="tas-report-grid2">
+                <div class="tas-f"><label for="repInmBarrio">Barrio</label><input type="text" id="repInmBarrio" placeholder="Pocitos" oninput="guardarLocal()"></div>
+                <div class="tas-f"><label for="repInmDepto">Departamento</label><input type="text" id="repInmDepto" placeholder="Montevideo" oninput="guardarLocal()"></div>
+                <div class="tas-f"><label for="repInmTerreno">Terreno (m²)</label><input type="text" id="repInmTerreno" placeholder="150" oninput="guardarLocal()"></div>
+                <div class="tas-f"><label for="repInmEstado">Estado general</label><input type="text" id="repInmEstado" placeholder="Bueno" oninput="guardarLocal()"></div>
+                <div class="tas-f"><label for="repInmFrente">Frente (m)</label><input type="text" id="repInmFrente" placeholder="10" oninput="guardarLocal()"></div>
+                <div class="tas-f"><label for="repInmFondo">Fondo (m)</label><input type="text" id="repInmFondo" placeholder="15" oninput="guardarLocal()"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-    <div class="tas-card tas-report" style="margin-top:18px">
-      <button type="button" class="tas-report-toggle" onclick="toggleReportForm()">
-        <span><i class="fas fa-file-signature"></i> Datos para el informe PDF <small>(opcional)</small></span>
-        <i class="fas fa-chevron-down" id="tasReportChevron"></i>
-      </button>
-      <div class="tas-report-body" id="tasReportBody" style="display:none">
-        <p class="tas-hint" style="margin:0 0 16px">Completá estos datos para que el PDF salga como un informe profesional. Si los dejás vacíos, el PDF igual se genera con la información de la tasación.</p>
-        <div class="tas-report-cols">
+      <section class="tas-card tas-det">
+        <div class="tas-paso"><div><h2>Cómo se calculó</h2><p>Lo que vale el inmueble según cada comparable, ya ajustado a sus m², construcción y ubicación.</p></div></div>
+        <div class="tas-det-grid">
           <div>
-            <h4 class="tas-report-h">Datos del cliente</h4>
-            <div class="tas-f"><label>Nombre y apellido <span style="color:#c0392b">*</span></label><input type="text" id="repCliNombre" placeholder="Ej: Juan Pérez" oninput="guardarLocal()"></div>
-            <div class="tas-f"><label>Teléfono</label><input type="text" id="repCliTel" placeholder="Ej: 094 123 456" oninput="guardarLocal()"></div>
-            <div class="tas-f"><label>Email</label><input type="text" id="repCliEmail" placeholder="cliente@email.com" oninput="guardarLocal()"></div>
-            <div class="tas-f"><label>Solicitado por</label><input type="text" id="repCliSolicitado" placeholder="Ej: Contacto directo" oninput="guardarLocal()"></div>
+            <p class="tas-chart-cap">La franja es el rango del 90%.</p>
+            <div id="tasChart" style="width:100%;overflow:hidden"></div>
           </div>
           <div>
-            <h4 class="tas-report-h">Datos del inmueble</h4>
-            <div class="tas-report-grid2">
-              <div class="tas-f"><label>Tipo</label><input type="text" id="repInmTipo" placeholder="Casa / Apto" oninput="guardarLocal()"></div>
-              <div class="tas-f"><label>Uso</label><input type="text" id="repInmUso" placeholder="Residencial" oninput="guardarLocal()"></div>
-              <div class="tas-f"><label>Padrón <span style="color:#c0392b">*</span></label><input type="text" id="repInmPadron" placeholder="123.456" oninput="guardarLocal()"></div>
-              <div class="tas-f"><label>Antigüedad</label><input type="text" id="repInmAntig" placeholder="15 años" oninput="guardarLocal()"></div>
-            </div>
-            <div class="tas-f"><label>Dirección <span style="color:#c0392b">*</span></label><input type="text" id="repInmDir" placeholder="Av. Italia 1234" oninput="guardarLocal()"></div>
-            <div class="tas-report-grid2">
-              <div class="tas-f"><label>Barrio</label><input type="text" id="repInmBarrio" placeholder="Pocitos" oninput="guardarLocal()"></div>
-              <div class="tas-f"><label>Departamento</label><input type="text" id="repInmDepto" placeholder="Montevideo" oninput="guardarLocal()"></div>
-              <div class="tas-f"><label>Terreno (m²)</label><input type="text" id="repInmTerreno" placeholder="150" oninput="guardarLocal()"></div>
-              <div class="tas-f"><label>Estado general</label><input type="text" id="repInmEstado" placeholder="Bueno" oninput="guardarLocal()"></div>
-              <div class="tas-f"><label>Frente (m)</label><input type="text" id="repInmFrente" placeholder="10" oninput="guardarLocal()"></div>
-              <div class="tas-f"><label>Fondo (m)</label><input type="text" id="repInmFondo" placeholder="15" oninput="guardarLocal()"></div>
-            </div>
+            <div class="tas-model-row"><span>Método</span><strong>Regresión lineal múltiple</strong></div>
+            <div class="tas-model-row"><span>Variables</span><strong>m&sup2;, construcción, ubicación</strong></div>
+            <div class="tas-model-row"><span>Antecedentes usados</span><strong id="tasModelN">&mdash;</strong></div>
+            <div class="tas-model-row"><span>Dispersión de comparables</span><strong id="tasModelDisp">&mdash;</strong></div>
+            <div class="tas-notes" style="margin-top:14px"><ul>
+              <li id="tasNotaUnidad">Con precios totales, la regresión se hace sobre los precios y da directamente el valor de la propiedad (como la planilla).</li>
+              <li>El asimilador se aplica solo a los comparables en oferta.</li>
+              <li>El rango está calculado al 90% de confianza; la planilla pide una incertidumbre de hasta 5,10%.</li>
+            </ul></div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
 
-    <div class="tas-bottom">
-      <div class="tas-card">
-        <h3 class="tas-mini-h"><i class="fas fa-chart-simple"></i> Modelo / Resumen</h3>
-        <div class="tas-model-row"><span>Método</span><strong>Regresión lineal múltiple</strong></div>
-        <div class="tas-model-row"><span>Variables</span><strong>m&sup2;, construcción, ubicación</strong></div>
-        <div class="tas-model-row"><span>Antecedentes usados</span><strong id="tasModelN">&mdash;</strong></div>
-        <div class="tas-model-row"><span>Dispersión de comparables</span><strong id="tasModelDisp">&mdash;</strong></div>
-      </div>
-      <div class="tas-card">
-        <h3 class="tas-mini-h"><i class="fas fa-scale-balanced"></i> Comparables vs. estimado</h3>
-        <p class="tas-chart-cap">Valor total del inmueble según cada comparable ya ajustado. La franja es el rango del 90%.</p>
-        <div id="tasChart" style="width:100%;overflow:hidden"></div>
-      </div>
-      <div class="tas-card">
-        <h3 class="tas-mini-h"><i class="fas fa-file-lines"></i> Notas del cálculo</h3>
-        <div class="tas-notes"><ul>
-          <li id="tasNotaUnidad">Con precios totales, la regresión se hace sobre los precios y da directamente el valor de la propiedad (como la planilla).</li>
-          <li>El asimilador de oferta es editable y se aplica solo a comparables en oferta.</li>
-          <li>El rango está calculado al 90% de confianza.</li>
-          <li>Revisá los antecedentes y ajustá los factores para mejorar la estimación.</li>
-        </ul></div>
-        <button class="tas-export" id="tasExportBtn" onclick="exportarPDF()" disabled><i class="fas fa-paper-plane"></i> Enviar a revisión</button>
-      </div>
-    </div>
-
-    <div class="tas-card" style="margin-top:18px">
+    <div class="tas-card" style="margin-top:22px">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:6px">
         <h3 class="tas-mini-h" style="margin:0"><i class="fas fa-folder-open"></i> Mis tasaciones</h3>
         <button type="button" onclick="cargarMisTasaciones()" style="background:none; border:1px solid #e4e6ea; border-radius:8px; padding:6px 12px; font-size:.8rem; cursor:pointer; color:#555; display:inline-flex; align-items:center; gap:6px"><i class="fas fa-rotate-right"></i> Actualizar</button>
@@ -339,6 +398,12 @@
     </div>
 
     <p class="tas-saved"><i class="fas fa-lock"></i> Tus cálculos se guardan automáticamente en este navegador. Podés volver y editarlos cuando quieras.</p>
+  </div>
+
+  <!-- Celular: el valor a mano cuando la ficha quedó fuera de la pantalla -->
+  <div class="tas-barra" id="tasBarra" aria-hidden="true">
+    <div><b id="tasBarraValor">&mdash;</b><span id="tasBarraInc"></span></div>
+    <button type="button" onclick="verFicha()">Ver</button>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -380,6 +445,16 @@
       const open = body.style.display === 'none';
       body.style.display = open ? 'block' : 'none';
       btn.classList.toggle('open', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    // Qué falta para poder enviar: se ve en el encabezado del paso 3.
+    function estadoInforme() {
+      var el = document.getElementById('tasRepEstado'); if (!el) return;
+      var faltan = [['repCliNombre', 'cliente'], ['repInmPadron', 'padrón'], ['repInmDir', 'dirección']].filter(function(x){
+        var i = document.getElementById(x[0]); return !(i && i.value.trim());
+      });
+      el.className = 'tas-rep-estado' + (faltan.length ? '' : ' ok');
+      el.textContent = faltan.length ? 'Falta: ' + faltan.map(function(x){ return x[1]; }).join(', ') : 'Completo';
     }
     function getReportData() {
       const d = {};
@@ -444,6 +519,7 @@
             '<input type="number" ' + attrs + ' value="' + a[clave] + '" oninput="tasSet(' + i + ",'" + clave + "',this.value)\"></label>";
         }
         return '<div class="tas-ant-row" data-n="Antecedente ' + (i + 1) + '">' +
+          '<span class="tas-ant-n" aria-hidden="true">' + (i + 1) + '</span>' +
           campo('m²', 'placeholder="m²"', 'm2') +
           campo('Construcción (1-' + califMax() + ')', 'min="1" max="' + califMax() + '" placeholder="1-' + califMax() + '"', 'cons') +
           campo('Ubicación (1-' + califMax() + ')', 'min="1" max="' + califMax() + '" placeholder="1-' + califMax() + '"', 'ubi') +
@@ -537,6 +613,7 @@
           rep: rep
         }));
       } catch (e) {}
+      estadoInforme();
     }
     function cargarLocal() {
       try {
@@ -734,6 +811,7 @@
       }
       function clearOut() {
         pintarAsistente(null);
+        pintarFicha(null);
         ['tasResValue','tasResRange','tasResUnc'].forEach(function(id){ document.getElementById(id).innerHTML = '&mdash;'; });
         document.getElementById('tasResUncSub').textContent = '';
         document.getElementById('tasResM2').textContent = '';
@@ -852,7 +930,7 @@
       document.getElementById('tasResRange').textContent = fmt(minTotal) + ' – ' + fmt(maxTotal);
       document.getElementById('tasResRangeM2').textContent = fmt(minM2) + ' – ' + Math.round(maxM2).toLocaleString('es-UY') + ' por m²';
       document.getElementById('tasResUnc').textContent = '± ' + fmtIncert(incert * 100);
-      document.getElementById('tasResUncSub').textContent = incert > 0.051 ? 'Nivel alto' : 'Nivel medio';
+      pintarFicha({ valorTotal: valorTotal, incert: incert, cierra: !mod.kNeg.length && incert <= INCERT_OK });
       document.getElementById('tasModelN').textContent = '4 comparables';
       document.getElementById('tasModelDisp').textContent = fmtPct(dispPct);
       res.classList.add('ok');
@@ -1019,6 +1097,43 @@
       renderTasAntecedentes(); calcTasador();
       showToast('Calificaciones cambiadas', 'Revisá que describan bien a cada propiedad: el cambio queda registrado para la revisión.', 'fa-wand-magic-sparkles');
     }
+
+    // ===== La ficha: si cierra, el medidor contra el 5,10% y la barra del celular =====
+    var _fichaLista = false, _fichaVisible = true;
+    function pintarFicha(e) {
+      var chip = document.getElementById('tasEstado'), med = document.getElementById('tasMedidor');
+      var fill = document.getElementById('tasMedidorFill'), sub = document.getElementById('tasResUncSub');
+      if (!chip || !med || !fill) return;
+      if (!e) {
+        chip.className = 'tas-estado'; chip.innerHTML = '<i class="fas fa-pen"></i> Incompleta';
+        fill.style.width = '0'; med.className = 'tas-medidor'; med.setAttribute('aria-valuenow', '0');
+        if (sub) sub.textContent = '';
+        _fichaLista = false; actualizarBarra();
+        return;
+      }
+      var pct = e.incert * 100;
+      chip.className = 'tas-estado ' + (e.cierra ? 'si' : 'no');
+      chip.innerHTML = e.cierra ? '<i class="fas fa-circle-check"></i> Cierra' : '<i class="fas fa-triangle-exclamation"></i> No cierra';
+      fill.style.width = Math.min(100, pct * 10) + '%';
+      med.className = 'tas-medidor' + (pct > 8 ? ' lejos' : pct > 5.1 ? ' pasa' : '');
+      med.setAttribute('aria-valuenow', pct.toFixed(2));
+      if (sub) sub.textContent = '';
+      document.getElementById('tasBarraValor').textContent = fmt(e.valorTotal);
+      document.getElementById('tasBarraInc').textContent = '± ' + fmtIncert(pct) + (e.cierra ? ' · cierra' : ' · no cierra');
+      _fichaLista = true; actualizarBarra();
+    }
+    function actualizarBarra() {
+      var b = document.getElementById('tasBarra');
+      if (b) b.classList.toggle('on', _fichaLista && !_fichaVisible);
+    }
+    function verFicha() {
+      var f = document.getElementById('tasResult');
+      if (f) f.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    try {
+      new IntersectionObserver(function(es){ _fichaVisible = es[0].isIntersecting; actualizarBarra(); }, { threshold: 0.2 })
+        .observe(document.getElementById('tasResult'));
+    } catch (e) { /* sin IntersectionObserver la barra no aparece: la ficha sigue en la página */ }
 
     // ===== Gráfica "Comparables vs. estimado" =====
     // Cada punto es lo que valdría el inmueble según ese comparable, ya ajustado a
