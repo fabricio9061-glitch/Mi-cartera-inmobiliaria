@@ -40,7 +40,19 @@
     .tas-f input:focus, .tas-f select:focus{ outline:none; border-color:#C9A227; }
     .tas-hint{ font-size:.8rem; color:var(--gray-500,#8a8a8a); line-height:1.55; margin:14px 0 0; }
     .tas-ant-head{ display:grid; grid-template-columns:.75fr .6fr .6fr 1fr .8fr 1.15fr; gap:8px; font-size:.72rem; color:var(--gray-500,#8a8a8a); padding:0 2px 8px; font-weight:600; align-items:end; }
-    .tas-ant-row{ display:grid; grid-template-columns:.75fr .6fr .6fr 1fr .8fr 1.15fr; gap:8px; margin-bottom:8px; align-items:center; }
+    .tas-ant-row{ display:grid; grid-template-columns:.75fr .6fr .6fr 1fr .8fr 1.15fr; gap:8px; margin-bottom:8px; align-items:start; }
+    /* Cómo se carga el valor de los antecedentes: precio total o USD por m² */
+    .tas-modo{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin:-2px 0 14px; }
+    .tas-modo-lbl{ font-size:.78rem; color:var(--gray-500,#8a8a8a); }
+    .tas-modo-grp{ display:inline-flex; border:1px solid var(--gray-200,#e3e6ea); border-radius:999px; padding:3px; background:var(--gray-50,#f5f6f8); }
+    .tas-modo-op{ border:none; background:none; border-radius:999px; padding:6px 14px; font-family:inherit; font-size:.8rem; font-weight:600; color:var(--gray-600,#555); cursor:pointer; transition:background .15s, color .15s; }
+    .tas-modo-op.on{ background:#fff; color:var(--primary,#16273f); box-shadow:0 1px 3px rgba(16,29,48,.16); }
+    .tas-conv{ display:block; font-size:.68rem; color:var(--gray-500,#8a8a8a); margin:3px 2px 0; min-height:1em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .tas-conv.mal{ color:#b45309; font-weight:600; }
+    .tas-ant-aviso{ margin:2px 0 12px; border:1px solid #fcd34d; background:#fffbeb; color:#78350f; border-radius:10px; padding:10px 12px; font-size:.82rem; line-height:1.45; display:flex; gap:10px; align-items:flex-start; }
+    .tas-ant-aviso[hidden]{ display:none; }
+    .tas-ant-aviso > i{ color:#d97706; margin-top:3px; flex:none; }
+    .tas-ant-aviso button{ margin-top:8px; border:none; background:var(--primary,#16273f); color:#fff; border-radius:8px; padding:7px 12px; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; display:inline-flex; gap:7px; align-items:center; }
     .tas-ant-row input, .tas-ant-row select{ width:100%; padding:9px; border:1px solid var(--gray-200,#e3e6ea); border-radius:8px; font-family:inherit; font-size:.88rem; background:#fff; }
     .tas-ant-row input:focus, .tas-ant-row select:focus{ outline:none; border-color:#C9A227; }
     .tas-asim{ display:flex; align-items:center; gap:7px; }
@@ -209,14 +221,22 @@
 
       <div class="tas-card">
         <h3 class="tas-h3"><span class="tas-step">2</span> Antecedentes de la zona <small>(exactamente 4, distintos entre sí)</small></h3>
-        <div class="tas-ant-head"><span>m&sup2;</span><span>Const.</span><span>Ubic.</span><span>USD por m²</span><span>Tipo</span><span>Asimilador de oferta <i class="fas fa-circle-info tas-ig" title="Para inmuebles en oferta: factor por el que se multiplica el valor publicado (0,85 = se asume venta 15% por debajo). Solo editable cuando el tipo es Oferta."></i></span></div>
+        <div class="tas-modo">
+          <span class="tas-modo-lbl">El valor de cada antecedente es:</span>
+          <span class="tas-modo-grp" role="radiogroup" aria-label="Cómo se carga el valor de los antecedentes">
+            <button type="button" class="tas-modo-op" data-modo="total" role="radio" onclick="setModoValor('total')">Precio total</button>
+            <button type="button" class="tas-modo-op" data-modo="m2" role="radio" onclick="setModoValor('m2')">USD por m²</button>
+          </span>
+        </div>
+        <div class="tas-ant-head"><span>m&sup2;</span><span>Const.</span><span>Ubic.</span><span id="tasHeadValor">Precio (USD)</span><span>Tipo</span><span>Asimilador de oferta <i class="fas fa-circle-info tas-ig" title="Para inmuebles en oferta: factor por el que se multiplica el valor publicado (0,85 = se asume venta 15% por debajo). Solo editable cuando el tipo es Oferta."></i></span></div>
         <div id="tasAntList"></div>
+        <div class="tas-ant-aviso" id="tasAntAviso" hidden></div>
         <div class="tas-defrow">
           <label>Asimilador por defecto</label><input type="number" id="tasDefAsim" min="0.5" max="1" step="0.01" value="0.85" oninput="aplicarDefAsim()">
           <button class="tas-reset" onclick="cargarEjemplo()"><i class="fas fa-flask"></i> Cargar ejemplo</button>
           <button class="tas-reset" onclick="resetTasador()"><i class="fas fa-rotate-right"></i> Restablecer</button>
         </div>
-        <p class="tas-hint">El valor de cada antecedente va en <b>USD por m²</b> (precio ÷ m²). Si está en <b>oferta</b>, podés ajustar su asimilador con el control deslizante o escribiendo el valor: el sistema aplica el factor automáticamente al valor publicado. Los marcados como <b>vendido</b> usan 1,00 (valor real).</p>
+        <p class="tas-hint"><span id="tasHintValor"></span> Si está en <b>oferta</b>, podés ajustar su asimilador con el control deslizante o escribiendo el valor: el sistema aplica el factor automáticamente al valor publicado. Los marcados como <b>vendido</b> usan 1,00 (valor real).</p>
       </div>
     </div>
 
@@ -284,7 +304,7 @@
       <div class="tas-card">
         <h3 class="tas-mini-h"><i class="fas fa-file-lines"></i> Notas del cálculo</h3>
         <div class="tas-notes"><ul>
-          <li>Los antecedentes se cargan en USD por m&sup2;. El valor de la propiedad es el valor por m&sup2; estimado por los m&sup2; construidos.</li>
+          <li id="tasNotaUnidad">Los antecedentes se comparan en USD por m&sup2;. El valor de la propiedad es el valor por m&sup2; estimado por los m&sup2; construidos.</li>
           <li>El asimilador de oferta es editable y se aplica solo a comparables en oferta.</li>
           <li>El rango está calculado al 90% de confianza.</li>
           <li>Revisá los antecedentes y ajustá los factores para mejorar la estimación.</li>
@@ -356,6 +376,32 @@
       { m2: '', cons: '', ubi: '', valor: '', tipo: 'oferta', asim: DEF_ASIM },
       { m2: '', cons: '', ubi: '', valor: '', tipo: 'oferta', asim: DEF_ASIM }
     ];
+    // Cómo se carga el valor de los antecedentes. Lo natural es el PRECIO de la
+    // publicación (es lo que el agente tiene a mano); el método compara por m², así
+    // que el sistema lo divide solo por los m² de cada antecedente. También se puede
+    // cargar directo en USD por m², como en la planilla original. El resultado es
+    // exactamente el mismo de las dos formas.
+    let modoValor = 'total';
+    function setModoValor(m) {
+      if (m !== 'total' && m !== 'm2') return;
+      modoValor = m;
+      pintarModo(); renderTasAntecedentes(); calcTasador();
+    }
+    function pintarModo() {
+      var total = modoValor === 'total';
+      document.querySelectorAll('.tas-modo-op').forEach(function(b){
+        var on = b.getAttribute('data-modo') === modoValor;
+        b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false');
+      });
+      var h = document.getElementById('tasHeadValor'); if (h) h.textContent = total ? 'Precio (USD)' : 'USD por m²';
+      var t = document.getElementById('tasHintValor');
+      if (t) t.innerHTML = total
+        ? 'Cargá el <b>precio total</b> de cada antecedente (el de la publicación o el de venta): el sistema lo divide por sus m² para compararlos.'
+        : 'Cargá el valor de cada antecedente en <b>USD por m²</b> (precio ÷ m²).';
+      var n = document.getElementById('tasNotaUnidad');
+      if (n) n.innerHTML = (total ? 'Los antecedentes se cargan con su precio total y se comparan en USD por m&sup2; (precio ÷ m&sup2;). ' : 'Los antecedentes se cargan en USD por m&sup2;. ') +
+        'El valor de la propiedad es el valor por m&sup2; estimado por los m&sup2; construidos.';
+    }
 
     function renderTasAntecedentes() {
       document.getElementById('tasAntList').innerHTML = tasAntecedentes.map(function(a, i) {
@@ -368,7 +414,15 @@
           campo('m²', 'placeholder="m²"', 'm2') +
           campo('Construcción (1-5)', 'min="1" max="5" placeholder="1-5"', 'cons') +
           campo('Ubicación (1-5)', 'min="1" max="5" placeholder="1-5"', 'ubi') +
-          campo('USD por m²', 'placeholder="USD/m²"', 'valor') +
+          (function(){
+            // Campo de texto y no de número: así el precio se puede escribir como
+            // se escribe acá (210.700) sin que el navegador lo lea como 210,7.
+            var total = modoValor === 'total';
+            return '<label class="tas-cell"><span class="tas-cell-lbl">' + (total ? 'Precio (USD)' : 'USD por m²') + '</span>' +
+              '<input type="text" inputmode="decimal" autocomplete="off" placeholder="' + (total ? 'Ej: 210.000' : 'Ej: 2.100') + '" value="' + escAttr(fmtEntrada(a.valor)) + '"' +
+              ' oninput="tasSet(' + i + ',\'valor\',this.value)" onchange="tasFormatearValor(' + i + ',this)">' +
+              '<span class="tas-conv" id="tasConv' + i + '"></span></label>';
+          })() +
           '<label class="tas-cell"><span class="tas-cell-lbl">Tipo</span><select onchange="tasSetTipo(' + i + ',this.value)"><option value="venta"' + (!oferta?' selected':'') + '>Vendido</option><option value="oferta"' + (oferta?' selected':'') + '>Oferta</option></select></label>' +
           '<div class="tas-cell tas-asim-cell"><span class="tas-cell-lbl">Asimilador de oferta</span><div class="tas-asim">' +
             '<input type="range" min="0.5" max="1" step="0.01" value="' + (oferta?a.asim:1) + '"' + (oferta?'':' disabled') + ' oninput="tasSetAsim(' + i + ',this.value)" aria-label="Asimilador de oferta">' +
@@ -399,12 +453,14 @@
       renderTasAntecedentes(); calcTasador();
     }
     function cargarEjemplo() {
-      // Datos exactos de la planilla de referencia (resultado esperado ~1913 USD/m2).
+      // Datos exactos de la planilla de referencia (resultado esperado ~1913 USD/m2),
+      // cargados como precio total: 2.100 USD/m² × 113 m² = USD 237.300, etc.
+      modoValor = 'total'; pintarModo();
       tasAntecedentes = [
-        { m2: 113, cons: 2, ubi: 2, valor: 2100, tipo: 'oferta', asim: 0.85 },
-        { m2: 99, cons: 2, ubi: 3, valor: 2200, tipo: 'oferta', asim: 0.85 },
-        { m2: 123, cons: 3, ubi: 3, valor: 2500, tipo: 'oferta', asim: 0.85 },
-        { m2: 98, cons: 3, ubi: 2, valor: 2000, tipo: 'oferta', asim: 0.85 }
+        { m2: 113, cons: 2, ubi: 2, valor: 237300, tipo: 'oferta', asim: 0.85 },
+        { m2: 99, cons: 2, ubi: 3, valor: 217800, tipo: 'oferta', asim: 0.85 },
+        { m2: 123, cons: 3, ubi: 3, valor: 307500, tipo: 'oferta', asim: 0.85 },
+        { m2: 98, cons: 3, ubi: 2, valor: 196000, tipo: 'oferta', asim: 0.85 }
       ];
       document.getElementById('tasM2').value = 99;
       document.getElementById('tasCons').value = 3;
@@ -423,6 +479,7 @@
       ];
       ['tasM2','tasCons','tasUbi','tasDorm','tasBath'].forEach(function(id){ document.getElementById(id).value = ''; });
       document.getElementById('tasDefAsim').value = DEF_ASIM;
+      modoValor = 'total'; pintarModo();
       try { localStorage.removeItem(LS_KEY); } catch (e) {}
       REPORT_FIELDS.forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
       renderTasAntecedentes(); calcTasador();
@@ -439,6 +496,7 @@
           dorm: document.getElementById('tasDorm').value,
           bath: document.getElementById('tasBath').value,
           defAsim: document.getElementById('tasDefAsim').value,
+          modo: modoValor,
           ant: tasAntecedentes,
           rep: rep
         }));
@@ -455,6 +513,14 @@
         document.getElementById('tasBath').value = d.bath || '';
         document.getElementById('tasDefAsim').value = d.defAsim || DEF_ASIM;
         if (Array.isArray(d.ant) && d.ant.length === 4) tasAntecedentes = d.ant.map(function(a){ return { m2:a.m2||'', cons:a.cons||'', ubi:a.ubi||'', valor:a.valor||'', tipo:a.tipo||'venta', asim: a.tipo==='oferta'?(a.asim||DEF_ASIM):1 }; });
+        // Tasaciones guardadas antes de que existiera la opción: si algún valor es
+        // de precio total (más de lo que vale un m² en Uruguay) se toman como
+        // precios; si no, como USD por m², que era lo único que se aceptaba.
+        if (d.modo === 'total' || d.modo === 'm2') modoValor = d.modo;
+        else {
+          var vals = tasAntecedentes.map(function(a){ return parsearMonto(a.valor); }).filter(function(v){ return v !== null; });
+          modoValor = (!vals.length || vals.some(function(v){ return v > VALOR_M2_MAX; })) ? 'total' : 'm2';
+        }
         if (d.rep) REPORT_FIELDS.forEach(id => { const el = document.getElementById(id); if (el && d.rep[id]) el.value = d.rep[id]; });
       } catch (e) {}
     }
@@ -483,8 +549,79 @@
         : Math.round(v).toLocaleString('es-UY');
     }
     // Un valor por m² por encima de esto no existe en Uruguay: es un precio total
-    // cargado en la columna equivocada, y el informe saldría multiplicado por los m².
+    // cargado como valor por m², y el informe saldría multiplicado por los m².
     const VALOR_M2_MAX = 25000;
+    // Y por debajo de esto tampoco: es un valor por m² cargado como precio total
+    // (USD 2.100 por un apartamento de 113 m² serían USD 19 el m²).
+    const VALOR_M2_MIN = 150;
+
+    // Los montos se escriben como se escriben acá: 210.700 (punto de miles),
+    // 1.864,5 (coma decimal) o 210700, y con "USD" o "U$S" delante si se quiere.
+    // Tres cifras después del último punto o coma = miles; si no, decimales.
+    function parsearMonto(v) {
+      if (v === null || v === undefined) return null;
+      if (typeof v === 'number') return isFinite(v) ? v : null;
+      var s = String(v).replace(/[^\d.,-]/g, '');
+      if (!/\d/.test(s)) return null;
+      var neg = s.charAt(0) === '-';
+      s = s.replace(/-/g, '');
+      var i = Math.max(s.lastIndexOf('.'), s.lastIndexOf(','));
+      var n;
+      if (i < 0) n = parseFloat(s);
+      else {
+        var ent = s.slice(0, i).replace(/[.,]/g, ''), dec = s.slice(i + 1);
+        n = (dec.length === 3 && ent !== '' && !/^0+$/.test(ent)) ? parseFloat(ent + dec) : parseFloat((ent || '0') + '.' + (dec || '0'));
+      }
+      if (!isFinite(n)) return null;
+      return neg ? -n : n;
+    }
+    // Cómo se muestra un monto dentro del campo: 237.300 / 2.222,22
+    function fmtEntrada(v) {
+      var n = parsearMonto(v);
+      if (n === null) return v == null ? '' : String(v);
+      return n.toLocaleString('es-UY', { maximumFractionDigits: 2 });
+    }
+    function escAttr(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+    // Al salir del campo, el número queda escrito prolijo (210700 → 210.700):
+    // así se ve enseguida cómo lo entendió el sistema.
+    function tasFormatearValor(i, el) {
+      if (parsearMonto(el.value) === null) return;
+      var t = fmtEntrada(el.value);
+      if (el.value !== t) { el.value = t; tasAntecedentes[i].valor = t; guardarLocal(); }
+    }
+    // Pasa a la unidad elegida los antecedentes indicados (índices "0,2"):
+    // precio = m² × valor por m², o valor por m² = precio ÷ m².
+    function convertirUnidad(lista) {
+      String(lista).split(',').forEach(function(s){
+        var a = tasAntecedentes[parseInt(s, 10)]; if (!a) return;
+        var m2 = parseFloat(a.m2), v = parsearMonto(a.valor);
+        if (!(m2 > 0) || !(v > 0)) return;
+        a.valor = fmtEntrada(modoValor === 'total' ? Math.round(v * m2) : Math.round(v / m2 * 100) / 100);
+      });
+      renderTasAntecedentes(); calcTasador();
+    }
+
+    // Debajo de cada valor, su equivalente: el m² si se cargó el precio, o el
+    // precio si se cargó el m². Así se ve enseguida si el número tiene sentido.
+    function pintarConversiones(ants) {
+      ants.forEach(function(a, i){
+        var el = document.getElementById('tasConv' + i);
+        if (!el) return;
+        if (a.cargado === null || !(a.m2 > 0) || !(a.cargado > 0)) { el.textContent = ''; el.className = 'tas-conv'; return; }
+        var mal = a.valor > VALOR_M2_MAX || a.valor < VALOR_M2_MIN;
+        el.className = 'tas-conv' + (mal ? ' mal' : '');
+        el.textContent = modoValor === 'total' ? '≈ ' + fmt(a.valor) + ' por m²' : '≈ ' + fmt(a.precio) + ' en total';
+      });
+    }
+    // Aviso dentro de la tarjeta de antecedentes, con el arreglo en un botón.
+    function avisoAntecedentes(html, boton, accion) {
+      var el = document.getElementById('tasAntAviso');
+      if (!el) return;
+      if (!html) { el.hidden = true; el.innerHTML = ''; return; }
+      el.innerHTML = '<i class="fas fa-triangle-exclamation"></i><div>' + html +
+        (boton ? '<div><button type="button" onclick="' + accion + '"><i class="fas fa-right-left"></i> ' + boton + '</button></div>' : '') + '</div>';
+      el.hidden = false;
+    }
 
     // N° de informe. Antes era siempre "-001": todos los informes del mismo día
     // salían con el mismo número. Ahora sale de la hora en que empezó la tasación,
@@ -520,9 +657,19 @@
         document.getElementById('tasExportBtn').disabled = true;
         res.classList.remove('ok'); ultimoResultado = null;
       }
-      var ants = tasAntecedentes.map(function(a){ return { m2:num(a.m2), cons:num(a.cons), ubi:num(a.ubi), valor:num(a.valor), tipo:a.tipo, asim: a.tipo==='oferta'?(a.asim||DEF_ASIM):1 }; });
+      var total = modoValor === 'total';
+      // 'valor' queda SIEMPRE en USD por m² (es con lo que trabaja el método);
+      // 'precio' es el total. Si se cargó el precio, el m² sale de dividirlo.
+      var ants = tasAntecedentes.map(function(a){
+        var m2 = num(a.m2), cargado = parsearMonto(a.valor);
+        var vm2 = cargado === null ? null : (total ? (m2 > 0 ? cargado / m2 : 0) : cargado);
+        var precio = cargado === null ? null : (total ? cargado : (m2 > 0 ? cargado * m2 : 0));
+        return { m2:m2, cons:num(a.cons), ubi:num(a.ubi), valor:vm2, precio:precio, cargado:cargado, tipo:a.tipo, asim: a.tipo==='oferta'?(a.asim||DEF_ASIM):1 };
+      });
+      pintarConversiones(ants);
+      avisoAntecedentes(null);
       if (ants.some(function(a){ return a.m2===null||a.cons===null||a.ubi===null||a.valor===null; })) {
-        clearOut(); setMsg('Completá el inmueble y los 4 antecedentes (m², construcción, ubicación y valor por m²) para ver la estimación en tiempo real.'); return;
+        clearOut(); setMsg('Completá el inmueble y los 4 antecedentes (m², construcción, ubicación y ' + (total ? 'precio' : 'valor por m²') + ') para ver la estimación en tiempo real.'); return;
       }
       if (bM2 === null || bCons === null || bUbi === null) { clearOut(); setMsg('Completá los datos del inmueble a tasar.'); return; }
       // ===== Datos fuera de rango: mejor frenar que mandar un informe absurdo =====
@@ -536,13 +683,53 @@
       if (ants.some(function(a){ return a.valor <= 0; })) {
         clearOut(); setMsg('El valor de cada antecedente tiene que ser mayor que cero.', true); return;
       }
-      var totales = [];
-      ants.forEach(function(a, i){ if (a.valor > VALOR_M2_MAX) totales.push(i + 1); });
-      if (totales.length) {
+      // ===== ¿Precio total o USD por m²? =====
+      // Un valor que no tiene sentido en la unidad elegida pero sí en la otra
+      // (USD 2.200 de precio por 99 m², o USD 220.000 el m²) se ofrece arreglar
+      // en un toque: si son todos, cambiando la opción; si son algunos, pasando
+      // esos a la unidad elegida. Antes solo se frenaba, y con los precios de las
+      // propiedades no había forma de tasar.
+      var nombres = function(ns){ return ns.length === 1 ? 'El antecedente ' + ns[0] + ' parece' : 'Los antecedentes ' + ns.slice(0, -1).join(', ') + ' y ' + ns[ns.length - 1] + ' parecen'; };
+      var enRango = function(v){ return v >= VALOR_M2_MIN && v <= VALOR_M2_MAX; };
+      var otraUnidad = [], imposibles = [];
+      ants.forEach(function(a, i){
+        if (enRango(a.valor)) return;
+        // Cargado en la otra unidad: el número tal cual sería un m² creíble (si se
+        // eligió precio; más de USD 15.000 el m² no se ve ni en Punta del Este),
+        // o dividido por los m² sería un m² posible (si se eligió m²).
+        var enOtra = total ? (a.cargado >= VALOR_M2_MIN && a.cargado <= 15000) : enRango(a.cargado / a.m2);
+        (enOtra ? otraUnidad : imposibles).push(i + 1);
+      });
+      if (otraUnidad.length) {
         clearOut();
-        setMsg('El valor de los antecedentes va en USD por m² (precio ÷ m²). ' +
-          (totales.length === 1 ? 'El antecedente ' + totales[0] + ' parece' : 'Los antecedentes ' + totales.join(', ') + ' parecen') +
-          ' tener el precio total.', true);
+        if (otraUnidad.length === ants.length) {
+          // Todos: la que está al revés es la opción elegida.
+          avisoAntecedentes(total
+            ? 'Los valores cargados parecen ser <b>por m²</b>, no el precio de cada propiedad.'
+            : 'Los valores cargados parecen ser el <b>precio total</b> de cada propiedad, no el valor por m².',
+            total ? 'Son valores por m²' : 'Son precios totales', "setModoValor('" + (total ? 'm2' : 'total') + "')");
+          setMsg(total ? 'Los valores parecen ser por m²: elegí "USD por m²" arriba de los antecedentes.' : 'Los valores parecen ser precios totales: elegí "Precio total" arriba de los antecedentes.', true);
+        } else {
+          var uno = otraUnidad.length === 1, a0 = ants[otraUnidad[0] - 1];
+          var m2Txt = a0.m2.toLocaleString('es-UY') + ' m²';
+          var html = total
+            ? nombres(otraUnidad) + ' tener el <b>valor del m²</b> y no el precio de la propiedad' +
+              (uno ? ': ' + m2Txt + ' a ' + fmt(a0.cargado) + ' son ' + fmt(a0.cargado * a0.m2) + '.' : '.')
+            : nombres(otraUnidad) + ' tener el <b>precio de la propiedad</b> y no el valor del m²' +
+              (uno ? ': ' + fmt(a0.cargado) + ' ÷ ' + m2Txt + ' son ' + fmt(a0.cargado / a0.m2) + ' el m².' : '.');
+          var boton = uno
+            ? (total ? 'Usar ' + fmt(a0.cargado * a0.m2) + ' como precio' : 'Usar ' + fmt(a0.cargado / a0.m2) + ' por m²')
+            : (total ? 'Pasarlos a precio total' : 'Pasarlos a USD por m²');
+          avisoAntecedentes(html, boton, "convertirUnidad('" + otraUnidad.map(function(n){ return n - 1; }).join(',') + "')");
+          setMsg(nombres(otraUnidad) + (total ? ' tener el valor del m² en lugar del precio.' : ' tener el precio en lugar del valor del m².'), true);
+        }
+        return;
+      }
+      if (imposibles.length) {
+        var a1 = ants[imposibles[0] - 1];
+        clearOut();
+        avisoAntecedentes('Revisá el ' + (total ? 'precio' : 'valor') + ' y los m² del antecedente ' + imposibles[0] + ': da ' + fmt(a1.valor) + ' por m², que no es un valor posible.');
+        setMsg('Revisá el antecedente ' + imposibles.join(', ') + ': el valor por m² que resulta no es posible.', true);
         return;
       }
       var A = ants.map(function(a){ return [1, a.m2, a.cons, a.ubi]; });
@@ -925,10 +1112,12 @@
     }
     function pTablaComparables(doc, d) {
       var pdf = doc.pdf, M = doc.M, ancho = doc.W - 2 * M;
+      // El precio de cada antecedente va a la vista: es el dato que el cliente
+      // reconoce (el de la publicación). El valor por m² es precio ÷ m².
       var cols = [
-        { t: 'N°', w: 26, al: 'center' }, { t: 'm²', w: 40, al: 'right' }, { t: 'Const.', w: 44, al: 'center' },
-        { t: 'Ubic.', w: 40, al: 'center' }, { t: 'Tipo', w: 56, al: 'left' }, { t: 'Valor m²', w: 70, al: 'right' },
-        { t: 'Asimil.', w: 50, al: 'right' }, { t: 'Ajuste', w: 56, al: 'right' }, { t: 'Valor ajustado m²', w: 0, al: 'right' }
+        { t: 'N°', w: 22, al: 'center' }, { t: 'm²', w: 34, al: 'right' }, { t: 'Const.', w: 38, al: 'center' },
+        { t: 'Ubic.', w: 34, al: 'center' }, { t: 'Tipo', w: 48, al: 'left' }, { t: 'Precio', w: 74, al: 'right' }, { t: 'Valor m²', w: 62, al: 'right' },
+        { t: 'Asimil.', w: 42, al: 'right' }, { t: 'Ajuste', w: 48, al: 'right' }, { t: 'Valor ajustado m²', w: 0, al: 'right' }
       ];
       var fijo = cols.reduce(function(s, c){ return s + c.w; }, 0);
       cols[cols.length - 1].w = ancho - fijo;
@@ -949,13 +1138,13 @@
       d.comps.forEach(function(a, i){
         if (i % 2 === 1) { pFill(pdf, [250,251,252]); pdf.rect(M, y, ancho, hFila, 'F'); }
         var v = [String(a.n), a.m2.toLocaleString('es-UY'), a.cons.toLocaleString('es-UY'), a.ubi.toLocaleString('es-UY'), a.tipo,
-                 fmt(a.valor), a.asim.toLocaleString('es-UY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                 fmt(a.precio), fmt(a.valor), a.asim.toLocaleString('es-UY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
                  (a.ajustePct >= 0 ? '+' : '') + a.ajustePct.toLocaleString('es-UY', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%',
                  fmt(a.ajustado)];
         var x = M;
         cols.forEach(function(c, j){
           if (j === cols.length - 1) pF(pdf, 'bold', 8.2, PDF.navy);
-          else if (j === 7) pF(pdf, 'bold', 8.2, PDF.gris);
+          else if (j === 8) pF(pdf, 'bold', 8.2, PDF.gris);
           else pF(pdf, 'normal', 8.2, PDF.tinta);
           celda(v[j], c, x, y + 13); x += c.w;
         });
@@ -1240,7 +1429,7 @@
       pParrafo(doc, 'Se utilizó el **Método Comparativo de Mercado**, basado en el análisis de propiedades similares en la misma zona. El inmueble se compara con antecedentes ofertados o vendidos, y se ajustan las diferencias en atributos relevantes (superficie, calidad constructiva y ubicación) mediante **regresión lineal múltiple**. Así se obtiene un valor por m² de mercado objetivo, que multiplicado por la superficie construida da el valor de la propiedad, junto con un rango de confianza estadística.', { despues: 20 });
       pSeccion(doc, 'chart', 'ANTECEDENTES UTILIZADOS (COMPARABLES)', { min: 164 });
       pTablaComparables(doc, d);
-      pParrafo(doc, 'Valores en USD por m². Los ajustes se calculan según las diferencias de superficie, construcción y ubicación respecto al inmueble tasado. El "valor ajustado" representa cada comparable llevado a las características del inmueble.', { tam: 7.2, color: [150,156,164], colorB: PDF.gris, despues: 8 });
+      pParrafo(doc, 'Precio: el de la publicación o el de venta. Valor m²: precio ÷ m². Los ajustes se calculan según las diferencias de superficie, construcción y ubicación respecto al inmueble tasado. El "valor ajustado" representa el m² de cada comparable llevado a las características del inmueble.', { tam: 7.2, color: [150,156,164], colorB: PDF.gris, despues: 8 });
     }
     function pHojaAnalisis(doc, d) {
       pSeccion(doc, 'chart', 'RANGO DE VALOR ESTIMADO', { min: 192, antes: 12 });
@@ -1304,7 +1493,7 @@
         inmuebleTxt: (rep.repInmTipo || 'Propiedad') + (dirCompleta ? ' · ' + dirCompleta : ''),
         comps: r.antecedentes.map(function(a, i){
           var vi = a.valor * a.asim, aj = r._bs[i];
-          return { n: i + 1, m2: a.m2, cons: a.cons, ubi: a.ubi, tipo: a.tipo === 'oferta' ? 'Oferta' : 'Vendido', valor: a.valor,
+          return { n: i + 1, m2: a.m2, cons: a.cons, ubi: a.ubi, tipo: a.tipo === 'oferta' ? 'Oferta' : 'Vendido', valor: a.valor, precio: a.precio,
                    asim: a.tipo === 'oferta' ? a.asim : 1, ajustePct: vi ? (aj / vi - 1) * 100 : 0, ajustado: aj };
         }),
         cliente: [['Nombre', rep.repCliNombre], ['Teléfono', rep.repCliTel], ['Email', rep.repCliEmail],
@@ -1506,6 +1695,7 @@
         if (mh) mh.textContent = 'Tus tasaciones quedan aprobadas al guardarlas: podés descargar el PDF enseguida.';
       }
       cargarLocal();
+      pintarModo();
       renderTasAntecedentes();
       calcTasador();
       cargarMisTasaciones();
