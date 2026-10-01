@@ -2,11 +2,6 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <script>
-    // El perfil del agente ahora es perfil.html. Los enlaces viejos
-    // (index.html#perfil/…) se redirigen antes de cargar el sistema.
-    (function () { var m = /^#perfil\/([^\/?&#]+)/.exec(location.hash); if (m) location.replace('perfil.html?id=' + m[1]); })();
-  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>MALAVE | Inmobiliaria</title>
   <meta name="description" content="MALAVE — Propiedades exclusivas en venta y alquiler en Uruguay">
@@ -539,9 +534,188 @@
     </section>
   </main>
 
-  <!-- El perfil del agente vive en perfil.html. Este contenedor queda vacío porque
-       otras vistas lo ocultan al abrirse (no sacarlo). -->
-  <main id="profilePage" class="hidden"></main>
+  <!-- ===== PERFIL DEL AGENTE (index.html#perfil/ID) =====
+       Lo pinta showProfile() en app.js. Las tarjetas son las mismas del inicio
+       (renderProperties), con todas sus herramientas para el dueño y la Dirección.
+       Las propiedades van en pestañas: Disponibles, Vendidas y alquiladas y —solo
+       para el dueño y la Dirección— Dadas de baja. -->
+  <main id="profilePage" class="hidden">
+    <section class="pf-hero">
+      <div class="pf-hero-in">
+        <div class="pf-av-wrap">
+          <div class="pf-avatar" id="profileAvatar"></div>
+          <button type="button" class="pf-av-edit hidden" id="profileAvatarEdit" onclick="document.getElementById('profilePhotoInput').click()" aria-label="Cambiar la foto" title="Cambiar la foto"><i class="fas fa-camera"></i></button>
+          <input type="file" id="profilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhotoChange(event)">
+        </div>
+        <div class="pf-info">
+          <div class="pf-rol" id="profileRole"></div>
+          <h1 class="pf-nombre" id="profileName"></h1>
+          <p class="pf-bio hidden" id="profileBio"></p>
+          <div class="pf-meta">
+            <span><i class="fas fa-location-dot"></i><span id="profileLocation"></span></span>
+            <a class="hidden" id="profileEmailWrap"><i class="far fa-envelope"></i><span id="profileEmail"></span></a>
+          </div>
+          <div class="pf-acciones">
+            <a class="pf-btn pf-btn-wa hidden" id="btnContactWhatsapp" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> Escribirle por WhatsApp</a>
+            <button type="button" class="pf-btn pf-btn-oro hidden" id="btnEditProfile" onclick="openEditProfileModal()"><i class="fas fa-pen"></i> Editar perfil</button>
+            <button type="button" class="pf-btn pf-btn-sec" onclick="compartirPerfilAgente()"><i class="fas fa-share-nodes"></i> Compartir perfil</button>
+          </div>
+          <div class="pf-redes" id="profileSocialLinks"></div>
+        </div>
+        <div class="pf-stats">
+          <div class="pf-stat"><b id="profilePropertiesCount">0</b><span>propiedades disponibles</span></div>
+          <div class="pf-stat"><b id="profileSalesCount">0</b><span>operaciones cerradas</span></div>
+          <div class="pf-stat"><b id="profileViewsCount">0</b><span>visitas a sus avisos</span></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="pf-wrap">
+      <div class="pf-aviso hidden" id="pfAviso"></div>
+
+      <section id="pfSecProps">
+        <div class="pf-sec-h">
+          <div class="pf-sec-tit"><h2 id="pfTitProps">Propiedades</h2><p id="pfSubProps"></p></div>
+          <div class="pf-sec-der">
+            <div class="pf-tabs" role="tablist" id="pfTabs" onclick="pfElegirPestania(event)">
+              <button type="button" role="tab" data-g="activas" aria-selected="true">Disponibles <span class="n" id="pfNActivas">0</span></button>
+              <button type="button" role="tab" data-g="cerradas" aria-selected="false" class="hidden"><span class="largo">Vendidas y alquiladas</span><span class="corto">Cerradas</span> <span class="n" id="pfNCerradas">0</span></button>
+              <button type="button" role="tab" data-g="baja" aria-selected="false" class="hidden"><span class="largo">Dadas de baja</span><span class="corto">De baja</span> <span class="n" id="pfNBaja">0</span></button>
+            </div>
+            <button type="button" class="pf-nueva hidden" id="btnNewPropertyProfile" onclick="openPropertyFormTab()"><i class="fas fa-plus"></i> Nueva propiedad</button>
+          </div>
+        </div>
+        <div class="properties-grid" id="profilePropertiesGrid" role="tabpanel"></div>
+      </section>
+
+      <section class="pf-cols">
+        <div class="pf-caja pf-sobre">
+          <h2>Sobre mí</h2>
+          <div id="profileAboutText"></div>
+          <div class="pf-serv">
+            <div><i class="fas fa-house-user"></i>Asesoramiento personalizado</div>
+            <div><i class="fas fa-chart-line"></i>Análisis de mercado</div>
+            <div><i class="fas fa-bullhorn"></i>Marketing inmobiliario</div>
+            <div><i class="fas fa-handshake"></i>Negociación efectiva</div>
+          </div>
+        </div>
+        <div class="pf-caja pf-testi">
+          <h2>Testimonios</h2>
+          <div id="pfTestiLista"></div>
+          <button type="button" class="pf-testi-btn hidden" id="pfTestiBtn" onclick="pfDejarTestimonio()"><i class="fas fa-pen"></i> Dejá tu testimonio</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <style>
+    /* ===== Perfil del agente ===== */
+    #profilePage{ --pf-ink:#16273f; --pf-gold:#C9A227; --pf-gold-osc:#8a6d12; --pf-gold-cl:#e9cf73; --pf-paper:#f4f3ef; --pf-line:#e5e8ec; --pf-line2:#ebecef; --pf-muted:#6b7480; --pf-soft:#9aa3ad;
+      color:#2a3442; }
+    #profilePage .pf-hero{ background:radial-gradient(1200px 420px at 85% -10%, rgba(201,162,39,.16), transparent 60%), linear-gradient(135deg,#0c1726 0%,var(--pf-ink) 75%); color:#fff; }
+    #profilePage .pf-hero-in{ max-width:1180px; margin:0 auto; padding:46px 22px 50px; display:grid; grid-template-columns:auto minmax(0,1fr) 250px; gap:36px; align-items:center; }
+    #profilePage .pf-av-wrap{ position:relative; width:176px; height:176px; flex:none; }
+    #profilePage .pf-avatar{ width:100%; height:100%; border-radius:50%; border:3px solid var(--pf-gold); overflow:hidden; background:rgba(255,255,255,.08); display:grid; place-items:center; font-family:'Cormorant Garamond',serif; font-size:4rem; font-weight:600; color:#fff; }
+    #profilePage .pf-avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+    #profilePage .pf-av-edit{ position:absolute; right:6px; bottom:6px; width:44px; height:44px; border-radius:50%; background:var(--pf-ink); border:2px solid var(--pf-gold); color:var(--pf-gold); display:grid; place-items:center; cursor:pointer; font-size:.95rem; padding:0; }
+    #profilePage .pf-info{ min-width:0; }
+    #profilePage .pf-rol{ color:var(--pf-gold-cl); font-size:.78rem; letter-spacing:.16em; text-transform:uppercase; font-weight:600; margin-bottom:6px; }
+    #profilePage .pf-nombre{ font-family:'Cormorant Garamond',serif; color:#fff; font-size:clamp(2.3rem,4.4vw,3.4rem); font-weight:700; line-height:1.04; margin:0 0 10px; overflow-wrap:anywhere; }
+    #profilePage .pf-bio{ color:rgba(255,255,255,.82); font-size:1.02rem; line-height:1.55; max-width:620px; margin:0 0 14px; }
+    #profilePage .pf-meta{ display:flex; flex-wrap:wrap; gap:6px 22px; color:rgba(255,255,255,.75); font-size:.92rem; margin-bottom:22px; }
+    #profilePage .pf-meta i{ color:var(--pf-gold); margin-right:7px; }
+    #profilePage .pf-meta a{ color:inherit; text-decoration:none; overflow-wrap:anywhere; }
+    #profilePage .pf-acciones{ display:flex; flex-wrap:wrap; gap:10px; }
+    #profilePage .pf-btn{ display:inline-flex; align-items:center; justify-content:center; gap:9px; border-radius:999px; padding:12px 22px; font-family:inherit; font-size:.94rem; font-weight:500; cursor:pointer; text-decoration:none; border:1px solid transparent; transition:background .15s, color .15s, border-color .15s, filter .15s; }
+    #profilePage .pf-btn-wa{ background:#25D366; color:#fff; font-weight:600; }
+    #profilePage .pf-btn-sec{ background:transparent; color:#fff; border-color:rgba(255,255,255,.32); }
+    #profilePage .pf-btn-oro{ background:var(--pf-gold); color:var(--pf-ink); font-weight:600; }
+    #profilePage .pf-redes{ display:flex; flex-wrap:wrap; gap:9px; margin-top:16px; }
+    #profilePage .pf-redes:empty{ display:none; }
+    #profilePage .pf-redes a{ width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); color:#fff; display:grid; place-items:center; text-decoration:none; transition:border-color .15s, color .15s; }
+    #profilePage .pf-stats{ display:grid; gap:10px; }
+    #profilePage .pf-stat{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:14px 18px; }
+    #profilePage .pf-stat b{ display:block; font-family:'Cormorant Garamond',serif; font-size:2.1rem; line-height:1; color:#fff; font-variant-numeric:lining-nums tabular-nums; }
+    #profilePage .pf-stat span{ display:block; font-size:.78rem; color:rgba(255,255,255,.65); margin-top:4px; }
+    @media (hover:hover){
+      #profilePage .pf-meta a:hover{ color:#fff; text-decoration:underline; }
+      #profilePage .pf-btn-wa:hover{ filter:brightness(1.06); }
+      #profilePage .pf-btn-sec:hover{ border-color:var(--pf-gold); color:var(--pf-gold-cl); }
+      #profilePage .pf-btn-oro:hover{ filter:brightness(1.07); }
+      #profilePage .pf-redes a:hover{ border-color:var(--pf-gold); color:var(--pf-gold-cl); }
+    }
+
+    #profilePage .pf-wrap{ max-width:1180px; margin:0 auto; padding:30px 22px 70px; }
+    #profilePage .pf-aviso{ display:flex; gap:12px; align-items:flex-start; background:#fff; border:1px solid var(--pf-line); border-left:4px solid var(--pf-gold); border-radius:12px; padding:13px 16px; font-size:.9rem; line-height:1.5; color:#3d4754; margin-bottom:24px; }
+    #profilePage .pf-aviso i{ color:var(--pf-gold); margin-top:3px; }
+    #profilePage .pf-aviso b{ color:var(--pf-ink); }
+    #profilePage .pf-link{ background:none; border:0; padding:0; color:var(--pf-gold-osc); font:inherit; font-weight:600; cursor:pointer; text-decoration:underline; }
+    #profilePage .pf-sec-h{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+    #profilePage .pf-sec-h h2{ font-size:2rem; line-height:1.1; margin:0; font-weight:700; }
+    #profilePage .pf-sec-h p{ color:var(--pf-muted); font-size:.9rem; margin:2px 0 0; }
+    #profilePage .pf-sec-der{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-width:0; max-width:100%; }
+    #profilePage .pf-tabs{ display:flex; gap:4px; background:var(--pf-line2); border-radius:13px; padding:4px; overflow-x:auto; scrollbar-width:none; max-width:100%; }
+    #profilePage .pf-tabs::-webkit-scrollbar{ display:none; }
+    #profilePage .pf-tabs button{ border:0; background:none; border-radius:10px; padding:9px 15px; font-family:inherit; font-size:.9rem; font-weight:500; color:var(--pf-muted); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; gap:7px; }
+    #profilePage .pf-tabs button[aria-selected="true"]{ background:#fff; color:var(--pf-ink); font-weight:600; box-shadow:0 1px 3px rgba(16,24,40,.14); }
+    #profilePage .pf-tabs .corto{ display:none; }
+    #profilePage .pf-tabs .n{ font-size:.74rem; background:var(--pf-line); color:var(--pf-muted); border-radius:999px; padding:1px 8px; }
+    #profilePage .pf-tabs button[aria-selected="true"] .n{ background:rgba(201,162,39,.18); color:var(--pf-gold-osc); }
+    #profilePage .pf-nueva{ display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid var(--pf-ink); background:var(--pf-ink); color:#fff; border-radius:999px; padding:10px 18px; font-family:inherit; font-size:.88rem; font-weight:600; cursor:pointer; white-space:nowrap; }
+    #profilePage .properties-grid{ margin-bottom:0; }
+    #profilePage .pf-vacio{ grid-column:1 / -1; text-align:center; color:var(--pf-muted); background:#fff; border:1.5px dashed var(--pf-line); border-radius:18px; padding:42px 20px; }
+    #profilePage .pf-vacio i{ font-size:1.8rem; color:var(--pf-soft); display:block; margin-bottom:10px; }
+
+    #profilePage .pf-cols{ display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:24px; margin-top:44px; align-items:start; }
+    #profilePage .pf-caja{ background:#fff; border:1px solid var(--pf-line); border-radius:18px; padding:26px; }
+    #profilePage .pf-caja > h2{ font-size:1.75rem; margin:0 0 14px; font-weight:700; }
+    #profilePage .pf-sobre p{ margin:0 0 12px; color:#3d4754; line-height:1.6; }
+    #profilePage .pf-sobre .vacio{ color:var(--pf-soft); }
+    #profilePage .pf-serv{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:18px; }
+    #profilePage .pf-serv div{ display:flex; align-items:center; gap:10px; font-size:.88rem; color:var(--pf-ink); background:var(--pf-paper); border-radius:11px; padding:10px 12px; }
+    #profilePage .pf-serv i{ color:var(--pf-gold); width:18px; text-align:center; }
+    #profilePage .pf-testi{ background:#faf6ec; border-color:#efe5cd; }
+    #profilePage .pf-t{ padding:4px 0 2px; }
+    #profilePage .pf-t + .pf-t{ border-top:1px solid #efe5cd; margin-top:14px; padding-top:16px; }
+    #profilePage .pf-t q{ display:block; font-family:'Cormorant Garamond',serif; font-size:1.12rem; line-height:1.5; color:var(--pf-ink); quotes:'\201C' '\201D'; }
+    #profilePage .pf-t div{ margin-top:8px; font-size:.84rem; color:var(--pf-muted); }
+    #profilePage .pf-t b{ color:var(--pf-ink); font-weight:600; }
+    #profilePage .pf-t-vacio{ color:var(--pf-muted); font-size:.92rem; margin:0; }
+    #profilePage .pf-testi-btn{ margin-top:16px; display:inline-flex; align-items:center; gap:8px; border:1px solid #e3d3a6; background:#fff; color:var(--pf-gold-osc); border-radius:999px; padding:9px 16px; font-family:inherit; font-size:.86rem; font-weight:600; cursor:pointer; }
+
+    @media (max-width:1000px){
+      #profilePage .pf-hero-in{ grid-template-columns:auto minmax(0,1fr); }
+      #profilePage .pf-stats{ grid-column:1 / -1; grid-template-columns:repeat(3,minmax(0,1fr)); }
+    }
+    @media (max-width:760px){
+      #profilePage .pf-hero-in{ grid-template-columns:minmax(0,1fr); justify-items:center; text-align:center; gap:16px; padding:28px 16px 30px; }
+      #profilePage .pf-av-wrap{ width:120px; height:120px; }
+      #profilePage .pf-avatar{ font-size:2.6rem; }
+      #profilePage .pf-av-edit{ right:0; bottom:0; width:36px; height:36px; font-size:.82rem; }
+      #profilePage .pf-rol{ font-size:.7rem; letter-spacing:.13em; }
+      #profilePage .pf-nombre{ font-size:2.1rem; }
+      #profilePage .pf-bio{ font-size:.93rem; margin-left:auto; margin-right:auto; }
+      #profilePage .pf-meta, #profilePage .pf-acciones, #profilePage .pf-redes{ justify-content:center; }
+      #profilePage .pf-meta{ margin-bottom:16px; font-size:.86rem; }
+      #profilePage .pf-acciones{ width:100%; }
+      #profilePage .pf-acciones .pf-btn{ flex:1 1 auto; padding:11px 16px; font-size:.9rem; }
+      #profilePage .pf-stats{ width:100%; gap:8px; }
+      #profilePage .pf-stat{ padding:11px 6px; text-align:center; }
+      #profilePage .pf-stat b{ font-size:1.6rem; }
+      #profilePage .pf-stat span{ font-size:.68rem; }
+      #profilePage .pf-wrap{ padding:22px 14px 40px; }
+      #profilePage .pf-sec-h h2{ font-size:1.65rem; }
+      #profilePage .pf-sec-tit, #profilePage .pf-sec-der{ width:100%; }
+      #profilePage .pf-tabs{ width:100%; }
+      #profilePage .pf-tabs button{ flex:1 0 auto; padding:9px 10px; font-size:.86rem; }
+      #profilePage .pf-tabs .largo{ display:none; }
+      #profilePage .pf-tabs .corto{ display:inline; }
+      #profilePage .pf-nueva{ width:100%; padding:11px 18px; }
+      #profilePage .pf-cols{ grid-template-columns:minmax(0,1fr); margin-top:32px; gap:16px; }
+      #profilePage .pf-caja{ padding:20px 18px; }
+      #profilePage .pf-serv{ grid-template-columns:minmax(0,1fr); }
+    }
+  </style>
 
   <main id="adminPanel" class="hidden"><section class="admin-panel container">
     <div class="admin-header"><div><h1>Panel de Administración</h1><p style="color:var(--gray-500)">Gestiona usuarios y propiedades</p></div></div>
@@ -947,7 +1121,7 @@
   </script>
   <script src="malave-config.js?v=20260830b"></script>
   <script src="rangos.js?v=20260821l"></script>
-  <script src="app.js?v=20261001a"></script>
+  <script src="app.js?v=20261001b"></script>
   <!-- ====== MENÚ DEL VISITANTE (celular) ======
        En celular la barra oculta los enlaces del encabezado; este menú es la
        forma de llegar a "Vendé tu propiedad", "Trabajá con nosotros" y al acceso

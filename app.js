@@ -4319,7 +4319,6 @@
         id: d.id,
         ...d.data()
       }));
-      const veniaDeCache = _vitrinaDeCache;
       _vitrinaDeCache = false;
       // Las notificaciones de despublicación leen el estado REAL de la propiedad;
       // hasta que llega este primer snapshot no se puede saber, y no deben adivinar.
@@ -4340,18 +4339,13 @@
       guardarVitrina();
       // Con el modal de Portales abierto, sus pestañas se ponen al día solas.
       refrescarPortalesAbiertos();
-      // Si se refrescó la página estando en el PERFIL de un agente, su grilla se
-      // pintó antes de que llegaran las propiedades (carrera del snapshot) o con
-      // la copia guardada, que solo tiene las disponibles: repintarla ahora.
-      if (typeof currentProfileUserId !== 'undefined' && currentProfileUserId && window.location.hash.startsWith('#perfil/')) {
-        const _pg = document.getElementById('profilePropertiesGrid');
-        if (veniaDeCache || (_pg && !_pg.querySelector('.property-card'))) showProfile(currentProfileUserId);
-      }
+      // El perfil abierto se repinta solo dentro de pintarVitrinaActual().
     })
   }
   function pintarVitrinaActual() {
     if (document.getElementById('filterSearch')) filterProperties();
     else renderProperties(properties.filter(enVitrina));
+    repintarPerfilSiVisible();
   }
 
   // ===== Vitrina recordada =====
@@ -4454,9 +4448,11 @@
 
   function renderProperties(ps, tg = 'propertiesGrid') {
     if (tg === 'propertiesGrid') { try { mvSetHeroPhoto(ps); } catch (e) { /* hero sin foto */ } }
+    // El contador y el "cargando" son de la vitrina del inicio: la grilla del
+    // perfil no los toca (antes pisaba el "N propiedades encontradas").
     const g = document.getElementById(tg),
-      ld = document.getElementById('propertiesLoading'),
-      ct = document.getElementById('propertiesCount');
+      ld = tg === 'propertiesGrid' ? document.getElementById('propertiesLoading') : null,
+      ct = tg === 'propertiesGrid' ? document.getElementById('propertiesCount') : null;
     if (ld) ld.classList.add('hidden');
     if (ct) ct.textContent = `${ps.length} propiedades encontradas`;
     if (ps.length === 0) {
@@ -4799,64 +4795,210 @@
     return html
   }
 
-  // El perfil del agente vive en su propia página (perfil.html). Antes se pintaba
-  // acá adentro y, para mostrarlo, había que cargar el sistema entero con todas
-  // las propiedades de la inmobiliaria. Todo lo que llamaba a showProfile (la
-  // barra de abajo, el buscador de agentes, la tarjeta de cada propiedad, el
-  // menú) ahora lleva a esa página.
-  function showProfile(ui) {
-    if (!ui) return;
-    window.location.href = 'perfil.html?id=' + encodeURIComponent(ui);
+  // ===== PERFIL DEL AGENTE =====
+  // Se pinta acá adentro, y no en una página aparte, porque sus tarjetas son las
+  // mismas del inicio, con TODAS sus herramientas para el dueño y la Dirección:
+  // agendar visita, editar, calidad de Mercado Libre, destacar, eliminar o dar de
+  // baja, compartir, contadores y el cliente dueño. En una página aparte había
+  // que copiar cada herramienta y mantenerla dos veces.
+  // Las propiedades van en pestañas:
+  //   · Disponibles: disponibles, reservadas y en tasación. Se abre en esta.
+  //   · Vendidas y alquiladas: su carta de presentación.
+  //   · Dadas de baja (y las que cerró otra inmobiliaria): solo el dueño y la
+  //     Dirección. Antes salían mezcladas con las disponibles, a la vista de todos.
+  let _pfGrupo = 'activas';
+  let _pfTesti = { uid: null, lista: null };
+  function pfGrupoDe(p) {
+    const s = p.status || 'available';
+    if (s === 'sold' || s === 'rented') return 'cerradas';
+    if (s === 'archived' || s === 'cerrado_externo') return 'baja';
+    return 'activas';
+  }
+  // Quién mira. Igual que en las tarjetas: el dueño (también con la sesión
+  // recordada, mientras Firebase confirma) o la Dirección. Editar el perfil, la
+  // foto y cargar una propiedad nueva, solo con la sesión ya confirmada.
+  function pfQuienMira(ui) {
+    const yo = uidVisible();
+    const dir = !!(currentUser ? isAdminUser() : esDireccionPerfil(perfilVisible()));
+    const duenio = !!yo && yo === ui;
+    return { duenio: duenio, dir: dir, gestiona: duenio || dir, edita: !!(currentUser && currentUser.uid === ui) };
+  }
+  function perfilAbierto() {
+    const pp = document.getElementById('profilePage');
+    return !!(currentProfileUserId && pp && !pp.classList.contains('hidden'));
+  }
+  // Las herramientas de las tarjetas (destacar, editar, la calidad de ML que llega
+  // después) repintan la vitrina; si el perfil está a la vista se repinta también,
+  // en la misma pestaña. Antes la estrella del perfil quedaba vieja hasta volver
+  // a entrar.
+  function repintarPerfilSiVisible() {
+    if (!perfilAbierto()) return;
+    try { pintarPerfilPropiedades(); } catch (e) { console.warn('perfil:', e); }
   }
 
-  // Testimonios del perfil: reales aprobados (Firestore) + ejemplo (etiquetado).
-  let pf2TestiIdx = 0, pf2TestiTimer = null;
-  const PF2_TESTI_EJEMPLO = [
-    { t: 'Nos acompañó en todo el proceso con profesionalismo y cercanía. Encontramos justo lo que buscábamos. 100% recomendable.', n: 'Valeria G.', r: 'Compradora en Punta Carretas', ejemplo: true }
-  ];
-  function renderProfileTestimonials(ud, agentId) {
-    const cont = document.getElementById('pf2TestiText');
-    if (!cont) return;
-    // Base: ejemplo (siempre disponible para no dejar vacio)
-    let list = PF2_TESTI_EJEMPLO.slice();
-    const pintar = () => {
-      clearInterval(pf2TestiTimer); pf2TestiIdx = 0;
-      const show = j => {
-        const x = list[j]; if (!x) return; pf2TestiIdx = j;
-        document.getElementById('pf2TestiText').textContent = '"' + (x.t || x.text || '') + '"';
-        document.getElementById('pf2TestiName').textContent = x.n || x.name || '';
-        document.getElementById('pf2TestiRole').textContent = x.r || x.role || '';
-        document.getElementById('pf2TestiAv').textContent = (x.n || x.name || 'C').trim().charAt(0).toUpperCase();
-        const tag = document.getElementById('pf2TestiTag');
-        if (tag) tag.style.display = x.ejemplo ? 'inline-block' : 'none';
-        document.getElementById('pf2TestiDots').innerHTML = list.map((_, k) => `<span class="${k === j ? 'on' : ''}" onclick="pf2GoTesti(${k})"></span>`).join('');
-      };
-      window.pf2GoTesti = show;
-      show(0);
-      if (list.length > 1) pf2TestiTimer = setInterval(() => show((pf2TestiIdx + 1) % list.length), 7000);
+  async function showProfile(ui) {
+    if (!ui) return;
+    const pp = document.getElementById('profilePage');
+    const llega = ui !== currentProfileUserId || pp.classList.contains('hidden');
+    if (ui !== currentProfileUserId) _pfGrupo = 'activas';
+    currentProfileUserId = ui;
+    if (window.location.hash !== '#perfil/' + ui) window.location.hash = `perfil/${ui}`;
+    document.getElementById('mainContent').classList.add('hidden');
+    document.getElementById('adminPanel').classList.add('hidden');
+    document.getElementById('crmPage').classList.add('hidden');
+    document.getElementById('clientProfilePage')?.classList.add('hidden');
+    pp.classList.remove('hidden');
+    if (llega) window.scrollTo(0, 0);
+    // Barra de abajo (celular): en el perfil propio queda marcada "Perfil". Si la
+    // página se abrió directo en el perfil, la barra todavía no se cargó: se marca
+    // cuando termina de cargar.
+    const marcarBarra = () => {
+      if (currentProfileUserId !== ui || !perfilAbierto() || uidVisible() !== ui) return;
+      document.querySelectorAll('.bb-item').forEach(b => b.classList.remove('active'));
+      document.getElementById('bbPerfil')?.classList.add('active');
     };
-    pintar();
-    // Cargar reales aprobados de este agente y combinarlos adelante
-    if (agentId && typeof db !== 'undefined') {
-      db.collection('testimonials')
-        .where('target', '==', 'agent')
-        .where('agentId', '==', agentId)
-        .where('approved', '==', true)
-        .get()
-        .then(snap => {
-          const reales = [];
-          snap.forEach(d => { const x = d.data(); reales.push({ t: x.text, n: x.name, r: x.role || 'Cliente', ejemplo: false }); });
-          if (reales.length) { list = reales.concat(PF2_TESTI_EJEMPLO); pintar(); }
-        })
-        .catch(() => {});
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', marcarBarra, { once: true });
+    else marcarBarra();
+    // Se pinta enseguida con lo que haya (la copia de la vitrina trae nombre y
+    // foto) y se completa cuando llega el perfil entero.
+    let ud = allUsers[ui] || { name: (properties.find(p => p.ownerId === ui) || {}).ownerName || '', _cache: true };
+    pintarPerfilAgente(ui, ud);
+    pintarPerfilPropiedades();
+    // _cache: datos mínimos de la copia de la vitrina (sin bio, redes ni correo).
+    if (!allUsers[ui] || allUsers[ui]._cache) {
+      try {
+        const d = await db.collection('users').doc(ui).get();
+        if (d.exists) { ud = d.data(); allUsers[ui] = ud; }
+      } catch (e) { /* se queda con lo que había */ }
+      if (currentProfileUserId !== ui) return;     // se abrió otro perfil mientras tanto
+      pintarPerfilAgente(ui, ud);
+      pintarPerfilPropiedades();
     }
-    // Boton "dejar testimonio" para este agente
-    const addBtn = document.getElementById('pf2TestiAdd');
-    if (addBtn) {
-      const nombreAg = (ud && (ud.name || ud.displayName)) || 'este agente';
-      addBtn.onclick = () => { if (typeof window.abrirTestimonioModal === 'function') window.abrirTestimonioModal('agent', agentId || '', nombreAg); };
-      addBtn.style.display = agentId ? 'inline-flex' : 'none';
+    pintarTestimoniosPerfil(ui, ud);
+  }
+
+  function pintarPerfilAgente(ui, ud) {
+    const $ = (id) => document.getElementById(id);
+    const q = pfQuienMira(ui);
+    const nombre = ud.name || 'Agente';
+    $('profileAvatar').innerHTML = safeUrl(ud.profilePhoto) ? `<img src="${safeUrl(ud.profilePhoto)}" alt="">` : mvEsc(nombre.trim().charAt(0).toUpperCase() || 'A');
+    $('profileAvatarEdit').classList.toggle('hidden', !q.edita);
+    let rol = (window.Rangos && Rangos.etiqueta(ud)) || '';
+    if (!rol && (ud.email || '').toLowerCase() === ADMIN_EMAIL) rol = 'Dirección';
+    $('profileRole').textContent = rol || 'Asesor inmobiliario';
+    $('profileName').textContent = nombre;
+    $('profileBio').textContent = ud.bio || '';
+    $('profileBio').classList.toggle('hidden', !ud.bio);
+    $('profileLocation').textContent = ud.location || 'Montevideo, Uruguay';
+    const em = $('profileEmailWrap');
+    if (ud.email) { em.href = 'mailto:' + ud.email; $('profileEmail').textContent = ud.email; }
+    em.classList.toggle('hidden', !ud.email);
+    // WhatsApp: el del agente; si no cargó uno, el de la inmobiliaria.
+    const wa = $('btnContactWhatsapp');
+    wa.href = `https://wa.me/${waNum(ud.whatsapp) || '59894029297'}?text=${encodeURIComponent(`Hola ${nombre}, vi tu perfil en MALAVE y me gustaría consultarte.`)}`;
+    wa.classList.toggle('hidden', q.duenio);
+    $('btnEditProfile').classList.toggle('hidden', !q.edita);
+    $('profileSocialLinks').innerHTML = renderSocialLinks(ud);
+    const sobre = ud.about || ud.bio || '';
+    $('profileAboutText').innerHTML = sobre
+      ? sobre.split(/\n+/).filter(Boolean).map(t => `<p>${mvEsc(t)}</p>`).join('')
+      : `<p class="vacio">${q.duenio ? 'Todavía no escribiste nada. Contá tu experiencia desde «Editar perfil».' : 'Este agente todavía no agregó una descripción.'}</p>`;
+    // Aviso para el dueño y la Dirección: qué ven ellos que el público no.
+    const av = $('pfAviso');
+    if (q.duenio) av.innerHTML = '<i class="fas fa-eye"></i><span>Así ven tu perfil los clientes. Vos, además, ves tus <b>dadas de baja</b> y las herramientas de cada propiedad. <button type="button" class="pf-link" onclick="compartirPerfilAgente(true)">Copiar el enlace de tu perfil</button></span>';
+    else if (q.dir) av.innerHTML = '<i class="fas fa-user-shield"></i><span>Lo ves como Dirección: además de lo público, aparecen sus <b>dadas de baja</b> y las herramientas de cada propiedad.</span>';
+    av.classList.toggle('hidden', !q.gestiona);
+  }
+
+  function pintarPerfilPropiedades() {
+    const ui = currentProfileUserId;
+    if (!ui) return;
+    const $ = (id) => document.getElementById(id);
+    const ud = allUsers[ui] || {};
+    const q = pfQuienMira(ui);
+    const g = { activas: [], cerradas: [], baja: [] };
+    const suyas = properties.filter(p => p.ownerId === ui);
+    suyas.forEach(p => g[pfGrupoDe(p)].push(p));
+    // Números del encabezado
+    const n = (x) => Number(x || 0).toLocaleString('es-UY');
+    $('profilePropertiesCount').textContent = n(g.activas.length);
+    $('profileSalesCount').textContent = n(ud.salesCount != null && ud.salesCount !== '' ? Number(ud.salesCount) : g.cerradas.length);
+    $('profileViewsCount').textContent = n(suyas.reduce((t, p) => t + (Number(p.views) || 0), 0));
+    // Pestañas: Vendidas y alquiladas solo si hay; Dadas de baja, además, solo
+    // para el dueño y la Dirección.
+    $('pfNActivas').textContent = g.activas.length;
+    $('pfNCerradas').textContent = g.cerradas.length;
+    $('pfNBaja').textContent = g.baja.length;
+    const tabs = $('pfTabs');
+    const tC = tabs.querySelector('[data-g="cerradas"]'), tB = tabs.querySelector('[data-g="baja"]');
+    tC.classList.toggle('hidden', !g.cerradas.length);
+    tB.classList.toggle('hidden', !(q.gestiona && g.baja.length));
+    if ((_pfGrupo === 'cerradas' && tC.classList.contains('hidden')) || (_pfGrupo === 'baja' && tB.classList.contains('hidden'))) _pfGrupo = 'activas';
+    tabs.classList.toggle('hidden', tC.classList.contains('hidden') && tB.classList.contains('hidden'));
+    tabs.querySelectorAll('button[data-g]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.g === _pfGrupo)));
+    const nombre = String(ud.name || '').trim().split(/\s+/)[0];
+    $('pfTitProps').textContent = q.duenio ? 'Mis propiedades' : (nombre ? `Propiedades de ${nombre}` : 'Propiedades');
+    $('pfSubProps').textContent = _pfGrupo === 'activas' ? 'En venta y en alquiler hoy.'
+      : _pfGrupo === 'cerradas' ? (q.duenio ? 'Las que ya vendiste o alquilaste.' : 'Operaciones que ya cerró con MALAVE.')
+      : (q.duenio ? 'Fuera de circulación: solo las ven vos y la Dirección.' : 'Fuera de circulación: solo las ven el agente y la Dirección.');
+    $('btnNewPropertyProfile').classList.toggle('hidden', !q.edita);
+    const lista = g[_pfGrupo];
+    if (!lista.length) {
+      $('profilePropertiesGrid').innerHTML = '<div class="pf-vacio"><i class="fas fa-house"></i>' + (_pfGrupo === 'activas'
+        ? (q.duenio ? 'No tenés propiedades disponibles ahora.' : 'Por ahora no tiene propiedades disponibles.') +
+          (g.cerradas.length ? (q.duenio ? ' Mirá las que ya vendiste o alquilaste.' : ' Mirá las que ya vendió o alquiló.') : '')
+        : 'No hay propiedades acá.') + '</div>';
+      return;
     }
+    // Las mismas tarjetas del inicio, con todas sus herramientas.
+    renderProperties(lista, 'profilePropertiesGrid');
+  }
+  function pfElegirPestania(e) {
+    const b = e.target.closest('button[data-g]');
+    if (!b || b.classList.contains('hidden')) return;
+    _pfGrupo = b.dataset.g;
+    pintarPerfilPropiedades();
+  }
+
+  // Testimonios: solo los reales y aprobados. Antes, si el agente no tenía
+  // ninguno, aparecía uno de ejemplo ("Valeria G.") en todos los perfiles.
+  function pintarTestimoniosPerfil(ui, ud) {
+    const caja = document.getElementById('pfTestiLista');
+    if (!caja) return;
+    document.getElementById('pfTestiBtn').classList.toggle('hidden', pfQuienMira(ui).duenio);
+    const ms = (v) => !v ? 0 : typeof v.toMillis === 'function' ? v.toMillis() : v.seconds ? v.seconds * 1000 : (Date.parse(v) || 0);
+    const pintar = () => {
+      if (currentProfileUserId !== ui) return;
+      const nombre = String((ud && ud.name) || '').trim().split(/\s+/)[0] || 'este agente';
+      const t = (_pfTesti.lista || []).slice(0, 4);
+      caja.innerHTML = t.length
+        ? t.map(x => `<div class="pf-t"><q>${mvEsc(x.text)}</q><div><b>${mvEsc(x.name || 'Cliente')}</b>${x.role ? ' · ' + mvEsc(x.role) : ''}</div></div>`).join('')
+        : `<p class="pf-t-vacio">Todavía no hay testimonios. Si trabajaste con ${mvEsc(nombre)}, contá cómo te fue.</p>`;
+    };
+    if (_pfTesti.uid === ui && _pfTesti.lista) { pintar(); return; }
+    _pfTesti = { uid: ui, lista: null };
+    caja.innerHTML = '<p class="pf-t-vacio">Cargando…</p>';
+    db.collection('testimonials').where('target', '==', 'agent').where('agentId', '==', ui).where('approved', '==', true).get()
+      .then(s => { if (_pfTesti.uid !== ui) return; _pfTesti.lista = s.docs.map(d => d.data()).sort((a, b) => ms(b.createdAt) - ms(a.createdAt)); pintar(); })
+      .catch(() => { if (_pfTesti.uid !== ui) return; _pfTesti.lista = []; pintar(); });
+  }
+  function pfDejarTestimonio() {
+    const ud = allUsers[currentProfileUserId] || {};
+    if (typeof window.abrirTestimonioModal === 'function') window.abrirTestimonioModal('agent', currentProfileUserId || '', ud.name || 'este agente');
+  }
+
+  // Compartir el perfil: en el celular abre la ventana de compartir del teléfono;
+  // en la compu (o con soloCopiar) copia el enlace.
+  function compartirPerfilAgente(soloCopiar) {
+    const u = allUsers[currentProfileUserId] || {};
+    const url = getProfileLink(), nombre = u.name || 'este agente';
+    if (!soloCopiar && navigator.share) {
+      navigator.share({ title: nombre + ' | MALAVE', text: 'Mirá las propiedades de ' + nombre, url: url }).catch(() => {});
+      return;
+    }
+    const ok = () => showToast('Enlace copiado', 'Ya lo podés pegar donde quieras', 'fa-link');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(ok).catch(() => window.prompt('Copiá el enlace:', url));
+    else window.prompt('Copiá el enlace:', url);
   }
 
   function showMyProfile() {
@@ -4868,7 +5010,7 @@
   }
 
   function getProfileLink() {
-    return `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}perfil.html?id=${encodeURIComponent(currentProfileUserId || '')}`
+    return `${window.location.origin}${window.location.pathname}#perfil/${currentProfileUserId}`
   }
 
   function copyProfileLink() {
@@ -4894,14 +5036,25 @@
   function handleHash() {
     const h = window.location.hash;
     if (h.startsWith('#perfil/')) {
-      // Enlaces viejos (index.html#perfil/…): van a la página del perfil.
-      const uid = h.replace('#perfil/', '').split(/[/?&]/)[0];
-      if (uid) window.location.replace('perfil.html?id=' + encodeURIComponent(uid));
+      const uid = decodeURIComponent(h.replace('#perfil/', '').split(/[/?&]/)[0]);
+      // showProfile pone este mismo hash: si ya está abierto, no se pinta dos veces.
+      if (uid && !(uid === currentProfileUserId && perfilAbierto())) showProfile(uid);
     } else if (h.startsWith('#propiedad/')) {
       // Enlaces compartidos: van a la página dedicada, igual que todo lo demás.
       // (Se conserva la ruta vieja para que los links ya enviados sigan andando.)
       const pid = h.replace('#propiedad/', '');
       window.location.replace('propiedad.html?id=' + pid);
+    } else if (perfilAbierto()) {
+      // Se salió del perfil con "Atrás" o con un enlace del menú (#propiedades,
+      // #contacto…): vuelve el inicio. Antes el perfil quedaba a la vista con la
+      // dirección del inicio.
+      document.getElementById('profilePage').classList.add('hidden');
+      currentProfileUserId = null;
+      document.getElementById('mainContent').classList.remove('hidden');
+      document.querySelectorAll('.bb-item').forEach(b => b.classList.remove('active'));
+      document.getElementById('bbInicio')?.classList.add('active');
+      const destino = h.length > 1 ? document.getElementById(h.slice(1)) : null;
+      if (destino) destino.scrollIntoView(); else window.scrollTo(0, 0);
     }
   }
   window.addEventListener('hashchange', handleHash);
@@ -6760,6 +6913,7 @@
         // Se aplica en local para que el anillo aparezca ya, sin esperar el snapshot.
         properties.forEach(p => { if (salud[p.id] != null) { p.mlHealth = salud[p.id]; p.mlHealthAt = r.data.medidoEn; } });
         renderProperties(properties.filter(enVitrina));
+        repintarPerfilSiVisible();
       } catch (e) {
         console.warn('No se pudo traer la calidad de los avisos:', e.message || e);
       }
@@ -6837,6 +6991,7 @@
       try { renderProperties(properties.filter(enVitrina)); } catch (e2) { }
     }
     try { updateStats(); } catch (e) { }
+    repintarPerfilSiVisible();
   }
 
   // ==========================================================================
