@@ -4981,6 +4981,217 @@
     if (typeof window.abrirTestimonioModal === 'function') window.abrirTestimonioModal('agent', currentProfileUserId || '', ud.name || 'este agente');
   }
 
+  // ===== Foto del perfil: encuadrarla (mover y acercar) =====
+  // Antes la foto se subía tal cual y cada lugar la recortaba por el centro: la
+  // cara quedaba cortada o muy abajo. Ahora el agente elige el encuadre y se sube
+  // la foto ya recortada (cuadrada, 600×600), así se ve igual en el perfil, en
+  // las tarjetas, en la barra de arriba y en el resto del sistema. Se guardan
+  // también la original y el encuadre, para poder reajustarla sin volver a elegirla.
+  const FOTO_LADO = 600;
+  let _foto = null;      // { img, w, h, cx, cy, z, archivo, base } — cx/cy: punto de la foto que queda en el centro
+  let _fotoPunteros = new Map(), _fotoGesto = null;
+  function _fotoVista() { const el = document.getElementById('pfCrop'); return (el && el.clientWidth) || 300; }
+  function _fotoEscala(f, S) { return Math.max(S / f.w, S / f.h) * f.z; }
+  // Que el encuadre nunca se salga de la foto (sin bordes vacíos).
+  function _fotoLimitar(f, S) {
+    const e = _fotoEscala(f, S), mx = S / (2 * e * f.w), my = S / (2 * e * f.h);
+    f.cx = Math.min(1 - mx, Math.max(mx, f.cx));
+    f.cy = Math.min(1 - my, Math.max(my, f.cy));
+  }
+  function _fotoPintar() {
+    const f = _foto, el = document.getElementById('pfCropImg');
+    if (!f || !el) return;
+    const S = _fotoVista();
+    _fotoLimitar(f, S);
+    const e = _fotoEscala(f, S);
+    el.style.width = (f.w * e) + 'px';
+    el.style.height = (f.h * e) + 'px';
+    el.style.left = (S / 2 - f.cx * f.w * e) + 'px';
+    el.style.top = (S / 2 - f.cy * f.h * e) + 'px';
+  }
+  function _fotoEstado(estado, texto) {
+    const crop = document.getElementById('pfCrop');
+    crop.classList.toggle('lista', estado === 'lista');
+    document.getElementById('pfCropVacioTxt').textContent = texto || (estado === 'cargando' ? 'Cargando tu foto…' : 'Elegí una foto para empezar');
+    document.getElementById('pfZoom').disabled = estado !== 'lista';
+    document.getElementById('pfFotoGuardar').disabled = estado !== 'lista';
+    document.getElementById('pfFotoOtraTxt').textContent = estado === 'lista' ? 'Elegir otra foto' : 'Elegir una foto';
+  }
+  function abrirAjusteFoto() {
+    if (!currentUser || currentProfileUserId !== currentUser.uid) return;
+    const ud = allUsers[currentUser.uid] || userProfile || {};
+    _foto = null;
+    _fotoEstado('cargando');
+    openModal('fotoPerfilModal');
+    _fotoPreparar();
+    // Se parte de la original (si hay) para no recortar sobre un recorte.
+    const base = safeUrl(ud.profilePhotoOriginal) || safeUrl(ud.profilePhoto);
+    if (!base) { _fotoEstado('vacia'); return; }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';    // para poder recortarla en el navegador
+    img.onload = () => _fotoCargar(img, null, base, ud.profilePhotoOriginal === base ? ud.profilePhotoAjuste : null);
+    // Si el servidor de fotos no deja leerla desde acá, se pide elegirla de nuevo.
+    img.onerror = () => _fotoEstado('vacia', 'Para encuadrar tu foto actual, elegila de nuevo desde tu teléfono o tu compu.');
+    img.src = base;
+  }
+  function cerrarAjusteFoto() {
+    closeModal('fotoPerfilModal');
+    if (_foto && _foto.archivo && _foto.img && /^blob:/.test(_foto.img.src)) URL.revokeObjectURL(_foto.img.src);
+    _foto = null;
+  }
+  function pfFotoElegida(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!/^image\//.test(file.type || 'image/')) { showToast('Eso no es una foto', 'Elegí una imagen JPG o PNG', 'fa-circle-exclamation'); return; }
+    _fotoEstado('cargando', 'Abriendo la foto…');
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => _fotoCargar(img, file, null, null);
+    img.onerror = () => { URL.revokeObjectURL(url); _fotoEstado('vacia', 'No se pudo abrir esa foto. Probá con otra (JPG o PNG).'); };
+    img.src = url;
+  }
+  function _fotoCargar(img, archivo, base, ajuste) {
+    if (!document.getElementById('fotoPerfilModal').classList.contains('active')) return;
+    _foto = { img: img, w: img.naturalWidth || img.width, h: img.naturalHeight || img.height, cx: .5, cy: .5, z: 1, archivo: archivo, base: base };
+    if (ajuste) {
+      _foto.cx = Number(ajuste.cx) || .5; _foto.cy = Number(ajuste.cy) || .5;
+      _foto.z = Math.min(4, Math.max(1, Number(ajuste.z) || 1));
+    } else if (_foto.h > _foto.w * 1.1) {
+      _foto.cy = .42;   // foto vertical: un poco más arriba, donde suele estar la cara
+    }
+    document.getElementById('pfCropImg').src = img.src;
+    document.getElementById('pfZoom').value = _foto.z;
+    _fotoEstado('lista');
+    _fotoPintar();
+  }
+  function _fotoZoom(z, S) {
+    if (!_foto) return;
+    _foto.z = Math.min(4, Math.max(1, z));
+    document.getElementById('pfZoom').value = _foto.z;
+    _fotoPintar();
+  }
+  function pfZoomBarra(v) { _fotoZoom(Number(v) || 1); }
+  function _fotoMover(dx, dy) {
+    const f = _foto; if (!f) return;
+    const e = _fotoEscala(f, _fotoVista());
+    f.cx -= dx / (f.w * e);
+    f.cy -= dy / (f.h * e);
+    _fotoPintar();
+  }
+  // Arrastrar con el mouse o el dedo; con dos dedos, acercar o alejar.
+  function _fotoPreparar() {
+    const crop = document.getElementById('pfCrop');
+    if (crop.dataset.listo) return;
+    crop.dataset.listo = '1';
+    crop.addEventListener('pointerdown', (e) => {
+      if (!_foto) return;
+      try { crop.setPointerCapture(e.pointerId); } catch (er) { /* puntero que ya no existe */ }
+      _fotoPunteros.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      crop.classList.add('arrastrando');
+      if (_fotoPunteros.size === 2) {
+        const [p1, p2] = [..._fotoPunteros.values()];
+        _fotoGesto = { d: Math.hypot(p1.x - p2.x, p1.y - p2.y) || 1, z: _foto.z };
+      }
+    });
+    crop.addEventListener('pointermove', (e) => {
+      const ant = _fotoPunteros.get(e.pointerId);
+      if (!ant || !_foto) return;
+      const act = { x: e.clientX, y: e.clientY };
+      _fotoPunteros.set(e.pointerId, act);
+      if (_fotoPunteros.size >= 2 && _fotoGesto) {
+        const [p1, p2] = [..._fotoPunteros.values()];
+        _fotoZoom(_fotoGesto.z * (Math.hypot(p1.x - p2.x, p1.y - p2.y) / _fotoGesto.d));
+      } else {
+        _fotoMover(act.x - ant.x, act.y - ant.y);
+      }
+    });
+    const soltar = (e) => {
+      _fotoPunteros.delete(e.pointerId);
+      if (_fotoPunteros.size < 2) _fotoGesto = null;
+      if (!_fotoPunteros.size) crop.classList.remove('arrastrando');
+    };
+    crop.addEventListener('pointerup', soltar);
+    crop.addEventListener('pointercancel', soltar);
+    crop.addEventListener('wheel', (e) => {
+      if (!_foto) return;
+      e.preventDefault();
+      _fotoZoom(_foto.z * (e.deltaY < 0 ? 1.08 : 1 / 1.08));
+    }, { passive: false });
+    crop.addEventListener('keydown', (e) => {
+      if (!_foto) return;
+      const paso = 12, m = { ArrowLeft: [paso, 0], ArrowRight: [-paso, 0], ArrowUp: [0, paso], ArrowDown: [0, -paso] }[e.key];
+      if (m) { e.preventDefault(); _fotoMover(m[0], m[1]); }
+      else if (e.key === '+' || e.key === '=') { e.preventDefault(); _fotoZoom(_foto.z * 1.08); }
+      else if (e.key === '-') { e.preventDefault(); _fotoZoom(_foto.z / 1.08); }
+    });
+    window.addEventListener('resize', () => { if (_foto) _fotoPintar(); });
+  }
+  function _fotoBlob(canvas, calidad) {
+    return new Promise((ok, mal) => canvas.toBlob((b) => b ? ok(b) : mal(new Error('No se pudo preparar la foto')), 'image/jpeg', calidad));
+  }
+  // La original, achicada, para poder reencuadrar más adelante.
+  function _fotoAchicar(img, max) {
+    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+    const k = Math.min(1, max / Math.max(w, h));
+    const c = document.createElement('canvas');
+    c.width = Math.round(w * k); c.height = Math.round(h * k);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    return _fotoBlob(c, .86);
+  }
+  async function guardarAjusteFoto() {
+    const f = _foto;
+    if (!f || !currentUser) return;
+    const btn = document.getElementById('pfFotoGuardar');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando…';
+    try {
+      const S = _fotoVista();
+      _fotoLimitar(f, S);
+      const lado = S / _fotoEscala(f, S);                 // lado del recorte, en píxeles de la foto
+      const c = document.createElement('canvas');
+      c.width = c.height = FOTO_LADO;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, FOTO_LADO, FOTO_LADO);
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(f.img, f.cx * f.w - lado / 2, f.cy * f.h - lado / 2, lado, lado, 0, 0, FOTO_LADO, FOTO_LADO);
+      const recorte = await _fotoBlob(c, .9);
+      const uid = currentUser.uid, ts = Date.now();
+      let original = f.base || '';
+      if (f.archivo) {
+        const ro = await storage.ref(`users/${uid}/profile_orig_${ts}.jpg`).put(await _fotoAchicar(f.img, 1600), { contentType: 'image/jpeg' });
+        original = await ro.ref.getDownloadURL();
+      }
+      const rr = await storage.ref(`users/${uid}/profile_${ts}.jpg`).put(recorte, { contentType: 'image/jpeg' });
+      const url = await rr.ref.getDownloadURL();
+      // Primero la foto, igual que siempre: es lo que importa.
+      await db.collection('users').doc(uid).update({ profilePhoto: url });
+      const nuevos = { profilePhoto: url };
+      // Después la original y el encuadre, aparte: si las reglas no dejaran
+      // guardar estos campos, la foto nueva ya quedó igual.
+      try {
+        const extra = { profilePhotoAjuste: { cx: +f.cx.toFixed(4), cy: +f.cy.toFixed(4), z: +f.z.toFixed(3) } };
+        if (original) extra.profilePhotoOriginal = original;
+        await db.collection('users').doc(uid).update(extra);
+        Object.assign(nuevos, extra);
+      } catch (e2) { console.warn('No se guardó el encuadre de la foto:', e2); }
+      Object.assign(userProfile, nuevos);
+      allUsers[uid] = Object.assign(allUsers[uid] || {}, nuevos);
+      updateUI();
+      cerrarAjusteFoto();
+      if (perfilAbierto()) pintarPerfilAgente(uid, allUsers[uid]);
+      refrescarVitrina();
+      showToast('Foto actualizada', 'Ya se ve así en tu perfil y en tus propiedades', 'fa-check');
+    } catch (err) {
+      console.error('Foto del perfil:', err);
+      showToast('No se pudo guardar la foto', (err && err.message) || 'Probá de nuevo', 'fa-circle-exclamation');
+    }
+    btn.disabled = !_foto;
+    btn.innerHTML = '<i class="fas fa-check"></i> Guardar';
+  }
+
   // Compartir el perfil: en el celular abre la ventana de compartir del teléfono;
   // en la compu (o con soloCopiar) copia el enlace.
   function compartirPerfilAgente(soloCopiar) {

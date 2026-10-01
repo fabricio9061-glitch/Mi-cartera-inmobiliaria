@@ -543,8 +543,7 @@
       <div class="pf-hero-in">
         <div class="pf-av-wrap">
           <div class="pf-avatar" id="profileAvatar"></div>
-          <button type="button" class="pf-av-edit hidden" id="profileAvatarEdit" onclick="document.getElementById('profilePhotoInput').click()" aria-label="Cambiar la foto" title="Cambiar la foto"><i class="fas fa-camera"></i></button>
-          <input type="file" id="profilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhotoChange(event)">
+          <button type="button" class="pf-av-edit hidden" id="profileAvatarEdit" onclick="abrirAjusteFoto()" aria-label="Cambiar o encuadrar la foto" title="Cambiar o encuadrar la foto"><i class="fas fa-camera"></i></button>
         </div>
         <div class="pf-info">
           <div class="pf-rol" id="profileRole"></div>
@@ -554,17 +553,17 @@
             <span><i class="fas fa-location-dot"></i><span id="profileLocation"></span></span>
             <a class="hidden" id="profileEmailWrap"><i class="far fa-envelope"></i><span id="profileEmail"></span></a>
           </div>
+          <div class="pf-stats">
+            <div class="pf-stat"><span class="pf-stat-ic"><i class="fas fa-house"></i></span><div><b id="profilePropertiesCount">0</b><small>propiedades<br>disponibles</small></div></div>
+            <div class="pf-stat"><span class="pf-stat-ic"><i class="fas fa-tag"></i></span><div><b id="profileSalesCount">0</b><small>operaciones<br>cerradas</small></div></div>
+            <div class="pf-stat"><span class="pf-stat-ic"><i class="fas fa-eye"></i></span><div><b id="profileViewsCount">0</b><small>visitas a<br>sus avisos</small></div></div>
+          </div>
           <div class="pf-acciones">
             <a class="pf-btn pf-btn-wa hidden" id="btnContactWhatsapp" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> Escribirle por WhatsApp</a>
             <button type="button" class="pf-btn pf-btn-oro hidden" id="btnEditProfile" onclick="openEditProfileModal()"><i class="fas fa-pen"></i> Editar perfil</button>
             <button type="button" class="pf-btn pf-btn-sec" onclick="compartirPerfilAgente()"><i class="fas fa-share-nodes"></i> Compartir perfil</button>
           </div>
           <div class="pf-redes" id="profileSocialLinks"></div>
-        </div>
-        <div class="pf-stats">
-          <div class="pf-stat"><b id="profilePropertiesCount">0</b><span>propiedades disponibles</span></div>
-          <div class="pf-stat"><b id="profileSalesCount">0</b><span>operaciones cerradas</span></div>
-          <div class="pf-stat"><b id="profileViewsCount">0</b><span>visitas a sus avisos</span></div>
         </div>
       </div>
     </section>
@@ -608,12 +607,14 @@
     /* ===== Perfil del agente ===== */
     #profilePage{ --pf-ink:#16273f; --pf-gold:#C9A227; --pf-gold-osc:#8a6d12; --pf-gold-cl:#e9cf73; --pf-paper:#f4f3ef; --pf-line:#e5e8ec; --pf-line2:#ebecef; --pf-muted:#6b7480; --pf-soft:#9aa3ad;
       color:#2a3442; }
-    #profilePage .pf-hero{ background:radial-gradient(1200px 420px at 85% -10%, rgba(201,162,39,.16), transparent 60%), linear-gradient(135deg,#0c1726 0%,var(--pf-ink) 75%); color:#fff; }
-    #profilePage .pf-hero-in{ max-width:1180px; margin:0 auto; padding:46px 22px 50px; display:grid; grid-template-columns:auto minmax(0,1fr) 250px; gap:36px; align-items:center; }
-    #profilePage .pf-av-wrap{ position:relative; width:176px; height:176px; flex:none; }
+    #profilePage .pf-hero{ position:relative; overflow:hidden; background:linear-gradient(120deg,#0c1726 0%,var(--pf-ink) 70%); color:#fff; }
+    /* La foto de edificios a la derecha, apenas visible (como antes). */
+    #profilePage .pf-hero::after{ content:''; position:absolute; top:0; right:0; width:50%; height:100%; background:url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=900&q=70') center/cover; opacity:.13; -webkit-mask-image:linear-gradient(to right,transparent,#000 45%); mask-image:linear-gradient(to right,transparent,#000 45%); pointer-events:none; }
+    #profilePage .pf-hero-in{ position:relative; z-index:1; max-width:1180px; margin:0 auto; padding:52px 22px 56px; display:grid; grid-template-columns:auto minmax(0,1fr); gap:44px; align-items:center; }
+    #profilePage .pf-av-wrap{ position:relative; width:220px; height:220px; flex:none; }
     #profilePage .pf-avatar{ width:100%; height:100%; border-radius:50%; border:3px solid var(--pf-gold); overflow:hidden; background:rgba(255,255,255,.08); display:grid; place-items:center; font-family:'Cormorant Garamond',serif; font-size:4rem; font-weight:600; color:#fff; }
     #profilePage .pf-avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
-    #profilePage .pf-av-edit{ position:absolute; right:6px; bottom:6px; width:44px; height:44px; border-radius:50%; background:var(--pf-ink); border:2px solid var(--pf-gold); color:var(--pf-gold); display:grid; place-items:center; cursor:pointer; font-size:.95rem; padding:0; }
+    #profilePage .pf-av-edit{ position:absolute; right:12px; bottom:12px; width:46px; height:46px; border-radius:50%; background:var(--pf-ink); border:2px solid var(--pf-gold); color:var(--pf-gold); display:grid; place-items:center; cursor:pointer; font-size:.95rem; padding:0; }
     #profilePage .pf-info{ min-width:0; }
     #profilePage .pf-rol{ color:var(--pf-gold-cl); font-size:.78rem; letter-spacing:.16em; text-transform:uppercase; font-weight:600; margin-bottom:6px; }
     #profilePage .pf-nombre{ font-family:'Cormorant Garamond',serif; color:#fff; font-size:clamp(2.3rem,4.4vw,3.4rem); font-weight:700; line-height:1.04; margin:0 0 10px; overflow-wrap:anywhere; }
@@ -629,10 +630,11 @@
     #profilePage .pf-redes{ display:flex; flex-wrap:wrap; gap:9px; margin-top:16px; }
     #profilePage .pf-redes:empty{ display:none; }
     #profilePage .pf-redes a{ width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); color:#fff; display:grid; place-items:center; text-decoration:none; transition:border-color .15s, color .15s; }
-    #profilePage .pf-stats{ display:grid; gap:10px; }
-    #profilePage .pf-stat{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:14px 18px; }
-    #profilePage .pf-stat b{ display:block; font-family:'Cormorant Garamond',serif; font-size:2.1rem; line-height:1; color:#fff; font-variant-numeric:lining-nums tabular-nums; }
-    #profilePage .pf-stat span{ display:block; font-size:.78rem; color:rgba(255,255,255,.65); margin-top:4px; }
+    #profilePage .pf-stats{ display:flex; flex-wrap:wrap; gap:14px; margin:0 0 24px; }
+    #profilePage .pf-stat{ display:flex; align-items:center; gap:13px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:14px 22px 14px 16px; min-width:176px; }
+    #profilePage .pf-stat-ic{ width:42px; height:42px; border-radius:11px; border:1px solid var(--pf-gold); color:var(--pf-gold); display:grid; place-items:center; flex:none; font-size:1rem; }
+    #profilePage .pf-stat b{ display:block; font-family:'Cormorant Garamond',serif; font-size:2rem; font-weight:700; line-height:1; color:#fff; font-variant-numeric:lining-nums tabular-nums; }
+    #profilePage .pf-stat small{ display:block; font-size:.74rem; line-height:1.25; color:rgba(255,255,255,.62); margin-top:4px; }
     @media (hover:hover){
       #profilePage .pf-meta a:hover{ color:#fff; text-decoration:underline; }
       #profilePage .pf-btn-wa:hover{ filter:brightness(1.06); }
@@ -675,14 +677,16 @@
     #profilePage .pf-testi-btn{ margin-top:16px; display:inline-flex; align-items:center; gap:8px; border:1px solid #e3d3a6; background:#fff; color:var(--pf-gold-osc); border-radius:999px; padding:9px 16px; font-family:inherit; font-size:.86rem; font-weight:600; cursor:pointer; }
 
     @media (max-width:1000px){
-      #profilePage .pf-hero-in{ grid-template-columns:auto minmax(0,1fr); }
-      #profilePage .pf-stats{ grid-column:1 / -1; grid-template-columns:repeat(3,minmax(0,1fr)); }
+      #profilePage .pf-hero-in{ gap:30px; }
+      #profilePage .pf-av-wrap{ width:180px; height:180px; }
+      #profilePage .pf-stat{ min-width:0; padding:12px 16px 12px 12px; }
     }
     @media (max-width:760px){
       #profilePage .pf-hero-in{ grid-template-columns:minmax(0,1fr); justify-items:center; text-align:center; gap:16px; padding:28px 16px 30px; }
-      #profilePage .pf-av-wrap{ width:120px; height:120px; }
+      #profilePage .pf-hero::after{ width:100%; opacity:.08; -webkit-mask-image:linear-gradient(to bottom,transparent,#000 60%); mask-image:linear-gradient(to bottom,transparent,#000 60%); }
+      #profilePage .pf-av-wrap{ width:130px; height:130px; }
       #profilePage .pf-avatar{ font-size:2.6rem; }
-      #profilePage .pf-av-edit{ right:0; bottom:0; width:36px; height:36px; font-size:.82rem; }
+      #profilePage .pf-av-edit{ right:2px; bottom:2px; width:38px; height:38px; font-size:.85rem; }
       #profilePage .pf-rol{ font-size:.7rem; letter-spacing:.13em; }
       #profilePage .pf-nombre{ font-size:2.1rem; }
       #profilePage .pf-bio{ font-size:.93rem; margin-left:auto; margin-right:auto; }
@@ -690,10 +694,11 @@
       #profilePage .pf-meta{ margin-bottom:16px; font-size:.86rem; }
       #profilePage .pf-acciones{ width:100%; }
       #profilePage .pf-acciones .pf-btn{ flex:1 1 auto; padding:11px 16px; font-size:.9rem; }
-      #profilePage .pf-stats{ width:100%; gap:8px; }
-      #profilePage .pf-stat{ padding:11px 6px; text-align:center; }
+      #profilePage .pf-stats{ width:100%; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:18px; }
+      #profilePage .pf-stat{ flex-direction:column; gap:7px; padding:12px 6px; text-align:center; }
+      #profilePage .pf-stat-ic{ width:34px; height:34px; border-radius:9px; font-size:.85rem; }
       #profilePage .pf-stat b{ font-size:1.6rem; }
-      #profilePage .pf-stat span{ font-size:.68rem; }
+      #profilePage .pf-stat small{ font-size:.66rem; margin-top:3px; }
       #profilePage .pf-wrap{ padding:22px 14px 40px; }
       #profilePage .pf-sec-h h2{ font-size:1.65rem; }
       #profilePage .pf-sec-tit, #profilePage .pf-sec-der{ width:100%; }
@@ -826,6 +831,43 @@
   </form></div></div></div>
 
   <!-- Modal de Edición de Perfil -->
+  <!-- Foto del perfil: arrastrar para encuadrar y acercar o alejar (abrirAjusteFoto en app.js) -->
+  <div class="modal" id="fotoPerfilModal"><div class="modal-content pf-foto-dlg"><div class="modal-header"><h2><i class="fas fa-camera" style="color:var(--gold,#C9A227)"></i> Tu foto</h2><button class="modal-close" onclick="cerrarAjusteFoto()" aria-label="Cerrar"><i class="fas fa-times"></i></button></div><div class="modal-body">
+    <p class="pf-foto-ayuda" id="pfFotoAyuda">Arrastrá la foto para encuadrarla y acercala o alejala con la barra.</p>
+    <div class="pf-crop" id="pfCrop" tabindex="0" aria-label="Encuadre de la foto: arrastrá para mover">
+      <img id="pfCropImg" alt="" draggable="false">
+      <div class="pf-crop-vacio" id="pfCropVacio"><i class="fas fa-user"></i><span id="pfCropVacioTxt">Elegí una foto para empezar</span></div>
+    </div>
+    <div class="pf-zoom"><i class="fas fa-magnifying-glass-minus"></i><input type="range" id="pfZoom" min="1" max="4" step="0.01" value="1" aria-label="Acercar o alejar" oninput="pfZoomBarra(this.value)"><i class="fas fa-magnifying-glass-plus"></i></div>
+    <div class="pf-foto-botones">
+      <button type="button" class="pf-foto-otra" onclick="document.getElementById('pfFotoArchivo').click()"><i class="fas fa-image"></i> <span id="pfFotoOtraTxt">Elegir otra foto</span></button>
+      <button type="button" class="pf-foto-ok" id="pfFotoGuardar" onclick="guardarAjusteFoto()"><i class="fas fa-check"></i> Guardar</button>
+    </div>
+    <input type="file" id="pfFotoArchivo" accept="image/*" style="display:none" onchange="pfFotoElegida(event)">
+  </div></div></div>
+  <style>
+    .pf-foto-dlg{ max-width:430px !important; }
+    .pf-foto-ayuda{ font-size:.88rem; color:var(--gray-600,#555); margin:0 0 14px; text-align:center; line-height:1.5; }
+    .pf-crop{ position:relative; width:min(300px,72vw); aspect-ratio:1 / 1; margin:0 auto; border-radius:18px; overflow:hidden; background:#101b2c; touch-action:none; cursor:grab; user-select:none; -webkit-user-select:none; outline:none; }
+    .pf-crop.arrastrando{ cursor:grabbing; }
+    .pf-crop:focus-visible{ box-shadow:0 0 0 3px rgba(201,162,39,.5); }
+    .pf-crop img{ position:absolute; left:0; top:0; max-width:none; pointer-events:none; display:none; }
+    .pf-crop.lista img{ display:block; }
+    /* El círculo muestra cómo va a quedar; lo de afuera se oscurece. */
+    .pf-crop::after{ content:''; position:absolute; inset:0; border-radius:50%; box-shadow:0 0 0 400px rgba(16,27,44,.6); border:2px solid rgba(255,255,255,.9); pointer-events:none; }
+    .pf-crop-vacio{ position:absolute; inset:0; display:grid; place-content:center; justify-items:center; gap:10px; color:rgba(255,255,255,.75); font-size:.9rem; text-align:center; padding:28px; line-height:1.45; }
+    .pf-crop-vacio i{ font-size:2.4rem; opacity:.45; }
+    .pf-crop.lista .pf-crop-vacio{ display:none; }
+    .pf-zoom{ display:flex; align-items:center; gap:12px; max-width:300px; margin:16px auto 2px; color:var(--gray-500,#8a8a8a); }
+    .pf-zoom input{ flex:1; accent-color:#C9A227; }
+    .pf-zoom input:disabled{ opacity:.4; }
+    .pf-foto-botones{ display:flex; gap:10px; margin-top:18px; }
+    .pf-foto-botones button{ flex:1; padding:12px 14px; border-radius:11px; font-family:inherit; font-size:.92rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+    .pf-foto-otra{ background:#fff; border:1px solid #d3d8de; color:#16273f; }
+    .pf-foto-ok{ background:#16273f; border:1px solid #16273f; color:#fff; }
+    .pf-foto-ok:disabled{ opacity:.5; cursor:not-allowed; }
+  </style>
+
   <div class="modal" id="editProfileModal"><div class="modal-content" style="max-width:550px"><div class="modal-header"><h2><i class="fas fa-user-edit" style="color:var(--gold)"></i> Editar Perfil</h2><button class="modal-close" onclick="closeModal('editProfileModal')"><i class="fas fa-times"></i></button></div><div class="modal-body">
     <div id="editProfileError" class="form-error hidden"></div>
     <div id="editProfileSuccess" class="form-success hidden"></div>
@@ -1105,7 +1147,7 @@
   </script>
   <script src="malave-config.js?v=20260830b"></script>
   <script src="rangos.js?v=20260821l"></script>
-  <script src="app.js?v=20261001d"></script>
+  <script src="app.js?v=20261001e"></script>
   <!-- ====== MENÚ DEL VISITANTE (celular) ======
        En celular la barra oculta los enlaces del encabezado; este menú es la
        forma de llegar a "Vendé tu propiedad", "Trabajá con nosotros" y al acceso
