@@ -154,6 +154,8 @@
     .rev-motivo{margin-top:5px;font-size:.78rem;color:#b91c1c}
     .rev-asist{margin-top:5px;font-size:.78rem;color:#4c3fa3;line-height:1.45}
     .rev-asist i{margin-right:5px}
+    .rev-incert{margin-top:5px;font-size:.78rem;color:#b45309;line-height:1.45}
+    .rev-incert i{margin-right:5px}
     .rev-chip{font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:999px;
       display:inline-flex;align-items:center;gap:4px;text-transform:uppercase;letter-spacing:.04em}
     .rev-chip.pend{background:#fef3c7;color:#b45309}
@@ -1385,6 +1387,13 @@
         '<div class="rev-tit">'+esc(t.label)+(val?' · US$ '+Number(val).toLocaleString('es-UY'):'')+' '+estado+'</div>'+
         '<div class="rev-sub">'+esc(r._agente)+(dato?' · '+esc(dato):'')+(r.fecha?' · '+esc(r.fecha):'')+'</div>'+
         (r.motivoRechazo?'<div class="rev-motivo">Motivo: '+esc(r.motivoRechazo)+'</div>':'')+
+        // Tasación con la incertidumbre sobre el 5,10% recomendado: el agente la puede
+        // enviar igual (lo que traba son los coeficientes negativos), y acá se ve.
+        ((r._campo === 'tasaciones' && r.resultado && Number(r.resultado.incertidumbre) > 5.1)
+          ? '<div class="rev-incert"><i class="fas fa-triangle-exclamation"></i>Incertidumbre de ± '+
+            esc(Number(r.resultado.incertidumbre).toLocaleString('es-UY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))+
+            '%: pasa el 5,10% recomendado.</div>'
+          : '')+
         // Calificaciones que el agente cambió con el asistente del tasador: con otras
         // calificaciones la misma tasación da otro valor, así que se ve al revisar.
         ((r.datos && Array.isArray(r.datos.asistente) && r.datos.asistente.length)

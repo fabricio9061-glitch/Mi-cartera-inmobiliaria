@@ -110,7 +110,8 @@
     .tas-ficha-lbl{ font-size:.8rem; color:rgba(255,255,255,.64); }
     .tas-estado{ font-size:.72rem; font-weight:600; padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.1); color:rgba(255,255,255,.72); display:inline-flex; gap:6px; align-items:center; white-space:nowrap; }
     .tas-estado.si{ background:rgba(34,197,94,.17); color:#86efac; }
-    .tas-estado.no{ background:rgba(245,158,11,.18); color:#fcd34d; }
+    .tas-estado.no{ background:rgba(239,68,68,.2); color:#fca5a5; }
+    .tas-estado.aviso{ background:rgba(245,158,11,.18); color:#fcd34d; }
     .tas-res-value{ display:block; font-family:'Cormorant Garamond',serif; font-size:3.05rem; font-weight:700; color:#C9A227; line-height:1; margin:12px 0 7px; }
     .tas-ficha .sub{ display:block; font-size:.8rem; color:rgba(255,255,255,.6); margin-top:2px; }
     /* El corte de la ficha: línea punteada con dos muescas del color de la página */
@@ -128,10 +129,31 @@
     .tas-medidor-lim{ position:absolute; top:-5px; bottom:-5px; left:51%; width:2px; margin-left:-1px; background:#fff; border-radius:2px; }
     .tas-medidor-esc{ display:flex; justify-content:space-between; font-size:.68rem; color:rgba(255,255,255,.46); }
     .tas-res-msg{ font-size:.82rem; line-height:1.5; color:rgba(255,255,255,.76); margin:14px 0 0; }
+    /* Por qué no cierra: el motivo, cómo arreglarlo y que así no se envía */
+    .tas-porque{ margin:14px 0 0; background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.34); border-radius:12px; padding:10px 13px 11px; font-size:.82rem; line-height:1.5; color:rgba(255,255,255,.88); }
+    .tas-porque[hidden]{ display:none; }
+    .tas-porque-tit{ display:flex; align-items:center; gap:7px; font-weight:700; color:#fcd34d; }
+    .tas-porque p{ margin:4px 0 0; }
+    .tas-porque-btn{ margin-top:9px; background:none; border:1px solid rgba(201,162,39,.7); color:#f3d27a; border-radius:8px; padding:5px 10px; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
+    .tas-porque-btn:hover{ background:rgba(201,162,39,.16); }
+    .tas-porque-nota{ display:flex; gap:7px; align-items:baseline; margin-top:8px; font-size:.76rem; color:rgba(255,255,255,.62); }
+    .tas-porque-nota[hidden]{ display:none; }
+    /* Coeficientes negativos: no cierra y no se puede enviar (en rojo). La
+       incertidumbre sobre lo recomendable es solo un aviso (en ámbar). */
+    .tas-porque.bloquea{ background:rgba(239,68,68,.1); border-color:rgba(239,68,68,.4); }
+    .tas-porque.bloquea .tas-porque-tit{ color:#fca5a5; }
+    .tas-asist.destello{ animation:tasDestello 1.5s ease; }
+    @keyframes tasDestello{ 0%, 100%{ box-shadow:0 0 0 0 rgba(201,162,39,0); } 30%{ box-shadow:0 0 0 4px rgba(201,162,39,.5); } }
     .tas-ficha .tas-export{ width:100%; margin-top:16px; background:#C9A227; color:#16273f; border:none; border-radius:11px; padding:12px; font-family:inherit; font-size:.92rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:9px; }
     .tas-ficha .tas-export:hover:not(:disabled){ background:#d4ae33; }
     .tas-ficha .tas-export:disabled{ background:rgba(255,255,255,.14); color:rgba(255,255,255,.5); cursor:not-allowed; }
     .tas-ficha-pie{ text-align:center; font-size:.76rem; color:rgba(255,255,255,.55); margin-top:9px; min-height:1em; }
+    .tas-ficha-pie:empty{ margin-top:0; min-height:0; }
+    /* La ficha fija nunca queda cortada abajo: si en una pantalla baja no entra
+       entera, se desplaza por dentro. */
+    @media (min-width:1061px){
+      .tas-ficha{ max-height:calc(100vh - 98px); overflow-x:hidden; overflow-y:auto; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.3) transparent; }
+    }
     /* Barra del celular: el valor a mano cuando la ficha quedó fuera de la pantalla */
     .tas-barra{ display:none; }
     /* Detalle del cálculo */
@@ -203,7 +225,7 @@
     @media (max-width:760px){ .tas-report-cols{ grid-template-columns:1fr; gap:18px; } .tas-rep-estado{ display:none; } }
     /* Foco visible con teclado, y sin animaciones para quien las tiene desactivadas */
     .tas-card input:focus-visible, .tas-card select:focus-visible, .tas-card button:focus-visible, .tas-ficha button:focus-visible, .tas-reset:focus-visible, .tas-modo-op:focus-visible{ outline:2px solid #C9A227; outline-offset:2px; }
-    @media (prefers-reduced-motion: reduce){ .tas-medidor-fill, .tas-barra, .tas-report-toggle .fa-chevron-down{ transition:none; } }
+    @media (prefers-reduced-motion: reduce){ .tas-medidor-fill, .tas-barra, .tas-report-toggle .fa-chevron-down{ transition:none; } .tas-asist.destello{ animation:none; } }
   
     /* Toast */
     #mvToastWrap{ position:fixed; right:16px; bottom:16px; z-index:99999; display:flex; flex-direction:column; gap:10px; max-width:360px; }
@@ -319,11 +341,17 @@
           <div class="tas-fila"><span class="tas-ficha-lbl">Rango con 90% de confianza</span><strong id="tasResRange">&mdash;</strong><span class="sub" id="tasResRangeM2">valor total de la propiedad</span></div>
           <div class="tas-fila" style="margin-bottom:0">
             <div class="tas-fila-inc"><span class="tas-ficha-lbl">Incertidumbre</span><strong id="tasResUnc">&mdash;</strong></div>
-            <div class="tas-medidor" id="tasMedidor" role="meter" aria-label="Incertidumbre contra el límite de 5,10%" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><div class="tas-medidor-fill" id="tasMedidorFill"></div><div class="tas-medidor-lim"></div></div>
-            <div class="tas-medidor-esc"><span>0%</span><span>límite 5,10%</span><span>10%</span></div>
+            <div class="tas-medidor" id="tasMedidor" role="meter" aria-label="Incertidumbre contra el 5,10% recomendado" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><div class="tas-medidor-fill" id="tasMedidorFill"></div><div class="tas-medidor-lim"></div></div>
+            <div class="tas-medidor-esc"><span>0%</span><span>recomendado 5,10%</span><span>10%</span></div>
             <span class="sub" id="tasResUncSub"></span>
           </div>
           <p class="tas-res-msg" id="tasResMsg">Completá el inmueble y los 4 antecedentes para ver la estimación en tiempo real.</p>
+          <div class="tas-porque" id="tasPorQue" hidden>
+            <div class="tas-porque-tit"><i class="fas fa-circle-exclamation"></i> <span id="tasPorQueTit">Por qué no cierra</span></div>
+            <div id="tasPorQueTxt"></div>
+            <button type="button" class="tas-porque-btn" onclick="irAlAsistente()"><i class="fas fa-wand-magic-sparkles"></i> <span id="tasPorQueBtn">Cómo hacerla cerrar</span></button>
+            <div class="tas-porque-nota" id="tasPorQueNota"><i class="fas fa-lock"></i><span>Hasta que cierre no se puede enviar a revisión.</span></div>
+          </div>
           <button class="tas-export" id="tasExportBtn" onclick="exportarPDF()" disabled><i class="fas fa-paper-plane"></i> Enviar a revisión</button>
           <div class="tas-ficha-pie" id="tasAutoSave"></div>
         </div>
@@ -381,7 +409,7 @@
             <div class="tas-notes" style="margin-top:14px"><ul>
               <li id="tasNotaUnidad">Con precios totales, la regresión se hace sobre los precios y da directamente el valor de la propiedad (como la planilla).</li>
               <li>El asimilador se aplica solo a los comparables en oferta.</li>
-              <li>El rango está calculado al 90% de confianza; la planilla pide una incertidumbre de hasta 5,10%.</li>
+              <li>El rango está calculado al 90% de confianza; lo recomendable es una incertidumbre de hasta 5,10%.</li>
             </ul></div>
           </div>
         </div>
@@ -819,7 +847,6 @@
         document.getElementById('tasModelN').innerHTML = '&mdash;';
         document.getElementById('tasModelDisp').innerHTML = '&mdash;';
         drawChart(null);
-        document.getElementById('tasExportBtn').disabled = true;
         res.classList.remove('ok'); ultimoResultado = null;
       }
       var total = modoValor === 'total';
@@ -930,11 +957,13 @@
       document.getElementById('tasResRange').textContent = fmt(minTotal) + ' – ' + fmt(maxTotal);
       document.getElementById('tasResRangeM2').textContent = fmt(minM2) + ' – ' + Math.round(maxM2).toLocaleString('es-UY') + ' por m²';
       document.getElementById('tasResUnc').textContent = '± ' + fmtIncert(incert * 100);
-      pintarFicha({ valorTotal: valorTotal, incert: incert, cierra: !mod.kNeg.length && incert <= INCERT_OK });
+      // Con algún coeficiente negativo no cierra: se dice por qué y no se puede
+      // enviar. Con la incertidumbre sobre el 5,10% recomendado cierra igual, con aviso.
+      var motivos = motivosNoCierra(mod.kNeg), cierra = !motivos.length, aviso = !incertOk(incert);
+      pintarFicha({ valorTotal: valorTotal, incert: incert, cierra: cierra, aviso: aviso, motivos: motivos });
       document.getElementById('tasModelN').textContent = '4 comparables';
       document.getElementById('tasModelDisp').textContent = fmtPct(dispPct);
       res.classList.add('ok');
-      document.getElementById('tasExportBtn').disabled = false;
       ultimoResultado = {
         inmueble: { m2:bM2, cons:bCons, ubi:bUbi, dorm:document.getElementById('tasDorm').value, bath:document.getElementById('tasBath').value },
         antecedentes: ants,
@@ -946,17 +975,13 @@
         // _bs: cada comparable ajustado, en la unidad de lo cargado; _factores: cuánto
         // se ajustó cada uno (el "Ajuste" de la tabla del informe).
         _bs: bs, _factores: bs.map(function(b, i){ var v = entrada[i].valor * entrada[i].asim; return v ? b / v : 1; }),
-        _K: K, _kNegativas: kNegativas
+        _K: K, _kNegativas: kNegativas,
+        cierra: cierra, aviso: aviso, motivos: motivos
       };
       drawChart(ultimoResultado);
       pintarAsistente(Object.assign(paraAsist, { kNegativas: kNegativas, incert: incert }));
-      if (kNegativas.length){
-        setMsg('⚠ Antecedentes incongruentes: el coeficiente de ' + kNegativas.join(' y ') + ' dio negativo. Esto pasa cuando un antecedente contradice a los demás (por ejemplo, una propiedad con más ' + (kNegativas.length===1?kNegativas[0].split(' ')[0]:'atributos') + ' pero menor valor). Revisá los 4 antecedentes y ajustá el que esté fuera de línea para una tasación confiable.', true);
-      } else {
-        setMsg(incert > 0.051
-          ? 'La incertidumbre supera el 5,10%: los antecedentes son dispares. Buscá comparables más parecidos entre sí para una estimación más confiable.'
-          : 'Tasación basada en los 4 antecedentes cargados mediante análisis comparativo de mercado.');
-      }
+      // Si no cierra o hay aviso, el mensaje es el recuadro de la ficha.
+      setMsg(cierra && !aviso ? 'Tasación basada en los 4 antecedentes cargados mediante análisis comparativo de mercado.' : '');
     }
 
     // ===== Asistente: calificaciones que hacen cerrar la tasación =====
@@ -975,6 +1000,30 @@
     // Si nada baja de 5,1%, se ofrece lo que quede hasta 8%; más que eso no sirve
     // de tasación: el problema son los antecedentes, no las calificaciones.
     const INCERT_CASI = 0.08;
+    // ¿Cierra? Lo que no puede pasar es que K₁, K₂ o K₃ den negativas: según la
+    // planilla "significa que tenemos una incongruencia en los antecedentes". Eso
+    // traba el envío. La incertidumbre de hasta 5,10% es lo recomendable: si pasa,
+    // cierra igual con un aviso y se puede enviar (criterio de la Dirección, sin
+    // tope); al revisarla, la Dirección lo ve. Se compara como se muestra, con
+    // dos decimales: si en pantalla dice 5,10%, está dentro.
+    function incertOk(inc) {
+      return inc != null && isFinite(inc) && +(inc * 100).toFixed(2) <= +(INCERT_OK * 100).toFixed(2);
+    }
+    var NOMBRE_K = { 1: 'm² (K₁)', 2: 'construcción (K₂)', 3: 'ubicación (K₃)' };
+    var CON_MAS = { 1: 'más m²', 2: 'mejor construcción', 3: 'mejor ubicación' };
+    function unirLista(xs, y) { return xs.length < 2 ? (xs[0] || '') : xs.slice(0, -1).join(', ') + y + xs[xs.length - 1]; }
+    // Por qué no cierra, en palabras. Vacío si cierra.
+    function motivosNoCierra(kNeg) {
+      var m = [];
+      if (kNeg.length) {
+        m.push((kNeg.length === 1
+            ? 'El coeficiente de ' + NOMBRE_K[kNeg[0]] + ' dio negativo'
+            : 'Los coeficientes de ' + unirLista(kNeg.map(function(k){ return NOMBRE_K[k]; }), ' y ') + ' dieron negativos') +
+          ': hay una incongruencia en los antecedentes (según ellos, a ' +
+          unirLista(kNeg.map(function(k){ return CON_MAS[k]; }), ' o ') + ', menos valor).');
+      }
+      return m;
+    }
     let ajustesAsistente = [];
     var _asist = { firma: '', ops: null, nivel: 0, motivo: '' };
     function firmaAsistente(e) {
@@ -1009,7 +1058,7 @@
             });
           });
           var op = { cambios: cambios, dist: dist, total: e.enTotal ? r.valor : r.valor * e.bM2, incert: r.incert };
-          if (cambios.length && r.incert <= INCERT_OK) cierran.push(op);
+          if (cambios.length && incertOk(r.incert)) cierran.push(op);
           else if (cambios.length && r.incert <= techoCasi) casi.push(op);
         }
         var k = 0;
@@ -1037,33 +1086,46 @@
     function pintarAsistente(e) {
       var el = document.getElementById('tasAsist');
       if (!el) return;
-      // Sin datos (o incompletos) se esconde y recuerda lo último; si ya cierra, se olvida.
+      // Sin datos (o incompletos) se esconde y recuerda lo último; si ya está bien, se olvida.
       if (!e) { el.hidden = true; return; }
-      var cierra = !e.invalido && !e.kNegativas.length && e.incert <= INCERT_OK;
-      if (cierra) { el.hidden = true; el.innerHTML = ''; _asist = { firma: '', ops: null, nivel: 0 }; return; }
+      var bien = !e.invalido && !e.kNegativas.length && incertOk(e.incert);
+      if (bien) { el.hidden = true; el.innerHTML = ''; _asist = { firma: '', ops: null, nivel: 0 }; return; }
+      // soloIncert: cierra (coeficientes bien) pero la incertidumbre pasa el 5,10%
+      // recomendado. Se puede enviar igual: el asistente es para bajarla.
+      var soloIncert = !e.invalido && !e.kNegativas.length;
       var firma = firmaAsistente(e);
       if (firma !== _asist.firma) { _asist = { firma: firma, ops: null, nivel: 0, e: e }; }
       _asist.e = e;
-      var motivo = e.invalido ? 'con estas calificaciones el resultado no es válido'
-        : e.kNegativas.length ? 'el coeficiente de ' + e.kNegativas.join(' y ') + ' dio negativo'
-        : 'la incertidumbre es de ± ' + fmtIncert(e.incert * 100) + ' (más de 5,10%)';
+      var partes = [];
+      if (!e.invalido && e.kNegativas.length) {
+        partes.push(e.kNegativas.length === 1
+          ? 'el coeficiente de ' + e.kNegativas[0] + ' dio negativo'
+          : 'los coeficientes de ' + unirLista(e.kNegativas, ' y ') + ' dieron negativos');
+      }
+      if (!e.invalido && !incertOk(e.incert)) partes.push('la incertidumbre es de ± ' + fmtIncert(e.incert * 100) + ' (más de 5,10%)');
+      var motivo = e.invalido ? 'con estas calificaciones el resultado no es válido' : partes.join(' y ');
       // Un comparable muy distinto a los demás se avisa antes que nada: cambiar
       // calificaciones para acomodarlo no arregla que no sea comparable.
       var md = masDistinto(e.ants, e.enTotal);
       var ojo = md.dif > 0.35
         ? '<div style="margin-top:7px"><b>Ojo:</b> el antecedente ' + (md.i + 1) + ' se aparta mucho de los demás (' + fmt(md.v) + ' el m², los otros rondan ' + fmt(md.med) + '). Antes de cambiar calificaciones, revisá que de verdad sea comparable.</div>'
         : '';
+      var boton = function(txt){ return '<div><button type="button" class="asist-btn" onclick="usarAsistente()"><i class="fas fa-magnifying-glass"></i> ' + txt + '</button></div>'; };
       var html = '<i class="fas fa-wand-magic-sparkles"></i><div>';
       if (!_asist.ops) {
-        html += '<b>La tasación no cierra:</b> ' + motivo + '. El asistente prueba todas las calificaciones del 1 al 3 de los antecedentes y te muestra las que la hacen cerrar cambiando lo menos posible.' +
-          '<div><button type="button" class="asist-btn" onclick="usarAsistente()"><i class="fas fa-magnifying-glass"></i> Buscar calificaciones que cierren</button></div>';
+        html += soloIncert
+          ? '<b>La incertidumbre es de ± ' + fmtIncert(e.incert * 100) + '</b> y lo recomendable es hasta 5,10%. Se puede enviar igual; si querés bajarla, el asistente prueba todas las calificaciones del 1 al 3 de los antecedentes y te muestra las que la bajan cambiando lo menos posible.' + boton('Buscar calificaciones que la bajen')
+          : '<b>La tasación no cierra:</b> ' + motivo + '. El asistente prueba todas las calificaciones del 1 al 3 de los antecedentes y te muestra las que la hacen cerrar cambiando lo menos posible.' + boton('Buscar calificaciones que cierren');
       } else if (!_asist.ops.length) {
-        html += '<b>Con estos antecedentes no cierra con calificaciones del 1 al 3.</b> ' +
-          'El que más se aparta es el <b>antecedente ' + (md.i + 1) + '</b> (' + fmt(md.v) + ' el m², los demás rondan ' + fmt(md.med) + '): probá cambiarlo por otro más parecido al inmueble.';
+        html += (soloIncert ? '<b>Con calificaciones del 1 al 3 no se logra bajarla.</b> ' : '<b>Con estos antecedentes no cierra con calificaciones del 1 al 3.</b> ') +
+          'El que más se aparta es el <b>antecedente ' + (md.i + 1) + '</b> (' + fmt(md.v) + ' el m², los demás rondan ' + fmt(md.med) + '): ' +
+          (soloIncert ? 'si querés bajarla, probá' : 'probá') + ' cambiarlo por otro más parecido al inmueble.' +
+          (esDireccionTas ? ' Como Dirección, también podés probar con calificaciones de 4 y 5.' : '');
       } else {
         html += (_asist.nivel === 1
-          ? '<b>Estas calificaciones hacen cerrar la tasación.</b> '
-          : '<b>Ninguna combinación del 1 al 3 baja la incertidumbre de 5,10%;</b> estas al menos dejan los coeficientes bien. ') +
+            ? (soloIncert ? '<b>Estas calificaciones dejan la incertidumbre dentro del 5,10%.</b> ' : '<b>Estas calificaciones hacen cerrar la tasación, con la incertidumbre dentro del 5,10%.</b> ')
+            : '<b>Ninguna combinación del 1 al 3 deja la incertidumbre en 5,10% o menos;</b> ' +
+              (soloIncert ? 'estas al menos la bajan. ' : 'estas son las que más se acercan, y con cualquiera la tasación cierra. ')) +
           'Elegí la que describa mejor a cada propiedad: cada opción da otro valor, así que no elijas por el número. Lo que cambies queda registrado para la revisión.' +
           '<div class="asist-ops">' + _asist.ops.map(function(o, k){
             return '<div class="asist-op"><div class="asist-op-txt">' +
@@ -1086,6 +1148,16 @@
         pintarAsistente(_asist.e);
       }, 30);
     }
+    // Desde la ficha ("Cómo hacerla cerrar" / "Cómo bajarla"): lleva al asistente
+    // y, si todavía no buscó, busca. En escritorio la ficha queda fija y el asistente está en
+    // los antecedentes; en el celular, más arriba.
+    function irAlAsistente() {
+      var el = document.getElementById('tasAsist');
+      if (!el || el.hidden) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.remove('destello'); void el.offsetWidth; el.classList.add('destello');
+      if (!_asist.ops && el.querySelector('.asist-btn:not(:disabled)')) usarAsistente();
+    }
     function usarOpcionAsistente(k) {
       var o = _asist.ops && _asist.ops[k];
       if (!o) return;
@@ -1100,6 +1172,42 @@
 
     // ===== La ficha: si cierra, el medidor contra el 5,10% y la barra del celular =====
     var _fichaLista = false, _fichaVisible = true;
+    // El botón de enviar: solo con una tasación que cierra. cierra = null es que
+    // todavía no hay resultado.
+    function pintarBotonEnviar(cierra) {
+      var b = document.getElementById('tasExportBtn');
+      if (!b) return;
+      var trabada = cierra === false;
+      b.disabled = cierra !== true;
+      b.innerHTML = '<i class="fas ' + (trabada ? 'fa-lock' : 'fa-paper-plane') + '"></i> Enviar a revisión';
+      if (trabada) b.setAttribute('aria-describedby', 'tasPorQue'); else b.removeAttribute('aria-describedby');
+    }
+    // El recuadro de la ficha. Rojo si no cierra (por qué, cómo arreglarlo y que
+    // así no se envía); ámbar si cierra pero la incertidumbre pasa lo recomendable.
+    function pintarPorQue(e) {
+      var box = document.getElementById('tasPorQue'), txt = document.getElementById('tasPorQueTxt');
+      var tit = document.getElementById('tasPorQueTit'), btn = document.getElementById('tasPorQueBtn');
+      var nota = document.getElementById('tasPorQueNota'), msg = document.getElementById('tasResMsg');
+      var modo = !e ? '' : !e.cierra ? 'bloquea' : e.aviso ? 'aviso' : '';
+      if (box && txt) {
+        var lineas = [];
+        if (modo === 'bloquea') {
+          lineas = e.motivos.slice();
+          if (e.aviso) lineas.push('Además, la incertidumbre da ' + fmtIncert(e.incert * 100) + ' y lo recomendable es hasta 5,10%.');
+        } else if (modo === 'aviso') {
+          lineas.push('Da ' + fmtIncert(e.incert * 100) + ' y lo recomendable es hasta 5,10%. Se puede enviar igual' +
+            (esDireccionTas ? '.' : '; la Dirección lo ve al revisarla.'));
+        }
+        txt.innerHTML = lineas.map(function(m){ return '<p>' + escAttr(m) + '</p>'; }).join('');
+        box.className = 'tas-porque' + (modo === 'bloquea' ? ' bloquea' : '');
+        if (tit) tit.textContent = modo === 'bloquea' ? 'Por qué no cierra' : 'Incertidumbre sobre lo recomendable';
+        if (btn) btn.textContent = modo === 'bloquea' ? 'Cómo hacerla cerrar' : 'Cómo bajarla';
+        if (nota) nota.hidden = modo !== 'bloquea';
+        box.hidden = !modo;
+      }
+      // El recuadro reemplaza al mensaje de abajo del valor.
+      if (msg) msg.hidden = !!modo;
+    }
     function pintarFicha(e) {
       var chip = document.getElementById('tasEstado'), med = document.getElementById('tasMedidor');
       var fill = document.getElementById('tasMedidorFill'), sub = document.getElementById('tasResUncSub');
@@ -1108,18 +1216,24 @@
         chip.className = 'tas-estado'; chip.innerHTML = '<i class="fas fa-pen"></i> Incompleta';
         fill.style.width = '0'; med.className = 'tas-medidor'; med.setAttribute('aria-valuenow', '0');
         if (sub) sub.textContent = '';
+        pintarPorQue(null); pintarBotonEnviar(null);
         _fichaLista = false; actualizarBarra();
         return;
       }
       var pct = e.incert * 100;
-      chip.className = 'tas-estado ' + (e.cierra ? 'si' : 'no');
-      chip.innerHTML = e.cierra ? '<i class="fas fa-circle-check"></i> Cierra' : '<i class="fas fa-triangle-exclamation"></i> No cierra';
+      var estado = !e.cierra ? 'no' : e.aviso ? 'aviso' : 'si';
+      pintarPorQue(e);
+      pintarBotonEnviar(!!e.cierra);
+      chip.className = 'tas-estado ' + estado;
+      chip.innerHTML = estado === 'si' ? '<i class="fas fa-circle-check"></i> Cierra'
+        : estado === 'aviso' ? '<i class="fas fa-circle-exclamation"></i> Cierra'
+        : '<i class="fas fa-triangle-exclamation"></i> No cierra';
       fill.style.width = Math.min(100, pct * 10) + '%';
-      med.className = 'tas-medidor' + (pct > 8 ? ' lejos' : pct > 5.1 ? ' pasa' : '');
+      med.className = 'tas-medidor' + (pct > 8 ? ' lejos' : !incertOk(e.incert) ? ' pasa' : '');
       med.setAttribute('aria-valuenow', pct.toFixed(2));
       if (sub) sub.textContent = '';
       document.getElementById('tasBarraValor').textContent = fmt(e.valorTotal);
-      document.getElementById('tasBarraInc').textContent = '± ' + fmtIncert(pct) + (e.cierra ? ' · cierra' : ' · no cierra');
+      document.getElementById('tasBarraInc').textContent = '± ' + fmtIncert(pct) + (estado === 'si' ? ' · cierra' : estado === 'aviso' ? ' · cierra, con aviso' : ' · no cierra');
       _fichaLista = true; actualizarBarra();
     }
     function actualizarBarra() {
@@ -1870,6 +1984,13 @@
     function exportarPDF() {
       if (!ultimoResultado) return;
       var r = ultimoResultado;
+      // Con un coeficiente negativo no cierra y no se envía (incongruencia en los
+      // antecedentes). El botón ya está trabado; esto es por si igual se llega acá.
+      // La incertidumbre sobre el 5,10% recomendado no traba: es un aviso.
+      if (!r.cierra) {
+        showToast('La tasación no cierra', (r.motivos || []).join(' ') + ' Hasta que cierre no se puede enviar a revisión.', 'fa-lock');
+        return;
+      }
       var rep = getReportData();
       // Validar campos obligatorios para el informe
       var faltan = [];
@@ -1887,29 +2008,33 @@
         return;
       }
       var btn = document.getElementById('tasExportBtn');
-      var prevHTML = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando PDF...';
+      btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando PDF...';
       // Un respiro para que se vea "Generando" antes de armar el PDF.
       setTimeout(function(){
         var pdf;
+        // El botón vuelve a como corresponda a lo que hay ahora en pantalla (si
+        // mientras tanto se cambió un dato y dejó de cerrar, queda trabado).
+        var reponer = function(){ pintarBotonEnviar(ultimoResultado ? !!ultimoResultado.cierra : null); };
         try { pdf = armarInformePDF(datosInforme(r, rep)); }
         catch (e) {
           console.error(e);
-          btn.disabled = false; btn.innerHTML = prevHTML;
+          reponer();
           showToast('Error', 'No se pudo generar el PDF: ' + (e.message || e), 'fa-triangle-exclamation');
           return;
         }
         // El agente NO descarga el PDF acá: se sube para revisión del admin, y
         // recién cuando el admin la aprueba el agente puede descargarla.
+        // Se guarda la tasación del PDF (r), no lo que haya en pantalla al terminar de subir.
         try {
           var _ref = firebase.storage().ref('tasacionesPDF/' + sesionTasId + '.pdf');
           _ref.put(pdf.output('blob'), { contentType: 'application/pdf' })
             .then(function(){ return _ref.getDownloadURL(); })
-            .then(function(url){ guardarTasacion(url); })
-            .catch(function(e){ console.warn('subir PDF revisión', e); guardarTasacion(); });
-        } catch (e) { guardarTasacion(); }
+            .then(function(url){ guardarTasacion(url, r); })
+            .catch(function(e){ console.warn('subir PDF revisión', e); guardarTasacion('', r); });
+        } catch (e) { guardarTasacion('', r); }
         if (esDireccionTas) showToast('Tasación guardada', 'Queda aprobada: podés descargar el PDF desde "Mis tasaciones".', 'fa-circle-check');
         else showToast('Enviada a revisión', 'El administrador tiene que aprobarla. Cuando esté aprobada vas a poder descargar el PDF desde "Mis tasaciones".', 'fa-paper-plane');
-        btn.disabled = false; btn.innerHTML = prevHTML;
+        reponer();
       }, 40);
     }
 
@@ -1927,11 +2052,12 @@
       } catch (e) { alert((title ? title + ': ' : '') + (msg || '')); }
     }
 
-    async function guardarTasacion(pdfUrl) {
-      if (!agenteUid || !ultimoResultado) return;
+    async function guardarTasacion(pdfUrl, res) {
+      var r = res || ultimoResultado;
+      // Una tasación que no cierra no se guarda como enviada.
+      if (!agenteUid || !r || !r.cierra) return;
       var s = document.getElementById('tasAutoSave');
       var rv = function(id){ var e = document.getElementById(id); return e ? (e.value || '').trim() : ''; };
-      var r = ultimoResultado;
       var rec = {
         id: sesionTasId,
         tipo: 'tasacion',
