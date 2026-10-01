@@ -90,7 +90,6 @@
     .tag{ flex:none; font-size:.66rem; font-weight:700; padding:2px 7px; border-radius:999px; background:var(--line-2); color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
     .tag.venta{ background:rgba(201,162,39,.16); color:var(--gold-osc); }
     .tag.alq{ background:rgba(37,99,235,.1); color:#1d4ed8; }
-    .tag.cerrada{ background:rgba(30,125,79,.12); color:var(--ok); }
     .vacio{ text-align:center; color:var(--muted); font-size:.88rem; padding:20px 10px; border:1.5px dashed var(--line); border-radius:14px; }
     .cambiar{ margin-top:10px; display:inline-flex; align-items:center; gap:7px; font-size:.86rem; }
 
@@ -162,8 +161,6 @@
     .res-pts > i{ color:var(--gold); margin-top:3px; }
     .res-pts b{ display:block; color:var(--gold-cl); font-size:.95rem; }
     .res-pts small{ display:block; color:rgba(255,255,255,.62); font-size:.74rem; line-height:1.4; margin-top:2px; }
-    .res-cierre{ display:flex; gap:9px; margin-top:12px; font-size:.8rem; color:#c9ecd8; background:rgba(30,125,79,.2); border:1px solid rgba(46,160,103,.45); border-radius:12px; padding:10px 12px; line-height:1.45; }
-    .res-cierre i{ margin-top:3px; color:#7fd3a6; }
     .nota-pie{ font-size:.76rem; color:var(--soft); margin-top:12px; line-height:1.55; padding:0 4px; }
 
     /* Celular: barra fija con lo que te queda */
@@ -261,7 +258,6 @@
             <div class="buscar" id="buscarWrap" hidden><i class="fas fa-magnifying-glass"></i><input type="search" id="buscar" placeholder="Buscar por título, barrio o código" autocomplete="off" oninput="renderLista()"></div>
             <div class="lista" id="lista"></div>
             <button type="button" class="link cambiar" id="btnCambiar" hidden onclick="abrirLista()"><i class="fas fa-arrow-right-arrow-left"></i> Cambiar de propiedad</button>
-            <div class="nota ok" id="notaCierre" hidden></div>
           </div>
 
           <div class="op-datos" id="opDatos" hidden>
@@ -359,7 +355,6 @@
             </div>
             <div class="res-otra" id="rOtra">Tu parte calculada sobre el total con IVA: <b id="rTuConIva"></b></div>
             <div class="res-pts"><i class="fas fa-coins"></i><div><b id="rPts"></b><small>Puntos de Recompensas: 1 por cada US$ 100 completos que te quedan. Se acreditan cuando se confirma el cierre.</small></div></div>
-            <div class="res-cierre" id="rCierre" hidden></div>
           </div>
         </section>
         <p class="nota-pie">Cálculo orientativo. La comisión de MALAVE y tu porcentaje se pueden cambiar en cada operación, y el IVA (22%) se suma solo si lo dejás activado.</p>
@@ -379,41 +374,33 @@
     var auth = firebase.auth();
     var db = firebase.firestore();
 
-    var myProps = [], selectedProp = null, myComSale = null, myComRent = null, miUid = null;
+    var myProps = [], selectedProp = null, myComSale = null, myComRent = null, fueraDeJuego = 0;
     var modo = 'prop', listaAbierta = true, partes = 1;
     // Lo que se está calculando: la propiedad elegida (precio editable) o un valor a mano.
-    var estadoProp = { price: '', ref: 0, currency: 'USD', type: 'sale', cierre: null };
+    var estadoProp = { price: '', ref: 0, currency: 'USD', type: 'sale' };
     var manual = { price: '', currency: 'USD', type: 'sale' };
-    // Si se precargó la comisión de un cierre, acá queda la que había antes, para
-    // devolverla al elegir otra propiedad.
-    var antesDelCierre = null;
     var ultimo = null, resVisible = false;
     // Config de puntos (misma regla que Recompensas: bloques completos de US$100 de
     // lo que le queda al agente). Se pisa con config/recompensas apenas carga.
     var cfgPts = { puntosPor100: 1, valorPunto: 0.05, dolarPesos: 40 };
-    var ESTADO = { reserved: 'Reservada', sold: 'Vendida', rented: 'Alquilada', archived: 'Archivada', cerrado_externo: 'Cerrada por otros', tasacion: 'En tasación', tasado: 'Tasada' };
+    var ESTADO = { reserved: 'Reservada', tasacion: 'En tasación', tasado: 'Tasada' };
+    // Las que ya no están en juego no se listan: vendidas, alquiladas, dadas de
+    // baja (archived) y cerradas por otra inmobiliaria. Las reservadas sí: es
+    // justo cuando más se hace esta cuenta.
+    var FUERA = ['sold', 'rented', 'archived', 'cerrado_externo'];
 
     function $(id){ return document.getElementById(id); }
     function show(id){ ['loadingState','guestState','pendingState','tool'].forEach(function(s){ $(s).hidden = (s !== id); }); }
     function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
     function fmt(n, cur){ if(!isFinite(n)) n=0; var s = Math.round(n).toLocaleString('es-UY'); return (cur==='UYU'?'$U ':'US$ ') + s; }
     function fmtNum(n){ return (Number(n) || 0).toLocaleString('es-UY', { maximumFractionDigits: 2 }); }
-    function normTxt(s){ return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
-    function numONulo(v){ return (v == null || v === '' || !isFinite(Number(v))) ? null : Number(v); }
+    function normTxt(s){ return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
     function fechaNum(v){
       if(!v) return 0;
       if(typeof v.toMillis === 'function') return v.toMillis();
       if(typeof v === 'object' && v.seconds) return v.seconds * 1000;
       var t = Date.parse(v); return isFinite(t) ? t : 0;
     }
-    function fechaCorta(v){
-      // "2026-09-15" es un día, no un instante: se arma en hora local (si no, en
-      // Uruguay se mostraba el día anterior).
-      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v || ''));
-      var t = m ? new Date(+m[1], +m[2] - 1, +m[3]).getTime() : fechaNum(v);
-      return t ? new Date(t).toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
-    }
-    function cerrada(p){ return ['sold','rented','archived','cerrado_externo'].indexOf(p.status) >= 0; }
     function pintarSeg(id, v){ document.querySelectorAll('#' + id + ' button').forEach(function(b){ b.setAttribute('aria-pressed', String(b.getAttribute('data-v') === String(v))); }); }
 
     auth.onAuthStateChanged(async function(u){
@@ -423,7 +410,6 @@
         var prof = d.exists ? d.data() : {};
         var isAdmin = (prof.email||u.email||'').toLowerCase() === ADMIN_EMAIL;
         if(prof.status !== 'approved' && !isAdmin){ show('pendingState'); return; }
-        miUid = u.uid;
         var _fb = (prof.commissionPct != null && prof.commissionPct !== '') ? Number(prof.commissionPct) : null;
         myComSale = (prof.commissionSale != null && prof.commissionSale !== '') ? Number(prof.commissionSale) : _fb;
         myComRent = (prof.commissionRent != null && prof.commissionRent !== '') ? Number(prof.commissionRent) : _fb;
@@ -435,9 +421,9 @@
       }catch(e){ show('guestState'); }
     });
 
-    // Solo las propiedades del agente (dueño o en el equipo). Antes se bajaban
-    // todas las del sistema para quedarse con estas; si la consulta filtrada
-    // fallara, se cae a leer todo como antes.
+    // Solo las propiedades del agente (dueño o en el equipo) que siguen en juego.
+    // Antes se bajaban todas las del sistema para quedarse con estas; si la
+    // consulta filtrada fallara, se cae a leer todo como antes.
     async function loadProps(uid){
       var lista = [];
       try{
@@ -454,16 +440,15 @@
           snap.forEach(function(doc){ var p = doc.data(); p.id = doc.id; var ag = p.agents || []; if(p.ownerId === uid || ag.indexOf(uid) >= 0) lista.push(p); });
         }catch(e2){ lista = []; }
       }
-      // Primero las que siguen en juego, después las cerradas; las más nuevas arriba.
-      lista.sort(function(a, b){
-        var ca = cerrada(a) ? 1 : 0, cb = cerrada(b) ? 1 : 0;
-        return ca !== cb ? ca - cb : fechaNum(b.createdAt) - fechaNum(a.createdAt);
-      });
-      myProps = lista;
+      var enJuego = lista.filter(function(p){ return FUERA.indexOf(p.status) < 0; });
+      fueraDeJuego = lista.length - enJuego.length;
+      // Las más nuevas arriba.
+      enJuego.sort(function(a, b){ return fechaNum(b.createdAt) - fechaNum(a.createdAt); });
+      myProps = enJuego;
       $('nProps').textContent = myProps.length;
       show('tool');
       renderLista();
-      // Sin propiedades cargadas: directo a la cuenta con otro valor.
+      // Sin propiedades en juego: directo a la cuenta con otro valor.
       if(!myProps.length) setModo('manual'); else aplicar(false);
     }
 
@@ -471,7 +456,9 @@
     function renderLista(){
       var cont = $('lista');
       if(!myProps.length){
-        cont.innerHTML = '<div class="vacio">Todavía no tenés propiedades cargadas a tu nombre.<br>Podés hacer la cuenta con «Probar otro valor».</div>';
+        cont.innerHTML = '<div class="vacio">' + (fueraDeJuego
+          ? 'No tenés propiedades en venta o alquiler ahora: las vendidas, alquiladas o dadas de baja no aparecen acá.'
+          : 'Todavía no tenés propiedades cargadas a tu nombre.') + '<br>Podés hacer la cuenta con «Probar otro valor».</div>';
         $('buscarWrap').hidden = true; $('btnCambiar').hidden = true; cont.classList.remove('cerrada');
         return;
       }
@@ -493,12 +480,12 @@
       var alq = p.type === 'rent';
       var foto = (p.images && p.images[0]) ? '<img src="' + esc(p.images[0]) + '" alt="" loading="lazy">' : '<i class="fas fa-house"></i>';
       var lugar = p.ciudad || p.location || '';
-      var est = ESTADO[p.status] ? '<span class="tag' + (p.status === 'sold' || p.status === 'rented' ? ' cerrada' : '') + '">' + ESTADO[p.status] + '</span>' : '';
+      var est = ESTADO[p.status] ? '<span class="tag">' + ESTADO[p.status] + '</span>' : '';
       var sel = !!(selectedProp && selectedProp.id === p.id);
       return '<button type="button" class="pr" data-id="' + esc(p.id) + '" aria-pressed="' + sel + '">' +
         '<span class="pr-img">' + foto + '</span>' +
         '<span class="pr-txt"><b>' + esc(p.title || 'Propiedad sin título') + '</b><small><span class="tag ' + (alq ? 'alq' : 'venta') + '">' + (alq ? 'Alquiler' : 'Venta') + '</span>' + est + (lugar ? '<span class="pr-lugar">' + esc(lugar) + '</span>' : '') + '</small></span>' +
-        '<span class="pr-precio">' + fmt(Number(p.price) || 0, p.currency) + (alq ? '<small>por mes</small>' : '') + '</span>' +
+        '<span class="pr-precio">' + (Number(p.price) > 0 ? fmt(Number(p.price), p.currency) + (alq ? '<small>por mes</small>' : '') : '<small>Sin precio</small>') + '</span>' +
         (sel ? '<i class="fas fa-circle-check pr-ok"></i>' : '') +
       '</button>';
     }
@@ -521,53 +508,15 @@
       renderLista();
       aplicar(true);
     }
-    // El cierre registrado manda solo si la propiedad figura vendida o alquilada:
-    // si volvió a publicarse, ese cierre es de una operación anterior.
-    function cierreUsable(p){ return (p && p.cierre && (p.status === 'sold' || p.status === 'rented')) ? p.cierre : null; }
     function cargarDesdePropiedad(p){
-      var c = cierreUsable(p);
-      if(c){
-        if(!antesDelCierre) antesDelCierre = tomarComision();
-        var tipo = c.tipo === 'venta' ? 'sale' : (c.tipo === 'alquiler' ? 'rent' : (p.type === 'rent' ? 'rent' : 'sale'));
-        var precio = Number(c.precio) > 0 ? Number(c.precio) : (Number(p.price) || 0);
-        estadoProp = { price: precio ? String(precio) : '', ref: precio, currency: c.moneda || p.currency || 'USD', type: tipo, cierre: c };
-        ponerComisionDelCierre(c, tipo);
-      } else {
-        if(antesDelCierre){ ponerComision(antesDelCierre); antesDelCierre = null; }
-        var pr = Number(p.price) || 0;
-        estadoProp = { price: pr ? String(pr) : '', ref: pr, currency: p.currency || 'USD', type: p.type === 'rent' ? 'rent' : 'sale', cierre: null };
-      }
-    }
-    function tomarComision(){
-      return { partes: partes, rate: $('rateInput').value, rb: $('rateBuyerInput').value, rs: $('rateSellerInput').value,
-        tVal: $('tenantVal').value, tUnit: $('tenantUnit').value, oVal: $('ownerVal').value, oUnit: $('ownerUnit').value };
-    }
-    function ponerComision(s){
-      partes = s.partes; $('rateInput').value = s.rate; $('rateBuyerInput').value = s.rb; $('rateSellerInput').value = s.rs;
-      $('tenantVal').value = s.tVal; $('tenantUnit').value = s.tUnit; $('ownerVal').value = s.oVal; $('ownerUnit').value = s.oUnit;
-      pintarPartes();
-    }
-    // Comisión del cierre: % (venta) o meses (alquiler) que pagó cada parte.
-    function ponerComisionDelCierre(c, tipo){
-      var pc = numONulo(c.comisionComprador), pv = numONulo(c.comisionVendedor);
-      if(tipo === 'sale'){
-        if(pc > 0 && pv > 0){ partes = 2; $('rateBuyerInput').value = pc; $('rateSellerInput').value = pv; }
-        else if(pc > 0 || pv > 0){ partes = 1; $('rateInput').value = pc > 0 ? pc : pv; }
-        else if(numONulo(c.agencyPct) != null){ partes = 1; $('rateInput').value = Number(c.agencyPct); }
-      } else {
-        if(pc != null || pv != null){ $('tenantVal').value = pc != null ? pc : 0; $('ownerVal').value = pv != null ? pv : 0; $('tenantUnit').value = 'meses'; $('ownerUnit').value = 'meses'; }
-        else if(numONulo(c.agencyMonths) != null){ $('tenantVal').value = Number(c.agencyMonths); $('ownerVal').value = 0; $('tenantUnit').value = 'meses'; $('ownerUnit').value = 'meses'; }
-      }
-      pintarPartes();
+      var pr = Number(p.price) || 0;
+      estadoProp = { price: pr ? String(pr) : '', ref: pr, currency: p.currency || 'USD', type: p.type === 'rent' ? 'rent' : 'sale' };
     }
 
     function setModo(m){
       modo = m;
       pintarSeg('segModo', m);
       $('panelProps').hidden = (m !== 'prop');
-      if(m === 'manual'){
-        if(antesDelCierre){ ponerComision(antesDelCierre); antesDelCierre = null; }
-      } else if(selectedProp && cierreUsable(selectedProp)) cargarDesdePropiedad(selectedProp);
       aplicar(true);
     }
     // Lo que se está calculando ahora (null si todavía no hay nada elegido).
@@ -579,7 +528,6 @@
     function pintarDatos(){
       var esManual = modo === 'manual', hay = esManual || !!selectedProp;
       $('opDatos').hidden = !hay;
-      pintarNotaCierre();
       if(!hay) return;
       var st = esManual ? manual : estadoProp;
       $('precio').value = st.price;
@@ -593,15 +541,7 @@
       var a = $('ayudaPrecio');
       if(modo === 'manual'){ a.textContent = 'Escribí el precio con el que querés hacer la cuenta.'; return; }
       var st = estadoProp, actual = Number($('precio').value) || 0;
-      var txt = st.cierre ? 'Es el precio del cierre registrado.' : 'Es el de la publicación. Si se cierra por otro precio, cambialo acá.';
-      a.innerHTML = esc(txt) + ((st.ref > 0 && actual !== st.ref) ? ' <button type="button" class="link" onclick="volverPrecio()">Volver a ' + esc(fmt(st.ref, st.currency)) + '</button>' : '');
-    }
-    function pintarNotaCierre(){
-      var n = $('notaCierre'), c = (modo === 'prop' && selectedProp) ? estadoProp.cierre : null;
-      if(!c){ n.hidden = true; return; }
-      var f = fechaCorta(c.fecha);
-      n.innerHTML = '<i class="fas fa-handshake"></i><span>Tiene un cierre registrado' + (f ? ' el ' + esc(f) : '') + (selectedProp.cierreConfirmado === true ? '' : ' (pendiente de confirmar)') + ': se cargaron el precio y la comisión de ese cierre.</span>';
-      n.hidden = false;
+      a.innerHTML = 'Es el de la publicación. Si se cierra por otro precio, cambialo acá.' + ((st.ref > 0 && actual !== st.ref) ? ' <button type="button" class="link" onclick="volverPrecio()">Volver a ' + esc(fmt(st.ref, st.currency)) + '</button>' : '');
     }
     function onPrecio(){
       if(modo === 'manual') manual.price = $('precio').value; else estadoProp.price = $('precio').value;
@@ -725,7 +665,6 @@
       $('rTuConIva').textContent = fmt(r.tuConIva, r.cur);
       $('rOtra').hidden = !r.ivaOn || r.sinPct;
       $('rPts').textContent = r.pts.toLocaleString('es-UY') + (r.pts === 1 ? ' punto' : ' puntos') + (r.ptsVal > 0 ? ' · ≈ US$ ' + Math.round(r.ptsVal).toLocaleString('es-UY') : '');
-      pintarCierreRegistrado();
       $('bmTake').textContent = r.sinPct ? '—' : fmt(r.tuSinIva, r.cur);
       pintarBarraMovil();
     }
@@ -736,20 +675,6 @@
       ultimo = null;
       pintarBarraMovil();
     }
-    // Si la propiedad tiene un cierre con la ganancia ya cargada, se muestra al lado.
-    function pintarCierreRegistrado(){
-      var el = $('rCierre'), c = (modo === 'prop' && selectedProp) ? estadoProp.cierre : null;
-      if(!c){ el.hidden = true; return; }
-      var mon = c.moneda || estadoProp.currency, txt = '';
-      var mio = c.agenteUid ? c.agenteUid === miUid : selectedProp.ownerId === miUid;
-      var gan = numONulo(c.gananciaAgente);
-      var parte = (Array.isArray(c.participantes) ? c.participantes : []).find(function(x){ return x && x.uid === miUid; });
-      if(mio && gan != null) txt = 'En el cierre quedó registrada tu ganancia: <b>' + esc(fmt(gan, mon)) + '</b>.';
-      else if(!mio && parte && numONulo(parte.monto) != null) txt = 'En este cierre figurás en el equipo con <b>' + esc(fmt(Number(parte.monto), mon)) + '</b>.';
-      el.innerHTML = txt ? '<i class="fas fa-handshake"></i><span>' + txt + '</span>' : '';
-      el.hidden = !txt;
-    }
-
     /* ===== Celular: barra fija con lo que te queda ===== */
     function pintarBarraMovil(){
       var hay = !!(ultimo && ultimo.price > 0);
