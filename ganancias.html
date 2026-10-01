@@ -2,8 +2,10 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Mis ganancias · MALAVE</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <meta name="theme-color" content="#16273f">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -11,55 +13,191 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <style>
-    :root{ --primary:#16273f; --navy:#16273f; --gold:#C9A227; --gold-2:#C9A227; --gray-50:#f7f8fa; --gray-100:#eef0f3; --gray-200:#e3e6ea; --gray-300:#d3d8de; --gray-400:#9aa3ad; --gray-500:#6b7480; --gray-600:#555; --gray-700:#444; --success:#1e7d4f; --danger:#c0392b; }
+    /* ==========================================================================
+       MIS GANANCIAS (rediseño 01/10/2026)
+       Calculadora de lo que le queda al agente en una operación. A la izquierda
+       los datos (la propiedad y la comisión); a la derecha el resultado, que
+       queda a la vista mientras se cambian los números. En el celular el
+       resultado va abajo y una barra fija muestra cuánto te queda.
+       Las cuentas son las mismas de antes.
+       ========================================================================== */
+    :root{ --ink:#16273f; --ink-2:#1f3556; --paper:#f4f5f7; --line:#e5e8ec; --line-2:#eef0f3; --muted:#6b7480; --soft:#9aa3ad;
+      --gold:#C9A227; --gold-osc:#8a6d12; --gold-cl:#e9cf73; --ok:#1e7d4f; --bad:#c0392b; }
     *{ box-sizing:border-box; margin:0; padding:0; }
-    body{ font-family:'Inter',sans-serif; background:var(--gray-50); color:#1d2733; line-height:1.5; }
+    [hidden]{ display:none !important; }
+    html, body{ overflow-x:clip; }
+    body{ font-family:'Inter',sans-serif; background:var(--paper); color:#1d2733; line-height:1.5; -webkit-text-size-adjust:100%; }
     h1,h2,h3{ font-family:'Cormorant Garamond',serif; }
-    .gh-header{ background:#fff; border-bottom:1px solid var(--gray-200); padding:16px 24px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; }
-    .gh-logo{ display:flex; align-items:center; gap:10px; font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:700; color:var(--primary); letter-spacing:.12em; }
-    .gh-back{ color:var(--gray-500); text-decoration:none; font-size:.9rem; display:inline-flex; align-items:center; gap:7px; }
-    .gh-back:hover{ color:var(--primary); }
-    .wrap{ max-width:760px; margin:0 auto; padding:32px 20px 60px; }
-    .gh-title{ font-size:2.1rem; color:var(--primary); }
-    .gh-sub{ color:var(--gray-500); margin-top:4px; margin-bottom:26px; }
-    .state{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:40px 24px; text-align:center; color:var(--gray-500); }
-    .state i{ font-size:2rem; color:var(--gold); margin-bottom:12px; }
-    .state h3{ color:var(--primary); font-size:1.4rem; margin-bottom:6px; }
-    .state a{ color:var(--gold); font-weight:600; text-decoration:none; }
-    .card{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:24px; margin-bottom:18px; }
-    .card h2{ font-size:1.35rem; color:var(--primary); margin-bottom:4px; }
-    .card .ch-sub{ color:var(--gray-500); font-size:.85rem; margin-bottom:18px; }
-    label{ display:block; font-size:.82rem; font-weight:600; color:var(--gray-700); margin-bottom:6px; }
-    label .hint{ font-weight:400; color:var(--gray-400); }
-    select, input{ width:100%; border:1px solid var(--gray-300); border-radius:11px; padding:12px 13px; font-family:inherit; font-size:.95rem; background:#fff; color:#1d2733; }
-    select:focus, input:focus{ outline:none; border-color:var(--gold); }
-    .field{ margin-bottom:16px; }
-    .row-2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-    .prop-meta{ display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
-    .chip{ font-size:.78rem; font-weight:600; padding:5px 11px; border-radius:999px; background:var(--gray-100); color:var(--gray-600); }
-    .chip.op{ background:rgba(201,162,39,.14); color:#8a6d12; }
-    .chip.price{ background:rgba(22,39,63,.08); color:var(--primary); }
-    .note{ font-size:.82rem; color:var(--gray-500); background:var(--gray-50); border-left:3px solid var(--gold); padding:9px 12px; border-radius:0 8px 8px 0; margin-top:6px; }
-    .note.warn{ border-color:#e0a800; color:#8a6d12; background:#fff9e9; }
-    .iva-row{ display:flex; align-items:center; gap:10px; cursor:pointer; font-weight:600; color:var(--gray-700); margin-bottom:4px; }
-    .iva-row input{ width:18px; height:18px; accent-color:var(--gold); cursor:pointer; }
-    .iva-hint{ font-size:.78rem; color:var(--gray-400); }
-    /* resultados */
-    .res-line{ display:flex; align-items:center; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--gray-100); font-size:.92rem; color:var(--gray-700); }
-    .res-line small{ color:var(--gray-400); font-size:.78rem; }
-    .res-line .v{ font-weight:600; color:var(--primary); }
-    .res-take{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px; border-radius:12px; margin-top:14px; background:linear-gradient(135deg,#16273f,#1f3556); color:#fff; }
-    .res-take .lbl{ font-size:.9rem; opacity:.85; }
-    .res-take .lbl b{ display:block; font-size:1rem; opacity:1; margin-top:2px; }
-    .res-take .big{ font-size:1.9rem; font-weight:800; }
-    .res-second{ display:flex; align-items:center; justify-content:space-between; padding:13px 16px; border:1px dashed var(--gray-300); border-radius:11px; margin-top:10px; font-size:.9rem; color:var(--gray-600); }
-    .res-second .v{ font-weight:700; color:var(--primary); }
-    .res-pts{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 16px; border-radius:11px; margin-top:10px; background:rgba(201,162,39,.10); border:1px solid rgba(201,162,39,.35); font-size:.9rem; color:#8a6d12; }
-    .res-pts small{ display:block; color:#a8925c; font-size:.75rem; font-weight:400; margin-top:2px; }
-    .res-pts .v{ font-weight:800; color:#8a6d12; white-space:nowrap; }
-    .placeholder{ text-align:center; color:var(--gray-400); padding:24px 0; font-size:.9rem; }
-    .foot-note{ font-size:.78rem; color:var(--gray-400); margin-top:18px; line-height:1.6; }
-    @media (max-width:560px){ .gh-title{ font-size:1.7rem; } .row-2{ grid-template-columns:1fr; } .res-take{ flex-direction:column; align-items:flex-start; gap:6px; } .res-take .big{ font-size:1.6rem; } }
+    button{ font-family:inherit; }
+
+    .wrap{ max-width:1100px; margin:0 auto; padding:28px 20px 80px; }
+    .g-tit{ font-size:2.25rem; color:var(--ink); line-height:1.05; }
+    .g-lede{ color:var(--muted); margin:6px 0 24px; max-width:640px; }
+
+    /* ---- Estados ---- */
+    .state{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:46px 24px; text-align:center; color:var(--muted); max-width:560px; }
+    .state i{ font-size:2rem; color:var(--gold); margin-bottom:12px; display:block; }
+    .state h3{ color:var(--ink); font-size:1.45rem; margin-bottom:6px; }
+    .state a{ color:var(--gold-osc); font-weight:600; }
+    .sp{ width:42px; height:42px; border:4px solid var(--line); border-top-color:var(--ink); border-radius:50%; animation:gira 1s linear infinite; margin:0 auto 16px; }
+    @keyframes gira{ to{ transform:rotate(360deg); } }
+
+    /* ---- Dos columnas: datos | resultado ---- */
+    .g-grid{ display:grid; grid-template-columns:minmax(0,1fr) 380px; gap:24px; align-items:start; }
+    .g-izq, .g-der{ min-width:0; }
+    .g-der{ position:sticky; top:86px; }
+
+    .card{ background:#fff; border:1px solid var(--line); border-radius:18px; padding:22px; }
+    .card + .card{ margin-top:18px; }
+    .card-h{ display:flex; align-items:flex-start; gap:12px; margin-bottom:16px; }
+    .card-h .n{ width:28px; height:28px; border-radius:50%; background:var(--ink); color:#fff; display:grid; place-items:center; font-size:.8rem; font-weight:700; flex:none; margin-top:3px; }
+    .card-h h2{ font-size:1.5rem; color:var(--ink); line-height:1.1; }
+    .card-h p{ font-size:.82rem; color:var(--muted); margin-top:3px; }
+
+    .lbl{ display:block; font-size:.8rem; font-weight:600; color:#3d4754; margin-bottom:7px; }
+    input[type=number], input[type=search], select{ width:100%; border:1px solid #d3d8de; border-radius:11px; padding:11px 12px; font-family:inherit; font-size:.95rem; background:#fff; color:#1d2733; }
+    input:focus, select:focus{ outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.14); }
+    input[type=number]{ font-variant-numeric:tabular-nums; -moz-appearance:textfield; appearance:textfield; }
+    input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button{ -webkit-appearance:none; margin:0; }
+    .ayuda{ font-size:.78rem; color:var(--muted); margin-top:6px; line-height:1.45; }
+    .link{ background:none; border:0; padding:0; color:var(--gold-osc); font-weight:600; font-size:inherit; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+
+    /* Botones de a dos (como un interruptor de opciones) */
+    .seg{ display:flex; background:var(--line-2); border-radius:12px; padding:4px; gap:4px; }
+    .seg button{ flex:1; border:0; background:none; border-radius:9px; padding:9px 10px; font-size:.88rem; font-weight:600; color:var(--muted); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:7px; transition:background .15s, color .15s; }
+    .seg button[aria-pressed="true"]{ background:#fff; color:var(--ink); box-shadow:0 1px 3px rgba(16,24,40,.14); }
+    .seg button i{ font-size:.85em; }
+    .seg .cnt{ font-size:.72rem; background:var(--line); color:var(--muted); border-radius:999px; padding:1px 7px; }
+    .seg button[aria-pressed="true"] .cnt{ background:rgba(201,162,39,.18); color:var(--gold-osc); }
+
+    /* ---- 1. La operación: lista de propiedades ---- */
+    .buscar{ position:relative; margin-top:14px; }
+    .buscar i{ position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--soft); font-size:.9rem; }
+    .buscar input{ padding-left:38px; }
+    .lista{ display:flex; flex-direction:column; gap:8px; margin-top:12px; max-height:388px; overflow-y:auto; padding:3px; margin-left:-3px; margin-right:-3px; }
+    .lista.cerrada{ max-height:none; overflow:visible; }
+    .pr{ display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:8px 12px 8px 8px; cursor:pointer; color:inherit; transition:border-color .15s, box-shadow .15s; flex:none; }
+    .pr[aria-pressed="true"]{ border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.15); }
+    .pr-img{ width:60px; height:46px; border-radius:9px; overflow:hidden; background:#e9ecef; flex:none; display:grid; place-items:center; color:var(--soft); }
+    .pr-img img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .pr-txt{ flex:1; min-width:0; }
+    .pr-txt b{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:.9rem; font-weight:600; color:var(--ink); line-height:1.3; overflow-wrap:anywhere; }
+    .pr-txt small{ display:flex; gap:6px; align-items:center; font-size:.76rem; color:var(--muted); margin-top:3px; white-space:nowrap; overflow:hidden; }
+    .pr-lugar{ overflow:hidden; text-overflow:ellipsis; }
+    .pr-precio{ font-weight:700; font-size:.9rem; color:var(--ink); white-space:nowrap; font-variant-numeric:tabular-nums; text-align:right; }
+    .pr-precio small{ display:block; font-weight:500; font-size:.72rem; color:var(--muted); }
+    .pr-ok{ color:var(--gold); font-size:1.05rem; flex:none; }
+    .tag{ flex:none; font-size:.66rem; font-weight:700; padding:2px 7px; border-radius:999px; background:var(--line-2); color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
+    .tag.venta{ background:rgba(201,162,39,.16); color:var(--gold-osc); }
+    .tag.alq{ background:rgba(37,99,235,.1); color:#1d4ed8; }
+    .tag.cerrada{ background:rgba(30,125,79,.12); color:var(--ok); }
+    .vacio{ text-align:center; color:var(--muted); font-size:.88rem; padding:20px 10px; border:1.5px dashed var(--line); border-radius:14px; }
+    .cambiar{ margin-top:10px; display:inline-flex; align-items:center; gap:7px; font-size:.86rem; }
+
+    .nota{ display:flex; gap:9px; align-items:flex-start; font-size:.82rem; color:var(--muted); background:var(--paper); border-left:3px solid var(--gold); padding:9px 12px; border-radius:0 9px 9px 0; margin-top:12px; line-height:1.45; }
+    .nota i{ margin-top:3px; }
+    .nota.warn{ border-color:#e0a800; color:#7a5a12; background:#fff8e6; }
+    .nota.ok{ border-color:var(--ok); color:#1b5e3c; background:#eef8f2; }
+
+    /* Datos de la operación: precio, moneda y tipo */
+    .op-datos{ display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:14px 18px; margin-top:16px; padding-top:16px; border-top:1px solid var(--line-2); }
+    .monto{ display:flex; align-items:stretch; border:1px solid #d3d8de; border-radius:12px; overflow:hidden; background:#fff; }
+    .monto:focus-within{ border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.14); }
+    .monto .cur{ display:flex; align-items:center; padding:0 13px; background:#f8f9fb; border-right:1px solid var(--line); color:var(--ink); font-weight:700; font-size:.92rem; }
+    .monto .curs{ display:flex; gap:3px; padding:4px; background:#f8f9fb; border-right:1px solid var(--line); }
+    .monto .curs button{ border:0; background:none; padding:0 10px; border-radius:8px; font-weight:700; color:var(--muted); cursor:pointer; font-size:.86rem; }
+    .monto .curs button[aria-pressed="true"]{ background:#fff; color:var(--ink); box-shadow:0 1px 2px rgba(16,24,40,.16); }
+    .monto input{ border:0; border-radius:0; font-size:1.15rem; font-weight:700; padding:11px 12px; box-shadow:none !important; min-width:0; }
+
+    /* ---- 2. La comisión ---- */
+    .filas{ margin-top:12px; }
+    .fila{ display:grid; grid-template-columns:minmax(0,1fr) 150px 118px; align-items:center; gap:12px; padding:11px 0; border-top:1px solid var(--line-2); }
+    .fila.primera, .filas > .fila:first-child{ border-top:0; }
+    .fila.alq{ grid-template-columns:minmax(0,1fr) 214px 118px; }
+    .f-lbl{ font-size:.9rem; color:#2a3442; font-weight:500; min-width:0; }
+    .f-lbl small{ display:block; font-size:.76rem; color:var(--muted); font-weight:400; }
+    .f-mon{ text-align:right; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; font-size:.92rem; white-space:nowrap; }
+    .f-mon.cero{ color:var(--soft); font-weight:500; }
+    .unid{ display:flex; align-items:center; border:1px solid #d3d8de; border-radius:11px; background:#fff; overflow:hidden; }
+    .unid:focus-within{ border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.14); }
+    .unid input{ border:0; border-radius:0; box-shadow:none !important; padding:10px 4px 10px 12px; min-width:0; text-align:right; font-weight:600; }
+    .unid .suf{ padding:0 12px 0 5px; color:var(--muted); font-weight:600; font-size:.9rem; }
+    .unid select{ border:0; border-left:1px solid var(--line); border-radius:0; width:auto; flex:none; padding:10px 8px; font-size:.84rem; color:#3d4754; box-shadow:none !important; background:#f8f9fb; cursor:pointer; }
+    .com-sep{ border:0; border-top:1px solid var(--line); margin:14px 0 4px; }
+    .fila.tuya .f-lbl{ font-weight:600; }
+
+    .switch{ display:flex; align-items:flex-start; gap:12px; cursor:pointer; margin-top:14px; position:relative; }
+    .switch input{ position:absolute; opacity:0; width:1px; height:1px; }
+    .sw{ width:42px; height:24px; border-radius:999px; background:#cfd5dc; position:relative; flex:none; transition:background .15s; }
+    .sw::after{ content:''; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.2); transition:transform .15s; }
+    .switch input:checked + .sw{ background:var(--ink); }
+    .switch input:checked + .sw::after{ transform:translateX(18px); }
+    .switch input:focus-visible + .sw{ box-shadow:0 0 0 3px rgba(201,162,39,.4); }
+    .switch b{ display:block; font-size:.9rem; color:#2a3442; font-weight:600; }
+    .switch small{ display:block; font-size:.78rem; color:var(--muted); }
+
+    /* ---- 3. Resultado ---- */
+    .res{ background:linear-gradient(160deg,#16273f 0%,#1f3556 100%); color:#fff; border-radius:20px; padding:24px; box-shadow:0 18px 40px rgba(16,29,48,.22); scroll-margin-top:84px; }
+    .res-vacio{ text-align:center; padding:30px 8px; color:rgba(255,255,255,.78); font-size:.92rem; }
+    .res-vacio i{ font-size:1.9rem; color:var(--gold); margin-bottom:12px; display:block; }
+    .res-k{ font-size:.74rem; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-cl); font-weight:600; }
+    .res-k span{ letter-spacing:.02em; text-transform:none; color:rgba(255,255,255,.6); font-weight:500; }
+    .res-big{ font-size:2.7rem; font-weight:700; line-height:1.05; margin:6px 0 4px; font-variant-numeric:tabular-nums; letter-spacing:-.01em; overflow-wrap:anywhere; }
+    .res-sub{ font-size:.84rem; color:rgba(255,255,255,.72); }
+    .barra{ display:flex; height:10px; border-radius:999px; overflow:hidden; background:rgba(255,255,255,.1); margin:18px 0 10px; }
+    .barra span{ display:block; height:100%; transition:width .25s ease; }
+    .b-tu{ background:var(--gold); } .b-mal{ background:rgba(255,255,255,.55); } .b-iva{ background:rgba(255,255,255,.22); }
+    .leyenda{ list-style:none; display:grid; gap:6px; font-size:.82rem; color:rgba(255,255,255,.78); }
+    .leyenda li{ display:flex; align-items:center; gap:8px; }
+    .leyenda li i{ width:9px; height:9px; border-radius:50%; flex:none; }
+    .leyenda li i.b-tu{ background:var(--gold); } .leyenda li i.b-mal{ background:rgba(255,255,255,.55); } .leyenda li i.b-iva{ background:rgba(255,255,255,.3); }
+    .leyenda b{ margin-left:auto; color:#fff; font-weight:600; font-variant-numeric:tabular-nums; }
+    .res-lineas{ margin-top:16px; border-top:1px solid rgba(255,255,255,.14); }
+    .res-lineas > div{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.08); font-size:.88rem; color:rgba(255,255,255,.8); }
+    .res-lineas small{ display:block; font-size:.74rem; color:rgba(255,255,255,.52); }
+    .res-lineas b{ color:#fff; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .res-otra{ font-size:.8rem; color:rgba(255,255,255,.62); margin-top:10px; }
+    .res-otra b{ color:rgba(255,255,255,.92); font-weight:600; }
+    .res-pts{ display:flex; gap:11px; align-items:flex-start; margin-top:16px; background:rgba(201,162,39,.14); border:1px solid rgba(201,162,39,.35); border-radius:13px; padding:12px 14px; }
+    .res-pts > i{ color:var(--gold); margin-top:3px; }
+    .res-pts b{ display:block; color:var(--gold-cl); font-size:.95rem; }
+    .res-pts small{ display:block; color:rgba(255,255,255,.62); font-size:.74rem; line-height:1.4; margin-top:2px; }
+    .res-cierre{ display:flex; gap:9px; margin-top:12px; font-size:.8rem; color:#c9ecd8; background:rgba(30,125,79,.2); border:1px solid rgba(46,160,103,.45); border-radius:12px; padding:10px 12px; line-height:1.45; }
+    .res-cierre i{ margin-top:3px; color:#7fd3a6; }
+    .nota-pie{ font-size:.76rem; color:var(--soft); margin-top:12px; line-height:1.55; padding:0 4px; }
+
+    /* Celular: barra fija con lo que te queda */
+    .barra-movil{ display:none; }
+
+    @media (max-width:900px){
+      .g-grid{ grid-template-columns:minmax(0,1fr); gap:18px; }   /* minmax: los títulos largos no ensanchan la columna */
+      .g-der{ position:static; }
+      .wrap{ padding-bottom:30px; }
+      .barra-movil{ display:flex; align-items:center; gap:12px; position:fixed; left:0; right:0; bottom:0; z-index:70; background:#fff; border-top:1px solid var(--line); box-shadow:0 -8px 24px rgba(16,24,40,.1); padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px)); }
+      .barra-movil div{ flex:1; min-width:0; }
+      .barra-movil small{ display:block; font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; font-weight:600; }
+      .barra-movil b{ display:block; font-size:1.3rem; color:var(--ink); font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .barra-movil button{ flex:none; border:0; background:var(--ink); color:#fff; border-radius:11px; padding:11px 15px; font-size:.88rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
+      body.con-barra{ padding-bottom:calc(76px + env(safe-area-inset-bottom,0px)); }
+    }
+    @media (max-width:560px){
+      .wrap{ padding:20px 14px 30px; }
+      .g-tit{ font-size:1.85rem; }
+      .g-lede{ font-size:.9rem; margin-bottom:18px; }
+      .card{ padding:18px 15px; border-radius:16px; }
+      .card-h h2{ font-size:1.35rem; }
+      .seg button{ padding:9px 6px; font-size:.84rem; }
+      .seg-modo button i{ display:none; }
+      .fila, .fila.alq{ grid-template-columns:minmax(0,1fr) 136px; grid-template-areas:"l i" "l m"; row-gap:3px; column-gap:10px; }
+      .fila.alq{ grid-template-columns:minmax(0,1fr) 186px; }
+      .fila .f-lbl{ grid-area:l; } .fila .unid{ grid-area:i; } .fila .f-mon{ grid-area:m; font-size:.8rem; }
+      .unid select{ padding:10px 5px; font-size:.8rem; }
+      .pr{ gap:10px; padding:7px 10px 7px 7px; }
+      .pr-img{ width:52px; height:42px; }
+      .res{ padding:20px 18px; }
+      .res-big{ font-size:2.3rem; }
+    }
+    @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation-duration:.01s !important; } }
   </style>
 <style>
   /* Área segura superior (isla dinámica / notch) en toda la herramienta */
@@ -84,23 +222,12 @@
       font-size:.88rem; font-weight:500; padding:8px 15px; border:1px solid #eef1f5;
       border-radius:999px; text-decoration:none; white-space:nowrap;
       transition:background .15s, color .15s, border-color .15s; }
-    .mv-head .back-link:hover{ background:#16273f; color:#fff; border-color:#16273f; }
+    @media (hover:hover){ .mv-head .back-link:hover{ background:#16273f; color:#fff; border-color:#16273f; } }
     @media (max-width:520px){
       .mv-head-in{ padding:10px 14px; }
       .mv-head .logo-img{ height:26px; } .mv-head .logo-text{ height:16px; }
       .mv-head .back-link{ padding:8px 13px; }
-    }
-
-    /* Fila de título + acciones. En el celular el título va arriba y los botones
-       abajo repartidos, en vez de apretarse todos en un renglón. */
-    .mv-toolbar{ display:flex; align-items:center; justify-content:space-between;
-      gap:12px; flex-wrap:wrap; margin-bottom:18px; }
-    .mv-toolbar h1{ margin:0; display:flex; align-items:center; gap:10px; min-width:0; }
-    .mv-toolbar-acc{ display:flex; gap:9px; align-items:center; flex-wrap:wrap; }
-    @media (max-width:640px){
-      .mv-toolbar h1{ flex:1 0 100%; font-size:1.5rem; }
-      .mv-toolbar-acc{ flex:1 0 100%; }
-      .mv-toolbar-acc > *{ flex:1; justify-content:center; text-align:center; }
+      .mv-head .back-link span{ display:none; }
     }
 </style>
 </head>
@@ -113,120 +240,137 @@
   </header>
 
   <div class="wrap">
-    <h1 class="gh-title">Mis ganancias</h1>
-    <p class="gh-sub">Elegí una propiedad tuya y mirá cuánto te queda de comisión, con y sin IVA.</p>
+    <h1 class="g-tit">Mis ganancias</h1>
+    <p class="g-lede">Cuánto te queda de comisión en una operación. Elegí una de tus propiedades, o hacé la cuenta con otro valor.</p>
 
-    <div id="loadingState" class="state"><i class="fas fa-spinner fa-spin"></i><h3>Cargando...</h3></div>
-    <div id="guestState" class="state" style="display:none"><i class="fas fa-lock"></i><h3>Acceso para agentes</h3><p>Iniciá sesión para ver tus ganancias. <a href="index.html">Ir al inicio</a></p></div>
-    <div id="pendingState" class="state" style="display:none"><i class="fas fa-clock"></i><h3>Cuenta pendiente</h3><p>Tu cuenta todavía no fue aprobada por el administrador.</p></div>
-    <div id="emptyState" class="state" style="display:none"><i class="fas fa-house-circle-xmark"></i><h3>Sin propiedades</h3><p>Todavía no tenés propiedades cargadas a tu nombre.</p></div>
+    <div id="loadingState" class="state"><div class="sp"></div><p>Cargando…</p></div>
+    <div id="guestState" class="state" hidden><i class="fas fa-lock"></i><h3>Acceso para agentes</h3><p>Iniciá sesión para ver tus ganancias. <a href="index.html">Ir al inicio</a></p></div>
+    <div id="pendingState" class="state" hidden><i class="fas fa-clock"></i><h3>Cuenta pendiente</h3><p>Tu cuenta todavía no fue aprobada por el administrador.</p></div>
 
-    <div id="tool" style="display:none">
-      <div class="card">
-        <h2>1. Propiedad</h2>
-        <div class="ch-sub">Tus propiedades cargadas en el sistema.</div>
-        <div class="field">
-          <label>Elegí una propiedad</label>
-          <select id="propSelect" onchange="onPropChange()"></select>
-        </div>
-        <div id="manualBox" style="display:none; margin-top:10px">
-          <div style="display:flex; gap:10px; flex-wrap:wrap">
-            <div class="field" style="flex:1; min-width:140px; margin:0">
-              <label>Precio / valor</label>
-              <input type="number" id="manualPrice" min="0" step="1000" placeholder="Ej: 150000" oninput="onManualPrecio()">
-            </div>
-            <div class="field" style="flex:0 0 auto; margin:0">
-              <label>Moneda</label>
-              <select id="manualCurrency" onchange="onManualPrecio()">
-                <option value="USD">US$ (dólares)</option>
-                <option value="UYU">$U (pesos)</option>
-              </select>
-            </div>
+    <div id="tool" class="g-grid" hidden>
+      <div class="g-izq">
+        <!-- 1. La operación -->
+        <section class="card" id="cardOp">
+          <div class="card-h"><span class="n">1</span><div><h2>La operación</h2><p>Los datos vienen de la propiedad. El precio lo podés cambiar.</p></div></div>
+          <div class="seg seg-modo" id="segModo">
+            <button type="button" data-v="prop" aria-pressed="true" onclick="setModo('prop')"><i class="fas fa-house"></i> Mis propiedades <span class="cnt" id="nProps">0</span></button>
+            <button type="button" data-v="manual" aria-pressed="false" onclick="setModo('manual')"><i class="fas fa-pen"></i> Probar otro valor</button>
           </div>
-          <div class="field" style="margin-top:8px; margin-bottom:0">
-            <label>Operación</label>
-            <select id="manualOp" onchange="onManualOp()">
-              <option value="sale">Venta</option>
-              <option value="rent">Alquiler (mensual)</option>
-            </select>
-          </div>
-        </div>
-        <div class="prop-meta" id="propMeta" style="display:none"></div>
-      </div>
 
-      <div class="card">
-        <h2>2. Comisión</h2>
-        <div class="ch-sub">Ajustá si hace falta. Los valores vienen con lo habitual cargado.</div>
+          <div id="panelProps">
+            <div class="buscar" id="buscarWrap" hidden><i class="fas fa-magnifying-glass"></i><input type="search" id="buscar" placeholder="Buscar por título, barrio o código" autocomplete="off" oninput="renderLista()"></div>
+            <div class="lista" id="lista"></div>
+            <button type="button" class="link cambiar" id="btnCambiar" hidden onclick="abrirLista()"><i class="fas fa-arrow-right-arrow-left"></i> Cambiar de propiedad</button>
+            <div class="nota ok" id="notaCierre" hidden></div>
+          </div>
 
-        <div id="saleInputs">
-          <div class="field">
-            <label>¿A cuántas partes le cobrás?</label>
-            <select id="partesSelect" onchange="onPartesChange()">
-              <option value="1">Una parte (comprador o vendedor)</option>
-              <option value="2">Ambas partes (comprador y vendedor)</option>
-            </select>
-          </div>
-          <div class="field" id="oneRateField">
-            <label>Comisión de la inmobiliaria <span class="hint">(% del precio)</span></label>
-            <input type="number" id="rateInput" value="3" min="0" step="0.1" oninput="calc()">
-          </div>
-          <div class="row-2" id="twoRateFields" style="display:none">
-            <div class="field">
-              <label>Comisión al comprador <span class="hint">(% del precio)</span></label>
-              <input type="number" id="rateBuyerInput" value="3" min="0" step="0.1" oninput="calc()">
-            </div>
-            <div class="field">
-              <label>Comisión al vendedor <span class="hint">(% del precio)</span></label>
-              <input type="number" id="rateSellerInput" value="3" min="0" step="0.1" oninput="calc()">
-            </div>
-          </div>
-        </div>
-
-        <div id="rentInputs" style="display:none">
-          <div class="ch-sub" style="margin-bottom:12px">Cobrale a cada parte por separado. Poné <b>0</b> si a esa parte no le cobrás, <b>0.5</b> para medio mes, o elegí <b>importe fijo</b> para otro monto.</div>
-          <div class="row-2">
-            <div class="field">
-              <label>Al propietario</label>
-              <div style="display:flex; gap:8px">
-                <input type="number" id="ownerVal" value="1" min="0" step="0.5" oninput="calc()" style="flex:1; min-width:0">
-                <select id="ownerUnit" onchange="calc()" style="width:auto; flex:0 0 auto">
-                  <option value="meses">meses</option>
-                  <option value="fijo">importe fijo</option>
-                </select>
+          <div class="op-datos" id="opDatos" hidden>
+            <div class="campo">
+              <label class="lbl" for="precio" id="lblPrecio">Precio de venta</label>
+              <div class="monto">
+                <span class="cur" id="curFija">US$</span>
+                <span class="curs" id="segMon" hidden><button type="button" data-v="USD" onclick="setMoneda('USD')">US$</button><button type="button" data-v="UYU" onclick="setMoneda('UYU')">$U</button></span>
+                <input type="number" id="precio" min="0" step="1000" inputmode="decimal" placeholder="Ej: 150000" oninput="onPrecio()">
               </div>
+              <div class="ayuda" id="ayudaPrecio"></div>
             </div>
-            <div class="field">
-              <label>Al inquilino</label>
-              <div style="display:flex; gap:8px">
-                <input type="number" id="tenantVal" value="0" min="0" step="0.5" oninput="calc()" style="flex:1; min-width:0">
-                <select id="tenantUnit" onchange="calc()" style="width:auto; flex:0 0 auto">
-                  <option value="meses">meses</option>
-                  <option value="fijo">importe fijo</option>
-                </select>
+            <div class="campo" id="campoOp" hidden>
+              <span class="lbl">Operación</span>
+              <div class="seg" id="segOp"><button type="button" data-v="sale" onclick="setOp('sale')">Venta</button><button type="button" data-v="rent" onclick="setOp('rent')">Alquiler mensual</button></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. La comisión -->
+        <section class="card" id="cardCom">
+          <div class="card-h"><span class="n">2</span><div><h2>La comisión</h2><p>Viene con lo habitual cargado. Cambiala si en esta operación es otra.</p></div></div>
+
+          <div id="comVenta">
+            <span class="lbl">¿A quién le cobra MALAVE?</span>
+            <div class="seg" id="segPartes"><button type="button" data-v="1" aria-pressed="true" onclick="setPartes(1)">A una parte</button><button type="button" data-v="2" aria-pressed="false" onclick="setPartes(2)">A las dos partes</button></div>
+            <div class="filas">
+              <div class="fila" id="filaUna">
+                <span class="f-lbl">Comisión<small>% del precio, a una parte</small></span>
+                <div class="unid"><input type="number" id="rateInput" value="3" min="0" step="0.1" inputmode="decimal" oninput="calc()" aria-label="Comisión (% del precio)"><span class="suf">%</span></div>
+                <span class="f-mon" id="mUna"></span>
+              </div>
+              <div class="fila" id="filaComp" hidden>
+                <span class="f-lbl">Al comprador<small>% del precio</small></span>
+                <div class="unid"><input type="number" id="rateBuyerInput" value="3" min="0" step="0.1" inputmode="decimal" oninput="calc()" aria-label="Comisión al comprador (% del precio)"><span class="suf">%</span></div>
+                <span class="f-mon" id="mComp"></span>
+              </div>
+              <div class="fila" id="filaVend" hidden>
+                <span class="f-lbl">Al vendedor<small>% del precio</small></span>
+                <div class="unid"><input type="number" id="rateSellerInput" value="3" min="0" step="0.1" inputmode="decimal" oninput="calc()" aria-label="Comisión al vendedor (% del precio)"><span class="suf">%</span></div>
+                <span class="f-mon" id="mVend"></span>
               </div>
             </div>
           </div>
-        </div>
 
-        <div class="field">
-          <label>Tu comisión <span class="hint">(% de lo que cobra MALAVE)</span></label>
-          <input type="number" id="tuComInput" min="0" max="100" step="1" oninput="calc()">
-          <div class="note warn" id="noComNote" style="display:none">Tu comisión no está configurada. Pedile al admin que te la asigne en el panel. Mientras tanto, podés escribirla a mano acá arriba.</div>
-        </div>
+          <div id="comAlq" hidden>
+            <span class="lbl">¿Cuánto le cobra MALAVE a cada parte?</span>
+            <div class="filas">
+              <div class="fila alq">
+                <span class="f-lbl">Al inquilino</span>
+                <div class="unid"><input type="number" id="tenantVal" value="1" min="0" step="0.5" inputmode="decimal" oninput="calc()" aria-label="Al inquilino"><select id="tenantUnit" onchange="calc()" aria-label="Unidad"><option value="meses">meses</option><option value="fijo">monto fijo</option></select></div>
+                <span class="f-mon" id="mInq"></span>
+              </div>
+              <div class="fila alq">
+                <span class="f-lbl">Al propietario</span>
+                <div class="unid"><input type="number" id="ownerVal" value="0" min="0" step="0.5" inputmode="decimal" oninput="calc()" aria-label="Al propietario"><select id="ownerUnit" onchange="calc()" aria-label="Unidad"><option value="meses">meses</option><option value="fijo">monto fijo</option></select></div>
+                <span class="f-mon" id="mProp"></span>
+              </div>
+            </div>
+            <div class="ayuda">0 si a esa parte no le cobrás · 0,5 es medio mes · «monto fijo» para cobrar otro importe.</div>
+          </div>
 
-        <div class="field" style="margin-bottom:0">
-          <label class="iva-row"><input type="checkbox" id="ivaToggle" checked onchange="calc()"> <span>Cobrar IVA (22%)</span></label>
-          <div class="iva-hint">Destildalo si en esta operación no se cobra IVA.</div>
-        </div>
+          <hr class="com-sep">
+          <div class="filas">
+            <div class="fila tuya">
+              <span class="f-lbl">Tu porcentaje<small>de lo que cobra MALAVE</small></span>
+              <div class="unid"><input type="number" id="tuComInput" min="0" max="100" step="1" inputmode="decimal" oninput="calc()" aria-label="Tu porcentaje"><span class="suf">%</span></div>
+              <span class="f-mon" id="mTuya"></span>
+            </div>
+          </div>
+          <div class="nota warn" id="noComNote" hidden></div>
+
+          <label class="switch"><input type="checkbox" id="ivaToggle" checked onchange="calc()"><span class="sw"></span><span><b>Cobrar IVA (22%)</b><small>Apagalo si en esta operación no se cobra IVA.</small></span></label>
+        </section>
       </div>
 
-      <div class="card">
-        <h2>3. Resultado</h2>
-        <div class="ch-sub" id="resCurr"></div>
-        <div id="resBody"><div class="placeholder">Elegí una propiedad para ver el cálculo.</div></div>
-        <p class="foot-note">Cálculo orientativo. Tanto la comisión como el IVA se ajustan según cada operación: la comisión de la inmobiliaria y tu porcentaje son editables, y el IVA (22%) se suma solo si lo dejás activado.</p>
-      </div>
+      <!-- 3. Resultado -->
+      <aside class="g-der">
+        <section class="res" id="res" aria-live="polite">
+          <div class="res-vacio" id="resVacio"><i class="fas fa-calculator"></i><p id="resVacioTxt">Elegí una propiedad o probá con otro valor para ver cuánto te queda.</p></div>
+          <div id="resCuerpo" hidden>
+            <div class="res-k">Te quedan <span id="rSinIva">(sin IVA)</span></div>
+            <div class="res-big" id="rTake">US$ 0</div>
+            <div class="res-sub" id="rSub"></div>
+            <div class="barra" id="rBarra"><span class="b-tu" id="bTu"></span><span class="b-mal" id="bMal"></span><span class="b-iva" id="bIva"></span></div>
+            <ul class="leyenda">
+              <li><i class="b-tu"></i>Para vos<b id="lTu"></b></li>
+              <li><i class="b-mal"></i>Queda en MALAVE<b id="lMal"></b></li>
+              <li id="liIva"><i class="b-iva"></i>IVA<b id="lIva"></b></li>
+            </ul>
+            <div class="res-lineas">
+              <div><span>Comisión de MALAVE<small id="rDet"></small></span><b id="rBase"></b></div>
+              <div id="lnIva"><span>IVA<small>22%</small></span><b id="rIva"></b></div>
+              <div id="lnTot"><span>Total con IVA<small>lo que se cobra en total</small></span><b id="rConIva"></b></div>
+            </div>
+            <div class="res-otra" id="rOtra">Tu parte calculada sobre el total con IVA: <b id="rTuConIva"></b></div>
+            <div class="res-pts"><i class="fas fa-coins"></i><div><b id="rPts"></b><small>Puntos de Recompensas: 1 por cada US$ 100 completos que te quedan. Se acreditan cuando se confirma el cierre.</small></div></div>
+            <div class="res-cierre" id="rCierre" hidden></div>
+          </div>
+        </section>
+        <p class="nota-pie">Cálculo orientativo. La comisión de MALAVE y tu porcentaje se pueden cambiar en cada operación, y el IVA (22%) se suma solo si lo dejás activado.</p>
+      </aside>
     </div>
+  </div>
+
+  <!-- Celular: lo que te queda, siempre a la vista -->
+  <div class="barra-movil" id="barraMovil" hidden>
+    <div><small>Te quedan</small><b id="bmTake"></b></div>
+    <button type="button" onclick="verResultado()">Ver detalle <i class="fas fa-chevron-down"></i></button>
   </div>
 
   <script src="malave-config.js?v=20260830b"></script>
@@ -235,14 +379,42 @@
     var auth = firebase.auth();
     var db = firebase.firestore();
 
-    var myProps = [], selectedProp = null, myComSale = null, myComRent = null;
-    // Config de puntos (misma regla que Recompensas: bloques completos de US$100 del
-    // precio de la operación). Se pisa con config/recompensas apenas carga.
+    var myProps = [], selectedProp = null, myComSale = null, myComRent = null, miUid = null;
+    var modo = 'prop', listaAbierta = true, partes = 1;
+    // Lo que se está calculando: la propiedad elegida (precio editable) o un valor a mano.
+    var estadoProp = { price: '', ref: 0, currency: 'USD', type: 'sale', cierre: null };
+    var manual = { price: '', currency: 'USD', type: 'sale' };
+    // Si se precargó la comisión de un cierre, acá queda la que había antes, para
+    // devolverla al elegir otra propiedad.
+    var antesDelCierre = null;
+    var ultimo = null, resVisible = false;
+    // Config de puntos (misma regla que Recompensas: bloques completos de US$100 de
+    // lo que le queda al agente). Se pisa con config/recompensas apenas carga.
     var cfgPts = { puntosPor100: 1, valorPunto: 0.05, dolarPesos: 40 };
+    var ESTADO = { reserved: 'Reservada', sold: 'Vendida', rented: 'Alquilada', archived: 'Archivada', cerrado_externo: 'Cerrada por otros', tasacion: 'En tasación', tasado: 'Tasada' };
 
-    function show(id){ ['loadingState','guestState','pendingState','emptyState','tool'].forEach(function(s){ document.getElementById(s).style.display = (s===id)?'':'none'; }); }
-    function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+    function $(id){ return document.getElementById(id); }
+    function show(id){ ['loadingState','guestState','pendingState','tool'].forEach(function(s){ $(s).hidden = (s !== id); }); }
+    function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
     function fmt(n, cur){ if(!isFinite(n)) n=0; var s = Math.round(n).toLocaleString('es-UY'); return (cur==='UYU'?'$U ':'US$ ') + s; }
+    function fmtNum(n){ return (Number(n) || 0).toLocaleString('es-UY', { maximumFractionDigits: 2 }); }
+    function normTxt(s){ return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+    function numONulo(v){ return (v == null || v === '' || !isFinite(Number(v))) ? null : Number(v); }
+    function fechaNum(v){
+      if(!v) return 0;
+      if(typeof v.toMillis === 'function') return v.toMillis();
+      if(typeof v === 'object' && v.seconds) return v.seconds * 1000;
+      var t = Date.parse(v); return isFinite(t) ? t : 0;
+    }
+    function fechaCorta(v){
+      // "2026-09-15" es un día, no un instante: se arma en hora local (si no, en
+      // Uruguay se mostraba el día anterior).
+      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v || ''));
+      var t = m ? new Date(+m[1], +m[2] - 1, +m[3]).getTime() : fechaNum(v);
+      return t ? new Date(t).toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+    }
+    function cerrada(p){ return ['sold','rented','archived','cerrado_externo'].indexOf(p.status) >= 0; }
+    function pintarSeg(id, v){ document.querySelectorAll('#' + id + ' button').forEach(function(b){ b.setAttribute('aria-pressed', String(b.getAttribute('data-v') === String(v))); }); }
 
     auth.onAuthStateChanged(async function(u){
       if(!u){ show('guestState'); return; }
@@ -251,172 +423,342 @@
         var prof = d.exists ? d.data() : {};
         var isAdmin = (prof.email||u.email||'').toLowerCase() === ADMIN_EMAIL;
         if(prof.status !== 'approved' && !isAdmin){ show('pendingState'); return; }
+        miUid = u.uid;
         var _fb = (prof.commissionPct != null && prof.commissionPct !== '') ? Number(prof.commissionPct) : null;
         myComSale = (prof.commissionSale != null && prof.commissionSale !== '') ? Number(prof.commissionSale) : _fb;
         myComRent = (prof.commissionRent != null && prof.commissionRent !== '') ? Number(prof.commissionRent) : _fb;
         // Config de puntos: no bloquea la carga; si llega después, recalcula sola.
         db.collection('config').doc('recompensas').get().then(function(cp){
-          if(cp.exists){ cfgPts = Object.assign(cfgPts, cp.data()); if(selectedProp) calc(); }
+          if(cp.exists){ cfgPts = Object.assign(cfgPts, cp.data()); calc(); }
         }).catch(function(){});
         await loadProps(u.uid);
       }catch(e){ show('guestState'); }
     });
 
+    // Solo las propiedades del agente (dueño o en el equipo). Antes se bajaban
+    // todas las del sistema para quedarse con estas; si la consulta filtrada
+    // fallara, se cae a leer todo como antes.
     async function loadProps(uid){
+      var lista = [];
       try{
-        var snap = await db.collection('properties').get();
-        myProps = [];
-        snap.forEach(function(doc){
-          var p = doc.data(); p.id = doc.id;
-          var agents = p.agents || [];
-          if(p.ownerId === uid || agents.indexOf(uid) >= 0) myProps.push(p);
-        });
-      }catch(e){ myProps = []; }
-
-      myProps.sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
-      var sel = document.getElementById('propSelect');
-      var opts = '<option value="">— Elegí una propiedad —</option>' +
-                 '<option value="manual">✏️ Calcular un valor hipotético</option>';
-      opts += myProps.map(function(p){
-        var op = p.type === 'rent' ? 'Alquiler' : 'Venta';
-        return '<option value="'+p.id+'">'+esc(p.title || 'Propiedad sin título')+' — '+fmt(Number(p.price)||0, p.currency)+' ('+op+')</option>';
-      }).join('');
-      sel.innerHTML = opts;
-
-      // la comisión se precarga al elegir la propiedad (depende de venta/alquiler)
-      document.getElementById('noComNote').style.display = 'none';
-
+        var r = await Promise.all([
+          db.collection('properties').where('ownerId', '==', uid).get(),
+          db.collection('properties').where('agents', 'array-contains', uid).get()
+        ]);
+        var vistos = {};
+        r.forEach(function(snap){ snap.forEach(function(doc){ if(vistos[doc.id]) return; vistos[doc.id] = 1; var p = doc.data(); p.id = doc.id; lista.push(p); }); });
+      }catch(e){
+        lista = [];
+        try{
+          var snap = await db.collection('properties').get();
+          snap.forEach(function(doc){ var p = doc.data(); p.id = doc.id; var ag = p.agents || []; if(p.ownerId === uid || ag.indexOf(uid) >= 0) lista.push(p); });
+        }catch(e2){ lista = []; }
+      }
+      // Primero las que siguen en juego, después las cerradas; las más nuevas arriba.
+      lista.sort(function(a, b){
+        var ca = cerrada(a) ? 1 : 0, cb = cerrada(b) ? 1 : 0;
+        return ca !== cb ? ca - cb : fechaNum(b.createdAt) - fechaNum(a.createdAt);
+      });
+      myProps = lista;
+      $('nProps').textContent = myProps.length;
       show('tool');
-      // Si no hay propiedades cargadas, abrimos directo el modo hipotético.
-      if(!myProps.length){ sel.value = 'manual'; onPropChange(); }
+      renderLista();
+      // Sin propiedades cargadas: directo a la cuenta con otro valor.
+      if(!myProps.length) setModo('manual'); else aplicar(false);
     }
 
-    function onPropChange(){
-      var id = document.getElementById('propSelect').value;
-      var manualBox = document.getElementById('manualBox');
-      if(id === 'manual'){
-        manualBox.style.display = 'block';
-        selectedProp = leerManual();
-        aplicarSeleccion(true);
+    /* ===== 1. La operación ===== */
+    function renderLista(){
+      var cont = $('lista');
+      if(!myProps.length){
+        cont.innerHTML = '<div class="vacio">Todavía no tenés propiedades cargadas a tu nombre.<br>Podés hacer la cuenta con «Probar otro valor».</div>';
+        $('buscarWrap').hidden = true; $('btnCambiar').hidden = true; cont.classList.remove('cerrada');
         return;
       }
-      manualBox.style.display = 'none';
-      selectedProp = myProps.find(function(p){ return p.id === id; }) || null;
-      if(!selectedProp){
-        document.getElementById('propMeta').style.display = 'none';
-        document.getElementById('resBody').innerHTML = '<div class="placeholder">Elegí una propiedad o calculá un valor hipotético.</div>';
-        document.getElementById('resCurr').textContent = '';
-        return;
-      }
-      aplicarSeleccion(true);
+      var abierta = listaAbierta || !selectedProp;
+      $('buscarWrap').hidden = !abierta || myProps.length <= 5;
+      var texto = $('buscar').value.trim(), q = normTxt(texto);
+      var vis = abierta
+        ? myProps.filter(function(p){
+            if(!q) return true;
+            var f = p.ficha || {};
+            return normTxt([p.title, p.ciudad, p.departamento, p.direccion, p.location, f.PROPERTY_CODE].join(' ')).indexOf(q) >= 0;
+          })
+        : [selectedProp];
+      cont.innerHTML = vis.length ? vis.map(filaProp).join('') : '<div class="vacio">Ninguna propiedad coincide con «' + esc(texto) + '».</div>';
+      cont.classList.toggle('cerrada', !abierta);
+      $('btnCambiar').hidden = abierta;
+    }
+    function filaProp(p){
+      var alq = p.type === 'rent';
+      var foto = (p.images && p.images[0]) ? '<img src="' + esc(p.images[0]) + '" alt="" loading="lazy">' : '<i class="fas fa-house"></i>';
+      var lugar = p.ciudad || p.location || '';
+      var est = ESTADO[p.status] ? '<span class="tag' + (p.status === 'sold' || p.status === 'rented' ? ' cerrada' : '') + '">' + ESTADO[p.status] + '</span>' : '';
+      var sel = !!(selectedProp && selectedProp.id === p.id);
+      return '<button type="button" class="pr" data-id="' + esc(p.id) + '" aria-pressed="' + sel + '">' +
+        '<span class="pr-img">' + foto + '</span>' +
+        '<span class="pr-txt"><b>' + esc(p.title || 'Propiedad sin título') + '</b><small><span class="tag ' + (alq ? 'alq' : 'venta') + '">' + (alq ? 'Alquiler' : 'Venta') + '</span>' + est + (lugar ? '<span class="pr-lugar">' + esc(lugar) + '</span>' : '') + '</small></span>' +
+        '<span class="pr-precio">' + fmt(Number(p.price) || 0, p.currency) + (alq ? '<small>por mes</small>' : '') + '</span>' +
+        (sel ? '<i class="fas fa-circle-check pr-ok"></i>' : '') +
+      '</button>';
+    }
+    $('lista').addEventListener('click', function(e){
+      var b = e.target.closest('.pr'); if(b) elegirProp(b.getAttribute('data-id'));
+    });
+    function abrirLista(){
+      listaAbierta = true; renderLista();
+      // En la compu el cursor va al buscador; en el celular no (abriría el teclado).
+      if(!$('buscarWrap').hidden && window.matchMedia && matchMedia('(hover: hover)').matches) $('buscar').focus();
     }
 
-    function leerManual(){
-      return {
-        manual: true,
-        title: 'Valor hipotético',
-        price: Number(document.getElementById('manualPrice').value) || 0,
-        currency: document.getElementById('manualCurrency').value,
-        type: document.getElementById('manualOp').value
-      };
+    function elegirProp(id){
+      var p = myProps.find(function(x){ return x.id === id; });
+      if(!p) return;
+      // Tocar la que ya está elegida abre o cierra la lista, sin perder lo escrito.
+      if(selectedProp && selectedProp.id === id){ listaAbierta = !listaAbierta; renderLista(); return; }
+      selectedProp = p; listaAbierta = false;
+      cargarDesdePropiedad(p);
+      renderLista();
+      aplicar(true);
     }
-    // Precio/moneda: recalcula sin pisar la comisión que el usuario haya escrito.
-    function onManualPrecio(){ selectedProp = leerManual(); aplicarSeleccion(false); }
-    // Cambió venta/alquiler: sí precarga la comisión correspondiente.
-    function onManualOp(){ selectedProp = leerManual(); aplicarSeleccion(true); }
-
-    function aplicarSeleccion(precargarComision){
-      if(!selectedProp){ return; }
-      var isRent = selectedProp.type === 'rent';
-      document.getElementById('saleInputs').style.display = isRent ? 'none' : 'block';
-      document.getElementById('rentInputs').style.display = isRent ? 'block' : 'none';
-      if(!isRent){
-        var _both = document.getElementById('partesSelect').value === '2';
-        document.getElementById('oneRateField').style.display = _both ? 'none' : 'block';
-        document.getElementById('twoRateFields').style.display = _both ? 'grid' : 'none';
+    // El cierre registrado manda solo si la propiedad figura vendida o alquilada:
+    // si volvió a publicarse, ese cierre es de una operación anterior.
+    function cierreUsable(p){ return (p && p.cierre && (p.status === 'sold' || p.status === 'rented')) ? p.cierre : null; }
+    function cargarDesdePropiedad(p){
+      var c = cierreUsable(p);
+      if(c){
+        if(!antesDelCierre) antesDelCierre = tomarComision();
+        var tipo = c.tipo === 'venta' ? 'sale' : (c.tipo === 'alquiler' ? 'rent' : (p.type === 'rent' ? 'rent' : 'sale'));
+        var precio = Number(c.precio) > 0 ? Number(c.precio) : (Number(p.price) || 0);
+        estadoProp = { price: precio ? String(precio) : '', ref: precio, currency: c.moneda || p.currency || 'USD', type: tipo, cierre: c };
+        ponerComisionDelCierre(c, tipo);
+      } else {
+        if(antesDelCierre){ ponerComision(antesDelCierre); antesDelCierre = null; }
+        var pr = Number(p.price) || 0;
+        estadoProp = { price: pr ? String(pr) : '', ref: pr, currency: p.currency || 'USD', type: p.type === 'rent' ? 'rent' : 'sale', cierre: null };
       }
-      var meta = document.getElementById('propMeta');
-      meta.style.display = 'flex';
-      meta.innerHTML =
-        '<span class="chip op">'+(isRent?'Alquiler':'Venta')+'</span>' +
-        '<span class="chip price">'+(isRent?'Alquiler mensual: ':'Precio: ')+fmt(Number(selectedProp.price)||0, selectedProp.currency)+'</span>' +
-        (selectedProp.realEstateType?'<span class="chip">'+esc(selectedProp.realEstateType)+'</span>':'') +
-        (selectedProp.manual?'<span class="chip">Hipotético</span>':'');
+    }
+    function tomarComision(){
+      return { partes: partes, rate: $('rateInput').value, rb: $('rateBuyerInput').value, rs: $('rateSellerInput').value,
+        tVal: $('tenantVal').value, tUnit: $('tenantUnit').value, oVal: $('ownerVal').value, oUnit: $('ownerUnit').value };
+    }
+    function ponerComision(s){
+      partes = s.partes; $('rateInput').value = s.rate; $('rateBuyerInput').value = s.rb; $('rateSellerInput').value = s.rs;
+      $('tenantVal').value = s.tVal; $('tenantUnit').value = s.tUnit; $('ownerVal').value = s.oVal; $('ownerUnit').value = s.oUnit;
+      pintarPartes();
+    }
+    // Comisión del cierre: % (venta) o meses (alquiler) que pagó cada parte.
+    function ponerComisionDelCierre(c, tipo){
+      var pc = numONulo(c.comisionComprador), pv = numONulo(c.comisionVendedor);
+      if(tipo === 'sale'){
+        if(pc > 0 && pv > 0){ partes = 2; $('rateBuyerInput').value = pc; $('rateSellerInput').value = pv; }
+        else if(pc > 0 || pv > 0){ partes = 1; $('rateInput').value = pc > 0 ? pc : pv; }
+        else if(numONulo(c.agencyPct) != null){ partes = 1; $('rateInput').value = Number(c.agencyPct); }
+      } else {
+        if(pc != null || pv != null){ $('tenantVal').value = pc != null ? pc : 0; $('ownerVal').value = pv != null ? pv : 0; $('tenantUnit').value = 'meses'; $('ownerUnit').value = 'meses'; }
+        else if(numONulo(c.agencyMonths) != null){ $('tenantVal').value = Number(c.agencyMonths); $('ownerVal').value = 0; $('tenantUnit').value = 'meses'; $('ownerUnit').value = 'meses'; }
+      }
+      pintarPartes();
+    }
+
+    function setModo(m){
+      modo = m;
+      pintarSeg('segModo', m);
+      $('panelProps').hidden = (m !== 'prop');
+      if(m === 'manual'){
+        if(antesDelCierre){ ponerComision(antesDelCierre); antesDelCierre = null; }
+      } else if(selectedProp && cierreUsable(selectedProp)) cargarDesdePropiedad(selectedProp);
+      aplicar(true);
+    }
+    // Lo que se está calculando ahora (null si todavía no hay nada elegido).
+    function operacionActual(){
+      if(modo === 'manual') return { manual: true, price: Number($('precio').value) || 0, currency: manual.currency, type: manual.type };
+      if(!selectedProp) return null;
+      return { price: Number($('precio').value) || 0, currency: estadoProp.currency, type: estadoProp.type };
+    }
+    function pintarDatos(){
+      var esManual = modo === 'manual', hay = esManual || !!selectedProp;
+      $('opDatos').hidden = !hay;
+      pintarNotaCierre();
+      if(!hay) return;
+      var st = esManual ? manual : estadoProp;
+      $('precio').value = st.price;
+      $('lblPrecio').textContent = st.type === 'rent' ? 'Alquiler por mes' : 'Precio de venta';
+      $('curFija').hidden = esManual; $('curFija').textContent = st.currency === 'UYU' ? '$U' : 'US$';
+      $('segMon').hidden = !esManual; pintarSeg('segMon', manual.currency);
+      $('campoOp').hidden = !esManual; pintarSeg('segOp', manual.type);
+      pintarAyudaPrecio();
+    }
+    function pintarAyudaPrecio(){
+      var a = $('ayudaPrecio');
+      if(modo === 'manual'){ a.textContent = 'Escribí el precio con el que querés hacer la cuenta.'; return; }
+      var st = estadoProp, actual = Number($('precio').value) || 0;
+      var txt = st.cierre ? 'Es el precio del cierre registrado.' : 'Es el de la publicación. Si se cierra por otro precio, cambialo acá.';
+      a.innerHTML = esc(txt) + ((st.ref > 0 && actual !== st.ref) ? ' <button type="button" class="link" onclick="volverPrecio()">Volver a ' + esc(fmt(st.ref, st.currency)) + '</button>' : '');
+    }
+    function pintarNotaCierre(){
+      var n = $('notaCierre'), c = (modo === 'prop' && selectedProp) ? estadoProp.cierre : null;
+      if(!c){ n.hidden = true; return; }
+      var f = fechaCorta(c.fecha);
+      n.innerHTML = '<i class="fas fa-handshake"></i><span>Tiene un cierre registrado' + (f ? ' el ' + esc(f) : '') + (selectedProp.cierreConfirmado === true ? '' : ' (pendiente de confirmar)') + ': se cargaron el precio y la comisión de ese cierre.</span>';
+      n.hidden = false;
+    }
+    function onPrecio(){
+      if(modo === 'manual') manual.price = $('precio').value; else estadoProp.price = $('precio').value;
+      pintarAyudaPrecio(); calc();
+    }
+    function volverPrecio(){ estadoProp.price = String(estadoProp.ref); $('precio').value = estadoProp.price; pintarAyudaPrecio(); calc(); }
+    // Moneda: recalcula sin pisar la comisión que el usuario haya escrito.
+    function setMoneda(c){ manual.currency = c; pintarDatos(); calc(); }
+    // Venta / alquiler: sí precarga tu porcentaje correspondiente.
+    function setOp(t){ manual.type = t; aplicar(true); }
+
+    function aplicar(precargarComision){
+      pintarDatos();
+      var o = operacionActual();
+      if(!o){ calc(); return; }
+      var isRent = o.type === 'rent';
+      $('comVenta').hidden = isRent; $('comAlq').hidden = !isRent;
       if(precargarComision){
         var myCom = isRent ? myComRent : myComSale;
-        document.getElementById('tuComInput').value = (myCom != null) ? myCom : '';
-        var note = document.getElementById('noComNote');
-        note.textContent = 'Tu comisión de ' + (isRent ? 'alquiler' : 'venta') + ' no está configurada. Pedile al admin que te la asigne, o escribila a mano acá arriba.';
-        note.style.display = (myCom != null) ? 'none' : 'block';
+        $('tuComInput').value = (myCom != null) ? myCom : '';
+        var note = $('noComNote');
+        note.innerHTML = '<i class="fas fa-circle-exclamation"></i><span>Tu porcentaje de ' + (isRent ? 'alquiler' : 'venta') + ' no está configurado. Pedile al admin que te lo asigne en el panel; mientras tanto, escribilo acá.</span>';
+        note.hidden = (myCom != null);
       }
       calc();
     }
 
-    function onPartesChange(){
-      var both = document.getElementById('partesSelect').value === '2';
-      document.getElementById('oneRateField').style.display = both ? 'none' : 'block';
-      document.getElementById('twoRateFields').style.display = both ? 'grid' : 'none';
-      calc();
+    /* ===== 2. La comisión ===== */
+    function setPartes(n){ partes = n; pintarPartes(); calc(); }
+    function pintarPartes(){
+      pintarSeg('segPartes', partes);
+      $('filaUna').hidden = partes === 2;
+      $('filaComp').hidden = partes !== 2;
+      $('filaVend').hidden = partes !== 2;
+      $('filaComp').classList.toggle('primera', partes === 2);
     }
-    function calc(){
-      if(!selectedProp){ return; }
-      var price = Number(selectedProp.price) || 0;
-      var cur = selectedProp.currency || 'USD';
-      var isRent = selectedProp.type === 'rent';
-      document.getElementById('resCurr').textContent = 'Montos en ' + (cur==='UYU'?'pesos uruguayos':'dólares') + '.';
 
-      var base, detalle;
+    /* ===== 3. La cuenta (la misma de siempre) ===== */
+    function calcular(o){
+      var price = Number(o.price) || 0;
+      var cur = o.currency || 'USD';
+      var isRent = o.type === 'rent';
+      var base, detalle, montos = {};
       if(isRent){
-        var mtxt = function(x){ return x===0.5 ? 'medio mes' : (x===1 ? '1 mes' : x+' meses'); };
-        var oVal = Number(document.getElementById('ownerVal').value) || 0;
-        var oFijo = document.getElementById('ownerUnit').value === 'fijo';
-        var tVal = Number(document.getElementById('tenantVal').value) || 0;
-        var tFijo = document.getElementById('tenantUnit').value === 'fijo';
-        var oAmt = oFijo ? oVal : price * oVal;
+        var mtxt = function(x){ return x === 0.5 ? 'medio mes' : (x === 1 ? '1 mes' : fmtNum(x) + ' meses'); };
+        var tVal = Number($('tenantVal').value) || 0;
+        var tFijo = $('tenantUnit').value === 'fijo';
+        var oVal = Number($('ownerVal').value) || 0;
+        var oFijo = $('ownerUnit').value === 'fijo';
         var tAmt = tFijo ? tVal : price * tVal;
+        var oAmt = oFijo ? oVal : price * oVal;
         base = oAmt + tAmt;
+        montos.mInq = tAmt; montos.mProp = oAmt;
         var parts = [];
-        if(oAmt > 0) parts.push('propietario ' + (oFijo ? fmt(oVal,cur) : mtxt(oVal)));
-        if(tAmt > 0) parts.push('inquilino ' + (tFijo ? fmt(tVal,cur) : mtxt(tVal)));
+        if(tAmt > 0) parts.push('inquilino ' + (tFijo ? fmt(tVal, cur) : mtxt(tVal)));
+        if(oAmt > 0) parts.push('propietario ' + (oFijo ? fmt(oVal, cur) : mtxt(oVal)));
         detalle = parts.length ? parts.join(' + ') : 'sin comisión';
+      } else if(partes === 2){
+        var rb = Number($('rateBuyerInput').value) || 0;
+        var rs = Number($('rateSellerInput').value) || 0;
+        base = price * (rb/100) + price * (rs/100);
+        montos.mComp = price * (rb/100); montos.mVend = price * (rs/100);
+        detalle = 'comprador ' + fmtNum(rb) + '% + vendedor ' + fmtNum(rs) + '%';
       } else {
-        if(document.getElementById('partesSelect').value === '2'){
-          var rb = Number(document.getElementById('rateBuyerInput').value) || 0;
-          var rs = Number(document.getElementById('rateSellerInput').value) || 0;
-          base = price * (rb/100) + price * (rs/100);
-          detalle = 'comprador ' + rb + '% + vendedor ' + rs + '%';
-        } else {
-          var rate = Number(document.getElementById('rateInput').value) || 0;
-          base = price * (rate/100);
-          detalle = rate + '% de una parte';
-        }
+        var rate = Number($('rateInput').value) || 0;
+        base = price * (rate/100);
+        montos.mUna = base;
+        detalle = fmtNum(rate) + '% a una parte';
       }
-
-      var ivaOn = document.getElementById('ivaToggle').checked;
+      var ivaOn = $('ivaToggle').checked;
       var iva = ivaOn ? base * 0.22 : 0;
       var conIva = base + iva;
-      var pct = Number(document.getElementById('tuComInput').value) || 0;
+      var pctTxt = String($('tuComInput').value).trim();
+      var pct = Number(pctTxt) || 0;
       var tuSinIva = base * (pct/100);
       var tuConIva = conIva * (pct/100);
-
-      var html = '<div class="res-line"><span>Comisión de la inmobiliaria <small>'+esc(detalle)+'</small></span><span class="v">'+fmt(base,cur)+'</span></div>';
-      if(ivaOn){
-        html += '<div class="res-line"><span>IVA <small>22%</small></span><span class="v">'+fmt(iva,cur)+'</span></div>';
-        html += '<div class="res-line"><span>Comisión con IVA</span><span class="v">'+fmt(conIva,cur)+'</span></div>';
-      }
-      html += '<div class="res-take"><div class="lbl">Lo que te queda a vos'+(ivaOn?' <b>(sin IVA)</b>':'')+'<br><small style="opacity:.7">'+pct+'% de la comisión</small></div><div class="big">'+fmt(tuSinIva,cur)+'</div></div>';
-      if(ivaOn){
-        html += '<div class="res-second"><span>Tu parte calculada sobre el total <b>con IVA</b></span><span class="v">'+fmt(tuConIva,cur)+'</span></div>';
-      }
       // Puntos de recompensa: 1 punto por cada US$100 COMPLETOS que le quedan al
       // agente (su comisión sin IVA; en pesos se convierte con dolarPesos).
       var dolar = Number(cfgPts.dolarPesos) || 0;
       var usdBolsillo = (cur === 'UYU') ? (dolar > 0 ? tuSinIva / dolar : 0) : tuSinIva;
       var pts = Math.floor(usdBolsillo / 100) * (Number(cfgPts.puntosPor100) || 1);
       var ptsVal = pts * (Number(cfgPts.valorPunto) || 0);
-      var ptsTxt = pts.toLocaleString('es-UY') + (pts === 1 ? ' punto' : ' puntos') + (ptsVal > 0 ? ' · ≈ US$ ' + Math.round(ptsVal).toLocaleString('es-UY') : '');
-      html += '<div class="res-pts"><div><i class="fas fa-coins"></i> <b>Puntos de recompensa</b><small>1 punto por cada US$100 completos que te quedan a vos. Se acreditan al confirmarse el cierre.</small></div><div class="v">'+ptsTxt+'</div></div>';
-      document.getElementById('resBody').innerHTML = html;
+      return { price: price, cur: cur, isRent: isRent, base: base, iva: iva, conIva: conIva, ivaOn: ivaOn, pct: pct, sinPct: pctTxt === '',
+        tuSinIva: tuSinIva, tuConIva: tuConIva, pts: pts, ptsVal: ptsVal, detalle: detalle, montos: montos };
+    }
+
+    function calc(){
+      var o = operacionActual();
+      if(!o){ ultimo = null; pintarVacio('Elegí una propiedad o probá con otro valor para ver cuánto te queda.'); return; }
+      var r = calcular(o);
+      ultimo = r;
+      // Lo que cobra MALAVE en cada parte, al lado de cada casillero
+      ['mUna','mComp','mVend','mInq','mProp'].forEach(function(id){
+        var v = r.montos[id], el = $(id);
+        el.textContent = v != null ? fmt(v, r.cur) : '';
+        el.classList.toggle('cero', !(v > 0));
+      });
+      $('mTuya').textContent = r.sinPct ? '' : fmt(r.tuSinIva, r.cur);
+      if(!(r.price > 0)){ pintarVacio(o.type === 'rent' ? 'Escribí el alquiler por mes para ver la cuenta.' : 'Escribí el precio para ver la cuenta.'); return; }
+      $('resVacio').hidden = true; $('resCuerpo').hidden = false;
+      $('rSinIva').hidden = !r.ivaOn;
+      $('rTake').textContent = r.sinPct ? '—' : fmt(r.tuSinIva, r.cur);
+      $('rSub').textContent = r.sinPct ? 'Escribí tu porcentaje para ver cuánto te queda.' : fmtNum(r.pct) + '% de la comisión de MALAVE' + (r.ivaOn ? ', sin el IVA' : '') + '.';
+      // Barra: el total que se cobra, partido en lo tuyo, lo de MALAVE y el IVA
+      var tot = r.conIva, tu = Math.min(r.tuSinIva, r.base), mal = Math.max(0, r.base - r.tuSinIva);
+      $('rBarra').hidden = !(tot > 0);
+      if(tot > 0){
+        $('bTu').style.width = (tu / tot * 100) + '%';
+        $('bMal').style.width = (mal / tot * 100) + '%';
+        $('bIva').style.width = (r.iva / tot * 100) + '%';
+      }
+      $('lTu').textContent = fmt(r.tuSinIva, r.cur);
+      $('lMal').textContent = fmt(mal, r.cur);
+      $('lIva').textContent = fmt(r.iva, r.cur);
+      $('liIva').hidden = !r.ivaOn;
+      $('rDet').textContent = r.detalle;
+      $('rBase').textContent = fmt(r.base, r.cur);
+      $('rIva').textContent = fmt(r.iva, r.cur);
+      $('rConIva').textContent = fmt(r.conIva, r.cur);
+      $('lnIva').hidden = !r.ivaOn; $('lnTot').hidden = !r.ivaOn;
+      $('rTuConIva').textContent = fmt(r.tuConIva, r.cur);
+      $('rOtra').hidden = !r.ivaOn || r.sinPct;
+      $('rPts').textContent = r.pts.toLocaleString('es-UY') + (r.pts === 1 ? ' punto' : ' puntos') + (r.ptsVal > 0 ? ' · ≈ US$ ' + Math.round(r.ptsVal).toLocaleString('es-UY') : '');
+      pintarCierreRegistrado();
+      $('bmTake').textContent = r.sinPct ? '—' : fmt(r.tuSinIva, r.cur);
+      pintarBarraMovil();
+    }
+    function pintarVacio(txt){
+      $('resVacioTxt').textContent = txt;
+      $('resVacio').hidden = false; $('resCuerpo').hidden = true;
+      ['mUna','mComp','mVend','mInq','mProp','mTuya'].forEach(function(id){ $(id).textContent = ''; });
+      ultimo = null;
+      pintarBarraMovil();
+    }
+    // Si la propiedad tiene un cierre con la ganancia ya cargada, se muestra al lado.
+    function pintarCierreRegistrado(){
+      var el = $('rCierre'), c = (modo === 'prop' && selectedProp) ? estadoProp.cierre : null;
+      if(!c){ el.hidden = true; return; }
+      var mon = c.moneda || estadoProp.currency, txt = '';
+      var mio = c.agenteUid ? c.agenteUid === miUid : selectedProp.ownerId === miUid;
+      var gan = numONulo(c.gananciaAgente);
+      var parte = (Array.isArray(c.participantes) ? c.participantes : []).find(function(x){ return x && x.uid === miUid; });
+      if(mio && gan != null) txt = 'En el cierre quedó registrada tu ganancia: <b>' + esc(fmt(gan, mon)) + '</b>.';
+      else if(!mio && parte && numONulo(parte.monto) != null) txt = 'En este cierre figurás en el equipo con <b>' + esc(fmt(Number(parte.monto), mon)) + '</b>.';
+      el.innerHTML = txt ? '<i class="fas fa-handshake"></i><span>' + txt + '</span>' : '';
+      el.hidden = !txt;
+    }
+
+    /* ===== Celular: barra fija con lo que te queda ===== */
+    function pintarBarraMovil(){
+      var hay = !!(ultimo && ultimo.price > 0);
+      $('barraMovil').hidden = !hay || resVisible;
+      document.body.classList.toggle('con-barra', hay && !resVisible);
+    }
+    function verResultado(){ $('res').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    if('IntersectionObserver' in window){
+      new IntersectionObserver(function(es){ resVisible = es.some(function(e){ return e.isIntersecting; }); pintarBarraMovil(); }, { threshold: 0.25 }).observe($('res'));
     }
   </script>
 <script src="fcm-init.js"></script>
