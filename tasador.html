@@ -1640,7 +1640,8 @@
     // Eje en valor total del inmueble. La campana es la distribución del valor;
     // la franja dorada, el rango del 90%. Mínimo y máximo llevan línea firme y la
     // cifra grande abajo; el estimado va arriba en dorado. Los puntos azules son
-    // lo que valdría el inmueble según cada comparable ya ajustado.
+    // lo que valdría el inmueble según cada comparable ya ajustado, sobre la curva
+    // (cuanto más cerca del estimado, más arriba).
     function pGrafico(doc, d) {
       var pdf = doc.pdf, M = doc.M, W = doc.W, alto = 188;
       pEspacio(doc, alto + 4);
@@ -1674,8 +1675,8 @@
       // Estimado
       pDraw(pdf, PDF.gold, 1.3); pdf.setLineDashPattern([3.2, 2.2], 0); pdf.line(xEst, y + 31, xEst, yBase); pdf.setLineDashPattern([], 0);
       pFill(pdf, PDF.gold); pDraw(pdf, [255,255,255], 1.1); pdf.circle(xEst, y + 31, 3.6, 'FD');
-      // Comparables sobre el eje
-      comps.forEach(function(c){ pFill(pdf, PDF.navy); pDraw(pdf, [255,255,255], 0.9); pdf.circle(X(c), yBase, 3.1, 'FD'); });
+      // Comparables sobre la curva, cada uno en su valor
+      comps.forEach(function(c){ pFill(pdf, PDF.navy); pDraw(pdf, [255,255,255], 0.9); pdf.circle(X(c), curva(c), 3.1, 'FD'); });
       // Etiqueta del estimado (arriba)
       pF(pdf, 'bold', 11.5, PDF.goldOsc);
       var tEst = pdfTxt(fmt(est)), wEst = pMedir(pdf, tEst);
