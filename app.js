@@ -4941,7 +4941,6 @@
     $('pfSubProps').textContent = _pfGrupo === 'activas' ? 'En venta y en alquiler hoy.'
       : _pfGrupo === 'cerradas' ? (q.duenio ? 'Las que ya vendiste o alquilaste.' : 'Operaciones que ya cerró con MALAVE.')
       : (q.duenio ? 'Fuera de circulación: solo las ven vos y la Dirección.' : 'Fuera de circulación: solo las ven el agente y la Dirección.');
-    $('btnNewPropertyProfile').classList.toggle('hidden', !q.edita);
     const lista = g[_pfGrupo];
     if (!lista.length) {
       $('profilePropertiesGrid').innerHTML = '<div class="pf-vacio"><i class="fas fa-house"></i>' + (_pfGrupo === 'activas'
