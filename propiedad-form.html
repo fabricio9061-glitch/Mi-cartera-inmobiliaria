@@ -237,12 +237,44 @@
     .fx-empty{ color:var(--muted); font-size:.86rem; padding:8px 2px 14px; display:none; }
 
     .titulo-counter{ font-size:.78rem; color:#9ca3af; text-align:right; margin:-10px 0 12px; }
-    .ubicacion-estado{ font-size:.86rem; color:var(--muted); margin:8px 0 10px; line-height:1.5; }
+    .ubicacion-estado{ font-size:.84rem; color:var(--muted); margin:9px 0 2px; line-height:1.5; }
     .ubicacion-estado .ok{ color:var(--ok); font-weight:600; }
     .ubicacion-estado a{ color:var(--bad); cursor:pointer; text-decoration:underline; }
     .btn-mapa{ background:var(--ink); color:#fff; border:none; border-radius:9px; padding:10px 16px; cursor:pointer; font-family:inherit; font-size:.9rem; display:inline-flex; align-items:center; gap:8px; margin-bottom:12px; }
     .btn-mapa:hover{ opacity:.92; }
-    #propMapa{ height:320px; border-radius:12px; border:1px solid var(--line); position:relative; z-index:0; margin-bottom:6px; }
+    #propMapa{ height:380px; border-radius:14px; border:1px solid var(--line); position:relative; z-index:0; }
+    /* ---- Ubicación: dirección → pin → barrio ---- */
+    .ub-buscar{ display:grid; grid-template-columns:minmax(140px,.85fr) minmax(0,2fr) minmax(76px,.5fr) auto; gap:12px; align-items:end; }
+    #propertyForm .ub-buscar .form-group{ margin-bottom:0; }
+    .ub-buscar .btn-mapa{ margin:0; height:42px; white-space:nowrap; justify-content:center; }
+    .ub-buscar .btn-mapa:disabled{ opacity:.7; cursor:wait; }
+    .ub-mapa-wrap{ position:relative; margin-top:14px; }
+    .ub-chip{ position:absolute; left:12px; top:12px; z-index:500; max-width:calc(100% - 80px); background:#fff; color:var(--ink);
+      border-radius:999px; padding:7px 13px; font-size:.83rem; font-weight:600; box-shadow:0 4px 16px rgba(22,39,63,.2);
+      display:inline-flex; align-items:center; gap:7px; pointer-events:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ub-chip[hidden]{ display:none; }
+    .ub-chip i{ color:var(--gold); }
+    .leaflet-top.leaflet-left{ left:auto; right:0; }
+    .leaflet-top.leaflet-left .leaflet-control{ margin-left:0; margin-right:10px; }
+    .ub-tt{ background:var(--ink); color:#fff; border:0; border-radius:7px; font-family:inherit; font-size:.8rem; font-weight:600; padding:4px 9px; box-shadow:0 4px 12px rgba(22,39,63,.25); }
+    .ub-tt::before{ display:none; }
+    .ub-barrio{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr); gap:8px 18px; align-items:end; margin-top:12px; }
+    #propertyForm .ub-barrio .form-group{ margin-bottom:0; }
+    .ub-nota{ font-size:.82rem; color:var(--muted); line-height:1.5; padding-bottom:10px; }
+    .ub-nota:empty{ display:none; }
+    .ub-nota .auto{ color:var(--ok); font-weight:600; }
+    .ub-nota .bien{ color:var(--ok); }
+    .ub-nota .ojo{ color:#8a6d1f; }
+    .ub-nota .sub{ display:block; margin-top:3px; }
+    .ub-nota button{ background:none; border:0; padding:0; font:inherit; color:#8a6d1f; font-weight:600; text-decoration:underline; text-underline-offset:2px; cursor:pointer; }
+    .ub-nota i{ margin-right:3px; }
+    @media (max-width:760px){
+      .ub-buscar{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+      .ub-buscar .ub-dep, .ub-buscar .ub-calle{ grid-column:1 / -1; }
+      #propMapa{ height:300px; }
+      .ub-barrio{ grid-template-columns:1fr; }
+      .ub-nota{ padding-bottom:4px; }
+    }
     .foto-counter{ font-size:.84rem; margin-top:8px; font-weight:500; }
     .foto-counter .b{ font-variant-numeric:tabular-nums; }
 
@@ -459,6 +491,78 @@
       .rv-fila em{ display:block; margin-top:1px; }
       .rv-fila em::before{ content:none; }
     }
+
+    /* ==========================================================================
+       REDISEÑO 30/09/2026
+       ========================================================================== */
+    /* El título grande y la explicación de las etiquetas, solo en el primer paso:
+       en los demás empujaban el paso media pantalla hacia abajo (en el celular,
+       más de la mitad). */
+    .pf-main h1{ font-size:32px; line-height:1.15; }
+    .pf-wizard:not([data-paso="0"]) .pf-lede{ display:none; }
+    .pf-wizard:not([data-paso="0"]) .pf-main h1{ font-family:'Jost',sans-serif; font-size:.82rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:#a8adb4; margin:2px 0 10px; }
+    /* Desplegables blancos como los campos (en algunos sistemas salían grises). */
+    #propertyForm .form-group select{ background-color:#fff; }
+    /* Barra de portales: "faltan N" con palabras en la computadora; el aro queda
+       como avance. En el celular sigue el número adentro del aro. */
+    .pf-chip .cnt{ font-weight:500; opacity:.85; }
+    @media (min-width:641px){ .pf-chip:not(.listo):not(.frenado) .aro b{ display:none; } }
+    @media (max-width:640px){ .pf-chip .cnt{ display:none; } }
+
+    /* Paso 1: botones en vez de desplegables */
+    .pf-sr{ position:absolute !important; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+    .op-fila{ display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:16px 22px; }
+    .op-grupo{ margin-bottom:18px; }
+    .op-lbl{ font-size:.79rem; color:var(--muted); margin-bottom:7px; }
+    .op-seg{ display:flex; background:var(--paper); border:1px solid var(--line); border-radius:11px; padding:4px; gap:4px; }
+    .op-seg button{ flex:1; display:inline-flex; align-items:center; justify-content:center; gap:8px; border:0; background:none; border-radius:8px; padding:10px 12px; font-family:inherit; font-size:.92rem; font-weight:500; color:#5b6472; cursor:pointer; transition:background .15s, color .15s, box-shadow .15s; }
+    .op-seg button:hover{ color:var(--ink); }
+    .op-seg button.on{ background:#fff; color:var(--ink); font-weight:600; box-shadow:0 1px 4px rgba(22,39,63,.12), 0 0 0 1px rgba(22,39,63,.06); }
+    .op-seg button.on i{ color:var(--gold); }
+    .op-tipos{ display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:10px; }
+    .op-tipos button{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:9px; min-height:94px; padding:14px 8px; border:1px solid var(--line); border-radius:12px; background:#fff; font-family:inherit; font-size:.86rem; font-weight:500; color:#5b6472; cursor:pointer; text-align:center; line-height:1.25; transition:border-color .15s, box-shadow .15s, color .15s, background .15s; }
+    .op-tipos button i{ font-size:1.35rem; color:#9aa3ad; transition:color .15s; }
+    .op-tipos button:hover{ border-color:#c2c6cb; color:var(--ink); }
+    .op-tipos button.on{ border-color:var(--ink); background:#fbfaf6; color:var(--ink); font-weight:600; box-shadow:0 0 0 1px var(--ink) inset, 0 4px 14px rgba(22,39,63,.08); }
+    .op-tipos button.on i{ color:var(--gold); }
+    .op-seg button:focus-visible, .op-tipos button:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+    @media (max-width:640px){
+      .op-fila{ grid-template-columns:1fr; gap:0; }
+      .op-tipos{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+      .op-tipos button{ min-height:82px; font-size:.78rem; padding:10px 4px; }
+    }
+
+    /* Paso 3: íconos y la unidad pegada al número */
+    .car-ic{ color:var(--gold); font-size:.8rem; width:15px; text-align:center; }
+    #propertyForm .pf-unidad{ position:relative; }
+    #propertyForm .pf-unidad input{ padding-right:40px; }
+    .pf-unidad span{ position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:.82rem; color:var(--muted); pointer-events:none; }
+    .car-aviso{ color:#8a6d1f; margin:-4px 0 10px; }
+    @media (max-width:640px){ #propertyForm .car-fila{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 12px; } }
+    .car-aviso[hidden]{ display:none; }
+
+    /* Paso 4: dentro de la ficha avanza el Siguiente de abajo */
+    .fx-atras{ display:none !important; }
+    .fx-step-top{ align-items:center; }
+    .fx-ninguna{ display:inline-flex; align-items:center; gap:8px; border:1px solid var(--ink); border-radius:9px; background:#fff; color:var(--ink); font-family:inherit; font-size:.86rem; font-weight:600; padding:9px 15px; cursor:pointer; transition:background .13s, color .13s; }
+    .fx-ninguna:hover{ background:var(--ink); color:#fff; }
+    .fx-foot-hint b{ color:var(--ink); }
+    .fx-foot-hint .fa-check{ color:var(--ok); }
+    @media (max-width:640px){ .fx-ninguna{ flex:1 1 100%; justify-content:center; } }
+
+    /* Paso 6: título sugerido y contador */
+    .titulo-counter.bien{ color:var(--ok); }
+    .tit-sug{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--gold-soft); border:1px solid rgba(201,162,39,.35); border-radius:11px; padding:10px 12px; margin:-2px 0 16px; font-size:.86rem; color:#5f4a10; line-height:1.45; }
+    .tit-sug[hidden]{ display:none; }
+    .tit-sug > i{ color:var(--gold); }
+    .tit-sug span{ flex:1; min-width:200px; }
+    .tit-sug button{ border:0; border-radius:8px; background:var(--ink); color:#fff; font-family:inherit; font-size:.82rem; font-weight:600; padding:7px 14px; cursor:pointer; }
+
+    /* Paso 7: precio por m² */
+    #precioM2{ color:var(--ink); font-weight:500; }
+    #precioM2 i{ color:var(--gold); margin-right:4px; }
+    #precioM2 span{ color:var(--muted); font-weight:400; }
+    #precioM2[hidden]{ display:none; }
 </style>
 <style>
   /* Área segura superior (isla dinámica / notch) en toda la herramienta */
@@ -558,26 +662,65 @@
         <input type="hidden" id="editingPropertyId" value=""><input type="hidden" id="previousPrice" value="">
 
         <div class="pf-sec" id="sec1">
-          <div class="pf-sec-head"><span class="n">1</span><div><h3>¿Qué vas a publicar?</h3><small>Operación y tipo de inmueble: definen qué campos pide cada portal.</small></div></div>
-          <div class="form-row-3"><div class="form-group"><label>Tipo de Operación</label><select id="propType" onchange="togglePropertyType()"><option value="sale">Venta</option><option value="rent">Alquiler</option></select></div><div class="form-group"><label>Tipo de inmueble</label><select id="propRealEstateType" onchange="onTipoChange()"><option value="casa">Casa</option><option value="apartamento">Apartamento</option><option value="terreno">Terreno</option><option value="local">Local comercial</option><option value="oficina">Oficina</option><option value="galpon">Galpón / Depósito</option><option value="campo">Campo / Chacra</option></select></div><div class="form-group" id="propertyTypeGroup"><label>Tipo de padrón</label><select id="propPropertyType"><option value="common">Padrón Común</option><option value="ph">PH</option></select></div></div>
+          <div class="pf-sec-head"><span class="n">1</span><div><h3>¿Qué vas a publicar?</h3><small>La operación y el tipo de inmueble definen qué datos pide cada portal.</small></div></div>
+          <div class="op-fila">
+            <div class="op-grupo"><div class="op-lbl" id="lblOper">Operación</div>
+              <div class="op-seg" role="radiogroup" aria-labelledby="lblOper" data-select="propType">
+                <button type="button" role="radio" data-valor="sale"><i class="fas fa-tag"></i> Venta</button>
+                <button type="button" role="radio" data-valor="rent"><i class="fas fa-key"></i> Alquiler</button>
+              </div></div>
+            <div class="op-grupo"><div class="op-lbl" id="lblPadron">Tipo de padrón</div>
+              <div class="op-seg" role="radiogroup" aria-labelledby="lblPadron" data-select="propPropertyType">
+                <button type="button" role="radio" data-valor="common">Común</button>
+                <button type="button" role="radio" data-valor="ph" title="Propiedad horizontal">PH</button>
+              </div></div>
+          </div>
+          <div class="op-grupo"><div class="op-lbl" id="lblTipoInm">Tipo de inmueble</div>
+            <div class="op-tipos" role="radiogroup" aria-labelledby="lblTipoInm" data-select="propRealEstateType">
+              <button type="button" role="radio" data-valor="casa"><i class="fas fa-house"></i><span>Casa</span></button>
+              <button type="button" role="radio" data-valor="apartamento"><i class="fas fa-building"></i><span>Apartamento</span></button>
+              <button type="button" role="radio" data-valor="terreno"><i class="fas fa-mountain-sun"></i><span>Terreno</span></button>
+              <button type="button" role="radio" data-valor="local"><i class="fas fa-store"></i><span>Local comercial</span></button>
+              <button type="button" role="radio" data-valor="oficina"><i class="fas fa-briefcase"></i><span>Oficina</span></button>
+              <button type="button" role="radio" data-valor="galpon"><i class="fas fa-warehouse"></i><span>Galpón / Depósito</span></button>
+              <button type="button" role="radio" data-valor="campo"><i class="fas fa-wheat-awn"></i><span>Campo / Chacra</span></button>
+            </div></div>
+          <!-- Los desplegables de siempre: los lee y los cambia el resto del formulario. Los botones solo los manejan. -->
+          <div class="pf-sr"><select id="propType" onchange="togglePropertyType()" tabindex="-1" aria-hidden="true"><option value="sale">Venta</option><option value="rent">Alquiler</option></select><select id="propRealEstateType" onchange="onTipoChange()" tabindex="-1" aria-hidden="true"><option value="casa">Casa</option><option value="apartamento">Apartamento</option><option value="terreno">Terreno</option><option value="local">Local comercial</option><option value="oficina">Oficina</option><option value="galpon">Galpón / Depósito</option><option value="campo">Campo / Chacra</option></select><select id="propPropertyType" tabindex="-1" aria-hidden="true"><option value="common">Padrón Común</option><option value="ph">PH</option></select></div>
         </div>
 
         <div class="pf-sec" id="sec2">
-          <div class="pf-sec-head"><span class="n">2</span><div><h3>Ubicación</h3><small>Departamento y barrio son obligatorios. Sin el pin, InfoCasas y Casas y Más no publican la propiedad; en Mercado Libre, mejora cómo aparece en el mapa.</small></div></div>
-          <div class="form-row"><div class="form-group"><label>Departamento <span class="fx-req">*</span></label><select id="propDepartamento" required onchange="updateCiudades()"><option value="">Seleccionar...</option></select></div><div class="form-group"><label>Ciudad/Barrio <span class="fx-req">*</span></label><select id="propCiudad" required><option value="">Primero selecciona departamento</option></select></div></div>
-          <div class="form-row"><div class="form-group"><label for="propDireccion">Calle <span class="pts"><span class="pt po-ic">InfoCasas</span></span></label><input type="text" id="propDireccion" placeholder="Ej: Av. 18 de Julio"></div><div class="form-group"><label>Número</label><input type="text" id="propNumeroPuerta" placeholder="1234"></div></div>
-          <div class="pf-pin-row"><button type="button" class="btn-mapa" onclick="buscarEnMapa()"><i class="fas fa-magnifying-glass-location"></i> Ubicar en el mapa</button><span class="pf-pide">El pin lo piden <span class="pts"><span class="pt po-ic">InfoCasas</span><span class="pt po-cym">Casas y Más</span></span></span></div>
-          <div id="propMapa"></div>
+          <div class="pf-sec-head"><span class="n">2</span><div><h3>Ubicación</h3><small>Escribí la dirección y tocá <b>Buscar en el mapa</b>: el pin y el barrio se ponen solos. También podés tocar el mapa donde está la propiedad.</small></div></div>
+          <div class="ub-buscar">
+            <div class="form-group ub-dep"><label for="propDepartamento">Departamento <span class="fx-req">*</span></label><select id="propDepartamento" required onchange="updateCiudades(); onDeptoCambia()"><option value="">Seleccionar...</option></select></div>
+            <div class="form-group ub-calle"><label for="propDireccion">Calle <span class="pts"><span class="pt po-ic">InfoCasas</span></span></label><input type="text" id="propDireccion" placeholder="Ej: Av. 18 de Julio" autocomplete="off"></div>
+            <div class="form-group ub-num"><label for="propNumeroPuerta">Número</label><input type="text" id="propNumeroPuerta" placeholder="1234" autocomplete="off"></div>
+            <button type="button" class="btn-mapa" id="btnMapa" onclick="buscarEnMapa()"><i class="fas fa-magnifying-glass-location"></i> <span>Buscar en el mapa</span></button>
+          </div>
+          <div class="ub-mapa-wrap">
+            <div id="propMapa" aria-label="Mapa: tocá donde está la propiedad para fijar el pin"></div>
+            <div class="ub-chip" id="ubChip" hidden></div>
+          </div>
           <div class="ubicacion-estado" id="ubicacionEstado"></div>
+          <div class="ub-barrio">
+            <div class="form-group"><label for="propCiudad"><span id="lblCiudad">Barrio o ciudad</span> <span class="fx-req">*</span></label><select id="propCiudad" required onchange="onCiudadCambia()"><option value="">Primero elegí el departamento</option></select></div>
+            <div class="ub-nota" id="ubNota" aria-live="polite"></div>
+          </div>
         </div>
 
         <div class="pf-sec" id="sec3">
           <div class="pf-sec-head"><span class="n">3</span><div><h3>Características principales</h3><small>Dormitorios, baños y superficies: van a los tres portales.</small></div></div>
-          <div class="form-row-4"><div class="form-group"><label>Dormitorios <span class="fx-req" id="reqDorms">*</span></label><input type="number" id="propBedrooms" placeholder="3" min="0"></div><div class="form-group"><label>Baños <span class="fx-req" id="reqBanos">*</span></label><input type="number" id="propBathrooms" placeholder="2" min="0"></div><div class="form-group"><label>Superficie total m² <span class="fx-req">*</span></label><input type="number" id="propTotalArea" required placeholder="100"></div><div class="form-group"><label>Área privada m² <span class="fx-req">*</span></label><input type="number" id="propBuiltArea" required placeholder="80"></div></div>
+          <div class="form-row-4 car-fila">
+            <div class="form-group"><label for="propBedrooms"><i class="fas fa-bed car-ic"></i> Dormitorios <span class="fx-req" id="reqDorms">*</span></label><input type="number" id="propBedrooms" placeholder="3" min="0" inputmode="numeric"></div>
+            <div class="form-group"><label for="propBathrooms"><i class="fas fa-bath car-ic"></i> Baños <span class="fx-req" id="reqBanos">*</span></label><input type="number" id="propBathrooms" placeholder="2" min="0" inputmode="numeric"></div>
+            <div class="form-group"><label for="propTotalArea"><i class="fas fa-vector-square car-ic"></i> Superficie total <span class="fx-req">*</span></label><div class="pf-unidad"><input type="number" id="propTotalArea" required placeholder="100" min="0" inputmode="decimal"><span>m²</span></div></div>
+            <div class="form-group"><label for="propBuiltArea"><i class="fas fa-ruler-combined car-ic"></i> Área privada <span class="fx-req">*</span></label><div class="pf-unidad"><input type="number" id="propBuiltArea" required placeholder="80" min="0" inputmode="decimal"><span>m²</span></div></div>
+          </div>
+          <div class="pf-ayuda car-aviso" id="supAviso" hidden></div>
         </div>
 
         <div class="pf-sec" id="sec4">
-          <div class="pf-sec-head"><span class="n">4</span><div><h3>Ficha técnica</h3><small>Los campos oficiales de Mercado Libre para este inmueble. InfoCasas y Casas y Más toman de acá lo que usan: cocheras, antigüedad, piscina, parrillero…</small></div></div>
+          <div class="pf-sec-head"><span class="n">4</span><div><h3>Ficha técnica</h3><small>Lo que pide Mercado Libre para este tipo de inmueble. InfoCasas y Casas y Más toman de acá lo que usan.</small></div></div>
           <div class="fx-toolbar">
             <div class="fx-search"><i class="fas fa-magnifying-glass"></i><input type="text" id="fichaSearch" placeholder="Buscar un campo... (ej: parrillero, piscina, antigüedad)" oninput="filtrarFicha()"></div>
             <button type="button" class="fx-btn" id="fxBtnModo" onclick="fxCambiarModo()">Ver todo</button>
@@ -594,16 +737,17 @@
         </div>
 
         <div class="pf-sec" id="sec6">
-          <div class="pf-sec-head"><span class="n">6</span><div><h3>Título y descripción</h3><small>El título admite hasta 200 caracteres: usá al menos 60 y sumá lo que la gente busca (tipo, barrio, dormitorios, extras). Sin descripción, InfoCasas y Casas y Más no la publican.</small></div></div>
-          <div class="form-group"><label>Título <span class="fx-req">*</span></label><input type="text" id="propTitle" required maxlength="200" placeholder="Ej: Casa 3 dormitorios en Pocitos con jardín, parrillero y garaje doble" oninput="actualizarContadorTitulo()"></div>
+          <div class="pf-sec-head"><span class="n">6</span><div><h3>Título y descripción</h3><small>Un título de 60 caracteres o más, con lo que la gente busca: tipo, barrio, dormitorios y extras. Sin descripción, InfoCasas y Casas y Más no la publican.</small></div></div>
+          <div class="form-group"><label for="propTitle">Título <span class="fx-req">*</span></label><input type="text" id="propTitle" required maxlength="200" placeholder="Ej: Casa 3 dormitorios en Pocitos con jardín, parrillero y garaje doble" oninput="actualizarContadorTitulo()"></div>
           <div class="titulo-counter"><span id="tituloCount">0</span>/200</div>
+          <div class="tit-sug" id="titSug" hidden></div>
           <div class="form-group"><label for="propDescription">Descripción <span class="pts"><span class="pt po-ic">InfoCasas</span><span class="pt po-cym">Casas y Más</span></span></label><textarea id="propDescription" rows="6" placeholder="Contá cómo es la propiedad: ambientes, luz, estado, lo que hay cerca…"></textarea></div>
         </div>
 
         <div class="pf-sec" id="sec7">
           <div class="pf-sec-head"><span class="n">7</span><div><h3>Precio</h3><small>Los gastos comunes llevan su propia moneda: casi siempre son en pesos, aunque la propiedad se venda en dólares.</small></div></div>
           <div class="form-row">
-            <div class="form-group"><label for="propPrice">Precio <span class="fx-req">*</span></label><div class="pf-monto"><select id="propCurrency" aria-label="Moneda del precio"><option value="USD">US$</option><option value="UYU">$U</option></select><input type="number" id="propPrice" required min="0" inputmode="numeric" placeholder="150000"></div></div>
+            <div class="form-group"><label for="propPrice">Precio <span class="fx-req">*</span></label><div class="pf-monto"><select id="propCurrency" aria-label="Moneda del precio"><option value="USD">US$</option><option value="UYU">$U</option></select><input type="number" id="propPrice" required min="0" inputmode="numeric" placeholder="150000"></div><div class="pf-ayuda" id="precioM2" hidden></div></div>
             <div class="form-group"><label for="propExpenses">Gastos comunes <span class="fx-req">*</span></label><div class="pf-monto"><select id="propExpensesCurrency" aria-label="Moneda de los gastos comunes"><option value="UYU">$U</option><option value="USD">US$</option></select><input type="number" id="propExpenses" required min="0" inputmode="numeric" placeholder="0 si no tiene"></div><div class="pf-ayuda" id="gastosAyuda" style="display:none"></div></div>
           </div>
         </div>
@@ -724,8 +868,9 @@
     }
     function updateCiudades() {
       const d = document.getElementById('propDepartamento').value, c = document.getElementById('propCiudad');
-      c.innerHTML = '<option value="">Seleccionar...</option>' +
+      c.innerHTML = (d ? '<option value="">Seleccionar...</option>' : '<option value="">Primero elegí el departamento</option>') +
         ((d && uruguayData[d]) ? uruguayData[d].map(ci => `<option value="${esc(ci)}">${esc(ci)}</option>`).join('') : '');
+      if (typeof etiquetaCiudad === 'function') etiquetaCiudad();
     }
     function selectStatus(s) {
       document.querySelectorAll('.status-option').forEach(o => o.classList.remove('active'));
@@ -739,53 +884,374 @@
       // El tipo de propiedad (Padrón Común/PH) aplica tanto a venta como a alquiler: siempre visible.
       const rf = document.getElementById('rentFieldsGroup'); if (rf) rf.style.display = isRent ? 'block' : 'none';
     }
+    // ---- Elecciones con botones (paso 1) ----
+    // Los <select> siguen mandando: el resto del formulario los lee y los cambia
+    // (al editar una propiedad). Los botones los manejan y se pintan desde ellos.
+    function elegirOpcion(btn) {
+      const g = btn.closest('[data-select]');
+      const sel = g && document.getElementById(g.dataset.select);
+      if (!sel) return;
+      if (sel.value !== btn.dataset.valor) {
+        sel.value = btn.dataset.valor;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      pintarOpciones();
+    }
+    function pintarOpciones() {
+      document.querySelectorAll('[data-select]').forEach(g => {
+        const sel = document.getElementById(g.dataset.select);
+        if (!sel) return;
+        g.querySelectorAll('[data-valor]').forEach(b => {
+          const on = b.dataset.valor === sel.value;
+          b.classList.toggle('on', on);
+          b.setAttribute('aria-checked', on ? 'true' : 'false');
+          b.tabIndex = on ? 0 : -1;
+        });
+      });
+    }
+    document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-select] [data-valor]'); if (b) elegirOpcion(b); });
+    // Flechas del teclado dentro de cada grupo, como en un grupo de radios.
+    document.addEventListener('keydown', e => {
+      const b = e.target.closest && e.target.closest('[data-select] [data-valor]');
+      if (!b || !['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(e.key)) return;
+      e.preventDefault();
+      const todos = Array.from(b.closest('[data-select]').querySelectorAll('[data-valor]'));
+      const i = todos.indexOf(b), d = (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? 1 : -1;
+      const sig = todos[(i + d + todos.length) % todos.length];
+      sig.focus(); elegirOpcion(sig);
+    });
+    document.addEventListener('DOMContentLoaded', () => {
+      ['propType', 'propRealEstateType', 'propPropertyType'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('change', pintarOpciones); });
+      pintarOpciones();
+    });
     function actualizarContadorTitulo() {
-      document.getElementById('tituloCount').textContent = (document.getElementById('propTitle').value || '').length;
+      const n = (document.getElementById('propTitle').value || '').length;
+      const c = document.getElementById('tituloCount');
+      c.textContent = n;
+      c.parentElement.classList.toggle('bien', n >= 60);
     }
 
+    // ---- Ayudas que salen de lo cargado ----
+    // Un título armado con lo que ya se cargó: tipo, operación, dormitorios,
+    // barrio y lo que más se busca de la ficha. Se propone; nunca se escribe solo.
+    const NOMBRE_TIPO = { casa: 'Casa', apartamento: 'Apartamento', terreno: 'Terreno', local: 'Local comercial', oficina: 'Oficina', galpon: 'Galpón', campo: 'Campo' };
+    function tituloSugerido() {
+      const tipo = _v('propRealEstateType'), oper = _v('propType') === 'rent' ? 'en alquiler' : 'en venta';
+      const lugar = _v('propCiudad') || _v('propDepartamento');
+      const d = parseInt(_v('propBedrooms'), 10), b = parseInt(_v('propBathrooms'), 10);
+      const m2 = parseFloat(_v('propBuiltArea')) > 0 ? parseFloat(_v('propBuiltArea')) : parseFloat(_v('propTotalArea'));
+      const marcado = id => { const e = _fc(id); return !!(e && e.checked); };
+      let t = NOMBRE_TIPO[tipo] || 'Propiedad';
+      if ((tipo === 'casa' || tipo === 'apartamento') && d === 0) t = 'Monoambiente';
+      t += ' ' + oper;
+      if ((tipo === 'casa' || tipo === 'apartamento') && d > 0) t += ` de ${d} dormitorio${d > 1 ? 's' : ''}`;
+      else if (m2 > 0) t += ` de ${Math.round(m2).toLocaleString('es-UY')} m²`;
+      if (lugar) t += ` en ${lugar}`;
+      const extras = [];
+      if ((tipo === 'casa' || tipo === 'apartamento') && b > 1) extras.push(`${b} baños`);
+      const coch = parseInt((_fc('PARKING_LOTS') || {}).value, 10);
+      if (coch > 1) extras.push('garaje para ' + coch); else if (coch === 1) extras.push('garaje');
+      [['HAS_SWIMMING_POOL', 'piscina'], ['HAS_GRILL', 'parrillero'], ['HAS_GARDEN', 'jardín'], ['HAS_TERRACE', 'terraza'], ['HAS_BALCONY', 'balcón'], ['HAS_PATIO', 'patio'], ['FURNISHED', 'amoblado']]
+        .forEach(([id, txt]) => { if (marcado(id) && extras.length < 3) extras.push(txt); });
+      if (extras.length) t += ' con ' + unirY(extras);
+      if (marcado('IN_GATED_COMMUNITY')) t += ', en barrio cerrado';
+      return lugar ? t : '';
+    }
+    function pintarTituloSugerido() {
+      const el = document.getElementById('titSug');
+      if (!el) return;
+      const actual = String(_v('propTitle') || '').trim();
+      const sug = tituloSugerido();
+      if (!sug || actual.length >= 60 || normTxt(sug) === normTxt(actual)) { el.hidden = true; el.innerHTML = ''; return; }
+      el.innerHTML = `<i class="fas fa-wand-magic-sparkles"></i><span><b>Sugerencia:</b> ${esc(sug)}</span><button type="button" onclick="usarTituloSugerido()">${actual ? 'Reemplazar' : 'Usar'}</button>`;
+      el.hidden = false;
+    }
+    function usarTituloSugerido() {
+      const t = document.getElementById('propTitle');
+      t.value = tituloSugerido();
+      t.dispatchEvent(new Event('input', { bubbles: true }));
+      actualizarContadorTitulo(); pintarTituloSugerido();
+      t.focus();
+    }
+    // Área privada mayor que la superficie total: casi siempre es un dato cruzado.
+    function revisarSuperficies() {
+      const el = document.getElementById('supAviso');
+      if (!el) return;
+      const tot = parseFloat(_v('propTotalArea')), pri = parseFloat(_v('propBuiltArea'));
+      const raro = tot > 0 && pri > tot;
+      el.innerHTML = raro ? '<i class="fas fa-circle-info"></i> El área privada es mayor que la superficie total. ¿No están cruzadas?' : '';
+      el.hidden = !raro;
+    }
+    // El precio por m²: de un vistazo se ve si quedó un cero de más o de menos.
+    function pintarPrecioM2() {
+      const el = document.getElementById('precioM2');
+      if (!el) return;
+      const p = parseFloat(_v('propPrice'));
+      const pri = parseFloat(_v('propBuiltArea')), tot = parseFloat(_v('propTotalArea'));
+      const m2 = pri > 0 ? pri : tot;
+      if (!(p > 0) || !(m2 > 0)) { el.hidden = true; return; }
+      const mon = _v('propCurrency') === 'UYU' ? '$U' : 'US$';
+      el.innerHTML = `<i class="fas fa-calculator"></i> ${mon} ${Math.round(p / m2).toLocaleString('es-UY')} por m² <span>(sobre ${Math.round(m2).toLocaleString('es-UY')} m² ${pri > 0 ? 'de área privada' : 'de superficie'})</span>`;
+      el.hidden = false;
+    }
+    function ayudasDeCarga() { try { revisarSuperficies(); pintarPrecioM2(); pintarTituloSugerido(); } catch (e) { /* son ayudas: nunca frenan nada */ } }
+    document.addEventListener('DOMContentLoaded', () => {
+      const f = document.getElementById('propertyForm');
+      if (f) { f.addEventListener('input', ayudasDeCarga); f.addEventListener('change', ayudasDeCarga); }
+    });
+
     // ================= MAPA (Leaflet + OpenStreetMap, sin API key) =================
+    // La dirección pone el pin y el pin pone el barrio. En Montevideo se busca en
+    // qué barrio cae, con los límites oficiales de la Intendencia
+    // (barrios-montevideo.geojson, el mismo del mapa de cierres), y se elige solo
+    // en la lista. Fuera de Montevideo, el departamento y la ciudad salen de la
+    // dirección que devuelve el mapa, si están en la lista. Lo que el agente elige
+    // a mano después manda: el mapa solo propone cuando se busca o se mueve el pin.
     let mapa = null, mapaPin = null;
     const ubicacionState = { lat: null, lng: null, barrio: '' };
+    // Caja de Montevideo: con el departamento sin elegir, la búsqueda prefiere
+    // resultados de acá (la mayoría de las propiedades), sin descartar el resto.
+    const VIEWBOX_MVD = '-56.44,-34.70,-55.99,-34.95';
+    let _zona = null;       // barrio de Montevideo donde cae el pin: { f, oficial, portales, aprox }
+    let _zonaAuto = null;   // lo último que puso el mapa: { depto, ciudad, antes: { depto, ciudad }, cambio }
+    let _pistaOSM = [];     // nombres de barrio que da el mapa para el pin (desempatan entre candidatos)
+    let _capaBarrios = null, _barrioSel = null, _barriosGeo = null;
 
     function initMapa() {
       if (mapa) { setTimeout(() => mapa.invalidateSize(), 150); return }
-      mapa = L.map('propMapa', { scrollWheelZoom: false }).setView([-34.9011, -56.1645], 12);
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(mapa);
+      mapa = L.map('propMapa', { scrollWheelZoom: false }).setView([-34.8650, -56.1700], 12);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap · Barrios: Intendencia de Montevideo' }).addTo(mapa);
       mapa.on('click', e => setPin(e.latlng.lat, e.latlng.lng, true));
+      // La rueda del mouse no hace zoom hasta tocar el mapa: así la página se
+      // scrollea por encima sin que el mapa se trague el gesto.
+      mapa.on('focus click', () => mapa.scrollWheelZoom.enable());
+      mapa.getContainer().addEventListener('mouseleave', () => mapa.scrollWheelZoom.disable());
+      pintarBarrios();
       setTimeout(() => mapa.invalidateSize(), 200);
       actualizarEstadoUbicacion();
     }
+
+    // ---- Barrios de Montevideo ----
+    function cargarBarrios() {
+      if (!_barriosGeo) _barriosGeo = fetch('barrios-montevideo.geojson').then(r => r.ok ? r.json() : null).catch(() => null);
+      return _barriosGeo;
+    }
+    const ESTILO_BARRIO = { color: '#16273f', weight: 1, opacity: 0.32, fillColor: '#16273f', fillOpacity: 0.015 };
+    const ESTILO_HOVER = { color: '#16273f', weight: 2, opacity: 0.55, fillColor: '#16273f', fillOpacity: 0.06 };
+    const ESTILO_SEL = { color: '#b58f15', weight: 2.5, opacity: 1, fillColor: '#C9A227', fillOpacity: 0.1 };
+    function pintarBarrios() {
+      cargarBarrios().then(geo => {
+        if (!geo || !mapa || _capaBarrios) return;
+        if (!mapa.getPane('barrios')) { const pn = mapa.createPane('barrios'); pn.style.zIndex = 350; }
+        _capaBarrios = L.geoJSON(geo, {
+          pane: 'barrios',
+          style: () => ESTILO_BARRIO,
+          onEachFeature: (f, capa) => {
+            // El nombre al pasar el mouse. Tocar adentro de un barrio pone el pin
+            // ahí: el clic llega al mapa (las capas no lo frenan).
+            capa.bindTooltip(esc(f.properties.nombre), { sticky: true, direction: 'top', offset: [0, -6], className: 'ub-tt', opacity: 1 });
+            capa.on('mouseover', () => { if (f !== _barrioSel) capa.setStyle(ESTILO_HOVER); });
+            capa.on('mouseout', () => { if (f !== _barrioSel) capa.setStyle(ESTILO_BARRIO); });
+          }
+        }).addTo(mapa);
+        resaltarBarrio();
+        // Si el pin ya estaba puesto (al editar), ahora que hay barrios se ubica.
+        if (ubicacionState.lat != null && !_zona) ubicarBarrio(ubicacionState.lat, ubicacionState.lng, false);
+      });
+    }
+    function _dentroAnillo(x, y, r) {
+      let c = false;
+      for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+        const xi = r[i][0], yi = r[i][1], xj = r[j][0], yj = r[j][1];
+        if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-15) + xi)) c = !c;
+      }
+      return c;
+    }
+    function _poligonos(g) { return g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : []; }
+    // El barrio que contiene el punto. Sobre la línea misma entre dos barrios
+    // (o a un par de metros, por el redondeo de los límites) vale el más cercano.
+    function barrioEn(lat, lng, geo) {
+      const x = lng, y = lat;
+      for (const f of geo.features) {
+        for (const p of _poligonos(f.geometry)) {
+          if (_dentroAnillo(x, y, p[0]) && !p.slice(1).some(h => _dentroAnillo(x, y, h))) return f;
+        }
+      }
+      const k = Math.cos(y * Math.PI / 180);
+      let mejor = null, dmin = Infinity;
+      for (const f of geo.features) {
+        for (const p of _poligonos(f.geometry)) {
+          for (const r of p) {
+            for (let i = 1; i < r.length; i++) {
+              const ax = r[i - 1][0] * k, ay = r[i - 1][1], bx = r[i][0] * k, by = r[i][1], px = x * k;
+              const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+              const t = l2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (y - ay) * dy) / l2)) : 0;
+              const d = Math.hypot(px - (ax + t * dx), y - (ay + t * dy));
+              if (d < dmin) { dmin = d; mejor = f; }
+            }
+          }
+        }
+      }
+      return dmin < 0.00014 ? mejor : null;   // ~15 m
+    }
+    function normCalle(t) {
+      return normTxt(t).replace(/\./g, ' ').replace(/\bavenida\b/g, 'av').replace(/\b(bulevar|boulevard|bvar)\b/g, 'bv')
+        .replace(/\bgeneral\b/g, 'gral').replace(/\bdoctor\b/g, 'dr').replace(/\s+/g, ' ').trim();
+    }
+    function normTxt(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/^(departamento|depto\.?)\s+de\s+/, '').trim(); }
+    // Entre los nombres de portal de un barrio oficial (Capurro y Bella Vista son
+    // uno solo para la Intendencia), el que nombra el mapa; si no, el primero.
+    function elegirPortal(portales, pistas) {
+      for (const p of pistas) { const hit = portales.find(x => normTxt(x) === normTxt(p)); if (hit) return hit; }
+      return portales[0] || '';
+    }
+    function deptoDeOSM(nombre) {
+      const n = normTxt(nombre);
+      return n ? (Object.keys(uruguayData).find(d => normTxt(d) === n) || '') : '';
+    }
+    function ciudadDeOSM(dep, nombres) {
+      const lista = uruguayData[dep] || [];
+      for (const nm of nombres) { const hit = lista.find(c => normTxt(c) === normTxt(nm)); if (hit) return hit; }
+      return '';
+    }
+
     function setPin(lat, lng, conReverse) {
       ubicacionState.lat = Math.round(lat * 1e6) / 1e6;
       ubicacionState.lng = Math.round(lng * 1e6) / 1e6;
       if (!mapaPin) {
-        mapaPin = L.marker([lat, lng], { draggable: true }).addTo(mapa);
+        mapaPin = L.marker([lat, lng], { draggable: true, keyboard: true, title: 'Arrastrá el pin para ajustarlo' }).addTo(mapa);
         mapaPin.on('dragend', () => { const p = mapaPin.getLatLng(); setPin(p.lat, p.lng, true) });
       } else mapaPin.setLatLng([lat, lng]);
       if (mapa.getZoom() < 15) mapa.setView([lat, lng], 16); else mapa.panTo([lat, lng]);
       actualizarEstadoUbicacion();
+      if (conReverse) _pistaOSM = [];
+      ubicarBarrio(lat, lng, !!conReverse);
       if (conReverse) { marcarSucio(); reverseGeocode(lat, lng); }
     }
+    function _esElPin(lat, lng) { return ubicacionState.lat === Math.round(lat * 1e6) / 1e6 && ubicacionState.lng === Math.round(lng * 1e6) / 1e6; }
+    // En qué barrio de Montevideo cae el pin. `auto`: lo movió el agente (buscó,
+    // tocó el mapa o arrastró el pin), así que el barrio se elige solo.
+    async function ubicarBarrio(lat, lng, auto) {
+      const geo = await cargarBarrios();
+      if (!_esElPin(lat, lng)) return;   // el pin ya se movió mientras cargaba el archivo
+      const f = geo ? barrioEn(lat, lng, geo) : null;
+      _zona = f ? { f, oficial: f.properties.nombre, portales: f.properties.portales || [], aprox: !!f.properties.aprox } : null;
+      if (auto && _zona) ponerZona('Montevideo', elegirPortal(_zona.portales, _pistaOSM));
+      pintarZona();
+    }
+    // Pone departamento y barrio/ciudad (lo que propone el mapa). Guarda lo que
+    // había para poder deshacerlo. `refinar`: es un ajuste de lo que ya se puso.
+    function ponerZona(depto, ciudad, refinar) {
+      const dSel = document.getElementById('propDepartamento'), cSel = document.getElementById('propCiudad');
+      const antes = (refinar && _zonaAuto) ? _zonaAuto.antes : { depto: dSel.value, ciudad: cSel.value };
+      let cambio = false;
+      if (depto && uruguayData[depto] && dSel.value !== depto) { dSel.value = depto; updateCiudades(); cambio = true; }
+      if (ciudad && cSel.value !== ciudad && Array.from(cSel.options).some(o => o.value === ciudad)) { cSel.value = ciudad; cambio = true; }
+      _zonaAuto = { depto: dSel.value, ciudad: cSel.value, antes, cambio: cambio || !!(refinar && _zonaAuto && _zonaAuto.cambio) };
+      if (cambio) {
+        dSel.classList.remove('pf-invalido'); cSel.classList.remove('pf-invalido');
+        if (dSel.value === 'Montevideo') ubicacionState.barrio = cSel.value;
+        marcarSucio(); calidadDebounced();
+      }
+      etiquetaCiudad(); pintarZona();
+    }
+    function deshacerZona() {
+      if (!_zonaAuto) return;
+      const a = _zonaAuto.antes || {};
+      const dSel = document.getElementById('propDepartamento'), cSel = document.getElementById('propCiudad');
+      dSel.value = a.depto || ''; updateCiudades();
+      if (a.ciudad && !Array.from(cSel.options).some(o => o.value === a.ciudad)) cSel.appendChild(new Option(a.ciudad, a.ciudad));
+      cSel.value = a.ciudad || '';
+      _zonaAuto = null;
+      marcarSucio(); calidadDebounced(); etiquetaCiudad(); pintarZona();
+    }
+    function usarBarrioDelPin() {
+      if (!_zona) return;
+      ponerZona('Montevideo', elegirPortal(_zona.portales, _pistaOSM));
+    }
+    function onDeptoCambia() { _zonaAuto = null; etiquetaCiudad(); pintarZona(); }
+    function onCiudadCambia() {
+      _zonaAuto = null;   // lo eligió el agente: manda sobre el mapa
+      if (_v('propDepartamento') === 'Montevideo') ubicacionState.barrio = _v('propCiudad');
+      pintarZona();
+      // Sin pin todavía: el mapa va al barrio elegido, para tocar adentro.
+      if (!mapaPin && _barrioSel && _capaBarrios && mapa) {
+        _capaBarrios.eachLayer(c => { if (c.feature === _barrioSel) mapa.fitBounds(c.getBounds(), { maxZoom: 15, padding: [16, 16] }); });
+      }
+    }
+    function etiquetaCiudad() {
+      const l = document.getElementById('lblCiudad');
+      const d = _v('propDepartamento');
+      if (l) l.textContent = d === 'Montevideo' ? 'Barrio' : d ? 'Ciudad o localidad' : 'Barrio o ciudad';
+    }
+    function resaltarBarrio() {
+      const dep = _v('propDepartamento'), ciu = _v('propCiudad');
+      let sel = null;
+      if (_zona) sel = _zona.f;
+      else if (dep === 'Montevideo' && ciu && _barriosGeo && _capaBarrios) {
+        _capaBarrios.eachLayer(c => { if (!sel && (c.feature.properties.portales || []).indexOf(ciu) >= 0) sel = c.feature; });
+      }
+      _barrioSel = sel;
+      if (!_capaBarrios) return;
+      _capaBarrios.eachLayer(c => {
+        c.setStyle(c.feature === sel ? ESTILO_SEL : ESTILO_BARRIO);
+        if (c.feature === sel) c.bringToFront();
+      });
+    }
+    // El barrio a la vista: resaltado en el mapa, su nombre sobre el mapa y una
+    // nota al lado de la lista que dice de dónde salió (y si no coincide).
+    function pintarZona() {
+      resaltarBarrio();
+      const chip = document.getElementById('ubChip'), nota = document.getElementById('ubNota');
+      if (chip) {
+        if (_zona && ubicacionState.lat != null) { chip.innerHTML = `<i class="fas fa-location-dot"></i> ${esc(_zona.oficial)}`; chip.hidden = false; }
+        else chip.hidden = true;
+      }
+      if (!nota) return;
+      const dep = _v('propDepartamento'), ciu = _v('propCiudad');
+      let h = '';
+      const auto = _zonaAuto && _zonaAuto.cambio && _zonaAuto.ciudad === ciu && _zonaAuto.depto === dep;
+      if (auto && ciu) {
+        const a = _zonaAuto.antes || {};
+        const antes = (a.ciudad && a.ciudad !== ciu) ? a.ciudad : (a.depto && a.depto !== dep ? a.depto : '');
+        h = `<span class="auto"><i class="fas fa-wand-magic-sparkles"></i> Puesto según el mapa</span>` +
+          (antes ? ` · antes decía ${esc(antes)} · <button type="button" onclick="deshacerZona()">Deshacer</button>` : '');
+        if (dep === 'Montevideo' && _zona && _zona.aprox) h += `<span class="sub">El pin cae en ${esc(_zona.oficial)}, que no figura así en los portales: quedó el más parecido. Cambialo si hay uno mejor.</span>`;
+      } else if (dep === 'Montevideo' && _zona && ciu && _zona.portales.indexOf(ciu) < 0) {
+        const sug = elegirPortal(_zona.portales, _pistaOSM);
+        h = `<span class="ojo"><i class="fas fa-circle-info"></i> El pin cae en <b>${esc(_zona.oficial)}</b>.</span>` +
+          (sug && !_zona.aprox ? ` <button type="button" onclick="usarBarrioDelPin()">Poner ${esc(sug)}</button>` : '');
+      } else if (dep === 'Montevideo' && _zona && ciu) {
+        h = `<span class="bien"><i class="fas fa-check"></i> Coincide con el pin</span>`;
+      } else if (dep === 'Montevideo' && !ciu && ubicacionState.lat == null) {
+        h = 'Con el pin puesto, el barrio se elige solo.';
+      } else if (_zonaAuto && _zonaAuto.cambio && _zonaAuto.depto === dep && dep && !ciu) {
+        h = `<span class="auto"><i class="fas fa-wand-magic-sparkles"></i> Departamento puesto según el mapa.</span> Elegí la ciudad o localidad.`;
+      }
+      nota.innerHTML = h;
+    }
+
     function quitarPin() {
       if (mapaPin) { mapa.removeLayer(mapaPin); mapaPin = null }
-      ubicacionState.lat = null; ubicacionState.lng = null; ubicacionState.barrio = ''; ubicacionState.sugerida = null;
+      ubicacionState.lat = null; ubicacionState.lng = null; ubicacionState.sugerida = null;
+      _zona = null;
+      if (_v('propDepartamento') !== 'Montevideo') ubicacionState.barrio = '';
       marcarSucio();
       actualizarEstadoUbicacion();
+      pintarZona();
     }
     function actualizarEstadoUbicacion() {
       const el = document.getElementById('ubicacionEstado');
       if (!el) return;
       if (ubicacionState.lat != null) {
-        el.innerHTML = `<span class="ok"><i class="fas fa-location-dot"></i> Pin fijado</span> (${ubicacionState.lat}, ${ubicacionState.lng})` +
-          (ubicacionState.barrio ? ` · Barrio detectado: <b>${esc(ubicacionState.barrio)}</b>` : '') +
-          ` · Arrastrá el pin para ajustar · <a onclick="quitarPin()">quitar pin</a>` +
+        el.innerHTML = `<span class="ok"><i class="fas fa-location-dot"></i> Pin fijado</span> · Si no quedó justo en la puerta, arrastralo · <a onclick="quitarPin()">quitar pin</a>` +
           (ubicacionState.sugerida
             ? `<div class="ubic-sug"><i class="fas fa-map-pin"></i> El pin cae en <b>${esc(
                 [ubicacionState.sugerida.calle, ubicacionState.sugerida.numero].filter(Boolean).join(' ')
               )}</b> · <a onclick="usarDireccionDelPin()">usar esta dirección</a></div>`
             : '');
       } else {
-        el.innerHTML = `<i class="far fa-hand-pointer"></i> Tocá el mapa o usá "Ubicar en el mapa" para fijar el pin. Sin pin, la propiedad no se publica en InfoCasas ni en Casas y Más.`;
+        el.innerHTML = `<i class="far fa-hand-pointer"></i> Buscá la dirección o tocá el mapa para fijar el pin. Sin pin, <span class="pts"><span class="pt po-ic">InfoCasas</span><span class="pt po-cym">Casas y Más</span></span> no publican la propiedad.`;
       }
     }
     // Reemplaza la dirección escrita por la que corresponde al pin. Es un clic
@@ -801,27 +1267,42 @@
       showToast('Ubicación', 'Dirección actualizada según el pin.', 'fa-location-dot');
     }
 
+    let _buscando = false;
     async function buscarEnMapa() {
       const calle = document.getElementById('propDireccion').value.trim();
       const numero = document.getElementById('propNumeroPuerta').value.trim();
       const ciudad = document.getElementById('propCiudad').value;
       const depto = document.getElementById('propDepartamento').value;
-      if (!depto && !ciudad && !calle) { showToast('Falta la dirección', 'Elegí al menos departamento y ciudad/barrio antes de buscar.', 'fa-map-pin'); return }
-      const q = [[calle, numero].filter(Boolean).join(' '), ciudad, depto, 'Uruguay'].filter(Boolean).join(', ');
+      if (!calle && !numero) {
+        showToast('Falta la dirección', 'Escribí la calle y el número, y volvé a buscar.', 'fa-map-pin');
+        document.getElementById('propDireccion').focus();
+        return;
+      }
+      if (_buscando) return;
+      // En Montevideo el barrio NO va en la búsqueda: si estaba mal elegido, el
+      // mapa no encontraba la dirección. Lo pone el pin. Afuera, la ciudad ayuda.
+      const lugar = (depto && depto !== 'Montevideo') ? [ciudad, depto] : ['Montevideo'];
+      const q = [[calle, numero].filter(Boolean).join(' '), ...lugar, 'Uruguay'].filter(Boolean).join(', ');
+      const vb = (!depto || depto === 'Montevideo') ? `&viewbox=${VIEWBOX_MVD}` : '';
+      const btn = document.getElementById('btnMapa'), antes = btn ? btn.innerHTML : '';
+      _buscando = true;
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Buscando…</span>'; }
       try {
-        const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=uy&accept-language=es&q=${encodeURIComponent(q)}`);
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=uy&accept-language=es&addressdetails=1${vb}&q=${encodeURIComponent(q)}`);
         const j = await r.json();
-        if (!j || !j.length) { showToast('Sin resultados', 'No se encontró esa dirección. Tocá el mapa para fijar el pin a mano.', 'fa-map-pin'); return }
-        mapa.setView([+j[0].lat, +j[0].lon], calle ? 17 : 14);
+        if (!j || !j.length) { showToast('No la encontramos', 'Revisá la calle y el número, o tocá el mapa donde está la propiedad.', 'fa-map-pin'); return }
+        mapa.setView([+j[0].lat, +j[0].lon], calle ? 16 : 15);
         setPin(+j[0].lat, +j[0].lon, true);
-      } catch (e) { showToast('Mapa', 'No se pudo buscar la dirección. Probá de nuevo o fijá el pin a mano.', 'fa-triangle-exclamation') }
+      } catch (e) { showToast('Mapa', 'No se pudo buscar la dirección. Probá de nuevo o tocá el mapa para poner el pin.', 'fa-triangle-exclamation') }
+      finally { _buscando = false; if (btn) { btn.disabled = false; btn.innerHTML = antes; } }
     }
     async function reverseGeocode(lat, lng) {
       try {
-        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=es&lat=${lat}&lon=${lng}`);
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=es&addressdetails=1&lat=${lat}&lon=${lng}`);
         const j = await r.json();
+        if (!_esElPin(lat, lng)) return;   // respuesta vieja: el pin ya se movió
         const a = (j && j.address) || {};
-        ubicacionState.barrio = a.neighbourhood || a.suburb || a.quarter || ubicacionState.barrio || '';
+        _pistaOSM = [a.neighbourhood, a.suburb, a.quarter, a.city_district, a.residential].filter(Boolean);
         // Se completan los campos vacíos, pero nunca se pisa lo que el agente
         // escribió: al arrastrar el pin a la puerta exacta, la dirección tipeada
         // suele ser mejor que la del mapa (el número sobre todo). Si difieren, se
@@ -829,9 +1310,22 @@
         const ce = document.getElementById('propDireccion'), ne = document.getElementById('propNumeroPuerta');
         if (a.road && !ce.value.trim()) ce.value = a.road;
         if (a.house_number && !ne.value.trim()) ne.value = a.house_number;
-        const distinta = (a.road && ce.value.trim() && a.road.toLowerCase() !== ce.value.trim().toLowerCase())
-          || (a.house_number && ne.value.trim() && String(a.house_number) !== ne.value.trim());
+        // Distinta de verdad: "Jose" y "José" o "Av." y "Avenida" son la misma calle.
+        const distinta = (a.road && ce.value.trim() && normCalle(a.road) !== normCalle(ce.value))
+          || (a.house_number && ne.value.trim() && String(a.house_number).trim() !== ne.value.trim());
         ubicacionState.sugerida = distinta ? { calle: a.road || '', numero: a.house_number || '' } : null;
+        if (_zona) {
+          // Montevideo: manda el barrio oficial del pin. El mapa solo desempata
+          // cuando ese barrio son dos en los portales (Capurro / Bella Vista).
+          const elegido = elegirPortal(_zona.portales, _pistaOSM);
+          if (_zonaAuto && _zonaAuto.cambio !== undefined && _v('propCiudad') === _zonaAuto.ciudad && elegido !== _zonaAuto.ciudad) ponerZona('Montevideo', elegido, true);
+        } else {
+          ubicacionState.barrio = a.neighbourhood || a.suburb || a.quarter || ubicacionState.barrio || '';
+          // Fuera de Montevideo: departamento y ciudad según la dirección del pin,
+          // si están en la lista de los portales.
+          const dep = deptoDeOSM(a.state);
+          if (dep && dep !== 'Montevideo') ponerZona(dep, ciudadDeOSM(dep, [a.city, a.town, a.village, a.suburb, a.hamlet, a.municipality, a.neighbourhood, a.county]));
+        }
         actualizarEstadoUbicacion();
       } catch (e) { /* sin reverse no pasa nada: el pin ya quedó fijado */ }
     }
@@ -1144,7 +1638,8 @@
       document.getElementById('propNumeroPuerta').value = ub.numero || '';
       ubicacionState.barrio = ub.barrio || '';
       if (ub.lat != null && ub.lng != null) { mapa.setView([ub.lat, ub.lng], 16); setPin(ub.lat, ub.lng, false); setTimeout(() => mapa && mapa.invalidateSize(), 250) }
-      else actualizarEstadoUbicacion();
+      else { actualizarEstadoUbicacion(); pintarZona(); }
+      etiquetaCiudad();
       /* Los números en 0 se muestran como 0 y no en blanco (el mismo arreglo que ya
          tenían los gastos comunes): un monoambiente tiene 0 dormitorios y un
          terreno 0 m² edificados. En blanco, el terreno no se podía volver a guardar. */
@@ -3374,20 +3869,20 @@
         if (!pie) return;
         const tieneBools = !!sec.querySelector('.fx-check');
         const tildadas = sec.querySelectorAll('.fx-check input:checked').length;
-        const ultimo = i === pasos.length - 1;
-        const sigTxt = ultimo ? 'Listo' : 'Siguiente';
-        const aviso = tieneBools ? '<span class="fx-foot-hint">Lo que no marques se publica como que no lo tiene</span>' : '<span class="fx-foot-hint"></span>';
-        if (tieneBools && !tildadas) {
-          // Nada tildado: la afirmación es la acción principal. Pero no se obliga —
-          // el que no sabe todavía puede seguir y el guardado se lo vuelve a pedir.
-          pie.innerHTML = aviso +
-            `<button type="button" class="fx-alt" onclick="fxIr(${i + 1})">Lo veo después</button>` +
-            `<button type="button" class="fx-sig" onclick="fxNinguna(${i})">No tiene ninguna</button>`;
-        } else {
-          pie.innerHTML = aviso +
-            `<button type="button" class="fx-sig" onclick="fxIr(${i + 1})">${sigTxt}${tildadas ? ` · ${tildadas}` : ''}</button>`;
-        }
+        const g = sec.getAttribute('data-grupo-nombre');
+        // Para avanzar está el "Siguiente" de abajo (uno solo para todo el
+        // formulario). Acá queda la confirmación: si no tiene ninguna de estas,
+        // se dice con un toque y se sigue. Sin marcar nada, se puede seguir igual:
+        // el guardado lo vuelve a pedir.
+        if (tieneBools && !tildadas && !estaRevisado(g)) {
+          pie.innerHTML = '<span class="fx-foot-hint">Lo que no marques se publica como que no lo tiene.</span>' +
+            `<button type="button" class="fx-ninguna" onclick="fxNinguna(${i})"><i class="far fa-square-check"></i> No tiene ninguna de estas</button>`;
+        } else if (tieneBools) {
+          pie.innerHTML = `<span class="fx-foot-hint">${tildadas ? `<b>${tildadas}</b> marcada${tildadas > 1 ? 's' : ''} · ` : '<i class="fas fa-check"></i> Confirmado: no tiene ninguna · '}lo que no marques se publica como que no lo tiene.</span>`;
+        } else pie.innerHTML = '';
+        pie.style.display = pie.innerHTML ? '' : 'none';
       });
+      pintarCrumb();
     }
     // Un paso está "listo" si sus campos con dato obligatorios están y, cuando tiene
     // casilleros, alguien confirmó haberlo mirado.
@@ -3411,6 +3906,15 @@
       fxPaso = Math.max(0, Math.min(n, pasos.length - 1));
       if (fxModo === 'lista') fxCambiarModo();
       else { pintarPasos(); fxScrollArriba(); }
+    }
+    // "Paso 4 de 8 · Ficha técnica (2 de 7)": dentro de la ficha, la barra de
+    // abajo dice en qué grupo estás.
+    function pintarCrumb() {
+      const nom = document.getElementById('wizNomNow');
+      if (!nom) return;
+      let t = wizNombres[wizPaso] || '';
+      if (wizPaso === 3 && fxModo === 'pasos') { const n = fxPasos().length; if (n > 1) t += ` · ${fxPaso + 1} de ${n}`; }
+      nom.textContent = t;
     }
     function fxNinguna(i) {
       const sec = document.querySelector('.fx-step[data-paso="' + i + '"]');
@@ -3443,6 +3947,7 @@
     // los 7 pasos. Cargás por pasos, corregís por lista.
     function fxCambiarModo() {
       fxModo = fxModo === 'pasos' ? 'lista' : 'pasos';
+      setTimeout(pintarCrumb, 0);
       const wrap = document.getElementById('fichaTecnica');
       if (wrap) wrap.className = 'fx-modo-' + fxModo;
       const b = document.getElementById('fxBtnModo');
@@ -4077,6 +4582,7 @@
         const titulo = `${p.nombre}: ${detalle}. Tocá para ver el detalle.`;
         return `<button type="button" class="${cls}" onclick="verPortal('${r.k}')" title="${esc(titulo)}" aria-label="${esc(titulo)}">` +
           `<span class="aro" style="--p:${pct}">${dentro}</span><span class="largo">${p.nombre}</span><span class="corto">${p.corto}</span>` +
+          ((!r.bloqueo && !r.listo) ? `<span class="cnt">· ${n === 1 ? 'falta 1' : `faltan ${n > 99 ? '99+' : n}`}</span>` : '') +
           (est ? `<span class="est">· ${esc(est)}</span>` : '') + '</button>';
       }).join('');
     }
@@ -4315,6 +4821,7 @@
       if (['submit', 'button', 'checkbox', 'radio', 'file'].includes(tipo)) return;
       e.preventDefault();
       if (t.id === 'fichaSearch') { t.blur(); return; }
+      if (t.id === 'propNumeroPuerta' || (t.id === 'propDireccion' && document.getElementById('propNumeroPuerta').value.trim())) { buscarEnMapa(); return; }
       const zona = (wizOn() && document.querySelector('.pf-sec.wiz-actual')) || document.getElementById('propertyForm');
       const campos = Array.from(zona.querySelectorAll('input, select, textarea')).filter(el =>
         el.type !== 'hidden' && el.type !== 'checkbox' && el.type !== 'file' && !el.disabled && !el.readOnly && el.offsetParent !== null);
@@ -4328,7 +4835,7 @@
     const _togglePropertyType = togglePropertyType;
     togglePropertyType = function () { _togglePropertyType(); onTipoChange(); };
     const _loadPropertyForEdit = loadPropertyForEdit;
-    loadPropertyForEdit = function (p) { _loadPropertyForEdit(p); document.getElementById('pfCal').style.display = ''; calidadRecalc(); _sucio = false; };
+    loadPropertyForEdit = function (p) { _loadPropertyForEdit(p); document.getElementById('pfCal').style.display = ''; pintarOpciones(); calidadRecalc(); ayudasDeCarga(); _sucio = false; };
     const _showState = showState;
     showState = function (which, opts) { _showState(which, opts); document.getElementById('pfCal').style.display = (which === 'ppfFormWrap') ? '' : 'none'; };
 
@@ -4347,6 +4854,7 @@
       wizMenu(false);
       n = Math.max(0, Math.min(n, WIZ_TOTAL - 1));
       wizPaso = n;
+      const _wrapP = document.getElementById('ppfFormWrap'); if (_wrapP) _wrapP.dataset.paso = n;
       // Mostrar solo la sección del paso actual.
       for (let i = 1; i <= WIZ_TOTAL; i++) {
         const s = document.getElementById('sec' + i);
@@ -4373,6 +4881,7 @@
       if (pub) pub.style.display = (ultimo || editando) ? '' : 'none';
       const num = document.getElementById('wizNumNow'); if (num) num.textContent = (n + 1);
       const nom = document.getElementById('wizNomNow'); if (nom) nom.textContent = wizNombres[n] || '';
+      if (n === 3) pintarCrumb();
       // El mapa vive en el paso 2 (índice 1). Se creó con la sección visible, pero
       // el modo libro la oculta: al volver a mostrarla hay que reajustar Leaflet o
       // dibuja gris/cortado.
@@ -4388,8 +4897,22 @@
         if (s) s.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
-    function wizSiguiente() { wizIr(wizPaso + 1); }
-    function wizAtras() { wizIr(wizPaso - 1); }
+    // En la ficha técnica, Siguiente y Atrás recorren sus grupos antes de pasar
+    // al paso de al lado: antes había dos "Siguiente" en la misma pantalla.
+    function wizSiguiente() {
+      if (wizPaso === 3 && fxModo === 'pasos') {
+        const n = fxPasos().length;
+        if (fxPaso < n - 1) { fxIr(fxPaso + 1); return; }
+      }
+      if (wizPaso === 2) fxPaso = 0;      // entrando a la ficha: desde el primer grupo
+      wizIr(wizPaso + 1);
+    }
+    function wizAtras() {
+      if (wizPaso === 3 && fxModo === 'pasos' && fxPaso > 0) { fxIr(fxPaso - 1); return; }
+      if (wizPaso === 4) fxPaso = Math.max(0, fxPasos().length - 1);   // volviendo a la ficha: al último grupo
+      wizIr(wizPaso - 1);
+      if (wizPaso === 3 && typeof pintarPasos === 'function') pintarPasos();
+    }
     /* Lista de pasos en celular y tablet. El índice lateral se oculta en pantallas
        de menos de 1020 px, así que para ir al paso 7 había que tocar "Siguiente"
        seis veces. Tocando "Paso X de 8" aparece ese mismo índice, flotando sobre
@@ -4637,7 +5160,9 @@
         const ubicacion = {
           calle: document.getElementById('propDireccion').value.trim(),
           numero: document.getElementById('propNumeroPuerta').value.trim(),
-          barrio: ubicacionState.barrio || (dp === 'Montevideo' ? cd : ''),
+          // En Montevideo, el barrio es el de la lista (el que eligió el agente o puso
+          // el pin): antes era el que adivinaba el mapa y a veces no coincidía.
+          barrio: dp === 'Montevideo' ? cd : (ubicacionState.barrio || ''),
           ciudad: cd,
           departamento: dp,
         };

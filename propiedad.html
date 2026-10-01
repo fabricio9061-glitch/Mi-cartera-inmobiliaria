@@ -2,185 +2,283 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Propiedad | MALAVE</title>
-  <meta name="description" content="Propiedad en MALAVE Inmobiliaria">
+  <meta name="description" content="Propiedad en MALAVE Inmobiliaria" id="metaDescription">
   <link rel="icon" type="image/png" href="iso-malave.png">
   <meta property="og:title" content="Propiedad | MALAVE" id="ogTitle">
   <meta property="og:description" content="Propiedad en MALAVE Inmobiliaria" id="ogDescription">
   <meta property="og:image" content="icon-512.png" id="ogImage">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="theme-color" content="#243447">
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#16273f">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="styles.css?v=20260821j">
   <style>
-    body{background:var(--gray-50)}
-    .pp-header{background:var(--white);box-shadow:var(--shadow-sm);position:sticky;top:0;z-index:100}
-    .pp-header-inner{max-width:1200px;margin:0 auto;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
-    .pp-back{display:inline-flex;align-items:center;gap:8px;color:var(--gray-600);font-size:14px;font-weight:500;padding:9px 18px;border:1px solid var(--gray-300);border-radius:var(--radius-full);transition:all .25s}
-    .pp-back:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
-    .pp-container{max-width:1200px;margin:0 auto;padding:32px 24px 60px}
-    /* Galería */
-    .pp-gallery{margin-bottom:32px}
-    .pp-gallery-main{position:relative;height:480px;border-radius:var(--radius-xl);overflow:hidden;background:var(--gray-200)}
-    .pp-gallery-main img{width:100%;height:100%;object-fit:cover;cursor:zoom-in}
-    .pp-gallery-badges{position:absolute;top:18px;left:18px;display:flex;gap:8px;flex-wrap:wrap;z-index:5}
-    .pp-zoom-hint{position:absolute;bottom:16px;right:16px;background:rgba(15,20,28,.6);color:#fff;padding:8px 16px;border-radius:var(--radius-full);font-size:13px;display:flex;align-items:center;gap:7px;pointer-events:none;backdrop-filter:blur(4px)}
-    .pp-gnav{position:absolute;top:50%;transform:translateY(-50%);width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.9);color:var(--primary);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;z-index:5;border:none;font-size:18px;box-shadow:var(--shadow-md)}
-    .pp-gnav:hover{background:#fff;transform:translateY(-50%) scale(1.06)}
-    .pp-gnav.prev{left:18px}.pp-gnav.next{right:18px}
-    .pp-thumbs{display:flex;gap:10px;margin-top:14px;overflow-x:auto;padding-bottom:6px}
-    .pp-thumb{width:96px;height:72px;border-radius:var(--radius-md);overflow:hidden;cursor:pointer;flex-shrink:0;border:2px solid transparent;opacity:.65;transition:all .2s}
-    .pp-thumb img{width:100%;height:100%;object-fit:cover}
-    .pp-thumb.active{border-color:var(--gold);opacity:1}
-    .pp-thumb:hover{opacity:1}
-    /* Cuerpo en 2 columnas */
-    .pp-body{display:grid;grid-template-columns:1fr 360px;gap:40px;align-items:start}
-    .pp-main h1{font-family:'Cormorant Garamond',serif;font-size:34px;font-weight:700;color:var(--primary);line-height:1.2;margin-bottom:12px}
-    .pp-location{display:flex;align-items:center;gap:8px;color:var(--gray-500);font-size:16px;margin-bottom:28px}
-    .pp-location i{color:var(--gold)}
-    .pp-section-title{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:600;color:var(--primary);margin:32px 0 16px;padding-bottom:10px;border-bottom:1px solid var(--gray-200)}
-    .pp-features{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px}
-    .pp-feature{display:flex;align-items:center;gap:12px;background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:16px}
-    .pp-feature-icon{width:44px;height:44px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
-    .pp-feature-val{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--primary);line-height:1}
-    .pp-feature-lbl{font-size:12px;color:var(--gray-500);margin-top:2px}
-    .pp-amen-group{margin-top:26px}
-    .pp-amen-group h4{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--primary);margin:0 0 12px;font-weight:700}
-    .pp-chips{display:flex;flex-wrap:wrap;gap:9px}
-    .pp-chip{display:inline-flex;align-items:center;gap:7px;background:var(--gray-50,#f9fafb);border:1px solid var(--gray-200,#e5e7eb);border-radius:999px;padding:8px 15px;font-size:13.5px;color:var(--gray-700,#374151)}
-    .pp-chip i{color:#16a34a;font-size:11px}
-    .pp-extra{display:flex;flex-wrap:wrap;gap:10px 30px}
-    .pp-extra div{font-size:14.5px;color:var(--gray-600,#4b5563)}
-    .pp-extra b{color:var(--primary)}
-    .pp-description{color:var(--gray-700);font-size:16px;line-height:1.8;white-space:pre-line}
-    .pp-video{position:relative;width:100%;padding-bottom:56.25%;border-radius:var(--radius-xl);overflow:hidden;background:#000;margin-top:8px}
-    .pp-video iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
-    /* Sidebar */
-    .pp-sidebar{position:sticky;top:96px;display:flex;flex-direction:column;gap:20px}
-    .pp-price-card{background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius-xl);padding:28px;box-shadow:var(--shadow-sm)}
-    .pp-price-old{color:var(--gray-400);text-decoration:line-through;font-size:18px;margin-bottom:4px}
-    .pp-price{font-family:'Cormorant Garamond',serif;font-size:38px;font-weight:700;color:var(--primary);line-height:1.1}
-    .pp-price span{font-size:18px;color:var(--gray-500);font-family:'Jost',sans-serif}
-    .pp-price-drop{display:inline-block;margin-top:10px;background:var(--success);color:#fff;padding:5px 14px;border-radius:var(--radius-full);font-size:13px;font-weight:600}
-    .pp-agent-card{background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius-xl);padding:24px;box-shadow:var(--shadow-sm)}
-    .pp-agent-top{display:flex;align-items:center;gap:14px;margin-bottom:18px;cursor:pointer}
-    .pp-agent-avatar{width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--primary-light));color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;overflow:hidden;flex-shrink:0}
-    .pp-agent-avatar img{width:100%;height:100%;object-fit:cover}
-    .pp-agent-name{font-family:'Jost',sans-serif;font-size:17px;font-weight:600;color:var(--primary)}
-    .pp-agent-role{font-size:13px;color:var(--gray-500)}
-    .pp-btn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:14px;border-radius:var(--radius-full);font-family:'Jost',sans-serif;font-size:15px;font-weight:500;cursor:pointer;transition:all .25s;border:none;margin-top:10px}
-    .pp-btn-wa{background:#25D366;color:#fff}
-    .pp-btn-wa:hover{background:#1ebe5a;transform:translateY(-2px)}
-    .pp-btn-share{background:transparent;color:var(--primary);border:1px solid var(--gray-300)}
-    .pp-btn-share:hover{background:var(--gray-100)}
-    .pp-btn-profile{background:transparent;color:var(--gray-600);font-size:13px;padding:8px}
-    .pp-btn-profile:hover{color:var(--primary)}
-    /* Loading / error */
-    .pp-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;color:var(--gray-400)}
-    .pp-spinner{width:48px;height:48px;border:4px solid var(--gray-200);border-top-color:var(--primary);border-radius:50%;animation:ppspin 1s linear infinite;margin-bottom:20px}
-    @keyframes ppspin{to{transform:rotate(360deg)}}
-    .pp-error{text-align:center;padding:100px 20px;color:var(--gray-400)}
-    .pp-error i{font-size:64px;margin-bottom:24px;opacity:.4}
-    .pp-error h2{font-family:'Cormorant Garamond',serif;font-size:30px;color:var(--gray-600);margin-bottom:12px}
-    .pp-error a{display:inline-block;margin-top:20px;background:var(--primary);color:#fff;padding:12px 28px;border-radius:var(--radius-full);font-weight:500}
-    @media(max-width:900px){
-      .pp-body{grid-template-columns:1fr;gap:28px}
-      .pp-sidebar{position:static;order:-1}
-      .pp-gallery-main{height:300px}
-      .pp-main h1{font-size:27px}
+    /* ==========================================================================
+       FICHA PÚBLICA DE LA PROPIEDAD (rediseño 30/09/2026)
+       Es la página que reciben los clientes por WhatsApp o Instagram: casi
+       siempre se abre en el celular. Fotos arriba, los datos que se buscan de un
+       vistazo, el precio y el WhatsApp siempre a mano.
+       ========================================================================== */
+    html, body{ overflow-x:clip; }   /* (styles.css trae hidden, que rompe los sticky) */
+    :root{ --ink:#16273f; --gold:#C9A227; --gold-osc:#9a7a12; --paper:#f4f5f7; --line:#e5e8ec; --muted:#6b7480; --ok:#1e7d4f; }
+    body{ background:var(--paper); color:var(--ink); }
+    [hidden]{ display:none !important; }
+
+    /* ---- Cabecera ---- */
+    .pp-header{ background:#fff; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:1000; padding-top:env(safe-area-inset-top,0px); }
+    .pp-header-inner{ max-width:1180px; margin:0 auto; padding:12px 22px; display:flex; justify-content:space-between; align-items:center; gap:14px; }
+    .logo-img{ height:30px !important; width:auto; } .logo-text{ height:19px !important; width:auto; }
+    .pp-back{ display:inline-flex; align-items:center; gap:8px; color:var(--muted); font-size:.88rem; font-weight:500; padding:8px 15px; border:1px solid var(--line); border-radius:999px; text-decoration:none; background:#fff; transition:background .15s, color .15s, border-color .15s; }
+    @media (hover:hover){ .pp-back:hover{ background:var(--ink); color:#fff; border-color:var(--ink); } }
+
+    .pp-wrap{ max-width:1180px; margin:0 auto; padding:22px 22px 70px; }
+
+    /* ---- Fotos: mosaico en la computadora, carrusel en el celular ---- */
+    .pp-fotos{ position:relative; display:grid; grid-template-columns:2fr 1fr 1fr; grid-template-rows:1fr 1fr; gap:8px; height:470px; border-radius:20px; overflow:hidden; background:#e9ecef; }
+    .pp-fotos.n1{ grid-template-columns:1fr; grid-template-rows:1fr; }
+    .pp-fotos.n2{ grid-template-columns:2fr 1fr; grid-template-rows:1fr; }
+    .pp-fotos.n3{ grid-template-columns:2fr 1fr; grid-template-rows:1fr 1fr; }
+    .pp-fotos.n4{ grid-template-columns:2fr 1fr 1fr; grid-template-rows:1fr 1fr; }
+    .pp-tile{ position:relative; overflow:hidden; cursor:zoom-in; background:#dfe3e7; border:0; padding:0; }
+    .pp-fotos > .pp-tile:first-of-type{ grid-row:1 / -1; }
+    .pp-fotos.n4 > .pp-tile:nth-of-type(4){ grid-column:2 / -1; }
+    .pp-tile img{ width:100%; height:100%; object-fit:cover; display:block; transition:transform .5s ease, filter .3s; }
+    @media (hover:hover){ .pp-tile:hover img{ transform:scale(1.03); filter:brightness(.94); } }
+    .pp-badges{ position:absolute; top:16px; left:16px; z-index:5; display:flex; gap:7px; flex-wrap:wrap; pointer-events:none; }
+    .pp-fotos-acc{ position:absolute; right:16px; bottom:16px; z-index:5; display:flex; gap:8px; }
+    .pp-vertodas{ display:inline-flex; text-decoration:none; align-items:center; gap:8px; background:#fff; color:var(--ink); border:0; border-radius:10px; padding:9px 15px; font-family:inherit; font-size:.86rem; font-weight:600; cursor:pointer; box-shadow:0 6px 18px rgba(16,24,40,.22); }
+    @media (hover:hover){ .pp-vertodas:hover{ background:var(--ink); color:#fff; } }
+    .pp-carrusel{ display:none; }
+
+    /* ---- Cuerpo en dos columnas ---- */
+    .pp-cuerpo{ display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:44px; align-items:start; margin-top:30px; }
+    .pp-ojo{ font-size:.74rem; letter-spacing:.11em; text-transform:uppercase; color:var(--gold-osc); font-weight:600; }
+    .pp-main h1{ font-family:'Cormorant Garamond',serif; font-size:2.35rem; font-weight:700; line-height:1.12; color:var(--ink); margin:8px 0 10px; letter-spacing:-.005em; }
+    .pp-lugar{ display:flex; align-items:center; gap:8px; color:var(--muted); font-size:1rem; }
+    .pp-lugar i{ color:var(--gold); }
+    .pp-baja{ display:flex; gap:10px; align-items:flex-start; background:#fff7e6; border:1px solid #f1d9a6; color:#7a5a12; border-radius:12px; padding:12px 15px; margin:0 0 16px; font-size:.9rem; line-height:1.45; }
+    .pp-baja a{ color:var(--ink); font-weight:600; }
+    .pp-precio-movil{ display:none; }
+
+    /* Lo que se busca primero, de un vistazo */
+    .pp-claves{ display:flex; flex-wrap:wrap; gap:10px; margin:22px 0 4px; padding:0; list-style:none; }
+    .pp-claves li{ display:flex; align-items:center; gap:11px; background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px 16px 12px 13px; min-width:0; }
+    .pp-claves .ic{ width:38px; height:38px; flex:none; border-radius:11px; background:rgba(201,162,39,.12); color:var(--gold-osc); display:grid; place-items:center; font-size:.98rem; }
+    .pp-claves b{ display:block; font-size:1.06rem; font-weight:600; color:var(--ink); line-height:1.1; font-variant-numeric:tabular-nums; }
+    .pp-claves small{ display:block; font-size:.76rem; color:var(--muted); margin-top:2px; }
+
+    .pp-sec{ margin-top:34px; }
+    .pp-sec > h2{ font-family:'Cormorant Garamond',serif; font-size:1.65rem; font-weight:700; color:var(--ink); margin:0 0 14px; display:flex; align-items:baseline; gap:10px; }
+    .pp-sec > h2 small{ font-family:'Jost',sans-serif; font-size:.8rem; font-weight:500; color:var(--muted); }
+    .pp-desc{ color:#3f4a59; font-size:1rem; line-height:1.8; white-space:pre-line; position:relative; }
+    .pp-desc.corta{ max-height:11.5em; overflow:hidden; }
+    .pp-desc.corta::after{ content:''; position:absolute; left:0; right:0; bottom:0; height:4.5em; background:linear-gradient(rgba(244,245,247,0), var(--paper)); }
+    .pp-mas{ margin-top:8px; background:none; border:0; padding:0; font-family:inherit; font-size:.92rem; font-weight:600; color:var(--ink); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+
+    /* Características: etiqueta y valor, en dos columnas */
+    .pp-datos{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 28px; background:#fff; border:1px solid var(--line); border-radius:16px; padding:6px 20px; margin:0; }
+    .pp-datos div{ display:flex; justify-content:space-between; align-items:baseline; gap:14px; padding:11px 0; border-bottom:1px solid #f0f1f3; min-width:0; }
+    .pp-datos dt{ color:var(--muted); font-size:.9rem; }
+    .pp-datos dd{ margin:0; color:var(--ink); font-weight:600; font-size:.93rem; text-align:right; }
+
+    .pp-grupo{ margin-top:18px; }
+    .pp-grupo h3{ font-family:'Jost',sans-serif; font-size:.76rem; letter-spacing:.09em; text-transform:uppercase; color:#98a1ab; font-weight:600; margin:0 0 10px; }
+    .pp-chips{ display:flex; flex-wrap:wrap; gap:8px; }
+    .pp-chip{ display:inline-flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 13px; font-size:.9rem; color:#3f4a59; }
+    .pp-chip i{ color:var(--ok); font-size:.75rem; }
+
+    .pp-mapa{ height:340px; border-radius:16px; overflow:hidden; border:1px solid var(--line); background:#e9ecef; position:relative; z-index:0; }
+    .pp-mapa-nota{ display:flex; align-items:center; gap:8px; margin-top:10px; font-size:.86rem; color:var(--muted); }
+    .pp-mapa-nota i{ color:var(--gold); }
+    .pp-video{ position:relative; width:100%; padding-bottom:56.25%; border-radius:16px; overflow:hidden; background:#000; }
+    .pp-video iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
+    .pp-video.vertical{ padding-bottom:0; aspect-ratio:9 / 16; max-width:320px; }   /* YouTube Shorts */
+    .pp-codigo{ margin-top:30px; font-size:.84rem; color:var(--muted); }
+    .pp-codigo b{ color:var(--ink); font-weight:600; letter-spacing:.02em; }
+
+    /* ---- Columna del precio y el contacto ---- */
+    .pp-lado{ position:sticky; top:86px; display:flex; flex-direction:column; gap:16px; }
+    .pp-card{ background:#fff; border:1px solid var(--line); border-radius:18px; padding:22px; box-shadow:0 10px 30px rgba(16,24,40,.06); }
+    .pp-precio-viejo{ color:#9aa3ad; text-decoration:line-through; font-size:1rem; }
+    .pp-precio{ font-family:'Cormorant Garamond',serif; font-size:2.6rem; font-weight:700; color:var(--ink); line-height:1.05; letter-spacing:-.01em; }
+    .pp-precio span{ font-family:'Jost',sans-serif; font-size:1rem; font-weight:500; color:var(--muted); letter-spacing:0; }
+    .pp-rebaja{ display:inline-flex; align-items:center; gap:6px; margin-top:8px; background:rgba(30,125,79,.1); color:var(--ok); border-radius:999px; padding:4px 11px; font-size:.8rem; font-weight:600; }
+    .pp-precio-det{ margin-top:12px; padding-top:12px; border-top:1px solid #f0f1f3; display:grid; gap:6px; font-size:.88rem; color:var(--muted); }
+    .pp-precio-det div{ display:flex; justify-content:space-between; gap:12px; }
+    .pp-precio-det b{ color:var(--ink); font-weight:600; }
+    .pp-agente{ display:flex; align-items:center; gap:13px; margin-bottom:16px; }
+    .pp-avatar{ width:54px; height:54px; border-radius:50%; flex:none; overflow:hidden; display:grid; place-items:center; background:linear-gradient(135deg,#101d30,var(--ink)); color:#fff; font-family:'Cormorant Garamond',serif; font-size:1.5rem; font-weight:600; }
+    .pp-avatar img{ width:100%; height:100%; object-fit:cover; }
+    .pp-agente-nombre{ font-weight:600; font-size:1rem; color:var(--ink); }
+    .pp-agente-rol{ font-size:.82rem; color:var(--muted); }
+    .pp-horario{ font-size:.82rem; color:var(--muted); margin:-6px 0 14px; display:flex; gap:7px; align-items:baseline; }
+    .pp-btn{ display:flex; align-items:center; justify-content:center; gap:9px; width:100%; padding:13px 16px; border-radius:12px; font-family:inherit; font-size:.95rem; font-weight:600; cursor:pointer; border:1px solid transparent; text-decoration:none; transition:background .15s, color .15s, border-color .15s, transform .1s; }
+    .pp-btn:active{ transform:scale(.99); }
+    .pp-btn + .pp-btn{ margin-top:9px; }
+    .pp-btn-wa{ background:#25D366; color:#fff; font-size:1rem; }
+    @media (hover:hover){ .pp-btn-wa:hover{ background:#1ebe5a; } }
+    .pp-btn-sec{ background:#fff; color:var(--ink); border-color:var(--line); }
+    @media (hover:hover){ .pp-btn-sec:hover{ border-color:var(--ink); } }
+    .pp-btn-link{ background:none; color:var(--muted); font-weight:500; font-size:.86rem; padding:8px; }
+    @media (hover:hover){ .pp-btn-link:hover{ color:var(--ink); } }
+    .pp-btn-edit{ background:var(--ink); color:#fff; }
+    @media (hover:hover){ .pp-btn-edit:hover{ background:#0f1d31; } }
+
+    /* ---- Barra de contacto fija (celular) ---- */
+    .pp-barra{ display:none; }
+
+    /* ---- Estados ---- */
+    .pp-estado{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; text-align:center; color:var(--muted); padding:40px 20px; }
+    .pp-spinner{ width:46px; height:46px; border:4px solid var(--line); border-top-color:var(--ink); border-radius:50%; animation:ppgira 1s linear infinite; margin-bottom:18px; }
+    @keyframes ppgira{ to{ transform:rotate(360deg); } }
+    .pp-estado > i{ font-size:60px; opacity:.35; margin-bottom:20px; }
+    .pp-estado h2{ font-family:'Cormorant Garamond',serif; font-size:1.9rem; color:#3a4656; margin:0 0 8px; }
+    .pp-estado a{ display:inline-block; margin-top:18px; background:var(--ink); color:#fff; padding:12px 26px; border-radius:999px; font-weight:500; text-decoration:none; }
+
+    /* Aviso flotante (enlace copiado) */
+    .pp-toast{ position:fixed; left:50%; bottom:24px; transform:translate(-50%,20px); opacity:0; z-index:5000; background:var(--ink); color:#fff; padding:11px 18px; border-radius:12px; font-size:.9rem; box-shadow:0 10px 30px rgba(16,24,40,.3); transition:opacity .2s, transform .2s; pointer-events:none; }
+    .pp-toast.ver{ opacity:1; transform:translate(-50%,0); }
+
+    .lightbox-img{ user-select:none; -webkit-user-drag:none; }
+
+    @media (max-width:1060px){ .pp-cuerpo{ grid-template-columns:minmax(0,1fr) 320px; gap:30px; } }
+    @media (max-width:900px){
+      .pp-header-inner{ padding:10px 14px; }
+      .pp-back span{ display:none; }
+      .pp-wrap{ padding:0 0 30px; }
+      .pp-fotos{ display:none; }
+      .pp-carrusel{ display:block; position:relative; }
+      .pp-carril{ display:flex; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; height:min(72vw,420px); background:#dfe3e7; }
+      .pp-carril::-webkit-scrollbar{ display:none; }
+      .pp-carril button{ flex:0 0 100%; scroll-snap-align:center; border:0; padding:0; background:none; }
+      .pp-carril img{ width:100%; height:100%; object-fit:cover; display:block; }
+      .pp-contador{ position:absolute; right:12px; bottom:12px; background:rgba(15,20,28,.62); color:#fff; border-radius:999px; padding:5px 11px; font-size:.78rem; font-weight:600; pointer-events:none; }
+      .pp-carrusel .pp-badges{ top:12px; left:12px; }
+      .pp-tour-movil{ position:absolute; left:12px; bottom:12px; display:inline-flex; align-items:center; gap:7px; background:#fff; color:var(--ink); border-radius:999px; padding:6px 12px; font-size:.78rem; font-weight:600; text-decoration:none; box-shadow:0 4px 12px rgba(16,24,40,.25); }
+      .pp-cuerpo{ display:block; margin:0; }
+      .pp-main{ padding:20px 16px 0; }
+      .pp-main h1{ font-size:1.8rem; }
+      .pp-precio-movil{ display:block; margin-top:14px; }
+      .pp-precio-movil .pp-precio{ font-size:2.1rem; }
+      .pp-claves{ gap:8px; }
+      .pp-claves li{ flex:1 1 calc(50% - 8px); padding:10px 12px 10px 10px; }
+      .pp-claves .ic{ width:34px; height:34px; }
+      .pp-datos{ grid-template-columns:1fr; padding:4px 16px; }
+      .pp-mapa{ height:280px; }
+      .pp-lado{ position:static; padding:28px 16px 0; }
+      .pp-lado .pp-card-precio{ display:none; }
+      .pp-barra{ display:flex; align-items:center; gap:12px; position:fixed; left:0; right:0; bottom:0; z-index:900; background:#fff; border-top:1px solid var(--line); box-shadow:0 -8px 24px rgba(16,24,40,.1); padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px)); }
+      .pp-barra-precio{ flex:1; min-width:0; }
+      .pp-barra-precio b{ display:block; font-family:'Cormorant Garamond',serif; font-size:1.45rem; font-weight:700; color:var(--ink); line-height:1.05; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .pp-barra-precio small{ display:block; font-size:.74rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .pp-barra .pp-btn{ width:auto; flex:none; padding:12px 18px; }
+      .pp-toast{ bottom:calc(92px + env(safe-area-inset-bottom,0px)); }
+      .footer{ padding-bottom:calc(84px + env(safe-area-inset-bottom,0px)); }
     }
-  </style>
-<style>
-  /* Área segura superior (isla dinámica / notch) en toda la herramienta */
-  /* El margen de la barra de estado lo reserva EL HEADER, no el body.
-     Antes el body lo empujaba y la tercera regla se lo quitaba al header para no
-     duplicarlo — pero el header es sticky: al fijarse arriba sale del padding del
-     body y quedaba justo abajo de la hora y los iconos del sistema. En el header
-     funciona en las dos situaciones y no hay nada que duplicar. */
-  .fh, header, .app-header, .topbar{ padding-top: env(safe-area-inset-top, 0px); }
-</style>
-<style>
-    .pp-btn-edit{ background:#16273f; color:#fff; border:1px solid #16273f; }
-    .pp-btn-edit:hover{ background:#0f1d31; }
+    @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation-duration:.01s !important; } }
   </style>
 </head>
 <body>
   <header class="pp-header">
     <div class="pp-header-inner">
       <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
-      <a href="index.html#propiedades" class="pp-back"><i class="fas fa-arrow-left"></i> Volver a propiedades</a>
+      <a href="index.html#propiedades" class="pp-back"><i class="fas fa-arrow-left"></i> <span>Ver propiedades</span></a>
     </div>
   </header>
 
-  <div id="ppLoading" class="pp-loading"><div class="pp-spinner"></div><p>Cargando propiedad...</p></div>
+  <div id="ppLoading" class="pp-estado"><div class="pp-spinner"></div><p>Cargando propiedad…</p></div>
 
-  <div id="ppError" class="pp-error" style="display:none">
+  <div id="ppError" class="pp-estado" style="display:none">
     <i class="fas fa-house-circle-exclamation"></i>
     <h2>Propiedad no encontrada</h2>
     <p>Esta propiedad no existe o fue eliminada.</p>
     <a href="index.html#propiedades"><i class="fas fa-arrow-left"></i> Ver todas las propiedades</a>
   </div>
 
-  <main id="ppContent" class="pp-container" style="display:none">
-    <div class="pp-gallery">
-      <div class="pp-gallery-main">
-        <div class="pp-gallery-badges" id="ppBadges"></div>
-        <img id="ppMainImg" src="" alt="" onclick="ppOpenLightbox(ppCurrentImg)">
-        <div class="pp-zoom-hint"><i class="fas fa-expand"></i> Ampliar</div>
-        <button class="pp-gnav prev" id="ppPrev" onclick="ppPrevImg()"><i class="fas fa-chevron-left"></i></button>
-        <button class="pp-gnav next" id="ppNext" onclick="ppNextImg()"><i class="fas fa-chevron-right"></i></button>
-      </div>
-      <div class="pp-thumbs" id="ppThumbs"></div>
-    </div>
+  <main id="ppContent" class="pp-wrap" style="display:none">
+    <!-- Fotos -->
+    <section class="pp-fotos" id="ppFotos" aria-label="Fotos de la propiedad"></section>
+    <section class="pp-carrusel" aria-label="Fotos de la propiedad">
+      <div class="pp-badges" id="ppBadgesMovil"></div>
+      <div class="pp-carril" id="ppCarril"></div>
+      <div class="pp-contador" id="ppContador"></div>
+      <a class="pp-tour-movil" id="ppTourMovil" hidden target="_blank" rel="noopener"><i class="fas fa-cube"></i> Recorrido 3D</a>
+    </section>
 
-    <div class="pp-body">
-      <div class="pp-main">
+    <div class="pp-cuerpo">
+      <article class="pp-main">
+        <div class="pp-baja" id="ppBaja" hidden></div>
+        <div class="pp-ojo" id="ppOjo"></div>
         <h1 id="ppTitle"></h1>
-        <div class="pp-location"><i class="fas fa-map-marker-alt"></i><span id="ppLocation"></span></div>
-        <div class="pp-section-title">Características</div>
-        <div class="pp-features" id="ppFeatures"></div>
-        <div id="ppAmenities"></div>
-        <div id="ppDescWrap" style="display:none">
-          <div class="pp-section-title">Descripción</div>
-          <div class="pp-description" id="ppDescription"></div>
-        </div>
-        <div id="ppVideoWrap" style="display:none">
-          <div class="pp-section-title">Video</div>
-          <div class="pp-video"><iframe id="ppVideoFrame" src="" title="Video de la propiedad" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
-        </div>
-      </div>
+        <div class="pp-lugar"><i class="fas fa-location-dot"></i><span id="ppLocation"></span></div>
+        <div class="pp-precio-movil" id="ppPrecioMovil"></div>
+        <ul class="pp-claves" id="ppClaves"></ul>
 
-      <aside class="pp-sidebar">
-        <div class="pp-price-card">
-          <div class="pp-price-old" id="ppPriceOld" style="display:none"></div>
-          <div class="pp-price" id="ppPrice"></div>
-          <div class="pp-price-drop" id="ppPriceDrop" style="display:none"></div>
-        </div>
-        <div class="pp-agent-card">
-          <div class="pp-agent-top" id="ppAgentTop">
-            <div class="pp-agent-avatar" id="ppAgentAvatar"></div>
-            <div><div class="pp-agent-name" id="ppAgentName"></div><div class="pp-agent-role">Agente inmobiliario</div></div>
+        <section class="pp-sec" id="ppDescWrap" hidden>
+          <h2>Descripción</h2>
+          <div class="pp-desc" id="ppDescription"></div>
+          <button type="button" class="pp-mas" id="ppMas" hidden onclick="verDescripcion()">Leer toda la descripción</button>
+        </section>
+
+        <section class="pp-sec" id="ppDatosWrap" hidden>
+          <h2>Características</h2>
+          <dl class="pp-datos" id="ppDatos"></dl>
+        </section>
+
+        <section class="pp-sec" id="ppAmenWrap" hidden>
+          <h2>Comodidades</h2>
+          <div id="ppAmenities"></div>
+        </section>
+
+        <section class="pp-sec" id="ppUbicacion" hidden>
+          <h2>Ubicación <small id="ppUbicTxt"></small></h2>
+          <div class="pp-mapa" id="ppMapa" role="img" aria-label="Mapa de la zona de la propiedad"></div>
+          <div class="pp-mapa-nota" id="ppMapaNota"></div>
+        </section>
+
+        <section class="pp-sec" id="ppVideoWrap" hidden>
+          <h2 id="ppVideoTit">Video</h2>
+          <div class="pp-video"><iframe id="ppVideoFrame" src="" title="Video de la propiedad" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+        </section>
+
+        <div class="pp-codigo" id="ppCodigo" hidden></div>
+      </article>
+
+      <aside class="pp-lado">
+        <div class="pp-card pp-card-precio" id="ppCardPrecio"></div>
+        <div class="pp-card">
+          <div class="pp-agente" id="ppAgentTop">
+            <div class="pp-avatar" id="ppAgentAvatar"></div>
+            <div><div class="pp-agente-nombre" id="ppAgentName"></div><div class="pp-agente-rol">Agente de MALAVE Inmobiliaria</div></div>
           </div>
-          <button class="pp-btn pp-btn-wa" id="ppContactBtn" onclick="ppContact()"><i class="fab fa-whatsapp"></i> Contactar por WhatsApp</button>
-          <button class="pp-btn pp-btn-share" onclick="ppShare()"><i class="fas fa-share-alt"></i> Compartir</button>
-          <button class="pp-btn pp-btn-profile" id="ppProfileBtn" onclick="ppViewProfile()"><i class="fas fa-user"></i> Ver perfil del agente</button>
+          <div class="pp-horario" id="ppHorario" hidden></div>
+          <button class="pp-btn pp-btn-wa" id="ppContactBtn" onclick="ppContact()"><i class="fab fa-whatsapp"></i> Consultar por WhatsApp</button>
+          <button class="pp-btn pp-btn-sec" onclick="ppShare()"><i class="fas fa-share-nodes"></i> Compartir</button>
+          <button class="pp-btn pp-btn-link" id="ppProfileBtn" onclick="ppViewProfile()"><i class="fas fa-user"></i> Ver perfil del agente</button>
           <button class="pp-btn pp-btn-edit" id="ppEditBtn" style="display:none" onclick="ppEditar()"><i class="fas fa-pen-to-square"></i> Editar propiedad</button>
         </div>
       </aside>
     </div>
   </main>
 
+  <!-- Celular: el precio y el WhatsApp siempre a mano -->
+  <div class="pp-barra" id="ppBarra" style="display:none">
+    <div class="pp-barra-precio"><b id="ppBarraPrecio"></b><small id="ppBarraLugar"></small></div>
+    <button class="pp-btn pp-btn-wa" onclick="ppContact()"><i class="fab fa-whatsapp"></i> Consultar</button>
+  </div>
+
   <footer class="footer"><div class="container"><div class="footer-content"><div class="footer-logo"><img src="iso-malave-white.png" alt="" class="footer-iso"><img src="texto-malave-white.png" alt="MALAVE" class="footer-text"></div><div class="footer-links"><a href="https://www.instagram.com/malave.inmobiliaria/" target="_blank" title="Instagram"><i class="fab fa-instagram"></i></a><a href="https://wa.me/59894029297" target="_blank" title="WhatsApp"><i class="fab fa-whatsapp"></i></a></div></div><div class="footer-bottom">Página creada por Anibal Malave © 2026</div></div></footer>
 
   <div class="lightbox" id="ppLightbox" onclick="ppCloseLightbox()">
-    <button class="lightbox-close" onclick="event.stopPropagation();ppCloseLightbox()"><i class="fas fa-times"></i></button>
-    <button class="lightbox-nav prev" onclick="event.stopPropagation();ppLbPrev()"><i class="fas fa-chevron-left"></i></button>
+    <button class="lightbox-close" onclick="event.stopPropagation();ppCloseLightbox()" aria-label="Cerrar"><i class="fas fa-times"></i></button>
+    <button class="lightbox-nav prev" onclick="event.stopPropagation();ppLbPrev()" aria-label="Foto anterior"><i class="fas fa-chevron-left"></i></button>
     <img class="lightbox-img" id="ppLightboxImg" src="" alt="" onclick="event.stopPropagation()">
-    <button class="lightbox-nav next" onclick="event.stopPropagation();ppLbNext()"><i class="fas fa-chevron-right"></i></button>
+    <button class="lightbox-nav next" onclick="event.stopPropagation();ppLbNext()" aria-label="Foto siguiente"><i class="fas fa-chevron-right"></i></button>
     <div class="lightbox-counter" id="ppLightboxCounter"></div>
   </div>
+  <div class="pp-toast" id="ppToast" role="status" aria-live="polite"></div>
 
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -191,23 +289,43 @@
     const db = firebase.firestore();
 
     let property = null, agent = null, images = [], ppCurrentImg = 0;
+    const FOTO_DEFAULT = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200';
+    // Si la propiedad no tiene video propio, se muestra el institucional de la agencia.
+    const VIDEO_DEFAULT = 'https://youtube.com/shorts/KcGr0S0Yx9A';
+    const WA_AGENCIA = '59894029297';
+
+    // Campos de la ficha técnica que se muestran: [etiqueta, grupo, tipo, unidad].
+    // Grupos: d datos · a ambientes · e equipamiento · m amenities · s seguridad ·
+    // c condiciones · r alquiler · i otros datos. Tipos: n número · l lista ·
+    // t texto · f fecha · b sí/no. Sale del catálogo del formulario (FICHA_TIPOS).
+    const FICHA = {"PROPERTY_AGE":["Antigüedad","d","n","años"],"LAND_AREA":["Superficie del terreno","d","n","m²"],"BALCONY_AREA":["Superficie del balcón","d","n","m²"],"ROOMS":["Ambientes","d","n"],"WAREHOUSES":["Bodegas","d","n"],"FLOORS":["Plantas","d","n"],"HOUSE_PROPERTY_SUBTYPE":["Tipo","d","l"],"FACING":["Orientación","d","l"],"HAS_ATTIC":["Altillo","a","b"],"HAS_BALCONY":["Balcón","a","b"],"HAS_KITCHEN":["Cocina","a","b"],"HAS_DINNING_ROOM":["Comedor","a","b"],"HAS_MAID_ROOM":["Dormitorio de servicio","a","b"],"HAS_BEDROOM_SUITE":["Dormitorio en suite","a","b"],"HAS_STUDY":["Estudio","a","b"],"HAS_GARDEN":["Jardín","a","b"],"HAS_LIVING_ROOM":["Living","a","b"],"HAS_PATIO":["Patio","a","b"],"HAS_CLOSETS":["Placards","a","b"],"HAS_PLAYROOM":["Cuarto de juegos","a","b"],"HAS_TERRACE":["Terraza","a","b"],"HAS_HALF_BATH":["Baño social","a","b"],"HAS_DRESSING_ROOM":["Vestidor","a","b"],"HAS_LAUNDRY":["Lavadero","a","b"],"HAS_BREAKFAST_BAR":["Desayunador","a","b"],"HAS_INTERNET_ACCESS":["Acceso a internet","e","b"],"HAS_AIR_CONDITIONING":["Aire acondicionado","e","b"],"HAS_HEATING":["Calefacción","e","b"],"HAS_INDOOR_FIREPLACE":["Chimenea","e","b"],"HAS_NATURAL_GAS":["Gas natural","e","b"],"HAS_TELEPHONE_LINE":["Línea telefónica","e","b"],"HAS_GRILL":["Parrillero","e","b"],"HAS_CABLE_TV":["TV por cable","e","b"],"HAS_FRIDGE":["Heladera","e","b"],"WITH_SOLAR_ENERGY":["Energía solar","e","b"],"WITH_LAUNDRY_CONNECTION":["Conexión para lavarropas","e","b"],"FURNISHED":["Amoblado","e","b"],"HAS_TAP_WATER":["Agua corriente","e","b"],"HAS_CISTERN":["Cisterna","e","b"],"HAS_BOILER":["Caldera","e","b"],"HAS_GYM":["Gimnasio","m","b"],"HAS_JACUZZI":["Jacuzzi","m","b"],"HAS_SWIMMING_POOL":["Piscina","m","b"],"HAS_CINEMA_HALL":["Área de cine","m","b"],"HAS_PLAYGROUND":["Área de juegos infantiles","m","b"],"WITH_GREEN_AREA":["Área verde","m","b"],"HAS_LIFT":["Ascensor","m","b"],"HAS_BASKETBALL_COURT":["Cancha de básquetbol","m","b"],"WITH_SOCCER_FIELD":["Cancha de fútbol","m","b"],"HAS_PADDLE_COURT":["Cancha de paddle","m","b"],"HAS_TENNIS_COURT":["Cancha de tenis","m","b"],"WITH_MULTIPURPOSE_SPORT_COURT":["Cancha polideportiva","m","b"],"HAS_ELECTRIC_GENERATOR":["Grupo electrógeno","m","b"],"HAS_PARTY_ROOM":["Salón de fiestas","m","b"],"HAS_SAUNA":["Sauna","m","b"],"HAS_ALARM":["Alarma","s","b"],"HAS_ELECTRIC_GATE_OPENER":["Portón automático","s","b"],"HAS_SECURITY":["Cámaras de seguridad","s","b"],"HAS_GUEST_PARKING":["Estacionamiento para visitas","s","b"],"SECURITY_TYPE":["Seguridad","s","l"],"IN_GATED_COMMUNITY":["En barrio cerrado","s","b"],"HAS_CONTROLLED_ACCESS":["Acceso controlado","s","b"],"PROPERTY_OWNERSHIP":["Tipo de propiedad","c","l"],"PROFESSIONAL_USE_ALLOWED":["Uso comercial","c","b"],"SUITABLE_FOR_MORTGAGE_LOAN":["Acepta crédito hipotecario","c","b"],"MONTHLY_RENT_FACTOR":["Factor de renta","r","n"],"ENDORSEMENT_REQUIRED":["Requiere garantía","r","b"],"ONLY_FAMILIES":["Solo familias","r","b"],"AVAILABLE":["Disponible desde","r","f"],"PROPERTY_CONDITION":["Estado","i","l"],"VIEW_TYPE":["Vista","i","l"],"IC_SOBRE":["Sobre","i","l"],"IC_DISTANCIA_MAR":["Distancia al mar","i","l"],"APARTMENTS_PER_FLOOR":["Apartamentos por piso","d","n"],"UNIT_FLOOR":["Piso","d","n"],"APARTMENT_PROPERTY_SUBTYPE":["Tipo","d","l"],"DISPOSITION":["Disposición","d","l"],"WHEELCHAIR_RAMP":["Rampa para silla de ruedas","e","b"],"HAS_MULTIPLE_USE_COURT":["Canchas de usos múltiples","m","b"],"HAS_FRONT_DESK":["Recepción","m","b"],"HAS_BUSINESS_CENTER":["Cowork","m","b"],"HAS_COMMON_LAUNDRY":["Área de lavandería","m","b"],"HAS_ROOF_GARDEN":["Azotea","m","b"],"HAS_MULTIPURPOSE_ROOM":["Salón de usos múltiples","m","b"],"IS_SUITABLE_FOR_PETS":["Admite mascotas","c","b"],"LAND_ACCESS":["Acceso","d","l"],"LOT_WIDTH":["Frente","d","n","m"],"LOT_DEPTH":["Fondo","d","n","m"],"LOT_SHAPE":["Forma del terreno","d","l"],"LOT_DISPOSITION":["Disposición del lote","d","l"],"HAS_DRAINAGE":["Saneamiento","d","b"],"HAS_FORESTATION":["Forestación","d","b"],"HAS_ELECTRIC_LIGHT":["Luz eléctrica","d","b"],"HAS_FIRE_SYSTEM":["Sistema contra incendio","d","b"],"HAS_FITTING_ROOM":["Probador","d","b"],"OFFICES":["Número de oficinas","d","n"],"OFFICES_PER_FLOOR":["Oficinas por piso","d","n"],"BATHS_PER_FLOOR":["Baños por piso","d","n"],"HAS_MEETING_ROOM":["Sala de reuniones","d","b"],"HAS_DINNING_AREA":["Área de comedor","d","b"],"HAS_OPEN_SPACES":["Áreas verdes","d","b"],"HAS_LOBBY":["Portería","d","b"],"VALET_PARKING_SERVICE":["Valet parking","d","b"],"TYPE_OF_WAREHOUSE":["Tipo de bodega","d","l"],"HEIGHT":["Altura","d","n","m"],"SUPPORTED_WEIGHT":["Soporte de piso","d","n"],"PLATFORM_TRAILERS":["Remolques de plataforma","d","n"],"HAS_BASCULE":["Báscula","d","b"],"VENTILATION_SYSTEM":["Sistema de ventilación","d","b"],"FARM_TYPE":["Tipo de campo","d","l"],"PAVED_ROAD_DISTANCE":["Distancia al asfalto","d","n"],"FARM_HOUSE_AREA":["Superficie del casco","d","n","m²"],"FARM_HOUSE_ROOMS_NUMBER":["Habitaciones del casco","d","n"],"HAS_WATERERS":["Bebederos","d","b"],"FARM_HOUSE":["Casco","d","b"],"HAS_FARMYARD":["Corral","d","b"],"HAS_FARM_SHED":["Galpón","d","b"],"HAS_MILLS":["Molinos","d","b"],"HAS_SILO":["Silos","d","b"],"HAS_WATER_TANK":["Tanque de agua","d","b"]};
+    const NOMBRE_GRUPO = { a: 'Ambientes', e: 'Equipamiento y servicios', m: 'Amenities', s: 'Seguridad', d: 'Instalaciones', c: 'Condiciones' };
+    const NOMBRE_TIPO = { casa: 'Casa', apartamento: 'Apartamento', terreno: 'Terreno', local: 'Local comercial', oficina: 'Oficina', galpon: 'Galpón', campo: 'Campo' };
+
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
     function extractYouTubeId(url) {
       if (!url) return null;
       const m = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/))([A-Za-z0-9_-]{11})/);
       return m ? m[1] : null;
     }
-
     function getId() {
       const u = new URLSearchParams(window.location.search);
       return u.get('id') || (window.location.hash.includes('propiedad/') ? window.location.hash.split('propiedad/')[1] : null);
     }
-    function formatPrice(p, c) { return `${c==='UYU'?'$U':'US$'} ${(p||0).toLocaleString()}` }
-    function getLocationString(p) { return p.ciudad && p.departamento ? `${p.ciudad}, ${p.departamento}` : p.location || 'Uruguay' }
+    function num(n) { return Number(n || 0).toLocaleString('es-UY'); }
+    function formatPrice(p, c) { return `${c === 'UYU' ? '$U' : 'US$'} ${num(p)}` }
+    function getLocationString(p) { return p.ciudad && p.departamento ? (p.ciudad === p.departamento ? p.ciudad : `${p.ciudad}, ${p.departamento}`) : p.location || 'Uruguay' }
+    function formatDate(d) {
+      if (!d) return '';
+      const parts = String(d).slice(0, 10).split('-');
+      return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : d;
+    }
+    function hayDato(v) { return v !== undefined && v !== null && v !== '' && v !== 0 && v !== '0' && v !== false; }
 
     function showError() {
       document.getElementById('ppLoading').style.display = 'none';
       document.getElementById('ppContent').style.display = 'none';
-      document.getElementById('ppError').style.display = 'block';
+      document.getElementById('ppError').style.display = 'flex';
     }
 
     async function load() {
@@ -227,167 +345,397 @@
     }
 
     function countView(id) {
-      const key = 'viewed_' + id;
-      if (!localStorage.getItem(key)) {
-        localStorage.setItem(key, '1');
-        db.collection('properties').doc(id).update({ views: firebase.firestore.FieldValue.increment(1) }).catch(() => {});
-      }
+      try {
+        const key = 'viewed_' + id;
+        if (!localStorage.getItem(key)) {
+          localStorage.setItem(key, '1');
+          db.collection('properties').doc(id).update({ views: firebase.firestore.FieldValue.increment(1) }).catch(() => {});
+        }
+      } catch (e) { /* sin almacenamiento (modo privado): no se cuenta la visita */ }
     }
 
-    function formatDate(d) {
-      if (!d) return '';
-      const parts = String(d).split('-');
-      return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : d;
-    }
-    const AMEN_GROUPS = {
-      servicios: { titulo: 'Servicios', items: {internet:'Acceso a internet',gasNatural:'Gas natural',lineaTelefonica:'Línea telefónica',aireAcondicionado:'Aire acondicionado',calefaccion:'Calefacción',grupoElectrogeno:'Grupo electrógeno',energiaSolar:'Energía solar',conexionLavarropas:'Conexión lavarropas',aguaCorriente:'Agua corriente',caldera:'Caldera',tvCable:'TV por cable',tvSatelital:'TV satelital',jardinero:'Jardinero'} },
-      comodidades: { titulo: 'Comodidades y equipamiento', items: {chimenea:'Chimenea',gimnasio:'Gimnasio',jacuzzi:'Jacuzzi',estacionamientoVisitas:'Estacionamiento para visitas',areaCine:'Área de cine',areaJuegos:'Área de juegos',areaVerde:'Área verde',ascensor:'Ascensor',canchaBasquet:'Cancha de básquet',canchaFutbol:'Cancha de fútbol',canchaPaddle:'Cancha de paddle',canchaTenis:'Cancha de tenis',canchaPolideportiva:'Cancha polideportiva',salonFiestas:'Salón de fiestas',sauna:'Sauna',heladera:'Heladera',cisterna:'Cisterna'} },
-      seguridad: { titulo: 'Seguridad', items: {alarma:'Alarma',portonAutomatico:'Portón automático',camaras:'Cámaras de seguridad',barrioCerrado:'Barrio cerrado',accesoControlado:'Acceso controlado'} },
-      ambientes: { titulo: 'Ambientes', items: {altillo:'Altillo',balcon:'Balcón',cocina:'Cocina',comedor:'Comedor',dormitorioSuite:'Dormitorio en suite',estudio:'Estudio',living:'Living',patio:'Patio',placards:'Placards',cuartoJuegos:'Cuarto de juegos',lavadero:'Lavadero',vestidor:'Vestidor',dormitorioServicio:'Dormitorio de servicio',jardin:'Jardín',parrillero:'Parrillero',piscina:'Piscina',terraza:'Terraza',banoSocial:'Baño social',desayunador:'Desayunador'} }
+    // ===== Datos que salen de la ficha (y de las propiedades viejas, "features") =====
+    // Las propiedades cargadas antes de la ficha técnica guardaban sus comodidades
+    // en `features`: se siguen mostrando igual.
+    const AMEN_VIEJAS = {
+      Ambientes: { altillo: 'Altillo', balcon: 'Balcón', cocina: 'Cocina', comedor: 'Comedor', dormitorioSuite: 'Dormitorio en suite', estudio: 'Estudio', living: 'Living', patio: 'Patio', placards: 'Placards', cuartoJuegos: 'Cuarto de juegos', lavadero: 'Lavadero', vestidor: 'Vestidor', dormitorioServicio: 'Dormitorio de servicio', jardin: 'Jardín', parrillero: 'Parrillero', piscina: 'Piscina', terraza: 'Terraza', banoSocial: 'Baño social', desayunador: 'Desayunador' },
+      'Equipamiento y servicios': { internet: 'Acceso a internet', gasNatural: 'Gas natural', lineaTelefonica: 'Línea telefónica', aireAcondicionado: 'Aire acondicionado', calefaccion: 'Calefacción', grupoElectrogeno: 'Grupo electrógeno', energiaSolar: 'Energía solar', conexionLavarropas: 'Conexión lavarropas', aguaCorriente: 'Agua corriente', caldera: 'Caldera', tvCable: 'TV por cable', tvSatelital: 'TV satelital', jardinero: 'Jardinero' },
+      Amenities: { chimenea: 'Chimenea', gimnasio: 'Gimnasio', jacuzzi: 'Jacuzzi', estacionamientoVisitas: 'Estacionamiento para visitas', areaCine: 'Área de cine', areaJuegos: 'Área de juegos', areaVerde: 'Área verde', ascensor: 'Ascensor', canchaBasquet: 'Cancha de básquet', canchaFutbol: 'Cancha de fútbol', canchaPaddle: 'Cancha de paddle', canchaTenis: 'Cancha de tenis', canchaPolideportiva: 'Cancha polideportiva', salonFiestas: 'Salón de fiestas', sauna: 'Sauna', heladera: 'Heladera', cisterna: 'Cisterna' },
+      Seguridad: { alarma: 'Alarma', portonAutomatico: 'Portón automático', camaras: 'Cámaras de seguridad', barrioCerrado: 'Barrio cerrado', accesoControlado: 'Acceso controlado' }
     };
-    function chips(arr) {
-      return `<div class="pp-chips">` + arr.map(l => `<span class="pp-chip"><i class="fas fa-check"></i> ${l}</span>`).join('') + `</div>`;
+    const GRUPO_VIEJO = { Ambientes: 'ambientes', 'Equipamiento y servicios': 'servicios', Amenities: 'comodidades', Seguridad: 'seguridad' };
+
+    function datosClave(p) {
+      const fc = p.ficha || {}, ft = p.features || {};
+      const t = p.realEstateType;
+      const L = [];
+      const coch = Number(fc.PARKING_LOTS || ft.cocheras || 0);
+      if (p.bedrooms) L.push(['fa-bed', p.bedrooms, p.bedrooms == 1 ? 'dormitorio' : 'dormitorios']);
+      else if (t === 'apartamento' && p.bedrooms === 0) L.push(['fa-bed', 'Monoambiente', 'un solo ambiente']);
+      if (p.bathrooms) L.push(['fa-bath', p.bathrooms, p.bathrooms == 1 ? 'baño' : 'baños']);
+      if (p.builtArea) L.push(['fa-ruler-combined', num(p.builtArea) + ' m²', t === 'terreno' ? 'edificados' : 'área privada']);
+      if (p.totalArea && p.totalArea !== p.builtArea) L.push(['fa-vector-square', num(p.totalArea) + ' m²', 'superficie total']);
+      const terreno = Number(fc.LAND_AREA || ft.superficieTerreno || 0);
+      if (terreno && terreno !== p.totalArea) L.push(['fa-mountain-sun', num(terreno) + ' m²', 'de terreno']);
+      if (coch) L.push(['fa-car', coch, coch == 1 ? 'cochera' : 'cocheras']);
+      else if (p.garage === 'yes') L.push(['fa-car', 'Garaje', 'incluido']);
+      return L.slice(0, 6);
     }
-    function renderAmenities(p) {
-      const f = p.features || {};
-      let html = '';
-      const extra = [];
-      if (f.tipoCasa) extra.push(['Tipo', f.tipoCasa]);
-      if (f.orientacion) extra.push(['Orientación', f.orientacion]);
-      if (f.bodegas) extra.push(['Bodegas/Depósitos', f.bodegas]);
-      if (f.numeroPuerta) extra.push(['N° puerta', f.numeroPuerta]);
-      if (f.codigoInterno) extra.push(['Código', f.codigoInterno]);
-      if (extra.length) html += `<div class="pp-amen-group"><h4>Datos adicionales</h4><div class="pp-extra">` + extra.map(([l,v]) => `<div>${l}: <b>${v}</b></div>`).join('') + `</div></div>`;
-      if (p.type === 'rent') {
-        const rent = [];
-        if (f.disponibleDesde) rent.push('Disponible desde ' + formatDate(f.disponibleDesde));
-        if (f.factorRenta) rent.push('Factor de renta: ' + f.factorRenta);
-        if (f.admiteMascotas) rent.push('Admite mascotas');
-        if (f.soloFamilias) rent.push('Solo familias');
-        if (f.usoComercial) rent.push('Uso comercial');
-        if (rent.length) html += `<div class="pp-amen-group"><h4>Condiciones del alquiler</h4>${chips(rent)}</div>`;
-      }
-      Object.keys(AMEN_GROUPS).forEach(key => {
-        const data = f[key] || {};
-        const items = AMEN_GROUPS[key].items;
-        const activos = Object.keys(items).filter(k => data[k]).map(k => items[k]);
-        if (activos.length) html += `<div class="pp-amen-group"><h4>${AMEN_GROUPS[key].titulo}</h4>${chips(activos)}</div>`;
+    // La dirección con número de puerta solo si el agente eligió mostrar el punto
+    // exacto en la ficha ("Pin en InfoCasas: Punto exacto"). Si no, la calle sola:
+    // no tendría sentido esconder el punto en el mapa y escribir el número.
+    function puntoExacto(p) { return (p.ficha || {}).IC_UBICACION === 'Punto exacto'; }
+    function direccionPublica(p) {
+      const u = p.ubicacion || {}, ft = p.features || {};
+      const exacto = puntoExacto(p);
+      const calle = String(u.calle || '').trim(), nro = String(u.numero || '').trim();
+      if (calle) return exacto && nro ? `${calle} ${nro}` : calle;
+      // Propiedades viejas: la calle en "direccion" y el número aparte.
+      const d = String(p.direccion || '').trim(), n = String(ft.numeroPuerta || '').trim();
+      return exacto && n && d && d.indexOf(n) < 0 ? `${d} ${n}` : d;
+    }
+    // Características: etiqueta y valor de lo que tenga dato.
+    function datosTabla(p) {
+      const fc = p.ficha || {}, ft = p.features || {};
+      const filas = [];
+      if (p.realEstateType) filas.push(['Tipo de inmueble', NOMBRE_TIPO[p.realEstateType] + (p.propertyType === 'ph' ? ' (PH)' : '')]);
+      if (p.totalArea) filas.push(['Superficie total', num(p.totalArea) + ' m²']);
+      if (p.builtArea) filas.push(['Área privada', num(p.builtArea) + ' m²']);
+      const orden = Object.keys(FICHA).filter(id => ['n', 'l', 't'].includes(FICHA[id][2]) && ['d', 'i', 'c', 's'].includes(FICHA[id][1]));
+      orden.forEach(id => {
+        const [etq, , tipo, uni] = FICHA[id];
+        const v = fc[id];
+        if (!hayDato(v) || ['MONTHLY_RENT_FACTOR'].includes(id)) return;
+        let txt = tipo === 'n' ? num(v) + (uni ? ' ' + (id === 'PROPERTY_AGE' && Number(v) === 1 ? 'año' : uni) : '') : String(v);
+        filas.push([etq, txt]);
       });
-      const otros = [];
-      if (f.amoblado) otros.push('Amoblado');
-      if (f.tipoSeguridad) otros.push('Tipo de seguridad: ' + f.tipoSeguridad);
-      if (otros.length) html += `<div class="pp-amen-group"><h4>Otros</h4>${chips(otros)}</div>`;
-      document.getElementById('ppAmenities').innerHTML = html;
+      // Propiedades viejas
+      [['tipoCasa', 'Tipo'], ['orientacion', 'Orientación'], ['bodegas', 'Bodegas'], ['cantidadAmbientes', 'Ambientes'], ['pisos', 'Pisos']].forEach(([k, etq]) => {
+        if (hayDato(ft[k]) && !filas.some(f => f[0] === etq)) filas.push([etq, String(ft[k])]);
+      });
+      if (hayDato(ft.antiguedad) && !filas.some(f => f[0] === 'Antigüedad')) filas.push(['Antigüedad', ft.antiguedad + (ft.antiguedad == 1 ? ' año' : ' años')]);
+      if (p.commonExpenses) filas.push(['Gastos comunes', formatPrice(p.commonExpenses, p.commonExpensesCurrency === 'USD' ? 'USD' : 'UYU') + ' por mes']);
+      return filas;
     }
+    // Comodidades: lo marcado en la ficha, por grupo.
+    function comodidades(p) {
+      const fc = p.ficha || {}, ft = p.features || {};
+      const grupos = {};
+      const sumar = (g, etq) => { (grupos[g] = grupos[g] || []).indexOf(etq) < 0 && grupos[g].push(etq); };
+      Object.keys(FICHA).forEach(id => {
+        const [etq, g, tipo] = FICHA[id];
+        if (tipo === 'b' && fc[id] === true && NOMBRE_GRUPO[g]) sumar(NOMBRE_GRUPO[g], etq);
+      });
+      Object.keys(AMEN_VIEJAS).forEach(g => {
+        const datos = ft[GRUPO_VIEJO[g]] || {};
+        Object.keys(AMEN_VIEJAS[g]).forEach(k => { if (datos[k]) sumar(g, AMEN_VIEJAS[g][k]); });
+      });
+      if (ft.amoblado) sumar('Equipamiento y servicios', 'Amoblado');
+      if (ft.tipoSeguridad) sumar('Seguridad', 'Seguridad ' + ft.tipoSeguridad);
+      return grupos;
+    }
+    // Condiciones del alquiler
+    function condicionesAlquiler(p) {
+      const fc = p.ficha || {}, ft = p.features || {};
+      const L = [];
+      const desde = fc.AVAILABLE || ft.disponibleDesde;
+      if (desde) L.push('Disponible desde ' + formatDate(desde));
+      if (fc.ENDORSEMENT_REQUIRED) L.push('Requiere garantía');
+      if (hayDato(fc.MONTHLY_RENT_FACTOR) || ft.factorRenta) L.push('Factor de renta: ' + (fc.MONTHLY_RENT_FACTOR || ft.factorRenta));
+      if (fc.ONLY_FAMILIES || ft.soloFamilias) L.push('Solo familias');
+      if (ft.admiteMascotas) L.push('Admite mascotas');
+      if (ft.usoComercial) L.push('Uso comercial');
+      return L;
+    }
+
+    // ===== Pintar =====
     function render() {
-      const p = property, c = p.currency || 'USD';
-      images = p.images && p.images.length ? p.images : ['https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200'];
+      const p = property, c = p.currency || 'USD', fc = p.ficha || {};
+      images = p.images && p.images.length ? p.images : [FOTO_DEFAULT];
       const hop = p.previousPrice && p.previousPrice > p.price, pdp = hop ? Math.round((1 - p.price / p.previousPrice) * 100) : 0;
       const st = p.status || 'available';
+      const alq = p.type === 'rent';
+      const precioTxt = `${formatPrice(p.price, c)}${alq ? '<span> /mes</span>' : ''}`;
+      const lugar = getLocationString(p);
 
-      // Título y meta
+      // Título, descripción y vista previa al compartir
       document.title = p.title + ' | MALAVE';
+      const resumen = `${formatPrice(p.price, c)}${alq ? '/mes' : ''} · ${lugar}`;
       document.getElementById('ogTitle').content = p.title + ' | MALAVE';
-      document.getElementById('ogDescription').content = `${formatPrice(p.price,c)}${p.type==='rent'?'/mes':''} · ${getLocationString(p)}`;
+      document.getElementById('ogDescription').content = resumen;
+      document.getElementById('metaDescription').content = resumen + (p.description ? ' · ' + String(p.description).slice(0, 140) : '');
       if (images[0]) document.getElementById('ogImage').content = images[0];
 
-      // Galería
-      document.getElementById('ppMainImg').src = images[0];
-      const navShow = images.length > 1;
-      document.getElementById('ppPrev').style.display = navShow ? 'flex' : 'none';
-      document.getElementById('ppNext').style.display = navShow ? 'flex' : 'none';
-      document.getElementById('ppThumbs').innerHTML = images.length > 1 ? images.map((img, i) =>
-        `<div class="pp-thumb ${i===0?'active':''}" onclick="ppSetImg(${i})"><img src="${img}" alt=""></div>`).join('') : '';
-
-      // Badges
+      // Etiquetas sobre las fotos
       const stLabels = { tasacion: 'PENDIENTE DE TASACIÓN', tasado: 'TASADO', reserved: 'RESERVADA', sold: 'VENDIDA', rented: 'ALQUILADA', archived: 'NO DISPONIBLE', cerrado_externo: 'NO DISPONIBLE' };
-      document.getElementById('ppBadges').innerHTML =
-        `${isEffectivelyFeatured(p)?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}` +
-        `<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>` +
-        `${p.type==='sale'&&p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}` +
-        `${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}` +
-        `${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}` +
-        `${stLabels[st]?`<span class="badge badge-${st}">${stLabels[st]}</span>`:''}`;
+      const badges =
+        `${(typeof isEffectivelyFeatured === 'function' && isEffectivelyFeatured(p)) ? '<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>' : ''}` +
+        `<span class="badge ${p.type === 'sale' ? 'badge-sale' : 'badge-rent'}">${p.type === 'sale' ? 'VENTA' : 'ALQUILER'}</span>` +
+        `${p.type === 'sale' && p.propertyType === 'ph' ? '<span class="badge badge-ph">PH</span>' : ''}` +
+        `${stLabels[st] ? `<span class="badge badge-${st}">${stLabels[st]}</span>` : ''}`;
+      // Recorrido 3D: un botón sobre las fotos (va a Kuula, Matterport, etc.)
+      const tour = /^https?:\/\//i.test(String(fc.IC_TOUR3D || '').trim()) ? String(fc.IC_TOUR3D).trim() : '';
+      pintarFotos(badges, tour);
 
-      // Título, ubicación
+      // Si ya no está disponible, se dice arriba de todo.
+      const baja = { sold: 'Esta propiedad ya se vendió.', rented: 'Esta propiedad ya se alquiló.', archived: 'Esta propiedad no está disponible por ahora.', cerrado_externo: 'Esta propiedad ya no está disponible.' }[st];
+      if (baja) {
+        const b = document.getElementById('ppBaja');
+        b.innerHTML = `<i class="fas fa-circle-info" style="margin-top:3px"></i><div>${baja} <a href="index.html#propiedades">Ver las propiedades disponibles</a></div>`;
+        b.hidden = false;
+      }
+
+      document.getElementById('ppOjo').textContent = [`${NOMBRE_TIPO[p.realEstateType] || 'Propiedad'} en ${alq ? 'alquiler' : 'venta'}`, p.ciudad].filter(Boolean).join(' · ');
       document.getElementById('ppTitle').textContent = p.title;
-      document.getElementById('ppLocation').textContent = getLocationString(p) + (p.direccion ? ` · ${p.direccion}` : '');
+      const dirVis = direccionPublica(p);
+      document.getElementById('ppLocation').textContent = lugar + (dirVis ? ` · ${dirVis}` : '');
 
-      // Precio
-      if (hop) { const o = document.getElementById('ppPriceOld'); o.textContent = formatPrice(p.previousPrice, c); o.style.display = 'block'; const d = document.getElementById('ppPriceDrop'); d.textContent = `¡${pdp}% de descuento!`; d.style.display = 'inline-block' }
-      document.getElementById('ppPrice').innerHTML = `${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}`;
+      // Precio: tarjeta al costado (computadora), arriba y en la barra (celular)
+      let det = '';
+      const m2 = p.builtArea > 0 ? p.builtArea : p.totalArea;
+      if (!alq && m2 > 0 && p.price > 0) det += `<div><span>Precio por m²</span><b>${formatPrice(Math.round(p.price / m2), c)}</b></div>`;
+      if (p.commonExpenses) det += `<div><span>Gastos comunes</span><b>${formatPrice(p.commonExpenses, p.commonExpensesCurrency === 'USD' ? 'USD' : 'UYU')}</b></div>`;
+      const precioHTML = (hop ? `<div class="pp-precio-viejo">${formatPrice(p.previousPrice, c)}</div>` : '') +
+        `<div class="pp-precio">${precioTxt}</div>` +
+        (hop ? `<div class="pp-rebaja"><i class="fas fa-arrow-trend-down"></i> Bajó ${pdp}%</div>` : '');
+      document.getElementById('ppCardPrecio').innerHTML = precioHTML + (det ? `<div class="pp-precio-det">${det}</div>` : '');
+      document.getElementById('ppPrecioMovil').innerHTML = precioHTML;
+      document.getElementById('ppBarraPrecio').innerHTML = esc(formatPrice(p.price, c)) + (alq ? ' <span style="font-size:.9rem;font-family:Jost,sans-serif;color:#6b7480">/mes</span>' : '');
+      document.getElementById('ppBarraLugar').textContent = lugar;
 
-      // Características
-      const feats = [];
-      const ft = p.features || {};
-      if (p.bedrooms) feats.push(['fa-bed', p.bedrooms, 'Dormitorios']);
-      if (p.bathrooms) feats.push(['fa-bath', p.bathrooms, 'Baños']);
-      if (ft.cocheras) feats.push(['fa-car', ft.cocheras, ft.cocheras == 1 ? 'Cochera' : 'Cocheras']);
-      if (ft.cantidadAmbientes) feats.push(['fa-th-large', ft.cantidadAmbientes, 'Ambientes']);
-      if (p.totalArea) feats.push(['fa-expand', p.totalArea + ' m²', 'Sup. total']);
-      if (p.builtArea) feats.push(['fa-home', p.builtArea + ' m²', 'Edificado']);
-      if (ft.superficieTerreno) feats.push(['fa-vector-square', ft.superficieTerreno + ' m²', 'Terreno']);
-      if (ft.antiguedad) feats.push(['fa-clock', ft.antiguedad + (ft.antiguedad == 1 ? ' año' : ' años'), 'Antigüedad']);
-      if (ft.pisos) feats.push(['fa-layer-group', ft.pisos, ft.pisos == 1 ? 'Piso' : 'Pisos']);
-      if (p.commonExpenses) feats.push(['fa-dollar-sign', '$' + p.commonExpenses, 'Gastos com.']);
-      document.getElementById('ppFeatures').innerHTML = feats.map(f =>
-        `<div class="pp-feature"><div class="pp-feature-icon"><i class="fas ${f[0]}"></i></div><div><div class="pp-feature-val">${f[1]}</div><div class="pp-feature-lbl">${f[2]}</div></div></div>`).join('');
+      // Lo principal, de un vistazo
+      document.getElementById('ppClaves').innerHTML = datosClave(p).map(([ic, v, l]) =>
+        `<li><span class="ic"><i class="fas ${ic}"></i></span><div><b>${esc(v)}</b><small>${esc(l)}</small></div></li>`).join('');
 
-      // Descripción
-      if (p.description) { document.getElementById('ppDescWrap').style.display = 'block'; document.getElementById('ppDescription').textContent = p.description }
+      // Descripción (larga: se abre con "Leer toda")
+      if (p.description) {
+        const d = document.getElementById('ppDescription');
+        d.textContent = p.description;
+        document.getElementById('ppDescWrap').hidden = false;
+        if (String(p.description).length > 650) { d.classList.add('corta'); document.getElementById('ppMas').hidden = false; }
+      }
 
-      // Video de YouTube
-      // Video: el de la propiedad si el agente cargó uno; si no, el institucional
-      // de la agencia por defecto. Cualquier formato de YouTube (incluye Shorts).
-      const VIDEO_DEFAULT = 'https://youtube.com/shorts/KcGr0S0Yx9A';
-      const ytId = extractYouTubeId(p.videoUrl) || extractYouTubeId(VIDEO_DEFAULT);
-      if (ytId) { document.getElementById('ppVideoWrap').style.display = 'block'; document.getElementById('ppVideoFrame').src = `https://www.youtube.com/embed/${ytId}`; }
+      // Características y comodidades
+      const filas = datosTabla(p);
+      if (filas.length) {
+        document.getElementById('ppDatos').innerHTML = filas.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
+        document.getElementById('ppDatosWrap').hidden = false;
+      }
+      const grupos = comodidades(p), cond = alq ? condicionesAlquiler(p) : [];
+      const nombres = Object.keys(grupos);
+      if (nombres.length || cond.length) {
+        let h = nombres.map(g => `<div class="pp-grupo"><h3>${esc(g)}</h3><div class="pp-chips">${grupos[g].map(x => `<span class="pp-chip"><i class="fas fa-check"></i> ${esc(x)}</span>`).join('')}</div></div>`).join('');
+        if (cond.length) h += `<div class="pp-grupo"><h3>Condiciones del alquiler</h3><div class="pp-chips">${cond.map(x => `<span class="pp-chip"><i class="fas fa-check"></i> ${esc(x)}</span>`).join('')}</div></div>`;
+        document.getElementById('ppAmenities').innerHTML = h;
+        document.getElementById('ppAmenWrap').hidden = false;
+      }
 
-      renderAmenities(p);
+      // Video: el de la propiedad; si no tiene, el de la agencia (con otro título,
+      // para que nadie crea que es el de esta propiedad). Los Shorts van verticales.
+      const propio = extractYouTubeId(p.videoUrl);
+      const ytId = propio || extractYouTubeId(VIDEO_DEFAULT);
+      if (ytId) {
+        document.getElementById('ppVideoTit').textContent = propio ? 'Video' : 'Conocé MALAVE';
+        document.querySelector('.pp-video').classList.toggle('vertical', /\/shorts\//i.test(propio ? p.videoUrl : VIDEO_DEFAULT));
+        document.getElementById('ppVideoFrame').title = propio ? 'Video de la propiedad' : 'Video de MALAVE Inmobiliaria';
+        document.getElementById('ppVideoFrame').src = `https://www.youtube.com/embed/${ytId}`;
+        document.getElementById('ppVideoWrap').hidden = false;
+      }
+
+      // Código, para que el cliente lo pueda nombrar
+      const cod = fc.PROPERTY_CODE || (p.features || {}).codigoInterno;
+      if (cod) { const e = document.getElementById('ppCodigo'); e.innerHTML = `Código de la propiedad: <b>${esc(cod)}</b>`; e.hidden = false; }
 
       // Agente
       const an = (agent && agent.name) || p.ownerName || 'Agente';
       document.getElementById('ppAgentName').textContent = an;
       const av = document.getElementById('ppAgentAvatar');
-      if (agent && agent.profilePhoto) av.innerHTML = `<img src="${agent.profilePhoto}" alt="">`;
+      if (agent && agent.profilePhoto) av.innerHTML = `<img src="${esc(agent.profilePhoto)}" alt="">`;
       else av.textContent = an.charAt(0).toUpperCase();
+      document.getElementById('ppProfileBtn').hidden = !p.ownerId;
+      const horario = String(fc.CONTACT_SCHEDULE || '').trim();
+      if (horario) { const h = document.getElementById('ppHorario'); h.innerHTML = `<i class="far fa-clock"></i><span>Atiende ${esc(horario)}</span>`; h.hidden = false; }
 
       document.getElementById('ppLoading').style.display = 'none';
       document.getElementById('ppContent').style.display = 'block';
+      document.getElementById('ppBarra').style.display = '';
+      prepararMapa();
     }
 
-    // Galería principal
-    function ppSetImg(i) { ppCurrentImg = i; document.getElementById('ppMainImg').src = images[i]; document.querySelectorAll('.pp-thumb').forEach((t, idx) => t.classList.toggle('active', idx === i)) }
-    function ppPrevImg() { ppCurrentImg = (ppCurrentImg - 1 + images.length) % images.length; ppSetImg(ppCurrentImg) }
-    function ppNextImg() { ppCurrentImg = (ppCurrentImg + 1) % images.length; ppSetImg(ppCurrentImg) }
+    function pintarFotos(badges, tour) {
+      const n = images.length;
+      const fotos = document.getElementById('ppFotos');
+      const k = Math.min(n, 5);
+      fotos.className = 'pp-fotos' + (k < 5 ? ' n' + k : '');
+      fotos.innerHTML = `<div class="pp-badges">${badges}</div>` +
+        images.slice(0, k).map((src, i) => `<button type="button" class="pp-tile" onclick="ppOpenLightbox(${i})" aria-label="Ver foto ${i + 1} de ${n}"><img src="${esc(src)}" alt="" ${i ? 'loading="lazy"' : ''}></button>`).join('') +
+        `<div class="pp-fotos-acc">` +
+        (tour ? `<a class="pp-vertodas" href="${esc(tour)}" target="_blank" rel="noopener"><i class="fas fa-cube"></i> Recorrido 3D</a>` : '') +
+        (n > 1 ? `<button type="button" class="pp-vertodas" onclick="ppOpenLightbox(0)"><i class="fas fa-images"></i> Ver las ${n} fotos</button>` : '') + `</div>`;
+      if (tour) { const tm = document.getElementById('ppTourMovil'); tm.href = tour; tm.hidden = false; }
+      document.getElementById('ppBadgesMovil').innerHTML = badges;
+      const carril = document.getElementById('ppCarril');
+      carril.innerHTML = images.map((src, i) => `<button type="button" onclick="ppOpenLightbox(${i})" aria-label="Ver foto ${i + 1} de ${n}"><img src="${esc(src)}" alt="" ${i ? 'loading="lazy"' : ''}></button>`).join('');
+      const cont = document.getElementById('ppContador');
+      cont.textContent = n > 1 ? `1 / ${n}` : '';
+      cont.style.display = n > 1 ? '' : 'none';
+      let t = null;
+      carril.addEventListener('scroll', () => {
+        clearTimeout(t);
+        t = setTimeout(() => { const i = Math.round(carril.scrollLeft / Math.max(1, carril.clientWidth)); cont.textContent = `${Math.min(n, i + 1)} / ${n}`; }, 60);
+      }, { passive: true });
+    }
+    function verDescripcion() {
+      document.getElementById('ppDescription').classList.remove('corta');
+      document.getElementById('ppMas').hidden = true;
+    }
 
-    // Lightbox
+    // ===== Mapa de la zona =====
+    // Se carga recién cuando el mapa está por aparecer (la página abre más rápido).
+    // En Montevideo se resalta el barrio (límites oficiales de la Intendencia). El
+    // punto exacto solo se muestra si el agente lo marcó así en la ficha ("Pin en
+    // InfoCasas: Punto exacto"); si no, una zona aproximada.
+    function prepararMapa() {
+      const p = property, u = p.ubicacion || {};
+      const hayPin = u.lat != null && u.lng != null && isFinite(Number(u.lat)) && isFinite(Number(u.lng));
+      const esMvd = (p.departamento || u.departamento) === 'Montevideo';
+      if (!hayPin && !(esMvd && p.ciudad)) return;
+      const sec = document.getElementById('ppUbicacion');
+      sec.hidden = false;
+      document.getElementById('ppUbicTxt').textContent = getLocationString(p);
+      const arrancar = () => cargarLeaflet().then(pintarMapa).catch((e) => { console.warn('Mapa:', e); sec.hidden = true; });
+      if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); arrancar(); } }, { rootMargin: '400px 0px' });
+        io.observe(sec);
+      } else arrancar();
+    }
+    function cargarLeaflet() {
+      if (window.L) return Promise.resolve();
+      return new Promise((ok, mal) => {
+        const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(css);
+        const s = document.createElement('script'); s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        s.onload = () => ok(); s.onerror = mal; document.head.appendChild(s);
+      });
+    }
+    function _dentroAnillo(x, y, r) {
+      let c = false;
+      for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+        const xi = r[i][0], yi = r[i][1], xj = r[j][0], yj = r[j][1];
+        if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-15) + xi)) c = !c;
+      }
+      return c;
+    }
+    function centroCorrido(lat, lng, id) {
+      let h = 2166136261;
+      for (const ch of String(id || 'x')) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+      const ang = (h % 3600) / 3600 * 2 * Math.PI, dist = 60 + ((h >>> 12) % 81);   // metros
+      return [lat + dist * Math.cos(ang) / 111320, lng + dist * Math.sin(ang) / (111320 * Math.cos(lat * Math.PI / 180))];
+    }
+    function barrioDelPunto(lat, lng, geo) {
+      return (geo.features || []).find(f => {
+        const g = f.geometry, polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+        return polys.some(p => _dentroAnillo(lng, lat, p[0]) && !p.slice(1).some(h => _dentroAnillo(lng, lat, h)));
+      }) || null;
+    }
+    async function pintarMapa() {
+      const p = property, u = p.ubicacion || {}, fc = p.ficha || {};
+      const lat = Number(u.lat), lng = Number(u.lng);
+      const hayPin = u.lat != null && u.lng != null && isFinite(lat) && isFinite(lng);
+      const exacto = puntoExacto(p), sec = document.getElementById('ppUbicacion');
+      const m = L.map('ppMapa', { scrollWheelZoom: false, dragging: !L.Browser.mobile, tap: false });
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(m);
+      m.on('click', () => { m.scrollWheelZoom.enable(); if (L.Browser.mobile) m.dragging.enable(); });
+      // Barrio a resaltar: el que dice la publicación. Si el pin cae adentro, ese;
+      // si el nombre corresponde a más de un barrio oficial, el más cercano al pin.
+      let barrios = [], porNombre = [];
+      if ((p.departamento || u.departamento) === 'Montevideo') {
+        try {
+          const geo = await fetch('barrios-montevideo.geojson').then(r => r.ok ? r.json() : null);
+          if (geo) {
+            const enPunto = hayPin ? barrioDelPunto(lat, lng, geo) : null;
+            porNombre = (geo.features || []).filter(f => (f.properties.portales || []).indexOf(p.ciudad) >= 0);
+            if (enPunto && (!porNombre.length || porNombre.indexOf(enPunto) >= 0)) barrios = [enPunto];
+            else if (porNombre.length && hayPin) {
+              const dist = f => L.geoJSON(f).getBounds().getCenter().distanceTo([lat, lng]);
+              barrios = [porNombre.reduce((a, b) => dist(b) < dist(a) ? b : a)];
+            } else barrios = porNombre;
+          }
+        } catch (e) { /* sin barrios, el mapa sigue */ }
+      }
+      // Primero la vista y después las capas (Leaflet falla si se agregan antes).
+      const capaBarrio = barrios.length ? L.geoJSON({ type: 'FeatureCollection', features: barrios }, { interactive: false, style: { color: '#b58f15', weight: 2.5, opacity: 1, fillColor: '#C9A227', fillOpacity: 0.1 } }) : null;
+      const b0 = barrios[0], port0 = b0 ? (b0.properties.portales || []) : [];
+      const nombreBarrio = !b0 ? '' : porNombre.indexOf(b0) >= 0 ? p.ciudad : port0.length === 1 ? port0[0] : b0.properties.nombre;
+      let marca = null;
+      if (hayPin) {
+        if (exacto) { m.setView([lat, lng], 16); marca = L.marker([lat, lng], { keyboard: false }); }
+        else {
+          // Zona aproximada: el círculo NO se centra en la casa (si no, el centro la
+          // delataría). Se corre entre 60 y 140 m, siempre igual para la misma
+          // propiedad, y la casa queda adentro.
+          const c = centroCorrido(lat, lng, p.id);
+          m.setView(c, 15);
+          marca = L.circle(c, { radius: 260, color: '#16273f', weight: 1.5, opacity: .7, fillColor: '#16273f', fillOpacity: .13, interactive: false });
+        }
+      } else if (capaBarrio) m.fitBounds(capaBarrio.getBounds(), { padding: [18, 18] });
+      else { sec.hidden = true; m.remove(); return; }
+      if (capaBarrio) capaBarrio.addTo(m);
+      if (marca) marca.addTo(m);
+      const nota = hayPin
+        ? (exacto ? 'Ubicación exacta' : 'La zona marcada es aproximada') + (nombreBarrio ? ` · barrio ${nombreBarrio}` : '')
+        : `Barrio ${nombreBarrio || p.ciudad}`;
+      document.getElementById('ppMapaNota').innerHTML = `<i class="fas fa-location-dot"></i> ${esc(nota)}`;
+      setTimeout(() => m.invalidateSize(), 120);
+    }
+
+    // ===== Fotos a pantalla completa =====
     function ppOpenLightbox(i) { ppCurrentImg = i; document.getElementById('ppLightboxImg').src = images[i]; ppLbCounter(); document.getElementById('ppLightbox').classList.add('active'); document.body.style.overflow = 'hidden' }
     function ppCloseLightbox() { document.getElementById('ppLightbox').classList.remove('active'); document.body.style.overflow = '' }
-    function ppLbNext() { ppCurrentImg = (ppCurrentImg + 1) % images.length; document.getElementById('ppLightboxImg').src = images[ppCurrentImg]; ppSetImg(ppCurrentImg); ppLbCounter() }
-    function ppLbPrev() { ppCurrentImg = (ppCurrentImg - 1 + images.length) % images.length; document.getElementById('ppLightboxImg').src = images[ppCurrentImg]; ppSetImg(ppCurrentImg); ppLbCounter() }
-    function ppLbCounter() { const c = document.getElementById('ppLightboxCounter'); c.textContent = `${ppCurrentImg+1} / ${images.length}`; c.style.display = images.length > 1 ? 'block' : 'none' }
+    function ppLbIr(d) { ppCurrentImg = (ppCurrentImg + d + images.length) % images.length; document.getElementById('ppLightboxImg').src = images[ppCurrentImg]; ppLbCounter() }
+    function ppLbNext() { ppLbIr(1) }
+    function ppLbPrev() { ppLbIr(-1) }
+    function ppLbCounter() { const c = document.getElementById('ppLightboxCounter'); c.textContent = `${ppCurrentImg + 1} / ${images.length}`; c.style.display = images.length > 1 ? 'block' : 'none' }
     document.addEventListener('keydown', e => {
       if (!document.getElementById('ppLightbox').classList.contains('active')) return;
       if (e.key === 'Escape') ppCloseLightbox(); else if (e.key === 'ArrowRight') ppLbNext(); else if (e.key === 'ArrowLeft') ppLbPrev();
     });
+    // Deslizar con el dedo para pasar de foto
+    (function () {
+      let x0 = null;
+      const lb = document.getElementById('ppLightbox');
+      lb.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+      lb.addEventListener('touchend', e => {
+        if (x0 == null) return;
+        const dx = e.changedTouches[0].clientX - x0; x0 = null;
+        if (Math.abs(dx) > 45) { dx < 0 ? ppLbNext() : ppLbPrev(); }
+      }, { passive: true });
+    })();
 
-    // Contacto / compartir / perfil
+    // ===== Contacto, compartir, perfil =====
+    function avisar(t) {
+      const el = document.getElementById('ppToast');
+      el.textContent = t; el.classList.add('ver');
+      clearTimeout(avisar._t); avisar._t = setTimeout(() => el.classList.remove('ver'), 2600);
+    }
     function ppContact() {
-      const ph = ((property.ownerWhatsapp) || (agent && agent.whatsapp) || '59894029297').replace(/\D/g, '');
-      const m = `Hola, me interesa: ${property.title} - ${formatPrice(property.price, property.currency||'USD')} en ${getLocationString(property)}`;
+      const ph = ((property.ownerWhatsapp) || (agent && agent.whatsapp) || WA_AGENCIA).replace(/\D/g, '');
+      // El link va en el mensaje: así el agente sabe de qué propiedad le hablan.
+      const m = `Hola, me interesa esta propiedad: ${property.title} - ${formatPrice(property.price, property.currency || 'USD')} en ${getLocationString(property)}\n${location.href.split('#')[0]}`;
       window.open(`https://wa.me/${ph}?text=${encodeURIComponent(m)}`, '_blank');
     }
     function ppShare() {
-      const url = window.location.href;
-      if (navigator.share) { navigator.share({ title: property.title, url }).catch(() => {}) }
-      else { navigator.clipboard.writeText(url).then(() => alert('Enlace copiado al portapapeles')) }
+      const url = location.href.split('#')[0];
+      if (navigator.share) { navigator.share({ title: property.title, text: property.title, url }).catch(() => {}); return; }
+      const copiar = navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject();
+      copiar.then(() => avisar('Enlace copiado: ya lo podés pegar donde quieras.'))
+        .catch(() => { window.prompt('Copiá el enlace:', url); });
     }
     function ppViewProfile() { if (property.ownerId) window.open('index.html#perfil/' + property.ownerId, '_blank') }
 
     // ===== Quién está mirando =====
-    // Cliente sin sesión: solo las opciones de contacto (consultas).
-    // Agente dueño de la propiedad o administrador: además, editar.
+    // Cliente sin sesión: solo las opciones de contacto. Agente dueño o
+    // administrador: además, editar.
     function chequearPermisos() {
       try {
         firebase.auth().onAuthStateChanged(u => {
