@@ -4903,11 +4903,6 @@
     $('profileAboutText').innerHTML = sobre
       ? sobre.split(/\n+/).filter(Boolean).map(t => `<p>${mvEsc(t)}</p>`).join('')
       : `<p class="vacio">${q.duenio ? 'Todavía no escribiste nada. Contá tu experiencia desde «Editar perfil».' : 'Este agente todavía no agregó una descripción.'}</p>`;
-    // Aviso para el dueño y la Dirección: qué ven ellos que el público no.
-    const av = $('pfAviso');
-    if (q.duenio) av.innerHTML = '<i class="fas fa-eye"></i><span>Así ven tu perfil los clientes. Vos, además, ves tus <b>dadas de baja</b> y las herramientas de cada propiedad. <button type="button" class="pf-link" onclick="compartirPerfilAgente(true)">Copiar el enlace de tu perfil</button></span>';
-    else if (q.dir) av.innerHTML = '<i class="fas fa-user-shield"></i><span>Lo ves como Dirección: además de lo público, aparecen sus <b>dadas de baja</b> y las herramientas de cada propiedad.</span>';
-    av.classList.toggle('hidden', !q.gestiona);
   }
 
   function pintarPerfilPropiedades() {
