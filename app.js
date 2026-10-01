@@ -4799,58 +4799,14 @@
     return html
   }
 
-  async function showProfile(ui) {
-    currentProfileUserId = ui;
-    window.location.hash = `perfil/${ui}`;
-    let ud = allUsers[ui];
-    // _cache: datos mínimos de la copia de la vitrina (sin bio, redes ni correo).
-    if (!ud || ud._cache) {
-      const d = await db.collection('users').doc(ui).get();
-      ud = d.exists ? d.data() : {
-        name: 'Usuario',
-        email: ''
-      };
-      allUsers[ui] = ud
-    }
-    document.getElementById('profileName').textContent = ud.name || 'Usuario';
-    document.getElementById('profileNameTitle').textContent = ud.name || 'Usuario';
-    document.getElementById('profileEmail').textContent = ud.email || '';
-    document.getElementById('profileBio').textContent = ud.bio || '';
-    document.getElementById('profileBio').style.display = ud.bio ? 'block' : 'none';
-    // Campos nuevos del perfil v2 (con valores por defecto elegantes si están vacíos)
-    const rol = ud.role || 'Asesor Inmobiliario';
-    document.getElementById('profileRole').textContent = rol.toUpperCase();
-    document.getElementById('profileLocation').textContent = ud.location || 'Montevideo, Uruguay';
-    const ael = document.getElementById('profileAboutText');
-    if (ael) {
-      const about = ud.about || ud.bio || '';
-      ael.innerHTML = about ? about.split(/\n+/).filter(Boolean).map(p => `<p>${p.replace(/</g, '&lt;')}</p>`).join('') : '<p style="color:var(--gray-400,#aaa)">Este asesor todavía no agregó una descripción.</p>';
-    }
-    const i = (ud.name || 'U').charAt(0).toUpperCase();
-    document.getElementById('profileAvatar').innerHTML = ud.profilePhoto ? `<img src="${safeUrl(ud.profilePhoto)}" alt="">` : i;
-    const ip = currentUser && currentUser.uid === ui;
-    document.getElementById('profileAvatarEdit').classList.toggle('hidden', !ip);
-    document.getElementById('btnEditProfile').classList.toggle('hidden', !ip);
-    const wab = document.getElementById('btnContactWhatsapp');
-    if (wab) wab.classList.toggle('hidden', ip || !ud.whatsapp);
-    const emw = document.getElementById('profileEmailWrap');
-    if (emw) emw.style.display = ud.email ? 'inline-flex' : 'none';
-    document.getElementById('profileSocialLinks').innerHTML = renderSocialLinks(ud);
-    const up = properties.filter(p => p.ownerId === ui),
-      tv = up.reduce((s, p) => s + (p.views || 0), 0);
-    document.getElementById('profilePropertiesCount').textContent = up.length;
-    document.getElementById('profileViewsCount').textContent = tv;
-    const salesEl = document.getElementById('profileSalesCount');
-    if (salesEl) salesEl.textContent = (ud.salesCount != null ? ud.salesCount : up.filter(p => ['sold', 'rented'].includes(p.status)).length);
-    document.getElementById('profilePropertiesSubtitle').textContent = `${up.length} propiedades`;
-    document.getElementById('btnNewPropertyProfile')?.classList.toggle('hidden', !ip);
-    renderProfileTestimonials(ud, ui);
-    renderProperties(up, 'profilePropertiesGrid');
-    document.getElementById('mainContent').classList.add('hidden');
-    document.getElementById('adminPanel').classList.add('hidden');
-    document.getElementById('crmPage').classList.add('hidden');
-    document.getElementById('clientProfilePage')?.classList.add('hidden');
-    document.getElementById('profilePage').classList.remove('hidden')
+  // El perfil del agente vive en su propia página (perfil.html). Antes se pintaba
+  // acá adentro y, para mostrarlo, había que cargar el sistema entero con todas
+  // las propiedades de la inmobiliaria. Todo lo que llamaba a showProfile (la
+  // barra de abajo, el buscador de agentes, la tarjeta de cada propiedad, el
+  // menú) ahora lleva a esa página.
+  function showProfile(ui) {
+    if (!ui) return;
+    window.location.href = 'perfil.html?id=' + encodeURIComponent(ui);
   }
 
   // Testimonios del perfil: reales aprobados (Firestore) + ejemplo (etiquetado).
@@ -4912,7 +4868,7 @@
   }
 
   function getProfileLink() {
-    return `${window.location.origin}${window.location.pathname}#perfil/${currentProfileUserId}`
+    return `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}perfil.html?id=${encodeURIComponent(currentProfileUserId || '')}`
   }
 
   function copyProfileLink() {
@@ -4938,7 +4894,9 @@
   function handleHash() {
     const h = window.location.hash;
     if (h.startsWith('#perfil/')) {
-      showProfile(h.replace('#perfil/', ''))
+      // Enlaces viejos (index.html#perfil/…): van a la página del perfil.
+      const uid = h.replace('#perfil/', '').split(/[/?&]/)[0];
+      if (uid) window.location.replace('perfil.html?id=' + encodeURIComponent(uid));
     } else if (h.startsWith('#propiedad/')) {
       // Enlaces compartidos: van a la página dedicada, igual que todo lo demás.
       // (Se conserva la ruta vieja para que los links ya enviados sigan andando.)

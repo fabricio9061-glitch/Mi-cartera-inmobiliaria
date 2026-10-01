@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Perfil | MALAVE</title>
+  <meta name="description" content="Agente de MALAVE Inmobiliaria" id="metaDesc">
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <meta property="og:title" content="Perfil | MALAVE" id="ogTitle">
+  <meta property="og:description" content="Agente de MALAVE Inmobiliaria" id="ogDesc">
+  <meta property="og:image" content="icon-512.png" id="ogImage">
+  <meta name="theme-color" content="#16273f">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    /* ==========================================================================
+       PERFIL DEL AGENTE (página propia, 01/10/2026)
+       Antes vivía adentro de index.html (#perfil/…): para mostrar un perfil se
+       cargaba el sistema entero y todas las propiedades de la inmobiliaria.
+       Acá se leen solo el agente y sus propiedades.
+       Las propiedades van en pestañas: Disponibles (lo que se ofrece hoy),
+       Vendidas y alquiladas (su carta de presentación) y, solo para el dueño y la
+       Dirección, Dadas de baja.
+       ========================================================================== */
+    :root{ --ink:#16273f; --ink-2:#0f1d31; --gold:#C9A227; --gold-osc:#8a6d12; --gold-cl:#e9cf73; --paper:#f4f5f7; --line:#e5e8ec; --line-2:#eef0f3; --muted:#6b7480; --soft:#9aa3ad; --ok:#1e7d4f; --bad:#c0392b; }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    [hidden]{ display:none !important; }
+    html, body{ overflow-x:clip; }
+    body{ font-family:'Jost',sans-serif; background:var(--paper); color:#2a3442; line-height:1.55; -webkit-text-size-adjust:100%; }
+    h1,h2,h3{ font-family:'Cormorant Garamond',serif; color:var(--ink); }
+    a{ color:inherit; }
+    button{ font-family:inherit; }
+
+    /* ---- Cabecera ---- */
+    .pf-header{ background:#fff; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:100; padding-top:env(safe-area-inset-top,0px); }
+    .pf-header-in{ max-width:1180px; margin:0 auto; padding:12px 22px; display:flex; justify-content:space-between; align-items:center; gap:14px; }
+    .logo{ display:flex; align-items:center; gap:10px; text-decoration:none; }
+    .logo-img{ height:30px; width:auto; } .logo-text{ height:19px; width:auto; }
+    .pf-back{ display:inline-flex; align-items:center; gap:8px; color:var(--muted); font-size:.88rem; font-weight:500; padding:8px 15px; border:1px solid var(--line); border-radius:999px; text-decoration:none; background:#fff; transition:background .15s, color .15s, border-color .15s; }
+    @media (hover:hover){ .pf-back:hover{ background:var(--ink); color:#fff; border-color:var(--ink); } }
+
+    /* ---- Estados ---- */
+    .pf-estado{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; text-align:center; color:var(--muted); padding:40px 20px; }
+    .pf-spinner{ width:46px; height:46px; border:4px solid var(--line); border-top-color:var(--ink); border-radius:50%; animation:gira 1s linear infinite; margin-bottom:18px; }
+    @keyframes gira{ to{ transform:rotate(360deg); } }
+    .pf-estado > i{ font-size:56px; opacity:.35; margin-bottom:18px; }
+    .pf-estado h2{ font-size:1.9rem; margin-bottom:6px; }
+    .pf-estado a{ display:inline-block; margin-top:18px; background:var(--ink); color:#fff; padding:12px 26px; border-radius:999px; font-weight:500; text-decoration:none; }
+
+    /* ---- Encabezado del agente ---- */
+    .pf-hero{ background:radial-gradient(1200px 420px at 85% -10%, rgba(201,162,39,.16), transparent 60%), linear-gradient(135deg,#0c1726 0%,var(--ink) 75%); color:#fff; }
+    .pf-hero-in{ max-width:1180px; margin:0 auto; padding:46px 22px 50px; display:grid; grid-template-columns:auto minmax(0,1fr) 250px; gap:36px; align-items:center; }
+    .pf-av-wrap{ position:relative; width:176px; height:176px; flex:none; }
+    .pf-avatar{ width:100%; height:100%; border-radius:50%; border:3px solid var(--gold); overflow:hidden; background:rgba(255,255,255,.08); display:grid; place-items:center; font-family:'Cormorant Garamond',serif; font-size:4rem; font-weight:600; color:#fff; }
+    .pf-avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .pf-av-edit{ position:absolute; right:6px; bottom:6px; width:44px; height:44px; border-radius:50%; background:var(--ink); border:2px solid var(--gold); color:var(--gold); display:grid; place-items:center; cursor:pointer; font-size:.95rem; }
+    .pf-rol{ color:var(--gold-cl); font-size:.78rem; letter-spacing:.16em; text-transform:uppercase; font-weight:600; margin-bottom:6px; }
+    .pf-nombre{ color:#fff; font-size:clamp(2.3rem,4.4vw,3.4rem); font-weight:700; line-height:1.04; margin-bottom:10px; overflow-wrap:anywhere; }
+    .pf-bio{ color:rgba(255,255,255,.82); font-size:1.02rem; max-width:620px; margin-bottom:14px; }
+    .pf-meta{ display:flex; flex-wrap:wrap; gap:6px 22px; color:rgba(255,255,255,.75); font-size:.92rem; margin-bottom:22px; }
+    .pf-meta i{ color:var(--gold); margin-right:7px; }
+    .pf-meta a{ text-decoration:none; overflow-wrap:anywhere; }
+    @media (hover:hover){ .pf-meta a:hover{ color:#fff; text-decoration:underline; } }
+    .pf-acciones{ display:flex; flex-wrap:wrap; gap:10px; }
+    .pf-btn{ display:inline-flex; align-items:center; justify-content:center; gap:9px; border-radius:999px; padding:12px 22px; font-size:.94rem; font-weight:500; cursor:pointer; text-decoration:none; border:1px solid transparent; transition:background .15s, color .15s, border-color .15s, filter .15s; }
+    .pf-btn-wa{ background:#25D366; color:#fff; font-weight:600; }
+    .pf-btn-sec{ background:transparent; color:#fff; border-color:rgba(255,255,255,.32); }
+    .pf-btn-oro{ background:var(--gold); color:var(--ink); font-weight:600; }
+    @media (hover:hover){ .pf-btn-wa:hover{ filter:brightness(1.06); } .pf-btn-sec:hover{ border-color:var(--gold); color:var(--gold-cl); } .pf-btn-oro:hover{ filter:brightness(1.07); } }
+    .pf-redes{ display:flex; gap:9px; margin-top:16px; }
+    .pf-redes a{ width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); color:#fff; display:grid; place-items:center; text-decoration:none; transition:border-color .15s, color .15s; }
+    @media (hover:hover){ .pf-redes a:hover{ border-color:var(--gold); color:var(--gold-cl); } }
+    .pf-stats{ display:grid; gap:10px; }
+    .pf-stat{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:14px 18px; }
+    .pf-stat b{ display:block; font-family:'Cormorant Garamond',serif; font-size:2.1rem; line-height:1; color:#fff; font-variant-numeric:lining-nums tabular-nums; }
+    .pf-stat span{ display:block; font-size:.78rem; color:rgba(255,255,255,.65); margin-top:4px; }
+
+    /* ---- Cuerpo ---- */
+    .pf-wrap{ max-width:1180px; margin:0 auto; padding:30px 22px 70px; }
+    .pf-aviso{ display:flex; gap:12px; align-items:flex-start; background:#fff; border:1px solid var(--line); border-left:4px solid var(--gold); border-radius:12px; padding:13px 16px; font-size:.9rem; color:#3d4754; margin-bottom:24px; }
+    .pf-aviso i{ color:var(--gold); margin-top:3px; }
+    .pf-aviso b{ color:var(--ink); }
+    .pf-sec-h{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+    .pf-sec-h h2{ font-size:2rem; line-height:1.1; }
+    .pf-sec-h p{ color:var(--muted); font-size:.9rem; }
+    .pf-tabs{ display:flex; gap:4px; background:var(--line-2); border-radius:13px; padding:4px; overflow-x:auto; scrollbar-width:none; max-width:100%; }
+    .pf-tabs::-webkit-scrollbar{ display:none; }
+    .pf-tabs button{ border:0; background:none; border-radius:10px; padding:9px 15px; font-size:.9rem; font-weight:500; color:var(--muted); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:7px; }
+    .pf-tabs button[aria-selected="true"]{ background:#fff; color:var(--ink); font-weight:600; box-shadow:0 1px 3px rgba(16,24,40,.14); }
+    .pf-tabs .corto{ display:none; }
+    .pf-tabs .n{ font-size:.74rem; background:var(--line); color:var(--muted); border-radius:999px; padding:1px 8px; }
+    .pf-tabs button[aria-selected="true"] .n{ background:rgba(201,162,39,.18); color:var(--gold-osc); }
+
+    /* Tarjetas de propiedades */
+    .pf-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); gap:20px; }
+    .pc{ background:#fff; border:1px solid var(--line); border-radius:18px; overflow:hidden; display:flex; flex-direction:column; transition:box-shadow .2s, transform .2s; min-width:0; }
+    @media (hover:hover){ .pc:hover{ box-shadow:0 14px 34px rgba(16,24,40,.12); transform:translateY(-2px); } }
+    .pc-link{ display:block; text-decoration:none; color:inherit; flex:1; }
+    .pc-img{ position:relative; aspect-ratio:4 / 3; background:#e3e7eb; overflow:hidden; }
+    .pc-img img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .pc-img .sin{ position:absolute; inset:0; display:grid; place-items:center; color:var(--soft); font-size:2rem; }
+    .pc.cerrada .pc-img img{ filter:grayscale(.35) brightness(.92); }
+    .pc-badges{ position:absolute; top:12px; left:12px; display:flex; flex-wrap:wrap; gap:6px; }
+    .bd{ font-size:.68rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:4px 10px; border-radius:999px; background:#fff; color:var(--ink); box-shadow:0 2px 8px rgba(16,24,40,.18); }
+    .bd.venta{ background:var(--ink); color:#fff; } .bd.alq{ background:#1d4ed8; color:#fff; }
+    .bd.dest{ background:var(--gold); color:var(--ink); } .bd.res{ background:#f59e0b; color:#fff; }
+    .bd.cerr{ background:var(--ok); color:#fff; } .bd.baja{ background:#6b7480; color:#fff; } .bd.tas{ background:#fff; color:var(--gold-osc); }
+    .pc-body{ padding:16px 18px 18px; }
+    .pc-precio{ font-family:'Cormorant Garamond',serif; font-size:1.7rem; font-weight:700; color:var(--ink); line-height:1.1; font-variant-numeric:lining-nums; }
+    .pc-precio small{ font-family:'Jost',sans-serif; font-size:.85rem; font-weight:500; color:var(--muted); margin-left:2px; }
+    .pc-precio .viejo{ font-family:'Jost',sans-serif; font-size:.85rem; color:var(--soft); text-decoration:line-through; font-weight:400; margin-left:8px; }
+    .pc-tit{ font-family:'Jost',sans-serif; font-size:1rem; font-weight:600; color:#1f2b3a; margin:6px 0 4px; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .pc-lugar{ font-size:.86rem; color:var(--muted); display:flex; gap:7px; align-items:baseline; }
+    .pc-lugar i{ color:var(--gold); font-size:.8rem; }
+    .pc-feat{ display:flex; flex-wrap:wrap; gap:14px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line-2); font-size:.86rem; color:#3d4754; }
+    .pc-feat i{ color:var(--soft); margin-right:5px; }
+    .pc-acc{ display:flex; border-top:1px solid var(--line); }
+    .pc-acc > *{ flex:1; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:11px 6px; font-size:.84rem; font-weight:500; color:var(--ink); background:#fff; border:0; text-decoration:none; cursor:pointer; }
+    .pc-acc > * + *{ border-left:1px solid var(--line); }
+    .pc-acc .baja{ color:#8a3a2f; }
+    @media (hover:hover){ .pc-acc > *:hover{ background:var(--paper); } }
+    .pf-vacio{ grid-column:1 / -1; text-align:center; color:var(--muted); background:#fff; border:1.5px dashed var(--line); border-radius:18px; padding:42px 20px; }
+    .pf-vacio i{ font-size:1.8rem; color:var(--soft); display:block; margin-bottom:10px; }
+
+    /* Sobre mí y testimonios */
+    .pf-cols{ display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:24px; margin-top:44px; align-items:start; }
+    .pf-caja{ background:#fff; border:1px solid var(--line); border-radius:18px; padding:26px; }
+    .pf-caja > h2{ font-size:1.75rem; margin-bottom:14px; }
+    .pf-sobre p{ margin-bottom:12px; color:#3d4754; }
+    .pf-sobre .vacio{ color:var(--soft); }
+    .pf-serv{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:18px; }
+    .pf-serv div{ display:flex; align-items:center; gap:10px; font-size:.88rem; color:var(--ink); background:var(--paper); border-radius:11px; padding:10px 12px; }
+    .pf-serv i{ color:var(--gold); width:18px; text-align:center; }
+    .pf-testi{ background:#faf6ec; border-color:#efe5cd; }
+    .pf-t{ padding:4px 0 2px; }
+    .pf-t + .pf-t{ border-top:1px solid #efe5cd; margin-top:14px; padding-top:16px; }
+    .pf-t q{ display:block; font-family:'Cormorant Garamond',serif; font-size:1.12rem; line-height:1.5; color:var(--ink); quotes:'“' '”'; }
+    .pf-t div{ margin-top:8px; font-size:.84rem; color:var(--muted); }
+    .pf-t b{ color:var(--ink); font-weight:600; }
+    .pf-t-vacio{ color:var(--muted); font-size:.92rem; }
+    .pf-testi-btn{ margin-top:16px; display:inline-flex; align-items:center; gap:8px; border:1px solid #e3d3a6; background:#fff; color:var(--gold-osc); border-radius:999px; padding:9px 16px; font-size:.86rem; font-weight:600; cursor:pointer; }
+
+    /* ---- Pie ---- */
+    .pf-pie{ background:var(--ink-2); color:rgba(255,255,255,.7); text-align:center; padding:30px 20px calc(30px + env(safe-area-inset-bottom,0px)); font-size:.85rem; }
+    .pf-pie .logo{ justify-content:center; margin-bottom:12px; }
+    .pf-pie a{ color:var(--gold-cl); text-decoration:none; }
+
+    /* ---- Celular: WhatsApp siempre a mano ---- */
+    .pf-barra{ display:none; }
+
+    /* ---- Ventanas (editar perfil, testimonio) ---- */
+    .pf-modal{ position:fixed; inset:0; z-index:3000; background:rgba(12,20,32,.55); display:flex; align-items:flex-start; justify-content:center; padding:24px 14px; overflow-y:auto; overscroll-behavior:contain; }
+    .pf-dlg{ background:#fff; border-radius:18px; width:100%; max-width:560px; margin:auto 0; box-shadow:0 24px 60px rgba(0,0,0,.3); }
+    .pf-dlg-h{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 22px; border-bottom:1px solid var(--line); }
+    .pf-dlg-h h2{ font-size:1.5rem; }
+    .pf-x{ border:0; background:var(--paper); width:36px; height:36px; border-radius:50%; cursor:pointer; color:var(--muted); font-size:1rem; }
+    .pf-dlg form{ padding:18px 22px 22px; }
+    .fg{ margin-bottom:13px; }
+    .fg label{ display:block; font-size:.82rem; font-weight:600; color:#3d4754; margin-bottom:6px; }
+    .fg label i{ width:16px; }
+    .fg small{ display:block; font-size:.76rem; color:var(--muted); margin-top:4px; }
+    .fg input, .fg textarea{ width:100%; border:1px solid #d3d8de; border-radius:11px; padding:11px 12px; font-family:inherit; font-size:.95rem; color:#1d2733; background:#fff; }
+    .fg textarea{ resize:vertical; min-height:70px; }
+    .fg input:focus, .fg textarea:focus{ outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.15); }
+    .fg-2{ display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
+    .pf-dlg h3{ font-family:'Jost',sans-serif; font-size:.78rem; letter-spacing:.1em; text-transform:uppercase; color:var(--soft); margin:18px 0 10px; }
+    .pf-nota{ font-size:.82rem; color:var(--muted); background:var(--paper); border-radius:10px; padding:10px 12px; margin-top:6px; }
+    .pf-nota a{ color:var(--gold-osc); font-weight:600; }
+    .pf-err{ background:#fef2f2; color:var(--bad); border:1px solid #f3c9c4; border-radius:10px; padding:9px 12px; font-size:.86rem; margin-bottom:12px; }
+    .pf-dlg-pie{ display:flex; gap:10px; margin-top:18px; }
+    .pf-dlg-pie button{ flex:1; padding:13px; border-radius:12px; font-size:.95rem; font-weight:600; cursor:pointer; border:0; }
+    .pf-dlg-pie .no{ background:var(--paper); color:#3d4754; }
+    .pf-dlg-pie .si{ background:var(--ink); color:#fff; }
+    .pf-dlg-pie .si:disabled{ opacity:.6; cursor:wait; }
+
+    .pf-toast{ position:fixed; left:50%; bottom:24px; transform:translate(-50%,20px); opacity:0; z-index:4000; background:var(--ink); color:#fff; padding:11px 18px; border-radius:12px; font-size:.9rem; box-shadow:0 10px 30px rgba(16,24,40,.3); transition:opacity .2s, transform .2s; pointer-events:none; max-width:calc(100vw - 32px); text-align:center; }
+    .pf-toast.ver{ opacity:1; transform:translate(-50%,0); }
+
+    @media (max-width:1000px){
+      .pf-hero-in{ grid-template-columns:auto minmax(0,1fr); }
+      .pf-stats{ grid-column:1 / -1; grid-template-columns:repeat(3,minmax(0,1fr)); }
+    }
+    @media (max-width:760px){
+      .pf-header-in{ padding:10px 14px; }
+      .pf-back span{ display:none; }
+      .pf-hero-in{ grid-template-columns:minmax(0,1fr); justify-items:center; text-align:center; gap:16px; padding:28px 16px 30px; }
+      .pf-av-wrap{ width:120px; height:120px; }
+      .pf-avatar{ font-size:2.6rem; }
+      .pf-av-edit{ right:0; bottom:0; width:36px; height:36px; font-size:.82rem; }
+      .pf-rol{ font-size:.7rem; letter-spacing:.13em; }
+      .pf-nombre{ font-size:2.1rem; }
+      .pf-bio{ font-size:.93rem; margin-left:auto; margin-right:auto; }
+      .pf-meta, .pf-acciones, .pf-redes{ justify-content:center; }
+      .pf-meta{ margin-bottom:16px; font-size:.86rem; }
+      .pf-acciones{ width:100%; }
+      .pf-acciones .pf-btn{ flex:1 1 auto; padding:11px 16px; font-size:.9rem; }
+      .pf-stats{ width:100%; gap:8px; }
+      .pf-stat{ padding:11px 6px; text-align:center; }
+      .pf-stat b{ font-size:1.6rem; }
+      .pf-stat span{ font-size:.68rem; }
+      .pf-wrap{ padding:22px 14px 40px; }
+      .pf-sec-h h2{ font-size:1.65rem; }
+      .pf-tabs{ width:100%; }
+      .pf-tabs button{ flex:1 0 auto; padding:9px 10px; font-size:.86rem; justify-content:center; }
+      .pf-tabs .largo{ display:none; } .pf-tabs .corto{ display:inline; }
+      .pf-grid{ grid-template-columns:minmax(0,1fr); gap:16px; }
+      .pf-cols{ grid-template-columns:minmax(0,1fr); margin-top:32px; gap:16px; }
+      .pf-caja{ padding:20px 18px; }
+      .pf-serv{ grid-template-columns:minmax(0,1fr); }
+      .fg-2{ grid-template-columns:1fr; }
+      body.con-barra .pf-pie{ padding-bottom:calc(96px + env(safe-area-inset-bottom,0px)); }
+      .pf-barra{ display:flex; align-items:center; gap:12px; position:fixed; left:0; right:0; bottom:0; z-index:90; background:#fff; border-top:1px solid var(--line); box-shadow:0 -8px 24px rgba(16,24,40,.1); padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px)); }
+      .pf-barra .av{ width:40px; height:40px; border-radius:50%; overflow:hidden; background:var(--ink); color:#fff; display:grid; place-items:center; font-weight:600; flex:none; }
+      .pf-barra .av img{ width:100%; height:100%; object-fit:cover; }
+      .pf-barra div{ flex:1; min-width:0; }
+      .pf-barra b{ display:block; font-size:.95rem; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .pf-barra small{ display:block; font-size:.76rem; color:var(--muted); }
+      .pf-barra a{ flex:none; display:inline-flex; align-items:center; gap:8px; background:#25D366; color:#fff; border-radius:12px; padding:11px 16px; font-weight:600; text-decoration:none; font-size:.92rem; }
+      .pf-toast{ bottom:calc(88px + env(safe-area-inset-bottom,0px)); }
+    }
+    @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation-duration:.01s !important; } }
+  </style>
+</head>
+<body>
+  <header class="pf-header">
+    <div class="pf-header-in">
+      <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
+      <a href="index.html#propiedades" class="pf-back"><i class="fas fa-arrow-left"></i> <span>Ver propiedades</span></a>
+    </div>
+  </header>
+
+  <div id="pfCargando" class="pf-estado"><div class="pf-spinner"></div><p>Cargando perfil…</p></div>
+  <div id="pfError" class="pf-estado" hidden>
+    <i class="fas fa-user-slash"></i>
+    <h2>Perfil no encontrado</h2>
+    <p>Este agente no existe o ya no forma parte del equipo.</p>
+    <a href="index.html#propiedades"><i class="fas fa-arrow-left"></i> Ver las propiedades</a>
+  </div>
+
+  <main id="pfContenido" hidden>
+    <section class="pf-hero">
+      <div class="pf-hero-in">
+        <div class="pf-av-wrap">
+          <div class="pf-avatar" id="pfAvatar"></div>
+          <button type="button" class="pf-av-edit" id="pfFotoBtn" hidden onclick="document.getElementById('pfFotoInput').click()" aria-label="Cambiar la foto" title="Cambiar la foto"><i class="fas fa-camera"></i></button>
+          <input type="file" id="pfFotoInput" accept="image/*" hidden onchange="cambiarFoto(event)">
+        </div>
+        <div class="pf-info">
+          <div class="pf-rol" id="pfRol"></div>
+          <h1 class="pf-nombre" id="pfNombre"></h1>
+          <p class="pf-bio" id="pfBio" hidden></p>
+          <div class="pf-meta">
+            <span><i class="fas fa-location-dot"></i><span id="pfLugar"></span></span>
+            <a id="pfEmail" hidden><i class="far fa-envelope"></i><span></span></a>
+          </div>
+          <div class="pf-acciones">
+            <a class="pf-btn pf-btn-wa" id="pfWa" hidden target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> Escribirle por WhatsApp</a>
+            <button type="button" class="pf-btn pf-btn-oro" id="pfEditar" hidden onclick="abrirEditor()"><i class="fas fa-pen"></i> Editar perfil</button>
+            <button type="button" class="pf-btn pf-btn-sec" onclick="compartirPerfil()"><i class="fas fa-share-nodes"></i> Compartir perfil</button>
+          </div>
+          <div class="pf-redes" id="pfRedes"></div>
+        </div>
+        <div class="pf-stats">
+          <div class="pf-stat"><b id="stDisp">0</b><span>propiedades disponibles</span></div>
+          <div class="pf-stat"><b id="stCerr">0</b><span>operaciones cerradas</span></div>
+          <div class="pf-stat"><b id="stVis">0</b><span>visitas a sus avisos</span></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="pf-wrap">
+      <div class="pf-aviso" id="pfAviso" hidden></div>
+
+      <section id="secProps">
+        <div class="pf-sec-h">
+          <div><h2 id="titProps">Propiedades</h2><p id="subProps"></p></div>
+          <div class="pf-tabs" role="tablist" id="pfTabs">
+            <button type="button" role="tab" data-g="activas" aria-selected="true">Disponibles <span class="n" id="nActivas">0</span></button>
+            <button type="button" role="tab" data-g="cerradas" aria-selected="false"><span class="largo">Vendidas y alquiladas</span><span class="corto">Cerradas</span> <span class="n" id="nCerradas">0</span></button>
+            <button type="button" role="tab" data-g="baja" aria-selected="false" hidden><span class="largo">Dadas de baja</span><span class="corto">De baja</span> <span class="n" id="nBaja">0</span></button>
+          </div>
+        </div>
+        <div class="pf-grid" id="pfGrid" role="tabpanel"></div>
+      </section>
+
+      <section class="pf-cols">
+        <div class="pf-caja pf-sobre" id="pfSobreCaja">
+          <h2>Sobre mí</h2>
+          <div id="pfSobre"></div>
+          <div class="pf-serv">
+            <div><i class="fas fa-house-user"></i>Asesoramiento personalizado</div>
+            <div><i class="fas fa-chart-line"></i>Análisis de mercado</div>
+            <div><i class="fas fa-bullhorn"></i>Marketing inmobiliario</div>
+            <div><i class="fas fa-handshake"></i>Negociación efectiva</div>
+          </div>
+        </div>
+        <div class="pf-caja pf-testi">
+          <h2>Testimonios</h2>
+          <div id="pfTesti"><p class="pf-t-vacio">Cargando…</p></div>
+          <button type="button" class="pf-testi-btn" id="pfTestiBtn" onclick="abrirTestimonio()"><i class="fas fa-pen"></i> Dejá tu testimonio</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Celular: escribirle sin volver arriba -->
+  <div class="pf-barra" id="pfBarra" hidden>
+    <span class="av" id="pfBarraAv"></span>
+    <div><b id="pfBarraNombre"></b><small>Agente de MALAVE</small></div>
+    <a id="pfBarraWa" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> Escribir</a>
+  </div>
+
+  <footer class="pf-pie">
+    <a href="index.html" class="logo"><img src="iso-malave-white.png" alt="" class="logo-img"><img src="texto-malave-white.png" alt="MALAVE" class="logo-text"></a>
+    <div>MALAVE Inmobiliaria · Montevideo, Uruguay · <a href="https://wa.me/59894029297" target="_blank" rel="noopener">+598 94 029 297</a></div>
+  </footer>
+
+  <!-- Editar perfil (solo el dueño) -->
+  <div class="pf-modal" id="mdEditar" hidden onclick="if(event.target===this)cerrarModal('mdEditar')">
+    <div class="pf-dlg" role="dialog" aria-modal="true" aria-labelledby="mdEditarTit">
+      <div class="pf-dlg-h"><h2 id="mdEditarTit">Editar perfil</h2><button type="button" class="pf-x" onclick="cerrarModal('mdEditar')" aria-label="Cerrar"><i class="fas fa-xmark"></i></button></div>
+      <form onsubmit="guardarPerfil(event)">
+        <div class="pf-err" id="edErr" hidden></div>
+        <div class="fg"><label for="edName">Nombre completo *</label><input type="text" id="edName" required maxlength="80" placeholder="Tu nombre"></div>
+        <div class="fg-2">
+          <div class="fg"><label for="edWhatsapp"><i class="fab fa-whatsapp" style="color:#25D366"></i> WhatsApp *</label><input type="tel" id="edWhatsapp" required placeholder="+598 99 123 456"></div>
+          <div class="fg"><label for="edLocation"><i class="fas fa-location-dot" style="color:var(--gold)"></i> Ubicación</label><input type="text" id="edLocation" placeholder="Montevideo, Uruguay"></div>
+        </div>
+        <div class="fg"><label for="edBio">Frase corta</label><textarea id="edBio" rows="2" maxlength="220" placeholder="Va debajo de tu nombre"></textarea></div>
+        <div class="fg"><label for="edAbout">Sobre mí</label><textarea id="edAbout" rows="5" placeholder="Tu experiencia, tu forma de trabajar, las zonas que conocés. Podés usar varios párrafos."></textarea></div>
+        <h3>Redes</h3>
+        <div class="fg-2">
+          <div class="fg"><label for="edInstagram"><i class="fab fa-instagram" style="color:#E4405F"></i> Instagram</label><input type="url" id="edInstagram" placeholder="https://instagram.com/…"></div>
+          <div class="fg"><label for="edFacebook"><i class="fab fa-facebook" style="color:#1877F2"></i> Facebook</label><input type="url" id="edFacebook" placeholder="https://facebook.com/…"></div>
+          <div class="fg"><label for="edLinkedin"><i class="fab fa-linkedin" style="color:#0A66C2"></i> LinkedIn</label><input type="url" id="edLinkedin" placeholder="https://linkedin.com/in/…"></div>
+          <div class="fg"><label for="edTwitter"><i class="fab fa-x-twitter"></i> X (Twitter)</label><input type="url" id="edTwitter" placeholder="https://x.com/…"></div>
+          <div class="fg"><label for="edTiktok"><i class="fab fa-tiktok"></i> TikTok</label><input type="url" id="edTiktok" placeholder="https://tiktok.com/@…"></div>
+          <div class="fg"><label for="edYoutube"><i class="fab fa-youtube" style="color:#FF0000"></i> YouTube</label><input type="url" id="edYoutube" placeholder="https://youtube.com/@…"></div>
+        </div>
+        <div class="fg"><label for="edWebsite"><i class="fas fa-globe" style="color:var(--gold)"></i> Sitio web</label><input type="url" id="edWebsite" placeholder="https://…"></div>
+        <p class="pf-nota"><i class="fas fa-building-columns"></i> Tus datos para cobrar las comisiones están en <a href="finanzas.html">Mis finanzas</a>. Solo vos y la administración los ven.</p>
+        <div class="pf-dlg-pie"><button type="button" class="no" onclick="cerrarModal('mdEditar')">Cancelar</button><button type="submit" class="si" id="edGuardar"><i class="fas fa-floppy-disk"></i> Guardar</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Dejar un testimonio (queda pendiente hasta que lo aprueben) -->
+  <div class="pf-modal" id="mdTesti" hidden onclick="if(event.target===this)cerrarModal('mdTesti')">
+    <div class="pf-dlg" role="dialog" aria-modal="true" aria-labelledby="mdTestiTit">
+      <div class="pf-dlg-h"><h2 id="mdTestiTit">Dejá tu testimonio</h2><button type="button" class="pf-x" onclick="cerrarModal('mdTesti')" aria-label="Cerrar"><i class="fas fa-xmark"></i></button></div>
+      <form onsubmit="enviarTestimonio(event)">
+        <p class="pf-nota" id="tsSub" style="margin:0 0 14px"></p>
+        <div class="fg"><label for="tsNombre">Tu nombre *</label><input type="text" id="tsNombre" required maxlength="60" placeholder="Ej: Valeria G."></div>
+        <div class="fg"><label for="tsRol">¿Qué hiciste con este agente?</label><input type="text" id="tsRol" maxlength="80" placeholder="Ej: Compré un apartamento en Pocitos"></div>
+        <div class="fg"><label for="tsTexto">Tu experiencia *</label><textarea id="tsTexto" required rows="4" maxlength="600" placeholder="Contá cómo fue trabajar con este agente"></textarea></div>
+        <div class="pf-dlg-pie"><button type="button" class="no" onclick="cerrarModal('mdTesti')">Cancelar</button><button type="submit" class="si" id="tsEnviar"><i class="fas fa-paper-plane"></i> Enviar</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="pf-toast" id="pfToast" role="status" aria-live="polite"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="malave-config.js?v=20260830b"></script>
+  <script src="rangos.js?v=20260821l"></script>
+  <script>
+    firebase.initializeApp(firebaseConfig);
+    var db = firebase.firestore();
+
+    var agenteId = null, agente = null, props = [], grupoActual = 'activas';
+    var yo = null, miPerfil = null;            // quién está mirando (si inició sesión)
+    var testimonios = null;   // null: todavía no llegaron
+    var ESTADO = { reserved: ['Reservada', 'res'], sold: ['Vendida', 'cerr'], rented: ['Alquilada', 'cerr'], archived: ['Dada de baja', 'baja'],
+      cerrado_externo: ['Cerró por afuera', 'baja'], tasacion: ['En tasación', 'tas'], tasado: ['Tasada', 'tas'] };
+
+    function $(id){ return document.getElementById(id); }
+    function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+    function num(n){ return Number(n || 0).toLocaleString('es-UY'); }
+    function precio(p, c){ return (c === 'UYU' ? '$U ' : 'US$ ') + num(p); }
+    function fechaNum(v){
+      if(!v) return 0;
+      if(typeof v.toMillis === 'function') return v.toMillis();
+      if(typeof v === 'object' && v.seconds) return v.seconds * 1000;
+      var t = Date.parse(v); return isFinite(t) ? t : 0;
+    }
+    function urlSegura(u){ u = String(u || '').trim(); return /^https?:\/\//i.test(u) ? u : ''; }
+    function soloNumeros(t){ return String(t || '').replace(/\D/g, ''); }
+    function avisar(t){ var el = $('pfToast'); el.textContent = t; el.classList.add('ver'); clearTimeout(avisar._t); avisar._t = setTimeout(function(){ el.classList.remove('ver'); }, 3000); }
+    function base(){ return location.origin + location.pathname.replace(/[^/]*$/, ''); }
+    function linkPerfil(){ return base() + 'perfil.html?id=' + encodeURIComponent(agenteId); }
+    // Vendidas y alquiladas: ya se cerraron. Dadas de baja y cerradas por otra
+    // inmobiliaria: fuera de circulación. El resto (disponibles, reservadas, en
+    // tasación) sigue en juego.
+    function grupoDe(p){
+      var s = p.status || 'available';
+      if(s === 'sold' || s === 'rented') return 'cerradas';
+      if(s === 'archived' || s === 'cerrado_externo') return 'baja';
+      return 'activas';
+    }
+    function esDireccion(p, email){ return (String((p && p.email) || email || '').toLowerCase() === ADMIN_EMAIL) || !!(window.Rangos && Rangos.esDireccion(p)); }
+    function soyDuenio(){ return !!(yo && yo.uid === agenteId); }
+    function puedoGestionar(){ return soyDuenio() || !!(yo && esDireccion(miPerfil, yo.email)); }
+
+    // ===== Carga =====
+    agenteId = new URLSearchParams(location.search).get('id') || ((location.hash.match(/perfil\/([^/?#&]+)/) || [])[1]) || null;
+    function mostrarError(){ $('pfCargando').hidden = true; $('pfContenido').hidden = true; $('pfError').hidden = false; }
+
+    async function cargar(){
+      if(!agenteId){ mostrarError(); return; }
+      try{
+        var r = await Promise.all([
+          db.collection('users').doc(agenteId).get(),
+          db.collection('properties').where('ownerId', '==', agenteId).get()
+        ]);
+        if(!r[0].exists){ mostrarError(); return; }
+        agente = r[0].data();
+        props = r[1].docs.map(function(d){ var p = d.data(); p.id = d.id; return p; });
+        pintarAgente();
+        pintarPropiedades();
+        $('pfCargando').hidden = true; $('pfContenido').hidden = false;
+        cargarTestimonios();
+      }catch(e){ console.error('Perfil:', e); mostrarError(); }
+    }
+
+    // Quién mira: el dueño ve además "Editar perfil", su foto, las dadas de baja
+    // y los botones de cada propiedad. La Dirección, las dadas de baja y los botones.
+    firebase.auth().onAuthStateChanged(async function(u){
+      yo = u || null; miPerfil = null;
+      if(u){ try{ var d = await db.collection('users').doc(u.uid).get(); miPerfil = d.exists ? d.data() : {}; }catch(e){ miPerfil = {}; } }
+      if(agente) repintar();
+    });
+    function repintar(){ pintarAgente(); pintarPropiedades(); if(testimonios) pintarTestimonios(); }
+
+    function pintarAgente(){
+      var a = agente || {};
+      var nombre = a.name || 'Agente';
+      document.title = nombre + ' | MALAVE';
+      $('ogTitle').content = nombre + ' | MALAVE';
+      var resumen = (a.bio ? a.bio + ' · ' : '') + 'Agente de MALAVE Inmobiliaria';
+      $('ogDesc').content = resumen; $('metaDesc').content = resumen;
+      if(urlSegura(a.profilePhoto)) $('ogImage').content = a.profilePhoto;
+
+      var inicial = esc(nombre.trim().charAt(0).toUpperCase() || 'A');
+      var foto = urlSegura(a.profilePhoto) ? '<img src="' + esc(a.profilePhoto) + '" alt="">' : inicial;
+      $('pfAvatar').innerHTML = foto; $('pfBarraAv').innerHTML = foto;
+      $('pfRol').textContent = (window.Rangos && Rangos.etiqueta(a)) || a.role || 'Asesor inmobiliario';
+      $('pfNombre').textContent = nombre; $('pfBarraNombre').textContent = nombre;
+      $('pfBio').textContent = a.bio || ''; $('pfBio').hidden = !a.bio;
+      $('pfLugar').textContent = a.location || 'Montevideo, Uruguay';
+      var em = $('pfEmail');
+      if(a.email){ em.href = 'mailto:' + a.email; em.querySelector('span').textContent = a.email; em.hidden = false; } else em.hidden = true;
+
+      // WhatsApp: el del agente; si no tiene, el de la agencia.
+      var duenio = soyDuenio();
+      var tel = soloNumeros(a.whatsapp) || '59894029297';
+      var wa = 'https://wa.me/' + tel + '?text=' + encodeURIComponent('Hola ' + nombre + ', vi tu perfil en MALAVE y me gustaría consultarte.');
+      $('pfWa').href = wa; $('pfBarraWa').href = wa;
+      $('pfWa').hidden = duenio;
+      $('pfBarra').hidden = duenio;
+      document.body.classList.toggle('con-barra', !duenio);
+      $('pfEditar').hidden = !duenio;
+      $('pfFotoBtn').hidden = !duenio;
+
+      // Redes (solo las que son de esa red)
+      var R = [['instagram', 'instagram.com', 'fab fa-instagram', 'Instagram'], ['facebook', 'facebook.com', 'fab fa-facebook-f', 'Facebook'],
+        ['linkedin', 'linkedin.com', 'fab fa-linkedin-in', 'LinkedIn'], ['twitter', /(twitter|x)\.com/, 'fab fa-x-twitter', 'X'],
+        ['tiktok', 'tiktok.com', 'fab fa-tiktok', 'TikTok'], ['youtube', /youtube\.com|youtu\.be/, 'fab fa-youtube', 'YouTube'], ['website', '', 'fas fa-globe', 'Sitio web']];
+      $('pfRedes').innerHTML = R.map(function(x){
+        var u = urlSegura(a[x[0]]);
+        if(!u || (x[1] && !(x[1] instanceof RegExp ? x[1].test(u) : u.indexOf(x[1]) >= 0))) return '';
+        return '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer" title="' + x[3] + '" aria-label="' + x[3] + '"><i class="' + x[2] + '"></i></a>';
+      }).join('');
+
+      // Sobre mí
+      var sobre = a.about || a.bio || '';
+      $('pfSobre').innerHTML = sobre
+        ? sobre.split(/\n+/).filter(Boolean).map(function(p){ return '<p>' + esc(p) + '</p>'; }).join('')
+        : (duenio ? '<p class="vacio">Todavía no escribiste nada. Contá tu experiencia desde «Editar perfil».</p>' : '<p class="vacio">Este agente todavía no agregó una descripción.</p>');
+
+      // Aviso para el dueño y la Dirección
+      var av = $('pfAviso');
+      if(duenio){ av.innerHTML = '<i class="fas fa-eye"></i><span>Así ven tu perfil los clientes. Además, vos ves <b>tus propiedades dadas de baja</b> y los botones para editarlas. <button type="button" class="link-a" onclick="copiarLink()" style="background:none;border:0;color:var(--gold-osc);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline">Copiar el enlace de tu perfil</button></span>'; av.hidden = false; }
+      else if(puedoGestionar()){ av.innerHTML = '<i class="fas fa-user-shield"></i><span>Lo ves como Dirección: además de lo público, aparecen sus <b>dadas de baja</b> y los botones para editar sus propiedades.</span>'; av.hidden = false; }
+      else av.hidden = true;
+    }
+
+    // ===== Propiedades =====
+    function pintarPropiedades(){
+      var gest = puedoGestionar();
+      var g = { activas: [], cerradas: [], baja: [] };
+      props.forEach(function(p){ g[grupoDe(p)].push(p); });
+      var orden = function(a, b){
+        var fa = (window.isEffectivelyFeatured && isEffectivelyFeatured(a)) ? 0 : 1, fb = (window.isEffectivelyFeatured && isEffectivelyFeatured(b)) ? 0 : 1;
+        return fa - fb || fechaNum(b.createdAt) - fechaNum(a.createdAt);
+      };
+      Object.keys(g).forEach(function(k){ g[k].sort(orden); });
+      // Números del encabezado
+      var a = agente || {};
+      $('stDisp').textContent = num(g.activas.length);
+      $('stCerr').textContent = num(a.salesCount != null && a.salesCount !== '' ? Number(a.salesCount) : g.cerradas.length);
+      $('stVis').textContent = num(props.reduce(function(s, p){ return s + (Number(p.views) || 0); }, 0));
+      // Pestañas: las vendidas solo si hay; las dadas de baja solo para el dueño y la Dirección.
+      $('nActivas').textContent = g.activas.length; $('nCerradas').textContent = g.cerradas.length; $('nBaja').textContent = g.baja.length;
+      var tabC = document.querySelector('#pfTabs [data-g="cerradas"]'), tabB = document.querySelector('#pfTabs [data-g="baja"]');
+      tabC.hidden = !g.cerradas.length;
+      tabB.hidden = !gest || !g.baja.length;
+      if((grupoActual === 'cerradas' && tabC.hidden) || (grupoActual === 'baja' && tabB.hidden)) grupoActual = 'activas';
+      $('pfTabs').hidden = tabC.hidden && tabB.hidden;
+      document.querySelectorAll('#pfTabs button').forEach(function(b){ b.setAttribute('aria-selected', String(b.getAttribute('data-g') === grupoActual)); });
+      var nombre = (a.name || '').split(' ')[0];
+      $('titProps').textContent = nombre ? 'Propiedades de ' + nombre : 'Propiedades';
+      $('subProps').textContent = grupoActual === 'activas' ? 'En venta y en alquiler hoy.' : grupoActual === 'cerradas' ? 'Operaciones que ya cerró con MALAVE.' : 'Fuera de circulación: solo las ven el agente y la Dirección.';
+      var lista = g[grupoActual] || [];
+      $('pfGrid').innerHTML = lista.length ? lista.map(function(p){ return tarjeta(p, gest); }).join('')
+        : '<div class="pf-vacio"><i class="fas fa-house"></i>' + (grupoActual === 'activas'
+          ? (soyDuenio() ? 'No tenés propiedades disponibles ahora.' : 'Por ahora no tiene propiedades disponibles.') + (g.cerradas.length ? ' Mirá las que ya vendió o alquiló.' : '')
+          : 'No hay propiedades acá.') + '</div>';
+    }
+    document.getElementById('pfTabs').addEventListener('click', function(e){
+      var b = e.target.closest('button[data-g]'); if(!b) return;
+      grupoActual = b.getAttribute('data-g'); pintarPropiedades();
+    });
+    function tarjeta(p, gest){
+      var st = p.status || 'available', alq = p.type === 'rent', c = p.currency || 'USD', grupo = grupoDe(p);
+      var foto = urlSegura((p.images || [])[0]);
+      var badges = '';
+      if(window.isEffectivelyFeatured && isEffectivelyFeatured(p)) badges += '<span class="bd dest"><i class="fas fa-star"></i> Destacada</span>';
+      badges += '<span class="bd ' + (alq ? 'alq' : 'venta') + '">' + (alq ? 'Alquiler' : 'Venta') + '</span>';
+      if(ESTADO[st]) badges += '<span class="bd ' + ESTADO[st][1] + '">' + ESTADO[st][0] + '</span>';
+      var bajo = p.previousPrice && Number(p.previousPrice) > Number(p.price);
+      var lugar = p.ciudad && p.departamento ? (p.ciudad === p.departamento ? p.ciudad : p.ciudad + ', ' + p.departamento) : (p.location || 'Uruguay');
+      var f = [];
+      if(p.bedrooms) f.push('<span><i class="fas fa-bed"></i>' + p.bedrooms + (p.bedrooms == 1 ? ' dorm.' : ' dorms.') + '</span>');
+      if(p.bathrooms) f.push('<span><i class="fas fa-bath"></i>' + p.bathrooms + (p.bathrooms == 1 ? ' baño' : ' baños') + '</span>');
+      var m2 = Number(p.builtArea) || Number(p.totalArea) || 0;
+      if(m2) f.push('<span><i class="fas fa-ruler-combined"></i>' + num(m2) + ' m²</span>');
+      var acc = '';
+      if(gest){
+        acc = '<div class="pc-acc">' +
+          '<a href="propiedad-form.html?id=' + encodeURIComponent(p.id) + '"><i class="fas fa-pen"></i> Editar</a>' +
+          '<button type="button" onclick="compartirProp(\'' + esc(p.id) + '\')"><i class="fas fa-share-nodes"></i> Compartir</button>' +
+          (grupo === 'activas' ? '<button type="button" class="baja" onclick="darDeBaja(\'' + esc(p.id) + '\')" title="La baja se hace cerrando la gestión del cliente"><i class="fas fa-circle-stop"></i> Dar de baja</button>' : '') +
+        '</div>';
+      }
+      return '<article class="pc' + (grupo !== 'activas' ? ' cerrada' : '') + '">' +
+        '<a class="pc-link" href="propiedad.html?id=' + encodeURIComponent(p.id) + '">' +
+          '<div class="pc-img">' + (foto ? '<img src="' + esc(foto) + '" alt="" loading="lazy" decoding="async">' : '<span class="sin"><i class="fas fa-image"></i></span>') + '<div class="pc-badges">' + badges + '</div></div>' +
+          '<div class="pc-body">' +
+            '<div class="pc-precio">' + (Number(p.price) > 0 ? esc(precio(p.price, c)) + (alq ? '<small>/mes</small>' : '') + (bajo ? '<span class="viejo">' + esc(precio(p.previousPrice, c)) + '</span>' : '') : '<small style="margin:0">Precio a consultar</small>') + '</div>' +
+            '<h3 class="pc-tit">' + esc(p.title || 'Propiedad') + '</h3>' +
+            '<div class="pc-lugar"><i class="fas fa-location-dot"></i><span>' + esc(lugar) + '</span></div>' +
+            (f.length ? '<div class="pc-feat">' + f.join('') + '</div>' : '') +
+          '</div>' +
+        '</a>' + acc +
+      '</article>';
+    }
+
+    // ===== Testimonios: solo los reales y aprobados =====
+    function cargarTestimonios(){
+      db.collection('testimonials').where('target', '==', 'agent').where('agentId', '==', agenteId).where('approved', '==', true).get()
+        .then(function(s){ testimonios = s.docs.map(function(d){ return d.data(); }); pintarTestimonios(); })
+        .catch(function(){ testimonios = []; pintarTestimonios(); });
+    }
+    function pintarTestimonios(){
+      var t = (testimonios || []).slice().sort(function(a, b){ return fechaNum(b.createdAt) - fechaNum(a.createdAt); }).slice(0, 4);
+      var nombre = ((agente && agente.name) || '').split(' ')[0] || 'este agente';
+      $('pfTesti').innerHTML = t.length
+        ? t.map(function(x){ return '<div class="pf-t"><q>' + esc(x.text) + '</q><div><b>' + esc(x.name || 'Cliente') + '</b>' + (x.role ? ' · ' + esc(x.role) : '') + '</div></div>'; }).join('')
+        : '<p class="pf-t-vacio">Todavía no hay testimonios. Si trabajaste con ' + esc(nombre) + ', contá cómo te fue.</p>';
+      $('pfTestiBtn').hidden = soyDuenio();
+    }
+
+    // ===== Compartir =====
+    function compartir(titulo, texto, url){
+      if(navigator.share){ navigator.share({ title: titulo, text: texto, url: url }).catch(function(){}); return; }
+      copiar(url);
+    }
+    function copiar(url){
+      var ok = function(){ avisar('Enlace copiado: ya lo podés pegar donde quieras.'); };
+      if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(ok).catch(function(){ window.prompt('Copiá el enlace:', url); });
+      else window.prompt('Copiá el enlace:', url);
+    }
+    function compartirPerfil(){ var n = (agente && agente.name) || 'este agente'; compartir(n + ' | MALAVE', 'Mirá las propiedades de ' + n, linkPerfil()); }
+    function copiarLink(){ copiar(linkPerfil()); }
+    function compartirProp(id){
+      var p = props.find(function(x){ return x.id === id; }); if(!p) return;
+      compartir(p.title || 'Propiedad', p.title || 'Propiedad', base() + 'propiedad.html?id=' + encodeURIComponent(id));
+    }
+
+    // ===== Dar de baja: se hace cerrando la gestión del cliente (como en el inicio) =====
+    async function darDeBaja(pid){
+      avisar('Buscando la gestión de esta propiedad…');
+      try{
+        var q = await db.collection('gestiones').where('propertyId', '==', pid).get();
+        if(!q.empty){
+          var g = q.docs.map(function(d){ var x = d.data(); x.id = d.id; return x; })
+            .sort(function(a, b){ return String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')); })[0];
+          location.href = 'clientes.html?gestion=' + encodeURIComponent(g.id); return;
+        }
+        var p = props.find(function(x){ return x.id === pid; });
+        if(p && p.clientId){ location.href = 'clientes.html?cliente=' + encodeURIComponent(p.clientId); return; }
+        avisar('No tiene cliente asociado: asociala desde Clientes → Nueva gestión y cerrala desde ahí.');
+      }catch(e){ console.error('darDeBaja:', e); avisar('No se pudo abrir la gestión. Entrá a Clientes y cerrala desde ahí.'); }
+    }
+
+    // ===== Ventanas =====
+    function abrirModal(id){ $(id).hidden = false; document.body.style.overflow = 'hidden'; }
+    function cerrarModal(id){ $(id).hidden = true; document.body.style.overflow = ''; }
+    document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ ['mdEditar', 'mdTesti'].forEach(function(id){ if(!$(id).hidden) cerrarModal(id); }); } });
+
+    // ===== Editar perfil (solo el dueño) =====
+    var CAMPOS = { edName: 'name', edWhatsapp: 'whatsapp', edLocation: 'location', edBio: 'bio', edAbout: 'about', edInstagram: 'instagram', edFacebook: 'facebook',
+      edLinkedin: 'linkedin', edTwitter: 'twitter', edTiktok: 'tiktok', edYoutube: 'youtube', edWebsite: 'website' };
+    function abrirEditor(){
+      if(!soyDuenio()) return;
+      Object.keys(CAMPOS).forEach(function(id){ $(id).value = (agente && agente[CAMPOS[id]]) || ''; });
+      $('edErr').hidden = true;
+      abrirModal('mdEditar');
+      setTimeout(function(){ $('edName').focus(); }, 50);
+    }
+    async function guardarPerfil(e){
+      e.preventDefault();
+      if(!soyDuenio()) return;
+      var datos = {};
+      Object.keys(CAMPOS).forEach(function(id){ datos[CAMPOS[id]] = $(id).value.trim(); });
+      var err = $('edErr');
+      if(!datos.name || !soloNumeros(datos.whatsapp)){ err.textContent = 'Completá tu nombre y tu WhatsApp.'; err.hidden = false; return; }
+      datos.updatedAt = new Date().toISOString();
+      var b = $('edGuardar'); b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando…';
+      try{
+        await db.collection('users').doc(agenteId).update(datos);
+        Object.assign(agente, datos);
+        repintar();
+        cerrarModal('mdEditar');
+        avisar('Listo: tu perfil quedó actualizado.');
+      }catch(er){ console.error('guardarPerfil:', er); err.textContent = 'No se pudo guardar: ' + (er.message || er); err.hidden = false; }
+      b.disabled = false; b.innerHTML = '<i class="fas fa-floppy-disk"></i> Guardar';
+    }
+
+    // ===== Foto (solo el dueño) =====
+    function cargarScript(src){ return new Promise(function(ok, mal){ var s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = mal; document.head.appendChild(s); }); }
+    function achicar(archivo, max, calidad){
+      return new Promise(function(ok, mal){
+        var rd = new FileReader();
+        rd.onerror = mal;
+        rd.onload = function(ev){
+          var img = new Image();
+          img.onerror = mal;
+          img.onload = function(){
+            var w = img.width, h = img.height;
+            if(w > max){ h = h * max / w; w = max; }
+            var c = document.createElement('canvas'); c.width = w; c.height = h;
+            c.getContext('2d').drawImage(img, 0, 0, w, h);
+            c.toBlob(function(b){ b ? ok(b) : mal(new Error('No se pudo leer la imagen')); }, 'image/jpeg', calidad);
+          };
+          img.src = ev.target.result;
+        };
+        rd.readAsDataURL(archivo);
+      });
+    }
+    async function cambiarFoto(e){
+      var f = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if(!f || !soyDuenio()) return;
+      var btn = $('pfFotoBtn'); btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+      avisar('Subiendo la foto…');
+      try{
+        if(!firebase.storage) await cargarScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js');
+        var blob = await achicar(f, 400, 0.8);
+        var ref = firebase.storage().ref('users/' + agenteId + '/profile_' + Date.now() + '.jpg');
+        var sub = await ref.put(blob, { contentType: 'image/jpeg' });
+        var url = await sub.ref.getDownloadURL();
+        await db.collection('users').doc(agenteId).update({ profilePhoto: url, updatedAt: new Date().toISOString() });
+        agente.profilePhoto = url;
+        pintarAgente();
+        avisar('Listo: tu foto quedó actualizada.');
+      }catch(er){ console.error('cambiarFoto:', er); avisar('No se pudo subir la foto: ' + (er.message || er)); }
+      btn.disabled = false; btn.innerHTML = '<i class="fas fa-camera"></i>';
+    }
+
+    // ===== Testimonio (cualquiera; queda pendiente de aprobación) =====
+    function abrirTestimonio(){
+      $('tsSub').textContent = 'Tu experiencia con ' + ((agente && agente.name) || 'este agente') + '. Se publica cuando la inmobiliaria la aprueba.';
+      ['tsNombre', 'tsRol', 'tsTexto'].forEach(function(id){ $(id).value = ''; });
+      abrirModal('mdTesti');
+      setTimeout(function(){ $('tsNombre').focus(); }, 50);
+    }
+    async function enviarTestimonio(e){
+      e.preventDefault();
+      var nombre = $('tsNombre').value.trim(), texto = $('tsTexto').value.trim();
+      if(!nombre || !texto){ avisar('Completá tu nombre y tu experiencia.'); return; }
+      var b = $('tsEnviar'); b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando…';
+      try{
+        await db.collection('testimonials').add({ name: nombre, role: $('tsRol').value.trim(), text: texto, target: 'agent', approved: false,
+          agentId: agenteId, agentName: (agente && agente.name) || '', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        cerrarModal('mdTesti');
+        avisar('¡Gracias! Tu testimonio se publica cuando lo aprueben.');
+      }catch(er){ console.error('testimonio:', er); avisar('No se pudo enviar. Probá de nuevo en un rato.'); }
+      b.disabled = false; b.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar';
+    }
+
+    cargar();
+  </script>
+</body>
+</html>

@@ -789,8 +789,22 @@
         // Solo las de hoy en adelante: son las que alguien tiene que atender.
         db.collection('visits').where('date', '>=', hoyUY).get().catch(()=>null)
       ]);
-      var propsPorAgente = {}, clisPorAgente = {};
-      props.docs.forEach(d => { var p=d.data(); if(p.ownerId) propsPorAgente[p.ownerId]=(propsPorAgente[p.ownerId]||0)+1; });
+      // Propiedades por agente: el número que se ve es el de las que siguen en
+      // juego (disponibles, reservadas y en tasación). Antes contaba todas, y un
+      // agente con 7 activas figuraba con 24 por sus vendidas y dadas de baja.
+      // El resto se guarda aparte: se ve al pasar el mouse, y el traspaso de
+      // cartera sigue diciendo el total (pasa todo).
+      var FUERA = ['sold', 'rented', 'archived', 'cerrado_externo'];
+      var propsPorAgente = {}, propsTotal = {}, propsDet = {}, clisPorAgente = {};
+      props.docs.forEach(d => {
+        var p=d.data(); if(!p.ownerId) return;
+        var k = p.ownerId, det = propsDet[k] = propsDet[k] || { act: 0, vend: 0, alq: 0, baja: 0 };
+        propsTotal[k] = (propsTotal[k]||0) + 1;
+        if (p.status === 'sold') det.vend++;
+        else if (p.status === 'rented') det.alq++;
+        else if (FUERA.indexOf(p.status) >= 0) det.baja++;
+        else { det.act++; propsPorAgente[k] = (propsPorAgente[k]||0) + 1; }
+      });
       clis.docs.forEach(d => { var x=d.data(); if(x.archived) return; if(x.createdBy) clisPorAgente[x.createdBy]=(clisPorAgente[x.createdBy]||0)+1; });
 
       var todos = us.docs.map(d => ({id:d.id, ...d.data()}));
@@ -800,8 +814,8 @@
       var existe = {};
       todos.forEach(u => { existe[u.id] = true; });
       var huerf = {};
-      var hDe = (uid, nombre) => { var h = huerf[uid] = huerf[uid] || { uid: uid, nombre: '', props: 0, clis: 0, vis: 0 }; if (!h.nombre && nombre) h.nombre = nombre; return h; };
-      props.docs.forEach(d => { var p=d.data(); if(p.ownerId && !existe[p.ownerId]) hDe(p.ownerId, p.ownerName).props++; });
+      var hDe = (uid, nombre) => { var h = huerf[uid] = huerf[uid] || { uid: uid, nombre: '', props: 0, cerr: 0, clis: 0, vis: 0 }; if (!h.nombre && nombre) h.nombre = nombre; return h; };
+      props.docs.forEach(d => { var p=d.data(); if(p.ownerId && !existe[p.ownerId]) { var h = hDe(p.ownerId, p.ownerName); if (FUERA.indexOf(p.status) >= 0) h.cerr++; else h.props++; } });
       clis.docs.forEach(d => { var x=d.data(); if(x.createdBy && !existe[x.createdBy]) { var h = hDe(x.createdBy, x.createdByName); if (!x.archived) h.clis++; } });
       if (vis) vis.docs.forEach(d => { var v=d.data(); if(v.userId && !existe[v.userId] && String(v.date||'') >= hoyUY) hDe(v.userId, '').vis++; });
       _huerfanos = huerf;
@@ -815,7 +829,7 @@
       b.textContent = pendientes.length || ''; b.style.display = pendientes.length ? '' : 'none';
 
       // Se guardan para poder filtrar y ordenar sin volver a consultar.
-      _eqDatos = { equipo:equipo, props:propsPorAgente, clis:clisPorAgente };
+      _eqDatos = { equipo:equipo, props:propsPorAgente, total:propsTotal, det:propsDet, clis:clisPorAgente };
       var html = '';
       if (pendientes.length){
         html += '<div class="ad-sec"><span>Esperando aprobación</span><b>'+pendientes.length+'</b><i></i></div><div class="card">' +
@@ -833,18 +847,19 @@
       // Totales del equipo: el dato que un dueño mira primero y que hoy había que
       // sumar a mano recorriendo las filas.
       var tProps = Object.values(propsPorAgente).reduce((a,b)=>a+b,0);
+      var tTodas = Object.values(propsTotal).reduce((a,b)=>a+b,0);
       var tClis  = Object.values(clisPorAgente).reduce((a,b)=>a+b,0);
       var tSaldo = equipo.reduce((a,u)=>a+(Number(u.saldoUSD)||0),0);
       var sinAct = equipo.filter(u => u.status!=='rejected' && !(propsPorAgente[u.id]||0) && !(clisPorAgente[u.id]||0)).length;
       html += '<div class="resumen">' +
         '<div class="rs"><b>'+equipo.filter(u => u.status!=='rejected').length+'</b><span>Agentes</span></div>' +
-        '<div class="rs"><b>'+tProps+'</b><span>Propiedades</span></div>' +
+        '<div class="rs" title="'+escA(tTodas+' en total contando vendidas, alquiladas y dadas de baja')+'"><b>'+tProps+'</b><span>Propiedades activas</span></div>' +
         '<div class="rs"><b>'+tClis+'</b><span>Clientes</span></div>' +
         '<div class="rs"><b'+(tSaldo>0?' class="ok"':'')+'>'+(tSaldo>0?plata(tSaldo,'USD'):'—')+'</b><span>A cobrar</span></div>' +
         (sinAct?'<div class="rs"><b class="warn">'+sinAct+'</b><span>Sin actividad</span></div>':'') +
       '</div>';
-      var hl = Object.values(huerf).filter(h => h.props || h.clis || h.vis)
-        .sort((a,b) => (b.props+b.clis+b.vis) - (a.props+a.clis+a.vis));
+      var hl = Object.values(huerf).filter(h => h.props || h.cerr || h.clis || h.vis)
+        .sort((a,b) => (b.props+b.cerr+b.clis+b.vis) - (a.props+a.cerr+a.clis+a.vis));
       if (hl.length){
         var tx = (n, s, p) => n + ' ' + (n === 1 ? s : p);
         html += '<div class="ad-sec"><span>Cartera sin agente</span><b>'+hl.length+'</b><i></i></div><div class="card" id="eqHuerfanos">' +
@@ -852,13 +867,13 @@
           hl.map(h =>
             '<div class="row"><div class="av huerf"><i class="fas fa-user-slash"></i></div>' +
             '<div class="id"><div class="id-n"><b>'+esc(h.nombre || 'Agente sin nombre')+'</b><span class="chip gris">Cuenta eliminada</span></div>' +
-            '<div class="id-s">'+[h.props ? tx(h.props, 'propiedad', 'propiedades') : '', h.clis ? tx(h.clis, 'cliente', 'clientes') : '',
+            '<div class="id-s">'+[h.props ? tx(h.props, 'propiedad publicada', 'propiedades publicadas') : '', h.cerr ? tx(h.cerr, 'cerrada o dada de baja', 'cerradas o dadas de baja') : '', h.clis ? tx(h.clis, 'cliente', 'clientes') : '',
               h.vis ? tx(h.vis, 'visita agendada', 'visitas agendadas') : ''].filter(Boolean).join(' · ')+'</div></div>' +
             '<button class="bd-btn pri" onclick="traspasar(\''+escA(h.uid)+'\')"><i class="fas fa-right-left"></i> Reasignar</button>' +
             '</div>').join('') + '</div>';
       }
       html += '<div class="ad-sec"><span>Equipo</span><b>'+equipo.length+'</b><i></i></div>' +
-        '<div class="card" id="eqLista">' + equipo.map(u => fila(u, propsPorAgente[u.id]||0, clisPorAgente[u.id]||0)).join('') + '</div>';
+        '<div class="card" id="eqLista">' + equipo.map(u => fila(u, propsPorAgente[u.id]||0, clisPorAgente[u.id]||0, propsDet[u.id])).join('') + '</div>';
 
       var d = (cfg && cfg.exists) ? cfg.data() : {};
       if (soyCEO) html += '<div class="ad-sec"><span>Comisión de la agencia</span><i></i></div>' +
@@ -892,7 +907,7 @@
     }
     if (puedo && u.status === 'approved') acc.push({ico:'fa-clipboard-list', txt:'Ficha de reunión', fn:function(){ abrirFicha(id); }});
     if (puedo && !esAdminFila) acc.push({ico:'fa-right-left', txt:'Transferir cartera', fn:function(){ traspasar(id); }});
-    acc.push({ico:'fa-eye', txt:'Ver perfil público', fn:function(){ window.open('index.html#perfil/'+id,'_blank'); }});
+    acc.push({ico:'fa-eye', txt:'Ver perfil público', fn:function(){ window.open('perfil.html?id='+encodeURIComponent(id),'_blank'); }});
     if (puedo && !esAdminFila && u.status === 'approved') acc.push({ico:'fa-user-lock', txt:'Quitar acceso', fn:function(){ quitarAcceso(id); }});
     if (puedo && !esAdminFila && u.status === 'rejected') acc.push({ico:'fa-user-check', txt:'Devolver acceso', fn:function(){ devolverAcceso(id); }});
     if (puedo && !esAdminFila) acc.push({ico:'fa-trash', txt:'Eliminar', mal:1, fn:function(){ eliminar(id); }});
@@ -939,7 +954,18 @@
   function avatar(u){
     return '<div class="av">'+(u.profilePhoto?'<img src="'+escA(u.profilePhoto)+'" alt="">':esc(iniciales(u.name)))+'</div>';
   }
-  function fila(u, nProps, nClis){
+  // Detalle para el tooltip de "Propiedades": "7 activas · 12 vendidas · 5 dadas de baja".
+  function detalleProps(det){
+    if (!det) return 'Sin propiedades a su nombre';
+    var tx = (n, s, p) => n + ' ' + (n === 1 ? s : p);
+    var partes = [tx(det.act, 'activa', 'activas')];
+    if (det.vend) partes.push(tx(det.vend, 'vendida', 'vendidas'));
+    if (det.alq) partes.push(tx(det.alq, 'alquilada', 'alquiladas'));
+    if (det.baja) partes.push(tx(det.baja, 'dada de baja', 'dadas de baja'));
+    var tot = det.act + det.vend + det.alq + det.baja;
+    return partes.join(' · ') + (tot !== det.act ? ' (' + tot + ' en total)' : '');
+  }
+  function fila(u, nProps, nClis, det){
     var admin = (u.email||'').toLowerCase()===ADMIN_EMAIL;
     // Un agente sin nada cargado es lo que un dueño quiere ver de un vistazo.
     var quieto = !admin && u.status !== 'rejected' && !nProps && !nClis;
@@ -959,7 +985,7 @@
         (quieto?'<span class="chip warn">Sin actividad</span>':'') +
       '</div><div class="id-s">'+esc(u.email||'')+'</div></div>' +
       '<div class="mets">' +
-        '<div class="met"><b'+(nProps?'':' class="nada"')+'>'+(nProps||'—')+'</b><span>Propiedades</span></div>' +
+        '<div class="met" title="'+escA(detalleProps(det))+'"><b'+(nProps?'':' class="nada"')+'>'+(nProps||'—')+'</b><span>Propiedades</span></div>' +
         '<div class="met"><b'+(nClis?'':' class="nada"')+'>'+(nClis||'—')+'</b><span>Clientes</span></div>' +
         '<div class="met"><b'+(saldo>0?' class="ok"':' class="nada"')+'>'+(saldo>0?plata(saldo,'USD'):'—')+'</b><span>A cobrar</span></div>' +
         '<div class="met"><b>'+esc(com)+'</b><span>Comisión</span></div>' +
@@ -991,7 +1017,7 @@
     var cont = document.getElementById('eqLista');
     if (!cont) return;
     cont.innerHTML = lista.length
-      ? lista.map(u => fila(u, P[u.id]||0, C[u.id]||0)).join('')
+      ? lista.map(u => fila(u, P[u.id]||0, C[u.id]||0, _eqDatos.det[u.id])).join('')
       : '<div class="vacio" style="padding:36px"><i class="fas fa-user-slash"></i><h3>Sin resultados</h3><p>Probá con otro nombre.</p></div>';
   }
 
@@ -1097,7 +1123,8 @@
   }
   // Lo que un agente tiene a su nombre, en texto: "12 propiedades y 30 clientes".
   function carteraTexto(id){
-    var nP = (_eqDatos && _eqDatos.props[id]) || 0, nC = (_eqDatos && _eqDatos.clis[id]) || 0;
+    // Total, no solo las activas: al pasar la cartera pasan todas.
+    var nP = (_eqDatos && _eqDatos.total[id]) || 0, nC = (_eqDatos && _eqDatos.clis[id]) || 0;
     return [nP ? nP+' propiedad'+(nP===1?'':'es') : '', nC ? nC+' cliente'+(nC===1?'':'s') : ''].filter(Boolean).join(' y ');
   }
 
