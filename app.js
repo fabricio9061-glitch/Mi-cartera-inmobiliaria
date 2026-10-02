@@ -1511,6 +1511,20 @@
         m.ir = { a: 'url', url: /gastos/i.test(que) ? 'gastos.html' : /terreno/i.test(que) ? 'terreno.html' : 'tasador.html' };
         break;
       }
+      case 'turno':
+      case 'reunion': {
+        // Agenda: turnos para reservar con la Dirección y reuniones de equipo.
+        // Llevan a la agenda en el día del turno o de la reunión.
+        const st = n.subtipo || '';
+        const baja = st === 'cancelado' || st === 'cancelada';
+        Object.assign(m, { fam: 'gestion', ic: baja ? 'fa-calendar-xmark' : tipo === 'reunion' ? 'fa-people-group' : 'fa-calendar-check',
+          col: baja ? 'rojo' : st === 'cambio' ? 'ambar' : 'verde', titulo: _sinEmoji(n.userName) || 'Agenda', txt: n.text || '' });
+        const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(n.fecha || '')) ? n.fecha : '';
+        let url = 'agenda.html' + (fecha ? '?fecha=' + fecha : '');
+        if (st === 'nuevos') { url += (fecha ? '&' : '?') + 'turnos=1'; m.boton = { txt: 'Reservar', ic: 'fa-calendar-check' }; }
+        m.ir = { a: 'url', url };
+        break;
+      }
       default:
         Object.assign(m, { titulo: _sinEmoji(n.userName) || 'Aviso', ctx: prop, txt: n.text || '' });
         m.ir = alProp;

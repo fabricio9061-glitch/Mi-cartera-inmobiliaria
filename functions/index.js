@@ -372,6 +372,9 @@ async function enviarPush(destino, campos, push, notifId) {
       // y la página no lo repite si también lo avisa ella.
       notifId: String(notifId || ""),
       subtipo: String(campos.subtipo || ""),
+      // Adónde lleva el clic, si el aviso trae su propia dirección (por ejemplo,
+      // la agenda en el día del turno). El service worker la respeta.
+      url: String(campos.url || ""),
     },
     // Sin 'webpush.headers.Urgency: high' los navegadores pueden retrasar o
     // directamente descartar el push cuando la pestaña no está activa. Es la
@@ -9548,4 +9551,421 @@ exports.icExplorar = onCall(async (request) => {
     }
   }
   return { base: IC_API_BASE, resultados: out };
+});
+
+// =====================================================================
+// AGENDA — TURNOS PARA RESERVAR
+// ---------------------------------------------------------------------
+// La Dirección publica horarios (por ejemplo, charlas 1 a 1 de 30 minutos el
+// jueves de 10 a 12) y cada agente reserva el suyo desde la agenda.
+//
+// Todo pasa por esta función y no directo desde el navegador:
+//  · Dos agentes no pueden quedarse con el mismo turno: la reserva es una
+//    transacción.
+//  · La reserva queda en la agenda de los DOS, en la colección visits (la misma
+//    que usan la agenda, los recordatorios de 24 h y 2 h y el traspaso de
+//    cartera). Con tipo "turno", así el Desempeño no la cuenta como una reunión
+//    con un cliente.
+//  · Se avisa con la campanita y el push (crearNotificacion).
+//  · No hay que tocar las reglas de Firestore: la colección turnos solo la lee y
+//    la escribe esta función.
+//
+// Una sola función con varias acciones, así se sube con un solo comando:
+//   firebase deploy --only functions:turnos
+//
+// turnos/{id}: { bloqueId, titulo, fecha 'YYYY-MM-DD', hora 'HH:MM', horaFin,
+//   lugar, notas, organizadorUid, organizadorNombre, estado ('libre'|'reservado'),
+//   reservadoPor, reservadoNombre, reservadoEn, visitaAgenteId,
+//   visitaOrganizadorId, creadoEn }
+//
+// REUNIONES DE EQUIPO (acciones "reunion" y "reunionCancelar")
+// La Dirección arma una reunión e invita a los que elija, como en Google
+// Calendar. Queda una copia en visits para cada uno (tipo "equipo", con el mismo
+// reunionId), así le llegan los recordatorios de siempre. Pasa por acá porque el
+// navegador no puede escribir en la agenda de otro, y para que un cambio de
+// horario llegue a todas las copias y a todos los invitados.
+// =====================================================================
+const TURNO_DURACIONES = [15, 20, 30, 45, 60, 90];
+const TURNO_MAX_POR_VEZ = 40;
+const TURNO_DIAS_LISTA = 120;
+const REUNION_MAX_INVITADOS = 60;
+const TURNO_DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const TURNO_MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+const turnoPad = (n) => String(n).padStart(2, "0");
+const turnoMin = (hhmm) => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || ""));
+  return m && +m[1] < 24 && +m[2] < 60 ? (+m[1]) * 60 + (+m[2]) : NaN;
+};
+const turnoHora = (min) => turnoPad(Math.floor(min / 60)) + ":" + turnoPad(min % 60);
+// Uruguay no tiene horario de verano desde 2015: siempre UTC-3.
+const turnoInstante = (fecha, hora) => new Date(`${fecha}T${hora}:00-03:00`).getTime();
+const turnoFechaOk = (f) => /^\d{4}-\d{2}-\d{2}$/.test(String(f || "")) && !isNaN(new Date(`${f}T12:00:00-03:00`).getTime());
+const turnoSumarDias = (fecha, n) => new Date(new Date(`${fecha}T12:00:00-03:00`).getTime() + n * 86400000 - 3 * 3600e3).toISOString().slice(0, 10);
+function turnoFechaLarga(fecha) {
+  const d = new Date(`${fecha}T12:00:00-03:00`);   // 15:00 UTC del mismo día
+  return `${TURNO_DIAS[d.getUTCDay()]} ${d.getUTCDate()} de ${TURNO_MESES[d.getUTCMonth()]}`;
+}
+
+// La lógica va aparte de onCall para poder probarla con un Firestore simulado.
+// D: { db, HttpsError, esDireccion, notificar, ADMIN_EMAIL, RANGOS_DIRECCION, ahora }
+async function turnosAccion(ctx, D) {
+  const { db, HttpsError } = D;
+  const ahora = D.ahora ? D.ahora() : Date.now();
+  const ahoraIso = new Date(ahora).toISOString();
+  const hoy = new Date(ahora - 3 * 3600e3).toISOString().slice(0, 10);
+  const uid = String(ctx.uid || "");
+  const email = String(ctx.email || "").toLowerCase();
+  const d = ctx.data || {};
+
+  const uSnap = await db.doc(`users/${uid}`).get();
+  const yo = uSnap.exists ? uSnap.data() : null;
+  if (!yo || (yo.status !== "approved" && email !== D.ADMIN_EMAIL)) {
+    throw new HttpsError("permission-denied", "Tu cuenta no está aprobada.");
+  }
+  const esDir = await D.esDireccion(uid, email);
+  const miNombre = String(yo.name || email || "Agente");
+  const col = db.collection("turnos");
+  const visitas = db.collection("visits");
+  const accion = String(d.accion || "");
+
+  // Lo que ve cada uno: un agente no ve quién reservó los turnos de los demás.
+  const ver = (id, t) => {
+    const mio = t.reservadoPor === uid;
+    const ve = esDir || mio || t.organizadorUid === uid;
+    return {
+      id, bloqueId: t.bloqueId || "", titulo: t.titulo || "Turno", fecha: t.fecha, hora: t.hora, horaFin: t.horaFin,
+      lugar: t.lugar || "", notas: t.notas || "", organizadorUid: t.organizadorUid || "", organizadorNombre: t.organizadorNombre || "",
+      libre: !t.reservadoPor, mio,
+      reservadoPor: ve ? (t.reservadoPor || null) : null,
+      reservadoNombre: ve ? (t.reservadoNombre || "") : "",
+    };
+  };
+  // El aviso lleva a la agenda en ese día (url: la usan la campanita y el push).
+  const avisar = async (destUid, subtipo, titulo, texto, extra, tipo) => {
+    if (!destUid) return;
+    const x = extra || {};
+    const url = "agenda.html" + (x.fecha ? "?fecha=" + x.fecha : "") + (subtipo === "nuevos" ? (x.fecha ? "&" : "?") + "turnos=1" : "");
+    try {
+      await D.notificar({ uid: destUid }, Object.assign({ type: tipo || "turno", subtipo, userName: titulo, text: texto, url }, x),
+        { title: titulo, body: texto });
+    } catch (e) { /* un aviso que no sale no deshace la reserva */ }
+  };
+
+  // ---------- Ver los turnos ----------
+  if (accion === "listar") {
+    const desde = turnoFechaOk(d.desde) ? String(d.desde) : hoy;
+    let hasta = turnoFechaOk(d.hasta) ? String(d.hasta) : turnoSumarDias(desde, TURNO_DIAS_LISTA);
+    // Nunca más de un año de una vez (para que nadie lea toda la colección).
+    const tope = turnoSumarDias(desde, 366);
+    if (hasta > tope) hasta = tope;
+    const snap = await col.where("fecha", ">=", desde).where("fecha", "<=", hasta).get();
+    const lista = [];
+    snap.docs.forEach((s) => {
+      const t = s.data();
+      if (!t.reservadoPor && turnoInstante(t.fecha, t.hora) <= ahora) return;   // libre y ya pasó
+      if (!esDir && t.reservadoPor && t.reservadoPor !== uid && t.organizadorUid !== uid) return;   // de otro agente
+      lista.push(ver(s.id, t));
+    });
+    lista.sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+    return { turnos: lista, esDireccion: esDir };
+  }
+
+  // ---------- Publicar turnos (Dirección) ----------
+  if (accion === "crear") {
+    if (!esDir) throw new HttpsError("permission-denied", "Solo la Dirección publica turnos.");
+    const titulo = String(d.titulo || "").trim().slice(0, 80) || "Reunión 1 a 1";
+    const fecha = String(d.fecha || "");
+    const ini0 = turnoMin(d.desde), fin0 = turnoMin(d.hasta), dur = Number(d.duracion);
+    if (!turnoFechaOk(fecha)) throw new HttpsError("invalid-argument", "Elegí una fecha válida.");
+    // La agenda de los agentes muestra los turnos de los próximos 4 meses.
+    if (fecha > turnoSumarDias(hoy, TURNO_DIAS_LISTA)) throw new HttpsError("invalid-argument", "Elegí un día dentro de los próximos 4 meses.");
+    if (isNaN(ini0) || isNaN(fin0) || fin0 <= ini0) throw new HttpsError("invalid-argument", "La hora de fin tiene que ser después de la de inicio.");
+    if (TURNO_DURACIONES.indexOf(dur) < 0) throw new HttpsError("invalid-argument", "Elegí cuánto dura cada turno.");
+    const cant = Math.floor((fin0 - ini0) / dur);
+    if (cant < 1) throw new HttpsError("invalid-argument", `En ese horario no entra un turno de ${dur} minutos.`);
+    if (cant > TURNO_MAX_POR_VEZ) throw new HttpsError("invalid-argument", `Serían ${cant} turnos: el máximo es ${TURNO_MAX_POR_VEZ} por vez.`);
+    // No se crean los que ya pasaron ni los que chocan con otros turnos tuyos de ese día.
+    const delDia = await col.where("organizadorUid", "==", uid).where("fecha", "==", fecha).get();
+    const ocupados = delDia.docs.map((s) => s.data()).map((t) => [turnoMin(t.hora), turnoMin(t.horaFin)]);
+    const lugar = String(d.lugar || "").trim().slice(0, 200);
+    const notas = String(d.notas || "").trim().slice(0, 1000);
+    const bloqueId = col.doc().id;
+    const batch = db.batch();
+    const creados = [];
+    let salteados = 0;
+    for (let i = 0; i < cant; i++) {
+      const a = ini0 + i * dur, b = a + dur;
+      if (turnoInstante(fecha, turnoHora(a)) <= ahora || ocupados.some(([x, y]) => a < y && b > x)) { salteados++; continue; }
+      const ref = col.doc();
+      const t = { bloqueId, titulo, fecha, hora: turnoHora(a), horaFin: turnoHora(b), lugar, notas,
+        organizadorUid: uid, organizadorNombre: miNombre, estado: "libre", reservadoPor: null, reservadoNombre: "", creadoEn: ahoraIso };
+      batch.set(ref, t);
+      creados.push(ver(ref.id, t));
+    }
+    if (!creados.length) {
+      throw new HttpsError("failed-precondition", "No se publicó ningún turno: ese horario ya pasó o choca con turnos que ya tenías.");
+    }
+    await batch.commit();
+    if (d.avisar !== false) {
+      const texto = `${miNombre} publicó ${creados.length === 1 ? "un turno" : creados.length + " turnos"} de ${titulo} para el ${turnoFechaLarga(fecha)}. Reservá el tuyo desde la agenda.`;
+      const us = await db.collection("users").where("status", "==", "approved").get();
+      const destinos = us.docs.filter((u) => {
+        const x = u.data() || {};
+        return u.id !== uid && D.RANGOS_DIRECCION.indexOf(String(x.rank || "")) < 0 && String(x.email || "").toLowerCase() !== D.ADMIN_EMAIL;
+      });
+      // Todos a la vez: de a uno, con un equipo grande, publicar tardaba mucho.
+      await Promise.all(destinos.map((u) => avisar(u.id, "nuevos", "Turnos para reservar", texto, { fecha, bloqueId })));
+    }
+    return { creados: creados.length, salteados, bloqueId, turnos: creados };
+  }
+
+  // ---------- Reservar (agentes) ----------
+  if (accion === "reservar") {
+    const id = String(d.turnoId || "");
+    if (!id) throw new HttpsError("invalid-argument", "Falta el turno.");
+    const ref = col.doc(id);
+    const vAg = visitas.doc(), vOrg = visitas.doc();
+    let t = null;
+    await db.runTransaction(async (tx) => {
+      const s = await tx.get(ref);
+      if (!s.exists) throw new HttpsError("not-found", "Ese turno ya no existe.");
+      t = s.data();
+      if (t.organizadorUid === uid) throw new HttpsError("failed-precondition", "Es un turno que publicaste vos.");
+      if (t.reservadoPor === uid) throw new HttpsError("already-exists", "Ese turno ya es tuyo.");
+      if (t.reservadoPor) throw new HttpsError("already-exists", "Alguien lo reservó recién. Elegí otro horario.");
+      if (turnoInstante(t.fecha, t.hora) <= ahora) throw new HttpsError("failed-precondition", "Ese turno ya pasó.");
+      if (t.bloqueId) {
+        const otro = await tx.get(col.where("bloqueId", "==", t.bloqueId).where("reservadoPor", "==", uid));
+        if (!otro.empty) {
+          const o = otro.docs[0].data();
+          throw new HttpsError("already-exists", `Ya tenés el turno de las ${o.hora} en estos horarios. Si lo querés cambiar, cancelalo primero.`);
+        }
+      }
+      const comun = { eventType: "turno", date: t.fecha, time: t.hora, endTime: t.horaFin, location: t.lugar || "", notes: t.notas || "",
+        turnoId: id, reminder24h: true, reminder2h: true, reminded24h: false, reminded2h: false, createdAt: ahoraIso, updatedAt: ahoraIso };
+      tx.set(vAg, Object.assign({}, comun, { userId: uid, title: `${t.titulo} con ${t.organizadorNombre}`, conUid: t.organizadorUid, conNombre: t.organizadorNombre }));
+      tx.set(vOrg, Object.assign({}, comun, { userId: t.organizadorUid, title: `${t.titulo} con ${miNombre}`, conUid: uid, conNombre: miNombre }));
+      tx.update(ref, { estado: "reservado", reservadoPor: uid, reservadoNombre: miNombre, reservadoEn: ahoraIso,
+        visitaAgenteId: vAg.id, visitaOrganizadorId: vOrg.id });
+    });
+    await avisar(t.organizadorUid, "reservado", "Turno reservado",
+      `${miNombre} reservó ${t.titulo} el ${turnoFechaLarga(t.fecha)} a las ${t.hora}.`, { fecha: t.fecha, turnoId: id });
+    return { ok: true, visitaId: vAg.id, turno: ver(id, Object.assign({}, t, { reservadoPor: uid, reservadoNombre: miNombre })) };
+  }
+
+  // ---------- Cancelar una reserva (el agente o la Dirección) ----------
+  if (accion === "cancelar") {
+    const id = String(d.turnoId || "");
+    if (!id) throw new HttpsError("invalid-argument", "Falta el turno.");
+    const ref = col.doc(id);
+    let t = null, cancelaElAgente = false, loHeredo = false;
+    await db.runTransaction(async (tx) => {
+      const s = await tx.get(ref);
+      if (!s.exists) throw new HttpsError("not-found", "Ese turno ya no existe.");
+      t = s.data();
+      if (!t.reservadoPor) throw new HttpsError("failed-precondition", "Ese turno no estaba reservado.");
+      cancelaElAgente = t.reservadoPor === uid;
+      if (!cancelaElAgente && t.organizadorUid !== uid && !esDir) {
+        // Si la agenda de quien lo reservó pasó a otro agente (traspaso de
+        // cartera), el que la recibió puede cancelar el turno que le quedó.
+        if (t.visitaAgenteId) {
+          const c = await tx.get(visitas.doc(t.visitaAgenteId));
+          loHeredo = c.exists && (c.data() || {}).userId === uid;
+        }
+        if (!loHeredo) throw new HttpsError("permission-denied", "No es tu turno.");
+      }
+      // Lo que ya pasó queda como historia en las dos agendas.
+      if (turnoInstante(t.fecha, t.hora) <= ahora) throw new HttpsError("failed-precondition", "Ese turno ya pasó.");
+      if (t.visitaAgenteId) tx.delete(visitas.doc(t.visitaAgenteId));
+      if (t.visitaOrganizadorId) tx.delete(visitas.doc(t.visitaOrganizadorId));
+      tx.update(ref, { estado: "libre", reservadoPor: null, reservadoNombre: "", reservadoEn: null, visitaAgenteId: null, visitaOrganizadorId: null });
+    });
+    const cuando = `${turnoFechaLarga(t.fecha)} a las ${t.hora}`;
+    if (cancelaElAgente) {
+      await avisar(t.organizadorUid, "cancelado", "Turno cancelado", `${t.reservadoNombre || miNombre} canceló su turno de ${t.titulo} del ${cuando}. Quedó libre de nuevo.`, { fecha: t.fecha, turnoId: id });
+    } else if (loHeredo) {
+      await avisar(t.organizadorUid, "cancelado", "Turno cancelado", `${miNombre} canceló el turno de ${t.titulo} del ${cuando} que había reservado ${t.reservadoNombre || "otro agente"}. Quedó libre de nuevo.`, { fecha: t.fecha, turnoId: id });
+    } else {
+      await avisar(t.reservadoPor, "cancelado", "Turno cancelado", `${miNombre} canceló tu turno de ${t.titulo} del ${cuando}.`, { fecha: t.fecha, turnoId: id });
+    }
+    return { ok: true };
+  }
+
+  // ---------- Borrar turnos (Dirección): uno o todo un bloque ----------
+  if (accion === "borrar") {
+    if (!esDir) throw new HttpsError("permission-denied", "Solo la Dirección borra turnos.");
+    let refs = [];
+    if (d.bloqueId) refs = (await col.where("bloqueId", "==", String(d.bloqueId)).get()).docs.map((s) => s.ref);
+    else if (d.turnoId) refs = [col.doc(String(d.turnoId))];
+    else throw new HttpsError("invalid-argument", "Falta qué borrar.");
+    let borrados = 0;
+    const avisos = [];
+    for (const ref of refs) {
+      // Cada uno en su transacción: si justo lo estaban reservando, no queda
+      // una reserva colgada de un turno que ya no existe.
+      const r = await db.runTransaction(async (tx) => {
+        const s = await tx.get(ref);
+        if (!s.exists) return null;
+        const t = s.data();
+        if (d.soloLibres && t.reservadoPor) return null;
+        if (t.visitaAgenteId) tx.delete(visitas.doc(t.visitaAgenteId));
+        if (t.visitaOrganizadorId) tx.delete(visitas.doc(t.visitaOrganizadorId));
+        tx.delete(ref);
+        return t;
+      });
+      if (!r) continue;
+      borrados++;
+      if (r.reservadoPor && turnoInstante(r.fecha, r.hora) > ahora) avisos.push(r);
+    }
+    await Promise.all(avisos.map((t) => avisar(t.reservadoPor, "cancelado", "Turno cancelado",
+      `${miNombre} canceló tu turno de ${t.titulo} del ${turnoFechaLarga(t.fecha)} a las ${t.hora}.`, { fecha: t.fecha })));
+    return { borrados };
+  }
+
+  // ---------- Reunión de equipo: crear o cambiar (Dirección) ----------
+  // data: { reunionId? (para cambiar), idNuevo? (para crear, lo arma el navegador), titulo, fecha, hora,
+  //         horaFin, lugar, notas, invitados: [uid] }
+  if (accion === "reunion") {
+    if (!esDir) throw new HttpsError("permission-denied", "Solo la Dirección arma reuniones de equipo.");
+    const titulo = String(d.titulo || "").trim().slice(0, 80) || "Reunión de equipo";
+    const fecha = String(d.fecha || "");
+    if (!turnoFechaOk(fecha)) throw new HttpsError("invalid-argument", "Elegí una fecha válida.");
+    const ini = turnoMin(d.hora);
+    if (isNaN(ini)) throw new HttpsError("invalid-argument", "Elegí a qué hora empieza.");
+    let fin = turnoMin(d.horaFin);
+    if (isNaN(fin)) fin = Math.min(ini + 60, 23 * 60 + 59);
+    if (fin <= ini) throw new HttpsError("invalid-argument", "La hora de fin tiene que ser después de la de inicio.");
+    const lugar = String(d.lugar || "").trim().slice(0, 200);
+    const notas = String(d.notas || "").trim().slice(0, 1000);
+    const pedidosTodos = Array.from(new Set((Array.isArray(d.invitados) ? d.invitados : []).map(String))).filter(Boolean);
+    const esDeDireccion = (x) => !!x && (D.RANGOS_DIRECCION.indexOf(String(x.rank || "")) >= 0 || String(x.email || "").toLowerCase() === D.ADMIN_EMAIL);
+    const hora = turnoHora(ini), horaFin = turnoHora(fin);
+    const futura = turnoInstante(fecha, hora) > ahora;
+    const cuando = `${turnoFechaLarga(fecha)} a las ${hora}`;
+    const recordar = { reminder24h: true, reminder2h: true, reminded24h: false, reminded2h: false, createdAt: ahoraIso };
+
+    // Quién organiza y qué copias hay (al cambiar una reunión).
+    const editar = !!d.reunionId;
+    let reunionId = "", copias = [], antes = null, org = uid, orgNombre = miNombre;
+    if (editar) {
+      reunionId = String(d.reunionId);
+      const snap = await visitas.where("reunionId", "==", reunionId).get();
+      copias = snap.docs.map((s) => ({ ref: s.ref, v: s.data() || {} })).filter((x) => x.v.eventType === "equipo");
+      if (!copias.length) throw new HttpsError("not-found", "Esa reunión ya no existe.");
+      // El organizador es alguien de la Dirección: se confirma en su perfil, no
+      // en lo que diga la copia (cada uno puede escribir en su propia agenda).
+      for (const x of copias) {
+        if (!x.v.userId || x.v.userId !== x.v.organizadorUid) continue;
+        const u = await db.doc(`users/${x.v.userId}`).get();
+        if (u.exists && esDeDireccion(u.data())) { antes = x.v; break; }
+      }
+      if (antes) { org = antes.organizadorUid; orgNombre = antes.organizadorNombre || miNombre; }
+      else antes = copias[0].v;   // sin copia del organizador: queda a nombre de quien la cambia
+    } else {
+      // El navegador manda un id propio: si la misma reunión llega dos veces
+      // (doble clic, reintento), no se crea ni se avisa dos veces.
+      const idNuevo = String(d.idNuevo || "");
+      if (/^[A-Za-z0-9_-]{10,40}$/.test(idNuevo)) {
+        reunionId = idNuevo;
+        const ya = await visitas.where("reunionId", "==", reunionId).get();
+        if (!ya.empty) return { ok: true, reunionId, invitados: Math.max(0, ya.size - 1), repetida: true };
+      } else reunionId = visitas.doc().id;
+    }
+
+    // Invitados: todos menos el organizador, con la cuenta activa.
+    const pedidos = pedidosTodos.filter((x) => x !== org);
+    if (!pedidos.length) throw new HttpsError("invalid-argument", "Elegí a quién invitar.");
+    if (pedidos.length > REUNION_MAX_INVITADOS) throw new HttpsError("invalid-argument", `Son muchos invitados: el máximo es ${REUNION_MAX_INVITADOS}.`);
+    const perfiles = await Promise.all(pedidos.map((x) => db.doc(`users/${x}`).get()));
+    const invitados = [];
+    perfiles.forEach((s, i) => {
+      const x = s.exists ? (s.data() || {}) : null;
+      if (x && (x.status === "approved" || String(x.email || "").toLowerCase() === D.ADMIN_EMAIL)) {
+        invitados.push({ uid: pedidos[i], nombre: String(x.name || x.email || "Agente") });
+      }
+    });
+    if (!invitados.length) throw new HttpsError("invalid-argument", "Ninguno de los invitados tiene la cuenta activa.");
+    const comun = { eventType: "equipo", title: titulo, date: fecha, time: hora, endTime: horaFin, location: lugar, notes: notas,
+      invitados, reunionId, organizadorUid: org, organizadorNombre: orgNombre, updatedAt: ahoraIso };
+
+    if (!editar) {
+      const batch = db.batch();
+      [{ uid, nombre: miNombre }].concat(invitados).forEach((p) => {
+        batch.set(visitas.doc(), Object.assign({}, comun, recordar, { userId: p.uid }));
+      });
+      await batch.commit();
+      if (futura) {
+        await Promise.all(invitados.map((p) => avisar(p.uid, "invitacion", "Reunión de equipo",
+          `${miNombre} te invitó a ${titulo} el ${cuando}.`, { fecha, reunionId }, "reunion")));
+      }
+      return { ok: true, reunionId, invitados: invitados.length };
+    }
+
+    const cambioHorario = antes.date !== fecha || antes.time !== hora;
+    const cambio = cambioHorario || antes.endTime !== horaFin || String(antes.location || "") !== lugar || antes.title !== titulo;
+    const quedan = new Set(invitados.map((p) => p.uid));
+    const tiene = new Set();
+    const quitados = [], siguen = [];
+    const batch = db.batch();
+    const datosNuevos = Object.assign({}, comun, cambioHorario ? { reminded24h: false, reminded2h: false } : {});
+    copias.forEach((x) => {
+      const quien = x.v.userId;
+      if (!quien || tiene.has(quien)) { batch.delete(x.ref); return; }   // copia repetida o sin dueño
+      tiene.add(quien);
+      if (quien === org || quedan.has(quien)) {
+        batch.update(x.ref, datosNuevos);
+        if (quien !== org) siguen.push(quien);
+      } else {
+        batch.delete(x.ref);
+        quitados.push(quien);
+      }
+    });
+    const agregados = invitados.filter((p) => !tiene.has(p.uid));
+    if (!tiene.has(org)) batch.set(visitas.doc(), Object.assign({}, comun, recordar, { userId: org }));
+    agregados.forEach((p) => { batch.set(visitas.doc(), Object.assign({}, comun, recordar, { userId: p.uid })); });
+    await batch.commit();
+    const antesCuando = `${turnoFechaLarga(antes.date)} a las ${antes.time}`;
+    const yaPaso = turnoInstante(antes.date, antes.time) <= ahora && !futura;
+    if (!yaPaso) {
+      const envios = [];
+      agregados.forEach((p) => { if (p.uid !== uid) envios.push(avisar(p.uid, "invitacion", "Reunión de equipo", `${miNombre} te invitó a ${titulo} el ${cuando}.`, { fecha, reunionId }, "reunion")); });
+      quitados.forEach((q) => { if (q !== uid) envios.push(avisar(q, "cancelada", "Reunión de equipo", `Ya no estás invitado a ${antes.title || titulo} del ${antesCuando}.`, { fecha: antes.date, reunionId }, "reunion")); });
+      if (cambio) {
+        const texto = cambioHorario ? `${antes.title || titulo} cambió de horario: ahora es el ${cuando}.` : `${miNombre} cambió los datos de ${titulo} del ${cuando}.`;
+        siguen.concat(org).forEach((q) => { if (q !== uid) envios.push(avisar(q, "cambio", "Reunión de equipo", texto, { fecha, reunionId }, "reunion")); });
+      }
+      await Promise.all(envios);
+    }
+    return { ok: true, reunionId, agregados: agregados.length, quitados: quitados.length };
+  }
+
+  // ---------- Reunión de equipo: cancelar (Dirección) ----------
+  if (accion === "reunionCancelar") {
+    if (!esDir) throw new HttpsError("permission-denied", "Solo la Dirección cancela reuniones de equipo.");
+    const reunionId = String(d.reunionId || "");
+    if (!reunionId) throw new HttpsError("invalid-argument", "Falta la reunión.");
+    const snap = await visitas.where("reunionId", "==", reunionId).get();
+    const copias = snap.docs.filter((s) => (s.data() || {}).eventType === "equipo");
+    if (!copias.length) return { ok: true, borrados: 0 };
+    const v0 = copias.map((s) => s.data() || {}).find((v) => v.userId === v.organizadorUid) || copias[0].data() || {};
+    const batch = db.batch();
+    copias.forEach((s) => batch.delete(s.ref));
+    await batch.commit();
+    if (turnoInstante(v0.date, v0.time) > ahora) {
+      const texto = `${miNombre} canceló ${v0.title || "la reunión"} del ${turnoFechaLarga(v0.date)} a las ${v0.time}.`;
+      const quienes = Array.from(new Set(copias.map((s) => (s.data() || {}).userId).filter((q) => q && q !== uid)));
+      await Promise.all(quienes.map((q) => avisar(q, "cancelada", "Reunión cancelada", texto, { fecha: v0.date, reunionId }, "reunion")));
+    }
+    return { ok: true, borrados: copias.length };
+  }
+
+  throw new HttpsError("invalid-argument", "Acción desconocida.");
+}
+
+exports.turnos = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  return turnosAccion(
+    { uid: request.auth.uid, email: request.auth.token.email || "", data: request.data || {} },
+    { db, HttpsError, esDireccion, notificar: crearNotificacion, ADMIN_EMAIL, RANGOS_DIRECCION },
+  );
 });
