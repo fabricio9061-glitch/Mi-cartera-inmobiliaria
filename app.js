@@ -4753,9 +4753,30 @@
     // sumaban las reservadas, que ahora quedaron fuera de la vitrina: el número
     // habría quedado más alto que las tarjetas visibles y parecería un error.
     const av = properties.filter(enVitrina);
-    document.getElementById('statTotal').textContent = av.length;
-    document.getElementById('statSale').textContent = av.filter(p => p.type === 'sale').length;
-    document.getElementById('statRent').textContent = av.filter(p => p.type === 'rent').length
+    mvContar('statTotal', av.length);
+    mvContar('statSale', av.filter(p => p.type === 'sale').length);
+    mvContar('statRent', av.filter(p => p.type === 'rent').length);
+  }
+  // Los números de la portada llegan contando hasta su valor. Solo cuando
+  // cambian: si el número es el mismo, no se toca (updateStats se llama seguido).
+  // Al abrir la página esperan a que la portada los muestre (aparecen ~0,8 s
+  // después que el título): si no, contarían mientras todavía no se ven.
+  const _mvContando = {};
+  function mvContar(id, hasta) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    cancelAnimationFrame(_mvContando[id]);
+    const desde = parseInt(el.textContent, 10) || 0;
+    const quieto = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (desde === hasta || quieto || document.hidden) { el.textContent = hasta; return; }
+    const ahora = performance.now();
+    const t0 = Math.max(ahora, (window._mvPortadaT0 || -1e9) + 850), dur = Math.min(1200, 520 + Math.abs(hasta - desde) * 22);
+    const paso = (t) => {
+      const k = Math.max(0, Math.min(1, (t - t0) / dur)), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = Math.round(desde + (hasta - desde) * e);
+      if (k < 1) _mvContando[id] = requestAnimationFrame(paso);
+    };
+    _mvContando[id] = requestAnimationFrame(paso);
   }
 
   // Código de la propiedad, normalizado para comparar. Se busca en varios lugares
