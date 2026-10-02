@@ -967,11 +967,41 @@ exports.fichaCategoriaML = onRequest(async (req, res) => {
     let catId = req.query.cat;
     const tipo = req.query.tipo;
     const op = req.query.op === "alquiler" ? "rent" : "sale";
+    // ?tipo=nuevos → baja un archivo con la ficha (venta y alquiler) de los tipos
+    // agregados después, para armar su lista exacta en el formulario. ?tipo=todos
+    // hace lo mismo con los doce. Son datos públicos de Mercado Libre.
+    if (tipo === "nuevos" || tipo === "todos") {
+      const tipos = tipo === "todos" ? Object.keys(NOMBRE_TIPO_INMUEBLE) : Object.keys(ML_CATEGORIA_POR_NOMBRE);
+      const out = {};
+      for (const t of tipos) {
+        out[t] = {};
+        for (const o of ["sale", "rent"]) {
+          try {
+            const id = await getRealEstateCategory({ realEstateType: t, type: o }, token);
+            if (!id) { out[t][o] = { error: "Mercado Libre no devolvió esta categoría" }; continue; }
+            const c = (await axios.get(`${API}/categories/${id}`, { headers })).data || {};
+            const at = (await axios.get(`${API}/categories/${id}/attributes`, { headers })).data || [];
+            out[t][o] = {
+              categoria_hoja: id, nombre_hoja: c.name || "", ruta: (c.path_from_root || []).map((x) => x.name).join(" > "),
+              atributos: (Array.isArray(at) ? at : []).map((a) => ({
+                id: a.id, name: a.name, value_type: a.value_type, tags: a.tags || {},
+                values: (a.values || []).map((v) => v.name), unidades: (a.allowed_units || []).map((u) => u.name),
+                grupo: a.attribute_group_name || "", ayuda: a.hint || a.tooltip || "",
+              })),
+            };
+          } catch (e) { out[t][o] = { error: e.response ? JSON.stringify(e.response.data) : e.message }; }
+        }
+      }
+      res.set("Content-Type", "application/json; charset=utf-8");
+      res.set("Content-Disposition", `attachment; filename="ml-ficha-tipos-${tipo}.json"`);
+      res.status(200).send(JSON.stringify(out, null, 2));
+      return;
+    }
     if (!catId && tipo) {
       catId = await getRealEstateCategory({ realEstateType: tipo, type: op }, token);
     }
     if (!catId) {
-      res.status(400).send("Pasá ?tipo=apartamento (o ?cat=MLU1472).\nTipos: casa, apartamento, terreno, local, oficina, galpon, campo.\nOpcional ?op=venta (o alquiler).");
+      res.status(400).send("Pasá ?tipo=apartamento (o ?cat=MLU1472).\nTipos: casa, apartamento, terreno, local, oficina, galpon, campo, chacra, cochera, habitacion, llave, otro.\nOpcional ?op=venta (o alquiler).");
       return;
     }
     const cat = (await axios.get(`${API}/categories/${catId}`, { headers })).data || {};
@@ -990,6 +1020,18 @@ exports.fichaCategoriaML = onRequest(async (req, res) => {
 // =====================================================================
 // Helper: arma el aviso de Mercado Libre a partir de la propiedad
 // =====================================================================
+// Tipos del CRM que se ubican por el nombre de la categoría de Mercado Libre
+// (texto sin acentos y en minúsculas que tiene que aparecer en el nombre).
+const ML_CATEGORIA_POR_NOMBRE = { chacra: "chacra", cochera: "cochera", habitacion: "habitaci", llave: "llave", otro: "otros inmuebles" };
+// Cómo se llama cada tipo del CRM (para mensajes y para el atributo PROPERTY_TYPE).
+const NOMBRE_TIPO_INMUEBLE = {
+  casa: "Casa", apartamento: "Apartamento", terreno: "Terreno", local: "Local comercial", oficina: "Oficina", galpon: "Galpón", campo: "Campo",
+  chacra: "Chacra", cochera: "Cochera", habitacion: "Habitación", llave: "Llave de negocio", otro: "Otro",
+};
+// Tipos que InfoCasas y Casas y Más no tienen como categoría: ahí no se publican.
+// (La misma tabla está en el formulario y en la ventana Portales de la app.)
+const PORTAL_SIN_CATEGORIA = { habitacion: "Habitación", otro: "Otros inmuebles" };
+
 // Busca la categoría correcta dentro de Inmuebles (MLU1459), navegando el árbol
 // hasta una categoría hoja, según el tipo de propiedad y la operación.
 async function getRealEstateCategory(p, token) {
@@ -1013,6 +1055,13 @@ async function getRealEstateCategory(p, token) {
   };
   const typeMap = { casa: "casas", apartamento: "apartamento", terreno: "terreno", local: "local", oficina: "oficina", galpon: "galp", campo: "campo" };
   const want = typeMap[ret] || "casas";
+  // Tipos agregados después (chacra, cochera, habitación, llave de negocio, otros
+  // inmuebles): se ubican por el NOMBRE de la categoría dentro de Inmuebles, que
+  // es lo que ve el agente en Mercado Libre. Los ids fijos de arriba quedan de
+  // respaldo por si esa consulta falla. Si no aparece ni por nombre ni por id se
+  // devuelve null y buildItem corta con un error claro: estos tipos NO caen a
+  // "Casas" ni a la categoría genérica, porque el aviso saldría donde no va.
+  const POR_NOMBRE = ML_CATEGORIA_POR_NOMBRE;
   const opWord = p.type === "rent" ? "alquiler" : "venta";
   // Evitamos categorías de emprendimientos/proyectos: exigen atributos de desarrollo
   // (DEVELOPMENT_NAME, UNIT_NAME, MODEL_NAME) que no aplican a una propiedad individual.
@@ -1022,7 +1071,18 @@ async function getRealEstateCategory(p, token) {
   try {
     // Punto de partida: el mapa fijo si el tipo es conocido; si no, navegar desde MLU1459.
     let catId, catName;
-    if (CAT_MLU[ret]) {
+    if (POR_NOMBRE[ret]) {
+      let hijos = [];
+      try { hijos = (await axios.get(`${API}/categories/MLU1459`, { headers })).data.children_categories || []; }
+      catch (e) { logger.warn("No se pudo leer el árbol de Inmuebles:", e.response?.data || e.message); }
+      const cat = hijos.find((c) => norm(c.name).includes(POR_NOMBRE[ret]));
+      if (cat) { catId = cat.id; catName = cat.name; }
+      else if (CAT_MLU[ret]) { catId = CAT_MLU[ret]; catName = ret; }
+      else {
+        logger.warn(`Mercado Libre no devolvió una categoría que contenga "${POR_NOMBRE[ret]}" (tipo ${ret}).`);
+        return null;
+      }
+    } else if (CAT_MLU[ret]) {
       catId = CAT_MLU[ret];
       catName = ret;
     } else {
@@ -1527,13 +1587,15 @@ function reconcilePropertyType(attributes, catAttrs) {
 async function buildItem(p, token) {
   // Elegir la categoría correcta dentro de Inmuebles (MLU1459)
   let categoryId = await getRealEstateCategory(p, token);
+  if (!categoryId && ML_CATEGORIA_POR_NOMBRE[p.realEstateType]) {
+    throw new Error(`No se pudo ubicar en Mercado Libre la categoría para "${NOMBRE_TIPO_INMUEBLE[p.realEstateType]}". Volvé a intentar en un rato.`);
+  }
   if (!categoryId) categoryId = p.type === "rent" ? CAT_RENT : CAT_SALE;
   if (!categoryId) throw new Error("No se pudo determinar la categoría de inmuebles de Mercado Libre.");
 
   const operation = p.type === "rent" ? "Alquiler" : "Venta";
   const ret = p.realEstateType || (p.propertyType === "ph" ? "apartamento" : "casa");
-  const propTypeMap = { casa: "Casa", apartamento: "Apartamento", terreno: "Terreno", local: "Local comercial", oficina: "Oficina", galpon: "Galpón", campo: "Campo" };
-  const propType = propTypeMap[ret] || "Casa";
+  const propType = NOMBRE_TIPO_INMUEBLE[ret] || "Casa";
 
   let attributes = [
     { id: "OPERATION", value_name: operation },
@@ -3483,7 +3545,7 @@ const CYM_TIPO = {
   galpon: 8, deposito: 8, tinglado: 8,
   garaje: 9, cochera: 9,
   edificio: 10,
-  negocio: 11,
+  negocio: 11, llave: 11,
 };
 
 /* Trae el catálogo de departamentos y zonas y lo guarda en Firestore.
@@ -3894,7 +3956,10 @@ async function cymPayload(p, propId, agente) {
   const faltan = [];
 
   const tipo = CYM_TIPO[icNorm(p.realEstateType)];
-  if (!tipo) faltan.push(`tipo de propiedad no reconocido: "${p.realEstateType || ""}"`);
+  if (!tipo) {
+    const sinCat = PORTAL_SIN_CATEGORIA[icNorm(p.realEstateType)];
+    faltan.push(sinCat ? `Casas y Más no tiene la categoría "${sinCat}"` : `tipo de propiedad no reconocido: "${p.realEstateType || ""}"`);
+  }
 
   const precio = Number(p.price) || 0;
   if (!(precio > 0)) faltan.push("precio");
@@ -6421,6 +6486,8 @@ const IC_API_TIPO = {
   galpon: "industrial", deposito: "industrial", tinglado: "industrial",
   garaje: "parking", cochera: "parking",
   edificio: "building", hotel: "hotel",
+  // InfoCasas no tiene "llave de negocio": sale como local comercial.
+  llave: "commercial", negocio: "commercial",
 };
 
 /* p.type del CRM -> offer. "lease" es alquiler vacacional y hoy no se usa: el
@@ -8717,7 +8784,10 @@ async function icApiPayload(p, propId, agente) {
   if (!offer) faltan.push(`tipo de operación no reconocido: "${p.type || ""}"`);
 
   const propertyType = IC_API_TIPO[icNorm(p.realEstateType)];
-  if (!propertyType) faltan.push(`tipo de propiedad no reconocido: "${p.realEstateType || ""}"`);
+  if (!propertyType) {
+    const sinCat = PORTAL_SIN_CATEGORIA[icNorm(p.realEstateType)];
+    faltan.push(sinCat ? `InfoCasas no tiene la categoría "${sinCat}"` : `tipo de propiedad no reconocido: "${p.realEstateType || ""}"`);
+  }
 
   const price = Number(p.price) || 0;
   if (!(price > 0)) faltan.push("precio");

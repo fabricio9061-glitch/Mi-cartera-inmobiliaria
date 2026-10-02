@@ -3018,8 +3018,19 @@
     return faltan;
   }
   // Mismo criterio que icPublicable en el backend: solo Disponible y sin cierre confirmado.
-  const icPublicableLocal = (p) => (p.status || 'available') === 'available' && p.cierreConfirmado !== true;
+  // Tipos de inmueble que un portal NO tiene como categoría (Mercado Libre las
+  // tiene todas). La misma tabla está en el formulario (SIN_CATEGORIA) y en el
+  // servidor (IC_API_TIPO y CYM_TIPO): si cambia en un lado, cambia en los tres.
+  const PORTAL_SIN_CATEGORIA = { infocasas: ['habitacion', 'otro'], casasymas: ['habitacion', 'otro'] };
+  function portalSinCategoria(portal, p) {
+    if ((PORTAL_SIN_CATEGORIA[portal] || []).indexOf(p.realEstateType) < 0) return '';
+    const tipo = { habitacion: 'Habitación', otro: 'Otros inmuebles' }[p.realEstateType] || p.realEstateType;
+    return `${portal === 'infocasas' ? 'InfoCasas' : 'Casas y Más'} no tiene la categoría «${tipo}», así que esta propiedad no se publica ahí.`;
+  }
+  const icPublicableLocal = (p) => (p.status || 'available') === 'available' && p.cierreConfirmado !== true && !portalSinCategoria('infocasas', p);
   function icMotivoNoPublicable(p) {
+    const sinCat = portalSinCategoria('infocasas', p);
+    if (sinCat) return sinCat;
     if (p.cierreConfirmado === true) return 'Tiene un cierre confirmado: no se publica en portales.';
     if (p.status === 'reserved') return 'Está Reservada: se publica cuando vuelva a Disponible.';
     return 'La propiedad no está Disponible, así que no se publica en portales.';
@@ -3115,7 +3126,7 @@
 
     // ---- Nunca publicada ----
     if (!publicable) {
-      cfg.estado = { tono: 'off', texto: 'No publicada' };
+      cfg.estado = { tono: 'off', texto: portalSinCategoria('infocasas', p) ? 'No aplica' : 'No publicada' };
       cfg.lead = icMotivoNoPublicable(p);
       return portalCard(cfg);
     }
@@ -3222,6 +3233,12 @@
       return portalCard(cfg);
     }
 
+    const sinCat = portalSinCategoria('casasymas', p);
+    if (sinCat) {
+      cfg.estado = { tono: 'off', texto: 'No aplica' };
+      cfg.lead = sinCat;
+      return portalCard(cfg);
+    }
     if (!propiedadPublicable(p)) {
       cfg.estado = { tono: 'off', texto: p.cymEstado === 'eliminado' ? 'Dada de baja' : 'No publicada' };
       cfg.lead = 'La propiedad no está Disponible, así que no se publica en portales.';

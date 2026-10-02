@@ -519,7 +519,7 @@
     .op-seg button:hover{ color:var(--ink); }
     .op-seg button.on{ background:#fff; color:var(--ink); font-weight:600; box-shadow:0 1px 4px rgba(22,39,63,.12), 0 0 0 1px rgba(22,39,63,.06); }
     .op-seg button.on i{ color:var(--gold); }
-    .op-tipos{ display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:10px; }
+    .op-tipos{ display:grid; grid-template-columns:repeat(auto-fill,minmax(116px,1fr)); gap:10px; }
     .op-tipos button{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:9px; min-height:94px; padding:14px 8px; border:1px solid var(--line); border-radius:12px; background:#fff; font-family:inherit; font-size:.86rem; font-weight:500; color:#5b6472; cursor:pointer; text-align:center; line-height:1.25; transition:border-color .15s, box-shadow .15s, color .15s, background .15s; }
     .op-tipos button i{ font-size:1.35rem; color:#9aa3ad; transition:color .15s; }
     .op-tipos button:hover{ border-color:#c2c6cb; color:var(--ink); }
@@ -683,10 +683,15 @@
               <button type="button" role="radio" data-valor="local"><i class="fas fa-store"></i><span>Local comercial</span></button>
               <button type="button" role="radio" data-valor="oficina"><i class="fas fa-briefcase"></i><span>Oficina</span></button>
               <button type="button" role="radio" data-valor="galpon"><i class="fas fa-warehouse"></i><span>Galpón / Depósito</span></button>
-              <button type="button" role="radio" data-valor="campo"><i class="fas fa-wheat-awn"></i><span>Campo / Chacra</span></button>
+              <button type="button" role="radio" data-valor="campo"><i class="fas fa-wheat-awn"></i><span>Campo</span></button>
+              <button type="button" role="radio" data-valor="chacra"><i class="fas fa-tractor"></i><span>Chacra</span></button>
+              <button type="button" role="radio" data-valor="cochera"><i class="fas fa-square-parking"></i><span>Cochera</span></button>
+              <button type="button" role="radio" data-valor="llave"><i class="fas fa-cash-register"></i><span>Llave de negocio</span></button>
+              <button type="button" role="radio" data-valor="habitacion"><i class="fas fa-bed"></i><span>Habitación</span></button>
+              <button type="button" role="radio" data-valor="otro"><i class="fas fa-shapes"></i><span>Otro inmueble</span></button>
             </div></div>
           <!-- Los desplegables de siempre: los lee y los cambia el resto del formulario. Los botones solo los manejan. -->
-          <div class="pf-sr"><select id="propType" onchange="togglePropertyType()" tabindex="-1" aria-hidden="true"><option value="sale">Venta</option><option value="rent">Alquiler</option></select><select id="propRealEstateType" onchange="onTipoChange()" tabindex="-1" aria-hidden="true"><option value="casa">Casa</option><option value="apartamento">Apartamento</option><option value="terreno">Terreno</option><option value="local">Local comercial</option><option value="oficina">Oficina</option><option value="galpon">Galpón / Depósito</option><option value="campo">Campo / Chacra</option></select><select id="propPropertyType" tabindex="-1" aria-hidden="true"><option value="common">Padrón Común</option><option value="ph">PH</option></select></div>
+          <div class="pf-sr"><select id="propType" onchange="togglePropertyType()" tabindex="-1" aria-hidden="true"><option value="sale">Venta</option><option value="rent">Alquiler</option></select><select id="propRealEstateType" onchange="onTipoChange()" tabindex="-1" aria-hidden="true"><option value="casa">Casa</option><option value="apartamento">Apartamento</option><option value="terreno">Terreno</option><option value="local">Local comercial</option><option value="oficina">Oficina</option><option value="galpon">Galpón / Depósito</option><option value="campo">Campo</option><option value="chacra">Chacra</option><option value="cochera">Cochera</option><option value="llave">Llave de negocio</option><option value="habitacion">Habitación</option><option value="otro">Otro inmueble</option></select><select id="propPropertyType" tabindex="-1" aria-hidden="true"><option value="common">Padrón Común</option><option value="ph">PH</option></select></div>
         </div>
 
         <div class="pf-sec" id="sec2">
@@ -934,7 +939,8 @@
     // ---- Ayudas que salen de lo cargado ----
     // Un título armado con lo que ya se cargó: tipo, operación, dormitorios,
     // barrio y lo que más se busca de la ficha. Se propone; nunca se escribe solo.
-    const NOMBRE_TIPO = { casa: 'Casa', apartamento: 'Apartamento', terreno: 'Terreno', local: 'Local comercial', oficina: 'Oficina', galpon: 'Galpón', campo: 'Campo' };
+    const NOMBRE_TIPO = { casa: 'Casa', apartamento: 'Apartamento', terreno: 'Terreno', local: 'Local comercial', oficina: 'Oficina', galpon: 'Galpón', campo: 'Campo',
+      chacra: 'Chacra', cochera: 'Cochera', llave: 'Llave de negocio', habitacion: 'Habitación', otro: 'Inmueble' };
     function tituloSugerido() {
       const tipo = _v('propRealEstateType'), oper = _v('propType') === 'rent' ? 'en alquiler' : 'en venta';
       const lugar = _v('propCiudad') || _v('propDepartamento');
@@ -950,7 +956,7 @@
       const extras = [];
       if ((tipo === 'casa' || tipo === 'apartamento') && b > 1) extras.push(`${b} baños`);
       const coch = parseInt((_fc('PARKING_LOTS') || {}).value, 10);
-      if (coch > 1) extras.push('garaje para ' + coch); else if (coch === 1) extras.push('garaje');
+      if (tipo !== 'cochera') { if (coch > 1) extras.push('garaje para ' + coch); else if (coch === 1) extras.push('garaje'); }
       [['HAS_SWIMMING_POOL', 'piscina'], ['HAS_GRILL', 'parrillero'], ['HAS_GARDEN', 'jardín'], ['HAS_TERRACE', 'terraza'], ['HAS_BALCONY', 'balcón'], ['HAS_PATIO', 'patio'], ['FURNISHED', 'amoblado']]
         .forEach(([id, txt]) => { if (marcado(id) && extras.length < 3) extras.push(txt); });
       if (extras.length) t += ' con ' + unirY(extras);
@@ -3709,6 +3715,42 @@
       }
     };
 
+    // ---- Tipos agregados en octubre de 2026: chacra, cochera, llave de negocio,
+    // habitación y otros inmuebles. Todavía no tienen su lista propia sacada de
+    // Mercado Libre (la genera ml-ficha.js): mientras tanto usan los campos del
+    // tipo más parecido. El servidor le manda a cada portal solo lo que su
+    // categoría acepta, así que un campo de más no rompe nada: no viaja.
+    // Habitación y Otro inmueble no llevan el grupo InfoCasas porque esos
+    // portales no tienen la categoría (ver SIN_CATEGORIA).
+    (function () {
+      const F = FICHA_TIPOS;
+      const campos = (tipo, grupo, ids) => (F[tipo][grupo] || []).filter(c => !ids || ids.indexOf(c.id) >= 0).map(c => Object.assign({}, c));
+      F.chacra = F.campo;
+      F.llave = F.local;
+      F.cochera = {
+        'Datos del inmueble': campos('galpon', 'Datos del inmueble', ['PARKING_LOTS', 'PROPERTY_AGE', 'HAS_ELECTRIC_LIGHT']),
+        'Seguridad': campos('galpon', 'Seguridad'),
+        'Condiciones': campos('galpon', 'Condiciones'),
+        'Alquiler': campos('galpon', 'Alquiler'),
+        'InfoCasas': campos('galpon', 'InfoCasas')
+      };
+      // En un aviso de cochera, "cocheras" es lo que se ofrece: tiene que ser 1 o más.
+      Object.assign(F.cochera['Datos del inmueble'][0], { label: 'Cantidad de cocheras', min: 1, help: 'Cuántas cocheras se ofrecen en este aviso.' });
+      F.habitacion = {
+        'Datos del inmueble': campos('apartamento', 'Datos del inmueble', ['PROPERTY_AGE']),
+        'Equipamiento y servicios': campos('apartamento', 'Equipamiento y servicios', ['FURNISHED', 'HAS_INTERNET_ACCESS', 'HAS_AIR_CONDITIONING', 'HAS_HEATING', 'HAS_FRIDGE', 'WITH_LAUNDRY_CONNECTION']),
+        'Condiciones': campos('apartamento', 'Condiciones', ['CONTACT_SCHEDULE', 'IS_SUITABLE_FOR_PETS', 'PROPERTY_CODE']),
+        'Alquiler': campos('apartamento', 'Alquiler')
+      };
+      F.otro = {
+        'Datos del inmueble': campos('local', 'Datos del inmueble', ['PARKING_LOTS', 'FLOORS', 'PROPERTY_AGE', 'HAS_ELECTRIC_LIGHT']),
+        'Equipamiento y servicios': campos('local', 'Equipamiento y servicios'),
+        'Seguridad': campos('local', 'Seguridad'),
+        'Condiciones': campos('local', 'Condiciones'),
+        'Alquiler': campos('local', 'Alquiler')
+      };
+    })();
+
     function fichaActual() {
       const t = (document.getElementById('propRealEstateType') || {}).value;
       return FICHA_TIPOS[t] || FICHA_TIPOS.casa;
@@ -4305,6 +4347,11 @@
       { k: 'cym', nombre: 'Casas y Más', corto: 'Casas y Más' }
     ];
     const TODOS = PORTALES.map(p => p.k);
+    // Tipos de inmueble que un portal NO tiene como categoría. Mercado Libre las
+    // tiene todas. Es la misma tabla que usan el servidor (IC_API_TIPO y CYM_TIPO)
+    // y la ventana Portales (app.js): si cambia en un lado, cambia en los tres.
+    const SIN_CATEGORIA = { ic: ['habitacion', 'otro'], cym: ['habitacion', 'otro'] };
+    function sinCategoria(k) { return (SIN_CATEGORIA[k] || []).indexOf(_v('propRealEstateType')) >= 0; }
     const NOMBRE_PORTAL = { ml: 'Mercado Libre', ic: 'InfoCasas', cym: 'Casas y Más' };
     const NOMBRE_ESTADO = { reserved: 'Reservada', sold: 'Vendida', rented: 'Alquilada', archived: 'Archivada', tasacion: 'pendiente de tasación', tasado: 'Tasada', cerrado_externo: 'cerrada por fuera' };
     const NOMBRE_PASO = ['Qué publicás', 'Ubicación', 'Características', 'Ficha técnica', 'Fotos y video', 'Título y descripción', 'Precio', 'Contacto'];
@@ -4430,7 +4477,8 @@
       if (perfil && !String(perfil.email || '').trim()) {
         add({ clave: 'mail', paso: 7, campo: null, txt: 'Correo del agente', det: 'falta en su perfil (Mi perfil)', hacer: 'Falta el correo en el perfil del agente', portales: ['ic'], oblig: false, ok: false });
       }
-      return R;
+      // Lo que pide un portal que no tiene categoría para este tipo no se le pide a nadie.
+      return R.map(r => Object.assign(r, { portales: r.portales.filter(k => !sinCategoria(k)) })).filter(r => r.portales.length);
     }
 
     /* Lo que no frena a nadie pero hace que el aviso rinda más. Es lo que antes
@@ -4468,6 +4516,10 @@
     // Libre, InfoCasas no la publica si no estaba (si estaba, sigue y se actualiza)
     // y Casas y Más la publica igual. Vendida, Alquilada o Archivada la sacan.
     function bloqueoPortal(k) {
+      if (sinCategoria(k)) {
+        const tipo = _v('propRealEstateType') === 'otro' ? 'Otros inmuebles' : (NOMBRE_TIPO[_v('propRealEstateType')] || 'este tipo');
+        return { titulo: 'No tiene esta categoría', corto: 'no aplica', txt: `${NOMBRE_PORTAL[k]} no tiene la categoría «${tipo}», así que esta propiedad no se publica ahí.` };
+      }
       const st = _v('propStatus') || 'available';
       const p = editingProperty || {};
       const pub = publicadoEn(k);
@@ -4538,6 +4590,7 @@
       } else if (!n) { tono = 'wait'; texto = pub ? 'Se actualiza cuando completes lo obligatorio' : 'Lista cuando completes lo obligatorio'; }
       else { tono = 'warn'; texto = `${pub ? 'No se actualiza' : 'No se publica'}: ${n === 1 ? 'falta 1 dato' : `faltan ${n} datos`}`; }
       if (!bloqueo && pub && n) notas.push('Mientras tanto sigue publicada como estaba.');
+      if (!bloqueo && k === 'ic' && _v('propRealEstateType') === 'llave') notas.push('InfoCasas no tiene la categoría «Llave de negocio»: ahí sale como Local comercial.');
       if (!bloqueo && !pub) {
         const err = errorAnterior(k);
         if (err) notas.push(err);
