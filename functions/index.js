@@ -1585,6 +1585,12 @@ function reconcilePropertyType(attributes, catAttrs) {
 }
 
 async function buildItem(p, token) {
+  /* Mercado Libre solo tiene Habitaciones en ALQUILER (la categoría de venta no
+     existe). El formulario ya no deja elegir Venta; esto frena las que se hayan
+     cargado antes, que si no saldrían en alquiler con precio de venta. */
+  if (p.realEstateType === "habitacion" && p.type !== "rent") {
+    throw new Error("Mercado Libre solo publica habitaciones en alquiler. Abrí la propiedad, cambiá la operación a Alquiler y guardá.");
+  }
   // Elegir la categoría correcta dentro de Inmuebles (MLU1459)
   let categoryId = await getRealEstateCategory(p, token);
   if (!categoryId && ML_CATEGORIA_POR_NOMBRE[p.realEstateType]) {
@@ -4437,6 +4443,34 @@ function cymNormalizarConsulta(c) {
   };
 }
 
+/* Clave con la que se recuerda cada consulta. Sin id no se puede deduplicar: se
+   arma una estable con lo que haya, para que dos entregas del mismo hecho no
+   avisen dos veces. */
+function cymClaveDeConsulta(n) {
+  return n.idConsulta || `sinid_${n.cymId}_${n.fecha}_${n.email || n.telefono || n.nombre}`.slice(0, 300).replace(/[/\s]+/g, "_");
+}
+
+/* La fecha de una consulta como "AAAA-MM-DD ...". Casas y Más la manda así, pero
+   el repaso compara las fechas como texto: si un día llegara "07/10/2026",
+   quedaría SIEMPRE fuera de la ventana y ninguna consulta se avisaría. */
+function cymFechaISO(f) {
+  const t = String(f || "").trim();
+  const m = t.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(.*)$/);
+  return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}${m[4]}` : t;
+}
+
+/* Qué pasó con una consulta, según su marca en cymConsultasVistas. */
+function cymEstadoDeVista(snap, ahoraMs) {
+  if (!snap || !snap.exists) return "pendientes";
+  const d = snap.data() || {};
+  if (d.propertyId) return "avisadas";
+  if (d.sinPropiedad) return "sinPropiedad";
+  if (d.origen === "inicial") return "alActivar";
+  // Marca sin resultado: o se está procesando en este momento, o quedó a medias.
+  const t = Date.parse(d.at || "");
+  return (!isNaN(t) && ahoraMs - t < 3 * 60 * 1000) ? "avisadas" : "aMedias";
+}
+
 /* Busca la propiedad del CRM a la que corresponde una consulta.
    Primero por cymId (el id que devolvió el alta). Si no aparece -por ejemplo, un
    aviso cargado a mano en el portal, o uno que se republicó y cambió de id- se
@@ -4462,39 +4496,51 @@ async function cymBuscarPropiedad(n) {
    origen: "callback" | "repaso". */
 async function cymProcesarConsulta(crudo, origen) {
   const n = cymNormalizarConsulta(crudo);
-  // Sin id no se puede deduplicar: se arma uno estable con lo que haya, para que
-  // dos entregas del mismo hecho no avisen dos veces.
-  const clave = n.idConsulta || `sinid_${n.cymId}_${n.fecha}_${n.email || n.telefono || n.nombre}`.slice(0, 300).replace(/[/\s]+/g, "_");
+  const clave = cymClaveDeConsulta(n);
 
-  // Candado de una sola consulta: create() falla si ya existe.
+  /* Candado de una sola consulta (ver consultaTomarCandado). Uno que quedó SIN
+     resultado es de una ejecución que murió a mitad de camino: se retoma. Antes
+     se daba por "duplicada" para siempre, y como el callback respondía antes de
+     procesar, eso pasaba: la consulta quedaba vista sin haberse avisado nunca, y
+     el repaso de los 10 minutos ya no la levantaba. */
+  const toma = await consultaTomarCandado(db.doc(`cymConsultasVistas/${clave}`), {
+    idConsulta: n.idConsulta || null, cymId: n.cymId || null,
+    fecha: n.fecha || null, origen, at: new Date().toISOString(),
+  }, (d) => !!(d.propertyId || d.sinPropiedad || d.origen === "inicial"));
+  if (toma === "hecha") return { estado: "duplicada", clave };
+  if (toma === "en_curso") return { estado: "en_curso", clave };
+
   try {
-    await db.doc(`cymConsultasVistas/${clave}`).create({
-      idConsulta: n.idConsulta || null, cymId: n.cymId || null,
-      fecha: n.fecha || null, origen, at: new Date().toISOString(),
-    });
+    return await cymAvisarConsulta(n, clave, origen);
   } catch (e) {
-    if (e && (e.code === 6 || String(e.message).includes("ALREADY_EXISTS"))) {
-      return { estado: "duplicada", clave };
-    }
+    /* Falló a mitad de camino: el candado se suelta para que el próximo repaso
+       la tome enseguida. Los avisos llevan id propio: reintentar no duplica. */
+    await db.doc(`cymConsultasVistas/${clave}`).delete().catch(() => {});
     throw e;
   }
+}
 
+async function cymAvisarConsulta(n, clave, origen) {
   const propDoc = await cymBuscarPropiedad(n);
   if (!propDoc) {
     /* La consulta existe pero no sabemos de qué propiedad es. Antes esto quedaba
        en un log que nadie mira y el interesado se perdía. Ahora se le avisa a la
        Dirección con los datos de contacto, que es lo que importa. */
     logger.warn(`Casas y Más: consulta ${n.idConsulta || "(sin id)"} sin propiedad (id_propiedad ${n.cymId || "-"}, id_orig ${n.idOrig || "-"})`);
-    for (const u of await getDireccion()) {
-      await crearNotificacion(u, {
+    let avisadosSp = 0;
+    const direccionSp = await getDireccion();
+    for (const u of direccionSp) {
+      if (await avisarConsulta(u, {
         type: "lead_portal", propertyId: null, propertyTitle: "",
         userName: "Casas y Más",
         text: `Consulta sin propiedad identificada (${n.cymId || "sin id"}) — ` +
               `Contacto: ${[n.nombre, n.telefono, n.email].filter(Boolean).join(" · ")}` +
               (n.mensaje ? `\n${n.mensaje}` : ""),
         leadNombre: n.nombre, userPhone: n.telefono || null, leadEmail: n.email || null,
-      }, { title: "Consulta de Casas y Más", body: n.nombre }, `cymsp_${clave}_${u.uid}`);
+      }, { title: "Consulta de Casas y Más", body: n.nombre }, `cymsp_${clave}_${u.uid}`)) avisadosSp++;
     }
+    // Tiene que quedar escrito para todos: si no, no figura como avisada y se reintenta.
+    if (!direccionSp.length || avisadosSp < direccionSp.length) throw new Error(`No se pudo escribir el aviso de la consulta para todos (${avisadosSp} de ${direccionSp.length}).`);
     await db.doc(`cymConsultasVistas/${clave}`).update({ sinPropiedad: true }).catch(() => {});
     return { estado: "sin_propiedad", clave, cymId: n.cymId };
   }
@@ -4520,15 +4566,17 @@ async function cymProcesarConsulta(crudo, origen) {
   for (const u of await getDireccion()) {
     if (!destinos.some((d) => d.uid === u.uid)) destinos.push(u);
   }
+  let avisados = 0;
   for (const u of destinos) {
-    await crearNotificacion(u, {
+    if (await avisarConsulta(u, {
       type: "lead_portal", propertyId: propDoc.id, propertyTitle: p.title || "",
       userName: "Casas y Más", text: texto,
       leadNombre: n.nombre, userPhone: n.telefono || null, leadEmail: n.email || null,
       leadMensaje: n.mensaje || null, leadFecha: n.fecha || null,
     }, { title: "Consulta de Casas y Más", body: `${n.nombre} — ${p.title || ""}` },
-    `cym_${clave}_${u.uid}`);
+    `cym_${clave}_${u.uid}`)) avisados++;
   }
+  if (!destinos.length || avisados < destinos.length) throw new Error(`No se pudo escribir el aviso de la consulta para todos (${avisados} de ${destinos.length}).`);
   await db.doc(`cymConsultasVistas/${clave}`).update({ propertyId: propDoc.id }).catch(() => {});
   await registrarLog(propDoc.id, `Casas y Más: consulta (${origen})`, true,
     `${n.nombre}${n.telefono ? " · " + n.telefono : ""}`);
@@ -4562,7 +4610,10 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
 
     // Ventana de 5 minutos: sin esto, alguien que capture un callback válido
     // puede reenviarlo indefinidamente y crearía consultas falsas.
-    const edad = Math.abs(Date.now() / 1000 - Number(ts));
+    // Viene en segundos; si algún día lo mandan en milisegundos, se convierte
+    // (si no, todos los callbacks se rechazarían por "vencidos").
+    const tsSeg = Number(ts) > 1e12 ? Number(ts) / 1000 : Number(ts);
+    const edad = Math.abs(Date.now() / 1000 - tsSeg);
     if (!Number.isFinite(edad) || edad > 300) {
       logger.warn(`leadCasasYMas: timestamp fuera de ventana (${Math.round(edad)}s)`);
       await cymRegistrarRechazo(req, "timestamp_vencido");
@@ -4600,8 +4651,10 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
     });
   } catch (e) { logger.warn("leadCasasYMas: no se pudo guardar el crudo", e.message); }
 
-  res.status(200).json({ ok: true });
-
+  /* Se procesa ANTES de responder. Antes se respondía primero ("200, gracias") y
+     recién después se avisaba: en funciones de 2.ª generación lo que queda
+     corriendo después de responder puede frenarse y no terminar nunca. La
+     consulta quedaba marcada como vista sin haberse avisado. */
   try {
     /* El callback NO tiene la misma forma que GET /consultas (confirmado por
        Casas y Más, 07/09/2026): el identificador viene como "id_consulta" y no
@@ -4618,6 +4671,8 @@ exports.leadCasasYMas = onRequest(async (req, res) => {
     logger.error("leadCasasYMas: error al procesar", e);
     if (rawRef) { try { await rawRef.update({ error: String(e.message || e) }); } catch (e2) { /* nada */ } }
   }
+  // 200 también si falló: el repaso de cada 10 minutos la vuelve a levantar.
+  res.status(200).json({ ok: true });
 });
 
 /* Un callback rechazado tiene que DEJAR RASTRO. Si no, un problema de firma se
@@ -4641,7 +4696,7 @@ async function cymRegistrarRechazo(req, motivo) {
     const hoy = new Date().toISOString().slice(0, 10);
     for (const u of await getDireccion()) {
       await crearNotificacion(u, {
-        type: "portal_error", userName: "Casas y Más",
+        type: "portal_error", subtipo: "consultas", userName: "Casas y Más",
         text: `Llegó una consulta de Casas y Más y el CRM la rechazó (${motivo}). ` +
               "No se está avisando al agente por esta vía. Revisá CYM_CALLBACK_SECRET.",
       }, { title: "Casas y Más", body: "Consulta rechazada por validación" },
@@ -4654,11 +4709,14 @@ async function cymRegistrarRechazo(req, motivo) {
    REPASO PROGRAMADO DE CONSULTAS
    Red de seguridad del callback. Lee GET /consultas y avisa lo que no se avisó.
 
-   La PRIMERA corrida no notifica nada: marca como vistas las consultas que ya
-   existían. Si no, al desplegar esto saldrían de golpe avisos de todas las
-   consultas históricas del portal.
+   La PRIMERA corrida avisa solo las consultas de los últimos días
+   (CYM_PRIMERA_DIAS) y marca como vistas las anteriores. Si no, al desplegar
+   esto saldrían de golpe avisos de todas las consultas históricas del portal.
+   (Antes la primera corrida no avisaba NINGUNA: si el repaso nunca había
+   corrido, las consultas de ayer quedaban marcadas como vistas sin avisarse.)
    --------------------------------------------------------------------------- */
 const CYM_REPASO_DIAS = 15;   // ventana de consultas a mirar en cada corrida
+const CYM_PRIMERA_DIAS = 3;   // en la primera corrida, de cuántos días para acá se avisa
 
 async function cymRepasarConsultas(origen) {
   if (!CYM_API_KEY) return { ok: false, mensaje: "Falta CYM_API_KEY." };
@@ -4676,15 +4734,16 @@ async function cymRepasarConsultas(origen) {
 
   // Solo las recientes: las viejas ya se avisaron o quedaron marcadas.
   const desde = new Date(Date.now() - CYM_REPASO_DIAS * 24 * 3600 * 1000).toISOString().slice(0, 10);
-  const recientes = lista.filter((x) => String((x && x.fecha) || "").slice(0, 10) >= desde);
+  const recientes = lista.filter((x) => cymFechaISO(x && x.fecha).slice(0, 10) >= desde);
+  const desdePrimera = new Date(Date.now() - CYM_PRIMERA_DIAS * 24 * 3600 * 1000).toISOString().slice(0, 10);
 
   const res = { ok: true, total: lista.length, revisadas: recientes.length, avisadas: 0, duplicadas: 0, sinPropiedad: 0, primera };
   for (const x of recientes) {
     try {
-      if (primera) {
-        // Silenciosa: se marcan como vistas sin notificar.
+      if (primera && cymFechaISO(x && x.fecha).slice(0, 10) < desdePrimera) {
+        // Silenciosa: las de hace más de CYM_PRIMERA_DIAS días se marcan como vistas sin notificar.
         const n = cymNormalizarConsulta(x);
-        const clave = n.idConsulta || `sinid_${n.cymId}_${n.fecha}_${n.email || n.telefono || n.nombre}`.slice(0, 300).replace(/[/\s]+/g, "_");
+        const clave = cymClaveDeConsulta(n);
         await db.doc(`cymConsultasVistas/${clave}`).create({
           idConsulta: n.idConsulta || null, cymId: n.cymId || null, fecha: n.fecha || null,
           origen: "inicial", at: new Date().toISOString(),
@@ -4699,9 +4758,13 @@ async function cymRepasarConsultas(origen) {
       logger.error("cymRepasarConsultas: consulta con error", e);
     }
   }
+  const marcaAt = new Date().toISOString();
   await marcaRef.set({
-    ultimoAt: new Date().toISOString(), ultimoTotal: lista.length,
+    ultimoAt: marcaAt, ultimoTotal: lista.length,
     ultimoAvisadas: res.avisadas, ultimoOrigen: origen || "repaso",
+    // Cuándo corrió por última vez el repaso PROGRAMADO: con esto el diagnóstico
+    // distingue "anda solo" de "alguien apretó el botón hace un rato".
+    ...((origen || "repaso") === "repaso" ? { ultimoProgramadoAt: marcaAt } : {}),
   }, { merge: true });
   if (res.avisadas) {
     logger.info(`cymRepasarConsultas: ${res.avisadas} consulta(s) que el callback no trajo.`);
@@ -4712,7 +4775,11 @@ async function cymRepasarConsultas(origen) {
 /* Cada 10 minutos. Es una sola llamada a la API del portal por corrida. */
 exports.revisarConsultasCYM = onSchedule(
   { schedule: "*/10 * * * *", timeZone: "America/Montevideo", timeoutSeconds: 300 },
-  async () => { await cymRepasarConsultas("repaso"); },
+  async () => {
+    // Cada portal por separado: que falle uno no deja al otro sin repasar.
+    try { await cymRepasarConsultas("repaso"); } catch (e) { logger.error("revisarConsultasCYM (Casas y Más):", e); }
+    try { await icRepasarPendientes(); } catch (e) { logger.error("revisarConsultasCYM (InfoCasas):", e); }
+  },
 );
 
 /* Mismo repaso, a pedido de la Dirección desde el CRM. */
@@ -7397,8 +7464,10 @@ exports.avisoDespublicarPorCliente = onDocumentUpdated("clients/{cid}", async (e
 
 // =====================================================================
 // LEADS DE INFOCASAS -> CRM
-// Puerta de entrada que NO existía: por eso las consultas de InfoCasas no
-// llegaban nunca al CRM. InfoCasas debe configurar el envío de leads a:
+// El CRM no tiene de dónde LEER las consultas de InfoCasas (su API de integración
+// no documenta una ruta para eso): las manda él, una por una, a esta dirección.
+// Si no las manda (o las manda mal), acá no llega nada.
+// InfoCasas debe configurar el envío de leads a:
 //   https://us-central1-mi-cartera-inmobiliaria.cloudfunctions.net/leadInfocasas
 // (pedirlo al ejecutivo de cuenta; si se define la variable de entorno
 // IC_LEAD_KEY, la URL debe incluir ?clave=ESA_CLAVE y se rechaza lo demás).
@@ -7406,104 +7475,393 @@ exports.avisoDespublicarPorCliente = onDocumentUpdated("clients/{cid}", async (e
 // colección leadsPortales antes de procesar, así ningún lead se pierde aunque
 // el formato no coincida; los nombres de campo se leen con tolerancia.
 // Qué hace con cada lead: resuelve la propiedad (por el id que va en el feed,
-// o por la Ref./código de la ficha), deduplica el cliente por teléfono, lo
-// crea a nombre del agente dueño de la propiedad, abre o actualiza la gestión
-// con la consulta en el historial, y avisa con campanita + push.
+// la Ref./código de la ficha o el número de aviso de InfoCasas), deduplica el
+// cliente por teléfono, lo crea a nombre del agente dueño de la propiedad, abre
+// o actualiza la gestión con la consulta en el historial, y avisa con campanita
+// + push al agente dueño y a la Dirección.
+//
+// 07/10/2026 — "no llegan las consultas": tres agujeros por los que una consulta
+// se perdía SIN dejar rastro, ahora cerrados:
+//   1. cuerpo en multipart/form-data (lo normal desde PHP): no se leía nada;
+//   2. clave que no coincide: 401 mudo. Ahora queda anotado y avisa a Dirección;
+//   3. el aviso iba solo al agente dueño: la Dirección no veía ninguna.
 // =====================================================================
-exports.leadInfocasas = onRequest(async (req, res) => {
-  if (req.method === "GET") { res.status(200).send("OK — receptor de leads de InfoCasas activo (usar POST)."); return; }
-  if (req.method !== "POST") { res.status(405).send("Método no permitido"); return; }
-  const body = (typeof req.body === "object" && req.body) || {};
-  /* InfoCasas manda la clave en el CUERPO, en el campo "key". Antes solo se
-     miraba ?clave= en la URL: con IC_LEAD_KEY configurada, TODOS sus leads
-     habrían vuelto 401, y sin configurar el endpoint quedaba abierto.
-     (Payload confirmado por el equipo de InfoCasas, 31/08/2026.) */
-  const claveEsperada = process.env.IC_LEAD_KEY || "";
-  if (claveEsperada) {
-    const recibida = String((req.query && req.query.clave) || body.key || body.clave || "");
-    if (recibida !== claveEsperada) { res.status(401).send("Clave inválida"); return; }
-  }
-  const pick = (...keys) => {
-    for (const k of keys) {
-      const v = body[k];
-      if (v != null && String(v).trim() !== "") return String(v).trim();
-    }
-    return "";
-  };
-  const nombre = pick("nombre", "name", "contactName", "nombreContacto", "cliente") || "Consulta InfoCasas";
-  const telefono = pick("telefono", "tel", "phone", "celular", "movil", "telefonoContacto", "whatsapp");
-  const email = pick("email", "mail", "correo");
-  const mensaje = pick("mensaje", "message", "comentario", "consulta", "texto", "descripcion");
-  /* "property_id" en snake_case es el nombre que usa InfoCasas y faltaba: solo
-     estaba "propertyId". Sin él el lead entraba pero sin identificar la
-     propiedad, así que no se asignaba al agente dueño ni se creaba la gestión.
-     Se prueba primero porque es el que manda el portal.
-     Ojo: en su ejemplo property_id se asigna dos veces y en PHP gana la última,
-     así que llega el CÓDIGO de la propiedad, no el id del documento. Abajo se
-     resuelve por las dos vías. */
-  const refProp = pick("property_id", "idPropiedad", "propiedad", "id", "referencia", "ref", "codigo", "propertyId", "idAviso");
-  // from_id identifica el portal de origen (2 = InfoCasas). Se guarda por si
-  // algún día enrutan más de un portal al mismo endpoint.
-  const origenId = pick("from_id", "fromId");
+/* ---------------------------------------------------------------------------
+   LECTURA TOLERANTE DE UN LEAD
+   InfoCasas arma el envío desde PHP. Según cómo llamen a curl, el mismo lead
+   puede llegar de varias formas, y Cloud Functions solo entiende bien dos:
+     · JSON con su encabezado, o formulario (urlencoded): llegan desarmados;
+     · multipart/form-data (pasarle un array a CURLOPT_POSTFIELDS): req.body es
+       un Buffer, así que TODOS los campos quedaban vacíos, la clave incluida;
+     · JSON sin encabezado (json_encode() a secas): PHP lo declara "formulario"
+       y Cloud Functions lo "desarma" en un objeto basura, sin ningún campo.
+   Con IC_LEAD_KEY configurada, los dos últimos eran un 401 por cada consulta,
+   y no dejaba ningún rastro. Por eso acá se mira primero el cuerpo crudo.
+   Devuelve { body, items, formato, huella }: items es la lista de consultas
+   (una sola, salvo que manden un array).
+   --------------------------------------------------------------------------- */
+const LEAD_MAX_POR_ENVIO = 50;     // cuántas se procesan en el momento; el resto, en el repaso
+const LEAD_MAX_GUARDADAS = 500;    // cuántas se guardan de un mismo envío
 
-  // 1) Guardar el lead crudo ANTES de procesar: nada se pierde jamás.
-  const rawRef = await db.collection("leadsPortales").add({
-    fuente: "infocasas", origenId: origenId || null,
-    recibido: new Date().toISOString(), body, query: req.query || {}, procesado: false,
-  });
+// Formulario (a=1&b=2) escrito en Latin-1: %F1 es "ñ". El lector normal espera
+// UTF-8 y lo deja como un rombo con un signo de pregunta.
+function leadFormularioLatin1(t) {
+  const dec = (x) => String(x).replace(/\+/g, " ").replace(/%([0-9a-fA-F]{2})/g, (m, h) => String.fromCharCode(parseInt(h, 16)));
+  const out = {};
+  for (const par of String(t).split("&")) {
+    if (!par) continue;
+    const i = par.indexOf("=");
+    const k = dec(i < 0 ? par : par.slice(0, i));
+    if (k && !(k in out)) out[k] = dec(i < 0 ? "" : par.slice(i + 1));
+  }
+  return out;
+}
+
+function leadLeerCuerpo(req) {
+  const tipoOriginal = String((req.get && req.get("content-type")) || "");
+  const tipo = tipoOriginal.toLowerCase();
+  const b = req.body;
+  const bytes = (req.rawBody && req.rawBody.length) ? req.rawBody : (Buffer.isBuffer(b) ? b : null);
+  let crudo = bytes ? bytes.toString("utf8") : (typeof b === "string" ? b : "");
+  // Si no es UTF-8 válido, es un sistema viejo que escribe en Latin-1 (la ñ y los
+  // acentos llegarían como rombos con un signo de pregunta).
+  const latin1 = !!bytes && crudo.includes("\ufffd");
+  if (latin1) crudo = bytes.toString("latin1");
+  const t = crudo.trim();
+  const huella = t ? crypto.createHash("sha1").update(t).digest("hex") : "";
+  const objetos = (j) => (Array.isArray(j) ? j : [j]).filter((x) => x && typeof x === "object" && !Array.isArray(x) && !Buffer.isBuffer(x));
+  const listo = (items, formato, extra) => ({ body: items[0] || {}, items: items.slice(0, LEAD_MAX_GUARDADAS), formato, huella, ...(extra || {}) });
+
+  // 1) JSON, diga lo que diga el Content-Type.
+  if (t[0] === "{" || t[0] === "[") {
+    try {
+      const o = objetos(JSON.parse(t));
+      if (o.length) return listo(o, "json");
+    } catch (e) { /* no era JSON */ }
+  }
+  // 2) Lo que ya desarmó Cloud Functions (JSON bien declarado o formulario).
+  if (b && typeof b === "object" && !Buffer.isBuffer(b)) {
+    const o = objetos(b).filter((x) => Object.keys(x).length);
+    if (o.length) {
+      // Formulario en Latin-1: Cloud Functions ya lo desarmó mal; se vuelve a leer del crudo.
+      if (t && tipo.includes("urlencoded") && JSON.stringify(o).includes("\ufffd")) {
+        const f = leadFormularioLatin1(t);
+        if (Object.keys(f).length) return listo([f], "formulario");
+      }
+      return listo(o, tipo.includes("json") ? "json" : (tipo.includes("urlencoded") ? "formulario" : "objeto"));
+    }
+  }
+  if (!t) return listo([], "vacio");
+
+  // 3) multipart/form-data: se leen los campos de texto (los archivos no interesan).
+  //    El separador se toma del encabezado TAL CUAL llegó: distingue mayúsculas.
+  const m = tipoOriginal.match(/boundary=(?:"([^"]+)"|([^;\s]+))/i);
+  if (tipo.includes("multipart/form-data") && m) {
+    const out = {};
+    for (const parte of crudo.split("--" + (m[1] || m[2]))) {
+      const corte = parte.match(/\r?\n\r?\n/);
+      if (!corte) continue;
+      const cab = parte.slice(0, corte.index);
+      const nombre = cab.match(/name="([^"]*)"/i);
+      if (!nombre || /filename="/i.test(cab)) continue;
+      out[nombre[1]] = parte.slice(corte.index + corte[0].length).replace(/\r?\n$/, "");
+    }
+    if (Object.keys(out).length) return listo([out], "multipart");
+  }
+  // 4) Formulario mandado con otro Content-Type.
+  if (/^[^=&\s]+=/.test(t)) {
+    const out = {};
+    try { new URLSearchParams(t).forEach((v, k) => { out[k] = v; }); } catch (e) { /* nada */ }
+    if (Object.keys(out).length) return listo([out], "formulario");
+  }
+  // No se entendió: se devuelve el principio del texto para poder mirarlo.
+  return listo([], "desconocido", { crudo: t.slice(0, 2000) });
+}
+
+/* La clave puede venir en el cuerpo ("key"), en la URL (?clave=) o en un header. */
+function leadClaveRecibida(req, body) {
+  const q = req.query || {}, b = body || {};
+  const h = (n) => String((req.get && req.get(n)) || "");
+  return String(q.clave || q.key || b.key || b.clave || b.api_key || b.apikey || b.token ||
+    h("x-api-key") || h("x-key") || h("key") || h("authorization").replace(/^Bearer\s+/i, "") || "");
+}
+
+// El crudo se guarda sin la clave: no hace falta y no tiene por qué quedar copiada.
+function leadSinClave(o) {
+  const out = {};
+  for (const [k, v] of Object.entries(o || {})) {
+    if (/^(key|clave|api_?key|token|verify_?token|secret|password)$/i.test(k)) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+/* Todos los campos del lead en un solo nivel y con el nombre "aplanado"
+   (minúsculas, sin guiones): property_id, propertyId y PropertyID son lo mismo.
+   Si el portal los manda adentro de un sobre ("lead", "data", "contact"...) se
+   leen igual; ante un nombre repetido gana el de más afuera. */
+function leadCampos(body) {
+  const planos = {}, todos = {};
+  const aplanar = (k) => String(k).toLowerCase().replace(/[^a-z0-9]/g, "");
+  const sumar = (o, nivel, dePropiedad) => {
+    if (!o || typeof o !== "object" || Buffer.isBuffer(o) || Array.isArray(o)) return;
+    const hijos = [];
+    for (const [k, v0] of Object.entries(o)) {
+      if (v0 == null) continue;
+      /* "phone": ["099…"] o phone[]=099…: vale cada dato suelto de la lista. Una
+         lista de objetos se mira por su primer elemento. */
+      const lista = Array.isArray(v0) ? v0.filter((x) => x != null) : [v0];
+      const sueltos = lista.filter((x) => typeof x !== "object");
+      if (!sueltos.length) { if (nivel < 2 && lista[0]) hijos.push([k, lista[0]]); continue; }
+      let kk = aplanar(k);
+      if (dePropiedad) {
+        /* De adentro de "property" solo interesa lo que la identifica. Su nombre,
+           su teléfono o su mail son los del aviso (la inmobiliaria), no los del
+           interesado: si se tomaran, el cliente se crearía con nuestro teléfono. */
+        if (kk === "id") kk = "propertyid";
+        else if (/^(code|codigo|ref|referencia)$/.test(kk)) kk = "propertycode";
+        else if (!/^(propertyid|propertycode|externalcode|integratorcode|listingid|frpropertyid|idaviso|idinmueble)$/.test(kk)) continue;
+      }
+      if (!kk) continue;
+      for (const v of sueltos) {
+        const s = String(v).trim();
+        if (s === "") continue;
+        if (!(kk in planos)) planos[kk] = s;
+        // Todos los valores de un mismo nombre (propertyId y property_id pueden venir los dos).
+        if (!todos[kk]) todos[kk] = [];
+        if (!todos[kk].includes(s)) todos[kk].push(s);
+      }
+    }
+    for (const [k, h] of hijos) sumar(h, nivel + 1, dePropiedad || /^(property|propiedad|listing|aviso|inmueble)/.test(aplanar(k)));
+  };
+  sumar(body, 0, false);
+  // Fuera de Object.keys(): quien solo quiere los nombres de los campos no lo ve.
+  Object.defineProperty(planos, "_todos", { value: todos, enumerable: false });
+  return planos;
+}
+
+function icNormalizarLead(body) {
+  const c = leadCampos(body);
+  const pick = (...ks) => { for (const k of ks) if (c[k]) return c[k]; return ""; };
+  /* Todo lo que pueda identificar la propiedad, en orden de confianza.
+     "property_id" es el nombre que usa InfoCasas; en su ejemplo se asigna dos
+     veces y en PHP gana la última, así que llega el CÓDIGO de la propiedad y no
+     el id del documento. Se prueban todos, uno por uno, contra las propiedades. */
+  const refs = [], refsSueltas = [];
+  for (const k of ["propertyid", "idpropiedad", "propiedad", "idaviso", "listingid", "idinmueble", "propertycode",
+    "externalcode", "integratorcode", "frpropertyid"]) {
+    for (const v of (c._todos[k] || [])) if (!refs.includes(v)) refs.push(v);
+  }
+  /* Nombres genéricos ("id", "ref"...): pueden ser de la propiedad o de la
+     consulta misma. Se prueban solo contra nuestros propios códigos; contra los
+     números de aviso del portal podrían coincidir de casualidad con otro aviso. */
+  for (const k of ["id", "referencia", "ref", "codigo", "code"]) {
+    for (const v of (c._todos[k] || [])) if (!refs.includes(v) && !refsSueltas.includes(v)) refsSueltas.push(v);
+  }
+  let nombre = pick("nombre", "name", "contactname", "nombrecontacto", "cliente", "fullname", "nombrecompleto", "firstname");
+  const apellido = pick("apellido", "lastname", "surname");
+  if (nombre && apellido && !nombre.toLowerCase().includes(apellido.toLowerCase())) nombre = `${nombre} ${apellido}`;
+  const n = {
+    nombre,
+    telefono: pick("telefono", "tel", "phone", "celular", "movil", "telefonocontacto", "whatsapp", "cellphone", "mobile", "phonenumber"),
+    email: pick("email", "mail", "correo", "emailcontacto"),
+    mensaje: pick("mensaje", "message", "comentario", "consulta", "texto", "descripcion", "text", "comments", "comment"),
+    refs, refsSueltas,
+    // from_id identifica el portal de origen (2 = InfoCasas).
+    origenId: pick("fromid"),
+    /* El id de la CONSULTA, si lo mandan. El del contacto no sirve: la misma
+       persona que consulta por otra propiedad quedaría como "repetida". */
+    idLead: pick("leadid", "idlead", "idconsulta", "consultaid", "messageid", "idmensaje"),
+  };
+  // Sin ningún dato del interesado: o es ruido, o un formato que todavía no se entiende.
+  n.vacia = !(n.nombre || n.telefono || n.email || n.mensaje);
+  return n;
+}
+
+/* ¿Esto tiene forma de consulta? Sirve para el webhook: ese canal trae el
+   resultado de las tareas de publicación, pero si InfoCasas manda por ahí una
+   consulta no puede perderse por "no encontré la propiedad". */
+function leadPareceConsulta(body) {
+  if (!body || typeof body !== "object" || Buffer.isBuffer(body) || body.task || Array.isArray(body.content)) return false;
+  const c = leadCampos(body);
+  if (c.status || c.state || c.event || c.taskid) return false;
+  const n = icNormalizarLead(body);
+  return !!((n.email || n.telefono) && (n.nombre || n.mensaje));
+}
+
+/* La propiedad de una consulta de InfoCasas. Antes se probaba solo el id del
+   documento y el código de la ficha; si el portal mandaba SU número de aviso la
+   consulta entraba "sin propiedad" y el agente dueño no se enteraba. */
+async function icBuscarPropiedadDeLead(n) {
+  const NUESTROS = ["ficha.PROPERTY_CODE", "icIntegratorCode"];
+  const DEL_PORTAL = ["icListingId", "icFrPropertyId", "icListingIdAnterior"];
+  const buscar = async (r, campos) => {
+    if (/^[A-Za-z0-9_-]{6,100}$/.test(r)) {
+      const d = await db.doc(`properties/${r}`).get().catch(() => null);
+      if (d && d.exists) return d;
+    }
+    for (const campo of campos) {
+      const q = await db.collection("properties").where(campo, "==", r).limit(1).get();
+      if (!q.empty) return q.docs[0];
+    }
+    return null;
+  };
+  for (const r of n.refs || []) { const d = await buscar(r, NUESTROS.concat(DEL_PORTAL)); if (d) return d; }
+  for (const r of n.refsSueltas || []) { const d = await buscar(r, NUESTROS); if (d) return d; }
+  return null;
+}
+
+/* ---------------------------------------------------------------------------
+   CANDADO DE UNA SOLA CONSULTA (lo usan InfoCasas y Casas y Más)
+   create() falla si el documento ya existe: así dos entregas del mismo hecho
+   no avisan dos veces. Pero un candado SIN resultado y con más de 3 minutos es
+   de una ejecución que murió a mitad de camino (en 2.ª generación, lo que sigue
+   corriendo después de responder puede no terminar nunca). Ese se RETOMA: si
+   no, la consulta figuraría como vista para siempre sin haberse avisado.
+   Retomar no duplica: cada aviso de la campanita lleva un id propio.
+   Devuelve "tomado" | "hecha" | "en_curso".
+   --------------------------------------------------------------------------- */
+const CONSULTA_CANDADO_MS = 3 * 60 * 1000;
+async function consultaTomarCandado(ref, datos, terminada) {
+  const yaExiste = (e) => !!(e && (e.code === 6 || String(e.message).includes("ALREADY_EXISTS")));
+  try {
+    await ref.create(datos);
+    return "tomado";
+  } catch (e) {
+    if (!yaExiste(e)) throw e;
+  }
+  const s = await ref.get();
+  if (!s.exists) {
+    // Lo soltaron entre el create() y esta lectura: se intenta de nuevo; si otro
+    // llegó primero, es de él.
+    try { await ref.create(datos); return "tomado"; } catch (e) { if (yaExiste(e)) return "en_curso"; throw e; }
+  }
+  const d = s.data() || {};
+  if (terminada(d)) return "hecha";
+  const t = Date.parse(d.at || "");
+  if (!isNaN(t) && Date.now() - t < CONSULTA_CANDADO_MS) return "en_curso";
+  /* Candado vencido: se retoma, pero solo si nadie lo tocó desde que se leyó
+     (lastUpdateTime). Si el repaso y "Avisarlas ahora" llegan juntos, lo toma uno
+     solo; el otro lo ve "en curso". Sin esto los dos seguían, y aunque los avisos
+     no se repiten, el cliente y la gestión sí podían quedar duplicados. */
+  try {
+    const cambios = { ...datos, retomada: true };
+    // (El segundo argumento no puede ir "undefined": el SDK lo rechaza.)
+    if (s.updateTime) await ref.update(cambios, { lastUpdateTime: s.updateTime });
+    else await ref.update(cambios);
+    return "tomado";
+  } catch (e) {
+    if (e && (e.code === 9 || e.code === 5 || /FAILED_PRECONDITION|NOT_FOUND/.test(String(e.message)))) return "en_curso";
+    throw e;
+  }
+}
+
+/* Escribe el aviso de una consulta y DICE si quedó escrito. crearNotificacion
+   nunca tira error (sirve para avisos de cortesía); con una consulta no alcanza:
+   si no se pudo avisar a nadie hay que saberlo, para reintentar. */
+async function avisarConsulta(destino, campos, push, idUnico) {
+  if (!destino || !destino.uid) return false;
+  try {
+    await db.collection("notifications").doc(idUnico).create({
+      ownerId: destino.uid, read: false, createdAt: new Date().toISOString(), ...campos,
+    });
+  } catch (e) {
+    // Ya existía: es un reintento del mismo hecho. Está avisada; no se repite el push.
+    if (e && (e.code === 6 || String(e.message).includes("ALREADY_EXISTS"))) return true;
+    logger.warn(`avisarConsulta: no se pudo crear ${idUnico}:`, e.message);
+    return false;
+  }
+  try { if (push) await enviarPush(destino, campos, push, idUnico); } catch (e) { logger.warn("avisarConsulta: push", e.message); }
+  return true;
+}
+
+/* Procesa UNA consulta de InfoCasas. La usan el receptor de leads, el webhook
+   (si la consulta llega por ahí), el repaso de cada 10 minutos y "Avisarlas
+   ahora" del diagnóstico.
+   Qué hace: resuelve la propiedad, deduplica el cliente por teléfono, lo crea a
+   nombre del agente dueño, abre o actualiza la gestión con la consulta en el
+   historial, y avisa con campanita + push.
+   Devuelve { estado: "avisada" | "sin_propiedad" | "duplicada" | "en_curso" }. */
+async function icProcesarLead(n, origen) {
+  const ahora = new Date().toISOString();
+  const telNorm = normalizarTel(n.telefono);
+  const mail = String(n.email || "").trim().toLowerCase();
+  const todasLasRefs = (n.refs || []).concat(n.refsSueltas || []);
+
+  /* La clave del candado. Con id de consulta, ese id (más la propiedad). Sin
+     id, el contenido y el día. Y si no se pudo leer ningún dato, la huella del
+     envío: si no, todos los envíos ilegibles serían "la misma consulta". */
+  // El día es el de cuando LLEGÓ (no el de hoy): un reintento que cae después de
+  // medianoche tiene que dar la misma clave, o se avisaría dos veces.
+  const dia = /^\d{4}-\d{2}-\d{2}/.test(String(n.dia || "")) ? String(n.dia).slice(0, 10) : ahora.slice(0, 10);
+  const firma = [todasLasRefs.join("|"), telNorm, mail, n.nombre, n.mensaje, dia, n.vacia ? (n.huella || "") : ""].join("\u00a6");
+  const clave = n.idLead
+    ? `id_${n.idLead}_${todasLasRefs[0] || ""}`.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 200)
+    : "h_" + crypto.createHash("sha1").update(firma).digest("hex");
+  const candado = db.doc(`icLeadsVistos/${clave}`);
+  const toma = await consultaTomarCandado(candado, { at: ahora, origen, refs: todasLasRefs.slice(0, 6) }, (d) => d.avisada === true);
+  if (toma === "hecha") return { estado: "duplicada", clave };
+  if (toma === "en_curso") return { estado: "en_curso", clave };
 
   try {
-    // 2) Resolver la propiedad: por el id que publica el feed, o por la Ref. de la ficha.
-    let propId = null, prop = null;
-    if (refProp) {
-      try { const d = await db.collection("properties").doc(refProp).get(); if (d.exists) { propId = d.id; prop = d.data(); } } catch (e) { /* id con formato raro */ }
-      if (!prop) {
-        const q = await db.collection("properties").where("ficha.PROPERTY_CODE", "==", refProp).limit(1).get();
-        if (!q.empty) { propId = q.docs[0].id; prop = q.docs[0].data(); }
-      }
-    }
+    const propDoc = await icBuscarPropiedadDeLead(n);
+    const propId = propDoc ? propDoc.id : null;
+    const prop = propDoc ? (propDoc.data() || {}) : null;
     const ownerId = (prop && prop.ownerId) || null;
-    let ownerName = "", destino = null;
-    if (ownerId) {
-      try { const u = await db.doc(`users/${ownerId}`).get(); if (u.exists) { ownerName = u.data().name || ""; destino = { uid: u.id, fcmToken: u.data().fcmToken }; } } catch (e) { /* sin perfil */ }
-    }
-    if (!destino) destino = await getAdminUser();
 
-    // 3) Cliente: deduplicar por teléfono normalizado (mismo criterio que el CRM).
-    const telNorm = normalizarTel(telefono);
+    /* Le llega al agente dueño y a la Dirección, igual que las de Mercado Libre y
+       Casas y Más. Antes iba SOLO al dueño: la Dirección no veía ninguna consulta
+       de InfoCasas de las propiedades de los demás agentes. */
+    let ownerName = "";
+    const destinos = [];
+    if (ownerId) {
+      try {
+        const u = await db.doc(`users/${ownerId}`).get();
+        if (u.exists) { ownerName = u.data().name || ""; destinos.push({ uid: u.id, ...u.data() }); }
+      } catch (e) { /* sin perfil */ }
+    }
+    for (const u of await getDireccion()) {
+      if (!destinos.some((d) => d.uid === u.uid)) destinos.push(u);
+    }
+
+    // Cliente: se deduplica por teléfono (mismo criterio que el CRM) o, si no dejó
+    // teléfono, por correo. Sin ninguno de los dos no hay a quién llamar: no se crea.
+    const nombre = n.nombre || "Consulta InfoCasas";
     let clientId = null, clienteExistia = false;
-    if (telNorm) {
+    if (telNorm || mail) {
       const cs = await db.collection("clients").get();
       for (const d of cs.docs) {
-        if (normalizarTel(d.data().phone) === telNorm) { clientId = d.id; clienteExistia = true; break; }
+        const c = d.data() || {};
+        const mismo = telNorm ? normalizarTel(c.phone) === telNorm : String(c.email || "").trim().toLowerCase() === mail;
+        if (mismo) { clientId = d.id; clienteExistia = true; break; }
+      }
+      if (!clientId) {
+        const nuevoCliente = {
+          name: nombre, phone: n.telefono || "", phoneNormalized: telNorm || "",
+          status: "nuevo", source: "infocasas",
+          notes: "Ingresó por una consulta en InfoCasas.",
+          createdAt: ahora, updatedAt: ahora,
+        };
+        if (n.email) nuevoCliente.email = n.email;
+        if (ownerId) { nuevoCliente.createdBy = ownerId; nuevoCliente.agentId = ownerId; nuevoCliente.ownerId = ownerId; }
+        if (ownerName) { nuevoCliente.createdByName = ownerName; nuevoCliente.ownerName = ownerName; }
+        clientId = (await db.collection("clients").add(nuevoCliente)).id;
       }
     }
-    const ahora = new Date().toISOString();
-    if (!clientId) {
-      const nuevoCliente = {
-        name: nombre, phone: telefono, phoneNormalized: telNorm || "",
-        status: "nuevo", source: "infocasas",
-        notes: "Ingresó por una consulta en InfoCasas.",
-        createdAt: ahora, updatedAt: ahora,
-      };
-      if (email) nuevoCliente.email = email;
-      if (ownerId) { nuevoCliente.createdBy = ownerId; nuevoCliente.agentId = ownerId; nuevoCliente.ownerId = ownerId; }
-      if (ownerName) { nuevoCliente.createdByName = ownerName; nuevoCliente.ownerName = ownerName; }
-      const cRef = await db.collection("clients").add(nuevoCliente);
-      clientId = cRef.id;
-    }
 
-    // 4) Gestión sobre la propiedad: una por cliente+propiedad; si ya existe,
-    //    la consulta nueva se suma al historial (y cuenta como actividad).
-    const notaLead = {
-      tipo: "nota",
-      valor: `Consulta desde InfoCasas${mensaje ? `: "${mensaje}"` : ""}${email ? ` (email: ${email})` : ""}`,
-      autor: "InfoCasas", fecha: ahora,
-    };
+    // Gestión sobre la propiedad: una por cliente+propiedad; si ya existe, la
+    // consulta nueva se suma al historial (y cuenta como actividad). La nota lleva
+    // la clave de la consulta: si esto se reintenta, no se anota dos veces.
     if (propId && clientId) {
+      const notaLead = {
+        tipo: "nota",
+        valor: `Consulta desde InfoCasas${n.mensaje ? `: "${n.mensaje}"` : ""}${n.email ? ` (email: ${n.email})` : ""}`,
+        autor: "InfoCasas", fecha: ahora, leadClave: clave,
+      };
       const g = await db.collection("gestiones").where("clientId", "==", clientId).where("propertyId", "==", propId).limit(1).get();
       if (!g.empty) {
-        await g.docs[0].ref.update({ updatedAt: ahora, historial: admin.firestore.FieldValue.arrayUnion(notaLead) });
+        const yaEsta = ((g.docs[0].data() || {}).historial || []).some((h) => h && h.leadClave === clave);
+        if (!yaEsta) await g.docs[0].ref.update({ updatedAt: ahora, historial: admin.firestore.FieldValue.arrayUnion(notaLead) });
       } else {
         const nuevaGestion = { clientId, propertyId: propId, estadoGestion: "nuevo", rol: "interesado", createdAt: ahora, updatedAt: ahora, historial: [notaLead] };
         if (ownerId) { nuevaGestion.agentId = ownerId; nuevaGestion.createdBy = ownerId; }
@@ -7511,32 +7869,514 @@ exports.leadInfocasas = onRequest(async (req, res) => {
       }
     }
 
-    // 5) Aviso al agente (o al admin si la propiedad no se pudo identificar),
-    //    con el mismo formato que las consultas de la web: campanita + push.
-    if (destino) {
-      await crearNotificacion(destino, {
+    /* Aviso en la campanita + push. Los datos del interesado van en campos
+       sueltos (leadNombre, userPhone...): de ahí salen los botones de WhatsApp,
+       Llamar y Mail. Cada aviso lleva id propio, así que repetirlo no duplica. */
+    const titulo = (prop && prop.title) || "";
+    let avisados = 0;
+    for (const u of destinos) {
+      const hecho = await avisarConsulta(u, {
         type: "consulta_infocasas",
         propertyId: propId || "",
-        propertyTitle: (prop && prop.title) || "una propiedad",
+        propertyTitle: titulo,
         userName: nombre,
         userPhoto: null,
-        userPhone: telefono || "",
-        text: mensaje || "Consulta recibida desde InfoCasas",
+        userPhone: n.telefono || "",
+        text: n.mensaje || "Consulta recibida desde InfoCasas",
+        leadNombre: n.nombre || null, leadEmail: n.email || null, leadMensaje: n.mensaje || null,
+        // Sin propiedad identificada: el código que mandó el portal, para ubicarla.
+        leadRef: propId ? null : (todasLasRefs[0] || null),
       }, {
-        title: "🔵 Lead de InfoCasas",
-        body: `${nombre} consultó por ${(prop && prop.title) || "una propiedad"}${clienteExistia ? " (cliente ya existente)" : ""}`,
-      });
+        title: "Consulta de InfoCasas",
+        body: `${nombre}${titulo ? " — " + titulo : ""}${clienteExistia ? " (cliente ya existente)" : ""}`,
+      }, `ic_${clave}_${u.uid}`);
+      if (hecho) avisados++;
+    }
+    // Tiene que quedar escrito para TODOS. Si a alguno no se le pudo escribir (o no
+    // hay a quién avisar), no puede figurar como "avisada": se reintenta, y como
+    // cada aviso lleva id propio, a los que ya lo tienen no se les repite.
+    if (!destinos.length || avisados < destinos.length) {
+      throw new Error(`No se pudo escribir el aviso de la consulta para todos (${avisados} de ${destinos.length}).`);
     }
 
-    await rawRef.update({ procesado: true, clientId: clientId || null, propertyId: propId || null });
-    logger.info(`[leadInfocasas] Lead de ${nombre} (${telefono || "sin tel"}) -> cliente ${clientId || "?"} / propiedad ${propId || "no identificada"}.`);
-    res.status(200).json({ ok: true });
+    await candado.update({ propertyId: propId || null, clientId: clientId || null, avisada: true, destinos: avisados }).catch(() => {});
+    if (propId) {
+      await registrarLog(propId, `InfoCasas: consulta (${origen})`, true, `${nombre}${n.telefono ? " · " + n.telefono : ""}`);
+    }
+    return { estado: propId ? "avisada" : "sin_propiedad", clave, propertyId: propId, clientId, destinos: avisados };
   } catch (e) {
-    logger.error("[leadInfocasas]", e);
-    try { await rawRef.update({ error: String((e && e.message) || e) }); } catch (e2) { /* nada */ }
-    // 200 igual: el crudo quedó guardado y no queremos reintentos infinitos de IC.
-    res.status(200).json({ ok: true, guardadoCrudo: true });
+    /* Falló a mitad de camino: el candado se suelta para que el reintento lo tome
+       enseguida (si no, habría que esperar a que venza). */
+    await candado.delete().catch(() => {});
+    throw e;
   }
+}
+
+/* Procesa una consulta de InfoCasas ya guardada en leadsPortales y deja anotado
+   el resultado en ese documento. Devuelve el resultado, o null si falló.
+   "pendiente" es la marca que mira el repaso de cada 10 minutos: queda puesta
+   hasta que la consulta se avisa (o hasta agotar los intentos). */
+const IC_LEAD_INTENTOS = 6;
+async function icProcesarCrudo(ref, n, origen, intentosPrevios) {
+  const FV = admin.firestore.FieldValue;
+  try {
+    const r = await icProcesarLead(n, origen);
+    if (r.estado === "en_curso") return r;   // otra ejecución la está procesando: no se toca
+    await ref.update({
+      procesado: true, pendiente: false, resultado: r.estado, error: FV.delete(),
+      clientId: r.clientId || null, propertyId: r.propertyId || null, idLead: r.clave || null,
+    });
+    return r;
+  } catch (e) {
+    logger.error(`icProcesarCrudo (${origen}):`, e);
+    const intentos = (Number(intentosPrevios) || 0) + 1;
+    // Agotados los intentos automáticos, deja de reintentarse sola (sigue figurando
+    // en el diagnóstico, y "Avisarlas ahora" la puede volver a intentar).
+    await ref.update({ error: String((e && e.message) || e), intentos, pendiente: intentos < IC_LEAD_INTENTOS }).catch(() => {});
+    if (intentos === IC_LEAD_INTENTOS) {
+      // Que no se rinda en silencio: la Dirección tiene que saber que hay una sin avisar.
+      try {
+        for (const u of await getDireccion()) {
+          await crearNotificacion(u, {
+            type: "portal_error", subtipo: "consultas", userName: "InfoCasas",
+            text: "Una consulta de InfoCasas llegó y el CRM no pudo avisarla después de varios intentos. Tocá para verla y avisarla a mano.",
+          }, { title: "InfoCasas", body: "Una consulta quedó sin avisar" }, `icagot_${ref.id}_${u.uid}`);
+        }
+      } catch (e2) { logger.warn("icProcesarCrudo: aviso de agotada", e2.message); }
+    }
+    return null;
+  }
+}
+
+/* Repaso de InfoCasas (corre junto con el de Casas y Más, cada 10 minutos):
+   reintenta las consultas que llegaron y quedaron sin avisar. */
+async function icRepasarPendientes() {
+  const res = { revisadas: 0, avisadas: 0, sinPropiedad: 0, errores: 0 };
+  const s = await db.collection("leadsPortales").where("pendiente", "==", true).get();
+  for (const d of s.docs) {
+    const x = d.data() || {};
+    if (x.fuente !== "infocasas" || x.rechazado || x.procesado) continue;
+    // Recién llegada: la está procesando el receptor.
+    const t = Date.parse(x.recibido || "");
+    if (!isNaN(t) && Date.now() - t < CONSULTA_CANDADO_MS) continue;
+    res.revisadas++;
+    const r = await icProcesarCrudo(d.ref, { ...icNormalizarLead(x.body || {}), huella: x.huella || d.id, dia: x.recibido }, "repaso", x.intentos);
+    if (!r) res.errores++;
+    else if (r.estado === "avisada") res.avisadas++;
+    else if (r.estado === "sin_propiedad") res.sinPropiedad++;
+  }
+  if (res.avisadas || res.sinPropiedad) logger.info(`icRepasarPendientes: ${res.avisadas + res.sinPropiedad} consulta(s) de InfoCasas que habían quedado sin avisar.`);
+  return res;
+}
+
+/* Un envío rechazado tiene que DEJAR RASTRO. Si no, una clave que no coincide
+   se ve exactamente igual que "nadie consultó": silencio.
+   Queda UN documento por día (con contadores), así nadie puede llenar la base
+   pegándole al receptor; y se guardan solo los NOMBRES de los campos, que
+   alcanzan para ver cómo mandan la clave.
+   conDatos: el envío traía datos de un interesado. Solo esos cuentan como
+   "consulta rechazada" y avisan a la Dirección (una vez por día y por motivo);
+   un envío vacío es ruido (un robot, una prueba) y solo se cuenta aparte. */
+async function leadRegistrarRechazo(fuente, portal, req, body, formato, motivo, conDatos) {
+  try {
+    const ahora = new Date().toISOString(), hoy = ahora.slice(0, 10);
+    const FV = admin.firestore.FieldValue;
+    const ref = db.doc(`leadsRechazos/${fuente}_${hoy}`);
+    const tipoContenido = String((req.get && req.get("content-type")) || "").slice(0, 120);
+    if (!conDatos) {
+      // Solo cómo llegó (formato y tamaño): sirve para ver si es un robot o un
+      // formato que todavía no se entiende. Nada del contenido.
+      await ref.set({
+        fuente, dia: hoy, sinDatos: FV.increment(1), ultimoSinDatosAt: ahora,
+        ultimoSinDatos: { formato: formato || null, tipoContenido, bytes: (req.rawBody && req.rawBody.length) || 0 },
+      }, { merge: true });
+      return;
+    }
+    await ref.set({
+      fuente, dia: hoy, cantidad: FV.increment(1), ultimoAt: ahora, ultimoMotivo: motivo,
+      motivos: { [motivo]: FV.increment(1) },
+      ultimo: {
+        formato: formato || null,
+        tipoContenido,
+        // Un "nombre" larguísimo no es un nombre de campo: es contenido mal leído.
+        campos: Object.keys(leadCampos(body)).filter((k) => k.length <= 40).slice(0, 40),
+      },
+    }, { merge: true });
+    const texto = motivo === "sin_clave"
+      ? `Llegó una consulta de ${portal} sin la clave acordada y el CRM no la tomó.`
+      : `Llegó una consulta de ${portal} con una clave distinta de la acordada y el CRM no la tomó.`;
+    for (const u of await getDireccion()) {
+      await crearNotificacion(u, {
+        type: "portal_error", subtipo: "consultas", userName: portal,
+        text: `${texto} Mientras siga así, esas consultas no llegan a la campanita. Tocá para ver el detalle.`,
+      }, { title: portal, body: "Consulta rechazada: la clave no coincide" },
+      `leadrech_${fuente}_${hoy}_${motivo}_${u.uid}`);
+    }
+  } catch (e) { logger.warn("leadRegistrarRechazo:", e.message); }
+}
+
+exports.leadInfocasas = onRequest(async (req, res) => {
+  if (req.method === "GET") { res.status(200).send("OK — receptor de leads de InfoCasas activo (usar POST)."); return; }
+  if (req.method !== "POST") { res.status(405).send("Método no permitido"); return; }
+  const leido = leadLeerCuerpo(req);
+  /* InfoCasas manda la clave en el CUERPO, en el campo "key". También se acepta
+     ?clave= en la URL o un header. (Payload confirmado por el equipo de
+     InfoCasas, 31/08/2026.) */
+  const claveEsperada = process.env.IC_LEAD_KEY || "";
+  if (claveEsperada) {
+    const recibida = leadClaveRecibida(req, leido.body);
+    if (recibida !== claveEsperada) {
+      const n0 = icNormalizarLead(leido.body);
+      const conDatos = !n0.vacia || n0.refs.length > 0;
+      await leadRegistrarRechazo("infocasas", "InfoCasas", req, leido.body, leido.formato, recibida ? "clave_distinta" : "sin_clave", conDatos);
+      res.status(401).send("Clave inválida");
+      return;
+    }
+  }
+
+  // Una consulta por envío, salvo que manden varias juntas. Un envío que no se
+  // pudo leer se procesa igual (vacío): queda guardado y la Dirección se entera.
+  const items = leido.items.length ? leido.items : [{}];
+  const recibido = new Date().toISOString();
+
+  // 1) Guardar TODOS los crudos antes de procesar ninguno: nada se pierde jamás.
+  const cola = [];
+  for (let i = 0; i < items.length; i++) {
+    const body = items[i];
+    const n = { ...icNormalizarLead(body), huella: `${leido.huella}_${i}`, dia: recibido };
+    let rawRef = null;
+    try {
+      const crudo = {
+        fuente: "infocasas", origenId: n.origenId || null,
+        recibido, body: leadSinClave(body), query: leadSinClave(req.query || {}),
+        formato: leido.formato, huella: n.huella, procesado: false, pendiente: true,
+      };
+      if (n.vacia) crudo.vacia = true;            // no se pudo leer ningún dato del interesado
+      if (leido.crudo) crudo.crudo = leido.crudo;
+      rawRef = await db.collection("leadsPortales").add(crudo);
+    } catch (e) { logger.warn("leadInfocasas: no se pudo guardar el crudo", e.message); }
+    cola.push({ rawRef, n });
+  }
+
+  // 2) Propiedad, cliente, gestión y aviso. Las que pasen de LEAD_MAX_POR_ENVIO
+  //    quedan pendientes: las toma el repaso de cada 10 minutos.
+  let fallidas = 0, perdidas = 0;
+  for (let i = 0; i < cola.length; i++) {
+    const { rawRef, n } = cola[i];
+    if (rawRef) {
+      if (i >= LEAD_MAX_POR_ENVIO) continue;
+      const r = await icProcesarCrudo(rawRef, n, "lead", 0);
+      if (!r) fallidas++;
+      else if (r.estado === "en_curso") {
+        // Llegó dos veces casi a la vez: la otra entrega es la que la procesa.
+        await rawRef.update({ procesado: true, pendiente: false, resultado: "duplicada", idLead: r.clave || null }).catch(() => {});
+      }
+      if (r) logger.info(`[leadInfocasas] ${r.estado}: ${n.nombre || "sin nombre"} (${n.telefono || "sin tel"}) -> cliente ${r.clientId || "?"} / propiedad ${r.propertyId || "no identificada"} [${leido.formato}].`);
+    } else {
+      // Sin crudo guardado no hay red: se intenta igual, y si falla se le dice a
+      // InfoCasas (500) para que lo reintente.
+      try { await icProcesarLead(n, "lead"); } catch (e) { logger.error("[leadInfocasas]", e); perdidas++; }
+    }
+  }
+  if (perdidas) { res.status(500).json({ ok: false }); return; }
+  // 200 aunque el proceso haya fallado: el crudo quedó guardado y el repaso de
+  // cada 10 minutos lo reintenta; no queremos reintentos infinitos de InfoCasas.
+  res.status(200).json(fallidas ? { ok: true, guardadoCrudo: true } : { ok: true });
+});
+
+// ============================================================================
+// CONSULTAS DE LOS PORTALES: DIAGNÓSTICO, PRUEBA Y REPROCESO
+// ----------------------------------------------------------------------------
+// "No me llegan las consultas de InfoCasas ni de Casas y Más" no se puede
+// contestar mirando la campanita: una consulta que el portal no mandó, una que
+// llegó y se rechazó por la clave, y un día sin consultas se ven igual (nada).
+// Esto junta en un solo lugar lo que pasó de verdad con cada portal y lo
+// devuelve con un veredicto ("estado") para que el CRM lo muestre en criollo.
+//
+// Tres acciones, todas solo para la Dirección:
+//   diagnostico  no cambia nada, solo lee
+//   probar       manda un aviso de prueba a quien lo pide (campanita + push)
+//   reprocesar   avisa lo que llegó y quedó sin avisar
+// ============================================================================
+const CONSULTAS_URL_IC = `https://us-central1-${process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || "mi-cartera-inmobiliaria"}.cloudfunctions.net/leadInfocasas`;
+const CONSULTAS_EVENTOS_WEBHOOK = 300;   // cuántos avisos del webhook se miran hacia atrás
+
+async function consultasEventosWebhook() {
+  /* Sin token, el webhook acepta envíos de cualquiera: lo que haya guardado no se
+     puede tomar como consulta de InfoCasas (ni mostrarlo como tal). */
+  if (!IC_WEBHOOK_TOKEN) return [];
+  try {
+    const s = await db.collection("icWebhookEventos").orderBy("recibido", "desc").limit(CONSULTAS_EVENTOS_WEBHOOK).get();
+    return s.docs;
+  } catch (e) {
+    logger.warn("consultasEventosWebhook:", e.message);
+    return [];
+  }
+}
+
+async function consultasDiagnosticoIC(uid) {
+  const ahoraMs = Date.now();
+  const ultimo = (lista) => lista.map((x) => String(x || "")).filter(Boolean).sort().slice(-1)[0] || null;
+  const ic = { url: CONSULTAS_URL_IC, claveConfigurada: !!process.env.IC_LEAD_KEY };
+
+  // Lo que llegó al receptor y pasó la clave.
+  const sLeads = await db.collection("leadsPortales").where("fuente", "==", "infocasas").get();
+  const leads = sLeads.docs.map((d) => d.data() || {}).filter((x) => !x.rechazado);
+  const hace30 = new Date(ahoraMs - 30 * 86400000).toISOString();
+  ic.recibidas = {
+    total: leads.length,
+    ultimos30: leads.filter((x) => String(x.recibido || "") >= hace30).length,
+    ultimaAt: ultimo(leads.map((x) => x.recibido)),
+    sinProcesar: leads.filter((x) => !x.procesado).length,
+    // De las sin procesar, cuántas reintenta solo el repaso de cada 10 minutos.
+    enReintento: leads.filter((x) => !x.procesado && x.pendiente === true).length,
+    // Las repetidas no cuentan (no generaron un aviso propio), ni las que no se pudieron leer.
+    sinPropiedad: leads.filter((x) => x.procesado && x.resultado === "sin_propiedad" && !x.vacia).length,
+    // Entraron con la clave bien, pero sin ningún dato del interesado que se pudiera leer.
+    ilegibles: leads.filter((x) => x.vacia === true).length,
+  };
+
+  // Lo que llegó y se rechazó por la clave (un documento por día).
+  const sRech = await db.collection("leadsRechazos").where("fuente", "==", "infocasas").get();
+  const rech = sRech.docs.map((d) => d.data() || {}).sort((a, b) => String(a.ultimoAt || "").localeCompare(String(b.ultimoAt || "")));
+  const conDatos = rech.filter((x) => Number(x.cantidad) > 0);
+  const ur = conDatos[conDatos.length - 1] || null;
+  ic.rechazadas = {
+    total: rech.reduce((n, x) => n + (Number(x.cantidad) || 0), 0),
+    // Envíos sin clave y sin ningún dato de un interesado: robots o pruebas. No son consultas.
+    sinDatos: rech.reduce((n, x) => n + (Number(x.sinDatos) || 0), 0),
+    ultimoSinDatosAt: rech.map((x) => String(x.ultimoSinDatosAt || "")).filter(Boolean).sort().slice(-1)[0] || null,
+    ultimoSinDatos: (rech.filter((x) => x.ultimoSinDatos).sort((a, b) => String(a.ultimoSinDatosAt || "").localeCompare(String(b.ultimoSinDatosAt || ""))).slice(-1)[0] || {}).ultimoSinDatos || null,
+    ultimoAt: ur ? ur.ultimoAt || null : null,
+    ultimoMotivo: ur ? ur.ultimoMotivo || null : null,
+    formato: (ur && ur.ultimo && ur.ultimo.formato) || null,
+    campos: (ur && ur.ultimo && ur.ultimo.campos) || [],
+  };
+
+  // El webhook (resultados de publicación): ¿llegó por ahí alguna consulta?
+  const eventos = (await consultasEventosWebhook()).map((d) => d.data() || {});
+  ic.webhook = {
+    eventos: eventos.length,
+    ultimoAt: ultimo(eventos.map((x) => x.recibido)),
+    consultasSinTomar: eventos.filter((x) => !x.esConsulta && leadPareceConsulta(x.body)).length,
+  };
+
+  // Los avisos que se crearon en la campanita (de todos) y cuántos eran para quien pregunta.
+  const sAv = await db.collection("notifications").where("type", "==", "consulta_infocasas").get();
+  const avisos = sAv.docs.map((d) => d.data() || {});
+  ic.avisos = {
+    total: avisos.length,
+    paraVos: avisos.filter((x) => x.ownerId === uid).length,
+    ultimoAt: ultimo(avisos.map((x) => x.createdAt)),
+  };
+
+  const R = ic.recibidas, X = ic.rechazadas;
+  ic.porAvisar = R.sinProcesar + ic.webhook.consultasSinTomar;
+  const tUlt = Date.parse(R.ultimaAt || "");
+  ic.diasSinRecibir = isNaN(tUlt) ? null : Math.floor((ahoraMs - tUlt) / 86400000);
+  // Nada de nada, o solo envíos sin clave ni datos (un robot... o un formato que no se entiende).
+  if (!R.total && !X.total && !ic.webhook.consultasSinTomar) ic.estado = X.sinDatos ? "ilegibles" : "nada";
+  // Primero lo que se puede resolver ya: consultas que llegaron y no se avisaron.
+  else if (ic.porAvisar) ic.estado = "trabadas";
+  else if (X.total && (!R.ultimaAt || String(X.ultimoAt || "") > String(R.ultimaAt))) ic.estado = "rechazando";
+  // Llegan con la clave bien, pero ninguna se pudo leer: hay que ajustar el CRM a ese formato.
+  else if (R.total && R.ilegibles === R.total) ic.estado = "formato";
+  else if (ic.diasSinRecibir != null && ic.diasSinRecibir > 10) ic.estado = "quieto";
+  else ic.estado = "bien";
+  return ic;
+}
+
+async function consultasDiagnosticoCYM(uid) {
+  const ahoraMs = Date.now();
+  const ultimo = (lista) => lista.map((x) => String(x || "")).filter(Boolean).sort().slice(-1)[0] || null;
+  const cym = { callbackUrl: CYM_CALLBACK_URL || null, secretoConfigurado: !!process.env.CYM_CALLBACK_SECRET, claveApi: !!CYM_API_KEY };
+
+  // 1. Las consultas que el portal tiene registradas, y qué pasó con las recientes.
+  cym.portal = { ok: false, codigo: null, mensaje: "Falta CYM_API_KEY." };
+  if (CYM_API_KEY) {
+    const r = await cymFetch("/consultas", null, "GET");
+    if (!r.ok) {
+      cym.portal = { ok: false, codigo: r.codigo || null, mensaje: r.mensaje || "" };
+    } else {
+      const c = r.data && r.data.consultas;
+      const lista = (Array.isArray(c) ? c : (c ? [c] : [])).map((x) => ({ x, f: cymFechaISO(x && x.fecha) }));
+      const desde = new Date(ahoraMs - CYM_REPASO_DIAS * 86400000).toISOString().slice(0, 10);
+      const recientes = lista.filter((y) => y.f.slice(0, 10) >= desde);
+      const cuenta = { avisadas: 0, sinPropiedad: 0, alActivar: 0, pendientes: 0, aMedias: 0 };
+      for (const y of recientes) {
+        const v = await db.doc(`cymConsultasVistas/${cymClaveDeConsulta(cymNormalizarConsulta(y.x))}`).get();
+        cuenta[cymEstadoDeVista(v, ahoraMs)]++;
+      }
+      cym.portal = {
+        ok: true, consultas: lista.length, recientes: recientes.length, dias: CYM_REPASO_DIAS,
+        sinFecha: lista.filter((y) => !/^\d{4}-\d{2}-\d{2}/.test(y.f)).length,
+        ultimaFecha: ultimo(lista.map((y) => y.f)), ...cuenta,
+      };
+    }
+  }
+
+  // 2. Lo que llegó por el aviso instantáneo (callback).
+  const sL = await db.collection("leadsPortales").where("fuente", "==", "casasymas").get();
+  const todos = sL.docs.map((d) => d.data() || {});
+  const rechazados = todos.filter((x) => x.rechazado).sort((a, b) => String(a.recibido || "").localeCompare(String(b.recibido || "")));
+  const ultRech = rechazados[rechazados.length - 1] || null;
+  cym.callbacks = {
+    recibidos: todos.length - rechazados.length,
+    ultimoAt: ultimo(todos.filter((x) => !x.rechazado).map((x) => x.recibido)),
+    rechazados: rechazados.length,
+    ultimoRechazoAt: ultRech ? ultRech.recibido || null : null,
+    ultimoRechazoMotivo: ultRech ? ultRech.motivo || null : null,
+  };
+
+  // 3. El repaso automático (cada 10 minutos): ¿está corriendo?
+  const marca = await db.doc("adminData/cymRepasoConsultas").get();
+  const m = marca.exists ? (marca.data() || {}) : null;
+  const programado = m ? (m.ultimoProgramadoAt || (m.ultimoOrigen === "repaso" ? m.ultimoAt : null)) : null;
+  const tProg = Date.parse(programado || "");
+  cym.repaso = {
+    corrio: !!m, ultimoAt: m ? m.ultimoAt || null : null, programadoAt: programado || null,
+    minutos: isNaN(tProg) ? null : Math.round((ahoraMs - tProg) / 60000),
+    alDia: !isNaN(tProg) && ahoraMs - tProg < 25 * 60 * 1000,
+  };
+
+  // 4. Avisos publicados y avisos creados en la campanita.
+  const sP = await db.collection("properties").where("cymEstado", "==", "publicado").get();
+  cym.publicadas = sP.size;
+  const sAv = await db.collection("notifications").where("type", "==", "lead_portal").get();
+  const avisos = sAv.docs.map((d) => d.data() || {}).filter((x) => x.userName === "Casas y Más");
+  cym.avisos = {
+    total: avisos.length,
+    paraVos: avisos.filter((x) => x.ownerId === uid).length,
+    ultimoAt: ultimo(avisos.map((x) => x.createdAt)),
+  };
+
+  const P = cym.portal;
+  cym.porAvisar = P.ok ? (P.pendientes + P.aMedias) : 0;
+  if (!CYM_API_KEY) cym.estado = "sin_clave";
+  else if (!P.ok) cym.estado = "error";
+  else if (!cym.repaso.alDia) cym.estado = "repaso_parado";
+  else if (cym.porAvisar) cym.estado = "pendientes";
+  else if (!P.consultas) cym.estado = "sin_consultas";
+  else if (!P.recientes) cym.estado = "quieto";
+  // Hay consultas recientes y ninguna se avisó: ya estaban cuando arrancó el repaso.
+  else if (P.alActivar && !(P.avisadas + P.sinPropiedad)) cym.estado = "al_activar";
+  else cym.estado = "bien";
+  return cym;
+}
+
+/* Avisa las consultas de InfoCasas que llegaron y quedaron sin avisar: las que
+   tiraron error al procesarse (el repaso las reintenta solo, esto es para no
+   esperar) y las que entraron por el webhook antes de que se reconocieran. Las
+   rechazadas por la clave NO se tocan: no se sabe quién las mandó. */
+async function consultasReprocesarIC() {
+  const res = { avisadas: 0, sinPropiedad: 0, duplicadas: 0, errores: 0 };
+  const sumar = (r) => {
+    if (!r) res.errores++;
+    else if (r.estado === "avisada") res.avisadas++;
+    else if (r.estado === "sin_propiedad") res.sinPropiedad++;
+    else res.duplicadas++;
+  };
+  const s = await db.collection("leadsPortales").where("fuente", "==", "infocasas").get();
+  for (const d of s.docs) {
+    const x = d.data() || {};
+    if (x.rechazado || x.procesado) continue;
+    sumar(await icProcesarCrudo(d.ref, { ...icNormalizarLead(x.body || {}), huella: x.huella || d.id, dia: x.recibido }, "reproceso", x.intentos));
+  }
+  // Consultas viejas que entraron por el webhook: pasan a leadsPortales, como las demás.
+  for (const d of await consultasEventosWebhook()) {
+    const x = d.data() || {};
+    if (x.esConsulta || !leadPareceConsulta(x.body)) continue;
+    try {
+      const ref = await db.collection("leadsPortales").add({
+        fuente: "infocasas", recibido: x.recibido || new Date().toISOString(), body: leadSinClave(x.body),
+        formato: "webhook", huella: d.id, procesado: false, pendiente: true,
+      });
+      await d.ref.update({ esConsulta: true, leadDoc: ref.id });
+      sumar(await icProcesarCrudo(ref, { ...icNormalizarLead(x.body), huella: d.id, dia: x.recibido }, "webhook", 0));
+    } catch (e) {
+      res.errores++;
+      logger.error("consultasReprocesarIC (webhook):", e);
+    }
+  }
+  return res;
+}
+
+/* Avisa las consultas de Casas y Más de los últimos días que el portal tiene y
+   que no se avisaron: las pendientes, las que quedaron a medias y -solo si se
+   pide- las que ya estaban cuando se activó el repaso (marcadas sin avisar). */
+async function consultasReprocesarCYM(incluirIniciales) {
+  const res = { ok: true, avisadas: 0, sinPropiedad: 0, duplicadas: 0, errores: 0 };
+  const r = await cymFetch("/consultas", null, "GET");
+  if (!r.ok) return { ok: false, codigo: r.codigo || null, mensaje: r.mensaje || "" };
+  const c = r.data && r.data.consultas;
+  const lista = Array.isArray(c) ? c : (c ? [c] : []);
+  const ahoraMs = Date.now();
+  const desde = new Date(ahoraMs - CYM_REPASO_DIAS * 86400000).toISOString().slice(0, 10);
+  for (const x of lista) {
+    if (cymFechaISO(x && x.fecha).slice(0, 10) < desde) continue;
+    try {
+      const ref = db.doc(`cymConsultasVistas/${cymClaveDeConsulta(cymNormalizarConsulta(x))}`);
+      const estado = cymEstadoDeVista(await ref.get(), ahoraMs);
+      // Las que quedaron a medias las retoma sola cymProcesarConsulta; las marcadas
+      // al activar el repaso hay que soltarlas a mano, y solo si se pidieron.
+      if (estado === "alActivar" && incluirIniciales) await ref.delete();
+      else if (estado !== "pendientes" && estado !== "aMedias") continue;
+      const out = await cymProcesarConsulta(x, "manual");
+      if (out.estado === "avisada") res.avisadas++;
+      else if (out.estado === "sin_propiedad") res.sinPropiedad++;
+      else res.duplicadas++;
+    } catch (e) {
+      res.errores++;
+      logger.error("consultasReprocesarCYM:", e);
+    }
+  }
+  // No se toca ultimoOrigen: con eso el diagnóstico sabe si el repaso PROGRAMADO anda.
+  await db.doc("adminData/cymRepasoConsultas").set({ ultimoManualAt: new Date().toISOString() }, { merge: true });
+  return res;
+}
+
+exports.consultasPortales = onCall({ timeoutSeconds: 300 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const uid = request.auth.uid;
+  const datos = request.data || {};
+  const accion = String(datos.accion || "diagnostico");
+
+  if (accion === "probar") {
+    /* Aviso de prueba para quien lo pide: mismo camino que una consulta real
+       (documento en notifications + push). Acá NO se usa crearNotificacion,
+       que nunca tira error: si no se puede escribir, hay que decirlo. */
+    const campos = {
+      type: "info", userName: "Aviso de prueba",
+      text: "Si estás viendo esto, la campanita funciona en este dispositivo. Lo podés borrar.",
+    };
+    const ref = await db.collection("notifications").add({ ownerId: uid, read: false, createdAt: new Date().toISOString(), ...campos });
+    const { lista } = await tokensPushDe({ uid });
+    await enviarPush({ uid }, campos, { title: "Aviso de prueba", body: "La campanita del CRM funciona." }, ref.id);
+    return { ok: true, dispositivos: lista.length };
+  }
+
+  if (accion === "reprocesar") {
+    const portal = String(datos.portal || "");
+    if (portal === "infocasas") return { portal, ...(await consultasReprocesarIC()), ok: true };
+    if (portal === "casasymas") return { portal, ...(await consultasReprocesarCYM(!!datos.iniciales)) };
+    throw new HttpsError("invalid-argument", "Falta el portal.");
+  }
+
+  // Diagnóstico: cada portal por separado, que un error en uno no tape al otro.
+  const out = { generadoAt: new Date().toISOString(), infocasas: null, casasymas: null };
+  try { out.infocasas = await consultasDiagnosticoIC(uid); } catch (e) {
+    logger.error("consultasPortales (InfoCasas):", e);
+    out.infocasas = { estado: "fallo", mensaje: String((e && e.message) || e) };
+  }
+  try { out.casasymas = await consultasDiagnosticoCYM(uid); } catch (e) {
+    logger.error("consultasPortales (Casas y Más):", e);
+    out.casasymas = { estado: "fallo", mensaje: String((e && e.message) || e) };
+  }
+  return out;
 });
 
 // ============================================================================
@@ -9236,6 +10076,30 @@ exports.icWebhook = onRequest(async (req, res) => {
       procesado: false,
     });
   } catch (e) { logger.warn("icWebhook: no se pudo guardar el crudo", e.message); }
+
+  /* Por este canal llegan los resultados de las tareas de publicación. Si lo que
+     llega tiene forma de CONSULTA (un interesado con su contacto), se trata como
+     tal: antes caía en "no encontré la propiedad" y se perdía. Queda guardada en
+     leadsPortales como las demás (así el repaso la reintenta si algo falla) y se
+     procesa ANTES de responder.
+     Solo con el token configurado: sin token este endpoint acepta a cualquiera
+     y no puede ser una puerta para cargar consultas falsas. */
+  if (esperado && leadPareceConsulta(body)) {
+    try {
+      const huella = ref ? ref.id : crypto.createHash("sha1").update(JSON.stringify(body)).digest("hex");
+      const crudoRef = await db.collection("leadsPortales").add({
+        fuente: "infocasas", recibido: new Date().toISOString(), body: leadSinClave(body),
+        formato: "webhook", huella, procesado: false, pendiente: true,
+      });
+      if (ref) await ref.update({ procesado: true, esConsulta: true, leadDoc: crudoRef.id });
+      await icProcesarCrudo(crudoRef, { ...icNormalizarLead(body), huella }, "webhook", 0);
+    } catch (e) {
+      logger.error("icWebhook: consulta con error", e);
+      if (ref) { try { await ref.update({ error: String(e.message || e) }); } catch (e2) { /* nada */ } }
+    }
+    res.status(200).json({ ok: true });
+    return;
+  }
 
   // Se responde 200 enseguida: si tardamos, reintentan y duplicamos trabajo.
   res.status(200).json({ ok: true });

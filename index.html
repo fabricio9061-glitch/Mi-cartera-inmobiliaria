@@ -381,6 +381,7 @@
     .notification-actions button[disabled]{ opacity:.35; cursor:default; }
     .notification-actions .btn-clear{ color:#9aa3ad; width:34px; justify-content:center; padding:7px 0; }
     .notification-actions .btn-clear:hover:not([disabled]){ background:#fdecec; color:#b91c1c; }
+    .notification-actions .nt-btn-portales{ width:34px; justify-content:center; padding:7px 0; color:#6b7480; }
 
     .notif-filtros-bar .notif-filtros{ padding:8px 14px 10px; gap:6px; }
     .notif-filtros-bar:empty{ display:none; }
@@ -460,6 +461,50 @@
     .nt-mas:hover:not([disabled]){ border-color:#C9A227; }
     .nt-mas[disabled]{ opacity:.7; cursor:default; }
 
+    /* ---- ¿Llegan las consultas de los portales? Diagnóstico para la Dirección ---- */
+    /* Arriba del cartel de "Activá las notificaciones" (9999), que si no le tapa el pie; los carteles (10000) siguen por encima. */
+    .ctr-overlay#cpOverlay{ z-index:9999; }
+    .ctr-modal.cp-modal{ max-width:580px; padding:0; display:flex; flex-direction:column; overflow:hidden; }
+    .cp-modal .cp-cab{ display:flex; align-items:flex-start; gap:12px; padding:20px 14px 14px 22px; border-bottom:1px solid #eef1f4; }
+    .cp-modal .cp-cab h3{ margin:0; font-size:1.08rem; line-height:1.3; color:#16273f; }
+    .cp-modal .cp-cab p{ margin:4px 0 0; font-size:.8rem; line-height:1.4; color:#6b7480; }
+    .cp-x{ margin-left:auto; flex:none; width:36px; height:36px; border:none; background:transparent; color:#8a94a1; border-radius:9px; font-size:1rem; cursor:pointer; }
+    .cp-x:hover{ background:#f3f5f8; color:#16273f; }
+    .cp-x:focus-visible, .cp-modal .ctr-btn:focus-visible{ outline:2px solid #C9A227; outline-offset:2px; }
+    .cp-cuerpo{ flex:1 1 auto; min-height:0; padding:16px 22px 4px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+    .cp-portal{ border:1px solid #e6eaef; border-left:4px solid #c9d0d8; border-radius:12px; padding:14px 16px; margin-bottom:14px; }
+    .cp-portal.bien{ border-left-color:#2f9e6b; } .cp-portal.ojo{ border-left-color:#d9a514; } .cp-portal.mal{ border-left-color:#d64545; }
+    .cp-portal-n{ display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:.78rem; color:#16273f; }
+    .cp-portal-n b{ font-weight:600; }
+    .cp-punto{ flex:none; width:8px; height:8px; border-radius:50%; background:#c9d0d8; }
+    .cp-portal.bien .cp-punto{ background:#2f9e6b; } .cp-portal.ojo .cp-punto{ background:#d9a514; } .cp-portal.mal .cp-punto{ background:#d64545; }
+    .cp-tono{ margin-left:auto; font-size:.72rem; color:#6b7480; }
+    .cp-portal.bien .cp-tono{ color:#237a52; } .cp-portal.ojo .cp-tono{ color:#8a6d1a; } .cp-portal.mal .cp-tono{ color:#b02a2a; }
+    .cp-tit{ margin:0 0 6px; font-size:1rem; font-weight:600; line-height:1.3; color:#16273f; }
+    .cp-det{ margin:0; font-size:.84rem; line-height:1.5; color:#4b5563; }
+    .cp-hacer{ margin-top:12px; padding-top:12px; border-top:1px solid #eef1f4; }
+    .cp-hacer > b{ display:block; margin-bottom:3px; font-size:.78rem; color:#16273f; }
+    .cp-hacer > p{ margin:0 0 10px; font-size:.84rem; line-height:1.5; color:#374151; }
+    .cp-botones{ display:flex; flex-wrap:wrap; gap:8px; }
+    .cp-res{ font-size:.78rem; line-height:1.4; color:#237a52; }
+    .cp-res:not(:empty){ margin-top:8px; }
+    .cp-res.mal{ color:#b02a2a; }
+    .cp-datos{ display:flex; flex-wrap:wrap; gap:4px 18px; margin-top:12px; font-size:.76rem; color:#6b7480; }
+    .cp-datos b{ font-weight:600; color:#16273f; font-variant-numeric:tabular-nums; }
+    .cp-nota{ margin:8px 0 0; font-size:.76rem; line-height:1.45; color:#6b7480; }
+    .cp-pie{ display:flex; align-items:center; flex-wrap:wrap; gap:8px 10px; padding:12px 22px 16px; border-top:1px solid #eef1f4; background:#fafbfc; }
+    .cp-pie span{ flex:1 1 200px; font-size:.78rem; line-height:1.4; color:#6b7480; }
+    .cp-modal .ctr-btn[disabled]{ opacity:.55; cursor:default; }
+    .cp-esq{ height:150px; margin-bottom:14px; border-radius:12px; background:linear-gradient(90deg,#f1f3f6 25%,#f8f9fb 37%,#f1f3f6 63%); background-size:400% 100%; animation:cpEsq 1.3s ease infinite; }
+    @keyframes cpEsq{ 0%{ background-position:100% 0; } 100%{ background-position:0 0; } }
+    @media (prefers-reduced-motion: reduce){ .cp-esq{ animation:none; } }
+    @media (max-width:640px){
+      .cp-modal .cp-cab{ padding:16px 8px 12px 16px; }
+      .cp-cuerpo{ padding:12px 14px 2px; }
+      .cp-pie{ padding:10px 14px 14px; }
+      .cp-botones .ctr-btn, .cp-pie .ctr-btn{ flex:1 1 auto; justify-content:center; }
+    }
+
     /* Cargando: renglones "fantasma" en vez de un spinner suelto. */
     .nt-esq{ display:flex; gap:12px; padding:14px 16px; border-bottom:1px solid #f1f3f6; }
     .nt-esq span{ width:40px; height:40px; border-radius:50%; flex:none; }
@@ -484,6 +529,7 @@
       .notification-actions span{ display:none; }
       .notification-actions button{ width:40px; height:40px; justify-content:center; padding:0; font-size:.95rem; }
       .notification-actions .btn-clear{ width:40px; }
+      .notification-actions .nt-btn-portales{ width:40px; padding:0; }
       .nt-item{ padding:13px 12px 13px 16px; }
       .nt-av{ width:44px; height:44px; }
       .nt-tit{ font-size:.92rem; }
@@ -507,7 +553,7 @@
         </div>
         <div class="as-body" id="agentSearchBody"></div>
       </div>
-      <div class="notification-dropdown" id="notificationDropdown" role="dialog" aria-label="Notificaciones"><div class="notification-header"><button class="nt-volver" onclick="closeNotifications()" aria-label="Volver"><i class="fas fa-arrow-left"></i></button><h3>Notificaciones <span class="nt-nuevas hidden" id="ntNuevas"></span></h3><div class="notification-actions"><button id="ntBtnLeidas" onclick="markAllAsRead(event)" title="Marcar todas como leídas" aria-label="Marcar todas como leídas"><i class="fas fa-check-double"></i><span>Marcar leídas</span></button><button id="ntBtnBorrar" class="btn-clear" onclick="clearAllNotifications(event)" title="Borrar las que ya leíste" aria-label="Borrar las notificaciones leídas"><i class="fas fa-trash-can"></i></button></div></div><div class="notif-filtros-bar" id="notifFiltrosBar"></div><div class="notification-list" id="notificationList"><div class="nt-vacio"><i class="fas fa-bell"></i><b>No tenés notificaciones</b></div></div></div>
+      <div class="notification-dropdown" id="notificationDropdown" role="dialog" aria-label="Notificaciones"><div class="notification-header"><button class="nt-volver" onclick="closeNotifications()" aria-label="Volver"><i class="fas fa-arrow-left"></i></button><h3>Notificaciones <span class="nt-nuevas hidden" id="ntNuevas"></span></h3><div class="notification-actions"><button id="ntBtnPortales" class="nt-btn-portales hidden" onclick="abrirConsultasPortales(event)" title="¿Llegan las consultas de los portales?" aria-label="Revisar si llegan las consultas de los portales"><i class="fas fa-stethoscope"></i></button><button id="ntBtnLeidas" onclick="markAllAsRead(event)" title="Marcar todas como leídas" aria-label="Marcar todas como leídas"><i class="fas fa-check-double"></i><span>Marcar leídas</span></button><button id="ntBtnBorrar" class="btn-clear" onclick="clearAllNotifications(event)" title="Borrar las que ya leíste" aria-label="Borrar las notificaciones leídas"><i class="fas fa-trash-can"></i></button></div></div><div class="notif-filtros-bar" id="notifFiltrosBar"></div><div class="notification-list" id="notificationList"><div class="nt-vacio"><i class="fas fa-bell"></i><b>No tenés notificaciones</b></div></div></div>
 
   <!-- Banner para activar notificaciones. Arranca oculto (display:none) y solo
        lo muestra refrescarBannerNotif() cuando hay sesión y falta el permiso.
@@ -1282,7 +1328,7 @@
   </script>
   <script src="malave-config.js?v=20260830b"></script>
   <script src="rangos.js?v=20260821l"></script>
-  <script src="app.js?v=20261002a"></script>
+  <script src="app.js?v=20261007a"></script>
   <!-- ====== MENÚ DEL VISITANTE (celular) ======
        En celular la barra oculta los enlaces del encabezado; este menú es la
        forma de llegar a "Vendé tu propiedad", "Trabajá con nosotros" y al acceso

@@ -1382,6 +1382,7 @@
         m.persona = !!nombre;
         nombre = nombre || 'Consulta de InfoCasas';
         if (!mensaje && n.text && n.text !== 'Consulta recibida desde InfoCasas') mensaje = n.text;
+        if (!pid && n.leadRef) m.pista = `Código que mandó InfoCasas: ${n.leadRef}`;
       } else if (tipo === 'lead_portal') {
         m.via = n.userName || 'Portal';
         m.persona = !!nombre;
@@ -1399,7 +1400,7 @@
         mensaje = mensaje || String(n.text || '');
       }
       m.titulo = nombre;
-      m.ctx = prop || (tipo === 'lead_portal' ? 'Sin propiedad identificada' : '');
+      m.ctx = prop || ((tipo === 'lead_portal' || (tipo === 'consulta_infocasas' && !pid)) ? 'Sin propiedad identificada' : '');
       m.txt = mensaje;
       if ((d.tel && waNum(d.tel)) || d.mail) m.contacto = { tel: d.tel && waNum(d.tel) ? d.tel : '', mail: d.mail };
       m.ir = alProp || { a: 'expandir' };
@@ -1471,6 +1472,11 @@
       case 'portal_error':
         Object.assign(m, { ic: 'fa-triangle-exclamation', col: 'rojo', titulo: `Revisar ${n.userName || 'el portal'}`, ctx: prop, txt: n.text || '' });
         m.ir = portales(_portalDe(n.userName) || 'ml');
+        if (n.subtipo === 'consultas') {
+          // El portal mandó una consulta y el CRM no la tomó: se ve en el diagnóstico.
+          Object.assign(m, { fam: 'gestion', titulo: `Consultas de ${n.userName || 'un portal'} que no entran`, boton: { txt: 'Ver qué pasa', ic: 'fa-stethoscope' } });
+          m.ir = { a: 'consultas' };
+        }
         break;
       case 'ml_error':
         Object.assign(m, { ic: 'fa-triangle-exclamation', col: 'rojo', titulo: 'Problema en Mercado Libre', ctx: prop, txt: n.text || '' });
@@ -1583,6 +1589,7 @@
       else openPropertyTab(ir.pid);
     }
     else if (ir.a === 'panel') abrirPanelDesdeNotif(ir.tab);
+    else if (ir.a === 'consultas') abrirConsultasPortales();
     else if (ir.a === 'url') { closeNotifications(); window.location.href = ir.url; }
   }
   // Clic en un aviso: queda leído y lleva a donde corresponde.
@@ -1905,6 +1912,7 @@
     if (pill) { pill.textContent = uc === 1 ? '1 nueva' : `${uc > 99 ? '99+' : uc} nuevas`; pill.classList.toggle('hidden', !uc); }
     const bl = document.getElementById('ntBtnLeidas'); if (bl) bl.disabled = !uc;
     const bd = document.getElementById('ntBtnBorrar'); if (bd) bd.disabled = !notifications.some(n => n.read && !_esDecisionPendiente(n));
+    const bp = document.getElementById('ntBtnPortales'); if (bp) bp.classList.toggle('hidden', !isAdminUser());
     const fb = document.getElementById('notifFiltrosBar');
     // Mientras llega la primera respuesta no se dice "no hay": todavía no se sabe.
     if ((currentUser && !_notifsCargadas) || (!currentUser && perfilVisible())) {
@@ -1999,6 +2007,307 @@
     renderNotifications();
     const l = document.getElementById('notificationList');
     if (l) l.scrollTop = 0;
+  }
+
+  // ==========================================================================
+  // CONSULTAS DE LOS PORTALES — ¿están llegando? (solo Dirección)
+  // --------------------------------------------------------------------------
+  // "No me llegan las consultas de InfoCasas" no se contesta mirando la
+  // campanita: que el portal no la mande, que llegue y se rechace por la clave,
+  // y que nadie haya consultado se ven igual (nada). El servidor junta lo que
+  // pasó de verdad (función consultasPortales, que devuelve un "estado" por
+  // portal) y acá se muestra en criollo, con lo que hay que hacer en cada caso.
+  // Se abre con el estetoscopio de la cabecera de la campanita.
+  // ==========================================================================
+  let _cpDatos = null;
+  function cerrarConsultasPortales() {
+    const o = document.getElementById('cpOverlay');
+    if (o) o.remove();
+    document.removeEventListener('keydown', _cpTecla);
+  }
+  function _cpTecla(e) { if (e.key === 'Escape') cerrarConsultasPortales(); }
+  // Fechas del servidor (ISO) y de Casas y Más ("2026-10-06 14:33:00", hora local).
+  function _cpCuando(f) {
+    if (!f) return 'sin fecha';
+    const txt = String(f).trim();
+    // Solo el día ("2026-10-06"): es una fecha local, no medianoche de Londres.
+    const soloDia = txt.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (soloDia) return `el ${new Date(+soloDia[1], +soloDia[2] - 1, +soloDia[3]).toLocaleDateString('es-UY', { day: 'numeric', month: 'short' }).replace('.', '')}`;
+    const d = new Date(txt.replace(' ', 'T'));
+    if (isNaN(d)) return txt;
+    const hora = d.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit', hour12: false });
+    if (d.toDateString() === new Date().toDateString()) return `hoy a las ${hora}`;
+    return `el ${d.toLocaleDateString('es-UY', { day: 'numeric', month: 'short' }).replace('.', '')} a las ${hora}`;
+  }
+  const _cpN = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
+  function _cpError(e) {
+    const c = String((e && e.code) || '');
+    if (/permission-denied/.test(c)) return 'Esta revisión es solo para la Dirección.';
+    if (/unauthenticated/.test(c)) return 'Se venció la sesión. Volvé a entrar y probá de nuevo.';
+    if (/not-found|unimplemented/.test(c)) return 'Esta revisión necesita la versión nueva del servidor, que todavía no está subida.';
+    return 'No se pudo consultar al servidor. Si recién actualizaste la página y todavía no subiste el servidor, es por eso; si no, probá de nuevo en un momento.';
+  }
+
+  // ---- Qué decir de cada portal según el estado que devuelve el servidor ----
+  function _cpInfocasas(ic) {
+    const R = ic.recibidas || {}, X = ic.rechazadas || {}, A = ic.avisos || {};
+    const t = { portal: 'InfoCasas', clave: 'infocasas', tono: 'ojo', titulo: '', detalle: '', hacer: '', botones: [], datos: [], notas: [] };
+    const pedir = { acc: 'copiar', txt: 'Copiar el pedido para InfoCasas', ic: 'fa-copy' };
+    switch (ic.estado) {
+      case 'nada':
+        t.tono = 'mal';
+        t.titulo = 'El CRM no tiene registro de ninguna consulta de InfoCasas';
+        t.detalle = 'No quedó anotado ningún envío. El CRM no las puede ir a buscar: InfoCasas se las tiene que mandar, una por una, y mientras no lo haga quedan solo en su panel. Ojo: hasta esta versión, una consulta que llegaba con la clave mal o en un formato que el CRM no leía se rechazaba sin dejar rastro. Desde ahora queda anotada acá.';
+        t.hacer = 'Pedile a tu ejecutivo de InfoCasas que confirme que el envío de consultas al CRM está activo. El mensaje ya está armado, con la dirección adonde las tienen que mandar. Si en unos días esto sigue en cero, es que no las están mandando.';
+        t.botones.push(pedir);
+        break;
+      case 'ilegibles': {
+        const U = X.ultimoSinDatos || {};
+        t.tono = 'mal';
+        t.titulo = `${_cpN(X.sinDatos, 'envío llegó', 'envíos llegaron')} sin clave y sin datos de nadie`;
+        t.detalle = `El último, ${_cpCuando(X.ultimoSinDatosAt)}. Puede ser alguien probando la dirección, o InfoCasas mandando las consultas en un formato que el CRM todavía no entiende. Consultas que se hayan podido leer, ninguna.`;
+        t.hacer = 'Pedile a InfoCasas que confirme cómo las está enviando. Con eso se ajusta el CRM.';
+        t.botones.push(pedir);
+        if (U.formato || U.tipoContenido) t.notas.push(`Así llegó el último: ${U.formato || 'formato desconocido'}${U.tipoContenido ? ` (${U.tipoContenido})` : ''}${U.bytes ? `, ${U.bytes} bytes` : ''}.`);
+        break;
+      }
+      case 'rechazando':
+        t.tono = 'mal';
+        t.titulo = 'InfoCasas manda consultas, pero el CRM las rechaza por la clave';
+        t.detalle = `${_cpN(X.total, 'envío rechazado', 'envíos rechazados')}; el último, ${_cpCuando(X.ultimoAt)}. Llegan ${X.ultimoMotivo === 'sin_clave' ? 'sin la clave acordada' : 'con una clave distinta de la acordada'}, así que el CRM no los toma.`;
+        t.hacer = 'Pedile a InfoCasas que mande la clave acordada en el campo «key». Las consultas rechazadas siguen estando en su panel.';
+        t.botones.push(pedir);
+        if (X.campos && X.campos.length) t.notas.push(`Así llegó el último: ${X.formato || 'formato desconocido'}, con los campos ${X.campos.slice(0, 12).join(', ')}.`);
+        break;
+      case 'trabadas':
+        t.titulo = _cpN(ic.porAvisar, 'consulta de InfoCasas llegó y no se avisó', 'consultas de InfoCasas llegaron y no se avisaron');
+        // Solo se promete el reintento automático de las que de verdad lo tienen.
+        t.detalle = 'Entraron bien al CRM, pero no se pudieron avisar en su momento.' +
+          (R.enReintento >= ic.porAvisar ? ' El CRM lo vuelve a intentar solo cada 10 minutos.'
+            : R.enReintento ? ` ${_cpN(R.enReintento, 'se reintenta sola', 'se reintentan solas')} cada 10 minutos; el resto, no.`
+            : ' Estas ya no se reintentan solas.');
+        t.hacer = (R.enReintento >= ic.porAvisar ? 'Si no querés esperar, se avisan ahora' : 'Se avisan ahora, con un toque') + ': se crean el cliente y el aviso que faltaron.';
+        t.botones.push({ acc: 'reprocesar', txt: ic.porAvisar === 1 ? 'Avisarla ahora' : 'Avisarlas ahora', ic: 'fa-bell', primario: true });
+        break;
+      case 'formato':
+        t.tono = 'mal';
+        t.titulo = 'Las consultas de InfoCasas llegan, pero el CRM no las puede leer';
+        t.detalle = `${_cpN(R.total, 'envío llegó', 'envíos llegaron')} con la clave correcta, en un formato que el CRM todavía no entiende. La Dirección recibió el aviso sin los datos del interesado, y cada envío quedó guardado tal cual llegó.`;
+        t.hacer = 'Hay que ajustar el CRM a ese formato: con lo que quedó guardado alcanza. Mientras tanto, esas consultas se contestan desde el panel de InfoCasas.';
+        break;
+      case 'quieto':
+        t.titulo = `InfoCasas no manda consultas desde hace ${ic.diasSinRecibir} días`;
+        t.detalle = `La última llegó ${_cpCuando(R.ultimaAt)}. Si en su panel hay consultas más nuevas, el envío al CRM se cortó de su lado.`;
+        t.hacer = 'Pedile a InfoCasas que revise el envío de consultas al CRM.';
+        t.botones.push(pedir);
+        break;
+      case 'bien':
+        t.tono = 'bien';
+        t.titulo = 'Las consultas de InfoCasas están llegando';
+        t.detalle = `La última, ${_cpCuando(R.ultimaAt)}. Llegaron ${R.ultimos30} en los últimos 30 días.`;
+        break;
+      default:
+        t.tono = 'mal'; t.titulo = 'No se pudo revisar InfoCasas'; t.detalle = ic.mensaje || 'Probá de nuevo en un momento.';
+        return t;
+    }
+    t.datos.push(['Recibidas', R.total || 0], ['Rechazadas por la clave', X.total || 0],
+      ['Avisos en la campanita', (A.total || 0) + (A.total ? ` (${A.paraVos || 0} para vos)` : '')]);
+    if (R.sinPropiedad) t.notas.push(`${_cpN(R.sinPropiedad, 'llegó', 'llegaron')} sin poder identificar la propiedad: ${R.sinPropiedad === 1 ? 'se avisó' : 'se avisaron'} a la Dirección con los datos del interesado.`);
+    if (ic.estado !== 'rechazando' && X.total) t.notas.push(`Además hubo ${_cpN(X.total, 'envío rechazado', 'envíos rechazados')} por la clave; el último, ${_cpCuando(X.ultimoAt)}.`);
+    if (ic.estado !== 'formato' && R.ilegibles) t.notas.push(`${_cpN(R.ilegibles, 'llegó', 'llegaron')} en un formato que el CRM no pudo leer: se avisó a la Dirección sin los datos del interesado.`);
+    if (ic.estado !== 'ilegibles' && X.sinDatos) t.notas.push(`${_cpN(X.sinDatos, 'envío llegó', 'envíos llegaron')} sin clave y sin datos que se pudieran leer (puede ser un robot, una prueba o un formato desconocido).`);
+    if (ic.claveConfigurada === false) t.notas.push('El receptor no tiene clave configurada: hoy acepta envíos de cualquiera.');
+    return t;
+  }
+  const _CP_MOTIVO = { firma_invalida: 'la firma no coincide', sin_firma: 'llegó sin firma', timestamp_vencido: 'la hora del envío estaba vencida', clave_invalida: 'la clave no coincide' };
+  function _cpCasasYMas(c) {
+    const P = c.portal || {}, K = c.callbacks || {}, Rp = c.repaso || {}, A = c.avisos || {};
+    const t = { portal: 'Casas y Más', clave: 'casasymas', tono: 'ojo', titulo: '', detalle: '', hacer: '', botones: [], datos: [], notas: [] };
+    const avisar = (n) => ({ acc: 'reprocesar', txt: n === 1 ? 'Avisarla ahora' : 'Avisarlas ahora', ic: 'fa-bell', primario: true });
+    switch (c.estado) {
+      case 'sin_clave':
+        t.tono = 'mal';
+        t.titulo = 'Falta la clave de Casas y Más en el servidor';
+        t.detalle = 'Sin la clave el CRM no puede leer las consultas del portal ni publicar en él.';
+        return t;
+      case 'error':
+        t.tono = 'mal';
+        t.titulo = 'El CRM no pudo leer las consultas de Casas y Más';
+        t.detalle = `El portal respondió: «${P.mensaje || 'sin detalle'}»${P.codigo ? ` (código ${P.codigo})` : ''}. Mientras siga así, sus consultas no llegan a la campanita.`;
+        t.hacer = P.codigo === 26 ? 'La inmobiliaria figura inactiva en Casas y Más: hay que hablarlo con ellos.'
+          : P.codigo === 5 ? 'La clave que tiene el servidor ya no sirve: pedile la vigente a Casas y Más.'
+          : 'Probá de nuevo en un rato. Si sigue igual, consultalo con Casas y Más.';
+        return t;
+      case 'repaso_parado':
+        t.tono = 'mal';
+        t.titulo = 'El repaso automático de Casas y Más no está corriendo';
+        t.detalle = (Rp.programadoAt ? `Tendría que pasar cada 10 minutos y la última vez fue ${_cpCuando(Rp.programadoAt)}.` : 'Tendría que pasar cada 10 minutos y el CRM no tiene anotado que haya pasado.') +
+          ' Sin el repaso, una consulta que el portal no avise al instante no llega a la campanita.';
+        t.hacer = 'Si recién actualizaste el servidor, esperá 10 minutos y tocá «Volver a revisar». Si pasó más de media hora y sigue así, hay que revisarlo. Mientras tanto se puede buscar a mano.';
+        t.botones.push({ acc: 'reprocesar', txt: 'Buscar consultas ahora', ic: 'fa-rotate', primario: true });
+        break;
+      case 'pendientes':
+        t.titulo = `Hay ${_cpN(c.porAvisar, 'consulta de Casas y Más sin avisar', 'consultas de Casas y Más sin avisar')}`;
+        t.detalle = 'El repaso automático las levanta en menos de 10 minutos.';
+        t.hacer = 'Si no querés esperar, se avisan ahora.';
+        t.botones.push(avisar(c.porAvisar));
+        break;
+      case 'al_activar':
+        t.titulo = `${_cpN(P.alActivar, 'consulta reciente de Casas y Más no se avisó', 'consultas recientes de Casas y Más no se avisaron')}`;
+        t.detalle = 'Ya estaban en el portal cuando se puso en marcha el aviso automático, y esa primera vez no se mandan para no llenar la campanita de consultas viejas. Las que entren desde ahora se avisan solas.';
+        t.hacer = 'Si las querés ver igual, se mandan a la campanita.';
+        t.botones.push({ acc: 'reprocesar-iniciales', txt: P.alActivar === 1 ? 'Avisarme esa también' : 'Avisarme esas también', ic: 'fa-bell', primario: true });
+        break;
+      case 'sin_consultas':
+        t.titulo = 'Casas y Más no tiene ninguna consulta registrada';
+        t.detalle = 'El CRM le pregunta al portal cada 10 minutos y la lista viene vacía. Quien te contacta con el botón de WhatsApp o de llamar del aviso no deja consulta: solo cuenta el formulario «Consultar».';
+        break;
+      case 'quieto':
+        t.titulo = 'No hay consultas nuevas en Casas y Más';
+        t.detalle = `La última que tiene el portal es ${_cpCuando(P.ultimaFecha).replace(/^el /, 'del ').replace(/^hoy/, 'de hoy')}. Cuando entre una nueva, se avisa sola.`;
+        break;
+      case 'bien':
+        t.tono = 'bien';
+        t.titulo = 'Las consultas de Casas y Más están llegando';
+        t.detalle = `El portal tiene ${_cpN(P.recientes, 'consulta', 'consultas')} de los últimos ${P.dias} días. La última, ${_cpCuando(P.ultimaFecha)}.`;
+        if (P.alActivar) {
+          t.notas.push(`${_cpN(P.alActivar, 'ya estaba', 'ya estaban')} en el portal cuando se puso en marcha el aviso automático y no se ${P.alActivar === 1 ? 'mandó' : 'mandaron'} a la campanita.`);
+          t.botones.push({ acc: 'reprocesar-iniciales', txt: P.alActivar === 1 ? 'Avisarme esa también' : 'Avisarme esas también', ic: 'fa-bell' });
+        }
+        break;
+      default:
+        t.tono = 'mal'; t.titulo = 'No se pudo revisar Casas y Más'; t.detalle = c.mensaje || 'Probá de nuevo en un momento.';
+        return t;
+    }
+    t.datos.push(['En el portal', P.consultas || 0], [`Últimos ${P.dias || 15} días`, P.recientes || 0], ['Avisadas', (P.avisadas || 0) + (P.sinPropiedad || 0)],
+      ['Avisos en la campanita', (A.total || 0) + (A.total ? ` (${A.paraVos || 0} para vos)` : '')]);
+    if (Rp.alDia && Rp.minutos != null) t.datos.push(['Repaso automático', Rp.minutos < 1 ? 'recién' : `hace ${Rp.minutos} min`]);
+    if (P.sinPropiedad) t.notas.push(`${_cpN(P.sinPropiedad, 'no se pudo asociar', 'no se pudieron asociar')} a una propiedad: ${P.sinPropiedad === 1 ? 'se avisó' : 'se avisaron'} a la Dirección con los datos del interesado.`);
+    if (K.rechazados) t.notas.push(`El aviso instantáneo del portal se rechazó ${_cpN(K.rechazados, 'vez', 'veces')} (la última, ${_cpCuando(K.ultimoRechazoAt)}: ${_CP_MOTIVO[K.ultimoRechazoMotivo] || 'no pasó la validación'}). No se pierden: las levanta el repaso.`);
+    if (P.sinFecha) t.notas.push(`${_cpN(P.sinFecha, 'consulta del portal viene', 'consultas del portal vienen')} sin fecha: no se pueden avisar solas.`);
+    return t;
+  }
+  // El mensaje para mandarle a InfoCasas, según lo que esté pasando.
+  function _cpPedidoInfocasas(ic) {
+    const X = ic.rechazadas || {};
+    const problema = ic.estado === 'rechazando'
+      ? `Nos están llegando sus envíos de consultas, pero ${X.ultimoMotivo === 'sin_clave' ? 'sin la clave' : 'con una clave distinta de la que acordamos'}, así que nuestro sistema los rechaza (responde 401).`
+      : 'Las consultas que recibimos en InfoCasas no nos están llegando al CRM: las vemos en el panel de ustedes, pero a nuestro sistema no llega ningún envío.';
+    return ['Hola, ¿cómo están? Les escribo de Malave Inmobiliaria.', '',
+      problema, '',
+      '¿Pueden revisar que el envío de consultas (leads) esté activo para nuestra cuenta, con estos datos?',
+      `• Dirección (POST): ${ic.url || ''}`,
+      '• Clave: la que acordamos, en el campo "key"',
+      '• Campos: property_id, name, email, phone, message', '',
+      'Necesitamos que lleguen todas las consultas, también las "consultas reenviadas".',
+      'Si ya está configurado, ¿nos dicen qué respuesta les devuelve esa dirección cuando envían una? (200 = recibida · 401 = la clave no coincide).',
+      'Y si existe una forma de leer las consultas por la API, ¿nos pasan la documentación? Así las traemos también nosotros, como respaldo.', '',
+      'Muchas gracias.'].join('\n');
+  }
+
+  function _cpHtmlPortal(t) {
+    const botones = t.botones.map(b => `<button class="ctr-btn${b.primario ? ' primary' : ''}" data-cp="${b.acc}" data-portal="${t.clave}"><i class="fas ${b.ic}"></i> ${mvEsc(b.txt)}</button>`).join('');
+    const tono = { bien: 'Todo en orden', ojo: 'Para mirar', mal: 'Hay que resolverlo' }[t.tono] || '';
+    return `<section class="cp-portal ${t.tono}" data-portal="${t.clave}">` +
+      `<div class="cp-portal-n"><span class="cp-punto" aria-hidden="true"></span><b>${t.portal}</b><span class="cp-tono">${tono}</span></div>` +
+      `<p class="cp-tit">${mvEsc(t.titulo)}</p>` +
+      `<p class="cp-det">${mvEsc(t.detalle)}</p>` +
+      ((t.hacer || botones) ? `<div class="cp-hacer">${t.hacer ? `<b>Qué hacer</b><p>${mvEsc(t.hacer)}</p>` : ''}${botones ? `<div class="cp-botones">${botones}</div>` : ''}<div class="cp-res" role="status"></div></div>` : '') +
+      (t.datos.length ? `<div class="cp-datos">${t.datos.map(([e, v]) => `<span>${mvEsc(e)} <b>${mvEsc(v)}</b></span>`).join('')}</div>` : '') +
+      t.notas.map(x => `<p class="cp-nota">${mvEsc(x)}</p>`).join('') +
+      `</section>`;
+  }
+  function _cpPintar(estado) {
+    let ov = document.getElementById('cpOverlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.className = 'ctr-overlay'; ov.id = 'cpOverlay';
+      ov.addEventListener('click', _cpClic);
+      document.body.appendChild(ov);
+      document.addEventListener('keydown', _cpTecla);
+    }
+    let cuerpo;
+    if (estado.cargando) cuerpo = '<div class="cp-esq" aria-label="Revisando"></div><div class="cp-esq"></div>';
+    else if (estado.error) cuerpo = `<section class="cp-portal mal"><p class="cp-tit">No se pudo revisar</p><p class="cp-det">${mvEsc(estado.error)}</p></section>`;
+    else cuerpo = _cpHtmlPortal(_cpInfocasas((_cpDatos && _cpDatos.infocasas) || {})) + _cpHtmlPortal(_cpCasasYMas((_cpDatos && _cpDatos.casasymas) || {}));
+    ov.innerHTML = `<div class="ctr-modal cp-modal" role="dialog" aria-modal="true" aria-labelledby="cpTitulo">` +
+      `<div class="cp-cab"><div><h3 id="cpTitulo">¿Llegan las consultas de los portales?</h3>` +
+        `<p>Qué pasó de verdad con las consultas de InfoCasas y de Casas y Más.</p></div>` +
+        `<button class="cp-x" data-cp="cerrar" aria-label="Cerrar"><i class="fas fa-xmark"></i></button></div>` +
+      `<div class="cp-cuerpo">${cuerpo}</div>` +
+      `<div class="cp-pie"><span id="cpPieTxt">¿Dudás de la campanita? Mandate un aviso de prueba.</span>` +
+        `<button class="ctr-btn" data-cp="probar"><i class="fas fa-bell"></i> Aviso de prueba</button>` +
+        `<button class="ctr-btn" data-cp="revisar"${estado.cargando ? ' disabled' : ''}><i class="fas fa-rotate"></i> Volver a revisar</button></div>` +
+      `</div>`;
+  }
+  async function _cpCargar() {
+    _cpPintar({ cargando: true });
+    try {
+      const r = await firebase.functions().httpsCallable('consultasPortales')({ accion: 'diagnostico' });
+      _cpDatos = (r && r.data) || {};
+      if (document.getElementById('cpOverlay')) _cpPintar({});
+    } catch (e) {
+      console.warn('consultasPortales:', e && e.message);
+      if (document.getElementById('cpOverlay')) _cpPintar({ error: _cpError(e) });
+    }
+  }
+  function abrirConsultasPortales(ev) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    if (!isAdminUser()) return;
+    _cpCargar();
+  }
+  // Botón ocupado mientras el servidor trabaja; devuelve cómo dejarlo como estaba.
+  function _cpOcupar(btn, texto) {
+    const antes = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${texto}`;
+    return () => { btn.disabled = false; btn.innerHTML = antes; };
+  }
+  async function _cpClic(ev) {
+    if (ev.target.id === 'cpOverlay') { cerrarConsultasPortales(); return; }
+    const btn = ev.target.closest('[data-cp]');
+    if (!btn || btn.disabled) return;
+    const acc = btn.getAttribute('data-cp'), portal = btn.getAttribute('data-portal') || '';
+    if (acc === 'cerrar') { cerrarConsultasPortales(); return; }
+    if (acc === 'revisar') { _cpCargar(); return; }
+    const res = btn.closest('.cp-hacer') ? btn.closest('.cp-hacer').querySelector('.cp-res') : null;
+    const decir = (txt, mal) => { if (res) { res.textContent = txt; res.classList.toggle('mal', !!mal); } };
+    if (acc === 'copiar') {
+      const texto = _cpPedidoInfocasas((_cpDatos && _cpDatos.infocasas) || {});
+      const listo = () => decir('Copiado. Pegalo en un mail o en un WhatsApp para InfoCasas.');
+      const aMano = () => { window.prompt('Copiá el mensaje:', texto); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texto).then(listo).catch(aMano);
+      else aMano();
+      return;
+    }
+    if (acc === 'probar') {
+      const pie = document.getElementById('cpPieTxt');
+      const soltar = _cpOcupar(btn, 'Mandando…');
+      try {
+        const r = await firebase.functions().httpsCallable('consultasPortales')({ accion: 'probar' });
+        const n = Number(r && r.data && r.data.dispositivos) || 0;
+        if (pie) pie.textContent = 'Listo: en unos segundos aparece «Aviso de prueba» en la campanita. ' +
+          (n ? `También sale como alerta en ${_cpN(n, 'dispositivo', 'dispositivos')} con los avisos activados.` : 'No va a sonar en el celular: no tenés los avisos activados en ningún dispositivo.');
+      } catch (e) {
+        if (pie) pie.textContent = _cpError(e);
+      }
+      soltar();
+      return;
+    }
+    if (acc === 'reprocesar' || acc === 'reprocesar-iniciales') {
+      const soltar = _cpOcupar(btn, 'Buscando…');
+      try {
+        const r = await firebase.functions().httpsCallable('consultasPortales')({ accion: 'reprocesar', portal, iniciales: acc === 'reprocesar-iniciales' });
+        const d = (r && r.data) || {};
+        if (d.ok === false) { soltar(); decir(`El portal no dejó leer las consultas${d.mensaje ? `: ${d.mensaje}` : ''}.`, true); return; }
+        const n = (Number(d.avisadas) || 0) + (Number(d.sinPropiedad) || 0);
+        showToast(n ? _cpN(n, 'consulta avisada', 'consultas avisadas') : 'No había consultas para avisar',
+          n ? 'Ya están en la campanita' : 'Está todo al día', n ? 'fa-bell' : 'fa-circle-check');
+        await _cpCargar();
+      } catch (e) {
+        soltar(); decir(_cpError(e), true);
+      }
+    }
   }
 
   // "Ver anteriores": de a 30, después de la última cargada.
@@ -2304,6 +2613,9 @@
     const camino = typeof e.composedPath === 'function' ? e.composedPath() : [];
     const toca = (el) => !!el && (camino.includes(el) || el.contains(e.target));
     if (toca(d) || toca(b) || toca(document.getElementById('mvBottomBar')) || toca(document.getElementById('toastContainer'))) return;
+    // El diagnóstico de consultas se abre arriba de la campanita: tocar adentro (o
+    // cerrarlo) no es "tocar afuera". Se mira el camino porque al cerrarse ya no está.
+    if (camino.some((el) => el && el.id === 'cpOverlay')) return;
     closeNotifications();
   });
   // Ver la propiedad desde una notificación (funciona aunque esté archivada:

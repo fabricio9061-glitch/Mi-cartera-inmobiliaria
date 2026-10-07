@@ -526,6 +526,9 @@
     .op-tipos button.on{ border-color:var(--ink); background:#fbfaf6; color:var(--ink); font-weight:600; box-shadow:0 0 0 1px var(--ink) inset, 0 4px 14px rgba(22,39,63,.08); }
     .op-tipos button.on i{ color:var(--gold); }
     .op-seg button:focus-visible, .op-tipos button:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+    .op-seg button:disabled{ opacity:.42; cursor:not-allowed; }
+    .op-nota{ display:block; margin-top:7px; font-size:.78rem; color:#8a6d1a; }
+    .op-nota[hidden]{ display:none; }
     @media (max-width:640px){
       .op-fila{ grid-template-columns:1fr; gap:0; }
       .op-tipos{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
@@ -668,7 +671,7 @@
               <div class="op-seg" role="radiogroup" aria-labelledby="lblOper" data-select="propType">
                 <button type="button" role="radio" data-valor="sale"><i class="fas fa-tag"></i> Venta</button>
                 <button type="button" role="radio" data-valor="rent"><i class="fas fa-key"></i> Alquiler</button>
-              </div></div>
+              </div><small class="op-nota" id="notaSoloAlquiler" hidden>Las habitaciones solo se publican en alquiler.</small></div>
             <div class="op-grupo"><div class="op-lbl" id="lblPadron">Tipo de padrón</div>
               <div class="op-seg" role="radiogroup" aria-labelledby="lblPadron" data-select="propPropertyType">
                 <button type="button" role="radio" data-valor="common">Común</button>
@@ -895,7 +898,7 @@
     function elegirOpcion(btn) {
       const g = btn.closest('[data-select]');
       const sel = g && document.getElementById(g.dataset.select);
-      if (!sel) return;
+      if (!sel || btn.disabled) return;
       if (sel.value !== btn.dataset.valor) {
         sel.value = btn.dataset.valor;
         sel.dispatchEvent(new Event('change', { bubbles: true }));
@@ -3716,40 +3719,684 @@
     };
 
     // ---- Tipos agregados en octubre de 2026: chacra, cochera, llave de negocio,
-    // habitación y otros inmuebles. Todavía no tienen su lista propia sacada de
-    // Mercado Libre (la genera ml-ficha.js): mientras tanto usan los campos del
-    // tipo más parecido. El servidor le manda a cada portal solo lo que su
-    // categoría acepta, así que un campo de más no rompe nada: no viaja.
-    // Habitación y Otro inmueble no llevan el grupo InfoCasas porque esos
-    // portales no tienen la categoría (ver SIN_CATEGORIA).
-    (function () {
-      const F = FICHA_TIPOS;
-      const campos = (tipo, grupo, ids) => (F[tipo][grupo] || []).filter(c => !ids || ids.indexOf(c.id) >= 0).map(c => Object.assign({}, c));
-      F.chacra = F.campo;
-      F.llave = F.local;
-      F.cochera = {
-        'Datos del inmueble': campos('galpon', 'Datos del inmueble', ['PARKING_LOTS', 'PROPERTY_AGE', 'HAS_ELECTRIC_LIGHT']),
-        'Seguridad': campos('galpon', 'Seguridad'),
-        'Condiciones': campos('galpon', 'Condiciones'),
-        'Alquiler': campos('galpon', 'Alquiler'),
-        'InfoCasas': campos('galpon', 'InfoCasas')
-      };
-      // En un aviso de cochera, "cocheras" es lo que se ofrece: tiene que ser 1 o más.
-      Object.assign(F.cochera['Datos del inmueble'][0], { label: 'Cantidad de cocheras', min: 1, help: 'Cuántas cocheras se ofrecen en este aviso.' });
-      F.habitacion = {
-        'Datos del inmueble': campos('apartamento', 'Datos del inmueble', ['PROPERTY_AGE']),
-        'Equipamiento y servicios': campos('apartamento', 'Equipamiento y servicios', ['FURNISHED', 'HAS_INTERNET_ACCESS', 'HAS_AIR_CONDITIONING', 'HAS_HEATING', 'HAS_FRIDGE', 'WITH_LAUNDRY_CONNECTION']),
-        'Condiciones': campos('apartamento', 'Condiciones', ['CONTACT_SCHEDULE', 'IS_SUITABLE_FOR_PETS', 'PROPERTY_CODE']),
-        'Alquiler': campos('apartamento', 'Alquiler')
-      };
-      F.otro = {
-        'Datos del inmueble': campos('local', 'Datos del inmueble', ['PARKING_LOTS', 'FLOORS', 'PROPERTY_AGE', 'HAS_ELECTRIC_LIGHT']),
-        'Equipamiento y servicios': campos('local', 'Equipamiento y servicios'),
-        'Seguridad': campos('local', 'Seguridad'),
-        'Condiciones': campos('local', 'Condiciones'),
-        'Alquiler': campos('local', 'Alquiler')
-      };
-    })();
+    // habitación y otros inmuebles. La lista sale de Mercado Libre (el enlace
+    // fichaCategoriaML?tipo=nuevos del servidor, bajado el 02/10/2026) y la arma
+    // armar_fichas.py: igual que el catálogo de arriba, no se edita a mano.
+    //  · No llevan el grupo «Alquiler»: sus categorías de alquiler no tienen esos datos.
+    //  · Habitación y Otro inmueble no llevan «InfoCasas»: esos portales no tienen
+    //    la categoría (ver SIN_CATEGORIA).
+    //  · «Cantidad de cocheras» (cochera) no es de Mercado Libre: va a los otros dos.
+    Object.assign(FICHA_TIPOS, {
+      "chacra": {
+        "Datos del inmueble": [
+          {
+            "id": "LAND_ACCESS",
+            "label": "Acceso",
+            "type": "list",
+            "options": [
+              "Tierra",
+              "Arena",
+              "Asfalto",
+              "Otro",
+              "Ripio"
+            ],
+            "req": true
+          },
+          {
+            "id": "ROOMS",
+            "label": "Ambientes",
+            "type": "num",
+            "help": "Cantidad de ambientes."
+          },
+          {
+            "id": "PARKING_LOTS",
+            "label": "Cocheras",
+            "type": "num",
+            "req": true,
+            "help": "Cantidad de cocheras. Va a los tres portales."
+          },
+          {
+            "id": "WAREHOUSES",
+            "label": "Bodegas",
+            "type": "num",
+            "help": "Bodegas o depósitos. En InfoCasas marca \"Box / Depósito\"."
+          },
+          {
+            "id": "PROPERTY_AGE",
+            "label": "Antigüedad",
+            "type": "num",
+            "help": "Años de antigüedad. Va a los tres portales."
+          },
+          {
+            "id": "PAVED_ROAD_DISTANCE",
+            "label": "Distancia al asfalto",
+            "type": "num",
+            "help": "En kilómetros."
+          },
+          {
+            "id": "LOT_SHAPE",
+            "label": "Forma del terreno",
+            "type": "list",
+            "options": [
+              "Regular",
+              "Irregular",
+              "Plano"
+            ]
+          }
+        ],
+        "Ambientes": [
+          {
+            "id": "HAS_KITCHEN",
+            "label": "Cocina"
+          },
+          {
+            "id": "HAS_DINNING_ROOM",
+            "label": "Comedor"
+          },
+          {
+            "id": "HAS_MAID_ROOM",
+            "label": "Dormitorio de servicio"
+          },
+          {
+            "id": "HAS_BEDROOM_SUITE",
+            "label": "Dormitorio en suite"
+          },
+          {
+            "id": "HAS_STUDY",
+            "label": "Estudio"
+          },
+          {
+            "id": "HAS_LIVING_ROOM",
+            "label": "Living"
+          },
+          {
+            "id": "HAS_PATIO",
+            "label": "Patio"
+          },
+          {
+            "id": "HAS_PLAYROOM",
+            "label": "Cuarto de juegos"
+          },
+          {
+            "id": "HAS_TERRACE",
+            "label": "Terraza"
+          },
+          {
+            "id": "HAS_HALF_BATH",
+            "label": "Baño social"
+          },
+          {
+            "id": "HAS_DRESSING_ROOM",
+            "label": "Vestidor"
+          }
+        ],
+        "Equipamiento y servicios": [
+          {
+            "id": "HAS_INTERNET_ACCESS",
+            "label": "Acceso a internet"
+          },
+          {
+            "id": "HAS_TAP_WATER",
+            "label": "Agua corriente"
+          },
+          {
+            "id": "HAS_AIR_CONDITIONING",
+            "label": "Aire acondicionado"
+          },
+          {
+            "id": "HAS_STABLE",
+            "label": "Caballeriza"
+          },
+          {
+            "id": "HAS_HEATING",
+            "label": "Calefacción"
+          },
+          {
+            "id": "HAS_INDOOR_FIREPLACE",
+            "label": "Chimenea"
+          },
+          {
+            "id": "HAS_DRAINAGE",
+            "label": "Saneamiento"
+          },
+          {
+            "id": "HAS_NATURAL_GAS",
+            "label": "Gas natural"
+          },
+          {
+            "id": "HAS_TELEPHONE_LINE",
+            "label": "Línea telefónica"
+          },
+          {
+            "id": "HAS_ELECTRIC_LIGHT",
+            "label": "Luz eléctrica"
+          },
+          {
+            "id": "HAS_GRILL",
+            "label": "Parrillero"
+          }
+        ],
+        "Amenities del edificio o barrio": [
+          {
+            "id": "HAS_PLAYGROUND",
+            "label": "Área de juegos infantiles"
+          },
+          {
+            "id": "HAS_BASKETBALL_COURT",
+            "label": "Cancha de básquetbol"
+          },
+          {
+            "id": "HAS_FOOTBALL_PITCH",
+            "label": "Cancha de fútbol"
+          },
+          {
+            "id": "HAS_PADDLE_COURT",
+            "label": "Cancha de paddle"
+          },
+          {
+            "id": "HAS_TENNIS_COURT",
+            "label": "Cancha de tenis"
+          },
+          {
+            "id": "HAS_JACUZZI",
+            "label": "Jacuzzi"
+          },
+          {
+            "id": "HAS_SWIMMING_POOL",
+            "label": "Piscina"
+          }
+        ],
+        "Seguridad": [
+          {
+            "id": "HAS_SECURITY",
+            "label": "Circuito de cámaras de seguridad"
+          }
+        ],
+        "Condiciones": [
+          {
+            "id": "CONTACT_SCHEDULE",
+            "label": "Horario de contacto",
+            "type": "text",
+            "help": "Arranca en \"24 horas\". Cambialo solo si este aviso atiende en otro horario."
+          },
+          {
+            "id": "PROPERTY_CODE",
+            "label": "Código de la propiedad",
+            "type": "text",
+            "help": "Se genera solo y no se repite jamás. Sale como referencia en los tres portales."
+          }
+        ],
+        "InfoCasas": [
+          {
+            "id": "PROPERTY_CONDITION",
+            "label": "Estado del inmueble",
+            "type": "list",
+            "options": [
+              "Nuevo",
+              "Renovado",
+              "Buen estado",
+              "Usado",
+              "En construcción"
+            ],
+            "help": "InfoCasas lo publica como Estado (\"Usado\" va como \"a definir\")."
+          },
+          {
+            "id": "VIEW_TYPE",
+            "label": "Tipo de vista",
+            "type": "list",
+            "options": [
+              "Mar",
+              "Ciudad",
+              "Río",
+              "Laguna",
+              "Vista abierta",
+              "Sin vista especial"
+            ],
+            "help": "Qué se ve desde la propiedad."
+          },
+          {
+            "id": "IC_SOBRE",
+            "label": "Sobre (rambla / avenida)",
+            "type": "list",
+            "options": [
+              "Rambla",
+              "Avenida"
+            ],
+            "help": "Solo si la propiedad da a rambla o avenida."
+          },
+          {
+            "id": "IC_DISTANCIA_MAR",
+            "label": "Distancia al mar",
+            "type": "list",
+            "options": [
+              "Frente al mar",
+              "Menos de 100 m",
+              "200 m",
+              "300 m",
+              "400 m"
+            ],
+            "help": "Dejalo vacío si no aplica."
+          },
+          {
+            "id": "IC_TOUR3D",
+            "label": "Tour 3D (link)",
+            "type": "text",
+            "help": "Kuula, Matterport, etc. Marca \"Con tour virtual\" en Mercado Libre."
+          },
+          {
+            "id": "IC_UBICACION",
+            "label": "Pin en InfoCasas",
+            "type": "list",
+            "options": [
+              "Punto aproximado",
+              "Punto exacto"
+            ],
+            "help": "Cómo se muestra la ubicación en el mapa de InfoCasas."
+          }
+        ]
+      },
+      "cochera": {
+        "Datos del inmueble": [
+          {
+            "id": "PARKING_LOTS",
+            "label": "Cantidad de cocheras",
+            "type": "num",
+            "help": "Cuántas cocheras se ofrecen en este aviso. Va a InfoCasas y Casas y Más."
+          },
+          {
+            "id": "PROPERTY_AGE",
+            "label": "Antigüedad",
+            "type": "num",
+            "help": "Años de antigüedad. Va a los tres portales."
+          },
+          {
+            "id": "GARAGE_TYPE",
+            "label": "Tipo de cochera",
+            "type": "list",
+            "options": [
+              "Fija",
+              "Móvil"
+            ]
+          },
+          {
+            "id": "GARAGE_ACCESS",
+            "label": "Acceso de cochera",
+            "type": "list",
+            "options": [
+              "Rampa fija",
+              "Rampa móvil",
+              "Ascensor",
+              "Horizontal"
+            ]
+          },
+          {
+            "id": "COVERAGE_TYPE",
+            "label": "Tipo de cobertura",
+            "type": "list",
+            "options": [
+              "Semi cubierta",
+              "Cubierta",
+              "Descubierta"
+            ]
+          }
+        ],
+        "Seguridad": [
+          {
+            "id": "HAS_SECURITY",
+            "label": "Circuito de cámaras de seguridad"
+          }
+        ],
+        "Condiciones": [
+          {
+            "id": "CONTACT_SCHEDULE",
+            "label": "Horario de contacto",
+            "type": "text",
+            "help": "Arranca en \"24 horas\". Cambialo solo si este aviso atiende en otro horario."
+          },
+          {
+            "id": "PROPERTY_CODE",
+            "label": "Código de la propiedad",
+            "type": "text",
+            "help": "Se genera solo y no se repite jamás. Sale como referencia en los tres portales."
+          }
+        ],
+        "InfoCasas": [
+          {
+            "id": "PROPERTY_CONDITION",
+            "label": "Estado del inmueble",
+            "type": "list",
+            "options": [
+              "Nuevo",
+              "Renovado",
+              "Buen estado",
+              "Usado",
+              "En construcción"
+            ],
+            "help": "InfoCasas lo publica como Estado (\"Usado\" va como \"a definir\")."
+          },
+          {
+            "id": "VIEW_TYPE",
+            "label": "Tipo de vista",
+            "type": "list",
+            "options": [
+              "Mar",
+              "Ciudad",
+              "Río",
+              "Laguna",
+              "Vista abierta",
+              "Sin vista especial"
+            ],
+            "help": "Qué se ve desde la propiedad."
+          },
+          {
+            "id": "IC_SOBRE",
+            "label": "Sobre (rambla / avenida)",
+            "type": "list",
+            "options": [
+              "Rambla",
+              "Avenida"
+            ],
+            "help": "Solo si la propiedad da a rambla o avenida."
+          },
+          {
+            "id": "IC_DISTANCIA_MAR",
+            "label": "Distancia al mar",
+            "type": "list",
+            "options": [
+              "Frente al mar",
+              "Menos de 100 m",
+              "200 m",
+              "300 m",
+              "400 m"
+            ],
+            "help": "Dejalo vacío si no aplica."
+          },
+          {
+            "id": "IC_TOUR3D",
+            "label": "Tour 3D (link)",
+            "type": "text",
+            "help": "Kuula, Matterport, etc. Marca \"Con tour virtual\" en Mercado Libre."
+          },
+          {
+            "id": "IC_UBICACION",
+            "label": "Pin en InfoCasas",
+            "type": "list",
+            "options": [
+              "Punto aproximado",
+              "Punto exacto"
+            ],
+            "help": "Cómo se muestra la ubicación en el mapa de InfoCasas."
+          }
+        ]
+      },
+      "llave": {
+        "Datos del inmueble": [
+          {
+            "id": "PARKING_LOTS",
+            "label": "Cocheras",
+            "type": "num",
+            "req": true,
+            "help": "Cantidad de cocheras. Va a los tres portales."
+          },
+          {
+            "id": "TYPE_OF_WAREHOUSE",
+            "label": "Tipo de bodega",
+            "type": "list",
+            "options": [
+              "Bodega comercial",
+              "Nave industrial",
+              "Almacén"
+            ]
+          },
+          {
+            "id": "PROPERTY_AGE",
+            "label": "Antigüedad",
+            "type": "num",
+            "help": "Años de antigüedad. Va a los tres portales."
+          },
+          {
+            "id": "OFFICES",
+            "label": "Número de oficinas",
+            "type": "num"
+          },
+          {
+            "id": "HEIGHT",
+            "label": "Altura",
+            "type": "num",
+            "help": "En metros."
+          },
+          {
+            "id": "SUPPORTED_WEIGHT",
+            "label": "Soporte de piso",
+            "type": "num",
+            "help": "En toneladas por m²."
+          },
+          {
+            "id": "PLATFORM_TRAILERS",
+            "label": "Remolques de plataforma",
+            "type": "num"
+          },
+          {
+            "id": "HAS_BASCULE",
+            "label": "Báscula"
+          },
+          {
+            "id": "HAS_ELECTRIC_LIGHT",
+            "label": "Luz eléctrica"
+          },
+          {
+            "id": "HAS_FIRE_SYSTEM",
+            "label": "Sistema contra incendio"
+          },
+          {
+            "id": "VENTILATION_SYSTEM",
+            "label": "Sistema de ventilación"
+          }
+        ],
+        "Equipamiento y servicios": [
+          {
+            "id": "HAS_INTERNET_ACCESS",
+            "label": "Acceso a internet"
+          },
+          {
+            "id": "HAS_TAP_WATER",
+            "label": "Agua corriente"
+          },
+          {
+            "id": "HAS_AIR_CONDITIONING",
+            "label": "Aire acondicionado"
+          },
+          {
+            "id": "HAS_HEATING",
+            "label": "Calefacción"
+          },
+          {
+            "id": "HAS_NATURAL_GAS",
+            "label": "Gas natural"
+          },
+          {
+            "id": "HAS_TELEPHONE_LINE",
+            "label": "Línea telefónica"
+          }
+        ],
+        "Amenities del edificio o barrio": [
+          {
+            "id": "HAS_ELECTRIC_GENERATOR",
+            "label": "Grupo electrógeno"
+          }
+        ],
+        "Seguridad": [
+          {
+            "id": "HAS_ALARM",
+            "label": "Alarma"
+          },
+          {
+            "id": "HAS_SECURITY",
+            "label": "Circuito de cámaras de seguridad"
+          }
+        ],
+        "Condiciones": [
+          {
+            "id": "CONTACT_SCHEDULE",
+            "label": "Horario de contacto",
+            "type": "text",
+            "help": "Arranca en \"24 horas\". Cambialo solo si este aviso atiende en otro horario."
+          },
+          {
+            "id": "PROPERTY_CODE",
+            "label": "Código de la propiedad",
+            "type": "text",
+            "help": "Se genera solo y no se repite jamás. Sale como referencia en los tres portales."
+          }
+        ],
+        "InfoCasas": [
+          {
+            "id": "PROPERTY_CONDITION",
+            "label": "Estado del inmueble",
+            "type": "list",
+            "options": [
+              "Nuevo",
+              "Renovado",
+              "Buen estado",
+              "Usado",
+              "En construcción"
+            ],
+            "help": "InfoCasas lo publica como Estado (\"Usado\" va como \"a definir\")."
+          },
+          {
+            "id": "VIEW_TYPE",
+            "label": "Tipo de vista",
+            "type": "list",
+            "options": [
+              "Mar",
+              "Ciudad",
+              "Río",
+              "Laguna",
+              "Vista abierta",
+              "Sin vista especial"
+            ],
+            "help": "Qué se ve desde la propiedad."
+          },
+          {
+            "id": "IC_SOBRE",
+            "label": "Sobre (rambla / avenida)",
+            "type": "list",
+            "options": [
+              "Rambla",
+              "Avenida"
+            ],
+            "help": "Solo si la propiedad da a rambla o avenida."
+          },
+          {
+            "id": "IC_DISTANCIA_MAR",
+            "label": "Distancia al mar",
+            "type": "list",
+            "options": [
+              "Frente al mar",
+              "Menos de 100 m",
+              "200 m",
+              "300 m",
+              "400 m"
+            ],
+            "help": "Dejalo vacío si no aplica."
+          },
+          {
+            "id": "IC_TOUR3D",
+            "label": "Tour 3D (link)",
+            "type": "text",
+            "help": "Kuula, Matterport, etc. Marca \"Con tour virtual\" en Mercado Libre."
+          },
+          {
+            "id": "IC_UBICACION",
+            "label": "Pin en InfoCasas",
+            "type": "list",
+            "options": [
+              "Punto aproximado",
+              "Punto exacto"
+            ],
+            "help": "Cómo se muestra la ubicación en el mapa de InfoCasas."
+          }
+        ]
+      },
+      "habitacion": {
+        "Datos del inmueble": [
+          {
+            "id": "BEDS",
+            "label": "Camas",
+            "type": "num",
+            "help": "Cuántas camas tiene la habitación."
+          }
+        ],
+        "Equipamiento y servicios": [
+          {
+            "id": "FURNISHED",
+            "label": "Amoblado"
+          },
+          {
+            "id": "HAS_TAP_WATER",
+            "label": "Agua corriente"
+          },
+          {
+            "id": "HAS_AIR_CONDITIONING",
+            "label": "Aire acondicionado"
+          },
+          {
+            "id": "HAS_INTERNET_ACCESS",
+            "label": "Acceso a internet"
+          },
+          {
+            "id": "HAS_NATURAL_GAS",
+            "label": "Gas natural"
+          },
+          {
+            "id": "HAS_ELECTRIC_LIGHT",
+            "label": "Luz eléctrica"
+          },
+          {
+            "id": "HAS_TELEPHONE_LINE",
+            "label": "Línea telefónica"
+          }
+        ],
+        "Condiciones": [
+          {
+            "id": "CONTACT_SCHEDULE",
+            "label": "Horario de contacto",
+            "type": "text",
+            "help": "Arranca en \"24 horas\". Cambialo solo si este aviso atiende en otro horario."
+          },
+          {
+            "id": "PROPERTY_CODE",
+            "label": "Código de la propiedad",
+            "type": "text",
+            "help": "Se genera solo y no se repite jamás."
+          }
+        ]
+      },
+      "otro": {
+        "Datos del inmueble": [
+          {
+            "id": "PROPERTY_AGE",
+            "label": "Antigüedad",
+            "type": "num",
+            "help": "Años de antigüedad."
+          }
+        ],
+        "Condiciones": [
+          {
+            "id": "CONTACT_SCHEDULE",
+            "label": "Horario de contacto",
+            "type": "text",
+            "help": "Arranca en \"24 horas\". Cambialo solo si este aviso atiende en otro horario."
+          },
+          {
+            "id": "PROPERTY_CODE",
+            "label": "Código de la propiedad",
+            "type": "text",
+            "help": "Se genera solo y no se repite jamás."
+          }
+        ]
+      }
+    });
 
     function fichaActual() {
       const t = (document.getElementById('propRealEstateType') || {}).value;
@@ -3881,6 +4528,7 @@
       if (fxPaso >= pasos.length) fxPaso = Math.max(0, pasos.length - 1);
       ensureCodigo();
       ensureHorario();
+      cocheraPorDefecto();
       updateFichaCounters();
       filtrarFicha();
     }
@@ -4002,11 +4650,45 @@
     // Al cambiar tipo de inmueble u operación: re-dibuja la ficha conservando lo cargado.
     // Dormitorios y baños se exigen en casas y apartamentos (Mercado Libre los pide).
     // En un terreno o un galpón el asterisco no tenía sentido.
+    // Mercado Libre pide dormitorios en casas, apartamentos y chacras; y baños,
+    // además, en llaves de negocio y habitaciones.
+    function pideDorms(t) { return t === 'casa' || t === 'apartamento' || t === 'chacra'; }
+    function pideBanos(t) { return pideDorms(t) || t === 'llave' || t === 'habitacion'; }
     function requisitosPorTipo() {
       const t = _v('propRealEstateType');
-      const con = t === 'casa' || t === 'apartamento';
-      ['reqDorms', 'reqBanos'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = con ? '' : 'none'; });
+      const ver = (id, si) => { const e = document.getElementById(id); if (e) e.style.display = si ? '' : 'none'; };
+      ver('reqDorms', pideDorms(t)); ver('reqBanos', pideBanos(t));
+      soloAlquiler();
     }
+    // Mercado Libre solo tiene habitaciones en ALQUILER (y los otros dos portales
+    // no tienen la categoría). Con Habitación elegida la operación queda en
+    // Alquiler: publicarla "en venta" la mandaría igual a la categoría de alquiler.
+    // Si estaba en Venta y después se elige otro tipo, vuelve sola a Venta: que
+    // haber pasado por Habitación no deje una casa "en alquiler" sin querer.
+    let _operAntesDeHabitacion = null;
+    function soloAlquiler() {
+      const hab = _v('propRealEstateType') === 'habitacion';
+      const venta = document.querySelector('[data-select="propType"] [data-valor="sale"]');
+      if (venta) { venta.disabled = hab; venta.title = hab ? 'Las habitaciones solo se publican en alquiler' : ''; }
+      const nota = document.getElementById('notaSoloAlquiler'); if (nota) nota.hidden = !hab;
+      const sel = document.getElementById('propType');
+      if (!sel) return;
+      const poner = (v) => { sel.value = v; sel.dispatchEvent(new Event('change', { bubbles: true })); };
+      if (hab && sel.value !== 'rent') { _operAntesDeHabitacion = sel.value; poner('rent'); }
+      else if (!hab && _operAntesDeHabitacion) {
+        const antes = _operAntesDeHabitacion; _operAntesDeHabitacion = null;
+        if (sel.value === 'rent') poner(antes);
+      }
+    }
+    // En un aviso de cochera la cantidad arranca en 1 (es lo que se ofrece). Si el
+    // agente no la tocó y cambia de tipo, ese 1 no se arrastra al tipo nuevo.
+    let _cocheraAuto = false;
+    function cocheraPorDefecto() {
+      const el = document.getElementById('fc-PARKING_LOTS');
+      if (!el || _v('propRealEstateType') !== 'cochera' || el.value !== '') return;
+      el.value = '1'; _cocheraAuto = true;
+    }
+    document.addEventListener('input', e => { if (e.target && e.target.id === 'fc-PARKING_LOTS') _cocheraAuto = false; });
     function onTipoChange() {
       requisitosPorTipo();
       const prev = {};
@@ -4015,6 +4697,8 @@
         if (el.type === 'checkbox') prev[id] = el.checked;
         else if (el.value !== '') prev[id] = el.value;
       });
+      if (_cocheraAuto && prev.PARKING_LOTS === '1' && _v('propRealEstateType') !== 'cochera') delete prev.PARKING_LOTS;
+      _cocheraAuto = false;
       renderFicha();
       fillFichaObj(prev);
     }
@@ -4061,8 +4745,10 @@
         if (!c.type) { el.checked = !!v; const w = el.closest('.fx-check'); if (w) w.classList.toggle('on', !!v); }
         else el.value = (v != null ? v : '');
       });
+      if (ficha && ficha.PARKING_LOTS != null && ficha.PARKING_LOTS !== '') _cocheraAuto = false;
       ensureCodigo();
       ensureHorario();
+      cocheraPorDefecto();
       updateFichaCounters();
       calidadRecalc();
     }
@@ -4416,7 +5102,7 @@
       const R = [];
       const add = (o) => R.push(Object.assign({ portales: TODOS, oblig: true, det: '' }, o));
       const tipo = _v('propRealEstateType');
-      const conDorms = tipo === 'casa' || tipo === 'apartamento';
+      const conDorms = pideDorms(tipo), conBanos = pideBanos(tipo);
       const txt = id => String(_v(id) || '').trim();
       const numOk = id => { const v = txt(id); return v !== '' && parseFloat(v) >= 0; };
       const noNeg = id => { const v = txt(id); return v === '' || parseFloat(v) >= 0; };
@@ -4430,7 +5116,7 @@
       add({ clave: 'pin', paso: 1, campo: 'propMapa', txt: 'Pin en el mapa', hacer: 'Fijá el pin en el mapa', portales: ['ic', 'cym'], oblig: false, ok: pin });
       // Paso 3 · Características
       add({ clave: 'dorms', paso: 2, campo: 'propBedrooms', txt: 'Dormitorios', hacer: 'Cargá los dormitorios (0 si es monoambiente)', ok: conDorms ? numOk('propBedrooms') : noNeg('propBedrooms') });
-      add({ clave: 'banos', paso: 2, campo: 'propBathrooms', txt: 'Baños', hacer: 'Cargá los baños', ok: conDorms ? numOk('propBathrooms') : noNeg('propBathrooms') });
+      add({ clave: 'banos', paso: 2, campo: 'propBathrooms', txt: 'Baños', hacer: 'Cargá los baños', ok: conBanos ? numOk('propBathrooms') : noNeg('propBathrooms') });
       add({ clave: 'areaT', paso: 2, campo: 'propTotalArea', txt: 'Superficie total', hacer: 'Cargá la superficie total', ok: numOk('propTotalArea') });
       add({ clave: 'areaP', paso: 2, campo: 'propBuiltArea', txt: 'Área privada', hacer: 'Cargá el área privada (0 si no tiene)', ok: numOk('propBuiltArea') });
       // InfoCasas no publica sin alguna superficie mayor a 0. Se marca solo cuando
@@ -5009,7 +5695,7 @@
        qué falta y se lleva al agente hasta el campo. */
     function basicosFaltantes() {
       const tipo = _v('propRealEstateType');
-      const conDorms = tipo === 'casa' || tipo === 'apartamento';
+      const conDorms = pideDorms(tipo), conBanos = pideBanos(tipo);
       const vacio = id => String(_v(id) || '').trim() === '';
       const numMal = id => { const v = String(_v(id) || '').trim(); return v === '' || !(parseFloat(v) >= 0); };
       // Vacío está bien, pero no un número negativo (antes lo frenaba el navegador).
@@ -5019,7 +5705,7 @@
       f(vacio('propDepartamento'), 'propDepartamento', 1, 'Departamento');
       f(vacio('propCiudad'), 'propCiudad', 1, 'Ciudad/Barrio');
       f(conDorms ? numMal('propBedrooms') : negativo('propBedrooms'), 'propBedrooms', 2, 'Dormitorios (0 si es monoambiente)');
-      f(conDorms ? numMal('propBathrooms') : negativo('propBathrooms'), 'propBathrooms', 2, 'Baños');
+      f(conBanos ? numMal('propBathrooms') : negativo('propBathrooms'), 'propBathrooms', 2, 'Baños');
       f(numMal('propTotalArea'), 'propTotalArea', 2, 'Superficie total');
       f(numMal('propBuiltArea'), 'propBuiltArea', 2, 'Área privada (0 si no tiene)');
       f(vacio('propTitle'), 'propTitle', 5, 'Título');
