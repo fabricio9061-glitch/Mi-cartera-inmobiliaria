@@ -128,7 +128,8 @@
   const _TIPOS_CAMPANITA = new Set(['ml_lead', 'consulta_infocasas', 'lead_portal', 'crm_seguimiento', 'crm_pausa',
     'vencimiento_alquiler', 'ficha_incompleta', 'despublicar_confirmar', 'baja_resuelta', 'propiedad_reservada',
     'destacado_vencido', 'portal_publicada', 'portal_sin_cupo', 'portal_error', 'ml_error', 'refresh_token',
-    'authorization_code', 'retiro', 'retiro_estado', 'admin_pendiente', 'postulacion', 'revision_rechazada', 'info']);
+    'authorization_code', 'retiro', 'retiro_estado', 'admin_pendiente', 'postulacion', 'revision_rechazada', 'info',
+    'cierre_pendiente']);
   function pushEnPrimerPlano(p) {
     const d = (p && p.datos) || {};
     // Si es un aviso de la campanita y el listener en vivo anda, el toast lo pone
@@ -1469,6 +1470,26 @@
         Object.assign(m, { ic: 'fa-star', col: 'ambar', titulo: 'Terminó un destacado', ctx: prop, txt: n.text || '' });
         m.ir = alProp;
         break;
+      case 'cierre_pendiente': {
+        // Un agente cerró una venta o un alquiler y lo cargó en el Mapa de cierres:
+        // queda pendiente hasta que el CEO lo confirma. Lleva a ese cierre en el
+        // mapa. Cuando se confirma o se borra, el servidor lo deja leído y anota cuál fue.
+        const r = n.resuelta || '';
+        const alq = n.cierreTipo === 'alquiler';
+        const precio = Number(n.cierrePrecio) || 0;
+        const monto = precio ? formatPrice(precio, n.cierreMoneda) + (alq ? ' al mes' : '') : '';
+        Object.assign(m, { fam: 'gestion', ic: 'fa-handshake', col: r === 'confirmado' ? 'verde' : r === 'borrado' ? 'gris' : 'ambar',
+          titulo: r === 'confirmado' ? 'Cierre confirmado' : r === 'borrado' ? 'Cierre borrado' : 'Cierre para confirmar',
+          ctx: prop, agente: n.cierreAgente || '', urgente: !r });
+        m.txt = n.cierreTipo ? (alq ? 'Alquiler' : 'Venta') + (monto ? ' por ' + monto : '') : (n.text || '');
+        if (!r) m.boton = { txt: 'Ver el cierre', ic: 'fa-map-location-dot' };
+        m.ir = { a: 'url', url: 'mapa-cierres.html' + (pid ? '?id=' + encodeURIComponent(pid) : '') };
+        m.toastTitulo = 'Nuevo cierre para confirmar';
+        m.toastTexto = n.cierreTipo
+          ? (m.agente ? m.agente + ': ' : '') + (alq ? 'alquiler' : 'venta') + (prop ? ' de ' + prop : '') + (monto ? ' por ' + monto : '')
+          : (n.text || prop);
+        break;
+      }
       case 'portal_publicada':
         Object.assign(m, { ic: 'fa-circle-check', col: 'verde', titulo: `Publicada en ${n.userName || 'el portal'}`, ctx: prop });
         m.ir = alProp;

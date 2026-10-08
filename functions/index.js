@@ -6315,6 +6315,81 @@ exports.borrarCvPostulacion = onDocumentDeleted("postulaciones/{id}", async (eve
   }
 });
 
+/* Aviso a la Dirección cuando se registra un cierre (Mapa de cierres).
+   El cierre queda "Pendiente" hasta que el CEO lo confirma, y hasta ahora no le
+   avisaba a nadie: había que entrar al mapa a mirar si había algo nuevo.
+   - Se avisa UNA vez por operación (cierre.registradoEl): corregir el mismo
+     cierre no vuelve a avisar, y volver a mandar el mismo hecho tampoco (el id
+     del aviso es fijo por persona y operación).
+   - A quien lo cargó (cierre.registradoPor, por ejemplo el CEO cargándolo por
+     un agente) no se le avisa de lo que acaba de hacer.
+   - Cuando el cierre se confirma, o se borra, los avisos de ese cierre quedan
+     leídos: la campanita no sigue pidiendo algo que ya se hizo.
+   Lo escribe la propiedad, no la página: avisa venga de donde venga el cierre. */
+function montoCierre(precio, moneda, tipo) {
+  const n = Math.round(Number(precio) || 0);
+  if (!n) return "";
+  // Siempre con punto de miles (US$ 1.500), igual que el CRM.
+  return `${moneda === "UYU" ? "$U" : "US$"} ${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}${tipo === "alquiler" ? " al mes" : ""}`;
+}
+exports.avisarCierre = onDocumentUpdated("properties/{id}", async (event) => {
+  const before = event.data.before.data() || {};
+  const after = event.data.after.data();
+  if (!after) return;
+  const id = event.params.id;
+  const cA = before.cierre && typeof before.cierre === "object" ? before.cierre : null;
+  const cD = after.cierre && typeof after.cierre === "object" ? after.cierre : null;
+
+  // 1) Se confirmó o se borró: sus avisos pendientes quedan leídos.
+  const confirmado = before.cierreConfirmado !== true && after.cierreConfirmado === true;
+  const borrado = !!cA && !cD;
+  if (confirmado || borrado) {
+    try {
+      const q = await db.collection("notifications").where("propertyId", "==", id)
+        .where("type", "==", "cierre_pendiente").get();
+      for (const d of q.docs) {
+        const n = d.data() || {};
+        if (n.read === true && n.resuelta) continue;
+        await d.ref.update({ read: true, resuelta: confirmado ? "confirmado" : "borrado", resueltaAt: new Date().toISOString() });
+      }
+    } catch (e) { logger.warn(`avisarCierre ${id}: no se pudieron cerrar los avisos`, e.message); }
+    return;
+  }
+
+  // 2) Operación nueva, pendiente de confirmar.
+  if (!cD || after.cierreConfirmado === true) return;
+  const nuevo = !cA || String(cA.registradoEl || "") !== String(cD.registradoEl || "");
+  if (!nuevo) return;
+  const tipo = cD.tipo === "alquiler" ? "alquiler" : "venta";
+  const agente = String(cD.agenteNombre || after.ownerName || "Un agente");
+  const titulo = String(after.title || "una propiedad");
+  const precio = Number(cD.precio) || 0;
+  const monto = montoCierre(precio, cD.moneda, tipo);
+  const texto = `${agente} cerró ${tipo === "venta" ? "la venta" : "el alquiler"} de "${titulo}"` +
+    `${monto ? ` por ${monto}` : ""}. Falta ${tipo === "venta" ? "confirmarla" : "confirmarlo"} en el Mapa de cierres.`;
+  const clave = crypto.createHash("sha1").update(String(cD.registradoEl || "")).digest("hex").slice(0, 12);
+  const quienCargo = String(cD.registradoPor || "");
+  let avisados = 0;
+  for (const u of await getDireccion()) {
+    if (quienCargo && u.uid === quienCargo) continue;
+    try {
+      await crearNotificacion(u, {
+        type: "cierre_pendiente", propertyId: id, propertyTitle: String(after.title || ""),
+        userName: "Cierre para confirmar", text: texto,
+        // El push lleva directo al cierre en el mapa (el service worker respeta esta dirección).
+        url: `mapa-cierres.html?id=${encodeURIComponent(id)}`,
+        cierreTipo: tipo, cierrePrecio: precio || null, cierreMoneda: cD.moneda || null, cierreAgente: agente,
+      }, {
+        title: "Nuevo cierre para confirmar",
+        body: `${agente}: ${tipo} de ${titulo}${monto ? ` por ${monto}` : ""}`,
+      }, `cierre_${id}_${clave}_${u.uid}`);
+      avisados++;
+    } catch (e) { logger.warn(`avisarCierre ${id}: falló para ${u.uid}`, e.message); }
+  }
+  await registrarLog(id, "Cierre registrado: aviso a la Dirección", true,
+    `${tipo} · ${agente} · ${avisados ? `${avisados} avisado(s)` : "nadie más que avisar"}`);
+});
+
 /* Aviso a Dirección cuando una propiedad pasa a reservada. */
 exports.avisarReserva = onDocumentUpdated("properties/{id}", async (event) => {
   const before = event.data.before.data();

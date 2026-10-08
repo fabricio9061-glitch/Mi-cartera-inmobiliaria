@@ -754,6 +754,7 @@
         pintarFiltros();
         initMap();
         refrescar(true);
+        abrirPedido();
         // El admin es el único que genera recibos: jsPDF se baja cuando el navegador está libre.
         if (isAdmin){
           const precargar = () => asegurarPDF().catch(() => {});
@@ -766,6 +767,31 @@
         $('lista').innerHTML = '<div class="vacio err"><i class="fas fa-triangle-exclamation"></i>No se pudieron cargar los cierres. ' + esc(e.message || e)
           + '<br><button type="button" class="btn btn-ghost" onclick="location.reload()"><i class="fas fa-rotate-right"></i> Reintentar</button></div>';
       }
+    }
+
+    /* Link directo a un cierre (mapa-cierres.html?id=PROPIEDAD): es adonde lleva
+       el aviso de "Cierre para confirmar". Se muestra aunque los filtros lo
+       escondieran, se marca en la lista y se abre su globo en el mapa. */
+    function abrirPedido(){
+      let id = '';
+      try { id = new URLSearchParams(location.search).get('id') || ''; } catch(e) {}
+      const p = id && porId[id];
+      if (!p || cierres.indexOf(p) < 0){
+        if (id) toast('Ese cierre ya no está en el mapa (puede haberse borrado).', true);
+        return;
+      }
+      if (!pasaFiltros(p)){ limpiarFiltros(true); pintarFiltros(); }
+      selId = p.id;
+      refrescar(false);
+      // El mapa recién se armó: se le da un instante antes de moverlo.
+      setTimeout(() => {
+        enfocarCierre(p.id);
+        const card = $('cc-' + p.id);
+        if (card && !escritorio()){
+          const w = $('mapaWrap'), tope = document.querySelector('.mv-head').offsetHeight + 8;
+          window.scrollTo({ top: w.getBoundingClientRect().top + window.scrollY - tope });
+        }
+      }, 450);
     }
 
     // ---------- Filtros ----------
@@ -1949,6 +1975,8 @@
         if (tipo === 'venta') cierre.agencyPct = totPartes; else cierre.agencyMonths = totPartes;
       }
       if (correccion) cierre.editadoEl = ahora;
+      const cargo = correccion ? (previo.registradoPor || '') : curUser.uid;
+      if (cargo) cierre.registradoPor = cargo;
       const upd = { cierre: cierre, updatedAt: ahora };
       // El estado de la propiedad (que baja o sube los avisos en los portales) solo
       // se toca en una operación nueva, o si la propiedad ya figura vendida/alquilada.
@@ -1963,11 +1991,11 @@
         try{ await ref.update(upd); }
         catch(e1){
           // Red de seguridad: si las reglas de Firestore no aceptaran los campos
-          // nuevos (agencyPct / agencyMonths / editadoEl), se guarda exactamente
-          // como lo hacía la versión anterior en vez de fallar.
+          // nuevos (agencyPct / agencyMonths / editadoEl / registradoPor), se guarda
+          // exactamente como lo hacía la versión anterior en vez de fallar.
           if (!(e1 && e1.code === 'permission-denied')) throw e1;
           const comoAntes = Object.assign({}, cierre);
-          delete comoAntes.agencyPct; delete comoAntes.agencyMonths; delete comoAntes.editadoEl;
+          delete comoAntes.agencyPct; delete comoAntes.agencyMonths; delete comoAntes.editadoEl; delete comoAntes.registradoPor;
           upd.cierre = comoAntes;
           await ref.update(upd);
           cierre = comoAntes;
