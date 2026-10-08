@@ -584,6 +584,7 @@
     document.getElementById('mvSidePapelera')?.classList.toggle('hidden', !esCeo);
     document.getElementById('mvSideRenta')?.classList.toggle('hidden', !verDir);
     document.getElementById('mvSideInteres')?.classList.toggle('hidden', !verDir);
+    document.getElementById('mvSideAuditIC')?.classList.toggle('hidden', !verDir);
     if (currentUser && isAdminUser()) actualizarBadgePendientes();
   }
   function closeSideMenu() {
@@ -3596,14 +3597,23 @@
         !_portalesData && { icono: 'fas fa-spinner fa-spin', texto: 'Consultando el portal…' }
       ];
       if (fallo) {
-        cfg.notas.push({ tono: 'warn', html: 'InfoCasas no aceptó los últimos cambios: el aviso sigue publicado con la versión anterior. ' +
-          (puede ? 'Tocá <strong>Actualizar</strong> para reintentar.' : 'Lo puede reintentar el agente de la propiedad.') + detalleAdmin((err && err.mensaje) || (t && t.mensajes)) });
+        /* Si no se mandó porque a la ficha le falta algo, no es que InfoCasas lo
+           rechazó: se dice qué falta y dónde se completa. */
+        const sinMandar = err && Array.isArray(err.faltan) && err.faltan.length ? icFaltanAmigable(err.faltan) : null;
+        cfg.notas.push({ tono: 'warn', html: sinMandar
+          ? `Los últimos cambios no se mandaron a InfoCasas porque a la ficha le falta: <strong>${mvEsc(sinMandar.join(', '))}</strong>. ` +
+            (puede ? 'Completalo en <strong>Editar propiedad</strong> y guardá: se manda solo.' : 'Lo completa el agente de la propiedad en Editar propiedad.')
+          : 'InfoCasas no aceptó los últimos cambios: el aviso sigue publicado con la versión anterior. ' +
+            (puede ? 'Tocá <strong>Actualizar</strong> para reintentar.' : 'Lo puede reintentar el agente de la propiedad.') +
+            detalleAdmin((err && err.mensaje) || (t && t.motivo) || (t && t.mensajes)) });
       } else if (procesando && !_portalFlash.infocasas) {
         cfg.notas.push({ tono: 'info', texto: 'InfoCasas está procesando los últimos cambios. Se ven en el portal en unos minutos.' });
       }
       cfg.acciones = [
         { texto: 'Ver aviso', icono: 'fa-external-link-alt', href: icUrlAviso(p, t), cap: 'canViewExternalListing' },
         accion('actualizar', 'Actualizar', 'fa-rotate-right', fallo ? 'primary' : 'ghost', 'canUpdate'),
+        // Solo Dirección: compara lo que tiene InfoCasas con la ficha (auditoria-infocasas.html).
+        admin && { texto: 'Comparar', icono: 'fa-scale-balanced', href: location.origin + '/auditoria-infocasas.html?id=' + encodeURIComponent(p.id), cap: 'canViewExternalListing' },
         accionBaja('infocasas')
       ];
       return portalCard(cfg);

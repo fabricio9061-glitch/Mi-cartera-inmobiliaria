@@ -4779,6 +4779,8 @@ exports.revisarConsultasCYM = onSchedule(
     // Cada portal por separado: que falle uno no deja al otro sin repasar.
     try { await cymRepasarConsultas("repaso"); } catch (e) { logger.error("revisarConsultasCYM (Casas y Más):", e); }
     try { await icRepasarPendientes(); } catch (e) { logger.error("revisarConsultasCYM (InfoCasas):", e); }
+    // Publicaciones de InfoCasas que siguen sin confirmar: se mira cómo terminó su tarea.
+    try { await icRepasarPublicaciones(); } catch (e) { logger.error("revisarConsultasCYM (publicaciones IC):", e); }
   },
 );
 
@@ -5688,11 +5690,14 @@ exports.publicarVarias = onCall({ timeoutSeconds: 540 }, async (request) => {
         if (!r.ok) { corte = { id: d.id, codigo: r.codigo || null, detalle: r.mensaje || (r.faltan || []).join(", ") }; break; }
         hechas.push({ id: d.id, portalId: r.cymId, fotos: r.fotos, fotosOk: r.fotosOk });
       } else {
-        const r = await icFetch("/listing", { method: "POST", body: [armado.payload], conCookie: true });
-        if (!r.ok) { corte = { id: d.id, status: r.status, detalle: r.data }; break; }
-        const taskId = icTaskId(r.data);
-        await d.ref.update({ icTaskId: taskId, icEnviadoAt: new Date().toISOString() });
-        hechas.push({ id: d.id, taskId });
+        /* Mismo camino que el alta automática: candado, sin duplicados y la
+           propiedad queda "pendiente" para que el webhook la confirme. Antes
+           publicaba directo sin marcarla: una edición posterior la volvía a
+           publicar y el aviso quedaba repetido. */
+        const r = await icPublicar(d.ref, d.id, { manual: true, esperar: false });
+        if (r.enCurso || r.omitido) { saltadas.push({ id: d.id, motivo: r.mensaje || "publicación en curso" }); continue; }
+        if (!r.ok) { corte = { id: d.id, status: r.status || null, detalle: r.detalle || r.mensaje || (r.faltan || []).join(", ") }; break; }
+        hechas.push({ id: d.id, taskId: r.taskId || null });
       }
       // Respiro entre publicaciones: los dos portales limitan las peticiones.
       await new Promise((r) => setTimeout(r, 1200));
@@ -5843,14 +5848,19 @@ exports.estadoPortales = onCall(async (request) => {
       try {
         const r = await icFetch(`/task/${encodeURIComponent(p.icTaskId)}`, { conCookie: true });
         if (r.ok) {
-          const t = (r.data && (r.data.task || r.data)) || {};
-          const cont = Array.isArray(t.content) ? t.content[0] : null;
+          /* El resultado del AVISO manda sobre el de la tarea: una tarea
+             "COMPLETED" puede traer el aviso rechazado adentro. El modal sigue
+             leyendo "estado"; acá se lo traduce para que diga la verdad. */
+          const l = icLeerTarea(r.data, p.icListingId);
+          const ESTADO = { rechazada: "ERROR", aplicada: "COMPLETED", repetida: "FORWARDED" };
           ic.tarea = {
-            estado: String(t.status || "").toUpperCase(),
-            evento: t.event || null,
+            estado: ESTADO[l.resultado] || l.general,
+            resultado: l.resultado,
+            evento: l.evento,
             // Los mensajes de error vienen acá cuando algo falla.
-            mensajes: (cont && cont.messages && Object.keys(cont.messages).length) ? cont.messages : null,
-            frPropertyId: cont ? cont.fr_property_id || null : null,
+            mensajes: l.mensajes,
+            motivo: icResumenMensajes(l.mensajes) || null,
+            frPropertyId: l.frPropertyId,
           };
         }
       } catch (e) { logger.warn(`estadoPortales ${propertyId}: tarea IC`, e.message); }
@@ -6092,22 +6102,38 @@ async function icPublicar(ref, id, { reingreso = false, manual = false, esperar 
     // ¿Quedó una tarea de un intento anterior? Se mira cómo terminó.
     if (p.icTaskId && p.icEstado === "pendiente") {
       const r0 = await icFetch(`/task/${encodeURIComponent(p.icTaskId)}`, { conCookie: true });
-      const t0 = (r0.data && (r0.data.task || r0.data)) || {};
-      const est0 = String(t0.status || t0.state || "").toUpperCase();
-      const lid0 = r0.ok ? icListingIdDeTarea(r0.data) : null;
-      if (IC_TAREA_OK.includes(est0) && lid0) {
+      /* Se lee el resultado del AVISO (icLeerTarea), no solo el de la tarea: una
+         tarea "COMPLETED" puede traer el aviso rechazado, y una FORWARDED ("ya
+         recibí esto mismo hoy") no trae listing_id. Antes FORWARDED contaba como
+         "en curso" para siempre y el reintento no salía nunca. */
+      const l0 = r0.ok ? icLeerTarea(r0.data) : null;
+      const termino0 = !!l0 && (l0.resultado === "aplicada" || l0.resultado === "repetida");
+      let lid0 = l0 && l0.listingId, fr0 = l0 && l0.frPropertyId;
+      if (termino0 && !lid0) {
+        const enc = await icBuscarAvisoPorCodigo(p.icIntegratorCode || id, p.icListingIdAnterior);
+        if (enc) { lid0 = enc.listingId; fr0 = fr0 || enc.frPropertyId; }
+      }
+      if (termino0 && lid0) {
         await ref.update({
           ...soltar, icListingId: String(lid0),
-          icFrPropertyId: icFrPropertyIdDeTarea(r0.data) || FV.delete(),
+          icFrPropertyId: fr0 ? String(fr0) : FV.delete(),
           icIntegratorCode: p.icIntegratorCode || id,
           icEstado: "publicado", icPublicadoAt: ahora(), icUltimoError: FV.delete(),
         });
         await registrarLog(id, "InfoCasas: publicación recuperada", true, `listing ${lid0}`);
         return { ok: true, recuperado: true, listingId: String(lid0) };
       }
+      if (termino0) {
+        // Terminó sin aviso: publicar otra vez hoy daría FORWARDED de nuevo, o
+        // podría duplicarlo si sí existe. Se explica y se deja para reintentar.
+        const mensaje = l0.resultado === "repetida" ? IC_MSJ_REPETIDA_PUBLICACION : IC_MSJ_SIN_AVISO;
+        await ref.update({ ...soltar, icEstado: "error", portalesAt: FV.delete(), icUltimoError: { mensaje, at: ahora() } });
+        await registrarLog(id, "InfoCasas: publicación sin confirmar", false, l0.resultado);
+        return { ok: false, mensaje };
+      }
       // Sigue en curso, o no se pudo consultar: publicar otra vez la duplicaría.
       // Solo se sigue si terminó con error o si la tarea ya no existe (404).
-      if (!IC_TAREA_MAL.includes(est0) && r0.status !== 404) {
+      if (!(l0 && l0.resultado === "rechazada") && r0.status !== 404) {
         await ref.update(soltar);
         return { ok: false, enCurso: true,
                  mensaje: "InfoCasas todavía está procesando la publicación anterior. Se completa sola en unos minutos." };
@@ -6143,8 +6169,10 @@ async function icPublicar(ref, id, { reingreso = false, manual = false, esperar 
                mensaje: "InfoCasas no aceptó el envío. Podés volver a intentarlo." };
     }
     // portalesAt se borra para que el modal no muestre el estado viejo guardado en caché.
+    // icFirmaEnviada: con eso, al confirmarse, se sabe si la ficha cambió mientras tanto.
     await ref.update({
       ...olvidarAnterior, icTaskId: String(taskId), icEnviadoAt: ahora(), icEstado: "pendiente",
+      icFirmaEnviada: icFirma(armado.payload),
       icFaltan: FV.delete(), icUltimoError: FV.delete(), portalesAt: FV.delete(),
     });
     if (!esperar) {
@@ -6155,11 +6183,19 @@ async function icPublicar(ref, id, { reingreso = false, manual = false, esperar 
     }
 
     const fin = await icEsperarTarea(taskId);
-    const listingId = icListingIdDeTarea(fin.detalle);
-    if (fin.ok && listingId) {
+    // El resultado del AVISO, no solo el de la tarea (ver icLeerTarea).
+    const lf = fin.detalle && typeof fin.detalle === "object" ? icLeerTarea(fin.detalle) : null;
+    const terminoF = !!lf && fin.estado !== "TIMEOUT" && (lf.resultado === "aplicada" || lf.resultado === "repetida");
+    let listingId = (lf && lf.listingId) || icListingIdDeTarea(fin.detalle);
+    let frF = (lf && lf.frPropertyId) || icFrPropertyIdDeTarea(fin.detalle);
+    if (terminoF && !listingId) {
+      const enc = await icBuscarAvisoPorCodigo(armado.payload.external_code, p.icListingIdAnterior);
+      if (enc) { listingId = enc.listingId; frF = frF || enc.frPropertyId; }
+    }
+    if (terminoF && listingId) {
       await ref.update({
         ...soltar, icListingId: String(listingId),
-        icFrPropertyId: icFrPropertyIdDeTarea(fin.detalle) || FV.delete(),
+        icFrPropertyId: frF ? String(frF) : FV.delete(),
         icIntegratorCode: armado.payload.external_code,
         icEstado: "publicado", icPublicadoAt: ahora(), icUltimoError: FV.delete(),
       });
@@ -6167,12 +6203,15 @@ async function icPublicar(ref, id, { reingreso = false, manual = false, esperar 
       return { ok: true, listingId: String(listingId) };
     }
     // TIMEOUT: queda "pendiente" con su task_id. Lo resuelve el webhook, o el
-    // próximo intento mira la tarea antes de publicar.
+    // repaso de cada 10 minutos, o el próximo intento mira la tarea antes de publicar.
     const cierre = { ...soltar };
     if (fin.estado !== "TIMEOUT") {
       cierre.icEstado = "error";
+      const motivo = lf ? icResumenMensajes(lf.mensajes) : "";
       cierre.icUltimoError = {
-        mensaje: JSON.stringify((fin.detalle && (fin.detalle.task || fin.detalle)) || fin.estado || "").slice(0, 500),
+        mensaje: terminoF ? (lf.resultado === "repetida" ? IC_MSJ_REPETIDA_PUBLICACION : IC_MSJ_SIN_AVISO)
+          : motivo ? `InfoCasas rechazó la publicación: ${motivo}`
+          : JSON.stringify((fin.detalle && (fin.detalle.task || fin.detalle)) || fin.estado || "").slice(0, 500),
         at: ahora(),
       };
     }
@@ -6303,6 +6342,285 @@ exports.avisarReserva = onDocumentUpdated("properties/{id}", async (event) => {
   } catch (e) { logger.error(`avisarReserva ${id}`, e); }
 });
 
+/* ============================================================================
+   INFOCASAS: QUÉ PASÓ CON CADA ENVÍO
+   ----------------------------------------------------------------------------
+   Auditoría del 08/10/2026: una cochera corregida de dólares a pesos en el CRM
+   seguía en dólares en InfoCasas. El CRM sí mandaba el cambio; lo que fallaba
+   era todo lo de alrededor:
+     1. Se leía solo el estado GENERAL de la tarea. InfoCasas informa además el
+        resultado de CADA aviso dentro de content[] (COMPLETED, FORWARDED o
+        ERROR): una tarea "COMPLETED" con el aviso rechazado adentro pasaba por
+        buena y el modal decía "Activa".
+     2. FORWARDED ("esto mismo ya me llegó hoy, no lo proceso") se tomaba como
+        un estado intermedio sin consecuencias.
+     3. Si a la ficha le faltaba un dato, la edición no salía y solo quedaba una
+        línea en el log del servidor: nadie se enteraba.
+     4. Lo que se editaba mientras la publicación estaba "pendiente" no se
+        mandaba nunca: no había listing_id a quién mandárselo y, cuando la
+        publicación se confirmaba, nadie miraba si la ficha había cambiado.
+     5. El webhook no buscaba la propiedad por la tarea: si el aviso no traía el
+        código, la publicación quedaba "pendiente" para siempre.
+   ========================================================================== */
+
+/* FORWARDED quiere decir "esto mismo ya me llegó hoy, no lo vuelvo a procesar",
+   aunque lo anterior lo haya RECHAZADO: reenviar lo mismo el mismo día no
+   sirve. Estos son los avisos que lo explican. */
+const IC_MSJ_REPETIDA_PUBLICACION = "InfoCasas ya había recibido hoy esta misma publicación y no la volvió a procesar. " +
+  "Si antes la rechazó, corregí lo que pedía y guardá; si no, reintentá mañana.";
+const IC_MSJ_SIN_AVISO = "InfoCasas dice que terminó la publicación, pero no devolvió el aviso. " +
+  "Mirá en su panel si quedó publicada antes de reintentar.";
+const IC_MSJ_REPETIDA_EDICION = "InfoCasas no volvió a procesar estos cambios: hoy ya había recibido los mismos y los había rechazado. " +
+  "Corregí lo que pedía o reintentá mañana.";
+
+/* Lo que InfoCasas dice de una tarea, en una palabra:
+     "aplicada"  terminó y el aviso se procesó.
+     "rechazada" el aviso (o la tarea entera) dio error; el motivo va en mensajes.
+     "repetida"  FORWARDED: ya había recibido esta misma información hoy y no la
+                 vuelve a procesar. No confirma que esté aplicada: si el envío
+                 idéntico anterior había fallado, sigue sin aplicarse.
+     "en_curso"  todavía no terminó (READY, RUNNING) o no se sabe. */
+function icLeerTarea(d, listingId) {
+  const t = (d && typeof d === "object" && (d.task && typeof d.task === "object" ? d.task : d)) || {};
+  const general = String(t.status || t.state || "").toUpperCase();
+  const items = Array.isArray(t.content) ? t.content.filter((c) => c && typeof c === "object") : [];
+  const idDe = (c) => String(c.listing_id || c.listingId || "");
+  const item = (listingId && items.find((c) => idDe(c) === String(listingId))) || items[0] || null;
+  const delAviso = item ? String(item.status || "").toUpperCase() : "";
+  const conDatos = (m) => (m && typeof m === "object" && Object.keys(m).length ? m : null);
+  const mensajes = conDatos(item && item.messages) || conDatos(t.messages);
+  let resultado = "en_curso";
+  if (["ERROR", "FAILED", "REJECTED", "CANCELLED"].includes(general) || delAviso === "ERROR") resultado = "rechazada";
+  else if (delAviso === "FORWARDED" || (!delAviso && general === "FORWARDED")) resultado = "repetida";
+  else if (delAviso === "COMPLETED" || ["COMPLETED", "DONE", "SUCCESS", "FINISHED"].includes(general)) resultado = "aplicada";
+  const fr = item ? (item.fr_property_id || item.frPropertyId || "") : "";
+  const cod = (item && (item.external_code || item.integrator_code || item.externalCode)) || t.external_code || t.externalCode || "";
+  return {
+    id: t.id != null && t.id !== "" ? String(t.id) : null,
+    general, delAviso, resultado, mensajes,
+    evento: t.event ? String(t.event).toUpperCase() : null,
+    listingId: item && idDe(item) ? idDe(item) : null,
+    frPropertyId: fr ? String(fr) : null,
+    externalCode: String(cod).trim() || null,
+  };
+}
+
+/* Los mensajes de error de InfoCasas vienen anidados ({campo: [texto]}, o una
+   lista de imágenes con su error). Se aplanan a una línea legible. */
+function icResumenMensajes(m) {
+  if (!m) return "";
+  if (typeof m !== "object") return String(m).slice(0, 400);
+  const partes = [];
+  const recorrer = (v, camino, prof) => {
+    if (partes.length >= 6 || v == null || prof > 6) return;
+    if (typeof v !== "object") { partes.push((camino ? camino + ": " : "") + String(v)); return; }
+    if (Array.isArray(v)) { for (const x of v) recorrer(x, camino, prof + 1); return; }
+    for (const [k, x] of Object.entries(v)) {
+      if (/^(id|listing_id|listingId)$/.test(k)) continue;
+      recorrer(x, /^\d+$/.test(k) ? camino : (camino ? `${camino}.${k}` : k), prof + 1);
+    }
+  };
+  recorrer(m, "", 0);
+  return partes.join(" · ").slice(0, 400);
+}
+
+/* Huella de lo que se le manda a InfoCasas: dice si la ficha cambió desde el
+   último envío sin tener que guardar el aviso entero. */
+function icFirma(payload) {
+  const x = Object.assign({}, payload || {});
+  delete x.listing_id;
+  return crypto.createHash("sha1").update(JSON.stringify(x)).digest("hex").slice(0, 20);
+}
+
+/* Manda a InfoCasas la versión actual de la ficha de un aviso que ya existe
+   (PATCH /listing). Es el único camino para las ediciones: la automática al
+   guardar, el botón Actualizar, la auditoría y lo que quedó pendiente mientras
+   la publicación no estaba confirmada.
+   Todo lo que impide mandar queda anotado en la propiedad (icUltimoError) y se
+   ve en el modal de Portales. */
+async function icMandarCambios(ref, id, p, agente, origen) {
+  const FV = admin.firestore.FieldValue;
+  const ahora = new Date().toISOString();
+  const listingId = String(p.icListingId || "");
+  if (!listingId || p.icEstado === "eliminado") {
+    return { ok: false, sinAviso: true, mensaje: "La propiedad no tiene un aviso activo en InfoCasas." };
+  }
+  const armado = await icApiPayload(p, id, agente || {});
+  if (!armado.ok) {
+    await ref.update({
+      icUltimoError: {
+        mensaje: `Los últimos cambios no se mandaron a InfoCasas: falta ${armado.faltan.join(", ")}.`,
+        faltan: armado.faltan, accion: "actualizar", at: ahora,
+      },
+      portalesAt: FV.delete(),
+    });
+    await registrarLog(id, `InfoCasas: ${origen}`, false, `no se mandó, faltan: ${armado.faltan.join(", ")}`);
+    return { ok: false, faltan: armado.faltan, mensaje: "La ficha no tiene todo lo que exige InfoCasas. No se envió nada." };
+  }
+  let r;
+  try {
+    r = await icFetch("/listing", { method: "PATCH", conCookie: true, body: [{ ...armado.payload, listing_id: listingId }] });
+  } catch (e) {
+    logger.error(`icMandarCambios ${id}`, e);
+    try {
+      await ref.update({
+        icUltimoError: { mensaje: "No se pudo comunicar con InfoCasas para mandar los últimos cambios. Tocá Actualizar para reintentar.",
+                         accion: "actualizar", at: ahora },
+        portalesAt: FV.delete(),
+      });
+    } catch (e2) { /* nada */ }
+    await registrarLog(id, `InfoCasas: ${origen}`, false, String((e && e.message) || e));
+    return { ok: false, mensaje: "No se pudo comunicar con InfoCasas. Podés volver a intentarlo." };
+  }
+  if (!r.ok) {
+    const detalle = JSON.stringify(r.data == null ? "" : r.data).slice(0, 300);
+    await ref.update({
+      icUltimoError: {
+        mensaje: r.status === 404
+          ? "InfoCasas dice que el aviso ya no existe: puede haberse dado de baja desde su panel."
+          : `InfoCasas no aceptó los cambios (HTTP ${r.status}).`,
+        detalle, accion: "actualizar", at: ahora,
+      },
+      portalesAt: FV.delete(),
+    });
+    await registrarLog(id, `InfoCasas: ${origen}`, false, `HTTP ${r.status} ${detalle}`);
+    return { ok: false, status: r.status, detalle: r.data, mensaje: "InfoCasas no aceptó los cambios. Podés volver a intentarlo." };
+  }
+  const taskId = icTaskId(r.data || {});
+  const firma = icFirma(armado.payload);
+  /* Si es EXACTAMENTE lo que InfoCasas rechazó, el error queda a la vista: el
+     mismo día lo va a contestar FORWARDED sin procesarlo, y el modal no puede
+     pasar a "Activa" solo porque se reintentó. Con cualquier cambio en la
+     ficha es un envío nuevo y el error se limpia. */
+  const repiteRechazo = !!(p.icFirmaRechazada && p.icFirmaRechazada === firma);
+  await ref.update({
+    icActualizadoAt: ahora, icFirmaEnviada: firma, icUltimaTarea: FV.delete(), portalesAt: FV.delete(),
+    ...(repiteRechazo ? {} : { icUltimoError: FV.delete(), icFirmaRechazada: FV.delete() }),
+    ...(taskId ? { icTaskId: String(taskId) } : {}),
+  });
+  await registrarLog(id, `InfoCasas: ${origen}`, true, `listing ${listingId}${taskId ? " · tarea " + taskId : ""}`);
+  return { ok: true, taskId: taskId ? String(taskId) : null };
+}
+
+/* Baja automática (la propiedad se vendió, se alquiló o se archivó). Guarda la
+   tarea: así el webhook sabe que su resultado es el vigente y, si la baja
+   falla, vuelve a marcarla publicada y avisa a la Dirección. */
+async function icBajaAutomatica(ref, id, p, st) {
+  const r = await icFetch("/listing/status", {
+    method: "PATCH", conCookie: true,
+    body: [{ listing_id: String(p.icListingId), client_id: await icClientId(), status: "DELETED" }],
+  });
+  if (r.ok) {
+    const tid = icTaskId(r.data || {});
+    await ref.update({ icEstado: "eliminado", icStatusEnviado: "DELETED", icStatusAt: new Date().toISOString(),
+                       ...(tid ? { icTaskId: String(tid) } : {}) });
+    await registrarLog(id, "InfoCasas: baja automática", true, `estado ${st}`);
+  } else {
+    await registrarLog(id, "InfoCasas: baja automática", false, `HTTP ${r.status}`);
+  }
+  return r.ok;
+}
+
+/* Busca un aviso por nuestro código (el external_code). Sirve cuando InfoCasas
+   contesta una publicación sin listing_id (FORWARDED, o terminada sin él).
+   El código se repite cuando una propiedad se vuelve a publicar, y la lista
+   también trae avisos eliminados: se descartan el aviso anterior de la
+   propiedad y los eliminados, y si queda más de uno no se adivina. */
+async function icBuscarAvisoPorCodigo(codigo, excluir) {
+  const c = String(codigo || "").trim();
+  if (!c) return null;
+  const r = await icFetch(`/listing?search=${encodeURIComponent(c)}`, { conCookie: true });
+  if (!r.ok) return null;
+  const d = r.data || {};
+  const lista = Array.isArray(d) ? d : (Array.isArray(d.results) ? d.results : (Array.isArray(d.data) ? d.data : []));
+  const candidatos = lista.filter((x) => {
+    if (!x || typeof x !== "object") return false;
+    const cod = x.integratorCode != null ? x.integratorCode : (x.integrator_code != null ? x.integrator_code : x.external_code);
+    const lid = String(x.id || x.listing_id || "");
+    const st = String(x.status != null ? x.status : "").toUpperCase();
+    return String(cod || "").trim() === c && lid && lid !== String(excluir || "") && st !== "7" && st !== "DELETED";
+  });
+  if (candidatos.length !== 1) return null;
+  const x = candidatos[0];
+  const fr = x.frPropertyId || x.fr_property_id;
+  return { listingId: String(x.id || x.listing_id), frPropertyId: fr ? String(fr) : null };
+}
+
+/* Una publicación "pendiente": se le pregunta a InfoCasas cómo terminó la tarea
+   y se deja la propiedad como corresponde. La usan el repaso de cada 10 minutos
+   y la auditoría. NUNCA vuelve a publicar: eso es de icPublicar, que tiene el
+   candado y no duplica.
+   Cada escritura se hace en una transacción que verifica que la propiedad siga
+   pendiente con ESA tarea: si entretanto la confirmó el webhook o se publicó de
+   nuevo, no se pisa nada. */
+async function icConfirmarPendiente(ref, id, p) {
+  if (!p.icTaskId) return { estado: "sin_tarea" };
+  const r = await icFetch(`/task/${encodeURIComponent(p.icTaskId)}`, { conCookie: true });
+  if (!r.ok) return { estado: r.status === 404 ? "sin_tarea" : "sin_respuesta", status: r.status };
+  const l = icLeerTarea(r.data);
+  const FV = admin.firestore.FieldValue;
+  const ahora = new Date().toISOString();
+  const siSigue = (cambios) => db.runTransaction(async (tx) => {
+    const s = await tx.get(ref);
+    const d = s.exists ? (s.data() || {}) : {};
+    if (d.icListingId || d.icEstado !== "pendiente" || String(d.icTaskId || "") !== String(p.icTaskId)) return false;
+    tx.update(ref, cambios);
+    return true;
+  });
+  const termino = l.resultado === "aplicada" || l.resultado === "repetida";
+  let listingId = l.listingId, fr = l.frPropertyId;
+  if (termino && !listingId) {
+    const encontrado = await icBuscarAvisoPorCodigo(p.icIntegratorCode || id, p.icListingIdAnterior);
+    if (encontrado) { listingId = encontrado.listingId; fr = fr || encontrado.frPropertyId; }
+  }
+  if (termino && listingId) {
+    const hecho = await siSigue({
+      icListingId: String(listingId), icFrPropertyId: fr ? String(fr) : FV.delete(),
+      icIntegratorCode: p.icIntegratorCode || l.externalCode || id,
+      icEstado: "publicado", icPublicadoAt: ahora, icUltimoError: FV.delete(), portalesAt: FV.delete(),
+    });
+    if (!hecho) return { estado: "ya_estaba" };
+    await registrarLog(id, "InfoCasas: publicación confirmada", true, `listing ${listingId} (repaso)`);
+    return { estado: "publicada", listingId: String(listingId) };
+  }
+  if (termino || l.resultado === "rechazada") {
+    /* Terminó sin aviso, o la rechazó: queda en "error" con el motivo, y desde
+       Portales se puede reintentar. Antes una FORWARDED sin listing_id dejaba la
+       propiedad "pendiente" para siempre y el reintento decía "procesando". */
+    const motivo = l.resultado === "rechazada" ? icResumenMensajes(l.mensajes) : "";
+    const mensaje = l.resultado === "repetida" ? IC_MSJ_REPETIDA_PUBLICACION
+      : l.resultado === "aplicada" ? IC_MSJ_SIN_AVISO
+      : (motivo ? `InfoCasas rechazó la publicación: ${motivo}` : "InfoCasas rechazó la publicación.");
+    const hecho = await siSigue({ icEstado: "error", portalesAt: FV.delete(), icUltimoError: { mensaje, at: ahora } });
+    if (!hecho) return { estado: "ya_estaba" };
+    await registrarLog(id, "InfoCasas: publicación sin confirmar", false, `${l.resultado} · ${motivo || l.general || ""}`);
+    return { estado: "rechazada", motivo: mensaje };
+  }
+  return { estado: "en_curso", general: l.general };
+}
+
+/* Repaso de publicaciones sin confirmar. Normalmente las confirma el webhook en
+   un par de minutos; esto cubre el caso de que ese aviso no llegue. Se mira cómo
+   terminó cada tarea, sin publicar nada nuevo. */
+async function icRepasarPublicaciones() {
+  const q = await db.collection("properties").where("icEstado", "==", "pendiente").get();
+  const ahora = Date.now();
+  let revisadas = 0;
+  // Las más viejas primero, y no más de 2 minutos por corrida: lo que quede se
+  // mira en la próxima (cada 10 minutos).
+  const docs = q.docs.slice().sort((a, b) => String((a.data() || {}).icEnviadoAt || "").localeCompare(String((b.data() || {}).icEnviadoAt || "")));
+  for (const d of docs) {
+    if (Date.now() - ahora > 120 * 1000) break;
+    const p = d.data() || {};
+    if (p.icListingId || !p.icTaskId) continue;
+    const env = p.icEnviadoAt ? Date.parse(p.icEnviadoAt) : 0;
+    if (env && ahora - env < 10 * 60 * 1000) continue;   // recién mandada: primero le toca al webhook
+    revisadas++;
+    try { await icConfirmarPendiente(d.ref, d.id, p); } catch (e) { logger.warn(`icRepasarPublicaciones ${d.id}`, e.message); }
+  }
+  return revisadas;
+}
+
 exports.sincronizarPortales = onDocumentUpdated("properties/{id}", async (event) => {
   const before = event.data.before.data();
   const after = event.data.after.data();
@@ -6314,7 +6632,13 @@ exports.sincronizarPortales = onDocumentUpdated("properties/{id}", async (event)
   const stAfter = after.status || "available";
   const cambioEstado = stAfter !== stBefore;
   const cambioContenido = contentChanged(before, after);
-  if (!cambioEstado && !cambioContenido) return;
+  /* InfoCasas acaba de confirmar una publicación que estaba pendiente (por el
+     webhook, por un reintento o por el repaso). Si mientras tanto se editó la
+     ficha o cambió el estado, eso todavía no llegó al portal: antes se perdía,
+     porque mientras el aviso no tenía listing_id no había a quién mandárselo. */
+  const confirmada = !!(before && before.icEstado === "pendiente" && !before.icListingId &&
+    after.icListingId && after.icEstado === "publicado");
+  if (!cambioEstado && !cambioContenido && !confirmada) return;
 
   /* Igual que en ML: si la decisión de publicación no está tomada, no se toca.
      Se compara contra el STATUS de la propiedad, que es donde viven esos valores
@@ -6329,39 +6653,17 @@ exports.sincronizarPortales = onDocumentUpdated("properties/{id}", async (event)
   if (after.icListingId && after.icEstado !== "eliminado") {
     try {
       if (fuera) {
-        const r = await icFetch("/listing/status", {
-          method: "PATCH", conCookie: true,
-          body: [{ listing_id: String(after.icListingId), client_id: await icClientId(), status: "DELETED" }],
-        });
-        if (r.ok) {
-          await ref.update({ icEstado: "eliminado", icStatusEnviado: "DELETED",
-                             icStatusAt: new Date().toISOString() });
-          await registrarLog(id, "InfoCasas: baja automática", true, `estado ${stAfter}`);
-        } else {
-          await registrarLog(id, "InfoCasas: baja automática", false, `HTTP ${r.status}`);
-        }
+        await icBajaAutomatica(ref, id, after, stAfter);
       } else if (cambioContenido) {
+        await icMandarCambios(ref, id, after, agente, "actualización automática");
+      } else if (confirmada || cambioEstado) {
+        /* Solo si la ficha cambió desde el último envío: si es lo mismo, no hay
+           nada que mandar. Cubre lo editado mientras la publicación estaba
+           pendiente, aunque se confirme en un estado que no se sincroniza
+           (cerrado_externo, tasación): sale cuando vuelve a uno que sí. */
         const armado = await icApiPayload(after, id, agente);
-        if (!armado.ok) {
-          // No se reintenta ni se avisa al agente: la ficha quedó incompleta y
-          // el aviso viejo sigue publicado, que es mejor que borrarlo.
-          logger.warn(`sincronizarPortales ${id}: InfoCasas, ficha incompleta`, armado.faltan);
-        } else {
-          const r = await icFetch("/listing", {
-            method: "PATCH", conCookie: true,
-            body: [{ ...armado.payload, listing_id: String(after.icListingId) }],
-          });
-          await registrarLog(id, "InfoCasas: actualización automática", !!r.ok,
-            r.ok ? "" : `HTTP ${r.status}`);
-          /* El modal muestra la última sincronización y si falló. Ninguno de
-             estos campos es contenido: no vuelve a disparar el trigger. */
-          const tid = r.ok ? icTaskId(r.data || {}) : null;
-          const FVs = admin.firestore.FieldValue;
-          await ref.update(r.ok
-            ? { icActualizadoAt: new Date().toISOString(), icUltimoError: FVs.delete(), portalesAt: FVs.delete(),
-                ...(tid ? { icTaskId: String(tid) } : {}) }
-            : { icUltimoError: { mensaje: `InfoCasas no aceptó los cambios (HTTP ${r.status}).`,
-                                 at: new Date().toISOString() }, portalesAt: FVs.delete() });
+        if (!armado.ok || !after.icFirmaEnviada || icFirma(armado.payload) !== after.icFirmaEnviada) {
+          await icMandarCambios(ref, id, after, agente, confirmada ? "cambios hechos mientras se publicaba" : "cambios pendientes");
         }
       }
     } catch (e) {
@@ -6370,7 +6672,7 @@ exports.sincronizarPortales = onDocumentUpdated("properties/{id}", async (event)
   }
 
   /* ---------- Casas y Más ---------- */
-  if (after.cymId && after.cymEstado !== "eliminado") {
+  if (after.cymId && after.cymEstado !== "eliminado" && (cambioEstado || cambioContenido)) {
     try {
       if (fuera) {
         const r = await cymFetch("/eliminar_propiedad", { id: String(after.cymId) });
@@ -6383,7 +6685,13 @@ exports.sincronizarPortales = onDocumentUpdated("properties/{id}", async (event)
       } else if (cambioContenido) {
         const armado = await cymPayload(after, id, agente);
         if (!armado.ok) {
+          /* Antes solo quedaba en el log del servidor: el aviso seguía con la
+             versión vieja y el modal no decía nada. */
           logger.warn(`sincronizarPortales ${id}: Casas y Más, ficha incompleta`, armado.faltan);
+          await ref.update({ cymUltimoError: {
+            mensaje: `Los últimos cambios no se mandaron a Casas y Más: falta ${armado.faltan.join(", ")}. Completalo en Editar propiedad y guardá.`,
+            faltan: armado.faltan, accion: "actualizar", at: new Date().toISOString() } });
+          await registrarLog(id, "Casas y Más: actualización automática", false, `no se mandó, faltan: ${armado.faltan.join(", ")}`);
         } else {
           const r = await cymFetch("/modificar_propiedad",
             { id: String(after.cymId), ...armado.payload }, "PUT");
@@ -9794,6 +10102,18 @@ function icApiTelefono(tel) {
 /* Arma el cuerpo del POST/PATCH /listing a partir de una propiedad del CRM.
    Devuelve { ok, payload, faltan } — si faltan campos obligatorios no se
    inventa nada: se informa y no se publica. */
+/* El título para InfoCasas: espacios normales y, si es muy largo, cortado en un
+   espacio antes de los 100 caracteres. No sabemos si tienen un tope; si lo
+   hubiera y se pasara, rechazarían el aviso entero (también el precio). */
+function icApiTitulo(t) {
+  let s = String(t || "").replace(/\s+/g, " ").trim();
+  if (s.length > 100) {
+    const corte = s.lastIndexOf(" ", 100);
+    s = s.slice(0, corte > 60 ? corte : 100);
+  }
+  return s.replace(/[\s|,;:–—·-]+$/, "").trim();
+}
+
 async function icApiPayload(p, propId, agente) {
   const F = p.ficha || {};
   const u = p.ubicacion || {};
@@ -9871,11 +10191,18 @@ async function icApiPayload(p, propId, agente) {
 
   if (faltan.length) return { ok: false, faltan };
 
+  /* El título. La API lo recibe en "title" (confirmado por Frank Payares el
+     08/10/2026: no figuraba en la versión de la documentación que habíamos
+     revisado). Sin él, InfoCasas arma uno genérico con el tipo y la operación
+     ("Apartamento en Venta"). Vacío no se manda: queda el genérico. */
+  const titulo = icApiTitulo(p.title);
+
   const payload = {
     external_code: externalCode,
     client_id: await icClientId(),
     offer,
     property_type: propertyType,
+    ...(titulo ? { title: titulo } : {}),
     description: descripcion + (referencia ? `\n\nRef.: ${referencia}` : ""),
     price: Math.round(price),
     // SIEMPRE explícito: el default de la API es USD, así que omitirlo
@@ -10037,7 +10364,9 @@ async function icEsperarTarea(taskId, intentos) {
        segundos después. Contarlo como éxito hacía que la función avisara "listo"
        antes de que la operación terminara, y un fallo posterior pasaba
        inadvertido. Solo COMPLETED y equivalentes cierran la espera. */
-    const OK = ["COMPLETED", "DONE", "SUCCESS", "FINISHED"];
+    /* FORWARDED también cierra la espera: InfoCasas no la va a procesar (ya
+       había recibido lo mismo hoy). Quien llama mira el resultado del aviso. */
+    const OK = ["COMPLETED", "DONE", "SUCCESS", "FINISHED", "FORWARDED"];
     const MAL = ["ERROR", "FAILED", "REJECTED", "CANCELLED"];
     if (OK.includes(estado)) return { ok: true, estado, detalle: d };
     if (MAL.includes(estado)) return { ok: false, estado, detalle: d };
@@ -10108,30 +10437,22 @@ exports.editarEnInfocasas = onCall(async (request) => {
     return { ok: false, mensaje: "La propiedad no tiene un aviso activo en InfoCasas." };
   }
   const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
-  const armado = await icApiPayload(p, pSnap.id, uSnap && uSnap.exists ? uSnap.data() : {});
-  if (!armado.ok) {
-    return { ok: false, faltan: armado.faltan,
-             mensaje: "La ficha no tiene todo lo que exige InfoCasas. No se envió nada." };
+  const agente = uSnap && uSnap.exists ? uSnap.data() : {};
+  if (soloVistaPrevia) {
+    const armado = await icApiPayload(p, pSnap.id, agente);
+    if (!armado.ok) return { ok: false, faltan: armado.faltan, mensaje: "La ficha no tiene todo lo que exige InfoCasas. No se envió nada." };
+    return { ok: true, dryRun: true, payload: { ...armado.payload, listing_id: listingId } };
   }
-  const payload = { ...armado.payload, listing_id: listingId };
-  if (soloVistaPrevia) return { ok: true, dryRun: true, payload };
 
-  const r = await icFetch("/listing", { method: "PATCH", body: [payload], conCookie: true });
-  const taskId = r.ok ? icTaskId(r.data || {}) : null;
-  if (!taskId) {
-    logger.warn(`editarEnInfocasas ${propertyId} -> ${r.status}`, r.data);
-    await registrarLog(propertyId, "InfoCasas: actualización", false, `HTTP ${r.status}`);
-    return { ok: false, status: r.status, detalle: r.data,
-             mensaje: "InfoCasas no aceptó los cambios. Podés volver a intentarlo." };
+  // Mismo camino que la sincronización automática: lo que falle queda a la vista.
+  const r = await icMandarCambios(pSnap.ref, propertyId, p, agente, "actualización manual");
+  if (r.ok) {
+    return { ok: true, enviada: true, taskId: r.taskId,
+             mensaje: "Cambios enviados a InfoCasas. Se ven en el portal en unos minutos." };
   }
-  const ahora = new Date().toISOString();
-  await pSnap.ref.update({
-    icTaskId: String(taskId), icEnviadoAt: ahora, icActualizadoAt: ahora,
-    icUltimoError: admin.firestore.FieldValue.delete(), portalesAt: admin.firestore.FieldValue.delete(),
-  });
-  await registrarLog(propertyId, "InfoCasas: actualización enviada", true, `listing ${listingId} · tarea ${taskId}`);
-  return { ok: true, enviada: true, taskId: String(taskId),
-           mensaje: "Cambios enviados a InfoCasas. Se ven en el portal en unos minutos." };
+  if (r.faltan) return { ok: false, faltan: r.faltan, mensaje: r.mensaje };
+  return { ok: false, status: r.status || null, detalle: r.detalle || null,
+           mensaje: r.mensaje || "InfoCasas no aceptó los cambios. Podés volver a intentarlo." };
 });
 
 /* Cambia el estado de un aviso: es la BAJA.
@@ -10297,21 +10618,24 @@ exports.icWebhook = onRequest(async (req, res) => {
 
   try {
     const t = body.task || body;
-    const cont = Array.isArray(t.content) ? (t.content[0] || {}) : {};
-    const externalCode = String(t.external_code || t.externalCode || cont.external_code ||
-      cont.integrator_code || "").trim();
-    const listingId = icListingIdDeTarea(body);
-    const frWh = icFrPropertyIdDeTarea(body) || t.fr_property_id || t.frPropertyId || null;
-    const estado = String(t.status || t.state || "").toUpperCase();
+    /* Se lee el resultado del AVISO, no solo el de la tarea (ver icLeerTarea):
+       una tarea "COMPLETED" puede traer el aviso rechazado adentro. */
+    const lect = icLeerTarea(body);
+    const externalCode = String(lect.externalCode || t.external_code || t.externalCode || "").trim();
+    const listingId = lect.listingId || icListingIdDeTarea(body);
+    const frWh = lect.frPropertyId || icFrPropertyIdDeTarea(body) || t.fr_property_id || t.frPropertyId || null;
+    const estado = lect.general;
 
     /* La propiedad se busca por lo más firme primero:
          1. el listing_id que ya tenemos guardado (ediciones y bajas), o el del
             aviso anterior si la propiedad se volvió a publicar;
-         2. el código de integrador, que en InfoCasas es el id del documento
+         2. la tarea que se mandó (icTaskId): es lo único seguro de una
+            publicación nueva, que todavía no tiene listing_id guardado;
+         3. el código de integrador, que en InfoCasas es el id del documento
             (publicaciones nuevas y avisos que vinieron del XML);
-         3. el código de la ficha, por las publicaciones viejas de QA.
-       Antes se buscaba SOLO por el código de la ficha: con los avisos del XML,
-       cuyo código es el id del documento, no habría encontrado ninguna. */
+         4. el código de la ficha, por las publicaciones viejas de QA.
+       Antes no se buscaba por la tarea: si el aviso no traía el código, la
+       publicación quedaba "pendiente" para siempre y sus ediciones no salían. */
     let doc = null;
     if (listingId) {
       const q = await db.collection("properties").where("icListingId", "==", String(listingId)).limit(1).get();
@@ -10320,6 +10644,10 @@ exports.icWebhook = onRequest(async (req, res) => {
     if (!doc && listingId) {
       // El aviso anterior de una propiedad que se volvió a publicar.
       const q = await db.collection("properties").where("icListingIdAnterior", "==", String(listingId)).limit(1).get();
+      if (!q.empty) doc = q.docs[0];
+    }
+    if (!doc && lect.id) {
+      const q = await db.collection("properties").where("icTaskId", "==", String(lect.id)).limit(1).get();
       if (!q.empty) doc = q.docs[0];
     }
     if (!doc && /^[A-Za-z0-9_-]{1,100}$/.test(externalCode)) {
@@ -10331,7 +10659,7 @@ exports.icWebhook = onRequest(async (req, res) => {
       if (q.size === 1) doc = q.docs[0];
     }
     if (!doc) {
-      logger.warn(`icWebhook: no encontré la propiedad (listing ${listingId || "-"}, código ${externalCode || "-"})`);
+      logger.warn(`icWebhook: no encontré la propiedad (listing ${listingId || "-"}, tarea ${lect.id || "-"}, código ${externalCode || "-"})`);
       if (ref) await ref.update({ procesado: false, sinPropiedad: true });
       return;
     }
@@ -10339,8 +10667,10 @@ exports.icWebhook = onRequest(async (req, res) => {
     const p = doc.data() || {};
     const ahora = new Date().toISOString();
     const FV = admin.firestore.FieldValue;
-    const TERMINADA = ["COMPLETED", "DONE", "SUCCESS", "FINISHED"];
-    const FALLIDA = ["ERROR", "FAILED", "REJECTED", "CANCELLED"];
+    const rechazada = lect.resultado === "rechazada";
+    const motivo = icResumenMensajes(lect.mensajes);
+    const detalleLog = `${lect.resultado} · ${estado || "sin estado"}${lect.delAviso ? "/" + lect.delAviso : ""}` +
+      `${listingId ? " · listing " + listingId : ""}${motivo ? " · " + motivo : ""}`;
 
     /* Aviso que llega tarde sobre el aviso ANTERIOR, el que se dio de baja antes
        de volver a publicar (por ejemplo, la baja terminó después de que la
@@ -10350,9 +10680,8 @@ exports.icWebhook = onRequest(async (req, res) => {
     if (listingId && String(p.icListingIdAnterior || "") === String(listingId) &&
         String(p.icListingId || "") !== String(listingId)) {
       await doc.ref.update({ icWebhookAt: ahora });
-      await registrarLog(doc.id, "InfoCasas: webhook del aviso anterior", !FALLIDA.includes(estado),
-        `${estado || "sin estado"} · listing ${listingId}`);
-      if (FALLIDA.includes(estado)) {
+      await registrarLog(doc.id, "InfoCasas: webhook del aviso anterior", !rechazada, detalleLog);
+      if (rechazada) {
         await notificarDireccion({
           type: "portal_error", propertyId: doc.id, propertyTitle: p.title || "",
           userName: "InfoCasas",
@@ -10362,14 +10691,20 @@ exports.icWebhook = onRequest(async (req, res) => {
       if (ref) await ref.update({ procesado: true, propertyId: doc.id, avisoAnterior: true });
       return;
     }
+
+    /* ¿Es la tarea vigente? Si después de esta se mandó otra (una edición más
+       nueva), el resultado de la vieja no pisa el estado: lo va a informar la
+       nueva. Una publicación que se confirma se toma siempre, venga de la tarea
+       que venga: es la única forma de guardar su listing_id. */
+    const vigente = !lect.id || !p.icTaskId || String(p.icTaskId) === String(lect.id);
+    const publicacionNueva = !p.icListingId && !!listingId;
     // portalesAt se borra para que el modal no siga mostrando la tarea anterior
     // guardada en caché (dura 30 minutos).
     const cambios = { icWebhookAt: ahora, portalesAt: FV.delete() };
     let bajaFallida = false;
-    if (TERMINADA.includes(estado)) {
+    if (lect.resultado === "aplicada" || (lect.resultado === "repetida" && publicacionNueva)) {
       /* Una baja terminada NO puede volver a marcar la propiedad como publicada:
-         sincronizarPortales ya la dejó en "eliminado". Antes cualquier tarea
-         terminada ponía "publicado", también la de una baja. */
+         sincronizarPortales ya la dejó en "eliminado". */
       if (p.icEstado !== "eliminado") {
         cambios.icEstado = "publicado";
         if (listingId) cambios.icListingId = String(listingId);
@@ -10378,24 +10713,37 @@ exports.icWebhook = onRequest(async (req, res) => {
         if (frWh) cambios.icFrPropertyId = String(frWh);
         if (externalCode) cambios.icIntegratorCode = externalCode;
       }
-      cambios.icUltimoError = FV.delete();
-    } else if (FALLIDA.includes(estado)) {
-      const msgs = cont.messages || t.messages || null;
-      cambios.icUltimoError = { mensaje: msgs ? JSON.stringify(msgs).slice(0, 500) : estado, at: ahora };
-      if (!p.icListingId) {
-        cambios.icEstado = "error";                 // la publicación nueva no salió
-      } else if (p.icEstado === "eliminado") {
-        /* Falló una BAJA: el aviso sigue activo en el portal. Se vuelve a
-           "publicado" para no creer que se bajó, y se avisa a la Dirección. */
-        cambios.icEstado = "publicado";
-        bajaFallida = true;
-      }
-      // Si falló una edición, el aviso sigue publicado con la versión anterior.
+      if (vigente) { cambios.icUltimoError = FV.delete(); cambios.icFirmaRechazada = FV.delete(); }
+    } else if (rechazada && p.icEstado === "eliminado" && p.icListingId && (vigente || lect.evento === "LISTING_STATUS")) {
+      /* Falló una BAJA: el aviso sigue activo en el portal. Se vuelve a
+         "publicado" para no creer que se bajó, y se avisa a la Dirección. */
+      cambios.icEstado = "publicado";
+      cambios.icUltimoError = { mensaje: motivo ? `InfoCasas no pudo dar de baja el aviso: ${motivo}` : "InfoCasas no pudo dar de baja el aviso.", at: ahora };
+      bajaFallida = true;
+    } else if (rechazada && vigente) {
+      cambios.icUltimoError = {
+        mensaje: motivo ? `InfoCasas rechazó el último envío: ${motivo}` : `InfoCasas rechazó el último envío (${estado || "ERROR"}).`,
+        accion: p.icListingId ? "actualizar" : "publicar", at: ahora,
+      };
+      // Qué envío se rechazó: reintentar EXACTAMENTE eso hoy no sirve (FORWARDED).
+      cambios.icFirmaRechazada = p.icFirmaEnviada || null;
+      // Si falló una publicación nueva, no salió. Si falló una edición, el aviso
+      // sigue publicado con la versión anterior (y el modal dice "Desactualizada").
+      if (!p.icListingId) cambios.icEstado = "error";
+    } else if (lect.resultado === "repetida" && vigente && p.icListingId && !p.icUltimoError &&
+               p.icFirmaRechazada && p.icFirmaRechazada === p.icFirmaEnviada) {
+      // Se reenvió lo mismo que había rechazado y no lo volvió a procesar.
+      cambios.icUltimoError = { mensaje: IC_MSJ_REPETIDA_EDICION, accion: "actualizar", at: ahora };
     }
-    // Estados intermedios (READY y parecidos): solo queda la marca de tiempo.
+    /* "repetida" de un aviso que ya existe: InfoCasas ya tenía estos mismos datos
+       hoy. No se toca el error: si el envío idéntico anterior había fallado,
+       sigue sin aplicarse. "en_curso": solo queda la marca de tiempo. */
+    if (vigente) {
+      cambios.icUltimaTarea = { id: lect.id || null, resultado: lect.resultado, estado: estado || null,
+                                delAviso: lect.delAviso || null, motivo: motivo || null, at: ahora };
+    }
     await doc.ref.update(cambios);
-    await registrarLog(doc.id, "InfoCasas: webhook", !FALLIDA.includes(estado),
-      `${estado || "sin estado"}${listingId ? " · listing " + listingId : ""}`);
+    await registrarLog(doc.id, "InfoCasas: webhook", !rechazada, detalleLog);
     if (bajaFallida) {
       await notificarDireccion({
         type: "portal_error", propertyId: doc.id, propertyTitle: p.title || "",
@@ -10408,6 +10756,284 @@ exports.icWebhook = onRequest(async (req, res) => {
     logger.error("icWebhook: error al procesar", e);
     if (ref) { try { await ref.update({ procesado: false, error: String(e.message || e) }); } catch (e2) { /* nada */ } }
   }
+});
+
+/* ============================================================================
+   AUDITORÍA DE INFOCASAS (solo Dirección)
+   ----------------------------------------------------------------------------
+   Compara, aviso por aviso, lo que el CRM mandaría hoy con lo que InfoCasas
+   tiene publicado (GET /listing/{listing_id}) y cuenta cómo terminó el último
+   envío (GET /task/{task_id}). Sirve para encontrar los avisos que quedaron con
+   datos viejos y reenviarlos.
+
+   El título se compara solo si InfoCasas lo devuelve. Hasta que se manda el
+   campo "title", el portal muestra uno genérico ("Apartamento en Venta").
+
+   Lo que InfoCasas no informa (por ejemplo, si su respuesta no trae la moneda)
+   no se compara: se marca como "no lo informa" en vez de inventar que coincide.
+
+   La página pide de a pocas propiedades por llamada (tope 8): muestra el avance
+   y no choca con el límite de peticiones de la API.
+   ========================================================================== */
+const IC_MONEDA_LEGIBLE = { 1: "USD", 2: "UYU" };
+// Estados de un aviso que NO se ve en el portal (códigos de la API y sus nombres).
+const IC_ESTADO_FUERA_DEL_PORTAL = ["1", "2", "5", "7", "9", "11",
+  "DISABLED", "NO_QUOTA", "EXPIRED", "DELETED", "SYSTEM_ERROR", "REJECTED"];
+function icMonedaLegible(v) {
+  if (v == null || v === "") return null;
+  if (typeof v === "object") v = v.id != null ? v.id : (v.code || v.iso || v.name || null);
+  if (v == null || v === "") return null;
+  const s = String(v).trim().toUpperCase();
+  if (IC_MONEDA_LEGIBLE[s]) return IC_MONEDA_LEGIBLE[s];
+  if (/^(USD|U\$S|US\$|DOLAR|DÓLAR|DOLLAR)/.test(s)) return "USD";
+  if (/^(UYU|\$U|UY\$|\$|PESO)/.test(s)) return "UYU";
+  return s;
+}
+function icOperacionLegible(v) {
+  const s = String(v == null ? "" : v).toLowerCase();
+  if (!s) return null;
+  if (/sell|sale|venta|vender/.test(s)) return "venta";
+  if (/lease|temporada|vacacional/.test(s)) return "temporada";
+  if (/rent|arriendo|alquiler/.test(s)) return "alquiler";
+  return s;
+}
+function icFechaIso(v) {
+  if (v == null || v === "") return null;
+  try {
+    let n = Number(v);
+    if (Number.isFinite(n) && n > 0) {
+      // Segundos, milisegundos, microsegundos o nanosegundos: se lleva a milisegundos.
+      if (n < 1e11) n *= 1000; else if (n > 1e17) n /= 1e6; else if (n > 1e14) n /= 1e3;
+      const f = new Date(n);
+      return Number.isFinite(f.getTime()) ? f.toISOString() : null;
+    }
+    const t = Date.parse(String(v));
+    return Number.isFinite(t) ? new Date(t).toISOString() : null;
+  } catch (e) { return null; }
+}
+// El GET de un aviso puede venir envuelto ({ listing }, { data }) o en una lista.
+function icDesenvolver(d) {
+  if (Array.isArray(d)) return d[0] && typeof d[0] === "object" ? d[0] : {};
+  if (d && typeof d === "object") {
+    for (const k of ["listing", "data", "result"]) {
+      if (d[k] && typeof d[k] === "object" && !Array.isArray(d[k])) return d[k];
+    }
+    if (Array.isArray(d.results) && d.results.length === 1) return d.results[0] || {};
+    return d;
+  }
+  return {};
+}
+// Lo que importa de un aviso, venga del CRM (lo que se manda) o de InfoCasas (lo que tiene).
+function icResumenAviso(o) {
+  o = o || {};
+  const pick = (...ks) => { for (const k of ks) { const v = o[k]; if (v !== undefined && v !== null && v !== "") return v; } return null; };
+  const num = (v) => { if (v == null || v === "" || typeof v === "object") return null; const n = Number(v); return Number.isFinite(n) ? n : null; };
+  let precio = pick("price", "precio", "price_value", "priceValue");
+  let moneda = pick("currency", "currency_id", "currencyId", "currency_code", "currencyCode", "moneda");
+  if (precio && typeof precio === "object") {
+    if (moneda == null) moneda = precio.currency != null ? precio.currency : (precio.currency_id != null ? precio.currency_id : precio.moneda);
+    precio = precio.value != null ? precio.value : (precio.amount != null ? precio.amount : precio.price);
+  }
+  const tipo = pick("property_type", "propertyType");
+  const titulo = pick("title", "titulo");
+  const fotos = pick("photos", "images", "multimedia");
+  const desc = pick("description", "descripcion");
+  const st = pick("status");
+  return {
+    titulo: typeof titulo === "string" ? titulo : null,
+    precio: num(precio), moneda: icMonedaLegible(moneda),
+    operacion: icOperacionLegible(pick("offer", "offer_type", "offerType", "operation")),
+    tipo: typeof tipo === "string" ? tipo : null,
+    dormitorios: num(pick("rooms")), banos: num(pick("baths")), area: num(pick("area")),
+    fotos: Array.isArray(fotos) ? fotos.length : null,
+    descripcion: typeof desc === "string" ? desc : null,
+    estado: st != null && typeof st !== "object" ? String(st) : null,
+    actualizado: icFechaIso(pick("updated", "updated_at", "updatedAt", "modified")),
+  };
+}
+function icDiferencias(crm, ic) {
+  const out = [];
+  const dif = (campo, a, b) => out.push({ campo, crm: a, infocasas: b });
+  const suelto = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  if (crm.titulo && ic.titulo && suelto(crm.titulo) !== suelto(ic.titulo)) dif("titulo", crm.titulo, ic.titulo);
+  if (crm.precio != null && ic.precio != null && Math.round(crm.precio) !== Math.round(ic.precio)) dif("precio", crm.precio, ic.precio);
+  if (crm.moneda && ic.moneda && crm.moneda !== ic.moneda) dif("moneda", crm.moneda, ic.moneda);
+  if (crm.operacion && ic.operacion && crm.operacion !== ic.operacion) dif("operacion", crm.operacion, ic.operacion);
+  if (crm.tipo && ic.tipo && crm.tipo !== ic.tipo) dif("tipo", crm.tipo, ic.tipo);
+  if (crm.dormitorios != null && ic.dormitorios != null && crm.dormitorios !== ic.dormitorios) dif("dormitorios", crm.dormitorios, ic.dormitorios);
+  if (crm.banos != null && ic.banos != null && crm.banos !== ic.banos) dif("banos", crm.banos, ic.banos);
+  if (crm.area != null && ic.area != null && Math.round(crm.area) !== Math.round(ic.area)) dif("area", crm.area, ic.area);
+  if (crm.fotos != null && ic.fotos != null && ic.fotos < crm.fotos) dif("fotos", crm.fotos, ic.fotos);
+  /* La descripción se compara por su comienzo y sin signos: el portal puede
+     cambiar espacios, saltos de línea o comillas, o recortar el final (la
+     referencia), sin que el texto sea otro. */
+  const plano = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "").slice(0, 160);
+  if (crm.descripcion && ic.descripcion) {
+    const a = plano(crm.descripcion), b = plano(ic.descripcion);
+    if (a && b && !a.startsWith(b) && !b.startsWith(a)) dif("descripcion", crm.descripcion.slice(0, 90), ic.descripcion.slice(0, 90));
+  }
+  return out;
+}
+async function icFetchConReintento(ruta, opciones) {
+  let r = null;
+  for (let i = 0; i < 3; i++) {
+    r = await icFetch(ruta, opciones);
+    if (r.status !== 429) return r;
+    await new Promise((x) => setTimeout(x, 1500 * (i + 1)));
+  }
+  return r;
+}
+
+async function icAuditarUna(id) {
+  const ref = db.doc(`properties/${id}`);
+  let s = await ref.get();
+  if (!s.exists) return { id, situacion: "no_existe" };
+  let p = s.data() || {};
+  const fila = {
+    id, titulo: p.title || "", agente: p.ownerName || "", codigo: (p.ficha && p.ficha.PROPERTY_CODE) || "",
+    foto: (p.images || []).filter(Boolean)[0] || "", estadoCrm: p.status || "available",
+    listingId: p.icListingId || null, frPropertyId: p.icFrPropertyId || null,
+    ultimoEnvio: p.icActualizadoAt || p.icPublicadoAt || null, ultimaEdicion: p.updatedAt || null,
+  };
+  // Publicación sin confirmar: se mira la tarea y, si terminó, se confirma ahora.
+  if (!p.icListingId && p.icEstado === "pendiente") {
+    const c = await icConfirmarPendiente(ref, id, p);
+    if (c.estado !== "publicada" && c.estado !== "ya_estaba") {
+      fila.situacion = c.estado === "rechazada" ? "publicacion_rechazada" : "publicandose";
+      if (c.motivo) fila.motivo = c.motivo;
+      return fila;
+    }
+    s = await ref.get(); p = s.data() || {};
+    fila.listingId = p.icListingId || null; fila.frPropertyId = p.icFrPropertyId || null;
+    fila.confirmadaAhora = true;
+  }
+  if (!p.icListingId || p.icEstado === "eliminado") {
+    fila.situacion = p.icEstado === "eliminado" ? "dada_de_baja" : (p.icEstado === "error" ? "publicacion_rechazada" : "sin_publicar");
+    if (p.icUltimoError && p.icUltimoError.mensaje) fila.motivo = p.icUltimoError.mensaje;
+    return fila;
+  }
+
+  // Lo que mandaría el CRM hoy.
+  const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+  const armado = await icApiPayload(p, id, uSnap && uSnap.exists ? uSnap.data() : {});
+  if (!armado.ok) fila.faltan = armado.faltan;
+  const crm = icResumenAviso(armado.ok ? armado.payload : {
+    title: icApiTitulo(p.title) || null, price: p.price, currency: icApiCurrency(p.currency),
+    offer: IC_API_OFERTA[String(p.type || "").toLowerCase()] || null,
+    property_type: IC_API_TIPO[icNorm(p.realEstateType)] || null,
+    rooms: icApiRooms(p.bedrooms) || null, baths: icApiBaths(p.bathrooms) || null,
+    area: Number(p.builtArea) > 0 ? Number(p.builtArea) : (Number(p.totalArea) || null),
+    photos: (p.images || []).filter(Boolean).slice(0, 30), description: p.description || null,
+  });
+  fila.crm = crm;
+  fila.firmaAlDia = !!(armado.ok && p.icFirmaEnviada && icFirma(armado.payload) === p.icFirmaEnviada);
+
+  // Lo que tiene InfoCasas.
+  const r = await icFetchConReintento(`/listing/${encodeURIComponent(p.icListingId)}`, { conCookie: true });
+  fila.http = r.status;
+  if (!r.ok) {
+    fila.situacion = r.status === 404 ? "no_esta" : "sin_respuesta";
+    return fila;
+  }
+  const crudo = icDesenvolver(r.data);
+  const ic = icResumenAviso(crudo);
+  fila.infocasas = ic;
+  fila.estadoIc = ic.estado != null ? (IC_ESTADO_AVISO[ic.estado] || String(ic.estado).toLowerCase()) : null;
+  fila.diferencias = icDiferencias(crm, ic);
+  fila.sinMoneda = !ic.moneda;
+  try { fila.crudo = JSON.stringify(crudo).slice(0, 4000); } catch (e) { fila.crudo = ""; }
+
+  // Cómo terminó el último envío.
+  if (p.icTaskId) {
+    const t = await icFetchConReintento(`/task/${encodeURIComponent(p.icTaskId)}`, { conCookie: true });
+    if (t.ok) {
+      const l = icLeerTarea(t.data, p.icListingId);
+      fila.tarea = { resultado: l.resultado, general: l.general, delAviso: l.delAviso,
+                     motivo: icResumenMensajes(l.mensajes) || null, evento: l.evento };
+    }
+  }
+  if (p.icUltimoError && p.icUltimoError.mensaje) fila.errorGuardado = p.icUltimoError.mensaje;
+
+  /* Una diferencia se muestra aunque el último envío siga "en proceso": si
+     InfoCasas no lo termina nunca, decir solo "procesando" escondería el
+     problema. La página muestra hace cuánto se mandó. */
+  /* Estado del aviso en el portal: solo se marcan los que seguro no se ven
+     (desactivado, sin cupo, caducado, eliminado, con error, rechazado). El 0
+     ("incompleto") no se marca: ya lo vimos en avisos que estaban publicados. */
+  const tarea = fila.tarea || {};
+  const est = ic.estado != null ? String(ic.estado).toUpperCase() : null;
+  fila.enProceso = tarea.resultado === "en_curso" && !!tarea.general;
+  if (tarea.resultado === "rechazada") fila.situacion = "rechazada";
+  else if (fila.diferencias.length) fila.situacion = "distinta";
+  else if (fila.enProceso || est === "10" || est === "PUBLISHING") fila.situacion = "procesando";
+  else if (fila.faltan) fila.situacion = "faltan";
+  else if (est && IC_ESTADO_FUERA_DEL_PORTAL.includes(est)) fila.situacion = "no_activa";
+  else fila.situacion = "igual";
+  return fila;
+}
+
+async function icReenviarDesdeAuditoria(id) {
+  const ref = db.doc(`properties/${id}`);
+  const s = await ref.get();
+  if (!s.exists) return { id, ok: false, mensaje: "La propiedad ya no existe." };
+  const p = s.data() || {};
+  const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+  const r = await icMandarCambios(ref, id, p, uSnap && uSnap.exists ? uSnap.data() : {}, "reenvío desde la auditoría");
+  return { id, ok: !!r.ok, taskId: r.taskId || null, faltan: r.faltan || null,
+           mensaje: r.ok ? "Enviado. InfoCasas lo procesa en unos minutos." : (r.mensaje || "No se pudo enviar.") };
+}
+
+/* El CRM cree que el aviso existe, pero InfoCasas dice que no (404) o que está
+   eliminado: se publica de nuevo. Se confirma ANTES contra InfoCasas: si el aviso
+   siguiera ahí, publicar otra vez lo duplicaría. */
+async function icRepublicarDesdeAuditoria(id) {
+  const ref = db.doc(`properties/${id}`);
+  const s = await ref.get();
+  if (!s.exists) return { id, ok: false, mensaje: "La propiedad ya no existe." };
+  const p = s.data() || {};
+  if (!icPublicable(p)) return { id, ok: false, mensaje: "La propiedad no está Disponible: no se publica." };
+  // Primero, que la ficha esté completa: si no, no se toca nada (antes quedaba "dada de baja").
+  const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+  const armado = await icApiPayload(p, id, uSnap && uSnap.exists ? uSnap.data() : {});
+  if (!armado.ok) return { id, ok: false, faltan: armado.faltan, mensaje: "La ficha no tiene todo lo que exige InfoCasas. Completala y volvé a intentar." };
+  if (p.icListingId) {
+    // También si figura "eliminado": esa marca se pone cuando InfoCasas ACEPTA la baja, no cuando la aplica.
+    const r = await icFetchConReintento(`/listing/${encodeURIComponent(p.icListingId)}`, { conCookie: true });
+    const est = r.ok ? String(icResumenAviso(icDesenvolver(r.data)).estado || "").toUpperCase() : null;
+    if (!(r.status === 404 || est === "7" || est === "DELETED")) {
+      return { id, ok: false, mensaje: r.ok ? "El aviso sigue existiendo en InfoCasas: no se publica otra vez." : `InfoCasas no respondió (HTTP ${r.status}). Probá más tarde.` };
+    }
+    if (p.icEstado !== "eliminado") {
+      await ref.update({ icEstado: "eliminado", icStatusAt: new Date().toISOString() });
+      await registrarLog(id, "InfoCasas: el aviso ya no estaba", true, `listing ${p.icListingId} (auditoría)`);
+    }
+  }
+  const r = await icPublicar(ref, id, { manual: true, esperar: false });
+  return { id, ok: !!r.ok, taskId: r.taskId || null, faltan: r.faltan || null,
+           mensaje: r.mensaje || (r.ok ? "Se mandó a publicar." : "No se pudo publicar.") };
+}
+
+exports.auditarInfocasas = onCall({ timeoutSeconds: 300 }, async (request) => {
+  await exigirDireccion(request, "Solo la Dirección puede revisar los avisos de InfoCasas.");
+  const datos = request.data || {};
+  const accion = String(datos.accion || "revisar");
+  if (!["revisar", "reenviar", "republicar"].includes(accion)) throw new HttpsError("invalid-argument", "Acción desconocida.");
+  const ids = [...new Set((Array.isArray(datos.propertyIds) ? datos.propertyIds : [])
+    .map((x) => String(x || "").trim()).filter((x) => /^[A-Za-z0-9_-]{1,100}$/.test(x)))].slice(0, 8);
+  if (!ids.length) throw new HttpsError("invalid-argument", "Faltan las propiedades.");
+  const filas = [];
+  for (const id of ids) {
+    try {
+      if (accion === "reenviar") filas.push(await icReenviarDesdeAuditoria(id));
+      else if (accion === "republicar") filas.push(await icRepublicarDesdeAuditoria(id));
+      else filas.push(await icAuditarUna(id));
+    } catch (e) {
+      logger.warn(`auditarInfocasas ${accion} ${id}`, e);
+      filas.push({ id, ok: false, situacion: "error", mensaje: String((e && e.message) || e).slice(0, 200) });
+    }
+    await new Promise((x) => setTimeout(x, 150));   // respiro: la API limita las peticiones
+  }
+  return { ok: true, accion, filas, at: new Date().toISOString() };
 });
 
 /* EXPLORADOR GENÉRICO (solo lectura). Hace GET a una ruta de la API y devuelve

@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Avisos en InfoCasas · MALAVE</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+  <script src="malave-config.js?v=20260830b"></script>
+  <style>
+    :root{ --primary:#16273f; --gold:#C9A227; --gray-50:#f7f8fa; --gray-100:#eef0f3; --gray-200:#e3e6ea;
+           --gray-400:#9aa3ad; --gray-500:#6b7480; --gray-600:#555; --ok:#1e7d4f; --err:#a5342a; --busy:#1d4ed8; --warn:#8a6d12; }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{ font-family:'Inter',sans-serif; background:var(--gray-50); color:#1d2733; line-height:1.5; }
+    h1,h2{ font-family:'Cormorant Garamond',serif; }
+    a{ color:inherit; }
+    button{ font-family:inherit; }
+    :focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+
+    .mv-head{ background:#fff; border-bottom:1px solid #eef1f5; position:sticky; top:0; z-index:60; padding-top:env(safe-area-inset-top,0px); }
+    .mv-head-in{ max-width:1080px; margin:0 auto; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; gap:14px; }
+    .logo{ display:flex; align-items:center; gap:10px; text-decoration:none; }
+    .logo-img{ height:30px; width:auto; } .logo-text{ height:19px; width:auto; }
+    .back-link{ display:inline-flex; align-items:center; gap:7px; color:#6b7280; font-size:.88rem; font-weight:500; padding:8px 15px;
+      border:1px solid #eef1f5; border-radius:999px; text-decoration:none; white-space:nowrap; }
+    .back-link:hover{ background:var(--primary); color:#fff; border-color:var(--primary); }
+    @media (max-width:520px){ .mv-head-in{ padding:10px 14px } .back-link span{ display:none } }
+
+    .wrap{ max-width:1080px; margin:0 auto; padding:26px 20px 80px; }
+    .titulo{ font-size:2rem; color:var(--primary); line-height:1.15; }
+    .sub{ color:var(--gray-500); font-size:.92rem; margin:4px 0 18px; max-width:68ch; }
+
+    .barra{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:14px; }
+    .btn{ background:var(--primary); color:#fff; border:1px solid var(--primary); border-radius:9px; padding:10px 16px; font-size:.9rem;
+      font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:8px; white-space:nowrap; text-decoration:none; }
+    .btn.sec{ background:#fff; color:var(--primary); border-color:var(--gray-200); }
+    .btn.sec:hover{ border-color:var(--primary); }
+    .btn.chico{ padding:7px 12px; font-size:.82rem; border-radius:8px; }
+    .btn:disabled{ opacity:.55; cursor:default; }
+    .avance{ font-size:.84rem; color:var(--gray-500); }
+    .avance b{ color:var(--primary); }
+
+    .aviso{ background:#fffdf5; border:1px solid #eee6cf; border-left:4px solid var(--gold); border-radius:11px; padding:12px 15px;
+      font-size:.86rem; color:#6e5710; margin-bottom:16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:space-between; }
+    .aviso p{ flex:1 1 320px; }
+
+    .filtros{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+    .chip{ border:1px solid var(--gray-200); background:#fff; color:var(--gray-600); border-radius:999px; padding:6px 13px; font-size:.82rem;
+      font-weight:600; cursor:pointer; display:inline-flex; gap:7px; align-items:center; }
+    .chip .n{ font-variant-numeric:tabular-nums; color:var(--gray-400); font-weight:600; }
+    .chip.act{ background:var(--primary); border-color:var(--primary); color:#fff; }
+    .chip.act .n{ color:rgba(255,255,255,.7); }
+    .buscar{ flex:1 1 220px; max-width:320px; font-family:inherit; font-size:.88rem; padding:8px 12px; border:1px solid var(--gray-200);
+      border-radius:999px; background:#fff; }
+
+    .lista{ display:flex; flex-direction:column; gap:10px; }
+    .fila{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:14px 16px; }
+    .fila.err{ border-left:4px solid #c0392b; } .fila.warn{ border-left:4px solid var(--gold); }
+    .fila.busy{ border-left:4px solid #3b6fe0; } .fila.ok{ border-left:4px solid #2f9b68; }
+    .cab{ display:flex; gap:12px; align-items:flex-start; }
+    .foto{ width:64px; height:48px; border-radius:8px; object-fit:cover; background:var(--gray-100); flex:none; }
+    .cab .tx{ flex:1; min-width:0; }
+    .cab .t{ font-weight:600; color:var(--primary); line-height:1.3; }
+    .cab .m{ font-size:.78rem; color:var(--gray-500); margin-top:2px; display:flex; flex-wrap:wrap; gap:4px 12px; }
+    .cab .m a{ color:var(--gray-500); text-decoration:underline; text-underline-offset:2px; }
+    .cab .m a:hover{ color:var(--primary); }
+    .pill{ flex:none; font-size:.76rem; font-weight:600; padding:4px 10px; border-radius:999px; white-space:nowrap; }
+    .pill.ok{ background:rgba(30,125,79,.12); color:var(--ok); }
+    .pill.warn{ background:rgba(201,162,39,.18); color:var(--warn); }
+    .pill.err{ background:rgba(192,57,43,.12); color:var(--err); }
+    .pill.busy{ background:rgba(29,78,216,.10); color:var(--busy); }
+    .pill.idle{ background:var(--gray-100); color:var(--gray-500); }
+
+    .difs{ margin:12px 0 0; display:grid; grid-template-columns:max-content 1fr 1fr; gap:6px 16px; font-size:.84rem; }
+    .difs .h{ font-size:.72rem; color:var(--gray-400); font-weight:600; }
+    .difs .c{ font-weight:600; color:var(--gray-600); }
+    .difs .crm{ color:#1d2733; }
+    .difs .ic{ color:var(--err); }
+    .det{ margin-top:10px; font-size:.82rem; color:var(--gray-600); display:flex; flex-direction:column; gap:4px; }
+    .det .motivo{ color:var(--err); }
+    .det span, .difs span{ overflow-wrap:anywhere; }
+    .acc{ margin-top:12px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .res{ font-size:.82rem; color:var(--gray-500); }
+    .res.ok{ color:var(--ok); } .res.mal{ color:var(--err); }
+    details.tec{ margin-top:10px; font-size:.78rem; color:var(--gray-500); }
+    details.tec summary{ cursor:pointer; }
+    details.tec pre{ margin-top:6px; background:var(--gray-50); border:1px solid var(--gray-100); border-radius:8px; padding:9px;
+      white-space:pre-wrap; word-break:break-all; max-height:260px; overflow:auto; font-size:.74rem; }
+    .vacio{ text-align:center; padding:34px 16px; color:var(--gray-400); background:#fff; border:1px dashed var(--gray-200); border-radius:14px; }
+    .bloqueado{ max-width:460px; margin:90px auto; text-align:center; }
+
+    @media (max-width:640px){
+      .wrap{ padding:18px 13px 70px; }
+      .titulo{ font-size:1.6rem; }
+      .foto{ width:52px; height:40px; }
+      .cab{ flex-wrap:wrap; }
+      /* El texto ocupa todo el ancho al lado de la foto y la píldora baja a su propia línea. */
+      .cab .tx{ flex:1 1 calc(100% - 64px); }
+      .pill{ order:3; margin-left:64px; white-space:normal; }
+      .difs{ grid-template-columns:1fr 1fr; }
+      .difs .h.campo{ display:none; }
+      .difs .c{ grid-column:1 / -1; margin-top:4px; }
+      .buscar{ max-width:none; }
+    }
+    @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation:none !important; } }
+  </style>
+</head>
+<body>
+  <header class="mv-head">
+    <div class="mv-head-in">
+      <a href="index.html" class="logo"><img src="iso-malave.png" alt="" class="logo-img"><img src="texto-malave.png" alt="MALAVE" class="logo-text"></a>
+      <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i> <span>Volver al inicio</span></a>
+    </div>
+  </header>
+
+  <div id="bloqueado" class="bloqueado" style="display:none">
+    <i class="fas fa-lock" style="font-size:2.2rem;color:var(--gray-400)"></i>
+    <h1 class="titulo" style="font-size:1.5rem;margin-top:14px">Solo Dirección</h1>
+    <p class="sub" style="margin:6px auto">Esta herramienta está reservada a CEO y COO.</p>
+  </div>
+
+  <main class="wrap" id="app" style="display:none">
+    <h1 class="titulo">Avisos en InfoCasas</h1>
+    <p class="sub" id="subtitulo">Compara cada aviso publicado con su ficha del CRM: título, precio, moneda, operación, tipo,
+      dormitorios, baños, superficie, fotos y descripción. Si algo quedó distinto, <b>Reenviar</b> le manda a InfoCasas la versión del CRM.</p>
+
+    <div class="barra">
+      <button class="btn" id="btnRevisar" onclick="revisar()"><i class="fas fa-magnifying-glass"></i> Revisar de nuevo</button>
+      <button class="btn sec" id="btnDistintas" onclick="reenviarDistintas()" style="display:none"></button>
+      <button class="btn sec" id="btnTodos" onclick="reenviarTodos()" style="display:none"><i class="fas fa-paper-plane"></i> Reenviar todos</button>
+      <span class="avance" id="avance" role="status" aria-live="polite"></span>
+    </div>
+
+    <div class="aviso" id="avisoTitulos" style="display:none"></div>
+
+    <div class="barra">
+      <div class="filtros" id="filtros"></div>
+      <input class="buscar" id="buscar" type="search" placeholder="Buscar por título, código o agente" oninput="pintar()" aria-label="Buscar avisos">
+    </div>
+
+    <div class="lista" id="lista"><div class="vacio"><i class="fas fa-spinner fa-spin"></i> Cargando propiedades…</div></div>
+  </main>
+
+<script>
+  /* =========================================================================
+     AVISOS EN INFOCASAS — solo CEO y COO.
+     Para cada propiedad publicada en InfoCasas, el servidor (auditarInfocasas)
+     pide el aviso a InfoCasas, lo compara con lo que el CRM mandaría hoy y
+     cuenta cómo terminó el último envío. Se pide de a 6 para mostrar el avance
+     y no chocar con el límite de peticiones de InfoCasas.
+     ========================================================================= */
+  firebase.initializeApp(window.firebaseConfig);
+  const db = firebase.firestore(), auth = firebase.auth();
+  const llamar = (datos) => firebase.functions().httpsCallable('auditarInfocasas', { timeout: 180000 })(datos).then((r) => r.data || {});
+
+  const TANDA = 6;
+  const SOLO = new URLSearchParams(location.search).get('id');
+  let _props = [];          // propiedades a revisar (de Firestore)
+  let _filas = {};          // id -> resultado de la revisión
+  let _envios = {};         // id -> { ok, texto } del último reenvío
+  let _filtro = 'problemas', _ocupado = false;
+
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fecha = (iso) => iso ? new Date(iso).toLocaleString('es-UY', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  function hace(iso) {
+    const ms = Date.now() - Date.parse(iso || '');
+    if (!Number.isFinite(ms)) return '';
+    const min = Math.round(ms / 60000);
+    if (min < 1) return 'recién';
+    if (min < 60) return `hace ${min} min`;
+    const h = Math.round(min / 60);
+    if (h < 48) return `hace ${h} h`;
+    return `hace ${Math.round(h / 24)} días`;
+  }
+  const precio = (n, m) => (m === 'UYU' ? '$ ' : m === 'USD' ? 'US$ ' : '') + Number(n).toLocaleString('es-UY');
+  const MONEDA = { USD: 'dólares (US$)', UYU: 'pesos ($)' };
+  const TIPO = { apartment: 'apartamento', house: 'casa', parking: 'cochera', lot: 'terreno', commercial: 'local', office: 'oficina',
+    farm: 'campo', industrial: 'galpón o depósito', building: 'edificio', hotel: 'hotel', room: 'habitación', warehouse: 'depósito' };
+  const CAMPO = { titulo: 'Título', precio: 'Precio', moneda: 'Moneda', operacion: 'Operación', tipo: 'Tipo', dormitorios: 'Dormitorios',
+    banos: 'Baños', area: 'Superficie', fotos: 'Fotos', descripcion: 'Descripción' };
+
+  /* Cada situación: texto de la píldora, tono y si cuenta como problema. */
+  const SIT = {
+    igual: { txt: 'Igual que en el CRM', tono: 'ok' },
+    distinta: { txt: 'Distinta en InfoCasas', tono: 'warn', problema: true },
+    rechazada: { txt: 'InfoCasas rechazó el último cambio', tono: 'err', problema: true },
+    procesando: { txt: 'InfoCasas está procesando un cambio', tono: 'busy' },
+    faltan: { txt: 'Los cambios no se pueden mandar', tono: 'warn', problema: true },
+    no_activa: { txt: 'No se ve en InfoCasas', tono: 'warn', problema: true },
+    no_esta: { txt: 'El aviso no está en InfoCasas', tono: 'err', problema: true },
+    sin_respuesta: { txt: 'InfoCasas no respondió', tono: 'idle', problema: true },
+    publicandose: { txt: 'Publicándose', tono: 'busy' },
+    publicacion_rechazada: { txt: 'InfoCasas rechazó la publicación', tono: 'err', problema: true },
+    dada_de_baja: { txt: 'Dada de baja en InfoCasas', tono: 'idle' },
+    sin_publicar: { txt: 'No está publicada en InfoCasas', tono: 'idle' },
+    no_existe: { txt: 'La propiedad ya no existe', tono: 'idle' },
+    error: { txt: 'No se pudo revisar', tono: 'idle', problema: true },
+    pendiente_revisar: { txt: 'Sin revisar', tono: 'idle' },
+  };
+  const ORDEN = ['rechazada', 'no_esta', 'publicacion_rechazada', 'distinta', 'faltan', 'no_activa', 'sin_respuesta', 'error',
+    'procesando', 'publicandose', 'pendiente_revisar', 'igual', 'dada_de_baja', 'sin_publicar', 'no_existe'];
+
+  auth.onAuthStateChanged(async (u) => {
+    if (!u) { location.href = 'index.html'; return; }
+    let perfil = {};
+    try { const d = await db.doc('users/' + u.uid).get(); perfil = d.exists ? d.data() : {}; } catch (e) {}
+    const rango = String(perfil.rank || '').toLowerCase();
+    const esDir = (rango === 'ceo' || rango === 'coo') && perfil.status === 'approved' ||
+      String(u.email || '').toLowerCase() === String(window.ADMIN_EMAIL || '').toLowerCase();
+    if (!esDir) { document.getElementById('bloqueado').style.display = ''; return; }
+    document.getElementById('app').style.display = '';
+    await cargar();
+    revisar();
+  });
+
+  /* Las que se revisan: con aviso en InfoCasas (no dado de baja) y las que se
+     mandaron a publicar y todavía no se confirmaron. */
+  async function cargar() {
+    try {
+      const snap = await db.collection('properties').get();
+      _props = [];
+      snap.forEach((d) => {
+        const p = d.data() || {};
+        const publicada = p.icListingId && p.icEstado !== 'eliminado';
+        if (SOLO ? d.id !== SOLO : !(publicada || p.icEstado === 'pendiente')) return;
+        _props.push({ id: d.id, titulo: p.title || '(sin título)', agente: p.ownerName || '', codigo: (p.ficha && p.ficha.PROPERTY_CODE) || '',
+          foto: (p.images || []).filter(Boolean)[0] || '', fr: p.icFrPropertyId || '', listingId: p.icListingId || '' });
+      });
+      _props.sort((a, b) => a.titulo.localeCompare(b.titulo, 'es'));
+      if (SOLO) {
+        document.getElementById('subtitulo').innerHTML = 'Comparación de una sola propiedad. <a href="auditoria-infocasas.html">Ver todos los avisos</a>.';
+      }
+      pintar();
+    } catch (e) {
+      document.getElementById('lista').innerHTML = `<div class="vacio">No se pudieron leer las propiedades: ${esc(e.code || e.message || e)}</div>`;
+    }
+  }
+
+  async function revisar(ids) {
+    if (_ocupado) return;
+    const lista = ids || _props.map((p) => p.id);
+    if (!lista.length) { pintar(); return; }
+    _ocupado = true; botones();
+    const av = document.getElementById('avance');
+    let hechas = 0;
+    for (let i = 0; i < lista.length; i += TANDA) {
+      const tanda = lista.slice(i, i + TANDA);
+      av.innerHTML = `Revisando <b>${Math.min(hechas + tanda.length, lista.length)}</b> de ${lista.length}…`;
+      try {
+        const r = await llamar({ accion: 'revisar', propertyIds: tanda });
+        for (const f of r.filas || []) { _filas[f.id] = f; delete _envios[f.id]; }
+      } catch (e) {
+        for (const id of tanda) _filas[id] = { id, situacion: 'error', mensaje: mensajeError(e) };
+        if (/permission-denied|unauthenticated/.test(e.code || '')) break;
+      }
+      hechas += tanda.length;
+      pintar();
+    }
+    const n = Object.keys(_filas).length;
+    av.textContent = n ? `Revisados ${n} ${n === 1 ? 'aviso' : 'avisos'} · ${fecha(new Date().toISOString())}` : '';
+    _ocupado = false; botones(); pintar();
+  }
+
+  function mensajeError(e) {
+    const c = String((e && e.code) || '');
+    if (/not-found|internal/.test(c) && /auditarInfocasas|not found/i.test(String(e.message))) return 'Falta subir la versión nueva del servidor.';
+    if (/permission-denied/.test(c)) return 'Solo la Dirección puede revisar los avisos.';
+    if (/unauthenticated/.test(c)) return 'Se venció la sesión. Volvé a entrar.';
+    return (e && e.message) || 'Error desconocido';
+  }
+
+  async function reenviar(ids, accion) {
+    if (_ocupado || !ids.length) return;
+    _ocupado = true; botones();
+    const av = document.getElementById('avance');
+    let hechas = 0;
+    for (let i = 0; i < ids.length; i += 8) {
+      const tanda = ids.slice(i, i + 8);
+      av.innerHTML = `${accion === 'republicar' ? 'Publicando' : 'Enviando'} <b>${Math.min(hechas + tanda.length, ids.length)}</b> de ${ids.length}…`;
+      try {
+        const r = await llamar({ accion, propertyIds: tanda });
+        for (const f of r.filas || []) _envios[f.id] = { ok: !!f.ok, texto: f.ok ? (accion === 'republicar' ? 'Se mandó a publicar.' : 'Enviado. InfoCasas lo procesa en unos minutos.') : (f.mensaje || 'No se pudo.') + (f.faltan ? ' Falta: ' + f.faltan.join(', ') + '.' : '') };
+      } catch (e) {
+        for (const id of tanda) _envios[id] = { ok: false, texto: mensajeError(e) };
+      }
+      hechas += tanda.length;
+      pintar();
+    }
+    const bien = ids.filter((id) => _envios[id] && _envios[id].ok).length;
+    av.textContent = `${bien} de ${ids.length} ${accion === 'republicar' ? 'mandados a publicar' : 'enviados'}. Volvé a revisar en unos minutos para ver si InfoCasas los aplicó.`;
+    _ocupado = false; botones(); pintar();
+  }
+  const reenviarUno = (id) => reenviar([id], 'reenviar');
+  const republicarUno = (id) => {
+    if (!confirm('El aviso no está en InfoCasas. ¿Lo publicamos de nuevo? Se crea un aviso nuevo con la ficha del CRM.')) return;
+    reenviar([id], 'republicar');
+  };
+  function reenviarDistintas() {
+    const ids = idsCon(['distinta', 'rechazada']);
+    if (ids.length) reenviar(ids, 'reenviar');
+  }
+  function reenviarTodos() {
+    // Las que tienen aviso en InfoCasas. Las que no se pueden mandar (les falta algo) ya lo dicen en su fila.
+    const ids = _props.filter((p) => { const f = _filas[p.id]; return f && f.listingId && !['no_esta', 'dada_de_baja', 'sin_publicar', 'no_existe', 'publicandose', 'publicacion_rechazada', 'faltan'].includes(f.situacion); }).map((p) => p.id);
+    if (!ids.length) return;
+    if (!confirm(`Se le manda a InfoCasas la versión actual de ${ids.length} ${ids.length === 1 ? 'aviso' : 'avisos'} (título, precio, fotos y todo lo demás). Tarda unos minutos. ¿Seguimos?`)) return;
+    reenviar(ids, 'reenviar');
+  }
+  const idsCon = (sits) => _props.filter((p) => _filas[p.id] && sits.includes(_filas[p.id].situacion)).map((p) => p.id);
+
+  function botones() {
+    document.getElementById('btnRevisar').disabled = _ocupado;
+    const distintas = idsCon(['distinta', 'rechazada']).length;
+    const bd = document.getElementById('btnDistintas');
+    bd.style.display = distintas ? '' : 'none';
+    bd.disabled = _ocupado;
+    bd.innerHTML = `<i class="fas fa-rotate-right"></i> Reenviar las distintas (${distintas})`;
+    const bt = document.getElementById('btnTodos');
+    bt.style.display = !SOLO && Object.keys(_filas).length ? '' : 'none';
+    bt.disabled = _ocupado;
+  }
+
+  function filtrar(f) { _filtro = f; pintar(); }
+
+  function pintar() {
+    botones();
+    const q = document.getElementById('buscar').value.trim().toLowerCase();
+    const filas = _props.map((p) => ({ p, f: _filas[p.id] || { id: p.id, situacion: 'pendiente_revisar' } }));
+    const cuenta = (fn) => filas.filter(fn).length;
+    const problemas = cuenta((x) => (SIT[x.f.situacion] || {}).problema);
+    const revisadas = cuenta((x) => x.f.situacion !== 'pendiente_revisar');
+    // Sin problemas no tiene sentido arrancar filtrado en "Con problemas".
+    if (_filtro === 'problemas' && revisadas === filas.length && !problemas) _filtro = 'todos';
+    const chips = [
+      ['problemas', 'Con problemas', problemas],
+      ['todos', 'Todos', filas.length],
+      ['igual', 'Iguales', cuenta((x) => x.f.situacion === 'igual')],
+      ['procesando', 'En proceso', cuenta((x) => ['procesando', 'publicandose'].includes(x.f.situacion))],
+    ];
+    document.getElementById('filtros').innerHTML = SOLO ? '' : chips.map(([k, t, n]) =>
+      `<button class="chip${_filtro === k ? ' act' : ''}" onclick="filtrar('${k}')" aria-pressed="${_filtro === k}">${t} <span class="n">${n}</span></button>`).join('');
+
+    // Títulos genéricos: aviso arriba con el botón para mandarlos todos.
+    const conTitulo = cuenta((x) => (x.f.diferencias || []).some((d) => d.campo === 'titulo'));
+    const at = document.getElementById('avisoTitulos');
+    if (conTitulo >= 2 && !SOLO) {
+      at.style.display = '';
+      at.innerHTML = `<p><b>${conTitulo} avisos tienen en InfoCasas un título distinto al del CRM</b> (casi siempre el genérico, como «Apartamento en Venta»). Reenviándolos toman el título del CRM.</p>` +
+        `<button class="btn chico" onclick="reenviarTodos()"${_ocupado ? ' disabled' : ''}><i class="fas fa-paper-plane"></i> Reenviar todos</button>`;
+      // El mismo botón ya está en el aviso, con la explicación: arriba sobraría.
+      document.getElementById('btnTodos').style.display = 'none';
+    } else at.style.display = 'none';
+
+    let vis = filas.filter(({ p, f }) => {
+      if (q && !(p.titulo + ' ' + p.codigo + ' ' + p.agente).toLowerCase().includes(q)) return false;
+      if (SOLO || _filtro === 'todos') return true;
+      if (_filtro === 'problemas') return (SIT[f.situacion] || {}).problema || f.situacion === 'pendiente_revisar';
+      if (_filtro === 'procesando') return ['procesando', 'publicandose'].includes(f.situacion);
+      return f.situacion === _filtro;
+    });
+    vis.sort((a, b) => (ORDEN.indexOf(a.f.situacion) - ORDEN.indexOf(b.f.situacion)) || a.p.titulo.localeCompare(b.p.titulo, 'es'));
+    const el = document.getElementById('lista');
+    if (!_props.length) {
+      el.innerHTML = `<div class="vacio">${SOLO ? 'Esa propiedad no está publicada en InfoCasas.' : 'No hay propiedades publicadas en InfoCasas.'}</div>`;
+      return;
+    }
+    if (!vis.length) {
+      el.innerHTML = `<div class="vacio">${_filtro === 'problemas' ? 'Ningún aviso con problemas. Todo coincide con el CRM.' : 'Ningún aviso con ese filtro.'}</div>`;
+      return;
+    }
+    el.innerHTML = vis.map(({ p, f }) => filaHtml(p, f)).join('');
+  }
+
+  function valor(campo, v, lado, f) {
+    if (v == null || v === '') return '—';
+    const m = (lado === 'crm' ? f.crm : f.infocasas) || {};
+    if (campo === 'precio') return precio(v, m.moneda);
+    if (campo === 'moneda') return MONEDA[v] || v;
+    if (campo === 'operacion') return String(v).charAt(0).toUpperCase() + String(v).slice(1);
+    if (campo === 'tipo') return TIPO[v] || v;
+    if (campo === 'area') return v + ' m²';
+    if (campo === 'fotos') return v + (Number(v) === 1 ? ' foto' : ' fotos');
+    if (campo === 'descripcion') return '«' + v + '…»';
+    if (campo === 'titulo') return '«' + v + '»';
+    return String(v);
+  }
+
+  function filaHtml(p, f) {
+    const s = SIT[f.situacion] || { txt: f.situacion, tono: 'idle' };
+    let txt = s.txt;
+    if (f.situacion === 'no_activa' && f.estadoIc) txt = `En InfoCasas figura «${f.estadoIc}»`;
+    if (f.situacion === 'sin_respuesta' && f.http) txt += ` (HTTP ${f.http})`;
+    const fr = f.frPropertyId || p.fr;
+    const links = [
+      p.agente && `<span>${esc(p.agente)}</span>`,
+      p.codigo && `<span>${esc(p.codigo)}</span>`,
+      `<a href="propiedad.html?id=${encodeURIComponent(p.id)}" target="_blank" rel="noopener">Ver ficha</a>`,
+      fr && `<a href="https://www.infocasas.com.uy/detalle/${encodeURIComponent(fr)}" target="_blank" rel="noopener">Ver en InfoCasas</a>`,
+    ].filter(Boolean).join('');
+
+    let difs = '';
+    if (f.diferencias && f.diferencias.length) {
+      difs = `<div class="difs"><span class="h campo"></span><span class="h">En el CRM</span><span class="h">En InfoCasas</span>` +
+        f.diferencias.map((d) => `<span class="c">${esc(CAMPO[d.campo] || d.campo)}</span>` +
+          `<span class="crm">${esc(valor(d.campo, d.crm, 'crm', f))}</span><span class="ic">${esc(valor(d.campo, d.infocasas, 'ic', f))}</span>`).join('') + `</div>`;
+    }
+
+    const det = [];
+    const tarea = f.tarea || {};
+    if (f.situacion === 'rechazada' && tarea.motivo) det.push(`<span class="motivo">Motivo: ${esc(tarea.motivo)}</span>`);
+    if (f.situacion === 'publicacion_rechazada' && f.motivo) det.push(`<span class="motivo">${esc(f.motivo)}</span>`);
+    if (f.faltan && f.faltan.length) det.push(`<span>A la ficha le falta: <b>${esc(f.faltan.join(', '))}</b>.</span>`);
+    if (f.enProceso) det.push(`<span>El último envío todavía está en proceso en InfoCasas${f.ultimoEnvio ? ' (se mandó ' + esc(hace(f.ultimoEnvio)) + ')' : ''}.</span>`);
+    if (f.situacion === 'no_esta') det.push('<span>El CRM lo tiene como publicado, pero InfoCasas dice que ese aviso no existe (puede haberse borrado desde su panel).</span>');
+    if (f.situacion === 'error' && f.mensaje) det.push(`<span class="motivo">${esc(f.mensaje)}</span>`);
+    if (f.situacion === 'publicandose') det.push('<span>InfoCasas todavía no confirmó la publicación.</span>');
+    const fechas = [];
+    if (f.ultimoEnvio) fechas.push('Último envío del CRM: ' + esc(fecha(f.ultimoEnvio)));
+    if (f.infocasas && f.infocasas.actualizado) fechas.push('InfoCasas lo actualizó: ' + esc(fecha(f.infocasas.actualizado)));
+    if (fechas.length) det.push(`<span>${fechas.join(' · ')}</span>`);
+    if (f.infocasas && !f.infocasas.moneda && f.situacion !== 'pendiente_revisar') det.push('<span>InfoCasas no informa la moneda: si dudás, miralo en su panel.</span>');
+
+    const acc = [];
+    const envio = _envios[p.id];
+    const conAviso = f.listingId && !['no_esta', 'dada_de_baja', 'sin_publicar', 'no_existe', 'publicandose', 'publicacion_rechazada'].includes(f.situacion);
+    if (conAviso && f.situacion !== 'faltan') acc.push(`<button class="btn chico${['distinta', 'rechazada'].includes(f.situacion) ? '' : ' sec'}" onclick="reenviarUno('${esc(p.id)}')"${_ocupado ? ' disabled' : ''}><i class="fas fa-rotate-right"></i> Reenviar</button>`);
+    if (f.situacion === 'faltan') acc.push(`<a class="btn chico sec" href="propiedad-form.html?id=${encodeURIComponent(p.id)}" target="_blank" rel="noopener"><i class="fas fa-pen"></i> Completar la ficha</a>`);
+    if (f.situacion === 'no_esta') acc.push(`<button class="btn chico" onclick="republicarUno('${esc(p.id)}')"${_ocupado ? ' disabled' : ''}><i class="fas fa-upload"></i> Publicar de nuevo</button>`);
+    if (f.situacion !== 'pendiente_revisar') acc.push(`<button class="btn chico sec" onclick="revisar(['${esc(p.id)}'])"${_ocupado ? ' disabled' : ''}><i class="fas fa-magnifying-glass"></i> Revisar esta</button>`);
+    if (envio) acc.push(`<span class="res ${envio.ok ? 'ok' : 'mal'}">${envio.ok ? '<i class="fas fa-check"></i> ' : ''}${esc(envio.texto)}</span>`);
+
+    const tec = f.crudo ? `<details class="tec"><summary>Datos técnicos de InfoCasas</summary><pre>${esc(f.crudo)}</pre></details>` : '';
+    const foto = p.foto ? `<img class="foto" src="${esc(p.foto)}" alt="" loading="lazy">` : '<span class="foto"></span>';
+    return `<article class="fila ${s.tono}" data-id="${esc(p.id)}">` +
+      `<div class="cab">${foto}<div class="tx"><div class="t">${esc(p.titulo)}</div><div class="m">${links}</div></div>` +
+      `<span class="pill ${s.tono}">${esc(txt)}</span></div>` +
+      difs + (det.length ? `<div class="det">${det.join('')}</div>` : '') +
+      (acc.length ? `<div class="acc">${acc.join('')}</div>` : '') + tec + `</article>`;
+  }
+</script>
+</body>
+</html>
