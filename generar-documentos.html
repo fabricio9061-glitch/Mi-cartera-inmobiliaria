@@ -8,171 +8,204 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
     /* ============================================================================
-       DOCUMENTOS — maqueta
-       Dos columnas: a la izquierda se cargan los datos, a la derecha está la hoja
-       tal como va a salir, sobre una "mesa" gris. En el celular la hoja no entra
-       al lado: queda detrás del botón "Ver la hoja" de la barra de abajo.
+       DOCUMENTOS — mesa de trabajo
+       La misma familia que la agenda y el resto del CRM: Inter para trabajar,
+       Cormorant para los títulos, azul marino y dorado.
+       En la computadora la pantalla entera es la mesa: a la izquierda los
+       documentos (con las secciones del elegido), en el medio el formulario y a
+       la derecha la hoja tal como sale, sobre un fondo oscuro, como en un visor
+       de PDF. Nada de la página se desplaza: cada columna tiene su propio scroll.
+       En el celular: pestañas, el formulario y la hoja detrás de "Ver la hoja".
        ========================================================================== */
     :root{
-      --ink:#16273f; --ink-2:#24364f; --muted:#667085; --line:#e3e7ed; --line-2:#d3d9e2;
-      --card:#fff; --bg:#f3f5f8; --mesa:#e2e7ee; --pista:#e9edf2;
-      --gold:#C9A227; --bad:#b42318; --good:#1a7f4b; --gray-100:#f1f4f8;
+      --navy:#16273f; --navy-2:#243447; --ink:#16273f; --ink-2:#2b3b52;
+      --gold:#C9A227; --gold-2:#9c7a12; --gold-soft:#fbf5e2; --gold-line:#ead9a4;
+      --txt:#1f2937; --txt-2:#3c4043; --muted:#6b7280;
+      --line:#e4e7eb; --line-2:#d3d8de; --hover:#f1f3f4; --fondo:#f8f9fa; --pista:#eef0f3;
+      --card:#fff; --bad:#b42318; --good:#1a7f4b;
+      --mesa:#243146;              /* el fondo de la hoja */
       /* Estados del inventario. Cada color va SIEMPRE con su letra o su palabra. */
       --bien:#1a7f4b; --bien-s:#e3f4ea; --reg:#955f00; --reg-s:#fdf0d2;
       --mal:#b42318; --mal-s:#fde5e2; --nt:#56637a; --nt-s:#e8ecf2;
-      --tope:63px;                 /* alto de la cabecera; lo ajusta medirTope() */
+      --tope:57px;                 /* alto de la cabecera; lo ajusta medirTope() */
+      --lado:264px;                /* ancho de la columna de documentos */
     }
     *{ box-sizing:border-box; margin:0; padding:0; }
     html{ -webkit-text-size-adjust:100%; }
-    body{ font-family:'Jost',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--ink); line-height:1.4; }
-    h1,h2,h3{ font-family:'Cormorant Garamond',Georgia,serif; }
-    button{ font-family:inherit; }
+    body{ font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; background:#fff; color:var(--txt); line-height:1.45;
+      -webkit-font-smoothing:antialiased; }
+    h1,h2,h3{ font-family:'Cormorant Garamond',Georgia,serif; color:var(--navy); }
+    button, input, select, textarea{ font-family:inherit; }
     :focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
 
-    .fh{ background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:50; }
-    .fh-in{ max-width:1360px; margin:0 auto; padding:14px 24px; display:flex; justify-content:space-between; align-items:center; }
-    .fh-logo{ display:flex; align-items:center; gap:10px; }
-    .fh-back{ display:inline-flex; align-items:center; gap:7px; color:var(--muted); font-size:.88rem; font-weight:500; padding:8px 15px; border:1px solid var(--line); border-radius:999px; text-decoration:none; white-space:nowrap; }
-    .fh-back:hover{ background:var(--ink); color:#fff; border-color:var(--ink); }
+    /* ---- Cabecera ---------------------------------------------------------------- */
+    .fh{ position:sticky; top:0; z-index:50; background:#fff; border-bottom:1px solid var(--line); }
+    .fh-in{ min-height:56px; display:flex; align-items:center; gap:12px; padding:0 16px 0 20px; }
+    .fh-logo{ display:flex; align-items:center; gap:10px; color:var(--navy); text-decoration:none; border-radius:10px; }
+    .fh-logo img{ height:30px; width:auto; display:block; }
+    .fh-app{ font-family:'Cormorant Garamond',Georgia,serif; font-size:1.55rem; font-weight:700; line-height:1; letter-spacing:.2px; }
+    .fh-back{ margin-left:auto; display:inline-flex; align-items:center; gap:8px; color:#5b6472; font-size:.86rem; font-weight:500; padding:8px 16px;
+      border:1px solid var(--line-2); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s, color .15s, border-color .15s; }
+    .fh-back:hover{ background:var(--navy); color:#fff; border-color:var(--navy); }
 
-    /* El margen de abajo (16px) es el mismo que deja la hoja, que va pegada a la
-       ventana: con uno mayor, al llegar al final de la página la hoja se corría
-       hacia arriba y su barra quedaba tapada por la cabecera. */
-    .wrap{ max-width:1360px; margin:0 auto; padding:22px 24px 16px; }
-    h1{ font-size:2.1rem; font-weight:700; line-height:1.1; }
-    .lede{ color:var(--muted); margin:4px 0 18px; font-size:.98rem; max-width:62ch; }
-    .state{ text-align:center; padding:60px 20px; color:var(--muted); }
+    .state{ text-align:center; padding:60px 20px; color:var(--muted); margin:auto; }
     .sp{ width:34px; height:34px; border:3px solid var(--line); border-top-color:var(--gold); border-radius:50%; margin:0 auto 14px; animation:spin 1s linear infinite; }
     @keyframes spin{ to{ transform:rotate(360deg); } }
-    .denied{ text-align:center; padding:60px 20px; }
+    .denied{ text-align:center; padding:60px 20px; margin:auto; }
     .denied i{ font-size:2.4rem; color:var(--bad); margin-bottom:12px; }
 
-    /* ---- Qué documento -------------------------------------------------------
-       Una sola tira con los documentos que el rol puede emitir. La descripción del
-       elegido va en una línea debajo: antes cada tarjeta traía la suya y en el
-       celular el selector ocupaba la primera pantalla entera. */
-    .doc-types{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:5px;
-      background:var(--pista); border-radius:16px; padding:5px; }
-    .doc-type{ display:flex; align-items:center; gap:10px; min-height:52px; padding:8px 12px; border:0; border-radius:12px;
-      background:transparent; color:#4c5a71; font-size:.92rem; text-align:left; cursor:pointer; }
+    /* ---- Columna de documentos ----------------------------------------------------- */
+    .doc-lado{ display:flex; flex-direction:column; min-width:0; }
+    .doc-types{ display:flex; flex-direction:column; gap:2px; }
+    .doc-type{ position:relative; display:flex; align-items:center; gap:12px; width:100%; min-height:44px; padding:0 12px 0 20px; border:0;
+      border-radius:0 999px 999px 0; background:none; color:var(--txt-2); font-size:.9rem; font-weight:500; line-height:1.25; text-align:left; cursor:pointer;
+      transition:background .15s; }
     .doc-type[hidden]{ display:none; }
-    .doc-type i{ flex:none; width:32px; height:32px; display:grid; place-items:center; border-radius:9px;
-      background:rgba(22,39,63,.07); color:var(--ink); font-size:.9rem; }
-    .doc-type b{ font-weight:600; line-height:1.2; }
+    .doc-type i{ flex:none; width:18px; text-align:center; font-size:.95rem; color:#5f6368; }
+    .doc-type b{ font-weight:inherit; }
     .doc-type small, .doc-type span{ display:none; }
-    .doc-type:hover{ background:rgba(255,255,255,.62); color:var(--ink); }
-    .doc-type.active{ background:var(--card); color:var(--ink); box-shadow:0 1px 2px rgba(16,24,40,.07), 0 5px 14px rgba(16,24,40,.09); }
-    .doc-type.active i{ background:var(--ink); color:#f0d480; }
-    .doc-desc{ font-size:.88rem; color:var(--muted); margin:10px 4px 0; min-height:1.25em; }
-    .doc-nota{ font-size:.82rem; color:var(--muted); margin:8px 4px 0; display:flex; gap:7px; align-items:flex-start; line-height:1.5; }
-    .doc-nota i{ color:var(--gold); margin-top:3px; flex:none; }
+    .doc-type:hover{ background:var(--hover); }
+    .doc-type.active{ background:var(--gold-soft); color:var(--navy); font-weight:600; }
+    .doc-type.active i{ color:var(--gold-2); }
+    /* Secciones del documento elegido, debajo de su nombre: llevan a cada parte
+       del formulario y marcan en cuál se está. */
+    .doc-indice{ position:relative; list-style:none; margin:4px 0 12px; }
+    .doc-indice[hidden]{ display:none; }
+    .doc-indice::before{ content:''; position:absolute; left:28px; top:6px; bottom:6px; width:1px; background:var(--line-2); }
+    .doc-indice button{ position:relative; display:flex; align-items:baseline; gap:10px; width:100%; min-height:32px; padding:6px 16px 6px 46px; border:0;
+      border-radius:0 999px 999px 0; background:none; color:var(--muted); font-size:.83rem; line-height:1.3; text-align:left; cursor:pointer; }
+    .doc-indice button:hover{ background:var(--hover); color:var(--txt); }
+    .doc-indice .n{ flex:none; min-width:12px; font-family:'Cormorant Garamond',Georgia,serif; font-size:1.05rem; font-weight:700; line-height:1; color:#a7aeb8;
+      font-variant-numeric:lining-nums; }
+    .doc-indice button[aria-current="true"]{ color:var(--navy); font-weight:600; }
+    .doc-indice button[aria-current="true"] .n{ color:var(--gold-2); }
+    .doc-indice button[aria-current="true"]::before{ content:''; position:absolute; left:27px; top:8px; bottom:8px; width:3px; border-radius:2px; background:var(--gold); }
+
+    /* ---- Formulario ------------------------------------------------------------------ */
+    .doc-form{ min-width:0; }
+    .doc-cab{ margin-bottom:26px; }
+    .doc-cab h1{ font-size:2.25rem; font-weight:700; line-height:1.05; letter-spacing:-.005em; }
+    .doc-desc{ margin-top:7px; font-size:.92rem; color:var(--muted); max-width:52ch; min-height:1.3em; }
+    .doc-nota{ margin-top:12px; font-size:.8rem; color:var(--muted); display:flex; gap:8px; align-items:flex-start; line-height:1.5; max-width:56ch; }
+    .doc-nota i{ color:var(--gold-2); margin-top:3px; flex:none; }
+    .doc-nota b{ color:var(--txt-2); font-weight:600; }
     .doc-nota[hidden]{ display:none; }
 
-    /* ---- Datos + hoja ---------------------------------------------------------- */
-    .doc-grid{ display:grid; grid-template-columns:minmax(380px,500px) minmax(0,1fr); gap:26px; align-items:start; margin-top:20px; }
-    .panel{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px 22px 24px; min-width:0; }
-    .panel h3{ font-size:1.42rem; font-weight:700; line-height:1.15; margin-bottom:16px; display:flex; align-items:center; gap:9px; }
-    .panel h3 i{ color:var(--gold); font-size:1rem; }
-    .fld{ margin-bottom:14px; min-width:0; }
-    .fld label{ display:block; font-size:.82rem; font-weight:500; color:#4d5a70; margin-bottom:5px; }
-    .fld input:not([type=checkbox]):not([type=radio]), .fld select, .fld textarea{ width:100%; min-height:42px; padding:9px 12px;
-      border:1px solid var(--line-2); border-radius:10px; font-family:inherit; font-size:.95rem; color:var(--ink); background:#fff; }
-    .fld textarea{ line-height:1.4; resize:vertical; }
-    .fld input:focus, .fld select:focus, .fld textarea:focus{ outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.17); }
-    .fld input:disabled, .fld select:disabled{ color:var(--muted); background:#f6f8fa; }
+    .panel{ min-width:0; }
+    /* El nombre del documento ya está en el título de arriba. */
+    .panel > h3{ display:none; }
+    .fld{ margin-bottom:16px; min-width:0; }
+    .fld label{ display:block; font-size:.8rem; font-weight:500; color:var(--txt-2); margin-bottom:6px; }
+    .fld input:not([type=checkbox]):not([type=radio]), .fld select, .fld textarea{ width:100%; min-height:40px; padding:8px 12px;
+      border:1px solid var(--line-2); border-radius:8px; font-family:inherit; font-size:.92rem; color:var(--txt); background:#fff;
+      transition:border-color .15s, box-shadow .15s; }
+    .fld select, .firmante select{ -webkit-appearance:none; appearance:none; padding-right:34px; text-overflow:ellipsis;
+      background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 13px center; }
+    .fld textarea{ line-height:1.45; resize:vertical; }
+    .fld input:hover, .fld select:hover, .fld textarea:hover{ border-color:#b8bfc8; }
+    .fld input:focus, .fld select:focus, .fld textarea:focus{ outline:none; border-color:var(--navy); box-shadow:0 0 0 3px rgba(22,39,63,.11); }
+    .fld input:disabled, .fld select:disabled{ color:var(--muted); background-color:var(--fondo); }
+    .fld input::placeholder, .fld textarea::placeholder{ color:#9aa1ab; }
     .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    .hint{ font-size:.8rem; color:var(--muted); margin-top:5px; line-height:1.45; }
+    .hint{ font-size:.79rem; color:var(--muted); margin-top:6px; line-height:1.5; }
 
-    /* Opciones de a dos o tres: una pista gris y la elegida en blanco. */
-    .seg{ display:flex; gap:4px; background:var(--pista); border-radius:11px; padding:4px; }
-    .seg button{ flex:1; min-height:38px; padding:7px 10px; border:0; background:transparent; border-radius:8px;
-      font-size:.9rem; font-weight:600; color:#5b6880; cursor:pointer; }
-    .seg button:hover{ color:var(--ink); }
-    .seg button.on{ background:#fff; color:var(--ink); box-shadow:0 1px 2px rgba(16,24,40,.08), 0 2px 7px rgba(16,24,40,.09); }
+    /* Secciones del formulario. Son una secuencia (las mismas partes del
+       documento, en su orden): por eso van numeradas. */
+    .ct-sec{ display:flex; align-items:baseline; gap:12px; font-size:1.02rem; font-weight:600; color:var(--navy); line-height:1.25;
+      margin:34px 0 18px; padding-top:22px; border-top:1px solid var(--line); scroll-margin-top:18px; }
+    .ct-sec:focus{ outline:none; }
+    .ct-num{ flex:none; min-width:14px; font-family:'Cormorant Garamond',Georgia,serif; font-size:1.55rem; font-weight:700; line-height:.8; color:var(--gold-2);
+      font-variant-numeric:lining-nums; }
+    .panel > h3 + .ct-sec, .panel > h3 + [hidden] + .ct-sec{ margin-top:4px; padding-top:0; border-top:0; }
+    /* Subtítulos dentro de una sección (los del formulario de ANDA). */
+    .ct-sec:not(.con-num){ display:block; font-size:.84rem; color:var(--txt-2); margin:22px 0 12px; padding-top:16px; border-top:1px dashed var(--line-2); }
+
+    /* Opciones de a dos o tres: un grupo con borde y la elegida en dorado claro,
+       como las vistas de la agenda. */
+    .seg{ display:flex; gap:2px; border:1px solid var(--line-2); border-radius:999px; padding:3px; background:#fff; }
+    .seg button{ flex:1; min-height:34px; padding:6px 12px; border:0; background:transparent; border-radius:999px;
+      font-size:.86rem; font-weight:500; color:var(--txt-2); cursor:pointer; transition:background .15s, color .15s; }
+    .seg button:hover{ background:var(--hover); color:var(--navy); }
+    .seg button.on{ background:var(--gold-soft); color:var(--navy); font-weight:700; box-shadow:inset 0 0 0 1px var(--gold-line); }
     .seg button[hidden]{ display:none; }
 
-    .iva-check{ display:inline-flex !important; align-items:center; gap:8px; margin:9px 0 0 !important; font-size:.88rem !important;
-      color:var(--ink) !important; cursor:pointer; user-select:none; }
-    .iva-check input{ width:17px; height:17px; accent-color:var(--ink); cursor:pointer; margin:0; }
-    #ivaTxt{ font-weight:600; color:var(--ink); }
+    .iva-check{ display:inline-flex !important; align-items:center; gap:8px; margin:10px 0 0 !important; font-size:.86rem !important;
+      color:var(--txt) !important; cursor:pointer; user-select:none; }
+    .iva-check input{ width:17px; height:17px; accent-color:var(--navy); cursor:pointer; margin:0; }
+    #ivaTxt{ font-weight:600; color:var(--navy); }
     #ivaTxt[hidden]{ display:none; }
 
     /* Personas (recibo, contrato, compromiso) */
-    .firmante, .ct-persona{ background:#f8f9fb; border:1px solid var(--line); border-radius:12px; padding:13px; margin-bottom:10px; position:relative; }
-    .firmante .fdel, .ct-persona .ct-quitar{ position:absolute; top:6px; right:6px; width:32px; height:32px; border:0; border-radius:8px;
+    .firmante, .ct-persona{ background:var(--fondo); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:10px; position:relative; }
+    .firmante .fdel, .ct-persona .ct-quitar{ position:absolute; top:6px; right:6px; width:32px; height:32px; border:0; border-radius:999px;
       background:transparent; color:var(--muted); cursor:pointer; font-size:.9rem; }
     .firmante .fdel:hover, .ct-persona .ct-quitar:hover{ color:var(--bad); background:var(--mal-s); }
-    .firmante .fnum{ font-size:.8rem; font-weight:600; color:var(--ink); margin-bottom:9px; }
-    .firmante .f-trato, .firmante .f-ci, .firmante .f-nombre{ min-height:42px; font-size:.95rem !important; padding:9px 12px !important;
-      border-color:var(--line-2) !important; border-radius:10px !important; color:var(--ink); background:#fff; }
-    .firmante label{ font-size:.82rem !important; font-weight:500; color:#4d5a70 !important; }
+    .firmante .fnum{ font-size:.8rem; font-weight:600; color:var(--navy); margin-bottom:10px; }
+    .firmante .f-trato, .firmante .f-ci, .firmante .f-nombre{ min-height:40px; font-size:.92rem !important; padding:8px 12px !important;
+      border-color:var(--line-2) !important; border-radius:8px !important; color:var(--txt); background-color:#fff; }
+    .firmante label{ font-size:.8rem !important; font-weight:500; color:var(--txt-2) !important; }
     .ct-persona .fld:last-child, .ct-persona .row2:last-child .fld{ margin-bottom:0; }
     .ct-persona .row2 + .row2, .ct-persona .row2 + .fld{ margin-top:12px; }
-    .add-firmante, .ct-add{ border:1px dashed var(--line-2); background:#fff; color:var(--ink); border-radius:10px; padding:10px 14px;
-      min-height:42px; font-size:.9rem; font-weight:600; cursor:pointer; }
+    .add-firmante, .ct-add{ display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px dashed var(--line-2); background:#fff;
+      color:var(--navy); border-radius:999px; padding:9px 16px; min-height:40px; font-size:.86rem; font-weight:600; cursor:pointer; }
     .add-firmante{ width:100%; }
-    .add-firmante:hover, .ct-add:hover{ border-color:var(--ink); background:#f8f9fb; }
+    .add-firmante:hover, .ct-add:hover{ border-color:var(--navy); background:var(--fondo); }
     .ct-del{ border:0; background:none; color:var(--bad); font-size:.84rem; font-weight:600; cursor:pointer; padding:8px 0 0; }
 
-    .gen-btn{ width:100%; min-height:50px; border:0; background:var(--ink); color:#fff; border-radius:12px; padding:13px 16px;
-      font-size:1rem; font-weight:600; cursor:pointer; margin-top:10px; display:flex; align-items:center; justify-content:center; gap:9px; }
-    .gen-btn:hover{ background:#0f1d31; }
+    .gen-btn{ width:100%; min-height:48px; border:0; background:var(--navy); color:#fff; border-radius:999px; padding:12px 18px;
+      font-size:.95rem; font-weight:600; cursor:pointer; margin-top:26px; display:flex; align-items:center; justify-content:center; gap:10px;
+      transition:background .15s, box-shadow .15s; }
+    .gen-btn:hover{ background:var(--navy-2); box-shadow:0 1px 3px rgba(0,0,0,.2); }
     .gen-btn:disabled{ opacity:.6; cursor:default; }
 
-    .ct-aviso{ display:flex; gap:10px; align-items:flex-start; background:#fff6e5; border:1px solid #f5dca6; color:#7a5200; border-radius:11px;
-      padding:11px 13px; font-size:.86rem; line-height:1.5; margin-bottom:16px; }
+    .ct-aviso{ display:flex; gap:10px; align-items:flex-start; background:#fdf6e3; border:1px solid #f0dfae; color:#6b4f00; border-radius:10px;
+      padding:11px 14px; font-size:.85rem; line-height:1.5; margin-bottom:16px; }
     .ct-aviso i{ margin-top:3px; }
-    /* Los pasos de cada formulario sí son una secuencia: por eso van numerados. */
-    .ct-sec{ font-size:.9rem; font-weight:600; color:var(--ink); margin:22px 0 12px; padding-top:16px; border-top:1px solid var(--line); }
-    .ct-sec:first-of-type{ border-top:none; padding-top:0; margin-top:4px; }
-    .ct-op{ display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
+    .ct-op{ display:flex; align-items:flex-start; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
     .ct-op:last-child{ border-bottom:none; }
-    .ct-op input[type=checkbox]{ width:18px; height:18px; margin:2px 0 0; flex:none; cursor:pointer; accent-color:var(--ink); }
-    .ct-op b{ font-size:.92rem; color:var(--ink); display:block; font-weight:600; }
-    .ct-op span{ font-size:.82rem; color:var(--muted); line-height:1.4; }
+    .ct-op input[type=checkbox]{ width:18px; height:18px; margin:2px 0 0; flex:none; cursor:pointer; accent-color:var(--navy); }
+    .ct-op b{ font-size:.9rem; color:var(--navy); display:block; font-weight:600; }
+    .ct-op span{ font-size:.81rem; color:var(--muted); line-height:1.45; }
 
-    /* ---- La hoja --------------------------------------------------------------- */
-    .preview-wrap{ position:sticky; top:calc(var(--tope) + 16px); min-height:240px;
-      /* Alto de partida; pvAcomodarAlto() lo ajusta a lo que queda a la vista. (dvh
-         descuenta las barras del navegador en las tabletas.) */
-      height:calc(100vh - var(--tope) - 32px); height:calc(100dvh - var(--tope) - 32px);
-      display:flex; flex-direction:column; min-width:0; }
-    .pv-barra{ display:flex; align-items:center; gap:8px; padding:0 2px 10px; min-width:0; }
-    .pv-tit{ font-weight:600; font-size:.95rem; white-space:nowrap; }
-    .pv-info{ font-size:.86rem; color:var(--muted); margin-right:auto; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .pv-btn{ flex:none; width:38px; height:38px; display:grid; place-items:center; border:1px solid var(--line-2); background:#fff;
-      border-radius:10px; color:var(--ink); font-size:.9rem; cursor:pointer; }
-    .pv-btn:hover{ border-color:var(--ink); }
-    .pv-btn:disabled{ opacity:.4; cursor:default; border-color:var(--line-2); }
+    /* ---- La hoja --------------------------------------------------------------------- */
+    .preview-wrap{ display:flex; flex-direction:column; min-width:0; min-height:0; background:var(--mesa); color:#dfe5ee; }
+    .pv-barra{ flex:none; display:flex; align-items:center; gap:8px; min-height:56px; padding:8px 16px 8px 22px; min-width:0;
+      border-bottom:1px solid rgba(255,255,255,.07); }
+    .pv-tit{ font-weight:600; font-size:.88rem; color:#fff; white-space:nowrap; }
+    .pv-info{ font-size:.84rem; color:#a3b1c4; margin-right:auto; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pv-btn{ flex:none; width:36px; height:36px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.17); background:transparent;
+      border-radius:999px; color:#e8edf4; font-size:.84rem; cursor:pointer; transition:background .15s, border-color .15s; }
+    .pv-btn:hover{ background:rgba(255,255,255,.09); border-color:rgba(255,255,255,.32); }
+    .pv-btn:disabled{ opacity:.35; cursor:default; background:transparent; border-color:rgba(255,255,255,.17); }
     .pv-zoom{ display:flex; align-items:center; gap:4px; }
-    .pv-zoom output{ min-width:74px; text-align:center; font-size:.84rem; color:var(--muted); }
-    .pv-bajar{ flex:none; min-height:38px; display:inline-flex; align-items:center; gap:8px; border:0; background:var(--ink); color:#fff;
-      border-radius:10px; padding:8px 15px; font-size:.9rem; font-weight:600; cursor:pointer; white-space:nowrap; }
-    .pv-bajar:hover{ background:#0f1d31; }
+    .pv-zoom output{ min-width:82px; text-align:center; font-size:.8rem; color:#b4c0d0; font-variant-numeric:tabular-nums; }
+    .pv-bajar{ flex:none; min-height:38px; display:inline-flex; align-items:center; gap:9px; border:0; background:var(--gold); color:var(--navy);
+      border-radius:999px; padding:8px 18px; margin-left:4px; font-size:.88rem; font-weight:600; cursor:pointer; white-space:nowrap; transition:background .15s; }
+    .pv-bajar:hover{ background:#d6b23a; }
     .pv-cerrar{ display:none; }
-    .pv-mesa{ position:relative; flex:1; min-height:0; overflow:auto; background:var(--mesa); border-radius:16px; padding:22px;
-      box-shadow:inset 0 1px 3px rgba(16,24,40,.09); overscroll-behavior:contain; }
-    .pv-hojas{ display:flex; flex-direction:column; align-items:center; gap:18px; width:max-content; min-width:100%; }
-    .hoja{ position:relative; flex:none; width:var(--hoja-w,100%); aspect-ratio:595.28/841.89; background:#fff; border-radius:2px; overflow:hidden;
-      box-shadow:0 1px 2px rgba(16,24,40,.09), 0 12px 30px -8px rgba(16,24,40,.26); }
+    .pv-mesa{ position:relative; flex:1; min-height:0; overflow:auto; padding:26px 24px 40px; overscroll-behavior:contain; }
+    .pv-mesa:focus-visible{ outline-offset:-4px; }
+    .pv-hojas{ display:flex; flex-direction:column; align-items:center; gap:24px; width:max-content; min-width:100%; }
+    .hoja{ position:relative; flex:none; width:var(--hoja-w,100%); aspect-ratio:595.28/841.89; background:#fff; border-radius:1px; overflow:hidden;
+      box-shadow:0 1px 3px rgba(0,0,0,.28), 0 16px 40px -12px rgba(0,0,0,.55); }
     .hoja canvas{ display:block; width:100%; height:100%; transition:opacity .15s; }
     /* Lo dibujado ya no vale (hay cambios sin dibujar, o no se pudo armar): se
        atenúa para que nadie lo tome por bueno. */
     .hoja.vieja canvas, .pv-hojas.con-error .hoja canvas{ opacity:.35; }
     /* Mientras la hoja no llegó: el papel vacío, para que la mesa no salte. */
-    .pv-hojas:empty::before{ content:''; display:block; width:min(100%,860px); aspect-ratio:595.28/841.89; background:#fff; border-radius:2px;
-      box-shadow:0 1px 2px rgba(16,24,40,.09), 0 12px 30px -8px rgba(16,24,40,.26); }
+    .pv-hojas:empty::before{ content:''; display:block; width:var(--hoja-w,min(100%,860px)); max-width:100%; aspect-ratio:595.28/841.89; background:#fff; border-radius:1px;
+      box-shadow:0 1px 3px rgba(0,0,0,.28), 0 16px 40px -12px rgba(0,0,0,.55); }
     /* El aviso de estado queda siempre a la vista, aunque la mesa esté
        desplazada: va en un ancla pegada arriba que no ocupa lugar. Aparece con
        un instante de demora, para que no parpadee cuando la hoja llega enseguida. */
     .pv-ancla{ position:sticky; top:0; left:0; height:0; z-index:3; pointer-events:none; }
     .pv-estado{ position:absolute; top:96px; left:50%; transform:translateX(-50%); width:max-content; max-width:min(100%,340px); text-align:center;
-      font-size:.88rem; line-height:1.35; color:var(--ink-2); background:#fff; border:1px solid var(--line); border-radius:12px; padding:9px 16px;
-      box-shadow:0 8px 22px rgba(16,24,40,.13); animation:pvAparece .2s .35s both; }
+      font-size:.86rem; line-height:1.35; color:var(--navy); background:#fff; border-radius:999px; padding:9px 18px;
+      box-shadow:0 10px 28px rgba(0,0,0,.28); animation:pvAparece .2s .35s both; }
     .pv-estado:empty{ display:none; }
     @keyframes pvAparece{ from{ opacity:0; } to{ opacity:1; } }
     /* Renglón que se acaba de tocar en el inventario: se marca un instante en la hoja. */
@@ -180,7 +213,7 @@
     .pv-marca.on{ animation:pvMarca 1.7s ease-out; }
     @keyframes pvMarca{ 0%,65%{ opacity:1; } 100%{ opacity:0; } }
     /* Respaldo: si el visor no se pudo cargar, la hoja se muestra con el lector del navegador. */
-    .pv-mesa iframe{ display:none; width:100%; height:100%; border:0; background:#fff; border-radius:4px; }
+    .pv-mesa iframe{ display:none; width:100%; height:100%; border:0; background:#fff; }
     .pv-mesa.respaldo{ padding:0; overflow:hidden; }
     .pv-mesa.respaldo iframe{ display:block; }
     .pv-mesa.respaldo .pv-hojas{ display:none; }
@@ -188,173 +221,209 @@
        En lugar de una hoja en blanco, se dice qué pasó y qué se puede hacer. */
     .pv-aviso{ display:none; }
     .pv-mesa.sin-hoja .pv-hojas{ display:none; }
-    .pv-mesa.sin-hoja .pv-aviso{ display:block; max-width:440px; margin:8vh auto 0; background:#fff; border:1px solid var(--line); border-radius:16px;
-      padding:20px 18px; box-shadow:0 10px 28px rgba(16,24,40,.12); }
-    .pv-aviso b{ display:block; font-family:'Cormorant Garamond',Georgia,serif; font-size:1.3rem; line-height:1.15; margin-bottom:6px; }
-    .pv-aviso p{ font-size:.92rem; color:var(--muted); line-height:1.5; margin-bottom:14px; }
+    .pv-mesa.sin-hoja .pv-aviso{ display:block; max-width:440px; margin:8vh auto 0; background:#fff; color:var(--txt); border-radius:16px;
+      padding:22px 20px; box-shadow:0 14px 36px rgba(0,0,0,.35); }
+    .pv-aviso b{ display:block; font-family:'Cormorant Garamond',Georgia,serif; font-size:1.4rem; line-height:1.15; color:var(--navy); margin-bottom:6px; }
+    .pv-aviso p{ font-size:.9rem; color:var(--muted); line-height:1.5; margin-bottom:16px; }
     .pv-aviso-btns{ display:flex; flex-wrap:wrap; gap:8px; }
-    .pv-aviso-btns button{ flex:1 1 150px; min-height:46px; border-radius:11px; border:1px solid var(--line-2); background:#fff; color:var(--ink);
-      font-size:.92rem; font-weight:600; cursor:pointer; }
-    .pv-aviso-btns button.pri{ background:var(--ink); border-color:var(--ink); color:#fff; }
+    .pv-aviso-btns button{ flex:1 1 150px; min-height:46px; border-radius:999px; border:1px solid var(--line-2); background:#fff; color:var(--navy);
+      font-size:.9rem; font-weight:600; cursor:pointer; }
+    .pv-aviso-btns button.pri{ background:var(--navy); border-color:var(--navy); color:#fff; }
 
     .barra-movil{ display:none; }
 
-    .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:13px 22px; border-radius:12px;
-      font-size:.92rem; box-shadow:0 10px 30px rgba(0,0,0,.25); z-index:600; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; max-width:calc(100vw - 32px); text-align:center; }
+    .toast{ position:fixed; bottom:28px; left:50%; transform:translateX(-50%); background:var(--navy); color:#fff; padding:12px 22px; border-radius:999px;
+      font-size:.9rem; box-shadow:0 10px 30px rgba(0,0,0,.25); z-index:600; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s;
+      max-width:calc(100vw - 32px); text-align:center; }
     .toast.show{ opacity:1; transform:translateX(-50%) translateY(-4px); }
     .toast.bad{ background:var(--bad); }
 
-    /* ---- Inventario: se completa acá ------------------------------------------- */
-    .iv-borrador{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:.84rem; color:var(--muted); margin:-6px 0 14px; }
+    /* ---- Inventario: se completa acá ----------------------------------------------- */
+    .iv-borrador{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:.83rem; color:var(--muted); margin:0 0 18px; }
     .iv-borrador[hidden]{ display:none; }
-    .iv-borrador.fuerte{ background:#fff6e5; border:1px solid #f5dca6; color:#7a5200; border-radius:11px; padding:10px 12px; margin-top:0; }
+    .iv-borrador.fuerte{ background:#fdf6e3; border:1px solid #f0dfae; color:#6b4f00; border-radius:10px; padding:10px 14px; }
     .iv-borrador span{ flex:1; min-width:180px; }
-    .iv-aviso, .ct-nota{ display:flex; align-items:center; flex-wrap:wrap; gap:4px 14px; background:#fff6e5; border:1px solid #f5dca6; color:#7a5200;
-      border-radius:11px; padding:9px 12px; font-size:.84rem; line-height:1.45; margin-top:9px; }
+    .iv-aviso, .ct-nota{ display:flex; align-items:center; flex-wrap:wrap; gap:4px 14px; background:#fdf6e3; border:1px solid #f0dfae; color:#6b4f00;
+      border-radius:10px; padding:9px 13px; font-size:.83rem; line-height:1.45; margin-top:10px; }
     .iv-aviso[hidden], .ct-nota[hidden]{ display:none; }
     .iv-aviso span, .ct-nota span{ flex:1 1 200px; }
-    .ct-nota{ margin:-2px 0 12px; }
-    .iv-link{ border:0; background:none; color:var(--ink); font-size:.84rem; font-weight:600; text-decoration:underline; text-underline-offset:3px; cursor:pointer; padding:4px 0; }
+    .ct-nota{ margin:-2px 0 14px; }
+    .iv-link{ border:0; background:none; color:var(--navy); font-size:.83rem; font-weight:600; text-decoration:underline; text-underline-offset:3px; cursor:pointer; padding:4px 0; }
     .iv-pasos{ display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:12px; }
     .iv-pasos > div[id]{ display:contents; }
-    .iv-paso{ display:flex; align-items:stretch; border:1px solid var(--line-2); border-radius:10px; overflow:hidden; background:#fff; }
-    .iv-paso button{ flex:none; width:40px; border:0; background:#f4f6f9; color:var(--ink); font-size:1.15rem; cursor:pointer; }
+    .iv-paso{ display:flex; align-items:stretch; border:1px solid var(--line-2); border-radius:999px; overflow:hidden; background:#fff; }
+    .iv-paso button{ flex:none; width:40px; border:0; background:var(--fondo); color:var(--navy); font-size:1.1rem; cursor:pointer; }
     .iv-paso button:hover{ background:var(--pista); }
-    .fld .iv-paso input:not([type=checkbox]){ flex:1; min-width:0; width:auto; border:0; border-radius:0; text-align:center; padding:9px 2px; -moz-appearance:textfield; }
+    .fld .iv-paso input:not([type=checkbox]){ flex:1; min-width:0; width:auto; border:0; border-radius:0; text-align:center; padding:8px 2px; -moz-appearance:textfield; font-variant-numeric:tabular-nums; }
+    .fld .iv-paso input:focus{ box-shadow:none; }
+    .iv-paso:focus-within{ border-color:var(--navy); box-shadow:0 0 0 3px rgba(22,39,63,.11); }
     .iv-paso input::-webkit-outer-spin-button, .iv-paso input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
     .iv-chips{ display:flex; flex-wrap:wrap; gap:7px; }
-    .iv-chip{ min-height:36px; display:inline-flex; align-items:center; gap:7px; padding:6px 12px; border:1px solid var(--line-2); border-radius:999px;
-      background:#fff; color:#4c5a71; font-size:.88rem; font-weight:500; cursor:pointer; }
-    .iv-chip i{ font-size:.72rem; }
-    .iv-chip:hover{ border-color:var(--ink); color:var(--ink); }
-    .iv-chip.on{ background:var(--ink); border-color:var(--ink); color:#fff; }
+    .iv-chip{ min-height:34px; display:inline-flex; align-items:center; gap:7px; padding:6px 13px; border:1px solid var(--line-2); border-radius:999px;
+      background:#fff; color:var(--txt-2); font-size:.85rem; font-weight:500; cursor:pointer; transition:background .15s, border-color .15s; }
+    .iv-chip i{ font-size:.7rem; }
+    .iv-chip:hover{ border-color:var(--navy); color:var(--navy); }
+    .iv-chip.on{ background:var(--gold-soft); border-color:var(--gold-line); color:var(--navy); font-weight:600; }
+    .iv-chip.on i{ color:var(--gold-2); }
     .iv-chip.mas{ border-style:dashed; }
     /* Ambiente agregado a mano: no se tilda y destilda, se quita. Por eso no se
        parece a los de arriba y lleva una cruz. */
-    .iv-chip.propio{ background:var(--pista); border-color:transparent; color:var(--ink); padding-right:10px; }
-    .iv-chip.propio i{ font-size:.78rem; color:var(--muted); }
+    .iv-chip.propio{ background:var(--pista); border-color:transparent; color:var(--navy); padding-right:10px; }
+    .iv-chip.propio i{ font-size:.76rem; color:var(--muted); }
     .iv-chip.propio:hover{ border-color:var(--bad); color:var(--bad); }
     .iv-chip.propio:hover i{ color:var(--bad); }
     .iv-nuevo{ display:flex; gap:8px; margin-top:10px; }
     .iv-nuevo[hidden]{ display:none; }
-    .iv-nuevo input{ flex:1; min-width:0; min-height:40px; padding:8px 12px; border:1px solid var(--line-2); border-radius:10px; font-family:inherit; font-size:.95rem; color:var(--ink); }
-    .iv-nuevo input:focus, .iv-det input:focus{ outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.17); }
-    .iv-nuevo button{ flex:none; min-height:40px; border:0; background:var(--ink); color:#fff; border-radius:10px; padding:8px 14px; font-size:.9rem; font-weight:600; cursor:pointer; }
+    .iv-nuevo input{ flex:1; min-width:0; min-height:40px; padding:8px 12px; border:1px solid var(--line-2); border-radius:8px; font-family:inherit; font-size:.92rem; color:var(--txt); }
+    .iv-nuevo input:focus, .iv-det input:focus{ outline:none; border-color:var(--navy); box-shadow:0 0 0 3px rgba(22,39,63,.11); }
+    .iv-nuevo button{ flex:none; min-height:40px; border:0; background:var(--navy); color:#fff; border-radius:999px; padding:8px 16px; font-size:.86rem; font-weight:600; cursor:pointer; }
 
-    .iv-resumen{ margin:0 0 12px; }
-    .iv-resumen-txt{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; font-size:.88rem; color:var(--muted); margin-bottom:7px; }
-    .iv-resumen-txt b{ color:var(--ink); font-weight:600; }
-    .iv-pild{ display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:999px; font-size:.78rem; font-weight:600; white-space:nowrap; }
+    .iv-resumen{ margin:0 0 14px; }
+    .iv-resumen-txt{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; font-size:.86rem; color:var(--muted); margin-bottom:8px; }
+    .iv-resumen-txt b{ color:var(--navy); font-weight:600; }
+    .iv-pild{ display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:999px; font-size:.76rem; font-weight:600; white-space:nowrap; }
     .iv-pild.r{ background:var(--reg-s); color:var(--reg); }
     .iv-pild.m{ background:var(--mal-s); color:var(--mal); }
-    .iv-progreso{ height:6px; border-radius:999px; background:var(--pista); overflow:hidden; }
-    .iv-progreso span{ display:block; height:100%; width:0; background:var(--ink); border-radius:999px; transition:width .25s; }
-    .iv-leyenda{ font-size:.8rem; color:var(--muted); margin:0 0 12px; line-height:1.5; }
-    .iv-leyenda b{ color:var(--ink); font-weight:600; }
+    .iv-progreso{ height:5px; border-radius:999px; background:var(--pista); overflow:hidden; }
+    .iv-progreso span{ display:block; height:100%; width:0; background:var(--gold); border-radius:999px; transition:width .25s; }
+    .iv-leyenda{ font-size:.81rem; color:var(--muted); margin:0 0 14px; line-height:1.55; }
+    .iv-leyenda b{ color:var(--navy); font-weight:600; }
 
-    .iv-amb{ border:1px solid var(--line); border-radius:13px; background:#fff; margin-bottom:8px; overflow:hidden; }
-    .iv-amb.abierto{ border-color:#c3cbd7; box-shadow:0 2px 10px rgba(16,24,40,.06); }
+    .iv-amb{ border:1px solid var(--line); border-radius:12px; background:#fff; margin-bottom:8px; overflow:hidden; }
+    .iv-amb.abierto{ border-color:#c9d0d9; box-shadow:0 2px 10px rgba(16,24,40,.06); }
     .iv-amb-cab{ position:relative; width:100%; min-height:52px; display:flex; align-items:center; gap:8px; padding:10px 14px 12px; border:0; background:transparent;
-      color:var(--ink); text-align:left; cursor:pointer; }
-    .iv-amb-cab:hover{ background:#f8f9fb; }
-    .iv-amb-n{ font-size:.98rem; font-weight:600; margin-right:auto; }
-    .iv-amb-cuenta{ font-size:.82rem; color:var(--muted); white-space:nowrap; }
+      color:var(--navy); text-align:left; cursor:pointer; }
+    .iv-amb-cab:hover{ background:var(--fondo); }
+    .iv-amb-n{ font-size:.95rem; font-weight:600; margin-right:auto; }
+    .iv-amb-cuenta{ font-size:.8rem; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums; }
     .iv-amb.completo .iv-amb-cuenta{ color:var(--bien); font-weight:600; }
-    .iv-amb-cab > i{ font-size:.72rem; color:var(--muted); transition:transform .2s; }
+    .iv-amb-cab > i{ font-size:.7rem; color:var(--muted); transition:transform .2s; }
     .iv-amb.abierto .iv-amb-cab > i{ transform:rotate(180deg); }
     .iv-amb-barra{ position:absolute; left:14px; right:14px; bottom:5px; height:3px; border-radius:999px; background:var(--pista); overflow:hidden; }
-    .iv-amb-barra span{ display:block; height:100%; background:var(--ink); border-radius:999px; }
+    .iv-amb-barra span{ display:block; height:100%; background:var(--gold); border-radius:999px; }
     .iv-amb.completo .iv-amb-barra span{ background:var(--bien); }
     .iv-amb-cuerpo{ padding:2px 14px 14px; border-top:1px solid var(--line); }
     .iv-acc{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0 4px; }
-    .iv-resto{ min-height:36px; border:1px solid var(--line-2); background:#fff; color:var(--ink); border-radius:9px; padding:6px 12px; font-size:.86rem; font-weight:600; cursor:pointer; }
+    .iv-resto{ min-height:34px; border:1px solid var(--line-2); background:#fff; color:var(--navy); border-radius:999px; padding:6px 14px; font-size:.84rem; font-weight:600; cursor:pointer; }
     .iv-resto:hover{ border-color:var(--bien); color:var(--bien); }
-    .iv-resto:disabled{ opacity:.45; cursor:default; border-color:var(--line-2); color:var(--ink); }
+    .iv-resto:disabled{ opacity:.45; cursor:default; border-color:var(--line-2); color:var(--navy); }
 
-    .iv-fila{ display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:6px 8px; padding:7px 0; border-bottom:1px solid #eef1f5; }
+    .iv-fila{ display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:6px 8px; padding:7px 0; border-bottom:1px solid #eef0f3; }
     .iv-fila:last-of-type{ border-bottom:0; }
     .iv-fila-n{ min-width:0; }
-    .iv-fila-n b{ display:block; font-size:.92rem; font-weight:500; line-height:1.25; overflow-wrap:anywhere; }
-    .iv-fila-n small{ display:block; font-size:.78rem; color:var(--muted); line-height:1.3; overflow-wrap:anywhere; }
+    .iv-fila-n b{ display:block; font-size:.9rem; font-weight:500; line-height:1.25; color:var(--txt); overflow-wrap:anywhere; }
+    .iv-fila-n small{ display:block; font-size:.77rem; color:var(--muted); line-height:1.3; overflow-wrap:anywhere; }
     .iv-fila-n small:empty{ display:none; }
     .iv-fila.e-N .iv-fila-n b{ color:var(--muted); text-decoration:line-through; text-decoration-color:#b9c1cd; }
     .iv-est{ display:flex; gap:4px; }
-    .iv-est button{ width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center; padding:0; border:1px solid var(--line-2); border-radius:9px; background:#fff;
-      color:#5b6880; font-size:.9rem; cursor:pointer; }
+    .iv-est button{ width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center; padding:0; border:1px solid var(--line-2); border-radius:8px; background:#fff;
+      color:#5b6472; font-size:.88rem; cursor:pointer; }
     .iv-est button b{ font-weight:600; }
     .iv-est button span{ display:none; }
-    .iv-est button:hover{ border-color:var(--ink); color:var(--ink); }
+    .iv-est button:hover{ border-color:var(--navy); color:var(--navy); }
     .iv-est button[data-e="B"][aria-pressed="true"]{ background:var(--bien); border-color:var(--bien); color:#fff; }
     .iv-est button[data-e="R"][aria-pressed="true"]{ background:var(--reg); border-color:var(--reg); color:#fff; }
     .iv-est button[data-e="M"][aria-pressed="true"]{ background:var(--mal); border-color:var(--mal); color:#fff; }
     .iv-est button[data-e="N"][aria-pressed="true"]{ background:var(--nt); border-color:var(--nt); color:#fff; }
-    .iv-mini{ width:34px; height:36px; display:grid; place-items:center; border:0; border-radius:9px; background:transparent; color:var(--muted); font-size:.82rem; cursor:pointer; }
-    .iv-mini:hover{ background:var(--pista); color:var(--ink); }
-    .iv-fila.con-detalle .iv-mini.det{ color:var(--ink); }
+    .iv-mini{ width:34px; height:36px; display:grid; place-items:center; border:0; border-radius:8px; background:transparent; color:var(--muted); font-size:.8rem; cursor:pointer; }
+    .iv-mini:hover{ background:var(--pista); color:var(--navy); }
+    .iv-fila.con-detalle .iv-mini.det{ color:var(--navy); }
     .iv-det{ grid-column:1 / -1; display:grid; grid-template-columns:76px minmax(0,1fr); gap:8px; padding:2px 0 6px; }
     .iv-det[hidden]{ display:none; }
-    .iv-det label{ display:block; font-size:.76rem; color:var(--muted); }
+    .iv-det label{ display:block; font-size:.75rem; color:var(--muted); }
     .iv-det label.ancho{ grid-column:1 / -1; }
-    .iv-det input{ display:block; width:100%; min-height:38px; margin-top:3px; padding:7px 10px; border:1px solid var(--line-2); border-radius:9px; font-family:inherit; font-size:.92rem; color:var(--ink); }
+    .iv-det input{ display:block; width:100%; min-height:38px; margin-top:3px; padding:7px 10px; border:1px solid var(--line-2); border-radius:8px; font-family:inherit; font-size:.9rem; color:var(--txt); }
     .iv-mas{ margin-top:10px; padding-top:12px; border-top:1px dashed var(--line-2); }
-    .iv-mas > p{ font-size:.82rem; color:var(--muted); margin-bottom:8px; }
+    .iv-mas > p{ font-size:.81rem; color:var(--muted); margin-bottom:8px; }
     .iv-pie{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-top:14px; }
-    .iv-sig{ min-height:40px; display:inline-flex; align-items:center; gap:8px; border:0; background:var(--pista); color:var(--ink); border-radius:10px; padding:8px 14px;
-      font-size:.9rem; font-weight:600; cursor:pointer; margin-left:auto; text-align:left; }
-    .iv-sig:hover{ background:#dfe5ec; }
-    .iv-check{ display:flex; align-items:flex-start; gap:9px; font-size:.88rem; color:var(--ink); cursor:pointer; margin:2px 0 4px; }
-    .iv-check input{ width:18px; height:18px; margin-top:1px; flex:none; accent-color:var(--ink); }
-    .iv-obs-aviso{ color:#7a5200; }
+    .iv-sig{ min-height:38px; display:inline-flex; align-items:center; gap:8px; border:0; background:var(--pista); color:var(--navy); border-radius:999px; padding:8px 16px;
+      font-size:.86rem; font-weight:600; cursor:pointer; margin-left:auto; text-align:left; }
+    .iv-sig:hover{ background:#e2e6eb; }
+    .iv-check{ display:flex; align-items:flex-start; gap:10px; font-size:.86rem; color:var(--txt); cursor:pointer; margin:4px 0 4px; }
+    .iv-check input{ width:18px; height:18px; margin-top:1px; flex:none; accent-color:var(--navy); }
+    .iv-obs-aviso{ color:#6b4f00; }
     .iv-obs-aviso[hidden]{ display:none; }
 
-    /* ---- Pantallas medianas ---------------------------------------------------- */
-    @media (max-width:1120px){
-      .doc-grid{ grid-template-columns:minmax(360px,440px) minmax(0,1fr); gap:20px; }
+    /* ---- Computadora: la pantalla entera es la mesa de trabajo ---------------------- */
+    @media (min-width:861px){
+      body{ height:100vh; height:100dvh; overflow:hidden; display:flex; flex-direction:column; }
+      .fh{ flex:none; }
+      .wrap{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+      #content{ flex:1 1 auto; min-height:0; }
+      .app{ height:100%; display:grid; grid-template-columns:var(--lado) minmax(0,1fr); }
+      .doc-lado{ min-height:0; overflow-y:auto; overflow-x:hidden; padding:14px 10px 22px 0; background:var(--fondo); border-right:1px solid var(--line); }
+      .doc-grid{ height:100%; min-height:0; display:grid; grid-template-columns:clamp(400px, 44%, 580px) minmax(0,1fr); }
+      .doc-form{ min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:34px 38px 64px; border-right:1px solid var(--line); }
+      .preview-wrap{ height:100%; }
+    }
+    /* Pantallas medianas: la columna de documentos queda solo con los íconos (el
+       nombre aparece al pasar el mouse) y la barra de la hoja se achica. */
+    @media (min-width:861px) and (max-width:1180px){
+      :root{ --lado:68px; }
+      .doc-lado{ padding:12px 8px 18px; }
+      .doc-type{ justify-content:center; padding:0; border-radius:12px; min-height:46px; }
+      .doc-type i{ font-size:1.05rem; width:auto; }
+      .doc-type b{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+      .doc-indice{ display:none !important; }
+      .doc-form{ padding:28px 30px 56px; }
+    }
+    @media (min-width:861px) and (max-width:1300px){
+      .pv-tit, .pv-zoom output{ display:none; }
+      .pv-barra{ padding-left:18px; }
+    }
+    @media (min-width:861px) and (max-width:1060px){
       .pv-bajar span{ display:none; }
       .pv-bajar{ width:38px; padding:0; justify-content:center; }
-      .pv-zoom output{ display:none; }
     }
 
-    /* ---- Celular --------------------------------------------------------------- */
+    /* ---- Celular --------------------------------------------------------------------- */
     @media (max-width:860px){
-      .fh-in{ padding:10px 16px; }
+      .fh-in{ padding:0 8px 0 16px; }
       .fh-back{ min-height:44px; min-width:44px; justify-content:center; }
-      .wrap{ padding:16px 14px 110px; }                      /* lugar para la barra de abajo */
-      h1{ font-size:1.8rem; }
-      .lede{ font-size:.92rem; margin-bottom:14px; }
-      .doc-types{ display:flex; flex-wrap:wrap; }
-      .doc-type{ flex:1 1 auto; min-height:42px; justify-content:center; gap:7px; padding:7px 12px; }
-      .doc-type i{ width:auto; height:auto; background:none; }
-      .doc-type.active i{ background:none; color:var(--gold); }
-      .doc-type b{ display:none; }
-      .doc-type small{ display:inline; font-size:.9rem; font-weight:600; }
-      .doc-grid{ grid-template-columns:minmax(0,1fr); margin-top:14px; }
-      .panel{ padding:18px 16px 20px; border-radius:14px; }
+      .wrap{ padding-bottom:calc(var(--barra-h,69px) + 28px); }   /* lugar para la barra de abajo */
+      .doc-lado{ background:#fff; border-bottom:1px solid var(--line); }
+      /* Pestañas: se desplazan de costado si no entran. */
+      .doc-types{ position:relative; flex-direction:row; gap:0; overflow-x:auto; scrollbar-width:none; padding:0 8px; }
+      .doc-types::-webkit-scrollbar{ display:none; }
+      /* Si hay más pestañas de las que entran, la última se desvanece hacia el borde. */
+      .doc-types.hay-mas{ -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 44px), transparent); mask-image:linear-gradient(to right, #000 calc(100% - 44px), transparent); }
+      .doc-type{ flex:1 0 auto; width:auto; justify-content:center; gap:7px; min-height:48px; padding:0 12px; border-radius:0;
+        border-bottom:2px solid transparent; font-size:.88rem; color:var(--muted); }
+      .doc-type:hover{ background:none; }
+      .doc-type.active{ background:none; color:var(--navy); border-bottom-color:var(--gold); }
+      .doc-type i{ width:auto; font-size:.82rem; }
+      .doc-type b{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+      .doc-type small{ display:inline; font-size:.88rem; font-weight:inherit; }
+      .doc-indice{ display:none !important; }
+      .doc-form{ padding:22px 16px 8px; }
+      .doc-cab{ margin-bottom:20px; }
+      .doc-cab h1{ font-size:1.85rem; }
+      .ct-sec{ margin-top:32px; padding-top:20px; }
       .panel .gen-btn{ display:none; }                       /* la acción vive en la barra de abajo */
       .fld input:not([type=checkbox]):not([type=radio]), .fld select, .fld textarea,
       .firmante .f-trato, .firmante .f-ci, .firmante .f-nombre, .iv-det input, .iv-nuevo input{ font-size:16px !important; min-height:44px; }
 
       /* La hoja ocupa la pantalla, por encima de los datos y por debajo de la barra. */
       .preview-wrap{ position:fixed; z-index:300; top:0; left:0; right:0; bottom:var(--barra-h,69px); height:auto !important; min-height:0; display:none;
-        background:var(--mesa); padding-top:env(safe-area-inset-top,0px); }
+        padding-top:env(safe-area-inset-top,0px); }
       .preview-wrap.abierta{ display:flex; }
       html.pv-abierta, html.pv-abierta body{ overflow:hidden; }
-      .pv-barra{ background:#fff; border-bottom:1px solid var(--line); padding:8px 10px; gap:6px; }
+      .pv-barra{ min-height:0; padding:6px 8px; gap:6px; }
       .pv-cerrar{ display:grid; border-color:transparent; }
       .pv-btn{ width:44px; height:44px; }
       .pv-bajar{ display:none; }
       .pv-tit, .pv-zoom output{ display:none; }
-      .pv-info{ font-size:.95rem; color:var(--ink); font-weight:600; padding-left:4px; }
-      .pv-mesa{ border-radius:0; padding:12px; box-shadow:none; }
-      .pv-hojas{ gap:12px; }
+      .pv-info{ font-size:.95rem; color:#fff; font-weight:600; padding-left:4px; }
+      .pv-mesa{ padding:14px 12px 24px; }
+      .pv-hojas{ gap:14px; }
 
       .barra-movil{ position:fixed; z-index:350; left:0; right:0; bottom:0; display:flex; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));
         background:#fff; border-top:1px solid var(--line); box-shadow:0 -6px 20px rgba(16,24,40,.07); }
-      .barra-movil button{ min-height:48px; border-radius:12px; font-size:.95rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:0 12px; }
-      .bm-ver{ flex:1 1 0; border:1px solid var(--line-2); background:#fff; color:var(--ink); }
-      .bm-enviar{ flex:none; width:50px; border:1px solid var(--line-2); background:#fff; color:var(--ink); }
+      .barra-movil button{ min-height:48px; border-radius:999px; font-size:.94rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:0 14px; }
+      .bm-ver{ flex:1 1 0; border:1px solid var(--line-2); background:#fff; color:var(--navy); }
+      .bm-enviar{ flex:none; width:50px; padding:0 !important; border:1px solid var(--line-2); background:#fff; color:var(--navy); }
       .bm-enviar[hidden]{ display:none; }
-      .bm-bajar{ flex:1.25 1 0; border:0; background:var(--ink); color:#fff; }
+      .bm-bajar{ flex:1.25 1 0; border:0; background:var(--gold); color:var(--navy); }
       .toast{ bottom:calc(84px + env(safe-area-inset-bottom,0px)); }
 
       /* Inventario con el pulgar: el nombre arriba y los cuatro estados abajo, bien grandes. */
@@ -362,7 +431,7 @@
       .iv-fila-n{ grid-column:1; grid-row:1; }
       .iv-fila .iv-minis{ grid-column:2; grid-row:1; }
       .iv-est{ grid-column:1 / -1; grid-row:2; gap:6px; }
-      .iv-est button{ flex:1 1 0; width:auto; height:44px; font-size:.9rem; }
+      .iv-est button{ flex:1 1 0; width:auto; height:44px; font-size:.88rem; }
       .iv-est button span{ display:inline; font-weight:600; }
       .iv-est button[data-e="N"] b{ display:none; }
       .iv-det{ grid-row:3; }
@@ -377,17 +446,18 @@
       .ct-del{ padding:13px 0 7px; }
       .iv-borrador .iv-link, .iv-aviso .iv-link, .ct-nota .iv-link{ display:inline-flex; align-items:center; min-height:44px; }
       .ct-op input[type=checkbox], .iv-check input, .iva-check input{ width:22px; height:22px; }
-      .doc-type{ min-height:44px; }
       .iv-check, .iva-check{ min-height:44px; align-items:center !important; }
     }
     @media (max-width:520px){
       .row2{ grid-template-columns:minmax(0,1fr); gap:0; }
       .fh-back span{ display:none; }
+      .fh-back{ padding:0; border-color:transparent; }
+      .doc-type{ padding:0 10px; }
     }
     @media (prefers-reduced-motion:reduce){
       .sp{ animation-duration:2.4s; }
       .pv-marca.on{ animation-timing-function:steps(1,end); }
-      .iv-progreso span, .iv-amb-cab > i, .toast, .hoja canvas{ transition:none; }
+      .iv-progreso span, .iv-amb-cab > i, .toast, .hoja canvas, .doc-type, .seg button, .fh-back, .pv-btn, .gen-btn{ transition:none; }
       .pv-estado{ animation-duration:.01s; }
     }
   </style>
@@ -404,7 +474,7 @@
 <body>
   <header class="fh">
     <div class="fh-in">
-      <div class="fh-logo"><img src="iso-malave.png" alt="" style="height:30px;width:auto"><img src="texto-malave.png" alt="MALAVE" style="height:19px;width:auto"></div>
+      <a class="fh-logo" href="index.html" title="Volver al inicio"><img src="iso-malave.png" alt="MALAVE"><span class="fh-app">Documentos</span></a>
       <a class="fh-back" href="index.html" aria-label="Volver al inicio"><i class="fas fa-arrow-left"></i> <span>Volver al inicio</span></a>
     </div>
   </header>
@@ -414,51 +484,62 @@
     <div id="denied" class="denied" style="display:none"><i class="fas fa-lock"></i><h2>Solo para el administrador</h2><p>Esta sección es exclusiva de la administración.</p></div>
 
     <div id="content" style="display:none">
-      <h1>Documentos</h1>
-      <p class="lede">Elegí el documento, completá los datos y descargalo con el membrete de la agencia.</p>
+      <!-- Mesa de trabajo. En la computadora son tres columnas que ocupan la
+           pantalla entera: los documentos, el formulario y la hoja. En el
+           celular, pestañas arriba, el formulario debajo y la hoja detrás del
+           botón "Ver la hoja". -->
+      <div class="app">
+        <nav class="doc-lado" aria-label="Documentos">
+          <!-- El <b> es el nombre del documento (el que usa el aviso de permisos);
+               el <small>, el nombre corto de las pestañas del celular; el <span>,
+               la descripción que va debajo del título. Las secciones del elegido
+               (#docIndice) se ubican debajo de su botón. -->
+          <div class="doc-types" role="group" aria-label="Tipo de documento">
+            <button type="button" class="doc-type active" data-type="carta_pago" aria-pressed="true" onclick="selectType('carta_pago')" title="Comisión">
+              <i class="fas fa-hand-holding-dollar" aria-hidden="true"></i>
+              <b>Comisión</b><small>Comisión</small>
+              <span>Recibo de reserva al señar, o carta de pago al firmar y saldar.</span>
+            </button>
+            <button type="button" class="doc-type" data-type="contrato" aria-pressed="false" onclick="selectType('contrato')" title="Contrato de arrendamiento">
+              <i class="fas fa-file-contract" aria-hidden="true"></i>
+              <b>Contrato de arrendamiento</b><small>Contrato</small>
+              <span>Comercial o vivienda. Las cláusulas se numeran solas.</span>
+            </button>
+            <button type="button" class="doc-type" data-type="mediacion" aria-pressed="false" onclick="selectType('mediacion')" title="Compromiso de mediación">
+              <i class="fas fa-handshake" aria-hidden="true"></i>
+              <b>Compromiso de mediación</b><small>Mediación</small>
+              <span>Encargo de venta o alquiler, en exclusiva o no.</span>
+            </button>
+            <button type="button" class="doc-type" data-type="inventario" aria-pressed="false" onclick="selectType('inventario')" title="Inventario del inmueble">
+              <i class="fas fa-clipboard-list" aria-hidden="true"></i>
+              <b>Inventario del inmueble</b><small>Inventario</small>
+              <span>El estado de cada cosa, ambiente por ambiente. Se completa acá o se imprime en blanco.</span>
+            </button>
+            <button type="button" class="doc-type" data-type="propietario" aria-pressed="false" onclick="selectType('propietario')" title="Información al propietario">
+              <i class="fas fa-circle-info" aria-hidden="true"></i>
+              <b>Información al propietario</b><small>Propietario</small>
+              <span>Cómo trabaja la agencia en un arrendamiento. Se entrega al captar.</span>
+            </button>
+            <ol class="doc-indice" id="docIndice" aria-label="Secciones del documento" hidden></ol>
+          </div>
+        </nav>
 
-      <!-- El <b> es el nombre que se ve en la computadora (y el que usa el aviso de
-           permisos); el <small>, el nombre corto del celular; el <span>, la
-           descripción que se muestra debajo cuando está elegido. -->
-      <div class="doc-types" role="group" aria-label="Tipo de documento">
-        <button type="button" class="doc-type active" data-type="carta_pago" aria-pressed="true" onclick="selectType('carta_pago')">
-          <i class="fas fa-hand-holding-dollar"></i>
-          <b>Comisión</b><small>Comisión</small>
-          <span>Recibo de reserva al señar, o carta de pago al firmar y saldar.</span>
-        </button>
-        <button type="button" class="doc-type" data-type="contrato" aria-pressed="false" onclick="selectType('contrato')">
-          <i class="fas fa-file-contract"></i>
-          <b>Contrato de arrendamiento</b><small>Contrato</small>
-          <span>Comercial o vivienda. Las cláusulas se numeran solas.</span>
-        </button>
-        <button type="button" class="doc-type" data-type="mediacion" aria-pressed="false" onclick="selectType('mediacion')">
-          <i class="fas fa-handshake"></i>
-          <b>Compromiso de mediación</b><small>Mediación</small>
-          <span>Encargo de venta o alquiler, en exclusiva o no.</span>
-        </button>
-        <button type="button" class="doc-type" data-type="inventario" aria-pressed="false" onclick="selectType('inventario')">
-          <i class="fas fa-clipboard-list"></i>
-          <b>Inventario del inmueble</b><small>Inventario</small>
-          <span>El estado de cada cosa, ambiente por ambiente. Se completa acá o se imprime en blanco.</span>
-        </button>
-        <button type="button" class="doc-type" data-type="propietario" aria-pressed="false" onclick="selectType('propietario')">
-          <i class="fas fa-circle-info"></i>
-          <b>Información al propietario</b><small>Propietario</small>
-          <span>Cómo trabaja la agencia en un arrendamiento. Se entrega al captar.</span>
-        </button>
-      </div>
-      <p class="doc-desc" id="docDesc">Recibo de reserva al señar, o carta de pago al firmar y saldar.</p>
+        <div class="doc-grid">
+          <section class="doc-form" id="docForm" aria-labelledby="docTitulo">
+            <div class="doc-cab">
+              <h1 id="docTitulo">Recibo de reserva</h1>
+              <p class="doc-desc" id="docDesc">Recibo de reserva al señar, o carta de pago al firmar y saldar.</p>
+              <!-- Aviso para los roles que no emiten todos los documentos. El texto lo
+                   arma aplicarPermisos() con los nombres de los documentos ocultos,
+                   así no hay una lista repetida que se desactualice. -->
+              <p class="doc-nota" id="docNota" hidden></p>
+            </div>
 
-      <!-- Aviso para los roles que no emiten todos los documentos. El texto lo
-           arma aplicarPermisos() con los nombres de las tarjetas ocultas, así no
-           hay una lista repetida que se desactualice al cambiar los permisos. -->
-      <p class="doc-nota" id="docNota" hidden></p>
-
-      <div class="doc-grid">
         <!-- Formulario -->
         <div class="panel" id="formCartaPago">
           <h3><i class="fas fa-pen-to-square"></i> <span id="tituloPanelPago">Datos del recibo de reserva</span></h3>
 
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">1</span><span class="ct-tit">Operación</span></div>
           <div class="fld">
             <label>Agente que gestionó la operación</label>
             <select id="fAgente" disabled><option value="">Cargando agentes…</option></select>
@@ -484,6 +565,7 @@
             <div class="hint" id="propHint">A veces las direcciones cargadas tienen errores: revisá que la dirección sea correcta antes de generar.</div>
           </div>
 
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">2</span><span class="ct-tit">Importes</span></div>
           <div class="fld">
             <label>Comisión total pactada</label>
             <div class="row2">
@@ -525,6 +607,7 @@
           <input type="checkbox" id="fParcial" style="display:none">
           <input type="checkbox" id="fSaldoFinal" style="display:none">
 
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">3</span><span class="ct-tit">Quién pagó y fecha</span></div>
           <div class="fld">
             <label>¿Quién realizó el pago?</label>
             <div class="hint" style="margin-top:0;margin-bottom:9px">Agregá una o más personas. El texto se ajusta solo (una o varias).</div>
@@ -573,16 +656,16 @@
             libre contratación: el plazo lo acuerdan las partes.</div>
           </div>
 
-          <div class="ct-sec">1 · Partes</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">1</span><span class="ct-tit">Partes</span></div>
           <div class="fld"><label>Arrendadores</label><div id="ctArrendadores"></div>
             <button type="button" class="ct-add" onclick="ctAgregar('arrendador')"><i class="fas fa-plus"></i> Agregar arrendador</button></div>
           <div class="fld"><label>Arrendatarios</label><div id="ctArrendatarios"></div>
             <button type="button" class="ct-add" onclick="ctAgregar('arrendatario')"><i class="fas fa-plus"></i> Agregar arrendatario</button></div>
 
-          <div class="ct-sec">2 · Inmueble</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">2</span><span class="ct-tit">Inmueble</span></div>
           <div class="fld"><label for="ctProp">Propiedad del sistema (opcional)</label>
             <select id="ctProp" onchange="ctCargarProp()" disabled><option value="">Cargando propiedades…</option></select>
-            <div class="hint">Completa dirección, barrio y departamento automáticamente.</div>
+            <div class="hint">Aparecen las de alquiler marcadas como reservadas. Al elegir una se completan dirección, barrio y departamento.</div>
             <div class="iv-aviso" id="ctPropNota" hidden><span id="ctPropNotaTxt"></span></div></div>
           <div class="row2">
             <div class="fld"><label>Dirección</label><input id="ctDireccion" placeholder="Ituzaingó 1324"></div>
@@ -601,7 +684,7 @@
             <div class="fld"><label>Destino comercial</label><input id="ctDestino" placeholder="servicios de spa, bienestar y estética"></div>
           </div>
 
-          <div class="ct-sec">3 · Precio y plazo</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">3</span><span class="ct-tit">Precio y plazo</span></div>
           <div class="row2">
             <div class="fld"><label>Precio mensual</label><input id="ctPrecio" type="number" placeholder="16000"></div>
             <div class="fld"><label>Moneda</label><select id="ctMoneda"><option value="UYU">Pesos ($)</option><option value="USD">Dólares (US$)</option></select></div>
@@ -617,7 +700,7 @@
             <div class="hint">Se sugiere según la garantía. Cambialo si hace falta un ejemplar más.</div>
           </div>
 
-          <div class="ct-sec">4 · Cuenta para el pago</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">4</span><span class="ct-tit">Cuenta para el pago</span></div>
           <div class="row2">
             <div class="fld"><label>Banco</label><input id="ctBanco" placeholder="Scotiabank"></div>
             <div class="fld"><label>Tipo de cuenta</label><input id="ctTipoCuenta" placeholder="Caja de ahorro"></div>
@@ -627,7 +710,7 @@
             <div class="fld"><label>Número</label><input id="ctNumeroCuenta"></div>
           </div>
 
-          <div class="ct-sec">5 · Garantía</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">5</span><span class="ct-tit">Garantía</span></div>
           <div class="fld"><label>Modalidad</label>
             <select id="ctGarantia" onchange="ctPintarGarantia()">
               <option value="porto">Porto Seguro – Seguros del Uruguay S.A.</option>
@@ -638,11 +721,11 @@
             </select></div>
           <div id="ctGarantiaCampos"></div>
 
-          <div class="ct-sec">6 · Cláusulas opcionales</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">6</span><span class="ct-tit">Cláusulas opcionales</span></div>
           <div class="hint" style="margin:-6px 0 10px">Todas apagadas. Se encienden a propósito, una por una.</div>
           <div id="ctOpcionales"></div>
 
-          <div class="ct-sec">7 · Política de la agencia</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">7</span><span class="ct-tit">Política de la agencia</span></div>
           <div class="hint" style="margin:-6px 0 10px">Se definen una vez. Quedan guardadas en este navegador.</div>
           <div class="ct-nota" id="ctPoliticaNota" hidden>
             <span>No son los valores originales. Quedan guardados para los próximos contratos que se hagan en este navegador.</span>
@@ -695,7 +778,7 @@
             <div class="hint" id="cmModHint">En exclusiva el encargo es solo para la agencia y la comisión se debe aunque la operación la cierre otro.</div>
           </div>
 
-          <div class="ct-sec">1 · Agente que suscribe</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">1</span><span class="ct-tit">Agente que suscribe</span></div>
           <div class="row2">
             <div class="fld"><label>Agente</label>
               <select id="cmAgenteSel" onchange="cmSetAgente()"><option value="">Cargando agentes…</option></select>
@@ -705,11 +788,11 @@
           <div class="fld" id="cmAgenteOtroWrap" style="display:none"><label>Nombre del agente</label><input id="cmAgente" oninput="cmPreview()"></div>
           <div class="hint" style="margin:-4px 0 10px">El mediador inscripto ante el BPS sigue siendo la agencia. Si firma otro agente, el documento dice que actúa en su representación.</div>
 
-          <div class="ct-sec">2 · Propietario</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">2</span><span class="ct-tit">Propietario</span></div>
           <div id="cmPropietarios"></div>
           <button type="button" class="ct-add" onclick="cmAgregarProp()"><i class="fas fa-plus"></i> Agregar propietario</button>
 
-          <div class="ct-sec">3 · Inmueble</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">3</span><span class="ct-tit">Inmueble</span></div>
           <div class="fld"><label>Calle y número</label><input id="cmCalle" oninput="cmPreview()"></div>
           <div class="row2">
             <div class="fld"><label>Padrón</label><input id="cmPadron" oninput="cmPreview()"></div>
@@ -720,18 +803,18 @@
             <div class="fld"><label>Departamento</label><input id="cmDepartamento" value="Montevideo" oninput="cmPreview()"></div>
           </div>
 
-          <div class="ct-sec">4 · Condiciones y duración</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">4</span><span class="ct-tit">Condiciones y duración</span></div>
           <div id="cmCondiciones"></div>
           <div class="fld"><label>Plazo del encargo (meses)</label><input id="cmMeses" type="number" value="3" oninput="cmPreview()"></div>
 
-          <div class="ct-sec">5 · Honorarios</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">5</span><span class="ct-tit">Honorarios</span></div>
           <div id="cmHonorarios"></div>
 
-          <div class="ct-sec">6 · Servicios incluidos</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">6</span><span class="ct-tit">Servicios incluidos</span></div>
           <div class="hint" style="margin:-6px 0 10px">Se listan en la cláusula de objeto. Destildá los que no correspondan.</div>
           <div id="cmServicios"></div>
 
-          <div class="ct-sec">7 · Cierre</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">7</span><span class="ct-tit">Cierre</span></div>
           <div class="row2">
             <div class="fld"><label>Fecha</label><input id="cmFecha" type="date" oninput="cmPreview()"></div>
             <div class="fld"><label>Ejemplares</label><input id="cmEjemplares" type="number" value="2" min="1" max="4" oninput="cmPreview()"></div>
@@ -744,7 +827,7 @@
         <div class="panel" id="formPropietario" style="display:none">
           <h3><i class="fas fa-circle-info"></i> Información y procedimiento para propietarios</h3>
 
-          <div class="ct-sec">1 · Datos</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">1</span><span class="ct-tit">Datos</span></div>
           <div class="fld"><label>Agente que entrega</label>
             <select id="ipAgente" onchange="ipPreview()"><option value="">Cargando agentes…</option></select>
           </div>
@@ -752,7 +835,7 @@
           <div class="fld"><label>Propiedad</label><input id="ipPropiedad" oninput="ipPreview()" placeholder="Dirección del inmueble"></div>
           <div class="fld"><label>Fecha</label><input id="ipFecha" type="date" oninput="ipPreview()"></div>
 
-          <div class="ct-sec">2 · Condiciones particulares</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">2</span><span class="ct-tit">Condiciones particulares</span></div>
           <div class="hint" style="margin:-6px 0 10px">Lo que se complete acá va en el punto 9. Lo que quede vacío no se menciona.</div>
           <div class="row2">
             <div class="fld"><label>Precio autorizado</label><input id="ipPrecio" oninput="ipPreview()" placeholder="ej: $ 29.900"></div>
@@ -763,7 +846,7 @@
           <div class="fld"><label>Modalidad de acceso</label><input id="ipAcceso" oninput="ipPreview()" placeholder="ej: llaves en la agencia / portería"></div>
           <div class="fld"><label>Otras condiciones</label><textarea id="ipOtras" rows="2" oninput="ipPreview()"></textarea></div>
 
-          <div class="ct-sec">3 · Cierre</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">3</span><span class="ct-tit">Cierre</span></div>
           <div class="ct-op"><input type="checkbox" id="ipConstancia" checked onchange="ipPreview()">
             <div style="flex:1"><b>Incluir constancia de recepción</b><span>El propietario firma que lo recibió y lo comprendió. Sin firma, el documento prueba que existe, no que se lo entregaste.</span></div>
           </div>
@@ -782,10 +865,10 @@
             <button type="button" class="iv-link" onclick="ivNuevo()">Empezar uno nuevo</button>
           </div>
 
-          <div class="ct-sec">1 · Datos</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">1</span><span class="ct-tit">Datos</span></div>
           <div class="fld"><label for="ivProp">Propiedad del sistema (opcional)</label>
             <select id="ivProp" onchange="ivCargarProp()" disabled><option value="">Cargando propiedades…</option></select>
-            <div class="hint">Completa la dirección, el tipo y la cantidad de dormitorios y baños.</div>
+            <div class="hint">Aparecen las de alquiler marcadas como reservadas. Al elegir una se completan la dirección, el tipo y la cantidad de dormitorios y baños.</div>
             <!-- Al elegir otra propiedad con cosas ya cargadas: no se borran solas
                  (puede ser solo una corrección), pero se ofrece hacerlo. -->
             <div class="iv-aviso" id="ivPropAviso" hidden>
@@ -804,7 +887,7 @@
           </div>
           <div class="fld"><label for="ivFecha">Fecha</label><input id="ivFecha" type="date"></div>
 
-          <div class="ct-sec">2 · Ambientes</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">2</span><span class="ct-tit">Ambientes</span></div>
           <div class="fld">
             <label>Destino</label>
             <div class="seg">
@@ -836,33 +919,35 @@
             </div>
           </div>
 
-          <div class="ct-sec">3 · Estado de cada cosa</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">3</span><span class="ct-tit">Estado de cada cosa</span></div>
           <p class="iv-leyenda">Abrí un ambiente y marcá cómo está cada cosa<span class="solo-pc">: <b>B</b> bien, <b>R</b> regular, <b>M</b> mal, <b>—</b> no tiene</span>. Lo que quede sin marcar sale en blanco, para completarlo a mano.</p>
           <div class="iv-resumen" id="ivResumen" aria-live="polite"></div>
           <div id="ivAmbientes"></div>
 
-          <div class="ct-sec">4 · Observaciones generales</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">4</span><span class="ct-tit">Observaciones generales</span></div>
           <div class="fld"><textarea id="ivObs" rows="3" maxlength="900" placeholder="Lo que valga para toda la propiedad: medidores, llaves, limpieza, lo que queda pendiente de arreglar…" aria-label="Observaciones generales" aria-describedby="ivObsAviso"></textarea>
             <div class="hint iv-obs-aviso" id="ivObsAviso" hidden>En la hoja entran 30 renglones: lo que pase de ahí no sale (termina en “…”). Acortalo o pasá lo que sea de una cosa a su renglón.</div></div>
           <label class="iv-check"><input type="checkbox" id="ivOmitir"> <span>Dejar fuera de la hoja lo marcado como “no tiene”</span></label>
 
           <button class="gen-btn" onclick="generarActivo()"><i class="fas fa-file-arrow-down"></i> Descargar inventario</button>
         </div>
+          </section>
 
-        <!-- La hoja. En la computadora va fija al costado; en el celular se abre
-             a pantalla completa con "Ver la hoja". -->
-        <aside class="preview-wrap" id="previewWrap" aria-label="Vista previa del documento">
+          <!-- La hoja, sobre la mesa oscura. En la computadora ocupa toda la
+               columna de la derecha; en el celular se abre a pantalla completa
+               con "Ver la hoja". -->
+          <aside class="preview-wrap" id="previewWrap" aria-label="Vista previa del documento">
           <div class="pv-barra">
             <button type="button" class="pv-btn pv-cerrar" onclick="pvCerrar()" aria-label="Volver a los datos"><i class="fas fa-arrow-left"></i></button>
             <span class="pv-tit">Vista previa</span>
             <span class="pv-info" id="pvInfo"></span>
             <div class="pv-zoom">
-              <button type="button" class="pv-btn" id="pvMenos" onclick="pvZoom(-1)" aria-label="Alejar la hoja"><i class="fas fa-magnifying-glass-minus"></i></button>
+              <button type="button" class="pv-btn" id="pvMenos" onclick="pvZoom(-1)" aria-label="Alejar la hoja" title="Alejar"><i class="fas fa-minus"></i></button>
               <output id="pvZoomTxt">Ajustada</output>
-              <button type="button" class="pv-btn" id="pvMas" onclick="pvZoom(1)" aria-label="Acercar la hoja"><i class="fas fa-magnifying-glass-plus"></i></button>
+              <button type="button" class="pv-btn" id="pvMas" onclick="pvZoom(1)" aria-label="Acercar la hoja" title="Acercar"><i class="fas fa-plus"></i></button>
             </div>
-            <button type="button" class="pv-btn" onclick="pvEnPestana()" aria-label="Abrir la hoja en otra pestaña" title="Abrir en otra pestaña"><i class="fas fa-up-right-from-square"></i></button>
-            <button type="button" class="pv-bajar" onclick="generarActivo()"><i class="fas fa-file-arrow-down"></i> <span>Descargar PDF</span></button>
+            <button type="button" class="pv-btn" onclick="pvEnPestana()" aria-label="Abrir la hoja en otra pestaña" title="Abrir en otra pestaña (para imprimir)"><i class="fas fa-up-right-from-square"></i></button>
+            <button type="button" class="pv-bajar" onclick="generarActivo()" aria-label="Descargar PDF" title="Descargar PDF"><i class="fas fa-file-arrow-down" aria-hidden="true"></i> <span>Descargar PDF</span></button>
           </div>
           <div class="pv-mesa" id="previewBox" tabindex="0">
             <div class="pv-ancla"><div class="pv-estado" id="pvEstado" role="status">Preparando la hoja…</div></div>
@@ -878,7 +963,8 @@
               </div>
             </div>
           </div>
-        </aside>
+          </aside>
+        </div>
       </div>
     </div>
   </div>
@@ -2590,8 +2676,8 @@
         cont.appendChild(h);
         if(PV.obs) PV.obs.observe(h);
       }
-      pvEl('pvInfo').textContent = n === 1 ? '1 hoja' : n + ' hojas';
       pvMedir();
+      pvHojaActual();
       Array.prototype.forEach.call(cont.children, function(hoja){
         if(hoja._aLaVista || !PV.obs){ pvDibujar(hoja); return; }
         // Las que no se están mirando no se dibujan ahora, pero tampoco pueden
@@ -2721,6 +2807,30 @@
         ancho = justo * PV.zoom;
       }
       cont.style.setProperty('--hoja-w', Math.round(ancho) + 'px');
+      pvPedirHoja();
+    }
+
+    // "Hoja 2 de 6": la que se está mirando, según cuánto se desplazó la mesa.
+    // (Con firmas en cada hoja, sirve para ubicarse al revisar.)
+    var _pvHojaPedida = false;
+    function pvHojaActual(){
+      _pvHojaPedida = false;
+      var cont = pvEl('previewPages'), mesa = pvEl('previewBox'), info = pvEl('pvInfo');
+      if(!cont || !mesa || !info) return;
+      var n = cont.children.length;
+      if(!n) return;
+      var txt = '1 hoja';
+      if(n > 1){
+        var linea = mesa.scrollTop + mesa.clientHeight * 0.45, actual = 1;
+        for(var i = 1; i < n; i++){ if(cont.children[i].offsetTop <= linea) actual = i + 1; else break; }
+        txt = 'Hoja ' + actual + ' de ' + n;
+      }
+      if(info.textContent !== txt) info.textContent = txt;
+    }
+    function pvPedirHoja(){
+      if(_pvHojaPedida) return;
+      _pvHojaPedida = true;
+      (window.requestAnimationFrame || setTimeout)(pvHojaActual);
     }
 
     // En el celular no se ofrece "hoja entera": con el teléfono parado es lo mismo
@@ -2870,7 +2980,7 @@
     // Lo que queda detrás de la hoja abierta no se puede recorrer con el teclado
     // ni lo anuncia el lector de pantalla (inert).
     function pvDetras(apagar){
-      document.querySelectorAll('.fh, #content > :not(.doc-grid), .doc-grid > .panel').forEach(function(e){
+      document.querySelectorAll('.fh, .doc-lado, .doc-form').forEach(function(e){
         if(apagar) e.setAttribute('inert', ''); else e.removeAttribute('inert');
       });
     }
@@ -2947,23 +3057,20 @@
       if(cab && cab.offsetHeight) raiz.style.setProperty('--tope', cab.offsetHeight + 'px');
       if(barra && barra.offsetHeight) raiz.style.setProperty('--barra-h', barra.offsetHeight + 'px');
     }
-    // En la computadora la hoja ocupa justo el alto que queda a la vista: desde
-    // donde empieza (o desde la cabecera, cuando ya quedó pegada arriba) hasta el
-    // borde de abajo de la ventana. Con un alto fijo, al entrar a la página su
-    // parte de abajo quedaba fuera de la pantalla y el final de la hoja no se
-    // podía ver sin desplazar la página.
-    var _pvAltoPedido = false;
+    // En la computadora la hoja ocupa toda la columna de la derecha (lo resuelve
+    // el diseño de la página: nada se desplaza salvo cada columna). Solo hace
+    // falta volver a medir cuando cambia el alto de la mesa, porque "hoja
+    // entera" depende de él.
+    var _pvAltoPedido = false, _pvAltoMesa = 0;
     function pvAcomodarAlto(){
       _pvAltoPedido = false;
-      var wrap = pvEl('previewWrap');
-      if(!wrap || !PV.lista) return;
-      if(pvEsCelular()){ if(wrap.style.height) wrap.style.height = ''; return; }
-      var tope = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tope')) || 63) + 16;
-      var arriba = Math.max(tope, wrap.parentNode.getBoundingClientRect().top);
-      var alto = Math.max(240, Math.round(window.innerHeight - arriba - 16)) + 'px';
-      if(wrap.style.height === alto) return;
-      wrap.style.height = alto;
-      if(PV.zoom === 0){                           // "hoja entera" depende del alto
+      var mesa = pvEl('previewBox'), wrap = pvEl('previewWrap');
+      if(!mesa || !PV.lista) return;
+      if(wrap && wrap.style.height) wrap.style.height = '';
+      var alto = mesa.clientHeight;
+      if(alto === _pvAltoMesa) return;
+      _pvAltoMesa = alto;
+      if(PV.zoom === 0 && alto){
         pvMedir();
         clearTimeout(PV.tRedibujo);
         PV.tRedibujo = setTimeout(pvRedibujar, 180);   // y se vuelve a dibujar nítida al nuevo tamaño
@@ -2974,7 +3081,6 @@
       _pvAltoPedido = true;
       (window.requestAnimationFrame || setTimeout)(pvAcomodarAlto);
     }
-    window.addEventListener('scroll', pvPedirAlto, { passive:true });
 
     var _pvCelular = null;
     function pvAlCambiarTamano(){
@@ -3019,6 +3125,7 @@
         // vuelve a dibujar nunca.
         Array.prototype.forEach.call(pvEl('previewPages').children, function(h){ PV.obs.observe(h); });
       }
+      mesa.addEventListener('scroll', pvPedirHoja, { passive:true });
       _pvCelular = pvEsCelular();
       medirTope();
       pvAcomodarAlto();
@@ -3051,6 +3158,7 @@
       document.getElementById('boxCarta').style.display   = t==='carta' ? 'block' : 'none';
       var tp=document.getElementById('tituloPanelPago');
       if(tp) tp.textContent = t==='reserva' ? 'Datos del recibo de reserva' : 'Datos de la carta de pago';
+      docTitular();
       var gb=document.getElementById('genBtn');
       if(gb) gb.innerHTML = '<i class="fas fa-file-arrow-down"></i> '+(t==='reserva'?'Descargar recibo de reserva':'Descargar carta de pago');
       document.getElementById('hintComprobante').textContent = t==='reserva'
@@ -4841,17 +4949,10 @@
       ivGuardar(true);
       if(IV.abierto){
         var caja = ivCajaDe(IV.abierto);
-        if(caja){
-          // Al abrir uno se cierra el anterior y todo lo de abajo sube: si el
-          // título del que se abrió quedó fuera de la pantalla, se lo va a buscar.
-          var tope = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tope')) || 63;
-          var r = caja.getBoundingClientRect();
-          if(llevar || r.top < tope + 8 || r.top > window.innerHeight * 0.6){
-            var y = Math.max(0, r.top + window.pageYOffset - tope - 12);
-            try{ window.scrollTo({ top: y, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }
-            catch(e){ window.scrollTo(0, y); }
-          }
-        }
+        // Al abrir uno se cierra el anterior y todo lo de abajo sube: si el
+        // título del que se abrió quedó fuera de la vista, se lo va a buscar
+        // (en la computadora, dentro de la columna del formulario).
+        if(caja) docLlevarA(caja, !!llevar);
         ivMostrarEnHoja('sec:' + IV.abierto);
       }
     }
@@ -5257,7 +5358,10 @@
       var pdf=nuevoPDF();
       var W=595.28, M=40, ancho=W-M*2;
       var NAVY=[22,39,63], GREY=[95,106,128], INK=[26,38,58], ORO=[201,162,39];
-      var pieY=800, pagina=0, limite=pieY-16;
+      // Cada hoja lleva al pie las firmas de arrendador y arrendatario (se firma
+      // hoja por hoja, como el contrato): lo escrito termina 36 puntos antes de la
+      // raya, que es el lugar para firmar.
+      var pieY=800, firmaY=766, pagina=0, limite=firmaY-36;
       var FIL=15;                                  // alto de un renglón de una línea
       var LIN=8.8;                                 // interlineado cuando un renglón lleva varias
       // Columnas: descripción, cantidad, tipo/material, B, R, M, observaciones.
@@ -5300,12 +5404,39 @@
         pdf.line(M, y+12, W-M, y+12);
         return y+30;
       }
+      // Firmas de la hoja, con el mismo dibujo que las del contrato: una raya para
+      // cada parte, el nombre debajo (si se cargó) y el papel que cumple. Un
+      // nombre largo se achica para entrar en su columna; si ni así entra,
+      // termina en "…".
+      function firmas(){
+        var col = ancho/2, w = Math.min(col-20, 170);
+        [['ARRENDADOR', ivVal('ivArrendador')], ['ARRENDATARIO', ivVal('ivArrendatario')]].forEach(function(par, i){
+          var cx = M + col*i + col/2, lugar = col-14;
+          pdf.setDrawColor(60).setLineWidth(1.1).line(cx-w/2, firmaY, cx+w/2, firmaY);
+          var nombre = String(par[1] || '').replace(/\s+/g, ' ').trim();
+          if(nombre){
+            var tam = 8.5;
+            pdf.setFont('helvetica','bold').setFontSize(tam);
+            while(tam > 6.5 && pdf.getTextWidth(nombre) > lugar){ tam -= .25; pdf.setFontSize(tam); }
+            if(pdf.getTextWidth(nombre) > lugar){
+              while(nombre.length > 1 && pdf.getTextWidth(nombre + '…') > lugar) nombre = nombre.slice(0, -1);
+              nombre = nombre.replace(/[\s,;.]+$/, '') + '…';
+            }
+            pdf.setTextColor(30);
+            pdf.text(nombre, cx, firmaY+13, {align:'center'});
+          }
+          pdf.setFont('helvetica','normal').setFontSize(7.5).setTextColor(110);
+          pdf.text(par[0], cx, firmaY+25, {align:'center'});
+        });
+        marcas['firmas:' + pagina] = { p:pagina, x:M, y:firmaY-30, w:ancho, h:58 };
+      }
       function pie(){
+        firmas();
         pdf.setDrawColor(200); pdf.setLineWidth(.6);
         pdf.line(M, pieY, W-M, pieY);
         pdf.setFont('helvetica','normal').setFontSize(7.5).setTextColor.apply(pdf,GREY);
         pdf.text(EMPRESA.nombre+'   ·   '+EMPRESA.celular, M, pieY+12);
-        pdf.text('Página '+pagina, W-M, pieY+12, {align:'right'});
+        // "Página N de T" se escribe al final, cuando ya se sabe cuántas hay.
       }
 
       var y=membrete();
@@ -5448,9 +5579,9 @@
       var altoCaja = Math.max(76, 24 + lObsGral.length*11 + 8);
       var cierre1 = pdf.splitTextToSize('Acorde con el contrato de arrendamiento, los arrendatarios se comprometen a observar y mantener el inmueble y su correspondiente dotación, en el mismo estado en que lo reciben.', ancho);
       var cierre2 = pdf.splitTextToSize('En constancia de lo anterior firman las partes este documento sin tener nada más que reclamar, en la fecha indicada.', ancho);
-      // Todo el cierre va junto en una hoja: la caja, los dos párrafos y las
-      // firmas. Antes se medía de menos y las firmas podían pisar el pie.
-      var altoCierre = altoCaja + 16 + (cierre1.length + cierre2.length)*12 + 4 + 34 + 26;
+      // Todo el cierre va junto en una hoja: la caja y los dos párrafos. Las
+      // firmas son las del pie, como en las demás hojas.
+      var altoCierre = altoCaja + 16 + (cierre1.length + cierre2.length)*12 + 4;
       if(y + altoCierre > limite){ pie(); y=membrete(); }
       pdf.setDrawColor(180).setLineWidth(.8);
       pdf.roundedRect(M, y, ancho, altoCaja, 6, 6);
@@ -5469,20 +5600,17 @@
       cierre1.forEach(function(l){ pdf.text(l, M, y); y+=12; });
       y+=4;
       cierre2.forEach(function(l){ pdf.text(l, M, y); y+=12; });
-      y+=34;
-
-      marcas.firmas = { p:pagina, x:M, y:y, w:ancho, h:26 };
-      var col=ancho/2;
-      [['ARRENDADOR', ivVal('ivArrendador')], ['ARRENDATARIO', ivVal('ivArrendatario')]].forEach(function(par,i){
-        var x=M+col*i, w=Math.min(col-40, 200);
-        pdf.setDrawColor(60).setLineWidth(1).line(x, y, x+w, y);
-        pdf.setFont('helvetica','bold').setFontSize(8).setTextColor(30);
-        if(par[1]) pdf.text(pdf.splitTextToSize(par[1], w)[0], x, y+12);
-        pdf.setFont('helvetica','normal').setFontSize(7).setTextColor(110);
-        pdf.text(par[0], x, y+23);
-      });
 
       pie();
+      marcas.firmas = marcas['firmas:' + pagina];
+      // Numeración "Página N de T" en todas las hojas: con firmas en cada una,
+      // así se ve enseguida si falta alguna.
+      var total = pdf.getNumberOfPages();
+      for(var h=1; h<=total; h++){
+        pdf.setPage(h);
+        pdf.setFont('helvetica','normal').setFontSize(7.5).setTextColor.apply(pdf,GREY);
+        pdf.text('Página '+h+' de '+total, W-M, pieY+12, {align:'right'});
+      }
       pdf.__marcas = marcas;
       return pdf;
     }
@@ -5657,9 +5785,18 @@
       document.getElementById('formMediacion').style.display = _tipoActivo==='mediacion'?'':'none';
       document.getElementById('formPropietario').style.display = _tipoActivo==='propietario'?'':'none';
       document.getElementById('formInventario').style.display = _tipoActivo==='inventario'?'':'none';
-      // La descripción del documento elegido, en una línea bajo el selector.
+      // Arriba del formulario: el título y la descripción del documento elegido.
+      // Las secciones del formulario quedan en la columna de documentos.
       var elegida = document.querySelector('.doc-type.active span'), desc = document.getElementById('docDesc');
       if(desc) desc.textContent = elegida ? elegida.textContent : '';
+      docTitular();
+      docArmarIndice();
+      if(_tipoActivo !== anterior){
+        // Otro documento: el formulario arranca desde arriba (en la computadora
+        // cada columna tiene su scroll) y, en el celular, su pestaña queda a la vista.
+        var form = docColumna(); if(form) form.scrollTop = 0;
+        docPestanaALaVista();
+      }
       // Se cancela lo que hubiera agendado el tipo anterior: todos comparten
       // temporizador y el que llegaba tarde pisaba al nuevo.
       if(_previewTimer){ clearTimeout(_previewTimer); _previewTimer = null; }
@@ -5674,8 +5811,114 @@
       else if(_tipoActivo==='propietario'){ ipInit(); ipPreview(); }
       else if(_tipoActivo==='inventario'){ ivInit(); ivPreview(); }
       else { renderPreview(); }
-      pvPedirAlto();        // la descripción de arriba puede ocupar otra cantidad de renglones
+      docMarcarSeccion();
     }
+
+    // ===== Columna del formulario: título, secciones y desplazamiento =====
+    // El título del documento elegido. En Comisión depende del momento: recibo
+    // de reserva (al señar) o carta de pago (al firmar).
+    function docTitular(){
+      var h = document.getElementById('docTitulo');
+      if(!h) return;
+      var b = document.querySelector('.doc-type.active b');
+      var t = _tipoActivo === 'carta_pago'
+        ? (typeof tipoComprobante !== 'undefined' && tipoComprobante === 'carta' ? 'Carta de pago' : 'Recibo de reserva')
+        : (b ? b.textContent : 'Documentos');
+      if(h.textContent !== t) h.textContent = t;
+    }
+    function docPanel(){
+      return document.getElementById({ carta_pago:'formCartaPago', contrato:'formContrato', mediacion:'formMediacion',
+        propietario:'formPropietario', inventario:'formInventario' }[_tipoActivo]);
+    }
+    // Las secciones numeradas del formulario elegido ("1 Partes", "2 Inmueble"…).
+    function docSecciones(){
+      var p = docPanel();
+      return p ? Array.prototype.filter.call(p.children, function(e){ return e.classList.contains('con-num'); }) : [];
+    }
+    // En la computadora el formulario se desplaza dentro de su columna; en el
+    // celular se desplaza la página entera (y esto devuelve null).
+    function docColumna(){
+      var f = document.getElementById('docForm');
+      return (f && !pvEsCelular()) ? f : null;
+    }
+    // El índice del documento, debajo de su nombre en la columna de la izquierda.
+    function docArmarIndice(){
+      var ol = document.getElementById('docIndice'), activo = document.querySelector('.doc-type.active');
+      if(!ol) return;
+      var secs = docSecciones();
+      ol.innerHTML = secs.map(function(s, i){
+        var n = s.querySelector('.ct-num'), tit = s.querySelector('.ct-tit');
+        return '<li><button type="button" onclick="docIrA(' + i + ')"><span class="n">' + esc(n ? n.textContent : String(i + 1)) + '</span><span>' +
+          esc(tit ? tit.textContent : s.textContent) + '</span></button></li>';
+      }).join('');
+      ol.hidden = !secs.length;
+      if(activo && activo.nextElementSibling !== ol) activo.insertAdjacentElement('afterend', ol);
+    }
+    function docIrA(i){
+      var s = docSecciones()[i];
+      if(!s) return;
+      docLlevarA(s, true);
+      // El foco va a la sección: con el teclado, lo próximo que se recorre son sus campos.
+      s.setAttribute('tabindex', '-1');
+      try{ s.focus({ preventScroll:true }); }catch(e){}
+    }
+    // Lleva el formulario hasta un elemento. Sin `siempre`, solo si quedó fuera
+    // de la vista o muy abajo.
+    function docLlevarA(el, siempre){
+      var suave = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var f = docColumna(), r = el.getBoundingClientRect();
+      if(f){
+        var fr = f.getBoundingClientRect();
+        if(!siempre && r.top >= fr.top + 8 && r.top <= fr.top + f.clientHeight * 0.6) return;
+        var y = Math.max(0, r.top - fr.top + f.scrollTop - 18);
+        try{ f.scrollTo({ top:y, behavior: suave ? 'smooth' : 'auto' }); }catch(e){ f.scrollTop = y; }
+        return;
+      }
+      var tope = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tope')) || 57;
+      if(!siempre && r.top >= tope + 8 && r.top <= window.innerHeight * 0.6) return;
+      var yv = Math.max(0, r.top + window.pageYOffset - tope - 12);
+      try{ window.scrollTo({ top:yv, behavior: suave ? 'smooth' : 'auto' }); }catch(e){ window.scrollTo(0, yv); }
+    }
+    // La sección que se está mirando queda marcada en el índice.
+    var _docMarcaPedida = false;
+    function docMarcarSeccion(){
+      _docMarcaPedida = false;
+      var ol = document.getElementById('docIndice'), f = docColumna();
+      if(!ol || ol.hidden || !f) return;
+      var secs = docSecciones(), linea = f.getBoundingClientRect().top + Math.min(140, f.clientHeight * 0.3), actual = 0;
+      for(var i=0;i<secs.length;i++){ if(secs[i].getBoundingClientRect().top <= linea) actual = i; else break; }
+      // Al llegar al final, la última, aunque su título no alcance a subir.
+      if(secs.length && f.scrollTop > 0 && f.scrollTop + f.clientHeight >= f.scrollHeight - 4) actual = secs.length - 1;
+      Array.prototype.forEach.call(ol.querySelectorAll('button'), function(b, i){
+        if(i === actual) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+      });
+    }
+    function docPedirMarca(){
+      if(_docMarcaPedida) return;
+      _docMarcaPedida = true;
+      (window.requestAnimationFrame || setTimeout)(docMarcarSeccion);
+    }
+    // Celular: la pestaña elegida, a la vista dentro de la tira.
+    function docPestanaALaVista(){
+      var tira = document.querySelector('.doc-types'), b = document.querySelector('.doc-type.active');
+      if(tira && b && pvEsCelular() && tira.scrollWidth > tira.clientWidth){
+        var a = b.offsetLeft, z = a + b.offsetWidth;
+        if(a < tira.scrollLeft) tira.scrollLeft = a - 8;
+        else if(z > tira.scrollLeft + tira.clientWidth) tira.scrollLeft = z - tira.clientWidth + 8;
+      }
+      docTiraConMas();
+    }
+    // Celular: si quedan pestañas fuera de la pantalla, el borde se desvanece.
+    function docTiraConMas(){
+      var tira = document.querySelector('.doc-types');
+      if(tira) tira.classList.toggle('hay-mas', pvEsCelular() && tira.scrollLeft + tira.clientWidth < tira.scrollWidth - 4);
+    }
+    (function(){
+      var f = document.getElementById('docForm'), tira = document.querySelector('.doc-types');
+      if(f) f.addEventListener('scroll', docPedirMarca, { passive:true });
+      if(tira) tira.addEventListener('scroll', docTiraConMas, { passive:true });
+      window.addEventListener('resize', function(){ docPedirMarca(); docTiraConMas(); }, { passive:true });
+    })();
 
     // "Política de la agencia": se define una vez y queda en este navegador, como
     // promete el formulario. (Antes el cartel lo decía pero no se guardaba nada.)
@@ -5870,13 +6113,16 @@
       if(enviar) enviar.hidden = !puedeEnviarArchivos();
       pvIniciar();
       aplicarPermisos();
+      docTitular();
+      docArmarIndice();
+      docTiraConMas();
       // Estado inicial. Ya NO espera a que lleguen los agentes y las propiedades:
       // la página queda lista para escribir y los desplegables se llenan solos
       // cuando llegan los datos.
       document.getElementById('fFecha').value = hoyISO();
       addFirmante();
       renderPreview();
-      pvPedirAlto();
+      docMarcarSeccion();
       cargarDatos(user.uid);
     });
 
@@ -5948,35 +6194,40 @@
       }
     }
 
-    // Desplegables "Propiedad del sistema" del contrato y del inventario: las que
-    // están en alquiler, primero las propias y después las de cada agente.
+    // Desplegables "Propiedad del sistema" del contrato y del inventario: solo las
+    // de alquiler que están RESERVADAS, que son las que van a firma. (Antes salía
+    // todo el catálogo de alquiler.) Primero las propias y después las de cada
+    // agente. Si la que ya estaba elegida dejó de estar reservada (por ejemplo,
+    // pasó a alquilada con el inventario a medio cargar), se sigue mostrando.
     function pintarPropsAlquiler(){
       var yo = (auth && auth.currentUser) ? auth.currentUser.uid : '';
-      var lista = props.filter(function(p){ return p.type==='rent' && p._dir; });
       var nombreDe = {};
       agentes.forEach(function(a){ nombreDe[a.id] = a.name; });
-      var grupos = [], porDueno = {};
-      lista.forEach(function(p){
-        var clave = p.ownerId === yo ? '' : (p.ownerId || '?');
-        if(!porDueno[clave]){
-          porDueno[clave] = { titulo: clave === '' ? 'Mis propiedades' : (nombreDe[p.ownerId] || 'Otros agentes'), items: [] };
-          grupos.push(porDueno[clave]);
-        }
-        porDueno[clave].items.push(p);
-      });
-      grupos.sort(function(a,b){
-        if(a.titulo === 'Mis propiedades') return -1;
-        if(b.titulo === 'Mis propiedades') return 1;
-        return a.titulo.localeCompare(b.titulo);
-      });
       ['ctProp','ivProp'].forEach(function(id){
         var sel = document.getElementById(id);
         if(!sel) return;
         var previo = sel.value || (id === 'ivProp' ? (IV.propGuardada || '') : '');
+        var lista = props.filter(function(p){
+          return p.type === 'rent' && p._dir && (p.status === 'reserved' || (previo && p.id === previo));
+        });
+        var grupos = [], porDueno = {};
+        lista.forEach(function(p){
+          var clave = p.ownerId === yo ? '' : (p.ownerId || '?');
+          if(!porDueno[clave]){
+            porDueno[clave] = { titulo: clave === '' ? 'Mis propiedades' : (nombreDe[p.ownerId] || 'Otros agentes'), items: [] };
+            grupos.push(porDueno[clave]);
+          }
+          porDueno[clave].items.push(p);
+        });
+        grupos.sort(function(a,b){
+          if(a.titulo === 'Mis propiedades') return -1;
+          if(b.titulo === 'Mis propiedades') return 1;
+          return a.titulo.localeCompare(b.titulo);
+        });
         sel.innerHTML = '';
         var primera = document.createElement('option');
         primera.value = '';
-        primera.textContent = lista.length ? 'Cargar datos desde una propiedad…' : 'No hay propiedades en alquiler cargadas';
+        primera.textContent = lista.length ? 'Elegí una propiedad reservada…' : 'No hay propiedades en alquiler reservadas';
         sel.appendChild(primera);
         sel.disabled = false;
         grupos.forEach(function(g){
@@ -5985,7 +6236,8 @@
           g.items.forEach(function(p){
             var o = document.createElement('option');
             o.value = p.id;
-            o.textContent = p._dir.length > 58 ? p._dir.slice(0,56).trim() + '…' : p._dir;
+            o.textContent = (p._dir.length > 58 ? p._dir.slice(0,56).trim() + '…' : p._dir) +
+              (p.status === 'reserved' ? '' : '  ·  ' + ({ rented:'ya alquilada', available:'disponible' }[p.status] || 'ya no está reservada'));
             o.title = (p.title || 'Propiedad') + ' — ' + p._dir;
             destino.appendChild(o);
           });
