@@ -7708,7 +7708,31 @@ async function icBuscarPropiedadDeLead(n) {
   };
   for (const r of n.refs || []) { const d = await buscar(r, NUESTROS.concat(DEL_PORTAL)); if (d) return d; }
   for (const r of n.refsSueltas || []) { const d = await buscar(r, NUESTROS); if (d) return d; }
+  // Un código que el CRM no conocía y que la Dirección ya asignó a mano una vez
+  // (ver consultasAsignarIC): la consulta entra sola a esa propiedad.
+  for (const r of n.refs || []) { const d = await icPropiedadAprendida(r); if (d) return d; }
   return null;
+}
+
+/* Los códigos aprendidos: un documento por código en icCodigosConsulta, con la
+   propiedad a la que corresponde. El id del documento es el código tal cual
+   (si tiene caracteres raros, su huella). */
+function icCodigoDocId(c) {
+  const s = String(c == null ? "" : c).trim();
+  return /^[A-Za-z0-9_-]{1,100}$/.test(s) ? s : "h_" + crypto.createHash("sha1").update(s).digest("hex");
+}
+async function icPropiedadAprendida(r) {
+  if (!r) return null;
+  try {
+    const a = await db.doc(`icCodigosConsulta/${icCodigoDocId(r)}`).get();
+    const pid = a.exists ? String((a.data() || {}).propertyId || "") : "";
+    if (!pid || pid.includes("/")) return null;
+    const d = await db.doc(`properties/${pid}`).get();
+    return d.exists ? d : null;
+  } catch (e) {
+    logger.warn("icPropiedadAprendida:", e.message);
+    return null;
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -8335,6 +8359,168 @@ async function consultasReprocesarCYM(incluirIniciales) {
   return res;
 }
 
+/* ---------------------------------------------------------------------------
+   ASIGNAR A MANO UNA CONSULTA "SIN PROPIEDAD IDENTIFICADA"
+   InfoCasas a veces manda un número que el CRM no conoce (por ejemplo, el de un
+   aviso de la época del XML). La consulta igual entra, a la Dirección, con ese
+   código a la vista; hasta ahora tocarla no hacía nada. Ahora la Dirección elige
+   la propiedad desde la campanita y acá se hace lo mismo que si hubiera llegado
+   bien: el cliente queda a nombre del agente dueño (si no tenía agente), se abre
+   o actualiza la gestión, se le avisa al agente, y los avisos de la Dirección
+   pasan a mostrar la propiedad. Además el CRM aprende el código: la próxima
+   consulta con ese número entra sola a esa propiedad.
+   --------------------------------------------------------------------------- */
+async function consultasAsignarIC(actor, datos) {
+  const notifId = String(datos.notifId || "").trim();
+  const propertyId = String(datos.propertyId || "").trim();
+  if (!notifId || !propertyId || notifId.includes("/") || propertyId.includes("/")) {
+    throw new HttpsError("invalid-argument", "Faltan la consulta o la propiedad.");
+  }
+  const nSnap = await db.doc(`notifications/${notifId}`).get();
+  if (!nSnap.exists) throw new HttpsError("not-found", "Esa consulta ya no está en la campanita.");
+  const n = nSnap.data() || {};
+  if (n.ownerId !== actor.uid) throw new HttpsError("permission-denied", "Esa consulta no es de tu campanita.");
+  if (n.type !== "consulta_infocasas") throw new HttpsError("failed-precondition", "Por ahora solo se asignan a mano las consultas de InfoCasas.");
+  if (n.propertyId) throw new HttpsError("failed-precondition", "Esa consulta ya tiene su propiedad.");
+  const pSnap = await db.doc(`properties/${propertyId}`).get();
+  if (!pSnap.exists) throw new HttpsError("not-found", "Esa propiedad ya no existe.");
+  const prop = pSnap.data() || {};
+  const titulo = prop.title || "";
+  const ownerId = prop.ownerId || null;
+  let owner = null;
+  if (ownerId) {
+    const u = await db.doc(`users/${ownerId}`).get();
+    if (u.exists) owner = { uid: u.id, ...u.data() };
+  }
+  const ownerName = (owner && owner.name) || "";
+  const ahora = new Date().toISOString();
+
+  // La clave de la consulta sale del id del aviso: ic_<clave>_<uid de quien lo recibió>.
+  let clave = notifId;
+  if (notifId.startsWith("ic_") && n.ownerId && notifId.endsWith("_" + n.ownerId)) {
+    clave = notifId.slice(3, notifId.length - n.ownerId.length - 1);
+  }
+  // Una sola asignación por consulta: si dos personas de la Dirección la asignan
+  // a la vez, la segunda se entera de que ya está hecha.
+  const candado = db.doc(`icAsignaciones/${icCodigoDocId(clave)}`);
+  try {
+    await candado.create({ propertyId, por: actor.nombre, porUid: actor.uid, at: ahora });
+  } catch (e) {
+    if (e && (e.code === 6 || String(e.message).includes("ALREADY_EXISTS"))) {
+      const s = await candado.get();
+      throw new HttpsError("already-exists", `Esa consulta ya la asignó ${(s.exists && (s.data() || {}).por) || "otra persona de la Dirección"}.`);
+    }
+    throw e;
+  }
+
+  try {
+    const nombre = n.leadNombre || n.userName || "Consulta InfoCasas";
+    const tel = String(n.userPhone || "");
+    const mail = String(n.leadEmail || "").trim();
+    const mensaje = n.leadMensaje || (n.text && n.text !== "Consulta recibida desde InfoCasas" ? String(n.text) : "");
+    const codigo = String(n.leadRef || "").trim();
+
+    // 1) El cliente: mismo criterio que al llegar (teléfono, o correo si no dejó).
+    const telNorm = normalizarTel(tel), mailNorm = mail.toLowerCase();
+    let clientId = null;
+    if (telNorm || mailNorm) {
+      let cliente = null;
+      const cs = await db.collection("clients").get();
+      for (const d of cs.docs) {
+        const c = d.data() || {};
+        const mismo = telNorm ? normalizarTel(c.phone) === telNorm : String(c.email || "").trim().toLowerCase() === mailNorm;
+        if (mismo) { clientId = d.id; cliente = c; break; }
+      }
+      if (!clientId) {
+        const nuevo = { name: nombre, phone: tel, phoneNormalized: telNorm || "", status: "nuevo", source: "infocasas",
+          notes: "Ingresó por una consulta en InfoCasas.", createdAt: ahora, updatedAt: ahora };
+        if (mail) nuevo.email = mail;
+        if (ownerId) { nuevo.createdBy = ownerId; nuevo.agentId = ownerId; nuevo.ownerId = ownerId; }
+        if (ownerName) { nuevo.createdByName = ownerName; nuevo.ownerName = ownerName; }
+        clientId = (await db.collection("clients").add(nuevo)).id;
+      } else if (ownerId && !cliente.ownerId && !cliente.agentId && !cliente.createdBy) {
+        // Entró sin propiedad y quedó sin agente: pasa a ser del agente de la propiedad.
+        // Si ya era de alguien, no se le quita.
+        const cambios = { ownerId, agentId: ownerId, createdBy: ownerId, updatedAt: ahora };
+        if (ownerName) { cambios.ownerName = ownerName; cambios.createdByName = ownerName; }
+        await db.doc(`clients/${clientId}`).update(cambios);
+      }
+    }
+
+    // 2) La gestión sobre la propiedad, con la consulta en el historial (una vez).
+    if (clientId) {
+      const nota = {
+        tipo: "nota",
+        valor: `Consulta desde InfoCasas${mensaje ? `: "${mensaje}"` : ""}${mail ? ` (email: ${mail})` : ""}. La asignó a esta propiedad ${actor.nombre}.`,
+        autor: "InfoCasas", fecha: ahora, leadClave: clave,
+      };
+      const g = await db.collection("gestiones").where("clientId", "==", clientId).where("propertyId", "==", propertyId).limit(1).get();
+      if (!g.empty) {
+        const yaEsta = ((g.docs[0].data() || {}).historial || []).some((h) => h && h.leadClave === clave);
+        if (!yaEsta) await g.docs[0].ref.update({ updatedAt: ahora, historial: admin.firestore.FieldValue.arrayUnion(nota) });
+      } else {
+        const nueva = { clientId, propertyId, estadoGestion: "nuevo", rol: "interesado", createdAt: ahora, updatedAt: ahora, historial: [nota] };
+        if (ownerId) { nueva.agentId = ownerId; nueva.createdBy = ownerId; }
+        await db.collection("gestiones").add(nueva);
+      }
+    }
+
+    // 3) Los avisos de esta consulta (los de toda la Dirección) pasan a mostrar la propiedad.
+    const cambiosAviso = { propertyId, propertyTitle: titulo, asignadaPor: actor.nombre, asignadaAt: ahora };
+    const ids = new Set([notifId]);
+    if (clave !== notifId) for (const u of await getDireccion()) ids.add(`ic_${clave}_${u.uid}`);
+    for (const id of ids) {
+      try {
+        const ref = db.doc(`notifications/${id}`);
+        const s = await ref.get();
+        if (s.exists) await ref.update(cambiosAviso);
+      } catch (e) { logger.warn(`consultasAsignarIC: no se pudo actualizar el aviso ${id}:`, e.message); }
+    }
+
+    // 4) El aviso al agente dueño (campanita + push), como si hubiera llegado bien.
+    //    Lleva el mismo id que habría tenido: si el dueño es de la Dirección ya lo
+    //    tenía (quedó actualizado en el paso anterior) y no se repite.
+    let avisado = false;
+    if (owner) {
+      const idDueno = clave !== notifId ? `ic_${clave}_${owner.uid}` : `ica_${clave}_${owner.uid}`;
+      avisado = await avisarConsulta(owner, {
+        type: "consulta_infocasas", propertyId, propertyTitle: titulo,
+        userName: nombre, userPhoto: null, userPhone: tel,
+        text: mensaje || "Consulta recibida desde InfoCasas",
+        leadNombre: n.leadNombre || null, leadEmail: mail || null, leadMensaje: mensaje || null,
+        leadRef: null, asignadaPor: actor.nombre, asignadaAt: ahora,
+      }, {
+        title: "Consulta de InfoCasas",
+        body: `${nombre}${titulo ? " — " + titulo : ""} (te la asignó ${actor.nombre})`,
+      }, idDueno);
+    }
+
+    // 5) El CRM aprende el código: la próxima consulta con ese número entra sola.
+    let aprendido = false;
+    if (codigo && codigo !== propertyId) {
+      await db.doc(`icCodigosConsulta/${icCodigoDocId(codigo)}`).set({ codigo, propertyId, por: actor.nombre, porUid: actor.uid, at: ahora });
+      aprendido = true;
+    }
+
+    // 6) El envío guardado deja de contar como "sin propiedad" en el diagnóstico.
+    try {
+      const crudos = await db.collection("leadsPortales").where("idLead", "==", clave).get();
+      for (const d of crudos.docs) {
+        await d.ref.update({ resultado: "asignada", propertyId, clientId: clientId || null, asignadaPor: actor.nombre, asignadaAt: ahora });
+      }
+    } catch (e) { logger.warn("consultasAsignarIC: envío guardado:", e.message); }
+
+    await registrarLog(propertyId, "InfoCasas: consulta asignada a mano", true, `${nombre}${tel ? " · " + tel : ""} · por ${actor.nombre}`);
+    return { ok: true, propiedad: titulo, agente: ownerName, avisado, aprendido, codigo: aprendido ? codigo : "", clientId: clientId || null };
+  } catch (e) {
+    // Falló a mitad de camino: se suelta el candado para poder intentarlo de nuevo.
+    await candado.delete().catch(() => {});
+    logger.error("consultasAsignarIC:", e);
+    if (e instanceof HttpsError) throw e;
+    throw new HttpsError("internal", "No se pudo terminar de asignar la consulta. Probá de nuevo.");
+  }
+}
+
 exports.consultasPortales = onCall({ timeoutSeconds: 300 }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
   const email = String(request.auth.token.email || "").toLowerCase();
@@ -8357,6 +8543,11 @@ exports.consultasPortales = onCall({ timeoutSeconds: 300 }, async (request) => {
     const { lista } = await tokensPushDe({ uid });
     await enviarPush({ uid }, campos, { title: "Aviso de prueba", body: "La campanita del CRM funciona." }, ref.id);
     return { ok: true, dispositivos: lista.length };
+  }
+
+  if (accion === "asignar") {
+    const actor = await exigirDireccion(request, "Solo la Dirección puede asignar consultas.");
+    return await consultasAsignarIC(actor, datos);
   }
 
   if (accion === "reprocesar") {

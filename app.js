@@ -1383,6 +1383,7 @@
         nombre = nombre || 'Consulta de InfoCasas';
         if (!mensaje && n.text && n.text !== 'Consulta recibida desde InfoCasas') mensaje = n.text;
         if (!pid && n.leadRef) m.pista = `Código que mandó InfoCasas: ${n.leadRef}`;
+        else if (pid && n.asignadaPor) m.pista = `Asignada a mano por ${n.asignadaPor}`;
       } else if (tipo === 'lead_portal') {
         m.via = n.userName || 'Portal';
         m.persona = !!nombre;
@@ -1404,6 +1405,12 @@
       m.txt = mensaje;
       if ((d.tel && waNum(d.tel)) || d.mail) m.contacto = { tel: d.tel && waNum(d.tel) ? d.tel : '', mail: d.mail };
       m.ir = alProp || { a: 'expandir' };
+      // Sin propiedad identificada: la Dirección la asigna a una (antes, tocarla
+      // solo desplegaba el texto y parecía que no pasaba nada).
+      if (tipo === 'consulta_infocasas' && !pid && isAdminUser()) {
+        m.ir = { a: 'asignar', id: n.id };
+        m.boton = { txt: 'Asignar a una propiedad', ic: 'fa-house-circle-check' };
+      }
       m.toastTitulo = 'Nueva consulta' + (m.via ? ' · ' + m.via : '');
       m.toastTexto = m.persona ? nombre + (prop ? ' — ' + prop : '') : (prop || nombre);
       return m;
@@ -1590,6 +1597,7 @@
     }
     else if (ir.a === 'panel') abrirPanelDesdeNotif(ir.tab);
     else if (ir.a === 'consultas') abrirConsultasPortales();
+    else if (ir.a === 'asignar') abrirAsignarConsulta(ir.id);
     else if (ir.a === 'url') { closeNotifications(); window.location.href = ir.url; }
   }
   // Clic en un aviso: queda leído y lleva a donde corresponde.
@@ -2310,6 +2318,208 @@
     }
   }
 
+  // ==========================================================================
+  // ASIGNAR UNA CONSULTA QUE LLEGÓ SIN PROPIEDAD (InfoCasas) — solo Dirección
+  // --------------------------------------------------------------------------
+  // InfoCasas a veces manda un número de aviso que el CRM no conoce: la
+  // consulta llega a la Dirección como "Sin propiedad identificada", con ese
+  // código a la vista. Acá se elige la propiedad y el servidor
+  // (consultasPortales, acción "asignar") la deja a nombre del agente de esa
+  // propiedad, le avisa, y aprende el código: las próximas entran solas.
+  // ==========================================================================
+  let _ac = null;   // { id, n, sel, busca, lista, estado: 'elegir' | 'enviando' | 'listo', error, res }
+  const _acNorm = (s) => String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  // ¿La propiedad tiene en algún lado el código que mandó el portal? (su número
+  // de aviso, el link del aviso que alguien pegó, el código de la ficha)
+  function _acCoincide(p, ref) {
+    const r = String(ref || '').trim();
+    if (!r) return false;
+    const f = p.ficha || {};
+    if ([p.id, f.PROPERTY_CODE, p.icIntegratorCode, p.icListingId, p.icFrPropertyId, p.icListingIdAnterior].some(x => x != null && String(x) === r)) return true;
+    return /^\d{6,}$/.test(r) && !!p.infocasasUrl && String(p.infocasasUrl).split('?')[0].indexOf(r) >= 0;
+  }
+  // Todas las propiedades: primero la que coincide con el código, después las
+  // disponibles o reservadas, las publicadas en InfoCasas y por título.
+  function _acArmarLista(n) {
+    const ref = n.leadRef || '';
+    return (properties || []).map(p => {
+      const f = p.ficha || {};
+      const u = allUsers[p.ownerId] || {};
+      const ag = u.name || u.email || '';
+      const lugar = [p.direccion, p.ciudad && p.departamento ? `${p.ciudad}, ${p.departamento}` : (p.location || '')].filter(Boolean).join(', ');
+      return {
+        p, ag, lugar, codigo: f.PROPERTY_CODE || '',
+        sugerida: _acCoincide(p, ref),
+        activa: !p.status || p.status === 'available' || p.status === 'reserved',
+        enIC: !!(p.icListingId || p.icEstado === 'publicado'),
+        clave: _acNorm([p.title, lugar, f.PROPERTY_CODE, ag, p.icFrPropertyId, p.icListingId].join(' '))
+      };
+    }).sort((x, y) => (y.sugerida - x.sugerida) || (y.activa - x.activa) || (y.enIC - x.enIC)
+      || String(x.p.title || '').localeCompare(String(y.p.title || ''), 'es'));
+  }
+  const AC_TOPE = 80;
+  function _acVisibles() {
+    const palabras = _acNorm(_ac.busca).trim().split(/\s+/).filter(Boolean);
+    return _ac.lista.filter(x => palabras.every(w => x.clave.indexOf(w) >= 0));
+  }
+  function _acHtmlLista() {
+    const vis = _acVisibles();
+    if (!vis.length) return `<p class="ac-nada">Ninguna propiedad coincide con «${mvEsc(_ac.busca)}».</p>`;
+    const ESTADO = { sold: 'Vendida', rented: 'Alquilada', archived: 'Archivada' };
+    return vis.slice(0, AC_TOPE).map(x => {
+      const p = x.p, sel = _ac.sel === p.id;
+      const foto = p.images && p.images[0] ? safeUrl(p.images[0]) : '';
+      const sub = [x.lugar, x.codigo, x.ag, x.activa ? '' : (ESTADO[p.status] || '')].filter(Boolean).join(' · ');
+      return `<button type="button" class="ac-prop${sel ? ' sel' : ''}" role="option" aria-selected="${sel}" data-ac="elegir" data-pid="${mvEsc(p.id)}">` +
+        (foto ? `<img src="${foto}" alt="" loading="lazy">` : '<span class="ac-sinfoto"><i class="fas fa-house"></i></span>') +
+        `<span class="ac-prop-tx"><span class="ac-prop-t">${mvEsc(p.title || 'Propiedad sin título')}</span>` +
+        `<span class="ac-prop-s">${mvEsc(sub)}</span></span>` +
+        (x.sugerida ? '<span class="ac-tag">Coincide el código</span>' : '') +
+        `</button>`;
+    }).join('') + (vis.length > AC_TOPE ? `<p class="ac-nada">Hay ${vis.length - AC_TOPE} más: escribí para achicar la lista.</p>` : '');
+  }
+  function _acTextoPie() {
+    if (_ac.error) return _ac.error;
+    const x = _ac.sel && _ac.lista.find(y => y.p.id === _ac.sel);
+    if (x) return `Elegida: ${x.p.title || 'la propiedad'}${x.ag ? ` (de ${x.ag})` : ''}.`;
+    return 'Si no sabés cuál es, buscá la consulta en el panel de InfoCasas: ahí figura el aviso.';
+  }
+  function _acPintar() {
+    let ov = document.getElementById('acOverlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.className = 'ctr-overlay'; ov.id = 'acOverlay';
+      ov.addEventListener('click', _acClic);
+      ov.addEventListener('input', _acInput);
+      ov.addEventListener('keydown', _acTecla);
+      document.body.appendChild(ov);
+    }
+    const n = _ac.n, d = notifDatos(n);
+    const nombre = d.nombre || n.userName || 'la persona';
+    let cuerpo, pie;
+    if (_ac.estado === 'listo') {
+      const r = _ac.res || {};
+      cuerpo = '<div class="ac-listo"><i class="fas fa-circle-check"></i><b>Listo, quedó asignada</b>' +
+        `<p>La consulta de ${mvEsc(nombre)} quedó en «${mvEsc(r.propiedad || 'la propiedad')}»${r.agente ? `, a nombre de ${mvEsc(r.agente)}` : ''}.` +
+        `${r.avisado && r.agente ? ' Ya le llegó el aviso para contactarlo.' : ''}</p>` +
+        (r.aprendido ? `<p class="cp-nota">Las próximas consultas que lleguen con el código ${mvEsc(r.codigo)} van a entrar solas a esta propiedad.</p>` : '') +
+        '</div>';
+      pie = '<span></span><button class="ctr-btn primary" data-ac="cerrar">Cerrar</button>';
+    } else {
+      const mensaje = d.mensaje || n.leadMensaje || '';
+      cuerpo = `<div class="ac-lead"><b>${mvEsc(nombre)}</b>` +
+          `<span>${mvEsc([d.tel, d.mail].filter(Boolean).join(' · ') || 'Sin teléfono ni correo')}</span>` +
+          (mensaje ? `<p>${mvEsc(mensaje)}</p>` : '') +
+          (n.leadRef ? `<small><i class="fas fa-circle-info"></i> Código que mandó InfoCasas: ${mvEsc(n.leadRef)}</small>` : '') +
+        '</div>' +
+        `<div class="ac-buscar-caja"><label class="ac-buscar"><i class="fas fa-magnifying-glass" aria-hidden="true"></i><input id="acBuscar" type="search" placeholder="Buscá por dirección, barrio, código o agente" autocomplete="off" aria-label="Buscar la propiedad" value="${mvEsc(_ac.busca)}"></label></div>` +
+        `<div class="ac-lista" id="acLista" role="listbox" aria-label="Propiedades">${_acHtmlLista()}</div>`;
+      const enviando = _ac.estado === 'enviando';
+      pie = `<span id="acPie" class="${_ac.error ? 'mal' : ''}">${mvEsc(_acTextoPie())}</span>` +
+        '<button class="ctr-btn" data-ac="cerrar">Cancelar</button>' +
+        `<button class="ctr-btn primary" data-ac="asignar"${!_ac.sel || enviando ? ' disabled' : ''}>` +
+          (enviando ? '<i class="fas fa-spinner fa-spin"></i> Asignando…' : '<i class="fas fa-house-circle-check"></i> Asignar') + '</button>';
+    }
+    ov.innerHTML = '<div class="ctr-modal cp-modal ac-modal" role="dialog" aria-modal="true" aria-labelledby="acTitulo">' +
+      '<div class="cp-cab"><div><h3 id="acTitulo">Asignar la consulta a una propiedad</h3>' +
+        '<p>Queda a nombre del agente de esa propiedad, que recibe el aviso para contactarlo.</p></div>' +
+        '<button class="cp-x" data-ac="cerrar" aria-label="Cerrar"><i class="fas fa-xmark"></i></button></div>' +
+      `<div class="cp-cuerpo">${cuerpo}</div><div class="cp-pie">${pie}</div></div>`;
+  }
+  function abrirAsignarConsulta(id) {
+    if (!isAdminUser()) return;
+    const n = buscarAviso(id);
+    if (!n) return;
+    // Ya tiene propiedad (la asignó otra persona de la Dirección): a la propiedad.
+    if (n.propertyId) { closeNotifications(); openPropertyTab(n.propertyId); return; }
+    _ac = { id, n, sel: '', busca: '', lista: _acArmarLista(n), estado: 'elegir', error: '', res: null };
+    // Si una sola propiedad coincide con el código, ya queda elegida.
+    const sug = _ac.lista.filter(x => x.sugerida);
+    if (sug.length === 1) _ac.sel = sug[0].p.id;
+    _acPintar();
+    // En la computadora se escribe enseguida; en el celular el teclado taparía la lista.
+    if (!_esCelular()) setTimeout(() => { const i = document.getElementById('acBuscar'); if (i) i.focus(); }, 30);
+  }
+  function _acCerrar() {
+    const o = document.getElementById('acOverlay');
+    if (o) o.remove();
+    _ac = null;
+  }
+  function _acElegir(pid) {
+    if (!_ac || _ac.estado !== 'elegir') return;
+    _ac.sel = pid; _ac.error = '';
+    const ov = document.getElementById('acOverlay');
+    if (!ov) return;
+    ov.querySelectorAll('.ac-prop').forEach(b => {
+      const s = b.getAttribute('data-pid') === pid;
+      b.classList.toggle('sel', s); b.setAttribute('aria-selected', String(s));
+    });
+    const btn = ov.querySelector('[data-ac="asignar"]');
+    if (btn) btn.disabled = !pid;
+    const pie = document.getElementById('acPie');
+    if (pie) { pie.classList.remove('mal'); pie.textContent = _acTextoPie(); }
+  }
+  function _acInput(ev) {
+    if (!_ac || !ev.target || ev.target.id !== 'acBuscar') return;
+    _ac.busca = ev.target.value;
+    const l = document.getElementById('acLista');
+    if (l) { l.innerHTML = _acHtmlLista(); l.scrollTop = 0; }
+  }
+  function _acTecla(ev) {
+    if (!_ac) return;
+    if (ev.key === 'Escape') { ev.stopPropagation(); if (_ac.estado !== 'enviando') _acCerrar(); return; }
+    // Enter en el buscador con una sola propiedad a la vista: queda elegida.
+    if (ev.key === 'Enter' && ev.target && ev.target.id === 'acBuscar') {
+      ev.preventDefault();
+      const vis = _acVisibles();
+      if (vis.length === 1) _acElegir(vis[0].p.id);
+    }
+  }
+  async function _acClic(ev) {
+    if (!_ac) return;
+    if (ev.target.id === 'acOverlay') { if (_ac.estado !== 'enviando') _acCerrar(); return; }
+    const b = ev.target.closest('[data-ac]');
+    if (!b || b.disabled) return;
+    const acc = b.getAttribute('data-ac');
+    if (acc === 'cerrar') { if (_ac.estado !== 'enviando') _acCerrar(); return; }
+    if (acc === 'elegir') { _acElegir(b.getAttribute('data-pid')); return; }
+    if (acc === 'asignar') await _acAsignar();
+  }
+  function _acError(e) {
+    const c = String((e && e.code) || '');
+    if (c === 'viejo') return 'Falta subir la versión nueva del servidor. Mientras tanto, la consulta se puede contestar desde el panel de InfoCasas.';
+    if (/unauthenticated/.test(c)) return 'Se venció la sesión. Volvé a entrar y probá de nuevo.';
+    if (/(permission-denied|not-found|failed-precondition|already-exists|invalid-argument)/.test(c) && e.message) return e.message;
+    return 'No se pudo asignar. Probá de nuevo en un momento.';
+  }
+  async function _acAsignar() {
+    if (!_ac || !_ac.sel || _ac.estado !== 'elegir') return;
+    const ac = _ac;
+    ac.estado = 'enviando'; ac.error = '';
+    _acPintar();
+    try {
+      const r = await firebase.functions().httpsCallable('consultasPortales')({ accion: 'asignar', notifId: ac.id, propertyId: ac.sel });
+      const d = (r && r.data) || {};
+      // Un servidor sin esta acción contesta con el diagnóstico (sin "ok").
+      if (d.ok !== true) throw { code: 'viejo' };
+      ac.estado = 'listo'; ac.res = d;
+      // La campanita se pone al día sola (escucha los cambios); mientras tanto se
+      // refleja ya, para que el aviso no siga diciendo "sin propiedad".
+      const n = buscarAviso(ac.id);
+      if (n) {
+        n.propertyId = ac.sel; n.propertyTitle = d.propiedad || n.propertyTitle;
+        n.asignadaPor = (userProfile && userProfile.name) || n.asignadaPor || '';
+        renderNotifications();
+      }
+      showToast('Consulta asignada', d.agente ? `Le llegó a ${d.agente}` : (d.propiedad || ''), 'fa-house-circle-check');
+    } catch (e) {
+      console.warn('asignar consulta:', e && e.message);
+      ac.estado = 'elegir';
+      ac.error = _acError(e);
+    }
+    if (_ac === ac && document.getElementById('acOverlay')) _acPintar();
+  }
+
   // "Ver anteriores": de a 30, después de la última cargada.
   async function verAnteriores() {
     if (_notifCargandoMas || !currentUser) return;
@@ -2615,7 +2825,7 @@
     if (toca(d) || toca(b) || toca(document.getElementById('mvBottomBar')) || toca(document.getElementById('toastContainer'))) return;
     // El diagnóstico de consultas se abre arriba de la campanita: tocar adentro (o
     // cerrarlo) no es "tocar afuera". Se mira el camino porque al cerrarse ya no está.
-    if (camino.some((el) => el && el.id === 'cpOverlay')) return;
+    if (camino.some((el) => el && (el.id === 'cpOverlay' || el.id === 'acOverlay'))) return;
     closeNotifications();
   });
   // Ver la propiedad desde una notificación (funciona aunque esté archivada:
