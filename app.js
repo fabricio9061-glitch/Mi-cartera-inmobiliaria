@@ -3471,7 +3471,24 @@
      Libre (visitas) e InfoCasas y Casas y Más (consultas). serie = [{ date:
      'AAAA-MM-DD', total }], el formato que devuelven estadoML y estadoPortales. */
   function portalGrafico(o) {
-    const serie = Array.isArray(o.serie) ? o.serie : [];
+    // Los portales no siempre mandan los días en orden ni todos los días: Mercado
+    // Libre devolvió 04/10, 03/10, 02/10, 05/10 y el gráfico salía con las fechas
+    // salteadas. Se ordenan, y los días que faltan entre el primero y el último
+    // van en cero: cada barra es un día, uno detrás del otro.
+    const porDia = {};
+    (Array.isArray(o.serie) ? o.serie : []).forEach(x => {
+      const d = String((x && x.date) || '').slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) porDia[d] = (porDia[d] || 0) + (Number(x && x.total) || 0);
+    });
+    const dias = Object.keys(porDia).sort();
+    const serie = [];
+    if (dias.length) {
+      const fin = new Date(dias[dias.length - 1] + 'T12:00:00Z');
+      for (const t = new Date(dias[0] + 'T12:00:00Z'); t <= fin && serie.length < 120; t.setUTCDate(t.getUTCDate() + 1)) {
+        const d = t.toISOString().slice(0, 10);
+        serie.push({ date: d, total: porDia[d] || 0 });
+      }
+    }
     if (serie.length < 2) return '';
     const val = (x) => Number(x && x.total) || 0;
     const fmt = (x) => { const dt = String((x && x.date) || '').slice(0, 10); return dt.length === 10 ? dt.slice(8, 10) + '/' + dt.slice(5, 7) : ''; };
@@ -4026,7 +4043,7 @@
     const _pregN = (d.preguntas && d.preguntas.total != null) ? d.preguntas.total : null;
     const _pregSR = (d.preguntas && d.preguntas.sinResponder) ? ` · ${d.preguntas.sinResponder} sin responder` : '';
     const _chart = portalGrafico({ titulo: 'Visitas por día', color: '#1e9e6a', serie: d.visitasSerie, singular: 'visita', plural: 'visitas', vacio: 'Todavía sin visitas registradas en este período.' });
-    const interaccion = `<div class="ml-section"><div class="ml-stats"><div class="ml-stat"><i class="fas fa-eye" style="color:#1e9e6a"></i><div><div class="n">${_dash(d.visitas)}</div><div class="t">visitas · 30 días</div></div></div><div class="ml-stat"><i class="fas fa-circle-question" style="color:#2e86de"></i><div><div class="n">${_dash(_pregN)}</div><div class="t">preguntas${_pregSR}</div></div></div><div class="ml-stat"><i class="fab fa-whatsapp" style="color:#25d366"></i><div><div class="n">${_dash(d.contactosWhatsapp)}</div><div class="t">contactos WhatsApp · 30 días</div></div></div></div>${_chart}<div class="ml-webline"><span>En tu web:</span><span><i class="fas fa-eye"></i> <b>${_prop.views || 0}</b> visitas</span><span><i class="fab fa-whatsapp" style="color:#25d366"></i> <b>${_prop.contactClicks || 0}</b> contactos</span><span style="color:#a8b0ba">· histórico del sitio</span></div></div>`;
+    const interaccion = `<div class="ml-section"><div class="ml-stats"><div class="ml-stat"><i class="fas fa-eye" style="color:#1e9e6a"></i><div><div class="n">${_dash(d.visitas)}</div><div class="t">${d.visitas === 1 ? 'visita' : 'visitas'} · 30 días</div></div></div><div class="ml-stat"><i class="fas fa-circle-question" style="color:#2e86de"></i><div><div class="n">${_dash(_pregN)}</div><div class="t">${_pregN === 1 ? 'pregunta' : 'preguntas'}${_pregSR}</div></div></div><div class="ml-stat"><i class="fab fa-whatsapp" style="color:#25d366"></i><div><div class="n">${_dash(d.contactosWhatsapp)}</div><div class="t">${d.contactosWhatsapp === 1 ? 'contacto' : 'contactos'} WhatsApp · 30 días</div></div></div></div>${_chart}<div class="ml-webline"><span>En tu web:</span><span><i class="fas fa-eye"></i> <b>${_prop.views || 0}</b> visitas</span><span><i class="fab fa-whatsapp" style="color:#25d366"></i> <b>${_prop.contactClicks || 0}</b> contactos</span><span style="color:#a8b0ba">· histórico del sitio</span></div></div>`;
     const pagoHint = d.status === 'payment_required' ? `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-circle-info"></i><div>El aviso está creado pero Mercado Libre exige pagar el tipo <strong>${mlListingTypeName(d.listingType)}</strong> para activarlo (se abona desde tu cuenta de ML, sección Publicaciones). Si no querés pagarlo, dale <strong>Dar de baja</strong> y volvé a publicarlo eligiendo otro tipo. Mientras no lo pagues, no se cobra nada.</div></div></div>` : '';
     // Qué falta para el 100%: lo MÁS confiable es comparar los atributos de la
     // categoría contra los que el aviso tiene cargados (d.faltan, lo calcula el

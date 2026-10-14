@@ -2,8 +2,10 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Rentabilidad de la agencia · MALAVE</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <meta name="theme-color" content="#16273f">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -12,14 +14,31 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="malave-config.js?v=20260830b"></script>
   <style>
-    :root{ --primary:#16273f; --navy:#16273f; --gold:#C9A227; --gray-50:#f7f8fa; --gray-100:#eef0f3;
-           --gray-200:#e3e6ea; --gray-400:#9aa3ad; --gray-500:#6b7480; --gray-600:#555;
-           --success:#1e7d4f; --danger:#c0392b; }
+    /* ==========================================================================
+       RENTABILIDAD DE LA AGENCIA (rediseño 14/10/2026) — solo CEO y COO.
+       Se lee como un estado de resultados: arriba la respuesta (¿ganamos o
+       perdimos en el período?), después cuánto de los gastos ya cubren los
+       cierres, la cascada de la comisión al resultado, el mes a mes, en qué se
+       va la plata, quién la trajo y la lista de gastos para cargar y corregir.
+       Todo en una sola moneda: los pesos se pasan a dólares (o al revés) con el
+       tipo de cambio de la agencia (config/recompensas.dolarPesos), el mismo de
+       Recompensas y de Mis ganancias. Es un número fijo que carga la Dirección:
+       el resultado no cambia solo con el dólar del día.
+       ========================================================================== */
+    :root{ --ink:#16273f; --paper:#f4f5f7; --line:#e5e8ec; --line-2:#eef0f3; --muted:#6b7480; --soft:#9aa3ad;
+      --gold:#C9A227; --gold-osc:#8a6d12; --gold-cl:#f6eed6;
+      --ok:#1e7d4f; --ok-cl:#e2f1e8; --bad:#b3261e; --bad-cl:#f8e2df;
+      --gente:#c5cfdc; --gasto:#e2a198; }
     *{ box-sizing:border-box; margin:0; padding:0; }
-    body{ font-family:'Inter',sans-serif; background:var(--gray-50); color:#1d2733; line-height:1.5; }
-    h1,h2,h3{ font-family:'Cormorant Garamond',serif; }
-    /* Cabecera idéntica al resto del CRM (ganancias, tasador, academy): mismo
-       logo en imagen y mismo botón de volver, para que no se note el salto. */
+    [hidden]{ display:none !important; }
+    html, body{ overflow-x:clip; }
+    body{ font-family:'Inter',sans-serif; background:var(--paper); color:#1d2733; line-height:1.5; -webkit-text-size-adjust:100%; }
+    h1, h2, h3{ font-family:'Cormorant Garamond',serif; font-weight:600; color:var(--ink); }
+    button, input, select{ font-family:inherit; }
+    a{ color:var(--gold-osc); }
+    :focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+
+    /* Cabecera: la misma del resto del CRM. */
     .mv-head{ background:#fff; border-bottom:1px solid #eef1f5; position:sticky; top:0; z-index:60;
       padding-top:env(safe-area-inset-top,0px); }
     .mv-head-in{ max-width:1200px; margin:0 auto; padding:14px 20px; display:flex;
@@ -30,80 +49,224 @@
       font-size:.88rem; font-weight:500; padding:8px 15px; border:1px solid #eef1f5;
       border-radius:999px; text-decoration:none; white-space:nowrap;
       transition:background .15s, color .15s, border-color .15s; }
-    .mv-head .back-link:hover{ background:#16273f; color:#fff; border-color:#16273f; }
-    @media (max-width:520px){ .mv-head-in{ padding:10px 14px; } .mv-head .back-link span{ display:none } }
-    .wrap{ max-width:1160px; margin:0 auto; padding:26px 20px 70px; }
-    .titulo{ font-size:2rem; color:var(--primary); margin-bottom:4px; }
-    .sub{ color:var(--gray-500); font-size:.92rem; margin-bottom:22px; }
-    .barra{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:22px; }
-    .fg{ display:flex; flex-direction:column; gap:5px; }
-    .fg label{ font-size:.76rem; font-weight:600; color:var(--gray-500); text-transform:uppercase; letter-spacing:.04em; }
-    input,select,textarea{ font-family:inherit; font-size:.92rem; padding:9px 11px; border:1px solid var(--gray-200);
-      border-radius:9px; background:#fff; color:inherit; }
-    input:focus,select:focus{ outline:2px solid rgba(201,162,39,.35); outline-offset:1px }
-    .btn{ background:var(--primary); color:#fff; border:none; border-radius:9px; padding:10px 17px;
-      font-family:inherit; font-size:.9rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
-    .btn.sec{ background:#fff; color:var(--primary); border:1px solid var(--gray-200); }
-    .btn.mini{ padding:6px 11px; font-size:.82rem; }
-    .btn.danger{ background:#fff; color:var(--danger); border:1px solid var(--gray-200); }
+    @media (hover:hover){ .mv-head .back-link:hover{ background:#16273f; color:#fff; border-color:#16273f; } }
+    @media (max-width:520px){
+      .mv-head-in{ padding:10px 14px; }
+      .mv-head .logo-img{ height:26px; } .mv-head .logo-text{ height:16px; }
+      .mv-head .back-link{ padding:8px 13px; }
+      .mv-head .back-link span{ display:none; }
+    }
 
-    .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:13px; margin-bottom:24px; }
-    .card{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:16px 18px; }
-    .card .k{ font-size:.76rem; color:var(--gray-500); text-transform:uppercase; letter-spacing:.05em; margin-bottom:7px; }
-    .card .v{ font-size:1.5rem; font-weight:700; font-variant-numeric:tabular-nums; }
-    .card .v.pos{ color:var(--success) } .card .v.neg{ color:var(--danger) }
-    .card .n{ font-size:.78rem; color:var(--gray-400); margin-top:5px; }
+    .wrap{ max-width:1120px; margin:0 auto; padding:26px 20px 90px; }
 
-    .panel{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:20px; margin-bottom:20px; }
-    .panel h2{ font-size:1.28rem; color:var(--primary); margin-bottom:3px; }
-    .panel .ph{ color:var(--gray-500); font-size:.84rem; margin-bottom:15px; }
-    .cols{ display:grid; grid-template-columns:1fr 1fr; gap:20px; }
-    @media(max-width:820px){ .cols{ grid-template-columns:1fr } }
+    /* ---- La respuesta ---- */
+    .hero-top{ display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:16px; }
+    .hero-top h1{ font-size:1.55rem; line-height:1.1; }
+    .moneda{ display:inline-flex; background:#fff; border:1px solid var(--line); border-radius:999px; padding:3px; flex:none; }
+    .moneda button{ border:none; background:none; padding:6px 14px; border-radius:999px; font-size:.85rem; font-weight:600;
+      color:var(--muted); cursor:pointer; min-height:36px; min-width:52px; }
+    .moneda button[aria-pressed="true"]{ background:var(--ink); color:#fff; }
+    .frase{ font-family:'Cormorant Garamond',serif; font-weight:500; font-size:clamp(1.65rem,4.4vw,2.4rem); line-height:1.15; color:var(--ink); }
+    .periodo{ font:inherit; color:inherit; background:none; border:none; cursor:pointer; padding:0 2px;
+      border-bottom:2px solid var(--gold); display:inline-flex; align-items:baseline; gap:.3em; }
+    .periodo i{ font-size:.5em; color:var(--gold-osc); transform:translateY(-.2em); }
+    @media (hover:hover){ .periodo:hover{ color:var(--gold-osc); } }
+    .cifra{ font-family:'Cormorant Garamond',serif; font-weight:600; font-size:clamp(3.1rem,11vw,5.8rem); line-height:1;
+      margin:10px 0 12px; font-variant-numeric:lining-nums tabular-nums; color:var(--ink); }
+    .cifra.pos{ color:var(--ok); } .cifra.neg{ color:var(--bad); }
+    .cifra.esperando{ color:#d7dbe1; }
+    .bajada{ font-size:1rem; color:#3d4754; max-width:760px; }
+    .bajada b{ color:var(--ink); font-variant-numeric:tabular-nums; }
+    .nota{ font-size:.8rem; color:var(--muted); margin-top:8px; }
 
-    table{ width:100%; border-collapse:collapse; font-size:.88rem; }
-    th{ text-align:left; font-size:.74rem; text-transform:uppercase; letter-spacing:.04em;
-        color:var(--gray-500); padding:8px 9px; border-bottom:1px solid var(--gray-200); }
-    td{ padding:9px; border-bottom:1px solid var(--gray-100); vertical-align:middle; }
-    td.num,th.num{ text-align:right; font-variant-numeric:tabular-nums; }
-    tr:last-child td{ border-bottom:none }
-    .tag{ font-size:.72rem; padding:2px 8px; border-radius:20px; background:var(--gray-100); color:var(--gray-600); }
-    .tag.fijo{ background:rgba(201,162,39,.14); color:#8a6d12 }
-    .vacio{ text-align:center; padding:34px 16px; color:var(--gray-400); }
-    .aviso{ background:#fffdf5; border:1px solid #eee6cf; border-left:4px solid var(--gold);
-      border-radius:11px; padding:11px 15px; font-size:.85rem; color:#8a6d12; margin-bottom:18px; }
-    .barras{ display:flex; flex-direction:column; gap:11px; }
-    .fila{ display:grid; grid-template-columns:74px 1fr; gap:11px; align-items:center; font-size:.82rem; }
-    .fila .mes{ color:var(--gray-500); font-variant-numeric:tabular-nums; }
-    .bg{ position:relative; height:26px; background:var(--gray-100); border-radius:7px; overflow:hidden; }
-    .bi{ position:absolute; top:0; bottom:0; left:0; border-radius:7px; }
-    .bi.ing{ background:rgba(30,125,79,.7) } .bi.gas{ background:rgba(192,57,43,.65) }
-    .bl{ position:absolute; right:8px; top:50%; transform:translateY(-50%); font-size:.76rem; font-weight:600;
-      font-variant-numeric:tabular-nums; color:#1d2733 }
-    .leyenda{ display:flex; gap:16px; font-size:.8rem; color:var(--gray-500); margin-bottom:13px; }
-    .pt{ width:11px; height:11px; border-radius:3px; display:inline-block; margin-right:5px; vertical-align:-1px }
-    .bloqueado{ max-width:460px; margin:90px auto; text-align:center; }
+    /* ---- Cuánto de los gastos cubren los cierres ---- */
+    .cob{ margin-top:22px; background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px 20px 16px; }
+    .cob-cab{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; }
+    .cob-cab h2{ font-size:1.35rem; }
+    .cob-eq{ font-size:.85rem; color:var(--muted); }
+    .cob-eq b{ color:var(--ink); font-variant-numeric:tabular-nums; }
+    .cob-barra{ position:relative; height:16px; background:var(--line-2); border-radius:999px; margin:34px 0 12px; }
+    .cob-lleno{ position:absolute; left:0; top:0; bottom:0; background:var(--gold); border-radius:999px; }
+    .cob-pend{ position:absolute; top:0; bottom:0; border-radius:0 999px 999px 0;
+      background:repeating-linear-gradient(135deg, rgba(201,162,39,.5) 0 5px, rgba(201,162,39,.16) 5px 10px); }
+    .cob-meta{ position:absolute; top:-7px; bottom:-7px; width:2px; margin-left:-1px; background:var(--ink); border-radius:2px; }
+    .cob-meta span{ position:absolute; bottom:calc(100% + 4px); transform:translateX(-50%); font-size:.74rem; font-weight:600; color:var(--ink); white-space:nowrap; }
+    .cob-meta.izq span{ transform:none; left:-6px; } .cob-meta.der span{ transform:none; right:-6px; }
+    .cob-txt{ font-size:.95rem; color:#2c3746; }
+    .cob-txt b{ color:var(--ink); }
+    .cob-pendtxt{ font-size:.86rem; color:var(--muted); margin-top:6px; }
+    .cob-pendtxt a{ font-weight:600; }
 
-    /* CELULAR: las tablas pasan a tarjetas. Con ocho columnas de plata en 380px
-       los importes de la derecha quedaban cortados, que es justo lo que hay que
-       leer. Cada fila es un bloque con la etiqueta al lado del número. */
-    @media(max-width:760px){
-      .wrap{ padding:18px 13px 60px }
-      .titulo{ font-size:1.55rem }
-      .panel{ padding:15px 13px }
-      .cols{ grid-template-columns:1fr }
-      .barra{ gap:8px } .barra .fg{ flex:1 1 138px }
-      .cards{ grid-template-columns:repeat(auto-fit,minmax(146px,1fr)); gap:9px }
-      .card{ padding:12px 13px } .card .v{ font-size:1.22rem }
-      table, thead, tbody, tr, td{ display:block; width:100% }
-      thead{ display:none }
-      tr{ border:1px solid var(--gray-200); border-radius:12px; padding:11px 13px; margin-bottom:10px }
-      td{ border:none; padding:4px 0; display:flex; justify-content:space-between; align-items:center; gap:12px }
-      td.num{ text-align:right }
-      td[data-l]:not([data-l=""])::before{ content:attr(data-l); color:var(--gray-500);
-        font-size:.76rem; text-transform:uppercase; letter-spacing:.03em; flex:none }
-      td[data-l=""]:first-child{ padding-bottom:8px; border-bottom:1px solid var(--gray-100); margin-bottom:5px }
-      .fila{ grid-template-columns:88px 1fr !important }
-      .fila .mes{ font-size:.76rem }
+    /* ---- Paneles ---- */
+    .grid2{ display:grid; grid-template-columns:minmax(0,1.08fr) minmax(0,1fr); gap:18px; margin-top:18px; }
+    @media (max-width:920px){ .grid2{ grid-template-columns:minmax(0,1fr); } }
+    .panel{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:20px 22px; min-width:0; }
+    .solo{ margin-top:18px; }
+    .panel h2{ font-size:1.5rem; line-height:1.1; }
+    .ayuda{ font-size:.84rem; color:var(--muted); margin:4px 0 16px; }
+    .vacio{ color:var(--muted); font-size:.9rem; padding:8px 0 4px; }
+    .vacio .btn{ margin-top:12px; }
+
+    /* Cascada: de la comisión al resultado. */
+    .cas{ display:flex; flex-direction:column; gap:10px; }
+    .cas-f{ display:grid; grid-template-columns:168px minmax(0,1fr) 118px; align-items:center; gap:12px; font-size:.9rem; }
+    .cas-l{ color:#3d4754; }
+    .cas-p{ position:relative; height:22px; }
+    .cas-p i{ position:absolute; top:0; bottom:0; border-radius:5px; min-width:2px; }
+    .cas-p .cero{ position:absolute; top:-5px; bottom:-5px; width:1px; background:#aeb6c1; }
+    .cas-v{ text-align:right; font-variant-numeric:tabular-nums; font-weight:600; color:var(--ink); white-space:nowrap; }
+    .cas-v.menos{ color:#5b6472; font-weight:500; }
+    .cas-f.total{ border-top:1px solid var(--line); padding-top:10px; }
+    .cas-f.total .cas-l{ font-weight:600; color:var(--ink); }
+    .cas-f.final .cas-v{ font-size:1.02rem; }
+    .cas-f.final.pos .cas-v{ color:var(--ok); } .cas-f.final.neg .cas-v{ color:var(--bad); }
+    .c-ing{ background:var(--gold); } .c-gente{ background:var(--gente); } .c-agencia{ background:var(--ink); }
+    .c-gasto{ background:var(--gasto); } .c-pos{ background:var(--ok); } .c-neg{ background:var(--bad); }
+    .crudo{ font-size:.8rem; color:var(--muted); margin-top:14px; padding-top:12px; border-top:1px dashed var(--line); }
+    .crudo b{ color:#3d4754; font-weight:600; font-variant-numeric:tabular-nums; }
+    @media (max-width:560px){
+      .cas-f{ grid-template-columns:minmax(0,1fr) auto; row-gap:6px; }
+      .cas-p{ grid-column:1 / -1; grid-row:2; height:12px; }
+    }
+
+    /* Mes a mes. */
+    .mm{ display:flex; align-items:stretch; gap:8px; height:220px; padding-top:4px; overflow-x:auto; overscroll-behavior-x:contain; }
+    .mm-col{ flex:1 0 54px; min-width:54px; display:flex; flex-direction:column; align-items:center; border-radius:10px; padding:4px 2px 6px; }
+    .mm-col.sel{ background:rgba(201,162,39,.09); }
+    .mm-res{ font-size:.72rem; font-weight:700; font-variant-numeric:tabular-nums; height:18px; white-space:nowrap; color:var(--muted); }
+    .mm-res.pos{ color:var(--ok); } .mm-res.neg{ color:var(--bad); }
+    .mm-bs{ flex:1; width:100%; display:flex; align-items:flex-end; justify-content:center; gap:4px; border-bottom:1px solid #cfd5dd; }
+    .mm-bs i{ width:min(18px,38%); border-radius:4px 4px 0 0; }
+    .mm-mes{ font-size:.76rem; color:var(--muted); margin-top:6px; white-space:nowrap; }
+    .mm-col.sel .mm-mes{ color:var(--ink); font-weight:700; }
+    @media (max-width:560px){
+      .mm{ gap:4px; height:200px; }
+      .mm-col{ flex-basis:44px; min-width:44px; }
+      .mm-res{ font-size:.64rem; }
+      .mm-bs i{ width:min(14px,40%); }
+    }
+    .leyenda{ display:flex; flex-wrap:wrap; gap:6px 16px; font-size:.8rem; color:var(--muted); margin-top:12px; }
+    .leyenda span{ display:inline-flex; align-items:center; gap:6px; }
+    .leyenda i{ width:10px; height:10px; border-radius:3px; display:inline-block; }
+
+    /* Barras con nombre (categorías y agentes). */
+    .bars{ display:flex; flex-direction:column; gap:13px; }
+    .bf{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:5px 12px; align-items:baseline; }
+    .bf-n{ font-size:.9rem; color:#1d2733; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .bf-n small{ color:var(--muted); font-size:.78rem; }
+    .bf-v{ font-size:.88rem; font-weight:600; font-variant-numeric:tabular-nums; color:var(--ink); white-space:nowrap; }
+    .bf-v small{ font-weight:500; color:var(--muted); margin-left:4px; }
+    .bf-p{ grid-column:1 / -1; height:8px; background:var(--line-2); border-radius:999px; overflow:hidden; }
+    .bf-p i{ display:block; height:100%; border-radius:999px; }
+
+    /* Cierres del período. */
+    .cl-cab{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+    .cl-ley{ display:flex; gap:12px; flex-wrap:wrap; font-size:.78rem; color:var(--muted); margin-top:6px; }
+    .cl-ley span{ display:inline-flex; align-items:center; gap:5px; }
+    .cl-ley i{ width:9px; height:9px; border-radius:2px; display:inline-block; }
+    .cl-f{ display:grid; grid-template-columns:minmax(0,1fr) 200px 172px; gap:6px 18px; align-items:center; padding:13px 0; border-top:1px solid var(--line-2); }
+    .cl-f:first-child{ border-top:none; }
+    .cl-t{ font-weight:600; color:var(--ink); font-size:.93rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cl-m{ font-size:.8rem; color:var(--muted); }
+    .cl-s{ display:flex; height:10px; border-radius:999px; overflow:hidden; background:var(--line-2); }
+    .cl-s i{ height:100%; }
+    .cl-v{ text-align:right; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink); white-space:nowrap; }
+    .cl-v small{ display:block; font-weight:500; color:var(--muted); font-size:.75rem; white-space:normal; }
+    .cl-mas{ margin-top:8px; }
+    @media (max-width:720px){
+      .cl-f{ grid-template-columns:minmax(0,1fr) auto; }
+      .cl-t{ white-space:normal; }
+      .cl-v small{ max-width:130px; margin-left:auto; }
+      .cl-s{ grid-column:1 / -1; grid-row:2; }
+    }
+
+    /* Gastos cargados. */
+    .gs-cab{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+    .gs-g{ margin-top:16px; }
+    .gs-g h3{ font-family:'Inter',sans-serif; font-size:.86rem; font-weight:600; color:var(--muted); margin-bottom:4px; }
+    .gs-f{ display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:6px 16px; align-items:center; padding:11px 0; border-top:1px solid var(--line-2); }
+    .gs-f.fuera .gs-c, .gs-f.fuera .gs-m{ color:var(--soft); }
+    .gs-c{ font-weight:600; color:#1d2733; font-size:.92rem; overflow-wrap:anywhere; }
+    .gs-s{ font-size:.8rem; color:var(--muted); }
+    .gs-m{ text-align:right; font-variant-numeric:tabular-nums; font-weight:600; white-space:nowrap; color:var(--ink); }
+    .gs-m small{ display:block; font-weight:500; color:var(--muted); font-size:.75rem; }
+    .gs-acc{ display:flex; gap:6px; }
+    @media (max-width:560px){
+      .gs-f{ grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"txt acc" "m m"; row-gap:6px; }
+      .gs-txt{ grid-area:txt; } .gs-acc{ grid-area:acc; align-self:start; } .gs-m{ grid-area:m; text-align:left; }
+      .gs-m small{ display:inline; margin-left:8px; }
+    }
+
+    .btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; border:none; border-radius:11px; padding:11px 16px;
+      font-size:.9rem; font-weight:600; cursor:pointer; background:var(--ink); color:#fff; min-height:44px; text-decoration:none; }
+    .btn.sec{ background:#fff; color:var(--ink); border:1px solid var(--line); }
+    .btn.peligro{ background:#fff; color:var(--bad); border:1px solid #efc9c4; }
+    .btn:disabled{ opacity:.6; cursor:default; }
+    .ic-btn{ width:40px; height:40px; border-radius:10px; border:1px solid var(--line); background:#fff; color:#4a5566; display:grid; place-items:center; cursor:pointer; }
+    @media (hover:hover){ .ic-btn:hover{ border-color:var(--ink); color:var(--ink); } .ic-btn.del:hover{ border-color:var(--bad); color:var(--bad); } }
+
+    /* ---- Elegir el período ---- */
+    .pop{ position:absolute; z-index:80; background:#fff; border:1px solid var(--line); border-radius:16px;
+      box-shadow:0 18px 44px rgba(22,39,63,.18); padding:12px; width:340px; }
+    .pop-op{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+    .pop-op button{ text-align:left; border:1px solid var(--line-2); background:#fff; border-radius:10px; padding:10px 12px;
+      font-size:.88rem; cursor:pointer; color:#1d2733; min-height:44px; }
+    .pop-op button[aria-current="true"]{ border-color:var(--ink); background:var(--ink); color:#fff; }
+    @media (hover:hover){ .pop-op button:not([aria-current="true"]):hover{ border-color:#c9d0d9; } }
+    .pop-otro{ border-top:1px solid var(--line-2); margin-top:12px; padding-top:12px; }
+    .pop-otro .lbl{ font-size:.82rem; font-weight:600; color:#3d4754; margin-bottom:8px; }
+    .pop-fila{ display:grid; grid-template-columns:52px minmax(0,1fr) 92px; gap:6px; align-items:center; margin-bottom:8px; font-size:.85rem; color:var(--muted); }
+    .pop select, .hoja select, .hoja input{ width:100%; border:1px solid #d3d8de; border-radius:10px; padding:9px 10px; font-size:16px; background:#fff; color:#1d2733; min-height:44px; }
+    .pop .btn{ width:100%; margin-top:4px; }
+    .pop-err{ color:var(--bad); font-size:.82rem; margin:2px 0 6px; }
+    .velo-pop{ position:fixed; inset:0; z-index:79; background:rgba(16,24,38,.32); }
+    @media (min-width:561px){ .velo-pop{ background:transparent; } }
+    @media (max-width:560px){
+      .pop{ position:fixed; left:0 !important; right:0; top:auto !important; bottom:0; width:auto; border-radius:18px 18px 0 0;
+        padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px)); }
+    }
+
+    /* ---- Hoja para cargar o corregir un gasto ---- */
+    .velo{ position:fixed; inset:0; background:rgba(16,24,38,.42); z-index:90; display:flex; align-items:center; justify-content:center; padding:20px; }
+    .hoja{ background:#fff; border-radius:18px; width:min(520px,100%); max-height:calc(100vh - 40px); overflow:auto; padding:22px; }
+    .hoja h2{ font-size:1.6rem; margin-bottom:14px; }
+    .campo{ margin-bottom:14px; }
+    .campo > label, .campo > .lbl{ display:block; font-size:.82rem; font-weight:600; color:#3d4754; margin-bottom:6px; }
+    .campo .pista{ font-size:.78rem; color:var(--muted); margin-top:5px; }
+    .seg{ display:flex; background:var(--paper); border-radius:12px; padding:4px; gap:4px; }
+    .seg button{ flex:1; border:none; background:none; border-radius:9px; padding:9px 10px; font-weight:600; font-size:.88rem; color:var(--muted); cursor:pointer; min-height:40px; }
+    .seg button[aria-pressed="true"]{ background:#fff; color:var(--ink); box-shadow:0 1px 3px rgba(22,39,63,.14); }
+    .dos{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
+    .monto{ display:grid; grid-template-columns:minmax(0,1fr) 150px; gap:10px; }
+    .hoja-err{ color:var(--bad); font-size:.86rem; margin:0 0 12px; }
+    .hoja-pie{ display:flex; gap:10px; justify-content:flex-end; margin-top:6px; flex-wrap:wrap; }
+    .hoja-pie .btn{ flex:0 0 auto; }
+    @media (max-width:560px){
+      .velo{ align-items:flex-end; padding:0; }
+      .hoja{ border-radius:18px 18px 0 0; max-height:92vh; padding:20px 16px calc(18px + env(safe-area-inset-bottom,0px)); }
+      .hoja-pie .btn{ flex:1 1 0; }
+      .monto{ grid-template-columns:minmax(0,1fr) 128px; }
+    }
+
+    .toast{ position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--ink); color:#fff; padding:12px 18px;
+      border-radius:12px; font-size:.9rem; z-index:120; box-shadow:0 10px 30px rgba(0,0,0,.2); max-width:calc(100% - 32px); }
+    .toast.mal{ background:var(--bad); }
+
+    .bloq{ max-width:460px; margin:90px auto; text-align:center; padding:0 20px; }
+    .bloq i{ font-size:2.2rem; color:var(--soft); }
+    .bloq h1{ font-size:1.6rem; margin-top:14px; }
+    .bloq p{ color:var(--muted); margin-top:6px; }
+    .error{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:28px 22px; text-align:center; color:var(--muted); }
+    .error .btn{ margin-top:14px; }
+
+    @media (max-width:560px){
+      .wrap{ padding:20px 16px 80px; }
+      .hero-top h1{ font-size:1.35rem; }
+      .panel{ padding:18px 16px; }
+      .cob{ padding:16px; }
+    }
+    @media (prefers-reduced-motion:no-preference){
+      .cob-lleno, .cob-pend, .bf-p i, .cas-p i, .mm-bs i{ transition:width .35s ease, height .35s ease, left .35s ease; }
     }
   </style>
 </head>
@@ -115,215 +278,321 @@
     </div>
   </header>
 
-  <div id="bloqueado" class="bloqueado" style="display:none">
-    <i class="fas fa-lock" style="font-size:2.2rem;color:var(--gray-400)"></i>
-    <h1 class="titulo" style="font-size:1.5rem;margin-top:14px">Solo Dirección</h1>
-    <p class="sub" id="bloqueadoTxt">Esta página muestra los números de la agencia.</p>
+  <div id="bloqueado" class="bloq" hidden>
+    <i class="fas fa-lock"></i>
+    <h1>Solo Dirección</h1>
+    <p>Esta página muestra los números de la agencia y está reservada a CEO y COO.</p>
   </div>
 
-  <div class="wrap" id="app" style="display:none">
-    <h1 class="titulo">Rentabilidad de la agencia</h1>
-    <p class="sub" id="subtitulo">Lo que entra por comisiones contra lo que cuesta sostener la operación.</p>
-
-    <div class="barra">
-      <div class="fg"><label>Desde</label><input type="month" id="fDesde"></div>
-      <div class="fg"><label>Hasta</label><input type="month" id="fHasta"></div>
-      <button class="btn sec" onclick="aplicar()"><i class="fas fa-filter"></i> Aplicar</button>
-    </div>
-
-    <div class="aviso">
-      Los montos <b>no se convierten entre monedas</b>: dólares y pesos se muestran por separado,
-      porque mezclarlos con una cotización del día daría un resultado que cambia solo.
-    </div>
-
-    <div class="cards" id="tarjetas"></div>
-
-    <div class="panel">
-      <h2>Mes a mes</h2>
-      <p class="ph">Ingresos contra gastos. La barra más larga de cada par manda la escala.</p>
-      <div class="leyenda">
-        <span><i class="pt" style="background:rgba(30,125,79,.7)"></i>Ingresos</span>
-        <span><i class="pt" style="background:rgba(192,57,43,.65)"></i>Gastos</span>
-      </div>
-      <div class="cols">
-        <div><h3 style="font-size:1rem;margin-bottom:11px">Dólares</h3><div id="grafUSD" class="barras"></div></div>
-        <div><h3 style="font-size:1rem;margin-bottom:11px">Pesos</h3><div id="grafUYU" class="barras"></div></div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <h2>Gastos</h2>
-      <p class="ph">Los fijos se repiten solos cada mes desde que los cargás. Los puntuales cuentan una sola vez.</p>
-      <div class="barra">
-        <div class="fg"><label>Concepto</label><input id="gConcepto" placeholder="Ej: Sueldo Romina" maxlength="80"></div>
-        <div class="fg"><label>Categoría</label>
-          <select id="gCategoria">
-            <option>Sueldos</option><option>BPS</option><option>Fonasa</option><option>Alquiler</option>
-            <option>Servicios</option><option>Portales</option><option>Marketing</option>
-            <option>Contador</option><option>Impuestos</option><option>Otros</option>
-          </select>
+  <main class="wrap" id="app" hidden>
+    <section class="hero" aria-labelledby="titulo">
+      <div class="hero-top">
+        <h1 id="titulo">Rentabilidad de la agencia</h1>
+        <div class="moneda" role="group" aria-label="Mostrar los montos en">
+          <button type="button" data-mon="USD" aria-pressed="true">US$</button>
+          <button type="button" data-mon="UYU" aria-pressed="false">$U</button>
         </div>
-        <div class="fg"><label>Monto</label><input id="gMonto" type="number" min="0" step="0.01" placeholder="0"></div>
-        <div class="fg"><label>Moneda</label><select id="gMoneda"><option value="UYU">Pesos</option><option value="USD">Dólares</option></select></div>
-        <div class="fg"><label>Tipo</label><select id="gTipo" onchange="tipoCambio()"><option value="fijo">Fijo (mensual)</option><option value="puntual">Puntual</option></select></div>
-        <div class="fg"><label id="lblDesde">Desde</label><input type="month" id="gDesde"></div>
-        <div class="fg" id="wrapHasta"><label>Hasta (opcional)</label><input type="month" id="gHasta"></div>
-        <button class="btn" id="btnGuardar" onclick="guardarGasto()"><i class="fas fa-plus"></i> Agregar</button>
-        <button class="btn sec" id="btnCancelar" style="display:none" onclick="cancelarEdicion()">Cancelar</button>
       </div>
-      <div id="tablaGastos"></div>
+      <p class="frase" id="frase">
+        <span id="prefijo">En</span> <button type="button" class="periodo" id="btnPeriodo" aria-haspopup="dialog" aria-expanded="false"><span id="periodoTxt">este mes</span><i class="fas fa-chevron-down" aria-hidden="true"></i></button>
+        <span id="verbo">la agencia…</span>
+      </p>
+      <div class="cifra esperando" id="cifra" aria-live="polite">—</div>
+      <p class="bajada" id="bajada">Calculando con los cierres confirmados y los gastos cargados.</p>
+      <p class="nota" id="notaCambio"></p>
+
+      <div class="cob" id="cob" hidden></div>
+    </section>
+
+    <div class="grid2">
+      <section class="panel" aria-labelledby="hCas">
+        <h2 id="hCas">De la comisión al resultado</h2>
+        <p class="ayuda">Lo que cobró la agencia por los cierres del período, lo que se llevó cada parte y lo que quedó después de los gastos.</p>
+        <div id="cascada"></div>
+      </section>
+      <section class="panel" aria-labelledby="hMes">
+        <h2 id="hMes">Mes a mes</h2>
+        <p class="ayuda" id="ayudaMes">Lo que le quedó a la agencia contra los gastos de cada mes.</p>
+        <div id="meses"></div>
+      </section>
     </div>
 
-    <div class="panel">
-      <h2>En qué se va la plata</h2>
-      <p class="ph">Gastos del período agrupados por categoría, de mayor a menor.</p>
-      <div id="porCategoria"></div>
+    <div class="grid2">
+      <section class="panel" aria-labelledby="hCat">
+        <h2 id="hCat">En qué se va la plata</h2>
+        <p class="ayuda">Los gastos del período por categoría, de mayor a menor.</p>
+        <div id="categorias"></div>
+      </section>
+      <section class="panel" aria-labelledby="hAg">
+        <h2 id="hAg">Quién trajo la plata</h2>
+        <p class="ayuda">Lo que le dejaron a la agencia los cierres de cada agente en el período.</p>
+        <div id="agentes"></div>
+      </section>
     </div>
 
-    <div class="panel">
-      <h2>De dónde viene la plata</h2>
-      <p class="ph">Cierres confirmados en el período, ordenados por lo que le quedó a la agencia.</p>
-      <div id="tablaIngresos"></div>
+    <section class="panel solo" aria-labelledby="hCl">
+      <div class="cl-cab">
+        <div>
+          <h2 id="hCl">Cierres del período</h2>
+          <div class="cl-ley" aria-hidden="true"><span><i class="c-agencia"></i>Para la agencia</span><span><i class="c-gente"></i>Agente, equipo y referidos</span></div>
+        </div>
+      </div>
+      <div id="cierres" style="margin-top:10px"></div>
+    </section>
+
+    <section class="panel solo" aria-labelledby="hGs">
+      <div class="gs-cab">
+        <div>
+          <h2 id="hGs">Gastos</h2>
+          <p class="ayuda" style="margin-bottom:0">Los de todos los meses se repiten solos desde que los cargás. Los de una sola vez cuentan en su mes.</p>
+        </div>
+        <button type="button" class="btn" id="btnAgregar"><i class="fas fa-plus"></i> Agregar gasto</button>
+      </div>
+      <div id="gastos"></div>
+    </section>
+  </main>
+
+  <div class="velo-pop" id="veloPop" hidden></div>
+  <div class="pop" id="popPeriodo" role="dialog" aria-label="Elegir el período" hidden>
+    <div class="pop-op" id="popOp">
+      <button type="button" data-p="este">Este mes</button>
+      <button type="button" data-p="pasado">El mes pasado</button>
+      <button type="button" data-p="3m">Últimos 3 meses</button>
+      <button type="button" data-p="6m">Últimos 6 meses</button>
+      <button type="button" data-p="12m">Últimos 12 meses</button>
+      <button type="button" data-p="anio">Este año</button>
+    </div>
+    <div class="pop-otro">
+      <div class="lbl">Otro período</div>
+      <div class="pop-fila"><span>Desde</span><select id="oDesdeM" aria-label="Mes desde"></select><select id="oDesdeA" aria-label="Año desde"></select></div>
+      <div class="pop-fila"><span>Hasta</span><select id="oHastaM" aria-label="Mes hasta"></select><select id="oHastaA" aria-label="Año hasta"></select></div>
+      <div class="pop-err" id="oErr" hidden></div>
+      <button type="button" class="btn" id="oAplicar">Ver ese período</button>
+    </div>
+  </div>
+
+  <div class="velo" id="veloGasto" hidden>
+    <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="hojaTit">
+      <h2 id="hojaTit">Agregar gasto</h2>
+      <div class="campo">
+        <label for="gConcepto">Concepto</label>
+        <input id="gConcepto" maxlength="80" placeholder="Ej: Sueldo de Romina" autocomplete="off">
+      </div>
+      <div class="campo">
+        <label for="gCategoria">Categoría</label>
+        <select id="gCategoria"></select>
+      </div>
+      <div class="campo">
+        <label for="gMonto">Monto</label>
+        <div class="monto">
+          <input id="gMonto" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0">
+          <div class="seg" role="group" aria-label="Moneda del gasto" id="gMoneda">
+            <button type="button" data-v="UYU" aria-pressed="true">$U</button>
+            <button type="button" data-v="USD" aria-pressed="false">US$</button>
+          </div>
+        </div>
+      </div>
+      <div class="campo">
+        <div class="lbl" id="lblTipo">Se paga</div>
+        <div class="seg" role="group" aria-labelledby="lblTipo" id="gTipo">
+          <button type="button" data-v="fijo" aria-pressed="true">Todos los meses</button>
+          <button type="button" data-v="puntual" aria-pressed="false">Una sola vez</button>
+        </div>
+      </div>
+      <div class="campo">
+        <div class="lbl" id="lblDesde">Desde</div>
+        <div class="dos"><select id="gDesdeM" aria-labelledby="lblDesde"></select><select id="gDesdeA" aria-labelledby="lblDesde"></select></div>
+      </div>
+      <div class="campo" id="campoHasta">
+        <div class="lbl" id="lblHasta">Hasta</div>
+        <div class="dos"><select id="gHastaM" aria-labelledby="lblHasta"></select><select id="gHastaA" aria-labelledby="lblHasta"></select></div>
+        <div class="pista">Dejalo en «Sigue» mientras se siga pagando. Si un sueldo cambia, poné hasta cuándo rigió y cargá el nuevo desde el mes siguiente.</div>
+      </div>
+      <p class="hoja-err" id="gErr" role="alert" hidden></p>
+      <div class="hoja-pie">
+        <button type="button" class="btn sec" id="gCancelar">Cancelar</button>
+        <button type="button" class="btn" id="gGuardar">Agregar gasto</button>
+      </div>
     </div>
   </div>
 
 <script>
   /* =========================================================================
-     RENTABILIDAD DE LA AGENCIA — solo CEO y COO.
+     INGRESOS: no se cargan a mano. Salen de las propiedades con cierre
+     confirmado (cierreConfirmado === true). De la comisión de la agencia se
+     resta lo que se lleva el agente, los compañeros que cobran un monto del
+     mismo cierre y el referido (un % de la ganancia del agente del cierre).
+     Lo que queda es lo que efectivamente le queda a la inmobiliaria.
+     Los cierres sin confirmar no suman: se avisan aparte, como "en camino".
 
-     INGRESOS: no se cargan a mano. Salen de las propiedades con
-     cierreConfirmado === true. De la comisión bruta de la agencia se RESTA lo
-     que se lleva el agente, así que lo que se muestra es lo que efectivamente
-     le queda a la inmobiliaria.
+     GASTOS: colección agencyGastos (mismos campos de siempre). Los de todos los
+     meses (tipo 'fijo') corren entre 'desde' y 'hasta'; los de una sola vez
+     ('puntual') cuentan en su mes.
 
-     MONEDAS: dólares y pesos van SEPARADOS, sin convertir. Convertir exigiría
-     una cotización, y el resultado cambiaría solo con el dólar sin que haya
-     pasado nada en el negocio.
-
-     GASTOS: colección agencyGastos. Los fijos se repiten solos entre 'desde' y
-     'hasta'; los puntuales cuentan en su mes.
+     MONEDA: todo se muestra en una (dólares o pesos, la elige quien mira) con
+     el tipo de cambio de la agencia. Abajo de la cascada quedan los montos sin
+     convertir, para controlar.
      ========================================================================= */
-
   firebase.initializeApp(window.firebaseConfig);
   const db = firebase.firestore(), auth = firebase.auth();
 
-  let _cierres = [], _gastos = [], _uid = null;
+  const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const MES_C = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
+  const CATEGORIAS = ['Sueldos', 'BPS', 'Fonasa', 'Alquiler', 'Servicios', 'Portales', 'Marketing', 'Contador', 'Impuestos', 'Otros'];
 
-  const fmt = (n, mon) => (mon === 'USD' ? 'US$ ' : '$ ') +
-    (Math.round(Number(n) || 0)).toLocaleString('es-UY');
-  const mesDe = iso => { const d = new Date(iso); return isNaN(d) ? '' :
-    d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const S = {
+    uid: null, cierres: [], pendientes: [], gastos: [], ref: {},
+    dolar: 40, dolarCargado: false, mon: 'USD',
+    periodo: { clave: 'este', desde: '', hasta: '' },
+    editando: null
+  };
 
-  function tipoCambio(){
-    const fijo = document.getElementById('gTipo').value === 'fijo';
-    document.getElementById('wrapHasta').style.display = fijo ? '' : 'none';
-    document.getElementById('lblDesde').textContent = fijo ? 'Desde' : 'Mes';
+  // ---------- Utilidades ----------
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const pad = (n) => String(n).padStart(2, '0');
+  const miles = (n) => String(Math.round(Math.abs(Number(n) || 0))).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const simbolo = (m) => (m === 'UYU' ? '$U' : 'US$');
+  // Siempre con punto de miles (US$ 1.500), como el resto del CRM. El signo menos es el tipográfico.
+  // Se redondea el valor absoluto: así 3.652,5 sale 3.653 con o sin el signo menos.
+  function fmt(n, m) { n = Number(n) || 0; const a = Math.round(Math.abs(n)); return (n < 0 && a ? '−' : '') + simbolo(m || S.mon) + ' ' + miles(a); }
+  function fmtCorto(n) { n = Number(n) || 0; const a = Math.round(Math.abs(n)); return (a ? (n > 0 ? '+' : '−') : '') + miles(a); }
+  // Lleva un monto a la moneda en que se está mirando la página.
+  function conv(v, moneda) {
+    v = Number(v) || 0;
+    const mon = moneda === 'USD' ? 'USD' : 'UYU';
+    if (mon === S.mon || !(S.dolar > 0)) return v;
+    return S.mon === 'USD' ? v / S.dolar : v * S.dolar;
+  }
+  function mesActual() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
+  function sumarMeses(ym, k) {
+    let [y, m] = ym.split('-').map(Number);
+    m += k;
+    while (m > 12) { m -= 12; y++; }
+    while (m < 1) { m += 12; y--; }
+    return y + '-' + pad(m);
+  }
+  function mesesEntre(d, h) { const out = []; for (let x = d, i = 0; x <= h && i < 120; x = sumarMeses(x, 1), i++) out.push(x); return out; }
+  // "2026-10-01" es una fecha del calendario: se toma el mes del texto. Con new Date()
+  // el 1.º de cada mes caía en el mes anterior (medianoche UTC son las 21 h del día antes acá).
+  function mesDeFecha(f) {
+    const s = String(f || '');
+    const m = s.match(/^(\d{4})-(\d{2})/);
+    if (m) return m[1] + '-' + m[2];
+    const d = new Date(s);
+    return isNaN(d) ? '' : d.getFullYear() + '-' + pad(d.getMonth() + 1);
+  }
+  const anioDe = (ym) => Number(ym.slice(0, 4));
+  const nombreMes = (ym, conAnio) => MESES[Number(ym.slice(5, 7)) - 1] + (conAnio ? ' de ' + ym.slice(0, 4) : '');
+  const mesCorto = (ym, conAnio) => MES_C[Number(ym.slice(5, 7)) - 1] + (conAnio ? ' ' + ym.slice(2, 4) : '');
+  function fechaCorta(f) {
+    const m = String(f || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? Number(m[3]) + ' ' + MES_C[Number(m[2]) - 1] + ' ' + m[1] : '';
+  }
+  const tieneNum = (v) => v != null && v !== '' && isFinite(Number(v));
+  function toast(txt, mal) {
+    const t = document.createElement('div');
+    t.className = 'toast' + (mal ? ' mal' : '');
+    t.setAttribute('role', 'status');
+    t.textContent = txt;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3200);
+  }
+  // Se recuerda en qué moneda mira cada uno. El período no: la página abre siempre en el mes actual.
+  function guardarPrefs() { try { localStorage.setItem('mvRentaMoneda', S.mon); } catch (e) {} }
+  function leerPrefs() {
+    try { const m = localStorage.getItem('mvRentaMoneda'); if (m === 'USD' || m === 'UYU') S.mon = m; } catch (e) {}
   }
 
-  auth.onAuthStateChanged(async u => {
+  // ---------- Acceso ----------
+  auth.onAuthStateChanged(async (u) => {
     if (!u) { location.href = 'index.html'; return; }
-    _uid = u.uid;
+    S.uid = u.uid;
     let perfil = {};
     try { const d = await db.doc('users/' + u.uid).get(); perfil = d.exists ? d.data() : {}; } catch (e) {}
     const rango = String(perfil.rank || '').toLowerCase();
     const esDir = rango === 'ceo' || rango === 'coo' ||
       String(u.email || '').toLowerCase() === String(window.ADMIN_EMAIL || '').toLowerCase();
-    if (!esDir) {
-      document.getElementById('bloqueado').style.display = '';
-      document.getElementById('bloqueadoTxt').textContent =
-        'Esta página muestra los números de la agencia y está reservada a CEO y COO.';
-      return;
-    }
-    document.getElementById('app').style.display = '';
-    /* Por defecto: SOLO EL MES ACTUAL. Antes abría con los últimos 12 meses y el
-       promedio se repartía entre meses en los que la agencia todavía no se medía,
-       así que el número no decía nada. Para comparar varios meses se mueve el
-       "desde" a mano, y ahí el promedio sí tiene sentido. */
-    const hoy = new Date();
-    document.getElementById('fHasta').value = mesDe(hoy.toISOString());
-    document.getElementById('fDesde').value = mesDe(hoy.toISOString());
-    document.getElementById('gDesde').value = mesDe(hoy.toISOString());
-    tipoCambio();
+    if (!esDir) { $('bloqueado').hidden = false; return; }
+    $('app').hidden = false;
+    leerPrefs();
+    prepararControles();
     await cargar();
   });
 
-  async function cargar(){
-    try{
-      const [ps, gs, rf] = await Promise.all([
+  // ---------- Datos ----------
+  // Lo que deja un cierre. Mismos valores por defecto que Mis Finanzas: 3% en venta,
+  // un mes en alquiler. Las partes se recortan para que nunca sumen más que la comisión.
+  function registro(id, p, confirmado) {
+    const c = p && p.cierre;
+    if (!c || typeof c !== 'object') return null;
+    const precio = Number(c.precio) || 0;
+    if (!precio) return null;
+    const venta = c.tipo === 'venta';
+    const bruto = venta
+      ? precio * ((c.agencyPct != null && c.agencyPct !== '' ? Number(c.agencyPct) : 3) / 100)
+      : precio * (c.agencyMonths != null && c.agencyMonths !== '' ? Number(c.agencyMonths) : 1);
+    const agente = tieneNum(c.gananciaAgente) ? Number(c.gananciaAgente) : 0;
+    const equipo = (Array.isArray(c.participantes) ? c.participantes : []).reduce((a, x) => a + (Number(x && x.monto) || 0), 0);
+    // El referido cobra un % de la ganancia del agente DEL CIERRE (antes se buscaba
+    // por el dueño de la propiedad, que no siempre es quien cerró).
+    const uidAg = c.agenteUid || p.ownerId || '';
+    const rp = S.ref[uidAg];
+    const pct = rp ? (venta ? rp.s : rp.r) : 0;
+    const referido = pct ? agente * pct / 100 : 0;
+    const aAgente = Math.max(0, Math.min(agente, bruto));
+    const aOtros = Math.max(0, Math.min(equipo + referido, bruto - aAgente));
+    return {
+      id, titulo: p.title || 'Propiedad sin título', mes: mesDeFecha(c.fecha), fecha: c.fecha || '',
+      moneda: c.moneda === 'UYU' ? 'UYU' : 'USD', tipo: venta ? 'venta' : 'alquiler', precio, bruto,
+      aAgente, aOtros, neto: Math.max(0, bruto - aAgente - aOtros),
+      agenteNombre: c.agenteNombre || p.ownerName || 'Sin agente', agenteUid: uidAg, confirmado
+    };
+  }
+
+  async function cargar() {
+    try {
+      const [conf, conCierre, gs, rf, cfg] = await Promise.all([
         db.collection('properties').where('cierreConfirmado', '==', true).get(),
+        // Para avisar los que faltan confirmar. Si la consulta no anda, no se avisa y listo.
+        db.collection('properties').where('cierre.lat', '>=', -90).get().catch(() => null),
         db.collection('agencyGastos').get(),
-        db.collection('referidos').get().catch(() => null)
+        db.collection('referidos').get().catch(() => null),
+        db.collection('config').doc('recompensas').get().catch(() => null)
       ]);
-      /* Referidos: referidos/{uidReferido} guarda quién lo refirió y qué % cobra
-         sobre la ganancia de ese agente. Ese % también sale de la comisión de la
-         agencia, así que hay que descontarlo o el neto queda inflado. */
-      const refPorAgente = {};
-      if (rf) rf.forEach(d => {
-        const r = d.data();
-        refPorAgente[d.id] = { s: Number(r.pctSale) || 0, r: Number(r.pctRent) || 0 };
+      S.ref = {};
+      if (rf) rf.forEach((d) => { const r = d.data() || {}; S.ref[d.id] = { s: Number(r.pctSale) || 0, r: Number(r.pctRent) || 0 }; });
+      const dolar = cfg && cfg.exists ? Number((cfg.data() || {}).dolarPesos) : NaN;
+      S.dolarCargado = dolar > 0;
+      S.dolar = dolar > 0 ? dolar : 40;
+      S.cierres = [];
+      const vistos = new Set();
+      conf.forEach((d) => { const r = registro(d.id, d.data() || {}, true); if (r) { S.cierres.push(r); vistos.add(d.id); } });
+      S.pendientes = [];
+      if (conCierre) conCierre.forEach((d) => {
+        const p = d.data() || {};
+        if (vistos.has(d.id) || p.cierreConfirmado === true) return;
+        const r = registro(d.id, p, false);
+        if (r) S.pendientes.push(r);
       });
-      _cierres = [];
-      ps.forEach(d => {
-        const p = d.data(), c = p.cierre;
-        if (!c || !c.precio) return;
-        const precio = Number(c.precio) || 0;
-        // Comisión BRUTA de la agencia: % del precio en venta, meses de alquiler
-        // en arrendamiento. Mismos valores por defecto que usa Mis Finanzas.
-        const bruto = (c.tipo === 'venta')
-          ? precio * ((c.agencyPct != null ? Number(c.agencyPct) : 3) / 100)
-          : precio * (c.agencyMonths != null ? Number(c.agencyMonths) : 1);
-        // Lo que se lleva el agente. Si el cierre lo trae explícito se respeta.
-        const agente = (c.gananciaAgente != null && c.gananciaAgente !== '' && isFinite(Number(c.gananciaAgente)))
-          ? Number(c.gananciaAgente) : 0;
-        // Participaciones de equipo: otros agentes que cobran un monto fijo de
-        // este cierre. Sale del mismo pozo, así que se resta.
-        const parts = Array.isArray(c.participantes) ? c.participantes : [];
-        const equipo = parts.reduce((a, x) => a + (Number(x.monto) || 0), 0);
-        // Referido: un % sobre la ganancia del agente que se lleva quien lo trajo.
-        const rp = refPorAgente[p.ownerId] || null;
-        const pctRef = rp ? (c.tipo === 'venta' ? rp.s : rp.r) : 0;
-        const referido = pctRef ? agente * pctRef / 100 : 0;
-        _cierres.push({
-          id: d.id, titulo: p.title || '(sin título)',
-          mes: mesDe(c.fecha), fecha: c.fecha || '',
-          moneda: c.moneda === 'UYU' ? 'UYU' : 'USD',
-          tipo: c.tipo || '', precio, bruto, agente, equipo, referido,
-          neto: Math.max(0, bruto - agente - equipo - referido),
-          agenteNombre: c.agenteNombre || ''
-        });
-      });
-      _gastos = gs.docs.map(d => Object.assign({ id: d.id }, d.data()));
+      S.gastos = gs.docs.map((d) => Object.assign({ id: d.id }, d.data()));
+      llenarAnios();
       pintar();
-    }catch(e){
+    } catch (e) {
       console.error(e);
-      document.getElementById('tarjetas').innerHTML =
-        '<div class="vacio">No se pudieron cargar los datos: ' + esc(e.code || e.message || e) + '</div>';
+      $('frase').hidden = true; $('cifra').hidden = true; $('notaCambio').hidden = true;
+      $('bajada').innerHTML = '';
+      const box = document.createElement('div');
+      box.className = 'error';
+      box.innerHTML = '<p>No se pudieron cargar los números de la agencia (' + esc(e.code || e.message || e) + ').</p>' +
+        '<button type="button" class="btn sec" onclick="location.reload()"><i class="fas fa-rotate-right"></i> Probar de nuevo</button>';
+      $('bajada').appendChild(box);
     }
   }
 
-  function rango(){
-    return { desde: document.getElementById('fDesde').value || '0000-00',
-             hasta: document.getElementById('fHasta').value || '9999-99' };
-  }
-  function aplicar(){ pintar(); }
-
-  function meses(desde, hasta){
-    const out = [];
-    let [y, m] = desde.split('-').map(Number);
-    const [hy, hm] = hasta.split('-').map(Number);
-    if (!y || !hy) return out;
-    // Tope de 36 meses: más que eso no se lee en pantalla y no aporta.
-    for (let i = 0; i < 36 && (y < hy || (y === hy && m <= hm)); i++) {
-      out.push(y + '-' + String(m).padStart(2, '0'));
-      m++; if (m > 12) { m = 1; y++; }
-    }
-    return out;
-  }
-
-  /* Cuánto pesa un gasto en un mes dado. Un fijo cuenta en cada mes de su
-     ventana; un puntual solo en el suyo. */
-  function gastoEnMes(g, mes){
+  // Cuánto pesa un gasto en un mes: el de todos los meses cuenta en cada mes de su
+  // vigencia; el de una sola vez, solo en el suyo.
+  function gastoEnMes(g, mes) {
     if (g.tipo === 'fijo') {
       if (g.desde && mes < g.desde) return 0;
       if (g.hasta && mes > g.hasta) return 0;
@@ -332,246 +601,476 @@
     return g.desde === mes ? (Number(g.monto) || 0) : 0;
   }
 
-  function pintar(){
-    const r = rango(), ms = meses(r.desde, r.hasta);
-    const ing = { USD: {}, UYU: {} }, gas = { USD: {}, UYU: {} };
-    ms.forEach(m => { ing.USD[m] = 0; ing.UYU[m] = 0; gas.USD[m] = 0; gas.UYU[m] = 0; });
-
-    _cierres.forEach(c => { if (ing[c.moneda][c.mes] != null) ing[c.moneda][c.mes] += c.neto; });
-    _gastos.forEach(g => {
-      const mon = g.moneda === 'USD' ? 'USD' : 'UYU';
-      ms.forEach(m => { gas[mon][m] += gastoEnMes(g, m); });
-    });
-
-    const tot = mon => ({
-      ing: ms.reduce((a, m) => a + ing[mon][m], 0),
-      gas: ms.reduce((a, m) => a + gas[mon][m], 0)
-    });
-    const tU = tot('USD'), tP = tot('UYU');
-    /* PUNTO DE EQUILIBRIO: cuánto necesita facturar la agencia POR MES para no
-       perder. Se calcula sobre los gastos FIJOS del último mes del período, que
-       es la foto vigente; los puntuales no entran porque no se repiten. */
-    const ultimo = ms.length ? ms[ms.length - 1] : null;
-    const fijosMes = mon => !ultimo ? 0 : _gastos
-      .filter(g => g.tipo === 'fijo' && (g.moneda === 'USD' ? 'USD' : 'UYU') === mon)
-      .reduce((a, g) => a + gastoEnMes(g, ultimo), 0);
-
-    const tarj = (mon, t) => {
-      const res = t.ing - t.gas;
-      const margen = t.ing > 0 ? Math.round((res / t.ing) * 100) : null;
-      const n = Math.max(1, ms.length);
-      const eq = fijosMes(mon);
-      const etq = mon === 'USD' ? 'USD' : 'pesos';
-      // El promedio solo se muestra cuando el período abarca más de un mes. Con
-      // un solo mes, "promedio" y "total" son el mismo número y confunde.
-      const prom = v => n > 1 ? fmt(v / n, mon) + ' por mes en promedio' : 'En el mes';
-      return '<div class="card"><div class="k">Ingresos ' + etq + '</div>' +
-          '<div class="v">' + fmt(t.ing, mon) + '</div>' +
-          '<div class="n">' + prom(t.ing) + '</div></div>' +
-        '<div class="card"><div class="k">Gastos ' + etq + '</div>' +
-          '<div class="v">' + fmt(t.gas, mon) + '</div>' +
-          '<div class="n">' + prom(t.gas) + '</div></div>' +
-        '<div class="card"><div class="k">Resultado ' + etq + '</div>' +
-          '<div class="v ' + (res >= 0 ? 'pos' : 'neg') + '">' + fmt(res, mon) + '</div>' +
-          '<div class="n">' + (margen == null ? 'Sin ingresos en el período' : 'Margen ' + margen + '%') +
-          (n > 1 ? ' · ' + fmt(res / n, mon) + '/mes' : '') + '</div></div>' +
-        '<div class="card"><div class="k">Equilibrio ' + etq + '</div>' +
-          '<div class="v">' + fmt(eq, mon) + '</div>' +
-          '<div class="n">' + (eq > 0
-            ? 'Hay que facturar esto por mes para no perder'
-            : 'Cargá los gastos fijos para calcularlo') + '</div></div>';
-    };
-    document.getElementById('tarjetas').innerHTML = tarj('USD', tU) + tarj('UYU', tP);
-    const sub = document.getElementById('subtitulo');
-    if (sub) sub.textContent = ms.length === 1
-      ? 'Ingresos contra gastos de ' + ms[0] + '.'
-      : 'Ingresos contra gastos de ' + ms.length + ' meses, de ' + ms[0] + ' a ' + ms[ms.length - 1] + '.';
-
-
-
-    const graf = (mon, cont) => {
-      const el = document.getElementById(cont);
-      /* Solo los meses con movimiento. Antes se pintaban los 12 del período y la
-         mayoría salían en cero, incluidos meses en los que la agencia todavía no
-         operaba: once filas vacías tapaban las dos que importaban.
-         Un mes con gastos y cero ingresos SÍ se muestra: es justamente el dato
-         que hay que ver. Solo se oculta el que no tiene nada. */
-      const conDatos = ms.filter(m => ing[mon][m] > 0 || gas[mon][m] > 0);
-      if (!conDatos.length) {
-        el.innerHTML = '<div class="vacio" style="padding:22px">Sin movimientos en ' +
-          (mon === 'USD' ? 'dólares' : 'pesos') + ' en este período.</div>';
-        return;
-      }
-      const max = Math.max(1, ...conDatos.map(m => Math.max(ing[mon][m], gas[mon][m])));
-      el.innerHTML = conDatos.map(m => {
-        const a = ing[mon][m], b = gas[mon][m];
-        return '<div class="fila"><span class="mes">' + m + '</span><div>' +
-          '<div class="bg" style="margin-bottom:3px"><div class="bi ing" style="width:' + (a / max * 100) + '%"></div>' +
-            '<span class="bl">' + fmt(a, mon) + '</span></div>' +
-          '<div class="bg"><div class="bi gas" style="width:' + (b / max * 100) + '%"></div>' +
-            '<span class="bl">' + fmt(b, mon) + '</span></div>' +
-          '</div></div>';
-      }).join('');
-    };
-    graf('USD', 'grafUSD'); graf('UYU', 'grafUYU');
-
-    pintarGastos(ms);
-    pintarCategorias(ms);
-    pintarIngresos(r);
+  // ---------- Período ----------
+  function rangoPeriodo() {
+    const hoy = mesActual();
+    const p = S.periodo;
+    switch (p.clave) {
+      case 'pasado': { const m = sumarMeses(hoy, -1); return { desde: m, hasta: m }; }
+      case '3m': return { desde: sumarMeses(hoy, -2), hasta: hoy };
+      case '6m': return { desde: sumarMeses(hoy, -5), hasta: hoy };
+      case '12m': return { desde: sumarMeses(hoy, -11), hasta: hoy };
+      case 'anio': return { desde: hoy.slice(0, 4) + '-01', hasta: hoy };
+      case 'otro': if (p.desde && p.hasta && p.desde <= p.hasta) return { desde: p.desde, hasta: p.hasta > hoy ? hoy : p.hasta }; break;
+    }
+    return { desde: hoy, hasta: hoy };
+  }
+  // Cómo se nombra el período dentro de la frase ("En ___ la agencia ganó").
+  function textoPeriodo(r) {
+    const hoy = mesActual(), anioHoy = anioDe(hoy);
+    const k = S.periodo.clave;
+    if (k === '3m' || k === '6m' || k === '12m') return { pre: 'En', txt: 'los últimos ' + k.replace('m', '') + ' meses' };
+    if (k === 'anio') return { pre: 'En', txt: r.desde === r.hasta ? nombreMes(r.desde, false) + ' de ' + anioHoy : 'lo que va de ' + anioHoy };
+    if (r.desde === r.hasta) return { pre: 'En', txt: nombreMes(r.desde, anioDe(r.desde) !== anioHoy) };
+    const mismoAnio = anioDe(r.desde) === anioDe(r.hasta);
+    return { pre: 'De', txt: nombreMes(r.desde, !mismoAnio) + ' a ' + nombreMes(r.hasta, anioDe(r.hasta) !== anioHoy || !mismoAnio) };
   }
 
-  function pintarGastos(ms){
-    const c = document.getElementById('tablaGastos');
-    if (!_gastos.length) {
-      c.innerHTML = '<div class="vacio"><i class="fas fa-receipt" style="font-size:1.7rem"></i>' +
-        '<p style="margin-top:9px">Todavía no cargaste gastos. Empezá por los sueldos y el alquiler.</p></div>';
+  // ---------- Cuentas del período ----------
+  function totales(meses) {
+    const set = new Set(meses);
+    const t = { bruto: 0, agente: 0, otros: 0, neto: 0, fijos: 0, puntuales: 0, porMes: {},
+      crudo: { ingUSD: 0, ingUYU: 0, gasUSD: 0, gasUYU: 0 }, porCat: {}, porAg: {}, cierres: [], pend: { n: 0, neto: 0 } };
+    meses.forEach((m) => { t.porMes[m] = { ing: 0, gas: 0 }; });
+    S.cierres.forEach((x) => {
+      if (!set.has(x.mes)) return;
+      const k = (v) => conv(v, x.moneda);
+      t.bruto += k(x.bruto); t.agente += k(x.aAgente); t.otros += k(x.aOtros); t.neto += k(x.neto);
+      t.porMes[x.mes].ing += k(x.neto);
+      t.crudo['ing' + x.moneda] += x.neto;
+      const ag = t.porAg[x.agenteUid || x.agenteNombre] = t.porAg[x.agenteUid || x.agenteNombre] || { nombre: x.agenteNombre, neto: 0, n: 0 };
+      ag.neto += k(x.neto); ag.n++;
+      t.cierres.push(x);
+    });
+    S.pendientes.forEach((x) => { if (set.has(x.mes)) { t.pend.n++; t.pend.neto += conv(x.neto, x.moneda); } });
+    S.gastos.forEach((g) => {
+      const mon = g.moneda === 'USD' ? 'USD' : 'UYU';
+      meses.forEach((m) => {
+        const v = gastoEnMes(g, m);
+        if (!v) return;
+        const c = conv(v, mon);
+        if (g.tipo === 'fijo') t.fijos += c; else t.puntuales += c;
+        t.porMes[m].gas += c;
+        t.crudo['gas' + mon] += v;
+        const cat = CATEGORIAS.includes(g.categoria) ? g.categoria : 'Otros';
+        t.porCat[cat] = (t.porCat[cat] || 0) + c;
+      });
+    });
+    t.gastos = t.fijos + t.puntuales;
+    t.resultado = t.neto - t.gastos;
+    return t;
+  }
+  // Lo que cuestan por mes los gastos de todos los meses: el punto de equilibrio.
+  function fijosDelMes(mes) {
+    return S.gastos.filter((g) => g.tipo === 'fijo').reduce((a, g) => a + conv(gastoEnMes(g, mes), g.moneda === 'USD' ? 'USD' : 'UYU'), 0);
+  }
+
+  // ---------- Pintado ----------
+  function pintar() {
+    const r = rangoPeriodo(), meses = mesesEntre(r.desde, r.hasta), t = totales(meses);
+    const hoy = mesActual(), enCurso = r.hasta >= hoy;
+    const unMes = meses.length === 1;
+    const tp = textoPeriodo(r);
+    $('prefijo').textContent = tp.pre;
+    $('periodoTxt').textContent = tp.txt;
+    document.querySelectorAll('.moneda button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mon === S.mon)));
+    pintarRespuesta(t, meses, enCurso);
+    pintarCobertura(t, meses, r, enCurso, unMes);
+    pintarCascada(t);
+    pintarMeses(r, meses);
+    pintarCategorias(t);
+    pintarAgentes(t);
+    pintarCierres(t);
+    pintarGastos(meses);
+  }
+
+  function pintarRespuesta(t, meses, enCurso) {
+    const hay = t.neto > 0 || t.gastos > 0;
+    const res = Math.round(t.resultado);
+    let verbo;
+    if (!hay) verbo = enCurso ? 'todavía no hay cierres confirmados ni gastos.' : 'no hubo cierres confirmados ni gastos.';
+    else if (res > 0) verbo = enCurso ? 'la agencia va ganando' : 'la agencia ganó';
+    else if (res < 0) verbo = enCurso ? 'la agencia va perdiendo' : 'la agencia perdió';
+    else verbo = enCurso ? 'la agencia va empatada' : 'la agencia quedó empatada';
+    $('verbo').textContent = verbo;
+    const cifra = $('cifra');
+    cifra.hidden = !hay;
+    cifra.className = 'cifra ' + (res > 0 ? 'pos' : res < 0 ? 'neg' : '');
+    cifra.textContent = fmt(Math.abs(res));
+    const partes = [];
+    if (hay) {
+      partes.push('Le quedaron <b>' + fmt(t.neto) + '</b> de los cierres y se fueron <b>' + fmt(t.gastos) + '</b> en gastos.');
+      if (t.neto > 0) { const mg = Math.round(t.resultado / t.neto * 100); partes.push('Margen ' + (mg < 0 ? '−' + Math.abs(mg) : mg) + '%.'); }
+      if (meses.length > 1) partes.push('En promedio, ' + fmt(t.resultado / meses.length) + ' por mes.');
+    } else {
+      partes.push(S.gastos.length ? 'Cuando se confirme un cierre o haya gastos en el período, el resultado aparece acá.'
+        : 'Empezá cargando los gastos de la agencia (abajo): los ingresos salen solos de los cierres confirmados.');
+    }
+    $('bajada').innerHTML = partes.join(' ');
+    $('notaCambio').textContent = (S.mon === 'USD' ? 'Montos en dólares: los pesos se pasan' : 'Montos en pesos: los dólares se pasan') +
+      ' a ' + miles(S.dolar) + ' por dólar, el tipo de cambio de la agencia' + (S.dolarCargado ? ' (el de Recompensas).' : ' (no hay uno cargado en Recompensas: se usa 40).');
+  }
+
+  function pintarCobertura(t, meses, r, enCurso, unMes) {
+    const box = $('cob');
+    const eq = fijosDelMes(r.hasta);
+    if (!(t.gastos > 0)) {
+      box.hidden = false;
+      box.innerHTML = '<div class="cob-cab"><h2>Gastos cubiertos</h2></div>' +
+        '<p class="cob-txt" style="margin-top:8px">No hay gastos cargados en este período, así que no hay nada que cubrir todavía.</p>' +
+        '<p class="cob-pendtxt"><a href="#hGs">Cargá los gastos de la agencia</a> para ver cuánto de ellos pagan los cierres.</p>';
       return;
     }
-    const orden = _gastos.slice().sort((a, b) =>
-      (a.tipo === b.tipo) ? String(a.categoria).localeCompare(String(b.categoria)) : (a.tipo === 'fijo' ? -1 : 1));
-    c.innerHTML = '<table><thead><tr><th>Concepto</th><th>Categoría</th><th>Tipo</th>' +
-      '<th>Vigencia</th><th class="num">Monto</th><th class="num">En el período</th><th></th></tr></thead><tbody>' +
-      orden.map(g => {
-        const enPeriodo = ms.reduce((a, m) => a + gastoEnMes(g, m), 0);
-        const vig = g.tipo === 'fijo'
-          ? (g.desde || '—') + (g.hasta ? ' → ' + g.hasta : ' → hoy')
-          : (g.desde || '—');
-        return '<tr><td data-l="">' + '<b>' + esc(g.concepto || '') + '</b></td><td data-l="Categoría">' + esc(g.categoria || '') + '</td>' +
-          '<td data-l="Tipo"><span class="tag ' + (g.tipo === 'fijo' ? 'fijo' : '') + '">' + (g.tipo === 'fijo' ? 'Fijo' : 'Puntual') + '</span></td>' +
-          '<td data-l="Vigencia" style="font-variant-numeric:tabular-nums;font-size:.82rem">' + esc(vig) + '</td>' +
-          '<td class="num" data-l="Monto">' + fmt(g.monto, g.moneda) + '</td>' +
-          '<td class="num" data-l="En el período"><b>' + fmt(enPeriodo, g.moneda) + '</b></td>' +
-          '<td class="num" data-l="" style="white-space:nowrap">' +
-          '<button class="btn sec mini" onclick="editarGasto(\'' + esc(g.id) + '\')" title="Editar">' +
-          '<i class="fas fa-pen"></i></button> ' +
-          '<button class="btn danger mini" onclick="borrarGasto(\'' + esc(g.id) + '\')" title="Eliminar">' +
-          '<i class="fas fa-trash"></i></button></td></tr>';
-      }).join('') + '</tbody></table>';
+    const pct = Math.round(t.neto / t.gastos * 100);
+    const escala = Math.max(t.gastos, t.neto + t.pend.neto) || 1;
+    const w = (v) => Math.max(0, Math.min(100, v / escala * 100));
+    const meta = w(t.gastos);
+    const lado = meta < 12 ? ' izq' : meta > 88 ? ' der' : '';
+    const quien = unMes ? 'Los cierres de ' + nombreMes(r.desde, false) : 'Los cierres del período';
+    let txt;
+    if (t.neto >= t.gastos) {
+      txt = '<b>' + quien + (enCurso ? ' ya cubren' : ' cubrieron') + ' todos los gastos</b>' + (t.neto > t.gastos ? ' y sobran ' + fmt(t.neto - t.gastos) + '.' : '.');
+    } else {
+      txt = '<b>' + quien + (enCurso ? ' cubren' : ' cubrieron') + ' el ' + pct + '% de los gastos.</b> ' +
+        (enCurso ? 'Faltan ' : 'Faltaron ') + fmt(t.gastos - t.neto) + (unMes ? ' para cubrir el mes.' : '.');
+    }
+    let pend = '';
+    if (t.pend.n) {
+      pend = '<p class="cob-pendtxt">' + (t.pend.n === 1 ? 'Hay 1 cierre sin confirmar' : 'Hay ' + t.pend.n + ' cierres sin confirmar') +
+        ' que le dejarían ' + fmt(t.pend.neto) + ' a la agencia (la parte rayada). <a href="mapa-cierres.html">Confirmalos en el mapa</a></p>';
+    }
+    box.hidden = false;
+    box.innerHTML = '<div class="cob-cab"><h2>Gastos cubiertos</h2>' +
+      (eq > 0 ? '<span class="cob-eq">Punto de equilibrio: <b>' + fmt(eq) + '</b> por mes, lo que cuestan los gastos fijos.</span>' : '') + '</div>' +
+      '<div class="cob-barra" role="img" aria-label="' + esc('Cubierto ' + Math.min(pct, 999) + '% de los gastos') + '">' +
+        '<div class="cob-lleno" style="width:' + w(t.neto) + '%"></div>' +
+        (t.pend.neto > 0 ? '<div class="cob-pend" style="left:' + w(t.neto) + '%;width:' + (w(t.neto + t.pend.neto) - w(t.neto)) + '%"></div>' : '') +
+        '<div class="cob-meta' + lado + '" style="left:' + meta + '%"><span>Gastos ' + fmt(t.gastos) + '</span></div>' +
+      '</div>' +
+      '<p class="cob-txt">' + txt + '</p>' + pend;
   }
 
-  /* En qué se va la plata. Ordenado de mayor a menor: lo primero de la lista es
-     donde conviene mirar si hay que recortar. */
-  function pintarCategorias(ms){
-    const el = document.getElementById('porCategoria');
-    const acum = { USD: {}, UYU: {} };
-    _gastos.forEach(g => {
-      const mon = g.moneda === 'USD' ? 'USD' : 'UYU';
-      const total = ms.reduce((a, m) => a + gastoEnMes(g, m), 0);
-      if (!total) return;
-      const cat = g.categoria || 'Otros';
-      acum[mon][cat] = (acum[mon][cat] || 0) + total;
-    });
-    const col = mon => {
-      const filas = Object.entries(acum[mon]).sort((a, b) => b[1] - a[1]);
-      if (!filas.length) return '<div class="vacio" style="padding:18px">Sin gastos en ' +
-        (mon === 'USD' ? 'dólares' : 'pesos') + '</div>';
-      const tot = filas.reduce((a, f) => a + f[1], 0);
-      return '<div class="barras">' + filas.map(([cat, v]) =>
-        '<div class="fila" style="grid-template-columns:112px 1fr">' +
-          '<span class="mes">' + esc(cat) + '</span>' +
-          '<div class="bg"><div class="bi gas" style="width:' + (v / filas[0][1] * 100) + '%"></div>' +
-          '<span class="bl">' + fmt(v, mon) + ' · ' + Math.round(v / tot * 100) + '%</span></div></div>').join('') +
-        '</div>';
-    };
-    el.innerHTML = '<div class="cols"><div><h3 style="font-size:1rem;margin-bottom:11px">Dólares</h3>' +
-      col('USD') + '</div><div><h3 style="font-size:1rem;margin-bottom:11px">Pesos</h3>' + col('UYU') + '</div></div>';
+  function pintarCascada(t) {
+    const el = $('cascada');
+    if (!(t.bruto > 0) && !(t.gastos > 0)) { el.innerHTML = '<p class="vacio">Sin cierres confirmados ni gastos en este período.</p>'; return; }
+    // Una cascada de verdad: cada barra arranca donde terminó la anterior.
+    const pasos = [];
+    let nivel = 0;
+    const suma = (l, v, cls) => { pasos.push({ l, v, de: nivel, a: nivel + v, cls, tipo: 'suma' }); nivel += v; };
+    const resta = (l, v, cls) => { pasos.push({ l, v: -v, de: nivel - v, a: nivel, cls, tipo: 'resta' }); nivel -= v; };
+    const total = (l, cls, final) => pasos.push({ l, v: nivel, de: Math.min(0, nivel), a: Math.max(0, nivel), cls, tipo: 'total', final });
+    suma('Comisiones cobradas', t.bruto, 'c-ing');
+    if (t.agente > 0) resta('Parte de los agentes', t.agente, 'c-gente');
+    if (t.otros > 0) resta('Equipo y referidos', t.otros, 'c-gente');
+    total('Le quedó a la agencia', 'c-agencia');
+    if (t.fijos > 0) resta('Gastos fijos', t.fijos, 'c-gasto');
+    if (t.puntuales > 0) resta('Gastos de una sola vez', t.puntuales, 'c-gasto');
+    total('Resultado', nivel >= 0 ? 'c-pos' : 'c-neg', true);
+    const lo = Math.min(0, ...pasos.map((p) => p.de)), hi = Math.max(1, ...pasos.map((p) => p.a));
+    const x = (v) => (v - lo) / (hi - lo) * 100;
+    const cero = lo < 0 ? '<span class="cero" style="left:' + x(0) + '%"></span>' : '';
+    el.innerHTML = '<div class="cas">' + pasos.map((p) => {
+      const val = p.tipo === 'resta' ? '<span class="cas-v menos">' + fmt(p.v) + '</span>' : '<span class="cas-v">' + fmt(p.v) + '</span>';
+      const cls = 'cas-f' + (p.tipo === 'total' ? ' total' : '') + (p.final ? ' final ' + (p.v >= 0 ? 'pos' : 'neg') : '');
+      return '<div class="' + cls + '"><span class="cas-l">' + esc(p.l) + '</span>' +
+        '<div class="cas-p" aria-hidden="true">' + cero + '<i class="' + p.cls + '" style="left:' + x(p.de) + '%;width:' + Math.max(0.4, x(p.a) - x(p.de)) + '%"></i></div>' + val + '</div>';
+    }).join('') + '</div>' +
+      '<p class="crudo">Sin convertir: los cierres dejaron <b>' + fmt(t.crudo.ingUSD, 'USD') + '</b> y <b>' + fmt(t.crudo.ingUYU, 'UYU') + '</b>; ' +
+      'los gastos fueron <b>' + fmt(t.crudo.gasUSD, 'USD') + '</b> y <b>' + fmt(t.crudo.gasUYU, 'UYU') + '</b>.</p>';
   }
 
-  function pintarIngresos(r){
-    const c = document.getElementById('tablaIngresos');
-    const lista = _cierres.filter(x => x.mes >= r.desde && x.mes <= r.hasta)
-                          .sort((a, b) => b.neto - a.neto);
+  function pintarMeses(r, meses) {
+    const el = $('meses');
+    // Con un solo mes elegido se muestran los 6 que terminan en él, para ver la tendencia.
+    let ms = meses.length === 1 ? mesesEntre(sumarMeses(r.hasta, -5), r.hasta) : meses.slice(-24);
+    const t = totales(ms);
+    // Se arranca en el primer mes con movimiento: antes la agencia no se medía.
+    const primero = ms.findIndex((m) => t.porMes[m].ing > 0 || t.porMes[m].gas > 0);
+    if (primero < 0) { el.innerHTML = '<p class="vacio">Todavía no hay meses con cierres o gastos para comparar.</p>'; $('ayudaMes').hidden = true; return; }
+    $('ayudaMes').hidden = false;
+    ms = ms.slice(primero);
+    const max = Math.max(1, ...ms.map((m) => Math.max(t.porMes[m].ing, t.porMes[m].gas)));
+    const sel = new Set(meses);
+    const variosAnios = anioDe(ms[0]) !== anioDe(ms[ms.length - 1]);
+    el.innerHTML = '<div class="mm" role="img" aria-label="Ingresos y gastos por mes">' + ms.map((m) => {
+      const a = t.porMes[m].ing, g = t.porMes[m].gas, res = a - g;
+      const tit = nombreMes(m, true) + ': le quedó ' + fmt(a) + ', gastos ' + fmt(g) + ', resultado ' + fmt(res);
+      return '<div class="mm-col' + (sel.has(m) && meses.length < ms.length ? ' sel' : '') + '" title="' + esc(tit) + '">' +
+        '<span class="mm-res ' + (res > 0 ? 'pos' : res < 0 ? 'neg' : '') + '">' + ((a || g) ? fmtCorto(res) : '') + '</span>' +
+        '<div class="mm-bs"><i class="c-agencia" style="height:' + (a / max * 100) + '%"></i><i class="c-gasto" style="height:' + (g / max * 100) + '%"></i></div>' +
+        '<span class="mm-mes">' + mesCorto(m, variosAnios) + '</span></div>';
+    }).join('') + '</div>' +
+      '<div class="leyenda"><span><i class="c-agencia"></i>Le quedó a la agencia</span><span><i class="c-gasto"></i>Gastos</span>' +
+      '<span>Arriba, el resultado en ' + (S.mon === 'USD' ? 'dólares' : 'pesos') + '</span></div>';
+    const mm = el.querySelector('.mm');
+    if (mm) mm.scrollLeft = mm.scrollWidth;
+  }
+
+  function filasBarras(lista, color, extra) {
+    const max = Math.max(1, ...lista.map((x) => x.v));
+    return '<div class="bars">' + lista.map((x, i) =>
+      '<div class="bf"><span class="bf-n">' + esc(x.n) + (x.sub ? ' <small>' + esc(x.sub) + '</small>' : '') + '</span>' +
+      '<span class="bf-v">' + fmt(x.v) + (x.pct != null ? '<small>' + x.pct + '%</small>' : '') + '</span>' +
+      '<div class="bf-p"><i style="width:' + (x.v / max * 100) + '%;background:' + (typeof color === 'function' ? color(x, i) : color) + '"></i></div></div>').join('') + '</div>' + (extra || '');
+  }
+  function pintarCategorias(t) {
+    const el = $('categorias');
+    const lista = Object.entries(t.porCat).map(([n, v]) => ({ n, v })).filter((x) => x.v > 0).sort((a, b) => b.v - a.v);
+    if (!lista.length) { el.innerHTML = '<p class="vacio">Sin gastos en este período.</p>'; return; }
+    const tot = lista.reduce((a, x) => a + x.v, 0);
+    lista.forEach((x) => { x.pct = Math.round(x.v / tot * 100); });
+    el.innerHTML = filasBarras(lista, 'var(--gasto)');
+  }
+  function pintarAgentes(t) {
+    const el = $('agentes');
+    const lista = Object.values(t.porAg).map((a) => ({ n: a.nombre, v: a.neto, sub: a.n === 1 ? '1 cierre' : a.n + ' cierres' }))
+      .filter((x) => x.v > 0).sort((a, b) => b.v - a.v);
+    if (!lista.length) { el.innerHTML = '<p class="vacio">No hay cierres confirmados en este período.</p>'; return; }
+    el.innerHTML = filasBarras(lista, 'var(--ink)');
+  }
+  let _verTodos = false;
+  function pintarCierres(t) {
+    const el = $('cierres');
+    const lista = t.cierres.slice().sort((a, b) => conv(b.neto, b.moneda) - conv(a.neto, a.moneda));
     if (!lista.length) {
-      c.innerHTML = '<div class="vacio"><i class="fas fa-handshake" style="font-size:1.7rem"></i>' +
-        '<p style="margin-top:9px">No hay cierres confirmados en este período.</p></div>';
+      el.innerHTML = '<p class="vacio">No hay cierres confirmados en este período.' +
+        (t.pend.n ? ' Hay ' + (t.pend.n === 1 ? 'uno' : t.pend.n) + ' esperando confirmación en el <a href="mapa-cierres.html">Mapa de cierres</a>.' : '') + '</p>';
       return;
     }
-    c.innerHTML = '<table><thead><tr><th>Propiedad</th><th>Agente</th><th>Tipo</th><th>Mes</th>' +
-      '<th class="num">Operación</th><th class="num">Comisión bruta</th><th class="num">Al agente</th>' +
-      '<th class="num">A la agencia</th></tr></thead><tbody>' +
-      lista.map(x => '<tr><td data-l=""><b>' + esc(x.titulo.slice(0, 60)) + '</b></td>' +
-        '<td data-l="Agente">' + esc(x.agenteNombre) + '</td>' +
-        '<td data-l="Tipo"><span class="tag">' + esc(x.tipo) + '</span></td>' +
-        '<td data-l="Mes" style="font-variant-numeric:tabular-nums">' + esc(x.mes) + '</td>' +
-        '<td class="num" data-l="Operación">' + fmt(x.precio, x.moneda) + '</td>' +
-        '<td class="num" data-l="Comisión bruta">' + fmt(x.bruto, x.moneda) + '</td>' +
-        '<td class="num" data-l="Al agente">' + fmt(x.agente, x.moneda) + '</td>' +
-        '<td class="num" data-l="A la agencia"><b>' + fmt(x.neto, x.moneda) + '</b></td></tr>').join('') + '</tbody></table>';
+    const TOPE = 8, ver = _verTodos ? lista : lista.slice(0, TOPE);
+    el.innerHTML = '<div class="cl">' + ver.map((x) => {
+      const b = x.bruto || 1;
+      const pa = x.neto / b * 100, pg = (x.aAgente + x.aOtros) / b * 100;
+      const meta = [x.agenteNombre, x.tipo === 'venta' ? 'venta por ' + fmt(x.precio, x.moneda) : 'alquiler de ' + fmt(x.precio, x.moneda) + ' al mes', fechaCorta(x.fecha)].filter(Boolean).join(', ');
+      const enOtra = x.moneda !== S.mon ? '<small>' + fmt(x.neto, x.moneda) + ' sin convertir</small>' : '<small>de ' + fmt(x.bruto, x.moneda) + ' de comisión</small>';
+      return '<div class="cl-f"><div style="min-width:0"><div class="cl-t">' + esc(x.titulo) + '</div><div class="cl-m">' + esc(meta) + '</div></div>' +
+        '<div class="cl-s" role="img" aria-label="' + esc(Math.round(pa) + '% para la agencia') + '"><i class="c-agencia" style="width:' + pa + '%"></i><i class="c-gente" style="width:' + pg + '%"></i></div>' +
+        '<div class="cl-v">' + fmt(conv(x.neto, x.moneda)) + enOtra + '</div></div>';
+    }).join('') + '</div>' +
+      (lista.length > TOPE ? '<button type="button" class="btn sec cl-mas" onclick="_verTodos=!_verTodos;pintar()">' + (_verTodos ? 'Ver menos' : 'Ver los ' + lista.length + ' cierres') + '</button>' : '');
   }
 
-  /* Editar: carga el gasto en el formulario y pasa a modo edición. Sin esto,
-     subir un sueldo obligaba a borrar y volver a escribir todo, y de paso se
-     perdía el historial de vigencias. */
-  let _editando = null;
-
-  function editarGasto(id){
-    const g = _gastos.find(x => x.id === id);
-    if (!g) return;
-    _editando = id;
-    document.getElementById('gConcepto').value = g.concepto || '';
-    document.getElementById('gCategoria').value = g.categoria || 'Otros';
-    document.getElementById('gMonto').value = g.monto || '';
-    document.getElementById('gMoneda').value = g.moneda || 'UYU';
-    document.getElementById('gTipo').value = g.tipo || 'fijo';
-    document.getElementById('gDesde').value = g.desde || '';
-    document.getElementById('gHasta').value = g.hasta || '';
-    tipoCambio();
-    document.getElementById('btnGuardar').innerHTML = '<i class="fas fa-check"></i> Guardar cambios';
-    document.getElementById('btnCancelar').style.display = '';
-    document.getElementById('gConcepto').focus();
-    document.getElementById('gConcepto').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const mesYAnio = (ym) => MES_C[Number(ym.slice(5, 7)) - 1] + ' ' + ym.slice(0, 4);
+  function vigencia(g) {
+    if (g.tipo !== 'fijo') return g.desde ? 'en ' + nombreMes(g.desde, true) : '';
+    if (g.desde && g.hasta) return 'de ' + mesYAnio(g.desde) + ' a ' + mesYAnio(g.hasta);
+    return g.desde ? 'desde ' + nombreMes(g.desde, true) : '';
+  }
+  function pintarGastos(meses) {
+    const el = $('gastos');
+    if (!S.gastos.length) {
+      el.innerHTML = '<p class="vacio" style="margin-top:12px">Todavía no cargaste gastos. Empezá por los sueldos y el alquiler de la oficina.</p>';
+      return;
+    }
+    const fila = (g) => {
+      const mon = g.moneda === 'USD' ? 'USD' : 'UYU';
+      const enPer = meses.reduce((a, m) => a + gastoEnMes(g, m), 0);
+      const sub = enPer > 0
+        ? (meses.length > 1 || mon !== S.mon ? '<small>' + fmt(conv(enPer, mon)) + ' en el período</small>' : '')
+        : '<small>no corre en este período</small>';
+      return '<div class="gs-f' + (enPer > 0 ? '' : ' fuera') + '" data-id="' + esc(g.id) + '">' +
+        '<div class="gs-txt" style="min-width:0"><div class="gs-c">' + esc(g.concepto || 'Sin concepto') + '</div><div class="gs-s">' + esc([g.categoria || 'Otros', vigencia(g)].filter(Boolean).join(', ')) + '</div></div>' +
+        '<div class="gs-m">' + fmt(g.monto, mon) + (g.tipo === 'fijo' ? ' <span style="font-weight:500;color:var(--muted)">por mes</span>' : '') + sub + '</div>' +
+        '<div class="gs-acc"><button type="button" class="ic-btn" data-acc="editar" title="Corregir" aria-label="' + esc('Corregir ' + (g.concepto || 'el gasto')) + '"><i class="fas fa-pen"></i></button>' +
+        '<button type="button" class="ic-btn del" data-acc="borrar" title="Eliminar" aria-label="' + esc('Eliminar ' + (g.concepto || 'el gasto')) + '"><i class="fas fa-trash-can"></i></button></div></div>';
+    };
+    const orden = (a, b) => String(a.categoria || '').localeCompare(String(b.categoria || ''), 'es') || String(a.concepto || '').localeCompare(String(b.concepto || ''), 'es');
+    const fijos = S.gastos.filter((g) => g.tipo === 'fijo').sort(orden);
+    const unaVez = S.gastos.filter((g) => g.tipo !== 'fijo').sort((a, b) => String(b.desde || '').localeCompare(String(a.desde || '')) || orden(a, b));
+    el.innerHTML = (fijos.length ? '<div class="gs-g"><h3>Todos los meses</h3>' + fijos.map(fila).join('') + '</div>' : '') +
+      (unaVez.length ? '<div class="gs-g"><h3>Una sola vez</h3>' + unaVez.map(fila).join('') + '</div>' : '');
   }
 
-  function cancelarEdicion(){
-    _editando = null;
-    document.getElementById('gConcepto').value = '';
-    document.getElementById('gMonto').value = '';
-    document.getElementById('gHasta').value = '';
-    document.getElementById('btnGuardar').innerHTML = '<i class="fas fa-plus"></i> Agregar';
-    document.getElementById('btnCancelar').style.display = 'none';
+  // ---------- Controles ----------
+  function opcionesMes(sel, conSigue) {
+    sel.innerHTML = (conSigue ? '<option value="">Sigue</option>' : '') + MESES.map((m, i) => '<option value="' + pad(i + 1) + '">' + m.charAt(0).toUpperCase() + m.slice(1) + '</option>').join('');
+  }
+  function llenarAnios() {
+    const hoy = anioDe(mesActual());
+    let desde = hoy - 1;
+    S.cierres.concat(S.pendientes).forEach((x) => { if (x.mes) desde = Math.min(desde, anioDe(x.mes)); });
+    S.gastos.forEach((g) => { if (g.desde) desde = Math.min(desde, anioDe(g.desde)); });
+    desde = Math.max(desde, hoy - 10);
+    const anios = []; for (let a = hoy + 1; a >= desde; a--) anios.push(a);
+    ['oDesdeA', 'oHastaA', 'gDesdeA', 'gHastaA'].forEach((id) => {
+      const s = $(id), v = s.value;
+      const lista = id.charAt(0) === 'o' ? anios.filter((a) => a <= hoy) : anios;
+      s.innerHTML = lista.map((a) => '<option value="' + a + '">' + a + '</option>').join('');
+      if (v && lista.includes(Number(v))) s.value = v;
+    });
+  }
+  function ponerMes(selM, selA, ym) {
+    if (!ym) { selM.value = ''; selA.value = String(anioDe(mesActual())); selA.disabled = true; return; }
+    selA.disabled = false;
+    if (![...selA.options].some((o) => o.value === ym.slice(0, 4))) selA.insertAdjacentHTML('beforeend', '<option value="' + ym.slice(0, 4) + '">' + ym.slice(0, 4) + '</option>');
+    selM.value = ym.slice(5, 7); selA.value = ym.slice(0, 4);
+  }
+  const leerMes = (selM, selA) => (selM.value ? selA.value + '-' + selM.value : '');
+
+  function prepararControles() {
+    opcionesMes($('oDesdeM')); opcionesMes($('oHastaM'));
+    opcionesMes($('gDesdeM')); opcionesMes($('gHastaM'), true);
+    $('gCategoria').innerHTML = CATEGORIAS.map((c) => '<option>' + c + '</option>').join('');
+    llenarAnios();
+    document.querySelectorAll('.moneda button').forEach((b) => b.addEventListener('click', () => { S.mon = b.dataset.mon; guardarPrefs(); pintar(); }));
+    $('btnPeriodo').addEventListener('click', (e) => { e.stopPropagation(); abrirPeriodo(); });
+    $('veloPop').addEventListener('click', cerrarPeriodo);
+    $('popOp').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-p]'); if (!b) return;
+      S.periodo = { clave: b.dataset.p, desde: '', hasta: '' };
+      guardarPrefs(); cerrarPeriodo(); pintar();
+    });
+    $('oAplicar').addEventListener('click', () => {
+      const d = leerMes($('oDesdeM'), $('oDesdeA')), h = leerMes($('oHastaM'), $('oHastaA'));
+      const err = $('oErr');
+      if (h < d) { err.textContent = 'El «hasta» no puede ser anterior al «desde».'; err.hidden = false; return; }
+      if (d > mesActual()) { err.textContent = 'Ese período todavía no empezó.'; err.hidden = false; return; }
+      err.hidden = true;
+      S.periodo = { clave: 'otro', desde: d, hasta: h };
+      guardarPrefs(); cerrarPeriodo(); pintar();
+    });
+    $('btnAgregar').addEventListener('click', () => abrirGasto(null));
+    $('gastos').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-acc]'); if (!b) return;
+      const id = b.closest('[data-id]').getAttribute('data-id');
+      if (b.dataset.acc === 'editar') abrirGasto(id); else borrarGasto(id);
+    });
+    document.querySelectorAll('#gMoneda button, #gTipo button').forEach((b) => b.addEventListener('click', () => {
+      b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      if (b.parentElement.id === 'gTipo') tipoGasto();
+    }));
+    $('gHastaM').addEventListener('change', () => {
+      const a = $('gHastaA'), estaba = a.disabled;
+      a.disabled = !$('gHastaM').value;
+      // Al elegir un mes de fin, el año arranca en el del "desde" (no en el primero de la lista).
+      if (estaba && !a.disabled) a.value = $('gDesdeA').value || String(anioDe(mesActual()));
+    });
+    $('gCancelar').addEventListener('click', cerrarGasto);
+    $('gGuardar').addEventListener('click', guardarGasto);
+    $('veloGasto').addEventListener('click', (e) => { if (e.target === $('veloGasto')) cerrarGasto(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (!$('popPeriodo').hidden) cerrarPeriodo();
+      else if (!$('veloGasto').hidden) cerrarGasto();
+    });
+    window.addEventListener('resize', () => { if (!$('popPeriodo').hidden) ubicarPop(); });
   }
 
-  async function guardarGasto(){
-    const concepto = document.getElementById('gConcepto').value.trim();
-    const monto = Number(document.getElementById('gMonto').value) || 0;
-    const desde = document.getElementById('gDesde').value;
-    const tipo = document.getElementById('gTipo').value;
-    if (!concepto) { alert('Poné un concepto.'); return; }
-    if (!(monto > 0)) { alert('El monto tiene que ser mayor que cero.'); return; }
-    if (!desde) { alert(tipo === 'fijo' ? 'Indicá desde qué mes corre.' : 'Indicá el mes.'); return; }
-    const hasta = tipo === 'fijo' ? (document.getElementById('gHasta').value || null) : null;
-    if (hasta && hasta < desde) { alert('El "hasta" no puede ser anterior al "desde".'); return; }
-    try{
-      const doc = {
-        concepto, monto, tipo, desde, hasta,
-        categoria: document.getElementById('gCategoria').value,
-        moneda: document.getElementById('gMoneda').value,
-        createdAt: new Date().toISOString(), createdBy: _uid
-      };
-      if (_editando) {
-        // No se pisa createdAt ni createdBy: sirven para saber quién lo cargó.
-        const { createdAt, createdBy, ...cambios } = doc;
-        cambios.updatedAt = new Date().toISOString();
-        await db.collection('agencyGastos').doc(_editando).update(cambios);
-        const i = _gastos.findIndex(x => x.id === _editando);
-        if (i >= 0) _gastos[i] = Object.assign({}, _gastos[i], cambios);
+  function ubicarPop() {
+    const pop = $('popPeriodo');
+    if (matchMedia('(max-width:560px)').matches) { pop.style.left = ''; pop.style.top = ''; return; }
+    const r = $('btnPeriodo').getBoundingClientRect();
+    const izq = Math.max(12, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 12));
+    pop.style.left = izq + 'px';
+    pop.style.top = (r.bottom + window.scrollY + 8) + 'px';
+  }
+  function abrirPeriodo() {
+    const pop = $('popPeriodo');
+    if (!pop.hidden) { cerrarPeriodo(); return; }
+    const r = rangoPeriodo();
+    ponerMes($('oDesdeM'), $('oDesdeA'), r.desde);
+    ponerMes($('oHastaM'), $('oHastaA'), r.hasta);
+    $('oErr').hidden = true;
+    pop.querySelectorAll('[data-p]').forEach((b) => b.setAttribute('aria-current', String(b.dataset.p === S.periodo.clave)));
+    pop.hidden = false; $('veloPop').hidden = false;
+    $('btnPeriodo').setAttribute('aria-expanded', 'true');
+    ubicarPop();
+    const actual = pop.querySelector('[aria-current="true"]') || pop.querySelector('[data-p]');
+    actual.focus();
+  }
+  function cerrarPeriodo() {
+    if ($('popPeriodo').hidden) return;
+    $('popPeriodo').hidden = true; $('veloPop').hidden = true;
+    $('btnPeriodo').setAttribute('aria-expanded', 'false');
+    $('btnPeriodo').focus();
+  }
+
+  // ---------- Cargar, corregir y borrar gastos ----------
+  const elegido = (id) => (document.querySelector('#' + id + ' [aria-pressed="true"]') || {}).dataset.v;
+  function elegir(id, v) { document.querySelectorAll('#' + id + ' button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v))); }
+  function tipoGasto() {
+    const fijo = elegido('gTipo') === 'fijo';
+    $('campoHasta').hidden = !fijo;
+    $('lblDesde').textContent = fijo ? 'Desde' : 'Mes';
+  }
+  let _antesDeHoja = null;
+  function abrirGasto(id) {
+    const g = id ? S.gastos.find((x) => x.id === id) : null;
+    if (id && !g) return;
+    S.editando = g ? g.id : null;
+    _antesDeHoja = document.activeElement;
+    $('hojaTit').textContent = g ? 'Corregir gasto' : 'Agregar gasto';
+    $('gGuardar').textContent = g ? 'Guardar cambios' : 'Agregar gasto';
+    $('gConcepto').value = g ? (g.concepto || '') : '';
+    $('gCategoria').value = g && CATEGORIAS.includes(g.categoria) ? g.categoria : (g ? 'Otros' : 'Sueldos');
+    $('gMonto').value = g ? (g.monto || '') : '';
+    elegir('gMoneda', g && g.moneda === 'USD' ? 'USD' : 'UYU');
+    elegir('gTipo', g ? (g.tipo === 'fijo' ? 'fijo' : 'puntual') : 'fijo');
+    tipoGasto();
+    const r = rangoPeriodo();
+    ponerMes($('gDesdeM'), $('gDesdeA'), g ? (g.desde || r.hasta) : r.hasta);
+    ponerMes($('gHastaM'), $('gHastaA'), g ? (g.hasta || '') : '');
+    $('gErr').hidden = true;
+    $('veloGasto').hidden = false;
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => $('gConcepto').focus(), 30);
+  }
+  function cerrarGasto() {
+    $('veloGasto').hidden = true;
+    document.body.style.overflow = '';
+    S.editando = null;
+    if (_antesDeHoja && _antesDeHoja.focus) { try { _antesDeHoja.focus(); } catch (e) {} }
+  }
+  function errorGasto(txt, foco) { const e = $('gErr'); e.textContent = txt; e.hidden = false; if (foco) $(foco).focus(); }
+  async function guardarGasto() {
+    const concepto = $('gConcepto').value.trim();
+    const monto = Number(String($('gMonto').value).replace(',', '.')) || 0;
+    const tipo = elegido('gTipo') === 'fijo' ? 'fijo' : 'puntual';
+    const desde = leerMes($('gDesdeM'), $('gDesdeA'));
+    const hasta = tipo === 'fijo' ? (leerMes($('gHastaM'), $('gHastaA')) || null) : null;
+    if (!concepto) return errorGasto('Poné qué es el gasto (por ejemplo, «Sueldo de Romina»).', 'gConcepto');
+    if (!(monto > 0)) return errorGasto('El monto tiene que ser mayor que cero.', 'gMonto');
+    if (!desde) return errorGasto(tipo === 'fijo' ? 'Elegí desde qué mes corre.' : 'Elegí el mes.', 'gDesdeM');
+    if (hasta && hasta < desde) return errorGasto('El «hasta» no puede ser anterior al «desde».', 'gHastaM');
+    const btn = $('gGuardar'); btn.disabled = true;
+    const doc = { concepto, monto, tipo, desde, hasta, categoria: $('gCategoria').value, moneda: elegido('gMoneda') === 'USD' ? 'USD' : 'UYU' };
+    try {
+      if (S.editando) {
+        // No se pisan createdAt ni createdBy: dicen quién lo cargó.
+        const cambios = Object.assign({}, doc, { updatedAt: new Date().toISOString() });
+        await db.collection('agencyGastos').doc(S.editando).update(cambios);
+        const i = S.gastos.findIndex((x) => x.id === S.editando);
+        if (i >= 0) S.gastos[i] = Object.assign({}, S.gastos[i], cambios);
+        toast('Cambios guardados');
       } else {
-        const ref = await db.collection('agencyGastos').add(doc);
-        _gastos.push(Object.assign({ id: ref.id }, doc));
+        const nuevo = Object.assign({}, doc, { createdAt: new Date().toISOString(), createdBy: S.uid });
+        const ref = await db.collection('agencyGastos').add(nuevo);
+        S.gastos.push(Object.assign({ id: ref.id }, nuevo));
+        toast('Gasto agregado');
       }
-      cancelarEdicion();
+      btn.disabled = false;
+      cerrarGasto();
+      llenarAnios();
       pintar();
-    }catch(e){ console.error(e); alert('No se pudo guardar: ' + (e.message || e)); }
+    } catch (e) {
+      console.error(e);
+      btn.disabled = false;
+      errorGasto('No se pudo guardar: ' + (e.code === 'permission-denied' ? 'no tenés permiso para cambiar los gastos.' : (e.message || e)));
+    }
   }
-
-  async function borrarGasto(id){
-    const g = _gastos.find(x => x.id === id);
-    if (!confirm('¿Eliminar "' + ((g && g.concepto) || 'este gasto') + '"? No se puede deshacer.')) return;
-    try{
+  async function borrarGasto(id) {
+    const g = S.gastos.find((x) => x.id === id);
+    if (!g) return;
+    if (!confirm('¿Eliminar «' + (g.concepto || 'este gasto') + '»?\n\nDeja de contar en todos los meses. No se puede deshacer.')) return;
+    try {
       await db.collection('agencyGastos').doc(id).delete();
-      _gastos = _gastos.filter(x => x.id !== id);
+      S.gastos = S.gastos.filter((x) => x.id !== id);
+      toast('Gasto eliminado');
       pintar();
-    }catch(e){ console.error(e); alert('No se pudo eliminar: ' + (e.message || e)); }
+    } catch (e) {
+      console.error(e);
+      toast('No se pudo eliminar: ' + (e.message || e), true);
+    }
   }
 </script>
 </body>

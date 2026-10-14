@@ -110,6 +110,17 @@
     .fld input:focus, .fld select:focus, .fld textarea:focus{ outline:none; border-color:var(--navy); box-shadow:0 0 0 3px rgba(22,39,63,.11); }
     .fld input:disabled, .fld select:disabled{ color:var(--muted); background-color:var(--fondo); }
     .fld input::placeholder, .fld textarea::placeholder{ color:#9aa1ab; }
+    /* Fechas en el iPhone: Safari dibuja el campo de fecha como un botón, le pone
+       un ancho mínimo propio (el de la fecha más larga), mide sin contar el borde
+       ni el relleno y centra el texto. Resultado: no respetaba el 100% y se salía
+       por la derecha de la pantalla. Sin la apariencia del sistema queda igual que
+       los demás campos; al tocarlo se sigue abriendo el selector de fecha. */
+    .fld input[type=date], .fld input[type=month], .fld input[type=time], .fld input[type=datetime-local]{
+      -webkit-appearance:none; appearance:none; display:block; box-sizing:border-box; max-width:100%; min-width:0;
+      text-align:left; line-height:1.45; }
+    .fld input[type=date]::-webkit-date-and-time-value, .fld input[type=month]::-webkit-date-and-time-value,
+    .fld input[type=time]::-webkit-date-and-time-value, .fld input[type=datetime-local]::-webkit-date-and-time-value{ text-align:left; margin:0; }
+    .fld input[type=date]::-webkit-datetime-edit, .fld input[type=date]::-webkit-datetime-edit-fields-wrapper{ padding:0; }
     .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     .hint{ font-size:.79rem; color:var(--muted); margin-top:6px; line-height:1.5; }
 
@@ -503,7 +514,7 @@
             <button type="button" class="doc-type" data-type="contrato" aria-pressed="false" onclick="selectType('contrato')" title="Contrato de arrendamiento">
               <i class="fas fa-file-contract" aria-hidden="true"></i>
               <b>Contrato de arrendamiento</b><small>Contrato</small>
-              <span>Comercial o vivienda. Las cláusulas se numeran solas.</span>
+              <span>Vivienda o comercial. Las cláusulas se numeran solas.</span>
             </button>
             <button type="button" class="doc-type" data-type="mediacion" aria-pressed="false" onclick="selectType('mediacion')" title="Compromiso de mediación">
               <i class="fas fa-handshake" aria-hidden="true"></i>
@@ -630,8 +641,8 @@
           <div class="fld">
             <label>Destino del inmueble</label>
             <div class="seg">
-              <button type="button" id="ctDestComercial" class="on" onclick="ctSetDestino('comercial')">Comercial</button>
-              <button type="button" id="ctDestVivienda" onclick="ctSetDestino('vivienda')">Vivienda</button>
+              <button type="button" id="ctDestVivienda" class="on" onclick="ctSetDestino('vivienda')">Vivienda</button>
+              <button type="button" id="ctDestComercial" onclick="ctSetDestino('comercial')">Comercial</button>
             </div>
           </div>
 
@@ -1546,7 +1557,7 @@
     // Un solo catálogo, armado según el destino elegido. Las comerciales que no
     // aplican se caen, y en su lugar entran las de vivienda, en el mismo orden
     // en que iban las que reemplazan.
-    var _destino = 'comercial';
+    var _destino = 'vivienda';
     function ctCatalogo(){
       if(_destino !== 'vivienda') return CLAUSULAS;
       var viv = {};
@@ -6015,8 +6026,9 @@
       ctLeerPolitica();
       ctAvisoPolitica();
       ctAgregar('arrendador'); ctAgregar('arrendatario');
-      ctPintarOpcionales();
-      ctPintarGarantia();
+      // Deja todo como corresponde al destino de entrada (vivienda): régimen,
+      // aviso, cláusulas opcionales y garantías.
+      ctSetDestino(_destino);
       // La fecha del documento arranca en hoy, pero lo normal es que el contrato
       // se firme el día en que empieza. Mientras no se toque a mano, sigue al
       // campo Inicio; en cuanto se edita, queda fija y no se pisa más.
