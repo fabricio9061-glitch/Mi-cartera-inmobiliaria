@@ -566,6 +566,41 @@
     #precioM2 i{ color:var(--gold); margin-right:4px; }
     #precioM2 span{ color:var(--muted); font-weight:400; }
     #precioM2[hidden]{ display:none; }
+
+    /* ---- Paso 7: la moneda, a la vista (17/10/2026) ----
+       Antes era un desplegable chiquito pegado al monto que arrancaba en US$, y
+       los alquileres se cargaban en dólares sin querer. Ahora son dos botones con
+       las dos monedas a la vista y la elegida rellena. */
+    #propertyForm .pf-monto{ align-items:stretch; }
+    .pf-moneda{ flex:none; display:flex; gap:3px; padding:3px; background:#f2f4f7; border:1px solid #dfe1e5; border-right:0; border-radius:8px 0 0 8px; }
+    .pf-moneda button{ border:0; background:none; border-radius:6px; min-width:48px; padding:0 10px; font-family:inherit; font-size:.92rem; font-weight:600;
+      color:#7a828e; cursor:pointer; transition:background .15s, color .15s; }
+    .pf-moneda button:hover{ color:var(--ink); }
+    .pf-moneda button.on{ background:var(--ink); color:#fff; box-shadow:0 1px 3px rgba(22,39,63,.25); }
+    .pf-moneda button:focus-visible{ outline:2px solid var(--gold); outline-offset:1px; }
+    #propertyForm .pf-monto .pf-moneda + input{ border-radius:0 8px 8px 0; margin-left:0; }
+    #propertyForm .pf-monto.con-sufijo .pf-moneda + input{ border-radius:0; }
+    .pf-sufijo{ flex:none; display:flex; align-items:center; padding:0 12px; font-size:.84rem; color:var(--muted); background:#f7f8fa;
+      border:1px solid #dfe1e5; border-left:0; border-radius:0 8px 8px 0; white-space:nowrap; }
+    .pf-sufijo[hidden]{ display:none; }
+    #precioM2 b{ font-weight:600; }
+    /* El monto no tiene sentido para esa moneda: se pregunta, no se adivina. */
+    .pf-mon-alerta{ display:flex; gap:9px 10px; align-items:flex-start; flex-wrap:wrap; margin-top:10px; padding:11px 13px; border-radius:10px;
+      background:#fff7ed; border:1px solid #fdba74; color:#7c2d12; font-size:.86rem; line-height:1.45; }
+    .pf-mon-alerta[hidden]{ display:none; }
+    .pf-mon-alerta > i{ color:#ea580c; margin-top:3px; flex:none; }
+    .pf-mon-alerta .tx{ flex:1; min-width:170px; }
+    .pf-mon-alerta .acc{ display:flex; gap:8px; flex-wrap:wrap; }
+    .pf-mon-alerta button{ border:1px solid #fdba74; background:#fff; color:#7c2d12; border-radius:8px; padding:7px 12px; font-family:inherit;
+      font-size:.82rem; font-weight:600; cursor:pointer; }
+    .pf-mon-alerta button.pri{ background:var(--ink); border-color:var(--ink); color:#fff; }
+    .pf-mon-alerta button:focus-visible{ outline:2px solid var(--gold); outline-offset:1px; }
+    @media (max-width:640px){
+      .pf-moneda button{ min-width:44px; padding:0 8px; }
+      .pf-sufijo{ padding:0 10px; }
+      .pf-mon-alerta .acc{ flex:1 0 100%; }
+      .pf-mon-alerta .acc button{ flex:1; }
+    }
 </style>
 <style>
   /* Área segura superior (isla dinámica / notch) en toda la herramienta */
@@ -753,11 +788,30 @@
         </div>
 
         <div class="pf-sec" id="sec7">
-          <div class="pf-sec-head"><span class="n">7</span><div><h3>Precio</h3><small>Los gastos comunes llevan su propia moneda: casi siempre son en pesos, aunque la propiedad se venda en dólares.</small></div></div>
+          <div class="pf-sec-head"><span class="n">7</span><div><h3>Precio</h3><small>El alquiler arranca en pesos y la venta en dólares: si es en la otra moneda, tocala. Los gastos comunes tienen la suya.</small></div></div>
           <div class="form-row">
-            <div class="form-group"><label for="propPrice">Precio <span class="fx-req">*</span></label><div class="pf-monto"><select id="propCurrency" aria-label="Moneda del precio"><option value="USD">US$</option><option value="UYU">$U</option></select><input type="number" id="propPrice" required min="0" inputmode="numeric" placeholder="150000"></div><div class="pf-ayuda" id="precioM2" hidden></div></div>
-            <div class="form-group"><label for="propExpenses">Gastos comunes <span class="fx-req">*</span></label><div class="pf-monto"><select id="propExpensesCurrency" aria-label="Moneda de los gastos comunes"><option value="UYU">$U</option><option value="USD">US$</option></select><input type="number" id="propExpenses" required min="0" inputmode="numeric" placeholder="0 si no tiene"></div><div class="pf-ayuda" id="gastosAyuda" style="display:none"></div></div>
+            <div class="form-group"><label for="propPrice"><span id="lblPrecioTxt">Precio de venta</span> <span class="fx-req">*</span></label>
+              <div class="pf-monto" id="precioCaja">
+                <div class="pf-moneda" role="radiogroup" aria-label="Moneda del precio" data-select="propCurrency">
+                  <button type="button" role="radio" data-valor="UYU" title="Pesos uruguayos">$U</button>
+                  <button type="button" role="radio" data-valor="USD" title="Dólares">US$</button>
+                </div><input type="number" id="propPrice" required min="0" inputmode="numeric" placeholder="150000"><span class="pf-sufijo" id="precioSufijo" hidden>por mes</span>
+              </div>
+              <div class="pf-ayuda" id="precioM2" hidden></div>
+              <div class="pf-mon-alerta" id="monedaAlerta" role="alert" hidden></div>
+            </div>
+            <div class="form-group"><label for="propExpenses">Gastos comunes <span class="fx-req">*</span></label>
+              <div class="pf-monto">
+                <div class="pf-moneda" role="radiogroup" aria-label="Moneda de los gastos comunes" data-select="propExpensesCurrency">
+                  <button type="button" role="radio" data-valor="UYU" title="Pesos uruguayos">$U</button>
+                  <button type="button" role="radio" data-valor="USD" title="Dólares">US$</button>
+                </div><input type="number" id="propExpenses" required min="0" inputmode="numeric" placeholder="0 si no tiene">
+              </div>
+              <div class="pf-ayuda" id="gastosAyuda" style="display:none"></div>
+            </div>
           </div>
+          <!-- Las monedas siguen siendo desplegables (las lee el resto del formulario); los botones los manejan. -->
+          <div class="pf-sr"><select id="propCurrency" tabindex="-1" aria-hidden="true"><option value="USD">US$</option><option value="UYU">$U</option></select><select id="propExpensesCurrency" tabindex="-1" aria-hidden="true"><option value="UYU">$U</option><option value="USD">US$</option></select></div>
         </div>
 
         <div class="pf-sec" id="sec8">
@@ -891,6 +945,7 @@
       const isRent = document.getElementById('propType').value === 'rent';
       // El tipo de propiedad (Padrón Común/PH) aplica tanto a venta como a alquiler: siempre visible.
       const rf = document.getElementById('rentFieldsGroup'); if (rf) rf.style.display = isRent ? 'block' : 'none';
+      monedaPorOperacion();
     }
     // ---- Elecciones con botones (paso 1) ----
     // Los <select> siguen mandando: el resto del formulario los lee y los cambia
@@ -929,7 +984,10 @@
       sig.focus(); elegirOpcion(sig);
     });
     document.addEventListener('DOMContentLoaded', () => {
-      ['propType', 'propRealEstateType', 'propPropertyType'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('change', pintarOpciones); });
+      ['propType', 'propRealEstateType', 'propPropertyType', 'propCurrency', 'propExpensesCurrency'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('change', pintarOpciones); });
+      // Tocar la moneda es una decisión: desde ahí ya no cambia sola con la operación.
+      const mon = document.getElementById('propCurrency');
+      if (mon) mon.addEventListener('change', () => { _monedaElegida = true; });
       pintarOpciones();
     });
     function actualizarContadorTitulo() {
@@ -991,19 +1049,97 @@
       el.innerHTML = raro ? '<i class="fas fa-circle-info"></i> El área privada es mayor que la superficie total. ¿No están cruzadas?' : '';
       el.hidden = !raro;
     }
-    // El precio por m²: de un vistazo se ve si quedó un cero de más o de menos.
+    // Cómo sale publicado el precio, con su moneda y los puntos de miles, y el
+    // precio por m²: de un vistazo se ve si quedó la moneda equivocada o un cero
+    // de más o de menos.
     function pintarPrecioM2() {
       const el = document.getElementById('precioM2');
       if (!el) return;
       const p = parseFloat(_v('propPrice'));
+      if (!(p > 0)) { el.hidden = true; return; }
+      const mon = _v('propCurrency'), mes = _v('propType') === 'rent' ? ' por mes' : '';
       const pri = parseFloat(_v('propBuiltArea')), tot = parseFloat(_v('propTotalArea'));
       const m2 = pri > 0 ? pri : tot;
-      if (!(p > 0) || !(m2 > 0)) { el.hidden = true; return; }
-      const mon = _v('propCurrency') === 'UYU' ? '$U' : 'US$';
-      el.innerHTML = `<i class="fas fa-calculator"></i> ${mon} ${Math.round(p / m2).toLocaleString('es-UY')} por m² <span>(sobre ${Math.round(m2).toLocaleString('es-UY')} m² ${pri > 0 ? 'de área privada' : 'de superficie'})</span>`;
+      el.innerHTML = `<i class="fas fa-eye"></i> Así se publica: <b>${fmtMonto(mon, p)}${mes}</b>` +
+        (m2 > 0 ? ` <span>· ${fmtMonto(mon, p / m2)} por m² (sobre ${Math.round(m2).toLocaleString('es-UY')} m² ${pri > 0 ? 'de área privada' : 'de superficie'})</span>` : '');
       el.hidden = false;
     }
-    function ayudasDeCarga() { try { revisarSuperficies(); pintarPrecioM2(); pintarTituloSugerido(); } catch (e) { /* son ayudas: nunca frenan nada */ } }
+
+    // ---- Moneda del precio ----
+    // El error que se repetía: alquileres publicados en dólares porque la moneda
+    // arrancaba en US$. Ahora arranca según la operación (alquiler en pesos, venta
+    // en dólares) hasta que el agente la toca, y si el monto no tiene sentido para
+    // esa moneda se pregunta antes de guardar. Un alquiler en dólares sigue siendo
+    // posible: se confirma una vez y queda guardado con la propiedad.
+    const MONEDA_DE_OPER = { rent: 'UYU', sale: 'USD' };
+    const TIPOS_VIVIENDA = ['casa', 'apartamento', 'habitacion', 'cochera'];
+    let _monedaElegida = false;   // la eligió el agente, o la propiedad ya la traía: no cambia sola
+    let _monedaOk = '';           // el precio raro que el agente confirmó tal cual
+    function fmtMonto(mon, n) { return (mon === 'UYU' ? '$U ' : 'US$ ') + Math.round(n).toLocaleString('es-UY'); }
+    function monedaPorOperacion() {
+      if (_monedaElegida) return;
+      const sel = document.getElementById('propCurrency');
+      const def = MONEDA_DE_OPER[_v('propType')] || 'USD';
+      if (!sel || sel.value === def) return;
+      sel.value = def;
+      if (typeof pintarOpciones === 'function') pintarOpciones();
+      ayudasDeCarga();
+    }
+    // Montos que casi seguro tienen la moneda cambiada. Los topes son amplios a
+    // propósito: solo saltan con lo que no puede ser.
+    function monedaSospechosa() {
+      const oper = _v('propType'), mon = _v('propCurrency'), p = parseFloat(_v('propPrice'));
+      if (!(p > 0)) return null;
+      const alq = oper === 'rent', monto = fmtMonto(mon, p) + (alq ? ' por mes' : '');
+      const tope = TIPOS_VIVIENDA.includes(_v('propRealEstateType')) ? 8000 : 40000;
+      const caso = (otra, txt, si, cambiar) => ({ firma: oper + '|' + mon + '|' + p, otra, monto, txt, si, cambiar });
+      if (alq && mon === 'USD' && p > tope) return caso('UYU', 'es mucho para un alquiler. ¿No son pesos?', 'Sí, son dólares', 'Son pesos ($U)');
+      if (alq && mon === 'UYU' && p < 1500) return caso('USD', 'es muy poco para un alquiler. ¿No son dólares?', 'Sí, son pesos', 'Son dólares (US$)');
+      if (!alq && mon === 'UYU' && p < 400000) return caso('USD', 'es muy poco para una venta. ¿No son dólares?', 'Sí, son pesos', 'Son dólares (US$)');
+      return null;
+    }
+    // Lo que falta resolver: un monto raro que todavía nadie confirmó.
+    function monedaPendiente() { const s = monedaSospechosa(); return s && s.firma !== _monedaOk ? s : null; }
+    function pintarMoneda() {
+      const alq = _v('propType') === 'rent';
+      const lbl = document.getElementById('lblPrecioTxt'); if (lbl) lbl.textContent = alq ? 'Alquiler por mes' : 'Precio de venta';
+      const suf = document.getElementById('precioSufijo'), caja = document.getElementById('precioCaja');
+      if (suf) suf.hidden = !alq;
+      if (caja) caja.classList.toggle('con-sufijo', alq);
+      const inp = document.getElementById('propPrice'); if (inp) inp.placeholder = alq ? '25000' : '150000';
+      const al = document.getElementById('monedaAlerta');
+      if (!al) return;
+      const s = monedaPendiente();
+      if (!s) { al.hidden = true; al.innerHTML = ''; al.dataset.firma = ''; return; }
+      // Si ya muestra esta misma pregunta no se redibuja: al tocar uno de sus
+      // botones el precio pierde el foco, el formulario se vuelve a revisar, y
+      // redibujarla en ese instante se "comía" el clic.
+      if (!al.hidden && al.dataset.firma === s.firma) return;
+      al.dataset.firma = s.firma;
+      al.innerHTML = `<i class="fas fa-triangle-exclamation"></i><div class="tx"><b>${esc(s.monto)}</b> ${esc(s.txt)}</div><div class="acc">` +
+        `<button type="button" class="pri" onclick="monedaCambiar('${s.otra}')">${esc(s.cambiar)}</button>` +
+        `<button type="button" onclick="monedaConfirmar()">${esc(s.si)}</button></div>`;
+      al.hidden = false;
+    }
+    function monedaCambiar(m) {
+      const sel = document.getElementById('propCurrency');
+      if (!sel) return;
+      sel.value = m;
+      sel.dispatchEvent(new Event('change', { bubbles: true }));   // cuenta como elegida y como cambio sin guardar
+      const p = document.getElementById('propPrice'); if (p) p.classList.remove('pf-invalido');
+      ayudasDeCarga(); calidadRecalc();
+    }
+    function monedaConfirmar() {
+      const s = monedaSospechosa();
+      if (!s) return;
+      _monedaOk = s.firma; _monedaElegida = true;
+      marcarSucio();
+      const p = document.getElementById('propPrice'); if (p) p.classList.remove('pf-invalido');
+      ayudasDeCarga(); calidadRecalc();
+    }
+    // Lo que se guarda con la propiedad: así al volver a editarla no se pregunta de nuevo.
+    function precioConfirmadoParaGuardar() { const s = monedaSospechosa(); return s && s.firma === _monedaOk ? _monedaOk : null; }
+    function ayudasDeCarga() { try { revisarSuperficies(); pintarPrecioM2(); pintarMoneda(); pintarTituloSugerido(); } catch (e) { /* son ayudas: nunca frenan nada */ } }
     document.addEventListener('DOMContentLoaded', () => {
       const f = document.getElementById('propertyForm');
       if (f) { f.addEventListener('input', ayudasDeCarga); f.addEventListener('change', ayudasDeCarga); }
@@ -1653,6 +1789,9 @@
          tenían los gastos comunes): un monoambiente tiene 0 dormitorios y un
          terreno 0 m² edificados. En blanco, el terreno no se podía volver a guardar. */
       document.getElementById('propPrice').value = numOVacio(p.price);
+      // La moneda guardada es una decisión ya tomada: no cambia sola con la operación.
+      _monedaElegida = true;
+      _monedaOk = p.precioConfirmado || '';
       document.getElementById('propCurrency').value = p.currency || 'USD';
       // Las propiedades anteriores al campo no tienen la moneda de los gastos:
       // arrancan en pesos, que es lo normal (y lo que ya asumían InfoCasas y Casas y Más).
@@ -5147,6 +5286,9 @@
       add({ clave: 'desc', paso: 5, campo: 'propDescription', txt: 'Descripción', hacer: 'Escribí la descripción', portales: ['ic', 'cym'], oblig: false, ok: !!txt('propDescription') });
       // Paso 7 · Precio
       add({ clave: 'precio', paso: 6, campo: 'propPrice', txt: 'Precio', hacer: 'Cargá el precio', ok: parseFloat(txt('propPrice')) > 0 });
+      const _mon = monedaPendiente();
+      add({ clave: 'moneda', paso: 6, campo: 'monedaAlerta', txt: 'Moneda del precio', det: _mon ? `${_mon.monto}: revisá la moneda` : '',
+            hacer: _mon ? `Revisá la moneda: ${_mon.monto}` : 'Revisá la moneda del precio', ok: !_mon });
       add({ clave: 'gastos', paso: 6, campo: 'propExpenses', txt: 'Gastos comunes', hacer: 'Cargá los gastos comunes (0 si no tiene)', ok: numOk('propExpenses') });
       // Paso 8 · Contacto: InfoCasas no publica sin un teléfono válido ni sin el
       // correo del agente (listing_contact es obligatorio en su API).
@@ -5711,6 +5853,9 @@
       f(vacio('propTitle'), 'propTitle', 5, 'Título');
       f(!(parseFloat(_v('propPrice')) > 0), 'propPrice', 6, 'Precio');
       f(numMal('propExpenses'), 'propExpenses', 6, 'Gastos comunes (0 si no tiene)');
+      // Un monto que no tiene sentido para su moneda no se publica sin confirmar.
+      const _mon = monedaPendiente();
+      if (_mon) f(true, 'propPrice', 6, `La moneda del precio: ${_mon.monto} ${_mon.txt.replace(/\. ¿/, ': ¿')} Cambiala o confirmala abajo del precio.`);
       return falta;
     }
     function marcarInvalido(id) { const el = document.getElementById(id); if (el) el.classList.add('pf-invalido'); }
@@ -5919,6 +6064,8 @@
         const pd = {
           title: document.getElementById('propTitle').value, departamento: dp, ciudad: cd, direccion: ubicacion.direccionVisible, ubicacion, location: `${cd}, ${dp}`,
           price: np, currency: document.getElementById('propCurrency').value,
+          // Un precio raro para su moneda que el agente confirmó (ej. alquiler en dólares).
+          precioConfirmado: precioConfirmadoParaGuardar(),
           // Moneda propia de los gastos comunes: la usan los tres portales.
           commonExpensesCurrency: _v('propExpensesCurrency') === 'USD' ? 'USD' : 'UYU', type: ty, propertyType: document.getElementById('propPropertyType').value, realEstateType: document.getElementById('propRealEstateType').value, clientId: formClientId || null,
           bedrooms: parseInt(document.getElementById('propBedrooms').value) || 0, bathrooms: parseInt(document.getElementById('propBathrooms').value) || 0,
