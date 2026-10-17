@@ -234,6 +234,7 @@
     .tas-corr-txt > b{ display:block; color:#16273f; font-size:1rem; margin-bottom:3px; }
     .tas-corr-txt > span{ display:block; font-size:.86rem; color:#5b5340; line-height:1.5; }
     .tas-corr-txt label{ display:block; font-size:.78rem; font-weight:600; color:#5b5340; margin:12px 0 5px; }
+    .tas-corr-priv{ display:block; font-size:.76rem; color:#8a7d5a; margin-top:6px; line-height:1.45; }
     .tas-corr-txt textarea{ width:100%; border:1px solid #e3d3a6; border-radius:9px; padding:9px 11px; font-family:inherit; font-size:.9rem; resize:vertical; background:#fff; color:#1d2733; }
     .tas-corr-salir{ font-size:.82rem; color:#6b5a2e; text-decoration:none; border:1px solid #e3d3a6; border-radius:999px; padding:7px 13px; white-space:nowrap; background:#fff; display:inline-flex; gap:7px; align-items:center; }
     .tas-corr-salir:hover{ border-color:#C9A227; color:#16273f; }
@@ -650,6 +651,15 @@
       renderTasAntecedentes(); calcTasador();
     }
 
+    // Los datos del informe que se guardan con la tasación. El teléfono y el email
+    // del cliente NO: el perfil del agente (donde viven sus tasaciones) se puede leer
+    // sin iniciar sesión, porque la web pública muestra su nombre, foto y WhatsApp.
+    // Van solo en el PDF.
+    function repParaGuardar() {
+      var r = getReportData();
+      delete r.repCliTel; delete r.repCliEmail;
+      return r;
+    }
     // Todo lo que se cargó, tal cual se escribió: viaja con la tasación enviada para
     // que la Dirección la pueda abrir en el tasador y corregirla.
     function entradaActual() {
@@ -661,7 +671,7 @@
         ant: tasAntecedentes.map(function(a){
           return { m2: t(a.m2), cons: t(a.cons), ubi: t(a.ubi), valor: t(a.valor), tipo: a.tipo === 'oferta' ? 'oferta' : 'venta', asim: Number(a.asim) || 1 };
         }),
-        rep: getReportData()
+        rep: repParaGuardar()
       };
     }
     // Lo que la Dirección mira para aprobar: cada antecedente con su precio, su m², sus
@@ -2299,6 +2309,7 @@
       box.innerHTML = '<div class="tas-corr-ic"><i class="fas fa-pen-ruler"></i></div>' +
         '<div class="tas-corr-txt"><b>Estás corrigiendo la tasación de ' + _mtEsc(corr.agente) + '</b>' +
           '<span>' + _mtEsc(que) + '. Cambiá lo que haga falta: al guardar le llega a ' + _mtEsc(_corrNombre()) + ' corregida y aprobada, con el PDF nuevo y la lista de lo que cambiaste.</span>' +
+          '<small class="tas-corr-priv">El teléfono y el email del cliente no se guardan con la tasación: si los querés en el PDF corregido, cargalos en los datos del informe.</small>' +
           '<label for="tasCorrNota">Nota para ' + _mtEsc(_corrNombre()) + ' (opcional)</label>' +
           '<textarea id="tasCorrNota" rows="2" maxlength="500" placeholder="Ej: la construcción es 2 y no 3: tiene humedades y las aberturas son originales."></textarea></div>' +
         '<a class="tas-corr-salir" href="admin.html#revisiones"><i class="fas fa-xmark"></i> Salir sin guardar</a>' +
@@ -2343,7 +2354,7 @@
       var rp0 = o.rep || {}, rp1 = ent.rep || {};
       [['repCliNombre', 'Cliente'], ['repInmDir', 'Dirección'], ['repInmPadron', 'Padrón'], ['repInmBarrio', 'Barrio'], ['repInmDepto', 'Departamento'],
        ['repInmTipo', 'Tipo de inmueble'], ['repInmUso', 'Uso'], ['repInmAntig', 'Antigüedad'], ['repInmEstado', 'Estado general'], ['repInmTerreno', 'Terreno'],
-       ['repInmFrente', 'Frente'], ['repInmFondo', 'Fondo'], ['repCliTel', 'Teléfono del cliente'], ['repCliEmail', 'Email del cliente'], ['repCliSolicitado', 'Solicitado por']]
+       ['repInmFrente', 'Frente'], ['repInmFondo', 'Fondo'], ['repCliSolicitado', 'Solicitado por']]
         .forEach(function(x){ dif(x[1], tx(rp0[x[0]]), tx(rp1[x[0]]), function(v){ return v; }); });
       return out;
     }

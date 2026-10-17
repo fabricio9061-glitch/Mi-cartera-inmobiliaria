@@ -7204,6 +7204,8 @@ exports.feedInfocasas = onRequest(async (req, res) => {
 // Corre lunes y jueves a las 10:00 (hora de Uruguay). Busca clientes activos
 // sin contacto hace RECORDATORIO_DIAS o más y le avisa a cada agente
 // (campanita + push FCM) cuántos tiene y quiénes son los más abandonados.
+// Las consultas de los portales que nadie respondió van en un aviso aparte
+// ("consultas sin responder"), que abre Clientes en la pestaña Consultas.
 // Cerrados, perdidos y archivados no cuentan. Los clientes sin agente
 // asignado (cargas viejas) se le avisan al admin.
 // Mantener RECORDATORIO_DIAS igual a SEGUIMIENTO.diasAviso de clientes.html.
@@ -7216,6 +7218,41 @@ const RECORDATORIO_DIAS = 14; // umbral por defecto para etapas sin regla propia
 // de la etapa. Nota: la excepción por visita futura agendada solo la aplica el
 // front (acá no cargamos la agenda para mantener el scheduler liviano).
 const UMBRAL_ETAPA = { nuevo: 1, contactado: 3, seguimiento: 3, visita: 5, negociacion: 5, tasacion: 5, cartera: 15 };
+
+// Consultas de los portales — espejo de estadoConsulta() de clientes.html.
+// Las que entran solas (InfoCasas y los demás portales) esperan en la pestaña
+// Consultas hasta que el agente decide: no son "clientes sin contacto". Tienen
+// su propio aviso, "consultas sin responder", que lleva directo a esa pestaña.
+// Mantener estas listas iguales a las de clientes.html.
+const CQ_PORTALES = ["infocasas", "mercadolibre", "ml", "casasymas", "cym", "portal", "web", "lead"];
+const CQ_AUTORES_SISTEMA = ["InfoCasas", "Mercado Libre", "Casas y Más", "Portal", "Sistema"];
+const CQ_ETAPAS_DE_CLIENTE = ["visita", "negociacion", "cartera", "cerrado"];
+// Las recién llegadas ya tuvieron su aviso al entrar: el recordatorio es para
+// las que quedaron esperando.
+const CQ_HORAS_AVISO = 6;
+function cqEntradaDeSistema(h) { return !!(h && (h.leadClave || CQ_AUTORES_SISTEMA.includes(h.autor))); }
+// null: no es una consulta. "cliente": ya pasó a Clientes. "pendiente": nadie le
+// respondió después de su última consulta. "contacto" o "descartada".
+function estadoConsultaSrv(c, a) {
+  if (!CQ_PORTALES.includes(String(c.source || "").toLowerCase())) return null;
+  if (c.pasadoAClientes) return "cliente";
+  let rs;
+  if (a && a.total) rs = a.activas ? a.estado : (a.cerradas ? "cerrado" : (a.externas ? "externo" : (a.perdidas ? "perdido" : "nuevo")));
+  else rs = c.etapa || "nuevo";
+  if (CQ_ETAPAS_DE_CLIENTE.includes(rs)) return "cliente";
+  const humano = [c.contactadoAt || "", c.lastNoteAt || "", c.ultimoContacto || "", (a && a.humanoTs) || "",
+    c.pausadoEn || "", c.etapaAt || "", (c.descartada && c.descartada.at) || ""].sort().pop();
+  const lead = (a && a.leadTs) || "";
+  const volvio = !!(humano && lead && lead > humano);   // volvió a consultar después
+  if ((c.descartada || c.archived || rs === "perdido" || rs === "externo") && !volvio) return "descartada";
+  if (humano) return volvio ? "pendiente" : "contacto";
+  return (c.etapa || c.situacion === "pausa" || !["nuevo", "singestion", "sinavance"].includes(rs)) ? "contacto" : "pendiente";
+}
+function cqHaceCuanto(horas) {
+  if (horas < 24) return `hace ${Math.max(1, Math.round(horas))} h`;
+  const d = Math.floor(horas / 24);
+  return d === 1 ? "ayer" : `hace ${d} días`;
+}
 
 exports.recordatorioSeguimiento = onSchedule(
   { schedule: "0 10 * * 1,4", timeZone: "America/Montevideo" },
@@ -7240,14 +7277,28 @@ exports.recordatorioSeguimiento = onSchedule(
     gestSnap.docs.forEach((d) => {
       const g = d.data();
       if (!g.clientId) return;
-      const a = agg[g.clientId] || (agg[g.clientId] = { total: 0, activas: 0, estado: null, prio: -1, ts: "" });
+      const a = agg[g.clientId] || (agg[g.clientId] = { total: 0, activas: 0, estado: null, prio: -1, ts: "",
+        cerradas: 0, perdidas: 0, externas: 0, leadTs: "", humanoTs: "" });
       a.total++;
       const ts = g.updatedAt || g.createdAt || "";
       if (ts > a.ts) a.ts = ts;
+      // Del historial: cuándo consultó por última vez por un portal y cuándo hizo
+      // algo una persona (lo que anota el sistema no cuenta como contacto).
+      (g.historial || []).forEach((h) => {
+        if (!h || !h.fecha) return;
+        if (cqEntradaDeSistema(h)) {
+          if ((h.leadClave || /^Consulta desde /.test(h.valor || "")) && h.fecha > a.leadTs) a.leadTs = h.fecha;
+        } else if (h.fecha > a.humanoTs) a.humanoTs = h.fecha;
+      });
       let e = g.estadoGestion || "nuevo";
       if (g.propertyId && rolGestionInferido(g, clientePorId[g.clientId]) === "propietario" &&
           PRIORIDAD.indexOf(e) >= 0 && PRIORIDAD.indexOf(e) < PRIORIDAD.indexOf("cartera")) e = "cartera";
-      if (TERMINALES.includes(e)) return;
+      if (TERMINALES.includes(e)) {
+        if (e === "cerrado") a.cerradas++;
+        else if (e === "externo") a.externas++;
+        else if (e === "perdido") a.perdidas++;
+        return;
+      }
       a.activas++;
       const p = PRIORIDAD.indexOf(e);
       if (p > a.prio) { a.prio = p; a.estado = e; }
@@ -7255,10 +7306,37 @@ exports.recordatorioSeguimiento = onSchedule(
 
     const ahora = Date.now();
     const porAgente = {}; // uid -> [{ name, dias }]
+    const consultasPorAgente = {}; // uid -> [{ name, horas }]
+    // Un cliente puede estar en la cartera de VARIOS agentes: además del que lo
+    // creó, los que se lo sumaron a su lista (campo 'enLista', que es donde el
+    // CRM guarda los compartidos — ver esMio() en clientes.html).
+    // Antes esto se quedaba con uno solo por cadena de respaldos, así que el
+    // segundo agente nunca se enteraba de que su cliente estaba frío.
+    const destinatariosDe = (c) => {
+      const s = new Set();
+      const dueno = c.createdBy || c.agentId || c.ownerId;
+      if (dueno) s.add(dueno);
+      if (Array.isArray(c.enLista)) c.enLista.forEach((x) => { if (x && x.uid) s.add(x.uid); });
+      if (!s.size) s.add("__sin_agente__");
+      return s;
+    };
     cliSnap.docs.forEach((d) => {
       const c = d.data();
-      if (c.archived) return;
       const a = agg[d.id];
+      // Consultas de los portales que todavía no pasaron a Clientes: van en su
+      // propio aviso (solo las que nadie respondió) y no en el de seguimiento.
+      const ec = estadoConsultaSrv(c, a);
+      if (ec && ec !== "cliente") {
+        if (ec !== "pendiente") return;
+        const t = new Date((a && a.leadTs) || c.createdAt || "").getTime();
+        const horas = isNaN(t) ? 0 : (ahora - t) / 3600000;
+        if (horas < CQ_HORAS_AVISO) return;
+        destinatariosDe(c).forEach((uid) => {
+          (consultasPorAgente[uid] = consultasPorAgente[uid] || []).push({ name: c.name || "Sin nombre", horas });
+        });
+        return;
+      }
+      if (c.archived) return;
       let estado;
       if (a && a.total) {
         if (!a.activas) return; // todas las gestiones cerradas/perdidas: nada para recordar
@@ -7284,19 +7362,7 @@ exports.recordatorioSeguimiento = onSchedule(
       const dias = isNaN(t) ? 9999 : Math.floor((ahora - t) / 86400000);
       const umbral = UMBRAL_ETAPA[estado] != null ? UMBRAL_ETAPA[estado] : RECORDATORIO_DIAS;
       if (dias < umbral) return;
-      // Un cliente puede estar en la cartera de VARIOS agentes: además del que lo
-      // creó, los que se lo sumaron a su lista (campo 'enLista', que es donde el
-      // CRM guarda los compartidos — ver esMio() en clientes.html).
-      // Antes esta línea se quedaba con uno solo por cadena de respaldos, así que
-      // el segundo agente nunca se enteraba de que su cliente estaba frío.
-      const destinatarios = new Set();
-      const dueno = c.createdBy || c.agentId || c.ownerId;
-      if (dueno) destinatarios.add(dueno);
-      if (Array.isArray(c.enLista)) {
-        c.enLista.forEach((x) => { if (x && x.uid) destinatarios.add(x.uid); });
-      }
-      if (!destinatarios.size) destinatarios.add("__sin_agente__");
-      destinatarios.forEach((uid) => {
+      destinatariosDe(c).forEach((uid) => {
         (porAgente[uid] = porAgente[uid] || []).push({ name: c.name || "Sin nombre", dias });
       });
     });
@@ -7344,6 +7410,41 @@ exports.recordatorioSeguimiento = onSchedule(
         { title: "📋 Clientes para recontactar", body: texto }
       );
       logger.info(`[recordatorioSeguimiento] aviso a ${uid}: ${lista.length} cliente(s) sin contacto.`);
+    }
+
+    // Consultas sin responder: aviso aparte, la que más espera primero. Lleva
+    // directo a la pestaña Consultas.
+    for (const uid of Object.keys(consultasPorAgente)) {
+      const lista = consultasPorAgente[uid].sort((a, b) => b.horas - a.horas);
+      if (uid === "__sin_agente__") {
+        logger.warn(`[recordatorioSeguimiento] ${lista.length} consulta(s) sin responder SIN AGENTE: ${lista.map((x) => x.name).join(", ")}`);
+        continue;
+      }
+      let destino = null;
+      try {
+        const uDoc = await db.doc(`users/${uid}`).get();
+        if (uDoc.exists) destino = { uid: uDoc.id, fcmToken: uDoc.data().fcmToken };
+      } catch (e) { /* sin perfil */ }
+      if (!destino) {
+        logger.warn(`[recordatorioSeguimiento] agente ${uid} sin perfil; ${lista.length} consulta(s) sin avisar.`);
+        continue;
+      }
+      const nombres = lista.slice(0, 3).map((x) => x.name).join(", ");
+      const extra = lista.length > 3 ? ` y ${lista.length - 3} más` : "";
+      const texto = lista.length === 1
+        ? `${nombres} consultó ${cqHaceCuanto(lista[0].horas)} y todavía no tiene respuesta. Escribile desde Clientes › Consultas.`
+        : `${lista.length} consultas de los portales esperan respuesta: ${nombres}${extra}. Respondelas desde Clientes › Consultas.`;
+      await crearNotificacion(
+        destino,
+        {
+          type: "crm_consultas", userName: "Consultas", userPhoto: null, text: texto,
+          clientes: lista.slice(0, 6).map((x) => x.name),
+          cuantos: lista.length,
+          url: "clientes.html?vista=consultas",
+        },
+        { title: "📥 Consultas sin responder", body: texto }
+      );
+      logger.info(`[recordatorioSeguimiento] aviso a ${uid}: ${lista.length} consulta(s) sin responder.`);
     }
   }
 );

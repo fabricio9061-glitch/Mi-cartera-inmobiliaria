@@ -129,7 +129,7 @@
     'vencimiento_alquiler', 'ficha_incompleta', 'despublicar_confirmar', 'baja_resuelta', 'propiedad_reservada',
     'destacado_vencido', 'portal_publicada', 'portal_sin_cupo', 'portal_error', 'ml_error', 'refresh_token',
     'authorization_code', 'retiro', 'retiro_estado', 'admin_pendiente', 'postulacion', 'revision_rechazada', 'info',
-    'cierre_pendiente', 'revision_aprobada', 'revision_corregida']);
+    'cierre_pendiente', 'revision_aprobada', 'revision_corregida', 'crm_consultas']);
   function pushEnPrimerPlano(p) {
     const d = (p && p.datos) || {};
     // Si es un aviso de la campanita y el listener en vivo anda, el toast lo pone
@@ -260,6 +260,14 @@
     };
     try { localStorage.setItem(MV_SESION_KEY, JSON.stringify(s)); } catch (e) { }
     _sesionPrevia = s;
+  }
+  // Clientes guarda en el equipo una copia de la lista para abrir al instante.
+  // Al cerrar sesión se borra: no quedan datos de clientes en un equipo sin usuario.
+  function borrarCopiaClientes() {
+    try {
+      const pid = firebase.app().options.projectId;
+      if (pid && window.indexedDB) indexedDB.deleteDatabase('firestore/[DEFAULT]/' + pid + '/main');
+    } catch (e) { }
   }
   function borrarSesionRecordada() {
     try { localStorage.removeItem(MV_SESION_KEY); } catch (e) { }
@@ -1436,6 +1444,22 @@
         Object.assign(m, { fam: 'clientes', ic: 'fa-circle-pause', col: 'azul', titulo: 'Clientes en pausa para revisar', txt: n.text || '' });
         m.ir = { a: 'url', url: 'clientes.html' };
         break;
+      case 'crm_consultas': {
+        // Consultas de los portales que nadie respondió (aviso de los lunes y
+        // jueves): lleva directo a la pestaña Consultas de Clientes.
+        const nombres = Array.isArray(n.clientes) ? n.clientes : [];
+        const cuantos = Number(n.cuantos) || nombres.length;
+        Object.assign(m, { fam: 'consultas', ic: 'fa-inbox', col: 'rojo' });
+        m.titulo = cuantos === 1 && nombres[0] ? nombres[0] : cuantos > 1 ? `${cuantos} consultas sin responder` : 'Consultas sin responder';
+        m.ctx = cuantos > 1 && nombres.length
+          ? nombres.slice(0, 3).join(' · ') + (cuantos > 3 ? ` y ${cuantos - 3} más` : '')
+          : (cuantos === 1 ? 'Consulta sin responder' : '');
+        if (!nombres.length || cuantos === 1) m.txt = n.text || '';
+        m.boton = { txt: cuantos > 1 ? 'Responderlas' : 'Responder', ic: 'fa-arrow-right' };
+        m.ir = { a: 'url', url: 'clientes.html?vista=consultas' };
+        m.toastTitulo = 'Consultas sin responder';
+        break;
+      }
       case 'vencimiento_alquiler': {
         const t = String(n.text || '');
         const x = t.match(/(vence en \d+ días?|ya venció) \(fin de contrato ([\d-]+)\)/i);
@@ -3064,6 +3088,7 @@
       if (visitReminderInterval) clearInterval(visitReminderInterval);
       const _nb = document.getElementById('notifBanner'); if (_nb) _nb.style.display = 'none';
       borrarSesionRecordada();
+      if (habiaSesion) borrarCopiaClientes();
       updateUI();
       if (habiaSesion) alCambiarSesion();
     }
@@ -6537,6 +6562,7 @@
     vencimiento_alquiler:  { urgencia:1, icono:'fa-calendar-xmark', accion:'Ver', ir:n => n.propertyId && openPropertyTab(n.propertyId) },
     crm_seguimiento:       { urgencia:2, icono:'fa-address-book', accion:'Ver', ir:() => location.href='clientes.html' },
     crm_pausa:             { urgencia:2, icono:'fa-circle-pause', accion:'Ver', ir:() => location.href='clientes.html' },
+    crm_consultas:         { urgencia:1, icono:'fa-inbox', accion:'Responder', ir:() => location.href='clientes.html?vista=consultas' },
     baja_resuelta:         { urgencia:2, icono:'fa-circle-check', accion:'Ver', ir:() => abrirCampana() },
     retiro_estado:         { urgencia:2, icono:'fa-receipt', accion:'Ver', ir:() => location.href='retiros-admin.html' }
   };

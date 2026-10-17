@@ -765,6 +765,169 @@
       .crm-recall button{ padding:8px 11px; }
       .client-card{ padding:13px 13px 13px 14px; }
     }
+    /* ===== Pestañas: Clientes / Consultas =====
+       Las consultas de los portales entran solas y ya no se mezclan con los
+       clientes cargados a mano: esperan en su pestaña hasta que el agente decide. */
+    .crm-tabs{ display:flex; gap:4px; border-bottom:1px solid var(--gray-200); margin:-4px 0 16px; }
+    .crm-tab{ position:relative; display:inline-flex; align-items:center; gap:9px; border:none; background:none; font-family:inherit;
+      font-size:1rem; font-weight:600; color:var(--gray-500); padding:11px 14px 13px; cursor:pointer; border-radius:10px 10px 0 0;
+      transition:color .15s, background .15s; }
+    @media (hover:hover){ .crm-tab:hover{ color:var(--navy); background:rgba(22,39,63,.035); } }
+    .crm-tab:focus-visible{ outline:2px solid var(--gold-2); outline-offset:-2px; }
+    .crm-tab > i{ font-size:.9rem; opacity:.75; }
+    .crm-tab.on{ color:var(--navy); }
+    .crm-tab.on::after{ content:''; position:absolute; left:10px; right:10px; bottom:-1px; height:3px; border-radius:3px 3px 0 0; background:var(--gold-2); }
+    .crm-tab-n{ font-size:.72rem; font-weight:700; color:var(--gray-500); background:var(--gray-100); border-radius:99px; padding:2px 8px; min-width:24px; text-align:center; }
+    .crm-tab.on .crm-tab-n{ background:var(--navy); color:#fff; }
+    .crm-tab-alerta{ font-size:.72rem; font-weight:700; color:#b91c1c; background:#fee2e2; border-radius:99px; padding:3px 9px; white-space:nowrap; }
+    .crm-tab-alerta[hidden]{ display:none; }
+
+    /* ===== Números arriba, en una tira: cada uno filtra la lista =====
+       Antes eran cuatro tarjetas grandes más dos carteles (recontactar y pausa):
+       en el celular ocupaban una pantalla entera antes del primer cliente. */
+    .crm-kpis{ display:flex; background:#fff; border:1px solid var(--gray-200); border-radius:14px; margin-bottom:12px;
+      overflow:hidden; box-shadow:0 1px 3px rgba(16,39,63,.04); }
+    .crm-kpi{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:2px; border:none;
+      border-left:1px solid var(--gray-100); background:none; font-family:inherit; text-align:left; padding:11px 18px 12px;
+      cursor:pointer; transition:background .15s; }
+    .crm-kpi:first-child{ border-left:none; }
+    @media (hover:hover){ .crm-kpi:not(.on):hover{ background:var(--gray-50); } }
+    .crm-kpi:focus-visible{ outline:2px solid var(--gold-2); outline-offset:-2px; }
+    .crm-kpi b{ font-family:'Cormorant Garamond',serif; font-size:28px; line-height:1; font-weight:700; color:var(--navy); }
+    .crm-kpi span{ font-size:.78rem; color:var(--gray-500); font-weight:500; white-space:nowrap; }
+    .crm-kpi em{ font-style:normal; font-size:.7rem; font-weight:600; color:#1d4ed8; white-space:nowrap; }
+    .crm-kpi.alerta b{ color:#b45309; }
+    .crm-kpi.urgente b{ color:#b91c1c; }
+    .crm-kpi.verde b{ color:#15803d; }
+    .crm-kpi.apagado b{ color:var(--gray-300); }
+    .crm-kpi.on{ background:var(--navy); }
+    .crm-kpi.on b, .crm-kpi.on span, .crm-kpi.on em{ color:#fff; }
+    .crm-kpi-sk{ pointer-events:none; }
+    .crm-kpi-sk i{ display:block; border-radius:6px; background:linear-gradient(90deg,#eef0f3 25%,#f7f8fa 50%,#eef0f3 75%);
+      background-size:200% 100%; animation:crmSkel 1.3s ease-in-out infinite; }
+    .crm-kpi-sk i:first-child{ width:34px; height:24px; margin-bottom:6px; }
+    .crm-kpi-sk i:last-child{ width:72px; height:10px; }
+
+    /* Resultado: "+N este mes", "actualizando" y la pista de la otra pestaña */
+    .crm-mes{ border:none; background:none; font-family:inherit; font-size:.82rem; font-weight:600; color:var(--success);
+      cursor:pointer; padding:3px 6px; border-radius:7px; }
+    .crm-mes:hover{ background:#ecfdf3; }
+    .crm-sync{ display:inline-flex; align-items:center; gap:6px; font-size:.76rem; color:var(--gray-400); }
+    .crm-sync.off{ color:#b45309; font-weight:600; }
+    .crm-otra{ border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; font-family:inherit; font-size:.86rem; font-weight:600;
+      cursor:pointer; padding:9px 14px; border-radius:10px; margin-top:14px; display:inline-flex; align-items:center; gap:8px; }
+    .crm-otra:hover{ background:#dbeafe; }
+    .crm-mas-tarjetas{ grid-column:1/-1; height:1px; }
+
+    /* ===== Tarjeta de consulta ===== */
+    #crmGrid.cq-modo{ grid-template-columns:repeat(auto-fill,minmax(min(430px,100%),1fr)); }
+    .cq-card{ background:#fff; border:1px solid var(--gray-200); border-left:3px solid #10b981; border-radius:14px;
+      padding:13px 16px 12px; display:flex; flex-direction:column; gap:10px; cursor:pointer; min-width:0;
+      transition:box-shadow .15s, transform .15s; }
+    @media (hover:hover){ .cq-card:hover{ box-shadow:0 10px 26px rgba(16,39,63,.09); transform:translateY(-2px); } }
+    .cq-card:focus-visible{ outline:2px solid var(--gold-2); outline-offset:2px; }
+    .cq-card.u-nueva{ border-left-color:#2563eb; }
+    .cq-card.u-hoy{ border-left-color:#f59e0b; }
+    .cq-card.u-vieja{ border-left-color:#dc2626; }
+    .cq-card.descartada{ border-left-color:#cbd5e1; }
+    .cq-card.descartada .cq-quien h3, .cq-card.descartada .cq-msg{ color:var(--gray-500); }
+    .cq-estado{ display:flex; align-items:center; gap:8px; font-size:.78rem; font-weight:600; color:#047857; min-width:0; }
+    .cq-estado > span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cq-estado .pto{ width:8px; height:8px; border-radius:50%; background:currentColor; flex:none; }
+    .u-nueva .cq-estado{ color:#1d4ed8; }
+    .u-hoy .cq-estado{ color:#b45309; }
+    .u-vieja .cq-estado{ color:#b91c1c; }
+    .descartada .cq-estado{ color:var(--gray-500); }
+    .cq-portal{ margin-left:auto; flex:none; font-style:normal; font-size:.72rem; font-weight:600; color:#475569; background:#f1f5f9;
+      border-radius:99px; padding:3px 9px; white-space:nowrap; }
+    .cq-quien{ display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:6px; align-items:start; }
+    .cq-quien h3{ font-family:'Inter',sans-serif; font-size:1.02rem; font-weight:600; color:var(--navy); margin:0;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cq-quien .cc-ico{ margin:-4px -8px 0 0; }
+    .cq-tel{ font-size:.82rem; color:var(--gray-600); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cq-tel span{ color:var(--gray-400); }
+    .cq-prop{ display:flex; gap:11px; align-items:center; background:var(--gray-50); border:1px solid var(--gray-100); border-radius:11px;
+      padding:7px; min-width:0; }
+    .cq-prop img{ width:54px; height:42px; border-radius:8px; object-fit:cover; flex:none; background:var(--gray-100); }
+    .cq-prop > div{ min-width:0; display:flex; flex-direction:column; }
+    .cq-prop b{ font-size:.84rem; font-weight:600; color:var(--navy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cq-prop span{ font-size:.75rem; color:var(--gray-500); }
+    .cq-prop.sin{ font-size:.8rem; color:var(--gray-500); padding:9px 12px; gap:8px; }
+    .cq-prop.sin i{ color:var(--gray-400); }
+    .cq-msg{ margin:0; font-size:.86rem; color:#3a4150; line-height:1.45; display:-webkit-box; -webkit-line-clamp:2;
+      -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
+    .cq-msg::before{ content:'“'; } .cq-msg::after{ content:'”'; }
+    .cq-acc{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding-top:10px; border-top:1px solid var(--gray-100); margin-top:auto; }
+    .cq-b{ display:inline-flex; align-items:center; justify-content:center; gap:7px; border:1px solid var(--gray-200); background:#fff;
+      color:var(--navy); border-radius:10px; padding:8px 12px; font-family:inherit; font-size:.82rem; font-weight:600; cursor:pointer;
+      text-decoration:none; white-space:nowrap; min-height:38px; transition:background .15s, border-color .15s, color .15s; }
+    @media (hover:hover){
+      .cq-b:hover{ border-color:var(--gray-300); background:var(--gray-50); }
+      .cq-b.wa:hover{ background:#12833c; border-color:#12833c; }
+      .cq-b.ok:hover{ background:var(--navy); color:#fff; }
+      .cq-b.no:hover{ color:#b91c1c; background:#fef2f2; }
+    }
+    .cq-b:focus-visible{ outline:2px solid var(--gold-2); outline-offset:1px; }
+    .cq-b.wa{ background:#16a34a; border-color:#16a34a; color:#fff; }
+    .cq-b.ok{ margin-left:auto; border-color:var(--navy); }
+    .cq-b.no{ border-color:transparent; background:none; color:var(--gray-500); }
+    .cq-b[disabled]{ opacity:.55; pointer-events:none; }
+    @media (max-width:560px){
+      .cq-card{ padding:13px 13px 12px 14px; }
+      .cq-acc .cq-b{ flex:1 1 calc(50% - 4px); }
+      .cq-b.ok{ margin-left:0; }
+      .cq-b.no{ border-color:var(--gray-200); }
+    }
+
+    /* La consulta, en la ficha del cliente */
+    .cp-consulta{ display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:12px 16px; align-items:center; background:#fff;
+      border:1px solid var(--gray-200); border-left:4px solid #10b981; border-radius:14px; padding:14px 16px; margin-bottom:18px; }
+    .cp-consulta[hidden]{ display:none; }
+    .cp-consulta.pendiente{ border-left-color:#dc2626; }
+    .cp-consulta.descartada{ border-left-color:#cbd5e1; }
+    .cp-cq-ic{ width:40px; height:40px; border-radius:11px; display:grid; place-items:center; background:#eff6ff; color:#1d4ed8; flex:none; }
+    .cp-consulta.descartada .cp-cq-ic{ background:var(--gray-100); color:var(--gray-500); }
+    .cp-cq-txt{ min-width:0; }
+    .cp-cq-txt b{ display:block; color:var(--navy); font-size:.95rem; }
+    .cp-cq-txt span{ display:block; font-size:.84rem; color:var(--gray-500); margin-top:2px; }
+    .cp-cq-txt q{ display:block; font-size:.88rem; color:#3a4150; margin-top:6px; line-height:1.45; overflow-wrap:anywhere; }
+    .cp-cq-acc{ display:flex; gap:8px; flex-wrap:wrap; }
+    .cp-cq-acc .cq-b.ok{ margin-left:0; }
+    @media (max-width:640px){
+      .cp-consulta{ grid-template-columns:auto minmax(0,1fr); }
+      .cp-cq-acc{ grid-column:1/-1; }
+      .cp-cq-acc .cq-b{ flex:1; }
+    }
+
+    /* En la tarjeta del cliente: de qué portal vino y si volvió a consultar */
+    .cc-meta .cc-origen{ color:#475569; font-weight:600; }
+    .cc-meta .cc-origen > i{ color:#64748b; }
+    .cc-pulso.consulta{ background:#eff6ff; color:#1d4ed8; }
+
+    /* Aviso con botón (Deshacer) */
+    .toast.show{ pointer-events:auto; }
+    .toast-acc{ flex:none; margin-left:6px; border:1px solid rgba(255,255,255,.35); background:transparent; color:#fff; font-family:inherit;
+      font-size:.84rem; font-weight:600; border-radius:8px; padding:6px 11px; cursor:pointer; }
+    .toast-acc:hover{ background:rgba(255,255,255,.12); }
+    .toast-acc[hidden]{ display:none; }
+
+    .crf-grid.cinco{ grid-template-columns:repeat(5,minmax(0,1fr)); }
+    @media (max-width:900px){ .crf-grid.cinco{ grid-template-columns:repeat(3,minmax(0,1fr)); } }
+    @media (max-width:768px){ .crf-grid.cinco{ grid-template-columns:1fr 1fr; } }
+
+    @media (max-width:560px){
+      .crm-tabs{ gap:0; margin-top:-6px; }
+      .crm-tab{ flex:1 1 0; justify-content:center; padding:10px 4px 12px; font-size:.95rem; gap:7px; }
+      .crm-tab > i{ display:none; }
+      .crm-tab-alerta .largo{ display:none; }
+      .crm-tab.con-alerta .crm-tab-n{ display:none; }
+      .crm-kpis{ overflow-x:auto; scroll-snap-type:x proximity; scrollbar-width:none; }
+      .crm-kpis::-webkit-scrollbar{ display:none; }
+      .crm-kpi{ flex:1 0 auto; min-width:96px; padding:9px 12px 10px; scroll-snap-align:start; }
+      .crm-kpi b{ font-size:24px; }
+      .crm-kpi span{ font-size:.74rem; }
+    }
+    .cc-menu-tit{ font-size:.76rem; font-weight:600; color:var(--gray-500); padding:6px 11px 4px; }
   </style>
 <style>
   /* Área segura superior (isla dinámica / notch) en toda la herramienta */
@@ -839,7 +1002,12 @@
         <button class="btn-new" onclick="openClientModal()"><i class="fas fa-plus"></i><span class="solo-pc">Nuevo cliente</span><span class="solo-cel">Nuevo</span></button>
       </div>
 
-      <div class="crm-stats" id="crmStats"></div>
+      <div class="crm-tabs" id="crmTabs" role="tablist" aria-label="Clientes y consultas">
+        <button type="button" class="crm-tab on" id="tabClientes" role="tab" aria-selected="true" onclick="setVista('clientes')"><i class="fas fa-user-group"></i> Clientes <b class="crm-tab-n" id="tabClientesN"></b></button>
+        <button type="button" class="crm-tab" id="tabConsultas" role="tab" aria-selected="false" onclick="setVista('consultas')"><i class="fas fa-inbox"></i> Consultas <b class="crm-tab-n" id="tabConsultasN"></b><span class="crm-tab-alerta" id="tabConsultasAlerta" hidden></span></button>
+      </div>
+
+      <div class="crm-kpis" id="crmStats"></div>
 
       <div class="crm-toolbar">
         <div class="crm-search"><i class="fas fa-search"></i><input type="text" id="clientSearch" placeholder="Buscar por nombre, teléfono o @agente..." oninput="buscarDiferido()" autocomplete="off" enterkeyhint="search"><button type="button" class="crm-search-x" id="clientSearchX" onclick="limpiarBusqueda()" title="Borrar la búsqueda" aria-label="Borrar la búsqueda" hidden><i class="fas fa-xmark"></i></button></div>
@@ -850,7 +1018,7 @@
       <!-- Filtros: plegados. El buscador es lo que se usa siempre; esto, a veces.
            Lo que esté puesto se ve igual abajo, en los chips del resultado. -->
       <div class="crm-filtros" id="crmFiltros" style="display:none">
-        <div class="crf-grid">
+        <div class="crf-grid cinco">
           <label class="crf"><span>Etapa</span>
             <select id="clientStatusFilter" onchange="statFilter='all';renderClients()">
               <option value="">Todas</option>
@@ -879,6 +1047,13 @@
               <option value="active">Activos</option>
               <option value="archived">Archivados</option>
               <option value="all">Todos</option>
+            </select>
+          </label>
+          <label class="crf"><span>Origen</span>
+            <select id="clientOrigenFilter" onchange="renderClients()">
+              <option value="">Todos</option>
+              <option value="mano">Cargados a mano</option>
+              <option value="consulta">Llegaron por consultas</option>
             </select>
           </label>
         </div>
@@ -965,6 +1140,7 @@
       </div>
     </div>
     <div class="wrap cp-body">
+      <div class="cp-consulta" id="cpConsulta" hidden></div>
       <div class="cp-grid">
         <div class="cp-col">
           <div class="cp-card" id="cpDatosCard" style="display:none">
@@ -1084,7 +1260,7 @@
     </div>
   </div>
 
-  <div class="toast" id="toast"><i class="fas fa-circle-check"></i><span id="toastMsg"></span></div>
+  <div class="toast" id="toast"><i class="fas fa-circle-check"></i><span id="toastMsg"></span><button type="button" class="toast-acc" id="toastAcc" onclick="accionToast()" hidden></button></div>
 
   <!-- Modal historial -->
   <div class="modal" id="historialModal">
@@ -1106,6 +1282,26 @@
     firebase.initializeApp(firebaseConfig);
     var auth = firebase.auth();
     var db = firebase.firestore();
+    // Copia local: la segunda vez que se entra a Clientes, la lista aparece al
+    // instante con lo guardado en este equipo y se pone al día sola cuando llega
+    // lo del servidor. Se activa con la sesión (antes de la primera lectura) y,
+    // sin sesión, se borra: no quedan datos de clientes en un equipo sin usuario.
+    // Si el navegador no lo permite (otra pestaña la tiene, modo privado), la
+    // página funciona igual que antes.
+    var _pCache = null, CACHE_IDB = '';
+    try { CACHE_IDB = 'firestore/[DEFAULT]/' + firebase.app().options.projectId + '/main'; } catch(e){}
+    function activarCache(){
+      if (_pCache) return _pCache;
+      _pCache = Promise.resolve(false);
+      try {
+        if (db.enablePersistence) _pCache = db.enablePersistence().then(function(){ return true; })
+          .catch(function(e){ console.info('Clientes sin copia local:', (e && e.code) || e); return false; });
+      } catch(e){}
+      return _pCache;
+    }
+    function borrarCache(){
+      try { if (!_pCache && CACHE_IDB && window.indexedDB) indexedDB.deleteDatabase(CACHE_IDB); } catch(e){}
+    }
 
     var CLIENT_STATUS = { nuevo:'Nuevo', contactado:'Contactado', seguimiento:'En seguimiento', visita:'Visita agendada', negociacion:'En negociación', cerrado:'Cerrado', perdido:'Perdido' };
     var INTEREST_LABELS = { comprar:'<i class="fas fa-key"></i> Quiere comprar', alquilar:'<i class="fas fa-home"></i> Busca alquilar', vender:'<i class="fas fa-tag"></i> Quiere vender' };
@@ -1117,6 +1313,7 @@
     var clients = [];
     var misClientesOnly = true;
     var statFilter = 'all'; // filtro rápido por tarjeta de stat: all | nuevo | proceso | cerrado | atencion (banner de recontacto)
+    var _nuevosMes = 0;     // altas de este mes (van al lado del total)
 
     // Seguimiento: umbrales en días (ajustar acá si se quieren otros plazos).
     var SEGUIMIENTO = {
@@ -1245,13 +1442,22 @@
     // Aviso corto. Acepta un segundo texto con el detalle: varias partes ya lo
     // pasaban (ej. "Propietario perdido" + qué pasa ahora), pero la función lo
     // ignoraba y el detalle nunca se veía. Un aviso nuevo reemplaza al anterior.
-    var _toastT = null;
-    function showToast(msg, detalle){
+    var _toastT = null, _toastFn = null;
+    // accion (opcional): { txt, fn } — un botón en el aviso, por ejemplo "Deshacer".
+    function showToast(msg, detalle, accion){
       var t = document.getElementById('toast');
       document.getElementById('toastMsg').innerHTML = detalle ? '<b>'+esc(msg)+'</b><small>'+esc(detalle)+'</small>' : esc(msg);
+      _toastFn = (accion && typeof accion.fn === 'function') ? accion.fn : null;
+      var b = document.getElementById('toastAcc');
+      if (b){ b.hidden = !_toastFn; b.textContent = _toastFn ? (accion.txt || 'Deshacer') : ''; }
       t.classList.add('show');
       clearTimeout(_toastT);
-      _toastT = setTimeout(function(){ t.classList.remove('show'); }, detalle ? 5200 : 3200);
+      _toastT = setTimeout(function(){ t.classList.remove('show'); _toastFn = null; }, _toastFn ? 6500 : (detalle ? 5200 : 3200));
+    }
+    function accionToast(){
+      var fn = _toastFn; _toastFn = null;
+      clearTimeout(_toastT); document.getElementById('toast').classList.remove('show');
+      if (fn) fn();
     }
     function normalizePhone(raw){ var d=String(raw||'').replace(/[^\d+]/g,''); if(d.startsWith('+'))d=d.slice(1); if(d.startsWith('598'))d=d.slice(3); d=d.replace(/^0+/,''); return d?'+598'+d:''; }
 
@@ -1268,7 +1474,12 @@
                 : rest.replace(/(\d{2})(?=\d)/g,'$1 ').trim();
         return '+598 ' + grp;
       }
-      return (plus?'+':'') + d.replace(/(\d{3})(?=\d)/g,'$1 ').trim();
+      if (plus){
+        // Código de país: 1 cifra (1, 7), 3 cifras (los de esta lista) o 2.
+        var cc = /^[17]/.test(d) ? 1 : /^(2[1-689]|3[578]|42|5[09]|6[789]|8[578]|9[679])/.test(d) ? 3 : 2;
+        return '+' + d.slice(0, cc) + ' ' + d.slice(cc).replace(/(\d{3})(?=\d)/g,'$1 ').trim();
+      }
+      return d.replace(/(\d{3})(?=\d)/g,'$1 ').trim();
     }
 
     // Tiempo relativo en español ("hace 2 días")
@@ -1323,6 +1534,7 @@
     // ===== Auth =====
     auth.onAuthStateChanged(function(user){
       if (!user){
+        borrarCache();
         document.getElementById('cLoading').style.display='none';
         document.getElementById('cContent').style.display='none';
         document.getElementById('cAuth').style.display='flex';
@@ -1331,6 +1543,7 @@
       currentUser = user;
       isAdmin = (user.email||'').toLowerCase() === ADMIN_EMAIL;
       esDir = isAdmin;
+      activarCache();
       loadVisits();
       // Cargar perfil del usuario (para createdByName)
       db.collection('users').doc(user.uid).get().then(function(d){
@@ -1356,47 +1569,88 @@
     // Se leen clientes, gestiones y propiedades una sola vez. Las propiedades
     // quedan guardadas para el perfil: antes, cada vez que se abría un cliente,
     // se volvía a leer la colección entera de propiedades.
-    var _cargando = false, _errorCarga = null;
+    var _cargando = false, _errorCarga = null, _desdeCache = false, _sinConexion = false, _cargaN = 0;
+    var _propsCargadas = false, _propPorId = {}, _ultGestiones = null, _pPropsEnCurso = null;
     function loadClients(){
-      _cargando = true; _errorCarga = null;
-      renderClients();
-      db.collection('clients').get().then(function(q){
-        clients = q.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
-        // Contar gestiones por cliente: gestiones reales + propiedades viejas (clientId) que aún no son gestión
-        Promise.all([
-          db.collection('gestiones').get().catch(function(){ return { docs:[] }; }),
-          db.collection('properties').get().catch(function(){ return { docs:[] }; })
-        ]).then(function(res){
-          var gSnap = res[0], pSnap = res[1];
-          // Agregado por cliente a partir de sus gestiones (ver acumularGestion).
-          var gestPorCliente = {}; // clientId -> set de propertyId (solo para el contador visible)
-          var aggGest = {};        // clientId -> resumen de gestiones reales
-          var clientePorId = {};
-          clients.forEach(function(c){ clientePorId[c.id] = c; });
-          gSnap.docs.forEach(function(d){
-            var g = d.data();
-            if (!g.clientId) return;
-            (gestPorCliente[g.clientId] = gestPorCliente[g.clientId] || {})[g.propertyId||('g'+d.id)] = true;
-            var a = aggGest[g.clientId] = aggGest[g.clientId] || nuevoAgregado();
-            acumularGestion(a, d.id, g, clientePorId[g.clientId]);
-          });
-          // Propiedades: quedan en memoria para el perfil, y las viejas con
-          // clientId que todavía no tienen gestión suman al contador.
-          allProperties = pSnap.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
-          allProperties.sort(function(a,b){ return (a.title||'').localeCompare(b.title||''); });
-          allProperties.forEach(function(p){
-            if (p.clientId){ var set = gestPorCliente[p.clientId] = gestPorCliente[p.clientId] || {}; if (!set[p.id]) set[p.id] = true; }
-          });
-          clients.forEach(function(c){ derivarCliente(c, aggGest[c.id], gestPorCliente[c.id]); });
-          _cargando = false;
+      var n = ++_cargaN;
+      var primera = !clients.length;
+      _errorCarga = null;
+      if (primera){ _cargando = true; renderClients(); }
+      // 1) Lo guardado en este equipo de la visita anterior: se ve enseguida.
+      if (primera && _pCache) _pCache.then(function(ok){
+        if (!ok || n !== _cargaN || !_cargando) return;
+        return Promise.all([
+          db.collection('clients').get({ source:'cache' }),
+          db.collection('gestiones').get({ source:'cache' }),
+          db.collection('properties').get({ source:'cache' })
+        ]).then(function(r){
+          if (n !== _cargaN || !_cargando || !r[0].docs.length) return;   // ya llegó lo del servidor, o no había nada
+          ponerPropiedades(r[2]);
+          armarLista(r[0], r[1]);
+          _desdeCache = true; _cargando = false;
           renderClients();
-          aplicarDeepLink();
-        }).catch(function(e){ console.error('Error armando la lista:', e); _cargando = false; renderClients(); aplicarDeepLink(); });
-      }).catch(function(e){
-        console.error('Error cargando clientes:', e);
-        _cargando = false; _errorCarga = e;
+        });
+      }).catch(function(){});
+      // 2) Del servidor. Las propiedades no frenan la lista: se completan después.
+      var pProps = db.collection('properties').get().catch(function(e){ console.warn('No se pudieron leer las propiedades:', e); return null; });
+      _pPropsEnCurso = pProps;
+      Promise.all([
+        db.collection('clients').get(),
+        db.collection('gestiones').get().catch(function(){ return { docs:[] }; })
+      ]).then(function(r){
+        if (n !== _cargaN) return;
+        armarLista(r[0], r[1]);
+        _desdeCache = false; _cargando = false;
+        // Sin conexión, Firestore contesta con lo guardado en el equipo: se avisa.
+        _sinConexion = !!(r[0].metadata && r[0].metadata.fromCache);
         renderClients();
+        aplicarDeepLink();
+        return pProps.then(function(ps){
+          if (_pPropsEnCurso === pProps) _pPropsEnCurso = null;
+          if (n !== _cargaN || !ps) return;
+          ponerPropiedades(ps);
+          armarLista(null, _ultGestiones);   // suma las propiedades viejas asociadas por clientId
+          renderClients();
+          if (currentProfileId){ var cp = clienteLocal(currentProfileId); if (cp) pintarConsultaPerfil(cp); }
+        });
+      }).catch(function(e){
+        if (n !== _cargaN) return;
+        console.error('Error cargando clientes:', e);
+        _cargando = false; _desdeCache = false;
+        if (!clients.length) _errorCarga = e;
+        renderClients();
+        if (clients.length) aplicarDeepLink();
       });
+    }
+    function ponerPropiedades(snap){
+      allProperties = snap.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
+      allProperties.sort(function(a,b){ return (a.title||'').localeCompare(b.title||''); });
+      _propPorId = {};
+      allProperties.forEach(function(p){ _propPorId[p.id] = p; });
+      _propsCargadas = true;
+    }
+    function propPorId(id){ return _propPorId[id] || null; }
+    // Arma la lista con lo leído. cliSnap null: los mismos clientes, solo recalcula.
+    function armarLista(cliSnap, gSnap){
+      if (cliSnap) clients = cliSnap.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
+      _ultGestiones = gSnap;
+      // Agregado por cliente a partir de sus gestiones (ver acumularGestion).
+      var gestPorCliente = {}; // clientId -> set de propertyId (solo para el contador visible)
+      var aggGest = {};        // clientId -> resumen de gestiones reales
+      var clientePorId = {};
+      clients.forEach(function(c){ clientePorId[c.id] = c; });
+      ((gSnap && gSnap.docs) || []).forEach(function(d){
+        var g = d.data();
+        if (!g.clientId) return;
+        (gestPorCliente[g.clientId] = gestPorCliente[g.clientId] || {})[g.propertyId||('g'+d.id)] = true;
+        var a = aggGest[g.clientId] = aggGest[g.clientId] || nuevoAgregado();
+        acumularGestion(a, d.id, g, clientePorId[g.clientId]);
+      });
+      // Las propiedades viejas con clientId que todavía no tienen gestión suman al contador.
+      allProperties.forEach(function(p){
+        if (p.clientId){ var set = gestPorCliente[p.clientId] = gestPorCliente[p.clientId] || {}; if (!set[p.id]) set[p.id] = true; }
+      });
+      clients.forEach(function(c){ derivarCliente(c, aggGest[c.id], gestPorCliente[c.id]); });
     }
 
     // ---- Agregado por cliente a partir de sus gestiones ----
@@ -1404,10 +1658,20 @@
     // gestión MANDA (la activa más avanzada, define la etiqueta), la última
     // actividad (lo último que se tocó en cualquiera) y los intereses
     // (comprar/alquilar/vender), que viven en cada gestión.
-    function nuevoAgregado(){ return { total:0, activas:0, cerradas:0, ts:'', manda:null, ult:null, intereses:{} }; }
+    function nuevoAgregado(){ return { total:0, activas:0, cerradas:0, ts:'', manda:null, ult:null, intereses:{}, lead:null, humanoTs:'' }; }
     function acumularGestion(a, id, g, c){
       a.total++;
       if (g.interes) a.intereses[g.interes] = true;
+      // Del historial: la última consulta que llegó por un portal (y sobre qué
+      // propiedad) y lo último que hizo una persona (el sistema no cuenta).
+      (g.historial || []).forEach(function(h){
+        if (!h || !h.fecha) return;
+        var sistema = !!h.leadClave || AUTORES_SISTEMA.indexOf(h.autor) >= 0;
+        if (sistema){
+          if ((h.leadClave || /^Consulta desde /.test(h.valor || '')) && (!a.lead || h.fecha > a.lead.fecha))
+            a.lead = { fecha: h.fecha, texto: h.valor || '', autor: h.autor || '', propertyId: g.propertyId || '' };
+        } else if (h.fecha > a.humanoTs) a.humanoTs = h.fecha;
+      });
       var ts = g.updatedAt || g.createdAt || '';
       if (ts > a.ts) a.ts = ts;
       // El rol decide qué etapas tiene la gestión y cuál es su piso: un
@@ -1458,6 +1722,8 @@
       // Última actividad: lo más reciente entre gestiones y la propia ficha.
       c._lastActivity = [ (a && a.ts) || '', c.updatedAt || '', c.createdAt || '' ].sort().pop();
       c._diasSinContacto = diasDesde(c._lastActivity);
+      c._lead = a ? a.lead : null;
+      c._humanoTs = a ? a.humanoTs : '';
       // Intereses: los de sus gestiones y, si tenía, el viejo guardado en el cliente.
       c._intereses = a ? Object.keys(a.intereses || {}) : [];
       if (c.interest && c._intereses.indexOf(c.interest) < 0) c._intereses.push(c.interest);
@@ -1527,6 +1793,505 @@
       }, 140);
     }
 
+    // ============ CONSULTAS DE LOS PORTALES ============
+    // Las consultas de los portales (hoy, InfoCasas) entran solas como clientes:
+    // las crea el servidor con source "infocasas" y una gestión de interesado con
+    // el mensaje. Ya no se mezclan con los clientes cargados a mano: esperan en la
+    // pestaña Consultas hasta que el agente decide.
+    //  - "Pasar a Clientes": es un cliente de verdad. También pasan solas cuando la
+    //    gestión llega a Visita agendada o más.
+    //  - "Descartar": no sirve (no responde, no le interesa...). Se archiva con el
+    //    motivo y se puede recuperar.
+    // Tocar WhatsApp o Llamar en una consulta sin responder deja registrado el
+    // primer contacto (quién y cuándo): así se ve cuáles falta responder.
+    var PORTALES = { infocasas:'InfoCasas', mercadolibre:'Mercado Libre', ml:'Mercado Libre', casasymas:'Casas y Más', cym:'Casas y Más', portal:'Portal', web:'Web', lead:'Web' };
+    // Lo que escribe el sistema en el historial no es un contacto del agente.
+    var AUTORES_SISTEMA = ['InfoCasas', 'Mercado Libre', 'Casas y Más', 'Portal', 'Sistema'];
+    // Con estas etapas ya es un cliente, aunque nadie haya tocado "Pasar a Clientes".
+    var ETAPAS_DE_CLIENTE = ['visita', 'negociacion', 'cartera', 'cerrado'];
+    var MOTIVOS_DESCARTE = { no_responde:'No responde', no_interesa:'No le interesa', ya_consiguio:'Ya consiguió', falso:'Datos falsos o prueba' };
+    // La nota que deja el servidor al crear el cliente: no es del agente.
+    var NOTA_AUTOMATICA = /^Ingres[óo] por una consulta (en|de|desde) /i;
+    var _vista = 'clientes', _filtroConsultas = '';
+
+    function origenConsulta(c){ var s = String((c && c.source) || '').toLowerCase(); return PORTALES[s] ? s : ''; }
+    function nombrePortal(c){ return PORTALES[origenConsulta(c)] || ''; }
+    function primerNombre(n){ return String(n || '').trim().split(/\s+/)[0] || ''; }
+    function miNombre(){ return (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente'; }
+    function diasTxt(d){ return d === 1 ? '1 día' : (d == null ? '?' : d) + ' días'; }
+    // Lo último que hizo una persona con esta consulta (escribirle, una nota, moverla,
+    // pausarla o descartarla). Lo que anota el sistema no cuenta.
+    function ultimoHumano(c){
+      return [c.contactadoAt || '', c.lastNoteAt || '', c.ultimoContacto || '', c._humanoTs || '', c.pausadoEn || '', c.etapaAt || '',
+        (c.descartada && c.descartada.at) || ''].sort().pop();
+    }
+    function fechaLead(c){ return (c._lead && c._lead.fecha) || c.createdAt || ''; }
+    // Volvió a consultar después de lo último que se hizo: hay algo nuevo sin responder.
+    function volvioAConsultar(c){ var u = ultimoHumano(c), l = c._lead && c._lead.fecha; return !!(u && l && l > u); }
+    function fueContactada(c){
+      var u = ultimoHumano(c);
+      if (u) return !volvioAConsultar(c);
+      return !!c.etapa || c.situacion === 'pausa' || ['nuevo', 'singestion', 'sinavance'].indexOf(c._rollupStatus || 'nuevo') < 0;
+    }
+    // null: no es una consulta (se cargó a mano). 'cliente': ya pasó a Clientes.
+    // 'pendiente': sin responder. 'contacto': ya se le habló. 'descartada'.
+    // Una descartada (o perdida) que vuelve a consultar aparece de nuevo sin responder.
+    function estadoConsulta(c){
+      if (!c || !origenConsulta(c)) return null;
+      if (c.pasadoAClientes) return 'cliente';
+      var rs = c._rollupStatus || 'nuevo';
+      if (ETAPAS_DE_CLIENTE.indexOf(rs) >= 0) return 'cliente';
+      if ((c.descartada || c.archived || rs === 'perdido' || rs === 'externo') && !volvioAConsultar(c)) return 'descartada';
+      return fueContactada(c) ? 'contacto' : 'pendiente';
+    }
+    function enClientes(c){ var e = estadoConsulta(c); return e === null || e === 'cliente'; }
+    // Lo que dejó el portal: 'Consulta desde InfoCasas: "mensaje" (email: x@y)'.
+    function datosLead(c){
+      var l = c && c._lead;
+      var r = { mensaje:'', email:(c && c.email) || '', fecha:(c && c.createdAt) || '', propertyId:'' };
+      if (!l) return r;
+      var t = String(l.texto || '');
+      var m = t.match(/:\s*"([\s\S]*)"/), e = t.match(/\(email:\s*([^)\s]+)\)/i);
+      r.mensaje = m ? m[1].trim() : '';
+      if (e && e[1]) r.email = e[1];
+      r.fecha = l.fecha || r.fecha;
+      r.propertyId = l.propertyId || '';
+      return r;
+    }
+    // wa.me necesita el número internacional, sin "+" ni el 0 de larga distancia.
+    // Los de Uruguay suelen venir como 09X XXX XXX; los del exterior, con su código.
+    function waNum(tel){
+      var s = String(tel == null ? '' : tel).trim(), d = s.replace(/\D/g, '');
+      if (!d) return '';
+      var intl = s.charAt(0) === '+' || d.indexOf('00') === 0;
+      if (d.indexOf('00') === 0) d = d.slice(2);
+      if (d.indexOf('598') === 0 && (intl || d.length >= 11)){
+        var r = d.slice(3).replace(/^0+/, '');
+        return r.length >= 7 ? '598' + r : '';
+      }
+      if (intl) return d.length >= 8 ? d : '';
+      d = d.replace(/^0+/, '');
+      if (d.length === 8) return '598' + d;          // celular o fijo de Uruguay
+      return d.length >= 10 ? d : '';                  // del exterior, sin el "+"
+    }
+    // Lo que se busca en las dos pestañas por igual: nombre, teléfono, mail y @agente.
+    function coincideBusqueda(c, term, agenteFiltro){
+      if (agenteFiltro && ((c.createdByName || c.ownerName || c.agentName || '').toLowerCase()).indexOf(agenteFiltro) < 0) return false;
+      if (!term) return true;
+      var digitos = term.replace(/\D/g, '');
+      var telCliente = ((c.phoneNormalized || '') + ' ' + (c.phone || '') + ' ' + (c.areaCode || '')).replace(/\D/g, '');
+      return (c.name || '').toLowerCase().indexOf(term) >= 0
+        || (digitos.length >= 3 && telCliente.indexOf(digitos) >= 0)
+        || (c.email || '').toLowerCase().indexOf(term) >= 0;
+    }
+
+    // ---- Pestañas ----
+    // Los números de las pestañas respetan "mis / todos" y la búsqueda: buscando,
+    // se ve enseguida si lo que se busca está en la otra.
+    function contarPestanas(term, agenteFiltro){
+      var buscando = !!(term || agenteFiltro), r = { clientes:0, consultas:0, pendientes:0 };
+      clients.forEach(function(c){
+        if (!(buscando || !misClientesOnly || esMio(c))) return;
+        if (!coincideBusqueda(c, term, agenteFiltro)) return;
+        var e = estadoConsulta(c);
+        if (e === null || e === 'cliente'){ if (!c.archived) r.clientes++; }
+        else if (e !== 'descartada'){ r.consultas++; if (e === 'pendiente') r.pendientes++; }
+      });
+      return r;
+    }
+    function pintarPestanas(n){
+      var tc = document.getElementById('tabClientes'), tq = document.getElementById('tabConsultas');
+      if (!tc || !tq) return;
+      tc.classList.toggle('on', _vista === 'clientes'); tc.setAttribute('aria-selected', _vista === 'clientes');
+      tq.classList.toggle('on', _vista === 'consultas'); tq.setAttribute('aria-selected', _vista === 'consultas');
+      document.getElementById('tabClientesN').textContent = n.clientes;
+      document.getElementById('tabConsultasN').textContent = n.consultas;
+      var al = document.getElementById('tabConsultasAlerta');
+      al.hidden = !n.pendientes;
+      tq.classList.toggle('con-alerta', !!n.pendientes);   // en el celular queda solo el número en rojo
+      al.innerHTML = n.pendientes + '<span class="largo"> sin responder</span>';
+      al.title = n.pendientes === 1 ? '1 consulta sin responder' : n.pendientes + ' consultas sin responder';
+      // Para los lectores de pantalla: los números pegados se leían como uno solo ("54").
+      if (n.clientes !== ''){
+        tc.setAttribute('aria-label', 'Clientes: ' + n.clientes);
+        tq.setAttribute('aria-label', 'Consultas: ' + n.consultas + (n.pendientes ? ', ' + al.title : ''));
+      }
+    }
+    function setVista(v){
+      v = v === 'consultas' ? 'consultas' : 'clientes';
+      if (v !== _vista){ _vista = v; _filtroConsultas = ''; }
+      if (_modoSeleccion){ _modoSeleccion = false; _seleccion.clear(); }
+      renderClients();
+      var t = document.getElementById('crmTabs');
+      if (t && t.getBoundingClientRect().top < 0) t.scrollIntoView({ block:'start' });
+    }
+    // Lo que es solo de Clientes (filtros, orden, traspaso) no se ve en Consultas.
+    function pintarControlesVista(){
+      var cons = _vista === 'consultas';
+      var bf = document.getElementById('btnMasFiltros'); if (bf) bf.style.display = cons ? 'none' : '';
+      var pf = document.getElementById('crmFiltros'); if (pf && cons && pf.style.display !== 'none') toggleFiltros();
+      var or = document.querySelector('.crm-orden'); if (or) or.style.display = cons ? 'none' : '';
+      if (cons){ var tr = document.getElementById('crmTraspaso'); if (tr) tr.style.display = 'none'; }
+      var g = document.getElementById('crmGrid'); if (g) g.classList.toggle('cq-modo', cons);
+    }
+
+    // Al lado del resultado: si lo que se ve es la copia del equipo.
+    function indicadorSync(){
+      if (_desdeCache) return ' <span class="crm-sync"><i class="fas fa-rotate fa-spin"></i> Actualizando</span>';
+      if (_sinConexion) return ' <span class="crm-sync off" title="Se muestra lo guardado en este equipo. Recargá cuando vuelva la conexión."><i class="fas fa-wifi"></i> Sin conexión</span>';
+      return '';
+    }
+
+    // ---- Tira de números (cada uno es un filtro) ----
+    function kpiHtml(on, n, label, cls, fn, extra){
+      return '<button type="button" class="crm-kpi' + (cls ? ' ' + cls : '') + (on ? ' on' : '') + '" onclick="' + fn + '" aria-pressed="' + (!!on) + '">' +
+        '<b>' + n + '</b><span>' + label + '</span>' + (extra ? '<em>' + extra + '</em>' : '') + '</button>';
+    }
+    // Primero lo que pide acción (los nuevos y los que se enfrían): en el celular
+    // son los que se ven sin deslizar.
+    function pintarFranjaClientes(st, recontactar, enPausa, despiertos, sfSit){
+      var h = kpiHtml(statFilter === 'nuevo', st.nuevo, 'Por gestionar', st.nuevo ? '' : 'apagado', "filterByStat('nuevo')") +
+        kpiHtml(statFilter === 'atencion', recontactar, 'Para recontactar', recontactar ? 'alerta' : 'apagado', 'toggleRecontactar()') +
+        kpiHtml(statFilter === 'proceso', st.proceso, 'En proceso', st.proceso ? '' : 'apagado', "filterByStat('proceso')") +
+        kpiHtml(statFilter === 'cerrado', st.cerrado, 'Cerrados', st.cerrado ? 'verde' : 'apagado', "filterByStat('cerrado')");
+      if (enPausa || sfSit === 'pausa') h += kpiHtml(sfSit === 'pausa', enPausa, 'En pausa', '', 'verPausados()', despiertos ? despiertos + ' para revisar' : '');
+      document.getElementById('crmStats').innerHTML = h;
+    }
+    function pintarFranjaConsultas(n){
+      var f = _filtroConsultas;
+      document.getElementById('crmStats').innerHTML =
+        kpiHtml(f === 'pendiente', n.pendiente, 'Sin responder', n.pendiente ? 'urgente' : 'apagado', "filtrarConsultas('pendiente')") +
+        kpiHtml(f === 'contacto', n.contacto, 'En contacto', n.contacto ? '' : 'apagado', "filtrarConsultas('contacto')") +
+        kpiHtml(f === 'descartada', n.descartada, 'Descartadas', n.descartada ? '' : 'apagado', "filtrarConsultas('descartada')") +
+        kpiHtml(false, n.cliente, 'Pasaron a Clientes', n.cliente ? 'verde' : 'apagado', 'verConsultasEnClientes()');
+    }
+    function filtrarConsultas(f){ _filtroConsultas = _filtroConsultas === f ? '' : f; renderClients(); }
+    // "Pasaron a Clientes" lleva a Clientes con el filtro de origen puesto.
+    function verConsultasEnClientes(){
+      var o = document.getElementById('clientOrigenFilter'); if (o) o.value = 'consulta';
+      statFilter = 'all';
+      setVista('clientes');
+    }
+
+    // ---- La lista de consultas ----
+    function renderConsultas(term, agenteFiltro, nTabs){
+      var buscando = !!(term || agenteFiltro);
+      var n = { pendiente:0, contacto:0, descartada:0, cliente:0 }, base = [];
+      clients.forEach(function(c){
+        var e = estadoConsulta(c); if (!e) return;
+        if (!(buscando || !misClientesOnly || esMio(c))) return;
+        if (!coincideBusqueda(c, term, agenteFiltro)) return;
+        n[e]++;
+        if (e !== 'cliente') base.push(c);
+      });
+      pintarFranjaConsultas(n);
+      var f = _filtroConsultas;
+      var list = base.filter(function(c){ var e = estadoConsulta(c); return f ? e === f : e !== 'descartada'; });
+      var orden = { pendiente:0, contacto:1, descartada:2 };
+      var atDesc = function(c){ return (c.descartada && c.descartada.at) || c.updatedAt || ''; };
+      list.sort(function(a, b){
+        var ea = estadoConsulta(a), eb = estadoConsulta(b);
+        if (ea !== eb) return orden[ea] - orden[eb];
+        // Las sin responder, la más nueva arriba: es la que está más caliente.
+        if (ea === 'pendiente') return fechaLead(b).localeCompare(fechaLead(a));
+        if (ea === 'descartada') return atDesc(b).localeCompare(atDesc(a));
+        return (b._lastActivity || '').localeCompare(a._lastActivity || '');
+      });
+      _clientesFiltrados = list;
+      // Resultado: cuántas y qué filtro está puesto.
+      var cnt = document.getElementById('crmCount');
+      if (cnt) cnt.innerHTML = (buscando ? '<b>' + list.length + '</b> resultado' + (list.length === 1 ? '' : 's') : '<b>' + list.length + '</b> consulta' + (list.length === 1 ? '' : 's')) +
+        indicadorSync();
+      var ch = document.getElementById('crmChips');
+      if (ch) ch.innerHTML = f ? '<span class="crm-chip">' + esc({ pendiente:'Sin responder', contacto:'En contacto', descartada:'Descartadas' }[f]) +
+        '<button type="button" onclick="filtrarConsultas(\'' + f + '\')" title="Quitar este filtro" aria-label="Quitar filtro"><i class="fas fa-xmark"></i></button></span>' : '';
+      var g = document.getElementById('crmGrid');
+      if (!list.length){
+        var titulo, texto, boton = '';
+        if (buscando){
+          titulo = 'Sin resultados'; texto = 'No hay consultas con esa búsqueda.';
+          boton = nTabs.clientes ? '<button type="button" class="crm-otra" onclick="setVista(\'clientes\')"><i class="fas fa-user-group"></i> Ver ' + nTabs.clientes + ' en Clientes</button>'
+            : '<button type="button" class="crm-btn" style="margin-top:14px" onclick="limpiarTodo()"><i class="fas fa-filter-circle-xmark"></i> Limpiar la búsqueda</button>';
+        } else if (f === 'pendiente'){ titulo = 'Todo respondido'; texto = 'Cuando llegue una consulta nueva, aparece acá.'; }
+        else if (f === 'descartada'){ titulo = 'No hay consultas descartadas'; texto = 'Las que descartes quedan acá, por si hay que recuperarlas.'; }
+        else if (f === 'contacto'){ titulo = 'Ninguna en contacto'; texto = 'Las consultas a las que ya les escribiste aparecen acá hasta que decidas.'; }
+        else {
+          titulo = 'No hay consultas pendientes';
+          texto = (misClientesOnly ? 'Las consultas de tus propiedades' : 'Las consultas de los portales') + ' aparecen acá apenas llegan.';
+          if (misClientesOnly) boton = '<button type="button" class="crm-btn" style="margin-top:14px" onclick="toggleMisClientes()"><i class="fas fa-users"></i> Ver las de todos</button>';
+        }
+        g.innerHTML = '<div class="crm-empty"><i class="fas fa-inbox"></i><h3>' + titulo + '</h3><p>' + texto + '</p>' + boton + '</div>';
+        _partes = []; _mostradas = 0;
+        return;
+      }
+      var etq = { pendiente:'Sin responder', contacto:'En contacto', descartada:'Descartadas' };
+      var conteo = {}; list.forEach(function(c){ var e = estadoConsulta(c); conteo[e] = (conteo[e] || 0) + 1; });
+      var actual = null;
+      pintarPorTandas(g, list.map(function(c){
+        var e = estadoConsulta(c), cab = '';
+        if (e !== actual){ actual = e; cab = '<div class="cc-grupo"><span>' + etq[e] + '</span><b>' + conteo[e] + '</b><i></i></div>'; }
+        return cab + tarjetaConsulta(c);
+      }), 'q|' + f + '|' + term + '|' + agenteFiltro + '|' + misClientesOnly);
+    }
+
+    function textoContacto(c){
+      if (c.situacion === 'pausa') return 'En pausa' + (c.pausadoEn ? ' · ' + relTime(c.pausadoEn) : '');
+      if (c.contactadoAt){
+        var yo = !!(currentUser && c.contactadoPorUid === currentUser.uid), quien = primerNombre(c.contactadoPor) || 'Alguien';
+        var via = c.contactadoVia === 'llamada' ? (yo ? 'Llamaste' : quien + ' llamó')
+          : c.contactadoVia === 'mail' ? (yo ? 'Le mandaste un mail' : quien + ' le mandó un mail')
+          : (yo ? 'Le escribiste' : quien + ' le escribió');
+        return via + ' · ' + relTime(c.contactadoAt);
+      }
+      var ult = [c._humanoTs || '', c.lastNoteAt || '', c.ultimoContacto || '', c.etapaAt || ''].sort().pop();
+      var rs = c._rollupStatus || 'nuevo';
+      return 'En contacto' + (['contactado', 'seguimiento'].indexOf(rs) >= 0 ? ' · ' + etiquetaEtapa(rs) : '') + (ult ? ' · ' + relTime(ult) : '');
+    }
+
+    function tarjetaConsulta(c){
+      var e = estadoConsulta(c), L = datosLead(c);
+      var nombre = c.name || 'Sin nombre', id = escA(c.id);
+      // El número tal como lo dejó el portal manda: el "normalizado" le agrega +598
+      // también a los del exterior.
+      var wa = waNum(c.phone) || waNum(c.phoneNormalized);
+      var tel = wa ? '+' + wa : (c.phone || c.phoneNormalized || '');
+      var p = L.propertyId ? propPorId(L.propertyId) : null;
+      var portal = nombrePortal(c);
+      var llegada = fechaLead(c), volvio = volvioAConsultar(c);
+      var horas = llegada ? (Date.now() - new Date(llegada).getTime()) / 3600000 : 0;
+      var cls = 'cq-card ' + e, estado;
+      if (e === 'pendiente'){
+        var u = horas < 1 ? 'u-nueva' : horas < 24 ? 'u-hoy' : 'u-vieja';
+        cls += ' ' + u;
+        estado = volvio ? 'Volvió a consultar ' + relTime(llegada) : (u === 'u-nueva' ? 'Nueva' : 'Sin responder') + (llegada ? ' · llegó ' + relTime(llegada) : '');
+      } else if (e === 'contacto') estado = textoContacto(c);
+      else {
+        var d = c.descartada || {};
+        estado = 'Descartada' + (d.motivo ? ' · ' + (MOTIVOS_DESCARTE[d.motivo] || d.motivo) : '') + (d.por && !(currentUser && d.porUid === currentUser.uid) ? ' · ' + primerNombre(d.por) : '') + (d.at ? ' · ' + relTime(d.at) : '');
+      }
+      var quien = esMio(c) ? '' : (c.createdByName || c.ownerName || 'Sin agente asignado');
+      var titulo = p ? (p.title || 'Propiedad') : '';
+      var prop = p
+        ? '<div class="cq-prop"><img src="' + escA(img(p)) + '" alt="" loading="lazy"><div><b title="' + escA(titulo) + '">' + esc(titulo) + '</b><span>' + esc(fmtPrice(p.price, p.currency || 'USD')) + ' · ' + (p.type === 'rent' ? 'Alquiler' : 'Venta') + '</span></div></div>'
+        : L.propertyId
+          ? '<div class="cq-prop sin"><i class="fas fa-house"></i> ' + (_propsCargadas ? 'La propiedad ya no está' : 'Cargando la propiedad…') + '</div>'
+          : '<div class="cq-prop sin"><i class="fas fa-circle-question"></i> Sin propiedad identificada</div>';
+      var acc = '';
+      if (e === 'descartada'){
+        acc = '<button type="button" class="cq-b" onclick="recuperarConsulta(event,\'' + id + '\')"><i class="fas fa-rotate-left"></i> Recuperar</button>';
+      } else {
+        var msgWa = 'Hola' + (primerNombre(c.name) ? ' ' + primerNombre(c.name) : '') + ', te escribo de MALAVE Inmobiliaria por tu consulta' +
+          (portal ? ' en ' + portal : '') + (titulo ? ' sobre «' + titulo + '»' : '') + '.';
+        if (wa) acc += '<a class="cq-b wa" href="https://wa.me/' + wa + '?text=' + encodeURIComponent(msgWa) + '" target="_blank" rel="noopener" onclick="contactarConsulta(event,\'' + id + '\',\'whatsapp\')"><i class="fab fa-whatsapp"></i> WhatsApp</a>' +
+          '<a class="cq-b" href="tel:+' + wa + '" onclick="contactarConsulta(event,\'' + id + '\',\'llamada\')"><i class="fas fa-phone"></i> Llamar</a>';
+        else if (L.email) acc += '<a class="cq-b" href="mailto:' + escA(L.email) + '" onclick="contactarConsulta(event,\'' + id + '\',\'mail\')"><i class="fas fa-envelope"></i> Mail</a>';
+        acc += '<button type="button" class="cq-b ok" onclick="pasarAClientes(event,\'' + id + '\')"><i class="fas fa-user-check"></i> Pasar a Clientes</button>' +
+          '<button type="button" class="cq-b no" onclick="abrirDescarte(event,\'' + id + '\')"><i class="fas fa-xmark"></i> Descartar</button>';
+      }
+      return '<article class="' + cls + '" data-id="' + id + '" tabindex="0" onclick="showClientProfile(\'' + id + '\')">' +
+        '<div class="cq-estado"><i class="pto"></i><span>' + esc(estado) + '</span>' + (portal ? '<em class="cq-portal">' + esc(portal) + '</em>' : '') + '</div>' +
+        '<div class="cq-quien"><div style="min-width:0"><h3 title="' + escA(nombre) + '">' + esc(nombre) + '</h3>' +
+          '<div class="cq-tel">' + (tel ? esc(fmtPhone(tel)) : 'Sin teléfono') + (quien ? ' <span>· ' + esc(quien) + '</span>' : '') + '</div></div>' +
+          '<button type="button" class="cc-ico" onclick="abrirMenuConsulta(event,\'' + id + '\')" title="Más acciones" aria-label="Más acciones"><i class="fas fa-ellipsis-vertical"></i></button></div>' +
+        prop + (L.mensaje ? '<p class="cq-msg">' + esc(L.mensaje) + '</p>' : '') +
+        '<div class="cq-acc">' + acc + '</div>' +
+      '</article>';
+    }
+
+    // ---- Acciones sobre una consulta ----
+    // El primer contacto queda registrado solo con tocar WhatsApp, Llamar o Mail:
+    // no hay que acordarse de marcar nada. El enlace se abre igual.
+    function contactarConsulta(ev, id, via){ if (ev) ev.stopPropagation(); registrarContacto(id, via); }
+    function registrarContacto(id, via){
+      var c = clienteLocal(id);
+      if (!c || !currentUser || estadoConsulta(c) !== 'pendiente') return;
+      var ahora = new Date().toISOString();
+      var upd = { contactadoAt: ahora, contactadoPor: miNombre(), contactadoPorUid: currentUser.uid, contactadoVia: via || 'whatsapp', updatedAt: ahora };
+      Object.assign(c, upd); c._lastActivity = ahora; c._diasSinContacto = 0;
+      db.collection('clients').doc(id).update(upd).catch(function(e){ console.warn('No se pudo registrar el contacto:', e); });
+      // Se mueve a "En contacto" un instante después: si no, la tarjeta desaparecía
+      // debajo del dedo justo al tocar el botón.
+      setTimeout(function(){ renderClients(); if (currentProfileId === id) pintarConsultaPerfil(c); }, 700);
+    }
+    function pasarAClientes(ev, id){
+      if (ev) ev.stopPropagation();
+      var c = clienteLocal(id); if (!c || !currentUser) return;
+      var ahora = new Date().toISOString();
+      var marca = { at: ahora, por: miNombre(), porUid: currentUser.uid };
+      var antes = { archived: !!c.archived, descartada: c.descartada || null };
+      var upd = { pasadoAClientes: marca, updatedAt: ahora };
+      if (c.archived) upd.archived = false;
+      if (c.descartada) upd.descartada = firebase.firestore.FieldValue.delete();
+      db.collection('clients').doc(id).update(upd).then(function(){
+        c.pasadoAClientes = marca; c.updatedAt = ahora; c.archived = false; delete c.descartada;
+        c._lastActivity = ahora; c._diasSinContacto = 0;
+        renderClients();
+        if (currentProfileId === id) pintarConsultaPerfil(c);
+        showToast('Pasó a Clientes', (c.name || 'La consulta') + ' ya está con tus clientes', { txt: 'Deshacer', fn: function(){ deshacerPase(id, antes); } });
+      }).catch(function(e){ console.error(e); showToast('No se pudo pasar a Clientes', 'Probá de nuevo'); });
+    }
+    // Una consulta que llega a Visita agendada (o más) ya es cliente: queda marcada
+    // para siempre (si la visita se cae, no vuelve a Consultas) y, si se había
+    // descartado, se desarchiva. Devuelve true si la pasó.
+    function consolidarPase(c, etapa){
+      if (!c || !currentUser || ETAPAS_DE_CLIENTE.indexOf(etapa) < 0) return false;
+      if (!origenConsulta(c) || c.pasadoAClientes) return false;
+      var marca = { at: new Date().toISOString(), por: miNombre(), porUid: currentUser.uid, auto: true };
+      var upd = { pasadoAClientes: marca };
+      if (c.archived) upd.archived = false;
+      if (c.descartada) upd.descartada = firebase.firestore.FieldValue.delete();
+      c.pasadoAClientes = marca; c.archived = false; delete c.descartada;
+      db.collection('clients').doc(c.id).update(upd).catch(function(e){ console.warn('No se pudo marcar el pase a Clientes:', e); });
+      return true;
+    }
+    function deshacerPase(id, antes){
+      var c = clienteLocal(id); if (!c) return;
+      var upd = { pasadoAClientes: firebase.firestore.FieldValue.delete() };
+      if (antes.archived) upd.archived = true;
+      if (antes.descartada) upd.descartada = antes.descartada;
+      db.collection('clients').doc(id).update(upd).then(function(){
+        delete c.pasadoAClientes; c.archived = antes.archived; if (antes.descartada) c.descartada = antes.descartada;
+        renderClients();
+        if (currentProfileId === id) pintarConsultaPerfil(c);
+        showToast('Volvió a Consultas');
+      }).catch(function(e){ console.error(e); showToast('No se pudo deshacer'); });
+    }
+    function abrirDescarte(ev, id){
+      ev.stopPropagation();
+      var r = ev.currentTarget.getBoundingClientRect();
+      cerrarMenuTarjeta();
+      var m = document.createElement('div');
+      m.className = 'cc-menu';
+      m.innerHTML = '<div class="cc-menu-tit">¿Por qué la descartás?</div>' + Object.keys(MOTIVOS_DESCARTE).map(function(k){
+        return '<button type="button" onclick="cerrarMenuTarjeta();descartarConsulta(\'' + escA(id) + '\',\'' + k + '\')">' + esc(MOTIVOS_DESCARTE[k]) + '</button>';
+      }).join('');
+      document.body.appendChild(m);
+      var alto = m.offsetHeight;
+      var y = (r.bottom + alto + 8 > window.innerHeight) ? (r.top - alto - 6) : (r.bottom + 6);
+      m.style.top = Math.max(8, y) + 'px';
+      m.style.left = Math.max(8, Math.min(r.right - m.offsetWidth, window.innerWidth - m.offsetWidth - 8)) + 'px';
+      setTimeout(function(){ document.addEventListener('click', cerrarMenuTarjeta, { once:true }); }, 0);
+    }
+    function descartarConsulta(id, motivo){
+      var c = clienteLocal(id); if (!c || !currentUser) return;
+      var ahora = new Date().toISOString();
+      var marca = { motivo: motivo, at: ahora, por: miNombre(), porUid: currentUser.uid };
+      var antes = { archived: !!c.archived };
+      db.collection('clients').doc(id).update({ archived: true, descartada: marca, updatedAt: ahora }).then(function(){
+        c.archived = true; c.descartada = marca; c.updatedAt = ahora;
+        renderClients();
+        if (currentProfileId === id) pintarConsultaPerfil(c);
+        showToast('Consulta descartada', MOTIVOS_DESCARTE[motivo] || '', { txt: 'Deshacer', fn: function(){ recuperarConsulta(null, id, antes); } });
+      }).catch(function(e){ console.error(e); showToast('No se pudo descartar', 'Probá de nuevo'); });
+    }
+    // Recuperar: vuelve a Consultas. Si se había dado por perdida desde la etapa,
+    // la gestión se reabre como "Contactado".
+    function recuperarConsulta(ev, id, antes){
+      if (ev) ev.stopPropagation();
+      var c = clienteLocal(id); if (!c) return;
+      var ahora = new Date().toISOString();
+      var reabrir = !c.descartada && ['perdido', 'externo'].indexOf(c._rollupStatus) >= 0;
+      var upd = { descartada: firebase.firestore.FieldValue.delete(), archived: !!(antes && antes.archived), updatedAt: ahora };
+      db.collection('clients').doc(id).update(upd).then(function(){
+        delete c.descartada; c.archived = !!(antes && antes.archived); c.updatedAt = ahora;
+        if (reabrir){ aplicarCambioEstado(id, 'contactado'); return; }
+        renderClients();
+        if (currentProfileId === id) pintarConsultaPerfil(c);
+        showToast('Consulta recuperada', 'Volvió a Consultas');
+      }).catch(function(e){ console.error(e); showToast('No se pudo recuperar'); });
+    }
+    function abrirMenuConsulta(ev, id){
+      ev.stopPropagation();
+      cerrarMenuTarjeta();
+      var c = clienteLocal(id); if (!c) return;
+      var e = estadoConsulta(c), sid = escA(id);
+      var m = document.createElement('div');
+      m.className = 'cc-menu';
+      m.innerHTML =
+        '<button onclick="cerrarMenuTarjeta();showClientProfile(\'' + sid + '\')"><i class="fas fa-address-card"></i> Ver ficha</button>' +
+        (e !== 'descartada' ? '<button onclick="etapaDesdeMenu(event,\'' + sid + '\')"><i class="fas fa-flag"></i> Cambiar etapa</button>' : '') +
+        '<button onclick="cerrarMenuTarjeta();openClientModal(\'' + sid + '\')"><i class="fas fa-edit"></i> Editar datos</button>' +
+        (e === 'descartada' ? '<button onclick="cerrarMenuTarjeta();recuperarConsulta(null,\'' + sid + '\')"><i class="fas fa-rotate-left"></i> Recuperar</button>'
+          : '<button onclick="cerrarMenuTarjeta();pasarAClientes(null,\'' + sid + '\')"><i class="fas fa-user-check"></i> Pasar a Clientes</button>') +
+        (puedeTraspasarCliente(c) ? '<button onclick="cerrarMenuTarjeta();abrirTraspaso(\'' + sid + '\')"><i class="fas fa-right-left"></i> Asignar a otro agente</button>' : '') +
+        (isAdmin ? '<button class="peligro" onclick="cerrarMenuTarjeta();deleteClient(\'' + sid + '\')"><i class="fas fa-trash"></i> Eliminar</button>' : '');
+      document.body.appendChild(m);
+      var r = ev.currentTarget.getBoundingClientRect();
+      var alto = m.offsetHeight;
+      var y = (r.bottom + alto + 8 > window.innerHeight) ? (r.top - alto - 6) : (r.bottom + 6);
+      m.style.top = Math.max(8, y) + 'px';
+      m.style.left = Math.max(8, Math.min(r.right - m.offsetWidth, window.innerWidth - m.offsetWidth - 8)) + 'px';
+      setTimeout(function(){ document.addEventListener('click', cerrarMenuTarjeta, { once:true }); }, 0);
+    }
+
+    // ---- La consulta en la ficha del cliente: de dónde vino, qué preguntó y la decisión ----
+    function pintarConsultaPerfil(c){
+      var box = document.getElementById('cpConsulta'); if (!box) return;
+      var e = estadoConsulta(c);
+      if (!e || e === 'cliente'){ box.hidden = true; box.innerHTML = ''; ponerBotonLista(c); return; }
+      var L = datosLead(c), p = L.propertyId ? propPorId(L.propertyId) : null, portal = nombrePortal(c) || 'un portal';
+      var fl = fechaLead(c), cuando = fl ? new Date(fl).toLocaleString('es-UY', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
+      var id = escA(c.id), tit, sub = [], acc;
+      if (e === 'descartada'){
+        var d = c.descartada || {};
+        tit = 'Consulta descartada' + (d.motivo ? ': ' + (MOTIVOS_DESCARTE[d.motivo] || d.motivo) : '');
+        if (d.por) sub.push('La descartó ' + d.por + (d.at ? ' ' + relTime(d.at) : ''));
+        sub.push('Llegó por ' + portal + (cuando ? ' el ' + cuando : ''));
+        acc = '<button type="button" class="cq-b" onclick="recuperarConsulta(null,\'' + id + '\')"><i class="fas fa-rotate-left"></i> Recuperar</button>';
+      } else {
+        tit = 'Consulta de ' + portal + (cuando ? ' · ' + cuando : '');
+        sub.push(e !== 'pendiente' ? textoContacto(c) : volvioAConsultar(c) ? 'Volvió a consultar: sin responder' : 'Sin responder');
+        if (p) sub.push('Sobre ' + (p.title || 'la propiedad'));
+        acc = '<button type="button" class="cq-b ok" onclick="pasarAClientes(null,\'' + id + '\')"><i class="fas fa-user-check"></i> Pasar a Clientes</button>' +
+          '<button type="button" class="cq-b no" onclick="abrirDescarte(event,\'' + id + '\')"><i class="fas fa-xmark"></i> Descartar</button>';
+      }
+      box.className = 'cp-consulta ' + e;
+      box.innerHTML = '<div class="cp-cq-ic"><i class="fas fa-inbox"></i></div>' +
+        '<div class="cp-cq-txt"><b>' + esc(tit) + '</b><span>' + esc(sub.join(' · ')) + '</span>' + (L.mensaje ? '<q>' + esc(L.mensaje) + '</q>' : '') + '</div>' +
+        '<div class="cp-cq-acc">' + acc + '</div>';
+      box.hidden = false;
+      ponerBotonLista(c);
+    }
+    // "Agregar a mis clientes" es para seguir a un cliente de otro agente: en una
+    // consulta que todavía no se decidió confunde con "Pasar a Clientes".
+    function ponerBotonLista(c){
+      var b = document.getElementById('cpListaBtn');
+      if (b) b.style.display = enClientes(c) ? '' : 'none';
+    }
+
+    // ---- Dibujar por tandas ----
+    // Con cientos de tarjetas, dibujarlas todas en cada tecla o filtro trababa el
+    // celular. Se dibujan de a 60 y el resto aparece al acercarse al final.
+    var TANDA = 60, _partes = [], _mostradas = 0, _obsTanda = null, _claveTanda = '';
+    function pintarPorTandas(g, partes, clave){
+      var minimo = (clave === _claveTanda) ? _mostradas : 0;   // misma vista: no achicar (el scroll no salta)
+      _claveTanda = clave;
+      _partes = partes; _mostradas = 0;
+      if (_obsTanda){ _obsTanda.disconnect(); }
+      g.innerHTML = '';
+      agregarTanda(g, Math.max(TANDA, minimo));
+    }
+    function agregarTanda(g, cuantas){
+      g = g || document.getElementById('crmGrid');
+      var vieja = g.querySelector('.crm-mas-tarjetas');
+      if (vieja){ if (_obsTanda) _obsTanda.unobserve(vieja); vieja.remove(); }
+      var hasta = Math.min(_partes.length, _mostradas + (cuantas || TANDA));
+      if (hasta > _mostradas) g.insertAdjacentHTML('beforeend', _partes.slice(_mostradas, hasta).join(''));
+      _mostradas = hasta;
+      if (_mostradas >= _partes.length) return;
+      if (!('IntersectionObserver' in window)){ agregarTanda(g, _partes.length); return; }
+      g.insertAdjacentHTML('beforeend', '<div class="crm-mas-tarjetas" aria-hidden="true"></div>');
+      if (!_obsTanda) _obsTanda = new IntersectionObserver(function(ents){
+        ents.forEach(function(x){ if (x.isIntersecting) agregarTanda(); });
+      }, { rootMargin: '900px 0px' });
+      _obsTanda.observe(g.querySelector('.crm-mas-tarjetas'));
+    }
+    // Al volver de una ficha: se dibuja lo necesario para llegar hasta donde estaba.
+    function asegurarHasta(px){
+      var g = document.getElementById('crmGrid'), vueltas = 0;
+      while (_mostradas < _partes.length && document.documentElement.scrollHeight < px + window.innerHeight && vueltas++ < 40) agregarTanda(g);
+    }
+
     // ===== Render lista + stats =====
     // El buscador redibuja con una pausa corta: con 160 tarjetas, redibujar en
     // cada tecla se sentía trabado en el celular.
@@ -1575,11 +2340,16 @@
       // El subtítulo se recalcula en cada tecla: avisa cuando la búsqueda salió
       // del alcance "Tus clientes".
       updateMisBtn();
+      var nTabs = contarPestanas(term, agenteFiltro);
+      pintarPestanas(nTabs);
+      pintarControlesVista();
+      if (_vista === 'consultas'){ guardarVista(); renderConsultas(term, agenteFiltro, nTabs); return; }
 
       var sf = document.getElementById('clientStatusFilter').value;
       var sfSit = (document.getElementById('clientSituacionFilter')||{}).value || '';
       var inf = document.getElementById('clientInterestFilter').value;
       var arf = document.getElementById('clientArchivedFilter').value;
+      var orf = (document.getElementById('clientOrigenFilter')||{}).value || '';
       var rango = rangoFechaActivo();
       guardarVista();
 
@@ -1592,6 +2362,7 @@
       var now=new Date(), y=now.getFullYear(), m=now.getMonth();
       var iniMes=new Date(y,m,1).toISOString();
       clients.forEach(function(c){
+        if (!enClientes(c)) return;   // las consultas tienen su pestaña
         if (c.archived) return; // las stats reflejan clientes no archivados
         if (misClientesOnly && !esMio(c)) return;
         st.total++;
@@ -1606,61 +2377,25 @@
         if (b==='nuevo') st.nuevo++; else if (b==='proceso') st.proceso++; else if (b==='cerrado') st.cerrado++;
         if (rst==='nuevo') frescos++; // "nuevo" de verdad (dentro de la primera semana)
       });
-      // El "+N este mes" filtra por fecha de alta: es la pregunta que responde.
-      var totalTrend = nuevosMes>0
-        ? '<div class="crm-stat-trend up link" role="button" title="Ver los que se dieron de alta este mes" onclick="event.stopPropagation();setFechaFiltro(\'mes\')"><i class="fas fa-arrow-up"></i> +'+nuevosMes+' <span>este mes</span></div>'
-        : '<div class="crm-stat-trend flat"><i class="fas fa-minus"></i> sin altas este mes</div>';
-      function statCard(bucket, num, label, ico, trendHtml){
-        return '<div class="crm-stat'+(statFilter===bucket?' active':'')+'" onclick="filterByStat(\''+bucket+'\')" title="Filtrar por '+label.toLowerCase()+'">' +
-          '<div class="crm-stat-top"><div class="crm-stat-ico i-'+bucket+'"><i class="fas '+ico+'"></i></div>' +
-          '<div><div class="crm-stat-num">'+num+'</div><div class="crm-stat-label">'+label+'</div></div></div>' +
-          (trendHtml||'') +
-        '</div>';
-      }
-      document.getElementById('crmStats').innerHTML =
-        statCard('total',   st.total,   misClientesOnly ? 'Tus clientes' : 'Total clientes', 'fa-users', totalTrend) +
-        statCard('nuevo',   st.nuevo,   'Por gestionar',  'fa-user-plus','<div class="crm-stat-trend flat">incluye '+frescos+(frescos===1?' nuevo':' nuevos')+'</div>') +
-        statCard('proceso', st.proceso, 'En proceso',     'fa-spinner',  '<div class="crm-stat-trend flat">con seguimiento</div>') +
-        statCard('cerrado', st.cerrado, 'Cerrados',       'fa-circle-check','<div class="crm-stat-trend flat">ganados</div>');
+      _nuevosMes = nuevosMes;   // va al lado del total, en la línea del resultado
 
-      // Banner de pausados que "despertaron" (pasaron los 3 meses). Aparece arriba
-      // del de recontacto; su botón filtra la vista a esos pausados para revisarlos.
-      var despiertos = clients.filter(function(c){ return pausaVencida(c) && !c.archived && (!misClientesOnly || esMio(c)); });
-      var pbBox = document.getElementById('crmPausa');
-      if (pbBox){
-        if (despiertos.length){
-          pbBox.style.display = 'flex';
-          document.getElementById('crmPausaTxt').innerHTML = despiertos.length===1
-            ? '<b>1 cliente en pausa</b> cumplió '+MESES_PAUSA+' meses.<span class="solo-pc"> ¿Lo retomás o lo dejás guardado otro tiempo?</span>'
-            : '<b>'+despiertos.length+' clientes en pausa</b> cumplieron '+MESES_PAUSA+' meses.<span class="solo-pc"> Revisá si conviene retomarlos.</span>';
-          var pbBtn = document.getElementById('crmPausaBtn');
-          pbBtn.textContent = sfSit==='pausa' ? 'Ver todos' : 'Revisarlos';
-          pbBtn.classList.toggle('off', sfSit==='pausa');
-        } else pbBox.style.display = 'none';
-      }
-
-      // Banner de recontacto: clientes activos sin contacto hace demasiado.
-      // Respeta el filtro "mis clientes" para que cada agente vea los suyos.
-      var pendientes = clients.filter(function(c){ return paraRecontactar(c) && (!misClientesOnly || esMio(c)); });
-      var rcBox = document.getElementById('crmRecall');
-      if (rcBox){
-        if (pendientes.length && !bannerRecallSilenciado()){
-          rcBox.style.display = 'flex';
-          document.getElementById('crmRecallTxt').innerHTML = pendientes.length===1
-            ? '<b>1 cliente</b> se está enfriando<span class="solo-pc"> para su etapa. Un mensaje corto puede reactivarlo</span>.'
-            : '<b>'+pendientes.length+' clientes</b> se están enfriando o dormidos<span class="solo-pc"> para su etapa. Un mensaje corto puede reactivarlos</span>.';
-          var rcBtn = document.getElementById('crmRecallBtn');
-          rcBtn.textContent = statFilter==='atencion' ? 'Ver todos' : 'Verlos';
-          rcBtn.classList.toggle('off', statFilter==='atencion');
-        } else {
-          rcBox.style.display = 'none';
-          if (statFilter==='atencion') statFilter = 'all';
-        }
-      }
+      // Pausados, los que cumplieron los 3 meses y los que se están enfriando: antes
+      // eran dos carteles; ahora son números de la tira, que además filtran.
+      var enAlcance = function(c){ return enClientes(c) && !c.archived && (!misClientesOnly || esMio(c)); };
+      var enPausa = 0, despiertos = 0, recontactar = 0;
+      clients.forEach(function(c){
+        if (!enAlcance(c)) return;
+        if (situacionDe(c) === 'pausa'){ enPausa++; if (pausaVencida(c)) despiertos++; }
+        if (paraRecontactar(c)) recontactar++;
+      });
+      ['crmPausa', 'crmRecall'].forEach(function(id){ var b = document.getElementById(id); if (b) b.style.display = 'none'; });
+      if (statFilter === 'atencion' && !recontactar) statFilter = 'all';
+      pintarFranjaClientes(st, recontactar, enPausa, despiertos, sfSit);
 
       var buscando = !!(term || agenteFiltro);
       var base = 0; // los del alcance, sin filtros: para el "12 de 40"
       var list = clients.filter(function(c){
+        if (!enClientes(c)) return false;
         // El teléfono se compara SOLO por dígitos: guardado va como
         // "+598 99 138 332" y el agente escribe "99138332". Comparar los textos
         // tal cual no coincidía nunca.
@@ -1687,7 +2422,9 @@
         // cliente y el filtro no encontraba a los clientes cargados después.
         var matchInteres = !inf || (c._intereses || (c.interest ? [c.interest] : [])).indexOf(inf) >= 0;
         var matchFecha = !rango || enRango(c.createdAt, rango);
-        return m && archMatch && mio && agMatch && matchStatus && matchSit && matchBucket && matchInteres && matchFecha;
+        // Origen: cargados a mano o llegados por una consulta (y ya pasados a Clientes).
+        var matchOrigen = !orf || (orf === 'consulta' ? !!origenConsulta(c) : !origenConsulta(c));
+        return m && archMatch && mio && agMatch && matchStatus && matchSit && matchBucket && matchInteres && matchFecha && matchOrigen;
       });
 
       // ===== ORDEN =====
@@ -1739,7 +2476,10 @@
           titulo = 'Todavía no tenés clientes propios'; texto = 'Los que cargues o sumes a tu lista aparecen acá.';
           boton = '<button type="button" class="crm-btn" style="margin-top:14px" onclick="toggleMisClientes()"><i class="fas fa-users"></i> Ver todos los clientes</button>';
         }
+        // Lo que se busca puede estar en Consultas.
+        if (buscando && nTabs.consultas) boton = '<button type="button" class="crm-otra" onclick="setVista(\'consultas\')"><i class="fas fa-inbox"></i> Ver '+nTabs.consultas+' en Consultas</button><br>' + boton;
         g.innerHTML = '<div class="crm-empty"><i class="fas fa-user-friends"></i><h3>'+titulo+'</h3><p>'+texto+'</p>'+boton+'</div>';
+        _partes = []; _mostradas = 0;
         return;
       }
       // Encabezados de grupo: por etapa (el orden de siempre) o por mes de alta
@@ -1749,14 +2489,14 @@
       var conteo = {};
       if (grupoDe) list.forEach(function(c){ var k = grupoDe(c); conteo[k] = (conteo[k]||0) + 1; });
       var actual = null;
-      g.innerHTML = list.map(function(c){
+      pintarPorTandas(g, list.map(function(c){
         var cab = '';
         if (grupoDe){
           var k = grupoDe(c);
           if (k !== actual){ actual = k; cab = '<div class="cc-grupo"><span>'+esc(k)+'</span><b>'+conteo[k]+'</b><i></i></div>'; }
         }
         return cab + tarjetaCliente(c);
-      }).join('');
+      }), ['c', orden, statFilter, sf, sfSit, inf, arf, orf, _fechaFiltro, term, agenteFiltro, misClientesOnly, _modoSeleccion].join('|'));
     }
 
     // ===== Tarjeta del cliente =====
@@ -1785,6 +2525,8 @@
       var meta = [];
       if (c.createdAt) meta.push('<span title="Cliente desde el '+escA(fechaCorta(c.createdAt, true))+'"><i class="fas fa-calendar-plus"></i>'+esc(fechaCorta(c.createdAt))+'</span>');
       meta.push('<span><i class="fas fa-handshake"></i>'+(nGest===1 ? '1 gestión' : nGest>1 ? nGest+' gestiones' : 'Sin gestiones')+'</span>');
+      // Llegó por una consulta de un portal (y ya es cliente): de dónde vino.
+      if (origenConsulta(c)) meta.push('<span class="cc-origen" title="Llegó por una consulta de '+escA(nombrePortal(c))+'"><i class="fas fa-inbox"></i>'+esc(nombrePortal(c))+'</span>');
       if (!esMio(c) && (c.createdByName||c.ownerName)) meta.push('<span><i class="fas fa-user-tie"></i>'+esc(c.createdByName||c.ownerName)+'</span>');
       if (otrosEnLista.length){
         meta.push('<span class="cc-enlista" title="También lo trabajan: '+escA(otrosEnLista.map(function(x){return x.nombre;}).join(', '))+'">'+
@@ -1800,8 +2542,15 @@
       else if (sit === 'externo') pulso = '<div class="cc-pulso externo" role="button" onclick="'+mnu+'"><i class="fas fa-arrow-right-from-bracket"></i><span>Cerró por afuera</span></div>';
       else if (sit === 'perdido') pulso = '<div class="cc-pulso perdido"><i class="fas fa-circle-xmark"></i><span>Perdido</span></div>';
       else if (sit === 'cerrado') pulso = '<div class="cc-pulso cerrado"><i class="fas fa-circle-check"></i><span>Operación cerrada</span></div>';
-      else if (pl === 'dormido') pulso = '<div class="cc-pulso dormido" role="button" onclick="event.stopPropagation();preguntarDormido(\''+c.id+'\')"><i class="fas fa-moon"></i><span>Sin contacto hace '+dias+' días</span><u>Decidir</u></div>';
-      else if (pl === 'enfriando') pulso = '<div class="cc-pulso enfriando" role="button" onclick="event.stopPropagation();preguntarDormido(\''+c.id+'\')"><i class="fas fa-temperature-half"></i><span>Sin contacto hace '+dias+' días</span><u>Decidir</u></div>';
+      else if (pl === 'dormido') pulso = '<div class="cc-pulso dormido" role="button" onclick="event.stopPropagation();preguntarDormido(\''+c.id+'\')"><i class="fas fa-moon"></i><span>Sin contacto hace '+diasTxt(dias)+'</span><u>Decidir</u></div>';
+      else if (pl === 'enfriando') pulso = '<div class="cc-pulso enfriando" role="button" onclick="event.stopPropagation();preguntarDormido(\''+c.id+'\')"><i class="fas fa-temperature-half"></i><span>Sin contacto hace '+diasTxt(dias)+'</span><u>Decidir</u></div>';
+      // Un cliente que ya estaba volvió a consultar por un portal: es una buena
+      // señal y se ve en la tarjeta (antes había que entrar para enterarse).
+      var Lc = c._lead;
+      if (!pulso && Lc && Lc.fecha > (c.createdAt || '') && diasDesde(Lc.fecha) <= 14 && Lc.fecha > ultimoHumano(c)){
+        var pLc = Lc.propertyId ? propPorId(Lc.propertyId) : null;
+        pulso = '<div class="cc-pulso consulta"><i class="fas fa-inbox"></i><span>Consultó por '+esc(Lc.autor || 'un portal')+' '+relTime(Lc.fecha)+(pLc && pLc.title ? ' · '+esc(pLc.title) : '')+'</span></div>';
+      }
 
       return '<div class="client-card'+(c.archived?' archived':'')+(sit!=='activo'?' fuera-activo':'')+borde+
         (_modoSeleccion?' cc-selmodo':'')+(sel?' cc-sel':'')+'" data-id="'+escA(c.id)+'" tabindex="0" onclick="'+accion+'" style="cursor:pointer;position:relative">' +
@@ -1820,7 +2569,7 @@
         '</div>' +
         '<div class="cc-meta">'+meta.join('')+'</div>' +
         pulso +
-        (c.notes?'<div class="cc-nota">'+esc(c.notes)+'</div>':'') +
+        (c.notes && !NOTA_AUTOMATICA.test(c.notes) ? '<div class="cc-nota">'+esc(c.notes)+'</div>' : '') +
       '</div>';
     }
 
@@ -1834,6 +2583,9 @@
         cnt.innerHTML = buscando ? '<b>'+n+'</b> resultado'+(n===1?'':'s')
           : filtrado ? '<b>'+n+'</b> de '+base+' cliente'+(base===1?'':'s')
           : '<b>'+n+'</b> cliente'+(n===1?'':'s');
+        // Las altas del mes, al lado del total (antes ocupaban una tarjeta).
+        if (!buscando && !filtrado && _nuevosMes) cnt.innerHTML += ' <button type="button" class="crm-mes" onclick="setFechaFiltro(\'mes\')" title="Ver los que se dieron de alta este mes">+'+_nuevosMes+' este mes</button>';
+        cnt.innerHTML += indicadorSync();
       }
       var box = document.getElementById('crmChips');
       if (!box) return;
@@ -1843,6 +2595,7 @@
       if (texto('clientStatusFilter')) chips.push(['Etapa: '+texto('clientStatusFilter'), 'clientStatusFilter']);
       if (texto('clientSituacionFilter')) chips.push(['Situación: '+texto('clientSituacionFilter'), 'clientSituacionFilter']);
       if (texto('clientInterestFilter')) chips.push(['Interés: '+texto('clientInterestFilter'), 'clientInterestFilter']);
+      if (texto('clientOrigenFilter')) chips.push(['Origen: '+texto('clientOrigenFilter').toLowerCase(), 'clientOrigenFilter']);
       var arch = document.getElementById('clientArchivedFilter');
       if (arch && arch.value !== 'active') chips.push([arch.value==='archived' ? 'Solo archivados' : 'Con archivados', 'clientArchivedFilter']);
       if (rango) chips.push(['Alta: '+rango.etiqueta, 'fecha']);
@@ -1862,7 +2615,9 @@
     function pintarCargando(){
       updateMisBtn();
       var sk = '';
-      for (var i=0;i<4;i++) sk += '<div class="crm-stat crm-stat-sk"><i></i><i></i></div>';
+      for (var i=0;i<4;i++) sk += '<div class="crm-kpi crm-kpi-sk"><i></i><i></i></div>';
+      pintarPestanas({ clientes:'', consultas:'', pendientes:0 });
+      pintarControlesVista();
       document.getElementById('crmStats').innerHTML = sk;
       var t = '';
       for (var j=0;j<6;j++) t += '<div class="cc-skel"><span class="a"></span><span class="l1"></span><span class="l2"></span><span class="l3"></span></div>';
@@ -1939,9 +2694,11 @@
     }
 
     // Filtro rápido al tocar una tarjeta de stat (toca de nuevo para quitar el filtro)
+    function sacarFiltroPausa(){ var f = document.getElementById('clientSituacionFilter'); if (f && f.value === 'pausa') f.value = ''; }
     function filterByStat(bucket){
       statFilter = (statFilter===bucket || bucket==='total') ? 'all' : bucket;
       document.getElementById('clientStatusFilter').value = ''; // no pelear con el dropdown
+      sacarFiltroPausa();
       renderClients();
     }
 
@@ -1950,6 +2707,7 @@
     function toggleRecontactar(){
       statFilter = (statFilter==='atencion') ? 'all' : 'atencion';
       document.getElementById('clientStatusFilter').value = '';
+      sacarFiltroPausa();
       renderClients();
     }
 
@@ -2086,6 +2844,12 @@
       ['externo', 'La operación se concretó, pero sin la agencia. No cuenta ni como ganada ni como perdida.'],
       ['perdido', 'Descartado de verdad. Distinto de "cerró por afuera".']
     ];
+    var AYUDA_CONSULTAS = [
+      ['fa-inbox', 'Sin responder', 'Llegó desde un portal y nadie le escribió todavía. Tocá WhatsApp o Llamar: queda registrado quién la atendió y cuándo.'],
+      ['fa-comments', 'En contacto', 'Ya se le habló. Sigue en Consultas hasta que decidas qué es.'],
+      ['fa-user-check', 'Pasar a Clientes', 'Es un cliente de verdad: pasa a la pestaña Clientes. También pasa solo cuando la gestión llega a Visita agendada o más.'],
+      ['fa-xmark', 'Descartar', 'No responde, no le interesa, ya consiguió o eran datos de prueba. Queda en Descartadas y se puede recuperar.']
+    ];
     function abrirAyudaEstados(){
       var ov = document.createElement('div');
       ov.className = 'ayuda-overlay';
@@ -2104,6 +2868,9 @@
         '<div class="ayuda-sec">Etapa comercial · dónde está en el proceso</div>' + etapas +
         '<div class="ayuda-sec">Etapa y propiedad · según qué es el cliente</div>' + roles +
         '<div class="ayuda-sec">Situación · cómo lo estás manejando</div>' + sits +
+        '<div class="ayuda-sec">Consultas · las que llegan solas de los portales</div>' + AYUDA_CONSULTAS.map(function(x){
+          return '<div class="ayuda-item"><i class="fas '+x[0]+'" style="color:var(--gold-2);width:14px;margin-top:3px;flex:none;text-align:center"></i><div class="txt"><strong>'+x[1]+'</strong><span>'+x[2]+'</span></div></div>';
+        }).join('') +
         '</div></div>';
       document.body.appendChild(ov);
     }
@@ -2246,6 +3013,7 @@
         escritura = db.collection('clients').doc(id).update({ etapa: nuevo, etapaAt: ahora, status: nuevo, updatedAt: ahora })
           .then(function(){ c.etapa = nuevo; c.etapaAt = ahora; c.status = nuevo; c.updatedAt = ahora; });
       }
+      var eAntes = estadoConsulta(c);
       escritura.then(function(){
         c._rollupStatus = nuevo;
         c._lastActivity = ahora;
@@ -2260,6 +3028,9 @@
         var det = '';
         if (c._gestionPrincipal && rolCambio === 'propietario' && (nuevo === 'externo' || nuevo === 'perdido')) det = 'Su propiedad sale de circulación y Dirección confirma la baja de los portales';
         else if (c._gestionPrincipal && nuevo === 'cerrado') det = 'La propiedad pasa sola a Vendida o Alquilada';
+        if (eAntes && eAntes !== 'cliente') consolidarPase(c, nuevo);
+        if (eAntes && eAntes !== 'cliente' && estadoConsulta(c) === 'cliente') det = 'La consulta pasó a Clientes' + (det ? '. ' + det : '');
+        if (currentProfileId === id) pintarConsultaPerfil(c);
         showToast('Estado actualizado a '+(GESTION_ESTADO[nuevo]||nuevo), det);
       }).catch(function(e){
         console.error('No se pudo cambiar el estado:', e);
@@ -2442,20 +3213,28 @@
       stEl.style.display = 'none';
 
       var phoneFull = c.phoneNormalized || ((c.areaCode||'')+(c.phone||''));
+      // Las consultas guardan el número tal como lo dejó el portal; el normalizado
+      // le agrega +598 incluso a los del exterior. Si el original sirve, manda ese.
+      var waOrig = origenConsulta(c) ? waNum(c.phone) : '';
+      if (waOrig) phoneFull = '+' + waOrig;
       // Una sola línea con todo. Antes el creador y la fecha salían acá Y otra vez
       // abajo de los botones, con distinto texto: "Creado por X · 17/6/2026" y
       // "Cargado por X el 17 jun. 2026".
       var meta = [];
       if (phoneFull) meta.push('<i class="fas fa-phone"></i> '+esc(fmtPhone(phoneFull)));
       if (c.createdByName||c.ownerName) meta.push('<i class="fas fa-user-tie"></i> '+esc(c.createdByName||c.ownerName));
-      if (c.createdAt) meta.push('<i class="fas fa-calendar"></i> cliente desde el '+fechaCorta(c.createdAt, true));
+      if (origenConsulta(c)) meta.push('<i class="fas fa-inbox"></i> llegó por '+esc(nombrePortal(c))+(c.createdAt ? ' el '+fechaCorta(c.createdAt, true) : ''));
+      else if (c.createdAt) meta.push('<i class="fas fa-calendar"></i> cliente desde el '+fechaCorta(c.createdAt, true));
       document.getElementById('cpMeta').innerHTML = meta.join(' &nbsp;·&nbsp; ');
       pintarLista(c);
+      pintarConsultaPerfil(c);
       renderEventStats(id);
 
       var wa = document.getElementById('cpWhatsapp');
-      var ph = (phoneFull||'').replace(/\D/g,'');
-      if (ph){ wa.href = 'https://wa.me/'+ph; wa.style.display=''; } else { wa.style.display='none'; }
+      // Escribirle a una consulta sin responder deja registrado el primer contacto.
+      var ph = waOrig || waNum(phoneFull);
+      if (ph){ wa.href = 'https://wa.me/'+ph; wa.style.display=''; wa.onclick = function(){ registrarContacto(id, 'whatsapp'); }; }
+      else { wa.style.display='none'; wa.onclick = null; }
 
       // Reseteo resumen y actividad mientras cargan las gestiones (evita ver datos del cliente anterior)
       document.getElementById('cpSummary').style.display = 'none';
@@ -2504,6 +3283,7 @@
       // Lo que se hizo en el perfil (una nota, un cambio de etapa) se ve en la
       // lista, y la lista vuelve a donde estaba.
       renderClients();
+      asegurarHasta(_scrollLista || 0);   // las tarjetas se dibujan por tandas
       window.scrollTo(0, _scrollLista || 0);
     }
     window.addEventListener('popstate', function(e){
@@ -3158,6 +3938,8 @@
           updatedAt: new Date().toISOString(),
           historial: firebase.firestore.FieldValue.arrayUnion(entrada)
         }).then(function(){
+          var cc = clienteLocal(g.clientId), paso = consolidarPase(cc, nuevo);
+          if (paso && currentProfileId === g.clientId) pintarConsultaPerfil(cc);
           var enJuego = PROP_EN_JUEGO.indexOf(stProp) >= 0;
           var enLimbo = stProp === 'cerrado_externo' && (prop.despubPendiente || prop.motivoBaja === 'cerro_externo' || prop.motivoBaja === 'propietario_perdido');
           if (nuevo === 'cerrado' && (stProp === 'available' || stProp === 'reserved' || enLimbo)){
@@ -3173,7 +3955,7 @@
           } else if (anterior === 'cerrado' && nuevo !== 'cerrado' && (stProp === 'sold' || stProp === 'rented')){
             showToast('Gestión reabierta', 'Si la operación se cayó, la propiedad vuelve sola a Disponible');
           } else {
-            showToast('Avance actualizado');
+            showToast('Avance actualizado', paso ? 'La consulta pasó a Clientes' : '');
           }
           // La etiqueta de la lista se recalcula sola al repintar la ficha.
           repintar();
@@ -3264,11 +4046,10 @@
 
     // ===== Modal de gestión =====
     function cargarPropiedadesSelect(){
-      // Carga todas las propiedades una vez para el selector y las tarjetas
-      return db.collection('properties').get().then(function(q){
-        allProperties = q.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
-        allProperties.sort(function(a,b){ return (a.title||'').localeCompare(b.title||''); });
-      }).catch(function(e){ console.error('Error cargando propiedades:', e); });
+      // Si la lista ya las está leyendo, se espera esa lectura en vez de repetirla.
+      var p = _pPropsEnCurso || db.collection('properties').get();
+      return Promise.resolve(p).then(function(q){ if (q) ponerPropiedades(q); })
+        .catch(function(e){ console.error('Error cargando propiedades:', e); });
     }
 
     function openGestionModal(gestionId){
@@ -3516,7 +4297,7 @@
           '</div>';
         });
         // Nota antigua (si habia algo en el campo notes original y no hay notas nuevas que la reemplacen)
-        if (c && c.notes){
+        if (c && c.notes && !NOTA_AUTOMATICA.test(c.notes)){
           html += '<div class="cp-note-item" style="border-left-color:var(--gray-300)">' +
             '<div class="cp-note-text">'+esc(c.notes)+'</div>' +
             '<div class="cp-note-foot"><span class="cp-note-author" style="color:var(--gray-500)"><i class="fas fa-clock-rotate-left" style="color:var(--gray-400)"></i> Nota anterior</span></div>' +
@@ -3712,7 +4493,7 @@
       // Si ya está mostrando el mismo aviso no se redibuja: al tocar uno de sus
       // botones el número pierde el foco, se vuelve a revisar, y redibujar en ese
       // instante se "comía" el clic.
-      var clave = dup ? dup.id + '|' + (editando ? 1 : 0) + '|' + estaEnMiLista(dup) + '|' + !!dup.archived : '';
+      var clave = dup ? dup.id + '|' + (editando ? 1 : 0) + '|' + estaEnMiLista(dup) + '|' + !!dup.archived + '|' + estadoConsulta(dup) : '';
       if (clave === _dupPintado && (dup ? !box.hidden : box.hidden)) return;
       _dupPintado = clave;
       if (!dup){
@@ -3726,13 +4507,16 @@
       var datos = [];
       if (quien) datos.push('Lo cargó ' + quien + (dup.createdAt ? ' el ' + fechaCorta(dup.createdAt, true) : ''));
       if (otros.length) datos.push('También lo trabaja' + (otros.length > 1 ? 'n' : '') + ': ' + otros.join(', '));
-      if (dup.archived) datos.push('Está archivado');
+      var eDup = estadoConsulta(dup), esCons = !!eDup && eDup !== 'cliente';
+      if (esCons) datos.push('Llegó por una consulta de ' + nombrePortal(dup) + (dup.createdAt ? ' el ' + fechaCorta(dup.createdAt, true) : '') + (eDup === 'descartada' ? ' (descartada)' : ''));
+      else if (dup.archived) datos.push('Está archivado');
       if (dup._mismoTel > 1) datos.push('Hay ' + (dup._mismoTel - 1) + ' cliente' + (dup._mismoTel > 2 ? 's' : '') + ' más con este número');
       var titulo = editando ? 'Ese número ya es de otro cliente: <b>' + esc(dup.name || 'Sin nombre') + '</b>.'
+        : esCons ? 'Esta persona ya entró como consulta: <b>' + esc(dup.name || 'Sin nombre') + '</b>.'
         : mio ? 'Este número ya es de tu cliente <b>' + esc(dup.name || 'Sin nombre') + '</b>.'
         : 'Este número ya está en el CRM: <b>' + esc(dup.name || 'Sin nombre') + '</b>.';
       var acc = [];
-      if (!editando && !mio) acc.push('<button type="button" class="pri" onclick="agregarDupAMisClientes(this)"><i class="fas fa-user-plus"></i> ' + (dup.archived ? 'Reactivar y agregar a mis clientes' : 'Agregar a mis clientes') + '</button>');
+      if (!editando && (esCons || !mio)) acc.push('<button type="button" class="pri" onclick="agregarDupAMisClientes(this)"><i class="fas fa-user-plus"></i> ' + (esCons ? 'Pasar a mis clientes' : dup.archived ? 'Reactivar y agregar a mis clientes' : 'Agregar a mis clientes') + '</button>');
       acc.push('<button type="button"' + (acc.length ? '' : ' class="pri"') + ' onclick="abrirFichaDup()"><i class="fas fa-address-card"></i> Ver su ficha</button>');
       box.className = 'cli-dup' + (mio && !editando ? ' mio' : '');
       box.innerHTML = '<div class="cli-dup-top"><i class="fas ' + (mio && !editando ? 'fa-circle-info' : 'fa-triangle-exclamation') + '"></i><div>' + titulo +
@@ -3754,8 +4538,10 @@
       var nombreYo = (userProfile && userProfile.name) || currentUser.email || 'Agente';
       var nota = (document.getElementById('clientNotes').value || '').trim();
       var links = clientLinks.slice();
-      sumarAMiLista(dup.id, { links: links, desarchivar: true }).then(function(r){
+      var pasar = (function(e){ return !!e && e !== 'cliente'; })(estadoConsulta(dup));
+      sumarAMiLista(dup.id, { links: links, desarchivar: true, pasar: pasar }).then(function(r){
         Object.assign(dup, r);
+        if (r.pasadoAClientes) delete dup.descartada;
         if (!nota) return null;
         return db.collection('clients').doc(dup.id).collection('notes').add({
           text: nota, authorId: currentUser.uid, authorName: nombreYo, createdAt: ahora
@@ -3763,7 +4549,7 @@
       }).then(function(){
         closeClientModal();
         renderClients();
-        showToast('Agregado a tus clientes', (dup.name || 'El cliente') + (nota ? ' · tu nota quedó en su ficha' : ''));
+        showToast(pasar ? 'Pasó a tus clientes' : 'Agregado a tus clientes', (dup.name || 'El cliente') + (nota ? ' · tu nota quedó en su ficha' : ''));
         showClientProfile(dup.id);
       }).catch(function(e){
         console.error('agregarDupAMisClientes:', e);
@@ -3789,6 +4575,11 @@
         var nuevos = (extra.links || []).filter(function(l){ return actuales.indexOf(l) < 0; });
         if (nuevos.length) upd.links = actuales.concat(nuevos);
         if (extra.desarchivar && d.archived) upd.archived = false;
+        // Era una consulta: pasa a Clientes (y deja de estar descartada).
+        if (extra.pasar && !d.pasadoAClientes){
+          upd.pasadoAClientes = { at: new Date().toISOString(), por: mio.nombre, porUid: mio.uid };
+          if (d.descartada) upd.descartada = firebase.firestore.FieldValue.delete();
+        }
         return upd;
       };
       if (typeof db.runTransaction === 'function'){
@@ -3866,7 +4657,8 @@
           var nuevo = Object.assign({ id: ref.id }, data);
           derivarCliente(nuevo, null, null);
           clients.push(nuevo);
-          renderClients();
+          // Si se cargó estando en Consultas, se pasa a Clientes para verlo.
+          if (_vista === 'consultas') setVista('clientes'); else renderClients();
         } else loadClients();
       }).catch(function(err){
         er.textContent = 'Error: ' + err.message; er.classList.remove('hidden');
@@ -4347,21 +5139,25 @@
           // vuelve solo a tu preferencia.
           b.innerHTML = '<i class="fas fa-users"></i> Viendo todos';
           b.classList.add('apagado');
-          b.title = 'Mientras buscás se muestran todos los clientes de la inmobiliaria';
+          b.title = _vista === 'consultas' ? 'Mientras buscás se muestran todas las consultas' : 'Mientras buscás se muestran todos los clientes de la inmobiliaria';
         } else if (misClientesOnly){
           // La etiqueta dice DÓNDE ESTÁS PARADO, no a dónde te lleva.
           // Relleno oscuro = hay un filtro puesto. Contorno = sin filtrar.
-          b.innerHTML = '<i class="fas fa-user"></i> Mis clientes';
+          b.innerHTML = '<i class="fas fa-user"></i> ' + (_vista === 'consultas' ? 'Mis consultas' : 'Mis clientes');
           b.classList.add('on');
-          b.title = 'Estás viendo solo tus clientes. Tocá para ver los de toda la inmobiliaria.';
+          b.title = _vista === 'consultas' ? 'Estás viendo las consultas de tus propiedades. Tocá para ver las de todos.' : 'Estás viendo solo tus clientes. Tocá para ver los de toda la inmobiliaria.';
         } else {
-          b.innerHTML = '<i class="fas fa-users"></i> Todos los clientes';
-          b.title = 'Estás viendo todos los clientes. Tocá para ver solo los tuyos.';
+          b.innerHTML = '<i class="fas fa-users"></i> ' + (_vista === 'consultas' ? 'Todas las consultas' : 'Todos los clientes');
+          b.title = _vista === 'consultas' ? 'Estás viendo todas las consultas. Tocá para ver solo las tuyas.' : 'Estás viendo todos los clientes. Tocá para ver solo los tuyos.';
         }
       }
       var s = document.getElementById('crmSubtitle');
       if (s) {
-        if (misClientesOnly && hayBusqueda) s.textContent = 'Buscando en todos los clientes de la inmobiliaria';
+        if (_vista === 'consultas'){
+          if (misClientesOnly && hayBusqueda) s.textContent = 'Buscando en todas las consultas';
+          else s.textContent = misClientesOnly ? 'Las consultas de tus propiedades' : 'Todas las consultas de los portales';
+        }
+        else if (misClientesOnly && hayBusqueda) s.textContent = 'Buscando en todos los clientes de la inmobiliaria';
         else s.textContent = misClientesOnly ? 'Tus clientes' : 'Todos los clientes de la inmobiliaria';
       }
     }
@@ -4376,7 +5172,7 @@
       btn.setAttribute('aria-expanded', abierto ? 'false' : 'true');
     }
     function limpiarFiltros(){
-      ['clientStatusFilter','clientSituacionFilter','clientInterestFilter'].forEach(function(id){
+      ['clientStatusFilter','clientSituacionFilter','clientInterestFilter','clientOrigenFilter'].forEach(function(id){
         var e=document.getElementById(id); if(e) e.value='';
       });
       var a=document.getElementById('clientArchivedFilter'); if(a) a.value='active';
@@ -4395,7 +5191,7 @@
     // si no, quedaría una lista recortada sin explicación a la vista.
     function contarFiltros(){
       var n=0;
-      ['clientStatusFilter','clientSituacionFilter','clientInterestFilter'].forEach(function(id){
+      ['clientStatusFilter','clientSituacionFilter','clientInterestFilter','clientOrigenFilter'].forEach(function(id){
         var e=document.getElementById(id); if(e && e.value) n++;
       });
       var a=document.getElementById('clientArchivedFilter');
@@ -4477,7 +5273,8 @@
         var v = function(id){ var e = document.getElementById(id); return e ? e.value : ''; };
         sessionStorage.setItem(VISTA_KEY, JSON.stringify({
           mis: misClientesOnly, orden: v('clientOrden'), etapa: v('clientStatusFilter'), sit: v('clientSituacionFilter'),
-          interes: v('clientInterestFilter'), archivo: v('clientArchivedFilter'), fecha: _fechaFiltro, desde: v('fechaDesde'), hasta: v('fechaHasta')
+          interes: v('clientInterestFilter'), archivo: v('clientArchivedFilter'), fecha: _fechaFiltro, desde: v('fechaDesde'), hasta: v('fechaHasta'),
+          origen: v('clientOrigenFilter'), vista: _vista
         }));
       } catch(e){}
     }
@@ -4492,7 +5289,8 @@
         };
         misClientesOnly = d.mis !== false;
         poner('clientOrden', d.orden); poner('clientStatusFilter', d.etapa); poner('clientSituacionFilter', d.sit);
-        poner('clientInterestFilter', d.interes); poner('clientArchivedFilter', d.archivo);
+        poner('clientInterestFilter', d.interes); poner('clientArchivedFilter', d.archivo); poner('clientOrigenFilter', d.origen);
+        if (d.vista === 'consultas') _vista = 'consultas';
         var re = /^\d{4}-\d{2}-\d{2}$/;
         document.getElementById('fechaDesde').value = re.test(d.desde||'') ? d.desde : '';
         document.getElementById('fechaHasta').value = re.test(d.hasta||'') ? d.hasta : '';
@@ -4532,11 +5330,20 @@
     // Si se recargó con el perfil abierto, se empieza desde la lista.
     if (location.hash === '#perfil'){ try { history.replaceState(null, '', location.pathname + location.search); } catch(e){} }
     cargarVista();
+    // clientes.html?vista=consultas abre directo en Consultas (desde la campanita).
+    // Se saca de la dirección después de leerlo: si no, al recargar volvía siempre a Consultas.
+    try {
+      var _u = new URL(location.href), _qv = _u.searchParams.get('vista');
+      if (_qv === 'consultas' || _qv === 'clientes'){
+        _vista = _qv; _u.searchParams.delete('vista');
+        history.replaceState(history.state, '', _u.pathname + _u.search + _u.hash);
+      }
+    } catch(e){}
     // En el celular el texto de ayuda del buscador no entraba entero.
     try { if (window.matchMedia('(max-width:560px)').matches) document.getElementById('clientSearch').placeholder = 'Nombre, teléfono o @agente'; } catch(e){}
     // Las tarjetas se abren también con Enter (teclado).
     document.getElementById('crmGrid').addEventListener('keydown', function(e){
-      if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.classList && e.target.classList.contains('client-card')){
+      if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.classList && (e.target.classList.contains('client-card') || e.target.classList.contains('cq-card'))){
         e.preventDefault(); e.target.click();
       }
     });
