@@ -129,7 +129,7 @@
     'vencimiento_alquiler', 'ficha_incompleta', 'despublicar_confirmar', 'baja_resuelta', 'propiedad_reservada',
     'destacado_vencido', 'portal_publicada', 'portal_sin_cupo', 'portal_error', 'ml_error', 'refresh_token',
     'authorization_code', 'retiro', 'retiro_estado', 'admin_pendiente', 'postulacion', 'revision_rechazada', 'info',
-    'cierre_pendiente']);
+    'cierre_pendiente', 'revision_aprobada', 'revision_corregida']);
   function pushEnPrimerPlano(p) {
     const d = (p && p.datos) || {};
     // Si es un aviso de la campanita y el listener en vivo anda, el toast lo pone
@@ -1544,6 +1544,17 @@
         const que = String(n.propertyTitle || n.text || '');
         Object.assign(m, { fam: 'gestion', ic: 'fa-file-circle-xmark', col: 'rojo', titulo: 'Informe rechazado', ctx: _cap(n.propertyTitle || ''), txt: n.text || '' });
         m.ir = { a: 'url', url: /gastos/i.test(que) ? 'gastos.html' : /terreno/i.test(que) ? 'terreno.html' : 'tasador.html' };
+        break;
+      }
+      case 'revision_aprobada':
+      case 'revision_corregida': {
+        // La Dirección aprobó (o corrigió y aprobó) una tasación: ya se puede bajar el PDF.
+        const corregida = tipo === 'revision_corregida';
+        Object.assign(m, { fam: 'gestion', ic: corregida ? 'fa-pen-ruler' : 'fa-circle-check', col: 'verde',
+          titulo: _sinEmoji(n.userName) || (corregida ? 'Tasación corregida' : 'Tasación aprobada'), ctx: n.propertyTitle || '', txt: n.text || '' });
+        const url = n.url || 'tasador.html#misTasaciones';
+        m.boton = { txt: /tasador/.test(url) ? 'Ir a Mis tasaciones' : 'Abrir el cálculo', ic: 'fa-file-arrow-down' };
+        m.ir = { a: 'url', url };
         break;
       }
       case 'turno':

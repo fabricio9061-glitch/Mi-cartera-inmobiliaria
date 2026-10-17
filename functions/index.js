@@ -9041,50 +9041,107 @@ exports.notificarSolicitudVenta = onDocumentCreated("leadsVenta/{id}", async (ev
 // 4) Revisiones: tasaciones y cálculos que los agentes guardan dentro de su
 //    propio documento de usuario (arrays tasaciones / calcGastos / calcTerrenos).
 //    Se compara el largo antes y después para avisar solo de las nuevas.
-// Avisar al agente cuando el admin rechaza uno de sus informes. Sin esto el
-// rechazo es mudo: el agente vuelve a entrar días después y no entiende por qué
-// no puede descargar el PDF.
+// Avisar al agente cuando la Dirección resuelve uno de sus informes:
+//  - lo RECHAZA (con el motivo): sin esto el rechazo es mudo y el agente no
+//    entiende por qué no puede descargar el PDF;
+//  - lo CORRIGE (desde el tasador): le llega qué cambió y la nota, ya aprobado;
+//  - lo APRUEBA: ya puede descargar el PDF.
+// Cada aviso tiene un id fijo por hecho: si la función se reintenta, no se duplica.
 exports.notificarRechazo = onDocumentUpdated("users/{uid}", async (event) => {
   const before = event.data && event.data.before ? event.data.before.data() : null;
   const after = event.data && event.data.after ? event.data.after.data() : null;
   if (!before || !after) return;
 
   const TIPOS = [
-    { campo: "tasaciones", etiqueta: "tasación" },
-    { campo: "calcGastos", etiqueta: "cálculo de gastos" },
-    { campo: "calcTerrenos", etiqueta: "cálculo de terreno" },
+    // g: la terminación según el género ("tasación aprobada", "cálculo aprobado").
+    { campo: "tasaciones", etiqueta: "tasación", titulo: "Tasación", g: "a", url: "tasador.html#misTasaciones" },
+    { campo: "calcGastos", etiqueta: "cálculo de gastos", titulo: "Cálculo de gastos", g: "o", url: "gastos.html" },
+    { campo: "calcTerrenos", etiqueta: "cálculo de terreno", titulo: "Cálculo de terreno", g: "o", url: "terreno.html" },
   ];
   const comoMapa = (v) => {
     if (Array.isArray(v)) { const o = {}; v.forEach((x) => { if (x && x.id) o[x.id] = x; }); return o; }
     return (v && typeof v === "object") ? v : {};
   };
+  const corto = (s, n) => { s = String(s || "").replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+  const clave = (s) => crypto.createHash("sha1").update(String(s || "")).digest("hex").slice(0, 12);
 
-  const rechazados = [];
+  const avisos = [];
   TIPOS.forEach((t) => {
     const a = comoMapa(after[t.campo]), b = comoMapa(before[t.campo]);
     Object.keys(a).forEach((k) => {
-      // Solo el cambio a rechazada: si ya lo estaba, no se vuelve a avisar.
-      if (a[k] && a[k].rechazada === true && !(b[k] && b[k].rechazada === true)) {
-        rechazados.push({ etiqueta: t.etiqueta, motivo: a[k].motivoRechazo || "" });
-      }
+      const x = a[k], y = b[k];
+      if (!x || typeof x !== "object") return;
+      const dir = String((x.datos && x.datos.direccion) || "").trim(), cli = String((x.datos && x.datos.cliente) || "").trim();
+      const que = dir || cli;
+      // "tu tasación de Av. Italia 3456" o, si no tiene dirección, "tu tasación para Juan Pérez".
+      const de = dir ? `tu ${t.etiqueta} de ${dir}` : cli ? `tu ${t.etiqueta} para ${cli}` : `tu ${t.etiqueta}`;
+      // Solo el cambio de estado: si ya lo estaba, no se vuelve a avisar.
+      if (x.rechazada === true && !(y && y.rechazada === true)) { avisos.push({ tipo: "rechazada", k, t, x, que, de }); return; }
+      const fc = x.correccion && x.correccion.fecha;
+      if (fc && fc !== (y && y.correccion && y.correccion.fecha)) { avisos.push({ tipo: "corregida", k, t, x, que, de }); return; }
+      // Aprobada: pasó de "en revisión" a aprobada. Las que nacen aprobadas (las
+      // que hace la propia Dirección) no tenían versión anterior y no se avisan.
+      if (y && y.revisado !== true && x.revisado === true && x.rechazada !== true) avisos.push({ tipo: "aprobada", k, t, x, que, de });
     });
   });
-  if (!rechazados.length) return;
+  if (!avisos.length) return;
 
   const destino = { uid: event.params.uid, ...after };
-  const r = rechazados[0];
-  await crearNotificacion(destino, {
-    type: "revision_rechazada",
-    propertyId: "",
-    propertyTitle: `tu ${r.etiqueta}`,
-    userName: "Informe rechazado",
-    userPhoto: null,
-    text: `El administrador rechazó tu ${r.etiqueta}${r.motivo ? `: ${r.motivo}` : "."} Corregila y volvé a enviarla.`,
-  }, {
-    title: "Informe rechazado",
-    body: r.motivo ? r.motivo.slice(0, 120) : `Revisá tu ${r.etiqueta}`,
-  });
-  logger.info(`[rechazo] ${event.params.uid}: ${rechazados.length} informe(s)`);
+  const uid = event.params.uid;
+  for (const v of avisos.slice(0, 5)) {
+    const x = v.x;
+    try {
+      if (v.tipo === "rechazada") {
+        const motivo = x.motivoRechazo || "";
+        await crearNotificacion(destino, {
+          type: "revision_rechazada",
+          propertyId: "",
+          propertyTitle: `tu ${v.t.etiqueta}`,
+          userName: "Informe rechazado",
+          userPhoto: null,
+          text: `${x.revisadoPor || "La Dirección"} rechazó ${v.de}${motivo ? `: ${motivo.replace(/[.\s]+$/, "")}.` : "."} Corregil${v.t.g} y volvé a enviarl${v.t.g}.`,
+        }, {
+          title: "Informe rechazado",
+          body: motivo ? motivo.slice(0, 120) : `Revisá ${v.de}`,
+        }, `rev_rech_${uid}_${clave(v.t.campo + v.k + (x.rechazadaAt || motivo))}`);
+      } else if (v.tipo === "corregida") {
+        const c = x.correccion || {};
+        const por = c.por || x.revisadoPor || "La Dirección";
+        const lista = Array.isArray(c.cambios) ? c.cambios : [];
+        const us = (t) => String(t == null ? "" : t).replace(/\bUSD\b/g, "US$");
+        const resumen = lista.slice(0, 2).map((z) => `${String(z.que || "").toLowerCase()} ${us(z.de)} → ${us(z.a)}`).join(", ") +
+          (lista.length > 2 ? ` y ${lista.length - 2} cambio${lista.length - 2 === 1 ? "" : "s"} más` : "");
+        await crearNotificacion(destino, {
+          type: "revision_corregida",
+          propertyId: "",
+          propertyTitle: v.que || `tu ${v.t.etiqueta}`,
+          userName: `${v.t.titulo} corregid${v.t.g}`,
+          userPhoto: null,
+          text: `${por} corrigió ${v.de} y quedó aprobad${v.t.g}${resumen ? `: ${resumen}` : ""}.${c.nota ? ` Nota: «${corto(c.nota, 200)}».` : ""} Ya podés descargar el PDF.`,
+          url: v.t.url,
+          corregidaPor: por,
+        }, {
+          title: `${v.t.titulo} corregid${v.t.g} y aprobad${v.t.g}`,
+          body: corto(`${v.que || v.t.titulo}${resumen ? ` · ${resumen}` : ""}`, 120),
+        }, `rev_corr_${uid}_${clave(v.t.campo + v.k + c.fecha)}`);
+      } else {
+        const por = x.revisadoPor || "La Dirección";
+        await crearNotificacion(destino, {
+          type: "revision_aprobada",
+          propertyId: "",
+          propertyTitle: v.que || `tu ${v.t.etiqueta}`,
+          userName: `${v.t.titulo} aprobad${v.t.g}`,
+          userPhoto: null,
+          text: `${por} aprobó ${v.de}. Ya podés descargar el PDF.`,
+          url: v.t.url,
+        }, {
+          title: `${v.t.titulo} aprobad${v.t.g}`,
+          body: corto(`${v.que ? v.que + ": " : ""}ya podés descargar el PDF.`, 120),
+        }, `rev_apr_${uid}_${clave(v.t.campo + v.k + (x.revisadoAt || ""))}`);
+      }
+    } catch (e) { logger.warn(`notificarRechazo ${uid}/${v.k}:`, e.message); }
+  }
+  logger.info(`[revisiones] ${uid}: ${avisos.map((v) => v.tipo).join(", ")}`);
 });
 
 exports.notificarRevision = onDocumentUpdated("users/{uid}", async (event) => {
