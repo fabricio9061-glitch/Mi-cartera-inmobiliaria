@@ -1375,7 +1375,17 @@
     .properties-grid .property-card > .card-content { flex: 1 1 auto }
     .property-card .tg-web { font-size: 12.5px; color: var(--gray-500); margin-top: 9px }
     .property-card .tg-barra { border-top: 1px solid #edf0f3; background: #fafbfc; padding: 11px 14px 14px; cursor: default }
-    .tg-lab { font-size: 12px; font-weight: 600; color: #5b6574 }
+    .tg-lab { display: flex; align-items: center; gap: 8px; width: 100%; padding: 2px 0; border: 0; background: none;
+      font: 600 12px 'Jost', sans-serif; color: #5b6574; text-align: left; cursor: pointer }
+    .tg-lab:hover { color: #16273f }
+    .tg-lab i { margin-left: auto; font-size: 11px; transform: rotate(180deg); transition: transform .2s }
+    .tg-plegado .tg-lab i { transform: none }
+    .tg-mini { display: none; gap: 4px }
+    .tg-mini span { width: 7px; height: 7px; border-radius: 50% }
+    .tg-plegado .tg-mini { display: inline-flex }
+    .tg-plegado .tg-chips, .tg-plegado .tg-nota { display: none }
+    .tg-lab:focus-visible { outline: 2px solid #C9A227; outline-offset: 2px; border-radius: 4px }
+    @media (prefers-reduced-motion: reduce) { .tg-lab i { transition: none } }
     .tg-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 6px }
     .tg-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; min-height: 44px; padding: 6px 8px;
       border-radius: 10px; border: 1px solid #e3e7ec; background: #fff; font-family: 'Jost', sans-serif; color: #16273f; text-align: left;
@@ -1439,8 +1449,63 @@
     .ma.hoja .ma-op.peligro i { background: #fdeced }
     .ma.hoja .ma-op small { font-size: 13px }
     .ma.hoja .ma-sep { display: none }
+
+    /* ===== Modal de Portales (app.js → armarModalPortales y portalCard) =====
+       Con #mlModalBody para ganarle a los estilos que app.js agrega al abrirlo. */
+    #mlModalBody .pm-prop { display: flex; align-items: center; gap: 12px }
+    #mlModalBody .pm-prop img, #mlModalBody .pm-sinfoto { flex: none; width: 64px; height: 48px; border-radius: 10px; object-fit: cover; background: #dfe5ec }
+    #mlModalBody .pm-sinfoto { display: flex; align-items: center; justify-content: center; color: #8a96a6 }
+    #mlModalBody .pm-txt { min-width: 0 }
+    #mlModalBody .pm-tit { font-weight: 600; font-size: 15px; line-height: 1.3; color: #16273f }
+    #mlModalBody .pm-sub { margin-top: 3px; font-size: 13px; color: #5b6574 }
+    #mlModalBody .pm-check { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 12px 0; font-size: 12.5px; color: #5b6574 }
+    #mlModalBody .pm-lnk { flex: none; border: 0; background: none; padding: 6px 2px; font: 600 12.5px 'Jost', sans-serif; color: #16273f;
+      text-decoration: underline; cursor: pointer }
+    #mlModalBody .pt-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 0; margin-bottom: 4px; background: none; border-radius: 0 }
+    #mlModalBody .pt-tab { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 7px; min-width: 0; padding: 12px;
+      border: 1.5px solid #e3e7ec; border-radius: 14px; background: #fff; color: #16273f; text-align: left; font-weight: 500; box-shadow: none }
+    #mlModalBody .pt-tab:hover { border-color: #b9c2cd }
+    #mlModalBody .pt-tab.activo { border-color: #16273f; box-shadow: 0 0 0 1px #16273f }
+    #mlModalBody .pt-chip { display: inline-block; max-width: 100%; padding: 3px 8px; border-radius: 7px; font-weight: 700; font-size: 11.5px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+    #mlModalBody .pt-estado { display: flex; max-width: 100% }
+    #mlModalBody .pt-estado .pc-pill { max-width: 100%; overflow: hidden; text-overflow: ellipsis }
+    #mlModalBody .pt-lineas { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; line-height: 1.3; color: #5b6574 }
+    #mlModalBody .pc-card { margin-top: 0; padding: 14px 0 4px; border: 0; border-radius: 0; background: none }
+    #mlModalBody .pc-tit { margin: 0 0 10px; font: 600 13px 'Jost', sans-serif; color: #5b6574 }
+    #mlModalBody .pc-head { flex-wrap: wrap; justify-content: flex-start; margin-bottom: 0 }
+    #mlModalBody .pc-head .pc-pill { font-size: 13px; padding: 5px 12px }
+    #mlModalBody .pc-explica { font-size: 13.5px; color: #3a4658 }
+    #mlModalBody .pc-metas { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 10px; font-size: 12.5px; color: #5b6574 }
+    #mlModalBody .pc-lead { margin-top: 10px; font-size: 13px; color: #5b6574 }
+    #mlModalBody .pc-blk { margin-top: 16px; padding-top: 16px; border-top: 1px solid #edf0f3 }
+    #mlModalBody .pc-fila { display: grid; grid-template-columns: 104px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 0;
+      border-bottom: 1px solid #f1f3f6; font-size: 14px }
+    #mlModalBody .pc-fila:last-of-type { border-bottom: 0 }
+    #mlModalBody .pc-fila .k { color: #5b6574 }
+    #mlModalBody .pc-fila .v { font-weight: 600; color: #16273f; overflow-wrap: anywhere }
+    #mlModalBody .pc-fila .bien, #mlModalBody .pc-fila .mal, #mlModalBody .pc-fila .nota { display: inline-flex; align-items: center; gap: 5px;
+      font-size: 12.5px; font-weight: 600; white-space: nowrap }
+    #mlModalBody .pc-fila .bien { color: #157a52 }
+    #mlModalBody .pc-fila .mal { color: #a35a00 }
+    #mlModalBody .pc-fila .nota { color: #5b6574; font-weight: 500 }
+    #mlModalBody .pc-hint { margin: 8px 0 0; font-size: 12.5px; line-height: 1.45; color: #5b6574 }
+    #mlModalBody .pc-acc .ml-btns { margin-top: 0 }
+    #mlModalBody .pm-lnk:focus-visible, #mlModalBody .pt-tab:focus-visible { outline: 2px solid #C9A227; outline-offset: 2px }
+    /* Más ancho que los otros modales: entran las tres tarjetas de los portales. */
+    #mlModal > .modal-content { max-width: 600px }
+    @media (max-width: 640px) {
+      /* En el celular el modal ocupa la pantalla: que el contenido llegue hasta abajo. */
+      #mlModal > .modal-content > .modal-body { max-height: none }
+      #mlModalBody .pt-tabs { gap: 6px }
+      #mlModalBody .pt-tab { gap: 6px; padding: 10px 8px }
+      #mlModalBody .pt-chip { font-size: 10.5px; padding: 3px 6px }
+      #mlModalBody .pt-lineas { font-size: 11.5px }
+      #mlModalBody .pc-fila { grid-template-columns: 88px minmax(0, 1fr); row-gap: 2px }
+      #mlModalBody .pc-fila > :last-child { grid-column: 2 }
+    }
   </style>
-  <script src="app.js?v=20261021b"></script>
+  <script src="app.js?v=20261021c"></script>
   <!-- ====== MENÚ DEL VISITANTE (celular) ======
        En celular la barra oculta los enlaces del encabezado; este menú es la
        forma de llegar a "Vendé tu propiedad", "Trabajá con nosotros" y al acceso
