@@ -5142,7 +5142,7 @@
         archived: 'DADA DE BAJA'
       };
       const stLabel = stLabels[st] || '';
-      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy" decoding="async">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div>${ce?`<div class="card-actions"><button class="card-action-btn calendar" onclick="event.stopPropagation();openVisitModal('${p.id}')" title="Agendar visita"><i class="fas fa-calendar-plus"></i></button><button class="card-action-btn edit" onclick="event.stopPropagation();openPropertyFormTab('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button>${anilloML(p)}<button class="btn-feature ${isFeatured?'active':''}" onclick="event.stopPropagation();toggleFeatured('${p.id}')" title="${isFeatured?`Destacada · vence en ${diasDeDestacado(p)} d. Tocá para cambiar la propiedad`:'Destacar'}"><i class="fas fa-star"></i></button>${dirV?`<button class="card-action-btn delete" onclick="event.stopPropagation();deleteProperty('${p.id}')" title="Eliminar (solo admin)"><i class="fas fa-trash"></i></button>`:`<button class="card-action-btn baja" onclick="event.stopPropagation();irAGestion('${p.id}')" title="Dar de baja — se hace cerrando la gestión del cliente"><i class="fas fa-circle-stop"></i></button>`}</div>`:''}<div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${safeUrl(o.profilePhoto)}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-meta"><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div>${chipCliente(p)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div></div><div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span>${ce?`<span class="card-views" title="Tocaron Contactar"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${p.contactClicks||0}</span>`:''}</div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div></div>`
+      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy" decoding="async">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div><div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${safeUrl(o.profilePhoto)}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title">${mvEsc(p.title)}</h3><div class="card-meta"><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div>${chipCliente(p)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div>${ce?`<div class="tg-web">${textoWebTarjeta(p)}</div>`:''}</div>${ce?barraGestion(p):`<div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span></div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div>`}</div>`
     }).join('')
   }
 
@@ -7782,6 +7782,231 @@
         console.warn('No se pudo traer la calidad de los avisos:', e.message || e);
       }
     }, 400);
+  }
+
+  // ===== TARJETA: BARRA DE GESTIÓN =====
+  // Va debajo de la tarjeta y solo la ve quien gestiona la propiedad (su agente
+  // o la Dirección): cómo está el aviso en cada portal, Editar, Agendar visita y
+  // "Más acciones". Reemplaza a la columna de íconos que aparecía sobre la foto.
+  // El estado de los portales sale de lo que la propiedad ya tiene guardado (lo
+  // ponen al día el modal de Portales, el espejo de estado y el repaso diario):
+  // la grilla no le consulta nada a los portales. El público y los demás agentes
+  // siguen viendo la tarjeta de siempre, con Contactar.
+  const TG_PUNTO = { ok: '#1e9e6a', ojo: '#d68910', mal: '#c0392b', pausa: '#8a96a6', nada: '#b8c1cc' };
+  // Disponible o reservada (y sin cierre confirmado): sus avisos tienen que verse.
+  // Es la misma regla que usa el servidor en la auditoría de InfoCasas.
+  function tgEnMercado(p) {
+    const st = p.status || 'available';
+    return (st === 'available' || st === 'reserved') && p.cierreConfirmado !== true;
+  }
+  // Cada estado devuelve el texto del chip, su tono (el color del punto) y, si
+  // hay algo que resolver, la frase del aviso de la tarjeta (prob).
+  function tgEstadoML(p) {
+    if (!p.mlItemId) return { txt: 'No publicada', tono: 'nada' };
+    const en = tgEnMercado(p), s = p.mlStatus || '';
+    if (s === 'paused') return { txt: 'Pausada', tono: 'pausa' };
+    if (s === 'closed') return en ? { txt: 'Finalizada', tono: 'mal', prob: 'El aviso de Mercado Libre está finalizado' } : { txt: 'Dada de baja', tono: 'nada' };
+    if (s === 'under_review') return en ? { txt: 'En revisión', tono: 'ojo', prob: 'Mercado Libre está revisando el aviso' } : { txt: 'En revisión', tono: 'nada' };
+    if (s === 'inactive') return en ? { txt: 'Inactiva', tono: 'ojo', prob: 'Mercado Libre marcó el aviso como inactivo' } : { txt: 'Inactiva', tono: 'nada' };
+    if (!en) return s === 'active' ? { txt: 'Sigue activa', tono: 'ojo', prob: 'Dada de baja en el CRM, sigue activa en Mercado Libre' } : { txt: 'Sin revisar', tono: 'nada' };
+    if (p.mlHealth != null) {
+      const pct = Math.round(p.mlHealth * 100);
+      return { txt: `Calidad ${pct}%`, tono: pct >= 80 ? 'ok' : (pct >= 50 ? 'ojo' : 'mal'), aria: `activa, calidad ${pct}%` };
+    }
+    return { txt: 'Activa', tono: 'ok' };
+  }
+  // Estado del aviso en InfoCasas tal como lo guarda el servidor (icEstadoPortal).
+  const TG_IC = {
+    activa: ['Activa', 'ok'],
+    publicandose: ['Publicándose', 'ojo'],
+    desactivada: ['Desactivada', 'ojo', 'InfoCasas la muestra desactivada'],
+    caducada: ['Caducada', 'ojo', 'El aviso de InfoCasas caducó'],
+    sin_cupo: ['Sin cupo', 'ojo', 'InfoCasas no tiene cupo para mostrarla'],
+    incompleta: ['Incompleta', 'ojo', 'A InfoCasas le faltan datos del aviso'],
+    rechazada: ['Rechazada', 'mal', 'InfoCasas rechazó el aviso'],
+    con_error: ['Con error', 'mal', 'InfoCasas marca un error en el aviso'],
+    eliminada: ['Eliminada', 'mal', 'InfoCasas ya no tiene el aviso'],
+    no_esta: ['No aparece', 'mal', 'InfoCasas ya no tiene el aviso']
+  };
+  function tgEstadoIC(p) {
+    const en = tgEnMercado(p), est = p.icEstado || '';
+    if (est === 'error') return en ? { txt: 'Con error', tono: 'mal', prob: 'InfoCasas no aceptó el aviso' } : { txt: 'Con error', tono: 'nada' };
+    if (est === 'pendiente') return { txt: 'Enviando', tono: 'ojo' };
+    if (!p.icListingId || est === 'eliminado') return { txt: en ? 'No publicada' : 'Dada de baja', tono: 'nada' };
+    const k = p.icEstadoPortal;
+    if (!en) {
+      if (k === 'activa' || k === 'publicandose') return { txt: 'Sigue activa', tono: 'ojo', prob: 'Dada de baja en el CRM, sigue activa en InfoCasas' };
+      return { txt: k ? 'Dada de baja' : 'Sin revisar', tono: 'nada' };
+    }
+    if (!k) return { txt: 'Publicada', tono: 'ok' };
+    const m = TG_IC[k] || [String(k), 'ojo', 'InfoCasas muestra el aviso como ' + k];
+    return { txt: m[0], tono: m[1], prob: m[2] || '' };
+  }
+  function tgEstadoCM(p) {
+    const en = tgEnMercado(p), est = p.cymEstado || '';
+    if (est === 'error') return en ? { txt: 'Con error', tono: 'mal', prob: 'Casas y Más no aceptó el aviso' } : { txt: 'Con error', tono: 'nada' };
+    if (est === 'pendiente') return { txt: 'Enviando', tono: 'ojo' };
+    if (!p.cymId || est === 'eliminado') return { txt: en ? 'No publicada' : 'Dada de baja', tono: 'nada' };
+    if (!en) {
+      if (p.cymEnPortal === true) return { txt: 'Sigue activa', tono: 'ojo', prob: 'Dada de baja en el CRM, sigue activa en Casas y Más' };
+      return { txt: p.cymEnPortal === false ? 'Dada de baja' : 'Sin revisar', tono: 'nada' };
+    }
+    if (p.cymEnPortal === false) return { txt: 'No aparece', tono: 'mal', prob: 'Casas y Más no la muestra' };
+    if (p.cymEnPortal === true) return { txt: p.cymDestacada ? 'Destacada' : 'Activa', tono: 'ok' };
+    return { txt: 'Publicada', tono: 'ok' };
+  }
+  // Cada chip abre el modal de Portales en la pestaña de ese portal.
+  function tgChip(id, clave, sigla, nombre, e) {
+    const marca = e.prob ? ' ' + e.tono : '';
+    const apagado = !e.prob && (e.tono === 'nada' || e.tono === 'pausa') ? ' apagado' : '';
+    const aria = `${nombre}: ${e.aria || e.txt.toLowerCase()}. Abre Portales`;
+    return `<button type="button" class="tg-chip${marca}" onclick="openMLModal('${id}',{portal:'${clave}'})" aria-label="${mvEsc(aria)}" title="${nombre}">` +
+      `<span class="tg-sig"><span class="tg-sg ${sigla.toLowerCase()}">${sigla}</span><span class="tg-punto" style="background:${TG_PUNTO[e.tono] || TG_PUNTO.nada}"></span></span>` +
+      `<span class="tg-est${marca}${apagado}">${mvEsc(e.txt)}</span></button>`;
+  }
+  function textoWebTarjeta(p) {
+    const v = Number(p.views) || 0, c = Number(p.contactClicks) || 0;
+    return `En la web: ${v} visita${v === 1 ? '' : 's'} y ${c} contacto${c === 1 ? '' : 's'}`;
+  }
+  function barraGestion(p) {
+    const id = p.id;
+    const ml = tgEstadoML(p), ic = tgEstadoIC(p), cm = tgEstadoCM(p);
+    // Un solo aviso por tarjeta: el primero que haya que resolver.
+    const prob = [['infocasas', ic], ['casasymas', cm], ['ml', ml]].find(x => x[1].prob);
+    let aviso = '';
+    if (prob) {
+      aviso = `<div class="tg-alerta${prob[1].tono === 'mal' ? ' mal' : ''}"><span>${mvEsc(prob[1].prob)}</span>` +
+        `<button type="button" onclick="openMLModal('${id}',{portal:'${prob[0]}'})">Ver y arreglar</button></div>`;
+    } else if ((p.status || 'available') === 'reserved' && p.mlItemId && p.mlStatus === 'paused') {
+      aviso = '<div class="tg-nota">Reservada: Mercado Libre se pausó solo y vuelve si se libera.</div>';
+    }
+    // El clic dentro de la barra no abre la propiedad (la tarjeta entera es un link).
+    return `<div class="tg-barra" onclick="event.stopPropagation()">` +
+      `<div class="tg-lab">Portales</div>` +
+      `<div class="tg-chips">${tgChip(id, 'ml', 'ML', 'Mercado Libre', ml)}${tgChip(id, 'infocasas', 'IC', 'InfoCasas', ic)}${tgChip(id, 'casasymas', 'CM', 'Casas y Más', cm)}</div>` +
+      aviso +
+      `<div class="tg-acts">` +
+      `<button type="button" class="tg-b" onclick="openPropertyFormTab('${id}')"><i class="fas fa-pen" aria-hidden="true"></i>Editar</button>` +
+      `<button type="button" class="tg-b" onclick="openVisitModal('${id}')"><i class="fas fa-calendar-plus" aria-hidden="true"></i>Agendar visita</button>` +
+      `<button type="button" class="tg-b tg-mas" aria-label="Más acciones" aria-haspopup="menu" aria-expanded="false" onclick="abrirMasAcciones('${id}',this)"><i class="fas fa-ellipsis" aria-hidden="true"></i></button>` +
+      `</div></div>`;
+  }
+
+  // ----- "Más acciones" -----
+  // En la computadora es un menú junto al botón; en el celular, una hoja que sube
+  // desde abajo. Cada opción llama a lo mismo que llamaban los íconos de antes:
+  // no cambia lo que hace ninguna acción, solo dónde está.
+  const MAS_ACCIONES = {
+    destacar: (id) => toggleFeatured(id),
+    compartir: (id) => openShareModal(id),
+    portales: (id) => openMLModal(id),
+    ficha: (id) => openPropertyTab(id),
+    baja: (id) => irAGestion(id),
+    eliminar: (id) => deleteProperty(id)
+  };
+  let _masAcc = null;
+  function abrirMasAcciones(id, btn) {
+    if (_masAcc && _masAcc.btn === btn) { cerrarMasAcciones(true); return; }
+    cerrarMasAcciones(false);
+    const p = properties.find(x => x.id === id);
+    if (!p) return;
+    const dirV = currentUser ? isAdminUser() : esDireccionPerfil(perfilVisible());
+    const st = p.status || 'available';
+    const dest = isEffectivelyFeatured(p);
+    const dias = dest ? (Number(diasDeDestacado(p)) || 0) : 0;
+    const op = (acc, ic, txt, sub, cls) => `<button type="button" class="ma-op${cls ? ' ' + cls : ''}" role="menuitem" data-acc="${acc}">` +
+      `<i class="${ic}" aria-hidden="true"></i><span>${txt}<small>${sub}</small></span></button>`;
+    let html = `<div class="ma-cab"><div class="ma-asa" aria-hidden="true"></div><div class="ma-tit">Más acciones</div><div class="ma-sub">${mvEsc(p.title || '')}</div></div>`;
+    html += op('destacar', 'fas fa-star', dest ? 'Cambiar o quitar el destacado' : 'Destacar en la web',
+      dest ? `Destacada: vence en ${dias} día${dias === 1 ? '' : 's'}` : 'Aparece primero en la web', 'oro');
+    html += op('compartir', 'fas fa-share-nodes', 'Compartir', 'Con foto en WhatsApp y redes');
+    html += op('portales', 'fas fa-bullhorn', 'Portales', 'Mercado Libre, InfoCasas y Casas y Más');
+    html += op('ficha', 'fas fa-arrow-up-right-from-square', 'Ver ficha pública', 'Como la ve el cliente');
+    const cierre = [];
+    // Dar de baja solo tiene sentido mientras la propiedad está en el mercado.
+    if (st === 'available' || st === 'reserved') cierre.push(op('baja', 'fas fa-circle-stop', 'Dar de baja', 'Se hace cerrando la gestión del cliente'));
+    if (dirV) cierre.push(op('eliminar', 'fas fa-trash-can', 'Eliminar propiedad', 'Solo Dirección. Pide confirmación', 'peligro'));
+    if (cierre.length) html += '<div class="ma-sep" role="separator"></div>' + cierre.join('');
+    const el = document.createElement('div');
+    el.className = 'ma';
+    el.setAttribute('role', 'menu');
+    el.setAttribute('aria-label', 'Más acciones');
+    el.innerHTML = html;
+    const movil = window.matchMedia('(max-width: 640px)').matches;
+    let fondo = null;
+    if (movil) {
+      el.classList.add('hoja');
+      fondo = document.createElement('div');
+      fondo.className = 'ma-fondo';
+      fondo.addEventListener('click', (e) => { e.stopPropagation(); cerrarMasAcciones(true); });
+      document.body.appendChild(fondo);
+    }
+    document.body.appendChild(el);
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-acc]');
+      if (!b) return;
+      cerrarMasAcciones(false);
+      const f = MAS_ACCIONES[b.dataset.acc];
+      if (f) f(id);
+    });
+    el.addEventListener('keydown', masAccTeclas);
+    btn.setAttribute('aria-expanded', 'true');
+    _masAcc = { el, fondo, btn };
+    masAccUbicar();
+    document.addEventListener('pointerdown', masAccAfuera, true);
+    if (!movil) {
+      // Si la página se mueve, el menú acompaña al botón (y se cierra cuando el
+      // botón sale de la pantalla).
+      window.addEventListener('resize', masAccUbicar);
+      window.addEventListener('scroll', masAccUbicar, true);
+    }
+    const primera = el.querySelector('.ma-op');
+    if (primera) primera.focus({ preventScroll: true });
+  }
+  function masAccTeclas(e) {
+    if (!_masAcc) return;
+    const ops = [..._masAcc.el.querySelectorAll('.ma-op')];
+    const i = ops.indexOf(document.activeElement);
+    if (e.key === 'Escape') { e.preventDefault(); cerrarMasAcciones(true); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); ops[(i + 1) % ops.length].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); ops[(i - 1 + ops.length) % ops.length].focus(); }
+    else if (e.key === 'Home') { e.preventDefault(); ops[0].focus(); }
+    else if (e.key === 'End') { e.preventDefault(); ops[ops.length - 1].focus(); }
+    else if (e.key === 'Tab') { cerrarMasAcciones(false); }
+  }
+  function masAccAfuera(e) {
+    if (!_masAcc) return;
+    const t = e.target;
+    // En el celular el fondo oscuro se cierra con su propio clic: si se cerrara
+    // acá, ese mismo toque terminaría abriendo la tarjeta que queda debajo.
+    if (_masAcc.el.contains(t) || _masAcc.btn.contains(t) || t === _masAcc.fondo) return;
+    cerrarMasAcciones(false);
+  }
+  // En la computadora: debajo del botón, alineado a su borde derecho; si no
+  // entra, arriba. La hoja del celular no se mueve. Al abrir se ubica siempre;
+  // después (al mover la página) se cierra si el botón sale de la pantalla.
+  function masAccUbicar(e) {
+    if (!_masAcc || _masAcc.fondo) return;
+    const { el, btn } = _masAcc;
+    const r = btn.getBoundingClientRect();
+    if (e && (!btn.isConnected || r.bottom < 0 || r.top > window.innerHeight)) { cerrarMasAcciones(false); return; }
+    const w = el.offsetWidth, h = el.offsetHeight;
+    let top = r.bottom + 6;
+    if (top + h > window.innerHeight - 8) top = r.top - h - 6;
+    el.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w)) + 'px';
+    el.style.top = Math.max(8, Math.min(top, window.innerHeight - h - 8)) + 'px';
+  }
+  function cerrarMasAcciones(devolverFoco) {
+    if (!_masAcc) return;
+    const { el, fondo, btn } = _masAcc;
+    _masAcc = null;
+    el.remove();
+    if (fondo) fondo.remove();
+    document.removeEventListener('pointerdown', masAccAfuera, true);
+    window.removeEventListener('resize', masAccUbicar);
+    window.removeEventListener('scroll', masAccUbicar, true);
+    btn.setAttribute('aria-expanded', 'false');
+    if (devolverFoco && btn.isConnected) btn.focus({ preventScroll: true });
   }
 
   // ===== ANILLO DE CALIDAD DE MERCADO LIBRE =====
