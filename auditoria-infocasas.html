@@ -198,12 +198,13 @@
     publicandose: { txt: 'Publicándose', tono: 'busy' },
     publicacion_rechazada: { txt: 'InfoCasas rechazó la publicación', tono: 'err', problema: true },
     dada_de_baja: { txt: 'Dada de baja en InfoCasas', tono: 'idle' },
+    sigue_publicada: { txt: 'Dada de baja en el CRM, sigue activa en InfoCasas', tono: 'err', problema: true },
     sin_publicar: { txt: 'No está publicada en InfoCasas', tono: 'idle' },
     no_existe: { txt: 'La propiedad ya no existe', tono: 'idle' },
     error: { txt: 'No se pudo revisar', tono: 'idle', problema: true },
     pendiente_revisar: { txt: 'Sin revisar', tono: 'idle' },
   };
-  const ORDEN = ['rechazada', 'no_esta', 'publicacion_rechazada', 'distinta', 'faltan', 'no_activa', 'sin_respuesta', 'error',
+  const ORDEN = ['sigue_publicada', 'rechazada', 'no_esta', 'publicacion_rechazada', 'distinta', 'faltan', 'no_activa', 'sin_respuesta', 'error',
     'procesando', 'publicandose', 'pendiente_revisar', 'igual', 'dada_de_baja', 'sin_publicar', 'no_existe'];
 
   auth.onAuthStateChanged(async (u) => {
@@ -297,6 +298,17 @@
     _ocupado = false; botones(); pintar();
   }
   const reenviarUno = (id) => reenviar([id], 'reenviar');
+  // Dada de baja en el CRM pero activa en InfoCasas: se la da de baja allá también.
+  async function bajarUno(id) {
+    if (_ocupado || !confirm('La propiedad está dada de baja en el CRM, pero su aviso sigue activo en InfoCasas. ¿Lo damos de baja allá también?')) return;
+    _ocupado = true; botones();
+    try {
+      const r = await firebase.functions().httpsCallable('estadoEnInfocasas')({ propertyId: id, status: 'DELETED' });
+      const d = r.data || {};
+      _envios[id] = { ok: !!d.ok, texto: d.ok ? 'Dada de baja en InfoCasas. Se aplica en unos minutos.' : (d.mensaje || 'InfoCasas no aceptó el pedido.') };
+    } catch (e) { _envios[id] = { ok: false, texto: mensajeError(e) }; }
+    _ocupado = false; botones(); pintar();
+  }
   const republicarUno = (id) => {
     if (!confirm('El aviso no está en InfoCasas. ¿Lo publicamos de nuevo? Se crea un aviso nuevo con la ficha del CRM.')) return;
     reenviar([id], 'republicar');
@@ -307,7 +319,7 @@
   }
   function reenviarTodos() {
     // Las que tienen aviso en InfoCasas. Las que no se pueden mandar (les falta algo) ya lo dicen en su fila.
-    const ids = _props.filter((p) => { const f = _filas[p.id]; return f && f.listingId && !['no_esta', 'dada_de_baja', 'sin_publicar', 'no_existe', 'publicandose', 'publicacion_rechazada', 'faltan'].includes(f.situacion); }).map((p) => p.id);
+    const ids = _props.filter((p) => { const f = _filas[p.id]; return f && f.listingId && !['no_esta', 'dada_de_baja', 'sigue_publicada', 'sin_publicar', 'no_existe', 'publicandose', 'publicacion_rechazada', 'faltan'].includes(f.situacion); }).map((p) => p.id);
     if (!ids.length) return;
     if (!confirm(`Se le manda a InfoCasas la versión actual de ${ids.length} ${ids.length === 1 ? 'aviso' : 'avisos'} (título, precio, fotos y todo lo demás). Tarda unos minutos. ¿Seguimos?`)) return;
     reenviar(ids, 'reenviar');
@@ -331,7 +343,11 @@
   function pintar() {
     botones();
     const q = document.getElementById('buscar').value.trim().toLowerCase();
-    const filas = _props.map((p) => ({ p, f: _filas[p.id] || { id: p.id, situacion: 'pendiente_revisar' } }));
+    /* Las dadas de baja en el CRM que tampoco se ven en InfoCasas no se listan:
+       no hay nada que revisar. Se avisa cuántas son al pie. */
+    const todas = _props.map((p) => ({ p, f: _filas[p.id] || { id: p.id, situacion: 'pendiente_revisar' } }));
+    const filas = SOLO ? todas : todas.filter((x) => x.f.situacion !== 'dada_de_baja');
+    const ocultas = todas.length - filas.length;
     const cuenta = (fn) => filas.filter(fn).length;
     const problemas = cuenta((x) => (SIT[x.f.situacion] || {}).problema);
     const revisadas = cuenta((x) => x.f.situacion !== 'pendiente_revisar');
@@ -370,11 +386,12 @@
       el.innerHTML = `<div class="vacio">${SOLO ? 'Esa propiedad no está publicada en InfoCasas.' : 'No hay propiedades publicadas en InfoCasas.'}</div>`;
       return;
     }
+    const pie = ocultas ? `<p class="vacio" style="padding:14px 0 4px">${ocultas} ${ocultas === 1 ? 'propiedad dada de baja' : 'propiedades dadas de baja'} en el CRM y en InfoCasas: no hace falta revisarlas.</p>` : '';
     if (!vis.length) {
-      el.innerHTML = `<div class="vacio">${_filtro === 'problemas' ? 'Ningún aviso con problemas. Todo coincide con el CRM.' : 'Ningún aviso con ese filtro.'}</div>`;
+      el.innerHTML = `<div class="vacio">${_filtro === 'problemas' ? 'Ningún aviso con problemas. Todo coincide con el CRM.' : 'Ningún aviso con ese filtro.'}</div>` + pie;
       return;
     }
-    el.innerHTML = vis.map(({ p, f }) => filaHtml(p, f)).join('');
+    el.innerHTML = vis.map(({ p, f }) => filaHtml(p, f)).join('') + pie;
   }
 
   function valor(campo, v, lado, f) {
@@ -428,7 +445,8 @@
 
     const acc = [];
     const envio = _envios[p.id];
-    const conAviso = f.listingId && !['no_esta', 'dada_de_baja', 'sin_publicar', 'no_existe', 'publicandose', 'publicacion_rechazada'].includes(f.situacion);
+    const conAviso = f.listingId && !['no_esta', 'dada_de_baja', 'sigue_publicada', 'sin_publicar', 'no_existe', 'publicandose', 'publicacion_rechazada'].includes(f.situacion);
+    if (f.situacion === 'sigue_publicada') acc.push(`<button class="btn chico" onclick="bajarUno('${esc(p.id)}')"${_ocupado ? ' disabled' : ''}><i class="fas fa-circle-stop"></i> Dar de baja en InfoCasas</button>`);
     if (conAviso && f.situacion !== 'faltan') acc.push(`<button class="btn chico${['distinta', 'rechazada'].includes(f.situacion) ? '' : ' sec'}" onclick="reenviarUno('${esc(p.id)}')"${_ocupado ? ' disabled' : ''}><i class="fas fa-rotate-right"></i> Reenviar</button>`);
     if (f.situacion === 'faltan') acc.push(`<a class="btn chico sec" href="propiedad-form.html?id=${encodeURIComponent(p.id)}" target="_blank" rel="noopener"><i class="fas fa-pen"></i> Completar la ficha</a>`);
     if (f.situacion === 'no_esta') acc.push(`<button class="btn chico" onclick="republicarUno('${esc(p.id)}')"${_ocupado ? ' disabled' : ''}><i class="fas fa-upload"></i> Publicar de nuevo</button>`);

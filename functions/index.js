@@ -2659,9 +2659,15 @@ exports.estadoML = onCall(async (request) => {
   // Se guarda en la propiedad para que la grilla pueda mostrarla sin pegarle a la
   // API de Mercado Libre por cada tarjeta. Se hace sin await a propósito: si la
   // escritura falla, el modal igual tiene que responder.
-  if (health != null) {
+  // El estado del aviso y su vencimiento también: la tarjeta los muestra sin
+  // consultar a Mercado Libre. Solo se escribe lo que cambió.
+  const cacheML = {};
+  if (health != null) { cacheML.mlHealth = health; cacheML.mlHealthAt = new Date().toISOString(); }
+  if (item.status && item.status !== p.mlStatus) cacheML.mlStatus = item.status;
+  if (item.stop_time && item.stop_time !== p.mlVence) cacheML.mlVence = item.stop_time;
+  if (Object.keys(cacheML).length) {
     admin.firestore().collection("properties").doc(propertyId)
-      .update({ mlHealth: health, mlHealthAt: new Date().toISOString() })
+      .update(cacheML)
       .catch((e) => logger.warn("No se pudo cachear la salud ML:", e.message));
   }
   return {
@@ -2679,6 +2685,12 @@ exports.estadoML = onCall(async (request) => {
     visitasSerie: _visSerie,
     preguntas: preguntas,
     contactosWhatsapp: contactosWa,
+    // Lo que ve el cliente en Mercado Libre, para compararlo con la ficha.
+    vence: item.stop_time || null,
+    precio: item.price != null ? Number(item.price) : null,
+    moneda: item.currency_id || null,
+    fotos: Array.isArray(item.pictures) ? item.pictures.length : null,
+    titulo: item.title || null,
   };
 });
 
@@ -3374,6 +3386,7 @@ exports.refrescarSaludML = onSchedule(
     if (!items.length) { logger.info("refrescarSaludML: no hay avisos publicados"); return; }
 
     const porId = new Map(items.map((d) => [d.data().mlItemId, d.id]));
+    const datosDe = new Map(items.map((d) => [d.id, d.data()]));
     const ids = [...porId.keys()];
     const ahora = new Date().toISOString();
     let ok = 0, fallos = 0;
@@ -3382,19 +3395,26 @@ exports.refrescarSaludML = onSchedule(
       const lote = ids.slice(i, i + 20);
       try {
         const r = await axios.get(`${API}/items`, {
-          headers, params: { ids: lote.join(","), attributes: "id,health" },
+          headers, params: { ids: lote.join(","), attributes: "id,health,status,stop_time" },
         });
         const escrituras = [];
         (r.data || []).forEach((row) => {
           const cuerpo = row && row.body;
           if (!cuerpo || !cuerpo.id) return;
           const propId = porId.get(cuerpo.id);
+          if (!propId) return;
+          const antes = datosDe.get(propId) || {};
+          const cambios = {};
           // health puede venir null en avisos que ML todavía no evaluó: en ese caso
           // se deja el valor anterior en vez de pisarlo con nada.
-          if (!propId || cuerpo.health == null) return;
+          if (cuerpo.health != null) { cambios.mlHealth = cuerpo.health; cambios.mlHealthAt = ahora; }
+          // Estado y vencimiento: los muestra la tarjeta de la propiedad.
+          if (cuerpo.status && cuerpo.status !== antes.mlStatus) cambios.mlStatus = cuerpo.status;
+          if (cuerpo.stop_time && cuerpo.stop_time !== antes.mlVence) cambios.mlVence = cuerpo.stop_time;
+          if (!Object.keys(cambios).length) return;
           escrituras.push(
             db.collection("properties").doc(propId)
-              .update({ mlHealth: cuerpo.health, mlHealthAt: ahora })
+              .update(cambios)
               .then(() => { ok++; })
               .catch(() => { fallos++; }),
           );
@@ -5825,10 +5845,19 @@ exports.estadoPortales = onCall(async (request) => {
 
   const forzar = !!(request.data && request.data.forzar);
   const cacheAt = p.portalesAt ? Date.parse(p.portalesAt) : 0;
-  // v:2 trae las series de consultas para los gráficos. Un caché anterior no
-  // las tiene: se ignora y se vuelve a consultar.
-  if (!forzar && p.portalesCache && p.portalesCache.v === 2 && Date.now() - cacheAt < 30 * 60 * 1000) {
-    return { ...p.portalesCache, cacheado: true, consultadoAt: p.portalesAt };
+  /* La copia de lo que respondieron los portales va en portalesCache/{id}, que
+     solo lee el servidor. Antes iba dentro de la propiedad, que se puede leer sin
+     iniciar sesión (la web la necesita así), y llevaba los nombres de quienes
+     consultaron en Casas y Más. portalesAt sigue en la propiedad: borrarlo, como
+     hacen los envíos a los portales, invalida la copia.
+     v:3 trae el estado real del aviso en InfoCasas. */
+  const cacheRef = db.collection("portalesCache").doc(propertyId);
+  if (!forzar && cacheAt && Date.now() - cacheAt < 30 * 60 * 1000) {
+    try {
+      const c = await cacheRef.get();
+      const datos = c.exists ? (c.data() || {}).datos : null;
+      if (datos && datos.v === 3) return { ...datos, cacheado: true, consultadoAt: p.portalesAt };
+    } catch (e) { logger.warn(`estadoPortales ${propertyId}: no se pudo leer la copia`, e.message); }
   }
 
   const out = { infocasas: null, casasymas: null };
@@ -5865,6 +5894,11 @@ exports.estadoPortales = onCall(async (request) => {
         }
       } catch (e) { logger.warn(`estadoPortales ${propertyId}: tarea IC`, e.message); }
     }
+    /* El estado REAL del aviso en el portal. La tarea de arriba solo dice cómo
+       terminó el último envío: si alguien desactivaba el aviso desde el panel de
+       InfoCasas, el modal seguía diciendo "Activa". */
+    try { ic.portal = await icEstadoEnPortal(p, propertyId); }
+    catch (e) { logger.warn(`estadoPortales ${propertyId}: aviso IC`, e.message); }
     /* Consultas: InfoCasas no publica estadísticas, pero cada consulta llega a
        leadInfocasas y queda en leadsPortales con su propiedad. Se filtra por
        propiedad (un solo campo, sin índice compuesto) y la fuente en memoria. */
@@ -5948,15 +5982,21 @@ exports.estadoPortales = onCall(async (request) => {
     out.casasymas = { publicado: false, eliminado: true };
   }
 
-  out.v = 2;
+  out.v = 3;
   /* Con una tarea de InfoCasas todavía en proceso no se guarda en caché: si el
      aviso de que terminó no llegara, el modal diría "Actualizando" media hora. */
   const tareaEnCurso = !!(out.infocasas && out.infocasas.tarea &&
     /READY|PENDING|PROCESS|PROGRESS|QUEUED|RUNNING/.test(out.infocasas.tarea.estado || ""));
+  // En la propiedad queda solo lo que muestra la tarjeta: si cada aviso se ve.
+  const resumen = resumenPortales(p, out);
   if (!tareaEnCurso) {
     try {
-      await pSnap.ref.update({ portalesCache: out, portalesAt: new Date().toISOString() });
+      const ahoraIso = new Date().toISOString();
+      await cacheRef.set({ datos: out, at: ahoraIso });
+      await pSnap.ref.update({ ...resumen, portalesAt: ahoraIso, portalesCache: admin.firestore.FieldValue.delete() });
     } catch (e) { logger.warn("estadoPortales: no se pudo cachear", e.message); }
+  } else if (Object.keys(resumen).length) {
+    try { await pSnap.ref.update(resumen); } catch (e) { /* el repaso diario la pone al día */ }
   }
 
   return { ...out, cacheado: false, consultadoAt: new Date().toISOString() };
@@ -10709,9 +10749,11 @@ exports.estadoEnInfocasas = onCall(async (request) => {
   const propertyId = String((request.data && request.data.propertyId) || "");
   const estado = String((request.data && request.data.status) || "").toUpperCase();
   if (!propertyId) throw new HttpsError("invalid-argument", "Falta la propiedad.");
-  if (estado !== "ACTIVE" && estado !== "DELETED") {
+  // DISABLED desactiva el aviso sin borrarlo: se reactiva con ACTIVE y conserva
+  // su historia y lo que se le haya comprado. DELETED lo borra del portal.
+  if (estado !== "ACTIVE" && estado !== "DISABLED" && estado !== "DELETED") {
     throw new HttpsError("invalid-argument",
-      "'status' debe ser ACTIVE o DELETED. No hay valor por defecto: DELETED borra el aviso del portal.");
+      "'status' debe ser ACTIVE, DISABLED o DELETED. No hay valor por defecto: DELETED borra el aviso del portal.");
   }
 
   const pSnap = await db.doc(`properties/${propertyId}`).get();
@@ -10743,10 +10785,13 @@ exports.estadoEnInfocasas = onCall(async (request) => {
     portalesAt: admin.firestore.FieldValue.delete(),
     ...(taskId ? { icTaskId: String(taskId) } : {}),
     ...(estado === "DELETED" ? { icEstado: "eliminado" } : {}),
+    // Lo que muestra la tarjeta mientras InfoCasas lo procesa.
+    icEstadoPortal: estado === "DELETED" ? "eliminada" : (estado === "DISABLED" ? "desactivada" : "publicandose"),
   });
   await registrarLog(propertyId, "InfoCasas: cambio de estado", true, `status ${estado} · listing ${listingId}`);
   return { ok: true, taskId: taskId ? String(taskId) : null,
-           mensaje: estado === "DELETED" ? "Dada de baja en InfoCasas." : "Pedido enviado a InfoCasas." };
+           mensaje: estado === "DELETED" ? "Dada de baja en InfoCasas."
+             : estado === "DISABLED" ? "Desactivada en InfoCasas." : "Pedido enviado a InfoCasas." };
 });
 
 /* Suscribe el webhook: InfoCasas avisa cuando una tarea termina, en vez de
@@ -11165,7 +11210,8 @@ async function icAuditarUna(id) {
   const r = await icFetchConReintento(`/listing/${encodeURIComponent(p.icListingId)}`, { conCookie: true });
   fila.http = r.status;
   if (!r.ok) {
-    fila.situacion = r.status === 404 ? "no_esta" : "sin_respuesta";
+    // Dada de baja en el CRM y sin aviso allá: está bien, no hay nada que revisar.
+    fila.situacion = r.status === 404 ? (icEnMercado(p) ? "no_esta" : "dada_de_baja") : "sin_respuesta";
     return fila;
   }
   const crudo = icDesenvolver(r.data);
@@ -11202,6 +11248,12 @@ async function icAuditarUna(id) {
   else if (fila.faltan) fila.situacion = "faltan";
   else if (est && IC_ESTADO_FUERA_DEL_PORTAL.includes(est)) fila.situacion = "no_activa";
   else fila.situacion = "igual";
+  /* Dada de baja en el CRM (vendida, alquilada, archivada…): si en InfoCasas
+     tampoco se ve, está todo en orden y no se lista para revisar. Si allá
+     sigue activa, ese sí es un problema: hay que darla de baja también ahí. */
+  if (!icEnMercado(p)) {
+    fila.situacion = est && IC_ESTADO_FUERA_DEL_PORTAL.includes(est) ? "dada_de_baja" : "sigue_publicada";
+  }
   return fila;
 }
 
@@ -12229,3 +12281,142 @@ exports.ver = onRequest({ memory: "512MiB", timeoutSeconds: 30 }, async (req, re
     return res.status(200).send(verPaginaGenerica(url, destino));
   }
 });
+
+// =====================================================================
+// PORTALES — estado real de cada aviso, para el modal y la tarjeta
+// =====================================================================
+/* Estado del aviso en InfoCasas, en palabras. La API lo da como número o como
+   nombre según el endpoint; las dos formas llegan acá a la misma clave. */
+const IC_ESTADO_CLAVE = {
+  "0": "incompleta", "1": "desactivada", "2": "sin_cupo", "4": "activa", "5": "caducada",
+  "7": "eliminada", "9": "con_error", "10": "publicandose", "11": "rechazada",
+  ACTIVE: "activa", DISABLED: "desactivada", NO_QUOTA: "sin_cupo", EXPIRED: "caducada", DELETED: "eliminada",
+  SYSTEM_ERROR: "con_error", PROCESS_PUBLICATION: "publicandose", PUBLISHING: "publicandose", REJECTED: "rechazada",
+};
+function icClaveEstado(valor) {
+  const cod = valor == null ? "" : String(valor).toUpperCase();
+  return IC_ESTADO_CLAVE[cod] || (cod ? cod.toLowerCase() : null);
+}
+// Disponible o reservada: la propiedad está en el mercado y sus avisos tienen que verse.
+function icEnMercado(p) {
+  return ["available", "reserved"].includes(String((p && p.status) || "available")) && !(p && p.cierreConfirmado === true);
+}
+
+/* Lo que InfoCasas tiene publicado HOY de esta propiedad: el estado del aviso
+   y lo que quedó distinto de la ficha (precio, fotos, título…). Es lo mismo que
+   mira la página "Avisos en InfoCasas", para una sola propiedad. */
+async function icEstadoEnPortal(p, propertyId) {
+  if (!p || !p.icListingId) return null;
+  const r = await icFetchConReintento(`/listing/${encodeURIComponent(p.icListingId)}`, { conCookie: true });
+  if (r.status === 404) return { estado: "no_esta", http: 404 };
+  if (!r.ok) return { estado: null, http: r.status };
+  const ic = icResumenAviso(icDesenvolver(r.data));
+  const out = {
+    estado: icClaveEstado(ic.estado),
+    precio: ic.precio, moneda: ic.moneda, fotos: ic.fotos, titulo: ic.titulo,
+    dormitorios: ic.dormitorios, banos: ic.banos, area: ic.area,
+    diferencias: [],
+  };
+  try {
+    const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+    const armado = await icApiPayload(p, propertyId, uSnap && uSnap.exists ? uSnap.data() : {});
+    if (armado.ok) {
+      const crm = icResumenAviso(armado.payload);
+      out.fotosCrm = crm.fotos;
+      out.diferencias = icDiferencias(crm, ic).map((d) => ({ campo: d.campo, crm: d.crm, infocasas: d.infocasas }));
+    }
+  } catch (e) { logger.warn(`icEstadoEnPortal ${propertyId}: sin comparación`, e.message); }
+  return out;
+}
+
+/* Lo que la tarjeta de la propiedad necesita saber de los portales, sin datos de
+   nadie: si cada aviso se ve. Solo devuelve lo que cambió (cada escritura en la
+   propiedad despierta a los sincronizadores, aunque no hagan nada). */
+function resumenPortales(p, out) {
+  const r = {};
+  const icE = out && out.infocasas && out.infocasas.portal && out.infocasas.portal.estado;
+  if (icE && icE !== p.icEstadoPortal) r.icEstadoPortal = icE;
+  const c = out && out.casasymas;
+  if (c && typeof c.activaEnPortal === "boolean" && c.activaEnPortal !== p.cymEnPortal) r.cymEnPortal = c.activaEnPortal;
+  if (c && c.activaEnPortal === true && !!c.destacada !== !!p.cymDestacada) r.cymDestacada = !!c.destacada;
+  return r;
+}
+
+/* Pausar o reactivar el aviso de Mercado Libre a mano (Dirección). A diferencia
+   de finalizar, se deshace: el aviso sigue siendo el mismo, con sus visitas y su
+   historia. El espejo de estado (sincronizarEdicionML) solo actúa cuando cambia
+   el estado de la propiedad: la pausa se mantiene hasta que se reactive o la
+   propiedad cambie de estado. */
+exports.pausarML = onCall(async (request) => {
+  await exigirDireccion(request, "Solo la Dirección pausa o reactiva avisos.");
+  const propertyId = String((request.data && request.data.propertyId) || "");
+  const pausar = !!(request.data && request.data.pausar);
+  if (!propertyId) throw new HttpsError("invalid-argument", "Falta la propiedad.");
+  const ref = db.doc(`properties/${propertyId}`);
+  const s = await ref.get();
+  if (!s.exists) throw new HttpsError("not-found", "La propiedad no existe.");
+  const p = s.data() || {};
+  if (!p.mlItemId) return { ok: false, mensaje: "La propiedad no está publicada en Mercado Libre." };
+  if (!pausar && String(p.status || "available") !== "available") {
+    return { ok: false, mensaje: "Solo se reactiva una propiedad Disponible. Si está reservada o cerrada, el aviso queda pausado." };
+  }
+  let headers;
+  try {
+    headers = { Authorization: `Bearer ${await getValidToken()}`, "content-type": "application/json" };
+    await axios.put(`${API}/items/${p.mlItemId}`, { status: pausar ? "paused" : "active" }, { headers });
+  } catch (e) {
+    const detalle = (e.response && e.response.data) || e.message;
+    await registrarLog(propertyId, pausar ? "pausar en ML (a mano)" : "reactivar en ML (a mano)", false, JSON.stringify(detalle).slice(0, 300));
+    return { ok: false, mensaje: pausar ? "Mercado Libre no dejó pausar el aviso." : "Mercado Libre no dejó reactivar el aviso.", detalle };
+  }
+  await ref.update({ mlStatus: pausar ? "paused" : "active" });
+  await registrarLog(propertyId, pausar ? "pausado en ML (a mano)" : "reactivado en ML (a mano)", true, p.mlItemId);
+  return { ok: true, mensaje: pausar ? "Pausada en Mercado Libre." : "Reactivada en Mercado Libre." };
+});
+
+/* Repaso diario del estado real de los avisos en InfoCasas y Casas y Más. La
+   tarjeta de cada propiedad lo muestra sin consultar a los portales; sin esto,
+   un aviso desactivado desde el panel de InfoCasas seguía figurando "Activa".
+   También borra la copia vieja de los portales que quedaba guardada dentro de
+   la propiedad (ver estadoPortales). Solo escribe lo que cambió. */
+async function repasarEstadoPortales() {
+  const FV = admin.firestore.FieldValue;
+  const snap = await db.collection("properties").get();
+  let ic = 0, cym = 0, limpias = 0, fallos = 0;
+  // Casas y Más: una sola consulta trae toda la cartera.
+  let cartera = null;
+  try {
+    const r = await cymFetch("/propiedades", null, "GET");
+    if (r.ok) {
+      const lista = Array.isArray(r.data && r.data.propiedades) ? r.data.propiedades : [];
+      cartera = new Map(lista.map((x) => [String(x.id_propiedad), x]));
+    }
+  } catch (e) { logger.warn("refrescarEstadoPortales: Casas y Más", e.message); }
+  for (const d of snap.docs) {
+    const p = d.data() || {};
+    const cambios = {};
+    if (p.portalesCache !== undefined) { cambios.portalesCache = FV.delete(); limpias++; }
+    if (p.icListingId && p.icEstado !== "eliminado") {
+      try {
+        const r = await icFetchConReintento(`/listing/${encodeURIComponent(p.icListingId)}`, { conCookie: true });
+        const estado = r.status === 404 ? "no_esta" : (r.ok ? icClaveEstado(icResumenAviso(icDesenvolver(r.data)).estado) : null);
+        if (estado && estado !== p.icEstadoPortal) { cambios.icEstadoPortal = estado; ic++; }
+      } catch (e) { fallos++; }
+      await new Promise((x) => setTimeout(x, 150));   // la API de InfoCasas limita las peticiones
+    }
+    if (cartera && p.cymId && p.cymEstado !== "eliminado" && p.cymEstado !== "error") {
+      const item = cartera.get(String(p.cymId));
+      if (!!item !== p.cymEnPortal) { cambios.cymEnPortal = !!item; cym++; }
+      if (item && (String(item.destacada) === "1") !== !!p.cymDestacada) cambios.cymDestacada = String(item.destacada) === "1";
+    }
+    if (Object.keys(cambios).length) {
+      try { await d.ref.update(cambios); } catch (e) { fallos++; }
+    }
+  }
+  logger.info(`refrescarEstadoPortales: InfoCasas ${ic} cambios, Casas y Más ${cym}, copias viejas borradas ${limpias}, fallos ${fallos}.`);
+  return { ic, cym, limpias, fallos };
+}
+exports.refrescarEstadoPortales = onSchedule(
+  { schedule: "50 5 * * *", timeZone: "America/Montevideo", timeoutSeconds: 540 },
+  async () => { await repasarEstadoPortales(); },
+);
