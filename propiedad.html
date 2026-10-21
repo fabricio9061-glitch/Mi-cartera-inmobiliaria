@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" href="iso-malave.png">
   <meta property="og:title" content="Propiedad | MALAVE" id="ogTitle">
   <meta property="og:description" content="Propiedad en MALAVE Inmobiliaria" id="ogDescription">
-  <meta property="og:image" content="icon-512.png" id="ogImage">
+  <meta property="og:image" content="https://malaveinmobiliaria.com/icon-512.png" id="ogImage">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="theme-color" content="#16273f">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -719,14 +719,50 @@
       el.textContent = t; el.classList.add('ver');
       clearTimeout(avisar._t); avisar._t = setTimeout(() => el.classList.remove('ver'), 2600);
     }
+    // wa.me necesita el número en formato internacional: sin "+", sin espacios y
+    // sin el 0 del celular. Antes solo se borraban los símbolos y "097 955 261"
+    // salía como wa.me/097955261: WhatsApp lo tomaba como un nombre de usuario
+    // ("@097955261 no está en WhatsApp") y el cliente no podía escribir. Ahora
+    // sale wa.me/59897955261. Los del exterior se respetan si vienen con su
+    // código ("+54 9 11…"). Si en el campo hay dos números, se usa el primero.
+    function waNum(tel) {
+      const partes = String(tel == null ? '' : tel).split(/[\/,;|]|\s+(?:y|o)\s+/i);
+      for (const parte of partes) {
+        const s = parte.trim();
+        let d = s.replace(/\D/g, '');
+        if (!d) continue;
+        const intl = s.charAt(0) === '+' || d.indexOf('00') === 0;
+        if (d.indexOf('00') === 0) d = d.slice(2);
+        if (d.indexOf('598') === 0 && (intl || d.length >= 11)) {
+          const r = d.slice(3).replace(/^0+/, '');
+          if (r.length >= 7) return '598' + r;
+          continue;
+        }
+        if (intl) { if (d.length >= 8) return d; continue; }
+        d = d.replace(/^0+/, '');
+        if (d.length === 8) return '598' + d;      // celular o fijo de Uruguay
+        if (d.length >= 10) return d;               // del exterior, escrito sin el "+"
+      }
+      return '';
+    }
+    // Link para compartir: pasa por la función "ver" del servidor, que les
+    // muestra la foto, el precio y la zona a WhatsApp, Facebook, etc. (no leen lo
+    // que esta página arma con JavaScript). Quien lo abre llega acá mismo.
+    function urlCompartir() {
+      const pid = (typeof firebaseConfig !== 'undefined' && firebaseConfig && firebaseConfig.projectId) || 'mi-cartera-inmobiliaria';
+      return `https://us-central1-${pid}.cloudfunctions.net/ver/${encodeURIComponent(property.id)}`;
+    }
     function ppContact() {
-      const ph = ((property.ownerWhatsapp) || (agent && agent.whatsapp) || WA_AGENCIA).replace(/\D/g, '');
+      // Primero el WhatsApp cargado en la propiedad, después el del agente y, si
+      // ninguno sirve, el de la inmobiliaria: el cliente siempre puede escribir.
+      const ph = waNum(property.ownerWhatsapp) || waNum(agent && agent.whatsapp) || WA_AGENCIA;
+      const alq = property.type === 'rent';
       // El link va en el mensaje: así el agente sabe de qué propiedad le hablan.
-      const m = `Hola, me interesa esta propiedad: ${property.title} - ${formatPrice(property.price, property.currency || 'USD')} en ${getLocationString(property)}\n${location.href.split('#')[0]}`;
+      const m = `Hola, me interesa esta propiedad: ${property.title} - ${formatPrice(property.price, property.currency || 'USD')}${alq ? ' por mes' : ''} en ${getLocationString(property)}\n${location.href.split('#')[0]}`;
       window.open(`https://wa.me/${ph}?text=${encodeURIComponent(m)}`, '_blank');
     }
     function ppShare() {
-      const url = location.href.split('#')[0];
+      const url = urlCompartir();
       if (navigator.share) { navigator.share({ title: property.title, text: property.title, url }).catch(() => {}); return; }
       const copiar = navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject();
       copiar.then(() => avisar('Enlace copiado: ya lo podés pegar donde quieras.'))

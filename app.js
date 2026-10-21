@@ -8033,15 +8033,20 @@
   //   · Casas y Más: casasymas.com.uy/propiedad/{id}.
   let currentShareProperty = null;
 
-  function urlPropiedadWeb(id) {
-    return `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}propiedad.html?id=${encodeURIComponent(id)}`;
+  // Link para compartir una propiedad. Pasa por la función "ver" del servidor:
+  // a WhatsApp, Facebook y compañía les muestra la foto de portada, el precio y
+  // la zona (las redes no ejecutan JavaScript, así que propiedad.html sola no les
+  // puede mostrar nada), y a las personas las lleva a la página de siempre.
+  function urlCompartirPropiedad(id) {
+    const pid = (typeof firebaseConfig !== 'undefined' && firebaseConfig && firebaseConfig.projectId) || 'mi-cartera-inmobiliaria';
+    return `https://us-central1-${pid}.cloudfunctions.net/ver/${encodeURIComponent(id)}`;
   }
 
   function openShareModal(id) {
     const p = properties.find(pr => pr.id === id);
     if (!p) return;
     currentShareProperty = p;
-    const url = urlPropiedadWeb(id);
+    const url = urlCompartirPropiedad(id);
     document.getElementById('shareTitle').textContent = p.title || 'Propiedad';
     document.getElementById('sharePrice').textContent = formatPrice(p.price, p.currency || 'USD') + (p.type === 'rent' ? '/mes' : '');
     document.getElementById('shareLocation').textContent = getLocationString(p);
@@ -8100,7 +8105,7 @@
     // Solo el equipo: es una herramienta de trabajo, no algo del visitante.
     if (!currentUser){ box.hidden = true; box.innerHTML = ''; return; }
     const puedeEditar = (p.ownerId === currentUser.uid) || isAdminUser();
-    const links = [{ key: 'web', nombre: 'Web MALAVE', sigla: 'M', url: urlPropiedadWeb(p.id), estado: 'ok', nota: '' }].concat(linksPortales(p));
+    const links = [{ key: 'web', nombre: 'Web MALAVE', sigla: 'M', url: urlCompartirPropiedad(p.id), estado: 'ok', nota: '' }].concat(linksPortales(p));
     const acciones = (l) => `<div class="shr-pl-acc">
         <button type="button" onclick="copiarLinkPortal('${l.key}')" title="Copiar el link" aria-label="Copiar el link de ${l.nombre}"><i class="fas fa-copy"></i></button>
         <button type="button" class="wa" onclick="compartirPortalWhatsApp('${l.key}')" title="Mandar por WhatsApp" aria-label="Mandar por WhatsApp el link de ${l.nombre}"><i class="fab fa-whatsapp"></i></button>
@@ -8135,7 +8140,7 @@
 
   function _linkPortal(cual) {
     const p = currentShareProperty; if (!p) return null;
-    if (cual === 'web') return { nombre: 'la web', url: urlPropiedadWeb(p.id) };
+    if (cual === 'web') return { nombre: 'la web', url: urlCompartirPropiedad(p.id) };
     const l = linksPortales(p).find(x => x.key === cual);
     return l && l.url ? { nombre: l.nombre, url: l.url } : null;
   }
@@ -8162,7 +8167,7 @@
   }
   function copiarTodosLosLinks() {
     const p = currentShareProperty; if (!p) return;
-    const filas = [`MALAVE: ${urlPropiedadWeb(p.id)}`].concat(linksPortales(p).filter(l => l.url).map(l => `${l.nombre}: ${l.url}`));
+    const filas = [`MALAVE: ${urlCompartirPropiedad(p.id)}`].concat(linksPortales(p).filter(l => l.url).map(l => `${l.nombre}: ${l.url}`));
     _copiarTexto(getShareText() + '\n' + filas.join('\n'), 'Links copiados', 'La ficha y los links de cada portal, listos para pegar');
   }
 

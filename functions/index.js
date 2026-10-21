@@ -11953,3 +11953,279 @@ exports.turnos = onCall(async (request) => {
     { db, HttpsError, esDireccion, notificar: crearNotificacion, ADMIN_EMAIL, RANGOS_DIRECCION },
   );
 });
+
+// =====================================================================
+// COMPARTIR — vista previa con foto en WhatsApp, Facebook, Telegram…
+// ---------------------------------------------------------------------
+// Las redes arman la vista previa de un link leyendo las etiquetas og:* del
+// HTML que reciben, y NO ejecutan JavaScript. propiedad.html completa esas
+// etiquetas con JavaScript, así que WhatsApp veía siempre la tarjeta genérica,
+// sin foto. Esta función las arma en el servidor:
+//
+//   https://us-central1-<proyecto>.cloudfunctions.net/ver/<id>
+//     · robots de vista previa -> HTML con título, precio, zona y foto
+//     · personas               -> a la página de siempre
+//                                 (malaveinmobiliaria.com/propiedad.html?id=…)
+//   …/ver/<id>/foto.jpg?v=<huella>
+//     · la portada recortada a 1200×630 y liviana. WhatsApp no muestra fotos
+//       pesadas (con más de ~300 KB la vista previa sale sin imagen) y las
+//       portadas se suben a 1200 px de ancho: muchas pasan ese peso. La huella
+//       cambia cuando cambia la portada, así no queda pegada la anterior.
+//
+// Solo lee: no escribe en la propiedad (eso dispararía la sincronización con
+// los portales). La foto se achica con jpeg.js, que está en esta carpeta.
+// =====================================================================
+const VER_PROYECTO = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || "mi-cartera-inmobiliaria";
+const VER_BASE = `https://us-central1-${VER_PROYECTO}.cloudfunctions.net/ver`;
+const VER_SITIO = String(process.env.SITIO_WEB || "https://malaveinmobiliaria.com").replace(/\/+$/, "");
+const VER_LOGO = VER_SITIO + "/icon-512.png";
+const VER_ANCHO = 1200, VER_ALTO = 630;      // la proporción de las vistas previas grandes
+const VER_PESO_MAX = 250 * 1024;              // margen bajo el límite de WhatsApp
+// Estados que se muestran con sus datos, igual que en la web. Las dadas de baja,
+// las cerradas por afuera y las tasaciones salen con la tarjeta de MALAVE.
+const VER_ESTADOS = { available: "", reserved: "Reservada", sold: "Vendida", rented: "Alquilada" };
+const VER_TIPOS = { casa: "Casa", apartamento: "Apartamento", terreno: "Terreno", local: "Local comercial", oficina: "Oficina",
+  galpon: "Galpón", campo: "Campo", chacra: "Chacra", cochera: "Cochera", llave: "Llave de negocio", habitacion: "Habitación" };
+// Todo navegador de una persona se presenta con "Mozilla/"; los robots de vista
+// previa casi nunca, y los que sí, se nombran. Si una persona cae como robot no
+// pasa nada: la página que recibe la manda igual a la propiedad.
+const VER_ROBOT = /bot|crawl|spider|slurp|facebookexternalhit|facebookcatalog|whatsapp|telegram|twitter|linkedin|slack|discord|skypeuripreview|microsoftpreview|preview|viber|kakaotalk|snapchat|pinterest|embedly|iframely|vkshare|quora|outbrain|tumblr|mastodon|bluesky|cardyb|google-|yandex|duckduck|ia_archiver/i;
+// Solo se descargan fotos de Firebase Storage. Cualquier otra dirección se usa
+// tal cual, sin que el servidor la pida.
+const VER_FOTO_HOSTS = /^https:\/\/(firebasestorage\.googleapis\.com|storage\.googleapis\.com)\//i;
+
+function verEsRobot(ua) {
+  const s = String(ua || "");
+  return !/mozilla\//i.test(s) || VER_ROBOT.test(s);
+}
+const verEsc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
+const verNum = (n) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+const verHuella = (u) => crypto.createHash("sha1").update(String(u)).digest("hex").slice(0, 10);
+const verPublica = (p) => !!p && Object.prototype.hasOwnProperty.call(VER_ESTADOS, p.status || "available");
+
+function verLugar(p) {
+  const c = String(p.ciudad || "").trim(), d = String(p.departamento || "").trim();
+  if (c && d) return c === d ? c : `${c}, ${d}`;
+  return String(p.location || "").trim() || c || d || "Uruguay";
+}
+function verPrecio(p) {
+  const n = Number(p.price) || 0;
+  if (!(n > 0)) return "Precio a consultar";
+  return (p.currency === "UYU" ? "$U " : "US$ ") + verNum(n) + (p.type === "rent" ? " por mes" : "");
+}
+function verTitulo(p) {
+  let t = String(p.title || "").replace(/\s+/g, " ").trim();
+  if (!t) t = `${VER_TIPOS[String(p.realEstateType || "").toLowerCase()] || "Propiedad"} en ${verLugar(p)}`;
+  if (t.length > 110) t = t.slice(0, 108).replace(/\s+\S*$/, "") + "…";
+  return t;
+}
+// "En alquiler · $U 23.500 por mes · Aguada, Montevideo · 2 dormitorios · 1 baño · 50 m²"
+function verDescripcion(p) {
+  const dor = Number(p.bedrooms) || 0, ban = Number(p.bathrooms) || 0;
+  const m2 = Number(p.totalArea) || Number(p.builtArea) || 0;
+  return [
+    VER_ESTADOS[p.status || "available"] || (p.type === "rent" ? "En alquiler" : "En venta"),
+    verPrecio(p),
+    verLugar(p),
+    dor > 0 ? `${dor} ${dor === 1 ? "dormitorio" : "dormitorios"}` : "",
+    ban > 0 ? `${ban} ${ban === 1 ? "baño" : "baños"}` : "",
+    m2 > 0 ? `${verNum(m2)} m²` : "",
+  ].filter(Boolean).join(" · ");
+}
+function verPortada(p) {
+  const l = Array.isArray(p.images) ? p.images : [];
+  return l.find((u) => typeof u === "string" && /^https:\/\/[^\s"'<>]+$/i.test(u)) || "";
+}
+
+// La página que leen los robots. Lleva además un enlace y una redirección para
+// el caso raro de que la abra una persona.
+function verPagina(o) {
+  const e = verEsc;
+  const img = o.logo
+    ? [`<meta property="og:image" content="${e(o.imagen)}">`,
+      "<meta property=\"og:image:width\" content=\"512\">", "<meta property=\"og:image:height\" content=\"512\">"]
+    : [`<meta property="og:image" content="${e(o.imagen)}">`, `<meta property="og:image:secure_url" content="${e(o.imagen)}">`,
+      "<meta property=\"og:image:type\" content=\"image/jpeg\">",
+      `<meta property="og:image:width" content="${VER_ANCHO}">`, `<meta property="og:image:height" content="${VER_ALTO}">`];
+  return [
+    "<!DOCTYPE html>",
+    "<html lang=\"es\">",
+    "<head>",
+    "<meta charset=\"utf-8\">",
+    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
+    `<title>${e(o.logo && !o.datos ? o.titulo : o.titulo + " | MALAVE")}</title>`,
+    `<meta name="description" content="${e(o.descripcion)}">`,
+    "<meta name=\"robots\" content=\"noindex\">",
+    "<meta property=\"og:type\" content=\"website\">",
+    "<meta property=\"og:site_name\" content=\"MALAVE Inmobiliaria\">",
+    "<meta property=\"og:locale\" content=\"es_UY\">",
+    `<meta property="og:url" content="${e(o.url)}">`,
+    `<meta property="og:title" content="${e(o.titulo)}">`,
+    `<meta property="og:description" content="${e(o.descripcion)}">`,
+    ...img,
+    `<meta property="og:image:alt" content="${e(o.titulo)}">`,
+    `<meta name="twitter:card" content="${o.logo ? "summary" : "summary_large_image"}">`,
+    `<meta name="twitter:title" content="${e(o.titulo)}">`,
+    `<meta name="twitter:description" content="${e(o.descripcion)}">`,
+    `<meta name="twitter:image" content="${e(o.imagen)}">`,
+    "<meta name=\"theme-color\" content=\"#243447\">",
+    "</head>",
+    "<body>",
+    `<p><a href="${e(o.destino)}">${e(o.titulo)}</a></p>`,
+    `<script>location.replace(${JSON.stringify(o.destino).replace(/</g, "\\u003c")});</script>`,
+    "</body>",
+    "</html>",
+  ].join("\n");
+}
+function verPaginaGenerica(url, destino) {
+  return verPagina({ titulo: "MALAVE Inmobiliaria", descripcion: "Propiedades en venta y alquiler en Uruguay.",
+    imagen: VER_LOGO, logo: true, datos: false, url, destino });
+}
+
+// ---- La foto de portada, achicada ----
+// Recorte centrado con la proporción de destino y cambio de tamaño con filtro
+// (promedia los píxeles que caen en cada punto: no quedan bordes serruchados).
+function verPesos(origen, destino) {
+  const escala = origen / destino, radio = Math.max(1, escala);
+  const ini = new Int32Array(destino), n = new Int32Array(destino), off = new Int32Array(destino);
+  const w = [];
+  for (let i = 0; i < destino; i++) {
+    const c = (i + 0.5) * escala - 0.5;
+    const a = Math.max(0, Math.ceil(c - radio));
+    const z = Math.max(a, Math.min(origen - 1, Math.floor(c + radio)));
+    const ws = [];
+    let suma = 0;
+    for (let j = a; j <= z; j++) { const v = Math.max(0, 1 - Math.abs(j - c) / radio); ws.push(v); suma += v; }
+    if (!(suma > 0)) { ws.fill(0); ws[0] = 1; suma = 1; }
+    ini[i] = a; n[i] = ws.length; off[i] = w.length;
+    for (const v of ws) w.push(v / suma);
+  }
+  return { ini, n, off, w: Float32Array.from(w) };
+}
+function verRecortar(src, sw, sh, dw, dh) {
+  const rel = dw / dh;
+  let cw = sw, ch = Math.round(sw / rel);
+  if (ch > sh) { ch = sh; cw = Math.max(1, Math.min(sw, Math.round(sh * rel))); }
+  ch = Math.max(1, ch);
+  const cx = Math.floor((sw - cw) / 2), cy = Math.floor((sh - ch) / 2);
+  const ph = verPesos(cw, dw), pv = verPesos(ch, dh);
+  const tmp = new Float32Array(dw * ch * 3);
+  for (let y = 0; y < ch; y++) {
+    const fila = ((cy + y) * sw + cx) * 4;
+    for (let x = 0; x < dw; x++) {
+      let r = 0, g = 0, b = 0;
+      const a = ph.ini[x], k = ph.n[x], o = ph.off[x];
+      for (let j = 0; j < k; j++) {
+        const wj = ph.w[o + j], i = fila + (a + j) * 4;
+        r += src[i] * wj; g += src[i + 1] * wj; b += src[i + 2] * wj;
+      }
+      const t = (y * dw + x) * 3;
+      tmp[t] = r; tmp[t + 1] = g; tmp[t + 2] = b;
+    }
+  }
+  const out = new Uint8ClampedArray(dw * dh * 4);   // redondea y recorta a 0..255 solo
+  for (let y = 0; y < dh; y++) {
+    const a = pv.ini[y], k = pv.n[y], o = pv.off[y];
+    for (let x = 0; x < dw; x++) {
+      let r = 0, g = 0, b = 0;
+      for (let j = 0; j < k; j++) {
+        const wj = pv.w[o + j], t = ((a + j) * dw + x) * 3;
+        r += tmp[t] * wj; g += tmp[t + 1] * wj; b += tmp[t + 2] * wj;
+      }
+      const q = (y * dw + x) * 4;
+      out[q] = r; out[q + 1] = g; out[q + 2] = b; out[q + 3] = 255;
+    }
+  }
+  return out;
+}
+async function verAchicar(url) {
+  if (!VER_FOTO_HOSTS.test(url)) return null;
+  const r = await axios.get(url, { responseType: "arraybuffer", timeout: 12000, maxContentLength: 25 * 1024 * 1024, maxRedirects: 2 });
+  const buf = Buffer.from(r.data || []);
+  if (buf.length < 4 || buf[0] !== 0xff || buf[1] !== 0xd8) return null;   // no es JPEG: se usa la original
+  const jpeg = require("./jpeg");   // se carga recién acá: no demora el arranque de las demás funciones
+  const img = jpeg.decode(buf, { useTArray: true, formatAsRGBA: true, tolerantDecoding: true, maxResolutionInMP: 40, maxMemoryUsageInMB: 300 });
+  const rgba = verRecortar(img.data, img.width, img.height, VER_ANCHO, VER_ALTO);
+  let calidad = 78;
+  let salida = jpeg.encode({ data: rgba, width: VER_ANCHO, height: VER_ALTO }, calidad).data;
+  while (salida.length > VER_PESO_MAX && calidad > 45) {
+    calidad -= 12;
+    salida = jpeg.encode({ data: rgba, width: VER_ANCHO, height: VER_ALTO }, calidad).data;
+  }
+  return Buffer.from(salida);
+}
+// Las últimas portadas achicadas quedan en memoria: WhatsApp, Facebook y
+// compañía suelen pedir la misma foto varias veces seguidas. Si no se pudo
+// achicar, se reintenta recién a los 10 minutos.
+const _verFotos = new Map();
+function verFotoAchicada(clave, url) {
+  const ahora = Date.now(), c = _verFotos.get(clave);
+  if (c && (c.ok || ahora - c.t < 10 * 60 * 1000)) return c.tarea;
+  const e = { t: ahora, ok: false, tarea: null };
+  e.tarea = verAchicar(url)
+    .then((b) => { e.ok = !!b; return b; })
+    .catch((err) => { logger.warn("[ver] no se pudo achicar la portada", clave, err && err.message); return null; });
+  _verFotos.delete(clave);
+  _verFotos.set(clave, e);
+  while (_verFotos.size > 30) _verFotos.delete(_verFotos.keys().next().value);
+  return e.tarea;
+}
+async function verFoto(res, id) {
+  let portada = "";
+  try {
+    const snap = await db.collection("properties").doc(id).get();
+    const p = snap.exists ? (snap.data() || {}) : null;
+    if (verPublica(p)) portada = verPortada(p);
+  } catch (e) {
+    logger.warn("[ver] no se pudo leer la propiedad", id, e && e.message);
+  }
+  if (!portada) { res.set("Cache-Control", "public, max-age=3600"); return res.redirect(302, VER_LOGO); }
+  const jpg = await verFotoAchicada(id + "|" + verHuella(portada), portada);
+  // Si no se pudo achicar (no es JPEG, no bajó...), la original: mejor eso que nada.
+  if (!jpg) { res.set("Cache-Control", "public, max-age=3600"); return res.redirect(302, portada); }
+  res.set("Content-Type", "image/jpeg");
+  res.set("Cache-Control", "public, max-age=604800");
+  return res.status(200).send(jpg);
+}
+
+exports.ver = onRequest({ memory: "512MiB", timeoutSeconds: 30 }, async (req, res) => {
+  // La ruta puede llegar como /<id> o como /ver/<id>, según por dónde entre.
+  const partes = String(req.path || "/").split("/").filter(Boolean);
+  if (partes[0] === "ver") partes.shift();
+  const id = String(partes[0] || (req.query && req.query.id) || "");
+  const valido = /^[A-Za-z0-9_-]{1,64}$/.test(id);
+  const destino = valido ? `${VER_SITIO}/propiedad.html?id=${encodeURIComponent(id)}` : `${VER_SITIO}/`;
+  const url = valido ? `${VER_BASE}/${encodeURIComponent(id)}` : VER_BASE;
+  const ua = String((req.get && req.get("user-agent")) || (req.headers && req.headers["user-agent"]) || "");
+  res.set("Vary", "User-Agent");
+  try {
+    if (valido && /^foto(\.jpe?g)?$/i.test(partes[1] || "")) return await verFoto(res, id);
+    if (!verEsRobot(ua)) {
+      res.set("Cache-Control", "no-store");
+      return res.redirect(302, destino);
+    }
+    const snap = valido ? await db.collection("properties").doc(id).get() : null;
+    const p = snap && snap.exists ? (snap.data() || {}) : null;
+    let html;
+    if (verPublica(p)) {
+      const portada = verPortada(p);
+      html = verPagina({
+        titulo: verTitulo(p), descripcion: verDescripcion(p), url, destino, datos: true,
+        imagen: portada ? `${VER_BASE}/${encodeURIComponent(id)}/foto.jpg?v=${verHuella(portada)}` : VER_LOGO,
+        logo: !portada,
+      });
+    } else {
+      html = verPaginaGenerica(url, destino);
+    }
+    logger.info("[ver] vista previa", { id, conDatos: verPublica(p), ua: ua.slice(0, 160) });
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.set("Cache-Control", "public, max-age=600");
+    return res.status(200).send(html);
+  } catch (e) {
+    logger.error("[ver]", id, e);
+    if (!verEsRobot(ua)) { res.set("Cache-Control", "no-store"); return res.redirect(302, destino); }
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.set("Cache-Control", "no-store");
+    return res.status(200).send(verPaginaGenerica(url, destino));
+  }
+});
