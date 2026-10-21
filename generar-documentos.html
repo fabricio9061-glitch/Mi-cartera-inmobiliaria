@@ -471,6 +471,23 @@
       .iv-progreso span, .iv-amb-cab > i, .toast, .hoja canvas, .doc-type, .seg button, .fh-back, .pv-btn, .gen-btn{ transition:none; }
       .pv-estado{ animation-duration:.01s; }
     }
+
+    /* ===== AMI: fotos y comparables ===== */
+    .am-foto{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .am-foto-caja{ position:relative; flex:none; width:128px; height:72px; border:1.5px dashed var(--line-2); border-radius:10px; background:#fff;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:4px; overflow:hidden;
+      font-family:inherit; font-size:.76rem; font-weight:600; color:var(--muted); text-align:center; cursor:pointer; }
+    .am-foto-caja:hover, .am-foto-caja.sobre{ border-color:var(--navy); color:var(--navy); }
+    .am-foto-caja:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+    .am-foto-caja img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+    .am-foto-caja i{ font-size:1rem; }
+    .am-comp .am-foto-caja{ width:96px; height:72px; }
+    .am-comp-tit{ font-size:.8rem; font-weight:600; color:var(--navy); margin-bottom:10px; }
+    .am-resumen{ margin:0 0 16px; padding:12px 14px; border:1px solid var(--line); border-radius:12px; background:var(--fondo);
+      font-size:.84rem; line-height:1.5; color:var(--txt-2); }
+    .am-resumen[hidden]{ display:none; }
+    .am-num{ font-weight:700; color:var(--navy); }
+    #amAgregar{ margin-bottom:18px; }
   </style>
   <style>
     /* Área segura superior (isla dinámica / notch).
@@ -530,6 +547,11 @@
               <i class="fas fa-circle-info" aria-hidden="true"></i>
               <b>Información al propietario</b><small>Propietario</small>
               <span>Cómo trabaja la agencia en un arrendamiento. Se entrega al captar.</span>
+            </button>
+            <button type="button" class="doc-type" data-type="ami" aria-pressed="false" onclick="selectType('ami')" title="Análisis del mercado inmobiliario">
+              <i class="fas fa-chart-column" aria-hidden="true"></i>
+              <b>Análisis de mercado (AMI)</b><small>AMI</small>
+              <span>Para la primera reunión con el propietario: qué se ofrece en la zona y a qué precio. No es una tasación.</span>
             </button>
             <ol class="doc-indice" id="docIndice" aria-label="Secciones del documento" hidden></ol>
           </div>
@@ -861,6 +883,64 @@
           <div class="ct-op"><input type="checkbox" id="ipConstancia" checked onchange="ipPreview()">
             <div style="flex:1"><b>Incluir constancia de recepción</b><span>El propietario firma que lo recibió y lo comprendió. Sin firma, el documento prueba que existe, no que se lo entregaste.</span></div>
           </div>
+
+          <button class="gen-btn" onclick="generarActivo()"><i class="fas fa-file-arrow-down"></i> Descargar</button>
+        </div>
+
+        <!-- Análisis del mercado inmobiliario (AMI). Las fotos no se suben a ningún
+             lado: se achican en el navegador y van solo dentro del PDF. -->
+        <div class="panel" id="formAMI" style="display:none">
+          <h3><i class="fas fa-chart-column"></i> Análisis del mercado inmobiliario</h3>
+          <input type="file" id="amArchivo" accept="image/*" hidden onchange="amArchivoElegido(this)">
+
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">1</span><span class="ct-tit">Propiedad</span></div>
+          <div class="fld"><label for="amProp">Propiedad del sistema (opcional)</label>
+            <select id="amProp" onchange="amCargarProp()" disabled><option value="">Cargando propiedades…</option></select>
+            <div class="hint">Si ya está cargada, se completan los datos de abajo. Si todavía no, escribilos a mano.</div></div>
+          <div class="fld"><label for="amDireccion">Dirección</label><input id="amDireccion" oninput="amPreview()" autocomplete="off"></div>
+          <div class="row2">
+            <div class="fld"><label for="amBarrio">Barrio</label><input id="amBarrio" oninput="amPreview()" autocomplete="off"></div>
+            <div class="fld"><label for="amCiudad">Departamento</label><input id="amCiudad" oninput="amPreview()" placeholder="Montevideo" autocomplete="off"></div>
+          </div>
+          <div class="row2">
+            <div class="fld"><label for="amTipo">Tipo</label>
+              <select id="amTipo" onchange="amPreview()"><option value="">—</option><option>Apartamento</option><option>Casa</option><option>PH</option><option>Terreno</option><option>Local comercial</option><option>Oficina</option><option>Otro</option></select></div>
+            <div class="fld"><label for="amEstado">Estado de conservación</label>
+              <select id="amEstado" onchange="amPreview()"><option value="">—</option><option>A estrenar</option><option>Excelente</option><option>Muy bueno</option><option>Bueno</option><option>A reciclar</option></select></div>
+          </div>
+          <div class="row2">
+            <div class="fld"><label for="amM2">Superficie edificada (m²)</label><input id="amM2" inputmode="decimal" oninput="amPreview()"></div>
+            <div class="fld"><label for="amM2Total">Superficie total o terreno (m²)</label><input id="amM2Total" inputmode="decimal" oninput="amPreview()"></div>
+          </div>
+          <div class="row2">
+            <div class="fld"><label for="amDorm">Dormitorios</label><input id="amDorm" inputmode="numeric" oninput="amPreview()"></div>
+            <div class="fld"><label for="amBanos">Baños</label><input id="amBanos" inputmode="numeric" oninput="amPreview()"></div>
+          </div>
+          <div class="row2">
+            <div class="fld"><label for="amGaraje">Garaje</label>
+              <select id="amGaraje" onchange="amPreview()"><option value="">—</option><option>No</option><option>Sí</option><option>2 o más</option></select></div>
+            <div class="fld"><label for="amAntig">Antigüedad (años)</label><input id="amAntig" inputmode="numeric" oninput="amPreview()"></div>
+          </div>
+          <div class="fld"><label for="amPadron">Padrón (opcional)</label><input id="amPadron" oninput="amPreview()" autocomplete="off"></div>
+          <div class="fld"><label for="amExtras">Otras características</label><input id="amExtras" oninput="amPreview()" placeholder="ej: parrillero, patio, techo de placa" autocomplete="off"></div>
+
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">2</span><span class="ct-tit">Portada</span></div>
+          <div class="fld"><label for="amPara">Preparado para</label><input id="amPara" oninput="amPreview()" placeholder="Nombre del propietario" autocomplete="off"></div>
+          <div class="row2">
+            <div class="fld"><label for="amFecha">Fecha</label><input id="amFecha" type="date" oninput="amPreview()"></div>
+            <div class="fld"><label for="amAgente">Agente</label><select id="amAgente" onchange="amPreview()" disabled><option value="">Cargando agentes…</option></select></div>
+          </div>
+          <div class="fld"><label>Foto de la propiedad (opcional)</label><div id="amFotoPortada"></div></div>
+
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">3</span><span class="ct-tit">Comparables</span></div>
+          <div class="hint" style="margin:-6px 0 10px">Propiedades parecidas en venta en la zona, de otros portales o de nuestra cartera. Con 3 a 6 alcanza.</div>
+          <div id="amComps"></div>
+          <button type="button" class="ct-add" id="amAgregar" onclick="amAgregarComp()"><i class="fas fa-plus"></i> Agregar comparable</button>
+
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">4</span><span class="ct-tit">Precio del propietario</span></div>
+          <div class="fld"><label for="amPrecio">Precio que tiene en mente (USD, opcional)</label><input id="amPrecio" inputmode="numeric" oninput="amPreview()" placeholder="ej: 120000">
+            <div class="hint">Se marca en la comparativa y la conclusión dice si queda dentro, por encima o por debajo del rango.</div></div>
+          <div class="am-resumen" id="amResumen" hidden></div>
 
           <button class="gen-btn" onclick="generarActivo()"><i class="fas fa-file-arrow-down"></i> Descargar</button>
         </div>
@@ -1204,7 +1284,8 @@
       contrato: function(){ return ctGenerarPDF(); },
       mediacion: function(){ return cmGenerarPDF(); },
       propietario: function(){ return ipGenerarPDF(); },
-      inventario: function(){ return ivGenerarPDF(); }
+      inventario: function(){ return ivGenerarPDF(); },
+      ami: function(){ return amGenerarPDF(); }
     };
     // Todos los botones de descarga (el del final de cada formulario, el de la
     // vista previa y el de la barra del celular) pasan por acá. Cada documento
@@ -2482,7 +2563,7 @@
     // Vuelve a armar la hoja del documento que está elegido (llegaron datos nuevos,
     // terminó de cargar la imagen de la marca, etc.).
     function refrescarVista(){
-      var f = { carta_pago: renderPreview, contrato: ctPreview, mediacion: cmPreview, propietario: ipPreview, inventario: ivPreview }[_tipoActivo];
+      var f = { carta_pago: renderPreview, contrato: ctPreview, mediacion: cmPreview, propietario: ipPreview, inventario: ivPreview, ami: amPreview }[_tipoActivo];
       if(f) f();
     }
 
@@ -5720,6 +5801,459 @@
     }
 
 
+    // ==========================================================================
+    // ANÁLISIS DEL MERCADO INMOBILIARIO (AMI)
+    // --------------------------------------------------------------------------
+    // Lo lleva el agente a la primera reunión con el propietario: qué se ofrece en
+    // la zona y a qué precio, con propiedades parecidas. No es una tasación.
+    // Tres hojas: portada, la propiedad y la comparativa. Las fotos se achican y se
+    // recortan acá mismo: no se suben a ningún lado, solo van dentro del PDF.
+    // ==========================================================================
+    var AM = { comps: [], portada: null, destino: null, sec: 0 };
+    var _amListo = false;
+    var AM_MAX_COMPS = 8;
+    var AM_ESTADOS = ['A estrenar', 'Excelente', 'Muy bueno', 'Bueno', 'A reciclar'];
+
+    function amVal(id){ var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
+    // Números como los escribe la gente: "120.000", "120000", "US$ 120.000", "72,5".
+    function amNum(v){
+      var s = String(v == null ? '' : v).trim().replace(/\s/g, '').replace(/^(US\$|U\$S|USD|\$)/i, '');
+      if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g, '').replace(',', '.');
+      else s = s.replace(',', '.');
+      var n = parseFloat(s.replace(/[^\d.]/g, ''));
+      return isFinite(n) && n > 0 ? n : 0;
+    }
+    function amMiles(n){ return Math.round(n).toLocaleString('es-UY'); }
+    function amFmt(n){ return Number(n).toLocaleString('es-UY', { maximumFractionDigits: 1 }); }
+    function amTipoDe(p){
+      if (p.propertyType === 'ph') return 'PH';
+      return { apartamento: 'Apartamento', casa: 'Casa', terreno: 'Terreno', local: 'Local comercial', oficina: 'Oficina' }[p.realEstateType] || (p.realEstateType ? 'Otro' : '');
+    }
+    function amAgenteSel(){
+      var id = amVal('amAgente'), lista = listaAgentes();
+      var a = lista.filter(function(x){ return x.id === id; })[0] || lista.filter(function(x){ return x.name === agenteLogueado; })[0] || {};
+      return { name: a.name || agenteLogueado || EMPRESA.titular, tel: a.tel || '', email: a.email || '' };
+    }
+    function amDatos(){
+      return {
+        direccion: amVal('amDireccion'), barrio: amVal('amBarrio'), ciudad: amVal('amCiudad'),
+        tipo: amVal('amTipo'), estado: amVal('amEstado'), m2: amNum(amVal('amM2')), m2Total: amNum(amVal('amM2Total')),
+        dorm: amVal('amDorm'), banos: amVal('amBanos'), garaje: amVal('amGaraje'), antig: amVal('amAntig'),
+        padron: amVal('amPadron'), extras: amVal('amExtras'),
+        para: amVal('amPara'), fecha: fechaLarga(amVal('amFecha')), agente: amAgenteSel(), precio: amNum(amVal('amPrecio')),
+        comps: AM.comps.map(function(c){
+          return { dir: String(c.dir || '').trim(), m2: amNum(c.m2), dorm: String(c.dorm || '').trim(), estado: c.estado || '', precio: amNum(c.precio), foto: c.foto };
+        }).filter(function(c){ return c.dir || c.precio; })
+      };
+    }
+    // Rango de los comparables y dónde cae el precio del propietario. Se compara
+    // por precio total, que es como lo piensa el propietario.
+    function amStats(d){
+      var conPrecio = d.comps.filter(function(c){ return c.precio; });
+      if (!conPrecio.length) return null;
+      var prom = function(a){ return a.reduce(function(t, x){ return t + x; }, 0) / a.length; };
+      var precios = conPrecio.map(function(c){ return c.precio; });
+      var porM2 = conPrecio.filter(function(c){ return c.m2; }).map(function(c){ return c.precio / c.m2; });
+      var s = { n: conPrecio.length, min: Math.min.apply(null, precios), max: Math.max.apply(null, precios), prom: prom(precios), m2n: porM2.length };
+      if (porM2.length) { s.m2min = Math.min.apply(null, porM2); s.m2max = Math.max.apply(null, porM2); s.m2prom = prom(porM2); }
+      if (d.precio) {
+        var v = d.precio, lo = s.min, hi = s.max;
+        s.propio = { valor: v, lado: v < lo ? 'debajo' : (v > hi ? 'encima' : 'dentro'),
+          pct: v > hi ? Math.round((v / hi - 1) * 100) : (v < lo ? Math.round((1 - v / lo) * 100) : 0) };
+      }
+      return s;
+    }
+    function amConclusion(d, s){
+      if (!s) return '';
+      if (!s.propio) return 'El rango muestra a qué precio se ofrecen hoy propiedades parecidas en la zona. Sirve de referencia para definir el precio de publicación.';
+      if (s.propio.lado === 'dentro') return 'Tu precio queda dentro del rango de precios de las propiedades comparadas. Las propiedades que se publican dentro del rango de mercado tienden a recibir más consultas y se venden en menos tiempo.';
+      if (s.propio.lado === 'encima') return 'Tu precio queda ' + s.propio.pct + '% por encima del precio más alto de las propiedades comparadas. Un precio por encima del mercado suele recibir menos consultas y tardar más en venderse.';
+      return 'Tu precio queda ' + s.propio.pct + '% por debajo del precio más bajo de las propiedades comparadas. Hay margen para publicar a un precio más alto.';
+    }
+
+    // ---- Formulario ----
+    function amInit(){
+      if (_amListo) return;
+      _amListo = true;
+      var f = document.getElementById('amFecha'); if (f && !f.value) f.value = hoyISO();
+      while (AM.comps.length < 3) AM.comps.push({ dir: '', m2: '', dorm: '', estado: '', precio: '', foto: null });
+      amPintarFotos();
+      amPintarDatos();
+    }
+    // Propiedades y agentes: se vuelven a llenar cuando llegan los datos.
+    function amPintarDatos(){
+      var sel = document.getElementById('amProp');
+      if (sel) {
+        if (!_datosListos) { sel.innerHTML = '<option value="">Cargando propiedades…</option>'; sel.disabled = true; }
+        else {
+          var previo = sel.value, yo = (auth && auth.currentUser) ? auth.currentUser.uid : '';
+          var lista = props.filter(function(p){ return p._dir || p.title; });
+          var grupo = function(t, l){ return l.length ? '<optgroup label="' + esc(t) + '">' + l.map(function(p){
+            var t2 = p._dir || p.title; if (t2.length > 60) t2 = t2.slice(0, 58).trim() + '…';
+            return '<option value="' + esc(p.id) + '">' + esc(t2) + '</option>'; }).join('') + '</optgroup>' : ''; };
+          sel.innerHTML = '<option value="">' + (lista.length ? 'Escribir los datos a mano' : 'No hay propiedades cargadas') + '</option>' +
+            grupo('Mis propiedades', lista.filter(function(p){ return p.ownerId === yo; })) +
+            grupo('De otros agentes', lista.filter(function(p){ return p.ownerId !== yo; }));
+          sel.disabled = false;
+          if (previo && lista.some(function(p){ return p.id === previo; })) sel.value = previo;
+        }
+      }
+      var sa = document.getElementById('amAgente');
+      if (sa) {
+        var ag = listaAgentes();
+        if (!ag.length) { sa.innerHTML = '<option value="">Cargando agentes…</option>'; sa.disabled = true; }
+        else {
+          var prev = sa.options.length && sa.options[0].value ? sa.value : '';
+          var yo2 = (auth && auth.currentUser) ? auth.currentUser.uid : '';
+          sa.innerHTML = ag.map(function(a){ return '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>'; }).join('');
+          sa.disabled = false;
+          if (prev && ag.some(function(a){ return a.id === prev; })) sa.value = prev;
+          else if (ag.some(function(a){ return a.id === yo2; })) sa.value = yo2;
+        }
+      }
+      amPreview();
+    }
+    // Elegir una propiedad del sistema completa los datos de la sección 1.
+    function amCargarProp(){
+      var p = propPorId(amVal('amProp'));
+      if (!p) { amPreview(); return; }
+      var poner = function(id, v){ var e = document.getElementById(id); if (e) e.value = (v == null || v === 0) ? '' : String(v); };
+      poner('amDireccion', p.direccion || p._dir);
+      poner('amBarrio', p.ciudad || p.barrio);
+      poner('amCiudad', p.departamento);
+      poner('amTipo', amTipoDe(p));
+      poner('amM2', p.builtArea);
+      poner('amM2Total', p.terreno || (p.totalArea && p.totalArea !== p.builtArea ? p.totalArea : 0));
+      poner('amDorm', p.bedrooms);
+      poner('amBanos', p.bathrooms);
+      poner('amGaraje', p.cocheras > 1 ? '2 o más' : (p.cocheras === 1 || p.garage === 'yes' ? 'Sí' : ''));
+      poner('amAntig', p.antiguedad);
+      if (p.type === 'sale' && p.price && (p.currency || 'USD') === 'USD') poner('amPrecio', p.price);
+      amPreview();
+    }
+    function amAgregarComp(){
+      if (AM.comps.length >= AM_MAX_COMPS) return;
+      AM.comps.push({ dir: '', m2: '', dorm: '', estado: '', precio: '', foto: null });
+      amPintarComps(); amPreview();
+      var ult = document.querySelector('#amComps .am-comp:last-child input');
+      if (ult) ult.focus();
+    }
+    function amQuitarComp(i){ AM.comps.splice(i, 1); amPintarComps(); amPreview(); }
+    function amSetComp(i, campo, v){ if (AM.comps[i]) { AM.comps[i][campo] = v; amPreview(); } }
+    // Caja de foto: se toca para elegir una imagen o se arrastra una encima.
+    function amCajaFoto(destino, foto, texto){
+      var arg = destino === 'portada' ? "'portada'" : String(destino);
+      return '<div class="am-foto"><button type="button" class="am-foto-caja" onclick="amElegirFoto(' + arg + ')" ondragover="amSobre(event,this)" ' +
+        'ondragleave="this.classList.remove(\'sobre\')" ondrop="amSoltar(event,' + arg + ',this)" aria-label="' + (foto ? 'Cambiar la foto' : 'Agregar una foto') + '">' +
+        (foto ? '<img src="' + foto.data + '" alt="">' : '<i class="fas fa-camera" aria-hidden="true"></i><span>' + esc(texto) + '</span>') + '</button>' +
+        (foto ? '<button type="button" class="iv-link" onclick="amQuitarFoto(' + arg + ')">Quitar foto</button>'
+          : '<span class="hint" style="margin:0">Tocá para elegir una imagen o arrastrala acá.</span>') + '</div>';
+    }
+    function amPintarFotos(){
+      var p = document.getElementById('amFotoPortada');
+      if (p) p.innerHTML = amCajaFoto('portada', AM.portada, 'Agregar foto');
+      amPintarComps();
+    }
+    function amPintarComps(){
+      var c = document.getElementById('amComps');
+      if (!c) return;
+      var opc = function(sel){ return '<option value="">—</option>' + AM_ESTADOS.map(function(e){ return '<option' + (e === sel ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join(''); };
+      c.innerHTML = AM.comps.map(function(p, i){
+        return '<div class="ct-persona am-comp"><div class="am-comp-tit">Comparable ' + (i + 1) + '</div>' +
+          amCajaFoto(i, p.foto, 'Foto (opcional)') +
+          '<div class="fld" style="margin-top:12px"><label for="amC' + i + 'd">Dirección o zona</label><input id="amC' + i + 'd" value="' + esc(p.dir) + '" oninput="amSetComp(' + i + ',\'dir\',this.value)" autocomplete="off" placeholder="ej: Av. Italia y Comercio"></div>' +
+          '<div class="row2"><div class="fld"><label for="amC' + i + 'm">m² edificados</label><input id="amC' + i + 'm" inputmode="decimal" value="' + esc(p.m2) + '" oninput="amSetComp(' + i + ',\'m2\',this.value)"></div>' +
+          '<div class="fld"><label for="amC' + i + 'r">Dormitorios</label><input id="amC' + i + 'r" inputmode="numeric" value="' + esc(p.dorm) + '" oninput="amSetComp(' + i + ',\'dorm\',this.value)"></div></div>' +
+          '<div class="row2"><div class="fld"><label for="amC' + i + 'e">Estado</label><select id="amC' + i + 'e" onchange="amSetComp(' + i + ',\'estado\',this.value)">' + opc(p.estado) + '</select></div>' +
+          '<div class="fld"><label for="amC' + i + 'p">Precio (USD)</label><input id="amC' + i + 'p" inputmode="numeric" value="' + esc(p.precio) + '" oninput="amSetComp(' + i + ',\'precio\',this.value)" placeholder="ej: 145000"></div></div>' +
+          '<button type="button" class="ct-del" onclick="amQuitarComp(' + i + ')"><i class="fas fa-trash"></i> Quitar comparable</button></div>';
+      }).join('');
+      var b = document.getElementById('amAgregar');
+      if (b) { b.disabled = AM.comps.length >= AM_MAX_COMPS; b.hidden = AM.comps.length >= AM_MAX_COMPS; }
+    }
+    function amElegirFoto(destino){
+      AM.destino = destino;
+      var f = document.getElementById('amArchivo');
+      if (f) { f.value = ''; f.click(); }
+    }
+    function amArchivoElegido(input){ var f = input.files && input.files[0]; if (f) amCargarFoto(f, AM.destino); }
+    function amSobre(ev, el){ ev.preventDefault(); el.classList.add('sobre'); }
+    function amSoltar(ev, destino, el){
+      ev.preventDefault();
+      if (el) el.classList.remove('sobre');
+      var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+      if (f) amCargarFoto(f, destino);
+    }
+    function amQuitarFoto(destino){
+      if (destino === 'portada') AM.portada = null;
+      else if (AM.comps[destino]) AM.comps[destino].foto = null;
+      amPintarFotos(); amPreview();
+    }
+    // La foto se recorta a la proporción de su lugar en el PDF (16:9 la portada,
+    // 4:3 los comparables) y se guarda como JPEG liviano.
+    function amCargarFoto(archivo, destino){
+      if (!archivo || !/^image\//.test(archivo.type || '')) { toast('Elegí una imagen (JPG o PNG)', true); return; }
+      var url = URL.createObjectURL(archivo), img = new Image();
+      img.onload = function(){
+        try {
+          var portada = destino === 'portada', ratio = portada ? 16 / 9 : 4 / 3, maxW = portada ? 1400 : 480;
+          var sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0;
+          if (sw / sh > ratio) { var nw = sh * ratio; sx = (sw - nw) / 2; sw = nw; }
+          else { var nh = sw / ratio; sy = (sh - nh) / 2; sh = nh; }
+          var w = Math.max(1, Math.min(maxW, Math.round(sw))), h = Math.max(1, Math.round(w / ratio));
+          var c = document.createElement('canvas'); c.width = w; c.height = h;
+          var cx = c.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h);
+          cx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+          var foto = { data: c.toDataURL('image/jpeg', 0.82), id: 'amFoto' + (++AM.sec) };
+          if (portada) AM.portada = foto;
+          else if (AM.comps[destino]) AM.comps[destino].foto = foto;
+          amPintarFotos(); amPreview();
+        } catch (e) { console.warn('AMI foto:', e); toast('No se pudo leer la foto', true); }
+        URL.revokeObjectURL(url);
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); toast('No se pudo leer la foto. Probá con un JPG.', true); };
+      img.src = url;
+    }
+    // Resumen debajo del precio: lo que va a decir la comparativa.
+    function amPintarResumen(){
+      var el = document.getElementById('amResumen');
+      if (!el) return;
+      var d = amDatos(), s = amStats(d);
+      if (!s) { el.hidden = true; el.innerHTML = ''; return; }
+      var html = '<b>' + s.n + ' comparable' + (s.n === 1 ? '' : 's') + ' con precio:</b> de <span class="am-num">USD ' + esc(amMiles(s.min)) + '</span> a <span class="am-num">USD ' + esc(amMiles(s.max)) + '</span>' +
+        (s.m2n ? ' (USD ' + esc(amMiles(s.m2min)) + ' a ' + esc(amMiles(s.m2max)) + ' por m²)' : '') + '.';
+      if (s.n < 3) html += ' Con 3 o más el rango es más confiable.';
+      if (s.propio) html += '<br>' + esc(amConclusion(d, s).split('. ')[0]) + '.';
+      el.innerHTML = html;
+      el.hidden = false;
+    }
+    function amPreview(){
+      amPintarResumen();
+      vistaPrevia('ami', amConstruirPDF, 300);
+    }
+    function amGenerarPDF(){
+      var d = amDatos();
+      if (!d.direccion) { toast('Falta la dirección de la propiedad', true); return; }
+      if (!d.comps.some(function(c){ return c.precio; })) { toast('Cargá al menos un comparable con precio', true); return; }
+      amConstruirPDF().save('AMI_' + d.direccion.replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '') + '.pdf');
+      toast('Documento generado');
+    }
+
+    // ---- El PDF ----
+    function amConstruirPDF(){
+      var pdf = nuevoPDF();
+      var W = 595.28, M = 54, ancho = W - M * 2, pieY = 800;
+      var NAVY = [22,39,63], GREY = [95,106,128], INK = [26,38,58], ORO = [201,162,39], LINEA = [226,230,236], SUAVE = [245,247,250], BLANCO = [255,255,255];
+      var d = amDatos(), s = amStats(d);
+      var pagina = 1;
+      var tinta = function(c){ pdf.setTextColor(c[0], c[1], c[2]); };
+      var relleno = function(c){ pdf.setFillColor(c[0], c[1], c[2]); };
+      var trazo = function(c){ pdf.setDrawColor(c[0], c[1], c[2]); };
+      var letra = function(estilo, tam){ pdf.setFont('helvetica', estilo); pdf.setFontSize(tam); };
+      var usd = function(n){ return 'USD ' + amMiles(n); };
+      var foto = function(f, x, y, w, h){ if (f) { try { pdf.addImage(f.data, 'JPEG', x, y, w, h, f.id, _pdfBorrador ? 'NONE' : 'FAST'); } catch (e) { console.warn('AMI foto:', e); } } };
+      function pie(){
+        trazo(NAVY); pdf.setLineWidth(1); pdf.line(M, pieY, W - M, pieY);
+        letra('normal', 8); tinta(GREY);
+        pdf.text(EMPRESA.direccion + '   |   ' + EMPRESA.celular + '   |   ' + EMPRESA.email, W / 2, pieY + 13, { align: 'center' });
+        pdf.text('Página ' + pagina, W - M, pieY + 13, { align: 'right' });
+      }
+      // Hoja nueva con membrete, título y bajada. Devuelve dónde sigue el contenido.
+      function hoja(titulo, bajada){
+        pie(); pdf.addPage(); pagina++;
+        var y = 56, xTxt = M;
+        if (_logoImg) { try { ponerLogo(pdf, M, y - 21, 30, 26); xTxt = M + 38; } catch (e) { /* sin logo */ } }
+        letra('bold', 9.5); tinta(INK); pdf.text(EMPRESA.nombre, xTxt, y);
+        letra('normal', 8.5); tinta(GREY); pdf.text('Análisis del mercado inmobiliario', W - M, y, { align: 'right' });
+        trazo(NAVY); pdf.setLineWidth(0.8); pdf.line(M, y + 11, W - M, y + 11);
+        y += 52;
+        letra('bold', 20); tinta(NAVY); pdf.text(titulo, M, y);
+        trazo(ORO); pdf.setLineWidth(2); pdf.line(M, y + 9, M + 44, y + 9);
+        if (bajada) { letra('normal', 10); tinta(GREY); pdf.text(bajada, M, y + 28); return y + 52; }
+        return y + 34;
+      }
+      function seccion(t, y){ letra('bold', 11); tinta(NAVY); pdf.text(t, M, y); return y + 12; }
+
+      // ---- Hoja 1: portada ----
+      if (_logoImg) { try { ponerLogo(pdf, W - M - 80, 52, 57, 50); } catch (e) { /* sin logo */ } }
+      marcaDerecha(pdf, W, M, INK, GREY);
+      var y = 92;
+      letra('bold', 9.5); tinta(ORO); pdf.text('Documento informativo', M, y);
+      y += 40;
+      letra('bold', 28); tinta(NAVY);
+      pdf.text('Análisis del mercado', M, y);
+      pdf.text('inmobiliario', M, y + 32);
+      y += 50;
+      trazo(ORO); pdf.setLineWidth(2.2); pdf.line(M, y, M + 56, y);
+      y += 22;
+      letra('normal', 10.5); tinta(GREY);
+      pdf.text('Qué se ofrece en la zona y a qué precio. No es una tasación.', M, y);
+      y += 26;
+      if (AM.portada) { var fh = ancho * 9 / 16; foto(AM.portada, M, y, ancho, fh); y += fh + 26; }
+      else y += 18;
+      var col = ancho / 2;
+      var dato = function(x, yy, k, v){
+        letra('normal', 8.5); tinta(GREY); pdf.text(k, x, yy);
+        letra('bold', 11); tinta(INK);
+        var l = pdf.splitTextToSize(v || '—', col - 16).slice(0, 2);
+        pdf.text(l, x, yy + 15);
+        return yy + 15 + l.length * 13 + 10;
+      };
+      var yL = dato(M, y, 'Propiedad', d.direccion);
+      yL = dato(M, yL, 'Barrio', [d.barrio, d.ciudad].filter(Boolean).join(', '));
+      var yR = dato(M + col, y, 'Preparado para', d.para);
+      dato(M + col, yR, 'Fecha', d.fecha);
+      var ya = pieY - 74;
+      trazo(LINEA); pdf.setLineWidth(0.8); pdf.line(M, ya - 20, W - M, ya - 20);
+      letra('normal', 8.5); tinta(GREY); pdf.text('Tu agente', M, ya);
+      letra('bold', 12); tinta(NAVY); pdf.text(d.agente.name, M, ya + 16);
+      var contacto = [d.agente.tel, d.agente.email].filter(Boolean).join('   ·   ');
+      if (contacto) { letra('normal', 9.5); tinta(INK); pdf.text(contacto, M, ya + 31); }
+
+      // ---- Hoja 2: la propiedad ----
+      y = hoja('La propiedad', 'Información técnica');
+      var filas = [
+        ['Dirección', d.direccion], ['Barrio', [d.barrio, d.ciudad].filter(Boolean).join(', ')], ['Tipo', d.tipo],
+        ['Superficie edificada', d.m2 ? amFmt(d.m2) + ' m²' : ''], ['Superficie total o terreno', d.m2Total ? amFmt(d.m2Total) + ' m²' : ''],
+        ['Antigüedad', d.antig ? d.antig + (d.antig === '1' ? ' año' : ' años') : ''], ['Padrón', d.padron]
+      ].filter(function(f){ return f[1]; });
+      if (filas.length) {
+        y = seccion('Datos generales', y);
+        filas.forEach(function(f){
+          letra('bold', 10); var l = pdf.splitTextToSize(String(f[1]), ancho - 170).slice(0, 2);
+          letra('normal', 9.5); tinta(GREY); pdf.text(f[0], M, y + 14);
+          letra('bold', 10); tinta(INK); pdf.text(l, M + 170, y + 14);
+          var alto = 10 + l.length * 12 + 6;
+          trazo(LINEA); pdf.setLineWidth(0.6); pdf.line(M, y + alto, W - M, y + alto);
+          y += alto;
+        });
+        y += 26;
+      }
+      var cajas = [['Dormitorios', d.dorm], ['Baños', d.banos], ['Garaje', d.garaje], ['Estado de conservación', d.estado]].filter(function(f){ return f[1]; });
+      if (cajas.length) {
+        y = seccion('Características', y);
+        var gap = 10, cw = (ancho - gap * 3) / 4, ch = 56;
+        cajas.forEach(function(c, i){
+          var x = M + i * (cw + gap);
+          relleno(SUAVE); pdf.roundedRect(x, y, cw, ch, 6, 6, 'F');
+          letra('normal', 8); tinta(GREY); pdf.text(pdf.splitTextToSize(c[0], cw - 14)[0], x + 8, y + 18);
+          letra('bold', 13); tinta(NAVY); pdf.text(pdf.splitTextToSize(String(c[1]), cw - 14)[0], x + 8, y + 40);
+        });
+        y += ch + 26;
+      }
+      if (d.extras) {
+        y = seccion('Otras características', y) + 4;
+        letra('normal', 10); tinta(INK);
+        var le = pdf.splitTextToSize(d.extras, ancho).slice(0, 6);
+        pdf.text(le, M, y); y += le.length * 13 + 14;
+      }
+      if (!filas.length && !cajas.length && !d.extras) { letra('normal', 10); tinta(GREY); pdf.text('Completá los datos de la propiedad en el formulario.', M, y); }
+      letra('italic', 8.5); tinta(GREY);
+      pdf.text('La información técnica fue relevada en base a la documentación disponible y/o inspección visual.', M, pieY - 22);
+
+      // ---- Hoja 3: comparativa de mercado ----
+      y = hoja('Comparativa de mercado', 'Propiedades parecidas en venta en la zona');
+      var comps = d.comps;
+      if (!comps.length) { letra('normal', 10); tinta(GREY); pdf.text('Agregá las propiedades comparables en el formulario.', M, y); }
+      else {
+        var conFoto = comps.some(function(c){ return c.foto; });
+        var cols = (conFoto ? [{ k: 'foto', t: '', w: 58 }, { k: 'dir', t: 'Dirección o zona', w: 152 }] : [{ k: 'dir', t: 'Dirección o zona', w: 210 }]).concat([
+          { k: 'm2', t: 'm²', w: conFoto ? 44 : 50, a: 'right' }, { k: 'dorm', t: 'Dorm.', w: conFoto ? 38 : 44, a: 'right' },
+          { k: 'estado', t: 'Estado', w: conFoto ? 70 : 74 }, { k: 'precio', t: 'Precio', w: conFoto ? 70 : 56, a: 'right' },
+          { k: 'usdm2', t: 'USD/m²', w: conFoto ? 55 : 53, a: 'right' }]);
+        var filaAlto = conFoto ? 48 : 24;
+        var cabecera = function(){
+          relleno(NAVY); pdf.rect(M, y, ancho, 20, 'F');
+          letra('bold', 8.5); tinta(BLANCO);
+          var x = M;
+          cols.forEach(function(c){ if (c.a === 'right') pdf.text(c.t, x + c.w - 5, y + 13.5, { align: 'right' }); else pdf.text(c.t, x + 5, y + 13.5); x += c.w; });
+          y += 20;
+        };
+        cabecera();
+        comps.forEach(function(c, i){
+          if (y + filaAlto > pieY - 40) { y = hoja('Comparativa de mercado', ''); cabecera(); }
+          if (i % 2) { relleno(SUAVE); pdf.rect(M, y, ancho, filaAlto, 'F'); }
+          var x = M;
+          cols.forEach(function(col){
+            if (col.k === 'foto') foto(c.foto, x + 3, y + 4.5, 52, 39);
+            else {
+              var v = { dir: c.dir || '—', m2: c.m2 ? amFmt(c.m2) : '—', dorm: c.dorm || '—', estado: c.estado || '—',
+                precio: c.precio ? amMiles(c.precio) : '—', usdm2: c.precio && c.m2 ? amMiles(c.precio / c.m2) : '—' }[col.k];
+              letra(col.k === 'precio' ? 'bold' : 'normal', 9); tinta(INK);
+              var l = pdf.splitTextToSize(String(v), col.w - 10).slice(0, conFoto ? 3 : 1);
+              var y0 = y + filaAlto / 2 + 3 - (l.length - 1) * 5.2;
+              if (col.a === 'right') pdf.text(l, x + col.w - 5, y0, { align: 'right' }); else pdf.text(l, x + 5, y0);
+            }
+            x += col.w;
+          });
+          y += filaAlto;
+          trazo(LINEA); pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y);
+        });
+        letra('normal', 8); tinta(GREY); pdf.text('Precios de venta en dólares (USD).', M, y + 14);
+        y += 38;
+        if (s) {
+          if (y + 240 > pieY - 40) y = hoja('Comparativa de mercado', '');
+          y = seccion('Rango de precios observado', y);
+          var bw = (ancho - 20) / 3, bh = s.m2n ? 58 : 44;
+          [['Mínimo', s.min, s.m2min], ['Promedio', s.prom, s.m2prom], ['Máximo', s.max, s.m2max]].forEach(function(b, i){
+            var x = M + i * (bw + 10);
+            relleno(SUAVE); pdf.roundedRect(x, y, bw, bh, 6, 6, 'F');
+            letra('normal', 8.5); tinta(GREY); pdf.text(b[0], x + 10, y + 16);
+            letra('bold', 13); tinta(NAVY); pdf.text(usd(b[1]), x + 10, y + 33);
+            if (b[2]) { letra('normal', 8.5); tinta(GREY); pdf.text(usd(b[2]) + ' por m²', x + 10, y + 48); }
+          });
+          y += bh + 22;
+          // Barra: el rango de los comparables, el promedio y, si lo hay, el precio del propietario.
+          var lo = s.min, hi = s.max, med = s.prom;
+          var vp = s.propio ? s.propio.valor : null;
+          var dmin = Math.min(lo, vp == null ? lo : vp), dmax = Math.max(hi, vp == null ? hi : vp);
+          var pad = (dmax - dmin) * 0.12 || dmax * 0.1 || 1;
+          dmin = Math.max(0, dmin - pad); dmax += pad;
+          var X = function(v){ return M + (v - dmin) / (dmax - dmin) * ancho; };
+          var fmtv = usd;
+          var yb = y + (vp != null ? 30 : 8);
+          if (vp != null) {
+            letra('bold', 9); tinta(INK);
+            var etq = 'Tu precio: ' + fmtv(vp), tw = pdf.getTextWidth(etq);
+            pdf.text(etq, Math.min(Math.max(X(vp), M + tw / 2), W - M - tw / 2), yb - 15, { align: 'center' });
+            relleno(ORO); pdf.triangle(X(vp) - 5, yb - 10, X(vp) + 5, yb - 10, X(vp), yb - 2, 'F');
+          }
+          relleno(LINEA); pdf.roundedRect(M, yb, ancho, 8, 4, 4, 'F');
+          relleno(NAVY); pdf.roundedRect(X(lo), yb, Math.max(X(hi) - X(lo), 8), 8, 4, 4, 'F');
+          trazo(ORO); pdf.setLineWidth(2); pdf.line(X(med), yb - 3, X(med), yb + 11);
+          letra('normal', 8.5); tinta(GREY);
+          var tLo = fmtv(lo), tHi = fmtv(hi);
+          if (X(hi) - X(lo) > pdf.getTextWidth(tLo) + pdf.getTextWidth(tHi) + 12) {
+            pdf.text(tLo, X(lo), yb + 22); pdf.text(tHi, X(hi), yb + 22, { align: 'right' });
+          } else pdf.text(tLo + '  a  ' + tHi, Math.max(M, X(lo)), yb + 22);
+          // Leyenda
+          var yl = yb + 40, xl = M;
+          relleno(NAVY); pdf.rect(xl, yl - 6, 12, 6, 'F'); letra('normal', 8); tinta(GREY);
+          pdf.text('Rango de las propiedades comparadas', xl + 17, yl); xl += 17 + pdf.getTextWidth('Rango de las propiedades comparadas') + 18;
+          trazo(ORO); pdf.setLineWidth(2); pdf.line(xl + 4, yl - 8, xl + 4, yl + 1); pdf.text('Promedio', xl + 12, yl); xl += 12 + pdf.getTextWidth('Promedio') + 18;
+          if (vp != null) { relleno(ORO); pdf.triangle(xl, yl - 7, xl + 9, yl - 7, xl + 4.5, yl); pdf.text('Tu precio', xl + 14, yl); }
+          y = yl + 22;
+          // Conclusión
+          letra('normal', 10);
+          var lc = pdf.splitTextToSize(amConclusion(d, s), ancho - 28);
+          var hc = 30 + lc.length * 13;
+          if (y + hc > pieY - 40) y = hoja('Comparativa de mercado', '');
+          relleno(SUAVE); pdf.roundedRect(M, y, ancho, hc, 6, 6, 'F');
+          relleno(ORO); pdf.rect(M, y, 3, hc, 'F');
+          letra('bold', 10.5); tinta(NAVY); pdf.text('Conclusión', M + 14, y + 19);
+          letra('normal', 10); tinta(INK); pdf.text(lc, M + 14, y + 35);
+          y += hc + 16;
+        }
+      }
+      var iso = amVal('amFecha') || hoyISO();
+      var cuando = MESES[Number(iso.slice(5, 7)) - 1] + ' de ' + iso.slice(0, 4);
+      letra('italic', 8); tinta(GREY);
+      pdf.text(pdf.splitTextToSize('Valores tomados de avisos de venta publicados en portales inmobiliarios y de relevamiento propio, ' + cuando +
+        '. Son orientativos y no constituyen una tasación.', ancho), M, Math.max(y + 4, pieY - 30));
+      pie();
+      return pdf;
+    }
+
     // ---- Quién puede generar qué -------------------------------------------
     // Un solo lugar para cambiarlo. 'todos' = cualquier agente aprobado.
     // Todo lo que involucra dinero queda en administración: así los montos del
@@ -5730,7 +6264,8 @@
       contrato:    'admin',
       mediacion:   'todos',
       inventario:  'todos',
-      propietario: 'todos'
+      propietario: 'todos',
+      ami:         'todos'
     };
     var esAdmin = false;
     function puede(tipo){ return PERMISOS[tipo] === 'todos' || esAdmin; }
@@ -5790,12 +6325,13 @@
         b.classList.toggle('active', elegido);
         b.setAttribute('aria-pressed', String(elegido));
       });
-      _tipoActivo = (t==='contrato' || t==='mediacion' || t==='propietario' || t==='inventario') ? t : 'carta_pago';
+      _tipoActivo = (t==='contrato' || t==='mediacion' || t==='propietario' || t==='inventario' || t==='ami') ? t : 'carta_pago';
       document.getElementById('formCartaPago').style.display = _tipoActivo==='carta_pago'?'':'none';
       document.getElementById('formContrato').style.display = _tipoActivo==='contrato'?'':'none';
       document.getElementById('formMediacion').style.display = _tipoActivo==='mediacion'?'':'none';
       document.getElementById('formPropietario').style.display = _tipoActivo==='propietario'?'':'none';
       document.getElementById('formInventario').style.display = _tipoActivo==='inventario'?'':'none';
+      document.getElementById('formAMI').style.display = _tipoActivo==='ami'?'':'none';
       // Arriba del formulario: el título y la descripción del documento elegido.
       // Las secciones del formulario quedan en la columna de documentos.
       var elegida = document.querySelector('.doc-type.active span'), desc = document.getElementById('docDesc');
@@ -5821,6 +6357,7 @@
       else if(_tipoActivo==='mediacion'){ cmInit(); cmPreview(); }
       else if(_tipoActivo==='propietario'){ ipInit(); ipPreview(); }
       else if(_tipoActivo==='inventario'){ ivInit(); ivPreview(); }
+      else if(_tipoActivo==='ami'){ amInit(); amPreview(); }
       else { renderPreview(); }
       docMarcarSeccion();
     }
@@ -5839,7 +6376,7 @@
     }
     function docPanel(){
       return document.getElementById({ carta_pago:'formCartaPago', contrato:'formContrato', mediacion:'formMediacion',
-        propietario:'formPropietario', inventario:'formInventario' }[_tipoActivo]);
+        propietario:'formPropietario', inventario:'formInventario', ami:'formAMI' }[_tipoActivo]);
     }
     // Las secciones numeradas del formulario elegido ("1 Partes", "2 Inmueble"…).
     function docSecciones(){
@@ -6288,6 +6825,7 @@
       // habían abierto antes de que llegaran los datos, quedaban con la lista vacía.
       if(_cmListo) cmPintarAgentes();
       if(_ipListo) ipPintarAgentes();
+      if(_amListo) amPintarDatos();
       // La hoja se arma de nuevo: puede haber cambiado el agente, o la dirección
       // de la propiedad elegida.
       refrescarVista();
@@ -6297,17 +6835,20 @@
     // documentos. Las fichas completas (fotos, descripciones) no hacen falta acá.
     function agenteLiviano(d){
       var u = d.data() || {};
-      return { id:d.id, name:u.name || '' };
+      return { id:d.id, name:u.name || '', tel:u.whatsapp || u.phone || '', email:u.email || '' };
     }
     function propLiviana(d){
-      var p = d.data() || {}, ub = p.ubicacion || {};
+      var p = d.data() || {}, ub = p.ubicacion || {}, fc = p.ficha || {}, ft = p.features || {};
       // Dirección REAL (campos en español del sistema): calle + ciudad + depto.
       // NO usar el título como dirección (era el bug: ponía "Alquiler de Apto…").
       var ciudadDepto = (p.ciudad && p.departamento) ? (p.ciudad+', '+p.departamento) : (p.location||'');
       return { id:d.id, title:p.title || '', ownerId:p.ownerId || '', type:p.type || '', status:p.status || '',
         direccion:p.direccion || '', ciudad:p.ciudad || '', departamento:p.departamento || '', barrio:ub.barrio || '',
         realEstateType:p.realEstateType || '', bedrooms:parseInt(p.bedrooms,10) || 0, bathrooms:parseInt(p.bathrooms,10) || 0,
-        garage:p.garage || '', _dir:[p.direccion, ciudadDepto].filter(Boolean).join(', ') };
+        garage:p.garage || '', propertyType:p.propertyType || '', price:Number(p.price) || 0, currency:p.currency || '',
+        builtArea:Number(p.builtArea) || 0, totalArea:Number(p.totalArea) || 0, terreno:Number(fc.LAND_AREA || ft.superficieTerreno) || 0,
+        cocheras:Number(fc.PARKING_LOTS || ft.cocheras) || 0, antiguedad:Number(fc.PROPERTY_AGE || ft.antiguedad) || 0,
+        _dir:[p.direccion, ciudadDepto].filter(Boolean).join(', ') };
     }
     async function cargarDatos(uid){
       var clave = 'mvDocsDatos_v1_' + (uid || '');
