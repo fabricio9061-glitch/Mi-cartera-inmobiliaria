@@ -530,6 +530,18 @@
     .sel-campos{ margin-top:14px; }
     .sel-agregar{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; margin-top:6px; }
     .sel-agregar .fld{ flex:1 1 100%; margin-bottom:0; }
+    /* Mapa chico para marcar la ubicación (Leaflet). isolation: sus capas no se
+       montan arriba de la cabecera de la página al desplazarse. */
+    .sel-mapa{ position:relative; z-index:0; isolation:isolate; height:210px; border:1px solid var(--line-2); border-radius:10px; overflow:hidden;
+      background:var(--pista); }
+    .sel-mapa.leaflet-container{ font-family:inherit; }
+    .sel-pin{ background:none; border:0; }
+    .sel-mapa-error{ display:grid; place-items:center; height:100%; padding:16px; text-align:center; font-size:.84rem; color:var(--muted); }
+    .sel-ubic-acc{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 18px; margin-top:8px; }
+    .sel-ubic-acc .iva-check{ margin:0 !important; }
+    .sel-ubic-acc .iv-link[hidden]{ display:none; }
+    .sel-ubic-acc .iv-link:disabled{ opacity:.5; cursor:default; }
+    .sel-ubic-acc .iv-link i{ margin-right:4px; }
     .sel-agregar .ct-add{ flex:none; }
     .sel-agregar .ct-add:disabled{ opacity:.45; cursor:default; }
     /* Elegir y después "Agregar": con las flechas del teclado, un desplegable que
@@ -544,6 +556,7 @@
       .sel-mover button{ width:40px; height:44px; }
       .sel-x{ width:36px; height:36px; }
       .sel-prop .iv-link{ display:inline-flex; align-items:center; min-height:44px; }
+      .sel-mapa{ height:230px; }
     }
   </style>
   <style>
@@ -6584,9 +6597,13 @@
     var SEL_CAMPOS = { t: 'titulo', d: 'dir', p: 'precio', r: 'dorm', b: 'banos', e: 'm2', o: 'm2Total', x: 'extras' };
 
     function selVacia(origen, pid){
-      return { id: 'sp' + (++SEL.sec), origen: origen, pid: pid || '', abierta: true, titulo: '', dir: '', precio: '', moneda: 'USD',
+      var id = 'sp' + (++SEL.sec);
+      // lat/lng: la ubicación marcada; semilla: corre el círculo de la zona aproximada
+      // (en las de la cartera es la misma que usa la ficha pública).
+      return { id: id, origen: origen, pid: pid || '', abierta: true, titulo: '', dir: '', precio: '', moneda: 'USD',
         dorm: '', banos: '', m2: '', m2Total: '', garaje: '', extras: '', destacados: '', comentario: '',
-        fotos: [null, null, null, null], mapa: null, exacto: false, cargando: 0, aviso: '' };
+        fotos: [null, null, null, null], mapa: null, exacto: false, cargando: 0, aviso: '',
+        lat: null, lng: null, semilla: pid || id, vista: null, mapaPendiente: false, nMapa: 0, tMapa: null };
     }
     function selEsAlquiler(){ return amVal('selOperacion') === 'alquiler'; }
     function selInit(){
@@ -6709,13 +6726,7 @@
       s.garaje = p.cocheras > 1 ? '2 o más' : (p.cocheras === 1 || p.garage === 'yes' ? 'Sí' : '');
       s.exacto = !!p.exacto;
       if (p.fotos > 0) selTraerFotos(s);
-      if (p.lat != null && p.lng != null) {
-        s.cargando++;
-        selMapa(Number(p.lat), Number(p.lng), s.exacto, p.id).then(function(m){
-          s.mapa = m; s.cargando--;
-          if (SEL.props.indexOf(s) >= 0) selPreview();
-        });
-      }
+      if (p.lat != null && p.lng != null) { s.lat = Number(p.lat); s.lng = Number(p.lng); selRehacerMapa(s, 0); }
       selSumar(s);
     }
     // Las fotos de la cartera las trae el servidor (fotosParaDocumento): desde
@@ -6854,6 +6865,9 @@
       var campo = function(i, k, etq, v, extra){ return '<div class="fld"><label for="sel' + i + k + '">' + etq + '</label><input id="sel' + i + k + '" value="' + esc(v) +
         '" oninput="selSet(' + i + ',\'' + SEL_CAMPOS[k] + '\',this.value)" autocomplete="off"' + (extra || '') + '></div>'; };
       c.classList.toggle('varias', n > 1);
+      // Los mapas de antes se cierran: el repintado los reemplaza.
+      Object.keys(SEL_MAPAS).forEach(function(k){ try { SEL_MAPAS[k].mapa.remove(); } catch (e) { /* ya no estaba */ } });
+      SEL_MAPAS = {};
       c.innerHTML = SEL.props.map(function(p, i){
         var mini = p.fotos[0] || p.fotos.filter(Boolean)[0];
         var aviso = p.aviso ? '<div class="hint sel-aviso' + (p.cargando ? ' cargando' : '') + '" role="status">' + esc(p.aviso) + '</div>' : '';
@@ -6870,6 +6884,12 @@
           (aviso || '<div class="hint">Tocá una caja para elegir fotos (podés marcar varias), arrastralas encima o pegalas.</div>') +
           '<div class="sel-campos">' + campo(i, 't', 'Título', p.titulo, ' placeholder="ej: Casa en Unión"') +
           campo(i, 'd', 'Dirección o zona', p.dir) +
+          '<div class="fld sel-ubic"><label id="selUbicEtq' + i + '">Ubicación en el mapa</label>' +
+          '<div class="sel-mapa" id="selMapa' + i + '" aria-labelledby="selUbicEtq' + i + '"></div>' +
+          '<div class="sel-ubic-acc"><button type="button" class="iv-link sel-buscar" onclick="selBuscarEnMapa(' + i + ',this)"><i class="fas fa-magnifying-glass-location" aria-hidden="true"></i>Buscar la dirección</button>' +
+          '<label class="iva-check"><input type="checkbox" onchange="selPuntoExacto(' + i + ',this.checked)"' + (p.exacto ? ' checked' : '') + '> Mostrar el punto exacto</label>' +
+          '<button type="button" class="iv-link" id="selQuitarUbic' + i + '" onclick="selQuitarUbicacion(' + i + ')"' + (p.lat == null ? ' hidden' : '') + '>Quitar la ubicación</button></div>' +
+          '<div class="hint" id="selUbicHint' + i + '">' + esc(selTextoUbicacion(p)) + '</div></div>' +
           '<div class="row2">' + campo(i, 'p', alq ? 'Precio por mes' : 'Precio', p.precio, ' inputmode="numeric" placeholder="ej: 95000"') +
           '<div class="fld"><label for="sel' + i + 'm">Moneda</label><select id="sel' + i + 'm" onchange="selSet(' + i + ',\'moneda\',this.value)">' + opc(p.moneda, [['USD', 'Dólares (USD)'], ['UYU', 'Pesos ($U)']]) + '</select></div></div>' +
           '<div class="row2">' + campo(i, 'r', 'Dormitorios', p.dorm, ' inputmode="numeric" placeholder="0 = monoambiente"') + campo(i, 'b', 'Baños', p.banos, ' inputmode="numeric"') + '</div>' +
@@ -6878,7 +6898,7 @@
           opc(p.garaje, [['', '—'], ['No', 'No'], ['Sí', 'Sí'], ['2 o más', '2 o más']]) + '</select></div>' + campo(i, 'x', 'Otras características', p.extras, ' placeholder="ej: patio, parrillero"') + '</div>' +
           '<div class="fld"><label for="sel' + i + 'h">Destacados, uno por renglón (hasta 5)</label><textarea id="sel' + i + 'h" rows="4" oninput="selSet(' + i + ',\'destacados\',this.value)" placeholder="ej: Buena iluminación natural">' + esc(p.destacados) + '</textarea></div>' +
           '<div class="fld"><label for="sel' + i + 'c">Comentario profesional</label><textarea id="sel' + i + 'c" rows="4" maxlength="480" oninput="selSet(' + i + ',\'comentario\',this.value)" placeholder="Tu opinión sobre esta propiedad para este cliente">' + esc(p.comentario) + '</textarea>' +
-          '<button type="button" class="iv-link" onclick="selSugerir(' + i + ')">Sugerir un texto</button></div></div>' +
+          '<button type="button" class="iv-link sel-sugerir" onclick="selSugerir(' + i + ')">Sugerir un texto</button></div></div>' +
           '<button type="button" class="ct-del" onclick="selQuitar(' + i + ')"><i class="fas fa-trash" aria-hidden="true"></i> Quitar de la selección</button></div></div>';
       }).join('');
       if (idFoco) {
@@ -6888,6 +6908,7 @@
           if (ini != null) { try { e2.setSelectionRange(ini, fin); } catch (e) { /* no es de texto */ } }
         }
       }
+      selCrearMapas();
     }
     function selElegirFoto(i, k){
       SEL.destino = [i, k];
@@ -6956,13 +6977,7 @@
       return new Promise(function(resolve){
         if (!isFinite(lat) || !isFinite(lng)) { resolve(null); return; }
         var cLat = lat, cLng = lng;
-        if (!exacto) {
-          var h = 2166136261, sid = String(pid || 'x');
-          for (var q = 0; q < sid.length; q++) { h ^= sid.charCodeAt(q); h = Math.imul(h, 16777619) >>> 0; }
-          var ang = (h % 3600) / 3600 * 2 * Math.PI, dist = 60 + ((h >>> 12) % 81);   // metros
-          cLat = lat + dist * Math.cos(ang) / 111320;
-          cLng = lng + dist * Math.sin(ang) / (111320 * Math.cos(lat * Math.PI / 180));
-        }
+        if (!exacto) { var cc = selCentroCorrido(lat, lng, pid); cLat = cc[0]; cLng = cc[1]; }
         var z = exacto ? 16 : 15, W = 600, H = 330, n = Math.pow(2, z), r = cLat * Math.PI / 180;
         var px = (cLng + 180) / 360 * n * 256, py = (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n * 256;
         var x0 = Math.round(px - W / 2), y0 = Math.round(py - H / 2);
@@ -7022,6 +7037,167 @@
       for (var i = 0; i < SEL_ICONO_EXTRA.length; i++) if (SEL_ICONO_EXTRA[i][0].test(t)) return SEL_ICONO_EXTRA[i][1];
       return 'check';
     }
+    // El centro del círculo de la zona aproximada: corrido entre 60 y 140 m de la
+    // casa, siempre igual para la misma propiedad (como en la ficha pública).
+    function selCentroCorrido(lat, lng, semilla){
+      var h = 2166136261, sid = String(semilla || 'x');
+      for (var q = 0; q < sid.length; q++) { h ^= sid.charCodeAt(q); h = Math.imul(h, 16777619) >>> 0; }
+      var ang = (h % 3600) / 3600 * 2 * Math.PI, dist = 60 + ((h >>> 12) % 81);   // metros
+      return [lat + dist * Math.cos(ang) / 111320, lng + dist * Math.sin(ang) / (111320 * Math.cos(lat * Math.PI / 180))];
+    }
+    // La imagen del mapa para la hoja se vuelve a armar cuando cambia la
+    // ubicación, con una pausa para no pedir mosaicos en cada movimiento.
+    function selRehacerMapa(s, demora){
+      clearTimeout(s.tMapa);
+      var n = ++s.nMapa;
+      if (s.lat == null || s.lng == null) {
+        s.mapa = null; s.mapaPendiente = false;
+        if (SEL.props.indexOf(s) >= 0) selPreview();
+        return;
+      }
+      s.mapaPendiente = true;
+      s.tMapa = setTimeout(function(){
+        selMapa(s.lat, s.lng, s.exacto, s.semilla).then(function(m){
+          if (n !== s.nMapa) return;            // hubo otro cambio después: vale el más nuevo
+          s.mapa = m; s.mapaPendiente = false;
+          if (SEL.props.indexOf(s) >= 0) selPreview();
+        });
+      }, demora == null ? 450 : demora);
+    }
+
+    // ---- La ubicación de cada propiedad: un mapa chico en el formulario ----
+    // Se marca tocando el mapa o arrastrando el marcador; "Buscar la dirección"
+    // la ubica sola (OpenStreetMap, como en el formulario de propiedades). Sin
+    // "Mostrar el punto exacto", la hoja lleva la zona aproximada: el círculo, tal
+    // como se ve en el mapa chico. En las de la cartera el cambio vale solo para
+    // este documento: la ficha de la propiedad no se toca.
+    var SEL_MAPAS = {};                  // id de la propiedad -> { mapa, marcador, circulo }
+    var SEL_MVD = [-34.9011, -56.1645];
+    var _selLeaflet = null;
+    function selCargarLeaflet(){
+      if (window.L && window.L.map) return Promise.resolve(window.L);
+      if (!_selLeaflet) {
+        _selLeaflet = new Promise(function(ok, mal){
+          var css = document.createElement('link');
+          css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+          document.head.appendChild(css);
+          var sc = document.createElement('script');
+          sc.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+          sc.onload = function(){ if (window.L && window.L.map) ok(window.L); else mal(new Error('Leaflet')); };
+          sc.onerror = function(){ mal(new Error('No se pudo cargar el mapa')); };
+          document.head.appendChild(sc);
+        });
+        _selLeaflet.catch(function(){ _selLeaflet = null; });   // la próxima vez se vuelve a intentar
+      }
+      return _selLeaflet;
+    }
+    function selIconoPin(L){
+      return L.divIcon({ className: 'sel-pin', iconSize: [28, 38], iconAnchor: [14, 37],
+        html: '<svg viewBox="0 0 28 38" width="28" height="38" aria-hidden="true"><path d="M14 1.5C7.1 1.5 1.5 6.9 1.5 13.6 1.5 22.6 14 36.5 14 36.5s12.5-13.9 12.5-22.9C26.5 6.9 20.9 1.5 14 1.5z" ' +
+          'fill="#16273f" stroke="#fff" stroke-width="2"/><circle cx="14" cy="13.6" r="5" fill="#C9A227"/></svg>' });
+    }
+    // Arma el mapa de cada propiedad abierta (después de cada repintado).
+    function selCrearMapas(){
+      SEL.props.forEach(function(s, i){
+        if (!s.abierta) return;
+        var el = document.getElementById('selMapa' + i);
+        if (!el) return;
+        selCargarLeaflet().then(function(L){
+          // Mientras cargaba pudo haberse repintado, movido o cerrado la tarjeta.
+          if (!el.isConnected || SEL_MAPAS[s.id] || SEL.props.indexOf(s) < 0) return;
+          var mapa = L.map(el, { scrollWheelZoom: false, dragging: !L.Browser.mobile, tap: false });
+          L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(mapa);
+          mapa.attributionControl.setPrefix(false);
+          if (s.vista) mapa.setView([s.vista.lat, s.vista.lng], s.vista.z);
+          else if (s.lat != null) mapa.setView([s.lat, s.lng], s.exacto ? 16 : 15);
+          else mapa.setView(SEL_MVD, 12);
+          SEL_MAPAS[s.id] = { mapa: mapa, marcador: null, circulo: null };
+          mapa.on('click', function(e){
+            if (L.Browser.mobile) mapa.dragging.enable();   // en el teléfono, después del primer toque ya se arrastra
+            selPonerPunto(s, e.latlng.lat, e.latlng.lng);
+          });
+          mapa.on('moveend', function(){ var c = mapa.getCenter(); s.vista = { lat: c.lat, lng: c.lng, z: mapa.getZoom() }; });
+          selCapasMapa(s);
+          setTimeout(function(){ try { mapa.invalidateSize(); } catch (e) { /* ya no está */ } }, 120);
+        }, function(){
+          if (el.isConnected) el.innerHTML = '<div class="sel-mapa-error">No se pudo cargar el mapa. Revisá la conexión y volvé a abrir la propiedad.</div>';
+        });
+      });
+    }
+    // El marcador y, si no es el punto exacto, el círculo que va a salir en la hoja.
+    function selCapasMapa(s){
+      var m = SEL_MAPAS[s.id], L = window.L;
+      if (!m || !L) return;
+      if (s.lat == null || s.lng == null) {
+        if (m.marcador) { m.mapa.removeLayer(m.marcador); m.marcador = null; }
+        if (m.circulo) { m.mapa.removeLayer(m.circulo); m.circulo = null; }
+        return;
+      }
+      if (!m.marcador) {
+        m.marcador = L.marker([s.lat, s.lng], { draggable: true, icon: selIconoPin(L), keyboard: false, title: 'Arrastralo para mover la ubicación' }).addTo(m.mapa);
+        m.marcador.on('dragend', function(){ var ll = m.marcador.getLatLng(); selPonerPunto(s, ll.lat, ll.lng, true); });
+      } else m.marcador.setLatLng([s.lat, s.lng]);
+      if (s.exacto) { if (m.circulo) { m.mapa.removeLayer(m.circulo); m.circulo = null; } }
+      else {
+        var cc = selCentroCorrido(s.lat, s.lng, s.semilla);
+        if (!m.circulo) m.circulo = L.circle(cc, { radius: 260, color: '#16273f', weight: 1.5, opacity: .7, fillColor: '#16273f', fillOpacity: .13, interactive: false }).addTo(m.mapa);
+        else m.circulo.setLatLng(cc);
+      }
+    }
+    function selPonerPunto(s, lat, lng, sinCentrar){
+      if (SEL.props.indexOf(s) < 0) return;
+      s.lat = Math.round(lat * 1e6) / 1e6; s.lng = Math.round(lng * 1e6) / 1e6;
+      selCapasMapa(s);
+      var m = SEL_MAPAS[s.id];
+      if (m && !sinCentrar) { if (m.mapa.getZoom() < 15) m.mapa.setView([s.lat, s.lng], 16); else m.mapa.panTo([s.lat, s.lng]); }
+      selUbicacionUI(s);
+      selRehacerMapa(s);
+    }
+    function selTextoUbicacion(s){
+      if (s.lat == null) return 'Tocá el mapa donde está la propiedad o usá "Buscar la dirección". Sin ubicación, la hoja sale sin mapa.';
+      return (s.exacto ? 'En la hoja va el punto exacto.' : 'En la hoja va la zona aproximada (el círculo), sin mostrar la casa.') +
+        ' Arrastrá el marcador para moverlo.' + (s.origen === 'cartera' ? ' El cambio vale solo para este documento.' : '');
+    }
+    // Lo de abajo del mapa se pone al día sin repintar la tarjeta.
+    function selUbicacionUI(s){
+      var i = SEL.props.indexOf(s);
+      var q = document.getElementById('selQuitarUbic' + i); if (q) q.hidden = s.lat == null;
+      var h = document.getElementById('selUbicHint' + i); if (h) h.textContent = selTextoUbicacion(s);
+    }
+    function selPuntoExacto(i, v){
+      var s = SEL.props[i];
+      if (!s) return;
+      s.exacto = !!v;
+      selCapasMapa(s); selUbicacionUI(s); selRehacerMapa(s, 0);
+    }
+    function selQuitarUbicacion(i){
+      var s = SEL.props[i];
+      if (!s) return;
+      s.lat = null; s.lng = null;
+      selCapasMapa(s); selUbicacionUI(s); selRehacerMapa(s, 0);
+    }
+    // Busca lo escrito en "Dirección o zona" (si está vacío, la zona del título:
+    // "Casa en Unión" busca Unión) y pone el marcador ahí.
+    function selBuscarEnMapa(i, boton){
+      var s = SEL.props[i];
+      if (!s) return;
+      var q = String(s.dir || '').trim() || String(s.titulo || '').replace(/^.*\sen\s+/i, '').trim();
+      if (!q) { toast('Escribí la dirección o la zona para buscarla en el mapa', true); return; }
+      if (boton) boton.disabled = true;
+      fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=uy&accept-language=es&q=' + encodeURIComponent(q))
+        .then(function(r){ return r.json(); })
+        .then(function(j){
+          if (!j || !j.length) { toast('No se encontró esa dirección. Marcala tocando el mapa.', true); return; }
+          var lat = Number(j[0].lat), lng = Number(j[0].lon);
+          if (!isFinite(lat) || !isFinite(lng)) return;
+          var calle = /^(house|building|road|residential|street)$/i.test(String(j[0].addresstype || j[0].type || ''));
+          selPonerPunto(s, lat, lng, true);
+          var m = SEL_MAPAS[s.id];
+          if (m) m.mapa.setView([s.lat, s.lng], calle ? 17 : 15);
+        })
+        .catch(function(){ toast('No se pudo buscar la dirección. Marcala tocando el mapa.', true); })
+        .then(function(){ if (boton) boton.disabled = false; });
+    }
     function selCaracteristicas(p){
       var L = [], dorm = String(p.dorm || '').trim(), nd = amNum(dorm), nb = amNum(p.banos), m2 = amNum(p.m2), m2t = amNum(p.m2Total);
       var poner = function(t, ico){ L.push({ t: t, ico: ico }); };
@@ -7048,7 +7224,7 @@
     function selGenerarPDF(){
       var d = selDatos();
       if (!d.props.length) { toast('Agregá al menos una propiedad', true); return; }
-      if (SEL.props.some(function(s){ return s.cargando > 0; })) { toast('Todavía se están cargando fotos o mapas. Probá en unos segundos.', true); return; }
+      if (SEL.props.some(function(s){ return s.cargando > 0 || s.mapaPendiente; })) { toast('Todavía se están cargando fotos o mapas. Probá en unos segundos.', true); return; }
       var nombre = String(d.cliente || '');
       try { nombre = nombre.normalize('NFD').replace(/[̀-ͯ]/g, ''); } catch (e) { /* navegador viejo */ }
       nombre = nombre.replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
