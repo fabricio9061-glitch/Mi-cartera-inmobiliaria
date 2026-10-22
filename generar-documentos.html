@@ -4132,9 +4132,9 @@
       return l;
     }
 
-    // Las firmas van al pie de todas las hojas, igual que en el contrato: cada
-    // página del compromiso queda firmada por sí misma y no se puede sustituir
-    // una hoja intermedia sin que se note.
+    // Las firmas van una sola vez, en la última hoja, debajo del párrafo de
+    // cierre: para el compromiso alcanza con firmarlo al final. (Antes iban al
+    // pie de todas las hojas, como en el contrato.)
     function cmConstruirPDF(){
       var pdf=nuevoPDF();
       var W=595.28;
@@ -4145,8 +4145,11 @@
       var pagina=0;
       var POR_FILA = 3;
       var filasFirmas = Math.ceil(firmantes.length / POR_FILA) || 0;
-      var altoFirmas = filasFirmas ? (filasFirmas*44 + 10) : 0;
-      var limite = pieY - altoFirmas - 18;
+      // Lugar para firmar arriba de cada raya (desde el último renglón del cierre)
+      // y, si son más de tres, de una fila de firmas a la de abajo.
+      var LUGAR_FIRMA = 44, FILA_FIRMAS = 78;
+      // Como las firmas van solo al final, cada hoja aprovecha todo el alto hasta el pie.
+      var limite = pieY - 18;
 
       // Primera hoja con el membrete completo; de la segunda en adelante, una banda
       // fina con el nombre de la agencia. Repetir la ficha entera en cada página
@@ -4187,26 +4190,37 @@
         pdf.text('RUT: '+EMPRESA.rut, W/2, pieY+26, {align:'center'});
         pdf.text('Página '+pagina, W-M, pieY+26, {align:'right'});
       }
-      function firmas(){
+      // El nombre debajo de la raya: hasta dos renglones si no entra en uno.
+      function nombreFirma(f, col){
+        pdf.setFont('helvetica','bold').setFontSize(8.5);
+        return f.n ? pdf.splitTextToSize(f.n, col-14).slice(0,2) : [''];
+      }
+      // Hasta dónde llegan las firmas si la primera raya va en y0.
+      function finFirmas(y0){
+        var ultima = firmantes.slice((filasFirmas-1)*POR_FILA), col = ancho/ultima.length;
+        var renglones = Math.max.apply(null, ultima.map(function(f){ return nombreFirma(f, col).length; }));
+        return y0 + (filasFirmas-1)*FILA_FIRMAS + 15 + renglones*10 + 3;
+      }
+      // y0: dónde va la raya de la primera fila de firmas.
+      function firmas(y0){
         if(!firmantes.length) return;
-        var y0 = pieY - altoFirmas + 16;
         for(var fila=0; fila<filasFirmas; fila++){
           var enFila = firmantes.slice(fila*POR_FILA, (fila+1)*POR_FILA);
           var col = ancho/enFila.length;
-          var yf = y0 + fila*44;
+          var yf = y0 + fila*FILA_FIRMAS;
           enFila.forEach(function(f,i){
             var cx = M + col*i + col/2;
             var w = Math.min(col-20, 170);
             pdf.setDrawColor(60).setLineWidth(1.1).line(cx-w/2, yf, cx+w/2, yf);
+            var lineas = nombreFirma(f, col);
             pdf.setFont('helvetica','bold').setFontSize(8.5).setTextColor(30);
-            var lineas = f.n ? pdf.splitTextToSize(f.n, col-14).slice(0,2) : [''];
             lineas.forEach(function(ln,k){ if(ln) pdf.text(ln, cx, yf+13+k*10, {align:'center'}); });
             pdf.setFont('helvetica','normal').setFontSize(7.5).setTextColor(110);
             pdf.text(f.r, cx, yf+15+lineas.length*10, {align:'center'});
           });
         }
       }
-      function cerrarHoja(){ firmas(); pie(); }
+      function cerrarHoja(){ pie(); }
 
       var y=membrete();
       var d=cmDatos();
@@ -4326,8 +4340,15 @@
       });
 
       // El cierre no lleva número: en los compromisos de la agencia es un párrafo
-      // suelto antes de las firmas, no una cláusula más.
-      parrafo('Y en prueba de conformidad, se firman '+d.ejemplaresLetras+' ('+d.ejemplares+') ejemplares de un mismo tenor, en el lugar y fecha indicados ut supra.');
+      // suelto antes de las firmas, no una cláusula más. Va en la misma hoja que
+      // las firmas: si no entran los dos juntos, pasan juntos a una hoja nueva.
+      var cierre = 'Y en prueba de conformidad, se firman '+d.ejemplaresLetras+' ('+d.ejemplares+') ejemplares de un mismo tenor, en el lugar y fecha indicados ut supra.';
+      pdf.setFont('helvetica','normal').setFontSize(TAM);
+      var renglonesCierre = pdf.splitTextToSize(cierre, ancho).length;
+      if(finFirmas(y + (renglonesCierre-1)*LH + LUGAR_FIRMA) > pieY-10){ cerrarHoja(); y=membrete(); }
+      parrafo(cierre);
+      // y quedó un renglón más abajo del último del cierre.
+      firmas(y-LH+LUGAR_FIRMA);
 
       cerrarHoja();
       return pdf;
