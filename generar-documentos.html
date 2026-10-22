@@ -488,6 +488,63 @@
     .am-resumen[hidden]{ display:none; }
     .am-num{ font-weight:700; color:var(--navy); }
     #amAgregar{ margin-bottom:18px; }
+
+    /* ===== Selección de propiedades ===== */
+    .sel-prop{ padding:0; }
+    /* La propiedad en la que se está trabajando (ahí van las fotos que se pegan). */
+    #selProps.varias .sel-prop.activa{ box-shadow:inset 3px 0 0 var(--gold); }
+    .sel-cab{ display:flex; align-items:center; gap:4px; padding:8px; }
+    .sel-abrir{ flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:12px; min-height:48px; padding:6px 10px 6px 6px; border:0;
+      border-radius:9px; background:none; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+    .sel-abrir:hover{ background:var(--hover); }
+    .sel-abrir > .fa-chevron-down{ flex:none; margin-left:auto; color:var(--muted); font-size:.8rem; transition:transform .2s; }
+    .sel-abrir[aria-expanded="true"] > .fa-chevron-down{ transform:rotate(180deg); }
+    .sel-mini{ flex:none; width:66px; height:30px; border-radius:6px; overflow:hidden; background:var(--pista); display:grid; place-items:center;
+      color:#a7aeb8; font-size:.85rem; }
+    .sel-mini img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .sel-txt{ min-width:0; display:flex; flex-direction:column; gap:2px; line-height:1.3; }
+    .sel-txt b{ font-size:.88rem; font-weight:600; color:var(--navy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sel-txt span{ font-size:.78rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sel-mover{ flex:none; display:flex; }
+    .sel-mover button{ width:34px; height:34px; border:0; border-radius:999px; background:none; color:var(--muted); font-size:.8rem; cursor:pointer; }
+    .sel-mover button:hover:not(:disabled){ background:var(--hover); color:var(--navy); }
+    .sel-mover button:disabled{ opacity:.3; cursor:default; }
+    .sel-cuerpo{ padding:2px 14px 12px; }
+    .sel-cuerpo[hidden]{ display:none; }
+    .sel-prop > .sel-aviso{ margin:-4px 14px 12px; }
+    .sel-aviso{ color:var(--reg); }
+    .sel-aviso.cargando{ color:var(--muted); }
+    .sel-fotos{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; }
+    .sel-foto-w{ position:relative; min-width:0; }
+    .sel-foto-w.principal{ grid-column:1 / -1; }
+    .sel-foto{ position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; width:100%;
+      aspect-ratio:16 / 9; padding:4px; overflow:hidden; border:1.5px dashed var(--line-2); border-radius:10px; background:#fff; color:var(--muted);
+      font:inherit; font-size:.76rem; font-weight:600; text-align:center; cursor:pointer; }
+    .sel-foto-w.principal .sel-foto{ aspect-ratio:2.2 / 1; }
+    .sel-foto:hover, .sel-foto.sobre{ border-color:var(--navy); color:var(--navy); }
+    .sel-foto img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+    .sel-foto i{ font-size:1rem; }
+    .sel-x{ position:absolute; top:6px; right:6px; width:30px; height:30px; display:grid; place-items:center; border:0; border-radius:999px;
+      background:rgba(22,39,63,.8); color:#fff; font-size:.8rem; cursor:pointer; }
+    .sel-x:hover{ background:var(--bad); }
+    .sel-campos{ margin-top:14px; }
+    .sel-agregar{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; margin-top:6px; }
+    .sel-agregar .fld{ flex:1 1 100%; margin-bottom:0; }
+    .sel-agregar .ct-add{ flex:none; }
+    .sel-agregar .ct-add:disabled{ opacity:.45; cursor:default; }
+    /* Elegir y después "Agregar": con las flechas del teclado, un desplegable que
+       agregara solo sumaba una propiedad por cada tecla. */
+    .sel-fila{ display:flex; gap:8px; }
+    .sel-fila select{ flex:1 1 auto; min-width:0; }
+    .sel-fila button{ flex:none; min-height:40px; padding:8px 16px; border:0; border-radius:999px; background:var(--navy); color:#fff;
+      font-family:inherit; font-size:.86rem; font-weight:600; cursor:pointer; }
+    .sel-fila button:disabled{ opacity:.4; cursor:default; }
+    @media (max-width:860px){
+      .sel-fila button{ min-height:44px; }
+      .sel-mover button{ width:40px; height:44px; }
+      .sel-x{ width:36px; height:36px; }
+      .sel-prop .iv-link{ display:inline-flex; align-items:center; min-height:44px; }
+    }
   </style>
   <style>
     /* Área segura superior (isla dinámica / notch).
@@ -552,6 +609,11 @@
               <i class="fas fa-chart-column" aria-hidden="true"></i>
               <b>Análisis de mercado (AMI)</b><small>AMI</small>
               <span>Para la primera reunión con el propietario: qué se ofrece en la zona y a qué precio. No es una tasación.</span>
+            </button>
+            <button type="button" class="doc-type" data-type="sel" aria-pressed="false" onclick="selectType('sel')" title="Selección de propiedades">
+              <i class="fas fa-house-circle-check" aria-hidden="true"></i>
+              <b>Selección de propiedades</b><small>Selección</small>
+              <span>Para el cliente que busca: una hoja por propiedad, con fotos, características y tu comentario.</span>
             </button>
             <ol class="doc-indice" id="docIndice" aria-label="Secciones del documento" hidden></ol>
           </div>
@@ -923,6 +985,8 @@
           </div>
           <div class="fld"><label for="amPadron">Padrón (opcional)</label><input id="amPadron" oninput="amPreview()" autocomplete="off"></div>
           <div class="fld"><label for="amExtras">Otras características</label><input id="amExtras" oninput="amPreview()" placeholder="ej: parrillero, patio, techo de placa" autocomplete="off"></div>
+          <div class="fld"><label>Foto de la propiedad (opcional)</label><div id="amFotoPortada"></div>
+            <div class="hint">Va a lo ancho en la hoja de la propiedad. La portada lleva siempre la foto de edificios.</div></div>
 
           <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">2</span><span class="ct-tit">Portada</span></div>
           <div class="fld"><label for="amPara">Preparado para</label><input id="amPara" oninput="amPreview()" placeholder="Nombre del propietario" autocomplete="off"></div>
@@ -930,7 +994,6 @@
             <div class="fld"><label for="amFecha">Fecha</label><input id="amFecha" type="date" oninput="amPreview()"></div>
             <div class="fld"><label for="amAgente">Agente</label><select id="amAgente" onchange="amPreview()" disabled><option value="">Cargando agentes…</option></select></div>
           </div>
-          <div class="fld"><label>Foto de la propiedad (opcional)</label><div id="amFotoPortada"></div></div>
 
           <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">3</span><span class="ct-tit">Comparables</span></div>
           <div class="hint" style="margin:-6px 0 10px">Propiedades parecidas en venta en la zona, de otros portales o de nuestra cartera. Con 3 a 6 alcanza.</div>
@@ -941,6 +1004,38 @@
           <div class="fld"><label for="amPrecio">Precio que tiene en mente (USD, opcional)</label><input id="amPrecio" inputmode="numeric" oninput="amPreview()" placeholder="ej: 120000">
             <div class="hint">Se marca en la comparativa y la conclusión dice si queda dentro, por encima o por debajo del rango.</div></div>
           <div class="am-resumen" id="amResumen" hidden></div>
+
+          <button class="gen-btn" onclick="generarActivo()"><i class="fas fa-file-arrow-down"></i> Descargar</button>
+        </div>
+
+        <!-- Selección de propiedades. Las fotos no se suben a ningún lado: se
+             achican en el navegador y van solo dentro del PDF. -->
+        <div class="panel" id="formSeleccion" style="display:none">
+          <h3><i class="fas fa-house-circle-check"></i> Selección de propiedades</h3>
+          <input type="file" id="selArchivo" accept="image/*" multiple hidden onchange="selArchivoElegido(this)">
+
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">1</span><span class="ct-tit">Cliente</span></div>
+          <div class="fld"><label for="selCliente">Nombre del cliente</label><input id="selCliente" oninput="selPreview()" autocomplete="off"></div>
+          <div class="row2">
+            <div class="fld"><label for="selOperacion">Busca</label>
+              <select id="selOperacion" onchange="selCambioOperacion()"><option value="compra">Comprar</option><option value="alquiler">Alquilar</option></select></div>
+            <div class="fld"><label for="selFecha">Fecha</label><input id="selFecha" type="date" oninput="selPreview()"></div>
+          </div>
+          <div class="row2">
+            <div class="fld"><label for="selZona">Zona buscada</label><input id="selZona" oninput="selPreview()" placeholder="ej: Unión y Malvín" autocomplete="off"></div>
+            <div class="fld"><label for="selRango" id="selRangoEtq">Rango de inversión</label><input id="selRango" oninput="selPreview()" placeholder="ej: USD 80.000 a 100.000" autocomplete="off"></div>
+          </div>
+          <div class="fld"><label for="selAgente">Agente</label><select id="selAgente" onchange="selPreview()" disabled><option value="">Cargando agentes…</option></select></div>
+
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">2</span><span class="ct-tit">Propiedades</span></div>
+          <div class="hint" style="margin:-6px 0 12px">Las de nuestra cartera se cargan solas, con fotos y mapa. Las de otros portales se cargan a mano. El documento no dice de dónde salió cada una.</div>
+          <div id="selProps"></div>
+          <div class="sel-agregar">
+            <div class="fld"><label for="selDeCartera">De nuestra cartera</label>
+              <div class="sel-fila"><select id="selDeCartera" onchange="selElegidaCartera()" disabled><option value="">Cargando propiedades…</option></select>
+                <button type="button" id="selAgregarCartera" onclick="selAgregarDeCartera(amVal('selDeCartera'))" disabled>Agregar</button></div></div>
+            <button type="button" class="ct-add" id="selAgregarMano" onclick="selAgregarAMano()"><i class="fas fa-plus"></i> Cargar una a mano</button>
+          </div>
 
           <button class="gen-btn" onclick="generarActivo()"><i class="fas fa-file-arrow-down"></i> Descargar</button>
         </div>
@@ -1093,7 +1188,7 @@
     // malave-logos.js porque ese es la versión BLANCA (para fondos oscuros como
     // el recibo): sobre la hoja blanca de la carta quedaba invisible.
     var LOGO_CARTA = "data:image/png;base64,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";
-    var _logoImg = null, _textoImg = null;
+    var _logoImg = null, _textoImg = null, _textoTransp = null;
     (function precargarLogo(){
       var img = new Image();
       img.onload = function(){ _logoImg = img; try{ refrescarVista(); }catch(e){} };
@@ -1120,6 +1215,8 @@
           ctx.fillStyle = '#fff'; ctx.fillRect(0,0,c.width,c.height);
           ctx.drawImage(t, 0, 0);
           _textoImg = { data: c.toDataURL('image/png'), w: t.naturalWidth, h: t.naturalHeight };
+          // La misma marca sin fondo, para las portadas con foto.
+          _textoTransp = marcaSinFondo(t);
         }catch(e){
           // Pasa si el canvas quedó "contaminado" (file:// o sin CORS): el
           // navegador no deja leerlo. Se cae al texto dibujado.
@@ -1133,6 +1230,25 @@
       t.onerror = function(){ console.warn('No se pudo cargar texto-malave.png; se usa el texto dibujado.'); };
       t.src = 'texto-malave.png';
     })();
+
+    // La marca sin fondo: cada punto toma el azul de la marca y una transparencia
+    // según lo oscuro que era. Sirve tanto si el archivo trae el fondo
+    // transparente como si lo trae blanco.
+    function marcaSinFondo(img){
+      try {
+        var c = document.createElement('canvas'), w = img.naturalWidth, h = img.naturalHeight;
+        c.width = w; c.height = h;
+        var cx = c.getContext('2d'); cx.drawImage(img, 0, 0);
+        var px = cx.getImageData(0, 0, w, h), d = px.data;
+        for (var i = 0; i < d.length; i += 4) {
+          var l = Math.min(d[i], d[i + 1], d[i + 2]);
+          var a = Math.max(0, Math.min(1, (255 - l) / (255 - 36))) * d[i + 3];
+          d[i] = 36; d[i + 1] = 52; d[i + 2] = 71; d[i + 3] = Math.round(a);
+        }
+        cx.putImageData(px, 0, 0);
+        return { data: c.toDataURL('image/png'), w: w, h: h };
+      } catch (e) { return null; }
+    }
 
     // Dibuja la marca a la derecha del membrete: la imagen real si está
     // disponible, y si no el texto de siempre.
@@ -1285,7 +1401,8 @@
       mediacion: function(){ return cmGenerarPDF(); },
       propietario: function(){ return ipGenerarPDF(); },
       inventario: function(){ return ivGenerarPDF(); },
-      ami: function(){ return amGenerarPDF(); }
+      ami: function(){ return amGenerarPDF(); },
+      sel: function(){ return selGenerarPDF(); }
     };
     // Todos los botones de descarga (el del final de cada formulario, el de la
     // vista previa y el de la barra del celular) pasan por acá. Cada documento
@@ -2563,7 +2680,7 @@
     // Vuelve a armar la hoja del documento que está elegido (llegaron datos nuevos,
     // terminó de cargar la imagen de la marca, etc.).
     function refrescarVista(){
-      var f = { carta_pago: renderPreview, contrato: ctPreview, mediacion: cmPreview, propietario: ipPreview, inventario: ivPreview, ami: amPreview }[_tipoActivo];
+      var f = { carta_pago: renderPreview, contrato: ctPreview, mediacion: cmPreview, propietario: ipPreview, inventario: ivPreview, ami: amPreview, sel: selPreview }[_tipoActivo];
       if(f) f();
     }
 
@@ -5802,6 +5919,162 @@
 
 
     // ==========================================================================
+    // PORTADAS CON FOTO (AMI y Selección de propiedades)
+    // --------------------------------------------------------------------------
+    // Las dos llevan una foto de edificios, como los diseños de la agencia. Son
+    // archivos del sitio: para cambiar una alcanza con reemplazar portada-ami.jpg o
+    // portada-seleccion.jpg por otra foto con el mismo nombre (se recorta sola a
+    // la medida). Se piden la primera vez que se abre uno de esos documentos;
+    // mientras no llegan, la portada sale con un fondo liso.
+    // ==========================================================================
+    var PORTADAS = {
+      ami: { src: 'portada-ami.jpg', ratio: 573 / 388, ancho: 1400 },
+      sel: { src: 'portada-seleccion.jpg', ratio: 595.28 / 731, ancho: 1000 }
+    };
+    function pedirPortada(clave){
+      var p = PORTADAS[clave];
+      if (!p || p.foto || p.cargando || (p.fallo && Date.now() - p.fallo < 30000)) return;
+      p.cargando = true;
+      var img = new Image();
+      if (location.protocol !== 'file:') img.crossOrigin = 'anonymous';
+      img.onload = function(){
+        p.cargando = false;
+        try { p.foto = { data: recortarFoto(img, p.ratio, p.ancho), id: 'portada_' + clave }; }
+        catch (e) { p.fallo = Date.now(); console.warn('Portada ' + clave + ':', e); }
+        try { refrescarVista(); } catch (e) { /* nada que repintar */ }
+      };
+      img.onerror = function(){ p.cargando = false; p.fallo = Date.now(); console.warn('No se pudo cargar ' + p.src); };
+      img.src = p.src;
+    }
+    // La marca (MALAVE) centrada en cx, sin fondo: va encima de fotos y paneles.
+    // Si la imagen no cargó, el texto dibujado. Devuelve dónde termina.
+    function marcaCentrada(pdf, cx, y, ancho, color){
+      if (_textoTransp && _textoTransp.data) {
+        var alto = ancho * (_textoTransp.h / _textoTransp.w);
+        try { pdf.addImage(_textoTransp.data, 'PNG', cx - ancho / 2, y, ancho, alto, 'textoMalaveT', _pdfBorrador ? 'NONE' : 'FAST'); return y + alto; }
+        catch (e) { console.warn('Marca:', e); }
+      }
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(ancho / 7.2); pdf.setTextColor(color[0], color[1], color[2]);
+      textoEspaciado(pdf, 'MALAVE', cx, y + ancho / 8, ancho / 22);
+      return y + ancho / 7;
+    }
+    // Texto centrado con espacio entre letras: jsPDF centra sin contar ese espacio
+    // y quedaba corrido a la derecha.
+    function textoEspaciado(pdf, t, cx, y, esp){
+      var w = pdf.getTextWidth(t) + esp * (String(t).length - 1);
+      pdf.text(t, cx - w / 2, y, { charSpace: esp });
+    }
+    // Achica la letra (de tamMax a tamMin) hasta que el texto entre en el ancho;
+    // si ni así entra, lo corta con "…". Deja puesta la letra con la que entró.
+    function ajustarTexto(pdf, texto, ancho, tamMax, tamMin){
+      var t = String(texto || '');
+      for (var tam = tamMax; tam >= tamMin; tam -= 0.5) { pdf.setFontSize(tam); if (pdf.getTextWidth(t) <= ancho) return t; }
+      pdf.setFontSize(tamMin);
+      while (t.length > 1 && pdf.getTextWidth(t + '…') > ancho) t = t.slice(0, -1);
+      return t.replace(/\s+$/, '') + '…';
+    }
+    // ---- Íconos para los PDF ----
+    // Los mismos de la página (Font Awesome): cada uno se dibuja una vez en un
+    // canvas, del color que se pida, y se pega en el PDF como imagen. Si la letra
+    // de los íconos no cargó, algunos tienen un dibujo de repuesto y los demás no
+    // se ponen (el documento sale igual).
+    var ICONOS_FA = {
+      calendario: 'f073', pin: 'f3c5', persona: 'f007', telefono: 'f095', casa: 'f015', plata: '24', cama: 'f236', bano: 'f2cd',
+      auto: 'f1b9', regla: 'f546', terreno: 'f5cb', sillon: 'f4b8', antiguedad: 'f1da', documento: 'f15c', edificio: 'f1ad',
+      mapa: 'f5a0', info: 'f05a', idea: 'f0eb', grafico: 'e0e3', baja: 'f063', sube: 'f062', balanza: 'f24e', check: 'f058',
+      agente: 'f508', lista: 'f0ae', estrella: 'f005', arbol: 'f1bb', fuego: 'f06d', piscina: 'f5c5', frio: 'f2dc', calor: 'f769',
+      ascensor: 'e16d', seguridad: 'f3ed', mascota: 'f1b0', lavadero: 'f553', gimnasio: 'f44b', agua: 'f773', sol: 'f185',
+      terraza: 'f5ca', deposito: 'f466', placard: 'f52a', cocina: 'e51a', wifi: 'f1eb', escalera: 'e289'
+    };
+    var _iconos = {}, _faLista = false, _faPedida = false;
+    function faLista(){
+      if (_faLista) return true;
+      try {
+        document.fonts.forEach(function(f){ if (/Font Awesome 6 Free/.test(f.family) && String(f.weight) === '900' && f.status === 'loaded') _faLista = true; });
+      } catch (e) { /* navegador sin document.fonts */ }
+      return _faLista;
+    }
+    // Se pide la letra de los íconos (la página ya la usa) y, cuando está, se
+    // vuelve a armar la hoja.
+    function prepararIconos(){
+      if (faLista() || _faPedida) return;
+      _faPedida = true;
+      try {
+        document.fonts.load('900 16px "Font Awesome 6 Free"', '\uf015').then(function(){ if (faLista()) { try { refrescarVista(); } catch (e) { /* nada */ } } }, function(){});
+      } catch (e) { /* sin document.fonts: quedan los dibujos de repuesto */ }
+    }
+    function iconoFA(nombre, color){
+      var cod = ICONOS_FA[nombre];
+      if (!cod || !faLista()) return null;
+      var clave = nombre + '|' + color.join(',');
+      if (Object.prototype.hasOwnProperty.call(_iconos, clave)) return _iconos[clave];
+      var r = null;
+      try {
+        var T = 96, c = document.createElement('canvas'); c.width = T; c.height = T;
+        var x = c.getContext('2d'), ch = String.fromCharCode(parseInt(cod, 16)), base = 100;
+        x.font = '900 ' + base + 'px "Font Awesome 6 Free"';
+        var m = x.measureText(ch);
+        var izq = m.actualBoundingBoxLeft || 0, der = m.actualBoundingBoxRight || m.width;
+        var arr = m.actualBoundingBoxAscent || base * 0.85, abj = m.actualBoundingBoxDescent || 0;
+        var bw = izq + der, bh = arr + abj;
+        if (bw > 0 && bh > 0) {
+          // El dibujo, centrado y del mismo tamaño en todos (los anchos, como la cama, se achican).
+          var k = (T * 0.94) / Math.max(bw, bh);
+          x.font = '900 ' + (base * k) + 'px "Font Awesome 6 Free"';
+          x.fillStyle = 'rgb(' + color.join(',') + ')';
+          x.fillText(ch, T / 2 - (der - izq) * k / 2, T / 2 + (arr - abj) * k / 2);
+          r = { data: c.toDataURL('image/png'), id: 'ico_' + nombre + '_' + color.join('_') };
+        }
+      } catch (e) { r = null; }
+      _iconos[clave] = r;
+      return r;
+    }
+    // Un ícono centrado en (cx, cy), de lado t: el de Font Awesome y, si no está,
+    // el dibujo de repuesto. color es el del dibujo; fondo, el de atrás (el agujero
+    // del pin y el corte de la persona se pintan con ese color).
+    function iconoPDF(pdf, tipo, cx, cy, t, color, fondo){
+      var fa = iconoFA(tipo, color);
+      if (fa) {
+        try { pdf.addImage(fa.data, 'PNG', cx - t / 2, cy - t / 2, t, t, fa.id, 'FAST'); return; }
+        catch (e) { /* sigue con el dibujo de repuesto */ }
+      }
+      var s = t / 24, X = function(v){ return cx + (v - 12) * s; }, Y = function(v){ return cy + (v - 12) * s; };
+      var pintar = function(c){ pdf.setDrawColor(c[0], c[1], c[2]); pdf.setFillColor(c[0], c[1], c[2]); };
+      pintar(color);
+      pdf.setLineWidth(1.7 * s);
+      pdf.setLineCap('round'); pdf.setLineJoin('round');
+      if (tipo === 'calendario') {
+        pdf.roundedRect(X(3.5), Y(5), 17 * s, 15.5 * s, 2 * s, 2 * s, 'S');
+        pdf.line(X(3.5), Y(9.5), X(20.5), Y(9.5));
+        pdf.line(X(8), Y(3), X(8), Y(6.5)); pdf.line(X(16), Y(3), X(16), Y(6.5));
+        [[8, 13.5], [12, 13.5], [16, 13.5], [8, 17], [12, 17], [16, 17]].forEach(function(p){ pdf.circle(X(p[0]), Y(p[1]), 0.95 * s, 'F'); });
+      } else if (tipo === 'pin') {
+        pdf.circle(X(12), Y(9.5), 6.5 * s, 'F');
+        pdf.triangle(X(6.54), Y(13.02), X(17.46), Y(13.02), X(12), Y(21.5), 'F');
+        pintar(fondo); pdf.circle(X(12), Y(9.5), 2.6 * s, 'F');
+      } else if (tipo === 'persona' || tipo === 'agente') {
+        pdf.circle(X(12), Y(7.5), 4.2 * s, 'F');
+        pdf.ellipse(X(12), Y(21), 7.8 * s, 7.2 * s, 'F');
+        pintar(fondo); pdf.rect(X(3.6), Y(21), 16.8 * s, 8 * s, 'F');
+      } else if (tipo === 'telefono') {
+        pdf.roundedRect(X(7), Y(2.5), 10 * s, 19 * s, 2 * s, 2 * s, 'S');
+        pdf.line(X(10.5), Y(18.3), X(13.5), Y(18.3));
+      } else if (tipo === 'casa') {
+        pdf.lines([[9, -8], [9, 8]], X(2.5), Y(11), [s, s], 'S');
+        pdf.lines([[0, 12.4], [13, 0], [0, -12.4]], X(5.5), Y(8.6), [s, s], 'S');
+        pdf.lines([[0, -6], [4, 0], [0, 6]], X(10), Y(21), [s, s], 'S');
+      } else if (tipo === 'plata') {
+        pdf.setFont('helvetica', 'bold'); pdf.setFontSize(17 * s); pdf.setTextColor(color[0], color[1], color[2]);
+        pdf.text('$', X(12), Y(18.2), { align: 'center' });
+      } else if (tipo === 'check') {
+        pdf.circle(X(12), Y(12), 11 * s, 'F');
+        pintar([255,255,255]); pdf.setLineWidth(2.6 * s);
+        pdf.lines([[4.3, 4.6], [8.6, -9.4]], X(6.6), Y(11.7), [s, s], 'S');
+      }
+      pdf.setLineCap('butt'); pdf.setLineJoin('miter');
+    }
+
+    // ==========================================================================
     // ANÁLISIS DEL MERCADO INMOBILIARIO (AMI)
     // --------------------------------------------------------------------------
     // Lo lleva el agente a la primera reunión con el propietario: qué se ofrece en
@@ -5812,6 +6085,7 @@
     var AM = { comps: [], portada: null, destino: null, sec: 0 };
     var _amListo = false;
     var AM_MAX_COMPS = 8;
+    var AM_RATIO_FOTO = 3.2;      // la foto de la propiedad, a lo ancho en la hoja "La propiedad"
     var AM_ESTADOS = ['A estrenar', 'Excelente', 'Muy bueno', 'Bueno', 'A reciclar'];
 
     function amVal(id){ var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
@@ -5989,6 +6263,18 @@
       else if (AM.comps[destino]) AM.comps[destino].foto = null;
       amPintarFotos(); amPreview();
     }
+    // Recorta la foto al centro con la proporción de su lugar en el PDF y la
+    // devuelve como JPEG liviano (data URL). La usan el AMI y la Selección.
+    function recortarFoto(img, ratio, maxW){
+      var sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0;
+      if (sw / sh > ratio) { var nw = sh * ratio; sx = (sw - nw) / 2; sw = nw; }
+      else { var nh = sw / ratio; sy = (sh - nh) / 2; sh = nh; }
+      var w = Math.max(1, Math.min(maxW, Math.round(sw))), h = Math.max(1, Math.round(w / ratio));
+      var c = document.createElement('canvas'); c.width = w; c.height = h;
+      var cx = c.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h);
+      cx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+      return c.toDataURL('image/jpeg', 0.82);
+    }
     // La foto se recorta a la proporción de su lugar en el PDF (16:9 la portada,
     // 4:3 los comparables) y se guarda como JPEG liviano.
     function amCargarFoto(archivo, destino){
@@ -5996,15 +6282,8 @@
       var url = URL.createObjectURL(archivo), img = new Image();
       img.onload = function(){
         try {
-          var portada = destino === 'portada', ratio = portada ? 16 / 9 : 4 / 3, maxW = portada ? 1400 : 480;
-          var sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0;
-          if (sw / sh > ratio) { var nw = sh * ratio; sx = (sw - nw) / 2; sw = nw; }
-          else { var nh = sw / ratio; sy = (sh - nh) / 2; sh = nh; }
-          var w = Math.max(1, Math.min(maxW, Math.round(sw))), h = Math.max(1, Math.round(w / ratio));
-          var c = document.createElement('canvas'); c.width = w; c.height = h;
-          var cx = c.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h);
-          cx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
-          var foto = { data: c.toDataURL('image/jpeg', 0.82), id: 'amFoto' + (++AM.sec) };
+          var portada = destino === 'portada';
+          var foto = { data: recortarFoto(img, portada ? AM_RATIO_FOTO : 4 / 3, portada ? 1400 : 480), id: 'amFoto' + (++AM.sec) };
           if (portada) AM.portada = foto;
           else if (AM.comps[destino]) AM.comps[destino].foto = foto;
           amPintarFotos(); amPreview();
@@ -6028,6 +6307,8 @@
       el.hidden = false;
     }
     function amPreview(){
+      pedirPortada('ami');
+      prepararIconos();
       amPintarResumen();
       vistaPrevia('ami', amConstruirPDF, 300);
     }
@@ -6060,7 +6341,8 @@
       }
       // Hoja nueva con membrete, título y bajada. Devuelve dónde sigue el contenido.
       function hoja(titulo, bajada){
-        pie(); pdf.addPage(); pagina++;
+        if (pagina > 1) pie();          // la portada no lleva pie
+        pdf.addPage(); pagina++;
         var y = 56, xTxt = M;
         if (_logoImg) { try { ponerLogo(pdf, M, y - 21, 30, 26); xTxt = M + 38; } catch (e) { /* sin logo */ } }
         letra('bold', 9.5); tinta(INK); pdf.text(EMPRESA.nombre, xTxt, y);
@@ -6072,56 +6354,74 @@
         if (bajada) { letra('normal', 10); tinta(GREY); pdf.text(bajada, M, y + 28); return y + 52; }
         return y + 34;
       }
-      function seccion(t, y){ letra('bold', 11); tinta(NAVY); pdf.text(t, M, y); return y + 12; }
+      // Título de sección con su ícono en un círculo y una línea hasta el margen,
+      // como en el diseño de la agencia.
+      function seccion(t, y, icono){
+        relleno(NAVY); pdf.circle(M + 11, y - 4, 11, 'F');
+        iconoPDF(pdf, icono, M + 11, y - 4, 11, BLANCO, NAVY);
+        letra('bold', 11.5); tinta(NAVY); pdf.text(t, M + 30, y);
+        trazo(LINEA); pdf.setLineWidth(0.8); pdf.line(M + 30 + pdf.getTextWidth(t) + 12, y - 4, W - M, y - 4);
+        return y + 20;
+      }
+      // Nota al pie con el ícono de información.
+      function nota(texto, y){
+        letra('italic', 8.5);
+        var l = pdf.splitTextToSize(texto, ancho - 16);
+        iconoPDF(pdf, 'info', M + 5, y - 3.2, 10, GREY, BLANCO);
+        tinta(GREY); pdf.text(l, M + 16, y);
+      }
 
       // ---- Hoja 1: portada ----
-      if (_logoImg) { try { ponerLogo(pdf, W - M - 80, 52, 57, 50); } catch (e) { /* sin logo */ } }
-      marcaDerecha(pdf, W, M, INK, GREY);
-      var y = 92;
-      letra('bold', 9.5); tinta(ORO); pdf.text('Documento informativo', M, y);
-      y += 40;
-      letra('bold', 28); tinta(NAVY);
-      pdf.text('Análisis del mercado', M, y);
-      pdf.text('inmobiliario', M, y + 32);
-      y += 50;
-      trazo(ORO); pdf.setLineWidth(2.2); pdf.line(M, y, M + 56, y);
-      y += 22;
-      letra('normal', 10.5); tinta(GREY);
-      pdf.text('Qué se ofrece en la zona y a qué precio. No es una tasación.', M, y);
-      y += 26;
-      if (AM.portada) { var fh = ancho * 9 / 16; foto(AM.portada, M, y, ancho, fh); y += fh + 26; }
-      else y += 18;
-      var col = ancho / 2;
-      var dato = function(x, yy, k, v){
-        letra('normal', 8.5); tinta(GREY); pdf.text(k, x, yy);
-        letra('bold', 11); tinta(INK);
-        var l = pdf.splitTextToSize(v || '—', col - 16).slice(0, 2);
-        pdf.text(l, x, yy + 15);
-        return yy + 15 + l.length * 13 + 10;
-      };
-      var yL = dato(M, y, 'Propiedad', d.direccion);
-      yL = dato(M, yL, 'Barrio', [d.barrio, d.ciudad].filter(Boolean).join(', '));
-      var yR = dato(M + col, y, 'Preparado para', d.para);
-      dato(M + col, yR, 'Fecha', d.fecha);
-      var ya = pieY - 74;
-      trazo(LINEA); pdf.setLineWidth(0.8); pdf.line(M, ya - 20, W - M, ya - 20);
-      letra('normal', 8.5); tinta(GREY); pdf.text('Tu agente', M, ya);
-      letra('bold', 12); tinta(NAVY); pdf.text(d.agente.name, M, ya + 16);
-      var contacto = [d.agente.tel, d.agente.email].filter(Boolean).join('   ·   ');
-      if (contacto) { letra('normal', 9.5); tinta(INK); pdf.text(contacto, M, ya + 31); }
+      // Como el diseño de la agencia: arriba la marca y el título; abajo la foto de
+      // edificios con las formas en diagonal y, en la parte azul, los datos.
+      var y, cx = W / 2, CLARO = [234,235,239], AZUL = [12,33,62];
+      if (_logoImg) { try { ponerLogo(pdf, cx - 44, 44, 88, 78); } catch (e) { /* sin logo */ } }
+      marcaCentrada(pdf, cx, 134, 176, INK);
+      trazo([150,160,176]); pdf.setLineWidth(1); pdf.line(cx - 24, 177, cx + 24, 177);
+      letra('bold', 40); tinta(NAVY);
+      pdf.text('ANÁLISIS DEL', cx, 236, { align: 'center' });
+      pdf.text('MERCADO', cx, 280, { align: 'center' });
+      pdf.text('INMOBILIARIO', cx, 324, { align: 'center' });
+      trazo([150,160,176]); pdf.setLineWidth(0.8); pdf.line(cx - 166, 345, cx + 166, 345);
+      letra('bold', 9.5); tinta(NAVY);
+      textoEspaciado(pdf, 'MONTEVIDEO • CANELONES • MALDONADO', cx, 364, 1.5);
+      var fy = 378, fh = 388;
+      if (PORTADAS.ami.foto) foto(PORTADAS.ami.foto, 11, fy, W - 22, fh);
+      else { relleno([206,218,232]); pdf.rect(11, fy, W - 22, fh, 'F'); }
+      relleno(CLARO); pdf.triangle(117, fy, 467, fy, 313, 553, 'F');
+      relleno(AZUL); pdf.lines([[416, 196], [-27, 77], [-389, 0]], 11, 557, [1, 1], 'F', true);
+      trazo(BLANCO); pdf.setLineWidth(1.5); pdf.line(11, 557, 427, 753);
+      relleno(CLARO); pdf.triangle(W - 11, 623, W - 11, 830, 353, 830, 'F');
+      // Los datos, en la parte azul. El borde de arriba es diagonal: cada renglón
+      // usa el ancho que le deja (y no pisa el triángulo claro de la derecha).
+      var items = [['calendario', 'FECHA DEL ANÁLISIS', d.fecha], ['pin', 'PROPIEDAD', [d.direccion, d.barrio].filter(Boolean).join(', ')],
+        ['persona', 'PREPARADO PARA', d.para], ['telefono', 'TU AGENTE', [d.agente.name, d.agente.tel].filter(Boolean).join('  ·  ')]]
+        .filter(function(x){ return x[2]; });
+      var paso = items.length > 3 ? 44 : items.length === 3 ? 52 : 62;
+      items.forEach(function(it, i){
+        var yl = 664 + i * paso, yv = yl + 18;
+        if (i) { trazo([62,82,112]); pdf.setLineWidth(0.6); pdf.line(43, yl - 15, 225, yl - 15); }
+        iconoPDF(pdf, it[0], 56, yl + 4, 22, BLANCO, AZUL);
+        letra('bold', 7.5); tinta([196,206,222]); pdf.text(it[1], 85, yl, { charSpace: 0.4 });
+        var libre = Math.min(11 + (yv - 11 - 557) / 0.471, 372) - 85;
+        letra('bold', 13); tinta(BLANCO); pdf.text(ajustarTexto(pdf, it[2], libre, 13, 9.5), 85, yv);
+      });
+      letra('italic', 7.5); tinta(GREY); pdf.text('Documento informativo. No es una tasación.', W - 22, 818, { align: 'right' });
 
       // ---- Hoja 2: la propiedad ----
       y = hoja('La propiedad', 'Información técnica');
+      if (AM.portada) { var bh = ancho / AM_RATIO_FOTO; foto(AM.portada, M, y - 8, ancho, bh); y += bh + 18; }
       var filas = [
-        ['Dirección', d.direccion], ['Barrio', [d.barrio, d.ciudad].filter(Boolean).join(', ')], ['Tipo', d.tipo],
-        ['Superficie edificada', d.m2 ? amFmt(d.m2) + ' m²' : ''], ['Superficie total o terreno', d.m2Total ? amFmt(d.m2Total) + ' m²' : ''],
-        ['Antigüedad', d.antig ? d.antig + (d.antig === '1' ? ' año' : ' años') : ''], ['Padrón', d.padron]
+        ['Dirección', d.direccion, 'pin'], ['Barrio', [d.barrio, d.ciudad].filter(Boolean).join(', '), 'mapa'], ['Tipo', d.tipo, 'edificio'],
+        ['Superficie edificada', d.m2 ? amFmt(d.m2) + ' m²' : '', 'regla'], ['Superficie total o terreno', d.m2Total ? amFmt(d.m2Total) + ' m²' : '', 'terreno'],
+        ['Antigüedad', d.antig ? d.antig + (d.antig === '1' ? ' año' : ' años') : '', 'antiguedad'], ['Padrón', d.padron, 'documento']
       ].filter(function(f){ return f[1]; });
       if (filas.length) {
-        y = seccion('Datos generales', y);
+        y = seccion('Datos generales', y, 'documento');
         filas.forEach(function(f){
           letra('bold', 10); var l = pdf.splitTextToSize(String(f[1]), ancho - 170).slice(0, 2);
-          letra('normal', 9.5); tinta(GREY); pdf.text(f[0], M, y + 14);
+          iconoPDF(pdf, f[2], M + 6, y + 10.6, 10.5, GREY, BLANCO);
+          letra('normal', 9.5); tinta(GREY); pdf.text(f[0], M + 19, y + 14);
           letra('bold', 10); tinta(INK); pdf.text(l, M + 170, y + 14);
           var alto = 10 + l.length * 12 + 6;
           trazo(LINEA); pdf.setLineWidth(0.6); pdf.line(M, y + alto, W - M, y + alto);
@@ -6129,30 +6429,38 @@
         });
         y += 26;
       }
-      var cajas = [['Dormitorios', d.dorm], ['Baños', d.banos], ['Garaje', d.garaje], ['Estado de conservación', d.estado]].filter(function(f){ return f[1]; });
+      // Características con su ícono arriba, como en el diseño de la agencia.
+      var cajas = [['Dormitorios', d.dorm, 'cama'], ['Baños', d.banos, 'bano'], ['Garaje', d.garaje, 'auto'], ['Estado de conservación', d.estado, 'sillon']]
+        .filter(function(f){ return f[1]; });
       if (cajas.length) {
-        y = seccion('Características', y);
-        var gap = 10, cw = (ancho - gap * 3) / 4, ch = 56;
+        y = seccion('Características', y, 'casa');
+        var cw = ancho / 4, x0 = M + (ancho - cw * cajas.length) / 2;
+        // Los nombres pueden ocupar uno o dos renglones: los valores van todos a la misma altura.
+        letra('bold', 7.5);
+        var rot = cajas.map(function(c){ return pdf.splitTextToSize(c[0].toUpperCase(), cw - 22); });
+        var maxL = Math.max.apply(null, rot.map(function(l){ return l.length; })), yv = y + 42 + maxL * 9 + 7;
         cajas.forEach(function(c, i){
-          var x = M + i * (cw + gap);
-          relleno(SUAVE); pdf.roundedRect(x, y, cw, ch, 6, 6, 'F');
-          letra('normal', 8); tinta(GREY); pdf.text(pdf.splitTextToSize(c[0], cw - 14)[0], x + 8, y + 18);
-          letra('bold', 13); tinta(NAVY); pdf.text(pdf.splitTextToSize(String(c[1]), cw - 14)[0], x + 8, y + 40);
+          var xc = x0 + cw * i + cw / 2, lt = rot[i];
+          iconoPDF(pdf, c[2], xc, y + 12, 26, NAVY, BLANCO);
+          letra('bold', 7.5); tinta(NAVY);
+          lt.forEach(function(l, k){ textoEspaciado(pdf, l, xc, y + 42 + (maxL - lt.length + k) * 9, 0.3); });
+          letra('normal', 10.5); tinta(INK);
+          pdf.text(pdf.splitTextToSize(String(c[1]), cw - 12)[0], xc, yv, { align: 'center' });
         });
-        y += ch + 26;
+        y = yv + 26;
       }
       if (d.extras) {
-        y = seccion('Otras características', y) + 4;
+        y = seccion('Otras características', y, 'lista') + 2;
         letra('normal', 10); tinta(INK);
-        var le = pdf.splitTextToSize(d.extras, ancho).slice(0, 6);
+        var le = pdf.splitTextToSize(d.extras, ancho).slice(0, Math.max(1, Math.min(6, Math.floor((pieY - 38 - y) / 13))));
         pdf.text(le, M, y); y += le.length * 13 + 14;
       }
       if (!filas.length && !cajas.length && !d.extras) { letra('normal', 10); tinta(GREY); pdf.text('Completá los datos de la propiedad en el formulario.', M, y); }
-      letra('italic', 8.5); tinta(GREY);
-      pdf.text('La información técnica fue relevada en base a la documentación disponible y/o inspección visual.', M, pieY - 22);
+      nota('La información técnica fue relevada en base a la documentación disponible y/o inspección visual.', pieY - 22);
 
       // ---- Hoja 3: comparativa de mercado ----
-      y = hoja('Comparativa de mercado', 'Propiedades parecidas en venta en la zona');
+      y = hoja('Comparativa de mercado', '');
+      y = seccion('Propiedades parecidas en venta en la zona', y + 4, 'edificio') + 4;
       var comps = d.comps;
       if (!comps.length) { letra('normal', 10); tinta(GREY); pdf.text('Agregá las propiedades comparables en el formulario.', M, y); }
       else {
@@ -6193,12 +6501,13 @@
         y += 38;
         if (s) {
           if (y + 240 > pieY - 40) y = hoja('Comparativa de mercado', '');
-          y = seccion('Rango de precios observado', y);
+          y = seccion('Rango de precios observado', y, 'grafico');
           var bw = (ancho - 20) / 3, bh = s.m2n ? 58 : 44;
-          [['Mínimo', s.min, s.m2min], ['Promedio', s.prom, s.m2prom], ['Máximo', s.max, s.m2max]].forEach(function(b, i){
+          [['Mínimo', s.min, s.m2min, 'baja'], ['Promedio', s.prom, s.m2prom, 'balanza'], ['Máximo', s.max, s.m2max, 'sube']].forEach(function(b, i){
             var x = M + i * (bw + 10);
             relleno(SUAVE); pdf.roundedRect(x, y, bw, bh, 6, 6, 'F');
-            letra('normal', 8.5); tinta(GREY); pdf.text(b[0], x + 10, y + 16);
+            iconoPDF(pdf, b[3], x + 15, y + 12.8, 9.5, NAVY, SUAVE);
+            letra('normal', 8.5); tinta(GREY); pdf.text(b[0], x + 25, y + 16);
             letra('bold', 13); tinta(NAVY); pdf.text(usd(b[1]), x + 10, y + 33);
             if (b[2]) { letra('normal', 8.5); tinta(GREY); pdf.text(usd(b[2]) + ' por m²', x + 10, y + 48); }
           });
@@ -6240,16 +6549,686 @@
           if (y + hc > pieY - 40) y = hoja('Comparativa de mercado', '');
           relleno(SUAVE); pdf.roundedRect(M, y, ancho, hc, 6, 6, 'F');
           relleno(ORO); pdf.rect(M, y, 3, hc, 'F');
-          letra('bold', 10.5); tinta(NAVY); pdf.text('Conclusión', M + 14, y + 19);
+          iconoPDF(pdf, 'idea', M + 19, y + 15.2, 12.5, ORO, SUAVE);
+          letra('bold', 10.5); tinta(NAVY); pdf.text('Conclusión', M + 31, y + 19);
           letra('normal', 10); tinta(INK); pdf.text(lc, M + 14, y + 35);
           y += hc + 16;
         }
       }
       var iso = amVal('amFecha') || hoyISO();
       var cuando = MESES[Number(iso.slice(5, 7)) - 1] + ' de ' + iso.slice(0, 4);
-      letra('italic', 8); tinta(GREY);
-      pdf.text(pdf.splitTextToSize('Valores tomados de avisos de venta publicados en portales inmobiliarios y de relevamiento propio, ' + cuando +
-        '. Son orientativos y no constituyen una tasación.', ancho), M, Math.max(y + 4, pieY - 30));
+      nota('Valores tomados de avisos de venta publicados en portales inmobiliarios y de relevamiento propio, ' + cuando +
+        '. Son orientativos y no constituyen una tasación.', Math.max(y + 4, pieY - 30));
+      pie();
+      return pdf;
+    }
+
+    // ==========================================================================
+    // SELECCIÓN DE PROPIEDADES
+    // --------------------------------------------------------------------------
+    // Para el cliente que busca comprar o alquilar: una portada y una hoja por
+    // propiedad, con fotos, características, destacados y el comentario del
+    // agente. Las de nuestra cartera traen sus datos, sus fotos y el mapa; las de
+    // otros portales se cargan a mano (las fotos se eligen, se arrastran o se
+    // pegan). El documento no dice de qué portal salió cada una.
+    // Las fotos no se suben a ningún lado: se achican acá y van solo en el PDF.
+    // ==========================================================================
+    var SEL = { props: [], activa: 0, sec: 0, destino: null };
+    var _selListo = false;
+    var SEL_MAX = 10;
+    var SEL_RATIO = 2.2;          // la foto principal; las otras tres van en 16:9
+    var SEL_CAMPOS = { t: 'titulo', d: 'dir', p: 'precio', r: 'dorm', b: 'banos', e: 'm2', o: 'm2Total', x: 'extras' };
+
+    function selVacia(origen, pid){
+      return { id: 'sp' + (++SEL.sec), origen: origen, pid: pid || '', abierta: true, titulo: '', dir: '', precio: '', moneda: 'USD',
+        dorm: '', banos: '', m2: '', m2Total: '', garaje: '', extras: '', destacados: '', comentario: '',
+        fotos: [null, null, null, null], mapa: null, exacto: false, cargando: 0, aviso: '' };
+    }
+    function selEsAlquiler(){ return amVal('selOperacion') === 'alquiler'; }
+    function selInit(){
+      if (_selListo) return;
+      _selListo = true;
+      var f = document.getElementById('selFecha'); if (f && !f.value) f.value = hoyISO();
+      // La propiedad en la que se está trabajando: ahí van las fotos que se pegan.
+      var c = document.getElementById('selProps');
+      if (c) {
+        var marcar = function(e){ var el = e.target && e.target.closest ? e.target.closest('.sel-prop') : null; if (el) selMarcarActiva(Number(el.getAttribute('data-i'))); };
+        c.addEventListener('focusin', marcar);
+        c.addEventListener('pointerdown', marcar);
+      }
+      selPintarProps();
+      selPintarDatos();
+    }
+    function selMarcarActiva(i){
+      if (!(i >= 0) || i >= SEL.props.length) return;
+      SEL.activa = i;
+      document.querySelectorAll('#selProps .sel-prop').forEach(function(el){ el.classList.toggle('activa', Number(el.getAttribute('data-i')) === i); });
+    }
+    // Agentes y propiedades: se vuelven a llenar cuando llegan los datos.
+    function selPintarDatos(){
+      selPintarCartera();
+      var sa = document.getElementById('selAgente');
+      if (sa) {
+        var ag = listaAgentes();
+        if (!ag.length) { sa.innerHTML = '<option value="">Cargando agentes…</option>'; sa.disabled = true; }
+        else {
+          var prev = sa.options.length && sa.options[0].value ? sa.value : '';
+          var yo = (auth && auth.currentUser) ? auth.currentUser.uid : '';
+          sa.innerHTML = ag.map(function(a){ return '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>'; }).join('');
+          sa.disabled = false;
+          if (prev && ag.some(function(a){ return a.id === prev; })) sa.value = prev;
+          else if (ag.some(function(a){ return a.id === yo; })) sa.value = yo;
+        }
+      }
+      selPreview();
+    }
+    // Las de la cartera que se pueden ofrecer: disponibles y de la operación que
+    // busca el cliente. Las que ya están en la selección no se repiten.
+    function selPintarCartera(){
+      var sel = document.getElementById('selDeCartera');
+      if (!sel) return;
+      if (!_datosListos) { sel.innerHTML = '<option value="">Cargando propiedades…</option>'; sel.disabled = true; return; }
+      var alq = selEsAlquiler(), yo = (auth && auth.currentUser) ? auth.currentUser.uid : '';
+      var usadas = SEL.props.map(function(s){ return s.pid; });
+      var lista = props.filter(function(p){ return p.type === (alq ? 'rent' : 'sale') && (!p.status || p.status === 'available') && (p._dir || p.title); });
+      var opcion = function(p){
+        var t = p._dir || p.title;
+        if (t.length > 52) t = t.slice(0, 50).trim() + '…';
+        if (p.price) t += '  ·  ' + (p.currency === 'UYU' ? '$U ' : 'USD ') + amMiles(p.price);
+        var ya = usadas.indexOf(p.id) >= 0;
+        return '<option value="' + esc(p.id) + '"' + (ya ? ' disabled' : '') + '>' + esc(t + (ya ? '  (ya está)' : '')) + '</option>';
+      };
+      var grupo = function(t, l){ return l.length ? '<optgroup label="' + esc(t) + '">' + l.map(opcion).join('') + '</optgroup>' : ''; };
+      var lleno = SEL.props.length >= SEL_MAX;
+      sel.innerHTML = '<option value="">' + (lleno ? 'Llegaste al máximo de ' + SEL_MAX + ' propiedades' : lista.length ? 'Elegí una propiedad…'
+        : 'No hay propiedades disponibles ' + (alq ? 'en alquiler' : 'en venta')) + '</option>' +
+        grupo('Mis propiedades', lista.filter(function(p){ return p.ownerId === yo; })) +
+        grupo('De otros agentes', lista.filter(function(p){ return p.ownerId !== yo; }));
+      sel.value = '';
+      sel.disabled = lleno || !lista.length;
+      selElegidaCartera();
+      var bm = document.getElementById('selAgregarMano');
+      if (bm) bm.disabled = lleno;
+    }
+    function selElegidaCartera(){
+      var b = document.getElementById('selAgregarCartera');
+      if (b) b.disabled = !amVal('selDeCartera');
+    }
+    // Comprar o alquilar: cambia la lista de la cartera, cómo se lee el precio y
+    // el nombre del presupuesto.
+    function selCambioOperacion(){
+      var alq = selEsAlquiler(), etq = document.getElementById('selRangoEtq'), r = document.getElementById('selRango');
+      if (etq) etq.textContent = alq ? 'Presupuesto por mes' : 'Rango de inversión';
+      if (r) r.placeholder = alq ? 'ej: hasta $U 30.000' : 'ej: USD 80.000 a 100.000';
+      selPintarCartera();
+      selPintarProps();
+      selPreview();
+    }
+    function selAgenteSel(){
+      var id = amVal('selAgente'), lista = listaAgentes();
+      var a = lista.filter(function(x){ return x.id === id; })[0] || lista.filter(function(x){ return x.name === agenteLogueado; })[0] || {};
+      return { name: a.name || agenteLogueado || EMPRESA.titular, tel: a.tel || '', email: a.email || '' };
+    }
+    // La propiedad nueva queda abierta y las demás se pliegan: el formulario no
+    // se hace eterno con varias propiedades.
+    function selSumar(s){
+      SEL.props.forEach(function(x){ x.abierta = false; });
+      SEL.props.push(s);
+      SEL.activa = SEL.props.length - 1;
+      selPintarProps(); selPintarCartera(); selPreview();
+      var el = document.querySelector('#selProps .sel-prop[data-i="' + SEL.activa + '"]');
+      if (el) docLlevarA(el);
+    }
+    function selAgregarAMano(){
+      if (SEL.props.length >= SEL_MAX) return;
+      selSumar(selVacia('mano'));
+      var t = document.getElementById('sel' + SEL.activa + 't');
+      if (t) { try { t.focus({ preventScroll: true }); } catch (e) { t.focus(); } }
+    }
+    // Una de la cartera trae sus datos, hasta 4 fotos y el mapa. La dirección va
+    // como en la ficha pública: con el número de puerta solo si el agente eligió
+    // mostrar el punto exacto.
+    function selAgregarDeCartera(pid){
+      var p = propPorId(pid);
+      if (!p || SEL.props.length >= SEL_MAX || SEL.props.some(function(s){ return s.pid === pid; })) { selPintarCartera(); return; }
+      var s = selVacia('cartera', pid);
+      var tipo = amTipoDe(p), barrio = p.ciudad || p.barrio;
+      if (!tipo || tipo === 'Otro') tipo = 'Propiedad';
+      s.titulo = tipo + (barrio ? ' en ' + barrio : '');
+      s.dir = [p.dirPublica, barrio, p.departamento].filter(Boolean).join(', ');
+      s.precio = p.price ? String(p.price) : '';
+      s.moneda = p.currency === 'UYU' ? 'UYU' : 'USD';
+      s.dorm = p.bedrooms ? String(p.bedrooms) : '';
+      s.banos = p.bathrooms ? String(p.bathrooms) : '';
+      s.m2 = p.builtArea ? String(p.builtArea) : '';
+      s.m2Total = p.terreno ? String(p.terreno) : (p.totalArea && p.totalArea !== p.builtArea ? String(p.totalArea) : '');
+      s.garaje = p.cocheras > 1 ? '2 o más' : (p.cocheras === 1 || p.garage === 'yes' ? 'Sí' : '');
+      s.exacto = !!p.exacto;
+      if (p.fotos > 0) selTraerFotos(s);
+      if (p.lat != null && p.lng != null) {
+        s.cargando++;
+        selMapa(Number(p.lat), Number(p.lng), s.exacto, p.id).then(function(m){
+          s.mapa = m; s.cargando--;
+          if (SEL.props.indexOf(s) >= 0) selPreview();
+        });
+      }
+      selSumar(s);
+    }
+    // Las fotos de la cartera las trae el servidor (fotosParaDocumento): desde
+    // esta página el navegador no deja leer las de Storage para ponerlas en un PDF.
+    var _selFn = null;
+    function selFuncionFotos(){
+      if (!_selFn) {
+        _selFn = new Promise(function(ok, mal){
+          if (typeof firebase.functions === 'function') { ok(); return; }
+          var sc = document.createElement('script');
+          sc.src = 'https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js';
+          sc.onload = function(){ ok(); };
+          sc.onerror = function(){ mal(new Error('No se pudo cargar firebase-functions')); };
+          document.head.appendChild(sc);
+        }).then(function(){ return firebase.functions().httpsCallable('fotosParaDocumento', { timeout: 70000 }); });
+        _selFn.catch(function(){ _selFn = null; });      // la próxima vez se vuelve a intentar
+      }
+      return _selFn;
+    }
+    function selImagen(src){
+      return new Promise(function(ok, mal){ var im = new Image(); im.onload = function(){ ok(im); }; im.onerror = mal; im.src = src; });
+    }
+    function selFotoDe(img, k){ return { data: recortarFoto(img, k === 0 ? SEL_RATIO : 16 / 9, k === 0 ? 1200 : 480), id: 'selFoto' + (++SEL.sec) }; }
+    function selTraerFotos(s){
+      s.cargando++;
+      s.aviso = 'Trayendo las fotos…';
+      selFuncionFotos().then(function(fn){ return fn({ propertyId: s.pid }); }).then(function(r){
+        var lista = ((r && r.data && r.data.fotos) || []).filter(function(x){ return typeof x === 'string' && /^data:image\//.test(x); });
+        // A los lugares libres: mientras tanto pudo haberse agregado alguna a mano.
+        var libres = [];
+        s.fotos.forEach(function(f, k){ if (!f) libres.push(k); });
+        return Promise.all(lista.slice(0, libres.length).map(function(src, j){
+          var k = libres[j];
+          return selImagen(src).then(function(img){ if (!s.fotos[k]) s.fotos[k] = selFotoDe(img, k); }).catch(function(){});
+        }));
+      }).catch(function(e){ console.warn('Selección: fotos de la cartera', e); }).then(function(){
+        s.cargando--;
+        s.aviso = s.fotos.some(Boolean) ? '' : 'No se pudieron traer las fotos de esta propiedad. Agregalas a mano: elegilas, arrastralas o pegalas.';
+        if (SEL.props.indexOf(s) >= 0) { selPintarProps(); selPreview(); }
+      });
+    }
+    function selQuitar(i){
+      var s = SEL.props[i];
+      if (!s) return;
+      var escrito = (s.origen === 'mano' && (s.fotos.some(Boolean) || String(s.titulo).trim() || String(s.precio).trim())) ||
+        String(s.destacados).trim() || String(s.comentario).trim();
+      if (escrito && !confirm('"' + (String(s.titulo).trim() || 'Propiedad ' + (i + 1)) + '" ya tiene datos cargados. ¿Quitarla de la selección?')) return;
+      SEL.props.splice(i, 1);
+      SEL.activa = Math.max(0, Math.min(SEL.activa, SEL.props.length - 1));
+      selPintarProps(); selPintarCartera(); selPreview();
+    }
+    function selMover(i, d){
+      var j = i + d;
+      if (j < 0 || j >= SEL.props.length) return;
+      var x = SEL.props[i]; SEL.props[i] = SEL.props[j]; SEL.props[j] = x;
+      SEL.activa = j;
+      selPintarProps(); selPreview();
+      // El foco sigue en la misma flecha, ahora en su lugar nuevo.
+      var bs = document.querySelectorAll('#selProps .sel-prop[data-i="' + j + '"] .sel-mover button');
+      var b = bs[d < 0 ? 0 : 1];
+      if (b && b.disabled) b = bs[d < 0 ? 1 : 0];
+      if (b) b.focus();
+    }
+    function selAlternar(i){
+      var s = SEL.props[i];
+      if (!s) return;
+      s.abierta = !s.abierta;
+      selPintarProps();
+      var b = document.querySelector('#selProps .sel-prop[data-i="' + i + '"] .sel-abrir');
+      if (b) b.focus();
+    }
+    function selResumen(s){
+      var v = amNum(s.precio);
+      return [v ? (s.moneda === 'UYU' ? '$U ' : 'USD ') + amMiles(v) : '', s.origen === 'cartera' ? 'De nuestra cartera' : 'Cargada a mano'].filter(Boolean).join('  ·  ');
+    }
+    function selSet(i, campo, v){
+      var s = SEL.props[i];
+      if (!s) return;
+      s[campo] = v;
+      // La cabecera de la tarjeta se pone al día sin repintar (no se pierde el foco).
+      if (campo === 'titulo' || campo === 'precio' || campo === 'moneda') {
+        var el = document.querySelector('#selProps .sel-prop[data-i="' + i + '"]');
+        if (el) {
+          var b = el.querySelector('.sel-txt b'), sp = el.querySelector('.sel-txt span');
+          if (b) b.textContent = String(s.titulo).trim() || 'Propiedad sin título';
+          if (sp) sp.textContent = selResumen(s);
+        }
+      }
+      selPreview();
+    }
+    // Un primer borrador del comentario, con lo que ya se cargó. El agente lo
+    // ajusta: es su opinión la que va en el documento.
+    function selTextoSugerido(s){
+      var dorm = String(s.dorm || '').trim(), n = amNum(dorm);
+      var para = dorm === '0' || n === 1 ? 'una persona sola o una pareja' : n === 2 ? 'una pareja o una familia chica' : n >= 3 ? 'una familia' : '';
+      var dest = selDestacados(s).slice(0, 3).map(function(x){ return /^[A-ZÁÉÍÓÚÑ]{2,}/.test(x) ? x : x.charAt(0).toLowerCase() + x.slice(1); });
+      var t = para ? 'Una buena opción para ' + para + '.' : 'Una opción a tener en cuenta en la zona.';
+      if (dest.length) {
+        var ult = dest[dest.length - 1];
+        // "y" pasa a "e" delante de i- / hi- (y no delante de hie-, hia-: "y hierro")
+        var y = /^h?[ií](?![aeoáéó])/i.test(ult) ? ' e ' : ' y ';
+        t += ' A favor: ' + (dest.length > 1 ? dest.slice(0, -1).join(', ') + y + ult : ult) + '.';
+      }
+      t += /^terreno/i.test(String(s.titulo || '').trim()) ? ' Recomendamos coordinar una visita para conocer el terreno y su entorno.'
+        : ' Recomendamos coordinar una visita para ver la distribución y el estado.';
+      return t;
+    }
+    function selSugerir(i){
+      var s = SEL.props[i], t = document.getElementById('sel' + i + 'c');
+      if (!s || !t) return;
+      var texto = selTextoSugerido(s);
+      t.focus();
+      t.select();
+      // insertText deja deshacer con Ctrl+Z; si el navegador no lo tiene, se escribe directo.
+      var hecho = false;
+      try { hecho = document.execCommand && document.execCommand('insertText', false, texto); } catch (e) { hecho = false; }
+      if (!hecho || t.value !== texto) { t.value = texto; selSet(i, 'comentario', texto); }
+    }
+    // Cuatro lugares para fotos: la principal (grande) y tres chicas.
+    function selCajaFoto(i, k, f){
+      var etq = k === 0 ? 'Foto principal' : 'Foto ' + (k + 1);
+      return '<div class="sel-foto-w' + (k === 0 ? ' principal' : '') + '"><button type="button" class="sel-foto" onclick="selElegirFoto(' + i + ',' + k + ')" ' +
+        'ondragover="amSobre(event,this)" ondragleave="this.classList.remove(\'sobre\')" ondrop="selSoltar(event,' + i + ',' + k + ',this)" aria-label="' + (f ? 'Cambiar la ' : 'Agregar la ') + etq.toLowerCase() + '">' +
+        (f ? '<img src="' + f.data + '" alt="">' : '<i class="fas fa-camera" aria-hidden="true"></i><span>' + etq + '</span>') + '</button>' +
+        (f ? '<button type="button" class="sel-x" onclick="selQuitarFoto(' + i + ',' + k + ')" aria-label="Quitar la ' + etq.toLowerCase() + '"><i class="fas fa-xmark" aria-hidden="true"></i></button>' : '') + '</div>';
+    }
+    function selPintarProps(){
+      var c = document.getElementById('selProps');
+      if (!c) return;
+      // Repintar no puede sacar a nadie de lo que está escribiendo (las fotos y el
+      // mapa llegan solos, en cualquier momento).
+      var foco = document.activeElement, idFoco = foco && foco.id && c.contains(foco) ? foco.id : '', ini = null, fin = null;
+      if (idFoco) { try { ini = foco.selectionStart; fin = foco.selectionEnd; } catch (e) { /* no es de texto */ } }
+      var n = SEL.props.length, alq = selEsAlquiler();
+      var opc = function(sel, lista){ return lista.map(function(o){ return '<option value="' + esc(o[0]) + '"' + (o[0] === sel ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join(''); };
+      var campo = function(i, k, etq, v, extra){ return '<div class="fld"><label for="sel' + i + k + '">' + etq + '</label><input id="sel' + i + k + '" value="' + esc(v) +
+        '" oninput="selSet(' + i + ',\'' + SEL_CAMPOS[k] + '\',this.value)" autocomplete="off"' + (extra || '') + '></div>'; };
+      c.classList.toggle('varias', n > 1);
+      c.innerHTML = SEL.props.map(function(p, i){
+        var mini = p.fotos[0] || p.fotos.filter(Boolean)[0];
+        var aviso = p.aviso ? '<div class="hint sel-aviso' + (p.cargando ? ' cargando' : '') + '" role="status">' + esc(p.aviso) + '</div>' : '';
+        return '<div class="ct-persona sel-prop' + (i === SEL.activa && n > 1 ? ' activa' : '') + '" data-i="' + i + '">' +
+          '<div class="sel-cab"><button type="button" class="sel-abrir" onclick="selAlternar(' + i + ')" aria-expanded="' + (p.abierta ? 'true' : 'false') + '" aria-controls="selCuerpo' + i + '">' +
+          '<span class="sel-mini">' + (mini ? '<img src="' + mini.data + '" alt="">' : '<i class="fas fa-house" aria-hidden="true"></i>') + '</span>' +
+          '<span class="sel-txt"><b>' + esc(String(p.titulo).trim() || 'Propiedad sin título') + '</b><span>' + esc(selResumen(p)) + '</span></span>' +
+          '<i class="fas fa-chevron-down" aria-hidden="true"></i></button>' +
+          '<span class="sel-mover"><button type="button" onclick="selMover(' + i + ',-1)" aria-label="Subir la propiedad ' + (i + 1) + '"' + (i ? '' : ' disabled') + '><i class="fas fa-arrow-up" aria-hidden="true"></i></button>' +
+          '<button type="button" onclick="selMover(' + i + ',1)" aria-label="Bajar la propiedad ' + (i + 1) + '"' + (i < n - 1 ? '' : ' disabled') + '><i class="fas fa-arrow-down" aria-hidden="true"></i></button></span></div>' +
+          (p.abierta ? '' : aviso) +
+          '<div class="sel-cuerpo" id="selCuerpo' + i + '"' + (p.abierta ? '' : ' hidden') + '>' +
+          '<div class="sel-fotos">' + p.fotos.map(function(f, k){ return selCajaFoto(i, k, f); }).join('') + '</div>' +
+          (aviso || '<div class="hint">Tocá una caja para elegir fotos (podés marcar varias), arrastralas encima o pegalas.</div>') +
+          '<div class="sel-campos">' + campo(i, 't', 'Título', p.titulo, ' placeholder="ej: Casa en Unión"') +
+          campo(i, 'd', 'Dirección o zona', p.dir) +
+          '<div class="row2">' + campo(i, 'p', alq ? 'Precio por mes' : 'Precio', p.precio, ' inputmode="numeric" placeholder="ej: 95000"') +
+          '<div class="fld"><label for="sel' + i + 'm">Moneda</label><select id="sel' + i + 'm" onchange="selSet(' + i + ',\'moneda\',this.value)">' + opc(p.moneda, [['USD', 'Dólares (USD)'], ['UYU', 'Pesos ($U)']]) + '</select></div></div>' +
+          '<div class="row2">' + campo(i, 'r', 'Dormitorios', p.dorm, ' inputmode="numeric" placeholder="0 = monoambiente"') + campo(i, 'b', 'Baños', p.banos, ' inputmode="numeric"') + '</div>' +
+          '<div class="row2">' + campo(i, 'e', 'm² edificados', p.m2, ' inputmode="decimal"') + campo(i, 'o', 'm² totales o terreno', p.m2Total, ' inputmode="decimal"') + '</div>' +
+          '<div class="row2"><div class="fld"><label for="sel' + i + 'g">Garaje</label><select id="sel' + i + 'g" onchange="selSet(' + i + ',\'garaje\',this.value)">' +
+          opc(p.garaje, [['', '—'], ['No', 'No'], ['Sí', 'Sí'], ['2 o más', '2 o más']]) + '</select></div>' + campo(i, 'x', 'Otras características', p.extras, ' placeholder="ej: patio, parrillero"') + '</div>' +
+          '<div class="fld"><label for="sel' + i + 'h">Destacados, uno por renglón (hasta 5)</label><textarea id="sel' + i + 'h" rows="4" oninput="selSet(' + i + ',\'destacados\',this.value)" placeholder="ej: Buena iluminación natural">' + esc(p.destacados) + '</textarea></div>' +
+          '<div class="fld"><label for="sel' + i + 'c">Comentario profesional</label><textarea id="sel' + i + 'c" rows="4" maxlength="480" oninput="selSet(' + i + ',\'comentario\',this.value)" placeholder="Tu opinión sobre esta propiedad para este cliente">' + esc(p.comentario) + '</textarea>' +
+          '<button type="button" class="iv-link" onclick="selSugerir(' + i + ')">Sugerir un texto</button></div></div>' +
+          '<button type="button" class="ct-del" onclick="selQuitar(' + i + ')"><i class="fas fa-trash" aria-hidden="true"></i> Quitar de la selección</button></div></div>';
+      }).join('');
+      if (idFoco) {
+        var e2 = document.getElementById(idFoco);
+        if (e2 && !e2.closest('[hidden]')) {
+          try { e2.focus({ preventScroll: true }); } catch (e) { e2.focus(); }
+          if (ini != null) { try { e2.setSelectionRange(ini, fin); } catch (e) { /* no es de texto */ } }
+        }
+      }
+    }
+    function selElegirFoto(i, k){
+      SEL.destino = [i, k];
+      var f = document.getElementById('selArchivo');
+      if (f) { f.value = ''; f.click(); }
+    }
+    function selArchivoElegido(input){
+      var fs = Array.prototype.slice.call(input.files || []);
+      if (fs.length && SEL.destino) selCargarArchivos(fs, SEL.destino[0], SEL.destino[1]);
+    }
+    function selSoltar(ev, i, k, el){
+      ev.preventDefault();
+      if (el) el.classList.remove('sobre');
+      var fs = Array.prototype.slice.call((ev.dataTransfer && ev.dataTransfer.files) || []);
+      if (fs.length) selCargarArchivos(fs, i, k);
+    }
+    function selQuitarFoto(i, k){ if (SEL.props[i]) { SEL.props[i].fotos[k] = null; selPintarProps(); selPreview(); } }
+    // Varias fotos de una vez: la primera va al lugar elegido y las demás, a los
+    // lugares libres que siguen.
+    function selCargarArchivos(archivos, i, k){
+      var s = SEL.props[i];
+      if (!s) return;
+      var imgs = archivos.filter(function(f){ return f && /^image\//.test(f.type || ''); });
+      if (!imgs.length) { toast('Elegí una imagen (JPG o PNG)', true); return; }
+      var lugares = [k];
+      for (var d = 1; d < 4 && lugares.length < imgs.length; d++) { var j = (k + d) % 4; if (!s.fotos[j]) lugares.push(j); }
+      if (imgs.length > lugares.length) toast('Entraron ' + lugares.length + ' de ' + imgs.length + ' fotos: cada propiedad lleva hasta 4.', true);
+      lugares.forEach(function(lugar, m){ selCargarArchivo(imgs[m], s, lugar); });
+    }
+    function selCargarArchivo(archivo, s, k){
+      var url = URL.createObjectURL(archivo);
+      s.cargando++;
+      selImagen(url).then(function(img){
+        try { s.fotos[k] = selFotoDe(img, k); if (/No se pudieron/.test(s.aviso)) s.aviso = ''; }
+        catch (e) { console.warn('Selección foto:', e); toast('No se pudo leer la foto', true); }
+      }, function(){ toast('No se pudo leer la foto. Probá con un JPG.', true); }).then(function(){
+        URL.revokeObjectURL(url);
+        s.cargando--;
+        if (SEL.props.indexOf(s) >= 0) { selPintarProps(); selPreview(); }
+      });
+    }
+    // Pegar una imagen (Ctrl+V) la pone en el primer lugar libre de la propiedad
+    // en la que se está trabajando. Pegar texto en un campo sigue siendo pegar texto.
+    document.addEventListener('paste', function(e){
+      if (_tipoActivo !== 'sel') return;
+      var items = (e.clipboardData && e.clipboardData.items) || [], archivos = [], hayTexto = false;
+      for (var x = 0; x < items.length; x++) {
+        if (items[x].kind === 'file' && /^image\//.test(items[x].type)) { var f = items[x].getAsFile(); if (f) archivos.push(f); }
+        else if (items[x].kind === 'string' && items[x].type === 'text/plain') hayTexto = true;
+      }
+      if (!archivos.length) return;
+      var t = e.target, enCampo = t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && !/^(button|file|checkbox|radio)$/i.test(t.type || '')));
+      if (enCampo && hayTexto) return;
+      e.preventDefault();
+      if (!SEL.props.length) selAgregarAMano();
+      var i = Math.max(0, Math.min(SEL.activa, SEL.props.length - 1)), s = SEL.props[i];
+      var k = s.fotos.indexOf(null);
+      if (k < 0) { toast('Esta propiedad ya tiene 4 fotos: quitá una para pegar otra.', true); return; }
+      if (!s.abierta) { s.abierta = true; selPintarProps(); }
+      selCargarArchivos(archivos, i, k);
+    });
+    // Mapa chico con los mosaicos de OpenStreetMap, los mismos de la ficha
+    // pública. Con la ubicación exacta lleva un pin; si no, la misma zona
+    // aproximada de la ficha (un círculo corrido, para que el centro no delate la casa).
+    function selMapa(lat, lng, exacto, pid){
+      return new Promise(function(resolve){
+        if (!isFinite(lat) || !isFinite(lng)) { resolve(null); return; }
+        var cLat = lat, cLng = lng;
+        if (!exacto) {
+          var h = 2166136261, sid = String(pid || 'x');
+          for (var q = 0; q < sid.length; q++) { h ^= sid.charCodeAt(q); h = Math.imul(h, 16777619) >>> 0; }
+          var ang = (h % 3600) / 3600 * 2 * Math.PI, dist = 60 + ((h >>> 12) % 81);   // metros
+          cLat = lat + dist * Math.cos(ang) / 111320;
+          cLng = lng + dist * Math.sin(ang) / (111320 * Math.cos(lat * Math.PI / 180));
+        }
+        var z = exacto ? 16 : 15, W = 600, H = 330, n = Math.pow(2, z), r = cLat * Math.PI / 180;
+        var px = (cLng + 180) / 360 * n * 256, py = (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n * 256;
+        var x0 = Math.round(px - W / 2), y0 = Math.round(py - H / 2);
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var cx = cv.getContext('2d'); cx.fillStyle = '#eef0f3'; cx.fillRect(0, 0, W, H);
+        var pendientes = 0, fallo = false, listo = false, reloj = null;
+        var terminar = function(){
+          if (listo) return;
+          listo = true;
+          clearTimeout(reloj);
+          if (fallo) { resolve(null); return; }
+          var mx = W / 2, my = H / 2;
+          if (exacto) {
+            cx.fillStyle = '#16273f';
+            cx.beginPath(); cx.arc(mx, my - 22, 13, Math.PI, 0); cx.lineTo(mx, my); cx.closePath(); cx.fill();
+            cx.fillStyle = '#C9A227'; cx.beginPath(); cx.arc(mx, my - 22, 5.5, 0, 2 * Math.PI); cx.fill();
+          } else {
+            var mpp = 156543.03392 * Math.cos(r) / n;   // metros por píxel
+            cx.beginPath(); cx.arc(mx, my, 260 / mpp, 0, 2 * Math.PI);
+            cx.fillStyle = 'rgba(22,39,63,.15)'; cx.fill();
+            cx.lineWidth = 2; cx.strokeStyle = 'rgba(22,39,63,.75)'; cx.stroke();
+          }
+          cx.font = '14px Helvetica, Arial, sans-serif';
+          var at = '© OpenStreetMap', aw = cx.measureText(at).width + 12;
+          cx.fillStyle = 'rgba(255,255,255,.88)'; cx.fillRect(W - aw, H - 21, aw, 21);
+          cx.fillStyle = '#333'; cx.fillText(at, W - aw + 6, H - 6);
+          try { resolve({ data: cv.toDataURL('image/jpeg', 0.85), id: 'selMapa' + (++SEL.sec) }); } catch (e) { resolve(null); }
+        };
+        for (var tx = Math.floor(x0 / 256); tx <= Math.floor((x0 + W - 1) / 256); tx++) {
+          for (var ty = Math.floor(y0 / 256); ty <= Math.floor((y0 + H - 1) / 256); ty++) {
+            pendientes++;
+            (function(tx, ty){
+              var im = new Image(); im.crossOrigin = 'anonymous';
+              im.onload = function(){ if (!listo) cx.drawImage(im, tx * 256 - x0, ty * 256 - y0); if (--pendientes === 0) terminar(); };
+              im.onerror = function(){ fallo = true; if (--pendientes === 0) terminar(); };
+              im.src = 'https://tile.openstreetmap.org/' + z + '/' + tx + '/' + ty + '.png';
+            })(tx, ty);
+          }
+        }
+        // Si el servidor de mapas no contesta, la hoja sale igual, sin mapa.
+        reloj = setTimeout(function(){ fallo = true; terminar(); }, 10000);
+      });
+    }
+    // Cada característica con su ícono: las de "Otras características" se
+    // reconocen por palabras clave; lo que no se reconoce lleva un tilde.
+    var SEL_ICONO_EXTRA = [
+      [/parril|barbacoa|asador|quincho/i, 'fuego'], [/piscina|pileta/i, 'piscina'], [/patio|jard[ií]n|parque/i, 'arbol'],
+      [/terraza|azotea|sol[aá]rium|deck/i, 'terraza'], [/balc[oó]n/i, 'edificio'], [/aire acond|a\/a|split/i, 'frio'],
+      [/calefacci|estufa|losa radiante|salamandra|chimenea|caldera/i, 'calor'], [/ascensor/i, 'ascensor'],
+      [/seguridad|porter[ií]a|vigilancia|alarma|c[aá]maras/i, 'seguridad'], [/mascota|perro|gato/i, 'mascota'],
+      [/lavadero|lavander/i, 'lavadero'], [/gimnasio|\bgym\b/i, 'gimnasio'], [/vista al mar|frente al mar|rambla|playa/i, 'agua'],
+      [/luminos|soleado|\bsol\b|orientaci/i, 'sol'], [/dep[oó]sito|baulera|trastero/i, 'deposito'], [/placard|vestidor|ropero|armario/i, 'placard'],
+      [/cocina|kitchenette/i, 'cocina'], [/wi-?fi|internet|fibra/i, 'wifi'], [/escalera|d[uú]plex|dos plantas|2 plantas/i, 'escalera'],
+      [/amoblad|amueblad|muebles/i, 'sillon'], [/cochera|garaje|garage|\bbox\b|estacionamiento/i, 'auto']
+    ];
+    function selIconoExtra(t){
+      for (var i = 0; i < SEL_ICONO_EXTRA.length; i++) if (SEL_ICONO_EXTRA[i][0].test(t)) return SEL_ICONO_EXTRA[i][1];
+      return 'check';
+    }
+    function selCaracteristicas(p){
+      var L = [], dorm = String(p.dorm || '').trim(), nd = amNum(dorm), nb = amNum(p.banos), m2 = amNum(p.m2), m2t = amNum(p.m2Total);
+      var poner = function(t, ico){ L.push({ t: t, ico: ico }); };
+      if (dorm === '0') poner('Monoambiente', 'cama'); else if (nd) poner(amFmt(nd) + (nd === 1 ? ' dormitorio' : ' dormitorios'), 'cama');
+      if (nb) poner(amFmt(nb) + (nb === 1 ? ' baño' : ' baños'), 'bano');
+      if (m2) poner(amFmt(m2) + ' m² edificados', 'regla');
+      if (m2t) poner(amFmt(m2t) + ' m² totales', 'terreno');
+      if (p.garaje === 'Sí') poner('Garaje', 'auto'); else if (p.garaje === '2 o más') poner('Garaje para 2 o más autos', 'auto');
+      String(p.extras || '').split(/[,;\n]+/).forEach(function(x){ x = x.trim(); if (x) poner(x.charAt(0).toUpperCase() + x.slice(1), selIconoExtra(x)); });
+      return L.slice(0, 9);
+    }
+    function selDestacados(p){
+      return String(p.destacados || '').split('\n').map(function(x){ return x.trim().replace(/^[-–•*·✓✔]+\s*/, '').replace(/[.;,]+$/, ''); })
+        .filter(Boolean).slice(0, 5).map(function(x){ return x.charAt(0).toUpperCase() + x.slice(1); });
+    }
+    function selDatos(){
+      return {
+        cliente: amVal('selCliente'), fecha: fechaLarga(amVal('selFecha')), zona: amVal('selZona'), rango: amVal('selRango'),
+        alquiler: selEsAlquiler(), agente: selAgenteSel(),
+        props: SEL.props.filter(function(p){ return String(p.titulo || '').trim() || String(p.dir || '').trim() || amNum(p.precio) || p.fotos.some(Boolean); })
+      };
+    }
+    function selPreview(){ pedirPortada('sel'); prepararIconos(); vistaPrevia('sel', selConstruirPDF, 350); }
+    function selGenerarPDF(){
+      var d = selDatos();
+      if (!d.props.length) { toast('Agregá al menos una propiedad', true); return; }
+      if (SEL.props.some(function(s){ return s.cargando > 0; })) { toast('Todavía se están cargando fotos o mapas. Probá en unos segundos.', true); return; }
+      var nombre = String(d.cliente || '');
+      try { nombre = nombre.normalize('NFD').replace(/[̀-ͯ]/g, ''); } catch (e) { /* navegador viejo */ }
+      nombre = nombre.replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
+      selConstruirPDF().save('Seleccion_de_propiedades' + (nombre ? '_' + nombre : '') + '.pdf');
+      toast('Documento generado');
+    }
+
+    // ---- El PDF ----
+    function selConstruirPDF(){
+      var pdf = nuevoPDF();
+      var W = 595.28, M = 54, ancho = W - M * 2, pieY = 800;
+      var NAVY = [22,39,63], GREY = [95,106,128], INK = [26,38,58], ORO = [201,162,39], LINEA = [226,230,236], SUAVE = [245,247,250], BLANCO = [255,255,255];
+      var d = selDatos(), n = d.props.length, pagina = 1;
+      var tinta = function(c){ pdf.setTextColor(c[0], c[1], c[2]); };
+      var relleno = function(c){ pdf.setFillColor(c[0], c[1], c[2]); };
+      var trazo = function(c){ pdf.setDrawColor(c[0], c[1], c[2]); };
+      var letra = function(estilo, tam){ pdf.setFont('helvetica', estilo); pdf.setFontSize(tam); };
+      var foto = function(f, x, y, w, h){ if (f) { try { pdf.addImage(f.data, 'JPEG', x, y, w, h, f.id, _pdfBorrador ? 'NONE' : 'FAST'); } catch (e) { console.warn('Selección foto:', e); } } };
+      var plata = function(p){ var v = amNum(p.precio); return v ? (p.moneda === 'UYU' ? '$U ' : 'USD ') + amMiles(v) + (d.alquiler ? ' por mes' : '') : ''; };
+      function pie(){
+        trazo(NAVY); pdf.setLineWidth(1); pdf.line(M, pieY, W - M, pieY);
+        letra('normal', 8); tinta(GREY);
+        pdf.text(EMPRESA.direccion + '   |   ' + EMPRESA.celular + '   |   ' + EMPRESA.email, W / 2, pieY + 13, { align: 'center' });
+        pdf.text('Página ' + pagina, W - M, pieY + 13, { align: 'right' });
+      }
+
+      // ---- Portada ----
+      // Como el diseño de la agencia: la foto de edificios de fondo, un panel claro
+      // en diagonal con la marca, el título y los datos, y abajo una franja azul.
+      var hF = 731, AZUL = [12,28,54], ORO2 = [156,122,18];
+      if (PORTADAS.sel.foto) foto(PORTADAS.sel.foto, 0, 0, W, hF);
+      else { relleno([206,218,232]); pdf.rect(0, 0, W, hF, 'F'); }
+      pdf.saveGraphicsState();
+      pdf.setGState(new pdf.GState({ opacity: 0.9 }));
+      relleno(BLANCO); pdf.lines([[223, 0], [140, 373], [-153, 358], [-210, 0]], 0, 0, [1, 1], 'F', true);
+      pdf.restoreGraphicsState();
+      var bordePanel = function(yy){ return yy <= 373 ? 223 + yy * 140 / 373 : 363 - (yy - 373) * 153 / 358; };
+      var cxm = 123;
+      if (_logoImg) { try { ponerLogo(pdf, cxm - 42, 42, 84, 74); } catch (e) { /* sin logo */ } }
+      marcaCentrada(pdf, cxm, 128, 166, INK);
+      trazo(INK); pdf.setLineWidth(0.9); pdf.line(cxm - 22, 167, cxm + 22, 167);
+      letra('normal', 7.5); tinta(INK); textoEspaciado(pdf, 'ASESORÍA INMOBILIARIA', cxm, 181, 1.2);
+      trazo(ORO); pdf.setLineWidth(2); pdf.line(25, 232, 93, 232);
+      pdf.setFont('times', 'bold'); tinta(NAVY);
+      pdf.setFontSize(34); pdf.text('SELECCIÓN DE', 25, 284);
+      pdf.setFontSize(43); pdf.text('PROPIEDADES', 25, 332);
+      trazo(ORO); pdf.setLineWidth(0.8); pdf.line(25, 354, 330, 354);
+      letra('bold', 10.5); tinta(ORO2); pdf.text('PRESENTACIÓN PERSONALIZADA', 25, 378, { charSpace: 0.8 });
+      var filas = [['persona', 'Cliente', d.cliente], ['calendario', 'Fecha', d.fecha], ['pin', 'Zona buscada', d.zona],
+        ['plata', d.alquiler ? 'Presupuesto por mes' : 'Rango de inversión', d.rango]].filter(function(f){ return f[2]; });
+      filas.forEach(function(f, i){
+        var cy = 430 + i * 62;
+        relleno(NAVY); pdf.circle(44, cy, 19, 'F');
+        iconoPDF(pdf, f[0], 44, cy, 19, BLANCO, NAVY);
+        letra('normal', 9.5); tinta(GREY); pdf.text(f[1] + ':', 75, cy - 4);
+        letra('bold', 11.5); tinta(NAVY); pdf.text(ajustarTexto(pdf, f[2], bordePanel(cy + 12) - 75 - 12, 11.5, 9), 75, cy + 12);
+        if (i < filas.length - 1) { trazo([214,219,226]); pdf.setLineWidth(0.6); pdf.line(25, cy + 31, Math.min(222, bordePanel(cy + 31) - 12), cy + 31); }
+      });
+      // La franja de abajo: para qué es el documento y quién lo prepara.
+      relleno(AZUL); pdf.rect(0, hF, W, 841.89 - hF, 'F');
+      iconoPDF(pdf, 'casa', 41, 786, 30, ORO, AZUL);
+      trazo(ORO); pdf.setLineWidth(0.8); pdf.line(72, 764, 72, 808);
+      letra('normal', 10); tinta(BLANCO);
+      pdf.text(pdf.splitTextToSize('Propiedades seleccionadas según los criterios de búsqueda, presupuesto y preferencias indicadas por el cliente.', 228), 88, 773, { lineHeightFactor: 1.45 });
+      trazo([60,80,110]); pdf.setLineWidth(0.6); pdf.line(340, 764, 340, 808);
+      letra('bold', 7.5); tinta(ORO); pdf.text('TU AGENTE', 358, 770, { charSpace: 0.8 });
+      letra('bold', 12); tinta(BLANCO); pdf.text(ajustarTexto(pdf, d.agente.name, W - 358 - 22, 12, 9.5), 358, 787);
+      letra('normal', 9); tinta([196,206,222]);
+      [d.agente.tel, d.agente.email].filter(Boolean).forEach(function(c, k){ pdf.text(ajustarTexto(pdf, c, W - 358 - 22, 9, 7.5), 358, 801 + k * 12); });
+
+      // ---- Una hoja por propiedad ----
+      d.props.forEach(function(p, i){
+        if (pagina > 1) pie();          // la portada no lleva pie
+        pdf.addPage(); pagina++;
+        var y = 56, xTxt = M;
+        if (_logoImg) { try { ponerLogo(pdf, M, y - 21, 30, 26); xTxt = M + 38; } catch (e) { /* sin logo */ } }
+        letra('bold', 9.5); tinta(INK); pdf.text(EMPRESA.nombre, xTxt, y);
+        var libre = W - M - (xTxt + pdf.getTextWidth(EMPRESA.nombre)) - 24;
+        letra('normal', 8.5); tinta(GREY);
+        pdf.text(pdf.splitTextToSize('Selección de propiedades' + (d.cliente ? ' · Para ' + d.cliente : ''), libre)[0], W - M, y, { align: 'right' });
+        trazo(NAVY); pdf.setLineWidth(0.8); pdf.line(M, y + 11, W - M, y + 11);
+        y = 82;
+        // Fotos: la principal a todo el ancho, con el número de la propiedad
+        // encima, y abajo hasta tres chicas.
+        var etq = 'Propiedad ' + (i + 1) + ' de ' + n;
+        var principal = p.fotos[0], chicas = p.fotos.slice(1).filter(Boolean);
+        if (principal) {
+          var hp = ancho / SEL_RATIO;
+          foto(principal, M, y, ancho, hp);
+          letra('bold', 8.5); var tw = pdf.getTextWidth(etq);
+          relleno(NAVY); pdf.rect(M, y, tw + 20, 21, 'F');
+          tinta(BLANCO); pdf.text(etq, M + 10, y + 14);
+          y += hp + 8;
+        } else {
+          letra('bold', 9); tinta(ORO); pdf.text(etq, M, y + 10);
+          y += 22;
+        }
+        if (chicas.length) {
+          var cw = (ancho - 16) / 3, ch = cw * 9 / 16;
+          chicas.forEach(function(f, j){ foto(f, M + j * (cw + 8), y, cw, ch); });
+          y += ch + 8;
+        }
+        y += 22;
+        // Título y precio en la misma línea; abajo, la dirección.
+        var precioTxt = plata(p);
+        letra('bold', 17);
+        var pw = precioTxt ? pdf.getTextWidth(precioTxt) + 24 : 0;
+        var lt = pdf.splitTextToSize(String(p.titulo || '').trim() || 'Propiedad ' + (i + 1), ancho - pw).slice(0, 2);
+        tinta(NAVY); pdf.text(lt, M, y);
+        if (precioTxt) pdf.text(precioTxt, W - M, y, { align: 'right' });
+        y += (lt.length - 1) * 19.5;
+        var dir = String(p.dir || '').trim();
+        if (dir) {
+          y += 17;
+          iconoPDF(pdf, 'pin', M + 4.5, y - 3.6, 10, GREY, BLANCO);
+          letra('normal', 10); tinta(GREY); pdf.text(pdf.splitTextToSize(dir, ancho - 14)[0], M + 14, y);
+        }
+        y += 14; trazo(LINEA); pdf.setLineWidth(0.8); pdf.line(M, y, W - M, y); y += 24;
+        // Dos columnas: características | destacados y mapa. Si no hay
+        // características, lo demás ocupa su lugar.
+        var items = selCaracteristicas(p), dest = selDestacados(p);
+        var colL = 250, xR = items.length ? M + colL + 24 : M, colR = ancho - colL - 24, yL = y, yR = y;
+        // Los títulos de cada bloque, con su ícono.
+        var rotulo = function(t, ico, x, yy){ iconoPDF(pdf, ico, x + 4.5, yy - 3.2, 9.5, ORO, BLANCO); letra('bold', 9); tinta(ORO); pdf.text(t, x + 13, yy); };
+        if (items.length) {
+          rotulo('Características', 'lista', M, yL); yL += 18;
+          items.forEach(function(it){
+            iconoPDF(pdf, it.ico, M + 6, yL - 3.6, 11, NAVY, BLANCO);
+            letra('normal', 10); tinta(INK); pdf.text(pdf.splitTextToSize(it.t, colL - 20)[0], M + 18, yL);
+            yL += 16;
+          });
+        }
+        if (dest.length) {
+          rotulo('Destacados', 'estrella', xR, yR); yR += 18;
+          dest.forEach(function(t){
+            iconoPDF(pdf, 'check', xR + 5.5, yR - 3.6, 11, ORO, BLANCO);
+            letra('normal', 10); tinta(INK);
+            var ld = pdf.splitTextToSize(t, colR - 18).slice(0, 2);
+            pdf.text(ld, xR + 17, yR);
+            yR += 16 + (ld.length - 1) * 11.5;
+          });
+        }
+        // El comentario va abajo, a todo el ancho. Primero se ve cuánto ocupa,
+        // para saber cuánto lugar le queda al mapa.
+        var com = String(p.comentario || '').trim();
+        letra('normal', 10);
+        var lc = com ? pdf.splitTextToSize(com, ancho - 74) : [];      // a la izquierda va el ícono del agente
+        var hcom = lc.length ? 34 + Math.min(lc.length, 6) * 13 : 0;
+        var tope = pieY - 14 - (hcom ? hcom + 16 : 0);
+        if (p.mapa) {
+          // En la columna de los destacados; si ahí no entra, debajo de las características.
+          var lugares = [[xR, yR + (dest.length ? 8 : 0), colR]];
+          if (items.length) lugares.push([M, yL + 8, colL]);
+          lugares.some(function(l){
+            var nota = p.exacto ? 0 : 13;
+            var hm = Math.min(l[2] * 0.55, tope - (l[1] + 8) - nota);
+            if (hm < 70) return false;
+            rotulo('Ubicación', 'pin', l[0], l[1]);
+            foto(p.mapa, l[0], l[1] + 8, hm / 0.55, hm);
+            var fin = l[1] + 8 + hm;
+            if (!p.exacto) { letra('italic', 8); tinta(GREY); pdf.text('La zona marcada es aproximada.', l[0], fin + 11); fin += 13; }
+            if (l[0] === M && items.length) yL = fin; else yR = fin;
+            return true;
+          });
+        }
+        if (lc.length) {
+          var yc = Math.max(yL, yR) + 16;
+          var maxL = Math.max(1, Math.floor((pieY - 14 - yc - 34) / 13));
+          if (lc.length > maxL) { lc = lc.slice(0, maxL); lc[maxL - 1] = lc[maxL - 1].replace(/\s+\S*$/, '') + '…'; }
+          var hc = 34 + lc.length * 13;
+          relleno(SUAVE); pdf.roundedRect(M, yc, ancho, hc, 6, 6, 'F');
+          relleno(ORO); pdf.rect(M, yc, 3, hc, 'F');
+          var cyA = yc + Math.min(hc / 2, 30);
+          relleno(NAVY); pdf.circle(M + 32, cyA, 16, 'F');
+          iconoPDF(pdf, 'agente', M + 32, cyA, 17, BLANCO, NAVY);
+          letra('bold', 10.5); tinta(NAVY); pdf.text('Comentario profesional', M + 60, yc + 19);
+          letra('normal', 10); tinta(INK); pdf.text(lc, M + 60, yc + 36, { lineHeightFactor: 1.3 });
+        }
+      });
+      if (!n) {
+        pdf.addPage(); pagina++;
+        letra('normal', 11); tinta(GREY);
+        pdf.text('Agregá propiedades en el formulario: cada una va en su hoja.', M, 120);
+      }
       pie();
       return pdf;
     }
@@ -6265,7 +7244,8 @@
       mediacion:   'todos',
       inventario:  'todos',
       propietario: 'todos',
-      ami:         'todos'
+      ami:         'todos',
+      sel:         'todos'
     };
     var esAdmin = false;
     function puede(tipo){ return PERMISOS[tipo] === 'todos' || esAdmin; }
@@ -6325,13 +7305,14 @@
         b.classList.toggle('active', elegido);
         b.setAttribute('aria-pressed', String(elegido));
       });
-      _tipoActivo = (t==='contrato' || t==='mediacion' || t==='propietario' || t==='inventario' || t==='ami') ? t : 'carta_pago';
+      _tipoActivo = (t==='contrato' || t==='mediacion' || t==='propietario' || t==='inventario' || t==='ami' || t==='sel') ? t : 'carta_pago';
       document.getElementById('formCartaPago').style.display = _tipoActivo==='carta_pago'?'':'none';
       document.getElementById('formContrato').style.display = _tipoActivo==='contrato'?'':'none';
       document.getElementById('formMediacion').style.display = _tipoActivo==='mediacion'?'':'none';
       document.getElementById('formPropietario').style.display = _tipoActivo==='propietario'?'':'none';
       document.getElementById('formInventario').style.display = _tipoActivo==='inventario'?'':'none';
       document.getElementById('formAMI').style.display = _tipoActivo==='ami'?'':'none';
+      document.getElementById('formSeleccion').style.display = _tipoActivo==='sel'?'':'none';
       // Arriba del formulario: el título y la descripción del documento elegido.
       // Las secciones del formulario quedan en la columna de documentos.
       var elegida = document.querySelector('.doc-type.active span'), desc = document.getElementById('docDesc');
@@ -6358,6 +7339,7 @@
       else if(_tipoActivo==='propietario'){ ipInit(); ipPreview(); }
       else if(_tipoActivo==='inventario'){ ivInit(); ivPreview(); }
       else if(_tipoActivo==='ami'){ amInit(); amPreview(); }
+      else if(_tipoActivo==='sel'){ selInit(); selPreview(); }
       else { renderPreview(); }
       docMarcarSeccion();
     }
@@ -6376,7 +7358,7 @@
     }
     function docPanel(){
       return document.getElementById({ carta_pago:'formCartaPago', contrato:'formContrato', mediacion:'formMediacion',
-        propietario:'formPropietario', inventario:'formInventario', ami:'formAMI' }[_tipoActivo]);
+        propietario:'formPropietario', inventario:'formInventario', ami:'formAMI', sel:'formSeleccion' }[_tipoActivo]);
     }
     // Las secciones numeradas del formulario elegido ("1 Partes", "2 Inmueble"…).
     function docSecciones(){
@@ -6826,6 +7808,7 @@
       if(_cmListo) cmPintarAgentes();
       if(_ipListo) ipPintarAgentes();
       if(_amListo) amPintarDatos();
+      if(_selListo) selPintarDatos();
       // La hoja se arma de nuevo: puede haber cambiado el agente, o la dirección
       // de la propiedad elegida.
       refrescarVista();
@@ -6837,8 +7820,19 @@
       var u = d.data() || {};
       return { id:d.id, name:u.name || '', tel:u.whatsapp || u.phone || '', email:u.email || '' };
     }
+    // La dirección como la muestra la ficha pública: con el número de puerta solo
+    // si el agente eligió mostrar el punto exacto ("Pin en InfoCasas: Punto exacto").
+    function direccionPublica(p, exacto){
+      var u = p.ubicacion || {}, ft = p.features || {};
+      var calle = String(u.calle || '').trim(), nro = String(u.numero || '').trim();
+      if (calle) return exacto && nro ? calle + ' ' + nro : calle;
+      var dir = String(p.direccion || '').trim(), n = String(ft.numeroPuerta || '').trim();
+      return exacto && n && dir && dir.indexOf(n) < 0 ? dir + ' ' + n : dir;
+    }
     function propLiviana(d){
       var p = d.data() || {}, ub = p.ubicacion || {}, fc = p.ficha || {}, ft = p.features || {};
+      var exacto = fc.IC_UBICACION === 'Punto exacto', lat = Number(ub.lat), lng = Number(ub.lng);
+      var hayPin = ub.lat != null && ub.lng != null && ub.lat !== '' && ub.lng !== '' && isFinite(lat) && isFinite(lng);
       // Dirección REAL (campos en español del sistema): calle + ciudad + depto.
       // NO usar el título como dirección (era el bug: ponía "Alquiler de Apto…").
       var ciudadDepto = (p.ciudad && p.departamento) ? (p.ciudad+', '+p.departamento) : (p.location||'');
@@ -6848,10 +7842,12 @@
         garage:p.garage || '', propertyType:p.propertyType || '', price:Number(p.price) || 0, currency:p.currency || '',
         builtArea:Number(p.builtArea) || 0, totalArea:Number(p.totalArea) || 0, terreno:Number(fc.LAND_AREA || ft.superficieTerreno) || 0,
         cocheras:Number(fc.PARKING_LOTS || ft.cocheras) || 0, antiguedad:Number(fc.PROPERTY_AGE || ft.antiguedad) || 0,
+        dirPublica:direccionPublica(p, exacto), exacto:exacto, lat:hayPin ? lat : null, lng:hayPin ? lng : null,
+        fotos:Array.isArray(p.images) ? p.images.length : 0,
         _dir:[p.direccion, ciudadDepto].filter(Boolean).join(', ') };
     }
     async function cargarDatos(uid){
-      var clave = 'mvDocsDatos_v1_' + (uid || '');
+      var clave = 'mvDocsDatos_v2_' + (uid || '');
       var huella = function(){ return JSON.stringify([agentes, props]); };
       var pintado = null;
       // 1) Lo de la visita anterior en esta misma pestaña: al instante.
