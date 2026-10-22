@@ -65,6 +65,11 @@
       border-radius:0 999px 999px 0; background:none; color:var(--txt-2); font-size:.9rem; font-weight:500; line-height:1.25; text-align:left; cursor:pointer;
       transition:background .15s; }
     .doc-type[hidden]{ display:none; }
+    /* Grupos por etapa: un nombre chico arriba y un poco de aire entre uno y otro. */
+    .doc-grupo{ display:flex; flex-direction:column; gap:2px; }
+    .doc-grupo[hidden]{ display:none; }
+    .doc-grupo:not([hidden]) ~ .doc-grupo{ margin-top:18px; }
+    .doc-grupo-tit{ padding:0 12px 6px 20px; font-size:.75rem; font-weight:600; line-height:1.3; color:var(--muted); }
     .doc-type i{ flex:none; width:18px; text-align:center; font-size:.95rem; color:#5f6368; }
     .doc-type b{ font-weight:inherit; }
     .doc-type small, .doc-type span{ display:none; }
@@ -376,6 +381,12 @@
       .doc-type i{ font-size:1.05rem; width:auto; }
       .doc-type b{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
       .doc-indice{ display:none !important; }
+      /* Sin lugar para el nombre del grupo: queda para el lector de pantalla y
+         los grupos se separan con una raya corta. */
+      .doc-grupo{ position:relative; }
+      .doc-grupo:not([hidden]) ~ .doc-grupo{ margin-top:0; }
+      .doc-grupo:not([hidden]) ~ .doc-grupo::before{ content:''; display:block; height:1px; margin:7px 12px; background:var(--line-2); }
+      .doc-grupo-tit{ position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
       .doc-form{ padding:28px 30px 56px; }
     }
     @media (min-width:861px) and (max-width:1300px){
@@ -406,6 +417,12 @@
       .doc-type b{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
       .doc-type small{ display:inline; font-size:.88rem; font-weight:inherit; }
       .doc-indice{ display:none !important; }
+      /* Las pestañas siguen en una sola fila: los grupos no arman caja y, entre
+         uno y otro, queda una rayita vertical. */
+      .doc-grupo{ display:contents; }
+      .doc-grupo-tit{ display:none; }
+      .doc-grupo:not([hidden]) ~ .doc-grupo .doc-grupo-tit{ display:block; flex:none; align-self:center; width:1px; height:20px; margin:0 4px; padding:0;
+        overflow:hidden; font-size:0; line-height:0; color:transparent; background:var(--line-2); }
       .doc-form{ padding:22px 16px 8px; }
       .doc-cab{ margin-bottom:20px; }
       .doc-cab h1{ font-size:1.85rem; }
@@ -588,46 +605,59 @@
            botón "Ver la hoja". -->
       <div class="app">
         <nav class="doc-lado" aria-label="Documentos">
-          <!-- El <b> es el nombre del documento (el que usa el aviso de permisos);
-               el <small>, el nombre corto de las pestañas del celular; el <span>,
-               la descripción que va debajo del título. Las secciones del elegido
-               (#docIndice) se ubican debajo de su botón. -->
+          <!-- Ordenados por etapa de la operación: para captar la propiedad, para
+               el cliente que busca y para cerrar. La página abre en el primero de
+               la lista que cada uno puede usar; un grupo sin documentos para ese
+               rol no se muestra.
+               En cada botón, el <b> es el nombre del documento (el que usa el aviso
+               de permisos); el <small>, el nombre corto de las pestañas del
+               celular; el <span>, la descripción que va debajo del título. Las
+               secciones del elegido (#docIndice) se ubican debajo de su botón. -->
           <div class="doc-types" role="group" aria-label="Tipo de documento">
-            <button type="button" class="doc-type active" data-type="carta_pago" aria-pressed="true" onclick="selectType('carta_pago')" title="Comisión">
-              <i class="fas fa-hand-holding-dollar" aria-hidden="true"></i>
-              <b>Comisión</b><small>Comisión</small>
-              <span>Recibo de reserva al señar, o carta de pago al firmar y saldar.</span>
-            </button>
-            <button type="button" class="doc-type" data-type="contrato" aria-pressed="false" onclick="selectType('contrato')" title="Contrato de arrendamiento">
-              <i class="fas fa-file-contract" aria-hidden="true"></i>
-              <b>Contrato de arrendamiento</b><small>Contrato</small>
-              <span>Vivienda o comercial. Las cláusulas se numeran solas.</span>
-            </button>
-            <button type="button" class="doc-type" data-type="mediacion" aria-pressed="false" onclick="selectType('mediacion')" title="Compromiso de mediación">
-              <i class="fas fa-handshake" aria-hidden="true"></i>
-              <b>Compromiso de mediación</b><small>Mediación</small>
-              <span>Encargo de venta o alquiler, en exclusiva o no.</span>
-            </button>
-            <button type="button" class="doc-type" data-type="inventario" aria-pressed="false" onclick="selectType('inventario')" title="Inventario del inmueble">
-              <i class="fas fa-clipboard-list" aria-hidden="true"></i>
-              <b>Inventario del inmueble</b><small>Inventario</small>
-              <span>El estado de cada cosa, ambiente por ambiente. Se completa acá o se imprime en blanco.</span>
-            </button>
-            <button type="button" class="doc-type" data-type="propietario" aria-pressed="false" onclick="selectType('propietario')" title="Información al propietario">
-              <i class="fas fa-circle-info" aria-hidden="true"></i>
-              <b>Información al propietario</b><small>Propietario</small>
-              <span>Cómo trabaja la agencia en un arrendamiento. Se entrega al captar.</span>
-            </button>
-            <button type="button" class="doc-type" data-type="ami" aria-pressed="false" onclick="selectType('ami')" title="Análisis del mercado inmobiliario">
-              <i class="fas fa-chart-column" aria-hidden="true"></i>
-              <b>Análisis de mercado (AMI)</b><small>AMI</small>
-              <span>Para la primera reunión con el propietario: qué se ofrece en la zona y a qué precio. No es una tasación.</span>
-            </button>
-            <button type="button" class="doc-type" data-type="sel" aria-pressed="false" onclick="selectType('sel')" title="Selección de propiedades">
-              <i class="fas fa-house-circle-check" aria-hidden="true"></i>
-              <b>Selección de propiedades</b><small>Selección</small>
-              <span>Para el cliente que busca: una hoja por propiedad, con fotos, características y tu comentario.</span>
-            </button>
+            <div class="doc-grupo" role="group" aria-labelledby="grupoCaptacion">
+              <p class="doc-grupo-tit" id="grupoCaptacion">Captación</p>
+              <button type="button" class="doc-type" data-type="ami" aria-pressed="false" onclick="selectType('ami')" title="Análisis del mercado inmobiliario">
+                <i class="fas fa-chart-column" aria-hidden="true"></i>
+                <b>Análisis de mercado (AMI)</b><small>AMI</small>
+                <span>Para la primera reunión con el propietario: qué se ofrece en la zona y a qué precio. No es una tasación.</span>
+              </button>
+              <button type="button" class="doc-type" data-type="propietario" aria-pressed="false" onclick="selectType('propietario')" title="Información al propietario">
+                <i class="fas fa-circle-info" aria-hidden="true"></i>
+                <b>Información al propietario</b><small>Propietario</small>
+                <span>Cómo trabaja la agencia en un arrendamiento. Se entrega al captar.</span>
+              </button>
+              <button type="button" class="doc-type" data-type="mediacion" aria-pressed="false" onclick="selectType('mediacion')" title="Compromiso de mediación">
+                <i class="fas fa-handshake" aria-hidden="true"></i>
+                <b>Compromiso de mediación</b><small>Mediación</small>
+                <span>Encargo de venta o alquiler, en exclusiva o no.</span>
+              </button>
+            </div>
+            <div class="doc-grupo" role="group" aria-labelledby="grupoBusqueda">
+              <p class="doc-grupo-tit" id="grupoBusqueda">Búsqueda</p>
+              <button type="button" class="doc-type" data-type="sel" aria-pressed="false" onclick="selectType('sel')" title="Selección de propiedades">
+                <i class="fas fa-house-circle-check" aria-hidden="true"></i>
+                <b>Selección de propiedades</b><small>Selección</small>
+                <span>Para el cliente que busca: una hoja por propiedad, con fotos, características y tu comentario.</span>
+              </button>
+            </div>
+            <div class="doc-grupo" role="group" aria-labelledby="grupoCierre">
+              <p class="doc-grupo-tit" id="grupoCierre">Cierre</p>
+              <button type="button" class="doc-type active" data-type="carta_pago" aria-pressed="true" onclick="selectType('carta_pago')" title="Comisión">
+                <i class="fas fa-hand-holding-dollar" aria-hidden="true"></i>
+                <b>Comisión</b><small>Comisión</small>
+                <span>Recibo de reserva al señar, o carta de pago al firmar y saldar.</span>
+              </button>
+              <button type="button" class="doc-type" data-type="contrato" aria-pressed="false" onclick="selectType('contrato')" title="Contrato de arrendamiento">
+                <i class="fas fa-file-contract" aria-hidden="true"></i>
+                <b>Contrato de arrendamiento</b><small>Contrato</small>
+                <span>Vivienda o comercial. Las cláusulas se numeran solas.</span>
+              </button>
+              <button type="button" class="doc-type" data-type="inventario" aria-pressed="false" onclick="selectType('inventario')" title="Inventario del inmueble">
+                <i class="fas fa-clipboard-list" aria-hidden="true"></i>
+                <b>Inventario del inmueble</b><small>Inventario</small>
+                <span>El estado de cada cosa, ambiente por ambiente. Se completa acá o se imprime en blanco.</span>
+              </button>
+            </div>
             <ol class="doc-indice" id="docIndice" aria-label="Secciones del documento" hidden></ol>
           </div>
         </nav>
@@ -1077,10 +1107,6 @@
             </div></div>
           <div class="fld"><label for="ivDireccion">Dirección</label><input id="ivDireccion" autocomplete="off"></div>
           <div class="row2">
-            <div class="fld"><label for="ivArrendador">Arrendador</label><input id="ivArrendador" autocomplete="off"></div>
-            <div class="fld"><label for="ivArrendatario">Arrendatario</label><input id="ivArrendatario" autocomplete="off"></div>
-          </div>
-          <div class="row2">
             <div class="fld"><label for="ivTipo">Tipo de inmueble</label><input id="ivTipo" placeholder="Casa / Apartamento" autocomplete="off"></div>
             <div class="fld"><label for="ivLlaves">Juegos de llaves</label><input id="ivLlaves" autocomplete="off"></div>
           </div>
@@ -1127,6 +1153,15 @@
           <div class="fld"><textarea id="ivObs" rows="3" maxlength="900" placeholder="Lo que valga para toda la propiedad: medidores, llaves, limpieza, lo que queda pendiente de arreglar…" aria-label="Observaciones generales" aria-describedby="ivObsAviso"></textarea>
             <div class="hint iv-obs-aviso" id="ivObsAviso" hidden>En la hoja entran 30 renglones: lo que pase de ahí no sale (termina en “…”). Acortalo o pasá lo que sea de una cosa a su renglón.</div></div>
           <label class="iv-check"><input type="checkbox" id="ivOmitir"> <span>Dejar fuera de la hoja lo marcado como “no tiene”</span></label>
+
+          <!-- Los nombres van solo al pie, debajo de cada firma (antes se repetían
+               arriba, en los datos de la hoja). -->
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">5</span><span class="ct-tit">Firmas</span></div>
+          <p class="iv-leyenda">Firman al pie de cada hoja. Si cargás los nombres, salen impresos debajo de cada firma; si no, se escriben a mano.</p>
+          <div class="row2">
+            <div class="fld"><label for="ivArrendador">Arrendador</label><input id="ivArrendador" autocomplete="off"></div>
+            <div class="fld"><label for="ivArrendatario">Arrendatario</label><input id="ivArrendatario" autocomplete="off"></div>
+          </div>
 
           <button class="gen-btn" onclick="generarActivo()"><i class="fas fa-file-arrow-down"></i> Descargar inventario</button>
         </div>
@@ -5664,7 +5699,8 @@
       var y=membrete();
 
       // ---- Datos de la entrega ----
-      // Un dato que no entra en su renglón (una dirección larga, dos titulares)
+      // Arrendador y arrendatario no van acá: sus nombres salen al pie, debajo
+      // de cada firma. Un dato que no entra en su renglón (una dirección larga)
       // sigue en el de abajo, hasta tres. Antes se montaba sobre el dato de al
       // lado. Devuelve cuánto lugar de más ocupó.
       var SALTO = 10.5;
@@ -5695,8 +5731,7 @@
       }
       var col2 = M + ancho/2 + 8, mitad = ancho/2 - 12;
       y += 18 + Math.max(campo(M, y, 'Fecha:', fechaLarga(ivVal('ivFecha')), mitad), campo(col2, y, 'Dirección:', ivVal('ivDireccion'), mitad));
-      y += 18 + Math.max(campo(M, y, 'Arrendador:', ivVal('ivArrendador'), mitad), campo(col2, y, 'Tipo de inmueble:', ivVal('ivTipo'), mitad));
-      y += 24 + Math.max(campo(M, y, 'Arrendatario:', ivVal('ivArrendatario'), mitad), campo(col2, y, 'Juegos de llaves:', ivVal('ivLlaves'), mitad));
+      y += 24 + Math.max(campo(M, y, 'Tipo de inmueble:', ivVal('ivTipo'), mitad), campo(col2, y, 'Juegos de llaves:', ivVal('ivLlaves'), mitad));
 
       // ---- Referencia de estado ----
       pdf.setFillColor(22,39,63); pdf.rect(M, y-9, 62, 14, 'F');
@@ -7446,6 +7481,10 @@
         // permisos, el aviso acompaña sin tocar nada acá.
         if (!ok) { var n = b.querySelector('b'); if (n) ocultos.push(n.textContent.trim()); }
       });
+      // Un grupo sin ningún documento para este rol no se muestra.
+      document.querySelectorAll('.doc-grupo').forEach(function(g){
+        g.hidden = !g.querySelector('.doc-type[data-type]:not([hidden])');
+      });
 
       var nota = document.getElementById('docNota');
       if (nota) {
@@ -7461,9 +7500,9 @@
         }
       }
 
-      // Si el tipo activo no está permitido, se pasa al primero que sí.
+      // Si el tipo activo no está permitido, se pasa al primero de la lista que sí.
       if (!puede(_tipoActivo)) {
-        var libre = Object.keys(PERMISOS).filter(puede)[0];
+        var libre = docPrimero();
         if (libre) selectType(libre);
       }
       // Dentro de Comisión, el momento "Al firmar" (carta de pago) es de Dirección.
@@ -7474,6 +7513,12 @@
         segCarta.hidden = true;
         if (typeof setComprobante === 'function') setComprobante('reserva');
       }
+    }
+
+    // El primer documento de la lista, en el orden en que se ve, que este rol puede usar.
+    function docPrimero(){
+      var b = document.querySelector('.doc-type[data-type]:not([hidden])');
+      return b ? b.getAttribute('data-type') : null;
     }
 
     // ===== Controles de UI =====
@@ -7824,6 +7869,9 @@
       if(enviar) enviar.hidden = !puedeEnviarArchivos();
       pvIniciar();
       aplicarPermisos();
+      // Se abre en el primero de la lista (la lista va en el orden de la operación).
+      var primero = docPrimero();
+      if(primero && primero !== _tipoActivo) selectType(primero);
       docTitular();
       docArmarIndice();
       docTiraConMas();
