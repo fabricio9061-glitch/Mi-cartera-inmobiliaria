@@ -795,6 +795,18 @@
       }, 450);
     }
 
+    // Si se llegó desde Clientes (al cerrar una gestión o para ver su cierre), el
+    // botón de arriba vuelve ahí en vez de al inicio.
+    (function volverAClientes(){
+      let desde = '';
+      try { desde = new URLSearchParams(location.search).get('desde') || ''; } catch(e) {}
+      if (desde !== 'clientes') return;
+      const a = document.querySelector('.mv-head .back-link');
+      if (!a) return;
+      a.href = 'clientes.html';
+      const s = a.querySelector('span'); if (s) s.textContent = 'Volver a Clientes';
+    })();
+
     /* Link para registrar el cierre de una propiedad (mapa-cierres.html?registrar=PROPIEDAD):
        es adonde lleva Clientes al cerrar una gestión. Abre el formulario con esa
        propiedad elegida; si ya tiene cierre, lo muestra en vez de cargar otro. */

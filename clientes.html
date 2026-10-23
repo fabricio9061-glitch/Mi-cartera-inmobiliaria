@@ -223,6 +223,14 @@
     .elg-item.off:hover{ border-color:var(--gray-200); background:transparent; }
     .elg-go{ width:100%; border:none; border-radius:11px; background:var(--navy,#16273F); color:#fff; font-family:inherit; font-size:.87rem; font-weight:600; padding:11px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
     .elg-go:disabled{ opacity:.6; cursor:default; }
+    /* Cerrar una operación: ¿qué propiedad? → Mapa de cierres */
+    #cieList{ max-height:46vh; overflow-y:auto; margin-bottom:6px; }
+    .elg-item.sel{ border-color:var(--navy,#16273F); background:#f8fafc; }
+    .cie-nota{ font-size:.83rem; margin:6px 0 14px; }
+    .cie-luego{ width:100%; border:1px solid var(--gray-200); background:#fff; color:var(--navy); border-radius:11px; font-family:inherit; font-size:.86rem; font-weight:600; padding:10px; cursor:pointer; margin-top:8px; }
+    .cie-luego:hover{ border-color:var(--gold-2,#C9A227); }
+    .cie-luego:disabled{ opacity:.6; cursor:default; }
+    #cieGo[hidden], .cie-luego[hidden], .cie-nota[hidden], #cieIntro[hidden]{ display:none; }
     /* Botón de ayuda junto al título */
     .crm-help-btn{ border:none; background:transparent; color:var(--gray-400); cursor:pointer; font-size:1.1rem; padding:0 0 0 4px; vertical-align:middle; transition:color .15s; }
     .crm-help-btn:hover{ color:var(--accent,#C9A227); }
@@ -2986,6 +2994,9 @@
         showToast('Esa etapa no corresponde', rolCambio === 'cliente' ? 'Asociale una propiedad para marcarlo En cartera o Cerrado' : 'Revisá la gestión desde su ficha');
         return;
       }
+      // Cerrado: se pregunta QUÉ propiedad se cerró y se lleva al Mapa de cierres
+      // (tenga una gestión o varias).
+      if (nuevo === 'cerrado' && c._gestionPrincipal){ abrirCierreOperacion(id); return; }
       // Terminal + varias gestiones: hay que preguntar CUÁL propiedad. Antes esto
       // se escribía a ciegas sobre "la gestión que manda" (la más avanzada), así
       // que un cliente con tres propiedades podía terminar con la equivocada dada
@@ -3037,6 +3048,143 @@
       }).catch(function(e){
         console.error('No se pudo cambiar el estado:', e);
         showToast('No se pudo cambiar el estado');
+      });
+    }
+
+    // ===== Cerrar una operación: ¿qué propiedad? → Mapa de cierres =====
+    // Marcar Cerrado (la etiqueta de la lista, el Avance de la ficha o un aviso)
+    // pregunta QUÉ propiedad se cerró y lleva al Mapa de cierres a cargar el precio
+    // final y la ganancia. Antes la propiedad pasaba sola a Vendida o Alquilada,
+    // pero el cierre no llegaba al mapa (ni a Mis Finanzas ni a Recompensas).
+    function propEnMemoria(pid){
+      if (!pid) return null;
+      for (var k=0;k<allProperties.length;k++){ if (allProperties[k].id===pid) return allProperties[k]; }
+      return null;
+    }
+    function faltaRegistrarMapa(prop){ return !!prop && !tieneCierreMapa(prop) && puedeRegistrarCierre(prop); }
+    // ¿El servidor la pasa sola a Vendida o Alquilada al cerrar? Solo si está en
+    // juego, o fuera de circulación por este mismo circuito.
+    function pasaSolaAlCerrar(prop){
+      if (!prop) return false;
+      var st = prop.status || 'available';
+      var limbo = st === 'cerrado_externo' && (prop.despubPendiente || prop.motivoBaja === 'cerro_externo' || prop.motivoBaja === 'propietario_perdido');
+      return st === 'available' || st === 'reserved' || limbo;
+    }
+    // Antes de irse de la página, que salgan las escrituras (con un tope, por si no hay red).
+    function esperarEscrituras(ms){
+      var p = (db && typeof db.waitForPendingWrites === 'function') ? Promise.resolve(db.waitForPendingWrites()).catch(function(){}) : Promise.resolve();
+      return Promise.race([p, new Promise(function(r){ setTimeout(r, ms || 2500); })]);
+    }
+    // clientId: de quién es. gidFija: la gestión ya elegida (desde su ficha o un
+    // aviso); sin ella se listan las del cliente para elegir.
+    function abrirCierreOperacion(clientId, gidFija){
+      var c = clienteLocal(clientId);
+      var previo = document.querySelector('.dormido-overlay'); if (previo) previo.remove();
+      var ov = document.createElement('div');
+      ov.className = 'dormido-overlay';
+      ov.innerHTML = '<div class="dormido-box" role="dialog" aria-modal="true" aria-labelledby="cieTit">' +
+        '<div class="dormido-head" id="cieTit"><i class="fas fa-handshake"></i> ¿Qué propiedad se cerró?</div>' +
+        '<p class="dormido-p" id="cieIntro" hidden></p>' +
+        '<div id="cieList"><div class="cp-prop-soon"><i class="fas fa-spinner fa-spin"></i> Cargando gestiones...</div></div>' +
+        '<p class="dormido-p cie-nota" id="cieNota" hidden></p>' +
+        '<button type="button" class="elg-go" id="cieGo" disabled>Elegí la propiedad</button>' +
+        '<button type="button" class="cie-luego" id="cieLuego" hidden>Cerrar y registrar después</button>' +
+        '<button type="button" class="dormido-cancel" id="cieCancel">Cancelar</button>' +
+      '</div>';
+      document.body.appendChild(ov);
+      var $c = function(id){ return ov.querySelector('#'+id); };
+      var filas = {}, alMapa = false, ocupado = false;
+      function quitar(){ ov.remove(); document.removeEventListener('keydown', alTeclado); }
+      function salir(){
+        if (ocupado) return;
+        quitar();
+        // Desde la ficha, el Avance quedó mostrando "Cerrado": vuelve a como estaba.
+        if (currentProfileId) renderGestiones(currentProfileId);
+      }
+      function alTeclado(e){ if (e.key === 'Escape') salir(); }
+      document.addEventListener('keydown', alTeclado);
+      ov.addEventListener('click', function(e){ if (e.target === ov) salir(); });
+      $c('cieCancel').onclick = salir;
+
+      function actualizar(){
+        var r = ov.querySelector('input[name="cieG"]:checked');
+        Array.prototype.forEach.call(ov.querySelectorAll('.elg-item'), function(l){ l.classList.toggle('sel', !!r && l.contains(r)); });
+        var go = $c('cieGo'), luego = $c('cieLuego'), nota = $c('cieNota');
+        if (!r){ go.disabled = true; go.textContent = 'Elegí la propiedad'; luego.hidden = true; nota.hidden = true; alMapa = false; return; }
+        var p = filas[r.value].p;
+        alMapa = faltaRegistrarMapa(p);
+        go.disabled = false;
+        go.innerHTML = alMapa ? '<i class="fas fa-map-location-dot"></i> Cerrar y registrar en el mapa' : '<i class="fas fa-check"></i> Cerrar la gestión';
+        luego.hidden = !alMapa;
+        luego.textContent = 'Cerrar y registrar después';
+        var t = '';
+        if (p){
+          if (pasaSolaAlCerrar(p)) t = 'La propiedad pasa sola a <b>'+(p.type === 'rent' ? 'Alquilada' : 'Vendida')+'</b>. ';
+          if (alMapa) t += 'En el mapa cargás el precio final y la ganancia.';
+          else if (tieneCierreMapa(p)) t += 'Su cierre ya está registrado en el mapa.';
+          else t += 'El cierre en el mapa lo registra <b>'+esc(p.ownerName || 'el agente de la propiedad')+'</b> y te suma en «¿Cerraron en equipo?».';
+        }
+        nota.innerHTML = t; nota.hidden = !t;
+      }
+      function confirmar(irAlMapa){
+        var r = ov.querySelector('input[name="cieG"]:checked');
+        if (!r || ocupado) return;
+        ocupado = true;
+        var go = $c('cieGo'), luego = $c('cieLuego');
+        go.disabled = true; luego.disabled = true;
+        (irAlMapa || luego.hidden ? go : luego).innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cerrando...';
+        Promise.resolve(cambiarEstadoGestion(r.value, 'cerrado', { confirmado: true, alMapa: irAlMapa, desdeLista: !gidFija })).then(function(res){
+          if (res === 'mapa') return;          // se va al Mapa de cierres
+          ocupado = false;
+          if (res){ quitar(); return; }
+          go.disabled = false; luego.disabled = false; actualizar();
+        });
+      }
+      $c('cieGo').onclick = function(){ confirmar(alMapa); };
+      $c('cieLuego').onclick = function(){ confirmar(false); };
+
+      var leer = gidFija
+        ? db.collection('gestiones').doc(gidFija).get().then(function(d){ return d.exists ? [Object.assign({ id:d.id }, d.data())] : []; })
+        : db.collection('gestiones').where('clientId','==',clientId).get().then(function(q){ return q.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); }); });
+      var props = allProperties.length ? Promise.resolve() : cargarPropiedadesSelect();
+      Promise.all([props, leer]).then(function(res){
+        if (!document.body.contains(ov)) return;   // se cerró mientras cargaba
+        var lista = $c('cieList');
+        // Solo las que se pueden cerrar (las ya cerradas no son respuesta), la más reciente primero.
+        var todas = res[1];
+        var abiertas = todas.map(function(g){ return { g: g, p: propEnMemoria(g.propertyId), est: etapaEfectiva(g) }; })
+          .filter(function(f){ return f.est !== 'cerrado' && f.est !== 'prop_eliminada'; });
+        abiertas.sort(function(a,b){ return String(b.g.updatedAt||b.g.createdAt||'').localeCompare(String(a.g.updatedAt||a.g.createdAt||'')); });
+        if (!abiertas.length){
+          lista.innerHTML = '<div class="cp-prop-soon">' + (todas.length ? 'Todas las gestiones de este cliente ya están cerradas.' : 'Este cliente no tiene gestiones para cerrar.') + '</div>';
+          $c('cieGo').hidden = true;
+          $c('cieCancel').textContent = 'Volver';
+          return;
+        }
+        if (abiertas.length > 1){
+          $c('cieIntro').innerHTML = '<b>'+esc((c && c.name) || 'Este cliente')+'</b> tiene varias propiedades en gestión: elegí la que se cerró.';
+          $c('cieIntro').hidden = false;
+        }
+        lista.innerHTML = abiertas.map(function(f){
+          filas[f.g.id] = f;
+          var titulo = f.g.propertyTitle || (f.p ? f.p.title : 'Gestión sin propiedad');
+          var rol = rolDeGestion(f.g) === 'propietario' ? 'Dueño' : 'Interesado';
+          var st = f.p ? (f.p.status || 'available') : null;
+          var det = rol + ' · Avance: ' + (GESTION_ESTADO[f.est] || f.est) + (st ? ' · Propiedad: ' + (PROP_STATUS[st] || st) : '');
+          return '<label class="elg-item">' +
+              '<input type="radio" name="cieG" value="'+escA(f.g.id)+'"'+(abiertas.length === 1 ? ' checked' : '')+'>' +
+              '<img src="'+escA(img(f.p))+'" alt="" loading="lazy">' +
+              '<div class="elg-txt"><b>'+esc(titulo)+'</b><span>'+esc(det)+'</span></div>' +
+            '</label>';
+        }).join('');
+        lista.addEventListener('change', actualizar);
+        actualizar();
+        var foco = ov.querySelector('input[name="cieG"]:checked') ? $c('cieGo') : ov.querySelector('input[name="cieG"]');
+        if (foco) foco.focus();
+      }).catch(function(e){
+        console.error('abrirCierreOperacion:', e);
+        var lista = $c('cieList');
+        if (lista) lista.innerHTML = '<div class="cp-prop-soon">No se pudieron cargar las gestiones. Probá de nuevo.</div>';
       });
     }
 
@@ -3777,16 +3925,16 @@
       if (!prop || !currentUser) return false;
       return isAdmin || prop.ownerId === currentUser.uid || (Array.isArray(prop.agents) && prop.agents.indexOf(currentUser.uid) >= 0);
     }
-    function irARegistrarCierre(pid){ location.href = 'mapa-cierres.html?registrar=' + encodeURIComponent(pid); }
+    function irARegistrarCierre(pid){ location.href = 'mapa-cierres.html?registrar=' + encodeURIComponent(pid) + '&desde=clientes'; }
     function cierreMapaHtml(prop, est){
       if (!prop || est !== 'cerrado' || (prop.status !== 'sold' && prop.status !== 'rented')) return '';
       var pid = encodeURIComponent(prop.id);
       if (tieneCierreMapa(prop)){
-        return '<div class="ctr-mini"><i class="fas fa-map-location-dot"></i><span class="ctr-mini-txt">Cierre registrado en el mapa</span><a class="ctr-mini-btn" href="mapa-cierres.html?id='+pid+'">Ver</a></div>';
+        return '<div class="ctr-mini"><i class="fas fa-map-location-dot"></i><span class="ctr-mini-txt">Cierre registrado en el mapa</span><a class="ctr-mini-btn" href="mapa-cierres.html?id='+pid+'&amp;desde=clientes">Ver</a></div>';
       }
       if (!prop.finalizadaPorGestion) return '';
       if (puedeRegistrarCierre(prop)){
-        return '<div class="ctr-mini pend"><i class="fas fa-map-location-dot"></i><span class="ctr-mini-txt">Falta registrar el cierre en el mapa: precio final y ganancia</span><a class="ctr-mini-btn primary" href="mapa-cierres.html?registrar='+pid+'">Registrar</a></div>';
+        return '<div class="ctr-mini pend"><i class="fas fa-map-location-dot"></i><span class="ctr-mini-txt">Falta registrar el cierre en el mapa: precio final y ganancia</span><a class="ctr-mini-btn primary" href="mapa-cierres.html?registrar='+pid+'&amp;desde=clientes">Registrar</a></div>';
       }
       return '<div class="ctr-mini pend"><i class="fas fa-map-location-dot"></i><span class="ctr-mini-txt">Falta registrar el cierre en el mapa: lo registra '+esc(prop.ownerName || 'el agente de la propiedad')+' y te suma en «¿Cerraron en equipo?»</span></div>';
     }
@@ -3905,6 +4053,7 @@
         return JSON.stringify(antes[k]) !== JSON.stringify(data[k]);
       });
       if (i>=0) allProperties[i] = data; else allProperties.push(data);
+      _propPorId[data.id] = data;
       if (cambio && currentProfileId) renderGestiones(currentProfileId);
     }
     // El servidor mueve la propiedad unos segundos DESPUÉS de cambiar el avance (es
@@ -3929,20 +4078,25 @@
       _vigias[pid] = function(){ clearTimeout(t); try { unsub(); } catch(e){} delete _vigias[pid]; };
     }
 
-    function cambiarEstadoGestion(gestionId, nuevo){
+    // opts: { confirmado, alMapa, desdeLista } (los pasa la ventana de cierre).
+    // Devuelve una promesa: true si quedó hecho, 'mapa' si se va al Mapa de cierres.
+    function cambiarEstadoGestion(gestionId, nuevo, opts){
+      opts = opts || {};
       var quien = (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente';
-      db.collection('gestiones').doc(gestionId).get().then(function(gd){
-        if (!gd.exists){ showToast('No se encontró la gestión'); return; }
+      return db.collection('gestiones').doc(gestionId).get().then(function(gd){
+        if (!gd.exists){ showToast('No se encontró la gestión'); return false; }
         var g = Object.assign({ id: gd.id }, gd.data());
         var prop = null; for (var k=0;k<allProperties.length;k++){ if (allProperties[k].id===g.propertyId){ prop = allProperties[k]; break; } }
         var rol = rolDeGestion(g);
         var anterior = etapaEfectiva(g, rol);
         var repintar = function(){ if (currentProfileId) renderGestiones(currentProfileId); };
-        if (nuevo === anterior){ repintar(); return; }
+        if (nuevo === anterior){ repintar(); return true; }
         if (etapasDe(rol, anterior).indexOf(nuevo) < 0 || nuevo === 'prop_eliminada'){
           showToast('Esa etapa no corresponde', rol === 'propietario' ? 'El dueño de la propiedad va de En cartera a Cerrado, Cerró por afuera o Perdido' : 'Revisá el rol de la gestión con el lápiz');
-          repintar(); return;
+          repintar(); return false;
         }
+        // Cerrado: primero se confirma la propiedad y se ofrece el Mapa de cierres.
+        if (nuevo === 'cerrado' && !opts.confirmado){ abrirCierreOperacion(g.clientId, gestionId); return false; }
         var reactiva = ESTADOS_TERMINALES.indexOf(nuevo) < 0 && (anterior === 'externo' || anterior === 'perdido');
         var stProp = prop ? (prop.status || 'available') : '';
 
@@ -3961,20 +4115,39 @@
         }
 
         var entrada = { tipo:'avance', valor: GESTION_ESTADO[nuevo]||nuevo, autor: quien, fecha: new Date().toISOString() };
-        db.collection('gestiones').doc(gestionId).update({
+        return db.collection('gestiones').doc(gestionId).update({
           estadoGestion: nuevo,
           updatedAt: new Date().toISOString(),
           historial: firebase.firestore.FieldValue.arrayUnion(entrada)
         }).then(function(){
           var cc = clienteLocal(g.clientId), paso = consolidarPase(cc, nuevo);
           if (paso && currentProfileId === g.clientId) pintarConsultaPerfil(cc);
+          // Cerrar una operación saca al cliente de la pausa.
+          if (opts.confirmado && nuevo === 'cerrado' && cc && cc.situacion === 'pausa'){
+            delete cc.situacion;
+            db.collection('clients').doc(cc.id).update({
+              situacion: firebase.firestore.FieldValue.delete(),
+              pausadoEn: firebase.firestore.FieldValue.delete(),
+              pausaSnoozeUntil: firebase.firestore.FieldValue.delete(),
+              updatedAt: new Date().toISOString()
+            }).catch(function(){});
+          }
+          // "Cerrar y registrar en el mapa": cuando salen las escrituras, al Mapa de
+          // cierres con el formulario abierto en esta propiedad.
+          if (nuevo === 'cerrado' && opts.alMapa && faltaRegistrarMapa(prop)){
+            return esperarEscrituras().then(function(){ irARegistrarCierre(prop.id); return 'mapa'; });
+          }
           var enJuego = PROP_EN_JUEGO.indexOf(stProp) >= 0;
           var enLimbo = stProp === 'cerrado_externo' && (prop.despubPendiente || prop.motivoBaja === 'cerro_externo' || prop.motivoBaja === 'propietario_perdido');
           if (nuevo === 'cerrado' && (stProp === 'available' || stProp === 'reserved' || enLimbo)){
             // El cierre del mapa (precio final y ganancia) no se carga solo: se ofrece ir ya.
-            var faltaMapa = !tieneCierreMapa(prop) && puedeRegistrarCierre(prop);
-            showToast('Gestión cerrada', 'La propiedad pasa sola a ' + (prop.type === 'rent' ? 'Alquilada (pide el contrato)' : 'Vendida') + (faltaMapa ? '. Falta registrar el cierre en el mapa.' : ''),
+            var faltaMapa = faltaRegistrarMapa(prop);
+            var loRegistraOtro = !faltaMapa && !tieneCierreMapa(prop);
+            showToast('Gestión cerrada', 'La propiedad pasa sola a ' + (prop.type === 'rent' ? 'Alquilada (pide el contrato)' : 'Vendida') +
+              (faltaMapa ? '. Falta registrar el cierre en el mapa.' : loRegistraOtro ? '. El cierre en el mapa lo registra ' + (prop.ownerName || 'el agente de la propiedad') + '.' : ''),
               faltaMapa ? { txt: 'Registrar', fn: function(){ irARegistrarCierre(prop.id); } } : null);
+          } else if (nuevo === 'cerrado' && faltaRegistrarMapa(prop)){
+            showToast('Gestión cerrada', 'Falta registrar el cierre en el mapa: precio final y ganancia', { txt: 'Registrar', fn: function(){ irARegistrarCierre(prop.id); } });
           } else if ((nuevo === 'externo' || nuevo === 'perdido') && rol === 'propietario' && enJuego){
             showToast(nuevo === 'externo' ? 'Cerró por afuera' : 'Propietario perdido', 'La propiedad sale de circulación y Dirección confirma la baja de los portales');
           } else if (nuevo === 'externo'){
@@ -3984,7 +4157,7 @@
           } else if (rol === 'propietario' && reactiva && stProp === 'archived'){
             showToast('Gestión reactivada', 'La propiedad sigue dada de baja: pedíle a Dirección que la vuelva a publicar');
           } else if (anterior === 'cerrado' && nuevo !== 'cerrado' && (stProp === 'sold' || stProp === 'rented')){
-            if (tieneCierreMapa(prop)) showToast('Gestión reabierta', 'Si la operación se cayó, la propiedad vuelve sola a Disponible. Borrá también su cierre en el mapa.', { txt: 'Ir al mapa', fn: function(){ location.href = 'mapa-cierres.html?id=' + encodeURIComponent(prop.id); } });
+            if (tieneCierreMapa(prop)) showToast('Gestión reabierta', 'Si la operación se cayó, la propiedad vuelve sola a Disponible. Borrá también su cierre en el mapa.', { txt: 'Ir al mapa', fn: function(){ location.href = 'mapa-cierres.html?id=' + encodeURIComponent(prop.id) + '&desde=clientes'; } });
             else showToast('Gestión reabierta', 'Si la operación se cayó, la propiedad vuelve sola a Disponible');
           } else {
             showToast('Avance actualizado', paso ? 'La consulta pasó a Clientes' : '');
@@ -3992,8 +4165,11 @@
           // La etiqueta de la lista se recalcula sola al repintar la ficha.
           repintar();
           if (g.propertyId && (ESTADOS_TERMINALES.indexOf(nuevo) >= 0 || ESTADOS_TERMINALES.indexOf(anterior) >= 0)) vigilarPropiedad(g.propertyId);
-        }).catch(function(e){ showToast('No se pudo actualizar'); console.error(e); repintar(); });
-      }).catch(function(e){ showToast('No se pudo leer la gestión'); console.error(e); });
+          // Desde la etiqueta de la lista (sin la ficha abierta) se recalcula la lista.
+          if (opts.desdeLista) loadClients();
+          return true;
+        }).catch(function(e){ showToast('No se pudo actualizar'); console.error(e); repintar(); return false; });
+      }).catch(function(e){ showToast('No se pudo leer la gestión'); console.error(e); return false; });
     }
 
     // Escritura directa del estado de la propiedad + historial en sus gestiones.
@@ -4068,7 +4244,7 @@
         //    de alquiler y estadísticas se sincronizan de una sola vez).
         if ((nuevo === 'sold' || nuevo === 'rented') && g && ESTADOS_TERMINALES.indexOf(est) < 0){
           if (confirm('¿Esta operación la cerró la agencia con ESTE cliente?\n\nAceptar: la gestión pasa a Cerrado y todo se sincroniza solo (propiedad, y contrato si es alquiler).\nCancelar: solo cambia el estado de la propiedad (ej.: se cerró con otro cliente).')){
-            cambiarEstadoGestion(g.id, 'cerrado');
+            cambiarEstadoGestion(g.id, 'cerrado', { confirmado: true });
             return;
           }
         }
@@ -4254,7 +4430,9 @@
       if (cambioEtapa) data.historial = firebase.firestore.FieldValue.arrayUnion({ tipo:'avance', valor: GESTION_ESTADO[data.estadoGestion]||data.estadoGestion, autor: data.estadoPor, fecha: data.updatedAt });
       db.collection('gestiones').doc(id).update(data).then(function(){
         closeGestionModal();
-        showToast('Gestión actualizada', cambioRol ? 'Ahora es '+(data.rol==='propietario'?'propietario':'interesado')+': cambian las etapas que tiene' : '');
+        var pCerrada = (cambioEtapa && data.estadoGestion === 'cerrado' && antes.propertyId) ? propEnMemoria(antes.propertyId) : null;
+        if (faltaRegistrarMapa(pCerrada)) showToast('Gestión cerrada', 'Falta registrar el cierre en el mapa: precio final y ganancia', { txt: 'Registrar', fn: function(){ irARegistrarCierre(pCerrada.id); } });
+        else showToast('Gestión actualizada', cambioRol ? 'Ahora es '+(data.rol==='propietario'?'propietario':'interesado')+': cambian las etapas que tiene' : '');
         renderGestiones(currentProfileId);
         if ((cambioEtapa || cambioRol) && antes.propertyId) vigilarPropiedad(antes.propertyId);
       }).catch(function(err){
