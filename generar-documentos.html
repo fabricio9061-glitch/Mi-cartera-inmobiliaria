@@ -186,6 +186,11 @@
     .ct-op input[type=checkbox]{ width:18px; height:18px; margin:2px 0 0; flex:none; cursor:pointer; accent-color:var(--navy); }
     .ct-op b{ font-size:.9rem; color:var(--navy); display:block; font-weight:600; }
     .ct-op span{ font-size:.81rem; color:var(--muted); line-height:1.45; }
+    /* Pago al firmar (en Precio y plazo): los campos que se calculan solos van en gris. */
+    .ct-op.ct-pago{ border-top:1px solid var(--line); border-bottom:none; margin:-4px 0 4px; }
+    .ct-op.ct-pago label{ cursor:pointer; }
+    #ctPagoIniCampos input[readonly]{ background:var(--fondo); color:var(--navy); font-weight:600; cursor:default; }
+    #ctPagoIniCampos .hint{ margin-top:-6px; }
 
     /* ---- La hoja --------------------------------------------------------------------- */
     .preview-wrap{ display:flex; flex-direction:column; min-width:0; min-height:0; background:var(--mesa); color:#dfe5ee; }
@@ -803,7 +808,7 @@
           <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">2</span><span class="ct-tit">Inmueble</span></div>
           <div class="fld"><label for="ctProp">Propiedad del sistema (opcional)</label>
             <select id="ctProp" onchange="ctCargarProp()" disabled><option value="">Cargando propiedades…</option></select>
-            <div class="hint">Aparecen las de alquiler marcadas como reservadas. Al elegir una se completan dirección, barrio y departamento.</div>
+            <div class="hint">Aparecen las de alquiler reservadas y las alquiladas hace poco. Al elegir una se completan dirección, barrio y departamento.</div>
             <div class="iv-aviso" id="ctPropNota" hidden><span id="ctPropNotaTxt"></span></div></div>
           <div class="row2">
             <div class="fld"><label>Dirección</label><input id="ctDireccion" placeholder="Ituzaingó 1324"></div>
@@ -836,6 +841,22 @@
           </div>
           <div class="fld"><label>Ejemplares a firmar</label><input id="ctEjemplares" type="number" min="1" max="6" oninput="ctPreview()">
             <div class="hint">Se sugiere según la garantía. Cambialo si hace falta un ejemplar más.</div>
+          </div>
+          <div class="ct-op ct-pago">
+            <input type="checkbox" id="ctPagoIni" onchange="ctPagoIniToggle(this.checked)" aria-describedby="ctPagoIniAyuda">
+            <div style="flex:1"><label for="ctPagoIni"><b>Pago al firmar</b></label><span id="ctPagoIniAyuda">Deja escrito lo que la parte arrendataria paga hoy: los días que quedan del primer mes y los meses por adelantado. El contrato sirve de recibo.</span>
+              <div id="ctPagoIniCampos" hidden>
+                <div class="row2" style="margin-top:12px">
+                  <div class="fld"><label for="ctPiDias">Días del primer mes</label><input id="ctPiDias" readonly tabindex="-1"></div>
+                  <div class="fld"><label for="ctPiMontoDias">Importe de esos días</label><input id="ctPiMontoDias" type="number" min="0" step="1" inputmode="numeric"></div>
+                </div>
+                <div class="row2">
+                  <div class="fld"><label for="ctPiMeses">Meses por adelantado</label><input id="ctPiMeses" type="number" min="0" max="12" step="1" value="1" inputmode="numeric"></div>
+                  <div class="fld"><label for="ctPiTotal">Total al firmar</label><input id="ctPiTotal" readonly tabindex="-1"></div>
+                </div>
+                <div class="hint" id="ctPiHint" role="status"></div>
+              </div>
+            </div>
           </div>
 
           <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">4</span><span class="ct-tit">Cuenta para el pago</span></div>
@@ -1097,7 +1118,7 @@
           <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">1</span><span class="ct-tit">Datos</span></div>
           <div class="fld"><label for="ivProp">Propiedad del sistema (opcional)</label>
             <select id="ivProp" onchange="ivCargarProp()" disabled><option value="">Cargando propiedades…</option></select>
-            <div class="hint">Aparecen las de alquiler marcadas como reservadas. Al elegir una se completan la dirección, el tipo y la cantidad de dormitorios y baños.</div>
+            <div class="hint">Aparecen las de alquiler reservadas y las alquiladas hace poco. Al elegir una se completan la dirección, el tipo y la cantidad de dormitorios y baños.</div>
             <!-- Al elegir otra propiedad con cosas ya cargadas: no se borran solas
                  (puede ser solo una corrección), pero se ofrece hacerlo. -->
             <div class="iv-aviso" id="ivPropAviso" hidden>
@@ -1546,6 +1567,11 @@
             : 'El precio se reajustará cada '+d.reajuste+' meses, contados desde la fecha de inicio de su vigencia, de acuerdo con la variación del '+d.indice+'.\n\n')+
           'El comprobante del depósito o de la transferencia bancaria, siempre que permita identificar la fecha, el importe y la cuenta de destino, constituirá prueba suficiente del pago.'; } },
 
+      // Entra solo si se marca "Pago al firmar" en Precio y plazo: no es una de las
+      // opcionales de la sección 6, por eso no lleva "fija" ni se lista ahí.
+      { id:'pagoInicial', cuando:function(d){ return !!d.pagoInicial; }, titulo:'PAGO AL FIRMAR', texto:function(d){
+        return textoPagoInicial(d.pagoInicial, 'El presente contrato', 'en la cláusula de PRECIO, FORMA DE PAGO Y REAJUSTE'); } },
+
       { id:'plazo', fija:true, titulo:'PLAZO', texto:function(d){
         return 'El plazo del presente contrato será de '+d.plazoTexto+', contado desde el día '+d.fechaInicio+', fecha en la cual la parte arrendataria tomará posesión del inmueble, y vencerá el día '+d.fechaVencimiento+'.'; } },
 
@@ -1926,7 +1952,7 @@
     // no puede haber huecos ni repetidas: el ordinal sale del índice, no del texto.
     function ctClausulas(d){
       return ctCatalogo()
-        .filter(function(c){ return c.fija || ctOpcionalesOn[c.id]; })
+        .filter(function(c){ return c.fija || ctOpcionalesOn[c.id] || (c.cuando && c.cuando(d)); })
         .map(function(c,i){ return { ordinal:ORDINALES[i], titulo:(c.tituloDe?c.tituloDe(d):c.titulo), cuerpo:c.texto(d) }; });
     }
 
@@ -1955,7 +1981,7 @@
     function ctPintarOpcionales(){
       var cont=document.getElementById('ctOpcionales'); if(!cont) return;
       var escrito = camposDe(cont);
-      cont.innerHTML = ctCatalogo().filter(function(c){ return !c.fija; }).map(function(c){
+      cont.innerHTML = ctCatalogo().filter(function(c){ return !c.fija && !c.cuando; }).map(function(c){
         var campos = (c.campos||[]).map(function(f){
           return '<div class="fld" style="margin-top:8px"><label>'+esc(f.label)+'</label><input id="ct_'+f.id+'" oninput="ctPreview()"></div>';
         }).join('');
@@ -1972,6 +1998,124 @@
     function ctToggleOp(id, on){
       ctOpcionalesOn[id]=on;
       var c=document.getElementById('campos_'+id); if(c) c.style.display = on?'block':'none';
+      ctPreview();
+    }
+
+    // ---- Pago al firmar ----
+    // Lo que la parte arrendataria paga el día de la firma: los días que quedan del
+    // primer mes (cuando no empieza el 1.º) y uno o más meses por adelantado. Queda
+    // escrito en el contrato, que sirve de recibo. Los días salen de la fecha de
+    // inicio y no se escriben a mano: si no, el contrato podía decir "ocho días" con
+    // un inicio que da diez. El importe de esos días se propone proporcional al mes
+    // y se puede cambiar si acordaron otro.
+    function ctPagoIniOn(){ var c = document.getElementById('ctPagoIni'); return !!(c && c.checked); }
+    function ctPiMontoManual(){ var e = document.getElementById('ctPiMontoDias'); return !!(e && e.dataset.manual === '1'); }
+    function ctPiNum(id){ var n = parseFloat(String(ctVal(id)).replace(',', '.')); return isFinite(n) ? n : 0; }
+    function ctPiCalculo(){
+      var precio = parseFloat(ctVal('ctPrecio')) || 0;
+      var r = { ok:false, precio:precio, dias:0, sugerido:0 };
+      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ctVal('ctInicio'));
+      if(!m) return r;
+      var anio = +m[1], mes = +m[2] - 1, dia = +m[3];
+      var diasMes = new Date(anio, mes + 1, 0).getDate();
+      if(dia < 1 || dia > diasMes) return r;
+      r.ok = true; r.anio = anio; r.mes = mes; r.dia = dia; r.diasMes = diasMes;
+      r.dias = dia === 1 ? 0 : diasMes - dia + 1;
+      r.sugerido = (precio > 0 && r.dias) ? Math.round(precio * r.dias / diasMes) : 0;
+      // Primer mes que se paga por adelantado: el siguiente, o el mismo si empieza el 1.º.
+      r.mesAdel = r.dias ? mes + 1 : mes;
+      return r;
+    }
+    function ctPiMesTexto(anio, mes){ var d = new Date(anio, mes, 1); return MESES[d.getMonth()] + ' de ' + d.getFullYear(); }
+    // "noviembre de 2026" · "noviembre y diciembre de 2026" · "diciembre de 2026 y enero de 2027"
+    function ctPiMesesTexto(anio, mes, cant){
+      var grupos = [];
+      for(var i = 0; i < cant; i++){
+        var d = new Date(anio, mes + i, 1), y = d.getFullYear();
+        if(!grupos.length || grupos[grupos.length - 1].y !== y) grupos.push({ y:y, m:[] });
+        grupos[grupos.length - 1].m.push(MESES[d.getMonth()]);
+      }
+      var unir = function(l){ return l.length < 2 ? (l[0] || '') : l.slice(0, -1).join(', ') + ' y ' + l[l.length - 1]; };
+      return unir(grupos.map(function(g){ return unir(g.m) + ' de ' + g.y; }));
+    }
+    // Lo que va al contrato, o null si no hay nada que escribir.
+    function ctPagoInicialDatos(){
+      if(!ctPagoIniOn()) return null;
+      var c = ctPiCalculo();
+      if(!c.ok) return null;
+      var meses = Math.max(0, Math.min(12, Math.round(ctPiNum('ctPiMeses'))));
+      if(!c.dias && !meses) return null;
+      var manual = !!c.dias && ctPiMontoManual();
+      var montoDias = c.dias ? (manual ? Math.max(0, Math.round(ctPiNum('ctPiMontoDias'))) : c.sugerido) : 0;
+      var montoMeses = Math.round(meses * c.precio), usd = ctVal('ctMoneda') === 'USD';
+      return {
+        dias: c.dias, desde: c.dia, hasta: c.diasMes, mesDias: ctPiMesTexto(c.anio, c.mes),
+        montoDias: montoDias, proporcional: !manual || montoDias === c.sugerido,
+        meses: meses, montoMeses: montoMeses,
+        mesesTexto: meses ? ctPiMesesTexto(c.anio, c.mesAdel, meses) : '',
+        siguiente: ctPiMesTexto(c.anio, c.mesAdel + meses),
+        total: montoDias + montoMeses, hayPrecio: c.precio > 0,
+        monedaTexto: usd ? 'dólares estadounidenses' : 'pesos uruguayos', simbolo: usd ? 'US$' : '$'
+      };
+    }
+    function ctPiMonto(pi, n){
+      if(!pi.hayPrecio) return pi.monedaTexto + ' ____ (' + pi.simbolo + ' ____)';
+      return pi.monedaTexto + ' ' + numeroALetras(n) + ' (' + pi.simbolo + ' ' + Math.round(n).toLocaleString('es-UY') + ')';
+    }
+    // documento: "El presente contrato" / "El presente anexo". dondePago: dónde está
+    // pactada la forma de pago de los meses que siguen.
+    function textoPagoInicial(pi, documento, dondePago){
+      var partes = [];
+      if(pi.dias){
+        partes.push(ctPiMonto(pi, pi.montoDias) + ' por ' +
+          (pi.dias === 1 ? 'el día ' + pi.hasta + ' de ' + pi.mesDias
+            : 'los ' + apocope(numeroALetras(pi.dias)) + ' (' + pi.dias + ') días del ' + pi.desde + ' al ' + pi.hasta + ' de ' + pi.mesDias) +
+          (pi.proporcional ? ', en proporción al precio mensual' : ''));
+      }
+      if(pi.meses){
+        partes.push(ctPiMonto(pi, pi.montoMeses) + ' por el alquiler ' + (pi.meses === 1 ? 'del mes de ' : 'de los meses de ') + pi.mesesTexto + ', pagado por adelantado');
+      }
+      var t = partes.length === 2
+        ? 'En este acto, la parte arrendataria abona a la parte arrendadora la suma total de ' + ctPiMonto(pi, pi.total) + ', que corresponde a:\n\n' +
+          'a) ' + partes[0] + '; y\n\nb) ' + partes[1] + '.'
+        : 'En este acto, la parte arrendataria abona a la parte arrendadora la suma de ' + partes[0] + '.';
+      return t + '\n\n' + documento + ' sirve de suficiente recibo y carta de pago por ' + (partes.length === 2 ? 'dichos importes' : 'dicho importe') +
+        '. A partir del alquiler de ' + pi.siguiente + ', el pago se realizará en la forma prevista ' + dondePago + '.';
+    }
+    // Pone al día los campos que se calculan solos y la explicación de abajo.
+    function ctPiRecalcular(){
+      if(!ctPagoIniOn()) return;
+      var c = ctPiCalculo();
+      var dEl = document.getElementById('ctPiDias'), mEl = document.getElementById('ctPiMontoDias');
+      var tEl = document.getElementById('ctPiTotal'), hEl = document.getElementById('ctPiHint');
+      var sim = ctVal('ctMoneda') === 'USD' ? 'US$' : '$';
+      var fmt = function(n){ return sim + ' ' + Math.round(n).toLocaleString('es-UY'); };
+      // En la explicación, el signo no se separa del número al cortar el renglón.
+      var fmtH = function(n){ return sim + '\u00a0' + Math.round(n).toLocaleString('es-UY'); };
+      dEl.value = c.ok ? String(c.dias) : '';
+      // Si empieza el 1.º no hay días sueltos: no hay importe que poner.
+      mEl.disabled = !(c.ok && c.dias);
+      if(!ctPiMontoManual() || mEl.disabled) mEl.value = (c.ok && c.dias && c.precio) ? String(c.sugerido) : '';
+      var pi = ctPagoInicialDatos();
+      tEl.value = (pi && pi.hayPrecio) ? fmt(pi.total) : '';
+      var h;
+      if(!c.ok) h = 'Poné la fecha de inicio: con ella se calculan los días del primer mes.';
+      else if(!c.precio) h = 'Poné el precio mensual para calcular los importes.';
+      else {
+        h = c.dias
+          ? 'Del ' + c.dia + ' al ' + c.diasMes + ' de ' + MESES[c.mes] + ': ' + c.dias + (c.dias === 1 ? ' día' : ' días') + '. Proporcional: ' +
+            fmtH(c.precio) + ' × ' + c.dias + ' ÷ ' + c.diasMes + ' = ' + fmtH(c.sugerido) + '.' +
+            (pi && !pi.proporcional ? ' En el contrato va el importe que escribiste.' : ' Si acordaron otro importe, cambialo.')
+          : 'Empieza el día 1: no hay días sueltos.';
+        if(pi && pi.meses) h += ' Por adelantado: ' + pi.mesesTexto + '.';
+        else if(!pi) h += ' Poné los meses por adelantado.';
+      }
+      hEl.textContent = h;
+    }
+    function ctPagoIniToggle(on){
+      var c = document.getElementById('ctPagoIniCampos');
+      if(c) c.hidden = !on;
+      ctPiRecalcular();
       ctPreview();
     }
 
@@ -2143,7 +2287,8 @@
         pinturaEntrega:ctVal('ct_pinturaEntrega'),
         penalidad:ctVal('ct_penalidad'), avisoInspeccion:ctVal('ct_avisoInspeccion'),
         coberturas:ctVal('ct_coberturas'), montoSeguro:ctVal('ct_montoSeguro'),
-        ejemplares:ejemplares, ejemplaresLetras: (NUM_LETRAS[ejemplares]||String(ejemplares))
+        ejemplares:ejemplares, ejemplaresLetras: (NUM_LETRAS[ejemplares]||String(ejemplares)),
+        pagoInicial: ctPagoInicialDatos()
       };
     }
 
@@ -2344,6 +2489,11 @@
       if(!ctListaPersonas('arrendador').length){ toast('Falta al menos un arrendador', true); return; }
       if(!ctListaPersonas('arrendatario').length){ toast('Falta al menos un arrendatario', true); return; }
       if(!ctVal('ctDireccion')){ toast('Falta la dirección del inmueble', true); return; }
+      if(ctPagoIniOn()){
+        if(!ctPiCalculo().ok){ toast('Falta la fecha de inicio para el pago al firmar', true); return; }
+        if(!ctVal('ctPrecio')){ toast('Falta el precio para el pago al firmar', true); return; }
+        if(!ctPagoInicialDatos()){ toast('El pago al firmar quedó vacío: poné los meses por adelantado', true); return; }
+      }
       if(ctVal('ctGarantia')==='anda'){
         var base=(ctVal('ctDireccion')||'contrato').replace(/[^\w]+/g,'_');
         andaMasAnexo().save((_destino==='vivienda' ? 'Contrato_ANDA_y_anexo_' : 'Anexo_')+base+'.pdf');
@@ -3532,6 +3682,10 @@
           'Toda comunicación, reclamo, solicitud de reparación o coordinación vinculada al inmueble deberá canalizarse a través de dicha administración, al teléfono '+EMPRESA.celular+' o a la casilla de correo '+EMPRESA.email+'.\n\n'+
           'Ello no altera los domicilios ni las formas de notificación constituidos en el contrato principal, que se mantienen a todos los efectos.'; } },
 
+      // Lo que se paga al firmar (se marca en Precio y plazo del contrato).
+      { id:'pagoInicial', cuando:function(d){ return !!d.pagoInicial; }, titulo:'PAGO AL FIRMAR', texto:function(d){
+        return textoPagoInicial(d.pagoInicial, 'El presente anexo', 'en el contrato principal'); } },
+
       { id:'registroFotos', fija:false, titulo:'REGISTRO FOTOGRÁFICO DEL INVENTARIO',
         rotulo:'Registro fotográfico', ayuda:'Suma fotos al inventario. ANDA ya regula el inventario en sí.',
         texto:function(d){
@@ -3606,7 +3760,7 @@
 
     function axClausulas(d){
       return AX_CLAUSULAS
-        .filter(function(c){ return c.fija || axOpcionalesOn[c.id]; })
+        .filter(function(c){ return c.fija || axOpcionalesOn[c.id] || (c.cuando && c.cuando(d)); })
         .map(function(c,i){ return { ordinal:ORDINALES[i], titulo:(c.tituloDe?c.tituloDe(d):c.titulo), cuerpo:c.texto(d) }; });
     }
 
@@ -3614,7 +3768,7 @@
 
     function axPintarOpcionales(){
       var cont=document.getElementById('axOpcionales'); if(!cont) return;
-      cont.innerHTML = AX_CLAUSULAS.filter(function(c){ return !c.fija; }).map(function(c){
+      cont.innerHTML = AX_CLAUSULAS.filter(function(c){ return !c.fija && !c.cuando; }).map(function(c){
         var campos = (c.campos||[]).map(function(f){
           return '<div class="fld" style="margin-top:8px"><label>'+esc(f.label)+'</label><input id="ax_'+f.id+'" oninput="ctPreview()"></div>';
         }).join('');
@@ -3669,7 +3823,8 @@
         ocupantes:axVal('ax_ocupantes'), mascotasDetalle:axVal('ax_mascotasDetalle'),
         artefactos:axVal('ax_artefactos'), gcMonto:axVal('ax_gcMonto'), gcDetalle:axVal('ax_gcDetalle'),
         avisoInsp:axVal('ax_avisoInsp'), frecuenciaInsp:axVal('ax_frecuenciaInsp'),
-        devolucionDetalle:axVal('ax_devolucionDetalle')
+        devolucionDetalle:axVal('ax_devolucionDetalle'),
+        pagoInicial: ctPagoInicialDatos()
       };
     }
 
@@ -7816,6 +7971,15 @@
       var pt=document.getElementById('ctPlazoTexto'); if(pt) pt.addEventListener('input', ctAvisarPlazo);
       var mn=document.getElementById('ctMoneda'); if(mn) mn.addEventListener('change', ctAvisarRegimen);
       var ej=document.getElementById('ctEjemplares'); if(ej) ej.addEventListener('input', function(){ ej.dataset.auto='0'; });
+      // Pago al firmar: se recalcula con la fecha de inicio, el precio y la moneda. Si
+      // cambian la fecha o el precio, el importe de los días vuelve a ser el proporcional.
+      var piM=document.getElementById('ctPiMontoDias');
+      if(piM) piM.addEventListener('input', function(){ piM.dataset.manual = piM.value.trim() ? '1' : ''; ctPiRecalcular(); });
+      var piMeses=document.getElementById('ctPiMeses'); if(piMeses) piMeses.addEventListener('input', ctPiRecalcular);
+      var piDeNuevo=function(){ if(piM) piM.dataset.manual=''; ctPiRecalcular(); };
+      if(ini){ ini.addEventListener('change', piDeNuevo); ini.addEventListener('input', piDeNuevo); }
+      var piPrecio=document.getElementById('ctPrecio'); if(piPrecio) piPrecio.addEventListener('input', piDeNuevo);
+      if(mn) mn.addEventListener('change', ctPiRecalcular);
       // Se guarda al terminar de editar cada campo (no en cada tecla: un "1" a
       // medio escribir no tiene que quedar como día límite de los próximos
       // contratos) y al salir de la página, si el cursor seguía en el campo. Una
@@ -7974,11 +8138,20 @@
       }
     }
 
-    // Desplegables "Propiedad del sistema" del contrato y del inventario: solo las
-    // de alquiler que están RESERVADAS, que son las que van a firma. (Antes salía
-    // todo el catálogo de alquiler.) Primero las propias y después las de cada
-    // agente. Si la que ya estaba elegida dejó de estar reservada (por ejemplo,
-    // pasó a alquilada con el inventario a medio cargar), se sigue mostrando.
+    // Desplegables "Propiedad del sistema" del contrato y del inventario: las de
+    // alquiler que están RESERVADAS, que son las que van a firma, y las que pasaron
+    // a ALQUILADA hace poco: al cerrar la gestión en Clientes la propiedad pasa sola
+    // a Alquilada, y muchas veces eso se hace antes del contrato y del inventario.
+    // (Antes salía todo el catálogo de alquiler.) Primero las propias y después las
+    // de cada agente. Si la que ya estaba elegida deja de cumplir (por ejemplo, la
+    // pusieron disponible), se sigue mostrando.
+    var DIAS_RECIEN_ALQUILADA = 60;
+    function recienAlquilada(p){
+      if(p.status !== 'rented') return false;
+      if(p.contratoPendiente) return true;                 // todavía falta cargar su contrato en Clientes
+      var t = Date.parse(p.alquiladaEl || '');
+      return isFinite(t) && Date.now() - t <= DIAS_RECIEN_ALQUILADA * 86400000;
+    }
     function pintarPropsAlquiler(){
       var yo = (auth && auth.currentUser) ? auth.currentUser.uid : '';
       var nombreDe = {};
@@ -7988,7 +8161,7 @@
         if(!sel) return;
         var previo = sel.value || (id === 'ivProp' ? (IV.propGuardada || '') : '');
         var lista = props.filter(function(p){
-          return p.type === 'rent' && p._dir && (p.status === 'reserved' || (previo && p.id === previo));
+          return p.type === 'rent' && p._dir && (p.status === 'reserved' || recienAlquilada(p) || (previo && p.id === previo));
         });
         var grupos = [], porDueno = {};
         lista.forEach(function(p){
@@ -8007,7 +8180,7 @@
         sel.innerHTML = '';
         var primera = document.createElement('option');
         primera.value = '';
-        primera.textContent = lista.length ? 'Elegí una propiedad reservada…' : 'No hay propiedades en alquiler reservadas';
+        primera.textContent = lista.length ? 'Elegí una propiedad…' : 'No hay propiedades en alquiler reservadas ni alquiladas hace poco';
         sel.appendChild(primera);
         sel.disabled = false;
         grupos.forEach(function(g){
@@ -8017,7 +8190,7 @@
             var o = document.createElement('option');
             o.value = p.id;
             o.textContent = (p._dir.length > 58 ? p._dir.slice(0,56).trim() + '…' : p._dir) +
-              (p.status === 'reserved' ? '' : '  ·  ' + ({ rented:'ya alquilada', available:'disponible' }[p.status] || 'ya no está reservada'));
+              (p.status === 'reserved' ? '' : '  ·  ' + ({ rented:'alquilada', available:'disponible' }[p.status] || 'ya no está reservada'));
             o.title = (p.title || 'Propiedad') + ' — ' + p._dir;
             destino.appendChild(o);
           });
@@ -8093,6 +8266,9 @@
         cocheras:Number(fc.PARKING_LOTS || ft.cocheras) || 0, antiguedad:Number(fc.PROPERTY_AGE || ft.antiguedad) || 0,
         dirPublica:direccionPublica(p, exacto), exacto:exacto, lat:hayPin ? lat : null, lng:hayPin ? lng : null,
         fotos:Array.isArray(p.images) ? p.images.length : 0,
+        // Para listar las alquiladas hace poco en el contrato y el inventario.
+        contratoPendiente: p.contratoPendiente === true,
+        alquiladaEl: (p.finalizadaPorGestion && p.finalizadaPorGestion.fecha) || (p.cierre && p.cierre.fecha) || '',
         _dir:[p.direccion, ciudadDepto].filter(Boolean).join(', ') };
     }
     async function cargarDatos(uid){

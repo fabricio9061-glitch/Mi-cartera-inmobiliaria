@@ -556,6 +556,8 @@
     .ctr-mini-chip.venc{ background:#fee2e2; color:#991b1b; }
     .ctr-mini-btn{ margin-left:auto; border:1px solid currentColor; background:transparent; color:inherit; border-radius:7px; padding:4px 10px; font-family:inherit; font-size:.72rem; font-weight:600; cursor:pointer; opacity:.85; }
     .ctr-mini-btn.primary{ background:#16a34a; color:#fff; border-color:#16a34a; opacity:1; }
+    a.ctr-mini-btn{ text-decoration:none; display:inline-flex; align-items:center; }
+    .ctr-mini-txt{ flex:1 1 200px; min-width:0; }
     .ctr-overlay{ position:fixed; inset:0; background:rgba(15,25,40,.55); z-index:3200; display:flex; align-items:center; justify-content:center; padding:16px; }
     .ctr-modal{ background:#fff; border-radius:16px; max-width:420px; width:100%; padding:22px; box-shadow:0 20px 60px rgba(10,20,35,.35); max-height:88vh; overflow-y:auto; }
     .ctr-modal h3{ margin:0 0 14px; font-size:1.05rem; color:var(--navy); }
@@ -3608,6 +3610,7 @@
         '</div>' +
         coherenciaHtml(g, prop, rol, est) +
         contratoGestionHtml(prop, g) +
+        cierreMapaHtml(prop, est) +
         selloExternoHtml(g) +
         selloEliminadaHtml(g) +
       '</div>';
@@ -3762,6 +3765,31 @@
       }
       return '<div class="ctr-mini pend"><i class="fas fa-file-signature"></i> Falta cargar el contrato de alquiler <button class="ctr-mini-btn primary" onclick="abrirContratoCliente(\''+prop.id+'\',false)">Cargar</button></div>';
     }
+    // Fila del Mapa de cierres. Cerrar la gestión pasa sola la propiedad a Vendida o
+    // Alquilada, pero el cierre (precio final, ganancia y ubicación) se registra en
+    // el mapa, y eso quedaba librado a la memoria: se cerraba acá y el mapa no se
+    // enteraba. Mientras falte, la gestión lo dice; cuando está, ofrece verlo.
+    // Solo para las que cerró una gestión (finalizadaPorGestion): las vendidas de
+    // antes, que nunca pasaron por acá, no se llenan de avisos.
+    function tieneCierreMapa(prop){ return !!(prop && prop.cierre && prop.cierre.lat != null && prop.cierre.lng != null); }
+    // Lo mismo que deja el mapa: el dueño de la propiedad, sus agentes o el admin.
+    function puedeRegistrarCierre(prop){
+      if (!prop || !currentUser) return false;
+      return isAdmin || prop.ownerId === currentUser.uid || (Array.isArray(prop.agents) && prop.agents.indexOf(currentUser.uid) >= 0);
+    }
+    function irARegistrarCierre(pid){ location.href = 'mapa-cierres.html?registrar=' + encodeURIComponent(pid); }
+    function cierreMapaHtml(prop, est){
+      if (!prop || est !== 'cerrado' || (prop.status !== 'sold' && prop.status !== 'rented')) return '';
+      var pid = encodeURIComponent(prop.id);
+      if (tieneCierreMapa(prop)){
+        return '<div class="ctr-mini"><i class="fas fa-map-location-dot"></i><span class="ctr-mini-txt">Cierre registrado en el mapa</span><a class="ctr-mini-btn" href="mapa-cierres.html?id='+pid+'">Ver</a></div>';
+      }
+      if (!prop.finalizadaPorGestion) return '';
+      if (puedeRegistrarCierre(prop)){
+        return '<div class="ctr-mini pend"><i class="fas fa-map-location-dot"></i><span class="ctr-mini-txt">Falta registrar el cierre en el mapa: precio final y ganancia</span><a class="ctr-mini-btn primary" href="mapa-cierres.html?registrar='+pid+'">Registrar</a></div>';
+      }
+      return '<div class="ctr-mini pend"><i class="fas fa-map-location-dot"></i><span class="ctr-mini-txt">Falta registrar el cierre en el mapa: lo registra '+esc(prop.ownerName || 'el agente de la propiedad')+' y te suma en «¿Cerraron en equipo?»</span></div>';
+    }
     function relDate(iso){ if(!iso) return '—'; var d=new Date(iso+'T00:00:00'); return isNaN(d)?iso:d.toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'}); }
     function img(prop){ return (prop && prop.images && prop.images[0]) ? prop.images[0] : 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400'; }
 
@@ -3873,7 +3901,7 @@
       var data = Object.assign({ id: d.id }, d.data());
       var i = -1; for (var k=0;k<allProperties.length;k++){ if (allProperties[k].id===d.id){ i=k; break; } }
       var antes = i >= 0 ? allProperties[i] : null;
-      var cambio = !antes || ['status','despubPendiente','finalizadaPorGestion','contratoPendiente','bajaSolicitadaUid','motivoBaja'].some(function(k){
+      var cambio = !antes || ['status','despubPendiente','finalizadaPorGestion','contratoPendiente','bajaSolicitadaUid','motivoBaja','cierre'].some(function(k){
         return JSON.stringify(antes[k]) !== JSON.stringify(data[k]);
       });
       if (i>=0) allProperties[i] = data; else allProperties.push(data);
@@ -3943,7 +3971,10 @@
           var enJuego = PROP_EN_JUEGO.indexOf(stProp) >= 0;
           var enLimbo = stProp === 'cerrado_externo' && (prop.despubPendiente || prop.motivoBaja === 'cerro_externo' || prop.motivoBaja === 'propietario_perdido');
           if (nuevo === 'cerrado' && (stProp === 'available' || stProp === 'reserved' || enLimbo)){
-            showToast('Gestión cerrada', 'La propiedad pasa sola a ' + (prop.type === 'rent' ? 'Alquilada (pide el contrato)' : 'Vendida'));
+            // El cierre del mapa (precio final y ganancia) no se carga solo: se ofrece ir ya.
+            var faltaMapa = !tieneCierreMapa(prop) && puedeRegistrarCierre(prop);
+            showToast('Gestión cerrada', 'La propiedad pasa sola a ' + (prop.type === 'rent' ? 'Alquilada (pide el contrato)' : 'Vendida') + (faltaMapa ? '. Falta registrar el cierre en el mapa.' : ''),
+              faltaMapa ? { txt: 'Registrar', fn: function(){ irARegistrarCierre(prop.id); } } : null);
           } else if ((nuevo === 'externo' || nuevo === 'perdido') && rol === 'propietario' && enJuego){
             showToast(nuevo === 'externo' ? 'Cerró por afuera' : 'Propietario perdido', 'La propiedad sale de circulación y Dirección confirma la baja de los portales');
           } else if (nuevo === 'externo'){
@@ -3953,7 +3984,8 @@
           } else if (rol === 'propietario' && reactiva && stProp === 'archived'){
             showToast('Gestión reactivada', 'La propiedad sigue dada de baja: pedíle a Dirección que la vuelva a publicar');
           } else if (anterior === 'cerrado' && nuevo !== 'cerrado' && (stProp === 'sold' || stProp === 'rented')){
-            showToast('Gestión reabierta', 'Si la operación se cayó, la propiedad vuelve sola a Disponible');
+            if (tieneCierreMapa(prop)) showToast('Gestión reabierta', 'Si la operación se cayó, la propiedad vuelve sola a Disponible. Borrá también su cierre en el mapa.', { txt: 'Ir al mapa', fn: function(){ location.href = 'mapa-cierres.html?id=' + encodeURIComponent(prop.id); } });
+            else showToast('Gestión reabierta', 'Si la operación se cayó, la propiedad vuelve sola a Disponible');
           } else {
             showToast('Avance actualizado', paso ? 'La consulta pasó a Clientes' : '');
           }

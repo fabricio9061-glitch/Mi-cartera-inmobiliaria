@@ -755,6 +755,7 @@
         initMap();
         refrescar(true);
         abrirPedido();
+        abrirRegistroPedido().catch(e => console.warn('[mapa] registrar desde el link', e));
         // El admin es el único que genera recibos: jsPDF se baja cuando el navegador está libre.
         if (isAdmin){
           const precargar = () => asegurarPDF().catch(() => {});
@@ -792,6 +793,39 @@
           window.scrollTo({ top: w.getBoundingClientRect().top + window.scrollY - tope });
         }
       }, 450);
+    }
+
+    /* Link para registrar el cierre de una propiedad (mapa-cierres.html?registrar=PROPIEDAD):
+       es adonde lleva Clientes al cerrar una gestión. Abre el formulario con esa
+       propiedad elegida; si ya tiene cierre, lo muestra en vez de cargar otro. */
+    async function abrirRegistroPedido(){
+      let id = '';
+      try { id = new URLSearchParams(location.search).get('registrar') || ''; } catch(e) {}
+      if (!id) return;
+      // Al recargar la página no se vuelve a abrir el formulario.
+      try { const u = new URL(location.href); u.searchParams.delete('registrar'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch(e) {}
+      const ya = porId[id];
+      if (ya && cierres.indexOf(ya) >= 0){
+        if (!pasaFiltros(ya)){ limpiarFiltros(true); pintarFiltros(); }
+        selId = ya.id;
+        refrescar(false);
+        setTimeout(() => enfocarCierre(ya.id), 450);
+        toast('Este cierre ya está registrado en el mapa.');
+        return;
+      }
+      await openReg();
+      if (!$('regModal').classList.contains('open')) return;
+      const sel = $('regProp');
+      const opt = Array.from(sel.options).find(o => o.value === id);
+      if (!opt){
+        regToken++;
+        cerrarOverlay('regModal');
+        toast('Esa propiedad no está entre las tuyas: el cierre lo registra su agente (o el admin) y te suma en «¿Cerraron en equipo?».', true);
+        return;
+      }
+      if (opt.disabled){ toast('No se puede registrar: ' + opt.textContent.split(' · ').pop() + '.', true); return; }
+      sel.value = id;
+      onPropSelect();
     }
 
     // ---------- Filtros ----------
