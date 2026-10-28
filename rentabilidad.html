@@ -419,7 +419,8 @@
 <script>
   /* =========================================================================
      INGRESOS: no se cargan a mano. Salen de las propiedades con cierre
-     confirmado (cierreConfirmado === true). De la comisión de la agencia se
+     confirmado (cierreConfirmado === true: la Dirección confirmó la firma), y
+     de los que pasaron al historial (cierresAnteriores). De la comisión de la agencia se
      resta lo que se lleva el agente, los compañeros que cobran un monto del
      mismo cierre y el referido (un % de la ganancia del agente del cierre).
      Lo que queda es lo que efectivamente le queda a la inmobiliaria.
@@ -550,10 +551,28 @@
     };
   }
 
+  // Cierres confirmados de una propiedad: el actual y los que pasaron al historial
+  // (un alquiler que terminó, o una operación que se reemplazó por otra). Cada uno
+  // suma en el mes de su firma.
+  function cierresConfirmadosDe(p) {
+    const l = [], vistos = new Set();
+    const sumar = (c) => {
+      if (!c || typeof c !== 'object') return;
+      const k = String(c.registradoEl || '');
+      if (k && vistos.has(k)) return;
+      if (k) vistos.add(k);
+      l.push(c);
+    };
+    if (p && p.cierreConfirmado === true) sumar(p.cierre);
+    if (p && Array.isArray(p.cierresAnteriores)) p.cierresAnteriores.forEach(sumar);
+    return l;
+  }
+
   async function cargar() {
     try {
-      const [conf, conCierre, gs, rf, cfg] = await Promise.all([
+      const [conf, ant, conCierre, gs, rf, cfg] = await Promise.all([
         db.collection('properties').where('cierreConfirmado', '==', true).get(),
+        db.collection('properties').where('tieneCierresAnteriores', '==', true).get().catch(() => null),
         // Para avisar los que faltan confirmar. Si la consulta no anda, no se avisa y listo.
         db.collection('properties').where('cierre.lat', '>=', -90).get().catch(() => null),
         db.collection('agencyGastos').get(),
@@ -567,7 +586,16 @@
       S.dolar = dolar > 0 ? dolar : 40;
       S.cierres = [];
       const vistos = new Set();
-      conf.forEach((d) => { const r = registro(d.id, d.data() || {}, true); if (r) { S.cierres.push(r); vistos.add(d.id); } });
+      const props = new Map();
+      conf.forEach((d) => props.set(d.id, d.data() || {}));
+      if (ant) ant.forEach((d) => { if (!props.has(d.id)) props.set(d.id, d.data() || {}); });
+      props.forEach((p, id) => {
+        cierresConfirmadosDe(p).forEach((c, i) => {
+          const r = registro(i ? id + '#' + i : id, Object.assign({}, p, { cierre: c }), true);
+          if (r) S.cierres.push(r);
+        });
+        if (p.cierreConfirmado === true) vistos.add(id);
+      });
       S.pendientes = [];
       if (conCierre) conCierre.forEach((d) => {
         const p = d.data() || {};

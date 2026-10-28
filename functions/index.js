@@ -6405,8 +6405,14 @@ exports.avisarCierre = onDocumentUpdated("properties/{id}", async (event) => {
   const titulo = String(after.title || "una propiedad");
   const precio = Number(cD.precio) || 0;
   const monto = montoCierre(precio, cD.moneda, tipo);
-  const texto = `${agente} cerró ${tipo === "venta" ? "la venta" : "el alquiler"} de "${titulo}"` +
-    `${monto ? ` por ${monto}` : ""}. Falta ${tipo === "venta" ? "confirmarla" : "confirmarlo"} en el Mapa de cierres.`;
+  // Reserva (la propiedad queda Reservada hasta la firma) o cierre de antes (ya
+  // figura vendida o alquilada y solo falta confirmar los números).
+  const esReserva = (after.status || "") === "reserved";
+  const texto = esReserva
+    ? `${agente} registró la reserva ${tipo === "venta" ? "de la venta" : "del alquiler"} de "${titulo}"` +
+      `${monto ? ` por ${monto}` : ""}. Cuando se firme, confirmá la firma en el Mapa de cierres.`
+    : `${agente} cerró ${tipo === "venta" ? "la venta" : "el alquiler"} de "${titulo}"` +
+      `${monto ? ` por ${monto}` : ""}. Falta ${tipo === "venta" ? "confirmarla" : "confirmarlo"} en el Mapa de cierres.`;
   const clave = crypto.createHash("sha1").update(String(cD.registradoEl || "")).digest("hex").slice(0, 12);
   const quienCargo = String(cD.registradoPor || "");
   let avisados = 0;
@@ -6415,12 +6421,13 @@ exports.avisarCierre = onDocumentUpdated("properties/{id}", async (event) => {
     try {
       await crearNotificacion(u, {
         type: "cierre_pendiente", propertyId: id, propertyTitle: String(after.title || ""),
-        userName: "Cierre para confirmar", text: texto,
-        // El push lleva directo al cierre en el mapa (el service worker respeta esta dirección).
-        url: `mapa-cierres.html?id=${encodeURIComponent(id)}`,
+        userName: esReserva ? "Reserva: falta la firma" : "Cierre para confirmar", text: texto,
+        // El push lleva directo a la confirmación en el mapa (el service worker respeta esta dirección).
+        url: `mapa-cierres.html?confirmar=${encodeURIComponent(id)}`,
         cierreTipo: tipo, cierrePrecio: precio || null, cierreMoneda: cD.moneda || null, cierreAgente: agente,
+        esReserva,
       }, {
-        title: "Nuevo cierre para confirmar",
+        title: esReserva ? "Nueva reserva: confirmá la firma cuando se haga" : "Nuevo cierre para confirmar",
         body: `${agente}: ${tipo} de ${titulo}${monto ? ` por ${monto}` : ""}`,
       }, `cierre_${id}_${clave}_${u.uid}`);
       avisados++;
@@ -6437,6 +6444,9 @@ exports.avisarReserva = onDocumentUpdated("properties/{id}", async (event) => {
   if (!after) return;
   const antes = (before && before.status) || "available";
   if (antes === "reserved" || after.status !== "reserved") return;
+  // Si la reserva se registró en el Mapa de cierres (con precio y ganancia), el aviso
+  // lo manda avisarCierre, con el botón para confirmar la firma: acá no se repite.
+  if (after.cierre && typeof after.cierre === "object" && after.cierreConfirmado !== true) return;
 
   const id = event.params.id;
   const uSnap = after.ownerId ? await db.doc(`users/${after.ownerId}`).get() : null;
@@ -6455,6 +6465,197 @@ exports.avisarReserva = onDocumentUpdated("properties/{id}", async (event) => {
     }
     await registrarLog(id, "Reservada", true, quien);
   } catch (e) { logger.error(`avisarReserva ${id}`, e); }
+});
+
+/* ============================================================================
+   CIERRES: RESERVA -> FIRMA -> HISTORIAL
+   ----------------------------------------------------------------------------
+   Cuando el cliente deja la seña, el agente registra la operación en el Mapa de
+   cierres: la propiedad queda RESERVADA (Mercado Libre pausa el aviso, no lo
+   finaliza) y el cierre queda pendiente. Cuando se firma, la Dirección lo
+   confirma en el mapa (cierreConfirmado: true) y recién ahí:
+     - las gestiones de esa propiedad pasan a Cerrado (la que la reservó y la del
+       propietario) y el agente ya no las puede cambiar;
+     - la propiedad pasa a Vendida o Alquilada (la mueve el trigger de la gestión;
+       si el cierre se cargó directo en el mapa, sin gestión, se mueve acá);
+     - la ganancia entra en Mis Finanzas, Recompensas, Rentabilidad y Desempeño
+       (todos leen solo cierres confirmados).
+   Si la reserva se cae, el cierre pendiente se borra del mapa: acá se guarda en
+   reservasCaidas (historial: no suma en ningún lado), las gestiones que estaban
+   en Reservado vuelven atrás y se avisa a la Dirección.
+   Un cierre confirmado no se pierde cuando la propiedad vuelve al mercado: al
+   terminar un alquiler, o al registrar otra operación encima, pasa a
+   cierresAnteriores (tieneCierresAnteriores: true) y las finanzas lo siguen
+   sumando. Esos campos los escribe solo el servidor: las reglas de Firestore no
+   se los dejan tocar al navegador.
+   ========================================================================== */
+function cierreObjeto(c) { return c && typeof c === "object" ? c : null; }
+function mismaOperacion(a, b) { return !!a && !!b && String(a.registradoEl || "") === String(b.registradoEl || ""); }
+// Copia del cierre para el historial: lo mismo que había, más cuándo y por qué se archivó.
+function archivoCierre(c, motivo, ahora) {
+  return Object.assign({}, c, { confirmado: true, archivadoEl: ahora, archivadoPor: motivo });
+}
+
+// Gestiones de una propiedad que todavía no terminaron, con su rol.
+async function gestionesActivasDe(pid) {
+  const q = await db.collection("gestiones").where("propertyId", "==", pid).get();
+  const out = [];
+  for (const d of q.docs) {
+    const g = d.data() || {};
+    const est = g.estadoGestion || "nuevo";
+    if (["cerrado", "externo", "perdido", "prop_eliminada"].includes(est)) continue;
+    let cliente = null;
+    try { if (g.clientId) { const cd = await db.doc(`clients/${g.clientId}`).get(); if (cd.exists) cliente = cd.data(); } } catch (e) { /* sin datos del cliente */ }
+    out.push({ id: d.id, ref: d.ref, g, est, rol: rolGestionInferido(g, cliente) });
+  }
+  return out;
+}
+
+async function confirmarFirmaDe(id, ref, p, c, ahora) {
+  const autor = c.confirmadoPor ? `${c.confirmadoPor} (Dirección)` : "Dirección";
+  const activas = await gestionesActivasDe(id);
+  // Se cierran la que la reservó y la del propietario: la operación la hizo la
+  // agencia, lo confirmó la Dirección. Los demás interesados siguen como estaban.
+  const aCerrar = activas.filter((x) => x.est === "reservado" || x.rol === "propietario");
+  for (const x of aCerrar) {
+    await x.ref.update({
+      estadoGestion: "cerrado",
+      updatedAt: ahora,
+      historial: admin.firestore.FieldValue.arrayUnion({
+        tipo: "avance", valor: "Cerrado", autor, fecha: ahora, nota: "Firma confirmada en el Mapa de cierres",
+      }),
+    });
+  }
+  // La propiedad la mueve el trigger de la gestión que se acaba de cerrar (Vendida
+  // o Alquilada, con el contrato pendiente si es alquiler). Sin gestiones (cierre
+  // cargado directo en el mapa), se mueve acá con la misma regla.
+  const st = p.status || "available";
+  if (!aCerrar.length && ["available", "reserved", "tasacion", "tasado"].includes(st)) {
+    const esAlquiler = c.tipo === "alquiler";
+    const upd = { status: esAlquiler ? "rented" : "sold", reservadaPorGestion: admin.firestore.FieldValue.delete(), updatedAt: ahora };
+    if (esAlquiler && !(Array.isArray(p.contratos) && p.contratos.some((k) => k && k.vigente))) upd.contratoPendiente = true;
+    await ref.update(upd);
+  }
+  await registrarLog(id, "Firma confirmada", true,
+    `${c.tipo === "alquiler" ? "alquiler" : "venta"} · ${aCerrar.length} gestión(es) a Cerrado${aCerrar.length ? "" : ` · propiedad ${st} -> ${c.tipo === "alquiler" ? "rented" : "sold"}`}`);
+
+  // Aviso al agente del cierre: desde ahora suma en sus ganancias y puntos.
+  const agenteUid = String(c.agenteUid || p.ownerId || "");
+  if (!agenteUid) return;
+  const adm = await getAdminUser();
+  if (adm && adm.uid === agenteUid) return;   // lo confirmó el mismo que lo cerró
+  const tipo = c.tipo === "alquiler" ? "alquiler" : "venta";
+  const titulo = String(p.title || "una propiedad");
+  const monto = montoCierre(c.precio, c.moneda, tipo);
+  const clave = crypto.createHash("sha1").update(String(c.registradoEl || "")).digest("hex").slice(0, 12);
+  try {
+    await crearNotificacion({ uid: agenteUid }, {
+      type: "cierre_confirmado", propertyId: id, propertyTitle: String(p.title || ""),
+      userName: "Firma confirmada",
+      text: `La Dirección confirmó la firma ${tipo === "venta" ? "de la venta" : "del alquiler"} de "${titulo}"${monto ? ` por ${monto}` : ""}. Ya suma en Mis Finanzas y en Recompensas.`,
+      url: `mapa-cierres.html?id=${encodeURIComponent(id)}`,
+    }, {
+      title: "Firma confirmada ✓",
+      body: `${tipo === "venta" ? "Venta" : "Alquiler"} de ${titulo}: ya suma en tus ganancias`,
+    }, `cierreok_${id}_${clave}_${agenteUid}`);
+  } catch (e) { logger.warn(`confirmarFirma ${id}: no se pudo avisar al agente`, e.message); }
+}
+
+async function caidaDeReserva(id, ref, before, after, c, ahora) {
+  const upd = {
+    // caidaEl sale de la escritura que la borró: si el evento llega dos veces, no se duplica.
+    reservasCaidas: admin.firestore.FieldValue.arrayUnion(Object.assign({}, c, { caidaEl: String(after.updatedAt || ahora), estadoPrevio: before.status || "" })),
+    updatedAt: ahora,
+  };
+  if (after.reservadaPorGestion) upd.reservadaPorGestion = admin.firestore.FieldValue.delete();
+  await ref.update(upd);
+  // Las gestiones que seguían en Reservado vuelven atrás. Si la caída vino de la
+  // gestión (el agente la sacó de Reservado), ya no queda ninguna: no se toca nada.
+  const activas = await gestionesActivasDe(id);
+  for (const x of activas.filter((y) => y.est === "reservado")) {
+    const vuelve = x.rol === "propietario" ? "cartera" : "negociacion";
+    await x.ref.update({
+      estadoGestion: vuelve,
+      updatedAt: ahora,
+      historial: admin.firestore.FieldValue.arrayUnion({
+        tipo: "avance", valor: vuelve === "cartera" ? "En cartera" : "En negociación", autor: "Sistema", fecha: ahora,
+        nota: "Se cayó la reserva: se borró del Mapa de cierres",
+      }),
+    });
+  }
+  // Una reserva que se cae es una novedad para la Dirección. Un cierre de antes
+  // (ya vendido o alquilado) solo lo borra el admin: no hace falta avisarle.
+  if ((before.status || "") !== "reserved") return;
+  const tipo = c.tipo === "alquiler" ? "alquiler" : "venta";
+  const titulo = String(after.title || before.title || "una propiedad");
+  const agente = String(c.agenteNombre || after.ownerName || "el agente");
+  try {
+    await notificarDireccion({
+      type: "reserva_caida", propertyId: id, propertyTitle: titulo,
+      userName: "Se cayó una reserva",
+      text: `Se cayó la reserva ${tipo === "venta" ? "de la venta" : "del alquiler"} de "${titulo}" (${agente}). La propiedad volvió a Disponible.`,
+      url: `propiedad.html?id=${encodeURIComponent(id)}`,
+    }, {
+      title: "Se cayó una reserva",
+      body: `${titulo} volvió a Disponible`,
+    });
+  } catch (e) { logger.warn(`caidaDeReserva ${id}: no se pudo avisar`, e.message); }
+  await registrarLog(id, "Se cayó la reserva", true, `${tipo} · ${agente}`);
+}
+
+exports.sincronizarCierresPropiedad = onDocumentUpdated("properties/{id}", async (event) => {
+  const before = event.data.before.data() || {};
+  const after = event.data.after.data();
+  if (!after) return;
+  const id = event.params.id;
+  const ref = db.collection("properties").doc(id);
+  const ahora = new Date().toISOString();
+  const cA = cierreObjeto(before.cierre), cD = cierreObjeto(after.cierre);
+  const confA = before.cierreConfirmado === true, confD = after.cierreConfirmado === true;
+  // Marca de archivo = la escritura que lo provocó: si el evento llega dos veces,
+  // arrayUnion no lo duplica (y las finanzas además descartan repetidos).
+  const marca = String(after.updatedAt || ahora);
+  try {
+    // (1) Terminó un alquiler confirmado y la propiedad vuelve al mercado: el
+    //     cierre pasa al historial (sigue sumando) y queda libre para otra operación.
+    if (before.status === "rented" && after.status === "available" && confA && confD && cA && cD
+        && mismaOperacion(cA, cD) && cA.tipo === "alquiler") {
+      await ref.update({
+        cierresAnteriores: admin.firestore.FieldValue.arrayUnion(archivoCierre(cA, "fin_alquiler", marca)),
+        tieneCierresAnteriores: true,
+        cierre: admin.firestore.FieldValue.delete(),
+        cierreConfirmado: admin.firestore.FieldValue.delete(),
+        updatedAt: ahora,
+      });
+      await registrarLog(id, "Cierre archivado: terminó el alquiler", true, String(cA.agenteNombre || ""));
+      return;
+    }
+    // (2) Otra operación encima de un cierre confirmado: el anterior pasa al historial
+    //     y la nueva arranca pendiente (la confirma la Dirección cuando se firma). El
+    //     mapa ya la manda en false; si llegó en true, se baja acá.
+    if (confA && cA && cD && !mismaOperacion(cA, cD)) {
+      const upd = {
+        cierresAnteriores: admin.firestore.FieldValue.arrayUnion(archivoCierre(cA, "nueva_operacion", marca)),
+        tieneCierresAnteriores: true,
+        updatedAt: ahora,
+      };
+      if (confD) upd.cierreConfirmado = false;
+      await ref.update(upd);
+      await registrarLog(id, "Cierre archivado: se registró otra operación", true, String(cA.agenteNombre || ""));
+      return;
+    }
+    // (3) La Dirección confirmó la firma.
+    if (!confA && confD && cD) {
+      await confirmarFirmaDe(id, ref, after, cD, ahora);
+      return;
+    }
+    // (4) Se cayó (o se borró) un cierre que todavía no estaba confirmado.
+    if (cA && !cD && !confA) {
+      await caidaDeReserva(id, ref, before, after, cA, ahora);
+    }
+  } catch (e) {
+    logger.error(`sincronizarCierresPropiedad ${id}`, e);
+  }
 });
 
 /* ============================================================================
@@ -7257,7 +7458,7 @@ const RECORDATORIO_DIAS = 14; // umbral por defecto para etapas sin regla propia
 // propiedad ya está captada). El aviso salta cuando el silencio supera el umbral
 // de la etapa. Nota: la excepción por visita futura agendada solo la aplica el
 // front (acá no cargamos la agenda para mantener el scheduler liviano).
-const UMBRAL_ETAPA = { nuevo: 1, contactado: 3, seguimiento: 3, visita: 5, negociacion: 5, tasacion: 5, cartera: 15 };
+const UMBRAL_ETAPA = { nuevo: 1, contactado: 3, seguimiento: 3, visita: 5, negociacion: 5, tasacion: 5, cartera: 15, reservado: 15 };
 
 // Consultas de los portales — espejo de estadoConsulta() de clientes.html.
 // Las que entran solas (InfoCasas y los demás portales) esperan en la pestaña
@@ -7266,7 +7467,7 @@ const UMBRAL_ETAPA = { nuevo: 1, contactado: 3, seguimiento: 3, visita: 5, negoc
 // Mantener estas listas iguales a las de clientes.html.
 const CQ_PORTALES = ["infocasas", "mercadolibre", "ml", "casasymas", "cym", "portal", "web", "lead"];
 const CQ_AUTORES_SISTEMA = ["InfoCasas", "Mercado Libre", "Casas y Más", "Portal", "Sistema"];
-const CQ_ETAPAS_DE_CLIENTE = ["visita", "negociacion", "cartera", "cerrado"];
+const CQ_ETAPAS_DE_CLIENTE = ["visita", "negociacion", "cartera", "reservado", "cerrado"];
 // Las recién llegadas ya tuvieron su aviso al entrar: el recordatorio es para
 // las que quedaron esperando.
 const CQ_HORAS_AVISO = 6;
@@ -7309,7 +7510,7 @@ exports.recordatorioSeguimiento = onSchedule(
     // afuera" y "propiedad eliminada" también son terminales. Antes este aviso
     // contaba como "nuevo" a propietarios que Clientes mostraba "En cartera", y
     // les llegaba un "sin contacto" que en la pantalla no aparecía.
-    const PRIORIDAD = ["nuevo", "contactado", "seguimiento", "visita", "negociacion", "cartera"];
+    const PRIORIDAD = ["nuevo", "contactado", "seguimiento", "visita", "negociacion", "cartera", "reservado"];
     const TERMINALES = ["cerrado", "perdido", "externo", "prop_eliminada"];
     const clientePorId = {};
     cliSnap.docs.forEach((d) => { clientePorId[d.id] = d.data(); });
@@ -7885,20 +8086,75 @@ exports.sincronizarPropiedadAlCerrarGestion = onDocumentUpdated("gestiones/{gid}
   };
 
   // (1) Salió de "Cerrado": se revierte SOLO lo que este trigger había marcado.
+  //     Si vuelve a "Reservado" (la Dirección deshizo el cierre pero la seña sigue
+  //     en pie), la propiedad queda Reservada, no Disponible.
   if (estAntes === "cerrado" && estAhora !== "cerrado") {
     const f = p.finalizadaPorGestion;
     if (f && f.gestionId === gid && (p.status === "sold" || p.status === "rented")) {
+      const aReserva = estAhora === "reservado";
+      const nuevo = aReserva ? "reserved" : "available";
       await ref.update({
-        status: "available",
+        status: nuevo,
         finalizadaPorGestion: borrar(),
         contratoPendiente: borrar(),
         contratoPendienteGestion: borrar(),
+        reservadaPorGestion: aReserva ? { gestionId: gid, fecha: ya() } : borrar(),
         updatedAt: ya(),
       });
-      logger.info(`[gestión reabierta] Propiedad ${pid} -> available.`);
-      p = Object.assign({}, p, { status: "available" });
+      logger.info(`[gestión reabierta] Propiedad ${pid} -> ${nuevo}.`);
+      p = Object.assign({}, p, { status: nuevo });
       delete p.finalizadaPorGestion;
+      if (aReserva) return;
     }
+  }
+
+  // (1b) RESERVADO: el cliente dejó la seña. La propiedad pasa a Reservada (en
+  //      Mercado Libre el aviso se PAUSA, no se finaliza: si la reserva se cae,
+  //      vuelve a estar activo sin pagar una publicación nueva) y queda anotado qué
+  //      gestión la reservó. A Cerrado la pasa la Dirección al confirmar la firma en
+  //      el Mapa de cierres (ver sincronizarCierresPropiedad).
+  if (estAhora === "reservado") {
+    if (estAntes === "reservado" && !resincronizar && !cambioRol) return;
+    const st = p.status || "available";
+    if (st === "reserved") {
+      if (!p.reservadaPorGestion || p.reservadaPorGestion.gestionId !== gid) {
+        await ref.update({ reservadaPorGestion: { gestionId: gid, fecha: ya() }, updatedAt: ya() });
+        logger.info(`[gestión reservada] Propiedad ${pid}: ya estaba Reservada, queda a nombre de la gestión ${gid}.`);
+      }
+      return;
+    }
+    const enLimboR = st === "cerrado_externo" && (pedidoDeGestion(p) || porGestion(p));
+    // Vendida, alquilada o dada de baja: un estado ya definido se respeta.
+    if (!["available", "tasacion", "tasado"].includes(st) && !enLimboR) return;
+    const upd = { status: "reserved", reservadaPorGestion: { gestionId: gid, fecha: ya() }, updatedAt: ya() };
+    if (enLimboR) {
+      // Se iba a dar de baja y al final se reservó con la agencia: el pedido queda sin objeto.
+      Object.assign(upd, {
+        despubPendiente: borrar(), statusPrevioDespub: borrar(), motivoBaja: borrar(), motivoBajaTexto: borrar(), despubGestionId: borrar(),
+        despubResolucion: { resultado: "mantenida", por: quien || "Agente", at: ya(), motivo: "gestion_reservada" },
+      });
+    }
+    await ref.update(upd);
+    logger.info(`[gestión reservada] Propiedad ${pid} -> reserved.`);
+    return;
+  }
+
+  // (1c) Salió de "Reservado" sin llegar a Cerrado: se cayó la reserva. Vuelve a
+  //      Disponible (solo si la reservó ESTA gestión y la firma no está confirmada),
+  //      y la reserva cargada en el mapa se borra: sincronizarCierresPropiedad la
+  //      guarda en reservasCaidas y le avisa a la Dirección.
+  if (estAntes === "reservado" && estAhora !== "cerrado") {
+    const r = p.reservadaPorGestion;
+    if (p.status === "reserved" && p.cierreConfirmado !== true && (!r || r.gestionId === gid)) {
+      const upd = { status: "available", reservadaPorGestion: borrar(), updatedAt: ya() };
+      if (p.cierre) upd.cierre = borrar();
+      await ref.update(upd);
+      logger.info(`[reserva caída] Propiedad ${pid} -> available (la gestión ${gid} pasó a ${estAhora}).`);
+      p = Object.assign({}, p, { status: "available" });
+      delete p.reservadaPorGestion;
+      delete p.cierre;
+    }
+    // Sigue: si pasó a Perdido o Cerró por afuera, corren las reglas de abajo.
   }
 
   // (2) Cerrado con la agencia: la propiedad pasa a Vendida / Alquilada.
@@ -7915,6 +8171,8 @@ exports.sincronizarPropiedadAlCerrarGestion = onDocumentUpdated("gestiones/{gid}
     const upd = {
       status: nuevoEstado,
       finalizadaPorGestion: { gestionId: gid, fecha: ya() },
+      // La reserva terminó en firma: ya no hay nada que devolver si "se cae".
+      reservadaPorGestion: borrar(),
       updatedAt: ya(),
     };
     // Alquiler = pausa con fecha. Si todavía no tiene un contrato vigente cargado,
@@ -9348,30 +9606,75 @@ const DESTACADO_DIAS = 30;
 const DESTACADO_MIN_FOTOS = 12;
 const DESTACADO_EXTRA_PUNTOS = 2;
 
+// Cierres CONFIRMADOS de una propiedad: el actual y los que pasaron al historial
+// (un alquiler que terminó, o una operación que se reemplazó por otra).
+function cierresConfirmadosDe(p) {
+  const l = [], vistos = new Set();
+  const sumar = (c) => {
+    if (!c || typeof c !== "object") return;
+    const k = String(c.registradoEl || "");
+    if (k && vistos.has(k)) return;   // la misma operación archivada dos veces cuenta una
+    if (k) vistos.add(k);
+    l.push(c);
+  };
+  if (p && p.cierreConfirmado === true) sumar(p.cierre);
+  if (p && Array.isArray(p.cierresAnteriores)) p.cierresAnteriores.forEach(sumar);
+  return l;
+}
+// Propiedades con algún cierre confirmado (actual o en el historial).
+async function propiedadesConCierresConfirmados() {
+  const [a, b] = await Promise.all([
+    db.collection("properties").where("cierreConfirmado", "==", true).get(),
+    db.collection("properties").where("tieneCierresAnteriores", "==", true).get(),
+  ]);
+  const vistos = new Map();
+  a.docs.concat(b.docs).forEach((d) => { if (!vistos.has(d.id)) vistos.set(d.id, Object.assign({ id: d.id }, d.data())); });
+  return Array.from(vistos.values());
+}
+
 /* Puntos disponibles del agente, calculados EN EL SERVIDOR.
    El saldo que muestra la app se arma en el navegador; si el cobro confiara en
    eso, un agente podría comprarse destacados sin tener puntos. */
 async function puntosDisponibles(uid) {
   let ganados = 0, gastados = 0;
-  // Los puntos NO están guardados: se calculan desde los cierres confirmados,
-  // 1 punto por cada US$100 de ganancia del agente. Es la misma cuenta que hace
-  // la app; si acá se leyera un campo guardado, siempre daría cero.
+  // Los puntos NO están guardados: se calculan desde los cierres confirmados con
+  // la MISMA cuenta que muestra la app (Mis Finanzas y Recompensas): por cada
+  // cierre del agente (el del cierre, no el dueño de la propiedad), un punto por
+  // cada US$100 completos de lo que le quedó, más su parte en los cierres en equipo
+  // y los ajustes de la Dirección. Si acá se contara distinto, la app mostraría un
+  // saldo y el servidor cobraría con otro.
   try {
     const cfgSnap = await db.doc("config/recompensas").get();
     const cfg = cfgSnap.exists ? cfgSnap.data() : {};
     const dolar = Number(cfg.dolarPesos) || 40;
-    const porPunto = Number(cfg.usdPorPunto) || 100;
-    const props = await db.collection("properties").where("ownerId", "==", uid).get();
-    let usd = 0;
-    props.docs.forEach((d) => {
-      const p = d.data();
-      if (!p.cierreConfirmado || !p.cierre) return;
-      const c = p.cierre;
-      const g = Number(c.gananciaAgente) || 0;
-      if (!g) return;
-      usd += (c.moneda === "UYU") ? g / dolar : g;
-    });
-    ganados = Math.floor(usd / porPunto);
+    const porCien = Number(cfg.puntosPor100) || 1;
+    const aUSD = (monto, moneda) => (moneda === "UYU" ? (dolar > 0 ? monto / dolar : 0) : monto);
+    let perfil = {};
+    try { const ps = await db.doc(`users/${uid}`).get(); if (ps.exists) perfil = ps.data() || {}; } catch (e) { /* sin perfil: sin estimación */ }
+    for (const p of await propiedadesConCierresConfirmados()) {
+      for (const c of cierresConfirmadosDe(p)) {
+        const delCierre = String(c.agenteUid || p.ownerId || "");
+        if (delCierre === uid) {
+          let g = (c.gananciaAgente != null && c.gananciaAgente !== "" && isFinite(Number(c.gananciaAgente))) ? Number(c.gananciaAgente) : null;
+          if (g == null) {
+            // Cierres viejos sin la ganancia cargada: se estima con su % de comisión, como la app.
+            const precio = Number(c.precio) || 0;
+            const comAg = c.tipo === "venta"
+              ? precio * ((c.agencyPct != null ? Number(c.agencyPct) : 3) / 100)
+              : precio * (c.agencyMonths != null ? Number(c.agencyMonths) : 1);
+            const pct = c.tipo === "venta" ? Number(perfil.commissionSale) : Number(perfil.commissionRent);
+            g = pct ? comAg * pct / 100 : 0;
+          }
+          ganados += Math.floor(aUSD(g, c.moneda) / 100) * porCien;
+        } else {
+          const mia = (Array.isArray(c.participantes) ? c.participantes : []).find((x) => x && x.uid === uid);
+          const m = mia ? Number(mia.monto) || 0 : 0;
+          if (m) ganados += Math.floor(aUSD(m, c.moneda) / 100) * porCien;
+        }
+      }
+    }
+    const aj = await db.collection("ajustesFinancieros").where("agenteUid", "==", uid).get();
+    aj.docs.forEach((d) => { ganados += Number((d.data() || {}).puntos) || 0; });
   } catch (e) { logger.warn("puntosDisponibles ganados:", e.message); }
   try {
     const q = await db.collection("canjes").where("agenteUid", "==", uid).get();

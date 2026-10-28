@@ -148,7 +148,7 @@
 
     <div id="content" style="display:none">
       <h1 class="ftitle">Mis Finanzas</h1>
-      <p class="flede">Acá ves tu dinero ganado, gestionás tus cuentas y solicitás cobros a la administración.</p>
+      <p class="flede">Acá ves tu dinero ganado, gestionás tus cuentas y solicitás cobros a la administración. Una operación suma cuando la Dirección confirma la firma en el Mapa de cierres.</p>
 
       <div class="wallets">
         <div class="wallet usd">
@@ -275,61 +275,88 @@
       return [];
     }
 
-    // Ganado = suma de comisiones de cierres CONFIRMADOS donde soy el agente.
+    // Cierres CONFIRMADOS (la Dirección confirmó la firma): el actual de la propiedad
+    // y los que pasaron al historial (un alquiler que terminó, o una operación que se
+    // reemplazó por otra). Son del agente del cierre; el dueño de la propiedad solo
+    // en los viejos que no lo tienen. Misma regla que el menú, Recompensas y el servidor.
+    function cierresConfirmadosDe(p){
+      var l = [], vistos = {};
+      function sumar(c){
+        if(!c || typeof c !== 'object') return;
+        var k = String(c.registradoEl || '');
+        if(k && vistos[k]) return;
+        if(k) vistos[k] = true;
+        l.push(c);
+      }
+      if(p && p.cierreConfirmado === true) sumar(p.cierre);
+      if(p && Array.isArray(p.cierresAnteriores)) p.cierresAnteriores.forEach(sumar);
+      return l;
+    }
+    function agenteDelCierre(c, p){ return (c && c.agenteUid) || (p && p.ownerId) || ''; }
+
+    // Ganado = mis cierres confirmados + mi parte en los de equipo + mis referidos
+    // + los ajustes de la Dirección.
     async function calcularGanado(uid){
       saldos.USD.ganado = 0; saldos.UYU.ganado = 0;
-      var snap = await db.collection('properties').where('ownerId','==',uid).get();
       var DEF_SALE=3, DEF_MONTHS=1;
-      snap.forEach(function(d){
-        var p=d.data(); if(!p.cierre || p.cierreConfirmado!==true) return;
-        var c=p.cierre;
-        var gan=(c.gananciaAgente!=null && c.gananciaAgente!=='' && isFinite(Number(c.gananciaAgente)))?Number(c.gananciaAgente):null;
-        if(gan==null){
-          var precio=Number(c.precio)||0;
-          var comAg=(c.tipo==='venta')?precio*((c.agencyPct!=null?Number(c.agencyPct):DEF_SALE)/100):precio*(c.agencyMonths!=null?Number(c.agencyMonths):DEF_MONTHS);
-          var pct=(c.tipo==='venta')?Number(profile.commissionSale):Number(profile.commissionRent);
-          gan=pct?comAg*pct/100:0;
-        }
-        var mon=c.moneda||'USD';
-        saldos[mon==='UYU'?'UYU':'USD'].ganado += gan;
-      });
+      var res = await Promise.all([
+        db.collection('properties').where('cierreConfirmado','==',true).get(),
+        db.collection('properties').where('tieneCierresAnteriores','==',true).get().catch(function(){ return null; })
+      ]);
+      var props = {}, ids = [];
+      res.forEach(function(q){ if(q) q.forEach(function(d){ if(!props[d.id]){ props[d.id] = d.data(); ids.push(d.id); } }); });
+      var cierres = [];
+      ids.forEach(function(id){ var p = props[id]; cierresConfirmadosDe(p).forEach(function(c){ cierres.push({ c:c, ag:agenteDelCierre(c, p) }); }); });
+      function sumar(monto, moneda){ saldos[moneda==='UYU'?'UYU':'USD'].ganado += monto; }
 
-      // Participaciones en EQUIPO: cierres de otros agentes donde figuro como
-      // participante con monto fijo. Sumo mi parte.
-      try{
-        var eqSnap = await db.collection('properties').where('cierreConfirmado','==',true).get();
-        eqSnap.forEach(function(d){
-          var p=d.data();
-          if(!p.cierre || p.cierre.agenteUid===uid) return; // los míos ya se contaron
-          var parts = Array.isArray(p.cierre.participantes) ? p.cierre.participantes : [];
-          var mia = parts.find(function(x){ return x.uid===uid; });
-          if(!mia) return;
-          var monto = Number(mia.monto)||0; if(!monto) return;
-          var mon = p.cierre.moneda||'USD';
-          saldos[mon==='UYU'?'UYU':'USD'].ganado += monto;
-        });
-      }catch(e){ console.warn('equipo', e && e.message); }
+      // Mis cierres y mi parte en los cierres en EQUIPO de otros agentes.
+      cierres.forEach(function(x){
+        var c = x.c;
+        if(x.ag === uid){
+          var gan=(c.gananciaAgente!=null && c.gananciaAgente!=='' && isFinite(Number(c.gananciaAgente)))?Number(c.gananciaAgente):null;
+          if(gan==null){
+            var precio=Number(c.precio)||0;
+            var comAg=(c.tipo==='venta')?precio*((c.agencyPct!=null?Number(c.agencyPct):DEF_SALE)/100):precio*(c.agencyMonths!=null?Number(c.agencyMonths):DEF_MONTHS);
+            var pct=(c.tipo==='venta')?Number(profile.commissionSale):Number(profile.commissionRent);
+            gan=pct?comAg*pct/100:0;
+          }
+          sumar(gan, c.moneda);
+          return;
+        }
+        var parts = Array.isArray(c.participantes) ? c.participantes : [];
+        var mia = parts.find(function(y){ return y && y.uid===uid; });
+        var monto = mia ? (Number(mia.monto)||0) : 0;
+        if(monto) sumar(monto, c.moneda);
+      });
 
       // Ganancia por REFERIDOS: mi % de lo que ganó cada agente que referí, en sus
       // cierres confirmados. El % está en referidos/{uidReferido}.
       try{
         var refSnap = await db.collection('referidos').where('referrerUid','==',uid).get();
-        for(var i=0;i<refSnap.docs.length;i++){
-          var rd = refSnap.docs[i], refInfo = rd.data(), referidoUid = rd.id;
+        refSnap.docs.forEach(function(rd){
+          var refInfo = rd.data(), referidoUid = rd.id;
           var pctS = Number(refInfo.pctSale)||0, pctR = Number(refInfo.pctRent)||0;
-          if(!pctS && !pctR) continue;
-          var cs = await db.collection('properties').where('ownerId','==',referidoUid).get();
-          cs.forEach(function(d){
-            var p=d.data(); if(!p.cierre || p.cierreConfirmado!==true) return;
-            var c=p.cierre;
+          if(!pctS && !pctR) return;
+          cierres.forEach(function(x){
+            if(x.ag !== referidoUid) return;
+            var c = x.c;
             var ganRef=(c.gananciaAgente!=null && c.gananciaAgente!=='' && isFinite(Number(c.gananciaAgente)))?Number(c.gananciaAgente):0;
             var rfPct=(c.tipo==='venta')?pctS:pctR;
             if(!ganRef || !rfPct) return;
-            var mon=c.moneda||'USD';
-            saldos[mon==='UYU'?'UYU':'USD'].ganado += ganRef*rfPct/100;
+            sumar(ganRef*rfPct/100, c.moneda);
           });
-        }
+        });
       }catch(e){ console.warn('referidos', e && e.message); }
+
+      // Ajustes de la Dirección (correcciones con motivo): suman o restan.
+      try{
+        var aj = await db.collection('ajustesFinancieros').where('agenteUid','==',uid).get();
+        aj.forEach(function(d){
+          var a = d.data() || {};
+          if(Number(a.montoUSD)) saldos.USD.ganado += Number(a.montoUSD);
+          if(Number(a.montoUYU)) saldos.UYU.ganado += Number(a.montoUYU);
+        });
+      }catch(e){ console.warn('ajustes', e && e.message); }
     }
 
     // Retiros: pendientes+aprobados restan del disponible; pagados también (ya salió la plata).

@@ -57,6 +57,22 @@ service cloud.firestore {
           || resource.data.get('email', '').lower() == 'fabricio9061@gmail.com';
     }
 
+    // Propiedad de una gestión (para las reglas de Cerrado). Una lectura más, solo
+    // cuando una gestión entra o sale de Cerrado.
+    function propiedadDeGestion(g) {
+      return get(/databases/$(database)/documents/properties/$(g.propertyId)).data;
+    }
+    // ¿La firma de esa propiedad ya está confirmada en el Mapa de cierres?
+    function firmaConfirmadaDe(g) {
+      return g.get('propertyId', '') != ''
+          && propiedadDeGestion(g).get('cierreConfirmado', false) == true;
+    }
+    // ¿La propiedad está otra vez en el mercado? (por ejemplo, terminó el alquiler)
+    function propiedadEnJuegoDe(g) {
+      return g.get('propertyId', '') != ''
+          && propiedadDeGestion(g).get('status', 'available') in ['available', 'reserved', 'tasacion', 'tasado'];
+    }
+
     // ============ USERS ============
     // La lectura sigue siendo pública a propósito: la web pública (propiedad.html)
     // muestra nombre/foto/WhatsApp del agente del aviso.
@@ -178,7 +194,21 @@ service cloud.firestore {
                                       // El cliente NO lo escribe en ningún flujo (verificado en
                                       // todo el repo): solo lo escribe activarDestacado con el
                                       // Admin SDK, que no pasa por estas reglas.
-                                      'extraPago']))
+                                      'extraPago',
+                                      // CIERRES: el historial de cierres confirmados (siguen
+                                      // sumando en las finanzas), las reservas que se cayeron y
+                                      // qué gestión reservó la propiedad los escribe solo el
+                                      // servidor (sincronizarCierresPropiedad y el trigger de
+                                      // gestiones). Si el navegador pudiera tocarlos, un agente
+                                      // se inventaba cierres "anteriores" que suman a su saldo.
+                                      'cierresAnteriores', 'tieneCierresAnteriores',
+                                      'reservasCaidas', 'reservadaPorGestion'])
+                        // Un cierre ya CONFIRMADO (firmado y contado en Mis Finanzas,
+                        // Recompensas y Rentabilidad) solo lo cambia la Dirección. Sin
+                        // esto, el agente le subía la ganancia por SDK después de confirmado.
+                        && (esDireccion()
+                            || resource.data.get('cierreConfirmado', false) != true
+                            || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['cierre'])))
                     || (esDireccion()
                         && request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['cierre', 'cierreConfirmado', 'status', 'updatedAt']))
@@ -219,8 +249,24 @@ service cloud.firestore {
     // ============ GESTIONES — solo aprobados ============
     match /gestiones/{gestionId} {
       allow read: if isApproved();
-      allow create: if isApproved();
-      allow update: if isApproved();
+      // CERRADO es de la Dirección: lo pone al confirmar la firma en el Mapa de
+      // cierres (el servidor pasa las gestiones solas y no pasa por estas reglas).
+      // El agente marca Reservado cuando el cliente deja la seña. No crea gestiones
+      // ya cerradas ni saca una de Cerrado, salvo el dueño que vuelve a En cartera
+      // cuando su propiedad está otra vez en el mercado. Con la firma ya confirmada,
+      // cerrar una gestión que quedó abierta es ponerla al día: se permite.
+      allow create: if isApproved()
+                    && (esDireccion() || request.resource.data.get('estadoGestion', '') != 'cerrado');
+      allow update: if isApproved()
+                    && (esDireccion()
+                        || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['estadoGestion'])
+                        || (request.resource.data.get('estadoGestion', '') != 'cerrado'
+                            && resource.data.get('estadoGestion', '') != 'cerrado')
+                        || (request.resource.data.get('estadoGestion', '') == 'cerrado'
+                            && firmaConfirmadaDe(resource.data))
+                        || (resource.data.get('estadoGestion', '') == 'cerrado'
+                            && request.resource.data.get('estadoGestion', '') == 'cartera'
+                            && propiedadEnJuegoDe(resource.data)));
       allow delete: if isApproved() &&
                     (resource.data.createdBy == request.auth.uid || esDireccion());
     }
@@ -430,6 +476,16 @@ service cloud.firestore {
                         && request.resource.data.monto == resource.data.monto
                         && request.resource.data.moneda == resource.data.moneda);
       allow delete: if esCEO();
+    }
+
+    // ============ AJUSTES FINANCIEROS (correcciones de saldo o puntos) ============
+    // Los carga el CEO desde el panel del agente, con motivo y autor. Cada agente
+    // lee los suyos: suman o restan en su saldo (Mis Finanzas) y en sus puntos
+    // (Recompensas). Antes no había regla y la app no los podía leer ni guardar.
+    match /ajustesFinancieros/{id} {
+      allow read: if esCEO()
+                  || (isApproved() && resource.data.agenteUid == request.auth.uid);
+      allow create, update, delete: if esCEO();
     }
 
     // ============ CONFIG — aprobados leen, admin escribe ============

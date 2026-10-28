@@ -159,6 +159,10 @@
     .st{ display:inline-flex; align-items:center; gap:5px; font-size:.7rem; font-weight:700; padding:3px 9px; border-radius:999px; border:none; white-space:nowrap; flex:none; }
     .st.ok{ background:var(--venta-bg); color:var(--venta-d); }
     .st.pend{ background:var(--pend-bg); color:var(--pend); }
+    /* Reservada: el cliente dejó la seña y falta la firma (la confirma la Dirección). */
+    .st.res{ background:#fff4dc; color:#8a5a00; }
+    .b.caida{ color:#b3261e; border-color:#ecc8c2; }
+    .b.caida:hover{ background:#fff5f4; border-color:#e2a59c; color:#b3261e; }
     button.st{ cursor:pointer; }
     button.st.ok:hover{ background:#dcefe4; }
     .b{ height:32px; padding:0 11px; border:1px solid var(--line); background:#fff; border-radius:9px; font-size:.76rem; font-weight:600; color:#39424e;
@@ -211,6 +215,18 @@
     @keyframes aparece{ from{ opacity:0 } to{ opacity:1 } }
     .modal{ background:#fff; border-radius:18px; width:640px; max-width:100%; max-height:calc(100vh - 36px); max-height:calc(100dvh - 36px); display:flex; flex-direction:column; box-shadow:0 24px 64px rgba(16,25,40,.32); overflow:hidden; }
     .modal-ref{ width:760px; }
+    /* Confirmar la firma: chico, con el resumen de la operación arriba. */
+    .modal-conf{ width:480px; }
+    .modal-conf .mb{ padding-top:16px; }
+    .conf-res{ background:#f8f9fb; border:1px solid var(--line-2); border-radius:12px; padding:12px 14px; font-size:.86rem; color:#39424e; line-height:1.55; }
+    .conf-res b{ color:var(--navy); }
+    .conf-res .t{ font-weight:700; color:var(--navy); font-size:.95rem; margin-bottom:2px; }
+    /* "La firma ya se hizo" (solo la Dirección, al registrar). */
+    .firmado{ display:flex; gap:9px; align-items:flex-start; margin-top:12px; border:1px solid var(--line); border-radius:11px; padding:10px 12px; cursor:pointer; font-size:.84rem; color:#39424e; }
+    .firmado input{ margin-top:3px; accent-color:var(--navy); flex:none; }
+    .firmado b{ display:block; color:var(--navy); font-weight:600; }
+    .firmado small{ display:block; color:var(--muted); font-size:.76rem; margin-top:1px; }
+    .firmado.on{ border-color:var(--navy); box-shadow:inset 0 0 0 1px var(--navy); background:#f8f9fb; }
     .mh{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:20px 22px 14px; border-bottom:1px solid var(--line-2); }
     .mh h2{ font-family:'Cormorant Garamond',Georgia,serif; font-size:1.7rem; font-weight:700; color:var(--navy); line-height:1.1; }
     .mh .sub{ font-size:.84rem; color:var(--muted); margin-top:4px; }
@@ -444,8 +460,8 @@
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="regTitulo">
       <div class="mh">
         <div>
-          <h2 id="regTitulo">Registrar cierre</h2>
-          <p class="sub" id="regSub">Queda en el mapa y, cuando el admin lo confirma, suma a Mis Finanzas y a los puntos de Recompensas.</p>
+          <h2 id="regTitulo">Registrar reserva</h2>
+          <p class="sub" id="regSub">Registrala cuando el cliente deja la seña: la propiedad queda Reservada. Cuando se firma, la Dirección lo confirma y recién ahí suma a Mis Finanzas y a Recompensas.</p>
         </div>
         <button type="button" class="x" onclick="closeReg()" aria-label="Cerrar"><i class="fas fa-xmark"></i></button>
       </div>
@@ -482,10 +498,11 @@
               <small class="hint" id="regPubHint"></small>
             </div>
             <div class="fg">
-              <label for="regFecha">Fecha del cierre</label>
+              <label for="regFecha" id="regFechaLbl">Fecha de la seña</label>
               <input type="date" id="regFecha">
             </div>
           </div>
+          <label class="firmado" id="regFirmadoWrap" hidden><input type="checkbox" id="regFirmado" onchange="pintarFirmado()"><span><b>La firma ya se hizo</b><small>Queda confirmado al guardar: la propiedad pasa a Vendida o Alquilada, las gestiones a Cerrado y suma en las finanzas.</small></span></label>
         </section>
 
         <section class="rs">
@@ -541,6 +558,32 @@
     </div>
   </div>
 
+  <!-- Confirmar la firma (solo la Dirección) -->
+  <div class="overlay" id="confModal" aria-hidden="true">
+    <div class="modal modal-conf" role="dialog" aria-modal="true" aria-labelledby="confTitulo">
+      <div class="mh">
+        <div>
+          <h2 id="confTitulo">Confirmar la firma</h2>
+          <p class="sub" id="confSub">Confirmalo cuando la operación ya se firmó.</p>
+        </div>
+        <button type="button" class="x" onclick="cerrarConfirmar()" aria-label="Cerrar"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="mb">
+        <div class="conf-res" id="confRes"></div>
+        <div class="fg mt">
+          <label for="confFecha">Fecha de la firma</label>
+          <input type="date" id="confFecha">
+          <small class="hint">Es la fecha con la que la ganancia entra en Mis Finanzas.</small>
+        </div>
+        <div class="aviso info" id="confNota"></div>
+      </div>
+      <div class="mf">
+        <button type="button" class="btn btn-ghost" onclick="cerrarConfirmar()">Cancelar</button>
+        <button type="button" class="btn btn-gold" id="confSave" onclick="guardarConfirmacion()"><i class="fas fa-check"></i> Confirmar firma</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -561,6 +604,17 @@
          Comisiones del panel, Desempeño (admin.html) y el backend (portales y
          puntos). status dispara la baja/alta en Mercado Libre e InfoCasas.
        · properties/{id}.cierreConfirmado (true/false). Solo el admin.
+
+       RESERVA Y FIRMA: una operación nueva se registra cuando el cliente deja la
+       seña. La propiedad queda 'reserved' (ML pausa el aviso, no lo finaliza) y el
+       cierre pendiente. Cuando se firma, la Dirección lo confirma acá: el cierre
+       guarda fechaReserva (la de la seña), fecha (la de la firma), confirmadoEl y
+       confirmadoPor, y el backend (sincronizarCierresPropiedad) pasa la propiedad a
+       Vendida/Alquilada y las gestiones a Cerrado. "Se cayó" borra el cierre
+       pendiente y vuelve la propiedad a Disponible; el backend lo guarda en
+       reservasCaidas y devuelve las gestiones. Los cierres confirmados que se
+       reemplazan (otra operación, o un alquiler que terminó) pasan a
+       cierresAnteriores y siguen sumando en las finanzas: lo escribe el backend.
        · referidos/{uidAgente} = { referrerUid, referrerNombre, pctSale, pctRent, updatedAt }.
 
        agencyPct / agencyMonths: la comisión total de la inmobiliaria en ESE
@@ -747,14 +801,16 @@
         cierres = lista.filter(tieneCierre);
         show('content');
         $('btnReg').hidden = false;
+        $('btnReg').innerHTML = '<i class="fas fa-plus"></i> ' + (isAdmin ? 'Registrar cierre' : 'Registrar reserva');
         $('btnRef').hidden = !isAdmin;
         $('lede').textContent = isAdmin
-          ? 'Todos los cierres del equipo. Confirmá los pendientes, generá los recibos y mirá dónde se está vendiendo.'
-          : 'Las ventas y alquileres que cerró el equipo: sirven de referencia de precios por barrio.';
+          ? 'Todos los cierres del equipo. Confirmá las firmas pendientes, generá los recibos y mirá dónde se está vendiendo.'
+          : 'Las ventas y alquileres que cerró el equipo: sirven de referencia de precios por barrio. Cuando un cliente deja la seña, registrá la reserva acá.';
         pintarFiltros();
         initMap();
         refrescar(true);
         abrirPedido();
+        abrirConfirmarPedido();
         abrirRegistroPedido().catch(e => console.warn('[mapa] registrar desde el link', e));
         // El admin es el único que genera recibos: jsPDF se baja cuando el navegador está libre.
         if (isAdmin){
@@ -795,6 +851,25 @@
       }, 450);
     }
 
+    /* Link para confirmar una firma (mapa-cierres.html?confirmar=PROPIEDAD): es
+       adonde lleva el aviso de "Reserva: falta la firma". Marca el cierre en el mapa
+       y, si es la Dirección y sigue pendiente, abre la confirmación. */
+    function abrirConfirmarPedido(){
+      let id = '';
+      try { id = new URLSearchParams(location.search).get('confirmar') || ''; } catch(e) {}
+      if (!id) return;
+      try { const u = new URL(location.href); u.searchParams.delete('confirmar'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch(e) {}
+      const p = porId[id];
+      if (!p || cierres.indexOf(p) < 0){ toast('Ese cierre ya no está en el mapa (puede haberse caído o borrado).', true); return; }
+      if (!pasaFiltros(p)){ limpiarFiltros(true); pintarFiltros(); }
+      selId = p.id;
+      refrescar(false);
+      setTimeout(() => enfocarCierre(p.id), 450);
+      if (!isAdmin) return;
+      if (p.cierreConfirmado === true){ toast('Esa firma ya está confirmada.'); return; }
+      setTimeout(() => abrirConfirmar(p.id), 650);
+    }
+
     // Si se llegó desde Clientes (al cerrar una gestión o para ver su cierre), el
     // botón de arriba vuelve ahí en vez de al inicio.
     (function volverAClientes(){
@@ -811,18 +886,18 @@
        es adonde lleva Clientes al cerrar una gestión. Abre el formulario con esa
        propiedad elegida; si ya tiene cierre, lo muestra en vez de cargar otro. */
     async function abrirRegistroPedido(){
-      let id = '';
-      try { id = new URLSearchParams(location.search).get('registrar') || ''; } catch(e) {}
+      let id = '', firmado = false;
+      try { const q = new URLSearchParams(location.search); id = q.get('registrar') || ''; firmado = q.get('firmado') === '1'; } catch(e) {}
       if (!id) return;
       // Al recargar la página no se vuelve a abrir el formulario.
-      try { const u = new URL(location.href); u.searchParams.delete('registrar'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch(e) {}
+      try { const u = new URL(location.href); u.searchParams.delete('registrar'); u.searchParams.delete('firmado'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch(e) {}
       const ya = porId[id];
       if (ya && cierres.indexOf(ya) >= 0){
         if (!pasaFiltros(ya)){ limpiarFiltros(true); pintarFiltros(); }
         selId = ya.id;
         refrescar(false);
         setTimeout(() => enfocarCierre(ya.id), 450);
-        toast('Este cierre ya está registrado en el mapa.');
+        toast(esReserva(ya) ? 'Esta reserva ya está registrada en el mapa: falta que la Dirección confirme la firma.' : 'Este cierre ya está registrado en el mapa.');
         return;
       }
       await openReg();
@@ -838,6 +913,8 @@
       if (opt.disabled){ toast('No se puede registrar: ' + opt.textContent.split(' · ').pop() + '.', true); return; }
       sel.value = id;
       onPropSelect();
+      // Desde Clientes, cuando la Dirección marca Cerrado: la firma ya se hizo.
+      if (firmado && isAdmin && !$('regFirmadoWrap').hidden){ $('regFirmado').checked = true; tituloModo(); }
     }
 
     // ---------- Filtros ----------
@@ -897,6 +974,7 @@
       const monAlq = grupoAlq === enPesos ? 'UYU' : 'USD';
       const medAlq = mediana(grupoAlq.map(p => Number(p.cierre.precio) || 0).filter(x => x > 0));
       const pend = base.filter(p => p.cierreConfirmado !== true).length;
+      const reservas = base.filter(esReserva).length;
       const mios = base.filter(esMio).length;
       const t = (modo, lbl, n, sub, extra) => '<button type="button" class="kpi' + (filtro.modo === modo ? ' on' : '') + (extra || '') + '" onclick="setModo(\'' + modo + '\')" aria-pressed="' + (filtro.modo === modo) + '">'
         + '<span class="k-l">' + lbl + '</span><b class="k-n">' + n + '</b><span class="k-s">' + sub + '</span></button>';
@@ -904,7 +982,7 @@
         + t('venta', '<i class="lg lg-venta"></i> Ventas', ventas.length, pm2 ? 'Mediana ' + esc(fmtPm2(pm2, 'USD')) : (ventas.length ? 'Sin m² para comparar' : 'Ninguna todavía'))
         + t('alquiler', '<i class="lg lg-alq"></i> Alquileres', alqs.length, medAlq ? 'Mediana ' + esc(fmtRedondo(medAlq, monAlq)) + '/mes' : (alqs.length ? '—' : 'Ninguno todavía'));
       h += isAdmin
-        ? t('pendientes', '<i class="fas fa-clock"></i> Por confirmar', pend, pend ? 'Tocá para revisarlos' : 'Todo confirmado', pend ? ' alerta' : '')
+        ? t('pendientes', '<i class="fas fa-clock"></i> Por confirmar', pend, pend ? (reservas === pend ? 'Reservas esperando la firma' : 'Tocá para revisarlos') : 'Todo confirmado', pend ? ' alerta' : '')
         : t('mios', '<i class="fas fa-user"></i> Tuyos', mios, mios ? 'Cerrados por vos' : 'Todavía ninguno');
       $('kpis').innerHTML = h;
     }
@@ -1037,22 +1115,30 @@
       if (p.cierreConfirmado === true) return isAdmin
         ? '<button type="button" class="st ok" onclick="quitarConfirmacion(' + arg(p.id) + ', this)" title="Confirmado. Tocá para volver a Pendiente"><i class="fas fa-circle-check"></i> Confirmado</button>'
         : '<span class="st ok"><i class="fas fa-circle-check"></i> Confirmado</span>';
+      if (esReserva(p)) return '<span class="st res" title="El cliente dejó la seña: falta que la Dirección confirme la firma"><i class="fas fa-handshake"></i> Reservada</span>';
       return '<span class="st pend" title="Falta que el admin lo confirme"><i class="fas fa-clock"></i> Pendiente</span>';
     }
+    // Reserva = cierre pendiente con la propiedad Reservada (todavía no se firmó).
+    function esReserva(p){ return !!(p && p.cierre && p.cierreConfirmado !== true && p.status === 'reserved'); }
+    // "Se cayó": el agente del cierre (mientras no esté confirmado) o el admin.
+    function puedeCaerse(p){ return esReserva(p) && (isAdmin || puedeEditar(p)); }
     function botonConfirmar(p){
-      return (isAdmin && p.cierreConfirmado !== true) ? '<button type="button" class="b ok" onclick="confirmarCierre(' + arg(p.id) + ', this)"><i class="fas fa-check"></i> Confirmar</button>' : '';
+      return (isAdmin && p.cierreConfirmado !== true) ? '<button type="button" class="b ok" onclick="confirmarCierre(' + arg(p.id) + ', this)"><i class="fas fa-check"></i> ' + (esReserva(p) ? 'Confirmar firma' : 'Confirmar') + '</button>' : '';
+    }
+    function botonCaida(p){
+      return puedeCaerse(p) ? '<button type="button" class="b caida" onclick="seCayoReserva(' + arg(p.id) + ', this)" title="La reserva se cayó: la propiedad vuelve a Disponible"><i class="fas fa-handshake-slash"></i> Se cayó</button>' : '';
     }
     function popupHTML(p){
       const c = p.cierre, foto = fotoDe(p), pm = precioM2(c);
       let s = '<div class="pp">';
       if (foto) s += '<img class="pp-foto" src="' + esc(foto) + '" alt="" onerror="this.remove()">';
       s += '<div class="pp-b">'
-        + '<div class="pp-t"><span class="tipo ' + (c.tipo === 'alquiler' ? 'alquiler' : 'venta') + '">' + (c.tipo === 'alquiler' ? 'Alquiler' : 'Venta') + '</span><span>' + esc(fmtFechaCorta(c.fecha)) + '</span></div>'
+        + '<div class="pp-t"><span class="tipo ' + (c.tipo === 'alquiler' ? 'alquiler' : 'venta') + '">' + (c.tipo === 'alquiler' ? 'Alquiler' : 'Venta') + '</span><span>' + (esReserva(p) ? 'Seña ' : '') + esc(fmtFechaCorta(c.fecha)) + '</span></div>'
         + '<div class="pp-precio">' + esc(fmtMoney(c.precio, c.moneda)) + (c.tipo === 'alquiler' ? '<small>/mes</small>' : '') + (pm ? '<small>· ' + esc(fmtPm2(pm, c.moneda)) + '</small>' : '') + '</div>'
         + '<div class="pp-tit">' + esc(p.title || 'Propiedad') + '</div>'
         + '<div class="pp-meta">' + esc(metaTexto(p)) + '</div>';
       if (isAdmin && (c.agenteNombre || p.ownerName)) s += '<div class="pp-ag"><i class="fas fa-user-tie"></i>' + esc(c.agenteNombre || p.ownerName) + (tieneGan(c) ? ' · ganancia ' + esc(fmtMoney(c.gananciaAgente, c.moneda)) : '') + '</div>';
-      s += '<div class="pp-pie"><div class="pp-est">' + pillEstado(p) + botonConfirmar(p) + '</div><div class="pp-acc">'
+      s += '<div class="pp-pie"><div class="pp-est">' + pillEstado(p) + botonConfirmar(p) + botonCaida(p) + '</div><div class="pp-acc">'
         + '<a href="propiedad.html?id=' + encodeURIComponent(p.id) + '" target="_blank" rel="noopener">Ver propiedad &rarr;</a>'
         + (isAdmin ? '<a class="del" onclick="eliminarCierre(' + arg(p.id) + ')">Eliminar</a>' : '')
         + '</div></div></div></div>';
@@ -1113,7 +1199,7 @@
           : ((c.participantes || []).find(x => x && x.uid === uid) || {}).monto;
         quien = '<div class="cc-quien"><span class="tuyo">Tuyo</span>' + (parte != null ? ' · tu parte ' + esc(fmtMoney(parte, c.moneda)) : '') + '</div>';
       }
-      let acc = botonConfirmar(p);
+      let acc = botonConfirmar(p) + botonCaida(p);
       acc += '<a class="b ic" href="propiedad.html?id=' + encodeURIComponent(p.id) + '" target="_blank" rel="noopener" title="Ver la propiedad" aria-label="Ver la propiedad"><i class="fas fa-arrow-up-right-from-square"></i></a>';
       if (isAdmin) acc += '<button type="button" class="b gold" onclick="generarRecibo(' + id + ', this)" title="Recibo de comisión en PDF"><i class="fas fa-file-invoice-dollar"></i> Recibo</button>';
       if (puedeEditar(p)) acc += '<button type="button" class="b ic" onclick="openReg(' + id + ')" title="Corregir el cierre" aria-label="Corregir el cierre"><i class="fas fa-pen"></i></button>';
@@ -1126,7 +1212,7 @@
         + '<div class="cc-body">'
         +   '<div class="cc-top"><span class="cc-precio">' + esc(fmtMoney(c.precio, c.moneda)) + (tipo === 'alquiler' ? '<small>/mes</small>' : '') + '</span>'
         +     pillEstado(p) + '</div>'
-        +   '<div class="cc-sub">' + [pm ? esc(fmtPm2(pm, c.moneda)) : '', esc(fmtFechaCorta(c.fecha))].filter(Boolean).join(' · ') + '</div>'
+        +   '<div class="cc-sub">' + [pm ? esc(fmtPm2(pm, c.moneda)) : '', (esReserva(p) ? 'Seña ' : '') + esc(fmtFechaCorta(c.fecha))].filter(Boolean).join(' · ') + '</div>'
         +   '<h3 class="cc-tit">' + esc(p.title || 'Propiedad') + '</h3>'
         +   '<div class="cc-meta">' + esc(metaTexto(p)) + '</div>'
         +   quien
@@ -1139,8 +1225,8 @@
       $('btnLimpiar').hidden = !filtrosActivos();
       if (!total){
         wrap.innerHTML = '<div class="vacio"><i class="fas fa-map-location-dot"></i><h3>Todavía no hay cierres</h3>'
-          + 'Cuando se cierre una venta o un alquiler, registralo acá: queda en el mapa y suma a las ganancias del agente.'
-          + '<br><button type="button" class="btn btn-gold" onclick="openReg()"><i class="fas fa-plus"></i> Registrar el primero</button></div>';
+          + 'Cuando un cliente deje la seña, registrá la reserva acá. Cuando se firme, la Dirección la confirma y suma a las ganancias del agente.'
+          + '<br><button type="button" class="btn btn-gold" onclick="openReg()"><i class="fas fa-plus"></i> Registrar la primera</button></div>';
         return;
       }
       if (!n){
@@ -1170,6 +1256,8 @@
       if (!isAdmin) return;
       const p = porId[id];
       if (!p || !p.cierre) return;
+      // Una reserva sin firmar no finalizó nada en los portales: borrarla es lo mismo que "se cayó".
+      if (esReserva(p)) return seCayoReserva(id);
       const msg = '¿Eliminar este cierre por completo?\n\n'
         + '• Desaparece del mapa de cierres y de Recompensas.\n'
         + '• "' + (p.title || 'La propiedad') + '" vuelve a DISPONIBLE.\n'
@@ -1198,7 +1286,7 @@
     }
     async function quitarConfirmacion(id, btn){
       if (!isAdmin) return;
-      if (!confirm('¿Quitar la confirmación de este cierre?\n\nVuelve a "Pendiente" y los puntos de Recompensas del agente se descuentan solos hasta que lo confirmes de nuevo.')) return;
+      if (!confirm('¿Quitar la confirmación de este cierre?\n\nVuelve a "Pendiente": la ganancia sale de Mis Finanzas y los puntos de Recompensas del agente se descuentan solos hasta que lo confirmes de nuevo. La propiedad y las gestiones quedan como están.')) return;
       const p = porId[id];
       if (!p) return;
       ocupado(btn, true);
@@ -1213,20 +1301,91 @@
         toast('No se pudo quitar la confirmación: ' + (e.code || e.message || e), true);
       }
     }
-    async function confirmarCierre(id, btn){
+    // El botón "Confirmar" abre la confirmación de la firma (con la fecha).
+    function confirmarCierre(id){ abrirConfirmar(id); }
+    let confId = null;
+    function abrirConfirmar(id){
       if (!isAdmin) return;
       const p = porId[id];
-      if (!p) return;
-      ocupado(btn, true);
+      if (!p || !p.cierre || p.cierreConfirmado === true) return;
+      confId = id;
+      const c = p.cierre, tipo = c.tipo === 'alquiler' ? 'alquiler' : 'venta', res = esReserva(p);
+      const filas = [];
+      filas.push('<div class="t">' + esc(p.title || 'Propiedad') + '</div>');
+      filas.push((tipo === 'venta' ? 'Venta' : 'Alquiler') + ' por <b>' + esc(fmtMoney(c.precio, c.moneda)) + '</b>' + (tipo === 'alquiler' ? ' al mes' : ''));
+      filas.push('Agente: <b>' + esc(c.agenteNombre || p.ownerName || 'sin agente') + '</b>' + (tieneGan(c) ? ' · ganancia ' + esc(fmtMoney(c.gananciaAgente, c.moneda)) : ''));
+      if (Array.isArray(c.participantes) && c.participantes.length) filas.push('En equipo con ' + esc(c.participantes.map(x => x.nombre || 'Agente').join(', ')));
+      // Con seña: la fecha cargada es la de la reserva y la de la firma se elige acá.
+      const conSena = res || !!c.fechaReserva;
+      filas.push((conSena ? 'Seña: ' : 'Fecha cargada: ') + '<b>' + esc(fmtFecha(c.fechaReserva || c.fecha)) + '</b>');
+      $('confRes').innerHTML = filas[0] + filas.slice(1).join('<br>');
+      $('confSub').textContent = res ? 'El cliente dejó la seña. Confirmalo cuando la operación ya se firmó.' : 'La propiedad ya figura ' + (tipo === 'venta' ? 'vendida' : 'alquilada') + ': confirmá la firma para que sume en las finanzas.';
+      // Si ya se había confirmado antes (y se le quitó la confirmación), queda la fecha de la firma que tenía.
+      $('confFecha').value = (conSena && !c.confirmadoEl) ? hoyISO() : (/^\d{4}-\d{2}-\d{2}$/.test(c.fecha || '') ? c.fecha : hoyISO());
+      $('confNota').innerHTML = '<i class="fas fa-circle-info"></i><div>' + (res
+        ? 'Al confirmar, la propiedad pasa a <b>' + (tipo === 'venta' ? 'Vendida' : 'Alquilada') + '</b>, las gestiones a <b>Cerrado</b> (el agente ya no las puede cambiar) y la ganancia entra en Mis Finanzas y en Recompensas.'
+        : 'Al confirmar, la ganancia entra en Mis Finanzas y en Recompensas, y las gestiones que sigan abiertas pasan a <b>Cerrado</b>.') + '</div>';
+      ocupado($('confSave'), false);
+      abrirOverlay('confModal');
+      setTimeout(() => { try { $('confFecha').focus(); } catch(e) {} }, 60);
+    }
+    function cerrarConfirmar(){ confId = null; cerrarOverlay('confModal'); }
+    async function guardarConfirmacion(){
+      const id = confId, p = id && porId[id];
+      if (!isAdmin || !p || !p.cierre) return;
+      const fecha = $('confFecha').value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha || '')){ toast('Poné la fecha de la firma', true); $('confFecha').focus(); return; }
+      const c = Object.assign({}, p.cierre);
+      // La fecha de la seña queda guardada; "fecha" pasa a ser la de la firma (con
+      // esa fecha se cuenta la ganancia en Mis Finanzas y en Rentabilidad).
+      if (!c.fechaReserva && esReserva(p)) c.fechaReserva = c.fecha || '';
+      c.fecha = fecha;
+      c.confirmadoEl = new Date().toISOString();
+      c.confirmadoPor = curProfile.name || curUser.email || 'Dirección';
+      const btn = $('confSave'); ocupado(btn, true);
       try{
-        await db.collection('properties').doc(id).update({ cierreConfirmado: true, updatedAt: new Date().toISOString() });
-        p.cierreConfirmado = true;
+        // Solo estos campos: las reglas le dejan a la Dirección tocar cierre y
+        // cierreConfirmado. La propiedad y las gestiones las mueve el backend.
+        await db.collection('properties').doc(id).update({ cierre: c, cierreConfirmado: true, updatedAt: new Date().toISOString() });
+        p.cierre = c; p.cierreConfirmado = true;
+        cerrarConfirmar();
+        pintarFiltros();
         repintar(id);
-        toast('Cierre confirmado ✓');
+        toast('Firma confirmada ✓ La propiedad y las gestiones se actualizan solas.');
       }catch(e){
-        console.warn('confirmarCierre', e);
+        console.warn('guardarConfirmacion', e);
         ocupado(btn, false);
         toast(e && e.code === 'permission-denied' ? 'Solo el admin puede confirmar cierres.' : ('No se pudo confirmar: ' + (e.message || e)), true);
+      }
+    }
+    // Se cayó la reserva: la propiedad vuelve a Disponible (en Mercado Libre el aviso
+    // estaba pausado y se reactiva) y el cierre pendiente se borra del mapa. El backend
+    // lo guarda en reservasCaidas, devuelve las gestiones y le avisa a la Dirección.
+    async function seCayoReserva(id, btn){
+      const p = porId[id];
+      if (!p || !puedeCaerse(p)) return;
+      const tipo = p.cierre.tipo === 'alquiler' ? 'el alquiler' : 'la venta';
+      if (!confirm('¿Se cayó la reserva de ' + tipo + ' de "' + (p.title || 'la propiedad') + '"?\n\n'
+        + '• La propiedad vuelve a DISPONIBLE (en Mercado Libre el aviso se reactiva).\n'
+        + '• La reserva se borra del mapa y las gestiones en Reservado vuelven atrás (a En negociación; la del dueño, a En cartera).\n'
+        + '• No suma en ganancias ni en puntos.')) return;
+      ocupado(btn, true);
+      try{
+        await db.collection('properties').doc(id).update({
+          cierre: firebase.firestore.FieldValue.delete(),
+          status: 'available',
+          updatedAt: new Date().toISOString()
+        });
+        if (map) map.closePopup();                 // antes de tocar los datos: el globo abierto todavía los usa
+        if (selId === id) selId = null;
+        cierres = cierres.filter(x => x.id !== id);
+        delete p.cierre; p.status = 'available';
+        pintarFiltros(); refrescar(false);
+        toast('Listo: la reserva se borró y la propiedad volvió a Disponible.');
+      }catch(e){
+        console.warn('seCayoReserva', e);
+        ocupado(btn, false);
+        toast(e && e.code === 'permission-denied' ? 'No tenés permiso para cambiar esta propiedad.' : ('No se pudo: ' + (e.message || e)), true);
       }
     }
 
@@ -1520,7 +1679,7 @@
       const pts = Math.floor(usd / 100) * (Number(cfg.puntosPor100) || 1);
       el.hidden = false;
       el.innerHTML = '<i class="fas fa-coins"></i> ' + (pts > 0
-        ? '≈ <b>' + pts.toLocaleString('es-UY') + ' ' + (pts === 1 ? 'punto' : 'puntos') + '</b> de Recompensas cuando se confirme el cierre.'
+        ? '≈ <b>' + pts.toLocaleString('es-UY') + ' ' + (pts === 1 ? 'punto' : 'puntos') + '</b> de Recompensas cuando la Dirección confirme la firma.'
         : 'Menos de US$ 100 de ganancia: este cierre no suma puntos de Recompensas.');
     }
     (function(){
@@ -1672,8 +1831,9 @@
         : editableProps.slice()).sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'es'));
       if (!lista.length){ sel.innerHTML = '<option value="">' + (uidFiltro ? 'Este agente no tiene propiedades cargadas' : 'No tenés propiedades para registrar un cierre') + '</option>'; return; }
       const grupos = [
+        { t: 'Reservadas, sin cargar en el mapa', f: p => !p.cierre && p.status === 'reserved' },
         { t: 'Vendidas o alquiladas, sin cierre en el mapa', f: p => !p.cierre && (p.status === 'sold' || p.status === 'rented') },
-        { t: 'Disponibles y reservadas', f: p => !p.cierre && (!p.status || p.status === 'available' || p.status === 'reserved') },
+        { t: 'Disponibles', f: p => !p.cierre && (!p.status || p.status === 'available') },
         { t: 'Con cierre registrado', f: p => !!p.cierre },
         { t: 'Otras', f: () => true }
       ];
@@ -1730,23 +1890,26 @@
         if (bloq === 'confirmado') h += '<div class="aviso bad"><i class="fas fa-lock"></i><div>Este cierre ya está confirmado. Si hay que corregir algo, pedíselo al admin.</div></div>';
         else if (bloq) h += '<div class="aviso bad"><i class="fas fa-lock"></i><div>Este cierre es de ' + esc(p.cierre.agenteNombre || 'otro agente') + ': solo esa persona o el admin lo pueden corregir.</div></div>';
         else if (regOp === 'nueva'){
-          h += '<div class="aviso warn"><i class="fas fa-triangle-exclamation"></i><div>El cierre anterior (' + (p.cierre.tipo === 'alquiler' ? 'alquiler' : 'venta') + ' del ' + esc(fmtFecha(p.cierre.fecha)) + (p.cierre.agenteNombre ? ', de ' + esc(p.cierre.agenteNombre) : '')
-            + ') se reemplaza: deja de figurar en el mapa y de sumar en sus ganancias.' + (isAdmin && p.cierreConfirmado === true ? ' El nuevo queda pendiente hasta que lo confirmes.' : '') + '</div></div>';
+          const ant = (p.cierre.tipo === 'alquiler' ? 'alquiler' : 'venta') + ' del ' + esc(fmtFecha(p.cierre.fecha)) + (p.cierre.agenteNombre ? ', de ' + esc(p.cierre.agenteNombre) : '');
+          h += p.cierreConfirmado === true
+            ? '<div class="aviso warn"><i class="fas fa-triangle-exclamation"></i><div>El cierre anterior (' + ant + ') pasa al historial: deja de figurar en el mapa, pero sigue sumando en las ganancias de su agente. La operación nueva queda pendiente hasta que se confirme la firma.</div></div>'
+            : '<div class="aviso warn"><i class="fas fa-triangle-exclamation"></i><div>La operación anterior (' + ant + ') todavía no estaba confirmada: se reemplaza y no suma en ningún lado.</div></div>';
         } else {
           if (isAdmin && p.cierreConfirmado === true) h += '<div class="aviso warn"><i class="fas fa-circle-check"></i><div>Está confirmado: lo que cambies se ve al instante en Mis Finanzas y en Recompensas.</div></div>';
-          if (p.status !== 'sold' && p.status !== 'rented') h += '<div class="aviso info"><i class="fas fa-circle-info"></i><div>La propiedad volvió a estar publicada: corregir este cierre no cambia su estado ni toca los portales.</div></div>';
+          if (esReserva(p)) h += '<div class="aviso info"><i class="fas fa-handshake"></i><div>Es una reserva: la propiedad sigue Reservada hasta que la Dirección confirme la firma.</div></div>';
+          else if (p.status !== 'sold' && p.status !== 'rented' && p.status !== 'reserved') h += '<div class="aviso info"><i class="fas fa-circle-info"></i><div>La propiedad volvió a estar publicada: corregir este cierre no cambia su estado ni toca los portales.</div></div>';
         }
       }
-      // Mis Finanzas (y los puntos del servidor) le acreditan la ganancia al DUEÑO
-      // de la propiedad, no al agente del cierre. Si no coinciden, se avisa.
+      // La ganancia y los puntos van al AGENTE DEL CIERRE (Mis Finanzas, Recompensas
+      // y el servidor cuentan igual). Si no es el dueño de la propiedad, se avisa
+      // para que no sea una sorpresa.
       if (p && p.ownerId && !bloq && !(isAdmin && !$('regAgente').value)){
         const principal = uidPrincipal();
         if (principal && principal !== p.ownerId){
           const dueno = p.ownerName || nombreAgente(p.ownerId) || 'otro agente';
           const quien = isAdmin ? (nombreSel() || 'el agente elegido') : 'vos';
-          h += '<div class="aviso warn"><i class="fas fa-triangle-exclamation"></i><div>La propiedad es de <b>' + esc(dueno) + '</b>. Mis Finanzas le acredita la ganancia al dueño de la propiedad, no a ' + esc(quien) + '. '
-            + (isAdmin ? 'Si la cerraron juntos, elegí a ' + esc(dueno) + ' como agente del cierre y sumá a ' + esc(quien) + ' en «¿Cerraron en equipo?».'
-                       : 'Lo mejor es que ' + esc(dueno) + ' registre el cierre y te sume en «¿Cerraron en equipo?».') + '</div></div>';
+          h += '<div class="aviso info"><i class="fas fa-circle-info"></i><div>La propiedad es de <b>' + esc(dueno) + '</b>, pero la ganancia y los puntos quedan a nombre de ' + esc(quien) + '. '
+            + 'Si la cerraron juntos, sumá a ' + esc(dueno) + ' en «¿Cerraron en equipo?».</div></div>';
         }
       }
       el.innerHTML = h;
@@ -1754,9 +1917,21 @@
     }
     function tituloModo(){
       const ed = regModo === 'editar';
-      $('regTitulo').textContent = ed ? 'Corregir cierre' : 'Registrar cierre';
-      $('regSaveTxt').textContent = ed ? 'Guardar cambios' : 'Guardar cierre';
+      const firmado = !ed && isAdmin && $('regFirmado').checked;
+      const reserva = ed && esReserva(selProp);
+      $('regTitulo').textContent = ed ? (reserva ? 'Corregir reserva' : 'Corregir cierre') : (firmado ? 'Registrar cierre firmado' : 'Registrar reserva');
+      $('regSaveTxt').textContent = ed ? 'Guardar cambios' : (firmado ? 'Guardar cierre' : 'Guardar reserva');
+      $('regFechaLbl').textContent = ed ? (reserva ? 'Fecha de la seña' : 'Fecha de la firma') : (firmado ? 'Fecha de la firma' : 'Fecha de la seña');
+      $('regSub').textContent = firmado
+        ? 'La firma ya se hizo: queda confirmado al guardar y suma en Mis Finanzas y en Recompensas.'
+        : (ed && !reserva)
+          ? 'Corregí los datos de la operación: fecha, precio, ganancia o equipo.'
+          : 'Registrala cuando el cliente deja la seña: la propiedad queda Reservada. Cuando se firma, la Dirección lo confirma y recién ahí suma a Mis Finanzas y a Recompensas.';
+      // "La firma ya se hizo" solo la marca la Dirección, y solo en una operación nueva.
+      $('regFirmadoWrap').hidden = !(isAdmin && !ed);
+      $('regFirmadoWrap').classList.toggle('on', firmado);
     }
+    function pintarFirmado(){ regSucio = true; tituloModo(); }
     function limpiarOperacion(){
       $('regPrecio').value = ''; $('regGanancia').value = ''; ganManual = false; ganGuardada = false;
       $('regParticipantes').innerHTML = ''; $('regEquipoRes').textContent = '';
@@ -1778,6 +1953,7 @@
       $('regDir').value = '';
       $('regGeoHint').textContent = 'Si la propiedad ya tiene ubicación, aparece marcada. Tocá el mapa o arrastrá el pin para ajustarla.';
       $('regAgenteWrap').hidden = true;
+      $('regFirmado').checked = false;
       $('regSave').disabled = false;
       $('regBody').scrollTop = 0;
       if (regPin && regMap){ regMap.removeLayer(regPin); regPin = null; }
@@ -2023,18 +2199,46 @@
       if (correccion) cierre.editadoEl = ahora;
       const cargo = correccion ? (previo.registradoPor || '') : curUser.uid;
       if (cargo) cierre.registradoPor = cargo;
+      // La seña: en una operación nueva, la fecha cargada es la de la reserva. Al
+      // confirmar la firma, "fecha" pasa a ser la de la firma y esta queda guardada.
+      if (!correccion) cierre.fechaReserva = fecha;
+      else if (previo.fechaReserva) cierre.fechaReserva = esReserva(p) ? fecha : previo.fechaReserva;
+      if (correccion && previo.confirmadoEl){ cierre.confirmadoEl = previo.confirmadoEl; if (previo.confirmadoPor) cierre.confirmadoPor = previo.confirmadoPor; }
+      const firmado = !correccion && isAdmin && $('regFirmado').checked;
       const upd = { cierre: cierre, updatedAt: ahora };
-      // El estado de la propiedad (que baja o sube los avisos en los portales) solo
-      // se toca en una operación nueva, o si la propiedad ya figura vendida/alquilada.
-      if (!correccion || p.status === 'sold' || p.status === 'rented') upd.status = (tipo === 'venta' ? 'sold' : 'rented');
-      // Operación nueva sobre un cierre confirmado: la nueva arranca pendiente.
-      if (isAdmin && previo && !correccion && p.cierreConfirmado === true) upd.cierreConfirmado = false;
+      // Una operación nueva deja la propiedad RESERVADA hasta la firma (Mercado Libre
+      // pausa el aviso; no lo finaliza). Al corregir, el estado no se toca, salvo que
+      // ya figure vendida/alquilada y se haya cambiado venta <-> alquiler.
+      // Si ya figura vendida o alquilada (un cierre de antes, o una operación nueva
+      // sobre una que sigue vendida/alquilada), no se baja a Reservada: su aviso en
+      // Mercado Libre ya está finalizado y pausarlo daría error. El estado se lee en
+      // el momento: puede haber cambiado desde que se abrió el mapa (por ejemplo,
+      // la Dirección acaba de cerrar la gestión en Clientes y el servidor la pasó a Vendida).
+      if (!correccion){
+        ocupado($('regSave'), true);             // mientras se lee, que no se guarde dos veces
+        try{ const fr = await db.collection('properties').doc(p.id).get(); if (fr.exists) p.status = (fr.data() || {}).status || 'available'; }catch(eF){}
+      }
+      const yaCerrada = p.status === 'sold' || p.status === 'rented';
+      if (!correccion) upd.status = yaCerrada ? (tipo === 'venta' ? 'sold' : 'rented') : 'reserved';
+      else if (yaCerrada) upd.status = (tipo === 'venta' ? 'sold' : 'rented');
+      // Una operación nueva sobre un cierre confirmado (solo la Dirección llega acá):
+      // la nueva arranca pendiente y el backend pasa la anterior al historial, donde
+      // sigue sumando. Se guarda en dos escrituras, porque las reglas dejan escribir
+      // cierreConfirmado solo junto con cierre, status y updatedAt.
+      const sobreConfirmado = !correccion && !!previo && p.cierreConfirmado === true;
       upd['ubicacion.lat'] = regLatLng.lat;
       upd['ubicacion.lng'] = regLatLng.lng;
       const btn = $('regSave'); ocupado(btn, true);
       try{
         const ref = db.collection('properties').doc(p.id);
-        try{ await ref.update(upd); }
+        if (sobreConfirmado){
+          const u1 = { cierre: cierre, cierreConfirmado: false, updatedAt: ahora };
+          if (upd.status) u1.status = upd.status;
+          await ref.update(u1);
+          try{ await ref.update({ 'ubicacion.lat': regLatLng.lat, 'ubicacion.lng': regLatLng.lng, updatedAt: new Date().toISOString() }); }
+          catch(eU){ console.warn('[mapa] ubicación de la propiedad', eU); }
+        }
+        else try{ await ref.update(upd); }
         catch(e1){
           // Red de seguridad: si las reglas de Firestore no aceptaran los campos
           // nuevos (agencyPct / agencyMonths / editadoEl / registradoPor), se guarda
@@ -2049,7 +2253,18 @@
         }
         p.cierre = cierre;
         if (upd.status) p.status = upd.status;
-        if (upd.cierreConfirmado === false) p.cierreConfirmado = false;
+        if (sobreConfirmado) p.cierreConfirmado = false;
+        // "La firma ya se hizo": se confirma enseguida, en una escritura aparte (la de la Dirección).
+        if (firmado){
+          const cc = Object.assign({}, cierre, { fecha: fecha, confirmadoEl: new Date().toISOString(), confirmadoPor: curProfile.name || curUser.email || 'Dirección' });
+          try{
+            await db.collection('properties').doc(p.id).update({ cierre: cc, cierreConfirmado: true, updatedAt: new Date().toISOString() });
+            p.cierre = cc; p.cierreConfirmado = true; cierre = cc;
+          }catch(e2){
+            console.warn('[mapa] confirmar al registrar', e2);
+            toast('La reserva quedó guardada, pero no se pudo confirmar la firma: confirmala desde la lista.', true);
+          }
+        }
         if (!p.ubicacion) p.ubicacion = {};
         p.ubicacion.lat = regLatLng.lat; p.ubicacion.lng = regLatLng.lng;
         if (cierres.indexOf(p) < 0) cierres.push(p);
@@ -2062,7 +2277,7 @@
         selId = p.id;
         refrescar(false);
         enfocarCierre(p.id);
-        toast(correccion ? 'Cierre actualizado ✓' : 'Cierre registrado ✓');
+        toast(correccion ? 'Cierre actualizado ✓' : (p.cierreConfirmado === true ? 'Cierre registrado y confirmado ✓' : 'Reserva registrada ✓ La propiedad quedó Reservada hasta que se confirme la firma.'));
       }catch(e){
         console.warn('guardarCierre', e);
         ocupado(btn, false);

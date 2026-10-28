@@ -6116,81 +6116,106 @@
   // (propiedades, equipos, referidos, retiros...): antes se repetían cada vez que
   // se abría el menú. Ahora, a lo sumo una vez cada dos minutos.
   let _finUltima = 0;
+  // ===== Cierres confirmados: una sola regla para toda la app =====
+  // Un cierre suma (saldo, puntos, nivel, comisiones) cuando la Dirección confirmó
+  // la firma en el Mapa de cierres. Además del cierre actual de la propiedad cuentan
+  // los que pasaron al historial (cierresAnteriores: un alquiler que terminó, o una
+  // operación que se reemplazó por otra), que el servidor guarda ya confirmados.
+  // El cierre es del AGENTE que lo registró (cierre.agenteUid); el dueño de la
+  // propiedad solo cuenta en los cierres viejos que no lo tienen. Es la misma
+  // cuenta que hacen el servidor (puntos para canjear), Recompensas y Rentabilidad.
+  function cierresConfirmadosDe(p) {
+    const l = [], vistos = new Set();
+    const sumar = (c) => {
+      if (!c || typeof c !== 'object') return;
+      const k = String(c.registradoEl || '');
+      if (k && vistos.has(k)) return;        // la misma operación archivada dos veces cuenta una
+      if (k) vistos.add(k);
+      l.push(c);
+    };
+    if (p && p.cierreConfirmado === true) sumar(p.cierre);
+    if (p && Array.isArray(p.cierresAnteriores)) p.cierresAnteriores.forEach(sumar);
+    return l;
+  }
+  function agenteDelCierre(c, p) { return (c && c.agenteUid) || (p && p.ownerId) || ''; }
+  // Propiedades con algún cierre confirmado: el actual o en el historial.
+  async function propsConCierresConfirmados() {
+    const [a, b] = await Promise.all([
+      db.collection('properties').where('cierreConfirmado', '==', true).get(),
+      db.collection('properties').where('tieneCierresAnteriores', '==', true).get().catch(() => null)
+    ]);
+    const m = new Map();
+    a.forEach(d => m.set(d.id, Object.assign({ id: d.id }, d.data())));
+    if (b) b.forEach(d => { if (!m.has(d.id)) m.set(d.id, Object.assign({ id: d.id }, d.data())); });
+    return Array.from(m.values());
+  }
+  // Lo que le quedó al agente: la ganancia cargada en el cierre o, en los cierres
+  // viejos que no la tienen, su % de la comisión de la inmobiliaria.
+  function gananciaDelCierre(c, perfil) {
+    if (c.gananciaAgente != null && c.gananciaAgente !== '' && isFinite(Number(c.gananciaAgente))) return Number(c.gananciaAgente);
+    const precio = Number(c.precio) || 0;
+    const comAg = (c.tipo === 'venta') ? precio * ((c.agencyPct != null ? Number(c.agencyPct) : 3) / 100) : precio * (c.agencyMonths != null ? Number(c.agencyMonths) : 1);
+    const pct = (c.tipo === 'venta') ? Number((perfil || {}).commissionSale) : Number((perfil || {}).commissionRent);
+    return pct ? comAg * pct / 100 : 0;
+  }
+
   // Calcula el estado financiero de CUALQUIER agente (saldo USD/UYU y puntos).
-  // Misma lógica que el menú personal: cierres propios + participaciones en equipo
-  // + referidos − retiros, MÁS los ajustes manuales del admin (correcciones
-  // auditables). Recibe el uid y su perfil (para las comisiones). Devuelve montos
-  // sin redondear; el que muestra decide el formato.
+  // Cierres propios + participaciones en equipo + referidos − retiros, MÁS los
+  // ajustes manuales de la Dirección (correcciones auditables). Es la cuenta del
+  // menú personal y del panel del agente que ve la Dirección. Recibe el uid y su
+  // perfil (para las comisiones). Devuelve montos sin redondear; el que muestra
+  // decide el formato.
   async function calcularFinanzasAgente(uid, perfil, cfg) {
     perfil = perfil || {};
     if (!cfg) { cfg = { puntosPor100: 1, dolarPesos: 40 }; try { const c = await db.collection('config').doc('recompensas').get(); if (c.exists) cfg = Object.assign(cfg, c.data()); } catch (e) {} }
-    const DEF_SALE = 3, DEF_MONTHS = 1;
     let sumUSD = 0, sumUYU = 0, pts = 0;
+    const aUSD = (monto, moneda) => moneda === 'UYU' ? (cfg.dolarPesos > 0 ? monto / cfg.dolarPesos : 0) : monto;
+    const porCien = Number(cfg.puntosPor100) || 1;
+    const props = await propsConCierresConfirmados();
 
-    // 1) Cierres propios
-    const snap = await db.collection('properties').where('ownerId', '==', uid).get();
-    snap.forEach(d => {
-      const p = d.data();
-      if (!p.cierre || p.cierreConfirmado !== true) return;
-      const c = p.cierre;
-      let gan = (c.gananciaAgente != null && c.gananciaAgente !== '' && isFinite(Number(c.gananciaAgente))) ? Number(c.gananciaAgente) : null;
-      if (gan == null) {
-        const precio = Number(c.precio) || 0;
-        const comAg = (c.tipo === 'venta') ? precio * ((c.agencyPct != null ? Number(c.agencyPct) : DEF_SALE) / 100) : precio * (c.agencyMonths != null ? Number(c.agencyMonths) : DEF_MONTHS);
-        const pct = (c.tipo === 'venta') ? Number(perfil.commissionSale) : Number(perfil.commissionRent);
-        gan = pct ? comAg * pct / 100 : 0;
+    // 1) Cierres propios (el agente del cierre) y 2) participaciones en equipo
+    //    (cierres de otros donde este agente figura con un monto fijo).
+    props.forEach(p => cierresConfirmadosDe(p).forEach(c => {
+      const moneda = c.moneda === 'UYU' ? 'UYU' : 'USD';
+      let monto = 0;
+      if (agenteDelCierre(c, p) === uid) monto = gananciaDelCierre(c, perfil);
+      else {
+        const mia = (Array.isArray(c.participantes) ? c.participantes : []).find(x => x && x.uid === uid);
+        monto = mia ? (Number(mia.monto) || 0) : 0;
       }
-      const moneda = c.moneda || 'USD';
-      if (moneda === 'UYU') sumUYU += gan; else sumUSD += gan;
-      const ganUSD = moneda === 'UYU' ? (cfg.dolarPesos > 0 ? gan / cfg.dolarPesos : 0) : gan;
-      pts += Math.floor(ganUSD / 100) * (Number(cfg.puntosPor100) || 1);
-    });
+      if (!monto) return;
+      if (moneda === 'UYU') sumUYU += monto; else sumUSD += monto;
+      pts += Math.floor(aUSD(monto, moneda) / 100) * porCien;
+    }));
 
-    // 2) Participaciones en equipo (cierres de otros donde este agente figura)
-    try {
-      const eqSnap = await db.collection('properties').where('cierreConfirmado', '==', true).get();
-      eqSnap.forEach(d => {
-        const p = d.data();
-        if (!p.cierre || p.cierre.agenteUid === uid) return;
-        const parts = Array.isArray(p.cierre.participantes) ? p.cierre.participantes : [];
-        const mia = parts.find(x => x.uid === uid);
-        if (!mia) return;
-        const monto = Number(mia.monto) || 0;
-        if (!monto) return;
-        const moneda = p.cierre.moneda || 'USD';
-        if (moneda === 'UYU') sumUYU += monto; else sumUSD += monto;
-        const mUSD = moneda === 'UYU' ? (cfg.dolarPesos > 0 ? monto / cfg.dolarPesos : 0) : monto;
-        pts += Math.floor(mUSD / 100) * (Number(cfg.puntosPor100) || 1);
-      });
-    } catch (e) { console.warn('[finanzas agente] equipo', e && e.message); }
+    // EXPERIENCIA para el nivel: los cierres propios y la parte en los de equipo.
+    // Los referidos no son facturación propia y los ajustes tampoco: no cuentan.
+    const expUSD = sumUSD + aUSD(sumUYU, 'UYU');
 
-    // 3) Referidos (este agente refirió a otros y cobra su %)
+    // 3) Referidos: este agente refirió a otros y cobra su % de lo que ganó cada
+    //    uno en SUS cierres confirmados (los del agente del cierre).
     try {
       const refSnap = await db.collection('referidos').where('referrerUid', '==', uid).get();
-      for (const rd of refSnap.docs) {
+      refSnap.docs.forEach(rd => {
         const refInfo = rd.data();
         const pctS = Number(refInfo.pctSale) || 0, pctR = Number(refInfo.pctRent) || 0;
-        if (!pctS && !pctR) continue;
-        const cs = await db.collection('properties').where('ownerId', '==', rd.id).get();
-        cs.forEach(d => {
-          const p = d.data();
-          if (!p.cierre || p.cierreConfirmado !== true) return;
-          const c = p.cierre;
+        if (!pctS && !pctR) return;
+        props.forEach(p => cierresConfirmadosDe(p).forEach(c => {
+          if (agenteDelCierre(c, p) !== rd.id) return;
           const ganRef = (c.gananciaAgente != null && c.gananciaAgente !== '' && isFinite(Number(c.gananciaAgente))) ? Number(c.gananciaAgente) : 0;
           const rfPct = (c.tipo === 'venta') ? pctS : pctR;
           if (!ganRef || !rfPct) return;
           const miParte = ganRef * rfPct / 100;
-          const moneda = c.moneda || 'USD';
-          if (moneda === 'UYU') sumUYU += miParte; else sumUSD += miParte;
-        });
-      }
+          if (c.moneda === 'UYU') sumUYU += miParte; else sumUSD += miParte;
+        }));
+      });
     } catch (e) { console.warn('[finanzas agente] referidos', e && e.message); }
 
     // Guardar el bruto ganado (antes de retiros/ajustes) para mostrarlo desglosado
     const ganadoUSD = sumUSD, ganadoUYU = sumUYU, ganadoPts = pts;
 
-    // 4) Ajustes manuales del admin (correcciones auditables). Suman o restan a
-    //    saldo y/o puntos según su signo. Cada uno guarda motivo, autor y fecha.
+    // 4) Ajustes manuales de la Dirección (correcciones auditables). Suman o restan
+    //    a saldo y/o puntos según su signo. Cada uno guarda motivo, autor y fecha.
     let ajUSD = 0, ajUYU = 0, ajPts = 0;
     try {
       const aj = await db.collection('ajustesFinancieros').where('agenteUid', '==', uid).get();
@@ -6203,7 +6228,8 @@
     } catch (e) { console.warn('[finanzas agente] ajustes', e && e.message); }
     sumUSD += ajUSD; sumUYU += ajUYU; pts += ajPts;
 
-    // 5) Retiros (bajan el saldo, no los puntos)
+    // 5) Retiros: los pagados ya salieron y los pendientes/aprobados están
+    //    comprometidos (bajan el saldo, no los puntos).
     let retUSD = 0, retUYU = 0;
     try {
       const rs = await db.collection('retiros').where('agenteUid', '==', uid).get();
@@ -6218,7 +6244,7 @@
     sumUSD -= retUSD; sumUYU -= retUYU;
     sumUSD = Math.max(0, sumUSD); sumUYU = Math.max(0, sumUYU); pts = Math.max(0, pts);
 
-    return { usd: sumUSD, uyu: sumUYU, pts, ganadoUSD, ganadoUYU, ganadoPts, ajUSD, ajUYU, ajPts, retUSD, retUYU, cfg };
+    return { usd: sumUSD, uyu: sumUYU, pts, expUSD, ganadoUSD, ganadoUYU, ganadoPts, ajUSD, ajUYU, ajPts, retUSD, retUYU, cfg };
   }
 
   async function cargarFinanzasMenu() {
@@ -6226,116 +6252,21 @@
     if (Date.now() - _finUltima < 120000) return;
     _finBusy = true;
     try {
-      // Config de puntos (para convertir pesos y saber el valor del punto)
-      let cfg = { puntosPor100: 1, dolarPesos: 40 };
-      try { const c = await db.collection('config').doc('recompensas').get(); if (c.exists) cfg = Object.assign(cfg, c.data()); } catch (e) {}
-
-      const snap = await db.collection('properties').where('ownerId', '==', currentUser.uid).get();
-      const DEF_SALE = 3, DEF_MONTHS = 1;
-      let sumUSD = 0, sumUYU = 0, pts = 0;
-      snap.forEach(d => {
-        const p = d.data();
-        if (!p.cierre || p.cierreConfirmado !== true) return;
-        const c = p.cierre;
-        // Ganancia del agente: la cargada en el cierre, o estimada por su comisión
-        let gan = (c.gananciaAgente != null && c.gananciaAgente !== '' && isFinite(Number(c.gananciaAgente)))
-          ? Number(c.gananciaAgente) : null;
-        if (gan == null) {
-          const precio = Number(c.precio) || 0;
-          const comAg = (c.tipo === 'venta')
-            ? precio * ((c.agencyPct != null ? Number(c.agencyPct) : DEF_SALE) / 100)
-            : precio * (c.agencyMonths != null ? Number(c.agencyMonths) : DEF_MONTHS);
-          const pct = (c.tipo === 'venta') ? Number(userProfile.commissionSale) : Number(userProfile.commissionRent);
-          gan = pct ? comAg * pct / 100 : 0;
-        }
-        const moneda = c.moneda || 'USD';
-        if (moneda === 'UYU') sumUYU += gan; else sumUSD += gan;
-        const ganUSD = moneda === 'UYU' ? (cfg.dolarPesos > 0 ? gan / cfg.dolarPesos : 0) : gan;
-        pts += Math.floor(ganUSD / 100) * (Number(cfg.puntosPor100) || 1);
-      });
-
-      // Participaciones en EQUIPO: cierres de OTROS agentes donde yo figuro como
-      // participante con un monto fijo. Sumo mi parte y mis puntos por esa parte.
-      try {
-        const eqSnap = await db.collection('properties').where('cierreConfirmado', '==', true).get();
-        eqSnap.forEach(d => {
-          const p = d.data();
-          if (!p.cierre || p.cierre.agenteUid === currentUser.uid) return; // los míos ya se contaron
-          const parts = Array.isArray(p.cierre.participantes) ? p.cierre.participantes : [];
-          const mia = parts.find(x => x.uid === currentUser.uid);
-          if (!mia) return;
-          const monto = Number(mia.monto) || 0;
-          if (!monto) return;
-          const moneda = p.cierre.moneda || 'USD';
-          if (moneda === 'UYU') sumUYU += monto; else sumUSD += monto;
-          const mUSD = moneda === 'UYU' ? (cfg.dolarPesos > 0 ? monto / cfg.dolarPesos : 0) : monto;
-          pts += Math.floor(mUSD / 100) * (Number(cfg.puntosPor100) || 1);
-        });
-      } catch (e) { console.warn('[finanzas menú] equipo', e && e.message); }
-
-      // EXPERIENCIA para el nivel: se congela ACÁ, con los cierres propios y la
-      // parte que le tocó al agente en las operaciones de equipo. Todavía NO se
-      // sumaron los referidos, y es a propósito: cobrar un % de lo que vende otro
-      // es plata del bolsillo, pero no es facturación propia. Si contara, alguien
-      // podría llegar a Senior sin haber cerrado una operación por su cuenta.
-      // Los referidos sí siguen sumando al SALDO, unas líneas más abajo.
-      // Tampoco entran los ajustes manuales de la Dirección: no son facturación.
-      const expUSD = sumUSD + (cfg.dolarPesos > 0 ? sumUYU / cfg.dolarPesos : 0);
-
-      // Ganancia por REFERIDOS: si yo referí a otros agentes, cobro mi % de lo que
-      // ganó cada uno en sus cierres confirmados. El % (por venta/alquiler) está en
-      // referidos/{uidReferido}. Se suma solo al confirmarse el cierre del referido.
-      try {
-        const refSnap = await db.collection('referidos').where('referrerUid', '==', currentUser.uid).get();
-        for (const rd of refSnap.docs) {
-          const refInfo = rd.data();
-          const referidoUid = rd.id; // el doc se identifica por el uid del referido
-          const pctS = Number(refInfo.pctSale) || 0, pctR = Number(refInfo.pctRent) || 0;
-          if (!pctS && !pctR) continue;
-          const cs = await db.collection('properties').where('ownerId', '==', referidoUid).get();
-          cs.forEach(d => {
-            const p = d.data();
-            if (!p.cierre || p.cierreConfirmado !== true) return;
-            const c = p.cierre;
-            // Ganancia del referido en ese cierre (base para mi %)
-            const ganRef = (c.gananciaAgente != null && c.gananciaAgente !== '' && isFinite(Number(c.gananciaAgente)))
-              ? Number(c.gananciaAgente) : 0;
-            const rfPct = (c.tipo === 'venta') ? pctS : pctR;
-            if (!ganRef || !rfPct) return;
-            const miParte = ganRef * rfPct / 100;
-            const moneda = c.moneda || 'USD';
-            if (moneda === 'UYU') sumUYU += miParte; else sumUSD += miParte;
-          });
-        }
-      } catch (e) { console.warn('[finanzas menú] referidos', e && e.message); }
-
-      // Descontar retiros: los pagados ya salieron, y los pendientes/aprobados están
-      // comprometidos. El SALDO a cobrar es lo ganado menos eso (los PUNTOS no bajan:
-      // se ganan al cerrar y quedan). Esto corrige que el saldo no bajara al pagar.
-      try {
-        const rs = await db.collection('retiros').where('agenteUid', '==', currentUser.uid).get();
-        rs.forEach(d => {
-          const r = d.data();
-          if (r.status === 'pagado' || r.status === 'pendiente' || r.status === 'aprobado') {
-            const m = Number(r.monto) || 0;
-            if (r.moneda === 'UYU') sumUYU -= m; else sumUSD -= m;
-          }
-        });
-      } catch (e) { console.warn('[finanzas menú] retiros', e && e.message); }
-      sumUSD = Math.max(0, sumUSD); sumUYU = Math.max(0, sumUYU);
-
+      // La misma cuenta que ve la Dirección en el panel del agente: cierres
+      // confirmados propios y en equipo, referidos, ajustes y retiros.
+      const f = await calcularFinanzasAgente(currentUser.uid, userProfile);
       const usdEl = document.getElementById('mvFinUsd');
       const uyuEl = document.getElementById('mvFinUyu');
       const puntosEl = document.getElementById('mvFinPuntos');
-      const rUsd = Math.round(sumUSD), rUyu = Math.round(sumUYU);
+      const rUsd = Math.round(f.usd), rUyu = Math.round(f.uyu);
       if (usdEl) usdEl.textContent = 'US$ ' + rUsd.toLocaleString('es-UY');
       if (uyuEl) {
         uyuEl.textContent = '$U ' + rUyu.toLocaleString('es-UY');
         // Mostrar la línea de pesos solo si hay saldo en pesos (evita "$U 0" al pedo).
         uyuEl.style.display = rUyu ? '' : 'none';
       }
-      if (puntosEl) puntosEl.textContent = pts.toLocaleString('es-UY');
-      pintarNivelMenu(expUSD);
+      if (puntosEl) puntosEl.textContent = f.pts.toLocaleString('es-UY');
+      pintarNivelMenu(f.expUSD);
       _finUltima = Date.now();
     } catch (e) {
       console.warn('[finanzas menú]', e && e.message);
@@ -6978,20 +6909,21 @@
           }).join('');
         }
       } else if (tb === 'comisiones') {
-        const [cfgSnap, refSnap, cierresSnap] = await Promise.all([
+        const [cfgSnap, refSnap, propsConf] = await Promise.all([
           db.collection('adminData').doc('comisionesConfig').get(),
           db.collection('referidos').get(),
-          db.collection('properties').where('cierreConfirmado', '==', true).get()
+          propsConCierresConfirmados()
         ]);
         const cfg = Object.assign({ agencyPctSale: 3, agencyMonthsRent: 1 }, cfgSnap.exists ? cfgSnap.data() : {});
         const refDocs = {};
         refSnap.docs.forEach(d => { refDocs[d.id] = d.data(); });
+        // Cierres confirmados de cada agente: el del cierre (no el dueño de la
+        // propiedad), incluidos los que pasaron al historial.
         const cierresPorAgente = {};
-        cierresSnap.docs.forEach(d => {
-          const p = d.data();
-          if (!p.cierre || !p.ownerId) return;
-          (cierresPorAgente[p.ownerId] = cierresPorAgente[p.ownerId] || []).push(p.cierre);
-        });
+        propsConf.forEach(p => cierresConfirmadosDe(p).forEach(cc => {
+          const ag = agenteDelCierre(cc, p);
+          if (ag) (cierresPorAgente[ag] = cierresPorAgente[ag] || []).push(cc);
+        }));
         const nom = uid => (allUsers[uid] && (allUsers[uid].name || allUsers[uid].email)) || 'Agente';
         const num = v => { const n = Number(v); return isNaN(n) ? 0 : n; };
         // Comisión de la inmobiliaria en UNA operación (base de toda la cadena).

@@ -180,7 +180,8 @@
 
     let curUser=null, curProfile={}, isAdmin=false;
     let cfg = { puntosPor100:1, valorPunto:0.05, dolarPesos:40 };
-    let cierresConf=[];   // {agenteUid, agenteNombre, precio, moneda}
+    let cierresConf=[];   // {agenteUid, agenteNombre, precio, moneda} — también la parte de cada compañero en los cierres en equipo
+    let ajustesPts={};    // uid -> puntos que sumó o restó la Dirección (ajustes con motivo)
     let agentesCom={};    // uid -> {sale, rent} (% de comisión del agente)
     let catalogo=[];      // recompensas
     let canjes=[];        // mis canjes (o todos si admin)
@@ -213,9 +214,23 @@
       }
       return comisionAgenteUSD(c);
     }
+    // Cierres confirmados de una propiedad: el actual y los del historial (sin repetir).
+    function cierresConfirmadosDe(p){
+      const l = [], vistos = new Set();
+      const sumar = (c)=>{
+        if(!c || typeof c !== 'object') return;
+        const k = String(c.registradoEl || '');
+        if(k && vistos.has(k)) return;
+        if(k) vistos.add(k);
+        l.push(c);
+      };
+      if(p && p.cierreConfirmado === true) sumar(p.cierre);
+      if(p && Array.isArray(p.cierresAnteriores)) p.cierresAnteriores.forEach(sumar);
+      return l;
+    }
     // Los puntos se ganan sobre lo que le queda al agente, no sobre el monto total.
     function puntosCierre(c){ return Math.floor(bolsilloUSD(c)/100) * (Number(cfg.puntosPor100)||1); }
-    function puntosGanados(uid){ return cierresConf.filter(c=>c.agenteUid===uid).reduce((s,c)=>s+puntosCierre(c),0); }
+    function puntosGanados(uid){ return cierresConf.filter(c=>c.agenteUid===uid).reduce((s,c)=>s+puntosCierre(c),0) + (Number(ajustesPts[uid])||0); }
     function puntosGastados(uid){ return canjes.filter(x=>x.agenteUid===uid && x.status!=='rechazado').reduce((s,x)=>s+(Number(x.costoPuntos)||0),0); }
     function saldo(uid){ return puntosGanados(uid) - puntosGastados(uid); }
 
@@ -238,14 +253,41 @@
         // Catálogo
         const rs = await db.collection('recompensas').get();
         catalogo = rs.docs.map(d=>Object.assign({ id:d.id }, d.data())).sort((a,b)=>(a.costoPuntos||0)-(b.costoPuntos||0));
-        // Cierres confirmados -> puntos
-        const ps = await db.collection('properties').where('cierreConfirmado','==',true).get();
-        cierresConf = ps.docs.map(d=>d.data()).filter(p=>p.cierre).map(p=>({
-          agenteUid: p.cierre.agenteUid||'', agenteNombre: p.cierre.agenteNombre||'Agente',
-          precio: p.cierre.precio, moneda: p.cierre.moneda, tipo: p.cierre.tipo,
-          ganancia: p.cierre.gananciaAgente,
-          agencyPct: p.cierre.agencyPct, agencyMonths: p.cierre.agencyMonths
-        }));
+        // Cierres confirmados -> puntos. Cuenta la firma confirmada: el cierre actual
+        // y los que pasaron al historial (un alquiler que terminó, una operación que
+        // se reemplazó). Los puntos son del agente del cierre y de cada compañero por
+        // su parte en los cierres en equipo: la misma cuenta que Mis Finanzas y que el
+        // servidor cuando se canjea.
+        const [psA, psB] = await Promise.all([
+          db.collection('properties').where('cierreConfirmado','==',true).get(),
+          db.collection('properties').where('tieneCierresAnteriores','==',true).get().catch(()=>null)
+        ]);
+        const propsConf = new Map();
+        psA.forEach(d=>propsConf.set(d.id, d.data()));
+        if(psB) psB.forEach(d=>{ if(!propsConf.has(d.id)) propsConf.set(d.id, d.data()); });
+        cierresConf = [];
+        propsConf.forEach(p=>{
+          cierresConfirmadosDe(p).forEach(c=>{
+            const ag = c.agenteUid || p.ownerId || '';
+            cierresConf.push({
+              agenteUid: ag, agenteNombre: c.agenteNombre || p.ownerName || 'Agente',
+              precio: c.precio, moneda: c.moneda, tipo: c.tipo,
+              ganancia: c.gananciaAgente,
+              agencyPct: c.agencyPct, agencyMonths: c.agencyMonths
+            });
+            (Array.isArray(c.participantes) ? c.participantes : []).forEach(x=>{
+              if(!x || !x.uid || x.uid===ag || !(Number(x.monto) > 0)) return;
+              cierresConf.push({ agenteUid: x.uid, agenteNombre: x.nombre || 'Agente', precio: c.precio, moneda: c.moneda, tipo: c.tipo, ganancia: Number(x.monto), equipo: true });
+            });
+          });
+        });
+        // Ajustes de puntos de la Dirección (con motivo): suman o restan.
+        ajustesPts = {};
+        try{
+          const aj = isAdmin ? await db.collection('ajustesFinancieros').get()
+                             : await db.collection('ajustesFinancieros').where('agenteUid','==',curUser.uid).get();
+          aj.forEach(d=>{ const a = d.data()||{}; if(a.agenteUid && Number(a.puntos)) ajustesPts[a.agenteUid] = (ajustesPts[a.agenteUid]||0) + Number(a.puntos); });
+        }catch(e){ console.warn('ajustes', e && e.message); }
         // Canjes
         if(isAdmin){
           const cs = await db.collection('canjes').get();
@@ -277,7 +319,7 @@
       const ej = Math.floor(350/100)*r;
       const pl = (n)=> n===1 ? 'punto' : 'puntos';
       el.innerHTML = '<div class="hi">💡</div><div class="ht"><b>¿Cómo ganás puntos?</b><br>'
-        + 'Por cada <b>US$100</b> de <b>tu comisión</b> (lo que te queda a vos) en una operación <b>cerrada y confirmada</b> sumás <b>'+r+' '+pl(r)+'</b>. '
+        + 'Por cada <b>US$100</b> de <b>tu comisión</b> (lo que te queda a vos) en una operación <b>firmada</b> (cuando la Dirección confirma la firma en el Mapa de cierres) sumás <b>'+r+' '+pl(r)+'</b>. '
         + 'Se cuentan solo los cientos completos: si tu comisión en una operación es <b>US$350</b>, sumás <b>'+ej+' '+pl(ej)+'</b>. '
         + 'Las operaciones en pesos se convierten a dólares para el cálculo. '
         + 'Tu ganancia se toma del dato que cargás al <b>registrar el cierre</b>; en los cierres viejos que no lo tienen, se estima con tu % de comisión.</div>';

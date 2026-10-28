@@ -2423,20 +2423,31 @@
       var fp = dzFecha(p.createdAt);
       // La captación es de quien cargó la propiedad, no del que la recibió después.
       poner(duenoEn(p, fp, p.ownerId), enTasacion ? 'propiedadesEnTasacion' : 'propiedades', fp);
-      var c = p.cierre;
-      if (c && typeof c === 'object'){
+      // El cierre actual y los que pasaron al historial (un alquiler que terminó, o
+      // una operación que se reemplazó por otra): cada uno fue una operación.
+      var ops = [];
+      if (p.cierre && typeof p.cierre === 'object') ops.push({ c: p.cierre, k: p.id, conf: p.cierreConfirmado === true });
+      (Array.isArray(p.cierresAnteriores) ? p.cierresAnteriores : []).forEach(function(x, i){
+        if (x && typeof x === 'object') ops.push({ c: x, k: p.id + '#' + (x.registradoEl || i), conf: true });
+      });
+      ops.forEach(function(o){
+        var c = o.c;
         var fc = dzFecha(c.fecha) || dzFecha(c.registradoEl);
         if (!fc) return;
         var quienes = [c.agenteUid || duenoEn(p, fc, p.ownerId)];
         (Array.isArray(c.participantes) ? c.participantes : []).forEach(function(x){ if (x && x.uid) quienes.push(x.uid); });
         quienes.forEach(function(uid){
-          if (uid) cierres[uid + '|' + p.id] = { uid: uid, f: fc, registrado: true, confirmado: p.cierreConfirmado === true };
+          if (uid) cierres[uid + '|' + o.k] = { uid: uid, f: fc, registrado: true, confirmado: o.conf };
         });
-      }
+      });
     });
-    // Gestiones cerradas que no están en el mapa: la misma propiedad no se cuenta dos veces.
+    // Gestiones cerradas que no están en el mapa: la misma propiedad no se cuenta dos
+    // veces (tampoco si su cierre ya pasó al historial de la propiedad).
+    var enMapa = {};
+    Object.keys(cierres).forEach(function(k){ enMapa[k.split('#')[0]] = true; });
     gestCerradas.forEach(function(g){
       var k = g.uid + '|' + g.prop;
+      if (!cierres[k] && enMapa[k]) return;
       if (!cierres[k]) cierres[k] = { uid: g.uid, f: g.f, registrado: false, confirmado: false };
       else if (!cierres[k].registrado && g.f > cierres[k].f) cierres[k].f = g.f;
     });
