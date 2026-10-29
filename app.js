@@ -7580,6 +7580,14 @@
       showToast('Revisiones', 'Rechazada · el agente recibe el motivo', 'fa-xmark');
     } catch (e) { alert('No se pudo rechazar: ' + (e.message || e)); }
   }
+  // Una tasación guarda aparte las fotos del anexo ({id}_0 a {id}_8) y el teléfono, el
+  // email y las consideraciones del cliente: al eliminarla se borran también. Si algo
+  // falla, la tasación igual quedó eliminada.
+  function borrarAparteTasacion(uid, id) {
+    const u = db.collection('users').doc(uid), ops = [u.collection('tasacionPrivado').doc(id).delete()];
+    for (let n = 0; n < 9; n++) ops.push(u.collection('tasacionFotos').doc(id + '_' + n).delete());
+    return Promise.all(ops).catch(e => console.warn('lo guardado aparte de la tasación:', e));
+  }
   async function revEliminar(uid, field, id) {
     if (!confirm('¿Eliminar este registro? Se borra también su PDF y el agente no podrá descargarlo.')) return;
     try {
@@ -7595,6 +7603,7 @@
       } else { return; }
       await ref.update({ [field]: nuevo });
       try { await firebase.storage().ref('tasacionesPDF/' + id + '.pdf').delete(); } catch (e) { }
+      if (field === 'tasaciones') borrarAparteTasacion(uid, id);
       _revRecords = _revRecords.filter(r => !(r._uid === uid && r._field === field && r.id === id));
       revRender();
       showToast('Revisiones', 'Registro eliminado', 'fa-trash');
@@ -7619,6 +7628,7 @@
         else continue;
         await ref.update({ [field]: nuevo });
         for (const id of ids) { try { await firebase.storage().ref('tasacionesPDF/' + id + '.pdf').delete(); } catch (e) { } }
+        if (field === 'tasaciones') for (const id of ids) borrarAparteTasacion(uid, id);
       }
       _revRecords = _revRecords.filter(r => !r.revisado);
       _revPage = 1; revRender();

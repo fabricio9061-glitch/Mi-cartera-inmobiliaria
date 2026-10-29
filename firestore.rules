@@ -160,6 +160,20 @@ service cloud.firestore {
                               && request.resource.data.get('titulo', '') is string && request.resource.data.get('titulo', '').size() <= 40
                               && request.resource.data.get('desc', '') is string && request.resource.data.get('desc', '').size() <= 120;
       }
+
+      // Lo privado de cada tasación: el teléfono y el email del cliente, y las
+      // consideraciones para la venta (ocupación, deudas, obras). Tampoco va en el
+      // perfil: un documento por tasación, que ven solo el agente y la Dirección.
+      match /tasacionPrivado/{tasId} {
+        allow read, delete: if esDireccion() || (request.auth != null && request.auth.uid == userId);
+        allow create, update: if (esDireccion() || (request.auth != null && request.auth.uid == userId))
+                              && request.resource.data.keys().hasOnly(['tasId', 'cli', 'consid', 'fecha'])
+                              && request.resource.data.tasId == tasId && tasId.size() <= 80
+                              && request.resource.data.get('cli', {}) is map
+                              && request.resource.data.get('cli', {}).keys().hasOnly(['tel', 'email'])
+                              && request.resource.data.get('consid', {}) is map
+                              && request.resource.data.get('consid', {}).keys().hasOnly(['conRegimen', 'conDjcu', 'conOcupacion', 'conTributos', 'conObras', 'conNotas']);
+      }
     }
 
     // ============ ADMIN DATA (comisiones, etc.) — SOLO admin ============

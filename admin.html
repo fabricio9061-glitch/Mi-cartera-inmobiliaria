@@ -1824,10 +1824,19 @@
     try{
       var parche = {}; parche[r._campo + '.' + r._id] = firebase.firestore.FieldValue.delete();
       await db.collection('users').doc(r._uid).update(parche);
+      if (r._campo === 'tasaciones') borrarAparteTasacion(r._uid, r._id);
       _revs = _revs.filter(function(x){ return x !== r; });
       toast('Eliminada');
       renderRevs();
     }catch(e){ console.error(e); toast(msgPermiso(e, 'No se pudo eliminar')); }
+  }
+  // Una tasación guarda aparte las fotos del anexo ({id}_0 a {id}_8) y el teléfono, el
+  // email y las consideraciones del cliente: al eliminarla se borran también. Si algo
+  // falla, la tasación igual quedó eliminada.
+  function borrarAparteTasacion(uid, id){
+    var u = db.collection('users').doc(uid), ops = [u.collection('tasacionPrivado').doc(id).delete()];
+    for (var n = 0; n < 9; n++) ops.push(u.collection('tasacionFotos').doc(id + '_' + n).delete());
+    return Promise.all(ops).catch(function(e){ console.warn('lo guardado aparte de la tasación:', e); });
   }
   // Compatibilidad: otros lugares del panel llamaban a revMarcar(uid, campo, id, valor).
   function revMarcar(uid, campo, id, valor){ var k = uid + '|' + campo + '|' + id; return valor ? revAprobar(k) : revPendiente(k); }
