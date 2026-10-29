@@ -55,6 +55,11 @@
     .tas-f label small{ color:var(--gray-400,#aaa); }
     .tas-f input, .tas-f select{ width:100%; padding:10px 11px; border:1px solid var(--gray-200,#e3e6ea); border-radius:9px; font-family:inherit; font-size:.92rem; background:#fff; }
     .tas-f input:focus, .tas-f select:focus{ outline:none; border-color:#C9A227; }
+    /* Vacío, pero con un dato que ya se cargó en otro paso (o que se calcula solo):
+       el campo lo muestra y el informe lo usa. Si se escribe algo, manda lo escrito. */
+    .tas-f input.tas-hereda:placeholder-shown{ background:#fcf8ec; border-color:rgba(201,162,39,.45); text-overflow:ellipsis; }
+    .tas-f input.tas-hereda::placeholder{ color:#4f5b6b; opacity:1; }
+    .tas-f input.tas-hereda:focus{ border-color:#C9A227; }
     .tas-hint{ font-size:.8rem; color:var(--gray-500,#8a8a8a); line-height:1.55; margin:14px 0 0; }
     .tas-ant-head{ display:grid; grid-template-columns:22px .75fr .55fr .55fr 1.05fr .8fr 1.2fr; gap:8px; font-size:.72rem; color:var(--gray-500,#8a8a8a); padding:0 2px 8px; font-weight:600; align-items:end; }
     .tas-ant-row{ display:grid; grid-template-columns:22px .75fr .55fr .55fr 1.05fr .8fr 1.2fr; gap:8px; margin-bottom:8px; align-items:start; }
@@ -220,7 +225,7 @@
     .tas-report-cols{ display:grid; grid-template-columns:1fr 1fr; gap:24px; }
     .tas-report-h{ font-size:.92rem; font-weight:600; color:var(--primary,#16273f); margin:0 0 12px; padding-bottom:8px; border-bottom:1.5px solid rgba(201,162,39,.55); }
     .tas-oblig{ color:#b08d1e; font-weight:700; }
-    .tas-report-grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .tas-report-grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:end; }
     .tas-report-grid3{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; align-items:end; }
     .tas-report-body .tas-f{ margin-bottom:11px; }
     /* ===== Paso 6: anexo del informe (catastro, normativa, antecedentes y fotos) ===== */
@@ -587,7 +592,7 @@
           <i class="fas fa-chevron-down"></i>
         </button>
         <div class="tas-report-body" id="tasAnexoBody" style="display:none">
-          <p class="tas-anx-intro">Va en una hoja extra al final del informe. Lo que dejes vacío no aparece.</p>
+          <p class="tas-anx-intro">Va en una hoja extra al final del informe. Lo que ya cargaste en otro paso, como los m² o el terreno, aparece solo en su campo: escribilo solo si en Catastro figura distinto. Lo que quede vacío no sale.</p>
           <div class="tas-report-cols">
             <div>
               <h4 class="tas-report-h">Datos catastrales <small>Cédula catastral</small></h4>
@@ -623,10 +628,10 @@
           <h4 class="tas-report-h tas-anx-sep">Referencias de los antecedentes <small>Mismo orden que en el paso 2</small></h4>
           <div class="tas-anx-refs" id="tasAnxRefs">
             <div class="tas-anx-ref-head" aria-hidden="true"><span></span><span>Dirección o zona</span><span>Enlace a la publicación</span><span>Detalle</span></div>
-            <div class="tas-anx-ref"><span class="tas-anx-n" aria-hidden="true">1</span><input type="text" id="anxRef1Dir" placeholder="Dirección o zona" aria-label="Antecedente 1: dirección o zona" maxlength="90" oninput="anexoCambio()"><input type="url" id="anxRef1Url" inputmode="url" autocomplete="off" placeholder="Enlace (https://…)" aria-label="Antecedente 1: enlace a la publicación" maxlength="300" oninput="anexoCambio()"><input type="text" id="anxRef1Det" placeholder="Detalle: m², estado, terreno…" aria-label="Antecedente 1: detalle" maxlength="140" oninput="anexoCambio()"></div>
-            <div class="tas-anx-ref"><span class="tas-anx-n" aria-hidden="true">2</span><input type="text" id="anxRef2Dir" placeholder="Dirección o zona" aria-label="Antecedente 2: dirección o zona" maxlength="90" oninput="anexoCambio()"><input type="url" id="anxRef2Url" inputmode="url" autocomplete="off" placeholder="Enlace (https://…)" aria-label="Antecedente 2: enlace a la publicación" maxlength="300" oninput="anexoCambio()"><input type="text" id="anxRef2Det" placeholder="Detalle: m², estado, terreno…" aria-label="Antecedente 2: detalle" maxlength="140" oninput="anexoCambio()"></div>
-            <div class="tas-anx-ref"><span class="tas-anx-n" aria-hidden="true">3</span><input type="text" id="anxRef3Dir" placeholder="Dirección o zona" aria-label="Antecedente 3: dirección o zona" maxlength="90" oninput="anexoCambio()"><input type="url" id="anxRef3Url" inputmode="url" autocomplete="off" placeholder="Enlace (https://…)" aria-label="Antecedente 3: enlace a la publicación" maxlength="300" oninput="anexoCambio()"><input type="text" id="anxRef3Det" placeholder="Detalle: m², estado, terreno…" aria-label="Antecedente 3: detalle" maxlength="140" oninput="anexoCambio()"></div>
-            <div class="tas-anx-ref"><span class="tas-anx-n" aria-hidden="true">4</span><input type="text" id="anxRef4Dir" placeholder="Dirección o zona" aria-label="Antecedente 4: dirección o zona" maxlength="90" oninput="anexoCambio()"><input type="url" id="anxRef4Url" inputmode="url" autocomplete="off" placeholder="Enlace (https://…)" aria-label="Antecedente 4: enlace a la publicación" maxlength="300" oninput="anexoCambio()"><input type="text" id="anxRef4Det" placeholder="Detalle: m², estado, terreno…" aria-label="Antecedente 4: detalle" maxlength="140" oninput="anexoCambio()"></div>
+            <div class="tas-anx-ref"><span class="tas-anx-n" aria-hidden="true">1</span><input type="text" id="anxRef1Dir" placeholder="Dirección o zona" aria-label="Antecedente 1: dirección o zona" maxlength="90" oninput="anexoCambio()"><input type="url" id="anxRef1Url" inputmode="url" autocomplete="off" placeholder="Enlace (https://…)" aria-label="Antecedente 1: enlace a la publicación" maxlength="300" oninput="anexoCambio()"><input type="text" id="anxRef1Det" placeholder="Detalle: estado, cochera, terreno…" aria-label="Antecedente 1: detalle" maxlength="140" oninput="anexoCambio()"></div>
+            <div class="tas-anx-ref"><span class="tas-anx-n" aria-hidden="true">2</span><input type="text" id="anxRef2Dir" placeholder="Dirección o zona" aria-label="Antecedente 2: dirección o zona" maxlength="90" oninput="anexoCambio()"><input type="url" id="anxRef2Url" inputmode="url" autocomplete="off" placeholder="Enlace (https://…)" aria-label="Antecedente 2: enlace a la publicación" maxlength="300" oninput="anexoCambio()"><input type="text" id="anxRef2Det" placeholder="Detalle: estado, cochera, terreno…" aria-label="Antecedente 2: detalle" maxlength="140" oninput="anexoCambio()"></div>
+            <div class="tas-anx-ref"><span class="tas-anx-n" aria-hidden="true">3</span><input type="text" id="anxRef3Dir" placeholder="Dirección o zona" aria-label="Antecedente 3: dirección o zona" maxlength="90" oninput="anexoCambio()"><input type="url" id="anxRef3Url" inputmode="url" autocomplete="off" placeholder="Enlace (https://…)" aria-label="Antecedente 3: enlace a la publicación" maxlength="300" oninput="anexoCambio()"><input type="text" id="anxRef3Det" placeholder="Detalle: estado, cochera, terreno…" aria-label="Antecedente 3: detalle" maxlength="140" oninput="anexoCambio()"></div>
+            <div class="tas-anx-ref"><span class="tas-anx-n" aria-hidden="true">4</span><input type="text" id="anxRef4Dir" placeholder="Dirección o zona" aria-label="Antecedente 4: dirección o zona" maxlength="90" oninput="anexoCambio()"><input type="url" id="anxRef4Url" inputmode="url" autocomplete="off" placeholder="Enlace (https://…)" aria-label="Antecedente 4: enlace a la publicación" maxlength="300" oninput="anexoCambio()"><input type="text" id="anxRef4Det" placeholder="Detalle: estado, cochera, terreno…" aria-label="Antecedente 4: detalle" maxlength="140" oninput="anexoCambio()"></div>
           </div>
           <div class="tas-f"><label for="anxRefNota">Nota sobre los antecedentes</label><input type="text" id="anxRefNota" placeholder="Publicados en InfoCasas en octubre de 2026. Construcción: 1 a reciclar, 2 a mantener, 3 buen estado." maxlength="300" oninput="anexoCambio()"></div>
 
@@ -718,6 +723,7 @@
       body.style.display = open ? 'block' : 'none';
       btn.classList.toggle('open', open);
       btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) pintarHeredados();
     }
     // Qué falta para poder enviar: se ve en el encabezado del paso 3.
     function estadoInforme() {
@@ -768,6 +774,7 @@
       body.style.display = open ? 'block' : 'none';
       btn.classList.toggle('open', open);
       btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) pintarHeredados();
     }
     function toggleAnexo(abrir) { toggleSeccion('tasAnexoBody', 'tasAnexoToggle', abrir); }
     function toggleVerif(abrir) { toggleSeccion('tasVerifBody', 'tasVerifToggle', abrir); }
@@ -800,11 +807,100 @@
       if (fu) {
         var auto = fuentesAuto(cat, nor, valorCampo('repInmDepto').trim());
         fu.placeholder = auto ? mayuscula(auto) : 'Ej: certificado de la IM del 27/10/2026; fotos del propietario';
+        fu.classList.toggle('tas-hereda', !!auto);
       }
       var cupo = document.getElementById('tasFotosCupo');
       if (cupo) cupo.textContent = n ? n + ' de ' + FOTOS_MAX + ' fotos' : 'Hasta ' + FOTOS_MAX + ' fotos';
+      pintarHeredados();
     }
     function anexoCambio() { guardarLocal(); }
+
+    // ===== Lo que se carga una sola vez =====
+    // Algunos datos se piden en dos pasos: los m² en el 1 y en el anexo, el terreno
+    // en el 3 y en el anexo, la DJCU en el 5 y en el anexo. Se cargan en uno y el
+    // otro los toma solo: el campo vacío los muestra y el informe los usa. Lo que
+    // se escribe manda, y lo que se guarda es solo lo escrito (así la lista de
+    // cambios de una corrección no se llena de datos que nadie tocó).
+    // x: lo cargado, como se guarda ({ m2, rep, anexo, consid }).
+    // Devuelve, por campo, { v: el valor que toma, de: de dónde sale } o, si el dato
+    // ya sale en otra parte del anexo, { ops: el aviso para el campo, de largo a corto }.
+    function heredadosDe(x) {
+      x = x || {};
+      var rep = x.rep || {}, anx = x.anexo || {}, con = x.consid || {}, h = {};
+      var t = function(v){ return String(v == null ? '' : v).replace(/\s+/g, ' ').trim(); };
+      var num = function(n){ return Number(n).toLocaleString('es-UY', { maximumFractionDigits: 2 }); };
+      var comp = (Array.isArray(anx.comp) ? anx.comp : []).map(compNormal);
+      var hoy = new Date().getFullYear();
+      var anios = function(s){ return (String(s || '').match(/\b(?:1[789]\d\d|20\d\d)\b/g) || []).map(Number).filter(function(a){ return a <= hoy; }); };
+      // Área edificada: la suma de la composición según Catastro o, si no, los m² del paso 1.
+      var tot = compTotal(comp), m2 = parseFloat(x.m2);
+      if (tot > 0) h.anxAreaEdif = { v: num(tot), de: 'comp' };
+      else if (m2 > 0) h.anxAreaEdif = { v: num(m2), de: 'paso 1' };
+      // El terreno del paso 3 y el área del predio del anexo son el mismo dato.
+      if (t(rep.repInmTerreno)) h.anxAreaPredio = { v: t(rep.repInmTerreno), de: 'paso 3' };
+      if (t(anx.anxAreaPredio)) h.repInmTerreno = { v: t(anx.anxAreaPredio), de: 'paso 6' };
+      // La antigüedad, desde el año de construcción del anexo (el más viejo que se
+      // nombre: "1947, reforma en 1975" son 79 años) o, si no, de la composición.
+      var an = anios(anx.anxConstruccion);
+      if (!an.length) comp.forEach(function(r){ an = an.concat(anios(r.a)); });
+      if (an.length) {
+        var n = hoy - Math.min.apply(null, an);
+        h.repInmAntig = { v: n < 1 ? 'Menos de 1 año' : n === 1 ? '1 año' : n + ' años', de: 'paso 6' };
+      }
+      // La DJCU: lo que se marcó en las consideraciones para la venta.
+      var dj = { aldia: 'Al día', pendiente: 'Pendiente' }[con.conDjcu];
+      if (dj) h.anxDjcu = { v: dj, de: 'paso 5' };
+      // La categoría y el año: si la composición los tiene, ya salen en su tabla.
+      var enComp = { ops: ['Está en la composición', 'En la composición', 'Ver composición', 'Ver abajo'] };
+      if (comp.some(function(r){ return t(r.ce); })) h.anxCategoria = enComp;
+      if (comp.some(function(r){ return t(r.a); })) h.anxConstruccion = enComp;
+      return h;
+    }
+    // Lo que está cargado ahora en pantalla, como se guarda.
+    function cargadoAhora() { return { m2: valorCampo('tasM2'), rep: getReportData(), anexo: anexoParaGuardar(), consid: considDatos() }; }
+    // Los campos que pueden tomar un dato de otro paso: vacíos, lo muestran.
+    var HEREDABLES = ['repInmTerreno', 'repInmAntig', 'verM2Vend', 'anxAreaPredio', 'anxAreaEdif', 'anxCategoria', 'anxConstruccion', 'anxDjcu'];
+    function pintarHeredados() {
+      var h = heredadosDe(cargadoAhora()), m2 = parseFloat(valorCampo('tasM2'));
+      // Comprobación por reciclaje: si no se dice cuántos m² se venden, son todos los del paso 1.
+      if (m2 > 0) h.verM2Vend = { ops: ['Todos (' + m2.toLocaleString('es-UY', { maximumFractionDigits: 2 }) + ')', 'Todos'] };
+      HEREDABLES.forEach(function(id){
+        var e = document.getElementById(id); if (!e) return;
+        // El ejemplo original, para volver a él cuando no hay nada que tomar.
+        if (e.getAttribute('data-ph') === null) e.setAttribute('data-ph', e.getAttribute('placeholder') || '');
+        var x = h[id], ops = x ? opcionesHeredado(x) : [e.getAttribute('data-ph')];
+        var ph = textoQueEntra(e, ops);
+        if (e.placeholder !== ph) e.placeholder = ph;
+        e.classList.toggle('tas-hereda', !!x);
+        // Si no entró entero, el texto completo aparece al pasar el mouse.
+        if (x && ph !== ops[0] && !e.value) e.title = ops[0];
+        else if (e.hasAttribute('title')) e.removeAttribute('title');
+      });
+    }
+    // Las formas de decirlo, de la más completa a la más corta.
+    function opcionesHeredado(x) {
+      if (x.ops) return x.ops;
+      if (x.de === 'comp') return [x.v + ' (total de la composición)', x.v + ' (composición)', x.v];
+      return [x.v + ' (del ' + x.de + ')', x.v + ' (' + x.de + ')', x.v];
+    }
+    // La más completa que entra en el campo: en un celular, "79 años (del paso 6)"
+    // no entra y queda "79 años". Con el paso cerrado no se puede medir: se vuelve
+    // a elegir al abrirlo.
+    var _regla = null;
+    function textoQueEntra(e, ops) {
+      if (ops.length < 2) return ops[0];
+      var cs = getComputedStyle(e), libre = e.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 1;
+      if (!(libre > 0)) return ops[0];
+      if (!_regla) { try { _regla = document.createElement('canvas').getContext('2d'); } catch (err) { _regla = null; } }
+      if (!_regla) return ops[0];
+      _regla.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+      for (var i = 0; i < ops.length - 1; i++) if (_regla.measureText(ops[i]).width <= libre) return ops[i];
+      return ops[ops.length - 1];
+    }
+    // Al cambiar el ancho de la pantalla (o al llegar la letra), cambia lo que entra.
+    var _herT = null;
+    window.addEventListener('resize', function(){ clearTimeout(_herT); _herT = setTimeout(pintarHeredados, 150); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ pintarHeredados(); });
     // Lo que viaja con la tasación: solo lo cargado (las fotos van aparte).
     function anexoParaGuardar() {
       var a = {};
@@ -909,10 +1005,10 @@
       var r = ultimoResultado, el = document.getElementById('tasResPub'), sub = document.getElementById('tasResPubSub');
       var inp = document.getElementById('repPublicar');
       if (!el) return;
-      if (!r) { el.innerHTML = '&mdash;'; if (sub) sub.textContent = ''; if (inp) inp.placeholder = 'Sugerido'; return; }
+      if (!r) { el.innerHTML = '&mdash;'; if (sub) sub.textContent = ''; if (inp) { inp.placeholder = 'Sugerido'; inp.classList.remove('tas-hereda'); } return; }
       var pp = precioPublicacion(r), lugar = lugarPublicacion(pp.valor, r);
       var lbl = document.getElementById('tasResPubLbl'); if (lbl) lbl.textContent = pp.manual ? 'Precio de publicación' : 'Precio de publicación sugerido';
-      if (inp) inp.placeholder = 'Sugerido: ' + fmtEntrada(redondeoPublicacion(r.maxTotal));
+      if (inp) { inp.placeholder = 'Sugerido: ' + fmtEntrada(redondeoPublicacion(r.maxTotal)); inp.classList.add('tas-hereda'); }
       el.textContent = fmt(pp.valor);
       if (sub) sub.textContent = !pp.manual ? 'apenas por encima del máximo del rango'
         : lugar === 'muy arriba' ? 'el que cargaste: más de 10% sobre el máximo, puede tardar en venderse'
@@ -1006,6 +1102,7 @@
           : m === 'residual' ? 'Lo que puede pagar un inversor que lo recicla y lo vende. Poné el precio al que se venderían los m² ya reciclados y lo que cuesta la obra. Si dejás vacíos los m², se toman todos los construidos; gastos y ganancia, 10% y 15%.' : '';
       }
       var ff = document.getElementById('verFuenteF'); if (ff) ff.hidden = !m;
+      pintarHeredados();
       var fu = document.getElementById('verFuente');
       if (fu) fu.placeholder = m === 'residual' ? 'Ej: reciclados vendidos en la zona y costos de obra de octubre de 2026' : 'Ej: alquileres publicados en InfoCasas en octubre de 2026';
       var res = document.getElementById('verRes'), r = ultimoResultado;
@@ -1096,6 +1193,7 @@
         : 'Protección patrimonial: sin indicar. Se carga en la normativa del anexo. <button type="button" class="tas-linkbtn" onclick="irAProteccion()">Indicarla</button>';
       var n = considParrafos(considDatos()).length, st = document.getElementById('tasConsidEstado');
       if (st) { st.className = 'tas-rep-estado ' + (n ? 'ok' : 'neutro'); st.textContent = n ? n + (n === 1 ? ' consideración' : ' consideraciones') : 'Opcional'; }
+      pintarHeredados();
     }
     function considCambio() { guardarLocal(); pintarConsid(); }
     function irAProteccion() {
@@ -2993,8 +3091,20 @@
         if (!x || !u) return x;
         return x.replace(/^(\d[\d.,]*)(?=\s*(?:$|[,;(]))/, function(n){ n = n.replace(/[.,]$/, ''); return u === '%' ? n + '%' : n + ' ' + u; });
       };
-      var filas = function(defs){ return defs.map(function(d){ var x = conU(v(d[0]), d[2]); return x ? [d[1], x] : null; }).filter(Boolean); };
-      var catastro = filas(ANEXO_CATASTRO), normativa = filas(ANEXO_NORMATIVA);
+      var filas = function(defs, her){
+        return defs.map(function(d){
+          var x = conU(v(d[0]), d[2]);
+          if (!x && her && her[d[0]] && her[d[0]].v) x = conU(limpio(her[d[0]].v), d[2]);
+          return x ? [d[1], x] : null;
+        }).filter(Boolean);
+      };
+      // Lo que ya se cargó en otro paso (los m², el terreno, la DJCU) completa los
+      // datos catastrales si se cargó alguno, o la composición. Solo, no arma la hoja.
+      var compL = compLimpia(), her = heredadosDe(cargadoAhora());
+      var conCat = compL.length > 0 || ANEXO_CATASTRO.some(function(d){ return v(d[0]); });
+      var catastro = filas(ANEXO_CATASTRO, conCat ? her : null), normativa = filas(ANEXO_NORMATIVA);
+      // Si lo único es el área edificada que sale de la composición, ya está en su tabla.
+      if (catastro.length === 1 && !v('anxAreaEdif') && her.anxAreaEdif && her.anxAreaEdif.de === 'comp') catastro = [];
       var refs = ANEXO_REFS.map(function(ids, i){
         var dir = v(ids[0]), url = urlPublicacion(valorCampo(ids[1])), det = v(ids[2]);
         return (dir || url || det) ? { n: i + 1, dir: dir, url: url, det: det } : null;
@@ -3003,7 +3113,6 @@
         return { img: f.img, titulo: limpio(f.titulo), desc: limpio(f.desc), entera: !!f.entera };
       });
       var refNota = v('anxRefNota');
-      var compL = compLimpia();
       var comp = compL.map(function(x){ return { p: limpio(x.p), m2: limpio(x.m2), d: limpio(x.d), ce: limpio(x.ce), a: limpio(x.a) }; });
       var hoja = !!(catastro.length || normativa.length || comp.length || refs.length || refNota || fotos.length);
       var fu = v('anxFuentes').replace(/^fuentes?\s*:\s*/i, '');
@@ -3167,6 +3276,9 @@
     function datosInforme(r, rep0) {
       var rep = {};
       Object.keys(rep0).forEach(function(k){ rep[k] = pdfTxt(rep0[k]).replace(/\s{2,}/g, ' ').trim(); });
+      // El terreno y la antigüedad, si no se cargaron en el paso 3, salen del anexo.
+      var her = heredadosDe(cargadoAhora());
+      ['repInmTerreno', 'repInmAntig'].forEach(function(k){ if (!rep[k] && her[k] && her[k].v) rep[k] = pdfTxt(her[k].v).replace(/\s{2,}/g, ' ').trim(); });
       var ahora = new Date(), p2 = function(n){ return String(n).padStart(2, '0'); };
       var fechaCorta = p2(ahora.getDate()) + '/' + p2(ahora.getMonth() + 1) + '/' + ahora.getFullYear();
       var im = r.inmueble;
@@ -3363,6 +3475,8 @@
       tid = tid || sesionTasId;
       var rp = ent.rep || {};
       var rv = function(id){ return String(rp[id] || '').trim(); };
+      // El terreno y la antigüedad que salen en el informe (si no se cargaron, los del anexo).
+      var her = heredadosDe(ent), rh = function(id){ return rv(id) || (her[id] && her[id].v) || ''; };
       return {
         id: tid,
         tipo: 'tasacion',
@@ -3374,7 +3488,7 @@
           antecedentes: (r.antecedentes || []).length,
           cliente: rv('repCliNombre'), tipoInm: rv('repInmTipo'), direccion: rv('repInmDir'),
           barrio: rv('repInmBarrio'), departamento: rv('repInmDepto'), padron: rv('repInmPadron'),
-          uso: rv('repInmUso'), antiguedad: rv('repInmAntig'), estado: rv('repInmEstado'), terreno: rv('repInmTerreno'),
+          uso: rv('repInmUso'), antiguedad: rh('repInmAntig'), estado: rv('repInmEstado'), terreno: rh('repInmTerreno'),
           // Las calificaciones que se cambiaron con el asistente: la Dirección las
           // ve al revisar la tasación.
           asistente: ajustesAsistente.slice(-20).map(function(x){ return { antecedente: x.antecedente, campo: x.campo, de: x.de, a: x.a }; })
