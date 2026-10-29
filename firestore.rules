@@ -144,6 +144,22 @@ service cloud.firestore {
           allow write: if false;
         }
       }
+
+      // Fotos del anexo de las tasaciones (relevamiento fotográfico). El perfil
+      // de un agente aprobado se lee sin iniciar sesión, así que las fotos del
+      // inmueble de un cliente no van ahí: van acá, una por documento
+      // ({tasación}_{n}), y las ven solo el agente y la Dirección, que las
+      // necesita para corregir la tasación y rehacer el PDF.
+      match /tasacionFotos/{fotoId} {
+        allow read, delete: if esDireccion() || (request.auth != null && request.auth.uid == userId);
+        allow create, update: if (esDireccion() || (request.auth != null && request.auth.uid == userId))
+                              && request.resource.data.keys().hasOnly(['tasId', 'n', 'img', 'titulo', 'desc', 'entera', 'fecha'])
+                              && request.resource.data.tasId is string && request.resource.data.tasId.size() <= 80
+                              && request.resource.data.n is int && request.resource.data.n >= 0 && request.resource.data.n < 9
+                              && request.resource.data.img is string
+                              && request.resource.data.get('titulo', '') is string && request.resource.data.get('titulo', '').size() <= 40
+                              && request.resource.data.get('desc', '') is string && request.resource.data.get('desc', '').size() <= 120;
+      }
     }
 
     // ============ ADMIN DATA (comisiones, etc.) — SOLO admin ============

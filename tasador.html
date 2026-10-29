@@ -37,8 +37,8 @@
     /* ===== Mesa de trabajo: los pasos a la izquierda y la ficha con el valor a la
        derecha, siempre a la vista mientras se cargan los antecedentes. En celular va
        todo en una columna y la ficha queda entre los antecedentes y el informe. ===== */
-    .tas-mesa{ display:grid; grid-template-columns:minmax(0,1fr) 350px; grid-template-areas:"p1 ficha" "p2 ficha" "p3 ficha" "det ficha"; gap:18px 22px; align-items:start; }
-    .tas-p1{ grid-area:p1; } .tas-p2{ grid-area:p2; } .tas-p3{ grid-area:p3; } .tas-det{ grid-area:det; }
+    .tas-mesa{ display:grid; grid-template-columns:minmax(0,1fr) 350px; grid-template-areas:"p1 ficha" "p2 ficha" "p3 ficha" "p4 ficha" "det ficha"; gap:18px 22px; align-items:start; }
+    .tas-p1{ grid-area:p1; } .tas-p2{ grid-area:p2; } .tas-p3{ grid-area:p3; } .tas-p4{ grid-area:p4; } .tas-det{ grid-area:det; }
     .tas-ficha-col{ grid-area:ficha; position:sticky; top:86px; align-self:start; }
     .tas-paso{ display:flex; align-items:center; gap:12px; margin:0 0 16px; }
     .tas-paso-n{ width:30px; height:30px; border-radius:50%; background:#C9A227; color:#fff; display:grid; place-items:center; font-weight:600; font-size:.92rem; line-height:1; flex:none; }
@@ -184,7 +184,7 @@
     svg .cmp-lim-txt{ fill:var(--primary,#16273f); font-size:12.5px; font-weight:700; font-family:'Jost',sans-serif; }
     svg .cmp-est-txt{ fill:#a8821a; font-size:12.5px; font-weight:700; font-family:'Jost',sans-serif; }
     @media (max-width:1060px){
-      .tas-mesa{ grid-template-columns:minmax(0,1fr); grid-template-areas:"p1" "p2" "ficha" "p3" "det"; }
+      .tas-mesa{ grid-template-columns:minmax(0,1fr); grid-template-areas:"p1" "p2" "ficha" "p3" "p4" "det"; }
       .tas-ficha-col{ position:static; }
       .tas-barra{ position:fixed; left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom,0px)); z-index:900; display:flex; align-items:center; gap:12px; background:var(--primary,#16273f); color:#fff; border-radius:14px; padding:9px 10px 9px 16px; box-shadow:0 10px 30px rgba(16,29,48,.35); transform:translateY(150%); transition:transform .25s ease; }
       .tas-barra.on{ transform:none; }
@@ -222,6 +222,50 @@
     .tas-oblig{ color:#b08d1e; font-weight:700; }
     .tas-report-grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     .tas-report-body .tas-f{ margin-bottom:11px; }
+    /* ===== Paso 4: anexo del informe (catastro, normativa, antecedentes y fotos) ===== */
+    .tas-rep-estado.neutro{ color:var(--gray-500,#8a8a8a); background:var(--gray-100,#eef0f3); }
+    .tas-report-h small{ font-weight:400; font-size:.76rem; color:var(--gray-400,#aaa); margin-left:6px; }
+    .tas-anx-sep{ margin-top:22px !important; }
+    .tas-anx-intro{ font-size:.82rem; color:var(--gray-500,#8a8a8a); line-height:1.5; margin:0 0 16px; }
+    .tas-anx-refs{ display:grid; gap:8px; margin-bottom:12px; }
+    .tas-anx-ref-head, .tas-anx-ref{ display:grid; grid-template-columns:22px minmax(0,1fr) minmax(0,1fr) minmax(0,1.3fr); gap:8px; align-items:center; }
+    .tas-anx-ref-head{ font-size:.72rem; color:var(--gray-500,#8a8a8a); font-weight:600; padding:0 2px; }
+    .tas-anx-n{ display:grid; place-items:center; font-size:.86rem; font-weight:600; color:#b08d1e; }
+    .tas-anx-ref input{ width:100%; min-width:0; padding:9px; border:1px solid var(--gray-200,#e3e6ea); border-radius:8px; font-family:inherit; font-size:.88rem; background:#fff; }
+    .tas-anx-ref input:focus{ outline:none; border-color:#C9A227; }
+    .tas-fotos{ display:grid; grid-template-columns:repeat(auto-fill, minmax(168px, 1fr)); gap:14px; margin:0 0 12px; }
+    .tas-foto{ margin:0; display:flex; flex-direction:column; gap:6px; min-width:0; }
+    .tas-foto-img{ position:relative; aspect-ratio:3 / 2; border-radius:10px; overflow:hidden; background:var(--gray-100,#eef0f3); border:1px solid var(--gray-200,#e3e6ea); }
+    .tas-foto-img img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .tas-foto-img.entera img{ object-fit:contain; }
+    .tas-foto-n{ position:absolute; left:6px; top:6px; min-width:22px; height:22px; padding:0 6px; border-radius:999px; background:rgba(255,255,255,.92); color:var(--primary,#16273f); font-size:.72rem; font-weight:700; display:grid; place-items:center; }
+    .tas-foto-acc{ position:absolute; top:6px; right:6px; display:flex; gap:4px; }
+    .tas-foto-acc button{ width:28px; height:28px; border:none; border-radius:8px; background:rgba(16,29,48,.74); color:#fff; cursor:pointer; display:grid; place-items:center; font-size:.74rem; padding:0; }
+    .tas-foto-acc button:hover:not(:disabled){ background:#16273f; }
+    .tas-foto-acc button:disabled{ opacity:.35; cursor:default; }
+    .tas-foto input[type=text]{ width:100%; min-width:0; padding:8px 9px; border:1px solid var(--gray-200,#e3e6ea); border-radius:8px; font-family:inherit; font-size:.84rem; background:#fff; }
+    .tas-foto input[type=text]:focus{ outline:none; border-color:#C9A227; }
+    .tas-foto .tas-foto-tit{ font-weight:600; color:var(--primary,#16273f); }
+    .tas-foto-ent{ display:flex; align-items:center; gap:7px; font-size:.76rem; color:var(--gray-500,#8a8a8a); cursor:pointer; }
+    .tas-foto-ent input{ accent-color:#C9A227; margin:0; }
+    .tas-foto.cargando .tas-foto-img{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:var(--gray-500,#8a8a8a); font-size:.8rem; }
+    .tas-foto-add{ position:relative; aspect-ratio:3 / 2; border:1.5px dashed #d9c78c; border-radius:10px; background:#fffcf3; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color:#8a6d12; cursor:pointer; text-align:center; padding:8px; transition:background .15s, border-color .15s; }
+    .tas-foto-add:hover{ background:#fff7e0; border-color:#C9A227; }
+    .tas-foto-add i{ font-size:1.25rem; color:#C9A227; margin-bottom:3px; }
+    .tas-foto-add b{ font-size:.86rem; color:var(--primary,#16273f); }
+    .tas-foto-add small{ font-size:.74rem; color:var(--gray-500,#8a8a8a); }
+    .tas-foto-add input{ position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+    .tas-foto-add:focus-within{ outline:2px solid #C9A227; outline-offset:2px; }
+    .tas-anx-aviso{ margin:0 0 12px; border:1px solid #fcd34d; background:#fffbeb; color:#78350f; border-radius:10px; padding:10px 12px; font-size:.82rem; line-height:1.45; display:flex; gap:10px; align-items:flex-start; }
+    .tas-anx-aviso[hidden]{ display:none; }
+    .tas-anx-aviso > i{ color:#d97706; margin-top:3px; flex:none; }
+    @media (max-width:760px){
+      .tas-anx-ref-head{ display:none; }
+      .tas-anx-ref{ grid-template-columns:22px minmax(0,1fr); padding:10px; border:1px solid var(--gray-100,#eef0f3); border-radius:10px; }
+      .tas-anx-ref .tas-anx-n{ grid-row:span 3; align-self:start; padding-top:9px; }
+      .tas-anx-ref input{ grid-column:2; }
+      .tas-fotos{ grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; }
+    }
     @media (max-width:760px){ .tas-report-cols{ grid-template-columns:1fr; gap:18px; } .tas-rep-estado{ display:none; } }
     /* Foco visible con teclado, y sin animaciones para quien las tiene desactivadas */
     .tas-card input:focus-visible, .tas-card select:focus-visible, .tas-card button:focus-visible, .tas-ficha button:focus-visible, .tas-reset:focus-visible, .tas-modo-op:focus-visible{ outline:2px solid #C9A227; outline-offset:2px; }
@@ -385,7 +429,7 @@
       </aside>
 
       <section class="tas-card tas-report tas-p3">
-        <button type="button" class="tas-report-toggle open" onclick="toggleReportForm()" aria-expanded="true">
+        <button type="button" class="tas-report-toggle open" id="tasReportToggle" onclick="toggleReportForm()" aria-expanded="true" aria-controls="tasReportBody">
           <div class="tas-paso"><span class="tas-paso-n">3</span><div><h2>Datos para el informe</h2><p>El nombre del cliente, el padrón y la dirección son obligatorios para enviarla.</p></div></div>
           <span class="tas-rep-estado" id="tasRepEstado"></span>
           <i class="fas fa-chevron-down" id="tasReportChevron"></i>
@@ -418,6 +462,62 @@
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <!-- Paso 4: lo que se agregaba a mano en los informes especiales. Va en una
+           hoja aparte al final del PDF. Lo que queda vacío no aparece. -->
+      <section class="tas-card tas-report tas-p4" id="tasAnexo">
+        <button type="button" class="tas-report-toggle" id="tasAnexoToggle" onclick="toggleAnexo()" aria-expanded="false" aria-controls="tasAnexoBody">
+          <div class="tas-paso"><span class="tas-paso-n">4</span><div><h2>Anexo del informe</h2><p>Opcional: catastro, normativa, referencias de los antecedentes y fotos.</p></div></div>
+          <span class="tas-rep-estado neutro" id="tasAnexoEstado">Opcional</span>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="tas-report-body" id="tasAnexoBody" style="display:none">
+          <p class="tas-anx-intro">Va en una hoja extra al final del informe. Lo que dejes vacío no aparece.</p>
+          <div class="tas-report-cols">
+            <div>
+              <h4 class="tas-report-h">Datos catastrales <small>Cédula catastral</small></h4>
+              <div class="tas-report-grid2">
+                <div class="tas-f"><label for="anxCarpeta">Carpeta catastral</label><input type="text" id="anxCarpeta" placeholder="5057" maxlength="40" oninput="anexoCambio()"></div>
+                <div class="tas-f"><label for="anxAreaPredio">Área del predio (m²)</label><input type="text" id="anxAreaPredio" placeholder="387" maxlength="40" oninput="anexoCambio()"></div>
+              </div>
+              <div class="tas-f"><label for="anxAreaEdif">Área edificada (m²)</label><input type="text" id="anxAreaEdif" placeholder="94 (vivienda 79, depósito 15)" maxlength="90" oninput="anexoCambio()"></div>
+              <div class="tas-report-grid2">
+                <div class="tas-f"><label for="anxCategoria">Categoría / estado</label><input type="text" id="anxCategoria" placeholder="Mediana / regular" maxlength="60" oninput="anexoCambio()"></div>
+                <div class="tas-f"><label for="anxConstruccion">Año de construcción</label><input type="text" id="anxConstruccion" placeholder="1947, reforma en 1975" maxlength="60" oninput="anexoCambio()"></div>
+                <div class="tas-f"><label for="anxValorCat">Valor catastral</label><input type="text" id="anxValorCat" placeholder="$ 1.127.043 (2025)" maxlength="60" oninput="anexoCambio()"></div>
+                <div class="tas-f"><label for="anxDjcu">DJCU <small>(caracterización urbana)</small></label><input type="text" id="anxDjcu" placeholder="Vigente hasta 07/2028" maxlength="80" oninput="anexoCambio()"></div>
+              </div>
+            </div>
+            <div>
+              <h4 class="tas-report-h">Normativa urbana <small>Certificado de información territorial</small></h4>
+              <div class="tas-f"><label for="anxSuelo">Categoría de suelo</label><input type="text" id="anxSuelo" placeholder="Urbano consolidado intermedio" maxlength="80" oninput="anexoCambio()"></div>
+              <div class="tas-f"><label for="anxUso">Uso preferente</label><input type="text" id="anxUso" placeholder="Mixto controlado" maxlength="80" oninput="anexoCambio()"></div>
+              <div class="tas-report-grid2">
+                <div class="tas-f"><label for="anxFos">FOS (%)</label><input type="text" id="anxFos" placeholder="60" maxlength="30" oninput="anexoCambio()"></div>
+                <div class="tas-f"><label for="anxAltura">Altura máxima (m)</label><input type="text" id="anxAltura" placeholder="9" maxlength="40" oninput="anexoCambio()"></div>
+                <div class="tas-f"><label for="anxRetiro">Retiro frontal (m)</label><input type="text" id="anxRetiro" placeholder="5, con acordamiento" maxlength="60" oninput="anexoCambio()"></div>
+                <div class="tas-f"><label for="anxCautela">Protección patrimonial</label><input type="text" id="anxCautela" placeholder="No" maxlength="60" oninput="anexoCambio()"></div>
+              </div>
+            </div>
+          </div>
+
+          <h4 class="tas-report-h tas-anx-sep">Referencias de los antecedentes <small>Mismo orden que en el paso 2</small></h4>
+          <div class="tas-anx-refs" id="tasAnxRefs">
+            <div class="tas-anx-ref-head" aria-hidden="true"><span></span><span>Dirección o zona</span><span>Enlace a la publicación</span><span>Detalle</span></div>
+            <div class="tas-anx-ref"><span class="tas-anx-n" aria-hidden="true">1</span><input type="text" id="anxRef1Dir" placeholder="Dirección o zona" aria-label="Antecedente 1: dirección o zona" maxlength="90" oninput="anexoCambio()"><input type="url" id="anxRef1Url" inputmode="url" autocomplete="off" placeholder="Enlace (https://…)" aria-label="Antecedente 1: enlace a la publicación" maxlength="300" oninput="anexoCambio()"><input type="text" id="anxRef1Det" placeholder="Detalle: m², estado, terreno…" aria-label="Antecedente 1: detalle" maxlength="140" oninput="anexoCambio()"></div>
+            <div class="tas-anx-ref"><span class="tas-anx-n" aria-hidden="true">2</span><input type="text" id="anxRef2Dir" placeholder="Dirección o zona" aria-label="Antecedente 2: dirección o zona" maxlength="90" oninput="anexoCambio()"><input type="url" id="anxRef2Url" inputmode="url" autocomplete="off" placeholder="Enlace (https://…)" aria-label="Antecedente 2: enlace a la publicación" maxlength="300" oninput="anexoCambio()"><input type="text" id="anxRef2Det" placeholder="Detalle: m², estado, terreno…" aria-label="Antecedente 2: detalle" maxlength="140" oninput="anexoCambio()"></div>
+            <div class="tas-anx-ref"><span class="tas-anx-n" aria-hidden="true">3</span><input type="text" id="anxRef3Dir" placeholder="Dirección o zona" aria-label="Antecedente 3: dirección o zona" maxlength="90" oninput="anexoCambio()"><input type="url" id="anxRef3Url" inputmode="url" autocomplete="off" placeholder="Enlace (https://…)" aria-label="Antecedente 3: enlace a la publicación" maxlength="300" oninput="anexoCambio()"><input type="text" id="anxRef3Det" placeholder="Detalle: m², estado, terreno…" aria-label="Antecedente 3: detalle" maxlength="140" oninput="anexoCambio()"></div>
+            <div class="tas-anx-ref"><span class="tas-anx-n" aria-hidden="true">4</span><input type="text" id="anxRef4Dir" placeholder="Dirección o zona" aria-label="Antecedente 4: dirección o zona" maxlength="90" oninput="anexoCambio()"><input type="url" id="anxRef4Url" inputmode="url" autocomplete="off" placeholder="Enlace (https://…)" aria-label="Antecedente 4: enlace a la publicación" maxlength="300" oninput="anexoCambio()"><input type="text" id="anxRef4Det" placeholder="Detalle: m², estado, terreno…" aria-label="Antecedente 4: detalle" maxlength="140" oninput="anexoCambio()"></div>
+          </div>
+          <div class="tas-f"><label for="anxRefNota">Nota sobre los antecedentes</label><input type="text" id="anxRefNota" placeholder="Publicados en InfoCasas en octubre de 2026. Construcción: 1 a reciclar, 2 a mantener, 3 buen estado." maxlength="300" oninput="anexoCambio()"></div>
+
+          <h4 class="tas-report-h tas-anx-sep">Relevamiento fotográfico <small id="tasFotosCupo">Hasta 9 fotos</small></h4>
+          <div class="tas-anx-aviso" id="tasFotosAviso" hidden></div>
+          <div class="tas-fotos" id="tasFotos"></div>
+          <p class="tas-hint" style="margin:0 0 14px">En el informe van del mismo tamaño, recortadas al centro; a los planos y croquis marcalos para mostrarlos enteros. No incluyas fotos con personas, patentes, teléfonos ni otros datos personales.</p>
+          <div class="tas-f"><label for="anxFuentes">Fuentes <small>Si lo dejás vacío, se completa según lo que cargaste.</small></label><input type="text" id="anxFuentes" maxlength="300" oninput="anexoCambio()"></div>
         </div>
       </section>
 
@@ -496,7 +596,7 @@
     const REPORT_FIELDS = ['repCliNombre','repCliTel','repCliEmail','repCliSolicitado','repInmTipo','repInmUso','repInmPadron','repInmAntig','repInmDir','repInmBarrio','repInmDepto','repInmTerreno','repInmEstado','repInmFrente','repInmFondo'];
     function toggleReportForm() {
       const body = document.getElementById('tasReportBody');
-      const btn = document.querySelector('.tas-report-toggle');
+      const btn = document.getElementById('tasReportToggle');
       const open = body.style.display === 'none';
       body.style.display = open ? 'block' : 'none';
       btn.classList.toggle('open', open);
@@ -515,6 +615,302 @@
       const d = {};
       REPORT_FIELDS.forEach(id => { d[id] = (document.getElementById(id) || {}).value || ''; });
       return d;
+    }
+
+    // ===== Paso 4: anexo del informe =====
+    // Lo que se agregaba a mano en los informes especiales: datos catastrales,
+    // normativa urbana, de dónde salió cada antecedente y el relevamiento
+    // fotográfico. Todo opcional: lo que queda vacío no sale en el PDF.
+    // [id, etiqueta en el PDF, unidad que se agrega si se escribió solo el número]
+    var ANEXO_CATASTRO = [
+      ['anxCarpeta', 'Carpeta catastral'], ['anxAreaPredio', 'Área del predio', 'm²'], ['anxAreaEdif', 'Área edificada', 'm²'],
+      ['anxCategoria', 'Categoría / estado'], ['anxConstruccion', 'Construcción'], ['anxValorCat', 'Valor catastral'], ['anxDjcu', 'DJCU']
+    ];
+    var ANEXO_NORMATIVA = [
+      ['anxSuelo', 'Suelo'], ['anxUso', 'Uso preferente'], ['anxFos', 'FOS', '%'], ['anxAltura', 'Altura máxima', 'm'],
+      ['anxRetiro', 'Retiro frontal', 'm'], ['anxCautela', 'Protección patrimonial']
+    ];
+    var ANEXO_REFS = [1, 2, 3, 4].map(function(n){ return ['anxRef' + n + 'Dir', 'anxRef' + n + 'Url', 'anxRef' + n + 'Det']; });
+    var ANEXO_FIELDS = ANEXO_CATASTRO.concat(ANEXO_NORMATIVA).map(function(x){ return x[0]; })
+      .concat([].concat.apply([], ANEXO_REFS)).concat(['anxRefNota', 'anxFuentes']);
+    var FOTOS_MAX = 9;
+    // Las fotos: [{ img: JPEG achicado (dataURL), titulo, desc, entera }]. No van en
+    // el perfil del agente, que se lee sin iniciar sesión: en el borrador quedan en
+    // este navegador y al enviar van a users/{uid}/tasacionFotos, que ven solo el
+    // agente y la Dirección (la necesita para corregir y rehacer el PDF).
+    var anexoFotos = [], fotosProcesando = 0, _fotosGen = 0, _colaFotos = Promise.resolve(), _fotosT = null;
+    var _fotosRemotas = {};   // id de la tasación -> cuántas fotos se guardaron al enviarla
+
+    function valorCampo(id) { var e = document.getElementById(id); return e ? String(e.value == null ? '' : e.value) : ''; }
+    function mayuscula(t) { t = String(t || ''); return t.charAt(0).toUpperCase() + t.slice(1); }
+    function toggleAnexo(abrir) {
+      var body = document.getElementById('tasAnexoBody'), btn = document.getElementById('tasAnexoToggle');
+      if (!body || !btn) return;
+      var open = typeof abrir === 'boolean' ? abrir : body.style.display === 'none';
+      body.style.display = open ? 'block' : 'none';
+      btn.classList.toggle('open', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    function anexoTieneDatos() { return anexoFotos.length > 0 || ANEXO_FIELDS.some(function(id){ return valorCampo(id).trim(); }); }
+    // Las fuentes, cuando no se escribieron: según lo que se cargó.
+    function fuentesAuto(cat, nor, depto) {
+      var p = [];
+      if (cat) p.push('cédula catastral (Dirección Nacional de Catastro)');
+      if (nor) p.push('certificado de información territorial (' + (depto ? 'Intendencia de ' + depto : 'intendencia departamental') + ')');
+      return unirLista(p, ' y ');
+    }
+    // El encabezado del paso 4 dice qué lleva el anexo; abajo, las fuentes que
+    // se van a escribir solas y cuántas fotos quedan.
+    function estadoAnexo() {
+      var lleno = function(defs){ return defs.some(function(x){ return valorCampo(x[0]).trim(); }); };
+      var cat = lleno(ANEXO_CATASTRO), nor = lleno(ANEXO_NORMATIVA);
+      var refs = ANEXO_REFS.some(function(r){ return r.some(function(id){ return valorCampo(id).trim(); }); }) || !!valorCampo('anxRefNota').trim();
+      var n = anexoFotos.length, partes = [];
+      if (cat) partes.push('catastro');
+      if (nor) partes.push('normativa');
+      if (refs) partes.push('antecedentes');
+      if (n) partes.push(n + (n === 1 ? ' foto' : ' fotos'));
+      var el = document.getElementById('tasAnexoEstado');
+      if (el) {
+        el.className = 'tas-rep-estado ' + (partes.length ? 'ok' : 'neutro');
+        el.textContent = partes.length ? mayuscula(unirLista(partes, ' y ')) : 'Opcional';
+      }
+      var fu = document.getElementById('anxFuentes');
+      if (fu) {
+        var auto = fuentesAuto(cat, nor, valorCampo('repInmDepto').trim());
+        fu.placeholder = auto ? mayuscula(auto) : 'Ej: certificado de la IM del 27/10/2026; fotos del propietario';
+      }
+      var cupo = document.getElementById('tasFotosCupo');
+      if (cupo) cupo.textContent = n ? n + ' de ' + FOTOS_MAX + ' fotos' : 'Hasta ' + FOTOS_MAX + ' fotos';
+    }
+    function anexoCambio() { guardarLocal(); }
+    // Lo que viaja con la tasación: solo lo cargado (las fotos van aparte).
+    function anexoParaGuardar() {
+      var a = {};
+      ANEXO_FIELDS.forEach(function(id){ var v = valorCampo(id).trim(); if (v) a[id] = v; });
+      if (anexoFotos.length) a.fotos = anexoFotos.length;
+      return a;
+    }
+    function ponerAnexo(a) {
+      a = a || {};
+      ANEXO_FIELDS.forEach(function(id){ var e = document.getElementById(id); if (e) e.value = a[id] == null ? '' : String(a[id]); });
+    }
+
+    // --- Fotos ---
+    // Sirve si es el JPEG que arma el tasador (y nada que se pueda colar en la página).
+    function fotoValida(f) { return !!f && typeof f.img === 'string' && f.img.length < 1000000 && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(f.img); }
+    function fotoNormal(f) { return { img: f.img, titulo: String(f.titulo || '').slice(0, 40), desc: String(f.desc || '').slice(0, 120), entera: !!f.entera }; }
+    // Se achica en el navegador (lado mayor de 1200 px, en JPEG): alcanza de sobra
+    // para el PDF, el informe pesa poco y cada foto entra en un documento.
+    function achicarFoto(file) {
+      return new Promise(function(resolve, reject){
+        var url;
+        try { url = URL.createObjectURL(file); } catch (e) { reject(e); return; }
+        var im = new Image();
+        im.onload = function(){
+          try {
+            var w = im.naturalWidth, h = im.naturalHeight, out = '';
+            if (!w || !h) throw new Error('vacía');
+            var pasos = [[1200, 0.8], [1000, 0.74], [800, 0.68], [640, 0.6]];
+            for (var k = 0; k < pasos.length; k++) {
+              var esc = Math.min(1, pasos[k][0] / Math.max(w, h));
+              var c = document.createElement('canvas');
+              c.width = Math.max(1, Math.round(w * esc)); c.height = Math.max(1, Math.round(h * esc));
+              var cx = c.getContext('2d');
+              cx.fillStyle = '#fff'; cx.fillRect(0, 0, c.width, c.height);   // un PNG transparente queda sobre blanco
+              cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
+              cx.drawImage(im, 0, 0, c.width, c.height);
+              out = c.toDataURL('image/jpeg', pasos[k][1]);
+              if (out.length < 450000) break;
+            }
+            URL.revokeObjectURL(url);
+            if (!fotoValida({ img: out }) || out.length > 900000) throw new Error('jpeg');
+            resolve(out);
+          } catch (e) { URL.revokeObjectURL(url); reject(e); }
+        };
+        im.onerror = function(){ URL.revokeObjectURL(url); reject(new Error('formato')); };
+        im.src = url;
+      });
+    }
+    function agregarFotos(files) {
+      var lista = Array.prototype.slice.call(files || []);
+      if (!lista.length) return;
+      if (corr && corr.fotosCargando) { showToast('Esperá un momento', 'Se están trayendo las fotos del anexo.', 'fa-images'); return; }
+      var lugar = FOTOS_MAX - anexoFotos.length - fotosProcesando;
+      if (lugar <= 0) { showToast('Ya hay ' + FOTOS_MAX + ' fotos', 'Quitá alguna para agregar otra.', 'fa-images'); return; }
+      if (lista.length > lugar) showToast('Se agrega' + (lugar === 1 ? ' 1' : 'n ' + lugar) + ' de ' + lista.length, 'El informe lleva hasta ' + FOTOS_MAX + ' fotos.', 'fa-images');
+      var gen = _fotosGen;
+      lista.slice(0, lugar).forEach(function(f){
+        fotosProcesando++;
+        // De a una y en el orden en que se eligieron.
+        _colaFotos = _colaFotos.then(function(){
+          return achicarFoto(f).then(function(img){
+            if (gen === _fotosGen && anexoFotos.length < FOTOS_MAX) anexoFotos.push({ img: img, titulo: '', desc: '', entera: false });
+          }, function(){
+            if (gen === _fotosGen) showToast('No se pudo usar una foto', (f && f.name ? f.name + ': ' : '') + 'probá con una JPG o PNG.', 'fa-triangle-exclamation');
+          });
+        }).then(function(){
+          if (gen !== _fotosGen) return;
+          fotosProcesando = Math.max(0, fotosProcesando - 1);
+          renderFotos(); fotosCambiaron();
+        });
+      });
+      renderFotos();
+    }
+    function quitarFoto(i) {
+      if (!anexoFotos[i]) return;
+      anexoFotos.splice(i, 1); renderFotos(); fotosCambiaron();
+    }
+    function moverFoto(i, d) {
+      var j = i + d;
+      if (!anexoFotos[i] || !anexoFotos[j]) return;
+      var t = anexoFotos[i]; anexoFotos[i] = anexoFotos[j]; anexoFotos[j] = t;
+      renderFotos(); fotosCambiaron();
+      // El foco sigue a la foto, en el mismo botón (para moverla varios lugares seguidos).
+      var acc = document.querySelector('#tasFotos .tas-foto[data-i="' + j + '"] .tas-foto-acc');
+      var b = acc && (acc.querySelector('button[onclick="moverFoto(' + j + ',' + d + ')"]:not(:disabled)') || acc.querySelector('button:not(:disabled)'));
+      if (b) b.focus();
+    }
+    function fotoSet(i, campo, v) {
+      var f = anexoFotos[i]; if (!f) return;
+      if (campo === 'entera') {
+        f.entera = !!v;
+        var box = document.querySelector('#tasFotos .tas-foto[data-i="' + i + '"] .tas-foto-img');
+        if (box) box.classList.toggle('entera', f.entera);
+      } else f[campo] = String(v || '').slice(0, campo === 'titulo' ? 40 : 120);
+      fotosCambiaron();
+    }
+    function renderFotos() {
+      var cont = document.getElementById('tasFotos'); if (!cont) return;
+      var ult = anexoFotos.length - 1;
+      var h = anexoFotos.map(function(f, i){
+        var n = i + 1;
+        return '<figure class="tas-foto" data-i="' + i + '">' +
+          '<div class="tas-foto-img' + (f.entera ? ' entera' : '') + '"><img src="' + escAttr(f.img) + '" alt="Foto ' + n + (f.titulo ? ': ' + escAttr(f.titulo) : '') + '">' +
+            '<span class="tas-foto-n" aria-hidden="true">' + n + '</span>' +
+            '<div class="tas-foto-acc">' +
+              '<button type="button" onclick="moverFoto(' + i + ',-1)"' + (i === 0 ? ' disabled' : '') + ' title="Mover antes" aria-label="Mover la foto ' + n + ' antes"><i class="fas fa-arrow-left"></i></button>' +
+              '<button type="button" onclick="moverFoto(' + i + ',1)"' + (i === ult ? ' disabled' : '') + ' title="Mover después" aria-label="Mover la foto ' + n + ' después"><i class="fas fa-arrow-right"></i></button>' +
+              '<button type="button" onclick="quitarFoto(' + i + ')" title="Quitar" aria-label="Quitar la foto ' + n + '"><i class="fas fa-trash-can"></i></button>' +
+            '</div></div>' +
+          '<input type="text" class="tas-foto-tit" maxlength="40" placeholder="Título: Fachada, Cocina…" aria-label="Título de la foto ' + n + '" value="' + escAttr(f.titulo) + '" oninput="fotoSet(' + i + ',\'titulo\',this.value)">' +
+          '<input type="text" class="tas-foto-desc" maxlength="120" placeholder="Descripción breve" aria-label="Descripción de la foto ' + n + '" value="' + escAttr(f.desc) + '" oninput="fotoSet(' + i + ',\'desc\',this.value)">' +
+          '<label class="tas-foto-ent"><input type="checkbox"' + (f.entera ? ' checked' : '') + ' onchange="fotoSet(' + i + ',\'entera\',this.checked)"> Mostrarla entera (planos)</label>' +
+        '</figure>';
+      }).join('');
+      for (var k = 0; k < fotosProcesando; k++) h += '<div class="tas-foto cargando"><div class="tas-foto-img"><i class="fas fa-spinner fa-spin"></i><span>Preparando la foto…</span></div></div>';
+      if (corr && corr.fotosCargando) h += '<div class="tas-foto cargando"><div class="tas-foto-img"><i class="fas fa-spinner fa-spin"></i><span>Trayendo las fotos…</span></div></div>';
+      else {
+        var quedan = FOTOS_MAX - anexoFotos.length - fotosProcesando;
+        if (quedan > 0) h += '<label class="tas-foto-add"><input type="file" accept="image/*" multiple aria-label="Agregar fotos al relevamiento" onchange="agregarFotos(this.files); this.value=\'\'">' +
+          '<i class="fas fa-camera"></i><b>Agregar fotos</b><small>' + (quedan === FOTOS_MAX ? 'Hasta ' + FOTOS_MAX : quedan === 1 ? 'Queda 1' : 'Quedan ' + quedan) + '</small></label>';
+      }
+      cont.innerHTML = h;
+      estadoAnexo();
+    }
+    // Cada cambio en las fotos: el encabezado, la lista de cambios (si se está
+    // corrigiendo) y el borrador de este navegador.
+    function fotosCambiaron() {
+      guardarLocal();
+      if (corr) return;   // corrigiendo no se toca el borrador propio
+      clearTimeout(_fotosT);
+      _fotosT = setTimeout(function(){
+        var l = anexoFotos.map(fotoNormal);
+        (l.length ? idbFotos('put', l) : idbFotos('delete')).catch(function(e){ console.warn('fotos del borrador:', e); });
+      }, 350);
+    }
+    // El borrador de las fotos: en IndexedDB, porque en localStorage no entran.
+    var _idb = null;
+    function idbFotos(op, val) {
+      if (!_idb) _idb = new Promise(function(res, rej){
+        try {
+          var r = indexedDB.open('malaveTasador', 1);
+          r.onupgradeneeded = function(){ r.result.createObjectStore('borrador'); };
+          r.onsuccess = function(){ res(r.result); };
+          r.onerror = function(){ rej(r.error || new Error('indexedDB')); };
+        } catch (e) { rej(e); }
+      });
+      return _idb.then(function(base){
+        return new Promise(function(res, rej){
+          var tx = base.transaction('borrador', op === 'get' ? 'readonly' : 'readwrite'), st = tx.objectStore('borrador');
+          var q = op === 'get' ? st.get('fotos') : op === 'put' ? st.put(val, 'fotos') : st.delete('fotos');
+          tx.oncomplete = function(){ res(q.result); };
+          tx.onerror = tx.onabort = function(){ rej(tx.error || new Error('indexedDB')); };
+        });
+      });
+    }
+    function cargarFotosLocal() {
+      var gen = _fotosGen;
+      return idbFotos('get').then(function(l){
+        if (corr || gen !== _fotosGen || !Array.isArray(l)) return;
+        // Si mientras tanto se agregó alguna, va después de las guardadas.
+        anexoFotos = l.filter(fotoValida).map(fotoNormal).concat(anexoFotos).slice(0, FOTOS_MAX);
+      }).catch(function(e){ console.warn('fotos del borrador:', e); })
+        .then(function(){ if (corr) return; renderFotos(); if (anexoTieneDatos()) toggleAnexo(true); });
+    }
+    // Las fotos de una tasación enviada: una por documento ({id}_{n}).
+    function guardarFotosRemotas(uid, tasId, fotos, antes) {
+      fotos = (fotos || []).filter(fotoValida).slice(0, FOTOS_MAX);
+      antes = Math.min(FOTOS_MAX, Number(antes) || 0);
+      if (!uid || !tasId || (!fotos.length && !antes)) return Promise.resolve();
+      var col = db.collection('users').doc(uid).collection('tasacionFotos'), fecha = new Date().toISOString(), ops = [];
+      fotos.forEach(function(f, n){
+        ops.push(col.doc(tasId + '_' + n).set({ tasId: tasId, n: n, img: f.img, titulo: String(f.titulo || '').slice(0, 40),
+          desc: String(f.desc || '').slice(0, 120), entera: !!f.entera, fecha: fecha }));
+      });
+      // Las que sobran de un envío anterior con más fotos
+      for (var n = fotos.length; n < antes; n++) ops.push(col.doc(tasId + '_' + n).delete());
+      return Promise.all(ops);
+    }
+    function firmaFotos(l) {
+      return (l || []).map(function(f){ return [f.img.length, f.img.slice(-40), f.titulo || '', f.desc || '', f.entera ? 1 : 0].join('|'); }).join('§');
+    }
+    // Corrigiendo: las fotos que mandó el agente, para que el PDF corregido las tenga.
+    function cargarFotosCorreccion() {
+      if (!corr) return Promise.resolve();
+      var c = corr, esperadas = Number(((c.rec.entrada || {}).anexo || {}).fotos) || 0;
+      c.fotosCargando = true; c.fotosAviso = ''; c.fotosEsperadas = esperadas; anexoFotos = [];
+      renderFotos();
+      var maxN = 0, fallo = false;
+      return db.collection('users').doc(c.uid).collection('tasacionFotos').where('tasId', '==', c.id).get()
+        .then(function(qs){
+          var l = [];
+          qs.forEach(function(d){
+            var x = d.data() || {}, nn = Number(x.n);
+            if (isFinite(nn) && nn >= 0) maxN = Math.max(maxN, Math.min(FOTOS_MAX, nn + 1));
+            if (fotoValida(x)) l.push(x);
+          });
+          l.sort(function(a, b){ return (Number(a.n) || 0) - (Number(b.n) || 0); });
+          anexoFotos = l.slice(0, FOTOS_MAX).map(fotoNormal);
+          if (esperadas > anexoFotos.length) c.fotosAviso = 'faltan';
+        }, function(e){
+          console.warn('fotos de la tasación:', e);
+          fallo = true;
+          if (esperadas) c.fotosAviso = 'error';
+        })
+        .then(function(){
+          c.fotosCargando = false;
+          // fotosBase: contra qué se comparan los cambios. fotosMax: cuántos
+          // documentos puede haber, para borrar los que sobren al guardar.
+          c.fotosBase = { n: anexoFotos.length, firma: firmaFotos(anexoFotos) };
+          // Si no se pudieron leer, no se sabe cuántas hay: al guardar se limpian todas.
+          c.fotosMax = fallo ? FOTOS_MAX : Math.max(maxN, anexoFotos.length);
+          c.fotosGuardadas = c.fotosBase.firma;   // lo que hay guardado ahora
+          renderFotos(); avisoFotos(); pintarCambiosCorr();
+          if (anexoTieneDatos()) toggleAnexo(true);
+        });
+    }
+    function avisoFotos() {
+      var el = document.getElementById('tasFotosAviso'); if (!el) return;
+      var a = corr && corr.fotosAviso, n = corr ? corr.fotosEsperadas : 0, hay = anexoFotos.length;
+      if (!a) { el.hidden = true; el.innerHTML = ''; return; }
+      var txt = a === 'error'
+        ? 'No se pudieron traer las fotos del anexo. Volvé a abrir la corrección: si la guardás así, el PDF corregido sale sin ellas.'
+        : hay
+        ? 'Se trajeron ' + hay + ' de las ' + n + ' fotos que mandó ' + corr.agente + '; las demás no quedaron guardadas. Si las querés en el PDF corregido, pedíselas y cargalas acá.'
+        : corr.agente + ' la mandó con ' + n + (n === 1 ? ' foto' : ' fotos') + ' en el anexo, pero no quedaron guardadas. Si las querés en el PDF corregido, pedíselas y cargalas acá.';
+      el.innerHTML = '<i class="fas fa-triangle-exclamation"></i><div>' + _mtEsc(txt) + '</div>';
+      el.hidden = false;
     }
     let tasAntecedentes = [
       { m2: '', cons: '', ubi: '', valor: '', tipo: 'oferta', asim: DEF_ASIM },
@@ -634,6 +1030,9 @@
       renderTasAntecedentes(); calcTasador();
     }
     function resetTasador() {
+      // Las fotos llevan trabajo: antes de borrarlas, se pregunta.
+      var nf = anexoFotos.length;
+      if (nf && !confirm('También se borra' + (nf === 1 ? ' la foto' : 'n las ' + nf + ' fotos') + ' del anexo. ¿Restablecer igual?')) return;
       sesionTasId = 'tas_' + Date.now();
       var _s = document.getElementById('tasAutoSave'); if (_s) { _s.textContent = ''; _s.style.color = ''; }
       tasAntecedentes = [
@@ -648,6 +1047,10 @@
       ajustesAsistente = [];
       try { localStorage.removeItem(LS_KEY); } catch (e) {}
       REPORT_FIELDS.forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
+      ponerAnexo({});
+      _fotosGen++; fotosProcesando = 0; anexoFotos = []; clearTimeout(_fotosT);
+      idbFotos('delete').catch(function(){});
+      renderFotos(); toggleAnexo(false);
       renderTasAntecedentes(); calcTasador();
     }
 
@@ -671,7 +1074,10 @@
         ant: tasAntecedentes.map(function(a){
           return { m2: t(a.m2), cons: t(a.cons), ubi: t(a.ubi), valor: t(a.valor), tipo: a.tipo === 'oferta' ? 'oferta' : 'venta', asim: Number(a.asim) || 1 };
         }),
-        rep: repParaGuardar()
+        rep: repParaGuardar(),
+        // El anexo: catastro, normativa y antecedentes (datos públicos). De las
+        // fotos, solo cuántas son: van aparte, en users/{uid}/tasacionFotos.
+        anexo: anexoParaGuardar()
       };
     }
     // Lo que la Dirección mira para aprobar: cada antecedente con su precio, su m², sus
@@ -695,7 +1101,7 @@
       // Si ya la guardó y sigue cambiando cosas, vuelve a la edición con la lista de cambios.
       if (corr) {
         if (corr.guardada) { corr.guardada = false; pintarCorreccion(); }
-        estadoInforme(); clearTimeout(_corrT); _corrT = setTimeout(pintarCambiosCorr, 80); return;
+        estadoInforme(); estadoAnexo(); clearTimeout(_corrT); _corrT = setTimeout(pintarCambiosCorr, 80); return;
       }
       try {
         const rep = {};
@@ -710,10 +1116,11 @@
           modo: modoValor,
           asist: ajustesAsistente,
           ant: tasAntecedentes,
-          rep: rep
+          rep: rep,
+          anexo: anexoParaGuardar()   // el texto; las fotos quedan en IndexedDB
         }));
       } catch (e) {}
-      estadoInforme();
+      estadoInforme(); estadoAnexo();
     }
     function cargarLocal() {
       try {
@@ -736,6 +1143,7 @@
         }
         ajustesAsistente = Array.isArray(d.asist) ? d.asist : [];
         if (d.rep) REPORT_FIELDS.forEach(id => { const el = document.getElementById(id); if (el && d.rep[id]) el.value = d.rep[id]; });
+        if (d.anexo) ponerAnexo(d.anexo);
       } catch (e) {}
     }
 
@@ -843,8 +1251,8 @@
     // N° de informe. Antes era siempre "-001": todos los informes del mismo día
     // salían con el mismo número. Ahora sale de la hora en que empezó la tasación,
     // así no cambia si se reenvía la misma y no se repite entre dos distintas.
-    function nroInforme() {
-      var t = parseInt(String(sesionTasId).replace(/\D/g, ''), 10);
+    function nroInforme(id) {
+      var t = parseInt(String(id || sesionTasId).replace(/\D/g, ''), 10);
       var d = isFinite(t) && t > 0 ? new Date(t) : new Date();
       var p = function(n){ return String(n).padStart(2, '0'); };
       return 'MAL-' + d.getFullYear() + '-' + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
@@ -1526,6 +1934,11 @@
       } else if (tipo === 'home') { L([[1,5],[5,1.4],[9,5]]); L([[2.2,4.2],[2.2,9.4],[7.8,9.4],[7.8,4.2]]); }
       else if (tipo === 'chart') { L([[0.8,9.4],[9.2,9.4]]); L([[2.6,9.4],[2.6,5.6]]); L([[5,9.4],[5,2.2]]); L([[7.4,9.4],[7.4,6.6]]); }
       else if (tipo === 'doc') { L([[2,0.8],[6.4,0.8],[8.6,3],[8.6,9.4],[2,9.4],[2,0.8]]); L([[6.4,0.8],[6.4,3],[8.6,3]]); L([[3.6,5.4],[7,5.4]]); L([[3.6,7.4],[7,7.4]]); }
+      else if (tipo === 'camara') {
+        pdf.roundedRect(x + 0.6*k, y + 2.9*k, 8.8*k, 6.4*k, 1.1*k, 1.1*k, 'S');
+        L([[3.1,2.9],[3.9,1.3],[6.1,1.3],[6.9,2.9]]);
+        pdf.circle(x + 5*k, y + 6.1*k, 1.8*k, 'S');
+      }
       else { L([[8.4,1.2],[1.6,1.2],[5.2,5.2],[1.6,9.2],[8.4,9.2]]); }
       pdf.setLineCap('butt'); pdf.setLineJoin('miter');
     }
@@ -1959,7 +2372,10 @@
       pTablaComparables(doc, d);
       pParrafo(doc, 'Precio: el de la publicación o el de venta. Valor m²: precio ÷ m². Los ajustes se calculan según las diferencias de superficie, construcción y ubicación respecto al inmueble tasado. ' + (d.enTotal
         ? 'El "valor ajustado" es lo que valdría el inmueble según cada comparable, llevado a sus características.'
-        : 'El "valor ajustado" representa el m² de cada comparable llevado a las características del inmueble.'), { tam: 7.2, color: [150,156,164], colorB: PDF.gris, despues: 8 });
+        : 'El "valor ajustado" representa el m² de cada comparable llevado a las características del inmueble.') +
+        // Corto a propósito: así la nota sigue en dos renglones y la hoja no cambia.
+        (d.anexo && d.anexo.refs.length ? ' El detalle de cada uno está en el anexo.' : ''),
+        { tam: 7.2, color: [150,156,164], colorB: PDF.gris, despues: 8 });
     }
     function pHojaAnalisis(doc, d) {
       pSeccion(doc, 'chart', 'RANGO DE VALOR ESTIMADO', { min: 192, antes: 12 });
@@ -1989,6 +2405,144 @@
       pSeccion(doc, 'home', 'VALIDEZ Y ALCANCE', { min: 90 });
       pCajaTexto(doc, ['Este informe corresponde exclusivamente a la propiedad identificada (padrón ' + (d.rep.repInmPadron || '-') + '), en sus condiciones actuales y a la fecha de emisión (' + d.fechaStr + '). Constituye una **tasación realizada por MALAVE** en su carácter de operador inmobiliario, conforme a la **Ley N.º 20.380**, que habilita la determinación de valores de mercado y avalúos de inmuebles. Su vigencia es de **30 días**, ya que las condiciones del mercado pueden variar. El presente avalúo se elabora mediante **análisis comparativo de mercado** y refleja un valor estimado de mercado a la fecha indicada.'],
         { oscuro: true, tam: 8.2, color: [205,210,216], colorB: [255,255,255] });
+    }
+
+    // ---------- Anexo (paso 4) ----------
+    // Enlace a la publicación de un antecedente: solo http(s), y escrito de modo
+    // que no rompa el PDF.
+    function urlPublicacion(u) {
+      u = String(u || '').trim().replace(/\s+/g, '');
+      if (!u || u.length > 500) return '';
+      if (!/^https?:\/\//i.test(u)) { if (/^[\w-]+(\.[\w-]+)+([\/?#]|$)/.test(u)) u = 'https://' + u; else return ''; }
+      try {
+        var x = new URL(u);
+        if (!/^https?:$/.test(x.protocol) || !x.hostname) return '';
+        return x.href.replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/\\/g, '%5C');
+      } catch (e) { return ''; }
+    }
+    function hostDe(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
+    // Lo del paso 4, listo para el PDF. Lo vacío no sale.
+    function anexoInforme(rep) {
+      var limpio = function(t){ return pdfTxt(t).replace(/\*+/g, '').replace(/\s{2,}/g, ' ').trim(); };
+      var v = function(id){ return limpio(valorCampo(id)); };
+      // La unidad, si se escribió solo el número al principio: "387" -> "387 m²",
+      // "5, con acordamiento" -> "5 m, con acordamiento", "60" -> "60%".
+      var conU = function(x, u){
+        if (!x || !u) return x;
+        return x.replace(/^(\d[\d.,]*)(?=\s*(?:$|[,;(]))/, function(n){ n = n.replace(/[.,]$/, ''); return u === '%' ? n + '%' : n + ' ' + u; });
+      };
+      var filas = function(defs){ return defs.map(function(d){ var x = conU(v(d[0]), d[2]); return x ? [d[1], x] : null; }).filter(Boolean); };
+      var catastro = filas(ANEXO_CATASTRO), normativa = filas(ANEXO_NORMATIVA);
+      var refs = ANEXO_REFS.map(function(ids, i){
+        var dir = v(ids[0]), url = urlPublicacion(valorCampo(ids[1])), det = v(ids[2]);
+        return (dir || url || det) ? { n: i + 1, dir: dir, url: url, det: det } : null;
+      }).filter(Boolean);
+      var fotos = anexoFotos.filter(fotoValida).slice(0, FOTOS_MAX).map(function(f){
+        return { img: f.img, titulo: limpio(f.titulo), desc: limpio(f.desc), entera: !!f.entera };
+      });
+      var refNota = v('anxRefNota');
+      var hoja = !!(catastro.length || normativa.length || refs.length || refNota || fotos.length);
+      var fu = v('anxFuentes').replace(/^fuentes?\s*:\s*/i, '');
+      if (!fu) fu = mayuscula(fuentesAuto(catastro.length, normativa.length, rep.repInmDepto || ''));
+      return {
+        hoja: hoja, catastro: catastro, normativa: normativa, refs: refs, refNota: refNota, fotos: fotos,
+        tituloNormativa: 'NORMATIVA URBANA' + (/montevideo/i.test(rep.repInmDepto || '') ? ' (IM)' : ''),
+        fuentes: hoja && fu ? '**Fuentes:** ' + fu + (/[.!?]$/.test(fu) ? '' : '.') : ''
+      };
+    }
+    // Una foto en su recuadro: recortada al centro para llenarlo, o entera (planos).
+    function pFoto(pdf, f, x, y, w, h, alias) {
+      pFill(pdf, PDF.fondo); pdf.rect(x, y, w, h, 'F');
+      var p = null;
+      try { p = pdf.getImageProperties(f.img); } catch (e) { p = null; }
+      if (p && p.width && p.height) {
+        var ar = p.width / p.height, iw, ih;
+        if (f.entera ? ar > w / h : ar < w / h) { iw = w; ih = w / ar; } else { ih = h; iw = h * ar; }
+        var ix = x + (w - iw) / 2, iy = y + (h - ih) / 2;
+        pdf.saveGraphicsState();
+        try {
+          if (!f.entera) { pdf.rect(x, y, w, h, null); pdf.clip(); pdf.discardPath(); }
+          pdf.addImage(f.img, 'JPEG', ix, iy, iw, ih, alias);
+        } catch (e) { console.warn('foto del anexo:', e); }
+        pdf.restoreGraphicsState();
+      }
+      pDraw(pdf, [222,226,231], 0.6); pdf.rect(x, y, w, h, 'S');
+    }
+    // De dónde salió cada antecedente (el número es el de la tabla de comparables),
+    // con el enlace a su publicación: en el PDF, el renglón es el enlace.
+    function pRefsAntecedentes(doc, d) {
+      var ax = d.anexo;
+      if (!ax || (!ax.refs.length && !ax.refNota)) return;
+      var pdf = doc.pdf, M = doc.M, ancho = doc.W - 2 * M, tam = 8, ih = 11.6;
+      var bloques = ax.refs.map(function(rf){
+        var host = rf.url ? hostDe(rf.url) : '';
+        var tit = rf.dir || (host ? 'Publicación en ' + host : 'Antecedente ' + rf.n);
+        var txt = '**' + rf.n + '. ' + tit + '**' + (rf.det ? ': ' + rf.det : '') + (host && rf.dir ? ' (' + host + ')' : '');
+        return { rf: rf, lineas: pPartirRico(pdf, txt, tam, ancho) };
+      });
+      var primero = bloques.length ? bloques[0].lineas.length * ih + 4 : 24;
+      pSeccion(doc, 'chart', 'DETALLE DE LOS ANTECEDENTES', { min: primero + (ax.refNota ? 16 : 0) });
+      if (ax.refNota) pParrafo(doc, ax.refNota, { tam: 7.6, color: PDF.gris, colorB: PDF.navy, despues: 6 });
+      bloques.forEach(function(b){
+        var alto = b.lineas.length * ih;
+        pEspacio(doc, alto + 4);
+        pDibujarLineas(pdf, b.lineas, M, doc.y, tam, ih, PDF.texto, PDF.navy);
+        if (b.rf.url) {
+          var anchoTxt = Math.max.apply(null, b.lineas.map(function(l){ return l.reduce(function(s, p){ return s + p.w; }, 0); }));
+          try { pdf.link(M, doc.y, Math.min(ancho, anchoTxt + 2), alto + 1, { url: b.rf.url }); } catch (e) {}
+        }
+        doc.y += alto + 4;
+      });
+      doc.y += 16;
+    }
+    // Filas "dato: valor" con la columna de los datos al ancho de la etiqueta más larga.
+    function pDatosAnexo(pdf, filas, x, y, ancho) {
+      pF(pdf, 'bold', 7.6);
+      var etq = Math.min(130, Math.max(72, Math.max.apply(null, filas.map(function(f){ return pMedir(pdf, pdfTxt(f[0] + ':')); })) + 9));
+      return pDatos(pdf, filas, x, y, ancho, etq);
+    }
+    // La hoja del anexo: catastro y normativa arriba, las fotos y las fuentes.
+    function pHojaAnexo(doc, d) {
+      var ax = d.anexo, pdf = doc.pdf, M = doc.M, ancho = doc.W - 2 * M;
+      if (ax.catastro.length && ax.normativa.length) {
+        var gap = 22, colW = (ancho - gap) / 2, y0 = doc.y;
+        var yc = pSeccion(doc, 'doc', 'DATOS CATASTRALES', M, colW, y0);
+        var yn = pSeccion(doc, 'home', ax.tituloNormativa, M + colW + gap, colW, y0);
+        doc.y = Math.max(pDatosAnexo(pdf, ax.catastro, M, yc - 1, colW), pDatosAnexo(pdf, ax.normativa, M + colW + gap, yn - 1, colW)) + 22;
+      } else if (ax.catastro.length || ax.normativa.length) {
+        var cat = ax.catastro.length > 0, filas = cat ? ax.catastro : ax.normativa;
+        var ys = pSeccion(doc, cat ? 'doc' : 'home', cat ? 'DATOS CATASTRALES' : ax.tituloNormativa, { min: filas.length * 16 });
+        doc.y = pDatosAnexo(pdf, filas, M, ys - 1, ancho) + 22;
+      }
+      pRefsAntecedentes(doc, d);
+      if (ax.fotos.length) {
+        // Tres por fila, 3:2, con el epígrafe abajo: "Título. descripción".
+        var gapF = 12, cw = (ancho - gapF * 2) / 3, ch = cw / 1.5, tamC = 7.2, ihC = 9.8;
+        var epi = ax.fotos.map(function(f){
+          var t = f.titulo ? '**' + f.titulo + (/[.:!?]$/.test(f.titulo) ? '' : '.') + '**' + (f.desc ? ' ' + f.desc : '') : f.desc;
+          return t ? pPartirRico(pdf, t, tamC, cw).slice(0, 4) : [];
+        });
+        var altoFila = function(a, b){ var mx = 0; for (var k = a; k < b; k++) mx = Math.max(mx, epi[k].length); return ch + (mx ? 5 + mx * ihC : 0); };
+        var filasF = [];
+        for (var i = 0; i < ax.fotos.length; i += 3) filasF.push([i, Math.min(i + 3, ax.fotos.length)]);
+        // Las fotos van juntas: si no entran en lo que queda de la hoja pero sí en
+        // una hoja nueva, pasan enteras a la siguiente (no una fila suelta).
+        var altoTodas = 26 + filasF.reduce(function(s, fr){ return s + altoFila(fr[0], fr[1]) + 12; }, 0);
+        if (doc.y + altoTodas > pLimite(doc) && altoTodas <= pLimite(doc) - (PDF_CAB + 28)) pHoja(doc);
+        pSeccion(doc, 'camara', 'RELEVAMIENTO FOTOGRÁFICO', { min: altoFila(filasF[0][0], filasF[0][1]) });
+        filasF.forEach(function(fr){
+          var alto = altoFila(fr[0], fr[1]);
+          pEspacio(doc, alto);
+          var y = doc.y;
+          for (var k = fr[0]; k < fr[1]; k++) {
+            var x = M + (k - fr[0]) * (cw + gapF);
+            pFoto(pdf, ax.fotos[k], x, y, cw, ch, 'anxFoto' + k);
+            if (epi[k].length) pDibujarLineas(pdf, epi[k], x, y + ch + 4, tamC, ihC, PDF.gris, PDF.navy);
+          }
+          doc.y = y + alto + 12;
+        });
+      }
+      if (ax.fuentes) pParrafo(doc, ax.fuentes, { tam: 7, color: [150,156,164], colorB: PDF.gris, despues: 6 });
     }
 
     // Todo lo que el informe necesita, ya formateado.
@@ -2022,6 +2576,7 @@
         terrenoTxt: conUnidad(rep.repInmTerreno, 'm²'),
         inmuebleTxt: (rep.repInmTipo || 'Propiedad') + (dirCompleta ? ' · ' + dirCompleta : ''),
         enTotal: !!r.enTotal,
+        anexo: anexoInforme(rep),
         comps: r.antecedentes.map(function(a, i){
           return { n: i + 1, m2: a.m2, cons: a.cons, ubi: a.ubi, tipo: a.tipo === 'oferta' ? 'Oferta' : 'Vendido', valor: a.valor, precio: a.precio,
                    asim: a.tipo === 'oferta' ? a.asim : 1, ajustePct: ((r._factores ? r._factores[i] : 1) - 1) * 100, ajustado: r._bs[i] };
@@ -2045,6 +2600,8 @@
       // gráfica aprovecha el lugar que queda debajo.
       pHojaAnalisis(doc, d);
       pHoja(doc); pHojaInterpretacion(doc, d);
+      // El anexo del paso 4 (catastro, normativa y fotos), en hoja propia.
+      if (d.anexo && d.anexo.hoja) { pHoja(doc); pHojaAnexo(doc, d); }
       // El pie va al final, cuando ya se sabe cuántas hojas quedaron.
       var total = doc.pdf.getNumberOfPages(), base = doc.H - PDF_PIE, hS = 40;
       doc.fin[total] = doc.y;
@@ -2055,6 +2612,11 @@
       }
       return doc.pdf;
     }
+
+    // Mientras se sube una tasación (con fotos tarda un poco más), cerrar la
+    // página la dejaría sin guardar: el navegador pregunta antes.
+    var _enviando = 0;
+    window.addEventListener('beforeunload', function(e){ if (_enviando > 0) { e.preventDefault(); e.returnValue = ''; } });
 
     function exportarPDF() {
       if (!ultimoResultado) return;
@@ -2082,9 +2644,15 @@
         showToast('Faltan datos', 'Para generar el informe completá: ' + faltan.map(function(f){ return f[1]; }).join(', ') + '.', 'fa-circle-exclamation');
         return;
       }
+      // Las fotos del anexo tienen que estar listas: si no, el PDF saldría sin ellas.
+      if (fotosProcesando > 0 || (corr && corr.fotosCargando)) {
+        showToast('Esperá un momento', fotosProcesando ? 'Se están preparando las fotos del anexo.' : 'Se están trayendo las fotos del anexo.', 'fa-images');
+        return;
+      }
       var btn = document.getElementById('tasExportBtn');
       // Lo cargado en este momento: es lo que corresponde al PDF que se arma ahora.
       var ent = entradaActual();
+      var tasId = sesionTasId, fotosEnvio = anexoFotos.map(fotoNormal);
       btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando PDF...';
       // Un respiro para que se vea "Generando" antes de armar el PDF.
       setTimeout(function(){
@@ -2101,17 +2669,35 @@
         }
         // Corrección de la Dirección: se guarda en el perfil del agente, aprobada.
         // El botón queda trabado hasta que termina de guardar (dos clics no la guardan dos veces).
-        if (corr) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando…'; subirYGuardarCorreccion(pdf, r, ent).then(reponer); return; }
+        if (corr) {
+          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando…';
+          _enviando++;
+          subirYGuardarCorreccion(pdf, r, ent).then(function(){ _enviando = Math.max(0, _enviando - 1); reponer(); });
+          return;
+        }
         // El agente NO descarga el PDF acá: se sube para revisión del admin, y
         // recién cuando el admin la aprueba el agente puede descargarla.
         // Se guarda la tasación del PDF (r), no lo que haya en pantalla al terminar de subir.
+        // Primero van las fotos del anexo (la Dirección las necesita si la corrige) y
+        // después la tasación; si las fotos fallan, la tasación se guarda igual.
+        _enviando++;
+        var finEnvio = function(){ _enviando = Math.max(0, _enviando - 1); };
+        var guardarEnvio = function(url){
+          var s = document.getElementById('tasAutoSave'); if (s) { s.textContent = 'Guardando…'; s.style.color = ''; }
+          Promise.resolve()
+            .then(function(){ return guardarFotosRemotas(agenteUid, tasId, fotosEnvio, _fotosRemotas[tasId] || 0); })
+            .then(function(){ _fotosRemotas[tasId] = Math.max(_fotosRemotas[tasId] || 0, fotosEnvio.length); },
+                  function(e){ console.warn('fotos del anexo:', e); })
+            .then(function(){ return guardarTasacion(url, r, ent, tasId); })
+            .then(finEnvio, finEnvio);
+        };
         try {
-          var _ref = firebase.storage().ref('tasacionesPDF/' + sesionTasId + '.pdf');
+          var _ref = firebase.storage().ref('tasacionesPDF/' + tasId + '.pdf');
           _ref.put(pdf.output('blob'), { contentType: 'application/pdf' })
             .then(function(){ return _ref.getDownloadURL(); })
-            .then(function(url){ guardarTasacion(url, r, ent); })
-            .catch(function(e){ console.warn('subir PDF revisión', e); guardarTasacion('', r, ent); });
-        } catch (e) { guardarTasacion('', r, ent); }
+            .then(function(url){ guardarEnvio(url); })
+            .catch(function(e){ console.warn('subir PDF revisión', e); guardarEnvio(''); });
+        } catch (e) { guardarEnvio(''); }
         if (esDireccionTas) showToast('Tasación guardada', 'Queda aprobada: podés descargar el PDF desde "Mis tasaciones".', 'fa-circle-check');
         else showToast('Enviada a revisión', 'El administrador tiene que aprobarla. Cuando esté aprobada vas a poder descargar el PDF desde "Mis tasaciones".', 'fa-paper-plane');
         reponer();
@@ -2134,12 +2720,13 @@
 
     // Lo que se guarda de una tasación: el resumen de siempre (datos y resultado), el
     // detalle de los antecedentes y todo lo cargado (entrada), para revisarla y corregirla.
-    function armarRegistro(r, pdfUrl, ent) {
+    function armarRegistro(r, pdfUrl, ent, tid) {
       ent = ent || entradaActual();
+      tid = tid || sesionTasId;
       var rp = ent.rep || {};
       var rv = function(id){ return String(rp[id] || '').trim(); };
       return {
-        id: sesionTasId,
+        id: tid,
         tipo: 'tasacion',
         fecha: new Date().toISOString(),
         agenteUid: agenteUid, agenteNombre: agenteNombre || agenteEmail || 'Agente', agenteEmail: agenteEmail || '',
@@ -2158,7 +2745,7 @@
         resultado: { valor: Math.round(r.valorTotal || 0), min: Math.round(r.minTotal || 0), max: Math.round(r.maxTotal || 0), precioM2: Math.round(r.valorM2 || 0), incertidumbre: +((r.incert || 0).toFixed(2)) },
         detalle: detalleDe(r),
         entrada: ent,
-        nro: nroInforme(),
+        nro: nroInforme(tid),
         // La Dirección aprueba las tasaciones. Si la hizo la Dirección, nace
         // aprobada: mandarla a revisión la dejaba esperando su propia firma, con
         // el PDF bloqueado hasta que se aprobara a sí misma.
@@ -2173,15 +2760,17 @@
       };
     }
 
-    async function guardarTasacion(pdfUrl, res, ent) {
+    async function guardarTasacion(pdfUrl, res, ent, tid) {
       var r = res || ultimoResultado;
       // Una tasación que no cierra no se guarda como enviada.
       if (!agenteUid || !r || !r.cierra) return;
+      // La del PDF que se armó (si mientras se subía se tocó Restablecer, no cambia).
+      tid = tid || sesionTasId;
       var s = document.getElementById('tasAutoSave');
-      var rec = armarRegistro(r, pdfUrl, ent);
+      var rec = armarRegistro(r, pdfUrl, ent, tid);
       if (s) { s.textContent = 'Guardando…'; s.style.color = ''; }
       try {
-        await db.collection('users').doc(agenteUid).set({ tasaciones: { [sesionTasId]: rec } }, { merge: true });
+        await db.collection('users').doc(agenteUid).set({ tasaciones: { [tid]: rec } }, { merge: true });
         if (s) {
           var hora = new Date().toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' });
           s.textContent = (esDireccionTas ? 'Guardada y aprobada ✓ ' : 'Enviada a revisión ✓ ') + hora;
@@ -2274,6 +2863,7 @@
       modoValor = e.modo === 'm2' ? 'm2' : 'total';
       var rp = e.rep || {};
       REPORT_FIELDS.forEach(function(id){ set(id, rp[id] || ''); });
+      ponerAnexo(e.anexo);
     }
     async function abrirCorreccion(p) {
       var snap = await db.collection('users').doc(p.uid).get();
@@ -2287,6 +2877,7 @@
       cargarEntrada(rec.entrada);
       sesionTasId = p.id;
       ajustesAsistente = [];
+      cargarFotosCorreccion();   // las fotos del anexo llegan aparte
       return '';
     }
     function _corrNombre() { return String(corr.agente || 'el agente').split(' ')[0]; }
@@ -2356,6 +2947,26 @@
        ['repInmTipo', 'Tipo de inmueble'], ['repInmUso', 'Uso'], ['repInmAntig', 'Antigüedad'], ['repInmEstado', 'Estado general'], ['repInmTerreno', 'Terreno'],
        ['repInmFrente', 'Frente'], ['repInmFondo', 'Fondo'], ['repCliSolicitado', 'Solicitado por']]
         .forEach(function(x){ dif(x[1], tx(rp0[x[0]]), tx(rp1[x[0]]), function(v){ return v; }); });
+      // El anexo: catastro, normativa, referencias de los antecedentes y fotos.
+      var ax0 = o.anexo || {}, ax1 = ent.anexo || {}, igual = function(v){ return v; };
+      var corto = function(v){ v = tx(v); return v.length > 60 ? v.slice(0, 59) + '…' : v; };
+      [['anxCarpeta', 'Carpeta catastral'], ['anxAreaPredio', 'Área del predio'], ['anxAreaEdif', 'Área edificada'], ['anxCategoria', 'Categoría catastral'],
+       ['anxConstruccion', 'Año de construcción'], ['anxValorCat', 'Valor catastral'], ['anxDjcu', 'DJCU'], ['anxSuelo', 'Categoría de suelo'],
+       ['anxUso', 'Uso preferente'], ['anxFos', 'FOS'], ['anxAltura', 'Altura máxima'], ['anxRetiro', 'Retiro frontal'], ['anxCautela', 'Protección patrimonial']]
+        .forEach(function(x){ dif(x[1], corto(ax0[x[0]]), corto(ax1[x[0]]), igual); });
+      ANEXO_REFS.forEach(function(ids, i){
+        var n = i + 1, u0 = tx(ax0[ids[1]]), u1 = tx(ax1[ids[1]]);
+        dif('Referencia del antecedente ' + n, corto(ax0[ids[0]]), corto(ax1[ids[0]]), igual);
+        if (u0 !== u1) out.push({ que: 'Enlace del antecedente ' + n, de: u0 ? 'el anterior' : '—', a: u1 ? (u0 ? 'otro' : 'cargado') : '—' });
+        dif('Detalle del antecedente ' + n, corto(ax0[ids[2]]), corto(ax1[ids[2]]), igual);
+      });
+      dif('Nota de los antecedentes', corto(ax0.anxRefNota), corto(ax1.anxRefNota), igual);
+      dif('Fuentes del anexo', corto(ax0.anxFuentes), corto(ax1.anxFuentes), igual);
+      if (corr && corr.fotosBase && !corr.fotosCargando) {
+        var nA = corr.fotosBase.n, nB = anexoFotos.length, fx = function(k){ return k ? k + (k === 1 ? ' foto' : ' fotos') : '—'; };
+        if (nA !== nB) out.push({ que: 'Fotos del relevamiento', de: fx(nA), a: fx(nB) });
+        else if (corr.fotosBase.firma !== firmaFotos(anexoFotos)) out.push({ que: 'Fotos del relevamiento', de: fx(nA), a: fx(nB) + ', con cambios' });
+      }
       return out;
     }
     function pintarCambiosCorr() {
@@ -2398,6 +3009,16 @@
       var nota = notaEl ? String(notaEl.value || '').trim().slice(0, 500) : '';
       var r0 = corr.rec;
       var cambios = cambiosCorreccion(_corrBase(), ent, r);
+      // Las fotos del anexo, si cambiaron: quedan para la próxima corrección. Si
+      // fallan, la corrección se guarda igual (el PDF ya las lleva).
+      if (corr.fotosBase && !corr.fotosCargando && firmaFotos(anexoFotos) !== corr.fotosGuardadas) {
+        var fotosC = anexoFotos.map(fotoNormal);
+        try {
+          await guardarFotosRemotas(corr.uid, corr.id, fotosC, corr.fotosMax || corr.fotosBase.n);
+          corr.fotosMax = Math.max(corr.fotosMax || 0, fotosC.length);
+          corr.fotosGuardadas = firmaFotos(fotosC);
+        } catch (e) { console.warn('fotos del anexo (corrección):', e); }
+      }
       var rec = armarRegistro(r, pdfUrl, ent);
       rec.id = corr.id; rec.fecha = r0.fecha || ahora;
       rec.agenteUid = corr.uid; rec.agenteNombre = r0.agenteNombre || corr.agente; rec.agenteEmail = r0.agenteEmail || '';
@@ -2457,10 +3078,13 @@
         try { errCorr = await abrirCorreccion(pc); }
         catch (e) { console.warn('abrir corrección:', e); errCorr = 'No se pudo abrir la tasación: ' + ((e && e.message) || e) + '.'; }
       }
-      if (!corr) cargarLocal();
+      if (!corr) { cargarLocal(); cargarFotosLocal(); }
       pintarModo();
       renderTasAntecedentes();
       calcTasador();
+      // El anexo se abre solo si tiene algo cargado.
+      renderFotos();
+      if (anexoTieneDatos()) toggleAnexo(true);
       if (corr) { pintarCorreccion(); pintarBotonEnviar(ultimoResultado ? !!ultimoResultado.cierra : null); }
       else {
         if (errCorr) pintarCorreccion(errCorr);
