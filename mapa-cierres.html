@@ -855,10 +855,12 @@
        adonde lleva el aviso de "Reserva: falta la firma". Marca el cierre en el mapa
        y, si es la Dirección y sigue pendiente, abre la confirmación. */
     function abrirConfirmarPedido(){
-      let id = '';
-      try { id = new URLSearchParams(location.search).get('confirmar') || ''; } catch(e) {}
+      let id = '', gid = '';
+      try { const q = new URLSearchParams(location.search); id = q.get('confirmar') || ''; gid = q.get('gestion') || ''; } catch(e) {}
       if (!id) return;
-      try { const u = new URL(location.href); u.searchParams.delete('confirmar'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch(e) {}
+      try { const u = new URL(location.href); u.searchParams.delete('confirmar'); u.searchParams.delete('gestion'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch(e) {}
+      // Desde Clientes: la gestión que pasa a Cerrado cuando se confirma la firma.
+      gestionPedida = gid ? { gid: gid, pid: id } : null;
       const p = porId[id];
       if (!p || cierres.indexOf(p) < 0){ toast('Ese cierre ya no está en el mapa (puede haberse caído o borrado).', true); return; }
       if (!pasaFiltros(p)){ limpiarFiltros(true); pintarFiltros(); }
@@ -873,12 +875,12 @@
     // Si se llegó desde Clientes (al cerrar una gestión o para ver su cierre), el
     // botón de arriba vuelve ahí en vez de al inicio.
     (function volverAClientes(){
-      let desde = '';
-      try { desde = new URLSearchParams(location.search).get('desde') || ''; } catch(e) {}
+      let desde = '', gid = '';
+      try { const q = new URLSearchParams(location.search); desde = q.get('desde') || ''; gid = q.get('gestion') || ''; } catch(e) {}
       if (desde !== 'clientes') return;
       const a = document.querySelector('.mv-head .back-link');
       if (!a) return;
-      a.href = 'clientes.html';
+      a.href = 'clientes.html' + (gid ? '?gestion=' + encodeURIComponent(gid) : '');
       const s = a.querySelector('span'); if (s) s.textContent = 'Volver a Clientes';
     })();
 
@@ -886,17 +888,26 @@
        es adonde lleva Clientes al cerrar una gestión. Abre el formulario con esa
        propiedad elegida; si ya tiene cierre, lo muestra en vez de cargar otro. */
     async function abrirRegistroPedido(){
-      let id = '', firmado = false;
-      try { const q = new URLSearchParams(location.search); id = q.get('registrar') || ''; firmado = q.get('firmado') === '1'; } catch(e) {}
+      let id = '', firmado = false, gid = '';
+      try { const q = new URLSearchParams(location.search); id = q.get('registrar') || ''; firmado = q.get('firmado') === '1'; gid = q.get('gestion') || ''; } catch(e) {}
       if (!id) return;
       // Al recargar la página no se vuelve a abrir el formulario.
-      try { const u = new URL(location.href); u.searchParams.delete('registrar'); u.searchParams.delete('firmado'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch(e) {}
+      try { const u = new URL(location.href); ['registrar', 'firmado', 'gestion'].forEach(k => u.searchParams.delete(k)); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch(e) {}
+      // Desde Clientes: la gestión del cliente pasa a Reservado (o a Cerrado, si la
+      // firma ya se hizo) recién cuando esta operación se guarda.
+      gestionPedida = gid ? { gid: gid, pid: id } : null;
       const ya = porId[id];
       if (ya && cierres.indexOf(ya) >= 0){
         if (!pasaFiltros(ya)){ limpiarFiltros(true); pintarFiltros(); }
         selId = ya.id;
         refrescar(false);
         setTimeout(() => enfocarCierre(ya.id), 450);
+        // Otro la registró recién: la gestión se pone al día con lo que ya está cargado.
+        if (gestionPedida && ya.cierreConfirmado !== true){
+          if (firmado && isAdmin){ setTimeout(() => abrirConfirmar(ya.id), 650); return; }
+          marcarGestion(gestionPedida, 'reservado');
+          gestionPedida = null;
+        }
         toast(esReserva(ya) ? 'Esta reserva ya está registrada en el mapa: falta que la Dirección confirme la firma.' : 'Este cierre ya está registrado en el mapa.');
         return;
       }
@@ -1304,6 +1315,50 @@
     // El botón "Confirmar" abre la confirmación de la firma (con la fecha).
     function confirmarCierre(id){ abrirConfirmar(id); }
     let confId = null;
+    // La gestión que mandó Clientes (?gestion=) y su propiedad: pasa a Reservado o a
+    // Cerrado cuando la operación de ESA propiedad queda guardada acá.
+    let gestionPedida = null;
+    // Devuelve true si la puso al día, null si no había nada que hacer y false si falló.
+    async function marcarGestion(pedido, etapa){
+      if (!pedido || !pedido.gid) return null;
+      try{
+        const ref = db.collection('gestiones').doc(pedido.gid);
+        const d = await ref.get();
+        if (!d.exists) return null;
+        const g = d.data() || {};
+        if (g.propertyId && g.propertyId !== pedido.pid) return null;      // es de otra propiedad: no se toca
+        const actual = g.estadoGestion || 'nuevo';
+        if (actual === etapa || actual === 'cerrado') return null;
+        // Si estaba Reservada, la pasa a Cerrado el servidor al confirmarse la firma.
+        if (etapa === 'cerrado' && actual === 'reservado') return null;
+        const ahora = new Date().toISOString();
+        const quien = curProfile.name || curUser.email || 'Agente';
+        await ref.update({
+          estadoGestion: etapa,
+          updatedAt: ahora,
+          historial: firebase.firestore.FieldValue.arrayUnion({
+            tipo: 'avance', valor: etapa === 'cerrado' ? 'Cerrado' : 'Reservado', autor: quien, fecha: ahora,
+            nota: etapa === 'cerrado' ? 'Firma confirmada en el Mapa de cierres' : 'Reserva registrada en el Mapa de cierres'
+          })
+        });
+        // Reservar o cerrar es trabajarlo: si el cliente estaba en pausa, sale.
+        if (g.clientId){
+          try{
+            const cref = db.collection('clients').doc(g.clientId);
+            const cd = await cref.get();
+            if (cd.exists && (cd.data() || {}).situacion === 'pausa'){
+              const borrar = firebase.firestore.FieldValue.delete();
+              await cref.update({ situacion: borrar, pausadoEn: borrar, pausaSnoozeUntil: borrar, updatedAt: ahora });
+            }
+          }catch(e2){ /* la pausa se saca a mano en Clientes */ }
+        }
+        return true;
+      }catch(e){
+        console.warn('[mapa] gestión del cliente', e);
+        toast('La operación quedó registrada, pero no se pudo actualizar la gestión del cliente: cambiala en Clientes.', true);
+        return false;
+      }
+    }
     function abrirConfirmar(id){
       if (!isAdmin) return;
       const p = porId[id];
@@ -1348,10 +1403,13 @@
         // cierreConfirmado. La propiedad y las gestiones las mueve el backend.
         await db.collection('properties').doc(id).update({ cierre: c, cierreConfirmado: true, updatedAt: new Date().toISOString() });
         p.cierre = c; p.cierreConfirmado = true;
+        // Desde Clientes: la gestión de ese cliente pasa a Cerrado.
+        const gestOk = (gestionPedida && gestionPedida.pid === id) ? await marcarGestion(gestionPedida, 'cerrado') : null;
+        if (gestionPedida && gestionPedida.pid === id) gestionPedida = null;
         cerrarConfirmar();
         pintarFiltros();
         repintar(id);
-        toast('Firma confirmada ✓ La propiedad y las gestiones se actualizan solas.');
+        if (gestOk !== false) toast('Firma confirmada ✓ La propiedad y las gestiones se actualizan solas.');
       }catch(e){
         console.warn('guardarConfirmacion', e);
         ocupado(btn, false);
@@ -2265,6 +2323,13 @@
             toast('La reserva quedó guardada, pero no se pudo confirmar la firma: confirmala desde la lista.', true);
           }
         }
+        // Desde Clientes: la gestión del cliente pasa a Reservado (o a Cerrado, si la
+        // firma quedó confirmada) ahora que la operación está registrada.
+        let gestOk = null;
+        if (!correccion && gestionPedida && gestionPedida.pid === p.id){
+          gestOk = await marcarGestion(gestionPedida, p.cierreConfirmado === true ? 'cerrado' : 'reservado');
+          gestionPedida = null;
+        }
         if (!p.ubicacion) p.ubicacion = {};
         p.ubicacion.lat = regLatLng.lat; p.ubicacion.lng = regLatLng.lng;
         if (cierres.indexOf(p) < 0) cierres.push(p);
@@ -2277,7 +2342,8 @@
         selId = p.id;
         refrescar(false);
         enfocarCierre(p.id);
-        toast(correccion ? 'Cierre actualizado ✓' : (p.cierreConfirmado === true ? 'Cierre registrado y confirmado ✓' : 'Reserva registrada ✓ La propiedad quedó Reservada hasta que se confirme la firma.'));
+        if (gestOk !== false) toast(correccion ? 'Cierre actualizado ✓' : (p.cierreConfirmado === true ? 'Cierre registrado y confirmado ✓' : 'Reserva registrada ✓ La propiedad quedó Reservada hasta que se confirme la firma.')
+          + (gestOk ? ' La gestión del cliente ya está al día.' : ''));
       }catch(e){
         console.warn('guardarCierre', e);
         ocupado(btn, false);

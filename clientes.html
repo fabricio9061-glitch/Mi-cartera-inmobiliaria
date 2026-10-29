@@ -3132,9 +3132,11 @@
       if (tieneCierreMapa(prop)) return prop.cierreConfirmado === true ? null : 'confirmar';
       return 'firmado';
     }
-    function irAlMapaCierre(pid, destino){
+    // gid: la gestión que pasa a Reservado o Cerrado cuando el mapa guarda la operación.
+    function irAlMapaCierre(pid, destino, gid){
       var q = destino === 'confirmar' ? 'confirmar=' : 'registrar=';
-      location.href = 'mapa-cierres.html?' + q + encodeURIComponent(pid) + (destino === 'firmado' ? '&firmado=1' : '') + '&desde=clientes';
+      location.href = 'mapa-cierres.html?' + q + encodeURIComponent(pid) + (destino === 'firmado' ? '&firmado=1' : '')
+        + (gid ? '&gestion=' + encodeURIComponent(gid) : '') + '&desde=clientes';
     }
     // ¿El servidor la pasa sola a Vendida o Alquilada al cerrar? Solo si está en
     // juego, o fuera de circulación por este mismo circuito.
@@ -3152,7 +3154,10 @@
     // clientId: de quién es. gidFija: la gestión ya elegida (desde su ficha o un
     // aviso); sin ella se listan las del cliente para elegir.
     // modo: 'reservado' (el cliente dejó la seña) o, por defecto, 'cerrado' (la
-    // firma; solo la Dirección).
+    // firma; solo la Dirección). Si hay algo para cargar en el Mapa de cierres (la
+    // reserva con su precio y ganancia, o la firma), la etapa NO se escribe acá: se
+    // va al mapa y la gestión pasa a Reservado o Cerrado recién cuando eso se
+    // guarda. Así ninguna operación queda marcada sin registrar.
     function abrirCierreOperacion(clientId, gidFija, modo){
       var reserva = modo === 'reservado';
       if (!reserva && !isAdmin){ avisoCerradoDireccion(); if (currentProfileId) renderGestiones(currentProfileId); return; }
@@ -3166,17 +3171,16 @@
         '<div id="cieList"><div class="cp-prop-soon"><i class="fas fa-spinner fa-spin"></i> Cargando gestiones...</div></div>' +
         '<p class="dormido-p cie-nota" id="cieNota" hidden></p>' +
         '<button type="button" class="elg-go" id="cieGo" disabled>Elegí la propiedad</button>' +
-        '<button type="button" class="cie-luego" id="cieLuego" hidden>'+(reserva ? 'Reservar y registrar después' : 'Cerrar y hacerlo después')+'</button>' +
         '<button type="button" class="dormido-cancel" id="cieCancel">Cancelar</button>' +
       '</div>';
       document.body.appendChild(ov);
       var $c = function(id){ return ov.querySelector('#'+id); };
-      var filas = {}, alMapa = false, ocupado = false, destino = null;
+      var filas = {}, ocupado = false, destino = null;
       function quitar(){ ov.remove(); document.removeEventListener('keydown', alTeclado); }
       function salir(){
         if (ocupado) return;
         quitar();
-        // Desde la ficha, el Avance quedó mostrando "Cerrado": vuelve a como estaba.
+        // Desde la ficha, el Avance quedó mostrando la etapa elegida: vuelve a como estaba.
         if (currentProfileId) renderGestiones(currentProfileId);
       }
       function alTeclado(e){ if (e.key === 'Escape') salir(); }
@@ -3187,50 +3191,53 @@
       function actualizar(){
         var r = ov.querySelector('input[name="cieG"]:checked');
         Array.prototype.forEach.call(ov.querySelectorAll('.elg-item'), function(l){ l.classList.toggle('sel', !!r && l.contains(r)); });
-        var go = $c('cieGo'), luego = $c('cieLuego'), nota = $c('cieNota');
-        if (!r){ go.disabled = true; go.textContent = 'Elegí la propiedad'; luego.hidden = true; nota.hidden = true; alMapa = false; destino = null; return; }
+        var go = $c('cieGo'), nota = $c('cieNota');
+        if (!r){ go.disabled = true; go.textContent = 'Elegí la propiedad'; nota.hidden = true; destino = null; return; }
         var p = filas[r.value].p;
         destino = reserva ? (faltaRegistrarMapa(p) ? 'registrar' : null) : destinoMapaCierre(p);
-        alMapa = !!destino;
         go.disabled = false;
-        if (reserva) go.innerHTML = alMapa ? '<i class="fas fa-map-location-dot"></i> Reservar y registrar en el mapa' : '<i class="fas fa-check"></i> Marcar Reservado';
-        else go.innerHTML = destino === 'confirmar' ? '<i class="fas fa-file-signature"></i> Cerrar y confirmar la firma'
-          : destino === 'firmado' ? '<i class="fas fa-map-location-dot"></i> Cerrar y registrar en el mapa' : '<i class="fas fa-check"></i> Cerrar la gestión';
-        luego.hidden = !alMapa;
-        luego.textContent = reserva ? 'Reservar y registrar después' : 'Cerrar y hacerlo después';
+        if (reserva) go.innerHTML = destino ? '<i class="fas fa-map-location-dot"></i> Registrar la reserva en el mapa' : '<i class="fas fa-check"></i> Marcar Reservado';
+        else go.innerHTML = destino === 'confirmar' ? '<i class="fas fa-file-signature"></i> Confirmar la firma en el mapa'
+          : destino === 'firmado' ? '<i class="fas fa-map-location-dot"></i> Registrar el cierre en el mapa' : '<i class="fas fa-check"></i> Cerrar la gestión';
         var t = '';
         if (p && reserva){
           var stR = p.status || 'available', rr = p.reservadaPorGestion;
           if (stR === 'sold' || stR === 'rented' || stR === 'archived') t = 'La propiedad ya figura <b>'+(PROP_STATUS[stR] || stR)+'</b>: su estado no cambia. ';
           else if (stR === 'reserved' && rr && rr.gestionId && rr.gestionId !== r.value) t = 'La propiedad ya estaba <b>Reservada</b> por otra gestión: la reserva queda a nombre de esta. ';
           else t = 'La propiedad pasa a <b>Reservada</b>: en Mercado Libre el aviso se pausa, no se finaliza. ';
-          if (alMapa) t += 'En el mapa cargás el precio y la ganancia. Cuando se firme, la Dirección lo confirma y pasa a Cerrado.';
+          if (destino) t += 'En el mapa cargás el precio y la ganancia: la gestión pasa a Reservado cuando lo guardás. Cuando se firme, la Dirección lo confirma y pasa a Cerrado.';
           else if (tieneCierreMapa(p)) t += 'La reserva ya está registrada en el mapa.';
           else t += 'La reserva en el mapa la registra <b>'+esc(p.ownerName || 'el agente de la propiedad')+'</b> y te suma en «¿Cerraron en equipo?».';
         } else if (p){
           if (pasaSolaAlCerrar(p)) t = 'La propiedad pasa sola a <b>'+(p.type === 'rent' ? 'Alquilada' : 'Vendida')+'</b>. ';
-          if (destino === 'confirmar') t += 'La reserva ya está en el mapa: ahí confirmás la fecha de la firma y la ganancia entra en las finanzas.';
-          else if (destino === 'firmado') t += 'En el mapa cargás el precio final y la ganancia, y queda confirmado.';
+          if (destino === 'confirmar') t += 'La reserva ya está en el mapa: ahí confirmás la fecha de la firma. La gestión pasa a Cerrado cuando la confirmás y la ganancia entra en las finanzas.';
+          else if (destino === 'firmado') t += 'En el mapa cargás el precio final y la ganancia: la gestión pasa a Cerrado cuando lo guardás y queda confirmado.';
           else t += 'Su cierre ya está confirmado en el mapa.';
         }
         nota.innerHTML = t; nota.hidden = !t;
       }
-      function confirmar(irAlMapa){
+      function confirmar(){
         var r = ov.querySelector('input[name="cieG"]:checked');
         if (!r || ocupado) return;
+        var f = filas[r.value];
         ocupado = true;
-        var go = $c('cieGo'), luego = $c('cieLuego');
-        go.disabled = true; luego.disabled = true;
-        (irAlMapa || luego.hidden ? go : luego).innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (reserva ? 'Reservando...' : 'Cerrando...');
-        Promise.resolve(cambiarEstadoGestion(r.value, reserva ? 'reservado' : 'cerrado', { confirmado: true, alMapa: irAlMapa, desdeLista: !gidFija })).then(function(res){
-          if (res === 'mapa') return;          // se va al Mapa de cierres
+        var go = $c('cieGo');
+        go.disabled = true;
+        // Hay algo para registrar: al mapa, sin tocar la gestión (la pone al día el
+        // mapa cuando se guarda). Si se cancela allá, no cambia nada.
+        if (destino && f && f.p){
+          go.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Abriendo el mapa...';
+          irAlMapaCierre(f.p.id, destino, r.value);
+          return;
+        }
+        go.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (reserva ? 'Reservando...' : 'Cerrando...');
+        Promise.resolve(cambiarEstadoGestion(r.value, reserva ? 'reservado' : 'cerrado', { confirmado: true, desdeLista: !gidFija })).then(function(res){
           ocupado = false;
           if (res){ quitar(); return; }
-          go.disabled = false; luego.disabled = false; actualizar();
+          go.disabled = false; actualizar();
         });
       }
-      $c('cieGo').onclick = function(){ confirmar(alMapa); };
-      $c('cieLuego').onclick = function(){ confirmar(false); };
+      $c('cieGo').onclick = confirmar;
 
       var leer = gidFija
         ? db.collection('gestiones').doc(gidFija).get().then(function(d){ return d.exists ? [Object.assign({ id:d.id }, d.data())] : []; })
@@ -4292,33 +4299,18 @@
               updatedAt: new Date().toISOString()
             }).catch(function(){});
           }
-          // "Reservar y registrar en el mapa" / "Cerrar y confirmar la firma": cuando
-          // salen las escrituras, al Mapa de cierres con esta propiedad.
-          if (nuevo === 'reservado' && opts.alMapa && faltaRegistrarMapa(prop)){
-            return esperarEscrituras().then(function(){ irAlMapaCierre(prop.id, 'registrar'); return 'mapa'; });
-          }
-          var destMapa = nuevo === 'cerrado' ? destinoMapaCierre(prop) : null;
-          if (nuevo === 'cerrado' && opts.alMapa && destMapa){
-            return esperarEscrituras().then(function(){ irAlMapaCierre(prop.id, destMapa); return 'mapa'; });
-          }
+          // (Reservado y Cerrado con algo para cargar en el mapa no pasan por acá: los
+          // escribe el Mapa de cierres cuando se guarda la operación.)
           var enJuego = PROP_EN_JUEGO.indexOf(stProp) >= 0;
           var enLimbo = stProp === 'cerrado_externo' && (prop.despubPendiente || prop.motivoBaja === 'cerro_externo' || prop.motivoBaja === 'propietario_perdido');
-          var accMapa = destMapa ? { txt: destMapa === 'confirmar' ? 'Confirmar' : 'Registrar', fn: function(){ irAlMapaCierre(prop.id, destMapa); } } : null;
           if (nuevo === 'reservado'){
-            var faltaRes = faltaRegistrarMapa(prop);
-            showToast('Reservado', ((stProp === 'sold' || stProp === 'rented' || stProp === 'archived') ? 'La propiedad ya figuraba ' + (PROP_STATUS[stProp] || stProp) + ': su estado no cambia.' : 'La propiedad pasa sola a Reservada.') +
-              (faltaRes ? ' Falta registrar la reserva en el mapa.' : ''),
-              faltaRes ? { txt: 'Registrar', fn: function(){ irAlMapaCierre(prop.id, 'registrar'); } } : null);
+            showToast('Reservado', (stProp === 'sold' || stProp === 'rented' || stProp === 'archived') ? 'La propiedad ya figuraba ' + (PROP_STATUS[stProp] || stProp) + ': su estado no cambia.' : 'La propiedad pasa sola a Reservada.');
           } else if (caeReserva){
             showToast('Se cayó la reserva', (rol === 'propietario' && (nuevo === 'perdido' || nuevo === 'externo'))
               ? 'La propiedad sale de circulación y Dirección confirma la baja de los portales'
               : 'La propiedad vuelve sola a Disponible y la reserva se borra del mapa');
           } else if (nuevo === 'cerrado' && (stProp === 'available' || stProp === 'reserved' || enLimbo)){
-            // La firma del mapa (precio final y ganancia) no se carga sola: se ofrece ir ya.
-            showToast('Gestión cerrada', 'La propiedad pasa sola a ' + (prop.type === 'rent' ? 'Alquilada (pide el contrato)' : 'Vendida') +
-              (destMapa === 'confirmar' ? '. Falta confirmar la firma en el mapa.' : destMapa === 'firmado' ? '. Falta registrar el cierre en el mapa.' : ''), accMapa);
-          } else if (nuevo === 'cerrado' && destMapa){
-            showToast('Gestión cerrada', destMapa === 'confirmar' ? 'Falta confirmar la firma en el mapa' : 'Falta registrar el cierre en el mapa: precio final y ganancia', accMapa);
+            showToast('Gestión cerrada', 'La propiedad pasa sola a ' + (prop.type === 'rent' ? 'Alquilada (pide el contrato)' : 'Vendida'));
           } else if ((nuevo === 'externo' || nuevo === 'perdido') && rol === 'propietario' && enJuego){
             showToast(nuevo === 'externo' ? 'Cerró por afuera' : 'Propietario perdido', 'La propiedad sale de circulación y Dirección confirma la baja de los portales');
           } else if (nuevo === 'externo'){
@@ -4437,8 +4429,8 @@
         //    cliente, el camino correcto es cerrar la GESTIÓN (propiedad, contrato
         //    de alquiler y estadísticas se sincronizan de una sola vez).
         if ((nuevo === 'sold' || nuevo === 'rented') && g && ESTADOS_TERMINALES.indexOf(est) < 0){
-          if (confirm('¿Esta operación la cerró la agencia con ESTE cliente?\n\nAceptar: la gestión pasa a Cerrado y todo se sincroniza solo (propiedad, y contrato si es alquiler).\nCancelar: solo cambia el estado de la propiedad (ej.: se cerró con otro cliente).')){
-            cambiarEstadoGestion(g.id, 'cerrado', { confirmado: true });
+          if (confirm('¿Esta operación la cerró la agencia con ESTE cliente?\n\nAceptar: registrás la firma en el Mapa de cierres y la gestión pasa a Cerrado (la propiedad, y el contrato si es alquiler, se sincronizan solos).\nCancelar: solo cambia el estado de la propiedad (ej.: se cerró con otro cliente).')){
+            cambiarEstadoGestion(g.id, 'cerrado');
             return;
           }
         }
@@ -4636,15 +4628,22 @@
           return volver('La gestión está Cerrada: la firma la confirmó la Dirección y solo la Dirección la puede cambiar.');
         if (antes.estado === 'reservado' && nuevoE !== 'cerrado' && reservaDeEsta(propM, id) && !confirmarCaidaReserva(propM, nuevoE, data.rol)) return volver('');
       }
+      // Reservado (y Cerrado, si falta la firma) se registran en el Mapa de cierres: acá
+      // se guarda el resto y después se abre la ventana que lleva al mapa. La etapa la
+      // pone el mapa cuando se guarda la operación.
+      var aMapa = null;
+      if (cambioEtapa && (data.estadoGestion === 'reservado' || (data.estadoGestion === 'cerrado' && !firmaConfirmada(propM)))){
+        aMapa = data.estadoGestion;
+        data.estadoGestion = antes.estado;
+        delete data.historial;
+        cambioEtapa = false;
+      }
       if (cambioEtapa) data.historial = firebase.firestore.FieldValue.arrayUnion({ tipo:'avance', valor: GESTION_ESTADO[data.estadoGestion]||data.estadoGestion, autor: data.estadoPor, fecha: data.updatedAt });
       db.collection('gestiones').doc(id).update(data).then(function(){
         closeGestionModal();
-        var pCerrada = (cambioEtapa && data.estadoGestion === 'cerrado') ? propM : null;
-        var destC = destinoMapaCierre(pCerrada);
-        var pReservada = (cambioEtapa && data.estadoGestion === 'reservado') ? propM : null;
-        if (destC) showToast('Gestión cerrada', destC === 'confirmar' ? 'Falta confirmar la firma en el mapa' : 'Falta registrar el cierre en el mapa: precio final y ganancia', { txt: destC === 'confirmar' ? 'Confirmar' : 'Registrar', fn: function(){ irAlMapaCierre(pCerrada.id, destC); } });
-        else if (faltaRegistrarMapa(pReservada)) showToast('Reservado', 'La propiedad pasa sola a Reservada. Falta registrar la reserva en el mapa.', { txt: 'Registrar', fn: function(){ irAlMapaCierre(pReservada.id, 'registrar'); } });
-        else showToast('Gestión actualizada', cambioRol ? 'Ahora es '+(data.rol==='propietario'?'propietario':'interesado')+': cambian las etapas que tiene' : '');
+        // Reservado o Cerrado: la ventana de siempre, que lleva al Mapa de cierres.
+        if (aMapa){ renderGestiones(currentProfileId); abrirCierreOperacion(currentProfileId, id, aMapa === 'reservado' ? 'reservado' : undefined); return; }
+        showToast('Gestión actualizada', cambioRol ? 'Ahora es '+(data.rol==='propietario'?'propietario':'interesado')+': cambian las etapas que tiene' : '');
         renderGestiones(currentProfileId);
         if ((cambioEtapa || cambioRol) && antes.propertyId) vigilarPropiedad(antes.propertyId);
       }).catch(function(err){
