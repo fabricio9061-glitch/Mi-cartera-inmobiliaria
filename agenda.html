@@ -397,6 +397,21 @@
     .bq-tabla span{ flex:1; min-width:0; color:var(--txt-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .bq-tabla span.libre{ color:var(--c-equipo); font-weight:600; }
     .bq-tabla .btn-txt{ font-size:.78rem; padding:4px 9px; color:var(--danger); }
+    .bq-tabla .bq-dia{ display:block; padding:9px 0 5px; font-size:.78rem; font-weight:700; color:var(--txt); border-bottom:1px solid var(--line-2); }
+    .bq-dia-ag{ font-size:.8rem; font-weight:600; color:var(--txt); margin:10px 0 0; }
+    .bq-acc{ margin-top:8px; }
+    .bq-acc .btn-sec{ font-size:.78rem; padding:6px 12px; }
+    .bq-acc .wa{ color:#128c4b; border-color:#bfe6cd; }
+    .bq-acc .wa:hover{ background:#eef9f1; }
+    .pub-varios{ margin-top:8px; padding:10px 12px; background:#fff; border:1px solid var(--line); border-radius:10px; }
+    .pub-varios[hidden]{ display:none; }
+    .pv-fila{ display:flex; align-items:center; gap:10px; }
+    .pv-fila label{ font-size:.8rem; color:var(--txt-2); white-space:nowrap; }
+    .pv-fila input{ flex:1; min-width:0; border:none; background:var(--hover); border-radius:6px; padding:8px 10px; font-size:.86rem; color:var(--txt-2); outline:none; }
+    .pv-fila input:focus{ box-shadow:inset 0 -2px 0 var(--navy); background:#eceff1; }
+    .pv-dias{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:5px; margin-top:10px; }
+    .pv-dias button{ min-width:0; border:1px solid var(--line); border-radius:999px; padding:5px 0; font-size:.78rem; color:var(--txt-2); background:#fff; }
+    .pv-dias button.on{ background:var(--c-equipo); border-color:var(--c-equipo); color:#fff; font-weight:600; }
     .bq-pie{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
     .bq-pie .btn-sec{ font-size:.78rem; padding:6px 12px; }
     .pub{ border:1px solid #cfe7e3; background:#f7fcfb; border-radius:14px; padding:14px 16px; margin-bottom:18px; }
@@ -867,7 +882,7 @@
       escucharVisitas();
       cargarCRM().then(procesarEnlace);
       if (esDir) cargarUsuarios();
-      cargarTurnos().then(function () { if (qp('turnos') === '1') abrirTurnos(); });
+      cargarTurnos().then(function () { if (qp('turnos') === '1') abrirTurnos({ bloqueId: qp('bloque') || null }); });
       refrescarRecBtn();
       setInterval(tic, 30000);
       revisarRecordatorios();
@@ -1271,22 +1286,49 @@
       pintarTurnosLado();
       pintarEquipoLado();
     }
+    // Una publicación (bloque) puede tener varios días: una semana de reuniones 1 a 1
+    // es un solo bloque, y cada agente reserva un solo turno en él.
     function bloquesTurnos() {
       var g = {}, orden = [];
       T.forEach(function (t) {
-        var k = (t.bloqueId || t.id) + '|' + t.fecha;
-        if (!g[k]) { g[k] = { id: t.bloqueId || t.id, titulo: t.titulo, fecha: t.fecha, org: t.organizadorNombre, orgUid: t.organizadorUid, lugar: t.lugar, notas: t.notas, slots: [] }; orden.push(k); }
+        var k = t.bloqueId || t.id;
+        if (!g[k]) { g[k] = { id: k, titulo: t.titulo, org: t.organizadorNombre, orgUid: t.organizadorUid, lugar: t.lugar, notas: t.notas, slots: [] }; orden.push(k); }
         g[k].slots.push(t);
       });
       return orden.map(function (k) {
-        var b = g[k];
-        b.slots.sort(function (x, y) { return x.hora.localeCompare(y.hora); });
+        var b = g[k], porDia = {};
+        b.slots.sort(function (x, y) { return (x.fecha + x.hora).localeCompare(y.fecha + y.hora); });
         b.libres = b.slots.filter(function (s) { return s.libre && !slotPasado(s); });
         b.mio = b.slots.filter(function (s) { return s.mio; })[0] || null;
-        b.ini = b.slots[0].hora;
+        b.dias = [];
+        b.slots.forEach(function (s) {
+          if (!porDia[s.fecha]) { porDia[s.fecha] = { fecha: s.fecha, slots: [] }; b.dias.push(porDia[s.fecha]); }
+          porDia[s.fecha].slots.push(s);
+        });
+        b.fecha = b.dias[0].fecha;
+        b.ini = b.slots.reduce(function (m, s) { return s.hora < m ? s.hora : m; }, '99:99');
         b.fin = b.slots.reduce(function (m, s) { return s.horaFin > m ? s.horaFin : m; }, '00:00');
         return b;
       }).sort(function (a, b) { return (a.fecha + a.ini).localeCompare(b.fecha + b.ini); });
+    }
+    // "lunes 2 al viernes 6 de noviembre" (con los dos meses si cambian).
+    function rangoTxt(fs) {
+      if (fs.length === 1) return fechaLarga(fs[0]);
+      var a = deIso(fs[0]), z = fs[fs.length - 1];
+      return DIAS[a.getDay()] + ' ' + a.getDate() + (fs[0].slice(0, 7) === z.slice(0, 7) ? '' : ' de ' + MESES[a.getMonth()]) + ' al ' + fechaLarga(z);
+    }
+    function fechasDe(b) { return b.dias.map(function (x) { return x.fecha; }); }
+    // Para mandar al grupo del equipo por WhatsApp: qué es, cuándo y el link para reservar.
+    function urlAgenda() { return location.href.split(/[?#]/)[0]; }
+    function compartirTurnos(bloqueId) {
+      var b = bloquesTurnos().filter(function (x) { return x.id === bloqueId; })[0];
+      if (!b) { toast('No se encontraron esos turnos.'); return; }
+      var fs = fechasDe(b), dur = minDe(b.slots[0].horaFin) - minDe(b.slots[0].hora);
+      var txt = '*' + b.titulo + '*\n' + (fs.length > 1 ? 'Del ' + rangoTxt(fs) : cap(fechaLarga(b.fecha))) + ', de ' + b.ini + ' a ' + b.fin + ' (turnos de ' + dur + ' minutos).' +
+        (b.lugar ? '\nLugar: ' + b.lugar : '') + '\nReservá tu horario en la agenda:\n' + urlAgenda() + '?turnos=1&bloque=' + encodeURIComponent(b.id);
+      var url = 'https://wa.me/?text=' + encodeURIComponent(txt);
+      var w = window.open(url, '_blank');
+      if (w) { try { w.opener = null; } catch (e) {} } else location.href = url;
     }
     function pintarTurnosLado() {
       var el = $('ladoTurnos');
@@ -1479,7 +1521,8 @@
       var bl = bloquesTurnos().filter(function (b) { return !b.mio && b.libres.length; });
       if (!bl.length) return '';
       var b = bl[0], n = bl.reduce(function (s, x) { return s + x.libres.length; }, 0);
-      return '<div class="lst-banda"><i class="far fa-calendar-check big"></i><div><b>Turnos para reservar</b><br>' + esc(b.org || 'La Dirección') + ' publicó ' + (n === 1 ? 'un horario libre' : n + ' horarios libres') + (bl.length === 1 ? ' para el ' + esc(fechaLarga(b.fecha)) : '') + '.</div><button class="btn-pri" onclick="abrirTurnos()">Reservar</button></div>';
+      var cuando = bl.length !== 1 ? '' : b.dias.length > 1 ? ' del ' + rangoTxt(fechasDe(b)) : ' para el ' + fechaLarga(b.fecha);
+      return '<div class="lst-banda"><i class="far fa-calendar-check big"></i><div><b>Turnos para reservar</b><br>' + esc(b.org || 'La Dirección') + ' publicó ' + (n === 1 ? 'un horario libre' : n + ' horarios libres') + esc(cuando) + '.</div><button class="btn-pri" onclick="abrirTurnos()">Reservar</button></div>';
     }
     function filaLista(it) {
       var hora = it.todoDia ? (it.atrasado ? 'Pendiente' : 'Todo el día') : horaTxt(it.ini) + ' – ' + horaTxt(it.fin);
@@ -2431,7 +2474,8 @@
     // =====================================================================
     // PANEL DE TURNOS
     // =====================================================================
-    var _tp = { abierto: false, foco: null, dur: 30, sel: null };
+    // varios: publicar varios días con el mismo horario; dias: los días de la semana (0 = domingo).
+    var _tp = { abierto: false, foco: null, dur: 30, sel: null, varios: false, dias: [1, 2, 3, 4, 5] };
     function abrirTurnos(o) {
       o = o || {};
       cerrarPop();
@@ -2444,7 +2488,7 @@
       $('tpSub').textContent = esDir ? 'Publicá horarios y cada agente reserva el suyo.' : 'Reservá un horario con la Dirección.';
       var cu = $('tpCuerpo');
       cu.innerHTML = (esDir ? htmlPublicar(o.prefill, !!(o.prefill || o.abrirForm)) : '') + '<div id="tpLista"></div>';
-      if (esDir) { pintarDurs(); actualizarPrevia(); }
+      if (esDir) { pintarDurs(); pintarDiasSem(); actualizarPrevia(); }
       pintarListaTurnos();
       if (Date.now() - _turnosT > 15000 || turnosEstado === 'error') cargarTurnos();
     }
@@ -2456,13 +2500,20 @@
     }
     function htmlPublicar(pre, abierto) {
       pre = pre || {};
+      var f0 = pre.fecha && pre.fecha >= hoyIso() ? pre.fecha : proximoHabil(), tope = iso(sumarDias(hoy(), 120));
+      _tp.finTocado = false;
       var hayBloques = T.some(function (t) { return t.organizadorUid === yo.uid; });
       var cerrado = !abierto && hayBloques;
       return '<div class="pub' + (cerrado ? ' cerrado' : '') + '" id="pubCaja"><h3 onclick="this.parentNode.classList.toggle(\'cerrado\')"><i class="fas fa-plus"></i> Publicar turnos <i class="fas fa-chevron-down"></i></h3><div class="pub-in">' +
         '<label class="et" for="pubTit">Título</label><input class="campo" id="pubTit" maxlength="80" value="' + esc(pre.titulo || ('Reunión 1 a 1 con ' + primerNombre(miNombre))) + '">' +
-        '<label class="et">Día y horario</label><div class="cuando"><input type="date" id="pubFecha" value="' + esc(pre.fecha && pre.fecha >= hoyIso() ? pre.fecha : proximoHabil()) + '" min="' + hoyIso() + '" max="' + iso(sumarDias(hoy(), 120)) + '" oninput="actualizarPrevia()" aria-label="Día">' +
+        '<label class="et" id="pubFechaEt">' + (_tp.varios ? 'Primer día y horario' : 'Día y horario') + '</label><div class="cuando"><input type="date" id="pubFecha" value="' + esc(f0) + '" min="' + hoyIso() + '" max="' + tope + '" oninput="fechaPubCambio()" aria-label="Día">' +
         '<input type="time" id="pubDesde" step="300" value="' + esc(pre.desde || '10:00') + '" oninput="actualizarPrevia()" aria-label="Desde"><span>–</span>' +
         '<input type="time" id="pubHasta" step="300" value="' + esc(pre.hasta || '12:00') + '" oninput="actualizarPrevia()" aria-label="Hasta"></div>' +
+        '<label class="pub-chk"><input type="checkbox" id="pubVarios"' + (_tp.varios ? ' checked' : '') + ' onchange="alternarVarios(this.checked)"> Varios días con el mismo horario</label>' +
+        '<div class="pub-varios" id="pubVariosCaja"' + (_tp.varios ? '' : ' hidden') + '>' +
+          '<div class="pv-fila"><label for="pubFinDia">Hasta el</label><input type="date" id="pubFinDia" value="' + esc(iso(sumarDias(deIso(f0), 4))) + '" min="' + hoyIso() + '" max="' + tope + '" oninput="_tp.finTocado = true; actualizarPrevia()"></div>' +
+          '<div class="pv-dias" id="pubDiasSem" role="group" aria-label="Qué días de la semana"></div>' +
+        '</div>' +
         '<label class="et">Cada turno dura</label><div class="durs" id="pubDurs"></div>' +
         '<label class="et" for="pubLugar">Lugar <span style="font-weight:400;color:var(--muted)">(opcional)</span></label><input class="campo" id="pubLugar" maxlength="200" placeholder="Oficina, Zoom, Meet…">' +
         '<label class="et" for="pubNotas">Notas para el equipo <span style="font-weight:400;color:var(--muted)">(opcional)</span></label><textarea class="campo" id="pubNotas" rows="2" maxlength="1000" placeholder="Por ejemplo: traé tus números del mes"></textarea>' +
@@ -2476,43 +2527,109 @@
       c.innerHTML = DURACIONES.map(function (d) { return '<button type="button" class="' + (d === _tp.dur ? 'on' : '') + '" onclick="elegirDur(' + d + ')">' + d + ' min</button>'; }).join('');
     }
     function elegirDur(d) { _tp.dur = d; pintarDurs(); actualizarPrevia(); }
-    function calcularSlots() {
-      var f = ($('pubFecha') || {}).value, a = minDe(($('pubDesde') || {}).value), b = minDe(($('pubHasta') || {}).value), d = _tp.dur;
+    // Varios días: del primer día al "Hasta el", los días de la semana marcados.
+    var DIAS_SEM = [[1, 'Lun'], [2, 'Mar'], [3, 'Mié'], [4, 'Jue'], [5, 'Vie'], [6, 'Sáb'], [0, 'Dom']];
+    function pintarDiasSem() {
+      var c = $('pubDiasSem');
+      if (!c) return;
+      c.innerHTML = DIAS_SEM.map(function (x) {
+        var on = _tp.dias.indexOf(x[0]) >= 0;
+        return '<button type="button" class="' + (on ? 'on' : '') + '" aria-pressed="' + on + '" onclick="elegirDiaSem(' + x[0] + ')">' + x[1] + '</button>';
+      }).join('');
+    }
+    function elegirDiaSem(n) {
+      var i = _tp.dias.indexOf(n);
+      if (i >= 0) _tp.dias.splice(i, 1); else _tp.dias.push(n);
+      pintarDiasSem(); actualizarPrevia();
+    }
+    function alternarVarios(si) {
+      _tp.varios = !!si;
+      $('pubVariosCaja').hidden = !_tp.varios;
+      $('pubFechaEt').textContent = _tp.varios ? 'Primer día y horario' : 'Día y horario';
+      pintarDiasSem(); actualizarPrevia();
+    }
+    // El último día acompaña al primero (4 días después: de lunes a viernes) hasta
+    // que se lo cambia a mano; si queda antes del primero, se corre igual.
+    function fechaPubCambio() {
+      var f = ($('pubFecha') || {}).value, h = $('pubFinDia');
+      if (h && fechaValida(f) && (!_tp.finTocado || !fechaValida(h.value) || h.value < f)) h.value = iso(sumarDias(deIso(f), 4));
+      actualizarPrevia();
+    }
+    // Los días que se publican: uno, o los días marcados entre el primero y el último.
+    function fechasPublicar() {
+      var f = ($('pubFecha') || {}).value, tope = iso(sumarDias(hoy(), 120));
       if (!fechaValida(f)) return { error: 'Elegí el día.' };
-      if (f > iso(sumarDias(hoy(), 120))) return { error: 'Elegí un día dentro de los próximos 4 meses.' };
+      if (!_tp.varios) return f > tope ? { error: 'Elegí un día dentro de los próximos 4 meses.' } : { fechas: [f] };
+      var h = ($('pubFinDia') || {}).value;
+      if (!fechaValida(h)) return { error: 'Elegí hasta qué día.' };
+      if (h < f) return { error: 'El último día tiene que ser después del primero.' };
+      if (h > tope) return { error: 'Elegí días dentro de los próximos 4 meses.' };
+      if (h > iso(sumarDias(deIso(f), 30))) return { error: 'Elegí hasta un mes de días por vez.' };
+      if (!_tp.dias.length) return { error: 'Marcá al menos un día de la semana.' };
+      var out = [];
+      for (var d = deIso(f); iso(d) <= h; d = sumarDias(d, 1)) if (_tp.dias.indexOf(d.getDay()) >= 0) out.push(iso(d));
+      if (!out.length) return { error: 'Entre esas fechas no hay ninguno de los días que marcaste.' };
+      return { fechas: out };
+    }
+    function calcularSlots() {
+      var fs = fechasPublicar();
+      if (fs.error) return fs;
+      var a = minDe(($('pubDesde') || {}).value), b = minDe(($('pubHasta') || {}).value), d = _tp.dur;
       if (isNaN(a) || isNaN(b)) return { error: 'Elegí el horario.' };
       if (b <= a) return { error: 'La hora de fin tiene que ser después de la de inicio.' };
-      var cant = Math.floor((b - a) / d);
+      var cant = Math.floor((b - a) / d), varios = fs.fechas.length > 1;
       if (cant < 1) return { error: 'En ese horario no entra un turno de ' + d + ' minutos.' };
-      if (cant > 40) return { error: 'Serían ' + cant + ' turnos: el máximo es 40 por vez.' };
-      var hs = hoyIso(), am = ahoraMin(), lista = [];
-      var mios = T.filter(function (t) { return t.organizadorUid === yo.uid && t.fecha === f; }).map(function (t) { return [minDe(t.hora), minDe(t.horaFin)]; });
-      for (var i = 0; i < cant; i++) {
-        var x = a + i * d, y = x + d;
-        if (f < hs || (f === hs && x <= am)) continue;
-        if (mios.some(function (o) { return x < o[1] && y > o[0]; })) continue;
-        lista.push(hhmm(x));
-      }
-      if (!lista.length) return { error: 'Ese horario ya pasó o choca con turnos que ya publicaste.' };
-      return { lista: lista, total: cant };
+      if (cant > 40) return { error: 'Serían ' + cant + ' turnos' + (varios ? ' por día: el máximo es 40 por día.' : ': el máximo es 40 por vez.') };
+      if (cant * fs.fechas.length > 200) return { error: 'Serían ' + cant * fs.fechas.length + ' turnos: el máximo es 200 por vez.' };
+      var hs = hoyIso(), am = ahoraMin(), dias = [], n = 0;
+      fs.fechas.forEach(function (f) {
+        var mios = T.filter(function (t) { return t.organizadorUid === yo.uid && t.fecha === f; }).map(function (t) { return [minDe(t.hora), minDe(t.horaFin)]; });
+        var lista = [];
+        for (var i = 0; i < cant; i++) {
+          var x = a + i * d, y = x + d;
+          if (f < hs || (f === hs && x <= am)) continue;
+          if (mios.some(function (o) { return x < o[1] && y > o[0]; })) continue;
+          lista.push(hhmm(x));
+        }
+        if (lista.length) { dias.push({ fecha: f, lista: lista }); n += lista.length; }
+      });
+      if (!n) return { error: varios ? 'Esos horarios ya pasaron o chocan con turnos que ya publicaste.' : 'Ese horario ya pasó o choca con turnos que ya publicaste.' };
+      return { dias: dias, n: n, total: cant * fs.fechas.length, varios: varios };
     }
     function actualizarPrevia() {
       var p = $('pubPrev');
       if (!p) return;
-      var r = calcularSlots();
+      var r = calcularSlots(), h;
       p.classList.toggle('mal', !!r.error);
-      p.innerHTML = r.error ? esc(r.error) : 'Se publican <b>' + r.lista.length + (r.lista.length === 1 ? ' turno' : ' turnos') + '</b>: ' + r.lista.join(' · ') + (r.lista.length < r.total ? '<br><small>Los demás ya pasaron o chocan con turnos que ya tenías.</small>' : '');
+      if (r.error) h = esc(r.error);
+      else if (!r.varios || r.dias.length === 1) h = 'Se publican <b>' + r.n + (r.n === 1 ? ' turno' : ' turnos') + '</b>' + (r.varios ? ', el ' + esc(fechaMedia(r.dias[0].fecha)) : '') + ': ' + r.dias[0].lista.join(' · ') + (r.n < r.total ? '<br><small>Los demás ya pasaron o chocan con turnos que ya tenías.</small>' : '');
+      else {
+        var iguales = r.dias.every(function (x) { return x.lista.join() === r.dias[0].lista.join(); });
+        var fs = r.dias.map(function (x) { return fechaMedia(x.fecha); });
+        h = 'Se publican <b>' + r.n + ' turnos</b> en <b>' + r.dias.length + (r.dias.length === 1 ? ' día' : ' días') + '</b>: ' +
+          esc(fs.length > 8 ? fs.slice(0, 7).join(', ') + ' y ' + (fs.length - 7) + ' más' : fs.join(', ')) + '.' +
+          (iguales ? '<br>Cada día: ' + r.dias[0].lista.join(' · ') + '.' : '') +
+          (r.n < r.total ? '<br><small>Los que ya pasaron o chocan con turnos que ya tenías no se publican.</small>' : '') +
+          '<br><small>Cada agente reserva un solo turno entre todos estos días.</small>';
+      }
+      p.innerHTML = h;
       $('pubBtn').disabled = !!r.error;
     }
     function publicarTurnos(btn) {
       var r = calcularSlots();
       if (r.error) { toast(r.error); return; }
-      var f = $('pubFecha').value;
+      var fechas = r.dias.map(function (x) { return x.fecha; }), f = fechas[0], avisar = $('pubAvisar').checked;
+      var datos = { accion: 'crear', titulo: $('pubTit').value.trim(), fecha: f, desde: $('pubDesde').value, hasta: $('pubHasta').value,
+        duracion: _tp.dur, lugar: $('pubLugar').value.trim(), notas: $('pubNotas').value.trim(), avisar: avisar };
+      if (fechas.length > 1) datos.fechas = fechas;
       ocupado(btn, true);
-      llamarTurnos({ accion: 'crear', titulo: $('pubTit').value.trim(), fecha: f, desde: $('pubDesde').value, hasta: $('pubHasta').value,
-        duracion: _tp.dur, lugar: $('pubLugar').value.trim(), notas: $('pubNotas').value.trim(), avisar: $('pubAvisar').checked }).then(function (res) {
+      llamarTurnos(datos).then(function (res) {
         ocupado(btn, false);
-        toast('Publicaste ' + res.creados + (res.creados === 1 ? ' turno' : ' turnos') + ' para el ' + fechaLarga(f) + ($('pubAvisar').checked ? '. Le avisamos al equipo.' : '.'));
+        var creadas = Array.isArray(res.turnos) ? res.turnos.map(function (t) { return t.fecha; }).filter(function (x, i, l) { return l.indexOf(x) === i; }).sort() : [f];
+        // Un servidor sin actualizar ignora los demás días: publica solo el primero.
+        if (fechas.length > 1 && res.dias == null) toast('Se publicó solo el ' + fechaLarga(f) + ': falta actualizar el servidor para publicar varios días.');
+        else toast('Publicaste ' + res.creados + (res.creados === 1 ? ' turno ' : ' turnos ') + (creadas.length > 1 ? 'del ' + rangoTxt(creadas) : 'para el ' + fechaLarga(creadas[0])) + (avisar ? '. Le avisamos al equipo.' : '.'),
+          { accion: 'Compartir por WhatsApp', fn: function () { compartirTurnos(res.bloqueId); } });
         $('pubCaja').classList.add('cerrado');
         _tp.foco = res.bloqueId || null;
         if (Array.isArray(res.turnos)) T = T.concat(res.turnos);
@@ -2549,7 +2666,8 @@
       }
     }
     function infoBloque(b) {
-      var h = '<div class="bq-info"><span><i class="far fa-calendar"></i>' + esc(cap(fechaLarga(b.fecha))) + ' · ' + esc(b.ini) + ' – ' + esc(b.fin) + '</span>';
+      var cuando = b.dias.length > 1 ? 'Del ' + rangoTxt(fechasDe(b)) : cap(fechaLarga(b.fecha));
+      var h = '<div class="bq-info"><span><i class="far fa-calendar"></i>' + esc(cuando) + ' · ' + esc(b.ini) + ' – ' + esc(b.fin) + '</span>';
       if (b.lugar) h += '<span><i class="fas fa-location-dot"></i>' + esc(b.lugar) + '</span>';
       h += '</div>';
       if (b.notas) h += '<div class="bq-nota">' + esc(b.notas) + '</div>';
@@ -2559,20 +2677,33 @@
       var h = '<div class="bq" data-bq="' + esc(b.id) + '"><div class="bq-cab"><h3>' + esc(b.titulo) + '<small>con ' + esc(b.org || 'la Dirección') + '</small></h3></div>' + infoBloque(b);
       if (b.mio) {
         var pas = slotPasado(b.mio);
-        h += '<div class="bq-mio"><i class="fas fa-circle-check"></i><span>Tu turno: <b>' + esc(b.mio.hora) + ' – ' + esc(b.mio.horaFin) + '</b></span>' + (pas ? '' : '<button class="btn-txt" onclick="cancelarTurno(\'' + jsa(b.mio.id) + '\', this, false)">Cancelar</button>') + '</div>';
+        h += '<div class="bq-mio"><i class="fas fa-circle-check"></i><span>Tu turno: <b>' + (b.dias.length > 1 ? esc(cap(fechaMedia(b.mio.fecha))) + ' · ' : '') + esc(b.mio.hora) + ' – ' + esc(b.mio.horaFin) + '</b></span>' + (pas ? '' : '<button class="btn-txt" onclick="cancelarTurno(\'' + jsa(b.mio.id) + '\', this, false)">Cancelar</button>') + '</div>';
+      } else if (b.dias.length > 1) {
+        // Varios días: los horarios libres de cada día, con el día arriba.
+        b.dias.forEach(function (x) {
+          var libres = x.slots.filter(function (t) { return t.libre && !slotPasado(t); });
+          if (libres.length) h += '<div class="bq-dia-ag">' + esc(cap(fechaLarga(x.fecha))) + '</div>' + htmlSlots(libres, 'conf-' + b.id + '-' + x.fecha);
+        });
       } else h += htmlSlots(b.libres, 'conf-' + b.id);
       return h + '</div>';
     }
     function tarjetaBloqueDir(b) {
-      var h = '<div class="bq" data-bq="' + esc(b.id) + '"><div class="bq-cab"><h3>' + esc(b.titulo) + (b.orgUid !== yo.uid ? '<small>Publicó ' + esc(b.org || '') + '</small>' : '') + '</h3></div>' + infoBloque(b) + '<div class="bq-tabla">';
-      var libres = 0;
-      b.slots.forEach(function (s) {
-        var pas = slotPasado(s);
-        if (s.libre && pas) return;
-        if (s.libre) libres++;
-        h += '<div' + (pas ? ' style="opacity:.55"' : '') + '><b>' + esc(s.hora) + ' – ' + esc(s.horaFin) + '</b>' +
-          (s.libre ? '<span class="libre">Libre</span><button class="btn-txt" onclick="borrarTurno(\'' + jsa(s.id) + '\', this)">Borrar</button>'
-            : '<span>' + esc(s.reservadoNombre || 'Reservado') + '</span>' + (pas ? '' : '<button class="btn-txt" onclick="cancelarTurno(\'' + jsa(s.id) + '\', this, true)">Cancelar</button>')) + '</div>';
+      // El link para mandarlo al grupo del equipo va arriba: con varios días la lista es larga.
+      var compartir = b.libres.length ? '<div class="bq-acc"><button class="btn-sec wa" onclick="compartirTurnos(\'' + jsa(b.id) + '\')"><i class="fab fa-whatsapp"></i> Compartir por WhatsApp</button></div>' : '';
+      var h = '<div class="bq" data-bq="' + esc(b.id) + '"><div class="bq-cab"><h3>' + esc(b.titulo) + (b.orgUid !== yo.uid ? '<small>Publicó ' + esc(b.org || '') + '</small>' : '') + '</h3></div>' + infoBloque(b) + compartir + '<div class="bq-tabla">';
+      var libres = 0, varios = b.dias.length > 1;
+      b.dias.forEach(function (x) {
+        var filas = '';
+        x.slots.forEach(function (s) {
+          var pas = slotPasado(s);
+          if (s.libre && pas) return;
+          if (s.libre) libres++;
+          filas += '<div' + (pas ? ' style="opacity:.55"' : '') + '><b>' + esc(s.hora) + ' – ' + esc(s.horaFin) + '</b>' +
+            (s.libre ? '<span class="libre">Libre</span><button class="btn-txt" onclick="borrarTurno(\'' + jsa(s.id) + '\', this)">Borrar</button>'
+              : '<span>' + esc(s.reservadoNombre || 'Reservado') + '</span>' + (pas ? '' : '<button class="btn-txt" onclick="cancelarTurno(\'' + jsa(s.id) + '\', this, true)">Cancelar</button>')) + '</div>';
+        });
+        if (filas && varios) h += '<div class="bq-dia">' + esc(cap(fechaLarga(x.fecha))) + '</div>';
+        h += filas;
       });
       h += '</div><div class="bq-pie">';
       if (libres) h += '<button class="btn-sec" onclick="borrarBloque(\'' + jsa(b.id) + '\', true, this)"><i class="far fa-trash-can"></i> Borrar los libres</button>';

@@ -11925,7 +11925,9 @@ exports.icExplorar = onCall(async (request) => {
 // horario llegue a todas las copias y a todos los invitados.
 // =====================================================================
 const TURNO_DURACIONES = [15, 20, 30, 45, 60, 90];
-const TURNO_MAX_POR_VEZ = 40;
+const TURNO_MAX_POR_VEZ = 40;          // por día
+const TURNO_MAX_DIAS = 31;             // días en una misma publicación
+const TURNO_MAX_TOTAL = 200;           // turnos en una misma publicación
 const TURNO_DIAS_LISTA = 120;
 const REUNION_MAX_INVITADOS = 60;
 const TURNO_DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
@@ -11943,6 +11945,13 @@ const turnoSumarDias = (fecha, n) => new Date(new Date(`${fecha}T12:00:00-03:00`
 function turnoFechaLarga(fecha) {
   const d = new Date(`${fecha}T12:00:00-03:00`);   // 15:00 UTC del mismo día
   return `${TURNO_DIAS[d.getUTCDay()]} ${d.getUTCDate()} de ${TURNO_MESES[d.getUTCMonth()]}`;
+}
+// "para el lunes 2 de noviembre" o "del lunes 2 al viernes 6 de noviembre".
+function turnoCuando(fechas) {
+  if (fechas.length === 1) return `para el ${turnoFechaLarga(fechas[0])}`;
+  const a = new Date(`${fechas[0]}T12:00:00-03:00`), z = fechas[fechas.length - 1];
+  const mismoMes = fechas[0].slice(0, 7) === z.slice(0, 7);
+  return `del ${TURNO_DIAS[a.getUTCDay()]} ${a.getUTCDate()}${mismoMes ? "" : " de " + TURNO_MESES[a.getUTCMonth()]} al ${turnoFechaLarga(z)}`;
 }
 
 // La lógica va aparte de onCall para poder probarla con un Firestore simulado.
@@ -11983,7 +11992,7 @@ async function turnosAccion(ctx, D) {
   const avisar = async (destUid, subtipo, titulo, texto, extra, tipo) => {
     if (!destUid) return;
     const x = extra || {};
-    const url = "agenda.html" + (x.fecha ? "?fecha=" + x.fecha : "") + (subtipo === "nuevos" ? (x.fecha ? "&" : "?") + "turnos=1" : "");
+    const url = "agenda.html" + (x.fecha ? "?fecha=" + x.fecha : "") + (subtipo === "nuevos" ? (x.fecha ? "&" : "?") + "turnos=1" + (x.bloqueId ? "&bloque=" + x.bloqueId : "") : "");
     try {
       await D.notificar({ uid: destUid }, Object.assign({ type: tipo || "turno", subtipo, userName: titulo, text: texto, url }, x),
         { title: titulo, body: texto });
@@ -12010,52 +12019,66 @@ async function turnosAccion(ctx, D) {
   }
 
   // ---------- Publicar turnos (Dirección) ----------
+  // Uno o varios días con el mismo horario (por ejemplo, una semana de reuniones
+  // 1 a 1). Todo queda en un mismo bloque: cada agente reserva un solo turno.
   if (accion === "crear") {
     if (!esDir) throw new HttpsError("permission-denied", "Solo la Dirección publica turnos.");
     const titulo = String(d.titulo || "").trim().slice(0, 80) || "Reunión 1 a 1";
-    const fecha = String(d.fecha || "");
+    const pedidas = Array.isArray(d.fechas) && d.fechas.length ? d.fechas : [d.fecha];
+    const fechas = Array.from(new Set(pedidas.map((x) => String(x || "")))).sort();
+    if (fechas.length > TURNO_MAX_DIAS) throw new HttpsError("invalid-argument", `Elegí hasta ${TURNO_MAX_DIAS} días por vez.`);
     const ini0 = turnoMin(d.desde), fin0 = turnoMin(d.hasta), dur = Number(d.duracion);
-    if (!turnoFechaOk(fecha)) throw new HttpsError("invalid-argument", "Elegí una fecha válida.");
-    // La agenda de los agentes muestra los turnos de los próximos 4 meses.
-    if (fecha > turnoSumarDias(hoy, TURNO_DIAS_LISTA)) throw new HttpsError("invalid-argument", "Elegí un día dentro de los próximos 4 meses.");
+    for (const f of fechas) {
+      if (!turnoFechaOk(f)) throw new HttpsError("invalid-argument", "Elegí una fecha válida.");
+      // La agenda de los agentes muestra los turnos de los próximos 4 meses.
+      if (f > turnoSumarDias(hoy, TURNO_DIAS_LISTA)) throw new HttpsError("invalid-argument", "Elegí días dentro de los próximos 4 meses.");
+    }
     if (isNaN(ini0) || isNaN(fin0) || fin0 <= ini0) throw new HttpsError("invalid-argument", "La hora de fin tiene que ser después de la de inicio.");
     if (TURNO_DURACIONES.indexOf(dur) < 0) throw new HttpsError("invalid-argument", "Elegí cuánto dura cada turno.");
     const cant = Math.floor((fin0 - ini0) / dur);
     if (cant < 1) throw new HttpsError("invalid-argument", `En ese horario no entra un turno de ${dur} minutos.`);
-    if (cant > TURNO_MAX_POR_VEZ) throw new HttpsError("invalid-argument", `Serían ${cant} turnos: el máximo es ${TURNO_MAX_POR_VEZ} por vez.`);
-    // No se crean los que ya pasaron ni los que chocan con otros turnos tuyos de ese día.
-    const delDia = await col.where("organizadorUid", "==", uid).where("fecha", "==", fecha).get();
-    const ocupados = delDia.docs.map((s) => s.data()).map((t) => [turnoMin(t.hora), turnoMin(t.horaFin)]);
+    if (cant > TURNO_MAX_POR_VEZ) throw new HttpsError("invalid-argument", `Serían ${cant} turnos${fechas.length > 1 ? " por día" : ""}: el máximo es ${TURNO_MAX_POR_VEZ}${fechas.length > 1 ? " por día" : " por vez"}.`);
+    if (cant * fechas.length > TURNO_MAX_TOTAL) throw new HttpsError("invalid-argument", `Serían ${cant * fechas.length} turnos: el máximo es ${TURNO_MAX_TOTAL} por vez.`);
     const lugar = String(d.lugar || "").trim().slice(0, 200);
     const notas = String(d.notas || "").trim().slice(0, 1000);
     const bloqueId = col.doc().id;
     const batch = db.batch();
     const creados = [];
+    const conTurnos = new Set();
     let salteados = 0;
-    for (let i = 0; i < cant; i++) {
-      const a = ini0 + i * dur, b = a + dur;
-      if (turnoInstante(fecha, turnoHora(a)) <= ahora || ocupados.some(([x, y]) => a < y && b > x)) { salteados++; continue; }
-      const ref = col.doc();
-      const t = { bloqueId, titulo, fecha, hora: turnoHora(a), horaFin: turnoHora(b), lugar, notas,
-        organizadorUid: uid, organizadorNombre: miNombre, estado: "libre", reservadoPor: null, reservadoNombre: "", creadoEn: ahoraIso };
-      batch.set(ref, t);
-      creados.push(ver(ref.id, t));
+    for (const fecha of fechas) {
+      // No se crean los que ya pasaron ni los que chocan con otros turnos tuyos de ese día.
+      const delDia = await col.where("organizadorUid", "==", uid).where("fecha", "==", fecha).get();
+      const ocupados = delDia.docs.map((x) => x.data()).map((t) => [turnoMin(t.hora), turnoMin(t.horaFin)]);
+      for (let i = 0; i < cant; i++) {
+        const a = ini0 + i * dur, b = a + dur;
+        if (turnoInstante(fecha, turnoHora(a)) <= ahora || ocupados.some(([x, y]) => a < y && b > x)) { salteados++; continue; }
+        const ref = col.doc();
+        const t = { bloqueId, titulo, fecha, hora: turnoHora(a), horaFin: turnoHora(b), lugar, notas,
+          organizadorUid: uid, organizadorNombre: miNombre, estado: "libre", reservadoPor: null, reservadoNombre: "", creadoEn: ahoraIso };
+        batch.set(ref, t);
+        creados.push(ver(ref.id, t));
+        conTurnos.add(fecha);
+      }
     }
     if (!creados.length) {
-      throw new HttpsError("failed-precondition", "No se publicó ningún turno: ese horario ya pasó o choca con turnos que ya tenías.");
+      throw new HttpsError("failed-precondition", fechas.length > 1
+        ? "No se publicó ningún turno: esos horarios ya pasaron o chocan con turnos que ya tenías."
+        : "No se publicó ningún turno: ese horario ya pasó o choca con turnos que ya tenías.");
     }
     await batch.commit();
+    const dias = Array.from(conTurnos).sort();
     if (d.avisar !== false) {
-      const texto = `${miNombre} publicó ${creados.length === 1 ? "un turno" : creados.length + " turnos"} de ${titulo} para el ${turnoFechaLarga(fecha)}. Reservá el tuyo desde la agenda.`;
+      const texto = `${miNombre} publicó ${creados.length === 1 ? "un turno" : creados.length + " turnos"} de ${titulo} ${turnoCuando(dias)}. Reservá el tuyo desde la agenda.`;
       const us = await db.collection("users").where("status", "==", "approved").get();
       const destinos = us.docs.filter((u) => {
         const x = u.data() || {};
         return u.id !== uid && D.RANGOS_DIRECCION.indexOf(String(x.rank || "")) < 0 && String(x.email || "").toLowerCase() !== D.ADMIN_EMAIL;
       });
       // Todos a la vez: de a uno, con un equipo grande, publicar tardaba mucho.
-      await Promise.all(destinos.map((u) => avisar(u.id, "nuevos", "Turnos para reservar", texto, { fecha, bloqueId })));
+      await Promise.all(destinos.map((u) => avisar(u.id, "nuevos", "Turnos para reservar", texto, { fecha: dias[0], bloqueId })));
     }
-    return { creados: creados.length, salteados, bloqueId, turnos: creados };
+    return { creados: creados.length, salteados, bloqueId, turnos: creados, dias: dias.length };
   }
 
   // ---------- Reservar (agentes) ----------
