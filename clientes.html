@@ -460,7 +460,7 @@
     .cp-summary-ico{ width:32px; height:32px; border-radius:9px; background:rgba(201,162,39,.16); color:var(--gold); display:flex; align-items:center; justify-content:center; font-size:.82rem; flex:0 0 auto; }
     .cp-summary-val{ font-size:1.05rem; font-weight:700; color:#fff; line-height:1.2; }
     .cp-summary-lab{ font-size:.7rem; color:#aeb7c2; margin-top:2px; }
-    /* Feed de actividad (solo cambios de estado) */
+    /* Actividad del cliente: todo lo que pasó con él, de lo más nuevo a lo más viejo */
     .cp-activity-list{ display:flex; flex-direction:column; }
     .cp-activity-item{ display:flex; gap:12px; padding:11px 0; border-bottom:1px solid var(--gray-100); }
     .cp-activity-item:last-child{ border-bottom:none; }
@@ -471,6 +471,9 @@
     .cp-activity-foot{ font-size:.73rem; color:var(--gray-400); margin-top:3px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
     .cp-activity-foot .sep{ opacity:.5; }
     .cp-activity-empty{ font-size:.85rem; color:var(--gray-400); font-style:italic; padding:6px 2px; }
+    .cp-activity-nota{ color:var(--gray-500); font-weight:400; }
+    .cp-activity-mas{ margin-top:10px; background:none; border:1px solid var(--gray-200); border-radius:9px; padding:8px 14px; font-family:inherit; font-size:.82rem; font-weight:600; color:var(--navy); cursor:pointer; }
+    .cp-activity-mas:hover{ border-color:var(--gold-2); color:var(--gold-hover); }
     .cp-btn{ padding:10px 18px; border-radius:9px; font-family:inherit; font-size:.9rem; font-weight:600; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:8px; text-decoration:none; transition:all .18s; }
     .cp-btn-wa{ background:#25D366; color:#fff; } .cp-btn-wa:hover{ background:#1eb858; }
     .cp-btn-edit{ background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.2); } .cp-btn-edit:hover{ background:rgba(255,255,255,.2); }
@@ -2200,8 +2203,10 @@
       var ahora = new Date().toISOString();
       var marca = { motivo: motivo, at: ahora, por: miNombre(), porUid: currentUser.uid };
       var antes = { archived: !!c.archived };
-      db.collection('clients').doc(id).update({ archived: true, descartada: marca, updatedAt: ahora }).then(function(){
+      var reg = entradaRegistro('descartada', motivo, ahora);
+      db.collection('clients').doc(id).update({ archived: true, descartada: marca, updatedAt: ahora, registro: firebase.firestore.FieldValue.arrayUnion(reg) }).then(function(){
         c.archived = true; c.descartada = marca; c.updatedAt = ahora;
+        sumarRegistroLocal(c, reg);
         renderClients();
         if (currentProfileId === id) pintarConsultaPerfil(c);
         showToast('Consulta descartada', MOTIVOS_DESCARTE[motivo] || '', { txt: 'Deshacer', fn: function(){ recuperarConsulta(null, id, antes); } });
@@ -2215,8 +2220,11 @@
       var ahora = new Date().toISOString();
       var reabrir = !c.descartada && ['perdido', 'externo'].indexOf(c._rollupStatus) >= 0;
       var upd = { descartada: firebase.firestore.FieldValue.delete(), archived: !!(antes && antes.archived), updatedAt: ahora };
+      var reg = entradaRegistro('recuperada', '', ahora);
+      upd.registro = firebase.firestore.FieldValue.arrayUnion(reg);
       db.collection('clients').doc(id).update(upd).then(function(){
         delete c.descartada; c.archived = !!(antes && antes.archived); c.updatedAt = ahora;
+        sumarRegistroLocal(c, reg);
         if (reabrir){ aplicarCambioEstado(id, 'contactado'); return; }
         renderClients();
         if (currentProfileId === id) pintarConsultaPerfil(c);
@@ -3059,8 +3067,9 @@
         // Sin gestiones reales: la etapa vive en la ficha del cliente. Va en
         // "etapa" (que se respeta al recargar) y también en "status", que es lo
         // que leen las pantallas viejas.
-        escritura = db.collection('clients').doc(id).update({ etapa: nuevo, etapaAt: ahora, status: nuevo, updatedAt: ahora })
-          .then(function(){ c.etapa = nuevo; c.etapaAt = ahora; c.status = nuevo; c.updatedAt = ahora; });
+        var regE = entradaRegistro('etapa', GESTION_ESTADO[nuevo] || nuevo, ahora);
+        escritura = db.collection('clients').doc(id).update({ etapa: nuevo, etapaAt: ahora, status: nuevo, updatedAt: ahora, registro: firebase.firestore.FieldValue.arrayUnion(regE) })
+          .then(function(){ c.etapa = nuevo; c.etapaAt = ahora; c.status = nuevo; c.updatedAt = ahora; sumarRegistroLocal(c, regE); });
       }
       var eAntes = estadoConsulta(c);
       escritura.then(function(){
@@ -3406,9 +3415,13 @@
       var upd = { situacion: valorGuardado, situacionPor: (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente', updatedAt: ahora };
       if (nueva === 'pausa'){ upd.pausadoEn = ahora; upd.pausaSnoozeUntil = firebase.firestore.FieldValue.delete(); }
       else { upd.pausadoEn = firebase.firestore.FieldValue.delete(); upd.pausaSnoozeUntil = firebase.firestore.FieldValue.delete(); }
+      // Queda en la actividad del cliente (reactivarlo borraba la fecha de la pausa).
+      var reg = entradaRegistro('situacion', nueva, ahora);
+      upd.registro = firebase.firestore.FieldValue.arrayUnion(reg);
       db.collection('clients').doc(id).update(upd).then(function(){
         if (nueva === 'cerrado_agencia') delete c.situacion; else c.situacion = nueva;
         if (nueva === 'pausa') c.pausadoEn = ahora; else { delete c.pausadoEn; delete c.pausaSnoozeUntil; }
+        sumarRegistroLocal(c, reg);
         renderClients();
         var msg = nueva==='activo' ? 'Cliente reactivado' : nueva==='pausa' ? 'Cliente en pausa — vuelve a avisar en '+MESES_PAUSA+' meses' : nueva==='externo' ? 'Marcado como cerrado por afuera' : nueva==='cerrado_agencia' ? 'Marcado como cierre de la agencia' : 'Situación actualizada';
         showToast(msg);
@@ -3677,6 +3690,8 @@
         [g.updatedAt, g.createdAt].forEach(function(t){ if (t && t>lastTs) lastTs=t; });
         (g.historial||[]).forEach(function(h){ if (h.tipo !== 'sincronizar' && h.fecha && h.fecha>lastTs) lastTs=h.fecha; });
       });
+      // También lo que pasó con el cliente: un traspaso, una pausa, una visita agendada...
+      eventosActividad(clienteLocal(currentProfileId), []).forEach(function(e){ if (e.fecha > lastTs) lastTs = e.fecha; });
       (viejas||[]).forEach(function(p){ activas++; sums[(p.currency==='UYU')?'UYU':'USD'] += (Number(p.price)||0); });
 
       var valParts = [];
@@ -3696,37 +3711,146 @@
       box.style.display = '';
     }
 
-    // Actividad reciente: SOLO cambios de estado (avance + estado de propiedad), consolidando los historiales.
+    // ===== Actividad reciente: todo lo que pasó con el cliente =====
+    // El alta, los traspasos, quién lo sumó a su lista, las consultas, los avances y
+    // estados de cada gestión, los cambios de agente, las visitas agendadas, las
+    // pausas... Sale de lo que ya guarda cada cosa (el cliente, sus gestiones y la
+    // agenda) y de su "registro", donde queda lo que no tiene otro lugar (que lo
+    // pusieron en pausa, que borraron una gestión, que alguien lo sacó de su lista).
+    var ACT_VISIBLES = 8, _actTodo = false, _actCliente = null;
+    var REG_SITUACION = { pausa:'Lo pusieron <b>en pausa</b>', activo:'Lo <b>reactivaron</b>', externo:'Lo marcaron <b>Cerró por afuera</b>',
+      cerrado_agencia:'Lo marcaron como <b>cierre de la agencia</b>', perdido:'Lo marcaron <b>Perdido</b>' };
+    var VIA_CONTACTO = { whatsapp:'WhatsApp', llamada:'teléfono', telefono:'teléfono', mail:'mail', email:'mail' };
+    // El nombre de quien lo hizo. El servidor anota el email de la Dirección.
+    function nombrePor(por){
+      por = String(por || '');
+      if (por.indexOf('@') < 0) return por;
+      var em = por.toLowerCase();
+      if (currentUser && em === String(currentUser.email || '').toLowerCase()) return miNombre();
+      if (_usuariosPorUid){
+        for (var k in _usuariosPorUid){ var u = _usuariosPorUid[k]; if (u && String(u.email || '').toLowerCase() === em) return u.name || 'la Dirección'; }
+      }
+      return 'la Dirección';
+    }
+    function cortoTxt(t, n){ t = String(t || '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1) + '…' : t; }
+    // Cada evento: { ico, texto (HTML), fecha, autor, sobre (la propiedad, si es de una gestión) }.
+    function eventosActividad(c, gestiones){
+      var ev = [];
+      var add = function(ico, texto, fecha, autor, sobre){ if (fecha) ev.push({ ico: ico, texto: texto, fecha: fecha, autor: autor || '', sobre: sobre || '' }); };
+      var cerca = function(a, b){ return !!a && !!b && Math.abs(new Date(a) - new Date(b)) < 120000; };
+      c = c || {};
+      var tras = (Array.isArray(c.traspasos) ? c.traspasos : []).filter(function(t){ return t && t.fecha; })
+        .slice().sort(function(a, b){ return a.fecha.localeCompare(b.fecha); });
+      var reg = (Array.isArray(c.registro) ? c.registro : []).filter(function(e){ return e && e.fecha; });
+      var anotado = function(tipo, fecha){ return reg.some(function(e){ return e.tipo === tipo && e.fecha === fecha; }); };
+
+      // El alta: quién lo cargó (el primero, aunque después se haya traspasado) o de qué portal llegó.
+      if (c.createdAt){
+        var portal = nombrePortal(c);
+        var creador = tras.length ? (tras[0].deNombre || '') : (c.createdByName || c.ownerName || '');
+        add('fa-user-plus', portal ? 'Llegó por una consulta de <b>'+esc(portal)+'</b>' : 'Alta del cliente', c.createdAt, portal ? '' : creador);
+      }
+      tras.forEach(function(t){
+        var a = esc(t.aNombre || 'otro agente');
+        var txt = t.deNombre ? 'Pasó de <b>'+esc(t.deNombre)+'</b> a <b>'+a+'</b>' : 'Pasó a <b>'+a+'</b>';
+        if (t.motivo) txt += ' <span class="cp-activity-nota">('+esc(t.motivo)+')</span>';
+        add('fa-right-left', txt, t.fecha, nombrePor(t.por));
+      });
+      // Quién lo sumó a su lista. El que lo recibió en un traspaso ya figura arriba.
+      (Array.isArray(c.enLista) ? c.enLista : []).forEach(function(x){
+        if (!x || !x.desde || cerca(x.desde, c.createdAt)) return;
+        if (tras.some(function(t){ return t.a === x.uid && cerca(t.fecha, x.desde); })) return;
+        add('fa-user-group', '<b>'+esc(x.nombre || 'Un agente')+'</b> lo sumó a su lista', x.desde, x.nombre);
+      });
+      if (c.contactadoAt) add('fa-comment', 'Primer contacto' + (VIA_CONTACTO[c.contactadoVia] ? ' por '+VIA_CONTACTO[c.contactadoVia] : ''), c.contactadoAt, c.contactadoPor);
+      if (c.pasadoAClientes && c.pasadoAClientes.at) add('fa-arrow-right', 'Pasó de Consultas a <b>Clientes</b>', c.pasadoAClientes.at, c.pasadoAClientes.por);
+      if (c.descartada && c.descartada.at && !anotado('descartada', c.descartada.at))
+        add('fa-ban', 'Consulta <b>descartada</b>' + (MOTIVOS_DESCARTE[c.descartada.motivo] ? ' <span class="cp-activity-nota">('+esc(MOTIVOS_DESCARTE[c.descartada.motivo])+')</span>' : ''), c.descartada.at, c.descartada.por);
+      if (c.situacion === 'pausa' && c.pausadoEn && !anotado('situacion', c.pausadoEn)) add('fa-pause', REG_SITUACION.pausa, c.pausadoEn, c.situacionPor);
+      if (c.etapa && c.etapaAt && !anotado('etapa', c.etapaAt)) add('fa-arrow-trend-up', 'Avance → <b>'+esc(GESTION_ESTADO[c.etapa] || c.etapa)+'</b>', c.etapaAt, '');
+      if (c.ultimoContacto) add('fa-comment', 'Contacto registrado (se mantiene activo)', c.ultimoContacto, '');
+      reg.forEach(function(e){
+        var v = esc(e.valor || '');
+        if (e.tipo === 'situacion') add(e.valor === 'pausa' ? 'fa-pause' : e.valor === 'activo' ? 'fa-play' : 'fa-flag', REG_SITUACION[e.valor] || ('Situación → <b>'+v+'</b>'), e.fecha, e.autor);
+        else if (e.tipo === 'etapa') add('fa-arrow-trend-up', 'Avance → <b>'+v+'</b>', e.fecha, e.autor);
+        else if (e.tipo === 'gestion_borrada') add('fa-trash-can', 'Borraron la gestión de <b>'+v+'</b>', e.fecha, e.autor);
+        else if (e.tipo === 'lista_salio') add('fa-user-minus', '<b>'+v+'</b> lo sacó de su lista', e.fecha, e.autor);
+        else if (e.tipo === 'descartada') add('fa-ban', 'Consulta <b>descartada</b>' + (MOTIVOS_DESCARTE[e.valor] ? ' <span class="cp-activity-nota">('+esc(MOTIVOS_DESCARTE[e.valor])+')</span>' : ''), e.fecha, e.autor);
+        else if (e.tipo === 'recuperada') add('fa-rotate-left', 'Consulta <b>recuperada</b>', e.fecha, e.autor);
+        else if (v) add('fa-circle-info', v, e.fecha, e.autor);
+      });
+
+      // Las gestiones: cuándo se abrió cada una y todo lo que tiene en su historial.
+      (gestiones || []).forEach(function(g){
+        var titulo = g.propertyTitle || (propEnMemoria(g.propertyId) || {}).title || 'Propiedad';
+        var h = (g.historial || []).filter(function(x){ return x && x.fecha; });
+        // La primera etapa se anota al crear la gestión: va en el mismo renglón.
+        var inicial = null;
+        if (g.createdAt){
+          for (var i=0;i<h.length;i++){ if (h[i].tipo === 'avance' && cerca(h[i].fecha, g.createdAt)){ inicial = h[i]; break; } }
+          add('fa-handshake', 'Nueva gestión' + (g.rol === 'propietario' ? ' como <b>propietario</b>' : g.rol === 'interesado' ? ' como <b>interesado</b>' : '') + (inicial ? ' · '+esc(inicial.valor) : ''),
+            g.createdAt, g.agentName || g.createdByName || (inicial && inicial.autor) || '', titulo);
+        }
+        h.forEach(function(x){
+          if (x === inicial || x.tipo === 'sincronizar') return;
+          if (x.tipo === 'avance') add('fa-arrow-trend-up', 'Avance → <b>'+esc(x.valor)+'</b>' + (x.nota ? ' <span class="cp-activity-nota">('+esc(x.nota)+')</span>' : ''), x.fecha, x.autor, titulo);
+          else if (x.tipo === 'propiedad') add('fa-house', 'Estado de la propiedad → <b>'+esc(x.valor)+'</b>', x.fecha, x.autor, titulo);
+          // El cambio de agente por un traspaso del cliente ya está en el traspaso.
+          else if (x.tipo === 'agente'){ if (x.motivo !== 'traspaso del cliente') add('fa-user-tie', 'Ahora la trabaja <b>'+esc(x.valor)+'</b>', x.fecha, x.autor, titulo); }
+          else if (x.tipo === 'nota') add(AUTORES_SISTEMA.indexOf(x.autor) >= 0 ? 'fa-inbox' : 'fa-comment', esc(cortoTxt(x.valor || 'Nota', 160)), x.fecha, x.autor, titulo);
+        });
+      });
+
+      // La agenda: las visitas y reuniones que se le agendaron.
+      (allVisits || []).forEach(function(v){
+        if (!c.id || v.clientId !== c.id || !v.createdAt) return;
+        var t = v.eventType || 'visit', lab = (EV_LAB[t] || ['evento'])[0];
+        var cuando = v.date ? fechaCorta(v.date + 'T12:00:00', true) + (v.time ? ' a las ' + v.time : '') : '';
+        var prop = v.propertyId ? (propEnMemoria(v.propertyId) || {}).title : '';
+        add('fa-calendar-check', 'Le agendaron ' + (t === 'other' ? 'un ' : 'una ') + esc(lab) + (cuando ? ' para el <b>'+esc(cuando)+'</b>' : ''), v.createdAt,
+          (currentUser && v.userId === currentUser.uid) ? miNombre() : '', prop || '');
+      });
+      return ev;
+    }
     function renderActividad(gestiones){
       var card = document.getElementById('cpActivityCard');
       var list = document.getElementById('cpActivityList');
       if (!card || !list) return;
-      var eventos = [];
-      gestiones.forEach(function(g){
-        var titulo = g.propertyTitle || 'Propiedad';
-        (g.historial||[]).forEach(function(h){
-          if (h.tipo==='avance' || h.tipo==='propiedad'){
-            eventos.push({ tipo:h.tipo, valor:h.valor, autor:h.autor, fecha:h.fecha, titulo:titulo });
-          }
-        });
-      });
+      if (_actCliente !== currentProfileId){ _actCliente = currentProfileId; _actTodo = false; }
+      var c = clienteLocal(currentProfileId);
+      var eventos = eventosActividad(c, gestiones || []);
       if (!eventos.length){ card.style.display='none'; list.innerHTML=''; return; }
       eventos.sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||''); });
-      list.innerHTML = eventos.slice(0,8).map(function(e){
-        var ico = e.tipo==='propiedad' ? 'fa-house' : 'fa-arrow-trend-up';
-        var texto = e.tipo==='propiedad'
-          ? 'Estado de la propiedad → <b>'+esc(e.valor)+'</b>'
-          : 'Avance con el cliente → <b>'+esc(e.valor)+'</b>';
-        var fecha = e.fecha ? new Date(e.fecha).toLocaleString('es-UY',{ day:'numeric', month:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+      // Un traspaso hecho por el servidor guarda el email de quien lo hizo: con la
+      // lista de usuarios se muestra su nombre (la Dirección la puede leer).
+      if (esDir && !_usuariosPorUid && c && (c.traspasos || []).some(function(t){ return t && String(t.por || '').indexOf('@') >= 0; })){
+        cargarAgentes().then(function(){ if (currentProfileId === (c && c.id)) renderActividad(_gestionesPerfil); });
+      }
+      var ver = _actTodo ? eventos : eventos.slice(0, ACT_VISIBLES);
+      list.innerHTML = ver.map(function(e){
+        var fecha = new Date(e.fecha).toLocaleString('es-UY',{ day:'numeric', month:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' });
+        var pie = [e.sobre, e.autor, fecha].filter(Boolean).map(function(x, i, l){ return '<span>'+esc(x)+'</span>' + (i < l.length - 1 ? '<span class="sep">·</span>' : ''); }).join('');
         return '<div class="cp-activity-item">' +
-          '<div class="cp-activity-dot"><i class="fas '+ico+'"></i></div>' +
+          '<div class="cp-activity-dot"><i class="fas '+e.ico+'"></i></div>' +
           '<div class="cp-activity-body">' +
-            '<div class="cp-activity-text">'+texto+'</div>' +
-            '<div class="cp-activity-foot"><span>'+esc(e.titulo)+'</span><span class="sep">·</span><span>'+esc(e.autor||'Agente')+'</span><span class="sep">·</span><span>'+fecha+'</span></div>' +
+            '<div class="cp-activity-text">'+e.texto+'</div>' +
+            '<div class="cp-activity-foot">'+pie+'</div>' +
           '</div>' +
         '</div>';
-      }).join('');
+      }).join('') + (eventos.length > ACT_VISIBLES
+        ? '<button type="button" class="cp-activity-mas" onclick="verTodaActividad()">'+(_actTodo ? 'Ver menos' : 'Ver todo ('+eventos.length+')')+'</button>' : '');
       card.style.display = '';
+    }
+    function verTodaActividad(){ _actTodo = !_actTodo; renderActividad(_gestionesPerfil); }
+    // Anota en el registro del cliente algo que no queda en otro lado. Devuelve la
+    // entrada para sumarla a la misma escritura que hace el cambio.
+    function entradaRegistro(tipo, valor, fecha){
+      return { tipo: tipo, valor: String(valor == null ? '' : valor), autor: miNombre(), fecha: fecha || new Date().toISOString() };
+    }
+    function sumarRegistroLocal(c, e){
+      if (!c) return;
+      c.registro = (Array.isArray(c.registro) ? c.registro : []).concat([e]);
+      if (currentProfileId === c.id) renderActividad(_gestionesPerfil);
     }
 
     function propViejaCard(p){
@@ -4655,8 +4779,16 @@
 
     function borrarGestion(id){
       if (!confirm('¿Eliminar esta gestión? (No borra la propiedad, solo la quita del seguimiento de este cliente.)')) return;
+      // Lo que se borra con la gestión es su historial: en el cliente queda que existió.
+      var g = null; (_gestionesPerfil || []).forEach(function(x){ if (x.id === id) g = x; });
       db.collection('gestiones').doc(id).delete().then(function(){
         showToast('Gestión eliminada');
+        if (g && g.clientId){
+          var reg = entradaRegistro('gestion_borrada', g.propertyTitle || (propEnMemoria(g.propertyId) || {}).title || 'una propiedad');
+          sumarRegistroLocal(clienteLocal(g.clientId), reg);
+          db.collection('clients').doc(g.clientId).update({ registro: firebase.firestore.FieldValue.arrayUnion(reg) })
+            .catch(function(e){ console.warn('No se pudo anotar la gestión borrada:', e); });
+        }
         renderGestiones(currentProfileId);
       }).catch(function(e){ showToast('No se pudo eliminar'); console.error(e); });
     }
@@ -4681,6 +4813,7 @@
           else if (e.tipo==='propiedad'){ icono='fa-home'; texto='Estado de la propiedad → <b>'+esc(e.valor)+'</b>'; }
           else if (e.tipo==='sincronizar'){ icono='fa-arrows-rotate'; texto=esc(e.valor||'Se sincronizó la propiedad con el avance'); }
           else if (e.tipo==='nota'){ icono='fa-note-sticky'; texto=esc(e.valor||'Nota'); }
+          else if (e.tipo==='agente'){ icono='fa-user-tie'; texto='Ahora la trabaja <b>'+esc(e.valor)+'</b>'+(e.motivo ? ' <span class="hist-meta">('+esc(e.motivo)+')</span>' : ''); }
           else { icono='fa-arrow-trend-up'; texto='Avance → <b>'+esc(e.valor)+'</b>'; }
           if (e.nota) texto += '<div class="hist-meta" style="margin-top:2px">'+esc(e.nota)+'</div>';
           return '<div class="hist-item">' +
@@ -5120,11 +5253,14 @@
         ? ref.get().then(function(s){
             var d = s.exists ? s.data() : {};
             var nueva = (Array.isArray(d.enLista) ? d.enLista : []).filter(function(x){ return x && x.uid !== currentUser.uid; });
-            return ref.update({ enLista: nueva }).then(function(){ return { enLista: nueva }; });
+            var reg = entradaRegistro('lista_salio', miNombre());
+            return ref.update({ enLista: nueva, registro: firebase.firestore.FieldValue.arrayUnion(reg) }).then(function(){ return { enLista: nueva, reg: reg }; });
           })
         : sumarAMiLista(currentProfileId);
       op.then(function(r){
           c.enLista = r.enLista;
+          if (r.reg) sumarRegistroLocal(c, r.reg);
+          else if (currentProfileId === c.id) renderActividad(_gestionesPerfil);
           showToast(yaEsta ? 'Lo sacaste de tu lista' : 'Agregado a tus clientes');
           pintarLista(c);
           renderClients();
@@ -5402,7 +5538,9 @@
         return db.collection('gestiones').doc(gestionId).update({
           agentId: destino.uid, agentName: nombre,
           createdBy: destino.uid, createdByName: nombre,
-          ownerId: destino.uid, updatedAt: ahora
+          ownerId: destino.uid, updatedAt: ahora,
+          // Queda en su historial y en la actividad del cliente.
+          historial: firebase.firestore.FieldValue.arrayUnion({ tipo:'agente', valor: nombre, autor: miNombre(), fecha: ahora })
         });
       }).then(function(){
         if (!mueveProp || !propertyId) return null;
@@ -5447,7 +5585,9 @@
           cambios.push(d.ref.update({
             agentId: destino.uid, agentName: nombre,
             createdBy: destino.uid, createdByName: nombre,
-            ownerId: destino.uid, updatedAt: ahora
+            ownerId: destino.uid, updatedAt: ahora,
+            // En el historial de la gestión; en la actividad del cliente ya está el traspaso.
+            historial: firebase.firestore.FieldValue.arrayUnion({ tipo:'agente', valor: nombre, autor: miNombre(), fecha: ahora, motivo: 'traspaso del cliente' })
           }));
         });
         return Promise.all(cambios).then(function(){ return { props: props, ajenas: ajenas }; });
