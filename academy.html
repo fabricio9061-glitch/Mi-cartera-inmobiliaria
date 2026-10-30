@@ -22,6 +22,7 @@
     h1,h2,h3{ font-family:'Cormorant Garamond',serif; color:var(--ink); font-weight:700; line-height:1.15; }
     button, input, select, textarea{ font-family:inherit; }
     [hidden]{ display:none !important; }
+    .sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
     a{ color:inherit; }
 
     /* ---- Cabecera (la misma de las demás herramientas) ---- */
@@ -89,34 +90,121 @@
     .tab[aria-selected="true"]{ background:#fff; color:var(--ink); font-weight:600; box-shadow:0 1px 3px rgba(16,24,40,.14); }
     .tab[aria-selected="true"] i{ color:var(--gold); opacity:1; }
 
-    /* ---- Para empezar ---- */
+    /* ---- Guías: índice a la izquierda y lector a la derecha ---- */
     .caja{ background:#fff; border:1px solid var(--line); border-radius:18px; padding:22px 24px; }
-    .si{ width:42px; height:42px; border-radius:11px; flex:none; display:inline-grid; place-items:center; background:rgba(201,162,39,.13); color:var(--gold-osc); font-size:1rem; }
-    .card-t{ display:flex; align-items:center; gap:12px; font-size:1.35rem; padding-bottom:14px; margin-bottom:16px; border-bottom:1px solid rgba(201,162,39,.28); }
-    .proceso{ margin-bottom:16px; }
-    .pasos{ list-style:none; display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:20px; position:relative; counter-reset:paso; }
-    .pasos::before{ content:""; position:absolute; top:17px; left:18px; right:calc(33.33% - 18px); height:2px; background:linear-gradient(90deg, var(--gold), rgba(201,162,39,.25)); }
-    .pasos li{ position:relative; counter-increment:paso; padding-top:48px; font-size:.9rem; color:var(--text); line-height:1.6; }
-    .pasos li::before{ content:counter(paso); position:absolute; top:0; left:0; width:36px; height:36px; border-radius:50%; display:grid; place-items:center; background:var(--ink); color:var(--gold-cl); font-family:'Cormorant Garamond',serif; font-size:1.25rem; font-weight:700; font-variant-numeric:lining-nums; box-shadow:0 0 0 5px #fff; }
-    .pasos li b{ display:block; color:var(--ink); font-size:.98rem; margin-bottom:2px; }
-    .start-grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px; align-items:start; }
-    .start-card ul{ list-style:none; }
-    .start-card li{ position:relative; padding-left:27px; margin-bottom:11px; font-size:.9rem; color:var(--text); line-height:1.6; }
-    .start-card li:last-child{ margin-bottom:0; }
-    .start-card li::before{ content:"\f058"; font-family:"Font Awesome 6 Free"; font-weight:900; color:var(--gold); position:absolute; left:0; top:1px; font-size:.92rem; }
-    .start-card li b{ color:var(--ink); }
-    .start-card li a{ text-decoration:none; border-bottom:1.5px solid rgba(201,162,39,.6); transition:border-color .15s, color .15s; }
-    .start-card li a:hover{ color:var(--gold-osc); border-bottom-color:var(--gold); }
-    .sc-body{ position:relative; }
-    .start-card.sc-collapsible:not(.sc-open) .sc-body{ max-height:172px; overflow:hidden; }
-    .start-card.sc-collapsible:not(.sc-open) .sc-body::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:52px; background:linear-gradient(rgba(255,255,255,0), #fff); }
-    .sc-more{ margin-top:14px; background:#fff; border:1px solid rgba(201,162,39,.55); color:var(--gold-osc); border-radius:999px; padding:8px 18px; font-size:.84rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:background .15s; }
-    .sc-more:hover{ background:#fdf8ec; }
-    .sc-more i{ font-size:.75rem; }
-    .aca-tip{ display:flex; align-items:center; gap:14px; background:#fff; border:1px solid var(--line); border-radius:16px; padding:15px 20px; margin-top:16px; }
-    .aca-tip-ic{ width:40px; height:40px; border-radius:50%; background:var(--ink); color:var(--gold); display:grid; place-items:center; flex:none; }
-    .aca-tip-tx{ font-size:.9rem; color:var(--muted); line-height:1.5; }
-    .aca-tip-tx b{ color:var(--ink); margin-right:7px; }
+    .guias{ display:grid; grid-template-columns:272px minmax(0,1fr); gap:20px; align-items:start; }
+    .g-indice{ position:sticky; top:84px; background:#fff; border:1px solid var(--line); border-radius:18px; padding:8px; max-height:calc(100vh - 104px); overflow:auto; }
+    .g-grupo{ font-size:.76rem; color:var(--soft); font-weight:500; padding:12px 12px 5px; }
+    .g-item{ display:flex; align-items:center; gap:11px; width:100%; border:0; background:none; text-align:left; padding:8px 10px; border-radius:12px; cursor:pointer; color:var(--text); font-size:.9rem; }
+    .g-item .gi{ width:34px; height:34px; border-radius:10px; flex:none; display:grid; place-items:center; background:rgba(201,162,39,.12); color:var(--gold-osc); font-size:.85rem; }
+    .g-item .gt{ flex:1; min-width:0; display:flex; flex-direction:column; }
+    .g-item .gt b{ font-weight:500; line-height:1.3; }
+    .g-item .gt small{ display:none; font-size:.8rem; color:var(--muted); line-height:1.4; margin-top:2px; }
+    .g-item .gm{ font-size:.74rem; color:var(--soft); white-space:nowrap; }
+    .g-item:hover{ background:#f7f6f1; }
+    .g-item[aria-current="true"]{ background:var(--ink); color:#fff; }
+    .g-item[aria-current="true"] .gi{ background:rgba(201,162,39,.22); color:var(--gold-cl); }
+    .g-item[aria-current="true"] .gm{ color:rgba(255,255,255,.6); }
+    .g-item:focus-visible, .g-volver:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+    .g-lector{ background:#fff; border:1px solid var(--line); border-radius:20px; padding:30px 34px 28px; min-width:0; }
+    .g-volver{ display:none; align-items:center; gap:8px; border:0; background:none; color:var(--gold-osc); font-weight:600; font-size:.88rem; cursor:pointer; padding:0; margin-bottom:14px; }
+    .g-head{ display:flex; gap:16px; align-items:flex-start; padding-bottom:20px; border-bottom:1px solid var(--line2); }
+    .g-head .gi{ width:52px; height:52px; border-radius:14px; background:var(--ink); color:var(--gold); display:grid; place-items:center; font-size:1.25rem; flex:none; }
+    .g-head h2{ font-size:clamp(1.6rem, 3vw, 2.1rem); }
+    .g-head h2:focus{ outline:none; }
+    .g-head p{ color:var(--muted); font-size:.96rem; margin-top:5px; max-width:640px; }
+    .g-meta{ display:flex; flex-wrap:wrap; gap:8px; margin-top:11px; }
+    .g-meta span{ font-size:.76rem; color:var(--muted); background:var(--line2); border-radius:999px; padding:3px 10px; display:inline-flex; align-items:center; gap:6px; }
+    .g-bloque{ margin-top:28px; }
+    .g-bloque > h3{ font-size:1.4rem; margin-bottom:13px; }
+    .g-txt{ font-size:.96rem; line-height:1.7; color:var(--text); max-width:740px; }
+    .g-txt b{ color:var(--ink); }
+    .g-lector a:not(.btn){ color:var(--ink); text-decoration:none; border-bottom:1.5px solid rgba(201,162,39,.6); }
+    .g-lector a:not(.btn):hover{ color:var(--gold-osc); border-bottom-color:var(--gold); }
+    .g-pasos{ list-style:none; counter-reset:gp; }
+    .g-pasos > li{ position:relative; padding:0 0 22px 56px; counter-increment:gp; }
+    .g-pasos > li::before{ content:counter(gp); position:absolute; left:0; top:0; width:38px; height:38px; border-radius:50%; display:grid; place-items:center; background:var(--ink); color:var(--gold-cl); font-family:'Cormorant Garamond',serif; font-weight:700; font-size:1.25rem; font-variant-numeric:lining-nums; }
+    .g-pasos > li::after{ content:""; position:absolute; left:18px; top:44px; bottom:6px; width:2px; border-radius:2px; background:linear-gradient(180deg, rgba(201,162,39,.6), rgba(201,162,39,.12)); }
+    .g-pasos > li:last-child{ padding-bottom:0; }
+    .g-pasos > li:last-child::after{ display:none; }
+    .g-pasos.sin-num > li{ padding-left:34px; }
+    .g-pasos.sin-num > li::before{ content:""; width:12px; height:12px; left:3px; top:8px; background:var(--gold); }
+    .g-pasos.sin-num > li::after{ left:8px; top:26px; }
+    .gp-t{ display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; min-height:38px; }
+    .g-pasos.sin-num .gp-t{ min-height:28px; }
+    .gp-t b{ font-size:1.03rem; color:var(--ink); font-weight:600; }
+    .gp-quien{ display:flex; flex-wrap:wrap; gap:5px; }
+    .gp-quien span{ font-size:.7rem; font-weight:500; padding:2px 8px; border-radius:999px; background:rgba(201,162,39,.13); color:var(--gold-osc); }
+    .gp-d{ list-style:none; }
+    .gp-d li{ position:relative; padding-left:16px; font-size:.93rem; line-height:1.65; color:var(--text); margin-top:5px; max-width:760px; }
+    .gp-d li::before{ content:""; position:absolute; left:2px; top:.74em; width:5px; height:5px; border-radius:50%; background:#c3c9d1; }
+    .gp-d b{ color:var(--ink); }
+    .g-caja-lista{ background:#faf9f5; border:1px solid var(--line2); border-radius:16px; padding:18px 20px; }
+    .g-caja-lista.mal{ background:#fff8f6; border-color:#f6e1dc; }
+    .g-lista{ list-style:none; display:grid; gap:9px; }
+    .g-lista li{ position:relative; padding-left:28px; font-size:.93rem; line-height:1.6; }
+    .g-lista li::before{ font-family:"Font Awesome 6 Free"; font-weight:900; position:absolute; left:0; top:1px; font-size:.95rem; }
+    .g-lista.ok li::before{ content:"\f058"; color:var(--gold); }
+    .g-lista.mal li::before{ content:"\f057"; color:#d0685c; }
+    .g-lista li b{ color:var(--ink); }
+    .g-nota{ display:flex; gap:14px; background:#f7f5ee; border:1px solid #ece6d3; border-radius:16px; padding:16px 18px; }
+    .g-nota .ni{ width:38px; height:38px; border-radius:50%; background:var(--ink); color:var(--gold); display:grid; place-items:center; flex:none; font-size:.9rem; }
+    .g-nota .nt{ display:block; color:var(--ink); font-weight:600; margin-bottom:2px; }
+    .g-nota p{ font-size:.93rem; line-height:1.6; color:var(--text); }
+    .g-tabla-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:16px; }
+    .g-tabla, .g-paga{ width:100%; border-collapse:collapse; font-size:.86rem; }
+    .g-tabla{ min-width:0; }
+    .g-tabla td, .g-tabla tbody th{ font-size:.84rem; }
+    .g-tabla thead th, .g-paga thead th{ text-align:left; font-weight:600; color:var(--ink); background:#f7f6f1; padding:11px 12px; font-size:.8rem; }
+    .g-tabla td, .g-tabla tbody th, .g-paga td, .g-paga tbody th{ padding:11px 12px; border-top:1px solid var(--line2); vertical-align:top; line-height:1.5; color:var(--text); text-align:left; }
+    .g-tabla tbody th, .g-paga tbody th{ font-weight:600; color:var(--ink); }
+    .g-tabla tbody th{ width:21%; }
+    .g-paga tbody th small{ display:block; font-weight:400; color:var(--muted); font-size:.8rem; margin-top:2px; }
+    .g-paga .c{ text-align:center; width:104px; }
+    .pg-si{ display:inline-grid; place-items:center; width:26px; height:26px; border-radius:50%; background:#e5f4ea; color:var(--ok); font-size:.8rem; }
+    .pg-no{ color:#c9ced5; }
+    .pg-av{ font-size:.76rem; color:var(--gold-osc); background:rgba(201,162,39,.13); border-radius:999px; padding:2px 8px; white-space:nowrap; }
+    .g-pie-tabla{ font-size:.82rem; color:var(--muted); margin-top:8px; }
+    .g-fichas-intro{ font-size:.93rem; color:var(--muted); margin:-4px 0 14px; max-width:740px; line-height:1.6; }
+    .g-fichas{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px; }
+    .g-ficha{ border:1px solid var(--line); border-radius:16px; padding:16px 18px; background:#fff; display:flex; flex-direction:column; }
+    .gf-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; list-style:none; cursor:pointer; }
+    .gf-head::-webkit-details-marker{ display:none; }
+    .gf-head:focus-visible{ outline:2px solid var(--gold); outline-offset:4px; border-radius:6px; }
+    .gf-chev{ color:var(--soft); font-size:.72rem; transition:transform .2s; margin-left:2px; }
+    .g-ficha[open] .gf-chev{ transform:rotate(180deg); }
+    .g-ficha[open] .gf-head{ margin-bottom:10px; }
+    .gf-head .gf-n{ flex:1; }
+    .gf-head b{ font-size:1.04rem; color:var(--ink); line-height:1.3; }
+    .gf-tag{ font-size:.7rem; font-weight:600; padding:3px 9px; border-radius:999px; background:var(--line2); color:var(--muted); white-space:nowrap; }
+    .gf-tag[data-t="Aseguradora"]{ background:#e8effb; color:#2c5fb8; }
+    .gf-tag[data-t="Estado"]{ background:#e5f4ea; color:var(--ok); }
+    .gf-tag[data-t="Institución"]{ background:rgba(201,162,39,.15); color:var(--gold-osc); }
+    .g-ficha dl{ display:grid; gap:8px; }
+    .g-ficha dt{ font-size:.74rem; color:var(--soft); font-weight:500; }
+    .g-ficha dd{ font-size:.89rem; line-height:1.55; color:var(--text); margin-top:-6px; }
+    .gf-fuente{ font-size:.75rem; color:var(--soft); margin-top:auto; padding-top:12px; }
+    .g-modelo{ position:relative; background:#faf9f5; border:1px dashed #d9d2bd; border-radius:14px; padding:18px; }
+    .g-modelo pre{ font-family:inherit; white-space:pre-wrap; font-size:.89rem; line-height:1.75; color:var(--text); margin:0; }
+    .g-modelo .btn{ position:absolute; top:12px; right:12px; }
+    .g-docs{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px; }
+    .g-doc{ border:1px solid var(--line); border-radius:16px; padding:16px 18px; }
+    .g-doc h4{ font-size:.96rem; color:var(--ink); display:flex; align-items:center; gap:9px; margin-bottom:11px; font-weight:600; }
+    .g-doc h4 i{ color:var(--gold); }
+    .g-pie{ margin-top:32px; padding-top:22px; border-top:1px solid var(--line2); display:flex; flex-direction:column; gap:16px; }
+    .g-cta{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; background:linear-gradient(120deg,var(--ink2),var(--ink)); color:#fff; border-radius:16px; padding:16px 18px; }
+    .g-cta .ci{ width:42px; height:42px; border-radius:12px; display:grid; place-items:center; background:rgba(201,162,39,.16); border:1px solid rgba(201,162,39,.7); color:var(--gold); flex:none; }
+    .g-cta p{ flex:1; min-width:200px; font-size:.9rem; color:rgba(255,255,255,.75); }
+    .g-cta p b{ display:block; color:#fff; font-size:1rem; font-weight:600; }
+    .g-fuentes{ font-size:.82rem; color:var(--muted); }
+    .g-fuentes b{ color:var(--ink); font-weight:600; }
+    .g-fuentes ul{ list-style:none; display:flex; flex-direction:column; gap:3px; margin-top:6px; }
+    .g-fuentes a{ font-size:.82rem; }
+    .g-aviso{ display:flex; gap:8px; font-size:.82rem; color:var(--soft); line-height:1.5; }
+    .g-aviso i{ margin-top:3px; }
+    .g-nav{ display:flex; justify-content:flex-end; }
+    .tc-guia{ align-self:flex-start; border:0; background:none; padding:0; color:var(--gold-osc); font-size:.82rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+    .tc-guia:hover{ text-decoration:underline; }
 
     /* ---- Material ---- */
     .buscador{ display:flex; flex-direction:column; gap:12px; margin-bottom:20px; }
@@ -181,7 +269,7 @@
     .res h2{ font-size:1.5rem; }
     .res .sub{ color:var(--muted); font-size:.86rem; margin:3px 0 14px; }
     .res-scroll{ overflow-x:auto; margin:0 -6px; padding:0 6px 4px; }
-    .matriz{ border-collapse:separate; border-spacing:0; width:100%; min-width:760px; font-size:.86rem; }
+    .matriz{ border-collapse:separate; border-spacing:0; width:100%; min-width:1040px; font-size:.86rem; }
     .matriz th, .matriz td{ padding:10px 8px; border-bottom:1px solid var(--line2); text-align:center; white-space:nowrap; }
     .matriz thead th{ font-weight:500; color:var(--muted); font-size:.76rem; vertical-align:bottom; }
     .matriz thead th i{ display:block; color:var(--gold); font-size:.9rem; margin:0 auto 5px; }
@@ -294,10 +382,36 @@
       .tabs{ width:100%; }
       .tab{ flex:1; padding:9px 8px; }
       .caja{ padding:18px 16px; }
-      .pasos{ grid-template-columns:minmax(0,1fr); gap:18px; }
-      .pasos::before{ top:18px; bottom:18px; left:17px; right:auto; width:2px; height:auto; background:linear-gradient(180deg, var(--gold), rgba(201,162,39,.25)); }
-      .pasos li{ padding:6px 0 0 52px; }
-      .start-grid{ grid-template-columns:minmax(0,1fr); }
+      .guias{ grid-template-columns:minmax(0,1fr); gap:0; }
+      .g-indice{ position:static; max-height:none; padding:6px; }
+      .guias.leyendo .g-indice{ display:none; }
+      .guias:not(.leyendo) .g-lector{ display:none; }
+      .g-item{ padding:10px 8px; align-items:flex-start; }
+      .g-item .gt small{ display:block; }
+      .g-volver{ display:inline-flex; }
+      .g-lector{ padding:18px 16px 20px; border-radius:18px; }
+      .g-head{ gap:12px; }
+      .g-head .gi{ width:44px; height:44px; border-radius:12px; font-size:1.05rem; }
+      .g-bloque{ margin-top:24px; }
+      .g-pasos > li{ padding-left:48px; }
+      .g-fichas, .g-docs{ grid-template-columns:minmax(0,1fr); }
+      .g-ficha, .g-doc{ padding:14px 15px; }
+      .g-fichas{ gap:10px; }
+      .g-tabla-wrap{ border:0; overflow:visible; }
+      .g-tabla, .g-paga{ min-width:0; }
+      .g-tabla thead, .g-paga thead{ display:none; }
+      .g-tabla tbody, .g-tabla tr, .g-tabla td, .g-tabla tbody th, .g-paga tbody, .g-paga tr, .g-paga tbody th{ display:block; width:auto; }
+      .g-tabla tr, .g-paga tr{ border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px; }
+      .g-tabla td, .g-tabla tbody th, .g-paga td, .g-paga tbody th{ border:0; padding:3px 0; }
+      .g-tabla tbody th, .g-paga tbody th{ font-size:1rem; margin-bottom:4px; }
+      .g-tabla td::before{ content:attr(data-l); display:block; color:var(--soft); font-size:.74rem; font-weight:500; }
+      .g-paga tr{ display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:2px 14px; align-items:center; }
+      .g-paga tbody th{ grid-column:1 / -1; }
+      .g-paga td{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
+      .g-paga td::before{ content:attr(data-l); color:var(--soft); font-size:.72rem; font-weight:500; }
+      .g-paga .c{ width:auto; text-align:left; }
+      .g-modelo .btn{ position:static; margin-bottom:10px; }
+      .g-nav .btn{ width:100%; white-space:normal; }
       .mat-grid{ grid-template-columns:minmax(0,1fr); gap:14px; }
       .mat-desc{ -webkit-line-clamp:2; }
       .chips{ flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; margin:0 -12px; padding:0 12px 2px; }
@@ -350,62 +464,16 @@
       </section>
 
       <nav class="tabs" role="tablist" aria-label="Secciones">
-        <button type="button" class="tab" role="tab" data-view="start" aria-selected="false" onclick="setView('start')"><i class="fas fa-flag-checkered"></i> Para empezar</button>
-        <button type="button" class="tab" role="tab" data-view="material" aria-selected="true" onclick="setView('material')"><i class="fas fa-photo-film"></i> Material <span class="c" id="cMat"></span></button>
+        <button type="button" class="tab" role="tab" data-view="guias" aria-selected="true" onclick="setView('guias')"><i class="fas fa-book-open"></i> Guías <span class="c" id="cGuias"></span></button>
+        <button type="button" class="tab" role="tab" data-view="material" aria-selected="false" onclick="setView('material')"><i class="fas fa-photo-film"></i> Material <span class="c" id="cMat"></span></button>
         <button type="button" class="tab" role="tab" data-view="tests" aria-selected="false" onclick="setView('tests')"><i class="fas fa-clipboard-check"></i> Tests <span class="c" id="cTests"></span></button>
       </nav>
 
-      <section id="viewStart" hidden>
-        <article class="caja proceso">
-          <h3 class="card-t"><span class="si"><i class="fas fa-route"></i></span> El proceso de una operación</h3>
-          <ol class="pasos">
-            <li><b>Reserva:</b> el interesado firma una seña / boleto de reserva por escrito y se saca la propiedad del mercado.</li>
-            <li><b>Compromiso de compraventa:</b> se acuerdan condiciones, precio y plazos.</li>
-            <li><b>Escritura:</b> ante escribano, que estudia los títulos y antecedentes. Sus honorarios los paga el comprador.</li>
-          </ol>
-        </article>
-        <div class="start-grid">
-          <article class="caja start-card">
-            <h3 class="card-t"><span class="si"><i class="fas fa-coins"></i></span> Comisión e impuestos (Uruguay)</h3>
-            <ul>
-              <li><b>Comisión venta:</b> 3% + IVA a cada parte (comprador y vendedor).</li>
-              <li><b>Comisión alquiler:</b> un mes de alquiler + IVA por el período negociado.</li>
-              <li><b>ITP:</b> 2% sobre el valor catastral, lo pagan comprador y vendedor.</li>
-              <li><b>Escribano:</b> ≈3% + IVA, a cargo del comprador.</li>
-            </ul>
-          </article>
-          <article class="caja start-card">
-            <h3 class="card-t"><span class="si"><i class="fas fa-file-invoice-dollar"></i></span> IRPF en alquileres (consejo para el propietario)</h3>
-            <ul>
-              <li><b>Quién paga:</b> el propietario tributa IRPF por la renta del alquiler. La tasa anual es 12%, pero en la práctica se paga como un anticipo/retención mensual del <b>10,5% del alquiler</b>.</li>
-              <li><b>Exoneración:</b> si el total de alquileres del propietario es menor a <b>40 BPC al año</b> (≈ $263.000 al año, ~$21.900 por mes en 2025), puede quedar exonerado. No es automático: hay que <b>tramitarlo en DGI</b>, levantar el secreto bancario y no tener otras rentas de capital mayores a 3 BPC al año.</li>
-              <li><b>El tope sube todos los años</b> porque la BPC se actualiza. El conocido "$20.000" era la equivalencia mensual de años anteriores; hoy es más alto.</li>
-              <li><b>Quién retiene:</b> si la inmobiliaria administra y cobra el alquiler (o la garantía es ANDA o CGN), <b>la inmobiliaria es la que retiene y paga</b> el 10,5% mensual a DGI. Si no hay agente de retención, el propio propietario hace los anticipos.</li>
-              <li><b>Varias propiedades:</b> se suma el total de alquileres tanto para el tope de exoneración como para calcular el impuesto.</li>
-              <li><b>Importante:</b> es orientativo y los topes cambian cada año. Confirmá siempre con un contador y en DGI antes de asesorar a un propietario.</li>
-            </ul>
-          </article>
-          <article class="caja start-card">
-            <h3 class="card-t"><span class="si"><i class="fas fa-star"></i></span> Buenas prácticas</h3>
-            <ul>
-              <li><b>Respondé rápido:</b> la velocidad de respuesta es lo que más define si se concreta.</li>
-              <li><b>Sé honesto:</b> el aviso y lo que decís tienen que coincidir con la realidad.</li>
-              <li><b>Hacé seguimiento:</b> la mayoría de las ventas se cierran después de la primera visita.</li>
-              <li><b>Nunca inventes</b> un dato que no sabés: confirmá y respondé.</li>
-            </ul>
-          </article>
-          <article class="caja start-card">
-            <h3 class="card-t"><span class="si"><i class="fas fa-toolbox"></i></span> Las herramientas de MALAVE</h3>
-            <ul>
-              <li><b><a href="tasador.html">Tasador</a>:</b> valor de una propiedad construida.</li>
-              <li><b><a href="gastos.html">Gastos y comisiones</a>:</b> cuánto sale la operación.</li>
-              <li><b><a href="terreno.html">Calculadora de terrenos</a>:</b> valor de un terreno para desarrollo.</li>
-              <li><b><a href="clientes.html">Clientes (CRM)</a></b> y <b><a href="agenda.html">Agenda</a></b> para seguimiento, visitas y recordatorios.</li>
-              <li><b>Mercado Libre:</b> publicás desde la ficha de la propiedad.</li>
-            </ul>
-          </article>
+      <section id="viewGuias" hidden>
+        <div class="guias">
+          <nav class="g-indice" id="gIndice" aria-label="Guías"></nav>
+          <article class="g-lector" id="gLector" aria-labelledby="gTitulo"></article>
         </div>
-        <div class="aca-tip"><span class="aca-tip-ic"><i class="fas fa-lightbulb"></i></span><div class="aca-tip-tx"><b>Tip</b>Esta información es una guía rápida. Ante dudas específicas, consultá siempre con un profesional.</div></div>
       </section>
 
       <section id="viewMaterial">
@@ -469,7 +537,7 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth(), db = firebase.firestore();
     let esAdmin = false, items = [], acaTipo = 'video';
-    let acaCat = '', materialListo = false, materialError = false, vista = 'material';
+    let acaCat = '', materialListo = false, materialError = false, vista = 'guias';
 
     function tpShow(which) {
       ['tpLoading', 'tpAuth', 'tpContent'].forEach(id => { document.getElementById(id).hidden = (id !== which); });
@@ -787,6 +855,8 @@
     }
 
     // ===================== TESTS / EVALUACIONES =====================
+    // Preguntas con casos de todos los días. En cada intento las opciones se muestran
+    // en otro orden (la correcta ya no cae siempre en el mismo lugar).
     const PASS_PCT = 80;
     let curUser = null, myResults = {}, curTest = null, curAnswers = {};
 
@@ -794,109 +864,582 @@
       { id:'publicidad', icon:'fa-bullhorn', title:'Cómo hacer una buena publicidad',
         desc:'Qué hace que un aviso atraiga consultas y no las espante.',
         questions:[
-          { q:'Tenés que elegir la foto de portada (la que se ve en el listado). ¿Cuál ponés?', options:['El baño','Una foto luminosa del living o la fachada, bien encuadrada','La del filtro más lindo aunque no represente el ambiente','Cualquiera, da igual'], correct:1, fb:'La portada define si hacen clic o siguen de largo: va la más atractiva y real, con buena luz.' },
-          { q:'¿Cuál es el mejor título?', options:['HERMOSO!!! OPORTUNIDAD UNICA!!!','Apartamento','Apartamento 2 dormitorios en Pocitos, venta, con garaje','Vendo ya, precio negociable'], correct:2, fb:'Un buen título dice tipo, dormitorios, barrio y operación. Las mayúsculas gritando restan y los portales las penalizan.' },
-          { q:'¿Qué set de fotos es mejor?', options:['Una sola, un poco oscura','Varias horizontales, con luz, ordenadas, que muestren todos los ambientes','Diez fotos del mismo ambiente','Fotos con datos personales a la vista'], correct:1, fb:'Mostrá todos los ambientes, con luz natural y ordenado. Evitá verticales borrosas o con info personal.' },
-          { q:'El propietario te pide usar fotos viejas y no mencionar un desperfecto. ¿Qué hacés?', options:['Le hacés caso para vender más rápido','Publicás fotos y descripción que reflejen el estado real','No ponés fotos así nadie se entera','Exagerás lo bueno para tapar lo malo'], correct:1, fb:'El aviso tiene que coincidir con la realidad: si no, perdés la visita, la confianza y te exponés legalmente.' },
-          { q:'El dueño quiere publicar 20% por encima del valor de mercado. ¿Qué le decís?', options:['Lo subís sin más','Le mostrás comparables y le explicás que el sobreprecio espanta consultas y quema el aviso','Que el precio no importa','Le bajás vos el precio sin avisarle'], correct:1, fb:'Un precio fuera de mercado mata las consultas y envejece la publicación. Con datos lo ayudás a fijar un precio realista.' },
-          { q:'¿Qué no puede faltar en la descripción?', options:['Solo el precio','Metraje, gastos comunes, ambientes y lo más fuerte de la ubicación','Tu opinión personal nada más','Frases en mayúscula'], correct:1, fb:'Cuanto más completo y honesto, menos consultas se pierden.' }
+          { q:'Tenés que elegir la foto de portada de un apartamento de 2 dormitorios. ¿Cuál ponés?', options:['El living con luz natural, ordenado y bien encuadrado','El dormitorio principal, porque es el ambiente más grande','La fachada del edificio de noche, con las luces prendidas','Una foto del barrio, para mostrar la ubicación'], correct:0, fb:'La portada decide el clic: va el ambiente más atractivo y representativo, con buena luz. El barrio o la fachada suman como fotos secundarias.' },
+          { q:'¿Cuál es el mejor título para el aviso?', options:['Apartamento 2 dormitorios con garaje en Pocitos','¡¡OPORTUNIDAD ÚNICA!! Hermoso apartamento','Venta apartamento','Apartamento luminoso, ideal para vos, vení a verlo'], correct:0, fb:'Tipo, dormitorios, un diferencial y barrio: es lo que la gente busca y lo que mejor posicionan los portales. Las mayúsculas y los signos de exclamación restan.' },
+          { q:'El propietario quiere publicar 20% por encima de lo que muestran los comparables. ¿Qué hacés?', options:['Le mostrás los comparables y le explicás que un precio alto frena las consultas y envejece el aviso','Lo publicás así y lo bajás si en una semana no hay consultas','Publicás sin precio para que la gente consulte','Aceptás sin decir nada para no perder la captación'], correct:0, fb:'Con datos lo ayudás a fijar un precio realista. Un aviso caro desperdicia las primeras semanas, que son las de más visitas.' },
+          { q:'La propiedad tiene humedad en un dormitorio y el propietario te pide no mencionarlo. ¿Qué hacés?', options:['Le explicás que se informa: ocultarlo hace perder la venta y puede traer problemas legales','No lo ponés en el aviso, pero lo contás en la visita si te preguntan','Sacás las fotos de ese ambiente con un filtro para que no se note','No publicás fotos de ese dormitorio y no decís nada'], correct:0, fb:'Lo que no se dice en el aviso aparece en la visita o después de la firma. Informarlo cuida la confianza y te protege.' },
+          { q:'¿Qué datos no pueden faltar en la descripción?', options:['Metraje, dormitorios, gastos comunes, orientación y lo mejor de la ubicación','Solo precio y teléfono: el resto se cuenta por WhatsApp','Un texto emotivo, sin datos técnicos','El nombre del propietario, para dar confianza'], correct:0, fb:'Cuanto más completo, menos consultas que no sirven. Nunca publiques datos personales del propietario.' },
+          { q:'Una semana publicada: muchas vistas y casi ninguna consulta. ¿Qué revisás primero?', options:['El precio y la portada, que suelen ser la causa','Nada: hay que esperar por lo menos tres meses','Cambiar el barrio del aviso por uno más buscado','Publicar el mismo aviso varias veces para que aparezca más'], correct:0, fb:'Si la gente lo ve y no consulta, algo no convence: casi siempre precio o fotos. Duplicar avisos o cambiar el barrio está penalizado por los portales.' }
         ] },
       { id:'fotografia', icon:'fa-camera', title:'Fotografía de inmuebles',
         desc:'Sacar fotos que vendan, sin engañar.',
         questions:[
-          { q:'¿Con qué luz conviene fotografiar?', options:['De noche con luz tenue','Con luz natural, de día y cortinas abiertas','Con flash directo a las paredes','Da igual la luz'], correct:1, fb:'La luz natural agranda y muestra mejor los ambientes.' },
-          { q:'Antes de fotografiar, ¿qué hacés con el ambiente?', options:['Dejo todo como está','Ordeno, despejo y guardo objetos personales','Lo lleno de cosas para que se vea habitado','Cierro todas las cortinas'], correct:1, fb:'Un ambiente ordenado y neutro deja que el comprador se proyecte.' },
-          { q:'¿Cómo conviene tomar las fotos?', options:['Verticales y movidas','Horizontales, estables, a media altura','Desde el techo','Inclinadas'], correct:1, fb:'Las horizontales muestran mejor el espacio y son las que mejor entran en los portales.' },
-          { q:'¿Qué NO hay que hacer?', options:['Mostrar todos los ambientes','Abrir cortinas','Usar filtros o lentes que exageren o deformen el tamaño real','Limpiar antes'], correct:2, fb:'La foto tiene que representar la realidad; exagerar genera visitas frustradas.' },
-          { q:'¿Cuál es la mejor foto de portada?', options:['El lavadero','El living o la fachada, luminoso','El detalle de un enchufe','El interior de un placard'], correct:1, fb:'La portada decide el clic.' }
+          { q:'¿Con qué luz conviene fotografiar?', options:['De día, con las cortinas abiertas y todas las luces prendidas','De noche, con luz cálida para dar ambiente','Con flash directo, para que no quede oscuro','La hora no importa si después se edita'], correct:0, fb:'La luz natural, sumada a las luces prendidas, agranda y muestra los ambientes como son.' },
+          { q:'Antes de fotografiar, ¿qué hacés con el ambiente?', options:['Ordenar, despejar las superficies y guardar los objetos personales','Dejar todo como está, para que se vea real','Agregar muebles y adornos para que parezca más habitado','Cerrar puertas y cortinas para que no se vea el desorden'], correct:0, fb:'Un ambiente ordenado y neutro deja que el comprador se imagine viviendo ahí.' },
+          { q:'¿Cómo conviene tomar las fotos?', options:['Horizontales, con la cámara a la altura del pecho y las líneas rectas','Verticales, como en las redes sociales','Desde arriba de una silla, para que entre todo','Con un gran angular extremo, para que parezca más grande'], correct:0, fb:'Horizontales y rectas es lo que mejor se ve en los portales. Exagerar el tamaño genera visitas frustradas.' },
+          { q:'En una foto se ven papeles con datos, fotos familiares y la matrícula de un auto. ¿Qué hacés?', options:['La descartás o la volvés a sacar sin esos datos','La publicás igual: nadie se fija','La subís en baja resolución','La usás solo en Mercado Libre'], correct:0, fb:'Nunca publiques datos personales ni fotos de la familia del propietario.' },
+          { q:'¿Cuántas fotos conviene publicar?', options:['Las necesarias para recorrer la propiedad: cada ambiente, exteriores y vistas','Una sola, para generar curiosidad','Solo las de los ambientes más lindos','Cuantas más mejor, aunque se repitan'], correct:0, fb:'El objetivo es que quien ve el aviso entienda la propiedad. Las repetidas o de mala calidad restan.' },
+          { q:'El día está nublado y tenés que fotografiar. ¿Qué hacés?', options:['Prendés las luces, abrís cortinas y, si podés, volvés otro día para la fachada','Sacás todo con flash','Usás fotos de otra propiedad parecida','Editás las fotos para poner cielo azul y un jardín que no existe'], correct:0, fb:'Mejorar luz y color está bien; inventar cosas que no existen, no.' }
         ] },
       { id:'atencion', icon:'fa-headset', title:'Atención al cliente',
         desc:'Cómo tratar al cliente para no perderlo.',
         questions:[
-          { q:'Un cliente te escribe por WhatsApp. ¿Cuándo respondés?', options:['Cuando me acuerde','Lo antes posible, sin dejarlo días sin respuesta','Solo si insiste 3 veces','Nunca por WhatsApp'], correct:1, fb:'La velocidad de respuesta es de lo que más define si se concreta o se pierde.' },
-          { q:'El cliente está enojado por una demora. ¿Qué hacés?', options:['Le discutís','Escuchás, reconocés el error y le ofrecés una solución','Lo ignorás hasta que se calme','Le cortás'], correct:1, fb:'Escuchar y resolver convierte una queja en confianza.' },
-          { q:'No sabés la respuesta a una consulta técnica. ¿Qué hacés?', options:['Invento algo','Le digo que lo confirmo y le respondo','Cambio de tema','Le digo que averigüe él'], correct:1, fb:'Nunca inventes: confirmá y respondé.' },
-          { q:'El cliente no compró en la primera visita. ¿Qué hacés?', options:['Lo descarto','Hago seguimiento: le escribo y le ofrezco opciones','Lo llamo 5 veces por día','Espero que él me busque'], correct:1, fb:'La mayoría de las ventas se cierran en el seguimiento, no en la primera visita.' },
-          { q:'¿Qué tono usás con el cliente?', options:['Informal y desprolijo','Profesional, claro y adaptado al cliente','Técnico y frío','Insistente y agresivo'], correct:1, fb:'Profesionalismo más cercanía genera confianza.' }
+          { q:'Un interesado te escribe un sábado a las 21 h. ¿Qué hacés?', options:['Le respondés en cuanto podés, aunque sea para decirle cuándo lo llamás','Esperás al lunes, porque es fuera de horario','Le pasás el contacto a otro agente sin avisarle','Le mandás solo el link del aviso'], correct:0, fb:'Responder rápido es lo que más define si una consulta se convierte en visita. Si no podés atender, al menos acusá recibo.' },
+          { q:'El cliente está molesto porque nadie le confirmó una visita. ¿Qué hacés?', options:['Lo escuchás, reconocés el error y le proponés una visita en firme','Le explicás que fue culpa de un compañero','Le decís que tendría que haber llamado él','Esperás a que se calme y no respondés'], correct:0, fb:'Escuchar y resolver convierte una queja en confianza.' },
+          { q:'Te preguntan algo que no sabés, por ejemplo, el monto de un gasto extraordinario. ¿Qué hacés?', options:['Le decís que lo confirmás y le respondés con el dato','Le das un número aproximado para no quedar mal','Le decís que eso no se puede saber','Cambiás de tema'], correct:0, fb:'Nunca inventes: confirmá y respondé.' },
+          { q:'Después de una visita, el interesado no responde. ¿Qué hacés?', options:['Hacés seguimiento a los 2 o 3 días con algo de valor: otra opción o un dato nuevo','Lo llamás varias veces por día','Lo das por perdido','Le ofrecés una rebaja sin consultar al propietario'], correct:0, fb:'La mayoría de las operaciones se cierran en el seguimiento, no en la primera visita.' },
+          { q:'¿Dónde registrás cada consulta y cada visita?', options:['En Clientes (el CRM), en el momento','En un cuaderno, y lo pasás a fin de mes','En tu WhatsApp personal','No hace falta registrarlas'], correct:0, fb:'Registrar en el momento evita perder clientes y le permite al equipo dar seguimiento.' },
+          { q:'Un interesado te pide el teléfono del propietario para negociar directo. ¿Qué hacés?', options:['Le explicás que la negociación se hace a través tuyo y le ofrecés transmitir su propuesta','Se lo das, para facilitar','Se lo das, pero le pedís que no diga que fuiste vos','Lo dejás sin respuesta'], correct:0, fb:'Tu rol es intermediar y cuidar los datos del propietario.' }
         ] },
       { id:'captacion', icon:'fa-bullseye', title:'Captación de propiedades',
-        desc:'Conseguir propiedades para comercializar.',
+        desc:'Conseguir propiedades para vender o alquilar.',
         questions:[
-          { q:'¿Qué es captar?', options:['Vender una propiedad','Conseguir propiedades para vender o alquilar, con autorización del dueño','Buscar compradores','Tasar'], correct:1, fb:'Sin propiedades captadas no hay qué ofrecer.' },
-          { q:'Al captar, ¿qué documento conviene tener?', options:['Nada, de palabra','Una autorización de comercialización por escrito','La escritura','El recibo de la comisión'], correct:1, fb:'La autorización por escrito te respalda y ordena la relación con el propietario.' },
-          { q:'¿Qué ventaja tiene la exclusiva para el propietario?', options:['Cobra más','Mayor compromiso y difusión ordenada, sin quemar la propiedad en mil avisos repetidos','No paga comisión','Se vende sin visitas'], correct:1, fb:'La exclusiva bien trabajada suele vender mejor que la propiedad ofrecida por todos a la vez.' },
-          { q:'¿Qué datos relevás al captar?', options:['Solo el precio','Metros, padrón, documentación, estado y precio esperado','Solo fotos','Solo el nombre del dueño'], correct:1, fb:'Cuanta más info tengas, mejor asesorás y más rápido vendés.' },
-          { q:'¿Cómo se consiguen propiedades para captar?', options:['Solo esperando que llamen','De forma proactiva: referidos, zona, contactos, particulares que venden solos','No se busca, llegan solas','Solo mirando otros portales'], correct:1, fb:'La captación es proactiva: se sale a buscar.' }
+          { q:'¿Qué es captar una propiedad?', options:['Conseguir que el propietario te autorice a venderla o alquilarla','Conseguir un comprador','Tasar una propiedad','Publicar en todos los portales'], correct:0, fb:'Sin propiedades captadas no hay nada para ofrecer.' },
+          { q:'¿Qué firmás con el propietario al captar?', options:['Una autorización de venta o de alquiler por escrito, con precio, comisión y plazo','Nada: alcanza con el acuerdo de palabra','La escritura de la propiedad','El boleto de reserva'], correct:0, fb:'La autorización por escrito ordena la relación: precio, comisión, exclusividad y duración.' },
+          { q:'¿Qué ventaja tiene una exclusiva bien trabajada para el propietario?', options:['Un solo responsable, un precio y un aviso coherente en todos lados','Paga menos impuestos','La propiedad se vende sin visitas','No tiene que firmar nada'], correct:0, fb:'Una propiedad ofrecida por todos a la vez y a distintos precios se "quema" en el mercado.' },
+          { q:'Al visitar para captar, ¿qué relevás?', options:['Metros, estado, padrón, documentación, gastos y el precio que espera el propietario','Solo fotos','Solo el precio que quiere el propietario','Solo los datos de contacto'], correct:0, fb:'Cuanta más información tengas, mejor asesorás y más rápido vendés.' },
+          { q:'El propietario no tiene el título a mano y hay una sucesión sin terminar. ¿Qué hacés?', options:['Lo anotás y lo consultás con el escribano antes de publicar, porque cambia tiempos y papeles','Publicás igual y lo resolvés cuando aparezca un comprador','Le decís que la propiedad nunca se va a poder vender','No lo registrás, para no complicar'], correct:0, fb:'Una sucesión sin terminar puede frenar una venta ya reservada. Mejor saberlo antes.' },
+          { q:'¿Cómo se consiguen propiedades para captar?', options:['Saliendo a buscar: referidos, recorriendo la zona, propietarios que venden solos','Esperando a que llamen','Copiando avisos de otras inmobiliarias','Solo con carteles en la calle'], correct:0, fb:'La captación es activa: se sale a buscar.' }
         ] },
       { id:'legal', icon:'fa-scale-balanced', title:'Aspectos legales (Uruguay)',
-        desc:'Lo mínimo que tenés que saber de una operación.',
+        desc:'Comisiones, impuestos y obligaciones de una operación.',
         questions:[
-          { q:'En una compraventa con intermediación, ¿cuánto es la comisión y a quién se cobra?', options:['3% + IVA, solo al vendedor','3% + IVA a cada parte (comprador y vendedor)','5% + IVA al comprador','1% + IVA a cada parte'], correct:1, fb:'En Uruguay la comisión usual es 3% + IVA y la paga tanto el comprador como el vendedor.' },
-          { q:'El ITP (Impuesto a las Transmisiones Patrimoniales) se calcula sobre…', options:['El precio de venta acordado','El valor catastral del inmueble','La tasación de la inmobiliaria','El valor en dólares del día'], correct:1, fb:'El ITP es 2% sobre el valor catastral, y lo pagan comprador y vendedor.' },
-          { q:'¿Quién estudia los títulos y antecedentes en una compraventa?', options:['La inmobiliaria','El escribano (a cargo del comprador)','El propietario','Nadie'], correct:1, fb:'El escribano estudia los antecedentes y otorga la escritura; sus honorarios (cerca de 3% + IVA) los paga el comprador.' },
-          { q:'Para reservar una propiedad, ¿qué corresponde?', options:['Pago total por adelantado','Una seña o boleto de reserva por escrito','Solo de palabra','Firmar la escritura directo'], correct:1, fb:'La reserva se formaliza por escrito; recién después viene el compromiso y la escritura.' },
-          { q:'En un alquiler, ¿cuál es la comisión habitual?', options:['Un año de alquiler','Un mes de alquiler + IVA por el período negociado','Nada','La mitad del alquiler mensual'], correct:1, fb:'Lo habitual es un mes de alquiler + IVA por el período negociado.' }
+          { q:'En una compraventa con inmobiliaria, ¿cuál es la comisión usual y quién la paga?', options:['3% + IVA a cada parte (comprador y vendedor)','3% + IVA, solo el vendedor','5% + IVA, solo el comprador','1% + IVA a cada parte'], correct:0, fb:'Es la comisión usual en Uruguay: la paga cada parte.' },
+          { q:'¿Sobre qué se calcula el ITP de una compraventa?', options:['Sobre el valor real que fija Catastro: 2% cada parte','Sobre el precio de venta acordado','Sobre la tasación de la inmobiliaria','Sobre el valor del dólar del día'], correct:0, fb:'El ITP es 2% para el comprador y 2% para el vendedor, sobre el valor real del inmueble.' },
+          { q:'¿Quién estudia los títulos y pide los certificados?', options:['El escribano','La inmobiliaria','El propietario','El banco, siempre'], correct:0, fb:'El escribano revisa que el vendedor pueda vender y que no haya embargos, hipotecas ni deudas.' },
+          { q:'¿Qué corresponde para reservar una propiedad?', options:['Firmar el boleto de reserva y dejar una seña con recibo','Pagar el total por adelantado','Un acuerdo de palabra','Firmar la escritura ese mismo día'], correct:0, fb:'La reserva se hace por escrito; después vienen el compromiso (si corresponde) y la escritura.' },
+          { q:'¿Cuál es la comisión habitual de un alquiler?', options:['Un mes de alquiler + IVA','Un año de alquiler','No se cobra comisión','La mitad del alquiler mensual'], correct:0, fb:'Es lo habitual en el mercado uruguayo.' },
+          { q:'¿Quién paga el IRPF de la renta de un alquiler?', options:['El propietario','El inquilino','La inmobiliaria, con su comisión','Nadie: los alquileres están exonerados'], correct:0, fb:'Es un impuesto del propietario. Puede quedar exonerado si sus alquileres del año no llegan a 40 BPC y cumple los requisitos.' },
+          { q:'Un propietario vende y gana con la venta. ¿Quién le retiene el IRPF?', options:['El escribano, en la escritura','La inmobiliaria, de su comisión','El comprador, en efectivo','Nadie: la venta de inmuebles no paga IRPF'], correct:0, fb:'El escribano retiene el 12% de la ganancia y lo paga a DGI. Si corresponde la exoneración por vivienda permanente, después se pide la devolución.' },
+          { q:'Por la ley contra el lavado de activos, ¿qué hace la inmobiliaria en una compraventa?', options:['Identifica a su cliente, guarda los documentos y avisa a la Dirección si algo no cierra','Nada: eso es solo para los bancos','Le pide al cliente que firme que no lava dinero, y nada más','Le avisa al cliente si se va a hacer un reporte'], correct:0, fb:'Las inmobiliarias son sujetos obligados en las operaciones con inmuebles (los alquileres quedan afuera). Nunca se le avisa al cliente de un reporte.' }
         ] },
       { id:'negociacion', icon:'fa-handshake', title:'Negociación',
         desc:'Acercar a las partes y cerrar acuerdos sólidos.',
         questions:[
-          { q:'El comprador ofrece menos del precio publicado. ¿Qué hacés?', options:['La rechazás vos sin avisar','Le transmitís la oferta al propietario y asesorás a ambos','Le decís al comprador que pague el total o nada','Aceptás vos en nombre del dueño'], correct:1, fb:'Tu rol es acercar a las partes; las decisiones de precio las toma el propietario informado.' },
-          { q:'¿Cuál es una buena técnica de negociación?', options:['Presionar para cerrar ya','Entender la motivación de cada parte y buscar un punto de acuerdo','Mentir sobre otras ofertas','Apurar con información falsa'], correct:1, fb:'Conocer las motivaciones te deja encontrar el acuerdo que conviene a los dos.' },
-          { q:'¿Conviene inventar otra oferta para apurar al cliente?', options:['Sí, siempre funciona','No: es deshonesto y te puede explotar en la cara','Solo a veces','Sí, si no se entera nadie'], correct:1, fb:'Las mentiras destruyen la confianza y la reputación.' },
-          { q:'La negociación se estanca por el precio. ¿Qué hacés?', options:['Cortás la negociación','Negociás otras variables: plazos, forma de pago, qué queda incluido','Subís el precio','Esperás sin hacer nada'], correct:1, fb:'El precio no es la única variable; muchas veces el acuerdo se logra en las condiciones.' },
-          { q:'¿Cuál debe ser tu postura?', options:['A favor de quien te paga más','Profesional, buscando un acuerdo sólido para ambas partes','Solo del lado del comprador','Solo del lado del vendedor'], correct:1, fb:'Un acuerdo justo y bien armado es el que llega a la escritura.' }
+          { q:'El comprador ofrece menos del precio publicado. ¿Qué hacés?', options:['Le pedís la oferta por escrito y se la presentás al propietario con tu análisis','La rechazás vos, porque es muy baja','Le decís al comprador cuál es el mínimo del propietario','Aceptás en nombre del propietario para no perderlo'], correct:0, fb:'Tu rol es acercar a las partes; las decisiones de precio las toma el propietario, bien informado.' },
+          { q:'¿Qué es lo primero que tenés que entender en una negociación?', options:['Qué necesita cada parte: plazos, forma de pago, motivos','Quién tiene más plata','Cuánto vas a cobrar vos','Cómo apurar al comprador'], correct:0, fb:'Conocer las motivaciones te deja encontrar el acuerdo que les sirve a los dos.' },
+          { q:'¿Está bien decir que hay otra oferta cuando no la hay?', options:['No: es deshonesto y destruye la confianza','Sí, si sirve para cerrar','Sí, si después nadie se entera','Solo con compradores que no conocés'], correct:0, fb:'Una mentira descubierta te cuesta la operación y la reputación.' },
+          { q:'La negociación se traba en el precio. ¿Qué hacés?', options:['Proponés otras variables: plazos, forma de pago, qué queda incluido','Cortás la negociación','Subís el precio para presionar','Esperás sin hacer nada'], correct:0, fb:'El precio no es la única variable: muchas veces el acuerdo se logra en las condiciones.' },
+          { q:'Hay dos ofertas: una 5% más baja al contado y otra al precio pedido pero sujeta a un crédito que no está aprobado. ¿Cómo asesorás al propietario?', options:['Le explicás pros y contras: la primera es más segura y rápida; la segunda depende del banco','Le decís que acepte siempre la de mayor precio','Le decís que acepte siempre la de contado','No le mostrás la más baja'], correct:0, fb:'El precio no es todo: la forma de pago, los plazos y las condiciones cambian el valor real de una oferta.' },
+          { q:'¿Cuál tiene que ser tu postura?', options:['Profesional, buscando un acuerdo sólido que llegue a la escritura','Del lado de quien te deja más comisión','Solo del lado del comprador','Solo del lado del vendedor'], correct:0, fb:'Un acuerdo justo y bien armado es el que llega a la firma.' }
         ] },
       { id:'herramientas', icon:'fa-toolbox', title:'Herramientas MALAVE',
         desc:'Usar bien las herramientas del sistema.',
         questions:[
-          { q:'Querés calcularle al cliente cuánto le sale la operación (comisión, IVA, gastos). ¿Qué abrís?', options:['Tasador','Gastos y comisiones','Calculadora de terrenos','Clientes'], correct:1, fb:'Gastos y comisiones te da la comisión + IVA y los gastos de la operación.' },
-          { q:'Un desarrollador quiere saber cuánto puede pagar por un terreno. ¿Qué usás?', options:['Tasador','Gastos y comisiones','Calculadora de terrenos','Documentos'], correct:2, fb:'La calculadora de terrenos estima el valor según área, FOS, pisos, precio por m² e incidencia.' },
-          { q:'Publicás una propiedad en Mercado Libre. Por defecto, ¿qué tipo de publicación toma?', options:['Siempre una paga (destacada)','La gratuita; la paga solo si la elegís vos','No se puede publicar en ML','Hay que pagar siempre antes de publicar'], correct:1, fb:'Por defecto va gratis; un tipo pago solo se usa si lo elegís, y queda inactivo hasta que lo pagues en ML.' },
-          { q:'¿Dónde llevás el seguimiento de cada cliente?', options:['En la agenda','En Clientes (el CRM)','En el tasador','En Documentos'], correct:1, fb:'En Clientes gestionás cada contacto y su seguimiento.' },
-          { q:'¿Dónde coordinás visitas y reuniones?', options:['En el tasador','En la Agenda','En Documentos','En Gastos'], correct:1, fb:'La agenda concentra visitas y reuniones, y te avisa 1 hora antes.' },
-          { q:'¿Qué herramienta estima el precio de una propiedad ya construida?', options:['Calculadora de terrenos','Tasador','Gastos y comisiones','Clientes'], correct:1, fb:'El tasador estima el valor de una propiedad construida.' }
+          { q:'Querés calcularle al cliente cuánto le sale la operación (comisión, IVA, gastos). ¿Qué abrís?', options:['Gastos y comisiones','Tasador','Calculadora de terrenos','Clientes'], correct:0, fb:'Gastos y comisiones te da la comisión + IVA y los gastos de la operación.' },
+          { q:'Un desarrollador quiere saber cuánto puede pagar por un terreno. ¿Qué usás?', options:['Calculadora de terrenos','Tasador','Gastos y comisiones','Documentos'], correct:0, fb:'La calculadora de terrenos estima el valor según área, FOS, pisos, precio por m² e incidencia.' },
+          { q:'Publicás una propiedad en Mercado Libre. Por defecto, ¿qué tipo de publicación toma?', options:['La gratuita; una paga solo si la elegís vos','Siempre una paga (destacada)','No se puede publicar en Mercado Libre','Hay que pagar antes de publicar'], correct:0, fb:'Por defecto va gratis; un tipo pago solo se usa si lo elegís, y queda inactivo hasta que lo pagues en Mercado Libre.' },
+          { q:'¿Dónde llevás el seguimiento de cada cliente?', options:['En Clientes (el CRM)','En la Agenda','En el Tasador','En Documentos'], correct:0, fb:'En Clientes gestionás cada contacto y su seguimiento.' },
+          { q:'¿Dónde coordinás visitas y reuniones?', options:['En la Agenda','En el Tasador','En Documentos','En Gastos y comisiones'], correct:0, fb:'La Agenda concentra visitas y reuniones, y te avisa 1 hora antes.' },
+          { q:'Un cliente deja la seña de una compra. ¿Qué hacés en el CRM?', options:['Ese día marcás la gestión como Reservado; la Dirección confirma la firma después en el Mapa de cierres','Esperás a la escritura para registrar algo','La marcás como Cerrada vos','No hace falta registrarlo'], correct:0, fb:'La reserva se registra en el momento. El cierre lo confirma la Dirección cuando se firma.' }
+        ] },
+      { id:'proceso_venta', icon:'fa-house-circle-check', title:'Proceso de una venta',
+        desc:'Las etapas de una compraventa, de la oferta a la escritura.',
+        questions:[
+          { q:'En una venta que se paga en partes, ¿en qué orden van las etapas?', options:['Oferta, reserva, compromiso de compraventa y escritura','Escritura, reserva, oferta y compromiso','Reserva, escritura, oferta y compromiso','Compromiso, oferta, escritura y reserva'], correct:0, fb:'Primero la oferta aceptada y la reserva con seña; el compromiso se usa cuando el pago va en partes o la escritura demora; al final, la escritura.' },
+          { q:'¿Qué hace el comprador al firmar el boleto de reserva?', options:['Deja una seña y se fija el plazo para firmar','Paga el total del precio','Pasa a ser el dueño','Solo firma que le interesa, sin dejar dinero'], correct:0, fb:'La reserva saca la propiedad del mercado mientras se prepara la firma.' },
+          { q:'¿Para qué se inscribe el compromiso de compraventa en el Registro?', options:['Para proteger al comprador: el vendedor ya no puede vendérsela a otro','Para no pagar impuestos','Es un trámite sin efecto','Para poder seguir mostrando la propiedad'], correct:0, fb:'Inscripto, el compromiso protege al comprador mientras termina de pagar.' },
+          { q:'¿Qué controla el escribano antes de la escritura?', options:['Títulos y certificados: que el vendedor pueda vender y que no haya embargos, hipotecas ni deudas','Que el precio sea de mercado','Que el comprador haya visitado la propiedad','La comisión de la inmobiliaria'], correct:0, fb:'El estudio de títulos y los certificados son la base de una escritura segura.' },
+          { q:'La propiedad quedó reservada. ¿Qué hacés?', options:['Ese mismo día la marcás como Reservada en el CRM y dejás de mostrarla','Seguís mostrándola por si aparece una oferta mejor','La borrás del CRM','Esperás a la escritura para cambiar algo'], correct:0, fb:'Mostrar una propiedad reservada genera falsas expectativas y conflictos.' },
+          { q:'El comprador va a pagar con crédito hipotecario. ¿Qué tenés en cuenta?', options:['Que el banco tasa la propiedad y pide papeles: los plazos dependen del banco','Que la escritura se firma igual en una semana','Que el banco no revisa la propiedad','Que no hace falta escribano'], correct:0, fb:'Por eso no se prometen fechas que dependen del banco.' },
+          { q:'¿Qué pasa en la firma de la escritura?', options:['Se paga el saldo, se entrega la posesión y se pagan el ITP y las comisiones','Solo se firma la reserva','Se entrega la seña','Se publica la propiedad'], correct:0, fb:'Con la escritura, el comprador pasa a ser el dueño; después el escribano la inscribe en el Registro.' },
+          { q:'Te enterás de que hay una sucesión sin terminar. ¿Cuándo lo avisás?', options:['Apenas lo sabés, a la Dirección y al escribano, antes de reservar','Después de la reserva, para no espantar al comprador','Nunca: lo resuelve el escribano solo','El día de la escritura'], correct:0, fb:'Cuanto antes se sepa, antes se resuelve y nadie pierde tiempo ni dinero.' }
+        ] },
+      { id:'proceso_alquiler', icon:'fa-key', title:'Proceso de un alquiler',
+        desc:'De la captación a la entrega de llaves y el fin del contrato.',
+        questions:[
+          { q:'Antes de mostrar una propiedad en alquiler, ¿qué le preguntás al interesado?', options:['Qué garantía tiene y si ya está aprobada','En qué trabaja su familia','Si tiene auto','Nada: se ve después de la visita'], correct:0, fb:'Sin garantía aprobada no hay alquiler: preguntarlo antes ahorra visitas y falsas expectativas.' },
+          { q:'¿Cuándo entregás las llaves?', options:['Con la garantía aprobada, el contrato firmado y el inventario firmado','Cuando el interesado paga la comisión','Apenas el propietario acepta la propuesta','Cuando la garantía está en trámite'], correct:0, fb:'Entregar llaves antes es el error que más caro sale.' },
+          { q:'¿Para qué sirve el inventario con fotos?', options:['Para comparar el estado al entrar y al salir, y poder reclamar daños','Es un trámite sin importancia','Solo para el seguro de incendio','Para volver a publicar la propiedad'], correct:0, fb:'Las aseguradoras también lo piden para cubrir daños.' },
+          { q:'¿Cómo se reajusta habitualmente un alquiler de vivienda?', options:['Una vez por año, según el contrato; muchos usan el Coeficiente de Reajuste de Alquileres (CRA)','Todos los meses, según el dólar','Nunca: queda fijo todo el contrato','Cuando el propietario quiera'], correct:0, fb:'El CRA se publica todos los meses y toma la menor variación entre la URA y el IPC de los últimos 12 meses.' },
+          { q:'¿Qué tiene que decir el contrato sobre los gastos?', options:['Quién paga gastos comunes, contribución y tributos','Nada: eso se arregla de palabra','Solo el precio','Solo la fecha de entrada'], correct:0, fb:'Lo que no está escrito termina en discusión.' },
+          { q:'Si MALAVE administra el alquiler, ¿qué pasa con el IRPF del propietario?', options:['Se le retiene el 10,5% de cada mes y se paga a DGI, salvo que esté exonerado','Nada: el IRPF lo paga el inquilino','Se suma a la comisión','Se cobra al final del contrato'], correct:0, fb:'Quien administra y cobra el alquiler actúa como agente de retención.' },
+          { q:'El inquilino se atrasa y la garantía es de una aseguradora. ¿Qué hacés?', options:['Avisás enseguida, dentro del plazo que pide la póliza','Esperás dos o tres meses por si paga','Lo resolvés solo con el inquilino, sin avisar','Rescindís el contrato'], correct:0, fb:'Si el aviso llega tarde, ese período puede quedar sin cobertura.' },
+          { q:'Termina el contrato. ¿Qué hacés?', options:['Inventario de salida contra el de entrada, lectura de medidores y servicios al día','Recibís las llaves y listo','Devolvés el depósito sin revisar','Le pedís al inquilino que deje las llaves en el buzón'], correct:0, fb:'La salida ordenada evita reclamos y libera la garantía o el depósito.' }
+        ] },
+      { id:'ofertas', icon:'fa-file-signature', title:'Cuando llega una oferta',
+        desc:'Recibir, presentar y negociar ofertas como corresponde.',
+        questions:[
+          { q:'Un interesado te escribe por WhatsApp: "ofrezco 150 mil". ¿Qué hacés?', options:['Le pedís la oferta por escrito y firmada, con forma de pago, plazos y vigencia','Se la pasás al propietario como oferta firme','La rechazás porque no está por escrito','Le contestás que el propietario acepta 160 mil'], correct:0, fb:'Una oferta de palabra no es firme: sin papel no se presenta como oferta.' },
+          { q:'¿Qué no puede faltar en una oferta?', options:['Precio, forma de pago, seña, plazos, condiciones y hasta cuándo vale','Solo el precio','El nombre del agente','Una foto del comprador'], correct:0, fb:'Con eso el propietario puede comparar y decidir.' },
+          { q:'La oferta es bastante más baja que lo pedido. ¿Qué hacés?', options:['Se la presentás igual al propietario, con tu análisis','No se la mostrás, para no ofenderlo','Le pedís al comprador que suba sin consultar a nadie','La guardás por si no aparece otra'], correct:0, fb:'Todas las ofertas se presentan: decidir es del propietario.' },
+          { q:'Llegan dos ofertas el mismo día. ¿Qué hacés?', options:['Le presentás las dos al propietario y, si conviene, pedís a ambos su mejor oferta con el mismo plazo','Le contás a cada comprador los números del otro','Presentás solo la del cliente con el que tenés mejor relación','Aceptás la que llegó primero'], correct:0, fb:'Trato igual y sin revelar números: así nadie se siente engañado.' },
+          { q:'El propietario hace una contraoferta. ¿Cómo se la transmitís al comprador?', options:['Por escrito, con el plazo para responder','Por teléfono, sin dejar constancia','Le decís que el propietario "capaz que acepta"','Esperás a que el comprador llame'], correct:0, fb:'Todo por escrito y con plazos: así no hay malentendidos.' },
+          { q:'¿Qué es una oferta "sujeta a crédito"?', options:['Una oferta que se cae si el banco no aprueba el préstamo','Una oferta al contado','Una oferta sin seña','Una oferta que el banco ya pagó'], correct:0, fb:'Por eso conviene pedir la pre-aprobación del banco antes de reservar.' },
+          { q:'El comprador te pregunta cuál es el mínimo que acepta el propietario. ¿Qué respondés?', options:['Que es confidencial, y que le transmitís la oferta que quiera hacer','Le decís el mínimo para cerrar rápido','Le das un número aproximado','Le pasás el teléfono del propietario'], correct:0, fb:'Revelar el mínimo perjudica al propietario y rompe la confianza.' },
+          { q:'Se acepta la oferta. ¿Cuál es el paso siguiente?', options:['Firmar el boleto de reserva, recibir la seña con recibo y marcar la propiedad como Reservada','Firmar la escritura ese día','Seguir mostrando la propiedad','Cobrar la comisión completa'], correct:0, fb:'Después, el escribano empieza el estudio de títulos.' }
+        ] },
+      { id:'garantias', icon:'fa-shield-halved', title:'Garantías de alquiler',
+        desc:'Qué garantía sirve para cada caso y qué cubre cada una.',
+        questions:[
+          { q:'Si el inquilino deja de pagar, ¿qué hace un seguro de garantía de alquiler?', options:['La aseguradora le paga al propietario y se encarga del desalojo','Nada: solo cubre incendios','Le cobra una multa al propietario','Rescinde el contrato sin pagar'], correct:0, fb:'Es la garantía más usada en el mercado privado.' },
+          { q:'¿Quiénes pueden usar la garantía de la CGN?', options:['Funcionarios públicos, empleados de empresas adheridas, jubilados y pensionistas','Solo extranjeros','Cualquier persona, sin requisitos','Solo empresas'], correct:0, fb:'Además, beneficiarios del convenio con el MVOT y del subsidio del BPS.' },
+          { q:'Con la garantía de la CGN, ¿cuánto paga cada parte por mes?', options:['3% del alquiler el propietario y 3% el inquilino','Nada: es gratis','10% solo el inquilino','Un mes de alquiler por año'], correct:0, fb:'El trámite es gratis; el 3% se descuenta todos los meses junto con el alquiler.' },
+          { q:'¿Qué es el depósito en el BHU?', options:['Un monto que deposita el inquilino y que cubre deudas solo hasta ese valor','Un préstamo para comprar la propiedad','Una garantía que cubre todo, sin límite','Un seguro de incendio'], correct:0, fb:'Al final del contrato, si no hay deudas ni daños, se le devuelve al inquilino.' },
+          { q:'Una pareja de 24 y 26 años que trabaja no tiene garantía. ¿Qué opción del Estado le sugerís?', options:['El Fondo de Garantía de Alquiler para jóvenes (MVOT y ANV)','La garantía de ANDA para jubilados','El depósito en el BHU, nada más','No hay opciones para ellos'], correct:0, fb:'Es para personas de 18 a 29 años que estudian o trabajan, con alquileres de hasta 22,5 UR.' },
+          { q:'¿Qué es un alquiler "sin garantía" por la LUC?', options:['Un contrato que lo dice por escrito y que permite un desalojo más rápido si no se paga','Un alquiler informal, sin contrato','Un alquiler que paga el Estado','Un contrato con depósito en el BHU'], correct:0, fb:'El propietario asume más riesgo; a cambio, los plazos de desalojo son más cortos.' },
+          { q:'Antes de recomendar un seguro de garantía, ¿qué revisás de la póliza?', options:['Cuántos meses cubre, si incluye gastos comunes, daños y el juicio, y cómo se da de baja','Solo el precio','El color del folleto','Nada: todas son iguales'], correct:0, fb:'No todas cubren lo mismo: compará cobertura, costo y demora.' },
+          { q:'¿Cuándo das por buena la garantía de un interesado?', options:['Cuando tenés la aprobación o el certificado por escrito','Cuando el interesado dice que la está tramitando','Cuando paga la comisión','Cuando firma la propuesta'], correct:0, fb:'"En trámite" no es una garantía: sin aprobación no se firma ni se entregan llaves.' }
         ] }
     ];
     // Nombres cortos para las columnas de resultados de la Dirección.
-    const CORTO = { publicidad: 'Publicidad', fotografia: 'Fotografía', atencion: 'Atención', captacion: 'Captación', legal: 'Legal', negociacion: 'Negociación', herramientas: 'Herramientas' };
+    const CORTO = { publicidad: 'Publicidad', fotografia: 'Fotografía', atencion: 'Atención', captacion: 'Captación', legal: 'Legal', negociacion: 'Negociación', herramientas: 'Herramientas', proceso_venta: 'Venta', proceso_alquiler: 'Alquiler', ofertas: 'Ofertas', garantias: 'Garantías' };
 
-    function enhanceStartCards() {
-      document.querySelectorAll('#viewStart .start-card').forEach(function(card) {
-        if (card.dataset.enh) return; card.dataset.enh = '1';
-        var ul = card.querySelector('ul'); if (!ul) return;
-        var body = document.createElement('div'); body.className = 'sc-body';
-        card.insertBefore(body, ul); body.appendChild(ul);
-        if (body.scrollHeight > 200) {
-          card.classList.add('sc-collapsible');
-          var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'sc-more';
-          btn.setAttribute('aria-expanded', 'false');
-          btn.innerHTML = 'Ver más <i class="fas fa-chevron-down"></i>';
-          btn.addEventListener('click', function() {
-            var open = card.classList.toggle('sc-open');
-            btn.setAttribute('aria-expanded', String(open));
-            btn.innerHTML = open ? 'Ver menos <i class="fas fa-chevron-up"></i>' : 'Ver más <i class="fas fa-chevron-down"></i>';
-          });
-          card.appendChild(btn);
-        }
+    // ===================== GUÍAS =====================
+    // Contenido de las guías (Uruguay). Los datos que cambian llevan fecha y fuente.
+    // Tipos de bloque: pasos, lista (check), errores, nunca, nota, texto, tabla, fichas, paga, modelo, docs.
+    const GUIAS = [
+      {
+        id: 'venta', grupo: 'Procesos', icon: 'fa-house-circle-check', titulo: 'Venta paso a paso', min: 7, test: 'proceso_venta',
+        resumen: 'De la captación a la entrega de llaves: qué pasa en cada etapa, qué papeles se piden y quién hace cada cosa.',
+        bloques: [
+          { tipo: 'pasos', titulo: 'Las etapas de una venta', items: [
+            { t: 'Captación y tasación', quien: ['Agente', 'Propietario'], d: [
+              'Visitá la propiedad y relevá metros, estado, padrón, gastos comunes y qué precio espera el propietario.',
+              'Armá la tasación con comparables (con el <a href="tasador.html">Tasador</a>) y mostrale el precio de mercado con datos, no con opiniones.',
+              'Firmá la autorización de venta por escrito: precio, comisión, si es exclusiva y por cuánto tiempo.'] },
+            { t: 'Papeles de la propiedad', quien: ['Agente', 'Propietario'], d: [
+              'Pedí el título (la escritura con la que la compró), el plano de mensura, el número de padrón, la contribución inmobiliaria y los tributos al día y, si es propiedad horizontal, la constancia de gastos comunes al día.',
+              'Preguntá desde el primer día si hay sucesión, divorcio, poder, hipoteca o una obra sin regularizar. Cambian los tiempos y los papeles: consultalo con el escribano antes de publicar.'] },
+            { t: 'Publicación y visitas', quien: ['Agente'], d: [
+              'Fotos buenas, descripción honesta y precio de mercado. Coordiná las visitas en la <a href="agenda.html">Agenda</a> y registrá a cada interesado en <a href="clientes.html">Clientes</a>.',
+              'Después de cada visita hacé seguimiento y contale al propietario qué dicen los interesados.'] },
+            { t: 'Oferta', quien: ['Comprador', 'Agente', 'Propietario'], d: [
+              'Toda oferta va por escrito y firmada: precio, forma de pago, seña, plazos, condiciones y hasta cuándo vale.',
+              'Presentásela al propietario cuanto antes y con tu análisis. Mirá la guía <a href="#guias/ofertas" data-guia="ofertas">Cuando llega una oferta</a>.'] },
+            { t: 'Reserva', quien: ['Comprador', 'Propietario', 'Agente'], d: [
+              'Con la oferta aceptada, el comprador firma el boleto de reserva y deja una seña, con recibo. Se fija el plazo para firmar el compromiso o la escritura.',
+              'Dejá por escrito qué pasa con la seña si alguna de las partes se echa atrás.',
+              'La propiedad sale del mercado: ese mismo día marcá la gestión como <b>Reservado</b> en el CRM y dejá de mostrarla.'] },
+            { t: 'Estudio de títulos', quien: ['Escribano'], d: [
+              'El escribano revisa que el vendedor sea el dueño y pueda vender, y pide los certificados: Registro de la Propiedad (embargos, hipotecas, interdicciones), Catastro, Intendencia (contribución y tributos) y, si hubo obras, BPS.',
+              'Si el comprador paga con crédito hipotecario, el banco tasa la propiedad y pide sus papeles. Los plazos los marca el banco: no los prometas vos.'] },
+            { t: 'Compromiso de compraventa (si corresponde)', quien: ['Escribano', 'Comprador', 'Propietario'], d: [
+              'Se firma cuando el precio se paga en partes o la escritura va a demorar, por ejemplo, mientras sale un crédito. Suele llevar una seña mayor.',
+              'Se inscribe en el Registro de la Propiedad, y eso protege al comprador: el vendedor ya no puede vendérsela a otro.',
+              'En una venta al contado y rápida, muchas veces se pasa directo de la reserva a la escritura.'] },
+            { t: 'Escritura', quien: ['Escribano', 'Comprador', 'Propietario'], d: [
+              'Se firma la compraventa ante escribano: el comprador paga el saldo, el vendedor entrega la posesión y se pagan el ITP y las comisiones. Si el vendedor gana con la venta, el escribano le retiene el IRPF.',
+              'El escribano deja constancia de cómo se pagó e inscribe la compra en el Registro.'] },
+            { t: 'Entrega y cierre', quien: ['Agente', 'Dirección'], d: [
+              'Entregá la propiedad como se pactó, con las llaves contadas y los medidores leídos.',
+              'Registrá el cierre en el CRM con tu ganancia; la Dirección confirma la firma en el Mapa de cierres.',
+              'Pedile una reseña al cliente y mantené el contacto: de ahí salen los referidos.'] }
+          ] },
+          { tipo: 'lista', titulo: 'Antes de reservar, confirmá', items: [
+            'La oferta está firmada por el comprador y aceptada por escrito por el propietario.',
+            'Tenés la cédula del comprador y sabés cómo va a pagar: contado, crédito pre-aprobado u otra forma.',
+            'Está claro el monto de la seña, el plazo para firmar y qué pasa si alguien desiste.',
+            'Está definido qué escribano (o escribanos) interviene.',
+            'No hay otra reserva vigente sobre la propiedad.'] },
+          { tipo: 'errores', titulo: 'Errores que cuestan una venta', items: [
+            'Reservar de palabra o recibir una seña sin recibo.',
+            'Enterarse tarde de una sucesión, un embargo o una obra sin regularizar.',
+            'Prometer fechas que dependen del banco o del escribano.',
+            'Seguir mostrando la propiedad después de reservada.',
+            'Recibir pagos en efectivo sin avisar a la Dirección (mirá <a href="#guias/documentos" data-guia="documentos">Documentos y controles</a>).'] }
+        ],
+        fuentes: [['DGI · Impuesto a las Transmisiones Patrimoniales', 'https://www.gub.uy/direccion-general-impositiva/comunicacion/publicaciones/impuesto-trasmisiones-patrimoniales-itp']]
+      },
+      {
+        id: 'alquiler', grupo: 'Procesos', icon: 'fa-key', titulo: 'Alquiler paso a paso', min: 7, test: 'proceso_alquiler',
+        resumen: 'Desde que el propietario te deja la propiedad hasta la entrega de llaves, el día a día del contrato y la salida.',
+        bloques: [
+          { tipo: 'pasos', titulo: 'Las etapas de un alquiler', items: [
+            { t: 'Captación y precio', quien: ['Agente', 'Propietario'], d: [
+              'Visitá, sacá fotos y relevá el estado. Definí el precio con comparables de la zona.',
+              'Acordá con el propietario por escrito: precio, qué garantías acepta, si se permiten mascotas, si incluye gastos comunes y si MALAVE administra el cobro.'] },
+            { t: 'Publicación y visitas', quien: ['Agente'], d: [
+              'En el aviso dejá claros el precio, los gastos comunes y las garantías que se aceptan: así llegan consultas que sirven.',
+              'Antes de mostrar, preguntá qué garantía tiene el interesado y si ya está aprobada.'] },
+            { t: 'Propuesta del interesado', quien: ['Inquilino', 'Agente'], d: [
+              'Pedila por escrito: precio, fecha de entrada, plazo, quiénes van a vivir y con qué garantía.',
+              'Pedí cédula y comprobantes de ingresos. La garantía la aprueba la aseguradora o el organismo: no la des por hecha hasta tener la aprobación por escrito.'] },
+            { t: 'Garantía aprobada', quien: ['Inquilino', 'Agente', 'Propietario'], d: [
+              'Con la aprobación o el certificado, presentale la propuesta al propietario y explicale qué cubre esa garantía. Mirá <a href="#guias/garantias" data-guia="garantias">Garantías y aseguradoras</a>.'] },
+            { t: 'Contrato', quien: ['Escribano', 'Agente'], d: [
+              'El contrato dice: partes, precio y moneda, plazo, reajuste, garantía, quién paga qué (gastos comunes, contribución, tributos), destino (vivienda o comercio) y si se permiten mascotas.',
+              'Reajuste: lo habitual es anual. Muchos contratos usan el Coeficiente de Reajuste de Alquileres (CRA), que se publica todos los meses y toma la menor variación entre la URA y el IPC de los últimos 12 meses.',
+              'Con CGN, ANDA o una aseguradora se usan sus formularios y condiciones: revisalos antes de firmar. Las firmas se certifican ante escribano.'] },
+            { t: 'Inventario y entrega de llaves', quien: ['Agente', 'Inquilino', 'Propietario'], d: [
+              'Hacé un inventario con fotos fechadas de cada ambiente, los artefactos y las llaves, firmado por las dos partes. Es lo que se compara a la salida, y las aseguradoras lo piden para cubrir daños.',
+              'Anotá la lectura de los medidores (UTE, OSE, gas) y acordá quién pone los servicios a su nombre.'] },
+            { t: 'Comisión y registro', quien: ['Agente'], d: [
+              'Se cobra la comisión (lo habitual es un mes de alquiler + IVA) y se registra el cierre en el CRM ese mismo día.'] },
+            { t: 'Durante el contrato', quien: ['Agente', 'Dirección'], d: [
+              'Si MALAVE administra: cobro mensual, pago al propietario, retención del 10,5% de IRPF cuando corresponde y seguimiento de las reparaciones.',
+              'Si hay atraso y la garantía es de una aseguradora, avisá enseguida: las pólizas piden aviso en pocos días. En Mapfre, por ejemplo, dentro de los 5 días hábiles después de 10 días de atraso.',
+              'Avisale al propietario del reajuste anual y del vencimiento con tiempo.'] },
+            { t: 'Fin del contrato', quien: ['Agente', 'Inquilino', 'Propietario'], d: [
+              'Inventario de salida contra el de entrada, lectura de medidores y constancias de servicios y gastos comunes al día.',
+              'Si hubo depósito (por ejemplo, en el BHU), se libera cuando todo está en orden. Con una aseguradora, la baja se hace con el acta de entrega de llaves.'] }
+          ] },
+          { tipo: 'lista', titulo: 'Antes de entregar las llaves', items: [
+            'Garantía aprobada por escrito y vigente.',
+            'Contrato firmado, con plazo, reajuste y quién paga qué.',
+            'Inventario con fotos, firmado por las dos partes.',
+            'Comisión cobrada y registrada en el CRM.',
+            'Medidores leídos y llaves contadas.'] },
+          { tipo: 'errores', titulo: 'Errores frecuentes', items: [
+            'Entregar las llaves con la garantía "en trámite".',
+            'No hacer inventario con fotos: después no hay cómo reclamar daños.',
+            'No dejar por escrito quién paga gastos comunes, contribución y tributos.',
+            'Avisar tarde un atraso a la aseguradora: ese período puede quedar sin cobertura.',
+            'Olvidarse del reajuste anual o del vencimiento.'] }
+        ],
+        fuentes: [
+          ['IMPO · Decreto que fija UR, URA, IPC y CRA (2026)', 'https://impo.com.uy/bases/decretos/187-2026/1'],
+          ['Mapfre · Condiciones generales de la garantía de alquiler', 'https://www.mapfre.com.uy/media/condiciones-generales-garantia-de-alquiler.pdf']]
+      },
+      {
+        id: 'ofertas', grupo: 'Procesos', icon: 'fa-file-signature', titulo: 'Cuando llega una oferta', min: 5, test: 'ofertas',
+        resumen: 'Qué pedir, cómo presentársela al propietario, contraofertas, varias ofertas a la vez y qué hacer cuando se acepta.',
+        bloques: [
+          { tipo: 'pasos', titulo: 'Paso a paso', items: [
+            { t: 'Pedila por escrito', quien: ['Agente', 'Comprador'], d: [
+              'Una oferta de palabra o por WhatsApp no es una oferta firme. Pedila firmada, con: nombre y cédula, precio y moneda, forma de pago, seña, plazos (reserva, escritura, entrega), condiciones y hasta cuándo vale.',
+              'Podés usar el modelo de más abajo.'] },
+            { t: 'Revisala antes de presentarla', quien: ['Agente'], d: [
+              '¿Puede pagar? Si es con crédito, pedí la pre-aprobación del banco. ¿Las condiciones son claras? ¿Los plazos son realistas?',
+              'Registrá al comprador y la oferta en <a href="clientes.html">Clientes</a>, en el momento.'] },
+            { t: 'Presentala al propietario cuanto antes', quien: ['Agente', 'Propietario'], d: [
+              'Todas las ofertas se presentan, aunque sean bajas: decidir es del propietario.',
+              'Mandala por escrito con tu análisis: comparables, tiempo publicado, consultas recibidas y qué tan firme es. A veces un precio menor al contado vale más que uno mayor que depende de un crédito.'] },
+            { t: 'Acepta, rechaza o contraoferta', quien: ['Propietario', 'Agente', 'Comprador'], d: [
+              'La contraoferta también va por escrito y con plazo para responder. Transmitila de la misma forma.',
+              'Si se traba el precio, negociá otras cosas: plazos, forma de pago, fecha de entrega, qué queda incluido.'] },
+            { t: 'Aceptada: reserva', quien: ['Agente', 'Comprador', 'Propietario'], d: [
+              'Se firma el boleto de reserva y se recibe la seña con recibo.',
+              'Ese día marcá la gestión como <b>Reservado</b> en el CRM y avisale al escribano para que empiece el estudio de títulos.'] }
+          ] },
+          { tipo: 'modelo', titulo: 'Modelo de oferta de compra', texto: 'OFERTA DE COMPRA\n\nYo, ______________________, cédula __________, ofrezco comprar el inmueble ubicado en ______________________ (padrón ________) en la suma de US$ __________.\n\nForma de pago: ______________________ (contado / crédito hipotecario del banco ________ / otra).\nSeña: US$ ________, al firmar el boleto de reserva.\nPlazo para firmar la escritura: ____ días desde la aceptación.\nCondiciones: ______________________ (por ejemplo: sujeta a la aprobación del crédito).\n\nEsta oferta vale hasta el ___/___/______ a las ___:___ horas.\n\nFirma: ______________________     Fecha: ___/___/______' },
+          { tipo: 'nunca', titulo: 'Lo que nunca se hace', items: [
+            'Decirle al comprador el mínimo que acepta el propietario, ni contarle a un comprador la oferta de otro.',
+            'Inventar otra oferta para apurar a alguien.',
+            'Guardarte una oferta porque te parece baja.',
+            'Aceptar en nombre del propietario sin su firma.'] },
+          { tipo: 'nota', icon: 'fa-people-arrows', titulo: 'Si llegan varias ofertas', texto: 'Presentale todas al propietario. Si conviene, pedí a cada interesado su mejor oferta final, con el mismo plazo para todos y sin revelar números. Elegir es del propietario: tu trabajo es que compare bien precio, forma de pago, plazos y condiciones.' },
+          { tipo: 'nota', icon: 'fa-key', titulo: 'En un alquiler', texto: 'La propuesta de alquiler sigue el mismo camino: precio, fecha de entrada, plazo y garantía, por escrito. Presentásela al propietario cuando la garantía esté aprobada.' }
+        ]
+      },
+      {
+        id: 'garantias', grupo: 'Para asesorar', icon: 'fa-shield-halved', titulo: 'Garantías y aseguradoras', min: 10, test: 'garantias',
+        resumen: 'Todas las garantías de alquiler que se usan en Uruguay: quién puede usarlas, requisitos, costo y qué cubre cada una.',
+        bloques: [
+          { tipo: 'texto', html: 'La garantía protege al propietario si el inquilino deja de pagar o deja daños. Cada una tiene requisitos, costo y cobertura distintos. <b>Antes de mostrar una propiedad, preguntá qué garantía tiene el interesado y si ya está aprobada.</b>' },
+          { tipo: 'tabla', titulo: 'Comparación rápida', cols: ['Garantía', 'Quién puede usarla', 'Costo', 'Qué cubre', 'Demora'], filas: [
+            ['Seguro de garantía (Porto Seguro, Mapfre, SURA, BSE)', 'Personas con ingresos comprobables. El alquiler suele poder ser hasta un 30% de los ingresos (se suman hasta 4 o 5 personas).', 'Póliza anual que paga el inquilino. En Porto Seguro, cerca del 6% del alquiler anual (oct. 2026).', 'Alquiler, gastos comunes, tributos y servicios, daños y el juicio de desalojo, según la póliza.', 'De horas a 2 días'],
+            ['ANDA', 'Socios con ingresos. El alquiler, hasta el 35% de los ingresos nominales.', '3% mensual del alquiler.', 'Impagos y daños. Liquida el IRPF del propietario.', '3 a 5 días hábiles'],
+            ['CGN (Contaduría General de la Nación)', 'Funcionarios públicos, privados de empresas adheridas, jubilados y pensionistas.', '3% mensual del alquiler para cada parte.', 'Respaldo del Estado. El alquiler se descuenta del sueldo.', 'Con agenda'],
+            ['Fondo de Garantía (MVOT y ANV)', 'Hogares con ingresos formales de 15 a 100 UR.', '3% mensual para cada parte.', 'Certificado del Estado. Alquiler de hasta 18 UR (21 UR en vivienda promovida).', 'Entrevista y trámite'],
+            ['Fondo para jóvenes (MVOT y ANV)', 'De 18 a 29 años que estudian o trabajan.', '3% mensual para cada parte y un depósito único del 12%.', 'Alquiler de hasta 22,5 UR y no más del 40% del ingreso.', 'Entrevista y trámite'],
+            ['Depósito en el BHU', 'Quien tenga el dinero para depositar.', 'El depósito, que se devuelve al final.', 'Solo hasta el monto depositado.', 'Rápida'],
+            ['Con propiedad (fiador)', 'Quien tenga un fiador con un inmueble libre de deudas.', 'Sin costo directo.', 'Lo que se cobre por vía judicial.', 'Lo que tarde el escribano'],
+            ['Sin garantía (LUC)', 'Si las partes lo pactan por escrito.', 'Sin costo.', 'Nada. A cambio, el desalojo es más rápido.', 'Inmediata']] },
+          { tipo: 'nota', icon: 'fa-scale-balanced', titulo: 'Para comparar el costo', texto: 'La CGN y ANDA cobran 3% por mes, o sea, 3% del alquiler del año. En el cotizador de Porto Seguro la póliza anual ronda el 6% del alquiler del año, pero cubre más cosas y es más rápida. Con CGN y el Fondo del MVOT, el propietario también paga su 3%.' },
+          { tipo: 'fichas', titulo: 'Seguros de garantía de alquiler', intro: 'El inquilino contrata una póliza. Si deja de pagar, la aseguradora le paga al propietario y se encarga del desalojo. Leé qué cubre cada una: meses, gastos comunes, daños, costos del juicio y cómo se da de baja.', items: [
+            { n: 'Porto Seguro', tag: 'Aseguradora', campos: [
+              ['Quién', 'Personas y empresas residentes en Uruguay.'],
+              ['Requisitos', 'Ingresos comprobables. En su cotizador, el alquiler puede ser hasta el 30% de los ingresos: para un alquiler de $21.500 piden $71.667. Se pueden sumar los ingresos de hasta 5 personas, que pasan a ser cotitulares del contrato.'],
+              ['Costo', 'Póliza anual a cargo del inquilino. Ejemplo del cotizador (octubre 2026): alquiler de $21.500 → $15.488 por año, cerca del 6% del alquiler anual. Hasta 12 cuotas sin recargo con OCA, Visa, Master o Cabal.'],
+              ['Cubre', 'Alquiler y gastos asociados (gastos comunes, tributos, saneamiento, UTE, OSE y gas) si el inquilino no paga. Le paga al propietario y se encarga del desalojo sin costo para él.'],
+              ['Demora', 'Con los papeles listos, las llaves se pueden entregar en el día. Los corredores emiten la póliza online.'],
+              ['Extra', 'Asistencia en el hogar las 24 horas (plomería, electricidad, cerrajería, vidrios).']],
+              fuente: 'Cotizador de Porto Seguro (oct. 2026) y Montevideo Portal' },
+            { n: 'Mapfre', tag: 'Aseguradora', campos: [
+              ['Requisitos', 'El alquiler no puede superar el 30% de los ingresos del inquilino y sus codeudores (hasta 5 personas). Antigüedad laboral de 3 meses (6 si el ingreso es variable). Independientes: RUT, 1 año de actividad y certificado de contador o escribano. Jubilados: último recibo.'],
+              ['Costo', 'Se cotiza online. Lo paga el inquilino.'],
+              ['Cubre', 'Alquileres impagos con el juicio de desalojo, abogados y costas; gastos comunes ordinarios; tributos y servicios (puerta, saneamiento, agua, luz y gas); daños reconocidos por perito, con inventario firmado. Los montos y meses dependen de la póliza (Montevideo Portal menciona hasta 36 meses de alquiler).'],
+              ['No cubre', 'Alquileres comerciales, subarriendos, alquileres entre parientes hasta segundo grado, desgaste normal, gastos comunes extraordinarios y multas.'],
+              ['Ojo', 'Si el inquilino se atrasa 10 días, hay que avisar dentro de los 5 días hábiles siguientes. Si se avisa después de 60 días, ese período queda a cargo del propietario.'],
+              ['Demora y baja', 'Trámite digital, respuesta en no más de 24 horas. La baja se hace con el acta de entrega de llaves y la constancia de que no hay deudas ni daños.']],
+              fuente: 'Condiciones generales de Mapfre y Montevideo Portal' },
+            { n: 'SURA', tag: 'Aseguradora', campos: [
+              ['Quién', 'Personas y empresas, incluso primer alquiler y locales comerciales. Residentes extranjeros, caso a caso.'],
+              ['Requisitos', 'Analiza ingresos y capacidad de crédito: sueldo, jubilación, actividad independiente o rentas.'],
+              ['Costo', 'Lo paga el inquilino, hasta en 10 cuotas con tarjeta de crédito.'],
+              ['Demora', 'Respuesta en menos de 24 horas con la documentación completa; las llaves se pueden entregar en 24 horas.'],
+              ['Extra', 'Kit de pintura para el propietario, instalación de calefón para el inquilino y asistencia en el hogar para los dos.']],
+              fuente: 'Montevideo Portal' },
+            { n: 'BSE · Banco de Seguros del Estado', tag: 'Aseguradora', campos: [
+              ['Cubre', 'Hasta 36 veces el alquiler: alquileres impagos, gastos comunes, daños y servicios.'],
+              ['Requisitos', 'Se pueden sumar hasta 4 ingresos.'],
+              ['Costo', 'Contado, 3 cuotas sin recargo o hasta 10 con tarjeta. Se cotiza en la web del BSE y se contrata con un asesor de seguros.'],
+              ['Extra', 'Asistencia en el hogar: aire acondicionado, calefón, cerrajería, plomería, electricidad, vidrios y armado de muebles.']],
+              fuente: 'Montevideo Portal (febrero 2024)' }
+          ] },
+          { tipo: 'fichas', titulo: 'Garantías de instituciones y del Estado', items: [
+            { n: 'ANDA', tag: 'Institución', campos: [
+              ['Quién', 'Inquilinos que se asocian a ANDA: 49 sucursales, teléfono y WhatsApp.'],
+              ['Requisitos', 'El alquiler, hasta el 35% de los ingresos nominales (se pueden sumar ingresos de familiares o amigos). Privados: 6 meses de antigüedad. Públicos presupuestados: 1 mes. Jubilados y pensionistas: sin antigüedad. Independientes: certificado de ingresos de contador o escribano y los últimos 3 pagos a BPS y DGI. Estar en el Clearing no lo impide: se evalúa.'],
+              ['Costo', '3% mensual del alquiler garantizado.'],
+              ['Cómo funciona', 'El alquiler se descuenta del sueldo del inquilino. ANDA liquida el IRPF del propietario sin costo y le puede adelantar el cobro.'],
+              ['Demora y baja', '3 a 5 días hábiles. Para la baja, las dos partes van a una sucursal.']],
+              fuente: 'Montevideo Portal' },
+            { n: 'CGN · Servicio de Garantía de Alquileres', tag: 'Estado', campos: [
+              ['Quién', 'Funcionarios públicos con 6 meses de antigüedad; empleados privados con 6 meses si su empresa está adherida; jubilados y pensionistas; beneficiarios del convenio con el MVOT y del subsidio del BPS.'],
+              ['Para qué', 'Solo vivienda (casa-habitación). La respalda el Estado.'],
+              ['Requisito clave', 'Informe Líquido Disponible (ILD) vigente.'],
+              ['Costo', 'El trámite es gratis. Después, 3% mensual del alquiler para el propietario y 3% para el inquilino, descontado junto con el alquiler.'],
+              ['Cómo funciona', 'El alquiler se descuenta del sueldo y al propietario se le paga solo por transferencia. La CGN retiene el 10,5% de IRPF; si el propietario está exonerado, lo tramita en DGI.'],
+              ['Dónde', 'Misiones 1423 (Montevideo), con agenda; teléfono 0800 8765. Si alquilan por inmobiliaria, la inmobiliaria hace el trámite.']],
+              fuente: 'gub.uy, actualizado el 13/03/2026', url: 'https://www.gub.uy/tramites/alquiler-contaduria-general-nacion' },
+            { n: 'Fondo de Garantía de Alquiler · MVOT y ANV', tag: 'Estado', campos: [
+              ['Quién', 'Mayores de 18 años con ingresos formales del hogar entre 15 y 100 UR y al menos 3 meses de continuidad.'],
+              ['No pueden', 'Tener inmuebles en el mismo departamento ni otra garantía del Estado.'],
+              ['Alquiler máximo', '18 UR, o 21 UR si es vivienda promovida. Con la UR de octubre de 2026 (unos $1.940), cerca de $34.900 o $40.800.'],
+              ['Costo', 'El trámite es gratis. Después, 3% mensual del alquiler para cada parte, que se paga a la CGN.'],
+              ['Cómo', 'Entrevista en el MVOT (Montevideo y Canelones, 0800 46427), en la ANV (resto del país) u online. El contrato se firma a través de la CGN.']],
+              fuente: 'gub.uy, actualizado el 07/10/2026', url: 'https://www.gub.uy/tramites/solicitud-fondo-garantia-alquiler' },
+            { n: 'Fondo de Garantía para jóvenes · MVOT y ANV', tag: 'Estado', campos: [
+              ['Quién', 'De 18 a 29 años que estudien o trabajen. Puede ser individual o en grupo de hasta 5 personas.'],
+              ['Ingresos', 'Hasta 100 UR, individual o del grupo. Los grupos necesitan al menos 30 UR entre todos.'],
+              ['Alquiler máximo', '22,5 UR (cerca de $43.700 con la UR de octubre de 2026) y no más del 40% del ingreso.'],
+              ['Costo', '3% mensual para cada parte, más un depósito único del 12% del monto garantizado.']],
+              fuente: 'gub.uy, actualizado el 05/06/2026', url: 'https://www.gub.uy/tramites/solicitud-fondo-garantia-alquiler-jovenes' }
+          ] },
+          { tipo: 'fichas', titulo: 'Otras formas', items: [
+            { n: 'Depósito en el BHU', tag: 'Depósito', campos: [
+              ['Cómo funciona', 'El inquilino deposita en el Banco Hipotecario un monto que acuerdan las partes. Queda actualizado (en unidades indexadas) y, si el inquilino no paga, el propietario puede cobrarse de ahí.'],
+              ['Al terminar', 'Si no hay deudas ni daños, se le devuelve al inquilino.'],
+              ['Ojo', 'Cubre solo hasta lo depositado. Lo tienen que aceptar las dos partes.']],
+              fuente: 'Montevideo Portal' },
+            { n: 'Garantía con propiedad (fiador)', tag: 'Personal', campos: [
+              ['Cómo funciona', 'Alguien que tiene un inmueble firma como fiador y responde con él si el inquilino no paga.'],
+              ['Controles', 'El escribano revisa el título y que la propiedad esté libre de embargos e hipotecas. Muchos propietarios piden que esté en el mismo departamento.'],
+              ['Ojo', 'Cobrar por esta vía es lento, porque hay que ir a juicio.']] },
+            { n: 'Alquiler sin garantía (LUC, 2020)', tag: 'Sin garantía', campos: [
+              ['Cómo funciona', 'La Ley de Urgente Consideración permite alquilar sin garantía si las partes lo pactan por escrito. A cambio, los plazos de desalojo son más cortos.'],
+              ['Plazos', 'Si el inquilino no paga, la mora corre al tercer día hábil de la intimación (en el régimen común, a los 10 días) y el lanzamiento puede hacerse en 6 días (en el común, 20). Si paga pero el contrato venció, el desalojo es a los 30 días de la sentencia (en el común, 6 meses o un año).'],
+              ['Ojo', 'El propietario asume más riesgo. Explicale bien la diferencia y que el contrato lo arme un escribano.']],
+              fuente: 'El Observador' }
+          ] },
+          { tipo: 'lista', titulo: 'Cómo ayudar a elegir', items: [
+            '<b>Funcionario público, jubilado o empleado de una empresa adherida:</b> mirá la CGN.',
+            '<b>De 18 a 29 años:</b> el Fondo de Garantía para jóvenes.',
+            '<b>Ingresos privados comprobables:</b> una aseguradora o ANDA. Compará costo, cobertura y demora.',
+            '<b>Ingresos bajos y formales:</b> el Fondo de Garantía del MVOT, si el alquiler entra en el tope.',
+            '<b>Al propietario:</b> una aseguradora le paga y se encarga del desalojo; CGN y ANDA descuentan del sueldo; el depósito del BHU cubre solo lo depositado; con fiador, cobrar es más lento.'] }
+        ],
+        fuentes: [
+          ['gub.uy · Alquiler por Contaduría General de la Nación', 'https://www.gub.uy/tramites/alquiler-contaduria-general-nacion'],
+          ['gub.uy · Fondo de Garantía de Alquiler', 'https://www.gub.uy/tramites/solicitud-fondo-garantia-alquiler'],
+          ['gub.uy · Fondo de Garantía de Alquiler para jóvenes', 'https://www.gub.uy/tramites/solicitud-fondo-garantia-alquiler-jovenes'],
+          ['Montevideo Portal · Qué ofrecen las principales aseguradoras', 'https://www.montevideo.com.uy/Especiales/-Que-ofrecen-las-principales-aseguradoras-del-mercado--Cual-elegir--uc860937'],
+          ['Montevideo Portal · Seguro de garantía de alquiler del BSE', 'https://www.montevideo.com.uy/Noticias/Banco-de-Seguros-del-Estado-presento-su-seguro-de-garantia-de-alquiler-uc881034'],
+          ['Mapfre · Condiciones generales', 'https://www.mapfre.com.uy/media/condiciones-generales-garantia-de-alquiler.pdf'],
+          ['El Observador · Alquileres por la LUC', 'https://www.elobservador.com.uy/nota/alquileres-luc-el-mecanismo-que-aun-no-mueve-la-aguja-y-es-una-vedette-de-la-campana-202231816210'],
+          ['Porto Seguro · Cotizador de garantía de alquiler', 'https://www.portoseguro.com.uy']]
+      },
+      {
+        id: 'impuestos', grupo: 'Para asesorar', icon: 'fa-coins', titulo: 'Comisiones, impuestos y gastos', min: 5, test: 'legal',
+        resumen: 'Quién paga qué en una venta y en un alquiler, y cómo funciona el IRPF de los alquileres.',
+        bloques: [
+          { tipo: 'paga', titulo: 'En una venta', cols: ['Comprador', 'Vendedor'], filas: [
+            ['Comisión inmobiliaria', '3% + IVA del precio', [1, 1], 'Lo usual en Uruguay: la paga cada parte.'],
+            ['ITP (Impuesto a las Transmisiones Patrimoniales)', '2% del valor real', [1, 1], 'El valor real lo fija Catastro: no es el precio de venta.'],
+            ['Escribano', '3% + Caja Notarial e IVA', [1, 0], 'Sobre el precio o el valor catastral, el mayor (arancel de la Asociación de Escribanos). Suele pagarlo el comprador, pero se puede negociar.'],
+            ['IRPF por la ganancia', '12% de la ganancia', [0, 1], 'Solo si el vendedor es persona física y gana con la venta. Lo retiene el escribano en la escritura (mirá abajo).'],
+            ['Deudas de la propiedad', 'Lo que corresponda', [0, 1], 'Contribución, tributos y gastos comunes al día hasta la entrega.']],
+            nota: 'El IVA es del 22%. Son valores orientativos: confirmalos en cada operación.' },
+          { tipo: 'paga', titulo: 'En un alquiler (lo habitual; se define en el contrato)', cols: ['Inquilino', 'Propietario'], filas: [
+            ['Comisión inmobiliaria', 'Un mes de alquiler + IVA', [1, 0], ''],
+            ['Garantía', 'Según cuál', [1, 2], 'Con CGN y el Fondo del MVOT, el propietario también paga su 3% mensual.'],
+            ['Gastos comunes ordinarios', 'Mensual', [1, 0], 'Los extraordinarios suelen ser del propietario.'],
+            ['Tributos domiciliarios y servicios', 'Mensual', [1, 0], 'Saneamiento, UTE, OSE, gas.'],
+            ['Contribución inmobiliaria e impuesto de Primaria', 'Anual', [0, 1], ''],
+            ['IRPF del alquiler', '12% anual', [0, 1], 'Mirá abajo cómo funciona.']] },
+          { tipo: 'pasos', titulo: 'IRPF del vendedor', numeros: false, items: [
+            { t: 'Cómo se calcula', d: ['12% sobre la ganancia: el precio (o el valor catastral, si es mayor) menos lo que le costó la propiedad actualizado, el ITP que paga y las mejoras documentadas.', 'Si la compró antes del 1 de julio de 2007, puede optar por pagar el 12% sobre el 15% del precio, o sea, el 1,8% del precio.'] },
+            { t: 'Vivienda permanente', d: ['Puede quedar exonerado si vende su vivienda permanente de hasta 1.200.000 UI, usa al menos la mitad del dinero para comprar otra vivienda permanente de hasta 1.800.000 UI y la compra dentro de los 12 meses.', 'Aun así, el escribano retiene el impuesto en la escritura; después se pide la devolución.'] },
+            { t: 'Quién lo cobra', d: ['El escribano lo retiene en la escritura y lo paga a DGI.'] }
+          ] },
+          { tipo: 'pasos', titulo: 'IRPF de los alquileres', numeros: false, items: [
+            { t: 'Lo paga el propietario', d: ['Si cobra a través de una inmobiliaria que administra, de la CGN o de ANDA, se le retiene el 10,5% de cada mes.'] },
+            { t: 'Puede quedar exonerado', d: ['Si el total de sus alquileres del año es menor a <b>40 BPC</b>: $274.560 en 2026 (BPC de $6.864), unos $22.880 por mes.', 'Además tiene que levantar el secreto bancario y no tener otras rentas de capital mayores a 3 BPC al año ($20.592 en 2026). Solo para personas físicas residentes.'] },
+            { t: 'No es automático', d: ['Se pide en DGI con los formularios 5500 y 5600, online o con agenda, sin costo. Con varias propiedades, se suman todos los alquileres.'] },
+            { t: 'Matrimonios', d: ['Sin capitulaciones: si en la escritura figura un solo cónyuge, la renta es toda suya; si figuran los dos, es 50% de cada uno.'] }
+          ] },
+          { tipo: 'nota', icon: 'fa-circle-exclamation', titulo: 'Importante', texto: 'Esta información es orientativa y los topes cambian cada año. Confirmá siempre con un contador y en DGI antes de asesorar a un propietario.' }
+        ],
+        fuentes: [
+          ['DGI · Impuesto a las Transmisiones Patrimoniales', 'https://www.gub.uy/direccion-general-impositiva/comunicacion/publicaciones/impuesto-trasmisiones-patrimoniales-itp'],
+          ['DGI · IRPF por la venta de inmuebles urbanos', 'https://www.gub.uy/direccion-general-impositiva/comunicacion/publicaciones/irpf-incrementos-patrimoniales-inmuebles-urbanos'],
+          ['gub.uy · Exoneración de IRPF por arrendamientos', 'https://www.gub.uy/tramites/exoneracion-irpf-arrendamientos-inmuebles'],
+          ['Valor de la BPC 2026', 'https://datosuruguay.com/bps/bpc']]
+      },
+      {
+        id: 'documentos', grupo: 'Para asesorar', icon: 'fa-folder-open', titulo: 'Documentos y controles', min: 5, test: null,
+        resumen: 'Qué papeles pedir en cada operación y qué tiene que controlar la inmobiliaria por la ley contra el lavado de activos.',
+        bloques: [
+          { tipo: 'docs', titulo: 'Qué pedir', grupos: [
+            { t: 'Para vender (propietario)', icon: 'fa-house', items: ['Cédula de los propietarios (y del cónyuge, si corresponde).', 'Título de propiedad: la escritura con la que la compró.', 'Plano de mensura y número de padrón.', 'Contribución inmobiliaria y tributos al día.', 'Gastos comunes al día, si es propiedad horizontal.', 'Si hay sucesión, divorcio o poder: lo que indique el escribano.'] },
+            { t: 'Para comprar (comprador)', icon: 'fa-user', items: ['Cédula.', 'Cómo va a pagar: constancia de fondos o pre-aprobación del crédito.', 'Estado civil, que lo pide el escribano.'] },
+            { t: 'Para dar en alquiler (propietario)', icon: 'fa-key', items: ['Cédula.', 'Título o documento que muestre que puede alquilar.', 'Contribución y gastos comunes al día.', 'Datos bancarios para cobrar (con la CGN, solo por transferencia).'] },
+            { t: 'Para alquilar (inquilino)', icon: 'fa-id-card', items: ['Cédula.', 'Comprobantes de ingresos: recibos de sueldo, jubilación o certificado de contador.', 'Aprobación de la garantía o certificado.'] }] },
+          { tipo: 'texto', titulo: 'Lavado de activos: lo que tenés que saber', html: 'Las inmobiliarias son <b>sujetos obligados</b> por la ley contra el lavado de activos (Ley 19.574) en las operaciones con inmuebles. <b>Los alquileres quedan afuera</b> de esta obligación.' },
+          { tipo: 'lista', titulo: 'En cada compraventa', items: [
+            'Identificá a tu cliente antes o durante la operación: cédula y, si es una empresa, quiénes son sus dueños.',
+            'Guardá copia de los documentos: se conservan al menos 5 años.',
+            'Si cada parte viene con su inmobiliaria, cada una controla a su propio cliente.'] },
+          { tipo: 'errores', titulo: 'Señales de alerta: avisale a la Dirección', items: [
+            'Pagos en efectivo, de cualquier monto.',
+            'Personas políticamente expuestas (cargos públicos importantes), sus familiares o allegados.',
+            'Clientes de países con controles débiles o de baja tributación.',
+            'Operaciones sin que las partes se presenten, o empresas con dueños difíciles de identificar.',
+            'Operaciones raras para el mercado: apuro sin explicación, un tercero que paga por otro, precios muy fuera de mercado.'] },
+          { tipo: 'nota', icon: 'fa-user-shield', titulo: 'Si algo no cierra', texto: 'Avisale a la Dirección: es quien evalúa y, si corresponde, reporta a la Unidad de Información y Análisis Financiero del Banco Central. No se lo comentes al cliente.' }
+        ],
+        fuentes: [['SENACLAFT · Instructivo para el sector inmobiliario', 'https://www.gub.uy/secretaria-nacional-lucha-contra-lavado-activos-financiamiento-terrorismo/sites/secretaria-nacional-lucha-contra-lavado-activos-financiamiento-terrorismo/files/documentos/publicaciones/Instructivo%20Sector%20Inmobiliario_0.pdf']]
+      },
+      {
+        id: 'practicas', grupo: 'En el día a día', icon: 'fa-star', titulo: 'Buenas prácticas', min: 2, test: 'atencion',
+        resumen: 'Lo que hace la diferencia con los clientes, todos los días.',
+        bloques: [
+          { tipo: 'lista', items: [
+            '<b>Respondé rápido:</b> la velocidad de respuesta es lo que más define si se concreta.',
+            '<b>Sé honesto:</b> el aviso y lo que decís tienen que coincidir con la realidad.',
+            '<b>Hacé seguimiento:</b> la mayoría de las ventas se cierran después de la primera visita.',
+            '<b>Nunca inventes</b> un dato que no sabés: confirmá y respondé.',
+            '<b>Todo por escrito:</b> autorizaciones, ofertas, contraofertas y acuerdos.',
+            '<b>Registrá en el momento:</b> visitas, consultas, ofertas y reservas van al CRM el mismo día.',
+            '<b>Cuidá los datos:</b> no compartas teléfonos ni documentos de clientes fuera del equipo.',
+            '<b>Buscá un acuerdo que llegue a la firma:</b> justo para las dos partes, sin apurar a nadie.'] }
+        ]
+      },
+      {
+        id: 'herramientas', grupo: 'En el día a día', icon: 'fa-toolbox', titulo: 'Las herramientas de MALAVE', min: 2, test: 'herramientas',
+        resumen: 'Qué herramienta usar en cada momento.',
+        bloques: [
+          { tipo: 'lista', items: [
+            '<b><a href="tasador.html">Tasador</a>:</b> valor de una propiedad construida.',
+            '<b><a href="gastos.html">Gastos y comisiones</a>:</b> cuánto sale la operación.',
+            '<b><a href="terreno.html">Calculadora de terrenos</a>:</b> valor de un terreno para desarrollo.',
+            '<b><a href="clientes.html">Clientes (CRM)</a></b> y <b><a href="agenda.html">Agenda</a></b> para seguimiento, visitas y recordatorios.',
+            '<b>Mercado Libre:</b> publicás desde la ficha de la propiedad.'] }
+        ]
+      }
+    ];
+    const GUIA_DE_TEST = { proceso_venta: 'venta', proceso_alquiler: 'alquiler', ofertas: 'ofertas', garantias: 'garantias', legal: 'impuestos', negociacion: 'ofertas', atencion: 'practicas', herramientas: 'herramientas', captacion: 'venta' };
+
+    // ===================== GUÍAS: índice y lector =====================
+    let guiaActual = null;
+    const guiaPorId = id => GUIAS.find(g => g.id === id);
+    function renderIndice() {
+      const el = document.getElementById('gIndice');
+      const actual = guiaActual || GUIAS[0].id;
+      let html = '', grupo = '';
+      GUIAS.forEach(g => {
+        if (g.grupo !== grupo) { grupo = g.grupo; html += `<div class="g-grupo">${escH(grupo)}</div>`; }
+        html += `<button type="button" class="g-item" aria-current="${g.id === actual}" onclick="abrirGuia('${g.id}')"><span class="gi"><i class="fas ${g.icon}"></i></span><span class="gt"><b>${escH(g.titulo)}</b><small>${escH(g.resumen)}</small></span><span class="gm">${g.min} min</span></button>`;
       });
+      el.innerHTML = html;
+    }
+    // En el celular las fichas arrancan cerradas: se abre la que interesa.
+    const fichasAbiertas = () => !(window.matchMedia && window.matchMedia('(max-width: 760px)').matches);
+    function lista(items, cls) { return `<ul class="g-lista ${cls}">${items.map(x => `<li>${x}</li>`).join('')}</ul>`; }
+    function bloque(b) {
+      const tit = b.titulo ? `<h3>${escH(b.titulo)}</h3>` : '';
+      switch (b.tipo) {
+        case 'pasos':
+          return `<section class="g-bloque">${tit}<ol class="g-pasos${b.numeros === false ? ' sin-num' : ''}">${b.items.map(p =>
+            `<li><div class="gp-t"><b>${p.t}</b>${p.quien ? `<span class="gp-quien">${p.quien.map(q => `<span>${q}</span>`).join('')}</span>` : ''}</div><ul class="gp-d">${p.d.map(x => `<li>${x}</li>`).join('')}</ul></li>`).join('')}</ol></section>`;
+        case 'lista': return `<section class="g-bloque">${tit}<div class="g-caja-lista">${lista(b.items, 'ok')}</div></section>`;
+        case 'errores': case 'nunca': return `<section class="g-bloque">${tit}<div class="g-caja-lista mal">${lista(b.items, 'mal')}</div></section>`;
+        case 'nota': return `<section class="g-bloque"><div class="g-nota"><span class="ni"><i class="fas ${b.icon || 'fa-lightbulb'}"></i></span><div>${b.titulo ? `<span class="nt">${escH(b.titulo)}</span>` : ''}<p>${b.texto}</p></div></div></section>`;
+        case 'texto': return `<section class="g-bloque">${tit}<p class="g-txt">${b.html}</p></section>`;
+        case 'tabla':
+          return `<section class="g-bloque">${tit}<div class="g-tabla-wrap"><table class="g-tabla"><thead><tr>${b.cols.map(c => `<th scope="col">${escH(c)}</th>`).join('')}</tr></thead><tbody>${b.filas.map(f =>
+            `<tr>${f.map((c, i) => i ? `<td data-l="${escA(b.cols[i])}">${c}</td>` : `<th scope="row">${c}</th>`).join('')}</tr>`).join('')}</tbody></table></div></section>`;
+        case 'fichas':
+          return `<section class="g-bloque">${tit}${b.intro ? `<p class="g-fichas-intro">${b.intro}</p>` : ''}<div class="g-fichas">${b.items.map(f =>
+            `<details class="g-ficha"${fichasAbiertas() ? ' open' : ''}><summary class="gf-head"><b class="gf-n">${escH(f.n)}</b><span class="gf-tag" data-t="${escA(f.tag)}">${escH(f.tag)}</span><i class="fas fa-chevron-down gf-chev" aria-hidden="true"></i></summary><dl>${f.campos.map(c => `<dt>${escH(c[0])}</dt><dd>${c[1]}</dd>`).join('')}</dl>${f.fuente ? `<p class="gf-fuente">Fuente: ${f.url ? `<a href="${escA(f.url)}" target="_blank" rel="noopener">${escH(f.fuente)}</a>` : escH(f.fuente)}</p>` : ''}</details>`).join('')}</div></section>`;
+        case 'paga': {
+          const marca = v => v === 1 ? '<span class="pg-si" title="Sí"><i class="fas fa-check" aria-hidden="true"></i><span class="sr">Sí</span></span>' : v === 2 ? '<span class="pg-av">A veces</span>' : '<span class="pg-no" title="No">—</span>';
+          return `<section class="g-bloque">${tit}<div class="g-tabla-wrap"><table class="g-paga"><thead><tr><th scope="col">Concepto</th><th scope="col">Cuánto</th>${b.cols.map(c => `<th scope="col" class="c">${escH(c)}</th>`).join('')}</tr></thead><tbody>${b.filas.map(f =>
+            `<tr><th scope="row">${escH(f[0])}${f[3] ? `<small>${escH(f[3])}</small>` : ''}</th><td data-l="Cuánto">${escH(f[1])}</td>${f[2].map((v, i) => `<td class="c" data-l="${escA(b.cols[i])}">${marca(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${b.nota ? `<p class="g-pie-tabla">${escH(b.nota)}</p>` : ''}</section>`;
+        }
+        case 'modelo': return `<section class="g-bloque">${tit}<div class="g-modelo"><button type="button" class="btn btn-borde btn-sm" onclick="copiarModelo(this)"><i class="far fa-copy"></i> Copiar</button><pre>${escH(b.texto)}</pre></div></section>`;
+        case 'docs':
+          return `<section class="g-bloque">${tit}<div class="g-docs">${b.grupos.map(g => `<div class="g-doc"><h4><i class="fas ${g.icon}"></i> ${escH(g.t)}</h4>${lista(g.items, 'ok')}</div>`).join('')}</div></section>`;
+      }
+      return '';
+    }
+    function renderLector() {
+      const g = guiaPorId(guiaActual || GUIAS[0].id);
+      const sig = GUIAS[GUIAS.indexOf(g) + 1];
+      const test = g.test ? TESTS.find(t => t.id === g.test) : null;
+      const r = test ? myResults[test.id] : null;
+      let html = `<button type="button" class="g-volver" onclick="cerrarGuia()"><i class="fas fa-arrow-left"></i> Todas las guías</button>`
+        + `<header class="g-head"><span class="gi"><i class="fas ${g.icon}"></i></span><div><h2 id="gTitulo">${escH(g.titulo)}</h2><p>${escH(g.resumen)}</p><div class="g-meta"><span><i class="far fa-clock"></i> ${g.min} min de lectura</span>${test ? `<span><i class="fas fa-clipboard-check"></i> Test: ${escH(test.title)}</span>` : ''}</div></div></header>`
+        + g.bloques.map(bloque).join('')
+        + '<footer class="g-pie">';
+      if (test) {
+        html += r && r.passed
+          ? `<div class="g-cta"><span class="ci"><i class="fas fa-circle-check"></i></span><p><b>Ya aprobaste el test de este tema</b>Tu mejor nota: ${r.bestScore}%. Podés repasar la guía cuando quieras.</p></div>`
+          : `<div class="g-cta"><span class="ci"><i class="fas fa-clipboard-check"></i></span><p><b>¿Lo tenés claro?</b>Hacé el test «${escH(test.title)}»: ${test.questions.length} preguntas, se aprueba con ${PASS_PCT}%.</p><button type="button" class="btn btn-oro" onclick="irATest('${test.id}')"><i class="fas ${r ? 'fa-rotate-right' : 'fa-play'}"></i> ${r ? 'Reintentar el test' : 'Hacer el test'}</button></div>`;
+      }
+      if (g.fuentes && g.fuentes.length) html += `<div class="g-fuentes"><b>Fuentes</b><ul>${g.fuentes.map(f => `<li><a href="${escA(f[1])}" target="_blank" rel="noopener">${escH(f[0])}</a></li>`).join('')}</ul></div>`;
+      html += '<p class="g-aviso"><i class="fas fa-circle-info"></i> Guía orientativa para el equipo. Valores, requisitos y normas cambian: ante una duda puntual, consultá con el escribano, el contador o la Dirección.</p>';
+      if (sig) html += `<div class="g-nav"><button type="button" class="btn btn-borde" onclick="abrirGuia('${sig.id}')">Siguiente: ${escH(sig.titulo)} <i class="fas fa-arrow-right"></i></button></div>`;
+      html += '</footer>';
+      document.getElementById('gLector').innerHTML = html;
+    }
+    function marcarDireccion() {
+      try { history.replaceState(null, '', '#' + VISTAS[vista] + (vista === 'guias' && guiaActual ? '/' + guiaActual : '')); } catch (e) {}
+    }
+    function abrirGuia(id) {
+      if (!guiaPorId(id)) id = GUIAS[0].id;
+      guiaActual = id;
+      if (vista !== 'guias') return setView('guias');
+      document.querySelector('.guias').classList.add('leyendo');
+      renderIndice(); renderLector(); marcarDireccion();
+      // Arriba de la guía nueva (sin saltar si ya se ve el principio).
+      const top = document.getElementById('viewGuias').getBoundingClientRect().top + window.scrollY - 90;
+      if (window.scrollY > top) window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      const t = document.getElementById('gTitulo'); if (t) { t.setAttribute('tabindex', '-1'); t.focus({ preventScroll: true }); }
+    }
+    function cerrarGuia() {
+      guiaActual = null;
+      document.querySelector('.guias').classList.remove('leyendo');
+      renderIndice(); renderLector(); marcarDireccion();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    function irAGuia(id) { guiaActual = id; setView('guias'); }
+    // Los enlaces de una guía a otra (data-guia) no recargan la página.
+    document.getElementById('gLector').addEventListener('click', e => {
+      const a = e.target.closest('a[data-guia]'); if (!a) return;
+      e.preventDefault(); abrirGuia(a.dataset.guia);
+    });
+    async function copiarModelo(btn) {
+      const txt = btn.parentNode.querySelector('pre').textContent;
+      let ok = false;
+      try { await navigator.clipboard.writeText(txt); ok = true; } catch (e) {
+        const ta = document.createElement('textarea'); ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+        try { ok = document.execCommand('copy'); } catch (e2) {} ta.remove();
+      }
+      showToast(ok ? 'Copiado' : 'No se pudo copiar', ok ? 'El modelo está listo para pegar.' : 'Seleccioná el texto y copialo a mano.', ok ? 'fa-check' : 'fa-circle-exclamation', !ok);
     }
 
-    const VISTAS = { start: 'empezar', material: 'material', tests: 'tests' };
+    const VISTAS = { guias: 'guias', material: 'material', tests: 'tests' };
     function setView(v) {
-      if (!VISTAS[v]) v = 'material';
+      if (!VISTAS[v]) v = 'guias';
       vista = v;
-      document.getElementById('viewStart').hidden = v !== 'start';
+      document.getElementById('viewGuias').hidden = v !== 'guias';
       document.getElementById('viewMaterial').hidden = v !== 'material';
       document.getElementById('viewTests').hidden = v !== 'tests';
       document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.view === v)));
       document.getElementById('acaAddBtn').hidden = !(v === 'material' && esAdmin);
-      try { history.replaceState(null, '', '#' + VISTAS[v]); } catch (e) {}
-      if (v === 'start') enhanceStartCards();
+      marcarDireccion();
+      if (v === 'guias') { document.querySelector('.guias').classList.toggle('leyendo', !!guiaActual); renderIndice(); renderLector(); }
       if (v === 'tests') { renderTests(); if (esAdmin) loadAdminResults(); }
     }
+    // academy.html#tests, #material, #guias o #guias/venta abren directo ahí (#empezar es la dirección vieja).
     function vistaInicial() {
       const h = (location.hash || '').slice(1);
-      return Object.keys(VISTAS).find(k => VISTAS[k] === h) || 'material';
+      const [a, b] = h.split('/');
+      const v = a === 'empezar' ? 'guias' : (Object.keys(VISTAS).find(k => VISTAS[k] === a) || 'guias');
+      return { v, guia: v === 'guias' && b && guiaPorId(b) ? b : null };
     }
 
     function statusFor(id) {
@@ -919,34 +1462,39 @@
         } else {
           btn = `<button type="button" class="btn btn-tinta" onclick="openTest('${t.id}')"><i class="fas fa-play"></i> Hacer test</button>`;
         }
-        return `<article class="tc${res && res.passed ? ' ok' : ''}"><div class="tc-top"><span class="tc-ic"><i class="fas ${t.icon}"></i></span><span class="pill ${st.cls}">${st.txt}</span></div><h3>${escH(t.title)}</h3><p>${escH(t.desc || '')}</p><span class="tc-q">${t.questions.length} preguntas · aprobás con ${PASS_PCT}%</span>${btn}</article>`;
+        const gid = GUIA_DE_TEST[t.id];
+        const repaso = gid ? `<button type="button" class="tc-guia" onclick="irAGuia('${gid}')"><i class="fas fa-book-open"></i> Repasar la guía</button>` : '';
+        return `<article class="tc${res && res.passed ? ' ok' : ''}"><div class="tc-top"><span class="tc-ic"><i class="fas ${t.icon}"></i></span><span class="pill ${st.cls}">${st.txt}</span></div><h3>${escH(t.title)}</h3><p>${escH(t.desc || '')}</p><span class="tc-q">${t.questions.length} preguntas · aprobás con ${PASS_PCT}%</span>${repaso}${btn}</article>`;
       }).join('');
     }
 
-    // Arriba: cuánto material hay, cuántos tests aprobaste y cuál sigue.
+    // Arriba: las guías, cuántos tests aprobaste y cuál sigue.
     function renderHero() {
       const el = document.getElementById('heroStats');
-      const nVid = items.filter(x => x.type === 'video').length, nArch = items.length - nVid;
       const aprob = TESTS.filter(t => myResults[t.id] && myResults[t.id].passed).length;
       const sig = TESTS.find(t => !(myResults[t.id] && myResults[t.id].passed));
       const pct = Math.round(aprob / TESTS.length * 100);
       el.innerHTML =
-        `<div class="hs"><span class="hs-l">Material</span><span class="hs-n">${materialListo && !materialError ? items.length : '…'}</span><span class="hs-d">${materialListo && !materialError ? plural(nVid, 'video', 'videos') + ' · ' + plural(nArch, 'archivo', 'archivos') : (materialError ? 'No se pudo cargar' : 'Cargando…')}</span></div>` +
+        `<div class="hs"><span class="hs-l">Guías</span><span class="hs-n">${GUIAS.length}</span><span class="hs-d">Venta, alquiler, ofertas, garantías y más</span></div>` +
         `<div class="hs"><span class="hs-l">Tests aprobados</span><span class="hs-n">${aprob}<small>de ${TESTS.length}</small></span><div class="barra" role="progressbar" aria-label="Tests aprobados" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div></div>` +
         (sig
           ? `<div class="hs sig"><span class="hs-l">${myResults[sig.id] ? 'Te falta aprobar' : 'Tu próximo test'}</span><span class="hs-t">${escH(sig.title)}</span><button type="button" class="hs-btn" onclick="irATest('${sig.id}')"><i class="fas ${myResults[sig.id] ? 'fa-rotate-right' : 'fa-play'}"></i> ${myResults[sig.id] ? 'Reintentar' : 'Empezar'}</button></div>`
           : `<div class="hs sig"><span class="hs-l">Tests</span><span class="hs-ok"><i class="fas fa-medal"></i> Aprobaste todos los tests</span></div>`);
     }
     function renderCuentas() {
+      document.getElementById('cGuias').textContent = GUIAS.length;
       document.getElementById('cMat').textContent = materialListo && !materialError ? items.length : '';
       document.getElementById('cTests').textContent = TESTS.filter(t => myResults[t.id] && myResults[t.id].passed).length + '/' + TESTS.length;
     }
     function irATest(id) { setView('tests'); openTest(id); }
 
-    let curQ = 0;
+    let curQ = 0, curOrden = [];
+    function mezclar(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
     function openTest(id) {
       curTest = TESTS.find(t => t.id === id); if (!curTest) return;
       curAnswers = {}; curQ = 0;
+      // Cada intento, las opciones en otro orden.
+      curOrden = curTest.questions.map(q => mezclar(q.options.map((_, i) => i)));
       document.getElementById('testModalContent').innerHTML =
         `<div class="dlg-head"><span class="tm-ic"><i class="fas ${curTest.icon}"></i></span><h2 id="tmT">${escH(curTest.title)}</h2><button type="button" class="x" onclick="closeTestModal()" aria-label="Cerrar"><i class="fas fa-xmark"></i></button></div>` +
         `<div id="tRunner"></div>`;
@@ -965,7 +1513,7 @@
         `<div class="tq-prog"><span>Pregunta ${curQ + 1} de ${total}</span><span>${pct}%</span></div>` +
         `<div class="tq-progbar"><i style="width:${pct}%"></i></div>` +
         `<div class="tq" id="tqCur"><div class="tq-q" id="tqTxt">${escH(q.q)}</div><div role="radiogroup" aria-labelledby="tqTxt">` +
-          q.options.map((o, oi) => `<label class="topt" id="topt${oi}"><input type="radio" name="qcur" value="${oi}" onchange="pickOne(${oi})"><span class="tl">${LETRAS[oi] || oi + 1}</span><span class="tx">${escH(o)}</span></label>`).join('') +
+          curOrden[curQ].map((oi, pos) => `<label class="topt" id="topt${oi}"><input type="radio" name="qcur" value="${oi}" onchange="pickOne(${oi})"><span class="tl">${LETRAS[pos] || pos + 1}</span><span class="tx">${escH(q.options[oi])}</span></label>`).join('') +
           `</div><div class="tq-fb" id="fbCur" aria-live="polite" hidden></div>` +
         `</div>` +
         `<div class="tq-foot"><button type="button" class="btn btn-tinta" id="tNext" disabled onclick="siguienteQ()">${labelBtn}</button></div>`;
@@ -975,8 +1523,8 @@
       if (curAnswers[curQ] != null) return;
       const q = curTest.questions[curQ];
       curAnswers[curQ] = oi;
-      document.querySelectorAll('#tqCur .topt').forEach((el, i) => {
-        const inp = el.querySelector('input'); if (inp) inp.disabled = true;
+      document.querySelectorAll('#tqCur .topt').forEach(el => {
+        const inp = el.querySelector('input'), i = Number(inp.value); inp.disabled = true;
         el.classList.add('bloq');
         if (i === q.correct) { el.classList.add('correct'); el.querySelector('.tl').innerHTML = '<i class="fas fa-check"></i>'; }
         else if (i === oi) { el.classList.add('wrong'); el.querySelector('.tl').innerHTML = '<i class="fas fa-xmark"></i>'; }
@@ -1089,7 +1637,9 @@
       document.getElementById('resWrap').hidden = !esAdmin;
       tpShow('tpContent');
       renderHero(); renderCuentas();
-      setView(vistaInicial());
+      const ini = vistaInicial();
+      if (ini.guia) guiaActual = ini.guia;
+      setView(ini.v);
       loadAca();
     });
   </script>
