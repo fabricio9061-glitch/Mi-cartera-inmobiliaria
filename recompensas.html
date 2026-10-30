@@ -526,7 +526,17 @@
       const all = isAdmin ? base.concat(adm) : base;
       document.getElementById('tabs').innerHTML = all.map(t=>'<button type="button" class="tab" role="tab" aria-selected="'+(tab===t[0])+'" onclick="setTab(\''+t[0]+'\')"><i class="fas '+t[2]+'"></i>'+t[1]+(t[3]?'<span class="n" title="Pendientes">'+t[3]+'</span>':'')+'</button>').join('');
     }
-    function setTab(t){ tab=t; editId=null; renderTabs(); renderPanel(); }
+    function setTab(t){ tab=t; editId=null; renderTabs(); renderPanel(); try{ history.replaceState(null,'','#'+TAB_HASH[t]); }catch(e){} }
+    // Cada pestaña tiene su dirección: el aviso de un canje abre directo en
+    // "Canjes" (#canjes) y la respuesta al agente, en "Mis canjes" (#miscanjes).
+    const TAB_HASH = { catalogo:'catalogo', miscanjes:'miscanjes', gcanjes:'canjes', gcatalogo:'editar', ranking:'ranking', config:'configurar' };
+    const TABS_ADMIN = ['gcanjes','gcatalogo','ranking','config'];
+    function tabDeLaDireccion(){
+      const h = (location.hash || '').slice(1);
+      const t = Object.keys(TAB_HASH).find(k => TAB_HASH[k] === h);
+      return (!t || (TABS_ADMIN.includes(t) && !isAdmin)) ? 'catalogo' : t;
+    }
+    window.addEventListener('hashchange', ()=>{ if(!curUser) return; const t = tabDeLaDireccion(); if(t !== tab) setTab(t); });
 
     function renderPanel(){
       if(tab==='catalogo') return renderCatalogo();
@@ -833,6 +843,7 @@
       try{ const d=await db.collection('users').doc(u.uid).get(); curProfile=d.exists?d.data():{}; }catch(e){ curProfile={}; }
       isAdmin = (curProfile.email || u.email || '').toLowerCase() === ADMIN_EMAIL;
       if(curProfile.status!=='approved' && !isAdmin){ show('authState'); document.getElementById('authMsg').textContent='Tu cuenta está pendiente de aprobación.'; return; }
+      tab = tabDeLaDireccion();
       cargar();
     });
   </script>

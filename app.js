@@ -129,7 +129,7 @@
     'vencimiento_alquiler', 'ficha_incompleta', 'despublicar_confirmar', 'baja_resuelta', 'propiedad_reservada',
     'destacado_vencido', 'portal_publicada', 'portal_sin_cupo', 'portal_error', 'ml_error', 'refresh_token',
     'authorization_code', 'retiro', 'retiro_estado', 'admin_pendiente', 'postulacion', 'revision_rechazada', 'info',
-    'cierre_pendiente', 'revision_aprobada', 'revision_corregida', 'crm_consultas']);
+    'cierre_pendiente', 'revision_aprobada', 'revision_corregida', 'crm_consultas', 'canje', 'canje_estado']);
   function pushEnPrimerPlano(p) {
     const d = (p && p.datos) || {};
     // Si es un aviso de la campanita y el listener en vivo anda, el toast lo pone
@@ -1552,6 +1552,20 @@
         Object.assign(m, { fam: 'gestion', ic: rech ? 'fa-circle-xmark' : pag ? 'fa-sack-dollar' : 'fa-circle-check',
           col: rech ? 'rojo' : pag ? 'verde' : 'azul', titulo: t, txt: n.text || '' });
         m.ir = { a: 'url', url: 'finanzas.html' };
+        break;
+      }
+      // Canjes de Recompensas: el pedido le llega al admin y la respuesta al agente.
+      case 'canje':
+        Object.assign(m, { fam: 'gestion', ic: 'fa-gift', col: 'ambar', titulo: 'Pedido de canje', txt: n.text || '' });
+        m.toastTexto = _sinEmoji(n.userName);
+        m.boton = { txt: 'Revisar', ic: 'fa-arrow-right' };
+        m.ir = { a: 'url', url: 'recompensas.html#canjes' };
+        break;
+      case 'canje_estado': {
+        const st = n.subtipo || '';
+        Object.assign(m, { fam: 'gestion', ic: st === 'rechazado' ? 'fa-circle-xmark' : st === 'entregado' ? 'fa-gift' : 'fa-circle-check',
+          col: st === 'rechazado' ? 'rojo' : st === 'entregado' ? 'verde' : 'azul', titulo: _sinEmoji(n.userName) || 'Tu canje', txt: n.text || '' });
+        m.ir = { a: 'url', url: 'recompensas.html#miscanjes' };
         break;
       }
       case 'admin_pendiente': {
@@ -6669,6 +6683,7 @@
     refresh_token:         { urgencia:0, icono:'fa-key', accion:'Reconectar', ir:() => abrirCampana() },
     authorization_code:    { urgencia:0, icono:'fa-key', accion:'Reconectar', ir:() => abrirCampana() },
     retiro:                { urgencia:0, icono:'fa-money-bill-transfer', accion:'Ver', ir:() => location.href='retiros-admin.html' },
+    canje:                 { urgencia:1, icono:'fa-gift', accion:'Revisar', ir:() => location.href='recompensas.html#canjes' },
     admin_pendiente:       { urgencia:1, icono:'fa-user-clock', accion:'Aprobar', ir:() => showAdminTab('users') },
     new_user:              { urgencia:1, icono:'fa-user-plus', accion:'Aprobar', ir:() => showAdminTab('users') },
     ml_lead:               { urgencia:1, icono:'fa-comment-dots', accion:'Ver', ir:n => n.propertyId && openPropertyTab(n.propertyId) },

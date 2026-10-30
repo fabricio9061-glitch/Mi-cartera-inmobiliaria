@@ -2465,6 +2465,86 @@ exports.notificarEstadoRetiro = onDocumentUpdated("retiros/{id}", async (event) 
   }
 });
 
+// =====================================================================
+// CANJES DE RECOMPENSAS — antes, cuando un agente pedía un canje, quedaba
+// guardado en silencio: nadie se enteraba hasta entrar a Recompensas.
+//   - notificarCanje: avisa al admin (campanita + push) que hay un pedido.
+//   - notificarEstadoCanje: le avisa al agente cuando se aprueba, se entrega o
+//     se rechaza.
+// Los destacados que se pagan con puntos los crea el servidor ya aprobados
+// (tipo 'destacado'): esos no avisan, porque no esperan ninguna decisión.
+// El aviso va al admin porque es quien aprueba los canjes en Recompensas.
+// =====================================================================
+const ptsTxt = (n) => `${n} ${n === 1 ? "punto" : "puntos"}`;
+
+exports.notificarCanje = onDocumentCreated("canjes/{id}", async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+  const c = snap.data();
+  if (!c || c.status !== "pendiente" || c.tipo === "destacado") return;
+  const adm = await getAdminUser();
+  if (!adm) { await registrarLog("", "pedido de canje SIN notificar", false, `No se encontró al admin (${ADMIN_EMAIL}) en users.`); return; }
+  if (adm.uid === c.agenteUid) return;
+  const nombre = c.agenteNombre || "Un agente";
+  const premio = c.recompensaNombre || "una recompensa";
+  const puntos = Number(c.costoPuntos) || 0;
+  await crearNotificacion(
+    adm,
+    {
+      type: "canje",
+      propertyId: "",
+      propertyTitle: "",
+      userName: `🎁 ${nombre}`,
+      userPhoto: null,
+      text: `${nombre} pidió canjear "${premio}" por ${ptsTxt(puntos)}. Aprobalo o rechazalo en Recompensas.`,
+      url: "recompensas.html#canjes",
+    },
+    { title: "🎁 Pedido de canje", body: `${nombre} pidió "${premio}" (${ptsTxt(puntos)}).` },
+    // Un aviso por canje: si la función se repite, no llega dos veces.
+    `canje_${event.params.id}`
+  );
+});
+
+exports.notificarEstadoCanje = onDocumentUpdated("canjes/{id}", async (event) => {
+  const before = event.data && event.data.before ? event.data.before.data() : null;
+  const after = event.data && event.data.after ? event.data.after.data() : null;
+  if (!before || !after) return;
+  if (before.status === after.status) return; // no cambió el estado
+  if (!after.agenteUid || after.tipo === "destacado") return;
+
+  const premio = after.recompensaNombre || after.concepto || "una recompensa";
+  const puntos = Number(after.costoPuntos) || 0;
+  const MENSAJES = {
+    aprobado: { titulo: "✅ Canje aprobado", texto: `La Dirección aprobó tu canje de "${premio}".`, push: `Se aprobó tu canje de "${premio}".` },
+    entregado: { titulo: "🎁 Canje entregado", texto: `Tu canje de "${premio}" figura como entregado. ¡Que lo disfrutes!`, push: `Tu canje de "${premio}" figura como entregado.` },
+    rechazado: { titulo: "Canje rechazado", texto: `La Dirección rechazó tu canje de "${premio}". Recuperaste ${ptsTxt(puntos)}.`, push: `Se rechazó tu canje de "${premio}". Recuperaste ${ptsTxt(puntos)}.` },
+  };
+  const m = MENSAJES[after.status];
+  if (!m) return;
+
+  // Buscar al agente destinatario (para sus dispositivos).
+  let agente = null;
+  try { const u = await db.doc(`users/${after.agenteUid}`).get(); if (u.exists) agente = { uid: u.id, ...u.data() }; } catch (e) {}
+  if (!agente) return;
+  if (agente.uid === (await getAdminUser().then((a) => a && a.uid).catch(() => null))) return; // no auto-notificar al admin
+
+  await crearNotificacion(
+    agente,
+    {
+      type: "canje_estado",
+      subtipo: after.status,
+      propertyId: "",
+      propertyTitle: "",
+      userName: m.titulo,
+      userPhoto: null,
+      text: m.texto,
+      url: "recompensas.html#miscanjes",
+    },
+    { title: m.titulo, body: m.push },
+    `canje_${event.params.id}_${after.status}`
+  );
+});
+
 // NOTA: acá vivía notificarNuevoUsuario, que escuchaba users/{uid} y avisaba de
 // los registros pendientes. Hacía EXACTAMENTE lo mismo que notificarAltaAgente
 // (más abajo): mismo disparador, mismo filtro de status, mismo destinatario. El
