@@ -3,120 +3,243 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Recompensas · MALAVÉ</title>
+  <title>Recompensas · MALAVE</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <meta name="theme-color" content="#16273f">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
-    :root{ --gold:#c9a227; --ink:#1c1c1c; --bg:#f4f5f7; --line:#e4e6ea; --navy:#16273f; }
+    /* ===== Recompensas, con el estilo nuevo de la app (el del inicio, Academy e
+       Interés): franja azul con tus puntos, papel cálido de fondo, cajas blancas
+       y el dorado para lo importante. Autocontenido: no usa styles.css. */
+    :root{ --ink:#16273f; --ink2:#0c1726; --gold:#C9A227; --gold-osc:#8a6d12; --gold-cl:#e9cf73; --paper:#f4f2ec;
+           --line:#e5e8ec; --line2:#eef0f3; --muted:#6b7480; --soft:#9aa3ad; --text:#2a3442;
+           --ok:#1e7d4f; --danger:#c0392b; }
     *{ box-sizing:border-box; margin:0; padding:0; }
-    body{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--ink); padding:20px; }
-    .wrap{ max-width:960px; margin:0 auto; }
-    .top{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
-    .top h1{ font-size:1.5rem; display:flex; align-items:center; gap:10px; }
-    .top h1 i{ color:var(--gold); }
-    .back{ color:#666; text-decoration:none; font-size:.9rem; display:inline-flex; align-items:center; gap:6px; }
-    .back:hover{ color:var(--ink); }
-    .btn{ border:none; cursor:pointer; border-radius:10px; padding:9px 14px; font-size:.88rem; font-weight:600; display:inline-flex; align-items:center; gap:7px; }
-    .btn-ghost{ background:#fff; border:1px solid var(--line); color:#444; }
-    .btn-ghost:hover{ background:#fafafa; }
-    .btn-gold{ background:var(--gold); color:#fff; }
-    .btn-gold:hover{ filter:brightness(.95); }
-    .btn-gold:disabled{ background:#d8d2bd; cursor:not-allowed; }
-    .btn-green{ background:#27ae60; color:#fff; }
-    .btn-red{ background:#e74c3c; color:#fff; }
-    .btn-sm{ padding:6px 11px; font-size:.8rem; }
+    body{ font-family:'Jost',sans-serif; background:var(--paper); color:var(--text); line-height:1.5; -webkit-font-smoothing:antialiased; }
+    h1,h2,h3{ font-family:'Cormorant Garamond',serif; color:var(--ink); font-weight:700; line-height:1.1; }
+    button, input, select, textarea{ font-family:inherit; }
+    [hidden]{ display:none !important; }
 
-    /* Saldo */
-    .saldo{ background:linear-gradient(135deg,#16273f,#22364f); color:#fff; border-radius:18px; padding:22px 24px; margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; }
-    .saldo .pts{ font-size:2.6rem; font-weight:800; line-height:1; }
-    .saldo .lbl{ font-size:.8rem; opacity:.75; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
-    .saldo .sub{ font-size:.82rem; opacity:.7; margin-top:6px; }
-    .saldo .ring{ width:64px; height:64px; border-radius:50%; background:rgba(201,162,39,.18); display:flex; align-items:center; justify-content:center; font-size:1.7rem; color:var(--gold); }
-
-    /* Cómo ganar puntos */
-    .howto{ display:flex; gap:12px; align-items:flex-start; background:#fff; border:1px solid var(--line); border-left:4px solid var(--gold); border-radius:14px; padding:14px 16px; margin-bottom:16px; }
-    .howto .hi{ font-size:1.3rem; line-height:1; }
-    .howto .ht{ font-size:.86rem; color:#555; line-height:1.55; }
-    .howto .ht b{ color:var(--ink); }
-    /* Tabs */
-    .tabs{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
-    .tab{ background:#fff; border:1px solid var(--line); border-radius:10px; padding:9px 14px; font-size:.86rem; font-weight:600; color:#555; cursor:pointer; }
-    .tab.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
-
-    /* Catálogo */
-    .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
-    .rcard{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; display:flex; flex-direction:column; box-shadow:0 1px 3px rgba(0,0,0,.04); }
-    .rcard .ic{ font-size:1.7rem; margin-bottom:10px; }
-    .rcard .cat{ font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; padding:3px 9px; border-radius:20px; align-self:flex-start; margin-bottom:8px; }
-    .cat-electronica{ background:#eaf2ff; color:#2e6fd6; } .ic-electronica{ color:#2e6fd6; }
-    .cat-viaje{ background:#e7f7ec; color:#1f9d54; } .ic-viaje{ color:#1f9d54; }
-    .cat-dinero{ background:#fff4e0; color:#b9770f; } .ic-dinero{ color:#b9770f; }
-    .rcard h3{ font-size:1rem; margin-bottom:4px; }
-    .rcard .desc{ font-size:.84rem; color:#777; margin-bottom:6px; line-height:1.45; }
-    .rcard .desc.clamp{ display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
-    .rcard .desc-btn{ background:none; border:none; color:var(--gold); font-size:.8rem; font-weight:700; cursor:pointer; padding:0; margin-bottom:12px; align-self:flex-start; }
-    .rcard .cost{ font-weight:800; color:var(--navy); font-size:1.1rem; margin:auto 0 12px; display:flex; align-items:center; gap:6px; }
-    .rcard .cost i{ color:var(--gold); }
-    .rcard .stock{ font-size:.74rem; color:#999; margin-top:-8px; margin-bottom:10px; }
-
-    /* Listas / cards admin */
-    .card{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.04); }
-    .row{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-    .row .grow{ flex:1; min-width:160px; }
-    .pill{ font-size:.72rem; font-weight:700; padding:4px 10px; border-radius:20px; }
-    .pill-pend{ background:#fff4e0; color:#b9770f; } .pill-aprob{ background:#eaf2ff; color:#2e6fd6; }
-    .pill-entreg{ background:#e7f7ec; color:#1f9d54; } .pill-rech{ background:#fdecea; color:#c0392b; }
-    .field{ margin-bottom:12px; }
-    .field label{ display:block; font-size:.8rem; font-weight:600; color:#555; margin-bottom:5px; }
-    .field input, .field select, .field textarea{ width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:.9rem; font-family:inherit; }
-    .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    .rank-row{ display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px dashed #eee; }
-    .rank-row:last-child{ border-bottom:none; }
-    .rank-pos{ width:28px; height:28px; border-radius:50%; background:#f0f1f3; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.85rem; color:#777; }
-    .rank-pos.top{ background:var(--gold); color:#fff; }
-    .empty{ text-align:center; color:#999; padding:36px 20px; background:#fff; border:1px solid var(--line); border-radius:14px; }
-    h2.sec{ font-size:1.05rem; margin:18px 0 10px; }
-    .hint{ font-size:.82rem; color:#888; margin-bottom:14px; }
-
-    #mvToastWrap{ position:fixed; right:16px; bottom:16px; z-index:99999; display:flex; flex-direction:column; gap:10px; max-width:360px; }
-    .mv-toast{ display:flex; gap:10px; align-items:flex-start; background:var(--ink); color:#fff; border-left:4px solid var(--gold); border-radius:12px; padding:12px 14px; box-shadow:0 8px 24px rgba(0,0,0,.3); opacity:0; transform:translateY(10px); transition:.25s; font-size:.9rem; }
-    .mv-toast.show{ opacity:1; transform:translateY(0); }
-    .mv-toast.err{ border-left-color:#e74c3c; }
-    @media(max-width:560px){ .grid2{ grid-template-columns:1fr; } .saldo .pts{ font-size:2.1rem; } }
-  </style>
-<style>body{padding-top:env(safe-area-inset-top,0px)}.fh,header,.app-header,.topbar{padding-top:env(safe-area-inset-top,0px)}body>.fh,body>header{padding-top:0}
-    /* ===== Cabecera estándar de las herramientas =====
-       Copiada de finanzas.html, que es la que mejor quedaba: "Volver" como botón
-       con contorno redondeado que se rellena al pasar el mouse, en vez de un
-       enlace suelto. Antes cada herramienta tenía la suya y algunas ni logo. */
-    .mv-head{ background:#fff; border-bottom:1px solid #eef1f5; position:sticky; top:0; z-index:60;
-      padding-top:env(safe-area-inset-top,0px); }
-    .mv-head-in{ max-width:1200px; margin:0 auto; padding:14px 20px; display:flex;
-      justify-content:space-between; align-items:center; gap:14px; }
+    /* ---- Cabecera (la misma de las demás herramientas) ---- */
+    .mv-head{ background:#fff; border-bottom:1px solid #eef1f5; position:sticky; top:0; z-index:60; padding-top:env(safe-area-inset-top,0px); }
+    .mv-head-in{ max-width:1200px; margin:0 auto; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; gap:14px; }
     .mv-head .logo{ display:flex; align-items:center; gap:10px; text-decoration:none; }
     .mv-head .logo-img{ height:30px; width:auto; } .mv-head .logo-text{ height:19px; width:auto; }
-    .mv-head .back-link{ display:inline-flex; align-items:center; gap:7px; color:#6b7280;
-      font-size:.88rem; font-weight:500; padding:8px 15px; border:1px solid #eef1f5;
-      border-radius:999px; text-decoration:none; white-space:nowrap;
-      transition:background .15s, color .15s, border-color .15s; }
-    .mv-head .back-link:hover{ background:#16273f; color:#fff; border-color:#16273f; }
-    @media (max-width:520px){
-      .mv-head-in{ padding:10px 14px; }
-      .mv-head .logo-img{ height:26px; } .mv-head .logo-text{ height:16px; }
-      .mv-head .back-link{ padding:8px 13px; }
-    }
+    .mv-head .back-link{ display:inline-flex; align-items:center; gap:7px; color:#6b7280; font-size:.88rem; font-weight:500; padding:8px 15px; border:1px solid #eef1f5; border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s, color .15s, border-color .15s; }
+    .mv-head .back-link:hover{ background:var(--ink); color:#fff; border-color:var(--ink); }
 
-    /* Fila de título + acciones. En el celular el título va arriba y los botones
-       abajo repartidos, en vez de apretarse todos en un renglón. */
-    .mv-toolbar{ display:flex; align-items:center; justify-content:space-between;
-      gap:12px; flex-wrap:wrap; margin-bottom:18px; }
-    .mv-toolbar h1{ margin:0; display:flex; align-items:center; gap:10px; min-width:0; }
-    .mv-toolbar-acc{ display:flex; gap:9px; align-items:center; flex-wrap:wrap; }
-    @media (max-width:640px){
-      .mv-toolbar h1{ flex:1 0 100%; font-size:1.5rem; }
-      .mv-toolbar-acc{ flex:1 0 100%; }
-      .mv-toolbar-acc > *{ flex:1; justify-content:center; text-align:center; }
+    .wrap{ max-width:1100px; margin:0 auto; padding:26px 20px 70px; }
+    .estado{ max-width:440px; margin:70px auto; padding:34px 28px; text-align:center; background:#fff; border:1px solid var(--line); border-radius:20px; color:var(--muted); }
+    .estado .lk{ width:58px; height:58px; margin:0 auto 14px; border-radius:50%; display:grid; place-items:center; background:var(--ink); color:var(--gold); font-size:1.3rem; }
+    .estado h1{ font-size:1.6rem; margin-bottom:6px; }
+    .estado a{ display:inline-block; margin-top:16px; background:var(--ink); color:#fff; padding:10px 22px; border-radius:999px; text-decoration:none; font-size:.9rem; }
+    .giro{ width:38px; height:38px; margin:0 auto 12px; border:3px solid var(--line); border-top-color:var(--gold); border-radius:50%; animation:giro 1s linear infinite; }
+    @keyframes giro{ to{ transform:rotate(360deg); } }
+
+    /* ---- Franja de arriba: tus puntos ---- */
+    .hero{ position:relative; overflow:hidden; background:linear-gradient(120deg,var(--ink2) 0%,var(--ink) 70%); color:#fff; border-radius:20px; padding:28px 30px 26px; margin-bottom:18px; }
+    .hero-art{ position:absolute; right:-40px; bottom:-52px; width:220px; height:auto; color:var(--gold); opacity:.08; pointer-events:none; }
+    .hero-top{ position:relative; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+    .hero-ic{ width:58px; height:58px; border-radius:15px; flex:none; display:grid; place-items:center; background:rgba(201,162,39,.14); border:1px solid var(--gold); color:var(--gold); font-size:1.4rem; }
+    .hero-tx{ flex:1; min-width:200px; }
+    .hero h1{ color:#fff; font-size:clamp(1.85rem, 3.4vw, 2.4rem); }
+    .hero-tx p{ color:rgba(255,255,255,.72); font-size:.96rem; margin-top:5px; }
+    .btn-hero{ display:inline-flex; align-items:center; gap:8px; background:transparent; color:var(--gold-cl); border:1px solid rgba(201,162,39,.65); border-radius:999px; padding:9px 17px; font-size:.86rem; font-weight:500; cursor:pointer; white-space:nowrap; transition:background .15s, color .15s; }
+    .btn-hero:hover{ background:var(--gold); color:var(--ink); }
+    .hero-body{ position:relative; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.15fr); gap:16px; margin-top:22px; padding-top:20px; border-top:1px solid rgba(255,255,255,.12); align-items:stretch; }
+    .saldo-lbl{ font-size:.86rem; color:rgba(255,255,255,.7); }
+    .saldo-num{ display:flex; align-items:baseline; gap:10px; margin:2px 0 6px; }
+    .saldo-num b{ font-family:'Cormorant Garamond',serif; font-size:clamp(3rem, 7vw, 4.2rem); font-weight:700; line-height:.95; color:#fff; font-variant-numeric:lining-nums tabular-nums; }
+    .saldo-num span{ font-size:1rem; color:var(--gold-cl); font-weight:500; }
+    .saldo-det{ display:flex; flex-wrap:wrap; gap:6px 18px; font-size:.84rem; color:rgba(255,255,255,.66); }
+    .saldo-det b{ color:#fff; font-weight:600; }
+    .proxima{ background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:15px 18px; display:flex; flex-direction:column; justify-content:center; gap:8px; min-width:0; }
+    .proxima-l{ font-size:.78rem; color:rgba(255,255,255,.6); }
+    .proxima-n{ font-weight:600; color:#fff; font-size:1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .barra{ height:8px; background:rgba(255,255,255,.12); border-radius:6px; overflow:hidden; }
+    .barra i{ display:block; height:100%; background:linear-gradient(90deg,#b8901f,var(--gold-cl)); border-radius:6px; transition:width .5s ease; }
+    .proxima-f{ font-size:.82rem; color:rgba(255,255,255,.72); }
+    .proxima-f b{ color:var(--gold-cl); font-weight:600; }
+
+    /* ---- Cómo sumás puntos ---- */
+    .como{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px 18px; margin-bottom:18px; }
+    .como summary{ list-style:none; cursor:pointer; display:flex; align-items:center; gap:12px; }
+    .como summary::-webkit-details-marker{ display:none; }
+    .como-ic{ width:36px; height:36px; border-radius:10px; flex:none; display:grid; place-items:center; background:rgba(201,162,39,.13); color:var(--gold-osc); }
+    .como-r{ flex:1; font-size:.92rem; color:var(--text); }
+    .como-r b{ color:var(--ink); }
+    .como-mas{ font-size:.8rem; color:var(--gold-osc); font-weight:600; white-space:nowrap; display:inline-flex; align-items:center; gap:6px; }
+    .como-mas i{ transition:transform .2s; font-size:.7rem; }
+    .como[open] .como-mas i{ transform:rotate(180deg); }
+    .como .m2, .como[open] .m1{ display:none; }
+    .como[open] .m2{ display:inline; }
+    .como summary:focus-visible{ outline:2px solid var(--gold); outline-offset:4px; border-radius:8px; }
+    .como-tx{ margin:12px 0 2px 48px; font-size:.87rem; color:var(--muted); line-height:1.65; }
+    .como-tx p + p{ margin-top:7px; }
+    .como-tx b{ color:var(--ink); font-weight:600; }
+
+    /* ---- Pestañas ---- */
+    .tabs{ display:flex; width:max-content; max-width:100%; gap:3px; background:#e9e7e0; border-radius:13px; padding:4px; margin-bottom:18px; overflow-x:auto; scrollbar-width:none; }
+    .tabs::-webkit-scrollbar{ display:none; }
+    .tab{ border:0; background:none; border-radius:10px; padding:9px 15px; font-size:.9rem; font-weight:500; color:var(--muted); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:8px; }
+    .tab i{ font-size:.82rem; opacity:.8; }
+    .tab[aria-selected="true"]{ background:#fff; color:var(--ink); font-weight:600; box-shadow:0 1px 3px rgba(16,24,40,.14); }
+    .tab[aria-selected="true"] i{ color:var(--gold); opacity:1; }
+    .tab .n{ font-size:.72rem; font-weight:700; background:var(--danger); color:#fff; border-radius:999px; padding:1px 7px; }
+    .tab:focus-visible, .btn:focus-visible, .seg button:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+
+    /* ---- Botones ---- */
+    .btn{ border:none; cursor:pointer; border-radius:11px; padding:10px 16px; font-size:.88rem; font-weight:600; display:inline-flex; align-items:center; justify-content:center; gap:8px; transition:filter .15s, background .15s; text-decoration:none; }
+    .btn-oro{ background:var(--gold); color:var(--ink); }
+    .btn-oro:hover:not(:disabled){ filter:brightness(1.06); }
+    .btn-tinta{ background:var(--ink); color:#fff; }
+    .btn-tinta:hover{ filter:brightness(1.15); }
+    .btn-borde{ background:#fff; border:1px solid var(--line); color:var(--text); }
+    .btn-borde:hover{ border-color:var(--gold); }
+    .btn-ok{ background:var(--ok); color:#fff; }
+    .btn-no{ background:#fff; color:var(--danger); border:1px solid #efc6c0; }
+    .btn-no:hover{ background:#fff4f2; }
+    .btn-sm{ padding:7px 12px; font-size:.82rem; border-radius:10px; }
+    .btn:disabled{ background:var(--line2); color:var(--soft); cursor:not-allowed; border:0; }
+
+    /* ---- Catálogo ---- */
+    .grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:16px; }
+    .rc{ background:#fff; border:1px solid var(--line); border-radius:18px; overflow:hidden; display:flex; flex-direction:column; transition:box-shadow .2s, transform .2s; }
+    .rc:hover{ box-shadow:0 12px 28px rgba(16,29,48,.09); }
+    .rc-media{ position:relative; aspect-ratio:4 / 3; display:grid; place-items:center; overflow:hidden; }
+    .rc-media img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .rc-media > i{ font-size:2.6rem; }
+    .rc-cat{ position:absolute; top:12px; left:12px; display:inline-flex; align-items:center; gap:6px; font-size:.72rem; font-weight:600; padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.92); color:var(--ink); box-shadow:0 1px 4px rgba(16,24,40,.12); }
+    .c-electronica{ background:#eaf1fb; color:#2c5fb8; } .c-viaje{ background:#e8f5ec; color:#1f8a4c; } .c-dinero{ background:#fbf1df; color:#a8690c; }
+    .rc-body{ padding:16px 18px 18px; display:flex; flex-direction:column; gap:8px; flex:1; }
+    .rc h3{ font-family:'Jost',sans-serif; font-size:1.02rem; font-weight:600; line-height:1.3; }
+    .rc-desc{ font-size:.85rem; color:var(--muted); line-height:1.5; }
+    .rc-desc.clamp{ display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+    .leer{ align-self:flex-start; background:none; border:0; color:var(--gold-osc); font-size:.8rem; font-weight:600; cursor:pointer; padding:0; }
+    .rc-pie{ margin-top:auto; padding-top:6px; display:flex; flex-direction:column; gap:10px; }
+    .costo{ display:flex; align-items:baseline; gap:7px; }
+    .costo i{ color:var(--gold); font-size:.95rem; }
+    .costo b{ font-family:'Cormorant Garamond',serif; font-size:1.8rem; font-weight:700; color:var(--ink); line-height:1; font-variant-numeric:lining-nums tabular-nums; }
+    .costo span{ font-size:.82rem; color:var(--muted); }
+    .falta{ display:flex; flex-direction:column; gap:5px; }
+    .falta .barra{ background:var(--line2); height:6px; }
+    .falta small{ font-size:.77rem; color:var(--muted); }
+    .rc-meta{ display:flex; flex-wrap:wrap; gap:6px; }
+    .rc-meta span{ font-size:.74rem; color:var(--muted); background:var(--line2); border-radius:999px; padding:2px 9px; }
+    .rc .btn{ width:100%; }
+
+    /* ---- Listas (mis canjes, canjes, catálogo de la Dirección) ---- */
+    .lista{ display:flex; flex-direction:column; gap:10px; }
+    .item{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px 16px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    .item-ic{ width:42px; height:42px; border-radius:12px; flex:none; display:grid; place-items:center; font-size:1rem; }
+    .item-img{ width:56px; height:42px; border-radius:10px; object-fit:cover; flex:none; background:var(--line2); }
+    .item-tx{ flex:1; min-width:180px; }
+    .item-t{ font-weight:600; color:var(--ink); line-height:1.3; }
+    .item-t small{ font-weight:400; color:var(--muted); }
+    .item-m{ font-size:.8rem; color:var(--muted); margin-top:2px; }
+    .item-acc{ display:flex; gap:8px; flex-wrap:wrap; }
+    .pill{ font-size:.74rem; font-weight:600; padding:4px 11px; border-radius:999px; white-space:nowrap; }
+    .s-pendiente{ background:#fdf3dc; color:#9a6a06; } .s-aprobado{ background:#e8effb; color:#2c5fb8; }
+    .s-entregado{ background:#e5f4ea; color:var(--ok); } .s-rechazado{ background:#fdecea; color:var(--danger); }
+    .s-destacado{ background:rgba(201,162,39,.16); color:var(--gold-osc); }
+    .ic-pendiente{ background:#fdf3dc; color:#b07c0a; } .ic-aprobado{ background:#e8effb; color:#2c5fb8; }
+    .ic-entregado{ background:#e5f4ea; color:var(--ok); } .ic-rechazado{ background:#fdecea; color:var(--danger); }
+    .ic-destacado{ background:rgba(201,162,39,.16); color:var(--gold-osc); }
+    .vacio{ text-align:center; padding:40px 20px; background:#fff; border:1.5px dashed #dcdfe4; border-radius:18px; color:var(--muted); }
+    .vacio i{ display:block; font-size:1.7rem; color:var(--soft); margin-bottom:10px; }
+    .seg{ display:inline-flex; gap:2px; background:var(--line2); border-radius:11px; padding:3px; margin-bottom:14px; flex-wrap:wrap; }
+    .seg button{ border:0; background:none; border-radius:9px; padding:7px 12px; font-size:.84rem; font-weight:500; color:var(--muted); cursor:pointer; white-space:nowrap; }
+    .seg button[aria-pressed="true"]{ background:#fff; color:var(--ink); font-weight:600; box-shadow:0 1px 3px rgba(16,24,40,.14); }
+    .seg button .n{ font-size:.72rem; color:var(--soft); margin-left:3px; }
+
+    /* ---- Formularios (Dirección) ---- */
+    .caja{ background:#fff; border:1px solid var(--line); border-radius:18px; padding:22px 24px; margin-bottom:18px; }
+    .caja > h2{ font-size:1.5rem; margin-bottom:4px; }
+    .caja > p.sub{ color:var(--muted); font-size:.86rem; margin-bottom:16px; }
+    .campos{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:0 14px; }
+    .campo{ margin-bottom:13px; min-width:0; }
+    .campo.ancho{ grid-column:1 / -1; }
+    .campo label{ display:block; font-size:.8rem; color:var(--muted); margin-bottom:5px; }
+    .campo label small{ color:var(--soft); }
+    .campo input, .campo select, .campo textarea{ width:100%; border:1px solid var(--line); border-radius:11px; padding:10px 12px; font-size:.92rem; color:var(--text); background:#fff; }
+    .campo input:focus, .campo select:focus, .campo textarea:focus{ outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.14); }
+    .foto-prev{ display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+    .foto-prev img{ width:120px; height:90px; object-fit:cover; border-radius:10px; }
+    .acciones{ display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; margin-top:4px; }
+    .sec-t{ font-size:1.3rem; margin:22px 0 12px; }
+
+    /* ---- Ranking ---- */
+    .podio{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin-bottom:16px; align-items:end; }
+    .pod{ background:#fff; border:1px solid var(--line); border-radius:18px; padding:18px 14px; text-align:center; position:relative; }
+    .pod.p1{ padding-top:26px; border-color:rgba(201,162,39,.55); box-shadow:0 10px 26px rgba(201,162,39,.12); }
+    .pod-med{ width:44px; height:44px; margin:0 auto 10px; border-radius:50%; display:grid; place-items:center; font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:700; color:#fff; font-variant-numeric:lining-nums; }
+    .p1 .pod-med{ background:linear-gradient(135deg,#e9cf73,#b8901f); width:52px; height:52px; font-size:1.6rem; }
+    .p2 .pod-med{ background:linear-gradient(135deg,#d9dde3,#9aa3ad); }
+    .p3 .pod-med{ background:linear-gradient(135deg,#e6b98c,#a8692c); }
+    .pod-n{ font-weight:600; color:var(--ink); line-height:1.25; }
+    .pod-p{ font-family:'Cormorant Garamond',serif; font-size:1.7rem; font-weight:700; color:var(--ink); line-height:1.1; margin-top:6px; font-variant-numeric:lining-nums tabular-nums; }
+    .pod-d{ font-size:.76rem; color:var(--muted); }
+    .rk{ display:grid; grid-template-columns:30px minmax(0,1fr) auto; gap:4px 12px; align-items:center; padding:11px 4px; }
+    .rk + .rk{ border-top:1px solid var(--line2); }
+    .rk-pos{ font-family:'Cormorant Garamond',serif; font-size:1.25rem; font-weight:700; color:var(--soft); text-align:center; font-variant-numeric:lining-nums; }
+    .rk-n{ font-weight:600; color:var(--ink); }
+    .rk-p{ text-align:right; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .rk-p small{ display:block; font-weight:400; font-size:.74rem; color:var(--soft); }
+    .rk .barra{ grid-column:2 / 3; background:var(--line2); height:6px; }
+
+    /* ---- Ventana de confirmación ---- */
+    .velo{ position:fixed; inset:0; background:rgba(12,22,38,.55); display:none; align-items:center; justify-content:center; z-index:2000; padding:20px; }
+    .velo.open{ display:flex; }
+    .dlg{ background:#fff; border-radius:20px; width:100%; max-width:420px; padding:26px 24px 22px; text-align:center; box-shadow:0 24px 60px rgba(12,22,38,.3); }
+    .dlg-ic{ width:56px; height:56px; margin:0 auto 12px; border-radius:50%; display:grid; place-items:center; background:rgba(201,162,39,.14); color:var(--gold-osc); font-size:1.35rem; }
+    .dlg h2{ font-size:1.55rem; margin-bottom:6px; }
+    .dlg p{ color:var(--muted); font-size:.92rem; }
+    .dlg .acciones{ justify-content:center; margin-top:20px; }
+    .dlg .btn{ min-width:130px; }
+
+    /* ---- Avisos ---- */
+    #avisos{ position:fixed; right:16px; bottom:16px; z-index:3000; display:flex; flex-direction:column; gap:10px; max-width:360px; }
+    .aviso{ display:flex; gap:11px; align-items:flex-start; background:var(--ink); color:#fff; border-radius:13px; padding:12px 15px; box-shadow:0 10px 28px rgba(12,22,38,.3); opacity:0; transform:translateY(10px); transition:opacity .25s, transform .25s; font-size:.9rem; }
+    .aviso.show{ opacity:1; transform:none; }
+    .aviso i{ margin-top:3px; color:var(--gold-cl); }
+    .aviso.err i{ color:#f0a39a; }
+
+    @media (max-width:760px){
+      .mv-head-in{ padding:10px 14px; }
+      .mv-head .back-link span{ display:none; }
+      .wrap{ padding:14px 12px 60px; }
+      .hero{ padding:20px 16px 18px; border-radius:18px; }
+      .hero-ic{ width:46px; height:46px; border-radius:12px; font-size:1.1rem; }
+      .hero-tx{ min-width:0; }
+      .hero-top{ flex-wrap:nowrap; align-items:flex-start; gap:14px; }
+      .btn-hero{ width:40px; height:40px; padding:0; justify-content:center; flex:none; }
+      .btn-hero span{ display:none; }
+      .hero-art{ display:none; }
+      .hero-body{ grid-template-columns:minmax(0,1fr); gap:14px; margin-top:16px; padding-top:16px; }
+      .como{ padding:12px 14px; }
+      .como-mas .m1, .como-mas .m2, .como[open] .como-mas .m2{ display:none; }
+      .como-tx{ margin-left:0; }
+      .grid{ grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:12px; }
+      .rc-body{ padding:12px 13px 14px; }
+      .rc h3{ font-size:.95rem; }
+      .costo b{ font-size:1.5rem; }
+      .rc-cat{ top:8px; left:8px; font-size:.68rem; }
+      .caja{ padding:16px 14px; }
+      .campos{ grid-template-columns:minmax(0,1fr); }
+      .item{ padding:12px 13px; gap:12px; }
+      .item-acc{ width:100%; }
+      .item-acc .btn{ flex:1; }
+      .podio{ gap:8px; }
+      .pod{ padding:14px 8px; border-radius:14px; }
+      .pod-p{ font-size:1.35rem; }
+      .seg{ display:flex; overflow-x:auto; flex-wrap:nowrap; scrollbar-width:none; }
+      #avisos{ left:12px; right:12px; bottom:calc(14px + env(safe-area-inset-bottom,0px)); max-width:none; }
     }
-</style>
+    @media (max-width:380px){ .grid{ grid-template-columns:minmax(0,1fr); } }
+    @media (prefers-reduced-motion: reduce){ .barra i, .rc, .aviso{ transition:none; } .giro{ animation-duration:3s; } }
+  </style>
 </head>
 <body>
   <header class="mv-head">
@@ -126,51 +249,93 @@
     </div>
   </header>
 
-  <div class="wrap">
-    <div class="mv-toolbar">
-      <h1><i class="fas fa-trophy"></i> Recompensas</h1>
-      <div class="mv-toolbar-acc">
-        <button class="btn btn-ghost" onclick="cargar()"><i class="fas fa-rotate-right"></i> Actualizar</button>
-      </div>
-    </div>
+  <main class="wrap">
+    <div id="loadingState" class="estado"><div class="giro"></div>Cargando tus puntos…</div>
+    <div id="authState" class="estado" hidden><div class="lk"><i class="fas fa-lock"></i></div><h1>Recompensas</h1><p id="authMsg">Tenés que iniciar sesión.</p><a href="index.html">Volver al inicio</a></div>
 
-    <div id="loadingState" class="empty"><i class="fas fa-spinner fa-spin"></i> Cargando…</div>
-    <div id="authState" class="empty" style="display:none"><i class="fas fa-lock" style="font-size:1.6rem; color:#ccc; display:block; margin-bottom:10px"></i><span id="authMsg">Tenés que iniciar sesión.</span></div>
-
-    <div id="content" style="display:none">
-      <div class="saldo">
-        <div>
-          <div class="lbl">Tus puntos</div>
-          <div class="pts" id="sPts">0</div>
-          <div class="sub" id="sSub">Ganás puntos por cada cierre confirmado.</div>
+    <div id="content" hidden>
+      <section class="hero">
+        <svg class="hero-art" viewBox="0 0 160 150" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" aria-hidden="true">
+          <rect x="18" y="62" width="124" height="80" rx="6"/><rect x="10" y="40" width="140" height="24" rx="5"/>
+          <path d="M80 40v102M80 40c-10-22-38-30-42-12-3 13 22 12 42 12zM80 40c10-22 38-30 42-12 3 13-22 12-42 12z"/>
+        </svg>
+        <div class="hero-top">
+          <div class="hero-ic"><i class="fas fa-trophy"></i></div>
+          <div class="hero-tx"><h1>Recompensas</h1><p>Cada operación firmada suma puntos para canjear por premios.</p></div>
+          <button type="button" class="btn-hero" onclick="cargar()" aria-label="Actualizar" title="Actualizar"><i class="fas fa-rotate-right"></i> <span>Actualizar</span></button>
         </div>
-        <div class="ring"><i class="fas fa-coins"></i></div>
-      </div>
+        <div class="hero-body">
+          <div>
+            <div class="saldo-lbl">Tus puntos disponibles</div>
+            <div class="saldo-num"><b id="sPts">0</b><span>pts</span></div>
+            <div class="saldo-det" id="sSub"></div>
+          </div>
+          <div class="proxima" id="proxima" aria-live="polite"></div>
+        </div>
+      </section>
 
-      <div class="howto" id="howto"></div>
-      <div class="tabs" id="tabs"></div>
-
+      <details class="como" id="howto"></details>
+      <nav class="tabs" id="tabs" role="tablist" aria-label="Secciones"></nav>
       <div id="panel"></div>
     </div>
-  </div>
+  </main>
 
-  <div id="mvToastWrap"></div>
+  <div class="velo" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgT">
+    <div class="dlg">
+      <div class="dlg-ic" id="dlgIc"><i class="fas fa-gift"></i></div>
+      <h2 id="dlgT"></h2>
+      <p id="dlgP"></p>
+      <div class="acciones"><button type="button" class="btn btn-borde" id="dlgNo">Cancelar</button><button type="button" class="btn btn-oro" id="dlgSi">Confirmar</button></div>
+    </div>
+  </div>
+  <div id="avisos" aria-live="polite"></div>
 
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
   <script src="malave-config.js?v=20260830b"></script>
   <script>
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
-    const storage = firebase.storage();
 
     function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-    function show(id){ ['loadingState','authState','content'].forEach(x=>document.getElementById(x).style.display = (x===id?'':'none')); }
-    function toast(msg, err){ const w=document.getElementById('mvToastWrap'); const t=document.createElement('div'); t.className='mv-toast'+(err?' err':''); t.innerHTML='<i class="fas fa-'+(err?'circle-exclamation':'circle-check')+'" style="margin-top:2px"></i><div>'+esc(msg)+'</div>'; w.appendChild(t); requestAnimationFrame(()=>t.classList.add('show')); setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); },3500); }
+    function show(id){ ['loadingState','authState','content'].forEach(x=>{ document.getElementById(x).hidden = (x!==id); }); }
+    function toast(msg, err){ const w=document.getElementById('avisos'); const t=document.createElement('div'); t.className='aviso'+(err?' err':''); t.innerHTML='<i class="fas fa-'+(err?'circle-exclamation':'circle-check')+'"></i><div>'+esc(msg)+'</div>'; w.appendChild(t); requestAnimationFrame(()=>t.classList.add('show')); setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); },3800); }
     function nf(n){ return (Math.round(n)||0).toLocaleString('es-UY'); }
+    const pts = n => nf(n) + (Math.round(n) === 1 ? ' punto' : ' puntos');
+    // Solo imágenes de la web (https): una URL rara no se mete en el src.
+    const imgOk = u => /^https?:\/\/[^\s'"<>]+$/i.test(String(u || ''));
+
+    /* El SDK de Storage solo hace falta para subir la imagen de una recompensa
+       (Dirección): se baja cuando se usa, no en cada visita a la página. */
+    let _storage = null;
+    function cargarScript(src){ return new Promise((ok, mal)=>{ const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=()=>mal(new Error('No se pudo cargar '+src)); document.head.appendChild(s); }); }
+    async function storageListo(){
+      if(_storage) return _storage;
+      if(!firebase.storage) await cargarScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js');
+      _storage = firebase.storage();
+      return _storage;
+    }
+
+    /* Ventana de confirmación propia (en vez del cartel del navegador). */
+    function confirmar(titulo, texto, opts){
+      opts = opts || {};
+      return new Promise(res=>{
+        const v = document.getElementById('dlg'), si = document.getElementById('dlgSi'), no = document.getElementById('dlgNo');
+        document.getElementById('dlgT').textContent = titulo;
+        document.getElementById('dlgP').textContent = texto;
+        document.getElementById('dlgIc').innerHTML = '<i class="fas '+(opts.icono||'fa-gift')+'"></i>';
+        si.textContent = opts.si || 'Confirmar';
+        si.className = 'btn ' + (opts.peligro ? 'btn-no' : 'btn-oro');
+        const cerrar = (r)=>{ v.classList.remove('open'); si.onclick = no.onclick = v.onclick = null; document.removeEventListener('keydown', tecla); res(r); };
+        const tecla = (e)=>{ if(e.key==='Escape') cerrar(false); };
+        si.onclick = ()=>cerrar(true); no.onclick = ()=>cerrar(false);
+        v.onclick = (e)=>{ if(e.target===v) cerrar(false); };
+        document.addEventListener('keydown', tecla);
+        v.classList.add('open'); si.focus();
+      });
+    }
 
     const CATS = {
       electronica: { label:'Electrónica', icon:'fa-laptop' },
@@ -187,6 +352,7 @@
     let canjes=[];        // mis canjes (o todos si admin)
     let tab='catalogo';
     let editId=null;      // edición de recompensa (admin)
+    let filtroCanjes='pendiente';
 
     // ---------- Puntos ----------
     function montoUSD(c){ const p = Number(c.precio)||0; return (c.moneda==='UYU') ? (cfg.dolarPesos>0 ? p/cfg.dolarPesos : 0) : p; }
@@ -234,34 +400,43 @@
     function puntosGastados(uid){ return canjes.filter(x=>x.agenteUid===uid && x.status!=='rechazado').reduce((s,x)=>s+(Number(x.costoPuntos)||0),0); }
     function saldo(uid){ return puntosGanados(uid) - puntosGastados(uid); }
 
+    // Un canje puede ser de una recompensa del catálogo o un destacado extra que se
+    // pagó con puntos (ese lo crea el servidor, con 'concepto' y 'createdAt').
+    const nombreCanje = c => c.recompensaNombre || c.concepto || 'Recompensa';
+    const fechaCanje = c => c.fecha || c.createdAt || '';
+    const esDestacado = c => c.tipo === 'destacado';
+
     // ---------- Carga ----------
+    /* Todo a la vez: antes se pedía una cosa por vez (configuración, perfiles,
+       catálogo, cierres, ajustes, canjes) y la página tardaba lo que sumaban todas. */
     async function cargar(){
       show('loadingState');
       try{
-        // Config
-        try{ const cd = await db.collection('config').doc('recompensas').get(); if(cd.exists){ cfg = Object.assign(cfg, cd.data()); } }catch(e){}
         // % de comisión de los agentes: SOLO se usa para estimar cierres viejos que
         // no tienen la ganancia cargada. El admin lee todos los perfiles; cada agente
         // usa el suyo propio, así no dependemos de permisos sobre perfiles ajenos ni
         // exponemos las comisiones de los demás.
         const comDe = (u)=>{ const fb = (u.commissionPct!=null && u.commissionPct!=='') ? Number(u.commissionPct) : 0; return { sale:(u.commissionSale!=null && u.commissionSale!=='')?Number(u.commissionSale):fb, rent:(u.commissionRent!=null && u.commissionRent!=='')?Number(u.commissionRent):fb }; };
-        if(isAdmin){
-          try{ const us = await db.collection('users').get(); us.docs.forEach(d=>{ agentesCom[d.id]=comDe(d.data()); }); }catch(e){}
-        } else {
-          agentesCom[curUser.uid] = comDe(curProfile);
-        }
-        // Catálogo
-        const rs = await db.collection('recompensas').get();
-        catalogo = rs.docs.map(d=>Object.assign({ id:d.id }, d.data())).sort((a,b)=>(a.costoPuntos||0)-(b.costoPuntos||0));
-        // Cierres confirmados -> puntos. Cuenta la firma confirmada: el cierre actual
-        // y los que pasaron al historial (un alquiler que terminó, una operación que
-        // se reemplazó). Los puntos son del agente del cierre y de cada compañero por
-        // su parte en los cierres en equipo: la misma cuenta que Mis Finanzas y que el
-        // servidor cuando se canjea.
-        const [psA, psB] = await Promise.all([
+        const [cd, us, rs, psA, psB, aj, cs] = await Promise.all([
+          db.collection('config').doc('recompensas').get().catch(()=>null),
+          isAdmin ? db.collection('users').get().catch(()=>null) : Promise.resolve(null),
+          db.collection('recompensas').get(),
+          // Cierres confirmados -> puntos. Cuenta la firma confirmada: el cierre actual
+          // y los que pasaron al historial (un alquiler que terminó, una operación que
+          // se reemplazó). Los puntos son del agente del cierre y de cada compañero por
+          // su parte en los cierres en equipo: la misma cuenta que Mis Finanzas y que el
+          // servidor cuando se canjea.
           db.collection('properties').where('cierreConfirmado','==',true).get(),
-          db.collection('properties').where('tieneCierresAnteriores','==',true).get().catch(()=>null)
+          db.collection('properties').where('tieneCierresAnteriores','==',true).get().catch(()=>null),
+          // Ajustes de puntos de la Dirección (con motivo): suman o restan.
+          (isAdmin ? db.collection('ajustesFinancieros').get()
+                   : db.collection('ajustesFinancieros').where('agenteUid','==',curUser.uid).get()).catch(e=>{ console.warn('ajustes', e && e.message); return null; }),
+          isAdmin ? db.collection('canjes').get() : db.collection('canjes').where('agenteUid','==',curUser.uid).get()
         ]);
+        if(cd && cd.exists){ cfg = Object.assign(cfg, cd.data()); }
+        if(isAdmin){ if(us) us.docs.forEach(d=>{ agentesCom[d.id]=comDe(d.data()); }); }
+        else agentesCom[curUser.uid] = comDe(curProfile);
+        catalogo = rs.docs.map(d=>Object.assign({ id:d.id }, d.data())).sort((a,b)=>(a.costoPuntos||0)-(b.costoPuntos||0));
         const propsConf = new Map();
         psA.forEach(d=>propsConf.set(d.id, d.data()));
         if(psB) psB.forEach(d=>{ if(!propsConf.has(d.id)) propsConf.set(d.id, d.data()); });
@@ -281,35 +456,50 @@
             });
           });
         });
-        // Ajustes de puntos de la Dirección (con motivo): suman o restan.
         ajustesPts = {};
-        try{
-          const aj = isAdmin ? await db.collection('ajustesFinancieros').get()
-                             : await db.collection('ajustesFinancieros').where('agenteUid','==',curUser.uid).get();
-          aj.forEach(d=>{ const a = d.data()||{}; if(a.agenteUid && Number(a.puntos)) ajustesPts[a.agenteUid] = (ajustesPts[a.agenteUid]||0) + Number(a.puntos); });
-        }catch(e){ console.warn('ajustes', e && e.message); }
-        // Canjes
-        if(isAdmin){
-          const cs = await db.collection('canjes').get();
-          canjes = cs.docs.map(d=>Object.assign({ id:d.id }, d.data()));
-        } else {
-          const cs = await db.collection('canjes').where('agenteUid','==',curUser.uid).get();
-          canjes = cs.docs.map(d=>Object.assign({ id:d.id }, d.data()));
-        }
-        renderTabs(); renderSaldo(); renderHowto(); renderPanel();
+        if(aj) aj.forEach(d=>{ const a = d.data()||{}; if(a.agenteUid && Number(a.puntos)) ajustesPts[a.agenteUid] = (ajustesPts[a.agenteUid]||0) + Number(a.puntos); });
+        canjes = cs.docs.map(d=>Object.assign({ id:d.id }, d.data()));
+        pintarTodo();
         show('content');
       }catch(e){
         console.warn('cargar recompensas', e);
         show('content');
-        document.getElementById('panel').innerHTML = '<div class="empty" style="color:#c0392b">No se pudieron cargar las recompensas. '+esc(e.message||e)+'</div>';
+        document.getElementById('panel').innerHTML = '<div class="vacio" style="color:var(--danger)"><i class="fas fa-triangle-exclamation"></i>No se pudieron cargar las recompensas. '+esc(e.message||e)+'</div>';
       }
+    }
+    function pintarTodo(){ renderTabs(); renderSaldo(); renderHowto(); renderPanel(); }
+
+    // Lo que se puede canjear ahora y la próxima recompensa a la que se llega.
+    function estadoRecompensa(r, s){
+      const stockOut = (r.stock!=null && Number(r.stock)<=0);
+      const misVeces = canjes.filter(c=>c.recompensaId===r.id && c.agenteUid===curUser.uid && c.status!=='rechazado').length;
+      const limite = (r.limitePorAgente!=null && Number(r.limitePorAgente)>0) ? Number(r.limitePorAgente) : null;
+      const limiteAlcanzado = limite!=null && misVeces >= limite;
+      const costo = Number(r.costoPuntos)||0;
+      return { stockOut, misVeces, limite, limiteAlcanzado, costo, noPlata: s < costo, falta: Math.max(0, costo - s) };
     }
 
     function renderSaldo(){
       const s = saldo(curUser.uid);
       document.getElementById('sPts').textContent = nf(s);
       const val = s * (Number(cfg.valorPunto)||0);
-      document.getElementById('sSub').innerHTML = 'Ganados: <b>'+nf(puntosGanados(curUser.uid))+'</b> · Canjeados: <b>'+nf(puntosGastados(curUser.uid))+'</b>' + (val>0?' · ≈ US$ '+nf(val):'');
+      document.getElementById('sSub').innerHTML = '<span>Ganados: <b>'+nf(puntosGanados(curUser.uid))+'</b></span><span>Canjeados: <b>'+nf(puntosGastados(curUser.uid))+'</b></span>' + (val>0?'<span>Valen cerca de <b>US$ '+nf(val)+'</b></span>':'');
+      // La próxima recompensa: la más barata que todavía no alcanza (y que se puede pedir).
+      const el = document.getElementById('proxima');
+      const posibles = catalogo.map(r=>({ r, e: estadoRecompensa(r, s) })).filter(x=>!x.e.stockOut && !x.e.limiteAlcanzado);
+      const alcanzan = posibles.filter(x=>!x.e.noPlata), sig = posibles.filter(x=>x.e.noPlata).sort((a,b)=>a.e.costo-b.e.costo)[0];
+      if(!catalogo.length){ el.innerHTML = '<span class="proxima-l">Catálogo</span><span class="proxima-n">Todavía no hay recompensas cargadas</span>'; return; }
+      if(sig){
+        const pct = sig.e.costo > 0 ? Math.min(100, Math.max(0, s) / sig.e.costo * 100) : 0;
+        el.innerHTML = '<span class="proxima-l">Próxima recompensa</span><span class="proxima-n">'+esc(sig.r.nombre||'Recompensa')+'</span>'
+          + '<div class="barra" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.round(pct)+'" aria-label="Avance hacia la próxima recompensa"><i style="width:'+pct+'%"></i></div>'
+          + '<span class="proxima-f">Te faltan <b>'+pts(sig.e.falta)+'</b>'+(alcanzan.length?' · ya te alcanza para '+(alcanzan.length===1?'1 recompensa':alcanzan.length+' recompensas'):'')+'.</span>';
+      } else if(alcanzan.length){
+        el.innerHTML = '<span class="proxima-l">Catálogo</span><span class="proxima-n">Te alcanza para '+(alcanzan.length===1?'1 recompensa':'todas las recompensas')+'</span>'
+          + '<div class="barra"><i style="width:100%"></i></div><span class="proxima-f">Elegí la tuya en el catálogo.</span>';
+      } else {
+        el.innerHTML = '<span class="proxima-l">Catálogo</span><span class="proxima-n">No hay recompensas disponibles ahora</span><span class="proxima-f">Las que hay están agotadas o ya las canjeaste.</span>';
+      }
     }
 
     function renderHowto(){
@@ -318,17 +508,23 @@
       const r = Number(cfg.puntosPor100)||1;
       const ej = Math.floor(350/100)*r;
       const pl = (n)=> n===1 ? 'punto' : 'puntos';
-      el.innerHTML = '<div class="hi">💡</div><div class="ht"><b>¿Cómo ganás puntos?</b><br>'
-        + 'Por cada <b>US$100</b> de <b>tu comisión</b> (lo que te queda a vos) en una operación <b>firmada</b> (cuando la Dirección confirma la firma en el Mapa de cierres) sumás <b>'+r+' '+pl(r)+'</b>. '
-        + 'Se cuentan solo los cientos completos: si tu comisión en una operación es <b>US$350</b>, sumás <b>'+ej+' '+pl(ej)+'</b>. '
-        + 'Las operaciones en pesos se convierten a dólares para el cálculo. '
-        + 'Tu ganancia se toma del dato que cargás al <b>registrar el cierre</b>; en los cierres viejos que no lo tienen, se estima con tu % de comisión.</div>';
+      const abierto = el.open;
+      el.innerHTML = '<summary><span class="como-ic"><i class="fas fa-lightbulb"></i></span>'
+        + '<span class="como-r"><b>Cómo sumás puntos:</b> '+r+' '+pl(r)+' por cada US$100 de tu comisión en operaciones firmadas.</span>'
+        + '<span class="como-mas"><span class="m1">Ver más</span><span class="m2">Ver menos</span> <i class="fas fa-chevron-down"></i></span></summary>'
+        + '<div class="como-tx">'
+        + '<p>Se cuenta <b>lo que te queda a vos</b> de cada operación <b>firmada</b>: cuando la Dirección confirma la firma en el Mapa de cierres.</p>'
+        + '<p>Solo los cientos completos: si tu comisión en una operación es <b>US$350</b>, sumás <b>'+ej+' '+pl(ej)+'</b>. Las operaciones en pesos se pasan a dólares para la cuenta.</p>'
+        + '<p>Tu ganancia sale del dato que cargás al <b>registrar el cierre</b>. En los cierres viejos que no lo tienen, se estima con tu % de comisión.</p>'
+        + '</div>';
+      el.open = abierto;
     }
     function renderTabs(){
+      const pend = canjes.filter(c=>c.status==='pendiente').length;
       const base = [['catalogo','Catálogo','fa-gift'],['miscanjes','Mis canjes','fa-receipt']];
-      const adm = [['gcanjes','Canjes','fa-clipboard-list'],['gcatalogo','Catálogo (admin)','fa-boxes-stacked'],['ranking','Ranking','fa-ranking-star'],['config','Configurar','fa-gear']];
+      const adm = [['gcanjes','Canjes','fa-clipboard-list', pend],['gcatalogo','Editar catálogo','fa-boxes-stacked'],['ranking','Ranking','fa-ranking-star'],['config','Configurar','fa-gear']];
       const all = isAdmin ? base.concat(adm) : base;
-      document.getElementById('tabs').innerHTML = all.map(t=>'<div class="tab'+(tab===t[0]?' active':'')+'" onclick="setTab(\''+t[0]+'\')"><i class="fas '+t[2]+'"></i> '+t[1]+'</div>').join('');
+      document.getElementById('tabs').innerHTML = all.map(t=>'<button type="button" class="tab" role="tab" aria-selected="'+(tab===t[0])+'" onclick="setTab(\''+t[0]+'\')"><i class="fas '+t[2]+'"></i>'+t[1]+(t[3]?'<span class="n" title="Pendientes">'+t[3]+'</span>':'')+'</button>').join('');
     }
     function setTab(t){ tab=t; editId=null; renderTabs(); renderPanel(); }
 
@@ -347,31 +543,38 @@
       var expanded = !d.classList.toggle('clamp');
       btn.textContent = expanded ? 'Leer menos' : 'Leer más';
     }
+    function mediaRecompensa(r, cat){
+      return imgOk(r.imagen)
+        ? '<div class="rc-media"><img src="'+esc(r.imagen)+'" alt="" loading="lazy" decoding="async"><span class="rc-cat"><i class="fas '+CATS[cat].icon+'"></i> '+CATS[cat].label+'</span></div>'
+        : '<div class="rc-media c-'+cat+'"><i class="fas '+CATS[cat].icon+'"></i><span class="rc-cat"><i class="fas '+CATS[cat].icon+'"></i> '+CATS[cat].label+'</span></div>';
+    }
     // ---------- Catálogo (asesor) ----------
     function renderCatalogo(){
       const p = document.getElementById('panel');
-      if(!catalogo.length){ p.innerHTML='<div class="empty">Todavía no hay recompensas cargadas.'+(isAdmin?' Andá a "Catálogo (admin)" para sumar la primera.':'')+'</div>'; return; }
+      if(!catalogo.length){ p.innerHTML='<div class="vacio"><i class="fas fa-gift"></i>Todavía no hay recompensas cargadas.'+(isAdmin?' Sumá la primera en "Editar catálogo".':'')+'</div>'; return; }
       const s = saldo(curUser.uid);
       p.innerHTML = '<div class="grid">' + catalogo.map(r=>{
         const cat = CATS[r.categoria] ? r.categoria : 'electronica';
-        const stockOut = (r.stock!=null && Number(r.stock)<=0);
-        const noPlata = s < (Number(r.costoPuntos)||0);
-        const misVeces = canjes.filter(c=>c.recompensaId===r.id && c.agenteUid===curUser.uid && c.status!=='rechazado').length;
-        const limite = (r.limitePorAgente!=null && Number(r.limitePorAgente)>0) ? Number(r.limitePorAgente) : null;
-        const limiteAlcanzado = limite!=null && misVeces >= limite;
-        const dis = stockOut || noPlata || limiteAlcanzado;
-        const img = r.imagen ? '<img src="'+esc(r.imagen)+'" alt="" style="width:100%;height:auto;display:block;border-radius:10px;margin-bottom:10px">' : '<div class="ic ic-'+cat+'"><i class="fas '+CATS[cat].icon+'"></i></div>';
-        return '<div class="rcard">'
-          + img
-          + '<span class="cat cat-'+cat+'">'+CATS[cat].label+'</span>'
-          + '<h3>'+esc(r.nombre||'Recompensa')+'</h3>'
-          + '<div class="desc clamp" id="rdesc-'+r.id+'">'+esc(r.descripcion||'')+'</div>'
-          + ((r.descripcion && r.descripcion.length>110) ? '<button class="desc-btn" onclick="toggleDesc(\''+r.id+'\',this)">Leer más</button>' : '')
-          + '<div class="cost"><i class="fas fa-coins"></i> '+nf(r.costoPuntos)+' pts</div>'
-          + (r.stock!=null ? '<div class="stock">'+(stockOut?'Sin stock':('Quedan '+nf(r.stock)))+'</div>' : '')
-          + (limite!=null ? '<div class="stock">Por agente: '+misVeces+'/'+limite+'</div>' : '')
-          + '<button class="btn btn-gold" '+(dis?'disabled':'')+' onclick="canjear(\''+r.id+'\')">'+(stockOut?'Agotado':(limiteAlcanzado?(limite===1?'Ya lo canjeaste':'Límite alcanzado'):(noPlata?'Te faltan puntos':'<i class=\'fas fa-gift\'></i> Canjear')))+'</button>'
-          + '</div>';
+        const e = estadoRecompensa(r, s);
+        const dis = e.stockOut || e.noPlata || e.limiteAlcanzado;
+        const largo = r.descripcion && r.descripcion.length>110;
+        const pct = e.costo > 0 ? Math.min(100, Math.max(0, s) / e.costo * 100) : 0;
+        const meta = [];
+        if(r.stock!=null) meta.push(e.stockOut ? 'Sin stock' : 'Quedan '+nf(r.stock));
+        if(e.limite!=null) meta.push('Por agente: '+e.misVeces+'/'+e.limite);
+        return '<article class="rc">'
+          + mediaRecompensa(r, cat)
+          + '<div class="rc-body">'
+          +   '<h3>'+esc(r.nombre||'Recompensa')+'</h3>'
+          +   (r.descripcion ? '<div class="rc-desc clamp" id="rdesc-'+esc(r.id)+'">'+esc(r.descripcion)+'</div>' : '')
+          +   (largo ? '<button type="button" class="leer" onclick="toggleDesc(\''+esc(r.id)+'\',this)">Leer más</button>' : '')
+          +   '<div class="rc-pie">'
+          +     '<div class="costo"><i class="fas fa-coins"></i><b>'+nf(e.costo)+'</b><span>puntos</span></div>'
+          +     (e.noPlata && !e.stockOut && !e.limiteAlcanzado ? '<div class="falta"><div class="barra"><i style="width:'+pct+'%"></i></div><small>Te faltan '+pts(e.falta)+'</small></div>' : '')
+          +     (meta.length ? '<div class="rc-meta">'+meta.map(m=>'<span>'+m+'</span>').join('')+'</div>' : '')
+          +     '<button type="button" class="btn btn-oro" '+(dis?'disabled':'')+' onclick="canjear(\''+esc(r.id)+'\')">'+(e.stockOut?'Agotado':(e.limiteAlcanzado?(e.limite===1?'Ya lo canjeaste':'Límite alcanzado'):(e.noPlata?'Te faltan puntos':'<i class="fas fa-gift"></i> Canjear')))+'</button>'
+          +   '</div>'
+          + '</div></article>';
       }).join('') + '</div>';
     }
 
@@ -382,59 +585,73 @@
       const _mv = canjes.filter(c=>c.recompensaId===r.id && c.agenteUid===curUser.uid && c.status!=='rechazado').length;
       const _lim = (r.limitePorAgente!=null && Number(r.limitePorAgente)>0) ? Number(r.limitePorAgente) : null;
       if(_lim!=null && _mv >= _lim){ toast(_lim===1?'Ya canjeaste esta recompensa.':'Alcanzaste el límite de esta recompensa.', true); return; }
-      if(!confirm('¿Canjear "'+(r.nombre||'')+'" por '+nf(r.costoPuntos)+' puntos? Queda pendiente de que el admin lo confirme.')) return;
+      const ok = await confirmar('¿Canjear '+(r.nombre||'esta recompensa')+'?', 'Se descuentan '+pts(r.costoPuntos)+' de tu saldo. Queda pendiente hasta que la Dirección lo confirme.', { si:'Canjear', icono:'fa-gift' });
+      if(!ok) return;
       try{
-        await db.collection('canjes').add({
+        const datos = {
           agenteUid: curUser.uid, agenteNombre: curProfile.name || curUser.email || 'Agente',
           recompensaId: r.id, recompensaNombre: r.nombre||'', categoria: r.categoria||'',
           costoPuntos: Number(r.costoPuntos)||0, status:'pendiente',
           fecha: new Date().toISOString()
-        });
+        };
+        const ref = await db.collection('canjes').add(datos);
+        // Sin volver a pedir todo: el canje nuevo se suma a la lista.
+        canjes.push(Object.assign({ id: ref.id }, datos));
+        pintarTodo();
         toast('¡Canje solicitado! Te avisamos cuando se confirme.');
-        cargar();
       }catch(e){ console.warn('canjear',e); toast('No se pudo canjear: '+(e.message||e), true); }
     }
 
     // ---------- Mis canjes ----------
-    function pill(st){
-      const m = { pendiente:['pend','Pendiente'], aprobado:['aprob','Aprobado'], entregado:['entreg','Entregado'], rechazado:['rech','Rechazado'] };
-      const x = m[st]||['pend',st]; return '<span class="pill pill-'+x[0]+'">'+x[1]+'</span>';
+    const ESTADOS = { pendiente:['Pendiente','fa-clock'], aprobado:['Aprobado','fa-check'], entregado:['Entregado','fa-box'], rechazado:['Rechazado','fa-xmark'] };
+    function pill(c){
+      if(esDestacado(c)) return '<span class="pill s-destacado">Destacado</span>';
+      const x = ESTADOS[c.status] || [c.status||'Pendiente']; return '<span class="pill s-'+esc(c.status||'pendiente')+'">'+esc(x[0])+'</span>';
+    }
+    function icono(c){
+      if(esDestacado(c)) return '<span class="item-ic ic-destacado"><i class="fas fa-star"></i></span>';
+      const x = ESTADOS[c.status] || ['', 'fa-gift']; return '<span class="item-ic ic-'+esc(c.status||'pendiente')+'"><i class="fas '+x[1]+'"></i></span>';
     }
     function renderMisCanjes(){
-      const mine = canjes.filter(c=>c.agenteUid===curUser.uid).sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||'')));
+      const mine = canjes.filter(c=>c.agenteUid===curUser.uid).sort((a,b)=>String(fechaCanje(b)).localeCompare(String(fechaCanje(a))));
       const p = document.getElementById('panel');
-      if(!mine.length){ p.innerHTML='<div class="empty">Todavía no canjeaste nada. Mirá el catálogo 🎁</div>'; return; }
-      p.innerHTML = mine.map(c=>'<div class="card"><div class="row">'
-        + '<div class="grow"><b>'+esc(c.recompensaNombre||'Recompensa')+'</b><div style="font-size:.82rem;color:#888;margin-top:3px">'+nf(c.costoPuntos)+' pts · '+fmtF(c.fecha)+'</div></div>'
-        + pill(c.status)
-        + '</div></div>').join('');
+      if(!mine.length){ p.innerHTML='<div class="vacio"><i class="fas fa-receipt"></i>Todavía no canjeaste nada. Mirá el catálogo.</div>'; return; }
+      p.innerHTML = '<div class="lista">' + mine.map(c=>'<div class="item">' + icono(c)
+        + '<div class="item-tx"><div class="item-t">'+esc(nombreCanje(c))+'</div><div class="item-m">'+pts(c.costoPuntos)+(fechaCanje(c)?' · '+fmtF(fechaCanje(c)):'')+'</div></div>'
+        + pill(c) + '</div>').join('') + '</div>';
     }
     function fmtF(s){ if(!s) return ''; try{ return new Date(s).toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'}); }catch(e){ return s; } }
 
     // ---------- ADMIN: gestionar canjes ----------
+    function setFiltroCanjes(f){ filtroCanjes=f; renderGestionCanjes(); }
     function renderGestionCanjes(){
       const p = document.getElementById('panel');
-      const list = canjes.slice().sort((a,b)=>{ const o={pendiente:0,aprobado:1,entregado:2,rechazado:3}; return (o[a.status]-o[b.status]) || String(b.fecha||'').localeCompare(String(a.fecha||'')); });
-      const pend = canjes.filter(c=>c.status==='pendiente').length;
-      let html = '<div class="hint">'+(pend?('Hay <b>'+pend+'</b> canje(s) pendiente(s).'):'No hay canjes pendientes.')+'</div>';
-      if(!list.length){ p.innerHTML='<div class="empty">Todavía no hay canjes.</div>'; return; }
-      html += list.map(c=>'<div class="card"><div class="row">'
-        + '<div class="grow"><b>'+esc(c.agenteNombre||'Agente')+'</b> canjeó <b>'+esc(c.recompensaNombre||'')+'</b>'
-        +   '<div style="font-size:.82rem;color:#888;margin-top:3px">'+nf(c.costoPuntos)+' pts · '+fmtF(c.fecha)+'</div></div>'
-        + pill(c.status)
-        + '</div>'
-        + (c.status==='pendiente'
-            ? '<div class="row" style="margin-top:12px;justify-content:flex-end">'
-              + '<button class="btn btn-green btn-sm" onclick="setCanje(\''+c.id+'\',\'aprobado\')"><i class="fas fa-check"></i> Aprobar</button>'
-              + '<button class="btn btn-red btn-sm" onclick="setCanje(\''+c.id+'\',\'rechazado\')"><i class="fas fa-xmark"></i> Rechazar</button>'
-              + '</div>'
-            : (c.status==='aprobado'
-                ? '<div class="row" style="margin-top:12px;justify-content:flex-end"><button class="btn btn-gold btn-sm" onclick="setCanje(\''+c.id+'\',\'entregado\')"><i class="fas fa-box"></i> Marcar entregado</button></div>'
-                : ''))
-        + '</div>').join('');
+      if(!canjes.length){ p.innerHTML='<div class="vacio"><i class="fas fa-clipboard-list"></i>Todavía no hay canjes.</div>'; return; }
+      const cuenta = k => canjes.filter(c=>k==='todos' || (k==='destacado' ? esDestacado(c) : (!esDestacado(c) && c.status===k))).length;
+      const filtros = [['pendiente','Pendientes'],['aprobado','Aprobados'],['entregado','Entregados'],['rechazado','Rechazados'],['destacado','Destacados'],['todos','Todos']];
+      const o = {pendiente:0,aprobado:1,entregado:2,rechazado:3};
+      const list = canjes.filter(c=>filtroCanjes==='todos' || (filtroCanjes==='destacado' ? esDestacado(c) : (!esDestacado(c) && c.status===filtroCanjes)))
+        .sort((a,b)=>((o[a.status]||0)-(o[b.status]||0)) || String(fechaCanje(b)).localeCompare(String(fechaCanje(a))));
+      let html = '<div class="seg" role="group" aria-label="Filtrar canjes">' + filtros.map(f=>'<button type="button" aria-pressed="'+(filtroCanjes===f[0])+'" onclick="setFiltroCanjes(\''+f[0]+'\')">'+f[1]+'<span class="n">'+cuenta(f[0])+'</span></button>').join('') + '</div>';
+      if(!list.length){ p.innerHTML = html + '<div class="vacio"><i class="fas fa-check-double"></i>'+(filtroCanjes==='pendiente'?'No hay canjes pendientes.':'No hay canjes en esta lista.')+'</div>'; return; }
+      html += '<div class="lista">' + list.map(c=>{
+        let acc = '';
+        if(!esDestacado(c)){
+          if(c.status==='pendiente') acc = '<div class="item-acc"><button type="button" class="btn btn-ok btn-sm" onclick="setCanje(\''+esc(c.id)+'\',\'aprobado\')"><i class="fas fa-check"></i> Aprobar</button><button type="button" class="btn btn-no btn-sm" onclick="setCanje(\''+esc(c.id)+'\',\'rechazado\')"><i class="fas fa-xmark"></i> Rechazar</button></div>';
+          else if(c.status==='aprobado') acc = '<div class="item-acc"><button type="button" class="btn btn-tinta btn-sm" onclick="setCanje(\''+esc(c.id)+'\',\'entregado\')"><i class="fas fa-box"></i> Marcar entregado</button></div>';
+        }
+        return '<div class="item">' + icono(c)
+          + '<div class="item-tx"><div class="item-t">'+esc(c.agenteNombre||'Agente')+' <small>· '+esc(nombreCanje(c))+'</small></div><div class="item-m">'+pts(c.costoPuntos)+(fechaCanje(c)?' · '+fmtF(fechaCanje(c)):'')+'</div></div>'
+          + pill(c) + acc + '</div>';
+      }).join('') + '</div>';
       p.innerHTML = html;
     }
     async function setCanje(id, status){
+      if(status==='rechazado'){
+        const c0 = canjes.find(x=>x.id===id);
+        const ok = await confirmar('¿Rechazar el canje?', (c0?(c0.agenteNombre||'El agente')+' recupera '+pts(c0.costoPuntos)+'.':''), { si:'Rechazar', icono:'fa-xmark', peligro:true });
+        if(!ok) return;
+      }
       try{
         await db.collection('canjes').doc(id).update({ status:status });
         const c = canjes.find(x=>x.id===id);
@@ -448,8 +665,8 @@
             }
           }
         }
-        renderSaldo(); renderPanel();
-        toast('Canje '+status+'.');
+        renderTabs(); renderSaldo(); renderPanel();
+        toast({ aprobado:'Canje aprobado.', rechazado:'Canje rechazado.', entregado:'Canje entregado.' }[status] || 'Canje actualizado.');
       }catch(e){ console.warn('setCanje',e); toast('No se pudo actualizar: '+(e.message||e), true); }
     }
 
@@ -457,33 +674,37 @@
     function renderGestionCatalogo(){
       const p = document.getElementById('panel');
       const ed = editId ? catalogo.find(r=>r.id===editId) : null;
-      let html = '<div class="card"><h2 class="sec" style="margin-top:0">'+(ed?'Editar recompensa':'Agregar recompensa')+'</h2>'
-        + '<div class="field"><label>Nombre</label><input id="fNombre" value="'+esc(ed?ed.nombre:'')+'" placeholder="Ej: Smart TV 50\""></div>'
-        + '<div class="grid2">'
-        +   '<div class="field"><label>Categoría</label><select id="fCat">'+Object.keys(CATS).map(k=>'<option value="'+k+'"'+(ed&&ed.categoria===k?' selected':'')+'>'+CATS[k].label+'</option>').join('')+'</select></div>'
-        +   '<div class="field"><label>Costo en puntos</label><input id="fCosto" type="number" min="0" value="'+(ed?ed.costoPuntos:'')+'"></div>'
+      let html = '<section class="caja"><h2>'+(ed?'Editar recompensa':'Agregar recompensa')+'</h2><p class="sub">'+(ed?'Los cambios se ven enseguida en el catálogo de los agentes.':'Aparece en el catálogo de todos los agentes.')+'</p>'
+        + '<div class="campos">'
+        +   '<div class="campo ancho"><label for="fNombre">Nombre</label><input id="fNombre" value="'+esc(ed?ed.nombre:'')+'" placeholder="Ej: Smart TV 50 pulgadas"></div>'
+        +   '<div class="campo"><label for="fCat">Categoría</label><select id="fCat">'+Object.keys(CATS).map(k=>'<option value="'+k+'"'+(ed&&ed.categoria===k?' selected':'')+'>'+CATS[k].label+'</option>').join('')+'</select></div>'
+        +   '<div class="campo"><label for="fCosto">Costo en puntos</label><input id="fCosto" type="number" min="0" inputmode="numeric" value="'+(ed?esc(ed.costoPuntos):'')+'"></div>'
+        +   '<div class="campo ancho"><label for="fDesc">Descripción</label><textarea id="fDesc" rows="3" placeholder="Detalle de la recompensa">'+esc(ed?ed.descripcion:'')+'</textarea></div>'
+        +   '<div class="campo"><label for="fStock">Stock total <small>(vacío = sin límite)</small></label><input id="fStock" type="number" min="0" inputmode="numeric" value="'+(ed&&ed.stock!=null?esc(ed.stock):'')+'"></div>'
+        +   '<div class="campo"><label for="fLimite">Límite por agente <small>(vacío = sin límite)</small></label><input id="fLimite" type="number" min="1" inputmode="numeric" placeholder="Ej: 1 = una vez por agente" value="'+(ed&&ed.limitePorAgente!=null?esc(ed.limitePorAgente):'')+'"></div>'
+        +   '<div class="campo ancho"><label for="fImgFile">Imagen</label>'
+        +     '<div class="foto-prev" id="fImgPreview"'+((ed&&imgOk(ed.imagen))?'':' hidden')+'>'+((ed&&imgOk(ed.imagen))?'<img src="'+esc(ed.imagen)+'" alt="">':'')+'</div>'
+        +     '<input type="file" accept="image/*" id="fImgFile" onchange="subirImagenRecompensa(this)" style="margin-bottom:8px">'
+        +     '<div id="fImgStatus" style="font-size:.8rem;color:var(--muted);margin-bottom:6px"></div>'
+        +     '<input id="fImg" value="'+esc(ed?ed.imagen:'')+'" placeholder="…o pegá el enlace de una imagen" style="font-size:.86rem"></div>'
         + '</div>'
-        + '<div class="field"><label>Descripción</label><textarea id="fDesc" rows="2" placeholder="Detalle de la recompensa">'+esc(ed?ed.descripcion:'')+'</textarea></div>'
-        + '<div class="field"><label>Stock total (opcional, vacío = ilimitado)</label><input id="fStock" type="number" min="0" value="'+(ed&&ed.stock!=null?ed.stock:'')+'"></div>'
-        + '<div class="field"><label>Límite por agente (opcional, vacío = sin límite)</label><input id="fLimite" type="number" min="1" placeholder="Ej: 1 = una vez por agente" value="'+(ed&&ed.limitePorAgente!=null?ed.limitePorAgente:'')+'"></div>'
-        + '<div class="field"><label>Imagen</label>'
-        +   '<div id="fImgPreview" style="margin-bottom:8px;'+((ed&&ed.imagen)?'':'display:none')+'">'+((ed&&ed.imagen)?'<img src="'+esc(ed.imagen)+'" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px">':'')+'</div>'
-        +   '<input type="file" accept="image/*" id="fImgFile" onchange="subirImagenRecompensa(this)" style="margin-bottom:8px;width:100%">'
-        +   '<div id="fImgStatus" style="font-size:.8rem;color:#888;margin-bottom:6px"></div>'
-        +   '<input id="fImg" value="'+esc(ed?ed.imagen:'')+'" placeholder="…o pegá una URL" style="font-size:.85rem"></div>'
-        + '<div class="row" style="justify-content:flex-end">'
-        +   (ed?'<button class="btn btn-ghost" onclick="cancelEdit()">Cancelar</button>':'')
-        +   '<button class="btn btn-gold" onclick="guardarRecompensa()"><i class="fas fa-save"></i> '+(ed?'Guardar cambios':'Agregar')+'</button>'
-        + '</div></div>';
+        + '<div class="acciones">'
+        +   (ed?'<button type="button" class="btn btn-borde" onclick="cancelEdit()">Cancelar</button>':'')
+        +   '<button type="button" class="btn btn-oro" id="btnGuardarRec" onclick="guardarRecompensa()"><i class="fas fa-floppy-disk"></i> '+(ed?'Guardar cambios':'Agregar al catálogo')+'</button>'
+        + '</div></section>';
 
-      html += '<h2 class="sec">Catálogo actual</h2>';
-      if(!catalogo.length){ html += '<div class="empty">Sin recompensas todavía.</div>'; }
-      else html += catalogo.map(r=>'<div class="card"><div class="row">'
-        + '<div class="grow"><b>'+esc(r.nombre||'')+'</b> <span class="cat cat-'+(CATS[r.categoria]?r.categoria:'electronica')+'">'+(CATS[r.categoria]?CATS[r.categoria].label:'-')+'</span>'
-        +   '<div style="font-size:.82rem;color:#888;margin-top:3px">'+nf(r.costoPuntos)+' pts'+(r.stock!=null?(' · stock '+nf(r.stock)):'')+(r.limitePorAgente?(' · máx '+r.limitePorAgente+'/agente'):'')+'</div></div>'
-        + '<button class="btn btn-ghost btn-sm" onclick="editar(\''+r.id+'\')"><i class="fas fa-pen"></i></button>'
-        + '<button class="btn btn-red btn-sm" onclick="borrarRecompensa(\''+r.id+'\')"><i class="fas fa-trash"></i></button>'
-        + '</div></div>').join('');
+      html += '<h2 class="sec-t">Catálogo actual</h2>';
+      if(!catalogo.length){ html += '<div class="vacio"><i class="fas fa-boxes-stacked"></i>Sin recompensas todavía.</div>'; }
+      else html += '<div class="lista">' + catalogo.map(r=>{
+        const cat = CATS[r.categoria] ? r.categoria : 'electronica';
+        return '<div class="item">'
+          + (imgOk(r.imagen) ? '<img class="item-img" src="'+esc(r.imagen)+'" alt="" loading="lazy">' : '<span class="item-ic c-'+cat+'"><i class="fas '+CATS[cat].icon+'"></i></span>')
+          + '<div class="item-tx"><div class="item-t">'+esc(r.nombre||'')+'</div>'
+          +   '<div class="item-m">'+CATS[cat].label+' · '+pts(r.costoPuntos)+(r.stock!=null?(' · stock '+nf(r.stock)):'')+(r.limitePorAgente?(' · máx. '+esc(r.limitePorAgente)+' por agente'):'')+'</div></div>'
+          + '<div class="item-acc"><button type="button" class="btn btn-borde btn-sm" onclick="editar(\''+esc(r.id)+'\')"><i class="fas fa-pen"></i> Editar</button>'
+          + '<button type="button" class="btn btn-no btn-sm" onclick="borrarRecompensa(\''+esc(r.id)+'\')" aria-label="Borrar '+esc(r.nombre||'')+'"><i class="fas fa-trash"></i></button></div>'
+          + '</div>';
+      }).join('') + '</div>';
       p.innerHTML = html;
     }
     function editar(id){ editId=id; renderPanel(); window.scrollTo({top:0,behavior:'smooth'}); }
@@ -494,13 +715,14 @@
       const st = document.getElementById('fImgStatus');
       if(st) st.textContent = 'Subiendo imagen…';
       try{
+        const storage = await storageListo();
         const blob = await resizeImg(file, 800, 0.85);
         const ref = storage.ref('recompensasIMG/'+Date.now()+'_'+Math.random().toString(36).slice(2)+'.jpg');
         await ref.put(blob);
         const url = await ref.getDownloadURL();
         document.getElementById('fImg').value = url;
         const pv = document.getElementById('fImgPreview');
-        if(pv){ pv.innerHTML = '<img src="'+url+'" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px">'; pv.style.display=''; }
+        if(pv){ pv.innerHTML = '<img src="'+esc(url)+'" alt="">'; pv.hidden = false; }
         if(st) st.textContent = '✓ Imagen lista';
       }catch(e){
         console.warn('subir imagen recompensa', e);
@@ -525,6 +747,12 @@
         img.src = u;
       });
     }
+    // Después de guardar o borrar se vuelve a leer solo el catálogo, no todo.
+    async function recargarCatalogo(){
+      const rs = await db.collection('recompensas').get();
+      catalogo = rs.docs.map(d=>Object.assign({ id:d.id }, d.data())).sort((a,b)=>(a.costoPuntos||0)-(b.costoPuntos||0));
+      pintarTodo();
+    }
     async function guardarRecompensa(){
       const nombre=document.getElementById('fNombre').value.trim();
       const categoria=document.getElementById('fCat').value;
@@ -538,16 +766,18 @@
       if(!nombre){ toast('Poné un nombre.', true); return; }
       if(costoPuntos<=0){ toast('El costo en puntos tiene que ser mayor a 0.', true); return; }
       const data={ nombre, categoria, costoPuntos, descripcion, stock, limitePorAgente, imagen, activo:true };
+      const b = document.getElementById('btnGuardarRec'); if(b) b.disabled = true;
       try{
         if(editId){ await db.collection('recompensas').doc(editId).set(data, { merge:true }); toast('Recompensa actualizada.'); }
         else{ await db.collection('recompensas').add(data); toast('Recompensa agregada.'); }
-        editId=null; cargar();
-      }catch(e){ console.warn('guardarRecompensa',e); toast('No se pudo guardar: '+(e.message||e), true); }
+        editId=null; await recargarCatalogo();
+      }catch(e){ console.warn('guardarRecompensa',e); toast('No se pudo guardar: '+(e.message||e), true); if(b) b.disabled = false; }
     }
     async function borrarRecompensa(id){
       const r = catalogo.find(x=>x.id===id);
-      if(!confirm('¿Borrar "'+(r&&r.nombre||'')+'" del catálogo?')) return;
-      try{ await db.collection('recompensas').doc(id).delete(); toast('Recompensa borrada.'); cargar(); }
+      const ok = await confirmar('¿Borrar '+(r&&r.nombre||'esta recompensa')+'?', 'Sale del catálogo. Los canjes que ya se pidieron no se tocan.', { si:'Borrar', icono:'fa-trash', peligro:true });
+      if(!ok) return;
+      try{ await db.collection('recompensas').doc(id).delete(); toast('Recompensa borrada.'); if(editId===id) editId=null; await recargarCatalogo(); }
       catch(e){ console.warn('borrarRecompensa',e); toast('No se pudo borrar: '+(e.message||e), true); }
     }
 
@@ -558,25 +788,33 @@
       cierresConf.forEach(c=>{ if(!c.agenteUid) return; if(!map[c.agenteUid]) map[c.agenteUid]={ nombre:c.agenteNombre, uid:c.agenteUid }; });
       let rows = Object.values(map).map(a=>({ nombre:a.nombre, ganados:puntosGanados(a.uid), saldo:saldo(a.uid) }))
         .sort((a,b)=>b.ganados-a.ganados);
-      if(!rows.length){ p.innerHTML='<div class="empty">Todavía no hay cierres confirmados para rankear.</div>'; return; }
-      p.innerHTML = '<div class="card"><div class="hint" style="margin-bottom:6px">Por puntos ganados (cierres confirmados).</div>'
-        + rows.map((r,i)=>'<div class="rank-row">'
-          + '<div class="rank-pos'+(i<3?' top':'')+'">'+(i+1)+'</div>'
-          + '<div class="grow"><b>'+esc(r.nombre)+'</b></div>'
-          + '<div style="text-align:right"><div style="font-weight:800;color:var(--navy)">'+nf(r.ganados)+' pts</div><div style="font-size:.76rem;color:#999">disponibles: '+nf(r.saldo)+'</div></div>'
-          + '</div>').join('') + '</div>';
+      if(!rows.length){ p.innerHTML='<div class="vacio"><i class="fas fa-ranking-star"></i>Todavía no hay cierres confirmados para el ranking.</div>'; return; }
+      const max = Math.max(1, rows[0].ganados);
+      const top = rows.slice(0, 3);
+      // El podio: el primero en el medio.
+      const orden = top.length === 3 ? [top[1], top[0], top[2]] : top;
+      const clase = r => 'p' + (rows.indexOf(r) + 1);
+      let html = '<div class="podio"'+(top.length<3?' style="grid-template-columns:repeat('+top.length+',minmax(0,1fr));max-width:'+(top.length*300)+'px"':'')+'>' + orden.map(r=>'<div class="pod '+clase(r)+'"><div class="pod-med">'+(rows.indexOf(r)+1)+'</div>'
+        + '<div class="pod-n">'+esc(r.nombre)+'</div><div class="pod-p">'+nf(r.ganados)+'</div><div class="pod-d">puntos ganados · '+nf(r.saldo)+' disponibles</div></div>').join('') + '</div>';
+      if(rows.length > 3) html += '<section class="caja" style="padding:10px 18px">' + rows.slice(3).map((r,i)=>'<div class="rk">'
+        + '<span class="rk-pos">'+(i+4)+'</span><span class="rk-n">'+esc(r.nombre)+'</span>'
+        + '<span class="rk-p">'+pts(r.ganados)+'<small>'+nf(r.saldo)+' disponibles</small></span>'
+        + '<div class="barra"><i style="width:'+Math.max(2, r.ganados/max*100)+'%"></i></div></div>').join('') + '</section>';
+      p.innerHTML = '<p class="sub" style="color:var(--muted);font-size:.86rem;margin:-4px 0 14px">Por puntos ganados en cierres confirmados.</p>' + html;
     }
 
     // ---------- ADMIN: config ----------
     function renderConfig(){
       const p = document.getElementById('panel');
-      p.innerHTML = '<div class="card"><h2 class="sec" style="margin-top:0">Configuración de puntos</h2>'
-        + '<div class="hint">Definí cómo se generan los puntos. Se calculan sobre <b>la comisión del agente</b> (lo que le queda), por bloques completos de US$100 (ej: comisión de US$350 → 3 puntos).</div>'
-        + '<div class="field"><label>Puntos por cada US$100 de comisión</label><input id="cP100" type="number" min="0" step="0.1" value="'+(cfg.puntosPor100)+'"></div>'
-        + '<div class="field"><label>Cotización del dólar (en pesos) — para cierres en UYU</label><input id="cDolar" type="number" min="1" value="'+(cfg.dolarPesos)+'"></div>'
-        + '<div class="field"><label>Valor aprox. de 1 punto (US$) — solo para mostrar el valor estimado</label><input id="cVal" type="number" min="0" step="0.01" value="'+(cfg.valorPunto)+'"></div>'
-        + '<div class="row" style="justify-content:flex-end"><button class="btn btn-gold" onclick="guardarConfig()"><i class="fas fa-save"></i> Guardar configuración</button></div>'
-        + '</div>';
+      p.innerHTML = '<section class="caja"><h2>Configuración de puntos</h2>'
+        + '<p class="sub">Los puntos se calculan sobre <b>la comisión del agente</b> (lo que le queda), por bloques completos de US$100: una comisión de US$350 da 3 puntos.</p>'
+        + '<div class="campos">'
+        +   '<div class="campo"><label for="cP100">Puntos por cada US$100 de comisión</label><input id="cP100" type="number" min="0" step="0.1" value="'+esc(cfg.puntosPor100)+'"></div>'
+        +   '<div class="campo"><label for="cDolar">Cotización del dólar (para cierres en pesos)</label><input id="cDolar" type="number" min="1" value="'+esc(cfg.dolarPesos)+'"></div>'
+        +   '<div class="campo"><label for="cVal">Valor aproximado de 1 punto (US$) <small>solo para mostrar</small></label><input id="cVal" type="number" min="0" step="0.01" value="'+esc(cfg.valorPunto)+'"></div>'
+        + '</div>'
+        + '<div class="acciones"><button type="button" class="btn btn-oro" onclick="guardarConfig()"><i class="fas fa-floppy-disk"></i> Guardar configuración</button></div>'
+        + '</section>';
     }
     async function guardarConfig(){
       const c = {
