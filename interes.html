@@ -4,8 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Interés por propiedad · MALAVE</title>
+  <link rel="icon" type="image/png" href="iso-malave.png">
+  <meta name="theme-color" content="#16273f">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -13,119 +15,249 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
   <script src="malave-config.js?v=20260830b"></script>
   <style>
-    :root{ --primary:#16273f; --navy:#16273f; --gold:#C9A227; --gray-50:#f7f8fa; --gray-100:#eef0f3;
-           --gray-200:#e3e6ea; --gray-400:#9aa3ad; --gray-500:#6b7480; --gray-600:#555;
-           --success:#1e7d4f; --danger:#c0392b; }
+    /* ===== Interés por propiedad, con el estilo nuevo de la app (el del inicio y
+       Academy): franja azul arriba con los números, papel cálido de fondo, cajas
+       blancas y el dorado para lo importante. Autocontenido: no usa styles.css. */
+    :root{ --ink:#16273f; --ink2:#0c1726; --gold:#C9A227; --gold-osc:#8a6d12; --gold-cl:#e9cf73; --paper:#f4f2ec;
+           --line:#e5e8ec; --line2:#eef0f3; --muted:#6b7480; --soft:#9aa3ad; --text:#2a3442;
+           --ok:#1e7d4f; --danger:#c0392b;
+           /* El termómetro: el mismo color en el ranking, la tabla y la leyenda. */
+           --t5:#c0392b; --t4:#e07b39; --t3:#C9A227; --t2:#7f93ad; --t0:#c9ced6; }
     *{ box-sizing:border-box; margin:0; padding:0; }
-    body{ font-family:'Inter',sans-serif; background:var(--gray-50); color:#1d2733; line-height:1.5; }
-    h1,h2,h3{ font-family:'Cormorant Garamond',serif; }
-    .mv-head{ background:#fff; border-bottom:1px solid #eef1f5; position:sticky; top:0; z-index:60;
-      padding-top:env(safe-area-inset-top,0px); }
-    .mv-head-in{ max-width:1200px; margin:0 auto; padding:14px 20px; display:flex;
-      justify-content:space-between; align-items:center; gap:14px; }
+    body{ font-family:'Jost',sans-serif; background:var(--paper); color:var(--text); line-height:1.5; -webkit-font-smoothing:antialiased; }
+    h1,h2,h3{ font-family:'Cormorant Garamond',serif; color:var(--ink); font-weight:700; line-height:1.1; }
+    a{ color:inherit; }
+    button, input, select{ font-family:inherit; }
+
+    /* ---- Cabecera (la misma de las demás herramientas) ---- */
+    .mv-head{ background:#fff; border-bottom:1px solid #eef1f5; position:sticky; top:0; z-index:60; padding-top:env(safe-area-inset-top,0px); }
+    .mv-head-in{ max-width:1200px; margin:0 auto; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; gap:14px; }
     .mv-head .logo{ display:flex; align-items:center; gap:10px; text-decoration:none; }
     .mv-head .logo-img{ height:30px; width:auto; } .mv-head .logo-text{ height:19px; width:auto; }
-    .mv-head .back-link{ display:inline-flex; align-items:center; gap:7px; color:#6b7280;
-      font-size:.88rem; font-weight:500; padding:8px 15px; border:1px solid #eef1f5;
-      border-radius:999px; text-decoration:none; white-space:nowrap; }
-    .mv-head .back-link:hover{ background:#16273f; color:#fff; border-color:#16273f; }
-    @media (max-width:520px){ .mv-head-in{ padding:10px 14px } .mv-head .back-link span{ display:none } }
+    .mv-head .back-link{ display:inline-flex; align-items:center; gap:7px; color:#6b7280; font-size:.88rem; font-weight:500; padding:8px 15px; border:1px solid #eef1f5; border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s, color .15s, border-color .15s; }
+    .mv-head .back-link:hover{ background:var(--ink); color:#fff; border-color:var(--ink); }
 
     .wrap{ max-width:1200px; margin:0 auto; padding:26px 20px 70px; }
-    .titulo{ font-size:2rem; color:var(--primary); margin-bottom:4px; }
-    .sub{ color:var(--gray-500); font-size:.92rem; margin-bottom:20px; }
-    .barra{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:18px; }
-    .fg{ display:flex; flex-direction:column; gap:5px; }
-    .fg label{ font-size:.76rem; font-weight:600; color:var(--gray-500); text-transform:uppercase; letter-spacing:.04em; }
-    select,input{ font-family:inherit; font-size:.92rem; padding:9px 11px; border:1px solid var(--gray-200);
-      border-radius:9px; background:#fff; color:inherit; }
-    .btn{ background:var(--primary); color:#fff; border:none; border-radius:9px; padding:10px 17px;
-      font-family:inherit; font-size:.9rem; font-weight:600; cursor:pointer; display:inline-flex;
-      align-items:center; gap:8px; white-space:nowrap }
-    .btn:disabled{ opacity:.6; cursor:default }
-    .aviso{ background:#fffdf5; border:1px solid #eee6cf; border-left:4px solid var(--gold);
-      border-radius:11px; padding:11px 15px; font-size:.85rem; color:#8a6d12; margin-bottom:18px; }
-    .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:13px; margin-bottom:22px; }
-    .card{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:16px 18px; }
-    .card .k{ font-size:.76rem; color:var(--gray-500); text-transform:uppercase; letter-spacing:.05em; margin-bottom:7px; }
-    .card .v{ font-size:1.5rem; font-weight:700; font-variant-numeric:tabular-nums; }
-    .card .n{ font-size:.78rem; color:var(--gray-400); margin-top:5px; }
-    .panel{ background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:20px; margin-bottom:20px; }
-    .panel h2{ font-size:1.28rem; color:var(--primary); margin-bottom:3px; }
-    .panel .ph{ color:var(--gray-500); font-size:.84rem; margin-bottom:15px; }
 
-    table{ width:100%; border-collapse:collapse; font-size:.87rem; }
-    th{ text-align:left; font-size:.73rem; text-transform:uppercase; letter-spacing:.04em; color:var(--gray-500);
-        padding:8px 9px; border-bottom:1px solid var(--gray-200); white-space:nowrap; }
-    th.orden{ cursor:pointer; user-select:none } th.orden:hover{ color:var(--primary) }
-    th.act{ color:var(--primary) }
-    td{ padding:9px; border-bottom:1px solid var(--gray-100); vertical-align:middle; }
-    td.num,th.num{ text-align:right; font-variant-numeric:tabular-nums; }
-    tr:last-child td{ border-bottom:none }
-    .prop{ display:flex; align-items:center; gap:10px; min-width:230px }
-    .prop img{ width:44px; height:34px; object-fit:cover; border-radius:6px; background:var(--gray-100); flex:none }
-    .prop .t{ font-weight:600; line-height:1.25 }
-    .prop .m{ font-size:.76rem; color:var(--gray-400) }
-    .tag{ font-size:.72rem; padding:2px 8px; border-radius:20px; background:var(--gray-100); color:var(--gray-600); white-space:nowrap }
-    .tag.dest{ background:rgba(201,162,39,.16); color:#8a6d12 }
-    .term{ display:inline-block; min-width:52px; text-align:center; font-weight:700; font-size:.8rem;
-      padding:3px 9px; border-radius:20px; font-variant-numeric:tabular-nums }
-    .t5{ background:rgba(192,57,43,.15); color:#a5342a } .t4{ background:rgba(224,123,57,.18); color:#9c5510 }
-    .t3{ background:rgba(201,162,39,.18); color:#8a6d12 } .t2{ background:rgba(127,147,173,.16); color:#5b6b80 }
-    .t1,.t0{ background:var(--gray-100); color:var(--gray-400) }
-    .barras{ display:flex; flex-direction:column; gap:10px }
-    .filaTop{ display:flex; flex-direction:column; gap:3px }
-    .filaTop:hover .ft-t{ text-decoration:underline }
-    .ft-h{ display:flex; align-items:baseline; gap:8px }
-    .ft-t{ font-weight:600; font-size:.85rem; color:var(--primary); overflow:hidden;
-      text-overflow:ellipsis; white-space:nowrap; min-width:0 }
-    .ft-a{ font-size:.75rem; color:var(--gray-500); white-space:nowrap; flex:none }
-    .ft-v{ margin-left:auto; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; flex:none }
-    .ft-b{ display:flex; align-items:center; gap:10px }
-    .ft-b .bg{ height:10px; flex:1 }
-    .ft-m{ font-size:.73rem; color:var(--gray-400); font-variant-numeric:tabular-nums;
-      white-space:nowrap; flex:none }
-    .desg{ display:block; font-size:.7rem; color:var(--gray-400); font-weight:400 }
-    @media(max-width:640px){ .ft-a{ display:none } .ft-m{ font-size:.7rem } }
-    .fila{ display:grid; grid-template-columns:1fr 66px; gap:11px; align-items:center; font-size:.83rem }
-    .bg{ position:relative; height:24px; background:var(--gray-100); border-radius:7px; overflow:hidden }
-    .bi{ position:absolute; top:0; bottom:0; left:0; border-radius:7px; background:rgba(22,39,63,.75) }
-    .bl{ position:absolute; left:9px; top:50%; transform:translateY(-50%); font-size:.78rem; font-weight:600; color:#fff;
-      text-shadow:0 1px 2px rgba(0,0,0,.25); white-space:nowrap; max-width:calc(100% - 18px); overflow:hidden; text-overflow:ellipsis }
-    .clic{ cursor:pointer }
-    .prop.clic:hover .t{ color:var(--primary); text-decoration:underline }
-    .prop .ir{ margin-left:auto; color:var(--gray-400); font-size:.72rem; opacity:0; transition:opacity .15s }
-    .prop.clic:hover .ir{ opacity:1 }
-    .bg.clic:hover .bi{ filter:brightness(1.12) }
-    .bl .ag{ font-weight:500; opacity:.82; margin-left:7px; font-size:.74rem }
-    .vacio{ text-align:center; padding:34px 16px; color:var(--gray-400) }
-    .bloqueado{ max-width:460px; margin:90px auto; text-align:center }
-    .scroll{ overflow-x:auto }
+    /* ---- Franja de arriba ---- */
+    .hero{ position:relative; overflow:hidden; background:linear-gradient(120deg,var(--ink2) 0%,var(--ink) 70%); color:#fff; border-radius:20px; padding:28px 30px 24px; margin-bottom:18px; }
+    .hero-art{ position:absolute; right:-40px; top:-70px; width:330px; height:auto; color:var(--gold); opacity:.1; pointer-events:none; }
+    .hero-top{ position:relative; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+    .hero-ic{ width:58px; height:58px; border-radius:15px; flex:none; display:grid; place-items:center; background:rgba(201,162,39,.14); border:1px solid var(--gold); color:var(--gold); font-size:1.45rem; }
+    .hero-tx{ flex:1; min-width:220px; }
+    .hero h1{ color:#fff; font-size:clamp(1.85rem, 3.4vw, 2.4rem); }
+    .hero-tx p{ color:rgba(255,255,255,.72); font-size:.96rem; margin-top:5px; }
+    .hero-ml{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; margin-left:auto; }
+    .btn-ml{ display:inline-flex; align-items:center; gap:8px; background:transparent; color:var(--gold-cl); border:1px solid rgba(201,162,39,.65); border-radius:999px; padding:9px 17px; font-size:.86rem; font-weight:500; cursor:pointer; white-space:nowrap; transition:background .15s, color .15s; }
+    .btn-ml:hover:not(:disabled){ background:var(--gold); color:var(--ink); }
+    .btn-ml:disabled{ opacity:.7; cursor:default; }
+    .hero-ml small{ font-size:.76rem; color:rgba(255,255,255,.6); text-align:right; max-width:300px; }
+    .stats{ position:relative; display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; margin-top:22px; padding-top:20px; border-top:1px solid rgba(255,255,255,.12); }
+    .stat{ display:flex; align-items:center; gap:13px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:13px 16px; min-width:0; }
+    .stat-ic{ width:40px; height:40px; border-radius:11px; flex:none; display:grid; place-items:center; border:1px solid var(--gold); color:var(--gold); font-size:.95rem; }
+    .stat-tx{ min-width:0; }
+    .stat b{ display:block; font-family:'Cormorant Garamond',serif; font-size:1.95rem; font-weight:700; line-height:1; color:#fff; font-variant-numeric:lining-nums tabular-nums; }
+    .stat span{ display:block; font-size:.82rem; color:#fff; margin-top:3px; }
+    .stat small{ display:block; font-size:.72rem; color:rgba(255,255,255,.58); line-height:1.3; margin-top:1px; }
 
-    /* CELULAR: la tabla no se comprime, se convierte en tarjetas. Con nueve
-       columnas en 380px las de la derecha quedaban ilegibles o directamente
-       cortadas. Cada fila pasa a ser un bloque con la etiqueta al lado del dato
-       (data-l), y el ordenar sigue funcionando desde el encabezado de arriba. */
-    @media(max-width:760px){
-      .wrap{ padding:18px 13px 60px }
-      .titulo{ font-size:1.55rem }
-      .panel{ padding:15px 13px }
-      .barra{ gap:8px } .barra .fg{ flex:1 1 132px }
-      .cards{ grid-template-columns:repeat(auto-fit,minmax(146px,1fr)); gap:9px }
-      .card{ padding:12px 13px } .card .v{ font-size:1.22rem }
-      .scroll{ overflow:visible }
-      table, thead, tbody, tr, td{ display:block; width:100% }
-      thead{ display:none }
-      tr{ border:1px solid var(--gray-200); border-radius:12px; padding:11px 13px; margin-bottom:10px }
-      td{ border:none; padding:4px 0; display:flex; justify-content:space-between; align-items:center; gap:12px }
-      td.num{ text-align:right }
-      td[data-l]:not([data-l=""])::before{ content:attr(data-l); color:var(--gray-500);
-        font-size:.76rem; text-transform:uppercase; letter-spacing:.03em; flex:none }
-      td[data-l=""]{ padding-bottom:8px; border-bottom:1px solid var(--gray-100); margin-bottom:5px }
-      .prop{ min-width:0 } .prop .t{ white-space:normal }
-      .prop .ir{ opacity:1 }
-      .desg{ display:inline; margin-left:6px }
+    .aviso{ background:#fffdf5; border:1px solid #eee6cf; border-left:4px solid var(--gold); border-radius:12px; padding:12px 16px; font-size:.86rem; color:#7a6111; margin-bottom:16px; }
+    .aviso code{ background:#fff; border:1px solid #eee6cf; border-radius:5px; padding:0 5px; font-size:.8rem; }
+    .aviso[hidden]{ display:none; }
+
+    /* ---- Filtros ---- */
+    .filtros{ display:flex; align-items:center; gap:10px 18px; flex-wrap:wrap; background:#fff; border:1px solid var(--line); border-radius:16px; padding:10px 12px; margin-bottom:20px; }
+    .fgrp{ display:flex; align-items:center; gap:8px; }
+    .fgrp > span{ font-size:.78rem; color:var(--muted); }
+    .seg{ display:inline-flex; gap:2px; background:var(--line2); border-radius:11px; padding:3px; }
+    .seg button{ border:0; background:none; border-radius:9px; padding:7px 12px; font-size:.85rem; font-weight:500; color:var(--muted); cursor:pointer; white-space:nowrap; }
+    .seg button[aria-pressed="true"]{ background:#fff; color:var(--ink); font-weight:600; box-shadow:0 1px 3px rgba(16,24,40,.14); }
+    .seg button:focus-visible, .btn-ml:focus-visible, .buscar input:focus-visible, th button:focus-visible, .orden select:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+    .buscar{ position:relative; flex:1 1 200px; min-width:180px; }
+    .buscar i{ position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--soft); font-size:.85rem; pointer-events:none; }
+    .buscar input{ width:100%; border:1px solid var(--line); border-radius:11px; padding:9px 12px 9px 36px; font-size:.9rem; color:var(--text); background:#fff; -webkit-appearance:none; appearance:none; }
+    .buscar input:focus{ outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.14); }
+
+    /* ---- Cajas ---- */
+    .caja{ background:#fff; border:1px solid var(--line); border-radius:18px; padding:22px 24px; margin-bottom:20px; box-shadow:0 1px 3px rgba(20,30,50,.04); }
+    .caja-h{ display:flex; align-items:flex-end; justify-content:space-between; gap:12px 18px; flex-wrap:wrap; margin-bottom:14px; }
+    .caja-h h2{ font-size:1.6rem; }
+    .caja-h p{ color:var(--muted); font-size:.87rem; margin-top:3px; max-width:620px; }
+    .grid2{ display:grid; grid-template-columns:minmax(0,1.55fr) minmax(0,1fr); gap:20px; align-items:start; }
+    .grid2 > .caja, .col > .caja{ margin-bottom:0; }
+    .col{ display:flex; flex-direction:column; gap:20px; position:sticky; top:84px; }
+    .grid2 + .caja{ margin-top:20px; }
+    .vacio{ text-align:center; padding:28px 14px; color:var(--soft); font-size:.9rem; }
+    .vacio i{ display:block; font-size:1.5rem; margin-bottom:8px; opacity:.6; }
+
+    /* ---- Termómetro ---- */
+    .leyenda{ display:flex; flex-wrap:wrap; gap:6px 16px; font-size:.78rem; color:var(--muted); margin-bottom:8px; }
+    .leyenda i{ display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:-1px; }
+    .temp{ display:inline-flex; align-items:center; justify-content:center; min-width:48px; gap:5px; font-weight:600; font-size:.84rem; padding:3px 10px; border-radius:999px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .temp.n5{ background:rgba(192,57,43,.12); color:#a5342a; } .temp.n4{ background:rgba(224,123,57,.15); color:#9c5510; }
+    .temp.n3{ background:rgba(201,162,39,.17); color:var(--gold-osc); } .temp.n2{ background:rgba(127,147,173,.17); color:#55657b; }
+    .temp.n0, .temp.n1{ background:var(--line2); color:var(--soft); }
+    .tend{ font-size:.76rem; font-weight:600; white-space:nowrap; }
+    .tend.sube{ color:var(--ok); } .tend.igual{ color:var(--soft); }
+
+    /* ---- Las más calientes ---- */
+    .ranking{ list-style:none; }
+    .rk a{ display:grid; grid-template-columns:26px 58px minmax(0,1fr) auto; grid-template-areas:"n img tit val" "n img bar bar"; gap:3px 12px; align-items:center; padding:10px 8px; border-radius:12px; text-decoration:none; color:inherit; transition:background .15s; }
+    .rk + .rk{ border-top:1px solid var(--line2); }
+    .rk a:hover{ background:#faf8f2; }
+    .rk a:focus-visible{ outline:2px solid var(--gold); outline-offset:-2px; }
+    .rk-n{ grid-area:n; font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:700; color:var(--soft); text-align:center; line-height:1; font-variant-numeric:lining-nums tabular-nums; }
+    .rk:nth-child(-n+3) .rk-n{ color:var(--gold); }
+    .rk-img{ grid-area:img; width:58px; height:44px; border-radius:9px; object-fit:cover; background:var(--line2); display:block; }
+    .rk-tit{ grid-area:tit; min-width:0; }
+    .rk-t{ display:block; font-weight:600; color:var(--ink); font-size:.93rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .rk-t .fa-star{ color:var(--gold); font-size:.72rem; margin-left:5px; vertical-align:1px; }
+    .rk-m{ display:block; font-size:.77rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .rk-val{ grid-area:val; display:flex; align-items:center; gap:7px; justify-self:end; }
+    .rk-bar{ grid-area:bar; display:flex; align-items:center; gap:12px; min-width:0; }
+    .bg{ flex:1; height:8px; background:var(--line2); border-radius:6px; overflow:hidden; }
+    .bi{ display:block; height:100%; border-radius:6px; transition:width .45s ease; }
+    .rk-bar small{ font-size:.76rem; color:var(--soft); white-space:nowrap; font-variant-numeric:tabular-nums; }
+    .nota-tend{ font-size:.78rem; color:var(--soft); margin-top:10px; }
+
+    /* ---- De dónde viene el interés ---- */
+    .pt{ display:grid; grid-template-columns:38px minmax(0,1fr) auto; gap:2px 12px; align-items:center; padding:11px 0; }
+    .pt + .pt{ border-top:1px solid var(--line2); }
+    .pt-ic{ grid-row:span 2; width:38px; height:38px; border-radius:11px; display:grid; place-items:center; background:var(--paper); color:var(--ink); font-size:.95rem; }
+    .pt-n{ font-weight:600; color:var(--ink); font-size:.92rem; }
+    .pt-d{ grid-column:2; font-size:.77rem; color:var(--muted); line-height:1.35; }
+    .pt-d b{ color:var(--danger); font-weight:600; }
+    .pt-v{ grid-row:span 2; text-align:right; }
+    .pt-v b{ display:block; font-family:'Cormorant Garamond',serif; font-size:1.55rem; font-weight:700; color:var(--ink); line-height:1; font-variant-numeric:lining-nums tabular-nums; }
+    .pt-v small{ display:block; font-size:.7rem; color:var(--soft); margin-top:2px; white-space:nowrap; }
+    .pt-bar{ grid-column:2 / -1; height:5px; background:var(--line2); border-radius:4px; overflow:hidden; margin-top:6px; }
+    .pt-bar i{ display:block; height:100%; background:var(--gold); border-radius:4px; transition:width .45s ease; }
+
+    /* ---- Cómo se mide ---- */
+    .como summary{ list-style:none; cursor:pointer; display:flex; align-items:center; gap:10px; font-weight:600; color:var(--ink); font-size:.95rem; }
+    .como summary::-webkit-details-marker{ display:none; }
+    .como summary .fa-circle-info{ color:var(--gold); }
+    .como summary .fa-chevron-down{ margin-left:auto; font-size:.75rem; color:var(--soft); transition:transform .2s; }
+    .como[open] summary .fa-chevron-down{ transform:rotate(180deg); }
+    .como summary:focus-visible{ outline:2px solid var(--gold); outline-offset:4px; border-radius:6px; }
+    .como-tx{ margin-top:12px; font-size:.86rem; color:var(--muted); line-height:1.6; }
+    .como-tx p + p{ margin-top:9px; }
+    .como-tx b{ color:var(--ink); font-weight:600; }
+
+    /* ---- Para revisar ---- */
+    .rv-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); gap:12px; }
+    .rv{ display:flex; gap:12px; padding:12px; border:1px solid var(--line); border-radius:14px; text-decoration:none; color:inherit; background:#fff; transition:border-color .15s, box-shadow .15s; min-width:0; }
+    .rv:hover{ border-color:rgba(201,162,39,.6); box-shadow:0 6px 16px rgba(16,29,48,.06); }
+    .rv:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+    .rv img, .rv .sinfoto{ width:72px; height:56px; border-radius:9px; object-fit:cover; background:var(--line2); flex:none; }
+    .rv-tx{ min-width:0; flex:1; }
+    .rv-t{ font-weight:600; color:var(--ink); font-size:.9rem; line-height:1.28; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .rv-p{ display:block; font-size:.82rem; color:var(--text); margin-top:3px; font-variant-numeric:tabular-nums; }
+    .rv-m{ display:block; font-size:.76rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .rv-n{ display:flex; align-items:center; gap:8px; font-size:.79rem; margin-top:6px; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .rv-n b{ background:rgba(192,57,43,.1); color:#a5342a; font-weight:600; border-radius:999px; padding:1px 8px; margin-left:auto; }
+    .sv{ margin-top:16px; padding-top:14px; border-top:1px solid var(--line2); }
+    .sv p{ font-size:.86rem; color:var(--muted); margin-bottom:9px; }
+    .sv p b{ color:var(--ink); }
+    .sv-l{ display:flex; flex-wrap:wrap; gap:8px; }
+    .sv-l a{ font-size:.82rem; color:var(--ink); text-decoration:none; padding:6px 12px; border:1px dashed #d6dae0; border-radius:999px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sv-l a:hover{ border-color:var(--gold); }
+
+    /* ---- Todas las propiedades ---- */
+    .orden{ display:none; align-items:center; gap:8px; }
+    .orden label{ font-size:.8rem; color:var(--muted); }
+    .orden select{ border:1px solid var(--line); border-radius:10px; padding:8px 10px; font-size:.88rem; background:#fff; color:var(--text); }
+    .scroll{ overflow-x:auto; }
+    table{ width:100%; border-collapse:collapse; font-size:.88rem; }
+    th{ text-align:left; font-size:.76rem; font-weight:600; color:var(--muted); padding:0 10px 10px; border-bottom:1px solid var(--line); white-space:nowrap; }
+    th button{ border:0; background:none; font:inherit; color:inherit; cursor:pointer; padding:2px 0; display:inline-flex; align-items:center; gap:5px; }
+    th button:hover, th.act button{ color:var(--ink); }
+    th.act button{ font-weight:700; }
+    th button i{ font-size:.66rem; opacity:.55; }
+    th.act button i{ opacity:1; color:var(--gold-osc); }
+    td{ padding:10px; border-bottom:1px solid var(--line2); vertical-align:middle; }
+    tbody tr:last-child td{ border-bottom:none; }
+    tbody tr:hover td{ background:#fbfaf6; }
+    .num{ text-align:right; font-variant-numeric:tabular-nums; }
+    td.c-temp{ white-space:nowrap; }
+    th.num button{ flex-direction:row-reverse; }
+    .prop{ display:flex; align-items:center; gap:11px; min-width:250px; text-decoration:none; color:inherit; }
+    .prop img, .prop .sinfoto{ width:54px; height:41px; border-radius:8px; object-fit:cover; background:var(--line2); flex:none; }
+    .prop .t{ display:block; font-weight:600; color:var(--ink); line-height:1.25; }
+    .prop .m{ display:block; font-size:.76rem; color:var(--muted); }
+    .prop .ir{ margin-left:auto; color:var(--soft); font-size:.7rem; opacity:0; transition:opacity .15s; }
+    .prop:hover .t{ text-decoration:underline; }
+    .prop:hover .ir, .prop:focus-visible .ir{ opacity:1; }
+    .prop:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; border-radius:8px; }
+    .chip{ display:inline-flex; align-items:center; gap:5px; font-size:.75rem; font-weight:500; padding:3px 10px; border-radius:999px; background:var(--line2); color:var(--muted); white-space:nowrap; }
+    .chip.disp{ background:none; color:var(--soft); padding-left:0; padding-right:0; }
+    .chip.dest{ background:rgba(201,162,39,.16); color:var(--gold-osc); }
+    .desg{ display:block; font-size:.72rem; color:var(--soft); font-weight:400; white-space:nowrap; }
+    .rojo{ color:var(--danger); font-weight:600; }
+    .verde{ color:var(--ok); font-weight:600; }
+    .gris{ color:var(--soft); }
+
+    .bloqueado{ max-width:440px; margin:90px auto; padding:34px 28px; text-align:center; background:#fff; border:1px solid var(--line); border-radius:20px; }
+    .bloqueado .lk{ width:58px; height:58px; margin:0 auto 14px; border-radius:50%; display:grid; place-items:center; background:var(--ink); color:var(--gold); font-size:1.3rem; }
+    .bloqueado h1{ font-size:1.7rem; margin-bottom:6px; }
+    .bloqueado p{ color:var(--muted); font-size:.92rem; }
+    .bloqueado a{ display:inline-block; margin-top:18px; background:var(--ink); color:#fff; padding:10px 22px; border-radius:999px; text-decoration:none; font-size:.9rem; }
+
+    @media (max-width:980px){
+      .grid2{ grid-template-columns:minmax(0,1fr); }
+      .col{ position:static; }
+      .stats{ grid-template-columns:repeat(2, minmax(0,1fr)); }
     }
+    /* CELULAR: la tabla pasa a tarjetas (con nueve columnas en 380px no se leía) y
+       el orden se elige en la lista de arriba, porque los encabezados no se ven. */
+    @media (max-width:760px){
+      .mv-head-in{ padding:10px 14px; }
+      .mv-head .back-link span{ display:none; }
+      .wrap{ padding:14px 12px 60px; }
+      .hero{ padding:20px 16px 16px; border-radius:18px; }
+      .hero-art{ display:none; }
+      .hero-ic{ width:46px; height:46px; border-radius:12px; font-size:1.15rem; }
+      .hero-tx{ min-width:0; }
+      .hero-ml{ align-items:stretch; width:100%; margin-left:0; }
+      .btn-ml{ justify-content:center; }
+      .hero-ml small{ text-align:left; max-width:none; }
+      .stats{ gap:8px; margin-top:16px; padding-top:14px; }
+      .stat{ flex-direction:column; align-items:flex-start; gap:8px; padding:11px 12px; }
+      .stat-ic{ width:32px; height:32px; border-radius:9px; font-size:.8rem; }
+      .stat b{ font-size:1.6rem; }
+      .filtros{ padding:10px; gap:10px; }
+      .fgrp{ width:100%; justify-content:space-between; }
+      .fgrp > span{ flex:none; }
+      .seg{ overflow-x:auto; scrollbar-width:none; max-width:100%; }
+      .seg::-webkit-scrollbar{ display:none; }
+      .seg button{ padding:7px 10px; font-size:.83rem; }
+      .buscar{ flex:1 1 100%; }
+      .caja{ padding:16px 14px; border-radius:16px; }
+      .caja-h h2{ font-size:1.4rem; }
+      .rk a{ grid-template-columns:22px 50px minmax(0,1fr) auto; gap:3px 10px; padding:10px 4px; }
+      .rk-img{ width:50px; height:40px; }
+      .rk-t{ white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.25; }
+      .rk-val{ flex-direction:column-reverse; align-items:flex-end; gap:2px; }
+      .rk-bar small{ display:none; }
+      .orden{ display:flex; width:100%; }
+      .solo-compu{ display:none; }
+      .orden select{ flex:1; }
+      .scroll{ overflow:visible; }
+      table, thead, tbody, tr, td{ display:block; width:100%; }
+      thead{ display:none; }
+      tr{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px 12px; border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:10px; font-size:.86rem; }
+      tbody tr:hover td{ background:none; }
+      td{ border:0; padding:0; min-width:0; }
+      td.c-prop{ grid-column:1 / -1; padding-bottom:10px; border-bottom:1px solid var(--line2); }
+      td.c-precio, td.c-estado{ grid-column:span 1; }
+      td.c-estado{ grid-column:span 2; text-align:right; }
+      td[data-l]::before{ content:attr(data-l); display:block; font-size:.68rem; font-weight:400; color:var(--soft); line-height:1.3; }
+      td.c-estado::before{ display:none; }
+      td.num{ text-align:left; }
+      .prop{ min-width:0; }
+      .prop .ir{ opacity:1; }
+      .desg{ white-space:normal; }
+    }
+    @media (prefers-reduced-motion: reduce){ .bi, .pt-bar i{ transition:none; } }
   </style>
 </head>
 <body>
@@ -137,83 +269,113 @@
   </header>
 
   <div id="bloqueado" class="bloqueado" style="display:none">
-    <i class="fas fa-lock" style="font-size:2.2rem;color:var(--gray-400)"></i>
-    <h1 class="titulo" style="font-size:1.5rem;margin-top:14px">Solo Dirección</h1>
-    <p class="sub">Esta herramienta está reservada a CEO y COO.</p>
+    <div class="lk"><i class="fas fa-lock"></i></div>
+    <h1>Solo para la Dirección</h1>
+    <p>Esta herramienta es para el CEO y la COO.</p>
+    <a href="index.html">Volver al inicio</a>
   </div>
 
-  <div class="wrap" id="app" style="display:none">
-    <h1 class="titulo">Interés por propiedad</h1>
-    <p class="sub">Dónde conviene poner la plata de portales y destacados.</p>
+  <main class="wrap" id="app" style="display:none">
+    <section class="hero">
+      <!-- La escala de un medidor (el termómetro de la página), apenas visible. -->
+      <svg class="hero-art" viewBox="0 0 200 120" fill="none" stroke="currentColor" aria-hidden="true">
+        <path d="M20 110a80 80 0 0 1 160 0" stroke-width="3"/>
+        <path d="M42 110a58 58 0 0 1 116 0" stroke-width="1.5"/>
+        <path d="M100 30v10M43.4 53.4l7 7M156.6 53.4l-7 7M20 110h10M170 110h10M68 37.7l3.8 9.2M132 37.7l-3.8 9.2" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+      <div class="hero-top">
+        <div class="hero-ic"><i class="fas fa-fire"></i></div>
+        <div class="hero-tx">
+          <h1>Interés por propiedad</h1>
+          <p>Dónde rinde más la plata de portales y destacados.</p>
+        </div>
+        <div class="hero-ml">
+          <button type="button" class="btn-ml" id="btnML" onclick="traerML()"><i class="fas fa-rotate"></i> Actualizar Mercado Libre</button>
+          <small id="estadoML" aria-live="polite"></small>
+        </div>
+      </div>
+      <div class="stats" id="tarjetas" aria-live="polite"></div>
+    </section>
 
-    <div class="aviso">
-      <b>Las vistas y los clics son contadores acumulados, sin fecha.</b> Una propiedad publicada hace seis
-      meses siempre va a tener más que una de la semana pasada, aunque hoy no la mire nadie. Por eso el
-      <b>termómetro</b> mide interés <b>por día publicado</b>, no el total: así se compara lo nuevo con lo viejo.
-      <br><br>
-      Los datos de Mercado Libre son de los <b>últimos 30 días</b> (los mismos que ves en el modal de
-      Portales); los de tu web son acumulados.
-      <br><br>
-      Las interacciones <b>no pesan igual</b>: una vista vale 1, un contacto vale 5 y una consulta
-      o pregunta vale 15. Una vista es curiosidad, un clic es intención y una consulta es alguien que dejó
-      sus datos. Como referencia: <b>arriba de 3</b> es una propiedad caliente, <b>debajo de 0,5</b> casi
-      no se mueve.
-    </div>
-
-    <div class="barra">
-      <div class="fg"><label>Operación</label>
-        <select id="fTipo" onchange="pintar()"><option value="">Todas</option><option value="sale">Venta</option><option value="rent">Alquiler</option></select></div>
-      <div class="fg"><label>Estado</label>
-        <select id="fEstado" onchange="pintar()"><option value="available">Disponibles</option><option value="">Todas</option></select></div>
-      <div class="fg"><label>Destacadas</label>
-        <select id="fDest" onchange="pintar()"><option value="">Todas</option><option value="si">Solo destacadas</option><option value="no">Sin destacar</option></select></div>
-      <div class="fg"><label>Buscar</label><input id="fTexto" oninput="pintar()" placeholder="Título o barrio"></div>
-      <div class="fg"><label>&nbsp;</label>
-        <button class="btn" id="btnML" onclick="traerML()"><i class="fas fa-rotate"></i> Actualizar datos de ML</button></div>
-    </div>
-    <div id="estadoML" style="font-size:.82rem;color:var(--gray-500);margin:-8px 0 16px"></div>
-
-    <div class="aviso" id="avisoPermiso" style="display:none">
+    <div class="aviso" id="avisoPermiso" hidden>
       <b>No se pudieron leer las consultas de los portales.</b> Falta desplegar la regla de
       <code>mlEventos</code> y <code>leadsPortales</code>: <code>firebase deploy --only firestore:rules</code>.
-      Mientras tanto el termómetro solo mide tu web.
+      Mientras tanto, el termómetro solo mide la web.
     </div>
 
-    <div class="cards" id="tarjetas"></div>
+    <section class="filtros" aria-label="Filtros">
+      <div class="fgrp"><span>Operación</span>
+        <div class="seg" role="group" aria-label="Operación">
+          <button type="button" data-f="tipo" data-v="" aria-pressed="true">Venta y alquiler</button>
+          <button type="button" data-f="tipo" data-v="sale" aria-pressed="false">Venta</button>
+          <button type="button" data-f="tipo" data-v="rent" aria-pressed="false">Alquiler</button>
+        </div></div>
+      <div class="fgrp"><span>Estado</span>
+        <div class="seg" role="group" aria-label="Estado">
+          <button type="button" data-f="estado" data-v="available" aria-pressed="true">Disponibles</button>
+          <button type="button" data-f="estado" data-v="" aria-pressed="false">Todas</button>
+        </div></div>
+      <div class="fgrp"><span>Destacado</span>
+        <div class="seg" role="group" aria-label="Destacado">
+          <button type="button" data-f="dest" data-v="" aria-pressed="true">Todas</button>
+          <button type="button" data-f="dest" data-v="si" aria-pressed="false">Destacadas</button>
+          <button type="button" data-f="dest" data-v="no" aria-pressed="false">Sin destacar</button>
+        </div></div>
+      <label class="buscar"><i class="fas fa-magnifying-glass"></i><input type="search" id="fTexto" oninput="pintar()" placeholder="Título, barrio o agente" aria-label="Buscar por título, barrio o agente"></label>
+    </section>
 
-    <div class="panel">
-      <h2>Las más calientes</h2>
-      <p class="ph">Interés por día publicado. Las de arriba son donde más rinde invertir.</p>
-      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;color:var(--gray-500);margin-bottom:13px">
-        <span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#c0392b;margin-right:5px;vertical-align:-1px"></i>Caliente (3+)</span>
-        <span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#e07b39;margin-right:5px;vertical-align:-1px"></i>Tibia (1,5–3)</span>
-        <span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#C9A227;margin-right:5px;vertical-align:-1px"></i>Se mueve (0,6–1,5)</span>
-        <span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#7f93ad;margin-right:5px;vertical-align:-1px"></i>Fría (menos de 0,6)</span>
-        <span id="legTend"></span>
+    <div class="grid2">
+      <section class="caja">
+        <div class="caja-h"><div><h2>Las más calientes</h2><p>Interés por día publicado. Las de arriba son donde más rinde invertir.</p></div></div>
+        <div class="leyenda">
+          <span><i style="background:var(--t5)"></i>Caliente (3 o más)</span>
+          <span><i style="background:var(--t4)"></i>Tibia (1,5 a 3)</span>
+          <span><i style="background:var(--t3)"></i>Se mueve (0,6 a 1,5)</span>
+          <span><i style="background:var(--t2)"></i>Fría (menos de 0,6)</span>
+        </div>
+        <ol id="top" class="ranking"><li class="vacio">Cargando…</li></ol>
+        <p class="nota-tend" id="legTend"></p>
+      </section>
+      <div class="col">
+        <section class="caja">
+          <div class="caja-h"><div><h2>De dónde viene</h2><p>Contactos por canal. Mercado Libre, de los últimos 30 días.</p></div></div>
+          <div id="portales"><div class="vacio">Cargando…</div></div>
+        </section>
+        <section class="caja">
+          <details class="como">
+            <summary><i class="fas fa-circle-info"></i> Cómo se mide <i class="fas fa-chevron-down"></i></summary>
+            <div class="como-tx">
+              <p>El <b>termómetro</b> es el interés por día publicado, no el total: una propiedad de hace seis meses siempre suma más que una de la semana pasada, aunque hoy no la mire nadie.</p>
+              <p>No todo pesa igual: una <b>vista vale 1</b> (curiosidad), un <b>contacto por WhatsApp vale 5</b> (intención) y una <b>consulta o pregunta vale 15</b> (alguien que dejó sus datos).</p>
+              <p>Mercado Libre cuenta los <b>últimos 30 días</b>, los mismos números del modal de Portales. La web suma desde que se publicó y cuenta visitantes únicos, no recargas.</p>
+            </div>
+          </details>
+        </section>
       </div>
-      <div id="top" class="barras"></div>
     </div>
 
-    <div class="panel">
-      <h2>Atención</h2>
-      <p class="ph">Más de 30 vistas entre todos los portales y menos de 1% de contacto. Suele ser precio o fotos, no falta de difusión.</p>
-      <div id="frias"></div>
-    </div>
+    <section class="caja">
+      <div class="caja-h"><div><h2>Para revisar</h2><p>Más de 30 vistas y menos de 1% de contactos. Suele ser el precio o las fotos, no la falta de difusión.</p></div></div>
+      <div id="frias"><div class="vacio">Cargando…</div></div>
+    </section>
 
-    <div class="panel">
-      <h2>Todas las propiedades</h2>
-      <p class="ph">Tocá un encabezado para ordenar. La conversión es cuántos de los que miran terminan escribiendo.</p>
-      <div class="scroll" id="tabla"></div>
-    </div>
-  </div>
+    <section class="caja">
+      <div class="caja-h">
+        <div><h2>Todas las propiedades</h2><p id="tablaSub"><span class="solo-compu">Tocá un encabezado para ordenar. </span>La conversión es cuántos de los que miran terminan escribiendo.</p></div>
+        <div class="orden"><label for="fOrden">Ordenar</label><select id="fOrden" onchange="ordenarPor(this.value)"></select></div>
+      </div>
+      <div class="scroll" id="tabla"><div class="vacio">Cargando…</div></div>
+    </section>
+  </main>
 
 <script>
   /* =========================================================================
      INTERÉS POR PROPIEDAD — solo CEO y COO.
 
      QUÉ MIDE: views (visitas a la ficha pública) y contactClicks (clics en el
-     botón de WhatsApp). Los dos son contadores ACUMULADOS: suben desde que la
-     propiedad se publicó y no guardan fecha.
+     botón de WhatsApp) de la web, que son contadores ACUMULADOS sin fecha; las
+     métricas de Mercado Libre de los últimos 30 días, y las consultas que
+     llegaron por cada portal.
 
      POR QUÉ NO SE MUESTRA EL TOTAL A SECAS: una propiedad de hace seis meses
      siempre le gana a una de la semana pasada aunque hoy nadie la mire. El
@@ -226,10 +388,12 @@
   firebase.initializeApp(window.firebaseConfig);
   const db = firebase.firestore(), auth = firebase.auth();
 
-  let _props = [], _ordCol = 'termo', _ordAsc = false, _sinPermiso = false, _hayHistorial = false;
+  let _props = [], _ordCol = 'termo', _ordAsc = false, _sinPermiso = false, _hayHistorial = false, _mlAt = null;
+  // Los filtros de arriba (los botones).
+  const FILTRO = { tipo: '', estado: 'available', dest: '' };
 
-  /* Escala de temperatura. El mismo color se usa en las barras y en la píldora
-     de la tabla, así que un vistazo alcanza para ubicar qué está caliente. */
+  /* Escala de temperatura. El mismo color se usa en las barras, en la píldora
+     de la tabla y en la leyenda, así un vistazo alcanza para ubicar qué está caliente. */
   function tempNivel(v){
     if (v == null || v <= 0) return 0;
     if (v >= 3) return 5;
@@ -237,11 +401,24 @@
     if (v >= 0.6) return 3;
     return 2;
   }
-  const TEMP_COLOR = ['#c9ced6', '#c9ced6', '#7f93ad', '#C9A227', '#e07b39', '#c0392b'];
+  const TEMP_COLOR = ['var(--t0)', 'var(--t0)', 'var(--t2)', 'var(--t3)', 'var(--t4)', 'var(--t5)'];
+  const TEMP_NOMBRE = ['Sin movimiento', 'Sin movimiento', 'Fría', 'Se mueve', 'Tibia', 'Caliente'];
+  const ESTADO = { available: 'Disponible', reserved: 'Reservada', sold: 'Vendida', rented: 'Alquilada', cerrado_externo: 'Cerró por afuera', archived: 'Dada de baja' };
+  // Las formas de ordenar en el celular (en la compu, también tocando el encabezado).
+  const ORDENES = [
+    ['termo', false, 'Más calientes primero'], ['vistasTot', false, 'Más vistas'], ['contactosTot', false, 'Más contactos'],
+    ['consultas', false, 'Más consultas'], ['conv', false, 'Mejor conversión'], ['dias', true, 'Publicadas hace menos'], ['dias', false, 'Publicadas hace más']
+  ];
 
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const n1 = v => (Math.round((Number(v) || 0) * 10) / 10).toLocaleString('es-UY');
+  const nf = v => (Number(v) || 0).toLocaleString('es-UY');
   const precio = p => (p.currency === 'UYU' ? '$ ' : 'US$ ') + (Number(p.price) || 0).toLocaleString('es-UY');
+  const plural = (n, uno, varios) => nf(n) + ' ' + (n === 1 ? uno : varios);
+  const fichaUrl = id => 'propiedad.html?id=' + encodeURIComponent(id);
+  // Solo fotos de la web (https): una URL rara no se mete en el src.
+  const fotoOk = u => /^https?:\/\/[^\s'"<>]+$/i.test(String(u || ''));
+  function foto(p, cls){ return fotoOk(p.foto) ? '<img class="' + (cls || '') + '" src="' + esc(p.foto) + '" alt="" loading="lazy">' : '<span class="sinfoto ' + (cls || '') + '"></span>'; }
 
   auth.onAuthStateChanged(async u => {
     if (!u) { location.href = 'index.html'; return; }
@@ -252,13 +429,23 @@
       String(u.email || '').toLowerCase() === String(window.ADMIN_EMAIL || '').toLowerCase();
     if (!esDir) { document.getElementById('bloqueado').style.display = ''; return; }
     document.getElementById('app').style.display = '';
+    prepararFiltros();
     await cargar();
   });
 
+  function prepararFiltros(){
+    document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+      FILTRO[b.dataset.f] = b.dataset.v;
+      b.parentNode.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+      pintar();
+    }));
+    document.getElementById('fOrden').innerHTML = ORDENES.map((o, i) => '<option value="' + i + '">' + o[2] + '</option>').join('');
+  }
+
   /* Las visitas de ML no se traen solas al abrir: es una llamada a la API de
-     Mercado Libre por cada lote de 20 propiedades y no hace falta hacerla en
-     cada visita a la página. El cron diario las mantiene al día; este botón es
-     para cuando querés el número del momento. */
+     Mercado Libre por propiedad y no hace falta hacerla en cada visita a la
+     página. El proceso diario las mantiene al día; este botón es para cuando
+     querés el número del momento. */
   async function traerML(){
     const b = document.getElementById('btnML'), e = document.getElementById('estadoML');
     b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Consultando…';
@@ -267,16 +454,21 @@
     try{
       const r = await firebase.functions().httpsCallable('actualizarMetricasML')({});
       const d = r.data || {};
-      e.textContent = d.ok
-        ? 'Listo: ' + d.actualizadas + ' de ' + d.propiedades + ' propiedades actualizadas' +
-          (d.fallos ? ' · ' + d.fallos + ' fallaron' : '') + '.'
-        : 'No se pudo: ' + (d.detalle || 'error desconocido');
-      if (d.ok) await cargar();
+      if (d.ok) {
+        await cargar();
+        e.textContent = 'Listo: ' + d.actualizadas + ' de ' + d.propiedades + ' propiedades actualizadas' + (d.fallos ? ', ' + d.fallos + ' fallaron' : '') + '.';
+      } else e.textContent = 'No se pudo: ' + (d.detalle || 'error desconocido');
     }catch(err){
       e.textContent = 'No se pudo: ' + (err.message || err);
     }finally{
-      b.disabled = false; b.innerHTML = '<i class="fas fa-rotate"></i> Actualizar datos de ML';
+      b.disabled = false; b.innerHTML = '<i class="fas fa-rotate"></i> Actualizar Mercado Libre';
     }
+  }
+  // "Mercado Libre: datos del 29/10, 06:20" (la última vez que se trajeron).
+  function textoML(){
+    if (!_mlAt) return 'Todavía no se trajeron los datos de Mercado Libre.';
+    const d = new Date(_mlAt), p2 = n => String(n).padStart(2, '0');
+    return 'Mercado Libre: datos del ' + p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + ', ' + p2(d.getHours()) + ':' + p2(d.getMinutes()) + '.';
   }
 
   async function cargar(){
@@ -286,7 +478,7 @@
          mlEventos y leadsPortales guardan propertyId y fecha, y no se borran
          nunca, así que son la fuente confiable. */
       /* Las fotos diarias se leen como collection group: una sola consulta en vez
-         de recorrer las 42 propiedades. Solo los últimos 8 días, que es lo que
+         de recorrer todas las propiedades. Solo los últimos 8 días, que es lo que
          hace falta para comparar contra hace una semana. */
       const hace8 = new Date(Date.now() - 8 * 86400000).toISOString().slice(0, 10);
       const [snap, mlS, icS, mtS] = await Promise.all([
@@ -296,7 +488,7 @@
         db.collectionGroup('metricas').where('fecha', '>=', hace8).get().catch(() => null)
       ]);
       /* Por propiedad, la foto más vieja del rango. La diferencia contra el valor
-         de hoy es el movimiento de la semana. Si no hay fotos todavía —el cron
+         de hoy es el movimiento de la semana. Si no hay fotos todavía —el proceso
          recién empieza a correr— no se muestra tendencia en vez de inventarla. */
       const base = {};
       if (mtS) mtS.forEach(d => {
@@ -317,7 +509,7 @@
         else conIC[x.propertyId] = (conIC[x.propertyId] || 0) + 1;
       });
       const hoy = Date.now();
-      _props = [];
+      _props = []; _mlAt = null;
       snap.forEach(d => {
         const p = d.data();
         const alta = p.createdAt ? Date.parse(p.createdAt) : NaN;
@@ -332,22 +524,25 @@
         const sinResp = Number(p.cymSinResponder) || 0;
         const consultas = cML + cIC + cCYM;
         /* Métricas de Mercado Libre de los ÚLTIMOS 30 DÍAS, los mismos números
-           que muestra el modal de Portales. Antes se usaba un acumulado
-           histórico que no coincidía con lo que veías ahí. */
+           que muestra el modal de Portales. */
         const vML = Number(p.mlVisitas30) || 0;
         const wML = Number(p.mlWhatsapp30) || 0;
         const qML = Number(p.mlPreguntas30) || 0;
+        if (p.mlMetricasAt && (!_mlAt || p.mlMetricasAt > _mlAt)) _mlAt = p.mlMetricasAt;
+        // Destacada de verdad: con el destacado vigente (vence) y disponible, como en el resto de la app.
+        const destacada = typeof window.isEffectivelyFeatured === 'function' ? window.isEffectivelyFeatured(p) : p.featured === true;
         _props.push({
           id: d.id, titulo: p.title || '(sin título)',
-          barrio: (p.ubicacion && (p.ubicacion.barrio || p.ubicacion.ciudad)) || p.ciudad || '',
+          // El barrio que cargó el agente, no el que estima el mapa (ese se equivoca).
+          barrio: p.ciudad || p.location || (p.ubicacion && (p.ubicacion.barrio || p.ubicacion.ciudad)) || '',
           foto: (p.images && p.images[0]) || '', precio: precio(p),
           tipo: p.type || '', estado: p.status || 'available',
-          destacada: p.featured === true, agente: p.ownerName || '',
+          destacada, diasDest: destacada && typeof window.diasDeDestacado === 'function' ? window.diasDeDestacado(p) : null,
+          agente: p.ownerName || '',
           views, clics, dias, cML, cIC, consultas, vML, wML, qML, cCYM, sinResp,
-          mlAt: p.mlMetricasAt || null,
           /* Totales de TODAS las fuentes. La conversión con solo la web daba 0%
              en casi todas —5 clics contra 276 vistas— mientras que en ML hay
-             1.556 visitas con 40 contactos. La columna estaba mintiendo. */
+             1.556 visitas con 40 contactos. */
           vistasTot: views + vML,
           contactosTot: clics + wML + consultas + qML,
           // Movimiento de los últimos días contra la foto más vieja disponible.
@@ -362,151 +557,150 @@
              una vieja. Si no hay fecha de alta, no se inventa.
              Los pesos NO son iguales a propósito: una vista es curiosidad, un
              clic es intención, y una consulta de portal es una persona que dejó
-             sus datos. Sumarlas planas haría ganar siempre a lo que tiene más
-             volumen, que no es lo mismo que lo que más interesa. */
+             sus datos. */
           termo: dias ? (views + vML + (clics + wML) * 5 + (consultas + qML) * 15) / dias : null,
-          vistasDia: dias ? views / dias : null,
           conv: (views + vML) > 0 ? ((clics + wML + consultas + qML) / (views + vML) * 100) : null
         });
       });
+      if (!document.getElementById('btnML').disabled) document.getElementById('estadoML').textContent = textoML();
       pintar();
     }catch(e){
       console.error(e);
-      document.getElementById('tarjetas').innerHTML =
-        '<div class="vacio">No se pudieron cargar las propiedades: ' + esc(e.code || e.message || e) + '</div>';
+      const msg = '<div class="vacio"><i class="fas fa-triangle-exclamation"></i>No se pudieron cargar las propiedades: ' + esc(e.code || e.message || e) + '</div>';
+      ['top', 'portales', 'frias', 'tabla'].forEach(id => { document.getElementById(id).innerHTML = id === 'top' ? '<li>' + msg + '</li>' : msg; });
     }
   }
 
   function filtradas(){
-    const t = document.getElementById('fTipo').value;
-    const e = document.getElementById('fEstado').value;
-    const d = document.getElementById('fDest').value;
     const q = document.getElementById('fTexto').value.trim().toLowerCase();
     return _props.filter(p =>
-      (!t || p.tipo === t) && (!e || p.estado === e) &&
-      (!d || (d === 'si' ? p.destacada : !p.destacada)) &&
-      (!q || (p.titulo + ' ' + p.barrio).toLowerCase().includes(q)));
+      (!FILTRO.tipo || p.tipo === FILTRO.tipo) && (!FILTRO.estado || p.estado === FILTRO.estado) &&
+      (!FILTRO.dest || (FILTRO.dest === 'si' ? p.destacada : !p.destacada)) &&
+      (!q || (p.titulo + ' ' + p.barrio + ' ' + p.agente).toLowerCase().includes(q)));
   }
 
   function ordenar(col){
     if (_ordCol === col) _ordAsc = !_ordAsc; else { _ordCol = col; _ordAsc = false; }
     pintar();
   }
+  function ordenarPor(i){
+    const o = ORDENES[Number(i)] || ORDENES[0];
+    _ordCol = o[0]; _ordAsc = o[1];
+    pintar();
+  }
 
   function pintar(){
     const l = filtradas();
-    const sumV = l.reduce((a, p) => a + p.views, 0);
-    const sumC = l.reduce((a, p) => a + p.clics, 0);
-    const sumVT = l.reduce((a, p) => a + p.vistasTot, 0);
-    const sumCT = l.reduce((a, p) => a + p.contactosTot, 0);
+    const suma = k => l.reduce((a, p) => a + (Number(p[k]) || 0), 0);
+    const sumVT = suma('vistasTot'), sumCT = suma('contactosTot');
     const conv = sumVT > 0 ? (sumCT / sumVT * 100) : 0;
-    const sinDatos = l.filter(p => p.views === 0).length;
-    const sumML = l.reduce((a, p) => a + p.cML, 0), sumIC = l.reduce((a, p) => a + p.cIC, 0);
-    const sumCYM = l.reduce((a, p) => a + p.cCYM, 0);
-    const sumSinResp = l.reduce((a, p) => a + p.sinResp, 0);
-    const sumVML = l.reduce((a, p) => a + p.vML, 0);
-    const sumWML = l.reduce((a, p) => a + p.wML, 0), sumQML = l.reduce((a, p) => a + p.qML, 0);
+    const nDest = l.filter(p => p.destacada).length;
 
+    const stat = (ic, num, tit, det) => '<div class="stat"><div class="stat-ic"><i class="fas ' + ic + '"></i></div><div class="stat-tx"><b>' + num + '</b><span>' + tit + '</span><small>' + det + '</small></div></div>';
     document.getElementById('tarjetas').innerHTML =
-      '<div class="card"><div class="k">Propiedades</div><div class="v">' + l.length + '</div>' +
-        '<div class="n">' + l.filter(p => p.destacada).length + ' destacadas</div></div>' +
-      '<div class="card"><div class="k">Vistas</div><div class="v">' + sumV.toLocaleString('es-UY') + '</div>' +
-        '<div class="n">Visitantes únicos acumulados</div></div>' +
-      '<div class="card"><div class="k">Clics a WhatsApp</div><div class="v">' + sumC.toLocaleString('es-UY') + '</div>' +
-        '<div class="n">Desde la vitrina</div></div>' +
-      '<div class="card"><div class="k">Conversión</div><div class="v">' + n1(conv) + '%</div>' +
-        '<div class="n">' + sumCT + ' contactos sobre ' + sumVT.toLocaleString('es-UY') + ' vistas</div></div>' +
-      '<div class="card"><div class="k">Mercado Libre · 30 días</div><div class="v">' + sumVML.toLocaleString('es-UY') + '</div>' +
-        '<div class="n">' + (sumVML ? sumWML + ' contactos · ' + sumQML + ' preguntas' : 'Todavía no se trajeron') + '</div></div>' +
-      '<div class="card"><div class="k">Consultas de portales</div><div class="v">' + (sumML + sumIC + sumCYM).toLocaleString('es-UY') + '</div>' +
-        '<div class="n">' + sumML + ' ML · ' + sumIC + ' IC · ' + sumCYM + ' CyM' +
-        (sumSinResp ? '<br><b style="color:var(--danger)">' + sumSinResp + ' sin responder</b>' : '') + '</div></div>' +
-      '<div class="card"><div class="k">Sin una sola vista</div><div class="v">' + sinDatos + '</div>' +
-        '<div class="n">' + (sinDatos ? 'Nadie las abrió todavía' : 'Todas tuvieron visitas') + '</div></div>';
+      stat('fa-house', nf(l.length), l.length === 1 ? 'Propiedad' : 'Propiedades', nDest ? plural(nDest, 'destacada', 'destacadas') : 'Ninguna destacada') +
+      stat('fa-eye', nf(sumVT), 'Vistas', nf(suma('views')) + ' web · ' + nf(suma('vML')) + ' Mercado Libre') +
+      stat('fa-comments', nf(sumCT), 'Contactos', 'WhatsApp, consultas y preguntas') +
+      stat('fa-bullseye', n1(conv) + '%', 'Conversión', 'Contactos cada 100 vistas');
 
     const av = document.getElementById('avisoPermiso');
-    if (av) av.style.display = _sinPermiso ? '' : 'none';
+    if (av) av.hidden = !_sinPermiso;
 
     const lt = document.getElementById('legTend');
     if (lt) lt.innerHTML = _hayHistorial
-      ? '<span style="color:#1e7d4f">▲</span> movimiento de los últimos días'
-      : '<span style="color:var(--gray-400)">Sin historial todavía: la tendencia aparece cuando el proceso diario lleve unos días corriendo.</span>';
-    pintarTop(l); pintarFrias(l); pintarTabla(l);
+      ? '<span class="tend sube">▲</span> Lo que subió en los últimos días.'
+      : 'Sin historial todavía: la tendencia aparece cuando el proceso diario lleve unos días corriendo.';
+    pintarTop(l); pintarPortales(l); pintarFrias(l); pintarTabla(l);
   }
 
   /* Flecha de tendencia. Solo se muestra si hay foto previa: sin historial no se
      inventa un movimiento. */
   function flecha(d){
     if (!d || !d.abs) return '';
-    if (d.abs > 0) return ' <span style="color:#1e7d4f" title="Subió desde ' + d.desde + '">▲' + d.abs + '</span>';
-    return ' <span style="color:#9aa3ad" title="Sin cambios desde ' + d.desde + '">–</span>';
+    if (d.abs > 0) return '<span class="tend sube" title="Subió desde el ' + esc(d.desde) + '">▲' + nf(d.abs) + '</span>';
+    return '<span class="tend igual" title="Sin cambios desde el ' + esc(d.desde) + '">–</span>';
   }
-
-  /* Abre la ficha pública en otra pestaña. Se usa target _blank a propósito: la
-     idea es mirar varias seguidas sin perder el ranking. */
-  function abrirFicha(id){
-    window.open('propiedad.html?id=' + encodeURIComponent(id), '_blank', 'noopener');
+  function temp(p){
+    const n = tempNivel(p.termo);
+    return '<span class="temp n' + n + '" title="' + TEMP_NOMBRE[n] + '">' + (p.termo == null ? '—' : n1(p.termo)) + '</span>';
   }
+  const meta = p => [p.agente || 'Sin agente', p.barrio].filter(Boolean).map(esc).join(' · ');
 
   function pintarTop(l){
     const el = document.getElementById('top');
     const top = l.filter(p => p.termo != null && p.termo > 0).sort((a, b) => b.termo - a.termo).slice(0, 10);
-    if (!top.length) { el.innerHTML = '<div class="vacio">Todavía no hay movimiento para comparar.</div>'; return; }
+    if (!top.length) { el.innerHTML = '<li class="vacio"><i class="fas fa-temperature-empty"></i>Todavía no hay movimiento para comparar.</li>'; return; }
     const max = top[0].termo;
-    el.innerHTML = top.map(p => {
-      const col = TEMP_COLOR[tempNivel(p.termo)];
-      const fl = flecha(p.delta);
-      /* El nombre va ARRIBA de la barra, no adentro: adentro se cortaba contra el
-         borde y el agente quedaba a medias. Así se lee entero sin importar el
-         largo del título ni el ancho de la barra. */
-      /* Dos líneas por propiedad, no tres: título con el valor a la derecha, y la
-         barra con las métricas al lado. Antes cada fila ocupaba tres renglones y
-         diez propiedades llenaban la pantalla. */
-      return '<div class="filaTop clic" onclick="abrirFicha(\'' + esc(p.id) + '\')">' +
-        '<div class="ft-h"><span class="ft-t">' + esc(p.titulo) + (p.destacada ? ' ⭐' : '') + '</span>' +
-        (p.agente ? '<span class="ft-a">' + esc(p.agente) + '</span>' : '') +
-        '<span class="ft-v" style="color:' + col + '">' + n1(p.termo) + fl + '</span></div>' +
-        '<div class="ft-b"><div class="bg"><div class="bi" style="width:' + (p.termo / max * 100) +
-        '%;background:' + col + '"></div></div>' +
-        '<span class="ft-m">' + p.vistasTot + ' vistas · ' + p.contactosTot + ' cont.' +
-        (p.conv != null ? ' · ' + n1(p.conv) + '%' : '') + '</span></div></div>';
-    }).join('');
+    el.innerHTML = top.map((p, i) => '<li class="rk"><a href="' + fichaUrl(p.id) + '" target="_blank" rel="noopener" title="Abrir la ficha pública">' +
+      '<span class="rk-n">' + (i + 1) + '</span>' + foto(p, 'rk-img') +
+      '<span class="rk-tit"><span class="rk-t">' + esc(p.titulo) + (p.destacada ? '<i class="fas fa-star" title="Destacada"></i>' : '') + '</span>' +
+        '<span class="rk-m">' + meta(p) + '</span></span>' +
+      '<span class="rk-val">' + flecha(p.delta) + temp(p) + '</span>' +
+      '<span class="rk-bar"><span class="bg"><span class="bi" style="width:' + Math.max(2, p.termo / max * 100) + '%;background:' + TEMP_COLOR[tempNivel(p.termo)] + '"></span></span>' +
+        '<small>' + plural(p.vistasTot, 'vista', 'vistas') + ' · ' + plural(p.contactosTot, 'contacto', 'contactos') + (p.conv != null ? ' · ' + n1(p.conv) + '%' : '') + '</small></span>' +
+      '</a></li>').join('');
   }
 
-  /* Mucha vista y poco clic. Se pide un mínimo de 20 vistas: con 3 vistas y 0
-     clics no hay nada que concluir. */
+  /* De qué canal vienen los contactos. Las vistas solo existen para la web y
+     Mercado Libre: InfoCasas y Casas y Más no las informan. */
+  function pintarPortales(l){
+    const el = document.getElementById('portales');
+    const s = k => l.reduce((a, p) => a + (Number(p[k]) || 0), 0);
+    const canales = [
+      { ic: 'fa-globe', n: 'Web propia', c: s('clics'), v: s('views'), d: plural(s('views'), 'vista', 'vistas') + ' · ' + plural(s('clics'), 'clic', 'clics') + ' a WhatsApp' },
+      { ic: 'fa-handshake', n: 'Mercado Libre', c: s('wML') + s('qML') + s('cML'), v: s('vML'),
+        d: plural(s('vML'), 'visita', 'visitas') + ' · ' + nf(s('wML')) + ' WhatsApp · ' + plural(s('qML'), 'pregunta', 'preguntas') + ' · ' + plural(s('cML'), 'consulta', 'consultas') },
+      { ic: 'fa-house', n: 'InfoCasas', c: s('cIC'), d: plural(s('cIC'), 'consulta', 'consultas') },
+      { ic: 'fa-house-chimney', n: 'Casas y Más', c: s('cCYM'), d: plural(s('cCYM'), 'consulta', 'consultas') + (s('sinResp') ? ' · <b>' + plural(s('sinResp'), 'sin responder', 'sin responder') + '</b>' : '') }
+    ];
+    const tot = canales.reduce((a, x) => a + x.c, 0);
+    el.innerHTML = canales.map(x => '<div class="pt"><span class="pt-ic"><i class="fas ' + x.ic + '"></i></span>' +
+      '<span class="pt-n">' + x.n + '</span>' +
+      '<span class="pt-v"><b>' + nf(x.c) + '</b><small>' + (tot ? Math.round(x.c / tot * 100) + '% de los contactos' : 'contactos') + '</small></span>' +
+      '<span class="pt-d">' + x.d + '</span>' +
+      '<span class="pt-bar"><i style="width:' + (tot ? x.c / tot * 100 : 0) + '%"></i></span></div>').join('');
+  }
+
+  /* Mucha vista y poco contacto. Se pide un mínimo de 30 vistas entre todas las
+     fuentes: con 3 vistas y 0 contactos no hay nada que concluir. */
   function pintarFrias(l){
     const el = document.getElementById('frias');
-    // Se mira el total de todas las fuentes, no solo la web: una propiedad con
-    // 3 vistas propias y 137 en ML se juzga por las 140.
     const f = l.filter(p => p.vistasTot >= 30 && p.conv != null && p.conv < 1)
                .sort((a, b) => b.vistasTot - a.vistasTot).slice(0, 8);
-    if (!f.length) {
-      el.innerHTML = '<div class="vacio">Ninguna propiedad con muchas vistas y pocos contactos. Buena señal.</div>';
-      return;
-    }
-    el.innerHTML = '<table><thead><tr><th>Propiedad</th><th>Precio</th><th class="num">Vistas</th>' +
-      '<th class="num">Contactos</th><th class="num">Conversión</th></tr></thead><tbody>' +
-      f.map(p => '<tr><td data-l="">' + celdaProp(p) + '</td><td data-l="Precio">' + esc(p.precio) + '</td>' +
-        '<td class="num" data-l="Vistas">' + p.vistasTot + '</td><td class="num" data-l="Contactos">' + p.contactosTot + '</td>' +
-        '<td class="num" data-l="Conversión" style="color:var(--danger);font-weight:600">' + n1(p.conv) + '%</td></tr>').join('') +
-      '</tbody></table>';
+    const sinVistas = l.filter(p => p.vistasTot === 0);
+    let h = f.length
+      ? '<div class="rv-grid">' + f.map(p => '<a class="rv" href="' + fichaUrl(p.id) + '" target="_blank" rel="noopener" title="Abrir la ficha pública">' + foto(p) +
+          '<span class="rv-tx"><span class="rv-t">' + esc(p.titulo) + '</span><span class="rv-p">' + esc(p.precio) + (p.tipo === 'rent' ? ' por mes' : '') + '</span><span class="rv-m">' + meta(p) + '</span>' +
+          '<span class="rv-n">' + plural(p.vistasTot, 'vista', 'vistas') + ' · ' + plural(p.contactosTot, 'contacto', 'contactos') + '<b title="Conversión">' + n1(p.conv) + '%</b></span></span></a>').join('') + '</div>'
+      : '<div class="vacio"><i class="fas fa-circle-check"></i>Ninguna propiedad con muchas vistas y pocos contactos. Buena señal.</div>';
+    // Las que nadie abrió: en ningún lado (ni la web ni Mercado Libre).
+    if (sinVistas.length) h += '<div class="sv"><p><b>' + plural(sinVistas.length, 'propiedad sin una sola vista', 'propiedades sin una sola vista') + '</b>, ni en la web ni en Mercado Libre.</p>' +
+      '<div class="sv-l">' + sinVistas.slice(0, 12).map(p => '<a href="' + fichaUrl(p.id) + '" target="_blank" rel="noopener">' + esc(p.titulo) + '</a>').join('') +
+      (sinVistas.length > 12 ? '<a href="#tabla" onclick="verSinVistas(event)">y ' + (sinVistas.length - 12) + ' más</a>' : '') + '</div></div>';
+    el.innerHTML = h;
+  }
+  function verSinVistas(ev){
+    ev.preventDefault();
+    _ordCol = 'vistasTot'; _ordAsc = true; pintar();
+    document.getElementById('tabla').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function celdaProp(p){
-    return '<div class="prop clic" onclick="abrirFicha(\'' + esc(p.id) + '\')" ' +
-      'title="Abrir la ficha pública">' + (p.foto
-      ? '<img src="' + esc(p.foto) + '" alt="" loading="lazy">'
-      : '<span style="width:44px;height:34px;border-radius:6px;background:var(--gray-100);flex:none"></span>') +
-      '<div><div class="t">' + esc(p.titulo.slice(0, 58)) + '</div>' +
-      '<div class="m">' + (p.agente ? '<b style="color:var(--gray-600);font-weight:600">' + esc(p.agente) + '</b>' : 'Sin agente') +
-      (p.barrio ? ' · ' + esc(p.barrio) : '') + '</div></div>' +
-      '<i class="fas fa-arrow-up-right-from-square ir"></i></div>';
+    return '<a class="prop" href="' + fichaUrl(p.id) + '" target="_blank" rel="noopener" title="Abrir la ficha pública">' + foto(p) +
+      '<span><span class="t">' + esc(p.titulo.slice(0, 70)) + '</span><span class="m">' + meta(p) + '</span></span>' +
+      '<i class="fas fa-arrow-up-right-from-square ir"></i></a>';
+  }
+  function chipEstado(p){
+    if (p.destacada) return '<span class="chip dest"><i class="fas fa-star"></i> Destacada' + (p.diasDest != null ? ' · ' + (p.diasDest === 0 ? 'vence hoy' : p.diasDest === 1 ? 'vence mañana' : 'quedan ' + p.diasDest + ' días') : '') + '</span>';
+    return '<span class="chip' + (p.estado === 'available' ? ' disp' : '') + '">' + esc(ESTADO[p.estado] || p.estado) + '</span>';
   }
 
   function pintarTabla(l){
     const el = document.getElementById('tabla');
-    if (!l.length) { el.innerHTML = '<div class="vacio">No hay propiedades con esos filtros.</div>'; return; }
+    const sel = document.getElementById('fOrden');
+    const iOrden = ORDENES.findIndex(o => o[0] === _ordCol && o[1] === _ordAsc);
+    if (sel && iOrden >= 0) sel.value = String(iOrden);
+    if (!l.length) { el.innerHTML = '<div class="vacio"><i class="fas fa-filter"></i>No hay propiedades con esos filtros.</div>'; return; }
     const orden = l.slice().sort((a, b) => {
       const va = a[_ordCol], vb = b[_ordCol];
       // Las que no tienen dato van siempre al final, ordene como ordene.
@@ -515,36 +709,29 @@
       if (vb == null) return -1;
       return _ordAsc ? va - vb : vb - va;
     });
-    const th = (col, txt, cls) => '<th class="orden ' + (cls || '') + (_ordCol === col ? ' act' : '') +
-      '" onclick="ordenar(\'' + col + '\')">' + txt + (_ordCol === col ? (_ordAsc ? ' ↑' : ' ↓') : '') + '</th>';
+    const th = (col, txt) => {
+      const act = _ordCol === col;
+      return '<th class="num' + (act ? ' act' : '') + '" aria-sort="' + (act ? (_ordAsc ? 'ascending' : 'descending') : 'none') + '">' +
+        '<button type="button" onclick="ordenar(\'' + col + '\')">' + txt + ' <i class="fas ' + (act ? (_ordAsc ? 'fa-arrow-up' : 'fa-arrow-down') : 'fa-sort') + '"></i></button></th>';
+    };
     el.innerHTML = '<table><thead><tr><th>Propiedad</th><th>Precio</th><th>Estado</th>' +
-      /* Antes había dos encabezados de más -'views' y 'clics'- que quedaron
-         cuando las columnas se consolidaron en Vistas y Contactos: la tabla
-         mostraba 9 títulos para 7 celdas y todo salía corrido. */
-      th('termo', 'Termómetro', 'num') +
-      th('vistasTot', 'Vistas', 'num') + th('contactosTot', 'Contactos', 'num') +
-      th('cCYM', 'Cons. CyM', 'num') +
-      th('conv', 'Conversión', 'num') + th('dias', 'Días', 'num') +
+      th('termo', 'Termómetro') + th('vistasTot', 'Vistas') + th('contactosTot', 'Contactos') +
+      th('consultas', 'Consultas') + th('conv', 'Conversión') + th('dias', 'Días') +
       '</tr></thead><tbody>' +
-      orden.map(p => {
-        const nivel = tempNivel(p.termo);
-        return '<tr><td data-l="">' + celdaProp(p) + '</td><td data-l="Precio" style="white-space:nowrap">' + esc(p.precio) + '</td>' +
-          '<td data-l="Estado"><span class="tag' + (p.destacada ? ' dest' : '') + '">' +
-            (p.destacada ? '⭐ Destacada' : (p.estado === 'available' ? 'Disponible' : esc(p.estado))) + '</span></td>' +
-          '<td class="num" data-l="Termómetro"><span class="term t' + nivel + '">' + (p.termo == null ? '—' : n1(p.termo)) + '</span>' +
-            flecha(p.delta) + '</td>' +
-          /* Un solo número por concepto, con el desglose en el tooltip. Antes eran
-             cinco columnas y la tabla se cortaba de lado. */
-          '<td class="num" data-l="Vistas" title="' + p.views + ' en la web · ' + p.vML + ' en Mercado Libre">' +
-            '<b>' + p.vistasTot + '</b>' + (p.vML ? '<span class="desg">' + p.vML + ' ML</span>' : '') + '</td>' +
-          '<td class="num" data-l="Contactos" title="' + p.clics + ' clics web · ' + p.wML + ' WhatsApp ML · ' +
-            p.cML + ' consultas ML · ' + p.qML + ' preguntas ML · ' + p.cIC + ' InfoCasas">' +
-            '<b>' + p.contactosTot + '</b></td>' +
-          '<td class="num" data-l="Cons. CyM"' + (p.sinResp ? ' style="color:var(--danger);font-weight:600" title="' + p.sinResp + ' sin responder"' : '') + '>' + p.cCYM + '</td>' +
-          '<td class="num" data-l="Conversión"' + (p.conv != null && p.conv >= 2 ? ' style="color:var(--success);font-weight:600"' : '') + '>' +
-            (p.conv == null ? '—' : n1(p.conv) + '%') + '</td>' +
-          '<td class="num" data-l="Días" style="color:var(--gray-400)">' + (p.dias == null ? '—' : p.dias) + '</td></tr>';
-      }).join('') + '</tbody></table>';
+      orden.map(p => '<tr><td class="c-prop">' + celdaProp(p) + '</td>' +
+        '<td class="c-precio" data-l="Precio" style="white-space:nowrap">' + esc(p.precio) + (p.tipo === 'rent' ? '<span class="desg">por mes</span>' : '') + '</td>' +
+        '<td class="c-estado">' + chipEstado(p) + '</td>' +
+        '<td class="num c-temp" data-l="Termómetro">' + temp(p) + (p.delta && p.delta.abs ? ' ' + flecha(p.delta) : '') + '</td>' +
+        /* Un solo número por concepto, con el desglose debajo y en el globito. */
+        '<td class="num" data-l="Vistas" title="' + nf(p.views) + ' en la web · ' + nf(p.vML) + ' en Mercado Libre (30 días)">' +
+          '<b>' + nf(p.vistasTot) + '</b>' + (p.vML ? '<span class="desg">' + nf(p.vML) + ' ML</span>' : '') + '</td>' +
+        '<td class="num" data-l="Contactos" title="' + nf(p.clics) + ' clics web · ' + nf(p.wML) + ' WhatsApp ML · ' + nf(p.qML) + ' preguntas ML · ' + nf(p.consultas) + ' consultas">' +
+          '<b>' + nf(p.contactosTot) + '</b></td>' +
+        '<td class="num" data-l="Consultas" title="' + nf(p.cML) + ' Mercado Libre · ' + nf(p.cIC) + ' InfoCasas · ' + nf(p.cCYM) + ' Casas y Más">' + nf(p.consultas) +
+          (p.sinResp ? '<span class="desg rojo">' + plural(p.sinResp, 'sin responder', 'sin responder') + '</span>' : '') + '</td>' +
+        '<td class="num' + (p.conv != null && p.conv >= 2 ? ' verde' : '') + '" data-l="Conversión">' + (p.conv == null ? '—' : n1(p.conv) + '%') + '</td>' +
+        '<td class="num gris" data-l="Días">' + (p.dias == null ? '—' : nf(p.dias)) + '</td></tr>').join('') +
+      '</tbody></table>';
   }
 </script>
 </body>
