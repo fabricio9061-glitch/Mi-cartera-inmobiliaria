@@ -1209,9 +1209,12 @@
     return '598' + d;
   }
 
-  function notifWaLink(tel, titulo) {
+  function notifWaLink(tel, titulo, pid) {
     const n2 = waNum(tel);
-    const msg = encodeURIComponent('Hola, te contacto de MALAVE Inmobiliaria por tu consulta' + (titulo ? ' sobre ' + titulo : '') + '.');
+    // Con el link de la publicación (el mismo de "Compartir"): a quien consultó
+    // le llega con la foto, el precio y la zona, y la puede volver a mirar.
+    const link = pid ? '\n' + urlCompartirPropiedad(pid) : '';
+    const msg = encodeURIComponent('Hola, te contacto de MALAVE Inmobiliaria por tu consulta' + (titulo ? ' sobre ' + titulo : '') + '.' + link);
     return 'https://wa.me/' + n2 + '?text=' + msg;
   }
   // Caja de mensaje y línea gris (versión anterior de las tarjetas; quedan por
@@ -1896,7 +1899,7 @@
     if (m.contacto) {
       const { tel, mail } = m.contacto;
       if (tel) {
-        a.push(`<a class="notif-btn wa" data-acc="contacto" href="${notifWaLink(tel, n.propertyTitle)}" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> WhatsApp</a>`);
+        a.push(`<a class="notif-btn wa" data-acc="contacto" href="${notifWaLink(tel, n.propertyTitle, n.propertyId)}" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> WhatsApp</a>`);
         a.push(`<a class="notif-btn" data-acc="contacto" href="tel:${String(tel).replace(/[^\d+]/g, '')}"><i class="fas fa-phone"></i> Llamar</a>`);
       }
       if (mail) a.push(`<a class="notif-btn" data-acc="contacto" href="mailto:${mvEsc(mail)}"><i class="fas fa-envelope"></i> Mail</a>`);

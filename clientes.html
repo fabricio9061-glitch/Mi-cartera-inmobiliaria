@@ -1843,6 +1843,12 @@
     function origenConsulta(c){ var s = String((c && c.source) || '').toLowerCase(); return PORTALES[s] ? s : ''; }
     function nombrePortal(c){ return PORTALES[origenConsulta(c)] || ''; }
     function primerNombre(n){ return String(n || '').trim().split(/\s+/)[0] || ''; }
+    // Link público de una propiedad que muestra su foto en WhatsApp (función "ver";
+    // es el mismo que arma "Compartir" en el inicio).
+    function urlVerPropiedad(id){
+      var pid = (typeof firebaseConfig !== 'undefined' && firebaseConfig && firebaseConfig.projectId) || 'mi-cartera-inmobiliaria';
+      return 'https://us-central1-' + pid + '.cloudfunctions.net/ver/' + encodeURIComponent(id);
+    }
     function miNombre(){ return (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente'; }
     function diasTxt(d){ return d === 1 ? '1 día' : (d == null ? '?' : d) + ' días'; }
     // Lo último que hizo una persona con esta consulta (escribirle, una nota, moverla,
@@ -2106,8 +2112,10 @@
       if (e === 'descartada'){
         acc = '<button type="button" class="cq-b" onclick="recuperarConsulta(event,\'' + id + '\')"><i class="fas fa-rotate-left"></i> Recuperar</button>';
       } else {
+        // Con el link de la publicación (el mismo de "Compartir" en el inicio): en
+        // WhatsApp se ve con foto, precio y zona.
         var msgWa = 'Hola' + (primerNombre(c.name) ? ' ' + primerNombre(c.name) : '') + ', te escribo de MALAVE Inmobiliaria por tu consulta' +
-          (portal ? ' en ' + portal : '') + (titulo ? ' sobre «' + titulo + '»' : '') + '.';
+          (portal ? ' en ' + portal : '') + (titulo ? ' sobre «' + titulo + '»' : '') + '.' + (p ? '\n' + urlVerPropiedad(p.id) : '');
         if (wa) acc += '<a class="cq-b wa" href="https://wa.me/' + wa + '?text=' + encodeURIComponent(msgWa) + '" target="_blank" rel="noopener" onclick="contactarConsulta(event,\'' + id + '\',\'whatsapp\')"><i class="fab fa-whatsapp"></i> WhatsApp</a>' +
           '<a class="cq-b" href="tel:+' + wa + '" onclick="contactarConsulta(event,\'' + id + '\',\'llamada\')"><i class="fas fa-phone"></i> Llamar</a>';
         else if (L.email) acc += '<a class="cq-b" href="mailto:' + escA(L.email) + '" onclick="contactarConsulta(event,\'' + id + '\',\'mail\')"><i class="fas fa-envelope"></i> Mail</a>';
