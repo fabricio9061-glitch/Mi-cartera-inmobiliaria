@@ -518,6 +518,29 @@ service cloud.firestore {
       allow create, update, delete: if esCEO();
     }
 
+    // ============ COMPROBANTES (recibo de la seña y carta de pago) ============
+    // Los arma el Mapa de cierres con los datos de la reserva: quién dejó la seña
+    // (nombre y cédula), la comisión y la seña. Esos datos del cliente NO van en la
+    // propiedad, que es pública: van acá, y solo los leen el agente de la operación
+    // y la Dirección. Recursos los abre para descargar el PDF.
+    // El agente emite y corrige el recibo de SU reserva; la carta de pago (cuando se
+    // confirma la firma) es de la Dirección. Borrar, solo la Dirección.
+    match /comprobantes/{id} {
+      allow read: if isApproved()
+                  && (resource.data.agenteUid == request.auth.uid || esDireccion());
+      allow create: if esDireccion()
+                    || (isApproved()
+                        && request.resource.data.agenteUid == request.auth.uid
+                        && request.resource.data.tipo == 'reserva');
+      allow update: if esDireccion()
+                    || (isApproved()
+                        && resource.data.agenteUid == request.auth.uid
+                        && resource.data.tipo == 'reserva'
+                        && request.resource.data.agenteUid == request.auth.uid
+                        && request.resource.data.tipo == 'reserva');
+      allow delete: if esDireccion();
+    }
+
     // ============ CONFIG — aprobados leen, admin escribe ============
     match /config/{doc} {
       allow read: if isApproved();

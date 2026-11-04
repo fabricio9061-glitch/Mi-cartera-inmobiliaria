@@ -310,6 +310,38 @@
     .puntaje button:hover{ border-color:#cfd5dc; }
     .puntaje button.on{ background:var(--navy); border-color:var(--navy); color:#fff; }
 
+    /* ===== Recibo de la seña (al registrar una reserva) ===== */
+    .firmado.recibo-on{ margin-top:0; }
+    .rec-campos{ margin-top:14px; }
+    .rec-campos[hidden]{ display:none; }
+    .reg-pag-row{ display:grid; grid-template-columns:82px minmax(0,1fr) 132px 40px; grid-template-areas:"t n c x"; gap:8px; margin-bottom:8px; }
+    .reg-pag-row select, .reg-pag-row input{ width:100%; border:1px solid #dde2e8; border-radius:10px; padding:10px 12px; font-size:.95rem; background:#fff; color:var(--ink); }
+    .reg-pag-row select:focus, .reg-pag-row input:focus{ outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.15); }
+    .reg-pag-row select{ grid-area:t; padding-right:6px; }
+    .reg-pag-row .reg-pag-nom{ grid-area:n; }
+    .reg-pag-row .reg-pag-ci{ grid-area:c; }
+    .reg-pag-row .reg-part-x{ grid-area:x; }
+    .reg-pag-row .reg-part-x[hidden]{ display:block; visibility:hidden; }
+    .b-add2{ border:1px dashed #d9c27e; background:#fff; color:var(--gold-d); border-radius:10px; padding:8px 12px; font-size:.8rem; font-weight:600; cursor:pointer; }
+    .b-add2:hover{ border-color:var(--gold); background:var(--gold-bg); }
+    .rec-sena{ max-width:260px; }
+    .chk{ display:flex; gap:9px; align-items:center; font-size:.86rem; color:#39424e; cursor:pointer; margin-top:2px; width:max-content; max-width:100%; }
+    .chk input{ accent-color:var(--navy); width:16px; height:16px; flex:none; }
+    .resumen.rec-res{ line-height:1.6; }
+    .resumen.rec-res .fila{ display:flex; justify-content:space-between; gap:12px; }
+    .resumen.rec-res .fila b{ font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .resumen.rec-res .fila.tot{ border-top:1px solid var(--line); margin-top:5px; padding-top:5px; }
+    .resumen.rec-res.mal{ background:#fff7e6; border-color:#f1dcaa; color:#7a5200; }
+    /* Carta de pago al confirmar la firma */
+    .conf-carta{ margin-top:14px; }
+    .conf-carta-nota{ font-size:.78rem; color:var(--muted); margin-top:12px; line-height:1.45; }
+    @media (max-width:640px){
+      .reg-pag-row{ grid-template-columns:82px minmax(0,1fr) 40px; grid-template-areas:"t n n" "c c x"; }
+      /* Cada persona ocupa dos renglones: una línea las separa. */
+      .reg-pag-row + .reg-pag-row{ border-top:1px dashed var(--line); padding-top:10px; margin-top:2px; }
+      .rec-sena{ max-width:none; }
+    }
+
     /* ===== Referidos ===== */
     .ref-head, .ref-row{ display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1.3fr) 92px 92px; gap:10px; align-items:center; }
     .ref-head{ font-size:.7rem; color:var(--soft); font-weight:700; text-transform:uppercase; letter-spacing:.06em; padding:12px 0 6px; }
@@ -523,6 +555,32 @@
           </div>
         </section>
 
+        <!-- Recibo de la seña: solo en una reserva. Con estos datos y los de arriba
+             se emite el recibo al guardar (Recursos → Comisión, con los datos fijos). -->
+        <section class="rs" id="regReciboSec" hidden>
+          <div class="rs-h"><span class="n">4</span>Recibo de la seña</div>
+          <label class="firmado recibo-on" id="regReciboWrap"><input type="checkbox" id="regReciboOn" checked onchange="pintarRecibo()"><span><b>Emitir el recibo de la seña</b><small id="regReciboSub">Se arma solo con estos datos y los de arriba, listo para firmar y mandar.</small></span></label>
+          <div class="rec-campos" id="regReciboCampos">
+            <div class="fg">
+              <label>¿Quién dejó la seña?</label>
+              <div id="regPagadores"></div>
+              <datalist id="regPagSug"></datalist>
+              <button type="button" class="b-add2" onclick="agregarPagador()"><i class="fas fa-plus"></i> Agregar otra persona</button>
+              <small class="hint">Si la dejaron entre varios, agregalos a todos. La cédula es opcional.</small>
+            </div>
+            <div class="fg">
+              <label for="regSena">Seña que dejó</label>
+              <div class="precio-in rec-sena"><span class="pre" id="regSenaMon">US$</span><input type="number" id="regSena" min="0" step="1" inputmode="decimal" placeholder="0"></div>
+            </div>
+            <label class="chk"><input type="checkbox" id="regIva" checked> Cobrar IVA (22%) sobre la comisión</label>
+            <div class="resumen rec-res" id="regReciboRes" hidden></div>
+            <div class="fg mt">
+              <label for="regRecDir">Dirección en el recibo</label>
+              <input type="text" id="regRecDir" placeholder="Calle y número, barrio" autocomplete="off">
+            </div>
+          </div>
+        </section>
+
         <section class="rs" id="regEquipoWrap">
           <div class="rs-h"><span class="n">4</span>¿Cerraron en equipo? <span class="opt">opcional</span>
             <button type="button" class="b-add" id="regAddAgente" onclick="agregarParticipante()"><i class="fas fa-plus"></i> Agregar agente</button></div>
@@ -575,6 +633,9 @@
           <input type="date" id="confFecha">
           <small class="hint">Es la fecha con la que la ganancia entra en Mis Finanzas.</small>
         </div>
+        <!-- Carta de pago: sale del recibo de la seña de esta reserva. -->
+        <label class="firmado conf-carta" id="confCartaWrap" hidden><input type="checkbox" id="confCarta" onchange="pintarConfCarta()"><span><b id="confCartaTit">Emitir la carta de pago</b><small id="confCartaTxt"></small></span></label>
+        <p class="conf-carta-nota" id="confCartaNota" hidden></p>
         <div class="aviso info" id="confNota"></div>
       </div>
       <div class="mf">
@@ -653,6 +714,14 @@
     let pinManual = false;     // el pin lo puso la persona: la búsqueda automática de la dirección no lo pisa
     let ganManual = false;     // true cuando la ganancia la escribió alguien (o vino del cierre guardado)
     let ganGuardada = false;   // la ganancia vino del cierre que se está corrigiendo
+    // Recibo de la seña (ver "Recibo de la seña" más abajo).
+    const IVA_TASA = 0.22;
+    // Si al corregir la reserva cambia alguno de estos datos, el recibo cambió y se vuelve a abrir.
+    const CAMPOS_RECIBO = ['operacion', 'direccion', 'moneda', 'comision', 'conIva', 'sena', 'fecha', 'pagadores', 'agenteUid', 'agenteNombre'];
+    let _pagIdx = 0;
+    let regRecibo = null;      // recibo ya guardado de la reserva que se corrige: { id, ...datos } o { id, error:true }
+    let _recSugTk = 0;         // las sugerencias de una propiedad anterior no pisan las de la actual
+    let confRecibo = null;     // al confirmar la firma: el recibo de la seña de esa reserva (para la carta de pago)
 
     // ---------- Utilidades ----------
     const $ = (id) => document.getElementById(id);
@@ -1212,6 +1281,9 @@
       }
       let acc = botonConfirmar(p) + botonCaida(p);
       acc += '<a class="b ic" href="propiedad.html?id=' + encodeURIComponent(p.id) + '" target="_blank" rel="noopener" title="Ver la propiedad" aria-label="Ver la propiedad"><i class="fas fa-arrow-up-right-from-square"></i></a>';
+      // Recibo de la seña y carta de pago (Recursos, con los datos fijos).
+      if (veComprobantes(p) && c.reciboId) acc += '<a class="b ic" href="' + esc(urlComprobante(c.reciboId)) + '" title="Recibo de la seña" aria-label="Recibo de la seña"><i class="fas fa-receipt"></i></a>';
+      if (veComprobantes(p) && c.cartaId) acc += '<a class="b ic" href="' + esc(urlComprobante(c.cartaId)) + '" title="Carta de pago" aria-label="Carta de pago"><i class="fas fa-file-invoice"></i></a>';
       if (isAdmin) acc += '<button type="button" class="b gold" onclick="generarRecibo(' + id + ', this)" title="Recibo de comisión en PDF"><i class="fas fa-file-invoice-dollar"></i> Recibo</button>';
       if (puedeEditar(p)) acc += '<button type="button" class="b ic" onclick="openReg(' + id + ')" title="Corregir el cierre" aria-label="Corregir el cierre"><i class="fas fa-pen"></i></button>';
       if (isAdmin) acc += '<button type="button" class="b ic del" onclick="eliminarCierre(' + id + ')" title="Eliminar el cierre" aria-label="Eliminar el cierre"><i class="fas fa-trash-can"></i></button>';
@@ -1381,10 +1453,49 @@
         ? 'Al confirmar, la propiedad pasa a <b>' + (tipo === 'venta' ? 'Vendida' : 'Alquilada') + '</b>, las gestiones a <b>Cerrado</b> (el agente ya no las puede cambiar) y la ganancia entra en Mis Finanzas y en Recompensas.'
         : 'Al confirmar, la ganancia entra en Mis Finanzas y en Recompensas, y las gestiones que sigan abiertas pasan a <b>Cerrado</b>.') + '</div>';
       ocupado($('confSave'), false);
+      prepararConfCarta(p);
       abrirOverlay('confModal');
       setTimeout(() => { try { $('confFecha').focus(); } catch(e) {} }, 60);
     }
-    function cerrarConfirmar(){ confId = null; cerrarOverlay('confModal'); }
+    function cerrarConfirmar(){ confId = null; confRecibo = null; cerrarOverlay('confModal'); }
+    // "Juan Pérez" · "Juan Pérez y Ana Gómez" · "Juan, Ana y Luis"
+    function nombresPagadores(l){
+      const n = (Array.isArray(l) ? l : []).map(x => x && String(x.nombre || '').trim()).filter(Boolean);
+      return n.length < 2 ? (n[0] || 'quien dejó la seña') : n.slice(0, -1).join(', ') + ' y ' + n[n.length - 1];
+    }
+    // Carta de pago: si la reserva tiene recibo de la seña, al confirmar la firma se
+    // emite con esos mismos datos (la seña ya pagada y el resto en el acto). Viene
+    // marcada; se desmarca si el cliente todavía no saldó la comisión.
+    async function prepararConfCarta(p){
+      confRecibo = null;
+      const wrap = $('confCartaWrap'), nota = $('confCartaNota'), c = p.cierre || {}, id = p.id;
+      wrap.hidden = true; nota.hidden = true; $('confCarta').checked = false;
+      pintarConfCarta();
+      if (!c.reciboId){
+        if (esReserva(p)){ nota.hidden = false; nota.textContent = 'Esta reserva no tiene recibo de la seña en el sistema: si corresponde, la carta de pago se hace en Recursos → Comisión.'; }
+        return;
+      }
+      let r = null;
+      try{ const d = await db.collection('comprobantes').doc(c.reciboId).get(); if (d.exists) r = Object.assign({ id: d.id }, d.data()); }
+      catch(e){ console.warn('[mapa] recibo para la carta de pago', e); }
+      if (confId !== id) return;                       // se cerró, o se abrió otra
+      if (!r){ nota.hidden = false; nota.textContent = 'No se pudo leer el recibo de la seña: si corresponde, la carta de pago se hace en Recursos → Comisión.'; return; }
+      confRecibo = r;
+      const neto = Number(r.comision) || 0, total = neto + (r.conIva ? Math.round(neto * IVA_TASA) : 0);
+      const sena = Number(r.sena) || 0, resto = Math.max(0, total - sena);
+      $('confCartaTit').textContent = c.cartaId ? 'Volver a emitir la carta de pago' : 'Emitir la carta de pago';
+      $('confCartaTxt').textContent = 'A nombre de ' + nombresPagadores(r.pagadores) + ': comisión de ' + fmtRedondo(total, r.moneda)
+        + (sena > 0 ? ' (la seña de ' + fmtRedondo(sena, r.moneda) + ' y ' + fmtRedondo(resto, r.moneda) + ' al firmar)' : '')
+        + '. Desmarcala si todavía no la saldó.';
+      $('confCarta').checked = true;
+      wrap.hidden = false;
+      pintarConfCarta();
+    }
+    function pintarConfCarta(){
+      const on = $('confCarta').checked && !$('confCartaWrap').hidden, b = $('confSave');
+      $('confCartaWrap').classList.toggle('on', on);
+      if (!b.disabled) b.innerHTML = '<i class="fas fa-check"></i> ' + (on ? 'Confirmar y emitir la carta' : 'Confirmar firma');
+    }
     async function guardarConfirmacion(){
       const id = confId, p = id && porId[id];
       if (!isAdmin || !p || !p.cierre) return;
@@ -1399,6 +1510,27 @@
       c.confirmadoPor = curProfile.name || curUser.email || 'Dirección';
       const btn = $('confSave'); ocupado(btn, true);
       try{
+        const gidVolver = (gestionPedida && gestionPedida.pid === id) ? gestionPedida.gid : '';
+        // La carta de pago va antes: si queda registrada, el cierre guarda su número.
+        // Si falla, la firma se confirma igual y se avisa.
+        let cartaId = '', cartaFallo = null;
+        const r = confRecibo;
+        if (r && $('confCarta').checked && !$('confCartaWrap').hidden){
+          const existe = !!c.cartaId;
+          const ref = existe ? db.collection('comprobantes').doc(c.cartaId) : db.collection('comprobantes').doc();
+          const marca = new Date().toISOString();
+          const carta = Object.assign({
+            tipo: 'carta', reciboId: r.id,
+            propertyId: id, propertyTitle: p.title || r.propertyTitle || '',
+            gestionId: r.gestionId || '',
+            agenteUid: c.agenteUid || r.agenteUid || p.ownerId || '', agenteNombre: c.agenteNombre || r.agenteNombre || '',
+            operacion: r.operacion === 'alquiler' ? 'alquiler' : 'venta', direccion: r.direccion || '', moneda: r.moneda === 'UYU' ? 'UYU' : 'USD',
+            comision: Number(r.comision) || 0, conIva: !!r.conIva, sena: Number(r.sena) || 0, fechaSena: r.fecha || c.fechaReserva || '',
+            fecha: fecha, pagadores: Array.isArray(r.pagadores) ? r.pagadores : []
+          }, existe ? { editadoEl: marca, editadoPor: curUser.uid } : { creadoEl: marca, creadoPor: curUser.uid, creadoPorNombre: curProfile.name || curUser.email || '' });
+          try{ await ref.set(carta, { merge: true }); cartaId = ref.id; c.cartaId = cartaId; }
+          catch(eC){ console.warn('[mapa] carta de pago', eC); cartaFallo = eC; }
+        }
         // Solo estos campos: las reglas le dejan a la Dirección tocar cierre y
         // cierreConfirmado. La propiedad y las gestiones las mueve el backend.
         await db.collection('properties').doc(id).update({ cierre: c, cierreConfirmado: true, updatedAt: new Date().toISOString() });
@@ -1409,7 +1541,13 @@
         cerrarConfirmar();
         pintarFiltros();
         repintar(id);
-        if (gestOk !== false) toast('Firma confirmada ✓ La propiedad y las gestiones se actualizan solas.');
+        if (cartaId){
+          toast('Firma confirmada ✓ Abriendo la carta de pago…');
+          irAComprobante(cartaId, gidVolver, gestOk === false ? 3200 : 1200);
+          return;
+        }
+        if (cartaFallo) toast('Firma confirmada ✓ pero la carta de pago no se pudo registrar: hacela en Recursos → Comisión.', true);
+        else if (gestOk !== false) toast('Firma confirmada ✓ La propiedad y las gestiones se actualizan solas.');
       }catch(e){
         console.warn('guardarConfirmacion', e);
         ocupado(btn, false);
@@ -1727,7 +1865,7 @@
         if (!precio || precio <= 0) el.value = '';
         else if (pct > 0) el.value = Math.round(comTot * pct / 100);   // sin % del agente no se inventa nada
       }
-      pintarPuntos(); pintarEquipo();
+      pintarPuntos(); pintarEquipo(); pintarRecibo();
     }
     function pintarPuntos(){
       const el = $('regPts'), g = parseFloat($('regGanancia').value), cur = $('regMoneda').value;
@@ -1746,6 +1884,8 @@
       ['regPctComprador', 'regPctVendedor'].forEach(id => $(id).addEventListener('input', recalcGanancia));
       document.querySelectorAll('input[name="regTipo"]').forEach(r => r.addEventListener('change', () => { pintarTipo(); ajustarPartesLabels(true); recalcGanancia(); avisos(); }));
       $('regMoneda').addEventListener('change', recalcGanancia);
+      $('regSena').addEventListener('input', pintarRecibo);
+      $('regIva').addEventListener('change', pintarRecibo);
       $('regDir').addEventListener('keydown', (e) => { if (e.key === 'Enter'){ e.preventDefault(); buscarDireccion(); } });
       // Elegir propiedad o agente no cuenta como "cargar datos": cerrar sin más no pregunta.
       const ensucia = (e) => { if (e.target && (e.target.id === 'regProp' || e.target.id === 'regAgente' || e.target.name === 'regOp')) return; regSucio = true; };
@@ -1833,6 +1973,257 @@
       }
       return { lista: out };
     }
+
+    // ---------- Recibo de la seña ----------
+    // Al registrar una RESERVA, el agente dice quién dejó la seña y cuánto. La
+    // comisión de esa parte (comprador o inquilino) sale del precio y del % o los
+    // meses de arriba. Al guardar, el recibo queda registrado en comprobantes/{id}
+    // y se abre en Recursos → Comisión con los datos fijos, listo para descargar o
+    // mandar. Cuando la Dirección confirma la firma, con ese mismo recibo sale la
+    // carta de pago.
+    // El nombre y la cédula del cliente NO van en la propiedad: su documento es
+    // público (lo lee la web). En el cierre queda solo el número del recibo
+    // (cierre.reciboId) y, después de la firma, el de la carta (cierre.cartaId).
+
+    // ¿Corresponde el recibo? Solo en una reserva: una operación nueva sobre una
+    // propiedad que no figura vendida ni alquilada (si ya se firmó, va la carta de
+    // pago), o la corrección de una reserva que sigue esperando la firma.
+    function reciboAplica(){
+      const p = selProp;
+      if (!p) return false;
+      if (regModo === 'editar') return esReserva(p);
+      if (isAdmin && $('regFirmado').checked) return false;
+      return p.status !== 'sold' && p.status !== 'rented';
+    }
+    function reciboActivo(){ return reciboAplica() && $('regReciboOn').checked && !(regRecibo && regRecibo.error); }
+    // Comisión de quien deja la seña (comprador o inquilino), sin IVA. Los importes
+    // del recibo van en números enteros, como en Recursos: con decimales, comisión
+    // más IVA podía no dar el total por un peso.
+    function partePagador(tipo){
+      const v = parseFloat($('regPctComprador').value);
+      return isNaN(v) ? DEF_PARTES[tipo][0] : v;
+    }
+    function datosRecibo(){
+      const tipo = tipoSel(), precio = parseFloat($('regPrecio').value) || 0, moneda = $('regMoneda').value || 'USD';
+      const parte = partePagador(tipo);
+      const neto = precio > 0 ? Math.round(tipo === 'venta' ? precio * parte / 100 : precio * parte) : 0;
+      const conIva = $('regIva').checked;
+      const iva = conIva ? Math.round(neto * IVA_TASA) : 0;
+      const total = neto + iva;
+      const sena = Math.round(parseFloat($('regSena').value) || 0);
+      return { tipo, precio, moneda, parte, neto, conIva, iva, total, sena, saldo: Math.max(0, total - sena) };
+    }
+    // La dirección como la escribe Recursos: calle y número, y después la ciudad
+    // o el barrio con el departamento.
+    function direccionRecibo(p){
+      const ub = p.ubicacion || {};
+      const calle = String(p.direccion || '').trim() || [ub.calle || '', ub.numero || ''].filter(Boolean).join(' ').trim();
+      const lugar = (p.ciudad && p.departamento) ? p.ciudad + ', ' + p.departamento : (p.location || '');
+      return [calle, lugar].filter(Boolean).join(', ');
+    }
+
+    // Personas que dejaron la seña: trato, nombre y cédula (una fila por persona).
+    function filaPagador(d){
+      d = d || {};
+      const id = 'pag_' + (_pagIdx++);
+      const row = document.createElement('div');
+      row.className = 'reg-pag-row'; row.id = id;
+      row.innerHTML = '<select class="reg-pag-trato" aria-label="Trato"><option value="Sr.">Sr.</option><option value="Sra.">Sra.</option></select>'
+        + '<input type="text" class="reg-pag-nom" list="regPagSug" placeholder="Nombre y apellido" aria-label="Nombre y apellido" autocomplete="off">'
+        + '<input type="text" class="reg-pag-ci" placeholder="Cédula" aria-label="Cédula" autocomplete="off">'
+        + '<button type="button" class="reg-part-x" onclick="quitarPagador(\'' + id + '\')" title="Quitar" aria-label="Quitar a esta persona"><i class="fas fa-xmark"></i></button>';
+      // Los valores van por el DOM y no dentro del HTML: un apellido con comillas no rompe nada.
+      row.querySelector('.reg-pag-trato').value = d.trato === 'Sra.' ? 'Sra.' : 'Sr.';
+      row.querySelector('.reg-pag-nom').value = d.nombre || '';
+      row.querySelector('.reg-pag-ci').value = d.ci || '';
+      return row;
+    }
+    function agregarPagador(d, sinFoco){
+      const row = filaPagador(d);
+      $('regPagadores').appendChild(row);
+      pintarQuitarPagador();
+      if (sinFoco !== true) row.querySelector('.reg-pag-nom').focus();
+      return row;
+    }
+    function quitarPagador(id){
+      const r = $(id); if (r) r.remove();
+      regSucio = true;
+      if (!$('regPagadores').children.length) agregarPagador(null, true);
+      pintarQuitarPagador();
+    }
+    // La única fila no se quita (queda su lugar, así no cambia el ancho de las otras).
+    function pintarQuitarPagador(){
+      const filas = $('regPagadores').children;
+      Array.prototype.forEach.call(filas, r => { r.querySelector('.reg-part-x').hidden = filas.length < 2; });
+    }
+    function leerPagadores(){
+      const out = [];
+      for (const r of document.querySelectorAll('#regPagadores .reg-pag-row')){
+        const nombre = r.querySelector('.reg-pag-nom').value.replace(/\s+/g, ' ').trim();
+        const ci = r.querySelector('.reg-pag-ci').value.replace(/\s+/g, ' ').trim();
+        if (!nombre && !ci) continue;                                     // fila vacía: se ignora
+        if (!nombre) return { error: 'Falta el nombre de la persona con cédula ' + ci + ' (o borrá esa cédula).', campo: r.querySelector('.reg-pag-nom') };
+        out.push({ trato: r.querySelector('.reg-pag-trato').value === 'Sra.' ? 'Sra.' : 'Sr.', nombre: nombre, ci: ci });
+      }
+      return { lista: out };
+    }
+    function limpiarRecibo(){
+      regRecibo = null; _recSugTk++;
+      $('regReciboOn').checked = true; $('regReciboOn').disabled = false;
+      $('regPagadores').innerHTML = '';
+      $('regPagSug').innerHTML = '';
+      $('regSena').value = ''; $('regIva').checked = true; $('regRecDir').value = '';
+      $('regReciboSub').textContent = 'Se arma solo con estos datos y los de arriba, listo para firmar y mandar.';
+      agregarPagador(null, true);
+    }
+    // Reserva NUEVA de p: una fila vacía (o con el cliente que mandó Clientes), la
+    // dirección de la propiedad y la seña en blanco.
+    function prepararRecibo(p){
+      limpiarRecibo();
+      $('regRecDir').value = p ? direccionRecibo(p) : '';
+      sugerirPagadores(p);
+      pintarRecibo();
+    }
+    // Corrección de una reserva: vuelve el recibo que ya tiene. Una reserva de antes,
+    // sin recibo, lo puede emitir ahora (arranca desmarcado: no se pide nada de más
+    // para corregir otra cosa). Devuelve false si en el medio cambió el formulario.
+    async function cargarReciboGuardado(p, tk){
+      limpiarRecibo();
+      $('regRecDir').value = direccionRecibo(p);
+      if (!esReserva(p)){ pintarRecibo(); return true; }          // ya firmada: el recibo no se toca desde acá
+      const id = p.cierre && p.cierre.reciboId;
+      $('regReciboOn').checked = !!id;
+      if (id){
+        try{
+          const d = await db.collection('comprobantes').doc(id).get();
+          if (tk !== regToken) return false;
+          if (d.exists){
+            const r = d.data() || {};
+            regRecibo = Object.assign({ id: d.id }, r);
+            $('regPagadores').innerHTML = '';
+            (Array.isArray(r.pagadores) && r.pagadores.length ? r.pagadores : [null]).forEach(x => agregarPagador(x, true));
+            $('regSena').value = r.sena != null ? r.sena : '';
+            $('regIva').checked = r.conIva !== false;
+            if (r.direccion) $('regRecDir').value = r.direccion;
+          } else $('regReciboOn').checked = false;          // se borró: se puede emitir uno nuevo
+        }catch(e){
+          if (tk !== regToken) return false;
+          console.warn('[mapa] recibo de la seña', e);
+          // Sin poder leerlo no se pisa: al guardar, el recibo queda como estaba.
+          regRecibo = { id: id, error: true };
+          $('regReciboOn').checked = true; $('regReciboOn').disabled = true;
+          $('regReciboSub').textContent = 'No se pudo leer el recibo que ya tiene: al guardar queda como estaba.';
+        }
+      }
+      sugerirPagadores(p);
+      pintarRecibo();
+      return true;
+    }
+    // Rol de una gestión: el guardado o, si no tiene, el que deduce Clientes por el
+    // origen del cliente (mismo criterio que el servidor).
+    async function rolDeGestion(g){
+      if (g.rol === 'propietario' || g.rol === 'interesado') return g.rol;
+      try{
+        const c = g.clientId ? await db.collection('clients').doc(g.clientId).get() : null;
+        const src = String((c && c.exists && (c.data() || {}).source) || '').toLowerCase();
+        if (['infocasas', 'ml', 'mercadolibre', 'web', 'inquilino', 'lead'].indexOf(src) >= 0) return 'interesado';
+      }catch(e){}
+      return 'propietario';
+    }
+    // Los interesados de la propiedad (sus gestiones) se ofrecen al escribir el
+    // nombre. Si se llegó desde Clientes, el cliente de esa gestión ya queda escrito.
+    async function sugerirPagadores(p){
+      const tk = ++_recSugTk, dl = $('regPagSug');
+      dl.innerHTML = '';
+      if (!p) return;
+      let gs = [];
+      try{ gs = (await db.collection('gestiones').where('propertyId', '==', p.id).get()).docs.map(d => Object.assign({ id: d.id }, d.data())); }
+      catch(e){ return; }
+      if (tk !== _recSugTk || selProp !== p) return;
+      const nombres = [];
+      gs.forEach(g => { const n = String(g.clientName || '').trim(); if (n && g.rol !== 'propietario' && nombres.indexOf(n) < 0) nombres.push(n); });
+      dl.innerHTML = nombres.map(n => '<option value="' + esc(n) + '"></option>').join('');
+      const ped = (gestionPedida && gestionPedida.pid === p.id && regModo !== 'editar') ? gs.find(g => g.id === gestionPedida.gid) : null;
+      if (!ped || !String(ped.clientName || '').trim()) return;
+      if ((await rolDeGestion(ped)) !== 'interesado' || tk !== _recSugTk || selProp !== p) return;
+      const filas = $('regPagadores').querySelectorAll('.reg-pag-nom');
+      if (filas.length === 1 && !filas[0].value.trim()){ filas[0].value = String(ped.clientName).trim(); pintarRecibo(); }
+    }
+    // Los números de los pasos siguen seguidos aunque el del recibo no se muestre.
+    function numerarSecciones(){
+      let n = 0;
+      document.querySelectorAll('#regBody > .rs').forEach(s => { if (s.hidden) return; const e = s.querySelector('.rs-h .n'); if (e) e.textContent = String(++n); });
+    }
+    // Muestra el paso si corresponde y pone al día el resumen: la comisión de quien
+    // deja la seña, el IVA, la seña y lo que queda para la firma.
+    function pintarRecibo(){
+      const aplica = reciboAplica(), on = $('regReciboOn').checked;
+      $('regReciboSec').hidden = !aplica;
+      numerarSecciones();
+      // En una reserva nueva, el botón dice lo que va a pasar.
+      if (regModo !== 'editar' && !(isAdmin && $('regFirmado').checked)) $('regSaveTxt').textContent = (aplica && on) ? 'Guardar y emitir el recibo' : 'Guardar reserva';
+      if (!aplica) return;
+      $('regReciboWrap').classList.toggle('on', on);
+      $('regReciboCampos').hidden = !on || !!(regRecibo && regRecibo.error);
+      const tipo = tipoSel(), d = datosRecibo(), res = $('regReciboRes');
+      $('regSenaMon').textContent = simbolo(d.moneda);
+      res.classList.remove('mal');
+      res.hidden = !on;
+      if (!on) return;
+      const quien = tipo === 'venta' ? 'comprador' : 'inquilino';
+      if (!(d.precio > 0)){ res.innerHTML = 'Poné el ' + (tipo === 'venta' ? 'precio' : 'alquiler') + ' de arriba y acá se calcula la comisión del ' + quien + '.'; return; }
+      if (!(d.neto > 0)){
+        res.classList.add('mal');
+        res.innerHTML = 'Con 0 ' + (tipo === 'venta' ? '%' : 'meses') + ' para el ' + quien + ' no hay comisión a cuenta de la cual dejar la seña. Corregí su parte arriba o desmarcá el recibo.';
+        return;
+      }
+      const fila = (t, v, cl) => '<div class="fila' + (cl ? ' ' + cl : '') + '"><span>' + t + '</span><b>' + esc(fmtRedondo(v, d.moneda)) + '</b></div>';
+      const parteTxt = tipo === 'venta' ? fmtNum(d.parte) + '% de ' + fmtRedondo(d.precio, d.moneda) : fmtMeses(d.parte) + ' de alquiler';
+      let h = fila('Comisión del ' + quien + ' (' + esc(parteTxt) + ')', d.neto);
+      if (d.conIva) h += fila('IVA 22%', d.iva) + fila('Comisión con IVA', d.total);
+      if (d.sena > 0){
+        h += fila('Seña que deja', d.sena);
+        if (d.sena > d.total){ res.classList.add('mal'); h += '<div class="fila tot"><span>La seña es más que la comisión: revisá el monto.</span></div>'; }
+        else h += fila(d.saldo > 0 ? 'Saldo al firmar' : 'Con la seña queda saldada', d.saldo, 'tot');
+      }
+      res.innerHTML = h;
+    }
+    // Lo que se guarda en comprobantes/{id}. null si el recibo no va; { error } si falta algo.
+    function reciboParaGuardar(p, agUid, agNom, fechaSena){
+      if (!reciboActivo()) return null;
+      const d = datosRecibo();
+      const quien = d.tipo === 'venta' ? 'comprador' : 'inquilino';
+      if (!(d.neto > 0)) return { error: 'Con 0 ' + (d.tipo === 'venta' ? '%' : 'meses') + ' para el ' + quien + ' no hay comisión para el recibo: corregí su parte o desmarcá «Emitir el recibo de la seña».', campo: $('regPctComprador') };
+      const pg = leerPagadores();
+      if (pg.error) return pg;
+      if (!pg.lista.length) return { error: 'Poné quién dejó la seña (o desmarcá «Emitir el recibo de la seña»).', campo: $('regPagadores').querySelector('.reg-pag-nom') };
+      if (!(d.sena > 0)) return { error: 'Poné cuánto dejó de seña.', campo: $('regSena') };
+      if (d.sena > d.total) return { error: 'La seña (' + fmtRedondo(d.sena, d.moneda) + ') es más que la comisión del ' + quien + ' (' + fmtRedondo(d.total, d.moneda) + '): revisá los montos.', campo: $('regSena') };
+      const dir = $('regRecDir').value.replace(/\s+/g, ' ').trim();
+      if (!dir) return { error: 'Poné la dirección de la propiedad tal como va en el recibo.', campo: $('regRecDir') };
+      return {
+        tipo: 'reserva',
+        propertyId: p.id, propertyTitle: p.title || '',
+        gestionId: (gestionPedida && gestionPedida.pid === p.id && gestionPedida.gid) || (regRecibo && regRecibo.gestionId) || '',
+        agenteUid: agUid, agenteNombre: agNom,
+        operacion: d.tipo, direccion: dir, moneda: d.moneda,
+        comision: d.neto, conIva: d.conIva, sena: d.sena,
+        fecha: fechaSena, pagadores: pg.lista
+      };
+    }
+    // El recibo (o la carta) se abre en Recursos → Comisión, armado y con los datos
+    // fijos. Si se llegó desde Clientes, desde ahí se vuelve a Clientes; si no, al mapa.
+    function urlComprobante(id, gid){
+      const back = document.querySelector('.mv-head .back-link');
+      const href = (back && back.getAttribute('href')) || '';
+      const desdeClientes = !!gid || /^clientes\.html/.test(href);
+      if (!gid){ const m = /[?&]gestion=([^&#]+)/.exec(href); if (m) gid = decodeURIComponent(m[1]); }
+      return 'generar-documentos.html?comprobante=' + encodeURIComponent(id)
+        + (desdeClientes ? '&desde=clientes' + (gid ? '&gestion=' + encodeURIComponent(gid) : '') : '');
+    }
+    function irAComprobante(id, gid, demora){ setTimeout(() => { location.href = urlComprobante(id, gid); }, demora || 0); }
+    // ¿Puede abrir los comprobantes de este cierre? Los lee el agente del cierre y la Dirección.
+    function veComprobantes(p){ return !!(curUser && p && p.cierre && (isAdmin || (p.cierre.agenteUid || p.ownerId) === curUser.uid)); }
 
     // Agente del cierre (solo admin). Si el guardado ya no está aprobado, se ofrece
     // igual "(inactivo)" para no tener que pasarle su cierre a otro al corregirlo.
@@ -1988,6 +2379,7 @@
       // "La firma ya se hizo" solo la marca la Dirección, y solo en una operación nueva.
       $('regFirmadoWrap').hidden = !(isAdmin && !ed);
       $('regFirmadoWrap').classList.toggle('on', firmado);
+      pintarRecibo();
     }
     function pintarFirmado(){ regSucio = true; tituloModo(); }
     function limpiarOperacion(){
@@ -2012,6 +2404,7 @@
       $('regGeoHint').textContent = 'Si la propiedad ya tiene ubicación, aparece marcada. Tocá el mapa o arrastrá el pin para ajustarla.';
       $('regAgenteWrap').hidden = true;
       $('regFirmado').checked = false;
+      limpiarRecibo(); $('regReciboSec').hidden = true;
       $('regSave').disabled = false;
       $('regBody').scrollTop = 0;
       if (regPin && regMap){ regMap.removeLayer(regPin); regPin = null; }
@@ -2141,6 +2534,7 @@
       tituloModo();
       if (isAdmin) llenarAgentes(p.ownerId || curUser.uid, false, p.ownerName);
       pinDePropiedad(p);
+      prepararRecibo(p);
     }
     async function seleccionarPropiedad(p){
       const tk = ++regToken;
@@ -2195,6 +2589,7 @@
         if (tk !== regToken) return false;
       }
       if (c.lat != null && c.lng != null) setRegPin(Number(c.lat), Number(c.lng)); else pinDePropiedad(p);
+      if (!(await cargarReciboGuardado(p, tk))) return false;
       tituloModo();
       return true;
     }
@@ -2229,6 +2624,13 @@
       const p = selProp;
       const previo = (p.cierre && typeof p.cierre === 'object') ? p.cierre : null;
       const correccion = esCorreccion();
+      // El recibo de la seña se revisa antes de guardar nada.
+      let rec = reciboParaGuardar(p, cierreAgUid, cierreAgNom, fecha);
+      if (rec && rec.error){
+        toast(rec.error, true);
+        if (rec.campo){ rec.campo.scrollIntoView({ behavior: 'smooth', block: 'center' }); try{ rec.campo.focus({ preventScroll: true }); }catch(eF){} }
+        return;
+      }
       // Al corregir se conservan las características del momento del cierre.
       const foto = (k, actual) => (correccion && previo[k] != null && previo[k] !== '') ? previo[k] : actual;
       const pc = parseFloat($('regPctComprador').value), pv = parseFloat($('regPctVendedor').value);
@@ -2262,6 +2664,7 @@
       if (!correccion) cierre.fechaReserva = fecha;
       else if (previo.fechaReserva) cierre.fechaReserva = esReserva(p) ? fecha : previo.fechaReserva;
       if (correccion && previo.confirmadoEl){ cierre.confirmadoEl = previo.confirmadoEl; if (previo.confirmadoPor) cierre.confirmadoPor = previo.confirmadoPor; }
+      if (correccion && previo.cartaId) cierre.cartaId = previo.cartaId;      // la carta de pago no se toca desde acá
       const firmado = !correccion && isAdmin && $('regFirmado').checked;
       const upd = { cierre: cierre, updatedAt: ahora };
       // Una operación nueva deja la propiedad RESERVADA hasta la firma (Mercado Libre
@@ -2277,6 +2680,8 @@
         try{ const fr = await db.collection('properties').doc(p.id).get(); if (fr.exists) p.status = (fr.data() || {}).status || 'available'; }catch(eF){}
       }
       const yaCerrada = p.status === 'sold' || p.status === 'rented';
+      // Resultó que ya figuraba vendida o alquilada: no es una reserva, no va recibo de seña.
+      if (rec && !correccion && yaCerrada) rec = null;
       if (!correccion) upd.status = yaCerrada ? (tipo === 'venta' ? 'sold' : 'rented') : 'reserved';
       else if (yaCerrada) upd.status = (tipo === 'venta' ? 'sold' : 'rented');
       // Una operación nueva sobre un cierre confirmado (solo la Dirección llega acá):
@@ -2289,6 +2694,30 @@
       const btn = $('regSave'); ocupado(btn, true);
       try{
         const ref = db.collection('properties').doc(p.id);
+        // La gestión que mandó Clientes (para volver ahí desde el recibo).
+        const gidVolver = (gestionPedida && gestionPedida.pid === p.id) ? gestionPedida.gid : '';
+        // El recibo va primero: si queda registrado, el cierre guarda su número. Si
+        // falla, la reserva se guarda igual y se avisa.
+        let recId = '', recFallo = null, recCambio = false;
+        if (rec){
+          const existe = correccion && !!(regRecibo && regRecibo.id && !regRecibo.error);
+          recCambio = !existe || CAMPOS_RECIBO.some(k => JSON.stringify(rec[k]) !== JSON.stringify(regRecibo[k]));
+          if (existe && !recCambio) recId = regRecibo.id;              // se corrigió otra cosa: el recibo no se reescribe
+          else {
+            const recRef = existe ? db.collection('comprobantes').doc(regRecibo.id) : db.collection('comprobantes').doc();
+            const marcaR = new Date().toISOString();
+            const datosR = Object.assign({}, rec, existe
+              ? { editadoEl: marcaR, editadoPor: curUser.uid }
+              : { creadoEl: marcaR, creadoPor: curUser.uid, creadoPorNombre: curProfile.name || curUser.email || '' });
+            try{ await recRef.set(datosR, { merge: true }); recId = recRef.id; }
+            catch(eR){ console.warn('[mapa] recibo de la seña', eR); recFallo = eR; }
+          }
+        }
+        // Al corregir, el recibo que ya tenía sigue vinculado salvo que se haya
+        // desmarcado a propósito.
+        const reciboPrevio = (correccion && previo && previo.reciboId) || '';
+        if (recId) cierre.reciboId = recId;
+        else if (reciboPrevio && (!reciboAplica() || (regRecibo && regRecibo.error) || recFallo)) cierre.reciboId = reciboPrevio;
         if (sobreConfirmado){
           const u1 = { cierre: cierre, cierreConfirmado: false, updatedAt: ahora };
           if (upd.status) u1.status = upd.status;
@@ -2342,7 +2771,15 @@
         selId = p.id;
         refrescar(false);
         enfocarCierre(p.id);
-        if (gestOk !== false) toast(correccion ? 'Cierre actualizado ✓' : (p.cierreConfirmado === true ? 'Cierre registrado y confirmado ✓' : 'Reserva registrada ✓ La propiedad quedó Reservada hasta que se confirme la firma.')
+        // Recibo emitido (o cambiado al corregir): se abre listo para descargar o mandar.
+        if (recId && recCambio){
+          toast((correccion ? 'Reserva corregida ✓' : 'Reserva registrada ✓') + ' Abriendo el recibo de la seña…');
+          irAComprobante(recId, gidVolver, gestOk === false ? 3200 : 1200);
+          return;
+        }
+        if (recFallo) toast('La reserva quedó guardada, pero el recibo no se pudo registrar'
+          + (recFallo.code === 'permission-denied' ? ' (falta un permiso en el sistema: avisale a la Dirección)' : '') + '. Probá de nuevo con «Corregir reserva».', true);
+        else if (gestOk !== false) toast(correccion ? 'Cierre actualizado ✓' : (p.cierreConfirmado === true ? 'Cierre registrado y confirmado ✓' : 'Reserva registrada ✓ La propiedad quedó Reservada hasta que se confirme la firma.')
           + (gestOk ? ' La gestión del cliente ya está al día.' : ''));
       }catch(e){
         console.warn('guardarCierre', e);

@@ -99,6 +99,18 @@
     .doc-nota i{ color:var(--gold-2); margin-top:3px; flex:none; }
     .doc-nota b{ color:var(--txt-2); font-weight:600; }
     .doc-nota[hidden]{ display:none; }
+    /* Recibo o carta de pago ya emitidos desde el Mapa de cierres: los datos vienen
+       de la reserva y acá quedan fijos (se ven, no se cambian). */
+    .comp-nota{ margin-top:14px; display:flex; gap:10px; align-items:flex-start; max-width:60ch; padding:11px 13px;
+      background:var(--gold-soft); border:1px solid var(--gold-line); border-radius:10px; font-size:.82rem; line-height:1.5; color:var(--txt-2); }
+    .comp-nota i{ color:var(--gold-2); margin-top:3px; flex:none; }
+    .comp-nota b{ color:var(--navy); font-weight:600; }
+    .comp-nota a{ color:var(--gold-2); font-weight:600; text-underline-offset:2px; }
+    .comp-nota[hidden]{ display:none; }
+    #formCartaPago.comp-fijo .add-firmante, #formCartaPago.comp-fijo .fdel{ display:none; }
+    #formCartaPago.comp-fijo input:disabled, #formCartaPago.comp-fijo select:disabled{ color:var(--txt) !important; background-color:var(--fondo) !important; opacity:1; -webkit-text-fill-color:var(--txt); }
+    #formCartaPago.comp-fijo .seg button:disabled{ cursor:default; }
+    #formCartaPago.comp-fijo .seg button:disabled:not(.on){ opacity:.55; }
 
     .panel{ min-width:0; }
     /* El nombre del documento ya está en el título de arriba. */
@@ -743,6 +755,8 @@
                    arma aplicarPermisos() con los nombres de los documentos ocultos,
                    así no hay una lista repetida que se desactualice. -->
               <p class="doc-nota" id="docNota" hidden></p>
+              <!-- Recibo o carta emitidos desde el Mapa de cierres (?comprobante=). -->
+              <div class="comp-nota" id="compNota" role="note" hidden></div>
             </div>
 
         <!-- Formulario -->
@@ -3354,7 +3368,9 @@
       var letrasTxt = montoEnLetras(pg.entrega, moneda);
       // La frase final cambia según sea pago completo, primera parte o saldo.
       if (pg.esReserva) {
-        var t = 'Recibí de '+encabezado+' la suma de '+montoTxt+' ('+letrasTxt.toLowerCase()+'), en concepto de seña para la reserva de la propiedad ubicada en '+dir+'.';
+        // "del Sr. …" (antes salía "de el Sr. …"); "de la Sra.", "de los Sres." no cambian.
+        var deQuien = /^el /.test(encabezado) ? 'del '+encabezado.slice(3) : 'de '+encabezado;
+        var t = 'Recibí '+deQuien+' la suma de '+montoTxt+' ('+letrasTxt.toLowerCase()+'), en concepto de seña para la reserva de la propiedad ubicada en '+dir+'.';
         t += '\n\nSe deja constancia de que dicho importe será imputado al pago de la comisión inmobiliaria correspondiente a la operación de '+opTxt+
              (pg.total>0 ? (pg.conIva
                 ? ', pactada en '+fmtMonto(pg.neto, moneda)+' más IVA (22%) de '+fmtMonto(pg.iva, moneda)+
@@ -3369,7 +3385,8 @@
       }
       var fp = document.getElementById('fFechaPrevia');
       var fechaPrevia = fp && fp.value ? fechaSola(fp.value) : '';
-      var c = 'Por la presente se deja constancia que '+encabezado+' '+verbo+' correspondiente al '+opTxt+' de la propiedad ubicada en '+dir+', por concepto de comisión inmobiliaria, por la suma '+(firmantes.length>1?'total ':'')+'de '+montoTxt+' ('+letrasTxt.toLowerCase()+').';
+      // "a la compraventa" / "al arrendamiento" (antes salía "al compraventa").
+      var c = 'Por la presente se deja constancia que '+encabezado+' '+verbo+' correspondiente '+(opTxt==='compraventa' ? 'a la ' : 'al ')+opTxt+' de la propiedad ubicada en '+dir+', por concepto de comisión inmobiliaria, por la suma '+(firmantes.length>1?'total ':'')+'de '+montoTxt+' ('+letrasTxt.toLowerCase()+').';
       if (pg.previa>0) {
         c += '\n\nDe dicho importe, '+fmtMonto(pg.previa, moneda)+' ('+montoEnLetras(pg.previa, moneda)+') fueron abonados'+
              (fechaPrevia ? ' el '+fechaPrevia : ' en concepto de seña')+' y el resto en este acto.';
@@ -3391,9 +3408,114 @@
       return (p && p._dir) ? p._dir : '_________________';
     }
     function agenteActual(){
+      // Recibo emitido desde el mapa: firma el agente de la operación, aunque ya no esté en la lista.
+      if(_comp) return _comp.agenteNombre || '';
       var v=document.getElementById('fAgente').value;
       var a=agentes.find(function(x){return x.id===v;});
       return a ? (a.name||'') : '';
+    }
+
+    // ===== Recibo o carta de pago emitidos desde el Mapa de cierres =====
+    // generar-documentos.html?comprobante=ID abre el recibo de la seña que se emitió
+    // al registrar la reserva (o la carta de pago, al confirmarse la firma). Se arma
+    // con los datos guardados en comprobantes/ID y queda fijo: si algo está mal, se
+    // corrige la reserva en el mapa y el recibo acompaña. Así los montos del recibo
+    // son siempre los de la reserva. Lo pueden abrir el agente de la operación y la
+    // Dirección (las reglas de Firestore no se lo dejan leer a nadie más).
+    var _comp = null;
+    function compPedido(){
+      try{ return new URLSearchParams(location.search).get('comprobante') || ''; }catch(e){ return ''; }
+    }
+    async function abrirComprobante(id){
+      var d;
+      try{ d = await db.collection('comprobantes').doc(id).get(); }
+      catch(e){
+        console.warn('comprobante', e);
+        toast(e && e.code === 'permission-denied'
+          ? 'Ese recibo no se puede abrir con tu usuario: lo ven el agente de la operación y la Dirección.'
+          : 'No se pudo abrir el recibo. Revisá la conexión y recargá la página.', true);
+        return false;
+      }
+      if(!d.exists){ toast('Ese recibo ya no existe.', true); return false; }
+      _comp = Object.assign({ id:d.id }, d.data());
+      // Comisión a la vista, aunque este rol no haga recibos en blanco.
+      var b = document.querySelector('.doc-type[data-type="carta_pago"]');
+      if(b){ b.hidden = false; var g = b.closest('.doc-grupo'); if(g) g.hidden = false; }
+      var nota = document.getElementById('docNota'); if(nota) nota.hidden = true;
+      selectType('carta_pago');
+      compCargar();
+      // En el celular se abre la hoja: es lo que se vino a ver.
+      if(pvEsCelular()) pvAbrir();
+      return true;
+    }
+    function compCargar(){
+      var c = _comp; if(!c) return;
+      var carta = c.tipo === 'carta', num = function(v){ return Number(v) > 0 ? String(Math.round(Number(v))) : ''; };
+      setOperacion(c.operacion === 'venta' ? 'compraventa' : 'arrendamiento');
+      document.getElementById('fPropManual').value = c.direccion || '';
+      setModoProp('manual');
+      document.getElementById('fMoneda').value = c.moneda === 'UYU' ? 'UYU' : 'USD';
+      document.getElementById('fMonto').value = num(c.comision);
+      document.getElementById('fIva').checked = !!c.conIva;
+      setComprobante(carta ? 'carta' : 'reserva');
+      document.getElementById('fEntrega').value = carta ? '' : num(c.sena);
+      document.getElementById('fEntregaPrevia').value = carta ? num(c.sena) : '';
+      document.getElementById('fFechaPrevia').value = carta && Number(c.sena) > 0 ? (c.fechaSena || '') : '';
+      // Las personas: los valores van por el DOM (un apellido con comillas no rompe nada).
+      var box = document.getElementById('firmantes');
+      box.innerHTML = '';
+      (Array.isArray(c.pagadores) && c.pagadores.length ? c.pagadores : [{}]).forEach(function(x){
+        addFirmante();
+        var f = box.lastElementChild;
+        f.querySelector('.f-trato').value = x.trato === 'Sra.' ? 'Sra.' : 'Sr.';
+        f.querySelector('.f-nombre').value = x.nombre || '';
+        f.querySelector('.f-ci').value = x.ci || '';
+      });
+      document.getElementById('fFecha').value = /^\d{4}-\d{2}-\d{2}$/.test(c.fecha || '') ? c.fecha : hoyISO();
+      compFijar();
+      compNota();
+      compVolver();
+      renderPreview();
+    }
+    // El agente que firma queda elegido, y nada del formulario se puede cambiar
+    // (sí descargar y enviar). Se vuelve a aplicar cuando llega la lista de agentes.
+    function compFijar(){
+      var c = _comp, f = document.getElementById('formCartaPago'), s = document.getElementById('fAgente');
+      if(!c || !f) return;
+      if(s){
+        var uid = c.agenteUid || '_comp';
+        var o = Array.prototype.find.call(s.options, function(x){ return x.value === uid; });
+        if(!o){ o = document.createElement('option'); o.value = uid; o.textContent = c.agenteNombre || 'Agente'; s.appendChild(o); }
+        s.value = uid;
+      }
+      // "Al firmar" queda a la vista aunque este rol no haga cartas en blanco: si es
+      // una carta, es el momento que está marcado.
+      var sc = document.getElementById('segCarta'); if(sc) sc.hidden = false;
+      var ph = document.getElementById('propHint'); if(ph) ph.textContent = 'La dirección que se cargó al registrar la reserva.';
+      f.classList.add('comp-fijo');
+      f.querySelectorAll('input, select, textarea, button').forEach(function(e){ if(e.id !== 'genBtn') e.disabled = true; });
+    }
+    function compNota(){
+      var n = document.getElementById('compNota'), c = _comp;
+      if(!n || !c) return;
+      var h = '<i class="fas fa-lock" aria-hidden="true"></i><div>' + (c.tipo === 'carta'
+        ? '<b>Carta de pago emitida al confirmar la firma</b> en el Mapa de cierres, con los datos del recibo de la seña.'
+        : '<b>Recibo emitido al registrar la reserva</b> en el Mapa de cierres. Los datos salen de ahí: si algo está mal, corregí la reserva en el mapa y el recibo se actualiza.');
+      if(esAdmin) h += ' Para hacer uno distinto, <a href="generar-documentos.html">empezá uno en blanco</a>.';
+      n.innerHTML = h + '</div>';
+      n.hidden = _tipoActivo !== 'carta_pago';
+    }
+    // "Volver": a Clientes si se vino de ahí, y si no al mapa, con la propiedad marcada.
+    function compVolver(){
+      var a = document.querySelector('.fh-back'), c = _comp;
+      if(!a || !c) return;
+      var q = new URLSearchParams(location.search), gid = q.get('gestion') || '';
+      var clientes = q.get('desde') === 'clientes';
+      var txt = clientes ? 'Volver a Clientes' : 'Volver al mapa';
+      a.href = clientes ? 'clientes.html' + (gid ? '?gestion=' + encodeURIComponent(gid) : '')
+                        : 'mapa-cierres.html' + (c.propertyId ? '?id=' + encodeURIComponent(c.propertyId) : '');
+      a.setAttribute('aria-label', txt);
+      var s = a.querySelector('span'); if(s) s.textContent = txt;
     }
 
     // ===== Construcción del HTML del documento (para preview y base del PDF) =====
@@ -8482,6 +8604,9 @@
         ? (typeof tipoComprobante !== 'undefined' && tipoComprobante === 'carta' ? 'Carta de pago' : 'Recibo de reserva')
         : (b ? b.textContent : 'Documentos');
       if(h.textContent !== t) h.textContent = t;
+      // El aviso del recibo emitido desde el mapa va solo con Comisión.
+      var cn = document.getElementById('compNota');
+      if(cn) cn.hidden = !(_comp && _tipoActivo === 'carta_pago');
     }
     function docPanel(){
       return document.getElementById({ carta_pago:'formCartaPago', contrato:'formContrato', mediacion:'formMediacion',
@@ -8796,6 +8921,9 @@
       renderPreview();
       docMarcarSeccion();
       cargarDatos(user.uid);
+      // Llegó un recibo (o una carta de pago) emitido desde el Mapa de cierres.
+      var comp = compPedido();
+      if(comp) abrirComprobante(comp);
     });
 
     function propPorId(id){
@@ -8959,6 +9087,8 @@
       if(_ipListo) ipPintarAgentes();
       if(_amListo) amPintarDatos();
       if(_selListo) selPintarDatos();
+      // Recibo emitido desde el mapa: la lista nueva no le cambia el agente ni lo desbloquea.
+      if(_comp) compFijar();
       // La hoja se arma de nuevo: puede haber cambiado el agente, o la dirección
       // de la propiedad elegida.
       refrescarVista();
