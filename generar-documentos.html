@@ -192,6 +192,73 @@
     #ctPagoIniCampos input[readonly]{ background:var(--fondo); color:var(--navy); font-weight:600; cursor:default; }
     #ctPagoIniCampos .hint{ margin-top:-6px; }
 
+    /* Cláusulas especiales: cada una es una ficha con su título, los datos que
+       pide (lo que en el texto va entre corchetes) y el texto, plegable. */
+    .ce-lista{ display:flex; flex-direction:column; gap:12px; margin-bottom:12px; }
+    .ce-lista:empty{ display:none; }
+    .ce-item{ background:var(--fondo); border:1px solid var(--line); border-radius:12px; padding:12px 12px 8px 14px; }
+    .ce-cab{ display:flex; align-items:flex-start; gap:6px; }
+    .ce-cab .fld{ flex:1 1 auto; margin-bottom:12px; }
+    .ce-orden{ display:block; min-height:1.25em; margin-bottom:6px; font-size:.78rem; color:var(--muted); }
+    .ce-orden b{ color:var(--gold-2); font-weight:700; }
+    .fld textarea.ce-titulo{ display:block; min-height:40px; resize:none; overflow:hidden; line-height:1.4; font-weight:600; color:var(--navy);
+      text-transform:uppercase; }
+    .fld textarea.ce-titulo::placeholder{ text-transform:none; font-weight:400; }
+    .ce-oculto{ position:absolute !important; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+    .ce-quitar, .ce-cerrar{ flex:none; width:32px; height:32px; display:grid; place-items:center; border:0; border-radius:999px; background:transparent;
+      color:var(--muted); font-size:.9rem; cursor:pointer; }
+    .ce-quitar{ margin-top:18px; }
+    .ce-quitar:hover{ color:var(--bad); background:var(--mal-s); }
+    .ce-cerrar:hover{ color:var(--navy); background:var(--hover); }
+    .ce-campos{ display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); column-gap:12px; }
+    .ce-campos:empty{ display:none; }
+    .ce-campos .fld.ancho{ grid-column:1 / -1; }
+    .ce-texto{ border-top:1px dashed var(--line-2); }
+    .ce-texto > summary{ display:flex; align-items:center; gap:9px; min-height:40px; font-size:.84rem; font-weight:600; color:var(--navy);
+      cursor:pointer; list-style:none; }
+    .ce-texto > summary::-webkit-details-marker{ display:none; }
+    .ce-texto > summary::before{ content:'\f054'; font-family:'Font Awesome 6 Free'; font-weight:900; font-size:.66rem; color:var(--muted);
+      transition:transform .15s; }
+    .ce-texto[open] > summary::before{ transform:rotate(90deg); }
+    .ce-texto .fld{ margin:2px 0 10px; }
+    .fld textarea[id^="ceTxt_"]{ min-height:200px; font-size:.88rem; line-height:1.5; }
+    .ce-texto .ct-nota{ margin:0 0 10px; }
+    .ce-pie{ display:flex; align-items:center; flex-wrap:wrap; gap:2px 14px; border-top:1px solid var(--line); padding-top:4px; }
+    .ce-falta{ flex:1 1 200px; font-size:.8rem; line-height:1.45; color:var(--reg); }
+    .ce-pie .iv-link{ display:inline-flex; align-items:center; gap:7px; }
+    .ce-pie .iv-link i{ font-size:.76rem; }
+    .ce-pie .iv-link:disabled{ opacity:.5; cursor:default; }
+    /* Desde dónde empezar: escribir, un modelo o uno guardado. */
+    .ce-menu{ margin-top:10px; border:1px solid var(--line-2); border-radius:12px; background:#fff; overflow:hidden;
+      box-shadow:0 10px 28px -12px rgba(16,24,40,.22); }
+    .ce-menu[hidden]{ display:none; }
+    .ce-menu-cab{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 6px 6px 14px; border-bottom:1px solid var(--line);
+      font-size:.88rem; color:var(--navy); }
+    .ce-menu-cab b{ font-weight:600; }
+    .ce-grupo{ padding:14px 14px 4px; font-size:.75rem; font-weight:600; color:var(--muted); border-top:1px solid var(--line); }
+    .ce-opcion{ display:flex; align-items:flex-start; gap:12px; width:100%; min-height:52px; padding:10px 14px; border:0; background:none;
+      font-family:inherit; text-align:left; color:var(--txt); cursor:pointer; }
+    .ce-opcion:hover{ background:var(--hover); }
+    .ce-opcion:focus-visible{ outline-offset:-2px; }
+    .ce-opcion > i{ flex:none; width:18px; margin-top:3px; text-align:center; font-size:.9rem; color:var(--gold-2); }
+    .ce-opcion > span{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+    .ce-opcion b{ font-size:.88rem; font-weight:600; color:var(--navy); }
+    .ce-opcion small{ font-size:.78rem; line-height:1.4; color:var(--muted); }
+    .ce-guardado{ display:flex; align-items:stretch; }
+    .ce-guardado .ce-opcion{ flex:1 1 auto; min-width:0; }
+    .ce-guardado small{ display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
+    .ce-borrar{ flex:none; width:46px; border:0; background:none; color:var(--muted); cursor:pointer; }
+    .ce-borrar:hover{ color:var(--bad); background:var(--mal-s); }
+    .ce-vacio{ padding:4px 14px 14px; font-size:.8rem; line-height:1.5; color:var(--muted); }
+    @media (max-width:860px){
+      .ce-quitar, .ce-cerrar{ width:44px; height:44px; }
+      .ce-quitar{ margin:10px -6px 0 0; }
+      .ce-opcion{ min-height:58px; }
+      .ce-texto > summary{ min-height:46px; }
+      .ce-pie .iv-link{ min-height:44px; }
+    }
+    @media (prefers-reduced-motion:reduce){ .ce-texto > summary::before{ transition:none; } }
+
     /* ---- La hoja --------------------------------------------------------------------- */
     .preview-wrap{ display:flex; flex-direction:column; min-width:0; min-height:0; background:var(--mesa); color:#dfe5ee; }
     .pv-barra{ flex:none; display:flex; align-items:center; gap:8px; min-height:56px; padding:8px 16px 8px 22px; min-width:0;
@@ -884,7 +951,24 @@
           <div class="hint" style="margin:-6px 0 10px">Todas apagadas. Se encienden a propósito, una por una.</div>
           <div id="ctOpcionales"></div>
 
-          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">7</span><span class="ct-tit">Política de la agencia</span></div>
+          <!-- Lo que el catálogo no trae. Las arma ceInit(); cada una entra con su
+               número antes de DOMICILIOS (con ANDA, en el anexo, antes de la firma). -->
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">7</span><span class="ct-tit">Cláusulas especiales</span></div>
+          <div class="hint" id="ceDonde" style="margin:-6px 0 14px">Para un acuerdo puntual que el contrato no trae: una instalación, una obra, un permiso. Entran antes de DOMICILIOS Y NOTIFICACIONES y se numeran solas.</div>
+          <div class="ce-lista" id="ceLista"></div>
+          <button type="button" class="ct-add" id="ceAbrir" onclick="ceAlternarMenu()" aria-expanded="false" aria-controls="ceMenu"><i class="fas fa-plus" aria-hidden="true"></i> Agregar cláusula especial</button>
+          <div class="ce-menu" id="ceMenu" role="group" aria-labelledby="ceMenuTit" hidden>
+            <div class="ce-menu-cab"><b id="ceMenuTit">¿Desde dónde empezás?</b>
+              <button type="button" class="ce-cerrar" onclick="ceMenu(false)" aria-label="Cerrar"><i class="fas fa-xmark" aria-hidden="true"></i></button></div>
+            <button type="button" class="ce-opcion" onclick="ceAgregar('propia')"><i class="fas fa-pen" aria-hidden="true"></i>
+              <span><b>Escribir o pegar una cláusula</b><small>Si la primera línea dice «CLÁUSULA [N.º] – TÍTULO», el título se completa solo.</small></span></button>
+            <p class="ce-grupo">Modelos</p>
+            <div id="ceModelos"></div>
+            <p class="ce-grupo">Guardados por la agencia</p>
+            <div id="ceGuardados"></div>
+          </div>
+
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">8</span><span class="ct-tit">Política de la agencia</span></div>
           <div class="hint" style="margin:-6px 0 10px">Se definen una vez. Quedan guardadas en este navegador.</div>
           <div class="ct-nota" id="ctPoliticaNota" hidden>
             <span>No son los valores originales. Quedan guardados para los próximos contratos que se hagan en este navegador.</span>
@@ -1530,11 +1614,19 @@
     // efectivamente entran. Por eso no puede volver a pasar lo del contrato viejo,
     // que tenía seis cláusulas faltantes y dos repetidas.
     // ==========================================================================
-    var ORDINALES = ['PRIMERO','SEGUNDO','TERCERO','CUARTO','QUINTO','SEXTO','SÉPTIMO',
-      'OCTAVO','NOVENO','DÉCIMO','DÉCIMO PRIMERO','DÉCIMO SEGUNDO','DÉCIMO TERCERO',
-      'DÉCIMO CUARTO','DÉCIMO QUINTO','DÉCIMO SEXTO','DÉCIMO SÉPTIMO','DÉCIMO OCTAVO',
-      'DÉCIMO NOVENO','VIGÉSIMO','VIGÉSIMO PRIMERO','VIGÉSIMO SEGUNDO','VIGÉSIMO TERCERO',
-      'VIGÉSIMO CUARTO','VIGÉSIMO QUINTO'];
+    // Hasta QUINCUAGÉSIMO NOVENO. La lista escrita a mano llegaba a VIGÉSIMO
+    // QUINTO, y un contrato con todas las opcionales ya tiene veintiséis
+    // cláusulas: la última salía como "undefined". Con las especiales, más.
+    var ORDINALES = (function(){
+      var U = ['','PRIMERO','SEGUNDO','TERCERO','CUARTO','QUINTO','SEXTO','SÉPTIMO','OCTAVO','NOVENO'];
+      var D = ['','DÉCIMO','VIGÉSIMO','TRIGÉSIMO','CUADRAGÉSIMO','QUINCUAGÉSIMO'];
+      var l = [];
+      for(var n = 1; n < 60; n++){
+        var d = Math.floor(n / 10), u = n % 10;
+        l.push(d ? D[d] + (u ? ' ' + U[u] : '') : U[u]);
+      }
+      return l;
+    })();
 
     var ctPersonas = { arrendador:[], arrendatario:[], fiador:[] };
     var ctOpcionalesOn = {};
@@ -1951,9 +2043,574 @@
     // Devuelve las cláusulas que entran, ya numeradas. Acá está la garantía de que
     // no puede haber huecos ni repetidas: el ordinal sale del índice, no del texto.
     function ctClausulas(d){
-      return ctCatalogo()
-        .filter(function(c){ return c.fija || ctOpcionalesOn[c.id] || (c.cuando && c.cuando(d)); })
-        .map(function(c,i){ return { ordinal:ORDINALES[i], titulo:(c.tituloDe?c.tituloDe(d):c.titulo), cuerpo:c.texto(d) }; });
+      var lista = ctCatalogo()
+        .filter(function(c){ return c.fija || ctOpcionalesOn[c.id] || (c.cuando && c.cuando(d)); });
+      // Las especiales van después de todo lo pactado y antes de los domicilios,
+      // la firma y el régimen legal, que cierran el contrato.
+      return ceInsertar(lista, 'domicilios')
+        .map(function(c,i){ return { ordinal:ORDINALES[i], titulo:(c.tituloDe?c.tituloDe(d):c.titulo), cuerpo:c.texto(d),
+          especial:!!c.especial, ceUid:c.ceUid }; });
+    }
+
+
+    // ==========================================================================
+    // CLÁUSULAS ESPECIALES
+    // --------------------------------------------------------------------------
+    // Para lo que el catálogo no trae: una instalación, una obra, un permiso
+    // puntual. Se escriben o se pegan, o se parte de un modelo.
+    //
+    // Lo que va entre corchetes ([MONTO], [FECHA]) es un dato de ESTE contrato:
+    // se completa en su propio campo y el texto queda limpio, listo para volver
+    // a usarlo. Al guardar un modelo se guarda el texto, nunca los datos.
+    //
+    // Entran con su número antes de DOMICILIOS Y NOTIFICACIONES. Con ANDA van al
+    // anexo, antes de la firma: el formulario de ANDA no se modifica.
+    // ==========================================================================
+    var CE_MODELOS = [
+      { id:'carga', icono:'fa-charging-station', rotulo:'Carga de vehículo eléctrico',
+        ayuda:'Tomacorriente en la cochera, gastos a medias y el consumo a cargo del inquilino.',
+        titulo:'INSTALACIÓN ELÉCTRICA PARA CARGA DE VEHÍCULO ELÉCTRICO',
+        campos:{ 'MONTO':{ label:'Importe máximo (IVA incluido)', tipo:'monto' },
+                 'FECHA':{ label:'Fecha límite de la instalación', tipo:'fecha' } },
+        texto:[
+          'Las partes acuerdan expresamente la instalación de un punto de conexión eléctrica destinado a la carga de un vehículo eléctrico en la cochera correspondiente al inmueble objeto del presente arrendamiento.',
+          'a) Alcance de la instalación: La instalación comprende la colocación de un tomacorriente tipo Schuko, con el cableado, el circuito eléctrico independiente, las protecciones y demás elementos necesarios conforme a la normativa vigente de UTE, y será realizada por un técnico instalador autorizado. No comprende el suministro ni la colocación de un equipo de carga de pared (wallbox) ni de cargadores portátiles, que en su caso serán de exclusiva cuenta de la parte arrendataria.',
+          'b) Distribución de gastos: El costo de la instalación se distribuye en un 50% a cargo de la parte arrendadora y un 50% a cargo de la parte arrendataria, conforme al presupuesto que ambas partes deberán aprobar previamente por escrito. El presupuesto aprobado, por un importe máximo de $ [MONTO] IVA incluido, se incorporará como anexo al presente contrato. Cualquier gasto adicional requerirá la autorización expresa y por escrito de ambas partes.',
+          'c) Ejecución: Los trabajos serán realizados por un técnico instalador autorizado, previa verificación de su viabilidad técnica, y la instalación deberá quedar finalizada y en condiciones seguras de utilización antes del día [FECHA]. La contratación del instalador, el pago de los trabajos y la entrega de los comprobantes serán coordinados y documentados por ambas partes.',
+          'd) Permanencia de la instalación: El cableado, el tomacorriente, las protecciones y demás elementos incorporados de manera fija al inmueble quedarán en beneficio de la propiedad al finalizar el arrendamiento, sin derecho a retiro ni a compensación económica adicional. Los cargadores portátiles y demás equipos independientes podrán ser retirados por la parte arrendataria al finalizar el contrato, siempre que ello no ocasione daños al inmueble.',
+          'e) Consumo eléctrico: El consumo de energía derivado de la carga del vehículo será de exclusiva responsabilidad de la parte arrendataria y quedará asociado a su suministro eléctrico o al sistema de medición que las partes acuerden expresamente.',
+          'f) Modificaciones adicionales: Cualquier modificación, ampliación de potencia o instalación posterior de un cargador de pared deberá contar con la autorización previa y escrita de la parte arrendadora, previa evaluación técnica y acuerdo sobre su financiación.'
+        ].join('\n\n') },
+
+      { id:'trabajos', icono:'fa-screwdriver-wrench', rotulo:'Trabajos a cargo del propietario',
+        ayuda:'Lo que el dueño se compromete a hacer en el inmueble, y para cuándo.',
+        titulo:'TRABAJOS A CARGO DE LA PARTE ARRENDADORA',
+        campos:{ 'TRABAJOS':{ label:'Trabajos que hace el propietario', largo:true, ph:'ej: pintura del dormitorio y cambio del calefón' },
+                 'FECHA':{ label:'Fecha límite de los trabajos', tipo:'fecha' } },
+        texto:[
+          'La parte arrendadora se obliga a realizar en el inmueble, a su exclusivo cargo, los siguientes trabajos: [TRABAJOS].',
+          'Los trabajos deberán quedar terminados antes del día [FECHA] y se coordinarán previamente con la parte arrendataria, en días y horarios que no perjudiquen el uso normal del inmueble.',
+          'Terminados los trabajos, las partes dejarán constancia escrita de su conformidad, que se agregará al inventario.'
+        ].join('\n\n') },
+
+      { id:'mejoras', icono:'fa-paint-roller', rotulo:'Mejoras a cuenta del alquiler',
+        ayuda:'El inquilino hace un trabajo y lo descuenta del alquiler, con un tope.',
+        titulo:'MEJORAS A CUENTA DEL PRECIO',
+        campos:{ 'TRABAJOS':{ label:'Trabajos que hace el inquilino', largo:true, ph:'ej: cambio de la grifería del baño' },
+                 'MONTO':{ label:'Tope a descontar', tipo:'monto' },
+                 'DESCUENTO':{ label:'Se descuenta', ph:'ej: del alquiler de enero de 2027' } },
+        texto:[
+          'La parte arrendadora autoriza a la parte arrendataria a realizar en el inmueble los siguientes trabajos: [TRABAJOS].',
+          'El costo de los trabajos, hasta un importe máximo de $ [MONTO], será descontado [DESCUENTO], conforme al presupuesto aprobado previamente por escrito por la parte arrendadora y contra la entrega de los comprobantes correspondientes. Todo gasto que supere ese importe será de cargo de la parte arrendataria, salvo acuerdo escrito en contrario.',
+          'Los trabajos deberán ejecutarse por personal idóneo y conforme a la normativa vigente. Las mejoras quedarán en beneficio de la propiedad al finalizar el arrendamiento, sin derecho a retiro ni a compensación adicional.'
+        ].join('\n\n') },
+
+      { id:'cochera', icono:'fa-square-parking', rotulo:'Cochera',
+        ayuda:'Suma una cochera o un box al arrendamiento.',
+        titulo:'COCHERA',
+        campos:{ 'COCHERA':{ label:'Cochera o box', ph:'ej: la cochera n.º 12 del subsuelo' } },
+        texto:[
+          'El presente arrendamiento comprende el uso exclusivo de [COCHERA], que se destinará únicamente al estacionamiento de vehículos de la parte arrendataria.',
+          'Su uso se sujetará al reglamento de copropiedad y a las normas de convivencia del edificio. La parte arrendataria no podrá ceder ese uso a terceros ni darle otro destino, y deberá dejar el espacio libre al entregar el inmueble.'
+        ].join('\n\n') },
+
+      { id:'mascotas', icono:'fa-paw', rotulo:'Mascotas',
+        ayuda:'Autoriza animales y deja claro quién responde por los daños.',
+        titulo:'MASCOTAS',
+        campos:{ 'ANIMALES':{ label:'Animales autorizados', ph:'ej: un perro de raza pequeña' } },
+        texto:[
+          'La parte arrendadora autoriza la permanencia en el inmueble de [ANIMALES].',
+          'La parte arrendataria será responsable de los daños que los animales ocasionen al inmueble, a sus instalaciones o a terceros, así como de su higiene y de evitar molestias a los vecinos, y deberá cumplir el reglamento de copropiedad cuando corresponda.',
+          'Al finalizar el arrendamiento, el inmueble deberá entregarse libre de daños, olores y plagas derivados de la presencia de los animales.'
+        ].join('\n\n') },
+
+      { id:'amueblado', icono:'fa-couch', rotulo:'Amueblado',
+        ayuda:'Se alquila con muebles y artefactos: cómo se cuidan y cómo se devuelven.',
+        titulo:'MUEBLES Y EQUIPAMIENTO',
+        campos:{},
+        texto:[
+          'El inmueble se arrienda amueblado y equipado con los muebles, electrodomésticos y demás elementos detallados en el inventario firmado por las partes, que forma parte del presente contrato.',
+          'La parte arrendataria se obliga a conservarlos en buen estado y a restituirlos al finalizar el arrendamiento en las condiciones en que los recibió, salvo el deterioro normal derivado del uso correcto y del paso del tiempo. Los faltantes y los daños que excedan ese deterioro serán de su cargo, por su valor de reposición.'
+        ].join('\n\n') }
+    ];
+
+    var CE = { lista:[], sec:0, guardados:null, cargando:false, error:false };
+    // Cada cláusula: { uid, titulo, texto, valores:{CLAVE:valor}, campos:{CLAVE:{label,tipo,largo,ph}},
+    //   guardadoId (si salió de un modelo guardado), base (el texto con que nació), abierto }
+    var CE_COLECCION = 'documentos', CE_TIPO = 'clausulaContrato';
+
+    // ---- Los datos entre corchetes ----
+    var CE_RX_HUECO = /\[([^\[\]\n]{0,60})\]/g;
+    function ceClave(s){ return String(s || '').replace(/\s+/g, ' ').trim().toLocaleUpperCase('es'); }
+    function ceClaves(texto){
+      var vistas = {}, l = [];
+      String(texto || '').replace(CE_RX_HUECO, function(t, k){
+        k = ceClave(k);
+        if(k && !vistas[k]){ vistas[k] = 1; l.push(k); }
+        return t;
+      });
+      return l;
+    }
+    // Si el dato no viene de un modelo, el tipo sale del nombre: [FECHA…] pide
+    // una fecha y [MONTO…] un importe. Lo demás, texto.
+    function ceCampo(it, k){
+      var c = (it.campos && it.campos[k]) || {};
+      var tipo = c.tipo || (/FECHA/.test(k) ? 'fecha' : /MONTO|IMPORTE|PRECIO|SUMA|COSTO|TOPE/.test(k) ? 'monto' : 'texto');
+      var t = k.toLocaleLowerCase('es');
+      return { label: c.label || (t.charAt(0).toLocaleUpperCase('es') + t.slice(1)), tipo: tipo, largo: !!c.largo, ph: c.ph || '' };
+    }
+    function ceValorTexto(it, k){
+      var v = String((it.valores || {})[k] || '').trim();
+      if(!v) return '';
+      var c = ceCampo(it, k), n = v.replace(/\s/g, '');
+      if(c.tipo === 'fecha') return fechaLarga(v) || v;
+      if(c.tipo === 'monto' && /^\d+$/.test(n)) return Number(n).toLocaleString('es-UY');
+      return v;
+    }
+    function ceFaltan(it){
+      return ceClaves(it.texto)
+        .filter(function(k){ return !String((it.valores || {})[k] || '').trim(); })
+        .map(function(k){ return ceCampo(it, k).label; });
+    }
+    function ceTieneTexto(it){ return !!String(it.texto || '').trim(); }
+    // El título como va en el contrato: en mayúsculas y sin punto final.
+    function ceTitulo(it){
+      var t = String(it.titulo || '').replace(/\s+/g, ' ').trim().replace(/[\s.:;,–—-]+$/, '');
+      return t ? t.toLocaleUpperCase('es') : 'CONDICIONES ESPECIALES';
+    }
+    // El texto como va en el contrato: cada dato en su lugar, y "____" donde falta.
+    function ceCuerpo(it){
+      var t = String(it.texto || '').replace(/\r\n?/g, '\n').replace(/[ \t]+$/gm, '').trim()
+        .replace(CE_RX_HUECO, function(todo, k){ k = ceClave(k); return (k && ceValorTexto(it, k)) || '____'; });
+      return t
+        .replace(/\n{3,}/g, '\n\n')
+        // Pegado de un PDF o de un correo, cada renglón viene cortado. Si el que
+        // sigue arranca en minúscula es la misma oración: se une. "a) …" no,
+        // que es un punto nuevo.
+        .replace(/([^\n])\n(?=(?![a-zñ]\)\s)[a-záéíóúüñ,;])/g, '$1 ')
+        // "…los siguientes trabajos: pintura." + "]." no tiene que dar dos puntos.
+        .replace(/([^.])\.\.(?!\.)/g, '$1.');
+    }
+    // Las especiales, listas para entrar en la lista de un documento antes de `antesDe`.
+    function ceInsertar(lista, antesDe){
+      var esp = CE.lista.filter(ceTieneTexto).map(function(it){
+        return { id:'esp' + it.uid, especial:true, ceUid:it.uid, titulo:ceTitulo(it), texto:function(){ return ceCuerpo(it); } };
+      });
+      if(!esp.length) return lista;
+      var i = lista.length;
+      for(var k = 0; k < lista.length; k++) if(lista[k].id === antesDe){ i = k; break; }
+      return lista.slice(0, i).concat(esp, lista.slice(i));
+    }
+
+    // ---- Texto pegado ----
+    var CE_ORD = '(?:PRIMER[OA]?|SEGUND[OA]|TERCER[OA]?|CUART[OA]|QUINT[OA]|SEXT[OA]|S[ÉE]PTIM[OA]|OCTAV[OA]|NOVEN[OA]|D[ÉE]CIM[OA]|VIG[ÉE]SIM[OA]|TRIG[ÉE]SIM[OA])';
+    // "CLÁUSULA [N.º] – ", "CLÁUSULA 16: ", "DÉCIMO SEXTO – "… al principio del texto.
+    var CE_RX_CABEZA = new RegExp('^(?:CL[ÁA]USULA\\b[ \\t]*(?:\\[[^\\]\\n]*\\]|N[.º°o ]*\\d+|\\d+|(?:' + CE_ORD + '[ \\t]*)+)?|(?:' + CE_ORD + '[ \\t]*)+)[ \\t]*[–—:.)-][ \\t]*', 'i');
+    // Si el texto empieza con el encabezado de la cláusula, el título va a su
+    // campo y el número se descarta: lo pone el contrato. Solo se acepta un
+    // título en mayúsculas, que es como se escriben; así un primer párrafo
+    // común nunca se confunde con un título.
+    function ceSepararTitulo(texto){
+      var t = String(texto || '').replace(/\r\n?/g, '\n').replace(/^\s+/, '');
+      var m = CE_RX_CABEZA.exec(t);
+      if(!m) return null;
+      var resto = t.slice(m[0].length), fin = resto.indexOf('\n');
+      var linea = fin < 0 ? resto : resto.slice(0, fin);
+      // Si el texto sigue en el mismo renglón ("…ELÉCTRICO. Las partes…"), se corta ahí.
+      var corte = /\.\s+(?=[¿¡"“A-ZÁÉÍÓÚÑ][a-záéíóúñ])/.exec(linea);
+      var titulo = (corte ? linea.slice(0, corte.index) : linea).replace(/[\s.:;–—-]+$/, '').trim();
+      if(!titulo || titulo.length > 140 || !/[A-ZÁÉÍÓÚÑ]{3}/.test(titulo) || titulo !== titulo.toLocaleUpperCase('es')) return null;
+      var cuerpo = corte ? linea.slice(corte.index + corte[0].length) + (fin < 0 ? '' : resto.slice(fin)) : (fin < 0 ? '' : resto.slice(fin + 1));
+      return { titulo: titulo, cuerpo: cuerpo.replace(/^\s+/, '') };
+    }
+    // Puntos internos numerados PRIMERO, SEGUNDO… En el contrato esas palabras
+    // numeran las cláusulas: adentro de una conviene a), b), c).
+    var CE_RX_SUBORD = new RegExp('(^|\\n|[.;:][ \\t]+)[ \\t]*' + CE_ORD + '(?:[ \\t]+' + CE_ORD + ')?[ \\t]*[–—:.)-][ \\t]*', 'gi');
+    function ceUsaOrdinales(texto){
+      var n = 0;
+      String(texto || '').replace(CE_RX_SUBORD, function(t){ n++; return t; });
+      return n >= 2;
+    }
+    function ceALetras(texto){
+      var n = 0;
+      return String(texto || '').replace(CE_RX_SUBORD, function(todo, antes){
+        var letra = 'abcdefghijklmnopqrstuvwxyz'.charAt(n++) || 'z';
+        var pre = (antes === '' || antes === '\n') ? antes : antes.replace(/[ \t]+$/, '') + '\n\n';
+        return pre + letra + ') ';
+      }).replace(/\n{3,}/g, '\n\n');
+    }
+
+    // ---- Formulario ----
+    function ceItem(uid){
+      for(var i = 0; i < CE.lista.length; i++) if(CE.lista[i].uid === uid) return CE.lista[i];
+      return null;
+    }
+    function ceCamposHtml(it){
+      return ceClaves(it.texto).map(function(k, i){
+        var c = ceCampo(it, k), id = 'ceV' + it.uid + '_' + i;
+        var v = (it.valores || {})[k] || '';
+        var comun = ' id="' + id + '" data-uid="' + it.uid + '" data-clave="' + esc(k) + '" oninput="ceValor(this)"' + (c.ph ? ' placeholder="' + esc(c.ph) + '"' : '');
+        var campo;
+        if(c.tipo === 'fecha') campo = '<input type="date" value="' + esc(v) + '"' + comun + '>';
+        else if(c.largo) campo = '<textarea rows="2"' + comun + '>' + esc(v) + '</textarea>';
+        else campo = '<input value="' + esc(v) + '"' + comun + (c.tipo === 'monto' ? ' inputmode="decimal" autocomplete="off"' : '') + '>';
+        // "$ [MONTO]": el signo ya está escrito, va solo el número.
+        var ayuda = '';
+        if(c.tipo === 'monto' && new RegExp('(?:US\\$|U\\$S|\\$)\\s*\\[\\s*' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\]', 'i').test(it.texto)) ayuda = 'Solo el número: el signo ya está en el texto.';
+        return '<div class="fld' + (c.largo ? ' ancho' : '') + '"><label for="' + id + '">' + esc(c.label) + '</label>' + campo +
+          (ayuda ? '<div class="hint">' + ayuda + '</div>' : '') + '</div>';
+      }).join('');
+    }
+    function ceItemHtml(it){
+      var u = it.uid;
+      return '<div class="ce-item" id="ce_' + u + '">' +
+        '<div class="ce-cab">' +
+          '<div class="fld"><span class="ce-orden" id="ceOrden_' + u + '"></span>' +
+            '<label class="ce-oculto" for="ceTit_' + u + '">Título de la cláusula</label>' +
+            // Crece con el título: los largos ("INSTALACIÓN ELÉCTRICA PARA CARGA DE…") se leen enteros.
+            '<textarea class="ce-titulo" id="ceTit_' + u + '" rows="1" placeholder="Título, ej: Instalación eléctrica" autocomplete="off" ' +
+              'oninput="ceSet(' + u + ',\'titulo\',this.value)" onkeydown="if(event.key===\'Enter\')event.preventDefault()">' + esc(it.titulo) + '</textarea></div>' +
+          '<button type="button" class="ce-quitar" onclick="ceQuitar(' + u + ')" aria-label="Quitar esta cláusula del contrato" title="Quitar del contrato"><i class="fas fa-xmark" aria-hidden="true"></i></button>' +
+        '</div>' +
+        '<div class="ce-campos" id="ceCampos_' + u + '">' + ceCamposHtml(it) + '</div>' +
+        '<details class="ce-texto"' + (it.abierto ? ' open' : '') + ' ontoggle="ceAbierto(' + u + ',this.open)">' +
+          '<summary>Texto de la cláusula</summary>' +
+          // Arriba del texto, para que se vea apenas se pega (en el celular el texto es largo).
+          '<div class="ct-nota" id="ceOrd_' + u + '" hidden><span>Adentro usás PRIMERO, SEGUNDO…, que en el contrato numeran las cláusulas. Conviene a), b), c).</span>' +
+            '<button type="button" class="iv-link" onclick="ceALetrasEn(' + u + ')">Cambiar a a), b), c)</button></div>' +
+          '<div class="fld"><label class="ce-oculto" for="ceTxt_' + u + '">Texto de la cláusula</label>' +
+            '<textarea id="ceTxt_' + u + '" rows="10" placeholder="Escribí o pegá el texto. Lo que pongas entre corchetes, como [MONTO] o [FECHA], se completa en un campo aparte." ' +
+              'oninput="ceSet(' + u + ',\'texto\',this.value)" onpaste="ceAlPegar(' + u + ')" onchange="ceTomarTitulo(' + u + ')">' + esc(it.texto) + '</textarea>' +
+            '<div class="hint">Los datos entre corchetes se completan arriba. El número de la cláusula lo pone el contrato.</div></div>' +
+        '</details>' +
+        '<div class="ce-pie"><span class="ce-falta" id="ceFalta_' + u + '"></span>' +
+          '<button type="button" class="iv-link" id="ceGuardar_' + u + '" onclick="ceGuardar(' + u + ')"><i class="fas fa-bookmark" aria-hidden="true"></i>' +
+            (it.guardadoId ? 'Actualizar el modelo' : 'Guardar como modelo') + '</button></div>' +
+      '</div>';
+    }
+    function cePintar(){
+      var l = document.getElementById('ceLista');
+      if(!l) return;
+      l.innerHTML = CE.lista.map(ceItemHtml).join('');
+      CE.lista.forEach(function(it){
+        it._claves = ceClaves(it.texto).join('|');
+        var n = document.getElementById('ceOrd_' + it.uid); if(n) n.hidden = !ceUsaOrdinales(it.texto);
+        ceAltoTitulo(document.getElementById('ceTit_' + it.uid));
+      });
+      ceRefrescar();
+    }
+    function ceFaltaPintar(it){
+      var el = document.getElementById('ceFalta_' + it.uid);
+      if(!el) return;
+      if(!ceTieneTexto(it)){ el.textContent = 'Escribí o pegá el texto: sin texto no entra al contrato.'; return; }
+      var f = ceFaltan(it);
+      el.textContent = f.length ? 'Falta completar: ' + f.join(', ') + '.' : '';
+    }
+    // Con qué número sale cada una. Cambia al encender una opcional o al pasar a
+    // ANDA, por eso se recalcula con la vista previa.
+    function ceRefrescar(){
+      ceDonde();
+      if(!CE.lista.length) return;
+      var anda = ctVal('ctGarantia') === 'anda', ord = {};
+      try{
+        (anda ? axClausulas(axDatos()) : ctClausulas(ctDatos())).forEach(function(c){ if(c.especial) ord[c.ceUid] = c.ordinal; });
+      }catch(e){ console.warn(e); }
+      CE.lista.forEach(function(it){
+        ceAltoTitulo(document.getElementById('ceTit_' + it.uid));
+        var el = document.getElementById('ceOrden_' + it.uid);
+        if(el){
+          var o = ord[it.uid];
+          el.innerHTML = o ? (anda ? 'Va en el anexo como <b>' + esc(o) + '</b>' : 'Sale en el contrato como <b>' + esc(o) + '</b>') : 'Todavía no entra al contrato';
+        }
+        ceFaltaPintar(it);
+      });
+    }
+    function ceDonde(){
+      var h = document.getElementById('ceDonde');
+      if(!h) return;
+      var t = ctVal('ctGarantia') === 'anda'
+        ? 'Para un acuerdo puntual que el contrato no trae. Con ANDA van en el anexo de la inmobiliaria, antes de la firma: el formulario de ANDA no se modifica.'
+        : 'Para un acuerdo puntual que el contrato no trae: una instalación, una obra, un permiso. Entran antes de DOMICILIOS Y NOTIFICACIONES y se numeran solas.';
+      if(h.textContent !== t) h.textContent = t;
+    }
+    function ceSet(uid, campo, v){
+      var it = ceItem(uid);
+      if(!it) return;
+      if(campo === 'titulo'){
+        // El título es un renglón: si se pega con saltos, quedan espacios.
+        var el = document.getElementById('ceTit_' + uid);
+        if(/\n/.test(v)){ v = v.replace(/\s*\n\s*/g, ' '); if(el) el.value = v; }
+        ceAltoTitulo(el);
+      }
+      it[campo] = v;
+      if(campo === 'texto') ceTextoCambio(it);
+    }
+    function ceAltoTitulo(el){
+      if(!el || !el.offsetParent) return;           // oculto no se puede medir
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 2 + 'px';
+    }
+    // El texto cambió: si aparecieron o se fueron datos entre corchetes, se
+    // rehacen solo esos campos (el cursor sigue en el texto).
+    function ceTextoCambio(it){
+      var claves = ceClaves(it.texto).join('|');
+      if(claves !== it._claves){
+        it._claves = claves;
+        var c = document.getElementById('ceCampos_' + it.uid);
+        if(c) c.innerHTML = ceCamposHtml(it);
+      }
+      var n = document.getElementById('ceOrd_' + it.uid);
+      if(n) n.hidden = !ceUsaOrdinales(it.texto);
+      ceFaltaPintar(it);
+    }
+    function ceValor(el){
+      var it = ceItem(+el.getAttribute('data-uid'));
+      if(!it) return;
+      it.valores[el.getAttribute('data-clave')] = el.value;
+      ceFaltaPintar(it);
+    }
+    function ceAbierto(uid, abierto){ var it = ceItem(uid); if(it) it.abierto = abierto; }
+    function ceAlPegar(uid){ setTimeout(function(){ ceTomarTitulo(uid); }, 0); }
+    function ceTomarTitulo(uid){
+      var it = ceItem(uid), ta = document.getElementById('ceTxt_' + uid);
+      if(!it || !ta) return;
+      var r = ceSepararTitulo(ta.value);
+      if(!r) return;
+      it.titulo = r.titulo;
+      it.texto = r.cuerpo;
+      var ti = document.getElementById('ceTit_' + uid);
+      if(ti){ ti.value = r.titulo; ceAltoTitulo(ti); }
+      ta.value = r.cuerpo;
+      ceTextoCambio(it);
+      ctPreview();
+    }
+    function ceALetrasEn(uid){
+      var it = ceItem(uid);
+      if(!it) return;
+      it.texto = ceALetras(it.texto);
+      var ta = document.getElementById('ceTxt_' + uid);
+      if(ta) ta.value = it.texto;
+      ceTextoCambio(it);
+      ctPreview();
+    }
+
+    // ---- Agregar y quitar ----
+    function ceMenu(abrir){
+      var m = document.getElementById('ceMenu'), b = document.getElementById('ceAbrir');
+      if(!m) return;
+      m.hidden = !abrir;
+      if(b) b.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+      if(abrir){
+        ceCargarGuardados();
+        cePintarGuardados();
+        var p = m.querySelector('.ce-opcion');
+        if(p) try{ p.focus({ preventScroll:true }); }catch(e){}
+        docLlevarA(m);
+      }
+    }
+    function ceAlternarMenu(){ var m = document.getElementById('ceMenu'); ceMenu(!!(m && m.hidden)); }
+    function cePintarMenu(){
+      var c = document.getElementById('ceModelos');
+      if(!c) return;
+      c.innerHTML = CE_MODELOS.map(function(m){
+        return '<button type="button" class="ce-opcion" onclick="ceAgregar(\'m:' + m.id + '\')"><i class="fas ' + m.icono + '" aria-hidden="true"></i>' +
+          '<span><b>' + esc(m.rotulo) + '</b><small>' + esc(m.ayuda) + '</small></span></button>';
+      }).join('');
+    }
+    function ceAgregar(desde){
+      var it = { uid: ++CE.sec, titulo:'', texto:'', valores:{}, campos:{}, guardadoId:'', abierto:false };
+      var m = null, g = null;
+      if(desde.indexOf('m:') === 0){
+        m = CE_MODELOS.filter(function(x){ return 'm:' + x.id === desde; })[0];
+        if(!m) return;
+        it.titulo = m.titulo; it.texto = m.texto; it.campos = JSON.parse(JSON.stringify(m.campos || {}));
+      } else if(desde.indexOf('g:') === 0){
+        g = (CE.guardados || []).filter(function(x){ return 'g:' + x.id === desde; })[0];
+        if(!g) return;
+        it.titulo = g.titulo; it.texto = g.texto; it.campos = JSON.parse(JSON.stringify(g.campos || {})); it.guardadoId = g.id;
+      } else {
+        it.abierto = true;                        // una propia: el texto, a la vista
+      }
+      it.base = it.texto;
+      CE.lista.push(it);
+      ceMenu(false);
+      cePintar();
+      ctPreview();
+      // La propia arranca en el texto, para pegar enseguida; un modelo, en su primer dato.
+      var card = document.getElementById('ce_' + it.uid);
+      var foco = it.abierto ? document.getElementById('ceTxt_' + it.uid)
+        : (card && card.querySelector('.ce-campos input, .ce-campos textarea')) || document.getElementById('ceTit_' + it.uid);
+      if(card) docLlevarA(card, true);
+      if(foco) setTimeout(function(){ try{ foco.focus({ preventScroll:true }); }catch(e){} }, 60);
+    }
+    function ceQuitar(uid){
+      var it = ceItem(uid);
+      if(!it) return;
+      // Si se escribió algo propio, se pregunta: perderlo es rehacerlo de cero.
+      var tocada = String(it.texto || '') !== String(it.base || '') ||
+        Object.keys(it.valores || {}).some(function(k){ return String(it.valores[k] || '').trim(); });
+      if(tocada && ceTieneTexto(it) && !confirm('¿Quitar «' + ceTitulo(it) + '» del contrato?')) return;
+      CE.lista = CE.lista.filter(function(x){ return x.uid !== uid; });
+      cePintar();
+      ctPreview();
+      var b = document.getElementById('ceAbrir');
+      if(b) try{ b.focus({ preventScroll:true }); }catch(e){}
+    }
+
+    // ---- Antes de descargar ----
+    function ceIrA(uid, que){
+      var card = document.getElementById('ce_' + uid), it = ceItem(uid);
+      if(!card || !it) return;
+      if(typeof PV !== 'undefined' && PV.abierta) pvCerrar();
+      var el;
+      if(que === 'texto'){
+        var d = card.querySelector('details'); if(d) d.open = true;
+        it.abierto = true;
+        el = document.getElementById('ceTxt_' + uid);
+      } else {
+        el = Array.prototype.filter.call(card.querySelectorAll('.ce-campos input, .ce-campos textarea'), function(x){ return !x.value.trim(); })[0];
+      }
+      docLlevarA(card, true);
+      if(el) setTimeout(function(){ try{ el.focus({ preventScroll:true }); }catch(e){} }, 350);
+    }
+    // Con título y sin texto no se sabe qué se quiso poner: se frena. Con datos
+    // sin completar se pregunta, como con los honorarios del compromiso.
+    function ceListasParaGenerar(){
+      for(var i = 0; i < CE.lista.length; i++){
+        var it = CE.lista[i];
+        if(!ceTieneTexto(it) && String(it.titulo || '').trim()){
+          toast('La cláusula especial «' + ceTitulo(it) + '» no tiene texto: escribilo o quitala', true);
+          ceIrA(it.uid, 'texto');
+          return false;
+        }
+      }
+      var faltan = CE.lista.filter(ceTieneTexto).map(function(it){ return { it:it, f:ceFaltan(it) }; }).filter(function(x){ return x.f.length; });
+      if(!faltan.length) return true;
+      var lista = faltan.map(function(x){ return '«' + ceTitulo(x.it) + '»: ' + x.f.join(', '); }).join('\n');
+      if(confirm('Faltan datos en las cláusulas especiales:\n\n' + lista + '\n\nVan a salir como espacios en blanco (____). ¿Generar igual?')) return true;
+      ceIrA(faltan[0].it.uid, 'campo');
+      return false;
+    }
+
+    // ---- Modelos guardados (para todos los contratos de la agencia) ----
+    // Viven en la colección "documentos", que leen los aprobados y escribe la
+    // Dirección: los mismos que hacen contratos. Se guarda el texto con los
+    // corchetes vacíos, nunca los datos de un contrato.
+    function ceCargarGuardados(forzar){
+      if(CE.cargando || (CE.guardados && !forzar)) return;
+      if(typeof db === 'undefined' || !db) return;
+      CE.cargando = true; CE.error = false;
+      cePintarGuardados();
+      db.collection(CE_COLECCION).where('tipo', '==', CE_TIPO).get().then(function(s){
+        CE.guardados = s.docs.map(function(d){
+          var x = d.data() || {};
+          return { id:d.id, titulo:String(x.titulo || ''), texto:String(x.texto || ''),
+            campos:(x.campos && typeof x.campos === 'object') ? x.campos : {} };
+        }).filter(function(x){ return x.texto.trim(); }).sort(ceOrdenGuardados);
+      }).catch(function(e){
+        console.warn('No se pudieron traer los modelos de cláusulas:', e);
+        CE.error = true;
+      }).then(function(){
+        CE.cargando = false;
+        cePintarGuardados();
+      });
+    }
+    function ceOrdenGuardados(a, b){ return a.titulo.localeCompare(b.titulo, 'es'); }
+    function ceOracion(t){ t = String(t || '').toLocaleLowerCase('es'); return t.charAt(0).toLocaleUpperCase('es') + t.slice(1); }
+    function cePintarGuardados(){
+      var c = document.getElementById('ceGuardados');
+      if(!c) return;
+      if(!CE.guardados){
+        c.innerHTML = CE.error
+          ? '<p class="ce-vacio">No se pudieron traer los modelos guardados. <button type="button" class="iv-link" onclick="ceCargarGuardados(true)">Reintentar</button></p>'
+          : '<p class="ce-vacio">Cargando los modelos guardados…</p>';
+        return;
+      }
+      if(!CE.guardados.length){
+        c.innerHTML = '<p class="ce-vacio">Todavía no hay. En cualquier cláusula especial, tocá «Guardar como modelo».</p>';
+        return;
+      }
+      c.innerHTML = CE.guardados.map(function(g){
+        var muestra = g.texto.replace(/\s+/g, ' ').slice(0, 140);
+        return '<div class="ce-guardado"><button type="button" class="ce-opcion" onclick="ceAgregar(\'g:' + esc(g.id) + '\')"><i class="fas fa-bookmark" aria-hidden="true"></i>' +
+          '<span><b>' + esc(ceOracion(g.titulo) || 'Sin título') + '</b><small>' + esc(muestra) + '</small></span></button>' +
+          '<button type="button" class="ce-borrar" onclick="ceBorrarGuardado(\'' + esc(g.id) + '\')" aria-label="Borrar el modelo ' + esc(ceOracion(g.titulo)) + '" title="Borrar el modelo"><i class="fas fa-trash-can" aria-hidden="true"></i></button></div>';
+      }).join('');
+    }
+    // Solo los campos con nombre propio (los de un modelo): los demás se deducen.
+    function ceCamposParaGuardar(it){
+      var o = {};
+      ceClaves(it.texto).forEach(function(k){
+        var c = it.campos && it.campos[k];
+        if(c && typeof c === 'object'){
+          var x = {};
+          ['label', 'tipo', 'ph'].forEach(function(p){ if(typeof c[p] === 'string' && c[p]) x[p] = c[p].slice(0, 120); });
+          if(c.largo) x.largo = true;
+          if(Object.keys(x).length) o[k] = x;
+        }
+      });
+      return o;
+    }
+    function ceGuardar(uid){
+      var it = ceItem(uid), boton = document.getElementById('ceGuardar_' + uid);
+      if(!it) return;
+      if(!ceTieneTexto(it)){ toast('Escribí el texto antes de guardarlo como modelo', true); ceIrA(uid, 'texto'); return; }
+      if(typeof db === 'undefined' || !db){ toast('Sin conexión con la base: no se pudo guardar', true); return; }
+      var titulo = ceTitulo(it), texto = String(it.texto).replace(/\r\n?/g, '\n').trim();
+      // El mismo modelo, o uno con el mismo título: se actualiza, no se duplica.
+      var previo = (CE.guardados || []).filter(function(g){ return g.id === it.guardadoId; })[0] ||
+                   (CE.guardados || []).filter(function(g){ return ceClave(g.titulo) === titulo; })[0];
+      var ref = previo ? db.collection(CE_COLECCION).doc(previo.id) : db.collection(CE_COLECCION).doc();
+      var ts = firebase.firestore.FieldValue.serverTimestamp();
+      var datos = { tipo:CE_TIPO, titulo:titulo, texto:texto, campos:ceCamposParaGuardar(it), actualizado:ts };
+      if(!previo) datos.creado = ts;
+      if(boton) boton.disabled = true;
+      ref.set(datos, { merge:true }).then(function(){
+        it.guardadoId = ref.id;
+        CE.guardados = (CE.guardados || []).filter(function(g){ return g.id !== ref.id; })
+          .concat([{ id:ref.id, titulo:titulo, texto:texto, campos:datos.campos }]).sort(ceOrdenGuardados);
+        cePintarGuardados();
+        if(boton) boton.innerHTML = '<i class="fas fa-bookmark" aria-hidden="true"></i>Actualizar el modelo';
+        toast(previo ? 'Modelo actualizado' : 'Guardado como modelo: ya aparece en «Agregar cláusula especial»');
+      }).catch(function(e){
+        console.error(e);
+        toast('No se pudo guardar el modelo. Revisá la conexión y probá de nuevo.', true);
+      }).then(function(){ if(boton) boton.disabled = false; });
+    }
+    function ceBorrarGuardado(id){
+      var g = (CE.guardados || []).filter(function(x){ return x.id === id; })[0];
+      if(!g) return;
+      if(!confirm('¿Borrar el modelo «' + ceOracion(g.titulo) + '»?\n\nLos contratos ya hechos no cambian.')) return;
+      db.collection(CE_COLECCION).doc(id).delete().then(function(){
+        CE.guardados = CE.guardados.filter(function(x){ return x.id !== id; });
+        CE.lista.forEach(function(it){
+          if(it.guardadoId !== id) return;
+          it.guardadoId = '';
+          var b = document.getElementById('ceGuardar_' + it.uid);
+          if(b) b.innerHTML = '<i class="fas fa-bookmark" aria-hidden="true"></i>Guardar como modelo';
+        });
+        cePintarGuardados();
+        toast('Modelo borrado');
+      }).catch(function(e){
+        console.error(e);
+        toast('No se pudo borrar el modelo. Probá de nuevo.', true);
+      });
+    }
+    function ceInit(){
+      cePintarMenu();
+      cePintar();
+      var m = document.getElementById('ceMenu');
+      if(m) m.addEventListener('keydown', function(ev){
+        if(ev.key !== 'Escape') return;
+        ev.preventDefault();
+        ceMenu(false);
+        var b = document.getElementById('ceAbrir'); if(b) b.focus();
+      });
+      // Al cambiar el ancho, los títulos largos pueden ocupar otra cantidad de renglones.
+      window.addEventListener('resize', function(){
+        CE.lista.forEach(function(it){ ceAltoTitulo(document.getElementById('ceTit_' + it.uid)); });
+      }, { passive:true });
+      ceCargarGuardados();
     }
 
 
@@ -2293,6 +2950,30 @@
     }
 
 
+    // ---- Rótulo en negrita al principio de un párrafo ----
+    // "a) Alcance de la instalación: La instalación comprende…". Las cláusulas
+    // especiales suelen venir divididas en puntos así: el rótulo va en negrita y
+    // el texto sigue en el mismo renglón. Devuelve el rótulo, cuánto ocupa y los
+    // renglones ya cortados (el primero arranca después del rótulo), o null si
+    // el párrafo no empieza con uno.
+    var RX_ROTULO = /^((?:[a-zñ]|\d{1,2})[).][ \t]+[^:.\n]{2,80}:)[ \t]+(\S[\s\S]*)$/i;
+    function renglonesConRotulo(pdf, bloque, ancho, tam){
+      var m = RX_ROTULO.exec(bloque);
+      if(!m) return null;
+      pdf.setFont('helvetica','bold').setFontSize(tam);
+      var rotulo = m[1], sangria = pdf.getTextWidth(rotulo + ' ');
+      pdf.setFont('helvetica','normal').setFontSize(tam);
+      if(sangria > ancho * 0.7) return null;
+      var renglones = [], actual = '', libre = ancho - sangria;
+      m[2].split(/[ \t]+/).forEach(function(p){
+        var prueba = actual ? actual + ' ' + p : p;
+        if(!actual || pdf.getTextWidth(prueba) <= libre){ actual = prueba; return; }
+        renglones.push(actual); actual = p; libre = ancho;
+      });
+      if(actual) renglones.push(actual);
+      return { rotulo:rotulo, sangria:sangria, renglones:renglones };
+    }
+
     // ---- PDF paginado ----
     // La carta de pago era una sola hoja. Un contrato son varias, y cada una lleva
     // membrete, bloque de firmas y número de página. Acá se mide antes de escribir:
@@ -2410,6 +3091,19 @@
           y+=alto;
         }
       }
+      // Igual, pero el primer renglón lleva el rótulo en negrita y el texto a continuación.
+      function escribirConRotulo(r, alto, tam, color){
+        for(var i=0;i<r.renglones.length;i++){
+          if(y+alto>limite){ cerrarHoja(); y=membrete(); }
+          if(i===0){
+            pdf.setFont('helvetica','bold').setFontSize(tam).setTextColor(25);
+            pdf.text(r.rotulo, M, y);
+          }
+          pdf.setFont('helvetica','normal').setFontSize(tam).setTextColor(color);
+          pdf.text(r.renglones[i], i===0 ? M + r.sangria : M, y);
+          y+=alto;
+        }
+      }
       // Alto aproximado de una hoja nueva: el membrete deja el cursor cerca de 174.
       var ALTO_UTIL = limite - 174;
       // Cuánto espacio necesita una cláusula para empezar: su título más las
@@ -2442,14 +3136,17 @@
           // la que hubiera quedado puesta (la del título, más grande y en negrita):
           // el primer párrafo de cada cláusula salía más angosto que el resto.
           pdf.setFont('helvetica', opts.negrita?'bold':'normal').setFontSize(tam);
-          var lineas = pdf.splitTextToSize(bloque, ancho);
+          // En las cláusulas especiales, "a) Rótulo: texto" lleva el rótulo en negrita.
+          var conRotulo = opts.rotulos ? renglonesConRotulo(pdf, bloque, ancho, tam) : null;
+          var lineas = conRotulo ? conRotulo.renglones : pdf.splitTextToSize(bloque, ancho);
           // Un párrafo no se corta entre hojas si entra entero en una hoja nueva:
           // se prefiere dejar el hueco antes que partir una frase al medio. Si es
           // más largo que una hoja, no queda otra que dejarlo fluir.
           if (y + lineas.length*alto > limite && lineas.length*alto <= ALTO_UTIL) {
             cerrarHoja(); y = membrete();
           }
-          escribir(lineas, alto, opts.negrita, tam, opts.color==null?55:opts.color);
+          if (conRotulo) escribirConRotulo(conRotulo, alto, tam, opts.color==null?55:opts.color);
+          else escribir(lineas, alto, opts.negrita, tam, opts.color==null?55:opts.color);
         });
       }
 
@@ -2468,12 +3165,15 @@
         // Una cláusula no se parte entre hojas: se mide entera y, si no entra en
         // lo que queda, arranca en la siguiente. Solo se deja fluir cuando es más
         // larga que una hoja completa, donde no hay alternativa.
-        var necesita = altoClausula(c.cuerpo);
-        if (y+necesita > limite && (necesita <= ALTO_UTIL || y+altoEntrada(c.cuerpo) > limite)) { cerrarHoja(); y=membrete(); }
+        // El título de una cláusula especial puede no entrar en un renglón: se parte
+        // (antes se escribía de corrido y se salía del margen).
+        pdf.setFont('helvetica','bold').setFontSize(9.6);
+        var cab = pdf.splitTextToSize(c.ordinal+' – '+c.titulo, ancho), extra = (cab.length-1)*12.5;
+        var necesita = altoClausula(c.cuerpo) + extra;
+        if (y+necesita > limite && (necesita <= ALTO_UTIL || y+altoEntrada(c.cuerpo)+extra > limite)) { cerrarHoja(); y=membrete(); }
         pdf.setFont('helvetica','bold').setFontSize(9.6).setTextColor(25);
-        pdf.text(c.ordinal+' – '+c.titulo, M, y);
-        y+=15;
-        parrafo(c.cuerpo);
+        cab.forEach(function(linea, k){ pdf.text(linea, M, y); y += (k < cab.length-1) ? 12.5 : 15; });
+        parrafo(c.cuerpo, { rotulos: c.especial });
         y+=10;
       });
 
@@ -2482,6 +3182,8 @@
     }
 
     function ctPreview(){
+      // Las tarjetas de las cláusulas especiales dicen con qué número salen.
+      ceRefrescar();
       vistaPrevia('contrato', function(){ return ctVal('ctGarantia')==='anda' ? andaMasAnexo() : ctConstruirPDF(); }, 250);
     }
 
@@ -2494,6 +3196,8 @@
         if(!ctVal('ctPrecio')){ toast('Falta el precio para el pago al firmar', true); return; }
         if(!ctPagoInicialDatos()){ toast('El pago al firmar quedó vacío: poné los meses por adelantado', true); return; }
       }
+      // Cláusulas especiales: valen igual para el contrato y para el anexo de ANDA.
+      if(!ceListasParaGenerar()) return;
       if(ctVal('ctGarantia')==='anda'){
         var base=(ctVal('ctDireccion')||'contrato').replace(/[^\w]+/g,'_');
         andaMasAnexo().save((_destino==='vivienda' ? 'Contrato_ANDA_y_anexo_' : 'Anexo_')+base+'.pdf');
@@ -3759,9 +4463,12 @@
     ];
 
     function axClausulas(d){
-      return AX_CLAUSULAS
-        .filter(function(c){ return c.fija || axOpcionalesOn[c.id] || (c.cuando && c.cuando(d)); })
-        .map(function(c,i){ return { ordinal:ORDINALES[i], titulo:(c.tituloDe?c.tituloDe(d):c.titulo), cuerpo:c.texto(d) }; });
+      var lista = AX_CLAUSULAS
+        .filter(function(c){ return c.fija || axOpcionalesOn[c.id] || (c.cuando && c.cuando(d)); });
+      // Con ANDA, las cláusulas especiales del contrato vienen acá, antes de la firma.
+      return ceInsertar(lista, 'firma')
+        .map(function(c,i){ return { ordinal:ORDINALES[i], titulo:(c.tituloDe?c.tituloDe(d):c.titulo), cuerpo:c.texto(d),
+          especial:!!c.especial, ceUid:c.ceUid }; });
     }
 
     function axVal(id){ var e=document.getElementById(id); return e?e.value.trim():''; }
@@ -3928,6 +4635,19 @@
           y+=alto;
         }
       }
+      // Igual, pero el primer renglón lleva el rótulo en negrita y el texto a continuación.
+      function escribirConRotulo(r, alto, tam, color){
+        for(var i=0;i<r.renglones.length;i++){
+          if(y+alto>limite){ cerrarHoja(); y=membrete(); }
+          if(i===0){
+            pdf.setFont('helvetica','bold').setFontSize(tam).setTextColor(25);
+            pdf.text(r.rotulo, M, y);
+          }
+          pdf.setFont('helvetica','normal').setFontSize(tam).setTextColor(color);
+          pdf.text(r.renglones[i], i===0 ? M + r.sangria : M, y);
+          y+=alto;
+        }
+      }
       // Alto aproximado de una hoja nueva: el membrete deja el cursor cerca de 174.
       var ALTO_UTIL = limite - 174;
       // Cuánto espacio necesita una cláusula para empezar: su título más las
@@ -3960,14 +4680,17 @@
           // la que hubiera quedado puesta (la del título, más grande y en negrita):
           // el primer párrafo de cada cláusula salía más angosto que el resto.
           pdf.setFont('helvetica', opts.negrita?'bold':'normal').setFontSize(tam);
-          var lineas = pdf.splitTextToSize(bloque, ancho);
+          // En las cláusulas especiales, "a) Rótulo: texto" lleva el rótulo en negrita.
+          var conRotulo = opts.rotulos ? renglonesConRotulo(pdf, bloque, ancho, tam) : null;
+          var lineas = conRotulo ? conRotulo.renglones : pdf.splitTextToSize(bloque, ancho);
           // Un párrafo no se corta entre hojas si entra entero en una hoja nueva:
           // se prefiere dejar el hueco antes que partir una frase al medio. Si es
           // más largo que una hoja, no queda otra que dejarlo fluir.
           if (y + lineas.length*alto > limite && lineas.length*alto <= ALTO_UTIL) {
             cerrarHoja(); y = membrete();
           }
-          escribir(lineas, alto, opts.negrita, tam, opts.color==null?55:opts.color);
+          if (conRotulo) escribirConRotulo(conRotulo, alto, tam, opts.color==null?55:opts.color);
+          else escribir(lineas, alto, opts.negrita, tam, opts.color==null?55:opts.color);
         });
       }
 
@@ -3975,12 +4698,15 @@
       y+=10;
 
       axClausulas(d).forEach(function(c){
-        var necesita = altoClausula(c.cuerpo);
-        if (y+necesita > limite && (necesita <= ALTO_UTIL || y+altoEntrada(c.cuerpo) > limite)) { cerrarHoja(); y=membrete(); }
+        // El título de una cláusula especial puede no entrar en un renglón: se parte
+        // (antes se escribía de corrido y se salía del margen).
+        pdf.setFont('helvetica','bold').setFontSize(9.6);
+        var cab = pdf.splitTextToSize(c.ordinal+' – '+c.titulo, ancho), extra = (cab.length-1)*12.5;
+        var necesita = altoClausula(c.cuerpo) + extra;
+        if (y+necesita > limite && (necesita <= ALTO_UTIL || y+altoEntrada(c.cuerpo)+extra > limite)) { cerrarHoja(); y=membrete(); }
         pdf.setFont('helvetica','bold').setFontSize(9.6).setTextColor(25);
-        pdf.text(c.ordinal+' – '+c.titulo, M, y);
-        y+=15;
-        parrafo(c.cuerpo);
+        cab.forEach(function(linea, k){ pdf.text(linea, M, y); y += (k < cab.length-1) ? 12.5 : 15; });
+        parrafo(c.cuerpo, { rotulos: c.especial });
         y+=10;
       });
 
@@ -7946,6 +8672,8 @@
       ctLeerPolitica();
       ctAvisoPolitica();
       ctAgregar('arrendador'); ctAgregar('arrendatario');
+      // Cláusulas especiales: los modelos del menú y los guardados por la agencia.
+      ceInit();
       // Deja todo como corresponde al destino de entrada (vivienda): régimen,
       // aviso, cláusulas opcionales y garantías.
       ctSetDestino(_destino);
