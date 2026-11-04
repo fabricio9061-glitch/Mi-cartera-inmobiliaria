@@ -574,6 +574,7 @@
     .ctr-mini-btn.primary{ background:#16a34a; color:#fff; border-color:#16a34a; opacity:1; }
     .ctr-mini.res .ctr-mini-btn.primary{ background:#0f766e; border-color:#0f766e; }
     a.ctr-mini-btn{ text-decoration:none; display:inline-flex; align-items:center; }
+    .ctr-mini-btn + .ctr-mini-btn{ margin-left:0; }
     .ctr-mini-txt{ flex:1 1 200px; min-width:0; }
     .ctr-overlay{ position:fixed; inset:0; background:rgba(15,25,40,.55); z-index:3200; display:flex; align-items:center; justify-content:center; padding:16px; }
     .ctr-modal{ background:#fff; border-radius:16px; max-width:420px; width:100%; padding:22px; box-shadow:0 20px 60px rgba(10,20,35,.35); max-height:88vh; overflow-y:auto; }
@@ -2867,7 +2868,7 @@
       ['visita', 'Visita coordinada o hecha (a la propiedad, o de tasación si todavía no es cliente con propiedad).'],
       ['negociacion', 'Negociando precio o condiciones.'],
       ['cartera', 'Solo el dueño: su propiedad ya está captada. El silencio es normal.'],
-      ['reservado', 'El cliente dejó la seña. La propiedad pasa a Reservada (en Mercado Libre el aviso se pausa) y la reserva se registra en el Mapa de cierres con el precio y la ganancia.'],
+      ['reservado', 'El cliente dejó la seña. La propiedad pasa a Reservada (en Mercado Libre el aviso se pausa) y la reserva se registra en el Mapa de cierres con el precio y la ganancia; al guardarla se emite el recibo de la seña.'],
       ['cerrado', 'Se firmó y la Dirección lo confirmó en el Mapa de cierres. La propiedad pasa sola a Vendida o Alquilada y la ganancia suma en Mis Finanzas. Solo la Dirección lo puede cambiar.'],
       ['externo', 'Se concretó SIN la agencia. Si es el dueño, su propiedad sale de circulación y Dirección confirma la baja de los portales.'],
       ['perdido', 'Dijo que no. Si es el dueño, su propiedad sale de circulación igual que en "Cerró por afuera".']
@@ -3222,7 +3223,7 @@
           if (stR === 'sold' || stR === 'rented' || stR === 'archived') t = 'La propiedad ya figura <b>'+(PROP_STATUS[stR] || stR)+'</b>: su estado no cambia. ';
           else if (stR === 'reserved' && rr && rr.gestionId && rr.gestionId !== r.value) t = 'La propiedad ya estaba <b>Reservada</b> por otra gestión: la reserva queda a nombre de esta. ';
           else t = 'La propiedad pasa a <b>Reservada</b>: en Mercado Libre el aviso se pausa, no se finaliza. ';
-          if (destino) t += 'En el mapa cargás el precio y la ganancia: la gestión pasa a Reservado cuando lo guardás. Cuando se firme, la Dirección lo confirma y pasa a Cerrado.';
+          if (destino) t += 'En el mapa cargás el precio, la ganancia y quién dejó la seña: al guardar, la gestión pasa a Reservado y se emite el recibo. Cuando se firme, la Dirección lo confirma y pasa a Cerrado.';
           else if (tieneCierreMapa(p)) t += 'La reserva ya está registrada en el mapa.';
           else t += 'La reserva en el mapa la registra <b>'+esc(p.ownerName || 'el agente de la propiedad')+'</b> y te suma en «¿Cerraron en equipo?».';
         } else if (p){
@@ -4011,7 +4012,7 @@
         '</div>' +
         coherenciaHtml(g, prop, rol, est) +
         contratoGestionHtml(prop, g) +
-        cierreMapaHtml(prop, est) +
+        cierreMapaHtml(prop, est, g) +
         selloExternoHtml(g) +
         selloEliminadaHtml(g) +
       '</div>';
@@ -4196,26 +4197,39 @@
       return isAdmin || prop.ownerId === currentUser.uid || (Array.isArray(prop.agents) && prop.agents.indexOf(currentUser.uid) >= 0);
     }
     function irARegistrarCierre(pid){ location.href = 'mapa-cierres.html?registrar=' + encodeURIComponent(pid) + '&desde=clientes'; }
-    function cierreMapaHtml(prop, est){
+    // Recibo de la seña y carta de pago que se emitieron desde el mapa (se abren en
+    // Recursos, con los datos fijos). Los ve el agente de la operación y la Dirección.
+    function comprobantesHtml(prop, g){
+      var c = prop && prop.cierre;
+      if (!c || !currentUser || !(isAdmin || (c.agenteUid || prop.ownerId) === currentUser.uid)) return '';
+      var q = '&amp;desde=clientes' + (g && g.id ? '&amp;gestion=' + encodeURIComponent(g.id) : '');
+      var h = '';
+      if (c.reciboId) h += '<a class="ctr-mini-btn" href="generar-documentos.html?comprobante=' + encodeURIComponent(c.reciboId) + q + '"><i class="fas fa-receipt"></i>&nbsp;Recibo</a>';
+      if (c.cartaId) h += '<a class="ctr-mini-btn" href="generar-documentos.html?comprobante=' + encodeURIComponent(c.cartaId) + q + '"><i class="fas fa-file-invoice"></i>&nbsp;Carta de pago</a>';
+      return h;
+    }
+    function cierreMapaHtml(prop, est, g){
       if (!prop) return '';
       var pid = encodeURIComponent(prop.id);
       var pendiente = tieneCierreMapa(prop) && prop.cierreConfirmado !== true;
       var verOConfirmar = isAdmin
         ? '<a class="ctr-mini-btn primary" href="mapa-cierres.html?confirmar='+pid+'&amp;desde=clientes">Confirmar firma</a>'
         : '<a class="ctr-mini-btn" href="mapa-cierres.html?id='+pid+'&amp;desde=clientes">Ver</a>';
+      var comp = tieneCierreMapa(prop) ? comprobantesHtml(prop, g) : '';
       // RESERVADO: la reserva (precio y ganancia) va al mapa; la firma la confirma la Dirección.
       if (est === 'reservado'){
         if (tieneCierreMapa(prop) && prop.cierreConfirmado === true)
-          return '<div class="ctr-mini"><i class="fas fa-circle-check"></i><span class="ctr-mini-txt">Firma confirmada en el mapa: la gestión pasa sola a Cerrado</span><a class="ctr-mini-btn" href="mapa-cierres.html?id='+pid+'&amp;desde=clientes">Ver</a></div>';
-        if (pendiente) return '<div class="ctr-mini res"><i class="fas fa-handshake"></i><span class="ctr-mini-txt">Reserva registrada en el mapa · falta que la Dirección confirme la firma</span>'+verOConfirmar+'</div>';
+          return '<div class="ctr-mini"><i class="fas fa-circle-check"></i><span class="ctr-mini-txt">Firma confirmada en el mapa: la gestión pasa sola a Cerrado</span>'+comp+'<a class="ctr-mini-btn" href="mapa-cierres.html?id='+pid+'&amp;desde=clientes">Ver</a></div>';
+        if (pendiente) return '<div class="ctr-mini res"><i class="fas fa-handshake"></i><span class="ctr-mini-txt">Reserva registrada en el mapa · falta que la Dirección confirme la firma</span>'+comp+verOConfirmar+'</div>';
+        // Con la gestión en el link, el mapa ya trae escrito el nombre de quien dejó la seña.
         if (puedeRegistrarCierre(prop))
-          return '<div class="ctr-mini pend"><i class="fas fa-map-location-dot"></i><span class="ctr-mini-txt">Falta registrar la reserva en el mapa: precio y ganancia</span><a class="ctr-mini-btn primary" href="mapa-cierres.html?registrar='+pid+'&amp;desde=clientes">Registrar</a></div>';
+          return '<div class="ctr-mini pend"><i class="fas fa-map-location-dot"></i><span class="ctr-mini-txt">Falta registrar la reserva en el mapa: precio, ganancia y recibo de la seña</span><a class="ctr-mini-btn primary" href="mapa-cierres.html?registrar='+pid+(g && g.id ? '&amp;gestion='+encodeURIComponent(g.id) : '')+'&amp;desde=clientes">Registrar</a></div>';
         return '<div class="ctr-mini pend"><i class="fas fa-map-location-dot"></i><span class="ctr-mini-txt">Falta registrar la reserva en el mapa: la registra '+esc(prop.ownerName || 'el agente de la propiedad')+' y te suma en «¿Cerraron en equipo?»</span></div>';
       }
       if (est !== 'cerrado' || (prop.status !== 'sold' && prop.status !== 'rented')) return '';
       if (tieneCierreMapa(prop)){
-        if (pendiente) return '<div class="ctr-mini res"><i class="fas fa-hourglass-half"></i><span class="ctr-mini-txt">Cierre en el mapa · falta que la Dirección confirme la firma</span>'+verOConfirmar+'</div>';
-        return '<div class="ctr-mini"><i class="fas fa-map-location-dot"></i><span class="ctr-mini-txt">Firma confirmada · cierre registrado en el mapa</span><a class="ctr-mini-btn" href="mapa-cierres.html?id='+pid+'&amp;desde=clientes">Ver</a></div>';
+        if (pendiente) return '<div class="ctr-mini res"><i class="fas fa-hourglass-half"></i><span class="ctr-mini-txt">Cierre en el mapa · falta que la Dirección confirme la firma</span>'+comp+verOConfirmar+'</div>';
+        return '<div class="ctr-mini"><i class="fas fa-map-location-dot"></i><span class="ctr-mini-txt">Firma confirmada · cierre registrado en el mapa</span>'+comp+'<a class="ctr-mini-btn" href="mapa-cierres.html?id='+pid+'&amp;desde=clientes">Ver</a></div>';
       }
       if (!prop.finalizadaPorGestion) return '';
       if (puedeRegistrarCierre(prop)){
