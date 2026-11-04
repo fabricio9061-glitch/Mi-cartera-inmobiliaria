@@ -978,7 +978,7 @@
         <p>Conectamos personas con lugares extraordinarios.</p>
         <div class="mv-foot-social"><a href="https://www.instagram.com/malave.inmobiliaria/" target="_blank" rel="noopener" title="Instagram" aria-label="Instagram"><i class="fab fa-instagram"></i></a><a href="https://wa.me/59894029297" target="_blank" rel="noopener" title="WhatsApp" aria-label="WhatsApp"><i class="fab fa-whatsapp"></i></a></div>
       </div>
-      <nav class="mv-foot-col mv-foot-prop" aria-label="Propiedades"><h4>Propiedades</h4><a href="#propiedades" onclick="mvFiltrar('sale')">En venta</a><a href="#propiedades" onclick="mvFiltrar('rent')">En alquiler</a><a href="#propiedades" onclick="mvVerTodas()">Ver todas</a></nav>
+      <nav class="mv-foot-col mv-foot-prop" aria-label="Propiedades"><h4>Propiedades</h4><a href="#propiedades" onclick="mvFiltrar('sale')">En venta</a><a href="#propiedades" onclick="mvFiltrar('rent')">En alquiler</a><a href="#propiedades" onclick="mvVerTodas()">Ver todas</a><a href="calculadora-garantias-alquiler.html">Calculadora de garantías</a></nav>
       <nav class="mv-foot-col mv-foot-inmo" aria-label="MALAVE"><h4>MALAVE</h4><a href="vender.html">Vendé tu propiedad</a><a href="#porque">Por qué elegirnos</a><a href="trabaja.html">Trabajá con nosotros</a></nav>
       <div class="mv-foot-col mv-foot-cto"><h4>Contacto</h4>
         <a class="mv-foot-wa" href="https://wa.me/59894029297" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i><span><b>Escribinos por WhatsApp</b><small>+598 94 029 297</small></span></a>
@@ -1283,6 +1283,21 @@
       if (typeof filterProperties === 'function') filterProperties();
       const sec = document.getElementById('propiedades'); if (sec) sec.scrollIntoView({ behavior: 'smooth' });
     }
+    // Enlaces que llegan de afuera (la calculadora de garantías, un posteo):
+    // index.html#alquileres abre la vitrina filtrada en alquiler y #ventas, en
+    // venta. Si las propiedades todavía no llegaron, alcanza con dejar puesto el
+    // filtro: el primer pintado lo respeta.
+    function mvFiltroDelEnlace() {
+      var tipo = { '#alquileres': 'rent', '#ventas': 'sale' }[location.hash];
+      if (!tipo) return;
+      var s = document.getElementById('filterType'); if (s) s.value = tipo;
+      mvSyncSeg();
+      if (typeof filterProperties === 'function' && typeof properties !== 'undefined' && properties.length) filterProperties();
+      var sec = document.getElementById('propiedades');
+      if (sec) setTimeout(function () { sec.scrollIntoView(); }, 150);
+    }
+    document.addEventListener('DOMContentLoaded', mvFiltroDelEnlace);
+    window.addEventListener('hashchange', mvFiltroDelEnlace);
     function mvVerTodas(e) {
       if (e) e.preventDefault();
       ['filterSearch', 'filterPrice', 'filterType', 'filterBedrooms'].forEach(function(id){ const el = document.getElementById(id); if (el) el.value = ''; });
@@ -1521,6 +1536,7 @@
       <a href="#propiedades" onclick="cerrarMenuVisitante();mvVerTodas(event)"><i class="fas fa-building"></i> Propiedades</a>
       <a href="#propiedades" onclick="cerrarMenuVisitante();mvFiltrar('sale')"><i class="fas fa-tag"></i> En venta</a>
       <a href="#propiedades" onclick="cerrarMenuVisitante();mvFiltrar('rent')"><i class="fas fa-key"></i> En alquiler</a>
+      <a href="calculadora-garantias-alquiler.html" onclick="cerrarMenuVisitante()"><i class="fas fa-calculator"></i> Calculadora de garantías</a>
       <a href="#porque" onclick="cerrarMenuVisitante()"><i class="fas fa-circle-info"></i> Nosotros</a>
       <a href="#contacto" onclick="cerrarMenuVisitante()"><i class="fas fa-envelope"></i> Contacto</a>
       <a href="vender.html" class="mv-vis-cta">
