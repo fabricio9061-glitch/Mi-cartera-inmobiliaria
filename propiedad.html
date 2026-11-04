@@ -108,6 +108,13 @@
     .pp-precio-det{ margin-top:12px; padding-top:12px; border-top:1px solid #f0f1f3; display:grid; gap:6px; font-size:.88rem; color:var(--muted); }
     .pp-precio-det div{ display:flex; justify-content:space-between; gap:12px; }
     .pp-precio-det b{ color:var(--ink); font-weight:600; }
+    /* Alquiler disponible: acceso a la calculadora de garantías con el precio puesto. */
+    .pp-garantia{ display:flex; align-items:center; gap:11px; margin-top:14px; padding:11px 13px; border-radius:12px; background:#faf6ec; border:1px solid #efe5cd;
+      color:var(--ink); text-decoration:none; font-size:.86rem; line-height:1.4; }
+    .pp-garantia b{ display:block; font-weight:600; font-size:.9rem; }
+    .pp-garantia span{ flex:1; min-width:0; color:var(--muted); }
+    .pp-garantia i{ color:#9c7a12; flex:none; }
+    @media (hover:hover){ .pp-garantia:hover{ border-color:#e2cf8c; } }
     .pp-agente{ display:flex; align-items:center; gap:13px; margin-bottom:16px; }
     .pp-avatar{ width:54px; height:54px; border-radius:50%; flex:none; overflow:hidden; display:grid; place-items:center; background:linear-gradient(135deg,#101d30,var(--ink)); color:#fff; font-family:'Cormorant Garamond',serif; font-size:1.5rem; font-weight:600; }
     .pp-avatar img{ width:100%; height:100%; object-fit:cover; }
@@ -501,6 +508,17 @@
         (hop ? `<div class="pp-rebaja"><i class="fas fa-arrow-trend-down"></i> Bajó ${pdp}%</div>` : '');
       document.getElementById('ppCardPrecio').innerHTML = precioHTML + (det ? `<div class="pp-precio-det">${det}</div>` : '');
       document.getElementById('ppPrecioMovil').innerHTML = precioHTML;
+      // Alquiler disponible: la calculadora de garantías se abre con este precio y
+      // los gastos comunes ya puestos (en pesos; si está en dólares, se abre vacía).
+      if (alq && st === 'available') {
+        const q = [];
+        if (c === 'UYU' && p.price > 0) q.push('alquiler=' + Math.round(p.price));
+        if (p.commonExpenses > 0 && p.commonExpensesCurrency !== 'USD') q.push('gastos=' + Math.round(p.commonExpenses));
+        const calc = `<a class="pp-garantia" href="calculadora-garantias-alquiler.html${q.length ? '?' + q.join('&') : ''}"><i class="fas fa-calculator" aria-hidden="true"></i>` +
+          `<span><b>¿Qué garantía te aprueban?</b>Calculá cuánto cuesta cada una para este alquiler.</span><i class="fas fa-arrow-right" aria-hidden="true"></i></a>`;
+        document.getElementById('ppCardPrecio').insertAdjacentHTML('beforeend', calc);
+        document.getElementById('ppPrecioMovil').insertAdjacentHTML('beforeend', calc);
+      }
       document.getElementById('ppBarraPrecio').innerHTML = esc(formatPrice(p.price, c)) + (alq ? ' <span style="font-size:.9rem;font-family:Jost,sans-serif;color:#6b7480">/mes</span>' : '');
       document.getElementById('ppBarraLugar').textContent = lugar;
 

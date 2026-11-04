@@ -165,6 +165,7 @@
       .mv-hero:not(.mv-hecha) .mv-hero-copy .mv-hero-rule{ transform-origin:left center; animation:mvRegla .7s .5s cubic-bezier(.2,.75,.15,1) both; }
       .mv-hero:not(.mv-hecha) .mv-hero-copy > p{ animation:mvAparece .8s .56s ease both; }
       .mv-hero:not(.mv-hecha) .mv-hero-stats{ animation:mvAparece .8s .7s ease both; }
+      .mv-hero:not(.mv-hecha) .mv-hero-calc{ animation:mvAparece .8s .82s ease both; }
       .mv-hero:not(.mv-hecha) .mv-traza{ stroke-dasharray:1; animation:mvTraza 1.45s .1s cubic-bezier(.45,0,.2,1) both; }
       .mv-hero:not(.mv-hecha) .mv-traza + .mv-traza{ animation-delay:.45s; }
       /* Las torres esperan a que la foto esté (clase mv-lista): no suben vacías. */
@@ -203,6 +204,41 @@
     .property-card .card-price{ font-family:'Cormorant Garamond',serif; }
     .mv-why{ margin-top:56px; margin-bottom:26px; }
     /* Banner Vendé tu propiedad */
+    /* Calculadora de garantías: a la vista en la portada, debajo de las
+       propiedades (al lado de la de vender) y arriba de la lista al filtrar
+       alquileres. Antes estaba solo en el pie y quedaba escondida. */
+    .mv-hero-calc{ display:inline-flex; align-items:center; gap:10px; margin-top:26px; padding:10px 18px; border:1px solid rgba(201,162,39,.5); border-radius:999px;
+      background:rgba(255,255,255,.05); color:#fff; text-decoration:none; font-size:.92rem; transition:border-color .2s, background .2s; }
+    .mv-hero-calc i:first-child{ color:var(--mvGold); }
+    .mv-hero-calc i:last-child{ font-size:.8rem; opacity:.8; }
+    .mv-hero-calc:hover{ border-color:var(--mvGold); background:rgba(201,162,39,.14); }
+    .mv-hero-calc .corto{ display:none; }
+    .mv-calc-banner{ display:flex; align-items:center; gap:22px; margin-top:50px; padding:26px 30px; border-radius:20px; background:#faf6ec; border:1px solid #efe5cd;
+      text-decoration:none; transition:transform .2s, box-shadow .2s; }
+    .mv-calc-banner:hover{ transform:translateY(-3px); box-shadow:0 14px 34px rgba(16,29,48,.12); }
+    .mv-calc-banner + .mv-sell-banner{ margin-top:18px; }
+    .mv-calc-ic{ flex:none; width:58px; height:58px; border-radius:16px; display:grid; place-items:center; background:var(--mvNavy); color:var(--mvGold); font-size:1.35rem; }
+    .mv-calc-tx{ flex:1; min-width:0; }
+    .mv-calc-tx h2{ font-family:'Cormorant Garamond',serif; font-size:1.8rem; color:var(--mvNavy); font-weight:700; margin:0 0 4px; }
+    .mv-calc-tx p{ color:#5b6472; font-size:.95rem; margin:0; }
+    .mv-calc-btn{ flex:none; background:var(--mvNavy); color:#fff; padding:13px 22px; border-radius:10px; font-size:.95rem; font-weight:600; display:inline-flex; align-items:center;
+      gap:10px; white-space:nowrap; transition:background .2s; }
+    .mv-calc-banner:hover .mv-calc-btn{ background:#243447; }
+    .mv-calc-tip{ display:flex; align-items:center; gap:10px; margin:0 0 18px; padding:11px 15px; border-radius:12px; background:#faf6ec; border:1px solid #efe5cd;
+      color:var(--mvNavy); text-decoration:none; font-size:.92rem; }
+    .mv-calc-tip[hidden]{ display:none; }
+    .mv-calc-tip i{ color:#9c7a12; }
+    .mv-calc-tip i:last-child{ margin-left:auto; font-size:.82rem; }
+    .mv-calc-tip:hover{ border-color:#e2cf8c; }
+    @media (max-width:768px){
+      .mv-hero-calc{ margin-top:12px; padding:8px 13px; font-size:13px; background:rgba(20,29,40,.86); border-color:rgba(201,162,39,.55); }
+      .mv-hero-calc .largo{ display:none; }
+      .mv-hero-calc .corto{ display:inline; }
+      .mv-calc-banner{ flex-direction:column; align-items:flex-start; padding:22px 20px; gap:14px; }
+      .mv-calc-tx h2{ font-size:1.5rem; }
+      .mv-calc-btn{ width:100%; justify-content:center; }
+      .mv-calc-tip{ font-size:.88rem; }
+    }
     .mv-sell-banner{ display:flex; align-items:center; justify-content:space-between; gap:30px; background:linear-gradient(115deg, #101d30 0%, var(--mvNavy) 65%); border-radius:20px; padding:34px 40px; margin-top:50px; position:relative; overflow:hidden; text-decoration:none; transition:transform .2s, box-shadow .2s; }
     .mv-sell-banner:hover{ transform:translateY(-3px); box-shadow:0 16px 40px rgba(16,29,48,.22); }
     .mv-sell-banner::after{ content:''; position:absolute; top:-50%; right:-5%; width:340px; height:340px; background:radial-gradient(circle, rgba(201,162,39,.16), transparent 70%); pointer-events:none; }
@@ -665,6 +701,7 @@
             <a class="mv-stat" href="#propiedades" onclick="event.preventDefault();mvFiltrar('sale')"><span class="mv-stat-num" id="statSale">0</span><span class="mv-stat-lbl">En venta</span></a>
             <a class="mv-stat" href="#propiedades" onclick="event.preventDefault();mvFiltrar('rent')"><span class="mv-stat-num" id="statRent">0</span><span class="mv-stat-lbl">En alquiler</span></a>
           </div>
+          <a class="mv-hero-calc" href="calculadora-garantias-alquiler.html"><i class="fas fa-calculator" aria-hidden="true"></i><span class="largo">¿Vas a alquilar? Calculá qué garantía te aprueban</span><span class="corto">Calculá tu garantía de alquiler</span><i class="fas fa-arrow-right" aria-hidden="true"></i></a>
         </div>
       </div>
     </section>
@@ -716,11 +753,20 @@
     </div></section>
     <section class="container" id="propiedades">
       <div class="section-header mv-sec-head"><div><h2 class="section-title">Propiedades destacadas</h2><p class="section-subtitle" id="propertiesCount">Cargando...</p></div><a class="mv-link-all" href="#propiedades" onclick="mvVerTodas(event)">Ver todas las propiedades <i class="fas fa-arrow-right"></i></a></div>
+      <a class="mv-calc-tip" id="mvCalcTip" href="calculadora-garantias-alquiler.html" hidden><i class="fas fa-calculator" aria-hidden="true"></i><span>¿Qué garantía te aprueban? <b>Calculalo antes de elegir</b></span><i class="fas fa-arrow-right" aria-hidden="true"></i></a>
       <div id="propertiesLoading" class="loading"><div class="spinner"></div></div>
       <div class="properties-grid" id="propertiesGrid"></div>
     </section>
 
     <section class="container">
+      <a href="calculadora-garantias-alquiler.html" class="mv-calc-banner">
+        <span class="mv-calc-ic" aria-hidden="true"><i class="fas fa-calculator"></i></span>
+        <div class="mv-calc-tx">
+          <h2>¿Vas a alquilar?</h2>
+          <p>Calculá qué garantía te aprueban y cuánto cuesta cada una: Porto Seguro, ANDA, CGN, Fondo del MVOT, jóvenes, depósito en el BHU y más.</p>
+        </div>
+        <span class="mv-calc-btn">Calcular mi garantía <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
+      </a>
       <a href="vender.html" class="mv-sell-banner">
         <div class="mv-sell-banner-tx">
           <span class="mv-sell-kicker"><i class="fas fa-star"></i> ¿Sos propietario?</span>
@@ -1308,6 +1354,7 @@
     // Botones de operación del buscador (celular): espejo del desplegable.
     function mvSyncSeg() {
       var v = (document.getElementById('filterType') || {}).value || '';
+      var tip = document.getElementById('mvCalcTip'); if (tip) tip.hidden = v !== 'rent';
       document.querySelectorAll('#mvSeg button').forEach(function (b) {
         var on = b.getAttribute('data-op') === v;
         b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
