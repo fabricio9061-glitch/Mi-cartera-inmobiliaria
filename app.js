@@ -129,7 +129,7 @@
     'vencimiento_alquiler', 'ficha_incompleta', 'despublicar_confirmar', 'baja_resuelta', 'propiedad_reservada',
     'destacado_vencido', 'portal_publicada', 'portal_sin_cupo', 'portal_error', 'ml_error', 'refresh_token',
     'authorization_code', 'retiro', 'retiro_estado', 'admin_pendiente', 'postulacion', 'revision_rechazada', 'info',
-    'cierre_pendiente', 'revision_aprobada', 'revision_corregida', 'crm_consultas', 'canje', 'canje_estado']);
+    'cierre_pendiente', 'revision_aprobada', 'revision_corregida', 'crm_consultas', 'canje', 'canje_estado', 'documento_corregido']);
   function pushEnPrimerPlano(p) {
     const d = (p && p.datos) || {};
     // Si es un aviso de la campanita y el listener en vivo anda, el toast lo pone
@@ -1557,6 +1557,14 @@
         m.ir = { a: 'url', url: 'finanzas.html' };
         break;
       }
+      // La Dirección corrigió un documento que generó esta persona: lleva a esa versión,
+      // en Generar documentos → Documentos generados.
+      case 'documento_corregido':
+        Object.assign(m, { fam: 'gestion', ic: 'fa-file-pen', col: 'ambar', titulo: _sinEmoji(n.userName) || 'Corrigieron un documento tuyo',
+          ctx: n.propertyTitle || '', txt: n.text || '' });
+        m.boton = { txt: 'Ver la versión nueva', ic: 'fa-arrow-right' };
+        m.ir = { a: 'url', url: n.url || 'generar-documentos.html#registro' };
+        break;
       // Canjes de Recompensas: el pedido le llega al admin y la respuesta al agente.
       case 'canje':
         Object.assign(m, { fam: 'gestion', ic: 'fa-gift', col: 'ambar', titulo: 'Pedido de canje', txt: n.text || '' });
@@ -6133,6 +6141,16 @@
   // (propiedades, equipos, referidos, retiros...): antes se repetían cada vez que
   // se abría el menú. Ahora, a lo sumo una vez cada dos minutos.
   let _finUltima = 0;
+  // Al volver a la página (la flecha atrás desde Recompensas, o desde otra
+  // pestaña) pudo haber un canje o un cobro: la próxima vez que se abre el menú,
+  // saldo y puntos se calculan de nuevo. Si el menú está abierto, ya mismo.
+  function finanzasMenuVencidas() {
+    _finUltima = 0;
+    const side = document.getElementById('mvSide');
+    if (currentUser && side && side.classList.contains('open')) cargarFinanzasMenu();
+  }
+  window.addEventListener('pageshow', (e) => { if (e.persisted) finanzasMenuVencidas(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') finanzasMenuVencidas(); });
   // ===== Cierres confirmados: una sola regla para toda la app =====
   // Un cierre suma (saldo, puntos, nivel, comisiones) cuando la Dirección confirmó
   // la firma en el Mapa de cierres. Además del cierre actual de la propiedad cuentan
@@ -6178,7 +6196,8 @@
 
   // Calcula el estado financiero de CUALQUIER agente (saldo USD/UYU y puntos).
   // Cierres propios + participaciones en equipo + referidos − retiros, MÁS los
-  // ajustes manuales de la Dirección (correcciones auditables). Es la cuenta del
+  // ajustes manuales de la Dirección (correcciones auditables). Los puntos son
+  // los que le quedan para canjear: ganados ± ajustes − canjes. Es la cuenta del
   // menú personal y del panel del agente que ve la Dirección. Recibe el uid y su
   // perfil (para las comisiones). Devuelve montos sin redondear; el que muestra
   // decide el formato.
@@ -6245,7 +6264,20 @@
     } catch (e) { console.warn('[finanzas agente] ajustes', e && e.message); }
     sumUSD += ajUSD; sumUYU += ajUYU; pts += ajPts;
 
-    // 5) Retiros: los pagados ya salieron y los pendientes/aprobados están
+    // 5) Canjes: los premios del catálogo y los destacados extra pagados con
+    //    puntos salen del saldo de puntos (los rechazados se devuelven). Es la
+    //    misma cuenta que Recompensas y que el servidor al cobrar un canje.
+    let canjPts = 0;
+    try {
+      const cs = await db.collection('canjes').where('agenteUid', '==', uid).get();
+      cs.forEach(d => {
+        const c = d.data();
+        if (c.status !== 'rechazado') canjPts += Number(c.costoPuntos) || 0;
+      });
+    } catch (e) { console.warn('[finanzas agente] canjes', e && e.message); }
+    pts -= canjPts;
+
+    // 6) Retiros: los pagados ya salieron y los pendientes/aprobados están
     //    comprometidos (bajan el saldo, no los puntos).
     let retUSD = 0, retUYU = 0;
     try {
@@ -6261,7 +6293,7 @@
     sumUSD -= retUSD; sumUYU -= retUYU;
     sumUSD = Math.max(0, sumUSD); sumUYU = Math.max(0, sumUYU); pts = Math.max(0, pts);
 
-    return { usd: sumUSD, uyu: sumUYU, pts, expUSD, ganadoUSD, ganadoUYU, ganadoPts, ajUSD, ajUYU, ajPts, retUSD, retUYU, cfg };
+    return { usd: sumUSD, uyu: sumUYU, pts, expUSD, ganadoUSD, ganadoUYU, ganadoPts, ajUSD, ajUYU, ajPts, canjPts, retUSD, retUYU, cfg };
   }
 
   async function cargarFinanzasMenu() {
@@ -6627,6 +6659,7 @@
         <div style="display:flex;justify-content:space-between"><span>Ganado (cierres)</span><span>US$ ${money(f.ganadoUSD)} · $U ${money(f.ganadoUYU)}</span></div>
         ${(f.ajUSD||f.ajUYU||f.ajPts)?`<div style="display:flex;justify-content:space-between;color:#b45309"><span>Ajustes del admin</span><span>${f.ajUSD?(f.ajUSD>0?'+':'')+'US$ '+money(f.ajUSD):''} ${f.ajUYU?(f.ajUYU>0?'+':'')+'$U '+money(f.ajUYU):''} ${f.ajPts?(f.ajPts>0?'+':'')+f.ajPts+'pts':''}</span></div>`:''}
         <div style="display:flex;justify-content:space-between;color:#b91c1c"><span>Retiros</span><span>− US$ ${money(f.retUSD)} · $U ${money(f.retUYU)}</span></div>
+        ${f.canjPts ? `<div style="display:flex;justify-content:space-between;color:#b91c1c"><span>Canjeados</span><span>− ${f.canjPts.toLocaleString('es-UY')} pts</span></div>` : ''}
       </div>
 
       <details style="margin-bottom:14px"><summary style="cursor:pointer;font-size:.82rem;font-weight:600;color:var(--gray-600)">Historial de ajustes (${ajustes.length})</summary><div style="margin-top:8px">${histHtml}</div></details>
@@ -8360,6 +8393,8 @@
       });
       p.featured = true;
       if (res && res.data) p.featuredHasta = res.data.hasta;
+      // El extra se pagó con puntos: el menú tiene que mostrar los que quedan.
+      if (conExtra) finanzasMenuVencidas();
       refrescarVitrina();
       const dias = diasDeDestacado(p);
       showToast('Propiedad destacada',

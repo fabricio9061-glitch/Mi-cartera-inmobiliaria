@@ -1122,6 +1122,49 @@
       .ps-op .ps-sub input{ max-width:none; }
       #psMedioSeg button{ padding:6px 4px; font-size:.84rem; }
     }
+    /* ---- Corrección de la Dirección ---- */
+    .rd-acciones{ margin:14px 0 2px; padding:12px 14px; border-radius:12px; background:var(--fondo); }
+    .rd-corregir{ display:inline-flex; align-items:center; gap:8px; min-height:42px; padding:0 18px; border:0; border-radius:999px;
+      background:var(--navy); color:#fff; font:inherit; font-size:.88rem; font-weight:600; cursor:pointer; }
+    .rd-corregir:hover{ background:var(--navy-2); }
+    .rd-corregir:disabled{ opacity:.7; cursor:wait; }
+    .rd-ayuda{ margin:8px 0 0; font-size:.8rem; line-height:1.45; color:var(--muted); }
+    .rd-acciones > .rd-ayuda:first-child{ margin-top:0; }
+    .rd-vers p.rv-cambios{ color:var(--txt); }
+    .reg-chip.cor{ background:#e8eef9; color:#24406e; }
+
+    .cor-franja{ margin:0 0 14px; padding:16px 18px 18px; border:1px solid var(--gold-line); border-left:4px solid var(--gold); border-radius:12px; background:var(--gold-soft); }
+    .cor-franja[hidden]{ display:none; }
+    .cor-cab{ display:flex; gap:12px; align-items:flex-start; }
+    .cor-ic{ flex:none; display:grid; place-items:center; width:34px; height:34px; border-radius:50%; background:#fff; color:var(--gold-2); box-shadow:inset 0 0 0 1px var(--gold-line); }
+    .cor-cab h2{ margin:2px 0 4px; font-family:'Inter',system-ui,sans-serif; font-size:1rem; font-weight:700; color:var(--navy); }
+    .cor-cab h2:focus{ outline:none; }
+    .cor-cab p{ margin:0; font-size:.84rem; line-height:1.5; color:var(--txt-2); }
+    .cor-aviso{ display:flex; gap:9px; margin:12px 0 0; padding:10px 12px; border-radius:10px; background:var(--reg-s); color:#7a4d00; font-size:.82rem; line-height:1.45; }
+    .cor-aviso[hidden]{ display:none; }
+    .cor-aviso i{ margin-top:3px; }
+    .cor-cambios{ margin:14px 0 0; padding:10px 12px; border-radius:10px; background:#fff; border:1px solid var(--gold-line); }
+    .cor-cambios b{ display:block; font-size:.8rem; font-weight:700; color:var(--txt-2); margin-bottom:4px; }
+    .cor-cambios ul{ margin:0; padding:0 0 0 18px; font-size:.86rem; line-height:1.5; color:var(--txt); }
+    .cor-cambios li.cor-nada{ list-style:none; margin-left:-18px; color:var(--muted); }
+    .cor-franja .fld{ margin:14px 0 0; }
+    .cor-franja .fld textarea{ background:#fff; }
+    .cor-avisar{ display:flex; align-items:flex-start; gap:10px; margin:12px 0 0; font-size:.86rem; line-height:1.45; color:var(--txt-2); cursor:pointer; }
+    .cor-avisar[hidden]{ display:none; }
+    .cor-avisar input{ width:18px; height:18px; margin:1px 0 0; flex:none; accent-color:var(--navy); }
+    .cor-botones{ display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+    .cor-emitir{ display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0 20px; border:0; border-radius:999px; background:var(--gold);
+      color:var(--navy); font:inherit; font-size:.9rem; font-weight:700; cursor:pointer; }
+    .cor-emitir:hover{ background:#d6b034; }
+    .cor-descartar{ min-height:44px; padding:0 18px; border:1px solid var(--line-2); border-radius:999px; background:#fff; color:var(--txt-2);
+      font:inherit; font-size:.88rem; font-weight:600; cursor:pointer; }
+    .cor-descartar:hover{ background:var(--hover); }
+    html.con-correccion #ivBorrador, html.con-correccion #compNota{ display:none !important; }
+    html.cor-cargando #fhBajar, html.cor-cargando #menuBtn, html.cor-cargando #barraMovil{ visibility:hidden; }
+    @media (max-width:860px){
+      .cor-franja{ margin:0 0 12px; padding:14px 14px 16px; }
+      .cor-emitir, .cor-descartar{ flex:1 1 100%; justify-content:center; }
+    }
   </style>
 </head>
 <body>
@@ -1238,6 +1281,21 @@
               <!-- Recibo o carta emitidos desde el Mapa de cierres (?comprobante=). -->
               <div class="comp-nota" id="compNota" role="note" hidden></div>
             </div>
+            <!-- Corrección de la Dirección (ver CORRECCIÓN en el código). -->
+            <section class="cor-franja" id="corPanel" aria-labelledby="corTitulo" hidden>
+              <div class="cor-cab">
+                <span class="cor-ic" aria-hidden="true"><i class="fas fa-pen-to-square"></i></span>
+                <div><h2 id="corTitulo">Corrigiendo</h2><p id="corQue"></p></div>
+              </div>
+              <p class="cor-aviso" id="corAviso" hidden><i class="fas fa-triangle-exclamation" aria-hidden="true"></i><span>Esta versión no se pudo recuperar completa: es de antes de que se guardaran todos los datos. Revisá la hoja con cuidado antes de emitir.</span></p>
+              <div class="cor-cambios"><b>Lo que cambiaste</b><ul id="corCambios" aria-live="polite"></ul></div>
+              <div class="fld"><label for="corMotivo">Motivo de la corrección</label><textarea id="corMotivo" rows="2" maxlength="500" placeholder="Ej: la propietaria pidió 2 días para pasar UTE y OSE."></textarea></div>
+              <label class="cor-avisar" id="corAvisarWrap"><input type="checkbox" id="corAvisar" checked><span id="corAvisarTxt">Avisarle a quien lo generó que hay una versión nueva</span></label>
+              <div class="cor-botones">
+                <button type="button" class="cor-emitir" id="corEmitirBtn" onclick="corEmitir()"><i class="fas fa-file-circle-check" aria-hidden="true"></i><span>Emitir la versión nueva</span></button>
+                <button type="button" class="cor-descartar" onclick="corDescartar()">Descartar cambios</button>
+              </div>
+            </section>
 
         <!-- Formulario -->
         <div class="panel" id="formCartaPago">
@@ -2192,6 +2250,7 @@
     // conserva sus validaciones; lo que se agrega es que, si algo falla al armar
     // el PDF, se avise: antes el botón simplemente no hacía nada.
     function generarActivo(){
+      if(regCorrigiendo() && !COR.emitiendo){ corEmitir(); return; }
       var f = DOCS_GENERAR[_tipoActivo];
       if(!f) return;
       var avisar = function(e){ console.error(e); toast('No se pudo armar el PDF: ' + ((e && e.message) || e), true); };
@@ -7780,6 +7839,7 @@
     }
     function ivGuardarYa(){
       clearTimeout(IV.tGuardar); IV.tGuardar = null;
+      if(regCorrigiendo()) return;
       if(!_ivListo || !IV.clave || /_anon$/.test(IV.clave)) return;
       try{
         if(ivHayAlgo()) localStorage.setItem(ivClave(), JSON.stringify(ivFoto()));
@@ -10641,6 +10701,10 @@
         m.estado.plazo = CT_PLAZO.modo;
         m.estado.garantias = ctEscritoGarantia;
         m.estado.anexo = axOpcionalesOn;
+        // El texto de cada cláusula tal como salió: al corregir se compara contra esto.
+        if(!anda){
+          try{ m.estado.textos = ctClausulas(ctDatos()).map(function(c){ return { id:c.id, titulo:clTituloLista(c), cuerpo:c.cuerpo }; }); }catch(e){}
+        }
       } else if(tipo === 'carta_pago'){
         var carta = tipoComprobante === 'carta';
         m.tipo = carta ? 'carta' : 'reserva';
@@ -10669,6 +10733,9 @@
         m.estado.propietarios = cmPropietarios;
         m.estado.servicios = cmServiciosOn;
         m.estado.escrito = cmEscrito;
+        m.estado.operacion = cmOperacion;
+        m.estado.modalidad = cmModalidad;
+        m.estado.cobraProp = cmCobraProp;
       } else if(tipo === 'propietario'){
         m.nombre = 'Información al propietario';
         m.propiedad = ctVal('ipPropiedad');
@@ -10713,12 +10780,17 @@
         if(typeof firebase === 'undefined' || typeof firebase.storage !== 'function') return null;
         var prueba = firebase.storage().ref('documentosGenerados');
         if(!prueba || typeof prueba.put !== 'function') return null;
-        return regMeta(_tipoActivo, archivo);
+        var m = regMeta(_tipoActivo, archivo);
+        if(m && typeof corPreparar === 'function') corPreparar(m);
+        return m;
       }catch(e){ console.warn('registro:', e); return null; }
     }
     // Cuando el PDF salió de verdad (descargado o enviado).
     function regRegistrar(pdf, m){
-      if(!m || REG.sesion[m.huella]) return;       // lo mismo, otra vez en esta visita (por ejemplo, Descargar y después Enviar)
+      if(typeof corGenerado === 'function') corGenerado();
+      if(!m) return;
+      if(m.correccion) m.huella += '|cor';         // una corrección siempre se registra
+      if(REG.sesion[m.huella]) return;             // lo mismo, otra vez en esta visita (por ejemplo, Descargar y después Enviar)
       REG.sesion[m.huella] = true;
       // El archivo se toma después de que arrancó la descarga, para no demorarla.
       setTimeout(function(){
@@ -10735,6 +10807,7 @@
       Promise.resolve().then(function(){ return regGuardar(m); }).catch(function(e){
         console.warn('registro:', e);
         delete REG.sesion[m.huella];
+        if(m.correccion && typeof corFallo === 'function'){ corFallo(e); return; }
         toast(e && e.code === 'permission-denied'
           ? 'El PDF salió, pero no quedó en Documentos generados: tu usuario no tiene permiso para registrarlo'
           : 'El PDF salió, pero no quedó en Documentos generados. Revisá la conexión y volvé a descargarlo', true, true);
@@ -10743,41 +10816,51 @@
     function regGuardar(m){
       var u = auth.currentUser;
       if(!u) return Promise.resolve();
-      var uid = u.uid, col = db.collection('documentosGenerados');
-      // ¿Ya está registrado? El mismo documento (misma propiedad y personas) del
-      // mismo autor en el último mes va como versión nueva.
-      return col.where('autorUid', '==', uid).where('clave', '==', m.clave).get().then(function(s){
-        var previo = null;
-        s.docs.forEach(function(d){
-          var x = d.data();
-          if(!previo || String(x.actualizado || '') > String(previo.x.actualizado || '')) previo = { id:d.id, x:x };
+      var uid = u.uid, col = db.collection('documentosGenerados'), cor = m.correccion || null;
+      // Una corrección va al documento que se está corrigiendo. Si no, ¿ya está
+      // registrado? El mismo documento (misma propiedad y personas) del mismo autor
+      // en el último mes va como versión nueva.
+      var destino = cor ? Promise.resolve({ id:cor.id }) :
+        col.where('autorUid', '==', uid).where('clave', '==', m.clave).get().then(function(s){
+          var previo = null;
+          s.docs.forEach(function(d){
+            var x = d.data();
+            if(!previo || String(x.actualizado || '') > String(previo.x.actualizado || '')) previo = { id:d.id, x:x };
+          });
+          if(previo && !(Date.now() - Date.parse(previo.x.actualizado || 0) < REG_DIAS_VERSION * 864e5)) previo = null;
+          if(previo && regIgualALaUltima(previo.x, m, false)) return null;     // ya está, con su PDF
+          return { id:previo ? previo.id : col.doc().id };
         });
-        if(previo && !(Date.now() - Date.parse(previo.x.actualizado || 0) < REG_DIAS_VERSION * 864e5)) previo = null;
-        if(previo && regIgualALaUltima(previo.x, m, false)) return null;     // ya está, con su PDF
-        var id = previo ? previo.id : col.doc().id;
+      return destino.then(function(dst){
+        if(!dst) return null;
+        var id = dst.id;
         return regSubir(uid, id, m).then(function(arch){
           var ref = col.doc(id);
           return db.runTransaction(function(t){
             return t.get(ref).then(function(d){
               var x = d.exists ? d.data() : null, vs = x ? (x.versiones || []) : [];
-              if(x && regIgualALaUltima(x, m, !!arch.error)) return null;
+              if(cor && !x){ var e = new Error('El documento que se corregía ya no está en el registro'); e.code = 'not-found'; throw e; }
+              if(!cor && x && regIgualALaUltima(x, m, !!arch.error)) return null;
               var hoy = new Date(), ahora = hoy.toISOString(), n = x ? (Number(x.version) || vs.length) + 1 : 1;
               var v = { n:n, at:ahora, porUid:uid, porNombre:agenteLogueado || u.email || '', direccion:!!esAdmin,
                 archivo:arch.ruta, url:arch.url, bytes:m.blob ? (m.blob.size || 0) : 0, nombreArchivo:m.archivo,
-                huella:m.huella, motivo:'', fuera:m.fuera };
+                huella:m.huella, motivo:cor ? cor.motivo : '', fuera:m.fuera };
+              if(cor){ v.cambios = cor.cambios || []; v.avisar = !!cor.avisar; v.corrige = cor.n; }
               if(arch.error){ v.sinArchivo = true; v.sinArchivoPor = arch.motivo || 'red'; }
               var comun = { nombre:m.nombre, propiedad:m.propiedad, partes:m.partes, actualizado:ahora, mes:regMesDe(hoy),
                 fuera:m.fuera, cambiaClausulas:m.fuera.length > 0, version:n };
+              if(cor) comun.corregido = true;
               if(x) t.update(ref, Object.assign(comun, { versiones:vs.concat([v]) }));
               else t.set(ref, Object.assign(comun, { tipo:m.tipo, clave:m.clave, autorUid:uid, autorNombre:v.porNombre,
                 autorDireccion:!!esAdmin, creado:ahora, versiones:[v], comprobanteId:m.comprobanteId || '' }));
               t.set(ref.collection('versiones').doc(String(n)), { n:n, porUid:uid, at:ahora, estado:m.estadoJSON });
-              return { n:n, mes:comun.mes, sinArchivo:!!arch.error, motivo:arch.motivo || '' };
+              return { id:id, n:n, mes:comun.mes, sinArchivo:!!arch.error, motivo:arch.motivo || '' };
             });
           });
         }).then(function(r){
           if(!r) return;
-          if(REG.abierto && REG.mes === r.mes) regCargar();
+          if(cor && typeof corListo === 'function') corListo(r);
+          else if(REG.abierto && REG.mes === r.mes) regCargar();
           if(r.sinArchivo){
             if(r.motivo === 'grande') toast('Quedó en Documentos generados, pero sin el PDF: pesa más de 25 MB', true, true);
             else if(r.motivo === 'permiso') toast('Quedó en Documentos generados, pero sin el PDF: tu usuario no tiene permiso para subirlo', true, true);
@@ -10851,6 +10934,7 @@
     }
     function regAbrir(id){
       docMenu(false);
+      if(regCorrigiendo()){ corSalirA({ registro:id }); return; }
       var v = document.getElementById('vistaRegistro'), g = document.querySelector('.doc-grid');
       if(!v || typeof db === 'undefined' || !db) return;
       if(!REG.abierto){
@@ -10991,8 +11075,11 @@
       var l = regFiltrar();
       if(res){
         var cambian = l.filter(function(x){ return x.cambiaClausulas; }).length, varias = l.filter(function(x){ return (x.version || 1) > 1; }).length;
+        var corr = l.filter(function(x){ return x.corregido; }).length;
         var extra = [esAdmin && cambian ? (cambian === 1 ? '1 cambia cláusulas' : cambian + ' cambian cláusulas') : '',
-          varias ? (varias === 1 ? '1 tiene más de una versión' : varias + ' tienen más de una versión') : ''].filter(Boolean);
+          varias ? (varias === 1 ? '1 tiene más de una versión' : varias + ' tienen más de una versión') : '',
+          corr ? (corr === 1 ? '1 corregido por la Dirección' : corr + ' corregidos por la Dirección') : ''].filter(Boolean);
+        if(extra.length > 2) extra = [extra.slice(0, -1).join(', '), extra[extra.length - 1]];
         res.textContent = !REG.lista.length ? '' : (l.length === 1 ? '1 documento' : l.length + ' documentos') +
           (l.length < REG.lista.length ? ' de ' + REG.lista.length : '') + ' en ' + mesTxt + (extra.length ? ': ' + extra.join(' y ') : '') + '.';
       }
@@ -11006,6 +11093,7 @@
       lista.innerHTML = '<ol class="reg-filas">' + l.map(function(x){
         var fe = regFecha(x.actualizado), sel = REG.sel === x.id;
         var chips = (esAdmin && x.cambiaClausulas ? '<span class="reg-chip oro">Cambia cláusulas</span>' : '') +
+          (x.corregido ? '<span class="reg-chip cor">Corregido por la Dirección</span>' : '') +
           ((x.version || 1) > 1 ? '<span class="reg-chip">Versión ' + x.version + '</span>' : '');
         return '<li><button type="button" class="reg-fila' + (sel ? ' sel' : '') + '" aria-current="' + (sel ? 'true' : 'false') + '" data-id="' + esc(x.id) + '" onclick="regElegir(this.getAttribute(\'data-id\'))">' +
           '<span class="rf-fecha"><b>' + esc(fe.f) + '</b><small>' + esc(fe.h) + '</small></span>' +
@@ -11053,21 +11141,33 @@
         '<h3 tabindex="-1">' + esc(x.nombre || 'Documento') + '</h3>' +
         '<p class="rd-prop">' + esc(x.propiedad || 'Sin dirección') + '</p>' + (x.partes ? '<p class="rd-partes">' + esc(x.partes) + '</p>' : '') +
         (esAdmin ? '<p class="rd-autor">Lo generó ' + esc(x.autorNombre || 'alguien sin nombre') + (x.autorDireccion ? ' (Dirección)' : '') + '.</p>' : '') +
+        regAccionesCorregir(x, ultima) +
         '<h4>' + (vs.length === 1 ? 'Versión' : vs.length + ' versiones') + '</h4><ol class="rd-vers">' + vs.map(function(v){
           var fe = regFecha(v.at), quien = esc(v.porNombre || 'alguien sin nombre') + (v.direccion ? ' (Dirección)' : '');
           var que = v.n === 1 ? 'La generó ' + quien + '.' : (v.porUid === x.autorUid ? 'La volvió a generar ' + quien + '.' : 'La corrigió ' + quien + '.');
           return '<li class="' + (v.n === ultima ? 'actual' : '') + '"><div class="rv-cab"><b>Versión ' + v.n + (v.n === ultima && vs.length > 1 ? ', la que vale' : '') + '</b>' +
             '<span>' + esc(fe.f) + ' ' + esc(fe.h) + '</span></div><p>' + que + (v.motivo ? ' Motivo: ' + esc(v.motivo) : '') + '</p>' +
+            ((v.cambios && v.cambios.length) ? '<p class="rv-cambios">Cambió: ' + esc(v.cambios.join('; ')) + '.</p>' : '') +
             (v.url ? '<a class="rv-pdf" href="' + esc(v.url) + '" target="_blank" rel="noopener"><i class="fas fa-file-pdf" aria-hidden="true"></i> Ver el PDF de la versión ' + v.n + '</a>'
               : '<p class="rv-sin">El PDF de esta versión no se pudo guardar (' + ({ grande:'pesaba más de 25 MB', permiso:'no había permiso para subirlo' }[v.sinArchivoPor] || 'no había conexión') + ').</p>') + '</li>';
         }).join('') + '</ol>' +
         ((x.fuera && x.fuera.length) ? '<h4>Fuera del texto de la agencia</h4><ul class="rd-fuera">' + x.fuera.map(function(f){ return '<li>' + esc(f) + '</li>'; }).join('') + '</ul>' : '') +
-        '<p class="rd-nota"><i class="fas fa-lock" aria-hidden="true"></i> Lo ven la Dirección y quien lo generó. Cada versión queda guardada tal cual salió.</p>';
+        '<p class="rd-nota"><i class="fas fa-lock" aria-hidden="true"></i> Lo ven la Dirección y quien lo generó. Corregir lo hace la Dirección: sale una versión nueva y la anterior queda guardada tal cual salió.</p>';
       if(d.getAttribute('data-html') !== html){ d.innerHTML = html; d.setAttribute('data-html', html); }
+    }
+    function regAccionesCorregir(x, ultima){
+      if(!esAdmin || typeof corSePuede !== 'function') return '';
+      var p = corSePuede(x);
+      if(p.ok) return '<div class="rd-acciones"><button type="button" class="rd-corregir" data-id="' + esc(x.id) + '" onclick="corAbrir(this.getAttribute(\'data-id\'))">' +
+        '<i class="fas fa-pen-to-square" aria-hidden="true"></i> Corregir</button><p class="rd-ayuda">Sale la versión ' + (ultima + 1) + ', y la ' + ultima + ' queda guardada como está.</p></div>';
+      return p.nota ? '<div class="rd-acciones"><p class="rd-ayuda">' + esc(p.nota) + '</p></div>' : '';
     }
     // Al llegar con #registro (por ejemplo, desde un aviso) o al cambiarlo.
     function regDesdeHash(){
       var h = location.hash || '';
+      // #corregir=ID: la Dirección abre ese documento para corregirlo (ver CORRECCIÓN).
+      var mc = /^#corregir=(.+)$/.exec(h);
+      if(mc && typeof corDesdeHash === 'function'){ corDesdeHash(decodeURIComponent(mc[1])); return; }
       if(!/^#registro/.test(h)){ if(REG.abierto) regCerrar(true); return; }
       var m = /^#registro=(.+)$/.exec(h);
       var id = m ? decodeURIComponent(m[1]) : null;
@@ -11230,16 +11330,38 @@
     }
 
     // ---- Quién firma ----
+    // Quién firma: primero la Dirección, con su cargo (la carta es de la agencia);
+    // después los agentes. El CEO está siempre: si su usuario no figura en la
+    // lista, va el titular de la agencia.
+    var PS_CARGOS = { ceo:'CEO', coo:'COO' };
+    function psFirmantes(){
+      var dir = [], resto = [];
+      // El CEO se reconoce también por su correo: su perfil puede no tener el rango cargado.
+      var lista = listaAgentes().map(function(a){
+        var r = a.rank || (String(a.email || '').toLowerCase() === ADMIN_EMAIL ? 'ceo' : '');
+        return { name:a.name, rank:r };
+      });
+      lista.forEach(function(a){ (PS_CARGOS[a.rank] ? dir : resto).push(a); });
+      if(!dir.some(function(a){ return a.rank === 'ceo'; })) dir.unshift({ name:EMPRESA.titular, rank:'ceo' });
+      dir.sort(function(a, b){ return (a.rank === 'ceo' ? 0 : 1) - (b.rank === 'ceo' ? 0 : 1); });
+      return { dir:dir, resto:resto };
+    }
+    function psCargo(nombre){
+      if(!nombre) return '';
+      var f = psFirmantes(), x = f.dir.filter(function(a){ return a.name === nombre; })[0];
+      return x ? PS_CARGOS[x.rank] : '';
+    }
     function psPintarAgentes(){
       var sel = document.getElementById('psAgente');
       if(!sel) return;
-      var lista = listaAgentes();
-      if(!lista.length){ sel.innerHTML = '<option value="">Cargando…</option>'; sel.disabled = true; return; }
+      var f = psFirmantes(), todos = f.dir.concat(f.resto);
       sel.disabled = false;
       var previo = sel.options.length && sel.options[0].value ? sel.value : '';
-      sel.innerHTML = lista.map(function(a){ return '<option value="' + esc(a.name) + '">' + esc(a.name) + '</option>'; }).join('');
-      if(previo && lista.some(function(a){ return a.name === previo; })) sel.value = previo;
-      else if(agenteLogueado && lista.some(function(a){ return a.name === agenteLogueado; })) sel.value = agenteLogueado;
+      var op = function(a){ return '<option value="' + esc(a.name) + '">' + esc(a.name) + (PS_CARGOS[a.rank] ? ' (' + PS_CARGOS[a.rank] + ')' : '') + '</option>'; };
+      sel.innerHTML = '<optgroup label="Dirección">' + f.dir.map(op).join('') + '</optgroup>' +
+        (f.resto.length ? '<optgroup label="Agentes">' + f.resto.map(op).join('') + '</optgroup>' : '');
+      var hay = function(n){ return n && todos.some(function(a){ return a.name === n; }); };
+      sel.value = hay(previo) ? previo : hay(agenteLogueado) ? agenteLogueado : f.dir[0].name;
       psPreview();
     }
 
@@ -11392,7 +11514,8 @@
       pdf.text(d.agente || '_________________', M, y);
       y += 14;
       pdf.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor.apply(pdf, GREY);
-      pdf.text('Por ' + EMPRESA.nombre, M, y);
+      var cargo = psCargo(d.agente);
+      pdf.text((cargo ? cargo + ', ' : 'Por ') + EMPRESA.nombre, M, y);
 
       pie();
       return pdf;
@@ -11432,10 +11555,479 @@
       return [{ res:r1, falta:f1, ok:!f1.length }, p2, { res:r3, falta:f3, ok:!f3.length && !!r3 }, { res:r4, falta:f4, ok:!f4.length }];
     }
 
+    // ==========================================================================
+    // CORRECCIÓN DE LA DIRECCIÓN
+    // --------------------------------------------------------------------------
+    // Desde Documentos generados, la Dirección abre un documento ya emitido con
+    // sus datos tal cual salieron, lo corrige y emite una versión nueva con el
+    // motivo. La anterior queda guardada como salió, y quien lo generó recibe un
+    // aviso (lo manda el servidor: avisarDocumentoCorregido).
+    // Mientras se corrige, nada se guarda como borrador del inventario ni como
+    // política de la agencia: es la corrección de UN documento.
+    // La corrección se abre y se cierra volviendo a abrir la página (#corregir=ID):
+    // empieza sin nada de lo que hubiera en pantalla y, al terminar, nada de lo
+    // corregido queda en los formularios.
+    // ==========================================================================
+    var COR = { activa:false, emitiendo:false, cargando:false, saliendo:false, tocado:false, id:'', doc:null, version:null, n:0, panel:'',
+      base:null, antes:null, camposAntes:{}, estAntes:null, recuperada:true, cambios:[], motivo:'', avisar:true, t:null };
+    var COR_PANEL = { contrato:'contrato', reserva:'carta_pago', carta:'carta_pago', mediacion:'mediacion', propietario:'propietario',
+      inventario:'inventario', perdida:'perdida' };
+    var COR_LISTAS = { personas:'Las partes', firmantes:'Quién pagó', propietarios:'Los propietarios', especiales:'Las cláusulas especiales',
+      clausulas:'El texto de las cláusulas', opcionales:'Las cláusulas opcionales', garantias:'La garantía', anexo:'El anexo',
+      servicios:'Los servicios', escrito:'Honorarios y condiciones', inventario:'El inventario', datos:'Los datos de la carta',
+      operacion:'La operación', modalidad:'La modalidad', cobraProp:'Los honorarios', destino:'El destino', plazo:'El plazo', comprobante:'El tipo de recibo',
+      modoProp:'La propiedad' };
+
+    function regCorrigiendo(){ return !!(typeof COR !== 'undefined' && COR && COR.activa); }
+    function corCopia(o){ return o == null ? o : JSON.parse(JSON.stringify(o)); }
+    function corReemplazar(obj, nuevo){ Object.keys(obj).forEach(function(k){ delete obj[k]; }); Object.assign(obj, nuevo || {}); }
+
+    // ¿Se puede corregir desde acá? (Y si no, por qué.)
+    function corSePuede(x){
+      if(!esAdmin || !x) return { ok:false, nota:'' };
+      if(x.tipo === 'ami' || x.tipo === 'sel') return { ok:false, nota:'Lleva fotos: para cambiarlo, hay que generarlo de nuevo.' };
+      if((x.tipo === 'reserva' || x.tipo === 'carta') && x.comprobanteId) return { ok:false, nota:'Este recibo está registrado en el Mapa de cierres: se corrige ahí.' };
+      return COR_PANEL[x.tipo] ? { ok:true } : { ok:false, nota:'' };
+    }
+
+    // Lo escrito en los formularios y todavía no descargado (el inventario se
+    // guarda solo como borrador): al abrir una corrección se pierde, y se avisa.
+    ['input', 'change'].forEach(function(ev){
+      document.addEventListener(ev, function(e){
+        if(COR.activa || !e.isTrusted) return;
+        var t = e.target, f = t && t.closest ? t.closest('.panel[id^="form"]') : null;
+        if(f && f.id !== 'formInventario') COR.tocado = true;
+      }, true);
+    });
+    // Lo llama el registro cada vez que un PDF sale de verdad.
+    function corGenerado(){ if(!COR.activa) COR.tocado = false; }
+
+    // ---- Abrir un documento para corregirlo (el botón «Corregir» del registro) ----
+    function corAbrir(id){
+      if(!id || COR.cargando) return;
+      if(COR.tocado && !confirm('Tenés un documento a medias sin descargar. Si abrís la corrección, se pierde lo que escribiste. ¿Seguir?')) return;
+      COR.cargando = true;
+      var b = document.querySelector('.rd-corregir');
+      if(b){ b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Abriendo…'; }
+      corRecargar('#corregir=' + encodeURIComponent(id));
+    }
+    // La página se vuelve a abrir en `hash` (con un aviso o en otro documento, si se pide).
+    function corRecargar(hash, nota, tipo){
+      COR.saliendo = true;              // sin la pregunta de «¿Salir?» del navegador
+      try{
+        if(nota) sessionStorage.setItem('mvCorNota', nota);
+        if(tipo) sessionStorage.setItem('mvCorIr', tipo);
+      }catch(e){}
+      try{ history.replaceState(history.state, '', location.pathname + (hash || '')); }
+      catch(e){ try{ location.hash = hash || ''; }catch(er){} }
+      location.reload();
+    }
+    // Al abrir la página: el aviso de la versión que quedó, o el documento al que se iba.
+    function corAlCargar(){
+      var nota = '', tipo = '';
+      try{
+        nota = sessionStorage.getItem('mvCorNota') || ''; tipo = sessionStorage.getItem('mvCorIr') || '';
+        sessionStorage.removeItem('mvCorNota'); sessionStorage.removeItem('mvCorIr');
+      }catch(e){}
+      if(tipo && PANEL_DE[tipo]){
+        var b = document.querySelector('.doc-type[data-type="' + tipo + '"]');
+        if(b && !b.hidden) selectType(tipo);
+      }
+      if(nota) toast(nota, false, true);
+    }
+    // Llega #corregir=ID (al abrir la página).
+    function corDesdeHash(id){
+      if(COR.activa || COR.cargando){
+        if(id !== COR.id) corSalirA({ hash:'#corregir=' + encodeURIComponent(id) });
+        return;
+      }
+      corCargar(id);
+    }
+    function corCargando(si){
+      var l = document.getElementById('loading'), c = document.getElementById('content');
+      document.documentElement.classList.toggle('cor-cargando', si);
+      if(l){
+        l.style.display = si ? '' : 'none';
+        var p = l.querySelector('p'); if(p) p.textContent = si ? 'Abriendo el documento para corregirlo…' : 'Cargando…';
+      }
+      if(c) c.style.display = si ? 'none' : 'block';
+      if(si){ var h = document.getElementById('docTitulo'); if(h){ h.textContent = 'Corregir'; h.setAttribute('data-corto', 'Corregir'); } }
+    }
+    function corCargar(id){
+      COR.cargando = true;
+      corCargando(true);
+      var ref = db.collection('documentosGenerados').doc(id), x = null, ult = null;
+      ref.get().then(function(s){
+        if(!s.exists){ var e0 = new Error('no está'); e0.code = 'no-esta'; throw e0; }
+        x = Object.assign({ id:s.id }, s.data());
+        var p = corSePuede(x);
+        if(!p.ok){ var e1 = new Error('no se corrige'); e1.code = 'no-se-corrige'; e1.nota = p.nota; throw e1; }
+        var vs = (x.versiones || []).slice().sort(function(a, b){ return (a.n || 0) - (b.n || 0); });
+        ult = vs[vs.length - 1];
+        if(!ult){ var e2 = new Error('sin versiones'); e2.code = 'sin-datos'; throw e2; }
+        return ref.collection('versiones').doc(String(ult.n)).get();
+      }).then(function(s){
+        var e = s.exists ? (s.data() || {}).estado : '', est = null;
+        try{ est = e ? JSON.parse(e) : null; }catch(er){ est = null; }
+        if(!est || !est.campos){ var err = new Error('sin datos'); err.code = 'sin-datos'; throw err; }
+        return corEsperarDatos().then(function(){
+          COR.cargando = false;
+          corCargando(false);
+          corEntrar(x, ult, est);
+        });
+      }).catch(function(e){
+        console.warn('corrección:', e);
+        COR.cargando = false;
+        corCargando(false);
+        var c = e && e.code;
+        var msg = c === 'no-esta' ? 'Ese documento no está en el registro'
+          : c === 'sin-datos' ? 'Esta versión no guardó los datos del formulario: no se puede corregir desde acá'
+          : c === 'no-se-corrige' ? (e.nota || '')
+          : c === 'permission-denied' ? 'Ese documento lo ven solo la Dirección y quien lo generó'
+          : 'No se pudo abrir el documento para corregirlo. Revisá la conexión';
+        if(msg) toast(msg, true, true);
+        regAbrir(c === 'no-esta' ? null : id);
+      });
+    }
+    // Los desplegables (agentes, propiedades) se completan con las listas del sistema.
+    function corEsperarDatos(){
+      return new Promise(function(r){
+        var t0 = Date.now();
+        (function mirar(){ if(_datosListos || Date.now() - t0 > 8000) r(); else setTimeout(mirar, 150); })();
+      });
+    }
+    function corEntrar(x, ult, est){
+      var panel = COR_PANEL[x.tipo];
+      COR.id = x.id; COR.doc = x; COR.version = ult; COR.n = ult.n; COR.panel = panel;
+      COR.motivo = ''; COR.cambios = []; COR.avisar = true;
+      regCerrar(true);
+      try{ history.replaceState(history.state, '', location.pathname + '#corregir=' + encodeURIComponent(x.id)); }catch(e){}
+      // Antes de elegir el documento: así nada se guarda como borrador ni como política.
+      COR.activa = true;
+      document.documentElement.classList.add('con-correccion');
+      selectType(panel);
+      try{ corRestaurar(panel, est, x); }catch(e){ console.warn('corrección: no se pudo recuperar todo', e); }
+      var m0 = regMeta(panel, ''), ahora = {};
+      try{ ahora = JSON.parse((m0 && m0.estadoJSON) || '{}'); }catch(e){}
+      COR.base = m0;
+      // ¿Quedó igual a como salió? Se compara lo que esa versión guardó (el texto de
+      // las cláusulas no cuenta: depende también de los textos de la agencia de hoy).
+      COR.recuperada = !!m0 && corComparable(ahora, est) === corComparable(est, est);
+      COR.antes = (est.textos && est.textos.length) ? est.textos : corTextosActuales();
+      COR.camposAntes = est.campos || {};
+      // Lo que esa versión no guardaba (las de antes de poder corregir) queda como se abrió.
+      COR.estAntes = Object.assign({}, ahora, est);
+      var mot = document.getElementById('corMotivo'); if(mot) mot.value = '';
+      var av = document.getElementById('corAvisar'); if(av) av.checked = true;
+      corPintar(true);
+      docTitular();
+      // Los pasos, cerrados: cada uno muestra su resumen y se abre el que haya que cambiar.
+      if(typeof pasosDe === 'function' && pasosDe(panel)) pasoAbrir(0, { tipo:panel });
+      pasosRefrescar();
+      var col = typeof docColumna === 'function' ? docColumna() : null;
+      if(col) col.scrollTop = 0;
+      try{ window.scrollTo(0, 0); }catch(e){}
+      var t = document.getElementById('corTitulo');
+      if(t){ t.setAttribute('tabindex', '-1'); try{ t.focus({ preventScroll:true }); }catch(e){} }
+    }
+    function corComparable(o, claves){
+      var r = {};
+      Object.keys(o || {}).forEach(function(k){ if(k !== 'textos' && k in claves) r[k] = o[k]; });
+      return JSON.stringify(r);
+    }
+    function corTextosActuales(){
+      if(COR.panel !== 'contrato' || ctVal('ctGarantia') === 'anda') return null;
+      try{ return ctClausulas(ctDatos()).map(function(c){ return { id:c.id, titulo:clTituloLista(c), cuerpo:c.cuerpo }; }); }catch(e){ return null; }
+    }
+
+    // ---- Volver a poner los datos ----
+    // Los valores, tal cual, sin disparar eventos: lo que reacciona a un cambio
+    // (por ejemplo, la política de la agencia) no tiene que enterarse.
+    function corPonerCampos(campos, panelId){
+      var panel = document.getElementById(panelId);
+      Object.keys(campos || {}).forEach(function(id){
+        var e = document.getElementById(id);
+        if(!e || (panel && !panel.contains(e)) || e.type === 'file') return;
+        var v = campos[id];
+        if(e.type === 'checkbox' || e.type === 'radio'){ e.checked = !!v; return; }
+        v = v == null ? '' : String(v);
+        if(e.tagName === 'SELECT' && v !== '' && !Array.prototype.some.call(e.options, function(o){ return o.value === v; })){
+          var o = document.createElement('option'); o.value = v; o.textContent = v; e.appendChild(o);
+        }
+        e.value = v;
+      });
+    }
+    function corRestaurar(panel, est, x){
+      var c = est.campos || {};
+      if(panel === 'contrato') corContrato(est, c);
+      else if(panel === 'carta_pago') corCarta(est, c, x);
+      else if(panel === 'mediacion') corMediacion(est, c);
+      else if(panel === 'propietario'){ corPonerCampos(c, 'formPropietario'); ipPreview(); }
+      else if(panel === 'inventario') corInventario(est, c);
+      else if(panel === 'perdida') corPerdida(est, c);
+    }
+    function corContrato(est, c){
+      corPonerCampos(c, 'formContrato');                    // primero lo fijo: garantía, moneda, régimen…
+      ['arrendador', 'arrendatario', 'fiador'].forEach(function(r){ ctPersonas[r] = corCopia((est.personas || {})[r]) || []; });
+      corReemplazar(ctOpcionalesOn, corCopia(est.opcionales));
+      corReemplazar(ctEscritoGarantia, corCopia(est.garantias));
+      // Lo que hay en pantalla es de la hoja vacía: que al repintar la garantía no se guarde.
+      var gc = document.getElementById('ctGarantiaCampos'); if(gc) gc.removeAttribute('data-modalidad');
+      corReemplazar(axOpcionalesOn, corCopia(est.anexo));
+      var cl = est.clausulas || {};
+      CL.propio = corCopia(cl.propio) || {};
+      CL.opciones = corCopia(cl.opciones) || {};
+      CE.lista = (est.especiales || []).map(function(it){
+        return { uid:++CE.sec, titulo:it.titulo || '', texto:it.texto || '', valores:corCopia(it.valores) || {}, campos:corCopia(it.campos) || {},
+          guardadoId:it.guardadoId || '', abierto:false, base:it.texto || '' };
+      });
+      if(est.plazo != null) CT_PLAZO.modo = est.plazo;
+      ctSetDestino(est.destino === 'comercial' ? 'comercial' : 'vivienda');   // repinta opcionales y garantía
+      ['arrendador', 'arrendatario', 'fiador'].forEach(function(r){ ctPintarPersonas(r); });
+      try{ axPintarOpcionales(); }catch(e){}
+      cePintar();
+      corPonerCampos(c, 'formContrato');                    // otra vez: lo que recién apareció (opcionales, garantía, anexo)
+      // La fecha, los ejemplares y el pago al firmar quedan como salieron.
+      var f = document.getElementById('ctFecha'); if(f) f.dataset.auto = '0';
+      var ej = document.getElementById('ctEjemplares'); if(ej) ej.dataset.auto = '0';
+      var pim = document.getElementById('ctPiMontoDias'); if(pim) pim.dataset.manual = pim.value.trim() ? '1' : '';
+      try{ ctBotonesPintar(); }catch(e){}
+      try{ ctAvisoPolitica(); }catch(e){}
+      clPintarLista();
+      ctPreview();
+    }
+    function corCarta(est, c, x){
+      setOperacion(est.operacion === 'compraventa' ? 'compraventa' : 'arrendamiento');
+      setComprobante(est.comprobante === 'carta' ? 'carta' : 'reserva');
+      corPonerCampos(c, 'formCartaPago');
+      try{ poblarPropiedades(); }catch(e){}
+      setModoProp(est.modoProp === 'manual' ? 'manual' : 'lista');
+      corPonerCampos(c, 'formCartaPago');                   // la propiedad, ya con la lista de ese agente
+      if(est.modoProp !== 'manual' && /^_+$/.test(direccionActual() || '') && x && x.propiedad){
+        setModoProp('manual');
+        document.getElementById('fPropManual').value = x.propiedad;
+      }
+      var box = document.getElementById('firmantes');
+      if(box){
+        box.innerHTML = '';
+        (est.firmantes && est.firmantes.length ? est.firmantes : [{}]).forEach(function(p){
+          addFirmante();
+          var fi = box.lastElementChild;
+          fi.querySelector('.f-trato').value = p.trato === 'Sra.' ? 'Sra.' : 'Sr.';
+          fi.querySelector('.f-nombre').value = p.nombre || '';
+          fi.querySelector('.f-ci').value = p.ci || '';
+        });
+      }
+      renderPreview();
+    }
+    function corMediacion(est, c){
+      // Las versiones de antes de poder corregir no guardaban la operación, la
+      // modalidad ni quién paga: salen del nombre del PDF (Compromiso_exclusiva_alquiler_…)
+      // y de los campos que tenía la hoja.
+      var nom = String((COR.version && COR.version.nombreArchivo) || '');
+      var op = est.operacion || (('cmPrecioAlq' in c || 'cmHonAlq' in c || 'cmHonArr' in c || /^Compromiso_(exclusiva_)?alquiler_/.test(nom)) ? 'alquiler' : 'venta');
+      var mod = est.modalidad || ((/^Compromiso_/.test(nom) && !/^Compromiso_exclusiva_/.test(nom)) ? 'abierta' : 'exclusiva');
+      if(!('cobraProp' in est)) est.cobraProp = !('cmHonArr' in c);
+      cmPropietarios = corCopia(est.propietarios) || [];
+      if(!cmPropietarios.length) cmPropietarios.push({ nombre:'', cedula:'', domicilio:'' });
+      if(est.servicios) cmServiciosOn = corCopia(est.servicios);
+      if(est.escrito) cmEscrito = corCopia(est.escrito);
+      cmCobraProp = est.cobraProp !== false;
+      // Que al repintar no se guarde encima lo que hay en pantalla.
+      cmPintado.hon = ''; cmPintado.cond = '';
+      cmSetModalidad(mod === 'abierta' ? 'abierta' : 'exclusiva');
+      cmSetOperacion(op === 'alquiler' ? 'alquiler' : 'venta');
+      cmPintarProp();
+      cmPintarServicios();
+      corPonerCampos(c, 'formMediacion');
+      try{ cmSetAgente(); }catch(e){}
+      cmPreview();
+    }
+    function corInventario(est, c){
+      var f = est.inventario;
+      if(!f) return;
+      ivRestaurar(Object.assign({ sec:0, abierto:null, descargado:0 }, corCopia(f)));
+      IV.abierto = ivPlanInicial();
+      // La fecha, la del documento que se corrige.
+      var fe = document.getElementById('ivFecha'); if(fe && f.campos && f.campos.ivFecha) fe.value = f.campos.ivFecha;
+      ivAplicarDestino();
+      ivPintarSecciones();
+      ivPintar();
+      corPonerCampos(c, 'formInventario');
+      var caja = document.getElementById('ivBorrador'); if(caja) caja.hidden = true;
+      ivPreview();
+    }
+    function corPerdida(est, c){
+      corPonerCampos(c, 'formPerdida');
+      var d = est.datos || {};
+      PS.personas = (d.personas && d.personas.length ? d.personas : [{}]).map(function(p){
+        return { trato:p.trato === 'Sra.' ? 'Sra.' : 'Sr.', nombre:p.nombre || '', ci:p.ci || '' };
+      });
+      PS.reciboId = c.psRecibo || '';
+      psPintarPersonas();
+      psOperacionPintar();
+      psMonedaSet(ctVal('psMoneda') || 'UYU', true);
+      psSegPintar('psMedioSeg', ctVal('psMedio'));
+      psPintarRecibos();
+      corPonerCampos(c, 'formPerdida');
+      psPreview();
+    }
+
+    // ---- Lo que cambió ----
+    function corEtiqueta(id){
+      var e = document.getElementById(id);
+      var l = document.querySelector('label[for="' + id + '"]');
+      if(!l && e){ var fld = e.closest('.fld'); if(fld) l = fld.querySelector('label'); }
+      if(!l && e && e.closest('.ct-op')) l = e.closest('.ct-op').querySelector('b');
+      var t = l ? l.textContent : (e && e.getAttribute('aria-label')) || '';
+      t = String(t).replace(/\s*\((opcional|optional)\)\s*/i, ' ').replace(/\s+/g, ' ').trim();
+      return t;
+    }
+    function corCambios(){
+      if(!COR.activa) return [];
+      var m = regMeta(COR.panel, '');
+      if(!m || (COR.base && m.huella === COR.base.huella)) return [];
+      var l = [], agrega = function(t){ t = String(t || '').trim(); if(t && l.indexOf(t) < 0) l.push(t); };
+      var ahora = corTextosActuales();
+      if(ahora && COR.antes){
+        // En el contrato, lo que importa es qué cláusulas cambiaron.
+        var A = {}, vistos = {};
+        COR.antes.forEach(function(c){ A[c.id] = c; });
+        ahora.forEach(function(c, i){
+          vistos[c.id] = 1;
+          var a = A[c.id];
+          if(!a) agrega('Se agregó la cláusula ' + (i + 1) + ', ' + c.titulo);
+          else if(a.cuerpo !== c.cuerpo || a.titulo !== c.titulo) agrega('Cláusula ' + (i + 1) + ', ' + c.titulo);
+        });
+        COR.antes.forEach(function(a){ if(!vistos[a.id]) agrega('Se sacó la cláusula ' + a.titulo); });
+      }
+      if(!l.length){
+        var c0 = COR.camposAntes || {}, c1 = regCampos(document.getElementById(PANEL_DE[COR.panel]));
+        Object.keys(Object.assign({}, c0, c1)).forEach(function(id){
+          var a = c0[id] == null ? '' : String(c0[id]), b = c1[id] == null ? '' : String(c1[id]);
+          if(a !== b) agrega(corEtiqueta(id));
+        });
+        var e0 = COR.estAntes || {}, e1 = {};
+        try{ e1 = JSON.parse(m.estadoJSON || '{}'); }catch(e){}
+        Object.keys(COR_LISTAS).forEach(function(k){
+          if(k in e0 || k in e1){ if(JSON.stringify(e0[k]) !== JSON.stringify(e1[k])) agrega(COR_LISTAS[k]); }
+        });
+      }
+      if(!l.length) agrega('Datos del formulario');
+      return l.slice(0, 12);
+    }
+
+    // ---- La franja de la corrección ----
+    function corPintar(nueva){
+      var p = document.getElementById('corPanel');
+      if(!p) return;
+      p.hidden = !COR.activa;
+      if(!COR.activa) return;
+      var x = COR.doc, v = COR.version || {}, fe = regFecha(v.at), sig = (Number(x.version) || COR.n) + 1;
+      COR.sig = sig;
+      if(nueva){
+        var t = document.getElementById('corTitulo'); if(t) t.textContent = 'Corrigiendo la versión ' + COR.n;
+        var q = document.getElementById('corQue');
+        if(q) q.textContent = 'La ' + (v.n === 1 ? 'generó ' : (v.porUid === x.autorUid ? 'volvió a generar ' : 'corrigió ')) + (v.porNombre || 'alguien sin nombre') +
+          (fe.f ? ' el ' + fe.f + ' a las ' + fe.h : '') + '. Al emitir sale la versión ' + sig + ', y la ' + COR.n + ' queda guardada tal cual salió.';
+        var a = document.getElementById('corAviso'); if(a) a.hidden = COR.recuperada;
+        var yo = auth.currentUser && auth.currentUser.uid;
+        var w = document.getElementById('corAvisarWrap'); if(w) w.hidden = !x.autorUid || x.autorUid === yo;
+        var at = document.getElementById('corAvisarTxt'); if(at) at.textContent = 'Avisarle a ' + (x.autorNombre || 'quien lo generó') + ' que hay una versión nueva';
+      }
+      var eb = document.querySelector('#corEmitirBtn span'); if(eb) eb.textContent = 'Emitir versión ' + sig;
+      var hb = document.querySelector('#fhBajar span'); if(hb) hb.textContent = 'Emitir versión ' + sig;
+      var bm = document.querySelector('#barraMovil .bm-bajar'); if(bm) bm.innerHTML = '<i class="fas fa-file-circle-check"></i> Emitir versión ' + sig;
+      corPintarCambios();
+    }
+    function corPintarCambios(){
+      var ul = document.getElementById('corCambios');
+      if(!ul || !COR.activa) return;
+      var l = corCambios();
+      COR.cambios = l;
+      var html = l.length ? l.map(function(t){ return '<li>' + esc(t) + '</li>'; }).join('') : '<li class="cor-nada">Todavía no cambiaste nada.</li>';
+      if(ul.getAttribute('data-html') !== html){ ul.innerHTML = html; ul.setAttribute('data-html', html); }
+    }
+    function corPedirCambios(){
+      if(!COR.activa) return;
+      clearTimeout(COR.t);
+      COR.t = setTimeout(corPintarCambios, 350);
+    }
+    ['input', 'change', 'click'].forEach(function(ev){
+      document.addEventListener(ev, function(e){
+        if(!COR.activa) return;
+        var t = e.target;
+        if(t && t.closest && t.closest('#corPanel')) return;
+        corPedirCambios();
+      }, true);
+    });
+    function corTitular(){
+      var h = document.getElementById('docTitulo'), c = document.getElementById('docContexto');
+      var nombre = (COR.doc && COR.doc.nombre) || 'Documento';
+      if(h){ h.textContent = 'Corregir · ' + nombre; h.setAttribute('data-corto', 'Corregir'); }
+      if(c && COR.doc) c.textContent = COR.doc.propiedad || COR.doc.partes || '';
+    }
+
+    // ---- Emitir la versión nueva ----
+    function corEmitir(){
+      if(!COR.activa || COR.emitiendo) return;
+      var mot = document.getElementById('corMotivo'), motivo = mot ? mot.value.replace(/\s+/g, ' ').trim() : '';
+      var l = corCambios();
+      if(!l.length){ toast('Todavía no cambiaste nada: no hay una versión nueva para emitir', true); return; }
+      if(!motivo){
+        toast('Escribí el motivo de la corrección', true);
+        if(mot){ try{ mot.scrollIntoView({ block:'center' }); mot.focus({ preventScroll:true }); }catch(e){} }
+        return;
+      }
+      var av = document.getElementById('corAvisar'), w = document.getElementById('corAvisarWrap');
+      COR.motivo = motivo.slice(0, 500);
+      COR.cambios = l;
+      COR.avisar = !!(av && av.checked && w && !w.hidden);
+      COR.emitiendo = true;
+      try{ generarActivo(); }
+      finally{ COR.emitiendo = false; }
+    }
+    // Lo llama el registro al pedir el PDF: es de este documento, con su motivo.
+    // (Corrigiendo, el único PDF que sale es el de «Emitir»: pasa por corEmitir.)
+    function corPreparar(m){
+      if(!COR.activa) return;
+      m.correccion = { id:COR.id, n:COR.n, motivo:COR.motivo, cambios:COR.cambios.slice(), avisar:COR.avisar };
+    }
+    // La versión nueva quedó guardada: la página se vuelve a abrir en el registro, en ese documento.
+    function corListo(r){
+      var nombre = COR.doc && COR.doc.autorNombre;
+      corRecargar('#registro=' + encodeURIComponent(r.id), 'Quedó la versión ' + r.n + (COR.avisar && nombre ? '. Le avisamos a ' + nombre : ''));
+    }
+    function corFallo(e){
+      toast(e && e.code === 'permission-denied' ? 'La versión nueva no quedó guardada: tu usuario no tiene permiso'
+        : e && e.code === 'not-found' ? 'La versión nueva no quedó guardada: el documento ya no está en el registro'
+        : 'La versión nueva no quedó guardada. Revisá la conexión y volvé a emitirla', true, true);
+    }
+    // Descartar: la página vuelve al registro, en ese documento, sin nada a medias.
+    function corDescartar(){
+      if(!COR.activa) return;
+      if(corCambios().length && !confirm('¿Descartar los cambios? El documento queda como estaba.')) return;
+      corRecargar('#registro=' + encodeURIComponent(COR.id));
+    }
+    // Irse a otro documento (d.tipo) o al registro (d.registro) en medio de una
+    // corrección: se pregunta si hay cambios, y la página se abre limpia allá.
+    function corSalirA(d){
+      if(!regCorrigiendo()) return;
+      if(corCambios().length && !confirm('Estás corrigiendo un documento y la versión nueva todavía no se emitió. ¿Salir igual?')){
+        try{ history.replaceState(history.state, '', location.pathname + '#corregir=' + encodeURIComponent(COR.id)); }catch(e){}
+        return;
+      }
+      corRecargar(d.hash || (d.tipo ? '' : '#registro' + (d.registro ? '=' + encodeURIComponent(d.registro) : '')), '', d.tipo || '');
+    }
+    window.addEventListener('beforeunload', function(ev){
+      if(regCorrigiendo() && !COR.saliendo && corCambios().length){ ev.preventDefault(); ev.returnValue = ''; }
+    });
+
     // ===== Controles de UI =====
     var _tipoActivo = 'carta_pago';
     function regAbierto(){ return !!(typeof REG !== 'undefined' && REG && REG.abierto); }
     function selectType(t){
+      if(regCorrigiendo() && t !== COR.panel){ corSalirA({ tipo:t }); return; }
       // Elegir un documento en el menú cierra el registro.
       if(regAbierto()) regCerrar(true);
       var anterior = _tipoActivo;
@@ -11504,6 +12096,7 @@
       var cn = document.getElementById('compNota');
       if(cn) cn.hidden = !(_comp && _tipoActivo === 'carta_pago');
       docContextoPintar();
+      if(regCorrigiendo()) corTitular();
     }
     function docPanel(){
       return document.getElementById({ carta_pago:'formCartaPago', contrato:'formContrato', mediacion:'formMediacion',
@@ -11645,6 +12238,7 @@
     var _ctPoliticaAgencia = null;           // la de config/contrato: la que fijó la Dirección
     function ctGuardarPolitica(){
       _ctPoliticaSinGuardar = false;
+      if(regCorrigiendo()) return;
       var g = ctPoliticaCambiada() ? ctPoliticaValores() : null;
       try{
         if(g) localStorage.setItem('mvDocsPolitica_v1', JSON.stringify(g));
@@ -11691,6 +12285,7 @@
     // antes), esa pasa a ser la de la agencia.
     function ctPoliticaAplicar(pol){
       _ctPoliticaAgencia = (pol && typeof pol === 'object') ? pol : null;
+      if(regCorrigiendo()) return;
       if(!_ctPoliticaAgencia){
         if(ctPoliticaCambiada()) ctGuardarPolitica(); else ctAvisoPolitica();
         return;
@@ -11887,6 +12482,7 @@
       var comp = compPedido();
       if(comp) abrirComprobante(comp);
       regDesdeHash();
+      corAlCargar();
     });
 
     function propPorId(id){
@@ -12062,7 +12658,7 @@
     // documentos. Las fichas completas (fotos, descripciones) no hacen falta acá.
     function agenteLiviano(d){
       var u = d.data() || {};
-      return { id:d.id, name:u.name || '', tel:u.whatsapp || u.phone || '', email:u.email || '' };
+      return { id:d.id, name:u.name || '', tel:u.whatsapp || u.phone || '', email:u.email || '', rank:u.rank || '' };
     }
     // La dirección como la muestra la ficha pública: con el número de puerta solo
     // si el agente eligió mostrar el punto exacto ("Pin en InfoCasas: Punto exacto").

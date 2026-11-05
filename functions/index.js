@@ -2477,6 +2477,54 @@ exports.notificarEstadoRetiro = onDocumentUpdated("retiros/{id}", async (event) 
 // =====================================================================
 const ptsTxt = (n) => `${n} ${n === 1 ? "punto" : "puntos"}`;
 
+/* ============================================================================
+   DOCUMENTOS GENERADOS: AVISO DE UNA CORRECCIÓN
+   ----------------------------------------------------------------------------
+   La Dirección corrige un documento desde Generar documentos → Documentos
+   generados → Corregir: se agrega una versión nueva y la anterior queda
+   guardada. Si la corrigió otra persona que quien lo generó, y se pidió
+   avisarle, a quien lo generó le llega el aviso (campanita y celular) con el
+   motivo y el enlace a esa versión. Una entrega repetida del mismo evento no
+   avisa dos veces (el id del aviso es fijo por documento y versión).
+   ========================================================================== */
+exports.avisarDocumentoCorregido = onDocumentUpdated("documentosGenerados/{id}", async (event) => {
+  const before = event.data && event.data.before ? event.data.before.data() : null;
+  const after = event.data && event.data.after ? event.data.after.data() : null;
+  if (!before || !after) return;
+  const antes = Array.isArray(before.versiones) ? before.versiones.length : 0;
+  const vs = Array.isArray(after.versiones) ? after.versiones : [];
+  if (vs.length <= antes) return;
+  const v = vs[vs.length - 1] || {};
+  // Una versión que vuelve a generar el mismo autor no es una corrección.
+  if (!after.autorUid || !v.porUid || v.porUid === after.autorUid || v.avisar === false) return;
+  let autor = null;
+  try {
+    const u = await db.doc(`users/${after.autorUid}`).get();
+    if (u.exists) autor = { uid: u.id, ...u.data() };
+  } catch (e) {
+    logger.warn(`avisarDocumentoCorregido ${event.params.id}: no se pudo leer al autor`, e.message);
+  }
+  if (!autor) return;
+  const quien = String(v.porNombre || "La Dirección");
+  const doc = String(after.nombre || "un documento");
+  const donde = after.propiedad ? ` de ${after.propiedad}` : "";
+  const motivo = String(v.motivo || "").trim();
+  await crearNotificacion(
+    autor,
+    {
+      type: "documento_corregido",
+      propertyId: "",
+      propertyTitle: String(after.propiedad || ""),
+      userName: "Corrigieron un documento tuyo",
+      userPhoto: null,
+      text: `${quien} corrigió «${doc}»${donde}: ahora vale la versión ${v.n}.${motivo ? " Motivo: " + motivo : ""}`,
+      url: `generar-documentos.html#registro=${event.params.id}`,
+    },
+    { title: "Corrigieron un documento tuyo", body: `${doc}${donde}: versión ${v.n}.${motivo ? " " + motivo : ""}` },
+    `doccorr_${event.params.id}_${v.n}`
+  );
+});
+
 exports.notificarCanje = onDocumentCreated("canjes/{id}", async (event) => {
   const snap = event.data;
   if (!snap) return;
