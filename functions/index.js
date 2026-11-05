@@ -7972,6 +7972,19 @@ const ESTADOS_PROP_EN_JUEGO = ["available", "reserved", "tasacion", "tasado"];
 // Motivos que pone este mismo circuito (no un pedido de baja manual de un agente).
 const MOTIVOS_BAJA_DE_GESTION = ["cerro_externo", "propietario_perdido"];
 
+// ¿La venta o el alquiler los hizo la agencia? Hay un cierre en el Mapa de cierres
+// (confirmado o por confirmar), o la cerró OTRA gestión que sigue Cerrada (el
+// comprador). Entonces "Vendida" o "Alquilada" es verdad, aunque el dueño figure
+// Cerró por afuera o Perdido. Si no (la marcaron a mano, o es un dato de antes), no
+// fue una operación de la agencia. Es la misma regla que usa Clientes para avisar.
+async function operacionDeLaAgencia(tx, p, gestionId) {
+  if (p.cierreConfirmado === true || cierreObjeto(p.cierre)) return true;
+  const f = p.finalizadaPorGestion;
+  if (!f || !f.gestionId || f.gestionId === gestionId) return false;
+  const gs = await tx.get(db.collection("gestiones").doc(f.gestionId));
+  return gs.exists && (gs.data().estadoGestion || "") === "cerrado";
+}
+
 // La agencia perdió al propietario (gestión perdida, cerró por afuera o perdido a
 // nivel cliente): su propiedad NO puede seguir publicada sin permiso, pero nada se
 // baja solo. Se le manda al admin una confirmación con botones (campanita + push);
@@ -7997,9 +8010,29 @@ async function pedirConfirmacionDespublicar(propId, quienNombre, motivoTexto, ti
     }
     const p = snap.data();
     const st = p.status || "available";
-    // Ya salió del mercado (vendida, alquilada, dada de baja o ya cerrada por
-    // afuera). Antes solo se miraban Disponible y Reservada: una propiedad en
-    // tasación quedaba "Pendiente de tasación" con el propietario perdido.
+    // Vendida o Alquilada SIN la agencia: el dueño cerró por afuera (o se perdió) y
+    // alguien la había marcado a mano. Quedaba "Vendida", que es una operación de la
+    // agencia. Pasa a Dada de baja sin preguntarle a Dirección: ya estaba fuera de la
+    // web y de los portales, así que no se despublica nada.
+    if (st === "sold" || st === "rented") {
+      if (await operacionDeLaAgencia(tx, p, gestionId)) return { agencia: true, st };
+      const ahora = new Date().toISOString();
+      const borrar = admin.firestore.FieldValue.delete();
+      const upd = {
+        status: "archived", archivedAt: ahora, updatedAt: ahora, statusPrevioBaja: st,
+        motivoBaja: tipoTerminal === "externo" ? "cerro_externo" : "propietario_perdido",
+        motivoBajaTexto: tipoTerminal === "externo" ? "Cerró por afuera de la agencia" : "Propietario perdido",
+        despubResolucion: { resultado: "despublicada", por: solicitante || "Sistema", at: ahora, motivo: "sin_operacion_de_la_agencia" },
+        // Lo que solo tiene sentido en una venta o un alquiler de la agencia.
+        finalizadaPorGestion: borrar, contratoPendiente: borrar, contratoPendienteGestion: borrar, reservadaPorGestion: borrar,
+      };
+      if (p.despubPendiente === true) { upd.despubPendiente = borrar; upd.statusPrevioDespub = borrar; }
+      tx.update(ref, upd);
+      return { archivada: true, st };
+    }
+    // Ya salió del mercado (dada de baja o ya cerrada por afuera). Antes solo se
+    // miraban Disponible y Reservada: una propiedad en tasación quedaba "Pendiente
+    // de tasación" con el propietario perdido.
     if (!ESTADOS_PROP_EN_JUEGO.includes(st)) return null;
     const upd = { status: "cerrado_externo", updatedAt: new Date().toISOString() };
     if (tipoTerminal === "externo") { upd.motivoBaja = "cerro_externo"; upd.motivoBajaTexto = "Cerró por afuera de la agencia"; }
@@ -8017,6 +8050,15 @@ async function pedirConfirmacionDespublicar(propId, quienNombre, motivoTexto, ti
     return { p, st, avisar: !yaPendiente || !!p.bajaSolicitadaUid };
   });
   if (!r) return;
+  if (r.agencia) {
+    logger.info(`[despublicar?] ${propId}: figura ${r.st} por una operación de la agencia; no se toca (${motivoTexto}).`);
+    return;
+  }
+  if (r.archivada) {
+    await registrarLog(propId, "Dada de baja", true, `${quienNombre} (propietario) ${motivoTexto}; figuraba ${r.st === "rented" ? "Alquilada" : "Vendida"} sin una operación de la agencia${solicitante ? ` · lo marcó ${solicitante}` : ""}`);
+    logger.info(`[dada de baja] ${propId}: figuraba ${r.st} sin operación de la agencia (${motivoTexto}).`);
+    return;
+  }
   if (!r.avisar) {
     logger.info(`[despublicar?] ${propId}: ya había un pedido esperando; pasa a cerrado_externo (${motivoTexto}).`);
     return;
@@ -8168,9 +8210,14 @@ exports.sincronizarPropiedadAlCerrarGestion = onDocumentUpdated("gestiones/{gid}
   // (1) Salió de "Cerrado": se revierte SOLO lo que este trigger había marcado.
   //     Si vuelve a "Reservado" (la Dirección deshizo el cierre pero la seña sigue
   //     en pie), la propiedad queda Reservada, no Disponible.
+  //     Excepción: el DUEÑO que pasa de Cerrado a Cerró por afuera o Perdido. La
+  //     venta no fue de la agencia, y la propiedad no vuelve a Disponible (se
+  //     republicaba en los portales un instante): la regla (3) la deja como
+  //     corresponde (Dada de baja, o como está si la operación sí fue de la agencia).
   if (estAntes === "cerrado" && estAhora !== "cerrado") {
     const f = p.finalizadaPorGestion;
-    if (f && f.gestionId === gid && (p.status === "sold" || p.status === "rented")) {
+    const duenioSeVa = (estAhora === "externo" || estAhora === "perdido") && (await rol()) === "propietario";
+    if (!duenioSeVa && f && f.gestionId === gid && (p.status === "sold" || p.status === "rented")) {
       const aReserva = estAhora === "reservado";
       const nuevo = aReserva ? "reserved" : "available";
       await ref.update({

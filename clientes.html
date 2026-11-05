@@ -222,6 +222,10 @@
     .elg-txt span{ font-size:.73rem; color:var(--gray-500); margin-top:1px; }
     .elg-item.off{ opacity:.5; cursor:default; }
     .elg-item.off:hover{ border-color:var(--gray-200); background:transparent; }
+    /* La del dueño que no puede pasar a ese avance: apagada, pero el motivo se lee. */
+    .elg-item.off.trabada{ opacity:1; align-items:flex-start; }
+    .elg-item.trabada > input, .elg-item.trabada > img, .elg-item.trabada .elg-txt b, .elg-item.trabada .elg-txt span{ opacity:.55; }
+    .elg-traba{ font-style:normal; font-size:.72rem; line-height:1.4; color:#9a3412; margin-top:4px; }
     .elg-go{ width:100%; border:none; border-radius:11px; background:var(--navy,#16273F); color:#fff; font-family:inherit; font-size:.87rem; font-weight:600; padding:11px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
     .elg-go:disabled{ opacity:.6; cursor:default; }
     /* Cerrar una operación: ¿qué propiedad? → Mapa de cierres */
@@ -1744,6 +1748,7 @@
       var ppal = a ? (a.manda || a.ult) : null;
       c._rolPrincipal = ppal ? (ppal.rol || 'propietario') : null;
       c._tituloPrincipal = ppal ? (ppal.titulo || '') : '';
+      c._propPrincipal = ppal ? (ppal.pid || '') : '';
       // Su etapa real (la etiqueta puede resumir varias): Reservado y Cerrado tienen reglas propias.
       c._estadoPrincipal = ppal ? (ppal.estado || null) : null;
       // Última actividad: lo más reciente entre gestiones y la propia ficha.
@@ -2870,7 +2875,7 @@
       ['cartera', 'Solo el dueño: su propiedad ya está captada. El silencio es normal.'],
       ['reservado', 'El cliente dejó la seña. La propiedad pasa a Reservada (en Mercado Libre el aviso se pausa) y la reserva se registra en el Mapa de cierres con el precio y la ganancia; al guardarla se emite el recibo de la seña.'],
       ['cerrado', 'Se firmó y la Dirección lo confirmó en el Mapa de cierres. La propiedad pasa sola a Vendida o Alquilada y la ganancia suma en Mis Finanzas. Solo la Dirección lo puede cambiar.'],
-      ['externo', 'Se concretó SIN la agencia. Si es el dueño, su propiedad sale de circulación y Dirección confirma la baja de los portales.'],
+      ['externo', 'Se concretó SIN la agencia. Si es el dueño, su propiedad queda Dada de baja (nunca Vendida): si estaba publicada, sale de la web y Dirección confirma la baja de los portales.'],
       ['perdido', 'Dijo que no. Si es el dueño, su propiedad sale de circulación igual que en "Cerró por afuera".']
     ];
     // Cómo se integran la etapa y la propiedad: depende de qué es el cliente para
@@ -3052,6 +3057,11 @@
         elegirGestionesTerminal(id, nuevo);
         return;
       }
+      // El dueño que se va: las mismas trabas que en su ficha (venta de la agencia,
+      // reserva de otro cliente en el mapa).
+      var propPpal = rolCambio === 'propietario' ? propEnMemoria(c._propPrincipal) : null;
+      var trabaL = propPpal ? trabaSalidaDuenio(c._gestionPrincipal, c._estadoPrincipal, nuevo, propPpal) : null;
+      if (trabaL){ avisarTraba(trabaL, propPpal.id); return; }
       // La gestión que manda está Reservada o Cerrada: salir de ahí tiene
       // consecuencias (se cae la reserva; o solo lo hace la Dirección). Lo resuelve
       // el cambio de la gestión, igual que desde la ficha.
@@ -3093,7 +3103,7 @@
         }
         renderClients();
         var det = '';
-        if (c._gestionPrincipal && rolCambio === 'propietario' && (nuevo === 'externo' || nuevo === 'perdido')) det = 'Su propiedad sale de circulación y Dirección confirma la baja de los portales';
+        if (c._gestionPrincipal && rolCambio === 'propietario' && (nuevo === 'externo' || nuevo === 'perdido')) det = textoSalidaDuenio(propPpal, c._gestionPrincipal);
         else if (c._gestionPrincipal && nuevo === 'cerrado') det = 'La propiedad pasa sola a Vendida o Alquilada';
         if (eAntes && eAntes !== 'cliente') consolidarPase(c, nuevo);
         if (eAntes && eAntes !== 'cliente' && estadoConsulta(c) === 'cliente') det = 'La consulta pasó a Clientes' + (det ? '. ' + det : '');
@@ -3142,6 +3152,49 @@
         + '• La reserva se borra del Mapa de cierres y no suma en ganancias ni en puntos.\n'
         + ((nuevo && nuevo !== 'perdido' && nuevo !== 'externo') ? '• La gestión vuelve a ' + (GESTION_ESTADO[nuevo] || nuevo) + '.\n' : '')
         + '\nCancelar: la reserva sigue como está.');
+    }
+
+    // ===== El dueño se va (Cerró por afuera o Perdido) y su propiedad =====
+    // ¿La venta o el alquiler los hizo la agencia? Tiene un cierre en el Mapa de
+    // cierres (confirmado o por confirmar) o la cerró la gestión de otro cliente.
+    // Es la misma regla que usa el servidor: así, la propiedad sigue Vendida o
+    // Alquilada aunque el dueño se vaya. Si no la hizo la agencia (la marcaron a
+    // mano), con el dueño fuera la propiedad queda Dada de baja.
+    function ventaDeAgencia(prop, gid){
+      if (!prop) return false;
+      var st = prop.status || 'available';
+      if (st !== 'sold' && st !== 'rented') return false;
+      var f = prop.finalizadaPorGestion;
+      return prop.cierreConfirmado === true || !!prop.cierre || !!(f && f.gestionId && f.gestionId !== gid);
+    }
+    // Lo que impide pasar al DUEÑO a Cerró por afuera o Perdido (null si nada).
+    //  - La operación es de la agencia: "cerró por afuera" sería falso.
+    //  - Hay una reserva de otro cliente en el mapa: primero se cae esa reserva (si la
+    //    reservó esta misma gestión, se cae al cambiar el avance, como siempre).
+    function trabaSalidaDuenio(gid, etapaActual, nuevo, prop){
+      if (!prop || (nuevo !== 'externo' && nuevo !== 'perdido')) return null;
+      var st = prop.status || 'available';
+      if (nuevo === 'externo' && ventaDeAgencia(prop, gid))
+        return { titulo: 'La ' + (st === 'rented' ? 'alquiló' : 'vendió') + ' la agencia',
+          texto: 'Figura en el Mapa de cierres. Si fue la agencia, la gestión va Cerrado. Si no, la Dirección tiene que eliminar ese cierre del mapa primero.' };
+      if (st === 'reserved' && prop.cierre && prop.cierreConfirmado !== true && etapaActual !== 'reservado')
+        return { titulo: 'Primero se tiene que caer la reserva',
+          texto: 'Hay una reserva de otro cliente en el Mapa de cierres: marcá «Se cayó» ahí y después cambiá el avance.' };
+      return null;
+    }
+    function verEnMapa(pid){ location.href = 'mapa-cierres.html?id=' + encodeURIComponent(pid) + '&desde=clientes'; }
+    function avisarTraba(t, pid){
+      showToast(t.titulo, t.texto, pid ? { txt: 'Ir al mapa', fn: function(){ verEnMapa(pid); } } : null);
+    }
+    // Qué le pasa a la propiedad cuando el dueño se va, dicho en el aviso.
+    function textoSalidaDuenio(prop, gid){
+      if (!prop) return '';
+      var st = prop.status || 'available';
+      if (st === 'sold' || st === 'rented') return ventaDeAgencia(prop, gid)
+        ? 'La propiedad sigue ' + PROP_STATUS[st] + ': la operación fue de la agencia'
+        : 'La propiedad queda Dada de baja: no fue una operación de la agencia';
+      if (PROP_EN_JUEGO.indexOf(st) >= 0) return 'La propiedad sale de la web y queda Dada de baja cuando la Dirección lo confirma en la campanita';
+      return '';
     }
     // Adónde lleva el Mapa de cierres cuando la Dirección marca Cerrado: a confirmar
     // la firma de la reserva ya cargada, o a registrar el cierre ya firmado.
@@ -3330,26 +3383,33 @@
         var gs = res[1].docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
         gs.sort(function(a,b){ return (b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||''); });
         if (!gs.length){ cont.innerHTML = '<div class="cp-prop-soon">Este cliente no tiene gestiones para cerrar.</div>'; return; }
-        var abiertas = 0;
+        var abiertas = 0, trabadas = 0;
         var filas = gs.map(function(g){
           var p = null; for (var k=0;k<allProperties.length;k++){ if (allProperties[k].id===g.propertyId){ p = allProperties[k]; break; } }
           var est = etapaEfectiva(g);
           var yaTerminal = ESTADOS_TERMINALES.indexOf(est) >= 0;
-          if (!yaTerminal) abiertas++;
+          var esDuenio = rolDeGestion(g) === 'propietario';
+          // Las del dueño que no pueden pasar a este avance (venta de la agencia,
+          // reserva de otro cliente en el mapa) se muestran sin poder marcarlas.
+          var traba = (!yaTerminal && esDuenio) ? trabaSalidaDuenio(g.id, est, nuevo, p) : null;
+          var off = yaTerminal || !!traba;
+          if (!off) abiertas++;
+          if (traba) trabadas++;
           _elgGestiones[g.id] = { g: g, p: p, est: est };
           var titulo = g.propertyTitle || (p ? p.title : 'Gestión sin propiedad');
           var estProp = p ? (p.status || 'available') : null;
-          return '<label class="elg-item'+(yaTerminal?' off':'')+'">' +
-              '<input type="checkbox" value="'+escA(g.id)+'"'+(yaTerminal?' disabled':' checked')+'>' +
+          return '<label class="elg-item'+(off?' off':'')+(traba?' trabada':'')+'">' +
+              '<input type="checkbox" value="'+escA(g.id)+'"'+(off?' disabled':' checked')+'>' +
               '<img src="'+escA(img(p))+'" alt="" loading="lazy">' +
               '<div class="elg-txt"><b>'+esc(titulo)+'</b>' +
-                '<span>'+(rolDeGestion(g)==='propietario'?'Dueño':'Interesado')+' · Avance: '+esc(GESTION_ESTADO[est]||est)+(estProp?' · Propiedad: '+esc(PROP_STATUS[estProp]||estProp):'')+'</span>' +
+                '<span>'+(esDuenio?'Dueño':'Interesado')+' · Avance: '+esc(GESTION_ESTADO[est]||est)+(estProp?' · Propiedad: '+esc(PROP_STATUS[estProp]||estProp):'')+'</span>' +
+                (traba ? '<em class="elg-traba">'+esc(traba.titulo)+'. '+esc(traba.texto)+'</em>' : '') +
               '</div>' +
             '</label>';
         }).join('');
         cont.innerHTML = filas + (abiertas
           ? '<button class="elg-go" onclick="confirmarGestionesTerminal(\''+escA(clientId)+'\',\''+escA(nuevo)+'\')"><i class="fas fa-check"></i> Aplicar a lo marcado</button>'
-          : '<div class="cp-prop-soon">Todas las gestiones de este cliente ya están cerradas.</div>');
+          : '<div class="cp-prop-soon">'+(trabadas ? 'Ninguna se puede pasar a '+esc(GESTION_ESTADO[nuevo]||nuevo)+': el motivo está en cada una.' : 'Todas las gestiones de este cliente ya están cerradas.')+'</div>');
       }).catch(function(e){
         console.error('elegirGestionesTerminal:', e);
         var cont = document.getElementById('elgList');
@@ -4039,6 +4099,18 @@
             acciones: [ A('Sacarla de circulación', "resincronizarGestion('"+gid+"','"+pid+"',this)", true, 'fa-box-archive'),
                         A('Sigue con nosotros', "cambiarEstadoGestion('"+gid+"','cartera')", false, 'fa-rotate-left') ] };
         }
+        // El dueño se fue y la propiedad figura Vendida o Alquilada. Si no fue una
+        // operación de la agencia (la marcaron a mano), tiene que quedar Dada de baja.
+        if ((est === 'externo' || est === 'perdido') && vendida){
+          var verboV = st === 'rented' ? 'alquiló' : 'vendió';
+          if (!ventaDeAgencia(prop, g.id))
+            return { texto: 'El avance dice '+estTxt+', pero la propiedad figura '+stTxt+'. '+(est === 'externo' ? 'Si la '+verboV+' el propietario por su cuenta' : 'Con el propietario perdido')+', no fue una operación de la agencia: la propiedad tiene que quedar <b>Dada de baja</b>.',
+              acciones: [ A('Darla de baja', "resincronizarGestion('"+gid+"','"+pid+"',this)", true, 'fa-box-archive') ] };
+          if (est === 'externo')
+            return { texto: 'El avance dice '+estTxt+', pero la propiedad figura '+stTxt+' por una operación de la agencia: está en el Mapa de cierres.'+(isAdmin ? ' Si fue la agencia, la gestión va Cerrado. Si no, eliminá ese cierre del mapa.' : ' Avisale a la Dirección: solo ella lo puede corregir.'),
+              acciones: isAdmin ? [ A('Fue la agencia', "cambiarEstadoGestion('"+gid+"','cerrado')", true, 'fa-circle-check'),
+                                    A('Ver en el mapa', "verEnMapa('"+pid+"')", false, 'fa-map-location-dot') ] : [] };
+        }
         if (activa && st === 'cerrado_externo'){
           if (prop.despubPendiente && prop.bajaSolicitadaUid) return { info: true, texto: 'Hay un pedido de baja esperando la decisión de Dirección.' };
           // La sacó de circulación OTRA gestión (otro dueño de la misma propiedad):
@@ -4049,16 +4121,24 @@
                         A('Cerró por afuera', "cambiarEstadoGestion('"+gid+"','externo')", false, 'fa-arrow-right-from-bracket') ] };
         }
         if (activa && vendida){
-          if (isAdmin || firmaConfirmada(prop)) return { info: true, texto: 'La propiedad ya figura '+stTxt+'. Si la operación la hizo la agencia, cerrá esta gestión.',
-            acciones: [ A('Cerrar la gestión', "cambiarEstadoGestion('"+gid+"','cerrado')", true, 'fa-circle-check') ] };
+          // Si no fue una operación de la agencia, la otra respuesta es que la vendió
+          // el dueño por su cuenta: Cerró por afuera, y la propiedad queda Dada de baja.
+          var verboA = st === 'rented' ? 'alquiló' : 'vendió';
+          var suCuenta = ventaDeAgencia(prop, g.id) ? null : A('La '+verboA+' el dueño', "cambiarEstadoGestion('"+gid+"','externo')", false, 'fa-arrow-right-from-bracket');
+          var colaS = suCuenta ? ' Si la '+verboA+' el propietario por su cuenta, marcá que cerró por afuera: la propiedad queda Dada de baja.' : '';
+          if (isAdmin || firmaConfirmada(prop)) return { info: true, texto: 'La propiedad ya figura '+stTxt+'. Si la operación la hizo la agencia, cerrá esta gestión.'+colaS,
+            acciones: [ A('Cerrar la gestión', "cambiarEstadoGestion('"+gid+"','cerrado')", true, 'fa-circle-check') ].concat(suCuenta ? [suCuenta] : []) };
           return { info: true, texto: 'La propiedad ya figura '+stTxt+'. '+(tieneCierreMapa(prop)
               ? 'Cuando la Dirección confirme la firma en el Mapa de cierres, esta gestión pasa sola a Cerrado.'
-              : 'Si la operación la hizo la agencia, registrala en el Mapa de cierres: cuando la Dirección confirme la firma, esta gestión pasa sola a Cerrado.'),
-            acciones: faltaRegistrarMapa(prop) ? [ A('Registrar en el mapa', "irARegistrarCierre('"+pid+"')", true, 'fa-map-location-dot') ] : [] };
+              : 'Si la operación la hizo la agencia, registrala en el Mapa de cierres: cuando la Dirección confirme la firma, esta gestión pasa sola a Cerrado.')+colaS,
+            acciones: (faltaRegistrarMapa(prop) ? [ A('Registrar en el mapa', "irARegistrarCierre('"+pid+"')", true, 'fa-map-location-dot') ] : []).concat(suCuenta ? [suCuenta] : []) };
         }
         if (activa && st === 'archived'){
+          var accB = [ A('Marcar como perdido', "cambiarEstadoGestion('"+gid+"','perdido')", false, 'fa-circle-xmark') ];
+          var afueraB = A('Cerró por afuera', "cambiarEstadoGestion('"+gid+"','externo')", false, 'fa-arrow-right-from-bracket');
+          if (prop.motivoBaja === 'cerro_externo') accB.unshift(afueraB); else accB.push(afueraB);
           return { texto: 'La propiedad está '+stTxt+' pero la gestión sigue '+estTxt+'.'+(isAdmin ? ' Si hay que volver a publicarla, ponela Disponible.' : ' Si hay que volver a publicarla, pedíselo a Dirección.'),
-            acciones: [ A('Marcar como perdido', "cambiarEstadoGestion('"+gid+"','perdido')", false, 'fa-circle-xmark') ] };
+            acciones: accB };
         }
       } else {
         if (activa && PROP_TERMINAL.indexOf(st) >= 0){
@@ -4402,6 +4482,10 @@
           showToast('La gestión está Cerrada', 'La firma la confirmó la Dirección: solo la Dirección la puede cambiar.');
           repintar(); return false;
         }
+        // El dueño no puede quedar "Cerró por afuera" con una venta de la agencia, ni
+        // irse dejando colgada en el mapa la reserva de otro cliente.
+        var traba = rol === 'propietario' ? trabaSalidaDuenio(gestionId, anterior, nuevo, prop) : null;
+        if (traba){ avisarTraba(traba, prop && prop.id); repintar(); return false; }
         // Cerrado: primero se confirma la propiedad y se ofrece el Mapa de cierres.
         if (nuevo === 'cerrado' && !opts.confirmado && !firmaConfirmada(prop)){ abrirCierreOperacion(g.clientId, gestionId); return false; }
         // Reservado: se confirma la propiedad y se ofrece cargar la reserva en el mapa.
@@ -4447,18 +4531,19 @@
           }
           // (Reservado y Cerrado con algo para cargar en el mapa no pasan por acá: los
           // escribe el Mapa de cierres cuando se guarda la operación.)
-          var enJuego = PROP_EN_JUEGO.indexOf(stProp) >= 0;
           var enLimbo = stProp === 'cerrado_externo' && (prop.despubPendiente || prop.motivoBaja === 'cerro_externo' || prop.motivoBaja === 'propietario_perdido');
-          if (nuevo === 'reservado'){
+          var seVa = rol === 'propietario' && (nuevo === 'externo' || nuevo === 'perdido');
+          var salida = seVa ? textoSalidaDuenio(prop, gestionId) : '';
+          if (opts.aviso){
+            showToast(opts.aviso[0], opts.aviso[1]);
+          } else if (nuevo === 'reservado'){
             showToast('Reservado', (stProp === 'sold' || stProp === 'rented' || stProp === 'archived') ? 'La propiedad ya figuraba ' + (PROP_STATUS[stProp] || stProp) + ': su estado no cambia.' : 'La propiedad pasa sola a Reservada.');
           } else if (caeReserva){
-            showToast('Se cayó la reserva', (rol === 'propietario' && (nuevo === 'perdido' || nuevo === 'externo'))
-              ? 'La propiedad sale de circulación y Dirección confirma la baja de los portales'
-              : 'La propiedad vuelve sola a Disponible y la reserva se borra del mapa');
+            showToast('Se cayó la reserva', seVa ? salida : 'La propiedad vuelve sola a Disponible y la reserva se borra del mapa');
           } else if (nuevo === 'cerrado' && (stProp === 'available' || stProp === 'reserved' || enLimbo)){
             showToast('Gestión cerrada', 'La propiedad pasa sola a ' + (prop.type === 'rent' ? 'Alquilada (pide el contrato)' : 'Vendida'));
-          } else if ((nuevo === 'externo' || nuevo === 'perdido') && rol === 'propietario' && enJuego){
-            showToast(nuevo === 'externo' ? 'Cerró por afuera' : 'Propietario perdido', 'La propiedad sale de circulación y Dirección confirma la baja de los portales');
+          } else if (seVa && salida){
+            showToast(nuevo === 'externo' ? 'Cerró por afuera' : 'Propietario perdido', salida);
           } else if (nuevo === 'externo'){
             showToast('Cerró por afuera', 'Quedó registrado en esta gestión');
           } else if (rol === 'propietario' && reactiva && stProp === 'cerrado_externo'){
@@ -4571,9 +4656,17 @@
           resincronizarGestion(g.id, propId);
           return;
         }
-        // 4) Vendida/Alquilada con la gestión abierta: si el cierre fue con ESTE
-        //    cliente, el camino correcto es cerrar la GESTIÓN (propiedad, contrato
-        //    de alquiler y estadísticas se sincronizan de una sola vez).
+        // 4) Vendida/Alquilada con la gestión abierta. Del DUEÑO: se pregunta quién la
+        //    vendió, porque eso decide el avance (la agencia → Cerrado; él por su
+        //    cuenta → Cerró por afuera y Dada de baja). Marcarla a mano dejaba
+        //    "Vendida" aunque no la hubiera vendido la agencia.
+        if ((nuevo === 'sold' || nuevo === 'rented') && g && rol === 'propietario' && ESTADOS_TERMINALES.indexOf(est) < 0){
+          preguntarQuienCerro(g, prop, nuevo);
+          return;
+        }
+        //    Del interesado: si el cierre fue con ESTE cliente, el camino correcto es
+        //    cerrar la GESTIÓN (propiedad, contrato de alquiler y estadísticas se
+        //    sincronizan de una sola vez).
         if ((nuevo === 'sold' || nuevo === 'rented') && g && ESTADOS_TERMINALES.indexOf(est) < 0){
           if (confirm('¿Esta operación la cerró la agencia con ESTE cliente?\n\nAceptar: registrás la firma en el Mapa de cierres y la gestión pasa a Cerrado (la propiedad, y el contrato si es alquiler, se sincronizan solos).\nCancelar: solo cambia el estado de la propiedad (ej.: se cerró con otro cliente).')){
             cambiarEstadoGestion(g.id, 'cerrado');
@@ -4582,6 +4675,59 @@
         }
         seguir();
       }).catch(function(){ seguir(); });
+    }
+
+    // ===== Vendida o Alquilada en la propiedad de un dueño: ¿quién la cerró? =====
+    function preguntarQuienCerro(g, prop, nuevo){
+      var verbo = nuevo === 'rented' ? 'alquiló' : 'vendió';
+      var titulo = (prop && prop.title) || g.propertyTitle || 'la propiedad';
+      var previo = document.querySelector('.dormido-overlay'); if (previo) previo.remove();
+      var ov = document.createElement('div');
+      ov.className = 'dormido-overlay';
+      ov.innerHTML = '<div class="dormido-box" role="dialog" aria-modal="true" aria-labelledby="qcTit">' +
+        '<div class="dormido-head" id="qcTit"><i class="fas fa-circle-question"></i> ¿Quién la '+verbo+'?</div>' +
+        '<p class="dormido-p">De eso depende el avance del propietario de <b>'+esc(titulo)+'</b>.</p>' +
+        '<button type="button" class="dormido-opt activo" id="qcAgencia"><i class="fas fa-handshake"></i><div><b>La agencia</b><span>Registrás la firma en el Mapa de cierres y la gestión pasa a Cerrado</span></div></button>' +
+        '<button type="button" class="dormido-opt" id="qcDuenio"><i class="fas fa-arrow-right-from-bracket" style="color:#64748b"></i><div><b>El propietario, por su cuenta</b><span>El avance pasa a Cerró por afuera y la propiedad queda Dada de baja: sale de la web y de los portales</span></div></button>' +
+        '<button type="button" class="dormido-cancel" id="qcCancel">Cancelar</button>' +
+      '</div>';
+      function quitar(){ ov.remove(); document.removeEventListener('keydown', alTeclado); }
+      function salir(){ quitar(); if (currentProfileId) renderGestiones(currentProfileId); }
+      function alTeclado(e){ if (e.key === 'Escape') salir(); }
+      document.addEventListener('keydown', alTeclado);
+      ov.addEventListener('click', function(e){ if (e.target === ov) salir(); });
+      document.body.appendChild(ov);
+      ov.querySelector('#qcCancel').onclick = salir;
+      ov.querySelector('#qcAgencia').onclick = function(){ quitar(); cambiarEstadoGestion(g.id, 'cerrado'); };
+      ov.querySelector('#qcDuenio').onclick = function(){ quitar(); cerroPorSuCuenta(g, prop); };
+      ov.querySelector('#qcAgencia').focus();
+    }
+    // El dueño la vendió (o alquiló) por su cuenta. Quien responde es la Dirección
+    // (solo ella elige Vendida o Alquilada), así que la propiedad se da de baja acá
+    // mismo, sin la campanita, y después el avance pasa a Cerró por afuera.
+    function cerroPorSuCuenta(g, prop){
+      var repintar = function(){ if (currentProfileId) renderGestiones(currentProfileId); };
+      var traba = trabaSalidaDuenio(g.id, etapaEfectiva(g, 'propietario'), 'externo', prop);
+      if (traba){ avisarTraba(traba, prop && prop.id); repintar(); return; }
+      // Reservada por esta misma gestión: el avance hace caer la reserva y el servidor
+      // la saca de circulación, como siempre.
+      if (!prop || !isAdmin || (prop.status || 'available') === 'reserved'){ cambiarEstadoGestion(g.id, 'externo'); return; }
+      var ahora = new Date().toISOString();
+      var quien = (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Dirección';
+      var borrar = firebase.firestore.FieldValue.delete();
+      var upd = { status: 'archived', archivedAt: ahora, updatedAt: ahora, motivoBaja: 'cerro_externo', motivoBajaTexto: 'Cerró por afuera de la agencia',
+        despubResolucion: { resultado: 'despublicada', por: quien, uid: currentUser.uid, at: ahora } };
+      // Un pedido de baja que estaba esperando queda resuelto.
+      if (prop.despubPendiente){ upd.despubPendiente = borrar; upd.statusPrevioDespub = borrar; }
+      db.collection('properties').doc(prop.id).update(upd).then(function(){
+        prop.status = 'archived'; prop.archivedAt = ahora; prop.motivoBaja = upd.motivoBaja; prop.motivoBajaTexto = upd.motivoBajaTexto;
+        delete prop.despubPendiente; delete prop.statusPrevioDespub;
+        return cambiarEstadoGestion(g.id, 'externo', { aviso: ['Cerró por afuera', 'La propiedad quedó Dada de baja: sale de la web y de los portales'] });
+      }).catch(function(e){
+        console.error('cerroPorSuCuenta:', e);
+        showToast('No se pudo dar de baja', 'Probá de nuevo en un rato');
+        repintar();
+      });
     }
 
     // ===== Modal de gestión =====
@@ -4772,6 +4918,8 @@
         if (nuevoE === 'cerrado' && !isAdmin && !firmaConfirmada(propM)) return volver('Cerrado lo pone la Dirección cuando confirma la firma en el Mapa de cierres. Cuando el cliente deje la seña, marcá Reservado.');
         if (antes.estado === 'cerrado' && !isAdmin && !(data.rol === 'propietario' && nuevoE === 'cartera' && propM && PROP_EN_JUEGO.indexOf(propM.status || 'available') >= 0))
           return volver('La gestión está Cerrada: la firma la confirmó la Dirección y solo la Dirección la puede cambiar.');
+        var trabaM = data.rol === 'propietario' ? trabaSalidaDuenio(id, antes.estado, nuevoE, propM) : null;
+        if (trabaM) return volver(trabaM.titulo + '. ' + trabaM.texto);
         if (antes.estado === 'reservado' && nuevoE !== 'cerrado' && reservaDeEsta(propM, id) && !confirmarCaidaReserva(propM, nuevoE, data.rol)) return volver('');
       }
       // Reservado (y Cerrado, si falta la firma) se registran en el Mapa de cierres: acá
