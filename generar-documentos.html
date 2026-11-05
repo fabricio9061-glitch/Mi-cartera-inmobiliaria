@@ -117,8 +117,8 @@
     .panel > h3{ display:none; }
     .fld{ margin-bottom:16px; min-width:0; }
     .fld label{ display:block; font-size:.8rem; font-weight:500; color:var(--txt-2); margin-bottom:6px; }
-    .fld input:not([type=checkbox]):not([type=radio]), .fld select, .fld textarea{ width:100%; min-height:40px; padding:8px 12px;
-      border:1px solid var(--line-2); border-radius:8px; font-family:inherit; font-size:.92rem; color:var(--txt); background:#fff;
+    .fld input:not([type=checkbox]):not([type=radio]), .fld select, .fld textarea{ width:100%; min-height:44px; padding:8px 12px;
+      border:1px solid var(--line-2); border-radius:10px; font-family:inherit; font-size:.92rem; color:var(--txt); background:#fff;
       transition:border-color .15s, box-shadow .15s; }
     .fld select, .firmante select{ -webkit-appearance:none; appearance:none; padding-right:34px; text-overflow:ellipsis;
       background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 13px center; }
@@ -154,11 +154,13 @@
 
     /* Opciones de a dos o tres: un grupo con borde y la elegida en dorado claro,
        como las vistas de la agenda. */
-    .seg{ display:flex; gap:2px; border:1px solid var(--line-2); border-radius:999px; padding:3px; background:#fff; }
-    .seg button{ flex:1; min-height:34px; padding:6px 12px; border:0; background:transparent; border-radius:999px;
-      font-size:.86rem; font-weight:500; color:var(--txt-2); cursor:pointer; transition:background .15s, color .15s; }
+    .seg{ display:flex; gap:0; border:1px solid var(--line-2); border-radius:10px; padding:0; background:#fff; overflow:hidden; }
+    .seg button{ flex:1; min-height:42px; padding:6px 10px; border:0; background:transparent; border-radius:0; white-space:nowrap;
+      font-size:.88rem; font-weight:500; color:var(--txt-2); cursor:pointer; transition:background .15s, color .15s; }
+    .seg button + button{ border-left:1px solid var(--line-2); }
     .seg button:hover{ background:var(--hover); color:var(--navy); }
-    .seg button.on{ background:var(--gold-soft); color:var(--navy); font-weight:700; box-shadow:inset 0 0 0 1px var(--gold-line); }
+    .seg button.on{ background:var(--navy); color:#fff; font-weight:600; box-shadow:none; }
+    .seg button.on:hover{ background:var(--navy-2); color:#fff; }
     .seg button[hidden]{ display:none; }
 
     .iva-check{ display:inline-flex !important; align-items:center; gap:8px; margin:10px 0 0 !important; font-size:.86rem !important;
@@ -540,28 +542,15 @@
       .fh{ flex:none; }
       .wrap{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
       #content{ flex:1 1 auto; min-height:0; }
-      .app{ height:100%; display:grid; grid-template-columns:var(--lado) minmax(0,1fr); }
-      .doc-lado{ min-height:0; overflow-y:auto; overflow-x:hidden; padding:14px 10px 22px 0; background:var(--fondo); border-right:1px solid var(--line); }
-      .doc-grid{ height:100%; min-height:0; display:grid; grid-template-columns:clamp(400px, 44%, 580px) minmax(0,1fr); }
-      .doc-form{ min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:34px 38px 64px; border-right:1px solid var(--line); }
+      .app{ height:100%; }
+      .doc-grid{ height:100%; min-height:0; display:grid; grid-template-columns:clamp(460px, 48%, 780px) minmax(0,1fr); }
+      .doc-form{ min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:16px 28px 64px; background:#f4f5f7; border-right:1px solid var(--line); }
       .preview-wrap{ height:100%; }
     }
     /* Pantallas medianas: la columna de documentos queda solo con los íconos (el
        nombre aparece al pasar el mouse) y la barra de la hoja se achica. */
     @media (min-width:861px) and (max-width:1180px){
-      :root{ --lado:68px; }
-      .doc-lado{ padding:12px 8px 18px; }
-      .doc-type{ justify-content:center; padding:0; border-radius:12px; min-height:46px; }
-      .doc-type i{ font-size:1.05rem; width:auto; }
-      .doc-type b{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
-      .doc-indice{ display:none !important; }
-      /* Sin lugar para el nombre del grupo: queda para el lector de pantalla y
-         los grupos se separan con una raya corta. */
-      .doc-grupo{ position:relative; }
-      .doc-grupo:not([hidden]) ~ .doc-grupo{ margin-top:0; }
-      .doc-grupo:not([hidden]) ~ .doc-grupo::before{ content:''; display:block; height:1px; margin:7px 12px; background:var(--line-2); }
-      .doc-grupo-tit{ position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
-      .doc-form{ padding:28px 30px 56px; }
+      .doc-form{ padding:14px 22px 56px; }
     }
     @media (min-width:861px) and (max-width:1300px){
       .pv-tit, .pv-zoom output{ display:none; }
@@ -577,27 +566,7 @@
       .fh-in{ padding:0 8px 0 16px; }
       .fh-back{ min-height:44px; min-width:44px; justify-content:center; }
       .wrap{ padding-bottom:calc(var(--barra-h,69px) + 28px); }   /* lugar para la barra de abajo */
-      .doc-lado{ background:#fff; border-bottom:1px solid var(--line); }
-      /* Pestañas: se desplazan de costado si no entran. */
-      .doc-types{ position:relative; flex-direction:row; gap:0; overflow-x:auto; scrollbar-width:none; padding:0 8px; }
-      .doc-types::-webkit-scrollbar{ display:none; }
-      /* Si hay más pestañas de las que entran, la última se desvanece hacia el borde. */
-      .doc-types.hay-mas{ -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 44px), transparent); mask-image:linear-gradient(to right, #000 calc(100% - 44px), transparent); }
-      .doc-type{ flex:1 0 auto; width:auto; justify-content:center; gap:7px; min-height:48px; padding:0 12px; border-radius:0;
-        border-bottom:2px solid transparent; font-size:.88rem; color:var(--muted); }
-      .doc-type:hover{ background:none; }
-      .doc-type.active{ background:none; color:var(--navy); border-bottom-color:var(--gold); }
-      .doc-type i{ width:auto; font-size:.82rem; }
-      .doc-type b{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
-      .doc-type small{ display:inline; font-size:.88rem; font-weight:inherit; }
-      .doc-indice{ display:none !important; }
-      /* Las pestañas siguen en una sola fila: los grupos no arman caja y, entre
-         uno y otro, queda una rayita vertical. */
-      .doc-grupo{ display:contents; }
-      .doc-grupo-tit{ display:none; }
-      .doc-grupo:not([hidden]) ~ .doc-grupo .doc-grupo-tit{ display:block; flex:none; align-self:center; width:1px; height:20px; margin:0 4px; padding:0;
-        overflow:hidden; font-size:0; line-height:0; color:transparent; background:var(--line-2); }
-      .doc-form{ padding:22px 16px 8px; }
+      .doc-form{ padding:14px 16px 8px; }
       .doc-cab{ margin-bottom:20px; }
       .doc-cab h1{ font-size:1.85rem; }
       .ct-sec{ margin-top:32px; padding-top:20px; }
@@ -654,7 +623,6 @@
       .row2{ grid-template-columns:minmax(0,1fr); gap:0; }
       .fh-back span{ display:none; }
       .fh-back{ padding:0; border-color:transparent; }
-      .doc-type{ padding:0 10px; }
     }
     @media (prefers-reduced-motion:reduce){
       .sp{ animation-duration:2.4s; }
@@ -758,13 +726,262 @@
        directamente abajo de la hora y los iconos del sistema. Poniéndolo en el
        header funciona en las dos situaciones y no hay nada que duplicar. */
     .fh, header, .app-header, .topbar{ padding-top: env(safe-area-inset-top, 0px); }
+
+    /* =====================================================================
+       PANTALLA: menú en hamburguesa, barra de arriba, pasos y hoja achicable.
+       ===================================================================== */
+    /* ---- Cabecera: menú, el documento y su acción ---- */
+    .fh-in{ min-height:60px; gap:10px; padding:0 18px 0 8px; }
+    .fh-menu{ flex:none; display:inline-grid; place-items:center; width:44px; height:44px; border:0; border-radius:12px; background:none;
+      color:var(--navy); font-size:1.15rem; cursor:pointer; }
+    .fh-menu:hover{ background:var(--hover); }
+    .fh-logo .fh-app{ font-size:1.45rem; }
+    .fh-div{ flex:none; width:1px; height:30px; background:var(--line); margin:0 4px; }
+    .fh-doc{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; justify-content:center; }
+    .fh-doc h1{ margin:0; font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; font-size:1rem; font-weight:600; line-height:1.3;
+      color:var(--navy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .fh-ctx{ font-size:.8rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-height:1.1em; }
+    .fh-acc{ flex:none; display:flex; align-items:center; gap:10px; }
+    .fh-falta{ display:inline-flex; align-items:center; gap:7px; min-height:38px; padding:0 14px; border:1px solid #f0d18a; border-radius:999px;
+      background:var(--reg-s); color:#7a4d00; font-size:.8rem; font-weight:600; cursor:pointer; white-space:nowrap; }
+    .fh-falta:hover{ background:#fbe6b5; }
+    .fh-falta[hidden]{ display:none; }
+    .fh-bajar{ display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0 20px; border:0; border-radius:999px;
+      background:var(--gold); color:var(--navy); font-size:.9rem; font-weight:700; cursor:pointer; white-space:nowrap; transition:background .15s; }
+    .fh-bajar:hover{ background:#d6b034; }
+    .fh-acc .fh-back{ margin-left:0; min-height:40px; }
+    .fh-back[hidden]{ display:none; }
+
+    /* ---- Menú de documentos: entra desde la izquierda ---- */
+    .doc-lado{ position:fixed; z-index:420; top:0; left:0; bottom:0; width:min(360px, 88vw); display:flex; flex-direction:column; min-width:0;
+      padding:0; background:#fff; border:0; box-shadow:16px 0 40px rgba(22,39,63,.22); overflow:hidden;
+      transform:translateX(-104%); visibility:hidden; transition:transform .22s ease, visibility 0s linear .22s; }
+    .doc-lado.abierto{ transform:none; visibility:visible; transition:transform .22s ease, visibility 0s; }
+    .menu-velo{ position:fixed; z-index:410; top:0; left:0; right:0; bottom:0; width:100%; padding:0; border:0; background:rgba(22,39,63,.45); cursor:pointer; }
+    .menu-velo[hidden]{ display:none; }
+    html.menu-abierto, html.menu-abierto body{ overflow:hidden; }
+    .dl-cab{ flex:none; display:flex; align-items:center; gap:10px; min-height:60px; padding:env(safe-area-inset-top,0px) 8px 0 20px; border-bottom:1px solid var(--line); }
+    .dl-cab img{ height:26px; width:auto; }
+    .dl-cab span{ flex:1 1 auto; font-family:'Cormorant Garamond',Georgia,serif; font-size:1.45rem; font-weight:700; color:var(--navy); }
+    .dl-cerrar{ width:44px; height:44px; border:0; border-radius:12px; background:none; color:var(--txt-2); font-size:1.1rem; cursor:pointer; }
+    .dl-cerrar:hover{ background:var(--hover); }
+    .doc-lado .doc-types{ flex:1 1 auto; overflow-y:auto; overscroll-behavior:contain; padding:14px 12px 14px 0; }
+    .doc-lado .doc-type{ display:grid; grid-template-columns:20px minmax(0,1fr); column-gap:12px; row-gap:2px; align-items:start;
+      min-height:56px; padding:9px 14px 9px 20px; }
+    .doc-lado .doc-type i{ grid-row:1 / span 2; margin-top:2px; }
+    .doc-lado .doc-type b{ font-size:.94rem; }
+    .doc-lado .doc-type span{ display:block; font-size:.76rem; font-weight:400; color:var(--muted); line-height:1.35; }
+    .doc-lado .doc-type small{ display:none; }
+    .doc-lado .doc-indice{ display:none !important; }
+    .dl-pie{ flex:none; display:flex; flex-direction:column; gap:2px; padding:8px 12px calc(12px + env(safe-area-inset-bottom,0px)) 0; border-top:1px solid var(--line); }
+    .dl-pie .doc-nota{ margin:4px 0 8px 20px; }
+    .dl-link{ display:flex; align-items:center; gap:12px; min-height:50px; padding:0 14px 0 20px; border-radius:0 999px 999px 0; color:var(--txt-2);
+      font-size:.92rem; font-weight:500; text-decoration:none; }
+    .dl-link:hover{ background:var(--hover); color:var(--navy); }
+    .dl-link i{ width:20px; text-align:center; color:#5f6368; }
+
+    /* ---- Pasos ---- */
+    .doc-cab{ margin-bottom:0; }
+    .doc-cab .doc-desc{ display:none; }
+    .doc-cab .comp-nota{ margin:0 0 14px; }
+    .pasos-barra{ position:sticky; top:0; z-index:6; margin:0 0 12px; padding:6px 0 8px; background:#f4f5f7; }
+    .pasos-barra ol{ list-style:none; margin:0; padding:5px; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:2px;
+      background:#fff; border:1px solid var(--line); border-radius:14px; }
+    .pb-btn{ width:100%; display:flex; flex-direction:column; align-items:center; gap:5px; min-height:62px; padding:6px 2px; border:0; border-radius:10px;
+      background:none; cursor:pointer; }
+    .pb-btn:hover{ background:var(--hover); }
+    .pb-btn[aria-current="step"]{ background:#eef0f3; }
+    .pb-n{ display:inline-grid; place-items:center; width:28px; height:28px; border-radius:50%; border:1px solid var(--line-2); background:#fff;
+      color:var(--txt-2); font-family:'Cormorant Garamond',Georgia,serif; font-size:1.05rem; font-weight:700; line-height:1; font-variant-numeric:lining-nums; }
+    .pb-n b{ font-weight:700; }
+    .pb-n i{ display:none; font-size:.72rem; }
+    .pb-t{ max-width:100%; font-size:.74rem; font-weight:500; color:var(--txt-2); text-align:center; line-height:1.2; overflow-wrap:anywhere; }
+    .pb-btn.ok .pb-n{ background:var(--bien-s); border-color:#bfe3cd; color:var(--bien); }
+    .pb-btn.ok .pb-n b{ display:none; }
+    .pb-btn.ok .pb-n i{ display:inline; }
+    .pb-btn.falta .pb-n{ background:var(--reg-s); border-color:#f0d18a; color:#7a4d00; }
+    .pb-btn.falta .pb-t{ color:#7a4d00; font-weight:600; }
+    .pb-btn[aria-current="step"] .pb-n{ background:var(--navy); border-color:var(--navy); color:#fff; }
+    .pb-btn[aria-current="step"] .pb-n b{ display:inline; }
+    .pb-btn[aria-current="step"] .pb-n i{ display:none; }
+    .pb-btn[aria-current="step"] .pb-t{ color:var(--navy); font-weight:600; }
+    .pb-movil{ display:none; }
+
+    .paso{ margin:0 0 10px; background:#fff; border:1px solid var(--line); border-radius:14px; }
+    .paso.abierto{ border-color:#9aa6b8; }
+    .paso > .ct-sec.con-num{ display:block; margin:0; padding:0; border:0; font-size:inherit; font-weight:inherit; scroll-margin-top:96px; }
+    .paso-btn{ width:100%; display:flex; align-items:center; gap:14px; min-height:64px; padding:12px 16px 12px 18px; border:0; border-radius:14px;
+      background:none; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+    .paso-btn:hover{ background:#fafbfc; }
+    .paso.abierto .paso-btn{ border-radius:14px 14px 0 0; }
+    .paso-n{ flex:none; display:inline-grid; place-items:center; width:30px; height:30px; border-radius:50%; border:1px solid var(--line-2);
+      background:#fff; color:var(--txt-2); }
+    .paso-n .ct-num{ min-width:0; font-size:1.12rem; line-height:1; color:inherit; }
+    .paso-n i{ display:none; font-size:.78rem; }
+    .paso.ok .paso-n{ background:var(--bien-s); border-color:#bfe3cd; color:var(--bien); }
+    .paso.ok .paso-n .ct-num{ display:none; }
+    .paso.ok .paso-n i{ display:inline; }
+    .paso.falta .paso-n{ background:var(--reg-s); border-color:#f0d18a; color:#7a4d00; }
+    .paso.abierto .paso-n{ background:var(--navy); border-color:var(--navy); color:#fff; }
+    .paso.abierto .paso-n .ct-num{ display:inline; }
+    .paso.abierto .paso-n i{ display:none; }
+    .paso-tx{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px; }
+    .paso-tx .ct-tit{ font-size:1rem; font-weight:600; color:var(--navy); line-height:1.3; }
+    .paso-res{ font-size:.8rem; color:var(--muted); line-height:1.4; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+    .paso-res:empty{ display:none; }
+    .paso.falta .paso-res{ color:#7a4d00; font-weight:600; }
+    .paso.abierto .paso-res{ display:none; }
+    .paso-cual{ display:none; flex:none; font-size:.78rem; color:var(--muted); }
+    .paso.abierto .paso-cual{ display:inline; }
+    .paso-flecha{ flex:none; font-size:.78rem; color:var(--muted); transition:transform .15s; }
+    .paso.abierto .paso-flecha{ transform:rotate(180deg); }
+    .paso-cuerpo{ padding:6px 20px 18px 62px; }
+    .paso-cuerpo[hidden], .paso-pie[hidden]{ display:none; }
+    .paso-pie{ display:flex; align-items:center; gap:10px; padding:12px 18px; border-top:1px solid #eef0f3; background:#fafbfc; border-radius:0 0 14px 14px; }
+    .pp-ant{ min-height:44px; padding:0 18px; border:1px solid var(--line-2); border-radius:999px; background:#fff; color:var(--navy); font-size:.88rem;
+      font-weight:600; cursor:pointer; }
+    .pp-ant:hover{ border-color:var(--navy); }
+    .pp-sig{ margin-left:auto; min-height:44px; padding:0 20px; border:0; border-radius:999px; background:var(--navy); color:#fff; font-size:.88rem;
+      font-weight:600; cursor:pointer; }
+    .pp-sig:hover{ background:var(--navy-2); }
+    .paso-pie .gen-btn{ width:auto; margin:0 0 0 auto; min-height:44px; padding:0 22px; background:var(--gold); color:var(--navy); font-weight:700; }
+    .paso-pie .gen-btn:hover{ background:#d6b034; box-shadow:none; }
+    .paso-cuerpo > .ct-sec:not(.con-num):first-child{ margin-top:0; padding-top:0; border-top:0; }
+
+    /* ---- La hoja, achicada a un costado (computadora) ---- */
+    .pv-riel{ display:none; }
+    .pv-riel button{ width:44px; height:44px; border:1px solid rgba(255,255,255,.25); border-radius:50%; background:transparent; color:#fff; cursor:pointer; }
+    .pv-riel button:hover{ background:rgba(255,255,255,.08); }
+    .pv-riel span{ writing-mode:vertical-rl; transform:rotate(180deg); font-size:.8rem; font-weight:600; color:#d6dce6; }
+    .pv-achicar{ width:auto !important; padding:0 14px !important; gap:8px; display:inline-flex !important; align-items:center; font-size:.82rem; font-weight:600; }
+
+    /* ---- Contrato: los campos nuevos ---- */
+    /* Los campos de siempre que ahora se manejan con botones quedan escondidos (sin
+       ocupar lugar): los botones escriben en ellos y el contrato los lee igual. */
+    .fld .ce-oculto, .fld select.ce-oculto, .fld input.ce-oculto{ position:absolute !important; width:1px !important; height:1px !important;
+      min-height:0 !important; padding:0 !important; border:0 !important; margin:0 !important; overflow:hidden; clip:rect(0 0 0 0); opacity:0; pointer-events:none; }
+    .fld:has(> .ce-oculto){ position:relative; }
+    .ct-tope{ display:flex; flex-wrap:wrap; align-items:flex-start; gap:0 22px; margin:0 0 4px; }
+    .ct-tope .fld{ margin-bottom:12px; }
+    .ct-tope .seg{ min-width:240px; }
+    .fld .ct-tope input[type=date], .ct-tope .fld input[type=date]{ width:auto; min-width:180px; }
+    .ct-monto{ display:flex; align-items:stretch; border:1px solid var(--line-2); border-radius:10px; overflow:hidden; background:#fff;
+      transition:border-color .15s, box-shadow .15s; }
+    .ct-monto:focus-within{ border-color:var(--navy); box-shadow:0 0 0 3px rgba(22,39,63,.11); }
+    .ct-moneda{ flex:none; display:flex; border-right:1px solid var(--line-2); }
+    .ct-moneda button{ min-width:50px; padding:0 10px; border:0; background:#fff; color:var(--txt-2); font-size:.9rem; font-weight:700; cursor:pointer; }
+    .ct-moneda button + button{ border-left:1px solid var(--line-2); }
+    .ct-moneda button:hover{ background:var(--hover); }
+    .ct-moneda button.on{ background:var(--navy); color:#fff; }
+    .fld .ct-monto input:not([type=checkbox]){ flex:1 1 auto; min-width:0; border:0; border-radius:0; box-shadow:none; font-weight:600; color:var(--navy); }
+    .ct-num-paso{ display:inline-flex; align-items:stretch; border:1px solid var(--line-2); border-radius:10px; overflow:hidden; background:#fff; }
+    .ct-num-paso button{ width:44px; border:0; background:#fff; color:var(--navy); font-size:.8rem; cursor:pointer; }
+    .ct-num-paso button:hover{ background:var(--hover); }
+    .fld .ct-num-paso input:not([type=checkbox]){ width:64px; min-width:0; border:0; border-left:1px solid var(--line); border-right:1px solid var(--line);
+      border-radius:0; box-shadow:none; text-align:center; font-weight:600; color:var(--navy); -moz-appearance:textfield; }
+    .ct-num-paso input::-webkit-outer-spin-button, .ct-num-paso input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+    .ct-vence{ display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; margin:-2px 0 16px; padding:11px 14px; border-radius:10px;
+      background:#f4f5f7; font-size:.86rem; color:var(--txt-2); }
+    .ct-vence[hidden]{ display:none; }
+    .ct-vence > i{ color:var(--muted); }
+    .ct-vence > span{ flex:1 1 240px; line-height:1.5; }
+    .ct-vence b{ color:var(--navy); }
+    .ct-vence .iv-link[hidden]{ display:none; }
+    .ct-gar{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; margin:0 0 14px; }
+    .ct-gar button{ display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-height:76px; padding:12px 14px; border:1px solid var(--line-2);
+      border-radius:12px; background:#fff; text-align:left; cursor:pointer; transition:border-color .15s, background .15s; }
+    .ct-gar button:hover{ border-color:var(--navy); }
+    .ct-gar button.on{ border-color:var(--navy); background:var(--gold-soft); box-shadow:inset 0 0 0 1px var(--navy); }
+    .ct-gar b{ font-size:.93rem; font-weight:600; color:var(--navy); }
+    .ct-gar span{ font-size:.77rem; color:var(--muted); line-height:1.4; }
+    .ct-sufijo{ display:flex; align-items:center; gap:10px; }
+    .fld .ct-sufijo > input:not([type=checkbox]){ width:104px; }
+    .ct-sufijo span{ font-size:.86rem; color:var(--muted); }
+    /* Pago al firmar: un interruptor a la derecha. */
+    .ct-op.ct-pago{ flex-direction:row-reverse; gap:16px; margin:4px 0 6px; padding:14px 16px; border:1px solid var(--line); border-radius:12px; }
+    .ct-op.ct-pago input#ctPagoIni{ -webkit-appearance:none; appearance:none; position:relative; flex:none; width:52px; height:32px; margin:0; border-radius:999px;
+      background:#c3cad4; cursor:pointer; transition:background .15s; }
+    .ct-op.ct-pago input#ctPagoIni::before{ content:''; position:absolute; top:4px; left:4px; width:24px; height:24px; border-radius:50%; background:#fff;
+      box-shadow:0 1px 2px rgba(22,39,63,.3); transition:transform .15s; }
+    .ct-op.ct-pago input#ctPagoIni:checked{ background:var(--navy); }
+    .ct-op.ct-pago input#ctPagoIni:checked::before{ transform:translateX(20px); }
+    .ct-op.ct-pago input#ctPagoIni:disabled{ opacity:.45; cursor:not-allowed; }
+    @media (prefers-reduced-motion:reduce){
+      .doc-lado, .doc-lado.abierto, .paso-flecha, .ct-op.ct-pago input#ctPagoIni, .ct-op.ct-pago input#ctPagoIni::before{ transition:none; }
+    }
+
+    /* ---- Computadora ---- */
+    @media (min-width:861px){
+      /* La barra de pasos queda pegada arriba de la columna: el relleno de arriba
+         lo pone el encabezado y no la columna (si no, la barra quedaba más abajo y
+         se veía pasar el formulario por encima). */
+      .doc-grid .doc-form{ padding-top:0; }
+      .doc-cab{ padding-top:16px; }
+      .doc-grid.hoja-chica{ grid-template-columns:minmax(0,1fr) 64px; }
+      .doc-grid.hoja-chica .doc-form{ padding-left:max(28px, calc((100% - 920px) / 2)); padding-right:max(28px, calc((100% - 920px) / 2)); }
+      .doc-grid.hoja-chica .pv-barra, .doc-grid.hoja-chica .pv-mesa{ display:none; }
+      .doc-grid.hoja-chica .pv-riel{ display:flex; flex-direction:column; align-items:center; gap:14px; padding-top:14px; height:100%; }
+      .pv-bajar{ display:none; }
+    }
+    @media (min-width:861px) and (max-width:1180px){
+      .paso-cuerpo{ padding-left:20px; }
+      .fh-logo .fh-app{ display:none; }
+    }
+
+    /* ---- Celular ---- */
+    @media (max-width:860px){
+      .fh-in{ min-height:58px; gap:6px; padding:0 10px 0 4px; }
+      .fh-logo, .fh-div, .fh-bajar{ display:none; }
+      .fh-doc h1{ font-size:0; line-height:1.1; }
+      .fh-doc h1::before{ content:attr(data-corto); font-family:'Cormorant Garamond',Georgia,serif; font-size:1.35rem; font-weight:700; }
+      .fh-falta{ min-height:36px; padding:0 11px; font-size:.75rem; }
+      .pv-achicar{ display:none !important; }
+      .doc-form{ background:#f4f5f7; padding-top:0; }
+      .pasos-barra{ top:var(--tope); margin:0 -16px 12px; padding:10px 16px 12px; background:#fff; border-bottom:1px solid var(--line); }
+      .pasos-barra ol{ display:none; }
+      .pb-movil{ display:block; }
+      .pb-fila{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+      .pb-fila b{ font-size:.95rem; color:var(--navy); }
+      .pb-fila span{ font-size:.76rem; color:var(--muted); white-space:nowrap; }
+      .pb-segs{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:4px; margin-top:8px; }
+      .pb-segs i{ height:5px; border-radius:999px; background:var(--line-2); }
+      .pb-segs i.ok{ background:#7cc39b; }
+      .pb-segs i.falta{ background:#e0a92c; }
+      .pb-segs i.actual{ background:var(--navy); }
+      .paso-btn{ padding:10px 14px; min-height:60px; gap:12px; }
+      .paso-cuerpo{ padding:2px 14px 16px; }
+      .paso-cual{ display:none !important; }
+      .paso-pie{ padding:12px 14px; }
+      .pp-ant, .pp-sig{ flex:1 1 0; min-height:48px; }
+      .pp-nom{ display:none; }
+      .ct-moneda button, .ct-num-paso button{ min-height:44px; }
+      .ct-gar{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+      .ct-tope .seg{ min-width:0; flex:1 1 auto; }
+      .ct-tope > .fld{ flex:1 1 100%; }
+    }
+
+    .fh-menu[hidden], .fh-bajar[hidden]{ display:none; }
+    .dl-nav{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
   </style>
 </head>
 <body>
+  <!-- Arriba: el menú de documentos (☰), el documento que se está haciendo, lo que
+       falta y la única acción: descargar el PDF. -->
   <header class="fh">
     <div class="fh-in">
+      <button type="button" class="fh-menu" id="menuBtn" onclick="docMenu(true)" aria-label="Abrir el menú de documentos" aria-expanded="false" aria-controls="docMenu" hidden><i class="fas fa-bars" aria-hidden="true"></i></button>
       <a class="fh-logo" href="index.html" title="Volver al inicio"><img src="iso-malave.png" alt="MALAVE"><span class="fh-app">Documentos</span></a>
-      <a class="fh-back" href="index.html" aria-label="Volver al inicio"><i class="fas fa-arrow-left"></i> <span>Volver al inicio</span></a>
+      <span class="fh-div" aria-hidden="true"></span>
+      <div class="fh-doc">
+        <h1 id="docTitulo" data-corto=""></h1>
+        <span class="fh-ctx" id="docContexto"></span>
+      </div>
+      <div class="fh-acc">
+        <!-- Volver a Clientes o al mapa: solo cuando se llegó desde ahí (recibo o carta ya emitidos). -->
+        <a class="fh-back" href="index.html" aria-label="Volver al inicio" hidden><i class="fas fa-arrow-left" aria-hidden="true"></i> <span>Volver al inicio</span></a>
+        <button type="button" class="fh-falta" id="docFalta" onclick="pasoIrAFalta()" hidden><i class="fas fa-circle-exclamation" aria-hidden="true"></i><span>Falta 1 dato</span></button>
+        <button type="button" class="fh-bajar" id="fhBajar" onclick="generarActivo()" hidden><i class="fas fa-file-arrow-down" aria-hidden="true"></i><span>Descargar PDF</span></button>
+      </div>
     </div>
   </header>
 
@@ -778,7 +995,10 @@
            celular, pestañas arriba, el formulario debajo y la hoja detrás del
            botón "Ver la hoja". -->
       <div class="app">
-        <nav class="doc-lado" aria-label="Documentos">
+        <div class="doc-lado" id="docMenu" role="dialog" aria-modal="true" aria-labelledby="docMenuTit">
+          <div class="dl-cab"><img src="iso-malave.png" alt=""><span id="docMenuTit">Documentos</span>
+            <button type="button" class="dl-cerrar" onclick="docMenu(false)" aria-label="Cerrar el menú"><i class="fas fa-xmark" aria-hidden="true"></i></button></div>
+          <nav class="dl-nav" aria-label="Documentos">
           <!-- Ordenados por etapa de la operación: para captar la propiedad, para
                el cliente que busca y para cerrar. La página abre en el primero de
                la lista que cada uno puede usar; un grupo sin documentos para ese
@@ -834,17 +1054,20 @@
             </div>
             <ol class="doc-indice" id="docIndice" aria-label="Secciones del documento" hidden></ol>
           </div>
-        </nav>
+          </nav>
+          <div class="dl-pie">
+            <!-- Aviso para los roles que no emiten todos los documentos. El texto lo
+                 arma aplicarPermisos() con los nombres de los documentos ocultos. -->
+            <p class="doc-nota" id="docNota" hidden></p>
+            <a class="dl-link" href="index.html"><i class="fas fa-arrow-left" aria-hidden="true"></i>Volver al inicio</a>
+          </div>
+        </div>
+        <button type="button" class="menu-velo" id="menuVelo" onclick="docMenu(false)" aria-label="Cerrar el menú" tabindex="-1" hidden></button>
 
         <div class="doc-grid">
           <section class="doc-form" id="docForm" aria-labelledby="docTitulo">
             <div class="doc-cab">
-              <h1 id="docTitulo">Recibo de reserva</h1>
               <p class="doc-desc" id="docDesc">Recibo de reserva al señar, o carta de pago al firmar y saldar.</p>
-              <!-- Aviso para los roles que no emiten todos los documentos. El texto lo
-                   arma aplicarPermisos() con los nombres de los documentos ocultos,
-                   así no hay una lista repetida que se desactualice. -->
-              <p class="doc-nota" id="docNota" hidden></p>
               <!-- Recibo o carta emitidos desde el Mapa de cierres (?comprobante=). -->
               <div class="comp-nota" id="compNota" role="note" hidden></div>
             </div>
@@ -921,7 +1144,7 @@
           <input type="checkbox" id="fParcial" style="display:none">
           <input type="checkbox" id="fSaldoFinal" style="display:none">
 
-          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">3</span><span class="ct-tit">Quién pagó y fecha</span></div>
+          <div class="ct-sec con-num" role="heading" aria-level="2" data-corto="Quién pagó"><span class="ct-num">3</span><span class="ct-tit">Quién pagó y fecha</span></div>
           <div class="fld">
             <label>¿Quién realizó el pago?</label>
             <div class="hint" style="margin-top:0;margin-bottom:9px">Agregá una o más personas. El texto se ajusta solo (una o varias).</div>
@@ -941,40 +1164,25 @@
         <div class="panel" id="formContrato" style="display:none">
           <h3><i class="fas fa-file-contract"></i> Contrato de arrendamiento</h3>
 
-          <div class="fld">
-            <label>Destino del inmueble</label>
-            <div class="seg">
-              <button type="button" id="ctDestVivienda" class="on" onclick="ctSetDestino('vivienda')">Vivienda</button>
-              <button type="button" id="ctDestComercial" onclick="ctSetDestino('comercial')">Comercial</button>
+          <div class="ct-tope">
+            <div class="fld">
+              <label id="ctDestinoLbl">Destino del inmueble</label>
+              <div class="seg" role="group" aria-labelledby="ctDestinoLbl">
+                <button type="button" id="ctDestVivienda" class="on" onclick="ctSetDestino('vivienda')">Vivienda</button>
+                <button type="button" id="ctDestComercial" onclick="ctSetDestino('comercial')">Comercial</button>
+              </div>
             </div>
-          </div>
-
-          <div class="fld" id="ctRegimenWrap" style="display:none">
-            <label>Régimen del arrendamiento</label>
-            <select id="ctRegimen" onchange="ctSetRegimen()">
-              <option value="libre">Libre contratación — permiso de construcción posterior al 2/6/1968</option>
-              <option value="14219">Decreto Ley 14.219 — permiso anterior al 2/6/1968</option>
-              <option value="luc">Sin garantía — Ley 19.889 (LUC), arts. 421 y ss.</option>
-            </select>
-            <div class="hint">Lo determina la fecha del permiso de construcción del inmueble, no lo que acuerden las partes. Verificalo antes de elegir.</div>
-          </div>
-          <div class="fld" id="ctPermisoWrap" style="display:none">
-            <label>Fecha del permiso de construcción (opcional)</label>
-            <input id="ctPermiso" placeholder="ej: 1995" oninput="ctPreview()">
-            <div class="hint">Si se indica, queda declarada en el contrato como fundamento del régimen.</div>
-          </div>
-
-          <div class="ct-aviso" id="ctAvisoDestino">
-            <i class="fas fa-triangle-exclamation"></i>
-            <div id="ctAvisoTexto"><b>Destino comercial o industrial.</b> Rige el régimen de
-            libre contratación: el plazo lo acuerdan las partes.</div>
+            <div class="fld"><label for="ctFecha">Fecha del contrato</label><input id="ctFecha" type="date"></div>
           </div>
 
           <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">1</span><span class="ct-tit">Partes</span></div>
           <div class="fld"><label>Arrendadores</label><div id="ctArrendadores"></div>
             <button type="button" class="ct-add" onclick="ctAgregar('arrendador')"><i class="fas fa-plus"></i> Agregar arrendador</button></div>
+          <div class="fld"><label for="ctMailArrendador">Correo del arrendador para notificaciones (opcional)</label><input id="ctMailArrendador" type="email" autocomplete="off"></div>
           <div class="fld"><label>Arrendatarios</label><div id="ctArrendatarios"></div>
             <button type="button" class="ct-add" onclick="ctAgregar('arrendatario')"><i class="fas fa-plus"></i> Agregar arrendatario</button></div>
+          <div class="fld"><label for="ctMailArrendatario">Correo del arrendatario para notificaciones (opcional)</label><input id="ctMailArrendatario" type="email" autocomplete="off">
+            <div class="hint">Si los completás, quedan pactados como vía válida de notificación. Usá casillas que se revisen: una notificación enviada ahí se tiene por válida aunque no se lea.</div></div>
 
           <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">2</span><span class="ct-tit">Inmueble</span></div>
           <div class="fld"><label for="ctProp">Propiedad del sistema (opcional)</label>
@@ -1000,27 +1208,61 @@
           <!-- Cuántos juegos de llaves se entregan: va en el estado del inmueble y en
                la devolución, así no hace falta una cláusula especial aparte. -->
           <div class="row2">
-            <div class="fld"><label for="ctLlaves">Juegos de llaves que se entregan</label><input id="ctLlaves" type="number" min="1" max="12" step="1" inputmode="numeric" placeholder="2">
+            <div class="fld"><label for="ctLlaves">Juegos de llaves que se entregan</label>
+              <div class="ct-num-paso"><button type="button" onclick="ctLlavesPaso(-1)" aria-label="Un juego menos"><i class="fas fa-minus" aria-hidden="true"></i></button><input id="ctLlaves" type="number" min="1" max="12" step="1" inputmode="numeric"><button type="button" onclick="ctLlavesPaso(1)" aria-label="Un juego más"><i class="fas fa-plus" aria-hidden="true"></i></button></div>
               <div class="hint">Van en la entrega y en la devolución. Vacío: dice «las llaves recibidas».</div></div>
+          </div>
+
+          <div class="fld" id="ctRegimenWrap" style="display:none">
+            <label>Régimen del arrendamiento</label>
+            <select id="ctRegimen" onchange="ctSetRegimen()">
+              <option value="libre">Libre contratación — permiso de construcción posterior al 2/6/1968</option>
+              <option value="14219">Decreto Ley 14.219 — permiso anterior al 2/6/1968</option>
+              <option value="luc">Sin garantía — Ley 19.889 (LUC), arts. 421 y ss.</option>
+            </select>
+            <div class="hint">Lo determina la fecha del permiso de construcción del inmueble, no lo que acuerden las partes. Verificalo antes de elegir.</div>
+          </div>
+          <div class="fld" id="ctPermisoWrap" style="display:none">
+            <label>Fecha del permiso de construcción (opcional)</label>
+            <input id="ctPermiso" placeholder="ej: 1995" oninput="ctPreview()">
+            <div class="hint">Si se indica, queda declarada en el contrato como fundamento del régimen.</div>
+          </div>
+
+          <div class="ct-aviso" id="ctAvisoDestino">
+            <i class="fas fa-triangle-exclamation"></i>
+            <div id="ctAvisoTexto"><b>Destino comercial o industrial.</b> Rige el régimen de
+            libre contratación: el plazo lo acuerdan las partes.</div>
           </div>
 
           <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">3</span><span class="ct-tit">Precio y plazo</span></div>
           <div class="row2">
-            <div class="fld"><label>Precio mensual</label><input id="ctPrecio" type="number" placeholder="16000"></div>
-            <div class="fld"><label>Moneda</label><select id="ctMoneda"><option value="UYU">Pesos ($)</option><option value="USD">Dólares (US$)</option></select></div>
+            <div class="fld"><label for="ctPrecio">Precio mensual</label>
+              <div class="ct-monto">
+                <div class="ct-moneda" id="ctMonedaSeg" role="group" aria-label="Moneda">
+                  <button type="button" data-m="UYU" class="on" aria-pressed="true" onclick="ctMonedaSet('UYU')" title="Pesos uruguayos">$</button><button type="button" data-m="USD" aria-pressed="false" onclick="ctMonedaSet('USD')" title="Dólares">US$</button>
+                </div>
+                <input id="ctPrecio" type="number" placeholder="16000" inputmode="numeric">
+              </div>
+              <select id="ctMoneda" class="ce-oculto" aria-hidden="true" tabindex="-1"><option value="UYU">Pesos ($)</option><option value="USD">Dólares (US$)</option></select></div>
+            <div class="fld"><label for="ctInicio">Empieza el</label><input id="ctInicio" type="date"></div>
           </div>
-          <div class="row2">
-            <div class="fld"><label>Inicio</label><input id="ctInicio" type="date"></div>
-            <div class="fld"><label>Vencimiento</label><input id="ctVencimiento" type="date"></div>
+          <div class="fld"><label id="ctPlazoLbl">Plazo</label>
+            <div class="seg" id="ctPlazoSeg" role="group" aria-labelledby="ctPlazoLbl">
+              <button type="button" data-a="1" aria-pressed="false" onclick="ctPlazoElegir('1')">1 año</button><button type="button" data-a="2" aria-pressed="false" onclick="ctPlazoElegir('2')">2 años</button><button type="button" data-a="3" aria-pressed="false" onclick="ctPlazoElegir('3')">3 años</button><button type="button" data-a="otro" aria-pressed="false" onclick="ctPlazoElegir('otro')">Otro</button>
+            </div></div>
+          <div class="ct-vence" id="ctVence" role="status"><i class="far fa-calendar" aria-hidden="true"></i><span id="ctVenceTxt">Elegí cuándo empieza y el plazo: el vencimiento se calcula solo.</span><button type="button" class="iv-link" id="ctVenceOtra" onclick="ctPlazoElegir('otro')" hidden>Elegir otra fecha</button></div>
+          <div id="ctPlazoOtro" hidden>
+            <div class="row2">
+              <div class="fld"><label for="ctVencimiento">Vence el</label><input id="ctVencimiento" type="date"></div>
+              <div class="fld"><label for="ctPlazoTexto">Plazo como se escribe en el contrato</label><input id="ctPlazoTexto" placeholder="dos (2) años"></div>
+            </div>
+            <div class="hint" id="ctPlazoHint" style="margin:-8px 0 14px">Se completa solo a partir de las fechas de inicio y vencimiento. Podés editarlo, pero tiene que decir lo mismo que las fechas.</div>
           </div>
-          <div class="fld"><label>Plazo (como se escribe en el contrato)</label><input id="ctPlazoTexto" placeholder="dos (2) años">
-            <div class="hint" id="ctPlazoHint">Se completa solo a partir de las fechas de inicio y vencimiento. Podés editarlo, pero tiene que decir lo mismo que las fechas.</div>
-          </div>
-          <div class="fld"><label>Ejemplares a firmar</label><input id="ctEjemplares" type="number" min="1" max="6" oninput="ctPreview()">
-            <div class="hint">Se sugiere según la garantía. Cambialo si hace falta un ejemplar más.</div>
-          </div>
+          <div class="fld ct-ejemplares"><label for="ctEjemplares">Ejemplares a firmar</label>
+            <div class="ct-sufijo"><div class="ct-num-paso"><button type="button" onclick="ctEjemplaresPaso(-1)" aria-label="Un ejemplar menos"><i class="fas fa-minus" aria-hidden="true"></i></button><input id="ctEjemplares" type="number" min="1" max="6" inputmode="numeric" oninput="ctPreview()"><button type="button" onclick="ctEjemplaresPaso(1)" aria-label="Un ejemplar más"><i class="fas fa-plus" aria-hidden="true"></i></button></div>
+              <span>Se sugiere según la garantía.</span></div></div>
           <div class="ct-op ct-pago">
-            <input type="checkbox" id="ctPagoIni" onchange="ctPagoIniToggle(this.checked)" aria-describedby="ctPagoIniAyuda">
+            <input type="checkbox" role="switch" id="ctPagoIni" onchange="ctPagoIniToggle(this.checked)" aria-describedby="ctPagoIniAyuda">
             <div style="flex:1"><label for="ctPagoIni"><b>Pago al firmar</b></label><span id="ctPagoIniAyuda">Deja escrito lo que la parte arrendataria paga hoy: los días que quedan del primer mes y los meses por adelantado. El contrato sirve de recibo.</span>
               <!-- Con mes vencido no se paga por adelantado: la opción se apaga y se explica. -->
               <div class="hint" id="ctPagoIniVencido" hidden>Con mes vencido no se paga al firmar: los días del primer mes se pagan con el alquiler del mes siguiente. Para usarlo, elegí «Mes adelantado» en Política de la agencia.</div>
@@ -1038,19 +1280,31 @@
             </div>
           </div>
 
-          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">4</span><span class="ct-tit">Cuenta para el pago</span></div>
+          <div class="ct-sec con-num" role="heading" aria-level="2" data-corto="Cuenta"><span class="ct-num">4</span><span class="ct-tit">Cuenta para el pago</span></div>
           <div class="row2">
-            <div class="fld"><label>Banco</label><input id="ctBanco" placeholder="Scotiabank"></div>
-            <div class="fld"><label>Tipo de cuenta</label><input id="ctTipoCuenta" placeholder="Caja de ahorro"></div>
+            <div class="fld"><label for="ctBanco">Banco</label><input id="ctBanco" list="ctBancos" placeholder="Elegí o escribí el banco" autocomplete="off">
+              <datalist id="ctBancos"><option value="BROU"></option><option value="Santander"></option><option value="Itaú"></option><option value="Scotiabank"></option><option value="BBVA"></option><option value="HSBC"></option><option value="Heritage"></option><option value="Bandes"></option><option value="Banco de la Nación Argentina"></option></datalist></div>
+            <div class="fld"><label id="ctTipoLbl">Tipo de cuenta</label>
+              <div class="seg" id="ctTipoSeg" role="group" aria-labelledby="ctTipoLbl">
+                <button type="button" data-t="Caja de ahorro" aria-pressed="false" onclick="ctTipoCuentaSet('Caja de ahorro')">Caja de ahorro</button><button type="button" data-t="Cuenta corriente" aria-pressed="false" onclick="ctTipoCuentaSet('Cuenta corriente')">Cuenta corriente</button>
+              </div>
+              <input id="ctTipoCuenta" class="ce-oculto" aria-hidden="true" tabindex="-1"></div>
           </div>
           <div class="row2">
-            <div class="fld"><label>Titular</label><input id="ctTitular"></div>
-            <div class="fld"><label>Número</label><input id="ctNumeroCuenta"></div>
+            <div class="fld"><label for="ctTitular">Titular</label><input id="ctTitular"></div>
+            <div class="fld"><label for="ctNumeroCuenta">Número de cuenta</label><input id="ctNumeroCuenta" inputmode="numeric"></div>
           </div>
 
           <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">5</span><span class="ct-tit">Garantía</span></div>
-          <div class="fld"><label>Modalidad</label>
-            <select id="ctGarantia" onchange="ctPintarGarantia()">
+          <div class="ct-gar" id="ctGarCards" role="radiogroup" aria-label="Garantía">
+            <button type="button" role="radio" data-g="porto" aria-checked="true" class="on" onclick="ctGarantiaSet('porto')"><b>Porto Seguro</b><span>Seguro de alquiler. Su texto entra tal cual.</span></button>
+            <button type="button" role="radio" data-g="anda" aria-checked="false" tabindex="-1" onclick="ctGarantiaSet('anda')"><b>ANDA</b><span>Su formulario más el anexo de la agencia.</span></button>
+            <button type="button" role="radio" data-g="otra" aria-checked="false" tabindex="-1" onclick="ctGarantiaSet('otra')"><b>Otra aseguradora</b><span>Pegás el texto que te mandan.</span></button>
+            <button type="button" role="radio" data-g="deposito" aria-checked="false" tabindex="-1" onclick="ctGarantiaSet('deposito')"><b>Depósito</b><span>En garantía, con su monto.</span></button>
+            <button type="button" role="radio" data-g="fianza" aria-checked="false" tabindex="-1" onclick="ctGarantiaSet('fianza')"><b>Fianza</b><span>Uno o más fiadores solidarios.</span></button>
+          </div>
+          <div class="fld" style="margin:0">
+            <select id="ctGarantia" class="ce-oculto" aria-hidden="true" tabindex="-1" onchange="ctPintarGarantia()">
               <option value="porto">Porto Seguro – Seguros del Uruguay S.A.</option>
               <option value="anda">ANDA — su formulario + anexo de la inmobiliaria</option>
               <option value="otra">Otra aseguradora (pegar su texto)</option>
@@ -1087,35 +1341,32 @@
             <div id="ceGuardados"></div>
           </div>
 
-          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">7</span><span class="ct-tit">Política de la agencia</span></div>
-          <div class="hint" style="margin:-6px 0 10px">Se definen una vez. Quedan guardadas en este navegador.</div>
+          <div class="ct-sec con-num" role="heading" aria-level="2" data-corto="Política"><span class="ct-num">7</span><span class="ct-tit">Política de la agencia</span></div>
+          <div class="hint" style="margin:-2px 0 12px">La fija la Dirección y vale para todos los contratos de la agencia, en cualquier computadora.</div>
           <div class="ct-nota" id="ctPoliticaNota" hidden>
-            <span>No son los valores originales. Quedan guardados para los próximos contratos que se hagan en este navegador.</span>
+            <span id="ctPoliticaNotaTxt">No son los valores originales. Valen para todos los contratos de la agencia.</span>
             <button type="button" class="iv-link" onclick="ctOlvidarPolitica()">Volver a los originales</button>
           </div>
           <div class="row2">
-            <div class="fld"><label>Modalidad de pago</label>
-              <select id="ctModalidadPago">
+            <div class="fld"><label id="ctModLbl">Se paga</label>
+              <div class="seg" id="ctModSeg" role="group" aria-labelledby="ctModLbl">
+                <button type="button" data-v="adelantado" aria-pressed="false" onclick="ctModalidadSet('adelantado')">Mes adelantado</button><button type="button" data-v="vencido" aria-pressed="false" onclick="ctModalidadSet('vencido')">Mes vencido</button>
+              </div>
+              <select id="ctModalidadPago" class="ce-oculto" aria-hidden="true" tabindex="-1">
                 <option value="adelantado">Mes adelantado</option>
                 <option value="vencido">Mes vencido</option>
               </select>
               <div class="hint">Adelantado: se paga el mes que empieza. Vencido: el que terminó.</div>
             </div>
-            <div class="fld"><label>Día límite de pago</label><input id="ctDiaLimite" type="number" value="18"></div>
+            <div class="fld"><label for="ctDiaLimite">Día límite de pago</label><div class="ct-sufijo"><input id="ctDiaLimite" type="number" value="18"><span>de cada mes</span></div></div>
           </div>
           <div class="row2">
-            <div class="fld"><label>Preaviso (días)</label><input id="ctPreaviso" type="number" value="60"></div>
-            <div class="fld"><label>Reajuste cada (meses)</label><input id="ctReajuste" type="number" value="12"></div>
+            <div class="fld"><label for="ctPreaviso">Preaviso</label><div class="ct-sufijo"><input id="ctPreaviso" type="number" value="60"><span>días</span></div></div>
+            <div class="fld"><label for="ctReajuste">Reajuste cada</label><div class="ct-sufijo"><input id="ctReajuste" type="number" value="12"><span>meses</span></div></div>
           </div>
           <div class="row2">
-            <div class="fld" style="grid-column:1 / -1"><label>Índice</label><input id="ctIndice" value="Índice de Precios del Consumo (IPC) publicado por el Instituto Nacional de Estadística"></div>
+            <div class="fld" style="grid-column:1 / -1"><label for="ctIndice">Índice</label><input id="ctIndice" value="Índice de Precios del Consumo (IPC) publicado por el Instituto Nacional de Estadística"></div>
           </div>
-          <div class="row2">
-            <div class="fld"><label>Correo del arrendador (notificaciones)</label><input id="ctMailArrendador" type="email" placeholder="opcional"></div>
-            <div class="fld"><label>Correo del arrendatario (notificaciones)</label><input id="ctMailArrendatario" type="email" placeholder="opcional"></div>
-          </div>
-          <div class="hint" style="margin:-4px 0 10px">Si los completás, quedan pactados como vía válida de notificación. Usá casillas que se revisen: una notificación enviada ahí se tiene por válida aunque no se lea.</div>
-          <div class="fld"><label>Fecha del documento</label><input id="ctFecha" type="date"></div>
 
           <button class="gen-btn" onclick="generarActivo()"><i class="fas fa-file-arrow-down"></i> Descargar contrato</button>
         </div>
@@ -1140,7 +1391,7 @@
             <div class="hint" id="cmModHint">En exclusiva el encargo es solo para la agencia y la comisión se debe aunque la operación la cierre otro.</div>
           </div>
 
-          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">1</span><span class="ct-tit">Agente que suscribe</span></div>
+          <div class="ct-sec con-num" role="heading" aria-level="2" data-corto="Agente"><span class="ct-num">1</span><span class="ct-tit">Agente que suscribe</span></div>
           <div class="row2">
             <div class="fld"><label>Agente</label>
               <select id="cmAgenteSel" onchange="cmSetAgente()"><option value="">Cargando agentes…</option></select>
@@ -1165,14 +1416,14 @@
             <div class="fld"><label>Departamento</label><input id="cmDepartamento" value="Montevideo" oninput="cmPreview()"></div>
           </div>
 
-          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">4</span><span class="ct-tit">Condiciones y duración</span></div>
+          <div class="ct-sec con-num" role="heading" aria-level="2" data-corto="Condiciones"><span class="ct-num">4</span><span class="ct-tit">Condiciones y duración</span></div>
           <div id="cmCondiciones"></div>
           <div class="fld"><label>Plazo del encargo (meses)</label><input id="cmMeses" type="number" value="3" oninput="cmPreview()"></div>
 
           <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">5</span><span class="ct-tit">Honorarios</span></div>
           <div id="cmHonorarios"></div>
 
-          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">6</span><span class="ct-tit">Servicios incluidos</span></div>
+          <div class="ct-sec con-num" role="heading" aria-level="2" data-corto="Servicios"><span class="ct-num">6</span><span class="ct-tit">Servicios incluidos</span></div>
           <div class="hint" style="margin:-6px 0 10px">Se listan en la cláusula de objeto. Destildá los que no correspondan.</div>
           <div id="cmServicios"></div>
 
@@ -1197,7 +1448,7 @@
           <div class="fld"><label>Propiedad</label><input id="ipPropiedad" oninput="ipPreview()" placeholder="Dirección del inmueble"></div>
           <div class="fld"><label>Fecha</label><input id="ipFecha" type="date" oninput="ipPreview()"></div>
 
-          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">2</span><span class="ct-tit">Condiciones particulares</span></div>
+          <div class="ct-sec con-num" role="heading" aria-level="2" data-corto="Condiciones"><span class="ct-num">2</span><span class="ct-tit">Condiciones particulares</span></div>
           <div class="hint" style="margin:-6px 0 10px">Lo que se complete acá va en el punto 9. Lo que quede vacío no se menciona.</div>
           <div class="row2">
             <div class="fld"><label>Precio autorizado</label><input id="ipPrecio" oninput="ipPreview()" placeholder="ej: $ 29.900"></div>
@@ -1267,7 +1518,7 @@
           <div id="amComps"></div>
           <button type="button" class="ct-add" id="amAgregar" onclick="amAgregarComp()"><i class="fas fa-plus"></i> Agregar comparable</button>
 
-          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">4</span><span class="ct-tit">Precio del propietario</span></div>
+          <div class="ct-sec con-num" role="heading" aria-level="2" data-corto="Precio"><span class="ct-num">4</span><span class="ct-tit">Precio del propietario</span></div>
           <div class="fld"><label for="amPrecio">Precio que tiene en mente (USD, opcional)</label><input id="amPrecio" inputmode="numeric" oninput="amPreview()" placeholder="ej: 120000">
             <div class="hint">Se marca en la comparativa y la conclusión dice si queda dentro, por encima o por debajo del rango.</div></div>
           <div class="am-resumen" id="amResumen" hidden></div>
@@ -1368,12 +1619,12 @@
             </div>
           </div>
 
-          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">3</span><span class="ct-tit">Estado de cada cosa</span></div>
+          <div class="ct-sec con-num" role="heading" aria-level="2" data-corto="Estado"><span class="ct-num">3</span><span class="ct-tit">Estado de cada cosa</span></div>
           <p class="iv-leyenda">Abrí un ambiente y marcá cómo está cada cosa<span class="solo-pc">: <b>B</b> bien, <b>R</b> regular, <b>M</b> mal, <b>—</b> no tiene</span>. Lo que quede sin marcar sale en blanco, para completarlo a mano.</p>
           <div class="iv-resumen" id="ivResumen" aria-live="polite"></div>
           <div id="ivAmbientes"></div>
 
-          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">4</span><span class="ct-tit">Observaciones generales</span></div>
+          <div class="ct-sec con-num" role="heading" aria-level="2" data-corto="Observaciones"><span class="ct-num">4</span><span class="ct-tit">Observaciones generales</span></div>
           <div class="fld"><textarea id="ivObs" rows="3" maxlength="900" placeholder="Lo que valga para toda la propiedad: medidores, llaves, limpieza, lo que queda pendiente de arreglar…" aria-label="Observaciones generales" aria-describedby="ivObsAviso"></textarea>
             <div class="hint iv-obs-aviso" id="ivObsAviso" hidden>En la hoja entran 30 renglones: lo que pase de ahí no sale (termina en “…”). Acortalo o pasá lo que sea de una cosa a su renglón.</div></div>
           <label class="iv-check"><input type="checkbox" id="ivOmitir"> <span>Dejar fuera de la hoja lo marcado como “no tiene”</span></label>
@@ -1395,6 +1646,8 @@
                columna de la derecha; en el celular se abre a pantalla completa
                con "Ver la hoja". -->
           <aside class="preview-wrap" id="previewWrap" aria-label="Vista previa del documento">
+          <!-- La hoja achicada (computadora): queda una franja para volver a mostrarla. -->
+          <div class="pv-riel"><button type="button" id="pvMostrar" onclick="pvAchicar(false)" aria-label="Mostrar la hoja" title="Mostrar la hoja"><i class="fas fa-angles-left" aria-hidden="true"></i></button><span>Vista previa</span></div>
           <div class="pv-barra">
             <button type="button" class="pv-btn pv-cerrar" onclick="pvCerrar()" aria-label="Volver a los datos"><i class="fas fa-arrow-left"></i></button>
             <span class="pv-tit">Vista previa</span>
@@ -1405,6 +1658,7 @@
               <button type="button" class="pv-btn" id="pvMas" onclick="pvZoom(1)" aria-label="Acercar la hoja" title="Acercar"><i class="fas fa-plus"></i></button>
             </div>
             <button type="button" class="pv-btn" onclick="pvEnPestana()" aria-label="Abrir la hoja en otra pestaña" title="Abrir en otra pestaña (para imprimir)"><i class="fas fa-up-right-from-square"></i></button>
+            <button type="button" class="pv-btn pv-achicar" id="pvAchicarBtn" onclick="pvAchicar(true)" title="Achicar la hoja y darle más lugar al formulario"><i class="fas fa-angles-right" aria-hidden="true"></i><span>Achicar la hoja</span></button>
             <button type="button" class="pv-bajar" onclick="generarActivo()" aria-label="Descargar PDF" title="Descargar PDF"><i class="fas fa-file-arrow-down" aria-hidden="true"></i> <span>Descargar PDF</span></button>
           </div>
           <div class="pv-mesa" id="previewBox" tabindex="0">
@@ -2698,7 +2952,7 @@
       var foco = it.abierto ? document.getElementById('ceTxt_' + it.uid)
         : (card && card.querySelector('.ce-campos input, .ce-campos textarea')) || document.getElementById('ceTit_' + it.uid);
       if(card) docLlevarA(card, true);
-      if(foco) setTimeout(function(){ try{ foco.focus({ preventScroll:true }); }catch(e){} }, 60);
+      if(foco){ try{ foco.focus({ preventScroll:true }); }catch(e){} }
     }
     function ceQuitar(uid){
       var it = ceItem(uid);
@@ -3290,6 +3544,7 @@
           opciones: (x.opciones && typeof x.opciones === 'object') ? x.opciones : {}
         };
         CL.cargada = true;
+        ctPoliticaAplicar(x.politica);
       }).catch(function(e){
         console.warn('No se pudo leer lo de la agencia para el contrato:', e);
       }).then(function(){
@@ -4321,6 +4576,7 @@
                         : 'mapa-cierres.html' + (c.propertyId ? '?id=' + encodeURIComponent(c.propertyId) : '');
       a.setAttribute('aria-label', txt);
       var s = a.querySelector('span'); if(s) s.textContent = txt;
+      a.hidden = false;
     }
 
     // ===== Construcción del HTML del documento (para preview y base del PDF) =====
@@ -4491,10 +4747,12 @@
 
     function pvEl(id){ return document.getElementById(id); }
     function pvEsCelular(){ return window.matchMedia('(max-width: 860px)').matches; }
-    function pvALaVista(){ return !pvEsCelular() || PV.abierta; }
+    function pvALaVista(){ return pvEsCelular() ? PV.abierta : !PV.achicada; }
 
     // Lo que llaman los cinco documentos. `construir` devuelve el jsPDF del momento.
     function vistaPrevia(tipo, construir, demora){
+      // El resumen de cada paso y lo que falta se ponen al día con cada cambio.
+      pasosPedir();
       // Antes de que termine el inicio de sesión no se arma nada: la página está
       // oculta, y una hoja dibujada a ciegas quedaba pegada para toda la visita.
       // (La imagen de la marca termina de cargar en ese momento y pedía la hoja.)
@@ -9350,6 +9608,661 @@
       return b ? b.getAttribute('data-type') : null;
     }
 
+    // ==========================================================================
+    // PANTALLA: menú en hamburguesa, pasos y hoja que se achica
+    // --------------------------------------------------------------------------
+    // Cada sección numerada de un formulario es un PASO: una tarjeta que se abre
+    // de a una, con su resumen y su estado (completo o qué falta). Arriba, la
+    // barra con todos los pasos; abajo de cada tarjeta, Anterior y Siguiente.
+    // Las tarjetas se arman acá, a partir de las secciones que ya trae cada
+    // formulario: los campos siguen siendo los mismos (mismos id), solo cambian
+    // de lugar. Los documentos se eligen desde el menú (☰).
+    // ==========================================================================
+    var PANEL_DE = { carta_pago:'formCartaPago', contrato:'formContrato', mediacion:'formMediacion',
+      propietario:'formPropietario', inventario:'formInventario', ami:'formAMI', sel:'formSeleccion' };
+    var PASOS = {};                 // por documento: { tipo, lista:[…], abierto:n, info:[…] }
+    var _pasosPedido = false;
+
+    function pasosDe(tipo){ return PASOS[tipo || _tipoActivo] || null; }
+    function fechaUY(iso){
+      var p = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+      return p ? (+p[3]) + '/' + (+p[2]) + '/' + p[1] : String(iso || '');
+    }
+    function milesUY(v){
+      var s = String(v == null ? '' : v).trim();
+      if(!s) return '';
+      var partes = s.split('.');
+      return partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (partes[1] ? ',' + partes[1] : '');
+    }
+
+    function pasosArmar(tipo){
+      if(PASOS[tipo]) return PASOS[tipo];
+      var panel = document.getElementById(PANEL_DE[tipo]);
+      if(!panel) return null;
+      var cabs = Array.prototype.filter.call(panel.children, function(e){ return e.classList.contains('con-num'); });
+      if(!cabs.length) return null;
+      var gen = null;
+      Array.prototype.forEach.call(panel.children, function(e){ if(e.classList.contains('gen-btn')) gen = e; });
+      var P = { tipo:tipo, panel:panel, lista:[], abierto:0, info:[], listo:false };
+      var barra = document.createElement('nav');
+      barra.className = 'pasos-barra';
+      barra.setAttribute('aria-label', 'Pasos del documento');
+      panel.insertBefore(barra, cabs[0]);
+      var total = cabs.length;
+      cabs.forEach(function(cab, i){
+        var n = i + 1, idc = 'pasoC_' + tipo + '_' + n;
+        // Lo que va en este paso: todo lo que sigue a su título, hasta el próximo.
+        var mover = [], x = cab.nextElementSibling;
+        while(x && !x.classList.contains('con-num')){ if(x !== gen) mover.push(x); x = x.nextElementSibling; }
+        var sec = document.createElement('section');
+        sec.className = 'paso';
+        sec.setAttribute('data-n', n);
+        sec.setAttribute('data-tipo', tipo);
+        panel.insertBefore(sec, cab);
+        sec.appendChild(cab);
+        var num = cab.querySelector('.ct-num'), tit = cab.querySelector('.ct-tit');
+        var titulo = tit ? tit.textContent.trim() : ('Paso ' + n);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'paso-btn';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.setAttribute('aria-controls', idc);
+        var circ = document.createElement('span');
+        circ.className = 'paso-n';
+        if(num) circ.appendChild(num);
+        circ.insertAdjacentHTML('beforeend', '<i class="fas fa-check" aria-hidden="true"></i>');
+        var tx = document.createElement('span');
+        tx.className = 'paso-tx';
+        if(tit) tx.appendChild(tit);
+        var res = document.createElement('small');
+        res.className = 'paso-res';
+        tx.appendChild(res);
+        btn.appendChild(circ);
+        btn.appendChild(tx);
+        btn.insertAdjacentHTML('beforeend', '<span class="paso-cual">Paso ' + n + ' de ' + total + '</span>' +
+          '<i class="fas fa-chevron-down paso-flecha" aria-hidden="true"></i>');
+        btn.addEventListener('click', function(){ pasoAbrir(P.abierto === n ? 0 : n, { tipo:tipo, llevar:P.abierto !== n }); });
+        cab.appendChild(btn);
+        var cuerpo = document.createElement('div');
+        cuerpo.className = 'paso-cuerpo';
+        cuerpo.id = idc;
+        cuerpo.hidden = true;
+        mover.forEach(function(e){ cuerpo.appendChild(e); });
+        sec.appendChild(cuerpo);
+        var pie = document.createElement('div');
+        pie.className = 'paso-pie';
+        pie.hidden = true;
+        sec.appendChild(pie);
+        P.lista.push({ n:n, sec:sec, cab:cab, btn:btn, cuerpo:cuerpo, pie:pie, res:res, titulo:titulo,
+          corto: cab.getAttribute('data-corto') || titulo });
+      });
+      P.lista.forEach(function(p, i){
+        var sig = P.lista[i + 1];
+        p.pie.innerHTML = (i > 0 ? '<button type="button" class="pp-ant">Anterior</button>' : '') +
+          (sig ? '<button type="button" class="pp-sig">Siguiente<span class="pp-nom">: ' + esc(sig.corto) + '</span></button>' : '');
+        if(!sig && gen) p.pie.appendChild(gen);
+        var a = p.pie.querySelector('.pp-ant'), s = p.pie.querySelector('.pp-sig');
+        if(a) a.addEventListener('click', function(){ pasoAbrir(p.n - 1, { tipo:tipo, llevar:true, foco:true }); });
+        if(s) s.addEventListener('click', function(){ pasoAbrir(p.n + 1, { tipo:tipo, llevar:true, foco:true }); });
+      });
+      barra.innerHTML = '<ol>' + P.lista.map(function(p){
+          return '<li><button type="button" class="pb-btn" data-n="' + p.n + '"><span class="pb-n"><b>' + p.n + '</b>' +
+            '<i class="fas fa-check" aria-hidden="true"></i></span><span class="pb-t">' + esc(p.corto) + '</span></button></li>';
+        }).join('') + '</ol>' +
+        '<div class="pb-movil"><div class="pb-fila"><b class="pb-nombre"></b><span class="pb-cual"></span></div>' +
+        '<div class="pb-segs" aria-hidden="true">' + P.lista.map(function(){ return '<i></i>'; }).join('') + '</div></div>';
+      Array.prototype.forEach.call(barra.querySelectorAll('.pb-btn'), function(b){
+        b.addEventListener('click', function(){ pasoAbrir(+b.getAttribute('data-n'), { tipo:tipo, llevar:true, foco:true }); });
+      });
+      P.barra = barra;
+      // Lo que se escribe o se toca en el formulario cambia el resumen y lo que falta.
+      panel.addEventListener('input', pasosPedir);
+      panel.addEventListener('change', pasosPedir);
+      panel.addEventListener('click', function(){ setTimeout(pasosPedir, 0); });
+      PASOS[tipo] = P;
+      return P;
+    }
+
+    // Al elegir un documento: se arman sus pasos (la primera vez) y se abre el 1.
+    function pasosPreparar(){
+      var P = pasosArmar(_tipoActivo);
+      if(P && !P.listo){ P.listo = true; pasoAbrir(1, { tipo:_tipoActivo }); }
+      pasosRefrescar();
+    }
+
+    // Abre el paso n (0 = todos cerrados). `llevar`: el formulario va hasta él.
+    // `foco`: el foco pasa a su título (al usar Anterior / Siguiente o la barra).
+    function pasoAbrir(n, op){
+      op = op || {};
+      var P = pasosDe(op.tipo);
+      if(!P) return;
+      n = Math.max(0, Math.min(P.lista.length, n | 0));
+      P.lista.forEach(function(p){
+        var on = p.n === n;
+        p.sec.classList.toggle('abierto', on);
+        p.btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+        p.cuerpo.hidden = !on;
+        p.pie.hidden = !on;
+      });
+      P.abierto = n;
+      pasosPintar(P);
+      var p = P.lista[n - 1];
+      if(!p) return;
+      if(op.llevar) pasoLlevar(p.sec);
+      if(op.foco){ try{ p.btn.focus({ preventScroll:true }); }catch(e){} }
+      // Los mapas de la Selección se dibujan mal si nacieron con el paso cerrado.
+      if(P.tipo === 'sel' && typeof SEL_MAPAS === 'object'){
+        setTimeout(function(){
+          Object.keys(SEL_MAPAS).forEach(function(k){ var m = SEL_MAPAS[k] && SEL_MAPAS[k].mapa; if(m && m.invalidateSize){ try{ m.invalidateSize(); }catch(e){} } });
+        }, 60);
+      }
+    }
+    function pasoAbrirDe(el){
+      var sec = el && el.closest ? el.closest('.paso') : null;
+      if(!sec || sec.classList.contains('abierto')) return false;
+      pasoAbrir(+sec.getAttribute('data-n'), { tipo: sec.getAttribute('data-tipo') });
+      return true;
+    }
+    // Lleva el formulario hasta la tarjeta, debajo de la barra de pasos.
+    function pasoLlevar(sec){
+      var suave = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var barra = sec.parentNode ? sec.parentNode.querySelector('.pasos-barra') : null;
+      var alto = barra ? barra.offsetHeight : 0;
+      var f = docColumna(), r = sec.getBoundingClientRect();
+      if(f){
+        var fr = f.getBoundingClientRect();
+        var y = Math.max(0, r.top - fr.top + f.scrollTop - alto - 10);
+        try{ f.scrollTo({ top:y, behavior: suave ? 'smooth' : 'auto' }); }catch(e){ f.scrollTop = y; }
+        return;
+      }
+      var tope = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tope')) || 57) + alto;
+      var yv = Math.max(0, r.top + window.pageYOffset - tope - 8);
+      try{ window.scrollTo({ top:yv, behavior: suave ? 'smooth' : 'auto' }); }catch(e){ window.scrollTo(0, yv); }
+    }
+
+    function pasosPedir(){
+      if(_pasosPedido) return;
+      _pasosPedido = true;
+      (window.requestAnimationFrame || setTimeout)(function(){ _pasosPedido = false; pasosRefrescar(); });
+    }
+    function pasosRefrescar(){
+      var P = pasosDe();
+      if(P){
+        try{ P.info = pasosInfo(P) || []; }catch(e){ console.warn('pasos:', e); P.info = []; }
+        pasosPintar(P);
+      }
+      docFaltaPintar(P);
+      docContextoPintar();
+    }
+
+    // Lo que dice cada paso: su resumen, qué falta y si está completo.
+    function pasosInfo(P){
+      var f = { contrato:ctPasosInfo, carta_pago:cpPasosInfo, mediacion:cmPasosInfo, ami:amPasosInfo, sel:selPasosInfo }[P.tipo];
+      var esp = f ? (f(P) || []) : [];
+      return P.lista.map(function(p, i){
+        var x = esp[i] || {};
+        var res = x.res != null ? x.res : pasoResumenGenerico(p.cuerpo);
+        var falta = x.falta || [];
+        var ok = x.ok != null ? x.ok : (!falta.length && !!res);
+        return { res:res, falta:falta, ok:ok && !falta.length };
+      });
+    }
+    // Sin un resumen propio: los primeros datos cargados en el paso.
+    function pasoResumenGenerico(cuerpo){
+      var vals = [];
+      Array.prototype.forEach.call(cuerpo.querySelectorAll('input, select, textarea'), function(e){
+        if(vals.length >= 4) return;
+        if(e.type === 'hidden' || e.type === 'checkbox' || e.type === 'radio' || e.type === 'file' || e.readOnly || e.disabled) return;
+        if(e.getAttribute('aria-hidden') === 'true') return;
+        for(var a = e.parentElement; a && a !== cuerpo; a = a.parentElement){
+          if(a.hidden || (a.style && a.style.display === 'none')) return;
+        }
+        var v = e.tagName === 'SELECT' ? ((e.selectedOptions && e.selectedOptions[0]) ? e.selectedOptions[0].text : '') : e.value;
+        v = String(v || '').replace(/\s+/g, ' ').trim();
+        if(!v || /^(elegí|seleccion|cargando|primero elegí)/i.test(v)) return;
+        if(e.type === 'date') v = fechaUY(v);
+        vals.push(v.length > 42 ? v.slice(0, 40) + '…' : v);
+      });
+      return vals.join(', ');
+    }
+
+    function pasosPintar(P){
+      var info = P.info || [], total = P.lista.length;
+      P.lista.forEach(function(p, i){
+        var x = info[i] || {}, falta = x.falta || [];
+        var estado = falta.length ? 'falta' : (x.ok ? 'ok' : '');
+        p.sec.classList.toggle('ok', estado === 'ok');
+        p.sec.classList.toggle('falta', estado === 'falta');
+        var txt = falta.length ? 'Falta ' + falta[0].txt + (falta.length > 1 ? ' y ' + (falta.length - 1) + ' más' : '') : (x.res || '');
+        if(p.res.textContent !== txt) p.res.textContent = txt;
+        var b = P.barra.querySelector('.pb-btn[data-n="' + p.n + '"]');
+        if(b){
+          b.classList.toggle('ok', estado === 'ok');
+          b.classList.toggle('falta', estado === 'falta');
+          if(P.abierto === p.n) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
+          b.setAttribute('aria-label', 'Paso ' + p.n + ': ' + p.titulo + (estado === 'ok' ? ', completo' : estado === 'falta' ? ', falta ' + falta.length + (falta.length > 1 ? ' datos' : ' dato') : ''));
+        }
+        var seg = P.barra.querySelectorAll('.pb-segs i')[i];
+        if(seg) seg.className = P.abierto === p.n ? 'actual' : estado;
+      });
+      var ab = P.lista[P.abierto - 1] || null;
+      var nom = P.barra.querySelector('.pb-nombre'), cual = P.barra.querySelector('.pb-cual');
+      if(nom) nom.textContent = ab ? ab.titulo : 'Pasos';
+      if(cual) cual.textContent = ab ? 'Paso ' + ab.n + ' de ' + total : total + ' pasos';
+    }
+
+    // Arriba: cuántos datos faltan. Lleva al primero.
+    function docFaltaPintar(P){
+      var b = document.getElementById('docFalta');
+      if(!b) return;
+      var n = 0;
+      if(P && P.info) P.info.forEach(function(x){ n += (x && x.falta ? x.falta.length : 0); });
+      b.hidden = !n;
+      if(!n) return;
+      var t = n === 1 ? 'Falta 1 dato' : 'Faltan ' + n + ' datos';
+      var s = b.querySelector('span');
+      if(s && s.textContent !== t) s.textContent = t;
+      b.setAttribute('aria-label', t + ': ir al primero');
+    }
+    function pasoIrAFalta(){
+      var P = pasosDe();
+      if(!P || !P.info) return;
+      for(var i = 0; i < P.info.length; i++){
+        var f = P.info[i] && P.info[i].falta;
+        if(!f || !f.length) continue;
+        pasoAbrir(i + 1, { llevar:true });
+        var el = null;
+        try{ el = typeof f[0].el === 'function' ? f[0].el() : (f[0].id ? document.getElementById(f[0].id) : null); }catch(e){ el = null; }
+        if(el) setTimeout(function(){ try{ el.focus({ preventScroll:true }); }catch(e){} docLlevarA(el); }, 320);
+        return;
+      }
+    }
+
+    // Arriba, debajo del nombre del documento: de qué propiedad o persona es.
+    function docContextoPintar(){
+      var c = document.getElementById('docContexto');
+      if(!c) return;
+      var t = '';
+      try{
+        if(_tipoActivo === 'contrato') t = ctVal('ctDireccion') + (ctVal('ctDireccion') && ctVal('ctUnidad') ? ', apto ' + ctVal('ctUnidad') : '');
+        else if(_tipoActivo === 'carta_pago'){ var d = direccionActual(); t = /^_+$/.test(d || '') ? '' : d; }
+        else if(_tipoActivo === 'mediacion') t = ctVal('cmCalle') + (ctVal('cmCalle') && ctVal('cmUnidad') ? ', apto ' + ctVal('cmUnidad') : '');
+        else if(_tipoActivo === 'propietario') t = ctVal('ipPropiedad');
+        else if(_tipoActivo === 'inventario') t = ctVal('ivDireccion');
+        else if(_tipoActivo === 'ami') t = ctVal('amDireccion');
+        else if(_tipoActivo === 'sel') t = ctVal('selCliente') ? 'Para ' + ctVal('selCliente') : '';
+      }catch(e){ t = ''; }
+      if(!t){ var a = document.querySelector('.doc-type.active span'); t = a ? a.textContent.trim() : ''; }
+      if(c.textContent !== t) c.textContent = t;
+    }
+
+    // ---- Lo que dice cada paso, documento por documento ----
+    function pasoFoco(sel, i){ return function(){ var l = document.querySelectorAll(sel); return l[i || 0] || null; }; }
+    function ctPasosInfo(){
+      var info = [];
+      // 1. Partes
+      var f1 = [], nombres = { arrendador:[], arrendatario:[] };
+      ['arrendador', 'arrendatario'].forEach(function(rol){
+        var cont = rol === 'arrendador' ? '#ctArrendadores' : '#ctArrendatarios', primero = true;
+        ctPersonas[rol].forEach(function(x, i){
+          var nom = String(x.nombre || '').trim();
+          if(!nom) return;
+          nombres[rol].push(nom);
+          if(!String(x.ci || '').trim()) f1.push({ txt:'la cédula de ' + nom, el:pasoFoco(cont + ' .ct-persona:nth-child(' + (i + 1) + ') input', 1) });
+          if(primero && !String(x.domicilio || '').trim()) f1.push({ txt:'el domicilio de ' + nom, el:pasoFoco(cont + ' .ct-persona:nth-child(' + (i + 1) + ') input', 3) });
+          primero = false;
+        });
+        if(!nombres[rol].length) f1.unshift({ txt:'el nombre del ' + rol, el:pasoFoco(cont + ' input', 0) });
+      });
+      var y = function(l){ return l.length > 1 ? l.slice(0, -1).join(', ') + ' y ' + l[l.length - 1] : l.join(''); };
+      var r1 = nombres.arrendador.length && nombres.arrendatario.length
+        ? y(nombres.arrendador) + (nombres.arrendador.length > 1 ? ' le alquilan a ' : ' le alquila a ') + y(nombres.arrendatario)
+        : nombres.arrendador.length ? 'Arrendador: ' + y(nombres.arrendador) : nombres.arrendatario.length ? 'Arrendatario: ' + y(nombres.arrendatario) : '';
+      info.push({ res:r1, falta:f1, ok:!f1.length });
+      // 2. Inmueble
+      var dir = ctVal('ctDireccion'), f2 = [];
+      if(!dir) f2.push({ txt:'la dirección', id:'ctDireccion' });
+      var llaves = parseInt(ctVal('ctLlaves'), 10);
+      var r2 = [dir + (dir && ctVal('ctUnidad') ? ', apto ' + ctVal('ctUnidad') : ''), ctVal('ctBarrio'), ctVal('ctDepartamento')].filter(Boolean).join(', ');
+      if(r2 && llaves > 0) r2 += '. ' + llaves + (llaves === 1 ? ' juego de llaves' : ' juegos de llaves');
+      info.push({ res:r2, falta:f2, ok:!f2.length });
+      // 3. Precio y plazo
+      var f3 = [], precio = ctVal('ctPrecio'), ini = ctVal('ctInicio'), ven = ctVal('ctVencimiento');
+      if(!precio) f3.push({ txt:'el precio', id:'ctPrecio' });
+      if(!ini) f3.push({ txt:'la fecha de inicio', id:'ctInicio' });
+      if(!ven) f3.push({ txt:'el vencimiento', el:function(){ ctPlazoElegir('otro', true); return document.getElementById('ctVencimiento'); } });
+      var r3 = precio ? (ctVal('ctMoneda') === 'USD' ? 'US$ ' : '$ ') + milesUY(precio) + ' por mes' : '';
+      if(ini && ven) r3 += (r3 ? ', ' : '') + 'del ' + fechaUY(ini) + ' al ' + fechaUY(ven);
+      if(ctPagoIniOn()) r3 += (r3 ? ', ' : '') + 'con pago al firmar';
+      info.push({ res:r3, falta:f3, ok:!f3.length });
+      // 4. Cuenta para el pago (con ANDA, la forma de pago es la de su formulario)
+      var anda = ctVal('ctGarantia') === 'anda', f4 = [];
+      if(!anda){
+        if(!ctVal('ctBanco')) f4.push({ txt:'el banco', id:'ctBanco' });
+        if(!ctVal('ctTipoCuenta')) f4.push({ txt:'el tipo de cuenta', el:pasoFoco('#ctTipoSeg button', 0) });
+        if(!ctVal('ctTitular')) f4.push({ txt:'el titular', id:'ctTitular' });
+        if(!ctVal('ctNumeroCuenta')) f4.push({ txt:'el número de cuenta', id:'ctNumeroCuenta' });
+      }
+      var r4 = [ctVal('ctBanco'), ctVal('ctTipoCuenta').toLowerCase() + (ctVal('ctTitular') ? ' de ' + ctVal('ctTitular') : '')].filter(function(s){ return s.trim(); }).join(', ');
+      info.push({ res:r4, falta:f4, ok:!f4.length });
+      // 5. Garantía
+      var g = ctVal('ctGarantia'), f5 = [], r5 = { porto:'Porto Seguro', anda:'ANDA', otra:'Otra aseguradora', deposito:'Depósito en garantía', fianza:'Fianza' }[g] || '';
+      if(g === 'fianza'){
+        var fi = ctPersonas.fiador.filter(function(x){ return String(x.nombre || '').trim(); });
+        if(!fi.length) f5.push({ txt:'el fiador', el:pasoFoco('#ctFiadores input', 0) });
+        ctPersonas.fiador.forEach(function(x, i){
+          var nom = String(x.nombre || '').trim();
+          if(!nom) return;
+          if(!String(x.ci || '').trim()) f5.push({ txt:'la cédula de ' + nom, el:pasoFoco('#ctFiadores .ct-persona:nth-child(' + (i + 1) + ') input', 1) });
+          if(!String(x.domicilio || '').trim()) f5.push({ txt:'el domicilio de ' + nom, el:pasoFoco('#ctFiadores .ct-persona:nth-child(' + (i + 1) + ') input', 3) });
+        });
+        if(fi.length) r5 += ': ' + y(fi.map(function(x){ return x.nombre.trim(); }));
+      } else if(g === 'otra'){
+        if(!ctVal('ctAsegNombre')) f5.push({ txt:'el nombre de la aseguradora', id:'ctAsegNombre' });
+        if(!ctVal('ctTextoAseg')) f5.push({ txt:'el texto de la aseguradora', id:'ctTextoAseg' });
+        if(ctVal('ctAsegNombre')) r5 = ctVal('ctAsegNombre');
+      } else if(g === 'deposito'){
+        if(!ctVal('ctMontoDep')) f5.push({ txt:'el monto del depósito', id:'ctMontoDep' });
+        else r5 += ' de ' + ctVal('ctMontoDep');
+      }
+      info.push({ res:r5, falta:f5, ok:!f5.length });
+      // 6. Cláusulas
+      var f6 = [], r6 = '';
+      if(g === 'anda') r6 = 'El formulario de ANDA y el anexo de la agencia';
+      else {
+        var cl = [];
+        try{ cl = ctClausulas(ctDatos()); }catch(e){ cl = []; }
+        var propias = cl.filter(function(c){ return c.origen === 'propio'; }).length;
+        var esp = cl.filter(function(c){ return c.especial; }).length;
+        var opc = cl.filter(function(c){ return c.opcional && !c.especial; }).length;
+        var extra = [];
+        if(propias) extra.push(propias === 1 ? 'una con texto propio' : propias + ' con texto propio');
+        if(opc) extra.push(opc === 1 ? 'una opcional' : opc + ' opcionales');
+        if(esp) extra.push(esp === 1 ? 'una especial' : esp + ' especiales');
+        r6 = cl.length ? cl.length + ' cláusulas' + (extra.length ? ': ' + y(extra) : '') : '';
+      }
+      (CE.lista || []).forEach(function(it){
+        var nom = ceTitulo(it);
+        if(!ceTieneTexto(it)){ if(String(it.titulo || '').trim()) f6.push({ txt:'el texto de «' + nom + '»', el:function(){ ceIrA(it.uid, 'texto'); return null; } }); return; }
+        ceFaltan(it).forEach(function(c){ f6.push({ txt:c + ' en «' + nom + '»', el:function(){ ceIrA(it.uid, 'campo'); return null; } }); });
+      });
+      info.push({ res:r6, falta:f6, ok:!f6.length });
+      // 7. Política de la agencia
+      var mod = ctVal('ctModalidadPago') === 'vencido' ? 'Mes vencido' : 'Mes adelantado';
+      var r7 = mod + ', se paga hasta el día ' + (ctVal('ctDiaLimite') || '—') + ', preaviso de ' + (ctVal('ctPreaviso') || '—') + ' días, reajuste cada ' + (ctVal('ctReajuste') || '—') + ' meses';
+      info.push({ res:r7, falta:[], ok:true });
+      return info;
+    }
+    function cpPasosInfo(){
+      var f1 = [], f2 = [], f3 = [];
+      var bloqueado = document.getElementById('formCartaPago').classList.contains('comp-fijo');
+      if(!bloqueado){
+        if(!agenteActual()) f1.push({ txt:'el agente que firma', id:'fAgente' });
+        if(/^_+$/.test(direccionActual() || '')) f1.push({ txt:'la dirección de la propiedad', el:function(){ return document.getElementById('fPropSelect') && !document.getElementById('fPropSelect').closest('[hidden]') && document.getElementById('fPropSelect').offsetParent ? document.getElementById('fPropSelect') : document.getElementById('fPropManual'); } });
+        if(!(Number(document.getElementById('fMonto').value) || 0)) f2.push({ txt:'la comisión total', id:'fMonto' });
+        try{ var pg = datosPago(); if(pg.esReserva && !pg.entrega) f2.push({ txt:'cuánto se entrega ahora', id:'fEntrega' }); }catch(e){}
+        if(!leerFirmantes().length) f3.push({ txt:'quién pagó', el:pasoFoco('#firmantes input', 0) });
+        if(!document.getElementById('fFecha').value) f3.push({ txt:'la fecha', id:'fFecha' });
+      }
+      return [{ falta:f1, ok:!f1.length }, { falta:f2, ok:!f2.length }, { falta:f3, ok:!f3.length }];
+    }
+    function cmPasosInfo(){
+      var info = [{}, {}, {}, {}, {}, {}, {}];
+      var props = (typeof cmPropietarios !== 'undefined' ? cmPropietarios : []).filter(function(p){ return p && String(p.nombre || '').trim(); });
+      info[1] = props.length ? { res:props.map(function(p){ return p.nombre.trim(); }).join(', '), ok:true }
+        : { falta:[{ txt:'el propietario', el:pasoFoco('#cmPropietarios input', 0) }] };
+      if(!ctVal('cmCalle')) info[2] = { falta:[{ txt:'la dirección del inmueble', id:'cmCalle' }] };
+      return info;
+    }
+    function amPasosInfo(){
+      var info = [{}, {}, {}, {}];
+      if(!ctVal('amDireccion')) info[0] = { falta:[{ txt:'la dirección de la propiedad', id:'amDireccion' }] };
+      var con = 0;
+      try{ con = amDatos().comps.filter(function(c){ return c.precio; }).length; }catch(e){ con = 0; }
+      info[2] = con ? { res:con === 1 ? '1 comparable con precio' : con + ' comparables con precio', ok:true }
+        : { falta:[{ txt:'un comparable con precio', el:function(){ return document.getElementById('amAgregar'); } }] };
+      return info;
+    }
+    function selPasosInfo(){
+      var n = 0;
+      try{ n = selDatos().props.length; }catch(e){ n = 0; }
+      return [{}, n ? { res:n === 1 ? '1 propiedad' : n + ' propiedades', ok:true }
+        : { falta:[{ txt:'al menos una propiedad', el:function(){ return document.getElementById('selDeCartera'); } }] }];
+    }
+
+    // ---- Menú de documentos (☰) ----
+    function docMenu(abrir){
+      var m = document.getElementById('docMenu'), v = document.getElementById('menuVelo'), b = document.getElementById('menuBtn');
+      if(!m) return;
+      abrir = !!abrir;
+      if(m.classList.contains('abierto') === abrir) return;
+      m.classList.toggle('abierto', abrir);
+      if(v) v.hidden = !abrir;
+      if(b) b.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+      document.documentElement.classList.toggle('menu-abierto', abrir);
+      // Mientras está abierto, lo de atrás no se recorre con el teclado.
+      document.querySelectorAll('.fh, .doc-grid, .barra-movil').forEach(function(e){
+        if(abrir) e.setAttribute('inert', ''); else e.removeAttribute('inert');
+      });
+      if(abrir){
+        var act = m.querySelector('.doc-type.active:not([hidden])') || m.querySelector('.dl-cerrar');
+        setTimeout(function(){ try{ act.focus({ preventScroll:true }); }catch(e){} }, 40);
+      } else if(b){ try{ b.focus({ preventScroll:true }); }catch(e){} }
+    }
+    (function(){
+      var m = document.getElementById('docMenu');
+      if(m) m.addEventListener('click', function(ev){
+        var t = ev.target && ev.target.closest ? ev.target.closest('.doc-type') : null;
+        if(t) setTimeout(function(){ docMenu(false); }, 0);
+      });
+      document.addEventListener('keydown', function(ev){
+        var mm = document.getElementById('docMenu');
+        if(ev.key === 'Escape' && mm && mm.classList.contains('abierto')) docMenu(false);
+      });
+    })();
+
+    // ---- La hoja, achicada (computadora) ----
+    function pvAchicar(si){
+      var g = document.querySelector('.doc-grid');
+      if(!g) return;
+      PV.achicada = !!si;
+      g.classList.toggle('hoja-chica', PV.achicada);
+      try{ if(PV.achicada) localStorage.setItem('mvDocsHojaChica', '1'); else localStorage.removeItem('mvDocsHojaChica'); }catch(e){}
+      if(!PV.achicada && PV.lista){
+        pvMedir();
+        pvBotonesZoom();
+        if(PV.pendiente || !PV.doc) pvActualizar();
+        else { clearTimeout(PV.tRedibujo); PV.tRedibujo = setTimeout(pvRedibujar, 60); }
+      }
+      var b = document.getElementById(PV.achicada ? 'pvMostrar' : 'pvAchicarBtn');
+      if(b){ try{ b.focus({ preventScroll:true }); }catch(e){} }
+    }
+    (function(){
+      try{
+        if(localStorage.getItem('mvDocsHojaChica') === '1'){
+          PV.achicada = true;
+          var g = document.querySelector('.doc-grid'); if(g) g.classList.add('hoja-chica');
+        }
+      }catch(e){}
+    })();
+
+    // ---- Contrato: los campos nuevos ----
+    function ctMonedaSet(m){
+      var s = document.getElementById('ctMoneda');
+      if(s && s.value !== m){
+        s.value = m;
+        s.dispatchEvent(new Event('change', { bubbles:true }));
+        s.dispatchEvent(new Event('input', { bubbles:true }));
+      }
+      ctMonedaPintar();
+    }
+    function ctMonedaPintar(){
+      var v = ctVal('ctMoneda') || 'UYU';
+      Array.prototype.forEach.call(document.querySelectorAll('#ctMonedaSeg button'), function(b){
+        var on = b.getAttribute('data-m') === v;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+    function ctNumeroPaso(id, delta, min, max, vacio){
+      var e = document.getElementById(id);
+      if(!e) return;
+      var n = parseInt(e.value, 10);
+      if(isNaN(n)) n = delta > 0 ? min - 1 : min;
+      n += delta;
+      if(vacio && n < min) e.value = '';
+      else e.value = Math.max(min, Math.min(max, n));
+      e.dispatchEvent(new Event('input', { bubbles:true }));
+      e.dispatchEvent(new Event('change', { bubbles:true }));
+    }
+    function ctEjemplaresPaso(d){ var e = document.getElementById('ctEjemplares'); if(e) e.dataset.auto = '0'; ctNumeroPaso('ctEjemplares', d, 1, 6); }
+    function ctLlavesPaso(d){ ctNumeroPaso('ctLlaves', d, 1, 12, true); }
+
+    // Plazo: 1, 2 o 3 años desde el inicio (el vencimiento se calcula solo), u Otro.
+    var CT_PLAZO = { modo:'' };
+    function ctFechaMasAnios(iso, n){
+      var p = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+      if(!p) return '';
+      var y = +p[1] + n, m = +p[2], d = +p[3], ult = new Date(y, m, 0).getDate();
+      if(d > ult) d = ult;
+      return y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2);
+    }
+    function ctPlazoDeducir(){
+      var ini = ctVal('ctInicio'), ven = ctVal('ctVencimiento'), txt = ctVal('ctPlazoTexto'), calc = ctPlazoDesdeFechas();
+      if(!ven) return '';
+      if(txt && calc && txt !== calc) return 'otro';
+      for(var n = 1; n <= 3; n++) if(ini && ven === ctFechaMasAnios(ini, n)) return String(n);
+      return 'otro';
+    }
+    function ctPlazoElegir(modo, sinFoco){
+      CT_PLAZO.modo = modo;
+      if(modo !== 'otro'){
+        var ini = ctVal('ctInicio');
+        if(!ini){
+          ctPlazoPintar();
+          toast('Elegí primero cuándo empieza', true);
+          var e = document.getElementById('ctInicio'); if(e){ try{ e.focus(); }catch(x){} }
+          return;
+        }
+        var v = document.getElementById('ctVencimiento'), nv = ctFechaMasAnios(ini, +modo);
+        if(v && v.value !== nv){
+          v.value = nv;
+          v.dispatchEvent(new Event('change', { bubbles:true }));
+          v.dispatchEvent(new Event('input', { bubbles:true }));
+        }
+        // Al volver a un plazo en años, el texto vuelve a salir de las fechas.
+        ctSincronizarPlazo();
+        ctPreview();
+      }
+      ctPlazoPintar();
+      if(modo === 'otro' && !sinFoco){ var v2 = document.getElementById('ctVencimiento'); if(v2){ try{ v2.focus(); }catch(x){} } }
+    }
+    function ctPlazoAlCambiarInicio(){
+      var m = CT_PLAZO.modo, ini = ctVal('ctInicio');
+      if(m && m !== 'otro' && ini){
+        var v = document.getElementById('ctVencimiento'), nv = ctFechaMasAnios(ini, +m);
+        if(v && v.value !== nv){ v.value = nv; v.dispatchEvent(new Event('change', { bubbles:true })); ctPreview(); }
+      }
+      ctPlazoPintar();
+    }
+    function ctPlazoPintar(){
+      if(!CT_PLAZO.modo) CT_PLAZO.modo = ctPlazoDeducir();
+      var modo = CT_PLAZO.modo, otro = modo === 'otro';
+      Array.prototype.forEach.call(document.querySelectorAll('#ctPlazoSeg button'), function(b){
+        var on = b.getAttribute('data-a') === modo;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      var caja = document.getElementById('ctPlazoOtro'), info = document.getElementById('ctVence');
+      if(caja) caja.hidden = !otro;
+      if(info) info.hidden = otro;
+      var t = document.getElementById('ctVenceTxt'), boton = document.getElementById('ctVenceOtra');
+      if(!t) return;
+      var ini = ctVal('ctInicio'), ven = ctVal('ctVencimiento'), txt = ctVal('ctPlazoTexto');
+      var html;
+      if(ini && ven && modo && !otro) html = 'Vence el <b>' + esc(fechaUY(ven)) + '</b>. En el contrato dice «' + esc(txt || ctPlazoDesdeFechas()) + '».';
+      else if(!ini) html = 'Elegí cuándo empieza y el plazo: el vencimiento se calcula solo.';
+      else html = 'Elegí el plazo: el vencimiento se calcula solo.';
+      if(t.innerHTML !== html) t.innerHTML = html;
+      if(boton) boton.hidden = !(ini && ven && modo && !otro);
+    }
+
+    // Garantía: tarjetas en lugar de la lista desplegable (que queda escondida).
+    function ctGarantiaSet(v){
+      var s = document.getElementById('ctGarantia');
+      if(s && s.value !== v){ s.value = v; s.dispatchEvent(new Event('change', { bubbles:true })); }
+      ctGarantiaPintarCards();
+    }
+    function ctGarantiaPintarCards(){
+      var v = ctVal('ctGarantia');
+      Array.prototype.forEach.call(document.querySelectorAll('#ctGarCards button'), function(b){
+        var on = b.getAttribute('data-g') === v;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+        b.tabIndex = on ? 0 : -1;
+      });
+    }
+    (function(){
+      var g = document.getElementById('ctGarCards');
+      if(!g) return;
+      g.addEventListener('keydown', function(ev){
+        var k = ev.key, d = (k === 'ArrowRight' || k === 'ArrowDown') ? 1 : (k === 'ArrowLeft' || k === 'ArrowUp') ? -1 : 0;
+        if(!d) return;
+        ev.preventDefault();
+        var bs = Array.prototype.slice.call(g.querySelectorAll('button')), i = bs.indexOf(document.activeElement);
+        var b = bs[(i + d + bs.length) % bs.length];
+        if(b){ ctGarantiaSet(b.getAttribute('data-g')); try{ b.focus(); }catch(e){} }
+      });
+    })();
+
+    // Tipo de cuenta y forma de pago: botones que escriben el campo de siempre.
+    function ctTipoCuentaSet(t){
+      var e = document.getElementById('ctTipoCuenta');
+      if(e && e.value !== t){ e.value = t; e.dispatchEvent(new Event('input', { bubbles:true })); }
+      ctTipoCuentaPintar();
+    }
+    function ctTipoCuentaPintar(){
+      var v = ctVal('ctTipoCuenta').toLowerCase();
+      Array.prototype.forEach.call(document.querySelectorAll('#ctTipoSeg button'), function(b){
+        var on = b.getAttribute('data-t').toLowerCase() === v;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+    function ctModalidadSet(v){
+      var s = document.getElementById('ctModalidadPago');
+      if(s && s.value !== v){
+        s.value = v;
+        s.dispatchEvent(new Event('input', { bubbles:true }));
+        s.dispatchEvent(new Event('change', { bubbles:true }));
+      }
+      ctModalidadPintar();
+    }
+    function ctModalidadPintar(){
+      var v = ctVal('ctModalidadPago');
+      Array.prototype.forEach.call(document.querySelectorAll('#ctModSeg button'), function(b){
+        var on = b.getAttribute('data-v') === v;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+    // Lo que cambia por código (al cargar la política, otra pestaña, una prueba)
+    // también se ve en los botones.
+    function ctBotonesPintar(){ ctMonedaPintar(); ctPlazoPintar(); ctGarantiaPintarCards(); ctTipoCuentaPintar(); ctModalidadPintar(); }
+    function ctBotonesIniciar(){
+      [['ctMoneda', ctMonedaPintar], ['ctGarantia', ctGarantiaPintarCards], ['ctTipoCuenta', ctTipoCuentaPintar], ['ctModalidadPago', ctModalidadPintar]].forEach(function(x){
+        var e = document.getElementById(x[0]);
+        if(e){ e.addEventListener('change', x[1]); e.addEventListener('input', x[1]); }
+      });
+      var ini = document.getElementById('ctInicio');
+      if(ini){ ini.addEventListener('change', ctPlazoAlCambiarInicio); ini.addEventListener('input', ctPlazoAlCambiarInicio); }
+      ['ctVencimiento', 'ctPlazoTexto'].forEach(function(id){
+        var e = document.getElementById(id);
+        if(e){ e.addEventListener('change', ctPlazoPintar); e.addEventListener('input', ctPlazoPintar); }
+      });
+      ctBotonesPintar();
+    }
+
     // ===== Controles de UI =====
     var _tipoActivo = 'carta_pago';
     function selectType(t){
@@ -9372,7 +10285,7 @@
       var elegida = document.querySelector('.doc-type.active span'), desc = document.getElementById('docDesc');
       if(desc) desc.textContent = elegida ? elegida.textContent : '';
       docTitular();
-      docArmarIndice();
+      pasosPreparar();
       if(_tipoActivo !== anterior){
         // Otro documento: el formulario arranca desde arriba (en la computadora
         // cada columna tiene su scroll) y, en el celular, su pestaña queda a la vista.
@@ -9404,14 +10317,18 @@
     function docTitular(){
       var h = document.getElementById('docTitulo');
       if(!h) return;
-      var b = document.querySelector('.doc-type.active b');
+      var b = document.querySelector('.doc-type.active b'), c = document.querySelector('.doc-type.active small');
       var t = _tipoActivo === 'carta_pago'
         ? (typeof tipoComprobante !== 'undefined' && tipoComprobante === 'carta' ? 'Carta de pago' : 'Recibo de reserva')
         : (b ? b.textContent : 'Documentos');
       if(h.textContent !== t) h.textContent = t;
+      // En el celular va el nombre corto (el de las pestañas de antes).
+      var corto = _tipoActivo === 'carta_pago' ? t : (c ? c.textContent : t);
+      if(h.getAttribute('data-corto') !== corto) h.setAttribute('data-corto', corto);
       // El aviso del recibo emitido desde el mapa va solo con Comisión.
       var cn = document.getElementById('compNota');
       if(cn) cn.hidden = !(_comp && _tipoActivo === 'carta_pago');
+      docContextoPintar();
     }
     function docPanel(){
       return document.getElementById({ carta_pago:'formCartaPago', contrato:'formContrato', mediacion:'formMediacion',
@@ -9452,16 +10369,21 @@
     // Lleva el formulario hasta un elemento. Sin `siempre`, solo si quedó fuera
     // de la vista o muy abajo.
     function docLlevarA(el, siempre){
+      // Si está en un paso cerrado, primero se abre ese paso.
+      if(pasoAbrirDe(el)) siempre = true;
       var suave = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      // La barra de pasos queda fija arriba: lo que se busca va debajo de ella.
+      var panel = el.closest ? el.closest('.panel') : null, barra = panel ? panel.querySelector('.pasos-barra') : null;
+      var alto = barra ? barra.offsetHeight : 0;
       var f = docColumna(), r = el.getBoundingClientRect();
       if(f){
         var fr = f.getBoundingClientRect();
-        if(!siempre && r.top >= fr.top + 8 && r.top <= fr.top + f.clientHeight * 0.6) return;
-        var y = Math.max(0, r.top - fr.top + f.scrollTop - 18);
+        if(!siempre && r.top >= fr.top + alto + 8 && r.top <= fr.top + f.clientHeight * 0.6) return;
+        var y = Math.max(0, r.top - fr.top + f.scrollTop - alto - 18);
         try{ f.scrollTo({ top:y, behavior: suave ? 'smooth' : 'auto' }); }catch(e){ f.scrollTop = y; }
         return;
       }
-      var tope = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tope')) || 57;
+      var tope = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tope')) || 57) + alto;
       if(!siempre && r.top >= tope + 8 && r.top <= window.innerHeight * 0.6) return;
       var yv = Math.max(0, r.top + window.pageYOffset - tope - 12);
       try{ window.scrollTo({ top:yv, behavior: suave ? 'smooth' : 'auto' }); }catch(e){ window.scrollTo(0, yv); }
@@ -9518,48 +10440,99 @@
       }
       return e.defaultValue;
     }
+    // Solo se acepta lo que el campo puede mostrar: un valor raro dejaba el
+    // desplegable vacío y la cláusula del contrato, en blanco.
+    function ctPoliticaValido(e, v){
+      if(typeof v !== 'string' || v === '' || v.length > 200) return false;
+      if(e.tagName === 'SELECT') return Array.prototype.some.call(e.options, function(o){ return o.value === v; });
+      if(e.type === 'number') return /^\d{1,3}$/.test(v);
+      return true;
+    }
     function ctLeerPolitica(){
       try{
         var g = JSON.parse(localStorage.getItem('mvDocsPolitica_v1') || 'null');
         if(!g || typeof g !== 'object') return;
         CT_POLITICA.forEach(function(id){
           var e = document.getElementById(id), v = g[id];
-          if(!e || typeof v !== 'string' || v === '' || v.length > 200) return;
-          // Solo se acepta lo que el campo puede mostrar: un valor raro dejaba el
-          // desplegable vacío y la cláusula del contrato, en blanco.
-          if(e.tagName === 'SELECT'){ if(!Array.prototype.some.call(e.options, function(o){ return o.value === v; })) return; }
-          else if(e.type === 'number' && !/^\d{1,3}$/.test(v)) return;
-          e.value = v;
+          if(e && ctPoliticaValido(e, v)) e.value = v;
         });
       }catch(e){}
     }
     function ctPoliticaCambiada(){
       return CT_POLITICA.some(function(id){ var e = document.getElementById(id); return !!e && e.value !== ctPoliticaOriginal(e); });
     }
+    function ctPoliticaValores(){
+      var g = {};
+      CT_POLITICA.forEach(function(id){ var e = document.getElementById(id); if(e) g[id] = e.value; });
+      return g;
+    }
     var _ctPoliticaSinGuardar = false;       // se tocó un campo y todavía no se guardó
+    var _ctPoliticaAgencia = null;           // la de config/contrato: la que fijó la Dirección
     function ctGuardarPolitica(){
       _ctPoliticaSinGuardar = false;
+      var g = ctPoliticaCambiada() ? ctPoliticaValores() : null;
       try{
-        if(ctPoliticaCambiada()){
-          var g = {};
-          CT_POLITICA.forEach(function(id){ var e = document.getElementById(id); if(e) g[id] = e.value; });
-          localStorage.setItem('mvDocsPolitica_v1', JSON.stringify(g));
-        } else localStorage.removeItem('mvDocsPolitica_v1');
+        if(g) localStorage.setItem('mvDocsPolitica_v1', JSON.stringify(g));
+        else localStorage.removeItem('mvDocsPolitica_v1');
       }catch(e){}
       ctAvisoPolitica();
+      // Vale para toda la agencia: queda en config/contrato (la escribe la Dirección).
+      if(!esAdmin || typeof db === 'undefined' || !db) return;
+      var antes = _ctPoliticaAgencia;
+      if(!g && !antes) return;                                   // sigue en los originales
+      if(g && antes && CT_POLITICA.every(function(id){ return antes[id] === g[id]; })) return;
+      var nuevo = g ? Object.assign({}, g, clQuien()) : null;
+      _ctPoliticaAgencia = nuevo;
+      ctAvisoPolitica();
+      clGuardarAgencia(['politica'], nuevo || firebase.firestore.FieldValue.delete()).catch(function(e){
+        _ctPoliticaAgencia = antes;
+        ctAvisoPolitica();
+        console.warn(e);
+        toast(e && e.code === 'permission-denied' ? 'Solo la Dirección puede cambiar la política de la agencia' : 'No se pudo guardar la política de la agencia. Probá de nuevo en un rato', true);
+      });
     }
-    // Que se vea cuando estos valores no son los originales: quedan guardados y
-    // valen para todos los contratos que se hagan después en este navegador.
+    // Que se vea cuando estos valores no son los originales: valen para todos los
+    // contratos de la agencia (y quién los dejó así).
     function ctAvisoPolitica(){
       var nota = document.getElementById('ctPoliticaNota');
-      if(nota) nota.hidden = !ctPoliticaCambiada();
+      if(!nota) return;
+      var cambiada = ctPoliticaCambiada();
+      nota.hidden = !cambiada;
+      var t = document.getElementById('ctPoliticaNotaTxt'), a = _ctPoliticaAgencia;
+      if(!t || !cambiada) return;
+      var txt = 'No son los valores originales. Valen para todos los contratos de la agencia' +
+        (a && a.por ? ' (los dejó ' + a.por + (a.at ? ' el ' + clFecha(a.at) : '') + ')' : '') + '.';
+      if(t.textContent !== txt) t.textContent = txt;
     }
     function ctOlvidarPolitica(){
       CT_POLITICA.forEach(function(id){ var e = document.getElementById(id); if(e) e.value = ctPoliticaOriginal(e); });
-      _ctPoliticaSinGuardar = false;
-      try{ localStorage.removeItem('mvDocsPolitica_v1'); }catch(e){}
-      ctAvisoPolitica();
+      ctGuardarPolitica();
+      ctPagoIniSegunModalidad();
+      ctModalidadPintar();
       ctPreview();
+    }
+    // Llegó la de la agencia (config/contrato): manda sobre la de este navegador. Si
+    // todavía no hay ninguna y en este navegador había una guardada (como se hacía
+    // antes), esa pasa a ser la de la agencia.
+    function ctPoliticaAplicar(pol){
+      _ctPoliticaAgencia = (pol && typeof pol === 'object') ? pol : null;
+      if(!_ctPoliticaAgencia){
+        if(ctPoliticaCambiada()) ctGuardarPolitica(); else ctAvisoPolitica();
+        return;
+      }
+      if(_ctPoliticaSinGuardar){ ctAvisoPolitica(); return; }   // se está escribiendo en esos campos
+      CT_POLITICA.forEach(function(id){
+        var e = document.getElementById(id), v = _ctPoliticaAgencia[id];
+        if(!e) return;
+        e.value = ctPoliticaValido(e, v) ? v : ctPoliticaOriginal(e);
+      });
+      try{
+        if(ctPoliticaCambiada()) localStorage.setItem('mvDocsPolitica_v1', JSON.stringify(ctPoliticaValores()));
+        else localStorage.removeItem('mvDocsPolitica_v1');
+      }catch(e){}
+      ctAvisoPolitica();
+      ctPagoIniSegunModalidad();
+      ctModalidadPintar();
     }
     // La cambiaron en otra pestaña: esta se pone al día (salvo que acá se esté
     // escribiendo justo en esos campos).
@@ -9568,6 +10541,7 @@
       CT_POLITICA.forEach(function(id){ var e = document.getElementById(id); if(e) e.value = ctPoliticaOriginal(e); });
       ctLeerPolitica();
       ctAvisoPolitica();
+      ctModalidadPintar();
       ctPreview();
     }
     // "Propiedad del sistema": completa dirección, barrio y departamento con los
@@ -9658,6 +10632,8 @@
       document.addEventListener('visibilitychange', function(){ if(document.hidden && _ctPoliticaSinGuardar) ctGuardarPolitica(); });
       window.addEventListener('storage', ctPoliticaDeOtraPestana);
       ctSincronizarPlazo();
+      // Los botones nuevos (moneda, plazo, garantía, cuenta, forma de pago).
+      ctBotonesIniciar();
     }
     function setOperacion(op){
       tipoOperacion=op;
@@ -9713,6 +10689,7 @@
       // bloqueados con un candado, y un botón que no se puede tocar es ruido).
       esAdmin = isAdmin;
       document.getElementById('content').style.display='block';
+      ['menuBtn', 'fhBajar'].forEach(function(id){ var e = document.getElementById(id); if(e) e.hidden = false; });
       document.getElementById('barraMovil').style.display='';
       var enviar = document.getElementById('bmEnviar');
       if(enviar) enviar.hidden = !puedeEnviarArchivos();
@@ -9722,8 +10699,7 @@
       var primero = docPrimero();
       if(primero && primero !== _tipoActivo) selectType(primero);
       docTitular();
-      docArmarIndice();
-      docTiraConMas();
+      pasosPreparar();
       // Estado inicial. Ya NO espera a que lleguen los agentes y las propiedades:
       // la página queda lista para escribir y los desplegables se llenan solos
       // cuando llegan los datos.
