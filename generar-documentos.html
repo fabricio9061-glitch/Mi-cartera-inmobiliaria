@@ -204,6 +204,81 @@
     #ctPagoIniCampos input[readonly]{ background:var(--fondo); color:var(--navy); font-weight:600; cursor:default; }
     #ctPagoIniCampos .hint{ margin-top:-6px; }
 
+    /* Paso «Cláusulas»: todas las del contrato, en orden. Cada fila se abre: las
+       que cambian según el propietario traen opciones, y cualquiera se puede
+       escribir a mano para este contrato. */
+    .cl-lista{ list-style:none; margin:0 0 8px; padding:0; display:flex; flex-direction:column; gap:6px; }
+    .cl-lista:empty{ display:none; }
+    .cl-fila{ border:1px solid var(--line); border-radius:12px; background:var(--card); }
+    .cl-fila.abierta{ border-color:var(--gold-line); background:#fffdf7; }
+    .cl-cab{ width:100%; display:flex; align-items:center; gap:10px; min-height:48px; padding:6px 12px; border:0; border-radius:12px;
+      background:transparent; font-family:inherit; text-align:left; color:var(--txt); cursor:pointer; }
+    .cl-cab:hover{ background:var(--hover); }
+    .cl-fila.abierta > .cl-cab:hover{ background:transparent; }
+    .cl-n{ flex:none; min-width:22px; text-align:right; font-family:'Cormorant Garamond',Georgia,serif; font-size:1.2rem; font-weight:700;
+      line-height:1; color:var(--gold-2); font-variant-numeric:lining-nums; }
+    .cl-tx{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:1px; }
+    .cl-tx b{ font-size:.88rem; font-weight:600; color:var(--navy); line-height:1.3; }
+    .cl-tx small{ font-size:.74rem; color:var(--muted); }
+    .cl-aviso{ flex:none; display:inline-flex; align-items:center; gap:5px; font-size:.74rem; font-weight:700; color:var(--reg); }
+    .cl-aviso[hidden]{ display:none; }
+    .cl-chip{ flex:none; max-width:44%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:3px 10px; border-radius:999px;
+      font-size:.73rem; font-weight:600; background:var(--nt-s); color:var(--nt); }
+    .cl-chip.oro{ background:var(--gold-soft); color:#6f550b; box-shadow:inset 0 0 0 1px var(--gold-line); font-weight:700; }
+    .cl-chip.esp{ background:var(--reg-s); color:#7a4d00; font-weight:700; }
+    .cl-chip.fija{ background:#e8ecf2; color:#3d4a5f; }
+    .cl-flecha{ flex:none; width:14px; text-align:center; font-size:.72rem; color:var(--muted); transition:transform .15s; }
+    .cl-fila.abierta .cl-flecha{ transform:rotate(180deg); }
+    .cl-panel{ display:flex; flex-direction:column; gap:14px; padding:2px 14px 16px; }
+    .cl-panel[hidden]{ display:none; }
+    .cl-panel:empty{ display:none; }
+    .cl-texto{ padding:12px 14px; border-radius:10px; background:#fff; border:1px solid var(--line); font-family:Georgia,'Times New Roman',serif;
+      font-size:.86rem; line-height:1.6; color:var(--txt); }
+    .cl-texto p{ margin:0 0 8px; }
+    .cl-texto p:last-child{ margin:0; }
+    .cl-bloque-cab{ display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:4px 12px; margin-bottom:8px; }
+    .cl-bloque-cab b{ font-size:.86rem; font-weight:600; color:var(--navy); }
+    .cl-nota{ margin:0; font-size:.79rem; line-height:1.5; color:var(--muted); }
+    .cl-nota i{ margin-right:5px; opacity:.7; }
+    .cl-opc{ display:flex; flex-direction:column; gap:14px; }
+    .cl-opc > .cl-tit{ margin:0; font-size:.86rem; font-weight:600; color:var(--navy); }
+    .cl-campo{ margin:0; padding:0; border:0; min-width:0; }
+    .cl-campo legend{ padding:0; margin-bottom:8px; font-size:.8rem; font-weight:500; color:var(--txt-2); }
+    .cl-seg{ display:flex; flex-wrap:wrap; gap:6px; }
+    .cl-seg button{ min-height:40px; padding:6px 14px; border:1px solid var(--line-2); border-radius:999px; background:#fff; font-family:inherit;
+      font-size:.84rem; font-weight:500; color:var(--txt-2); cursor:pointer; text-align:left; transition:background .15s, color .15s; }
+    .cl-seg button:hover{ background:var(--hover); color:var(--navy); }
+    .cl-seg button[aria-pressed="true"]{ background:var(--gold-soft); color:var(--navy); font-weight:700; border-color:var(--gold-line); }
+    .cl-plazo{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+    .cl-plazo input{ width:76px; min-height:40px; padding:8px 10px; border:1px solid var(--line-2); border-radius:8px; font-family:inherit;
+      font-size:.92rem; color:var(--txt); background:#fff; }
+    .cl-atajos{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 14px; margin-top:6px; font-size:.79rem; color:var(--muted); }
+    .cl-checks{ display:flex; flex-direction:column; gap:2px; }
+    .cl-check{ display:flex; align-items:flex-start; gap:10px; min-height:36px; padding:6px 0; font-size:.86rem; line-height:1.4; color:var(--txt); cursor:pointer; }
+    .cl-check input{ width:17px; height:17px; margin:1px 0 0; flex:none; accent-color:var(--navy); cursor:pointer; }
+    .cl-acc{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; }
+    .cl-btn{ display:inline-flex; align-items:center; gap:8px; min-height:40px; padding:8px 16px; border:1px solid var(--navy); border-radius:999px;
+      background:#fff; font-family:inherit; font-size:.84rem; font-weight:600; color:var(--navy); cursor:pointer; }
+    .cl-btn:hover{ background:var(--fondo); }
+    .cl-btn.pri{ background:var(--navy); color:#fff; }
+    .cl-btn.pri:hover{ background:var(--navy-2); }
+    .cl-btn i{ font-size:.8rem; }
+    .cl-propio .fld{ margin-bottom:10px; }
+    .cl-propio textarea{ min-height:220px; font-size:.88rem; line-height:1.55; }
+    .cl-choca{ display:flex; gap:10px; align-items:flex-start; padding:11px 13px; border-radius:10px; background:#fdf6e3; border:1px solid #f0dfae;
+      color:#6b4f00; font-size:.83rem; line-height:1.5; }
+    .cl-choca[hidden]{ display:none; }
+    .cl-choca > i{ margin-top:3px; flex:none; }
+    .cl-choca > div{ display:flex; flex-direction:column; gap:10px; min-width:0; }
+    .cl-choca .cl-btn{ border-color:#c9a24d; color:#5c3b00; }
+    .cl-choca .cl-btn.pri{ background:#5c3b00; border-color:#5c3b00; color:#fff; }
+    .cl-dir{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; }
+    .cl-dir:empty{ display:none; }
+    /* Subtítulos del paso: Opcionales y Especiales. */
+    .cl-sub{ margin:26px 0 8px; padding-top:16px; border-top:1px dashed var(--line-2); font-size:.92rem; font-weight:600; color:var(--navy); }
+    .ce-choca-acc{ display:flex; flex-wrap:wrap; gap:2px 14px; margin-top:4px; }
+    .ce-choca-acc .iv-link{ color:#5c3b00; }
+
     /* Cláusulas especiales: cada una es una ficha con su título, los datos que
        pide (lo que en el texto va entre corchetes) y el texto, plegable. */
     .ce-lista{ display:flex; flex-direction:column; gap:12px; margin-bottom:12px; }
@@ -274,6 +349,15 @@
       .ce-opcion{ min-height:58px; }
       .ce-texto > summary{ min-height:46px; }
       .ce-pie .iv-link{ min-height:44px; }
+      .cl-seg button, .cl-btn, .cl-plazo input{ min-height:44px; }
+      .cl-atajos .iv-link, .cl-dir .iv-link, .cl-acc .iv-link, .ce-choca-acc .iv-link{ display:inline-flex; align-items:center; min-height:44px; }
+      /* Fila en dos renglones: número, título y flecha arriba; cómo sale, abajo. */
+      .cl-cab{ flex-wrap:wrap; row-gap:4px; }
+      .cl-tx{ order:1; flex:1 1 calc(100% - 66px); }
+      .cl-flecha{ order:2; }
+      .cl-aviso{ order:3; margin-left:32px; }
+      .cl-chip{ order:4; max-width:calc(100% - 32px); margin-left:32px; }
+      .cl-aviso:not([hidden]) + .cl-chip{ margin-left:0; }
     }
     @media (prefers-reduced-motion:reduce){ .ce-texto > summary::before{ transition:none; } }
 
@@ -975,14 +1059,21 @@
             </select></div>
           <div id="ctGarantiaCampos"></div>
 
-          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">6</span><span class="ct-tit">Cláusulas opcionales</span></div>
-          <div class="hint" style="margin:-6px 0 10px">Todas apagadas. Se encienden a propósito, una por una.</div>
+          <!-- Todas las cláusulas del contrato, en el orden en que salen: cada una se
+               abre con sus opciones y su texto (clPintarLista). Abajo, las opcionales
+               para encender y las especiales. -->
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">6</span><span class="ct-tit">Cláusulas</span></div>
+          <div class="hint" id="clAyuda" style="margin:-6px 0 12px">Así queda el contrato, en orden. Tocá una para ver sus opciones o escribirle un texto propio para este contrato.</div>
+          <ol class="cl-lista" id="clLista" aria-label="Cláusulas del contrato"></ol>
+
+          <div class="cl-sub" role="heading" aria-level="3">Opcionales</div>
+          <div class="hint" style="margin:-4px 0 6px">Todas apagadas. Se encienden a propósito, una por una, y entran en su lugar del contrato.</div>
           <div id="ctOpcionales"></div>
 
           <!-- Lo que el catálogo no trae. Las arma ceInit(); cada una entra con su
                número antes del RÉGIMEN LEGAL (con ANDA, en el anexo, antes de la firma). -->
-          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">7</span><span class="ct-tit">Cláusulas especiales</span></div>
-          <div class="hint" id="ceDonde" style="margin:-6px 0 14px">Para un acuerdo puntual que el contrato no trae: una instalación, una obra, un permiso. Entran antes de RÉGIMEN LEGAL APLICABLE y se numeran solas.</div>
+          <div class="cl-sub" role="heading" aria-level="3">Especiales</div>
+          <div class="hint" id="ceDonde" style="margin:-4px 0 14px">Para un acuerdo puntual que el contrato no trae: una instalación, una obra, un permiso. Entran antes de RÉGIMEN LEGAL APLICABLE y se numeran solas.</div>
           <div class="ce-lista" id="ceLista"></div>
           <button type="button" class="ct-add" id="ceAbrir" onclick="ceAlternarMenu()" aria-expanded="false" aria-controls="ceMenu"><i class="fas fa-plus" aria-hidden="true"></i> Agregar cláusula especial</button>
           <div class="ce-menu" id="ceMenu" role="group" aria-labelledby="ceMenuTit" hidden>
@@ -996,7 +1087,7 @@
             <div id="ceGuardados"></div>
           </div>
 
-          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">8</span><span class="ct-tit">Política de la agencia</span></div>
+          <div class="ct-sec con-num" role="heading" aria-level="2"><span class="ct-num">7</span><span class="ct-tit">Política de la agencia</span></div>
           <div class="hint" style="margin:-6px 0 10px">Se definen una vez. Quedan guardadas en este navegador.</div>
           <div class="ct-nota" id="ctPoliticaNota" hidden>
             <span>No son los valores originales. Quedan guardados para los próximos contratos que se hagan en este navegador.</span>
@@ -1014,12 +1105,10 @@
           </div>
           <div class="row2">
             <div class="fld"><label>Preaviso (días)</label><input id="ctPreaviso" type="number" value="60"></div>
-            <div class="fld"><label for="ctDiasTitularidad">UTE y OSE a su nombre (días)</label><input id="ctDiasTitularidad" type="number" min="1" max="60" step="1" value="10" inputmode="numeric">
-              <div class="hint">Plazo para el cambio de titularidad. Al irse no puede darlos de baja.</div></div>
+            <div class="fld"><label>Reajuste cada (meses)</label><input id="ctReajuste" type="number" value="12"></div>
           </div>
           <div class="row2">
-            <div class="fld"><label>Reajuste cada (meses)</label><input id="ctReajuste" type="number" value="12"></div>
-            <div class="fld"><label>Índice</label><input id="ctIndice" value="Índice de Precios del Consumo (IPC) publicado por el Instituto Nacional de Estadística"></div>
+            <div class="fld" style="grid-column:1 / -1"><label>Índice</label><input id="ctIndice" value="Índice de Precios del Consumo (IPC) publicado por el Instituto Nacional de Estadística"></div>
           </div>
           <div class="row2">
             <div class="fld"><label>Correo del arrendador (notificaciones)</label><input id="ctMailArrendador" type="email" placeholder="opcional"></div>
@@ -1743,15 +1832,24 @@
             : 'También serán de cargo de la parte arrendataria las tasas, habilitaciones, permisos, multas, recargos y demás gastos originados por el funcionamiento de la actividad comercial desarrollada en el inmueble.\n\n')+
           'Serán de cargo de la parte arrendadora la contribución inmobiliaria, el impuesto de enseñanza primaria, los gastos comunes extraordinarios y las reparaciones estructurales del inmueble, salvo acuerdo expreso y escrito en contrario.'; } },
 
-      /* TITULARIDAD. Una sola regla para UTE y OSE: plazo para pasarlos a su
-         nombre (Política de la agencia) y, al irse, cambio de titularidad sin baja
-         ni desconexión, para que el inmueble no quede sin servicio. Antes decía
+      /* TITULARIDAD. Una sola regla para UTE y OSE, con las opciones de cada caso
+         (se eligen al abrir la cláusula, en el paso 6): el plazo para pasarlos a su
+         nombre, si al irse puede pedir la baja, cuándo los pasa el propietario y
+         qué se anota al entregar. Sin tocar nada sale como siempre. Antes decía
          "gestionando su baja", y con una cláusula especial que la prohibía el
          contrato se contradecía (además de tener dos plazos distintos). */
       { id:'titularidad', fija:true, titulo:'TITULARIDAD DE LOS SERVICIOS', texto:function(d){
-        return 'La parte arrendataria se obliga a gestionar el cambio de titularidad de los servicios de UTE y OSE a su nombre '+d.plazoTitularidad+', acreditándolo ante la parte arrendadora. Desde la entrega y hasta la restitución del inmueble, serán de su cargo los consumos y cargos de esos servicios.\n\n'+
-          'Al finalizar el contrato, deberá dejar los servicios al día y sin deudas pendientes, y coordinar con la parte arrendadora el cambio de titularidad, sin solicitar la baja ni la desconexión de los suministros, de modo que el inmueble no quede sin servicio. La parte arrendadora gestionará oportunamente la nueva titularidad, para que la parte arrendataria quede desvinculada de los servicios al restituir el inmueble. Si la parte arrendataria solicitara la baja sin causa justificada, serán de su cargo los gastos de reconexión debidamente acreditados.\n\n'+
-          'Al entregarse y al restituirse el inmueble, las partes dejarán constancia de las lecturas de los medidores.'; } },
+        var o = d.titularidad || CL_TITULARIDAD;
+        var duenio = o.duenio === 'mismoDia'
+          ? ' La parte arrendadora gestionará el cambio de titularidad a su nombre o al de un nuevo ocupante el mismo día de la restitución del inmueble o, si hubiera impedimentos administrativos ajenos a su voluntad, dentro de los dos (2) días siguientes, para que la parte arrendataria quede desvinculada de los servicios.'
+          : ' La parte arrendadora gestionará oportunamente la nueva titularidad, para que la parte arrendataria quede desvinculada de los servicios al restituir el inmueble.';
+        return 'La parte arrendataria se obliga a gestionar el cambio de titularidad de los servicios de '+(o.otros ? 'UTE, OSE y demás suministros que correspondan' : 'UTE y OSE')+' a su nombre '+d.plazoTitularidad+', acreditándolo ante la parte arrendadora. Desde la entrega y hasta la restitución del inmueble, serán de su cargo los consumos y cargos de esos servicios.\n\n'+
+          (o.baja === 'prohibida'
+            ? 'Al finalizar el contrato, deberá dejar los servicios al día y sin deudas pendientes, y coordinar con la parte arrendadora el cambio de titularidad.'+duenio+' La parte arrendataria no podrá solicitar la baja ni la desconexión de los suministros sin previa coordinación con la parte arrendadora, de modo que el inmueble no quede sin servicio.\n\n'
+            : 'Al finalizar el contrato, deberá dejar los servicios al día y sin deudas pendientes, y coordinar con la parte arrendadora el cambio de titularidad, sin solicitar la baja ni la desconexión de los suministros, de modo que el inmueble no quede sin servicio.'+duenio+' Si la parte arrendataria solicitara la baja sin causa justificada, serán de su cargo los gastos de reconexión debidamente acreditados.\n\n')+
+          'Al entregarse y al restituirse el inmueble, las partes dejarán constancia de las lecturas de los medidores'+
+          (o.pendientes ? ' y de los consumos pendientes de facturación, correspondiendo a cada parte los gastos generados durante su respectivo período de responsabilidad' : '')+'.'+
+          (o.demoras ? '\n\nEn caso de demoras administrativas no imputables a las partes, alcanzará con acreditar que los trámites se iniciaron dentro de los plazos establecidos.' : ''); } },
 
       // Solo en comercial: en vivienda la prohibición ya está en OBLIGACIONES Y
       // PROHIBICIONES, y el fondo de comercio no tiene nada que hacer en una casa.
@@ -2131,9 +2229,22 @@
         .filter(function(c){ return !(c.id === 'preaviso' && ctOpcionalesOn['prorroga']); });
       // Las especiales van después de todo lo pactado y antes del régimen legal,
       // los domicilios y la firma, que cierran el contrato (la firma, última).
+      // Cada cláusula sale con el texto de la agencia; si la Dirección dejó uno
+      // propio como el de la agencia, ese; y si en ESTE contrato se escribió un
+      // texto propio, ese (paso 6). La garantía no se toca: la fija la sección 5.
       return ceInsertar(lista, ['regimen', 'regimenViv', 'domicilios'])
-        .map(function(c,i){ return { id:c.id, ordinal:ORDINALES[i], titulo:(c.tituloDe?c.tituloDe(d):c.titulo), cuerpo:c.texto(d),
-          especial:!!c.especial, ceUid:c.ceUid }; });
+        .map(function(c,i){
+          var cuerpo = c.texto(d), origen = c.especial ? 'especial' : 'agencia';
+          if(!c.especial && c.id !== 'garantia'){
+            var ag = CL_AGENCIA_OK.indexOf(c.id) >= 0 ? clAgenciaTexto(c.id) : null;
+            if(ag){ cuerpo = clLimpiar(ag.texto); origen = 'agenciaDir'; }
+          }
+          var base = cuerpo;
+          if(!c.especial && c.id !== 'garantia' && clTienePropio(c.id) && clLimpiar(CL.propio[c.id]) !== clLimpiar(base)){
+            cuerpo = clLimpiar(CL.propio[c.id]); origen = 'propio';
+          }
+          return { id:c.id, ordinal:ORDINALES[i], titulo:(c.tituloDe?c.tituloDe(d):c.titulo), cuerpo:cuerpo,
+            especial:!!c.especial, ceUid:c.ceUid, origen:origen, base:base, opcional:!c.fija && !c.cuando }; });
     }
 
 
@@ -2442,21 +2553,33 @@
       { rx:/RESPONSABILIDAD/, ids:['responsabilidad'] },
       { rx:/\bSEGUROS?\b/, ids:['seguros'] }
     ];
+    // Los temas del contrato que toca una especial (por su título y, en el texto,
+    // solo lo inconfundible: el cambio de titularidad de los servicios).
+    function ceTemasDe(it){
+      var tit = ceTitulo(it), ids = [];
+      CE_TEMAS.forEach(function(t){ if(t.rx.test(tit)) ids = ids.concat(t.ids); });
+      if(/cambio de titularidad/i.test(it.texto || '')) ids.push('titularidad');
+      return ids;
+    }
     function ceChocaPintar(it, lista){
       var el = document.getElementById('ceChoca_' + it.uid);
       if(!el) return;
-      var tit = ceTitulo(it), ids = [];
-      CE_TEMAS.forEach(function(t){ if(t.rx.test(tit)) ids = ids.concat(t.ids); });
-      // En el texto, solo lo inconfundible: el cambio de titularidad de los servicios.
-      if(/cambio de titularidad/i.test(it.texto || '')) ids.push('titularidad');
+      var ids = ceTemasDe(it);
       var vistas = {}, choca = (lista || []).filter(function(c){
         if(c.especial || ids.indexOf(c.id) < 0 || vistas[c.id]) return false;
         return (vistas[c.id] = true);
       });
-      if(!choca.length || !ceTieneTexto(it)){ el.hidden = true; el.innerHTML = ''; return; }
+      if(!choca.length || !ceTieneTexto(it)){ el.hidden = true; el.innerHTML = ''; el.dataset.sig = ''; return; }
       var nombres = choca.slice(0, 2).map(function(c){ return '<b>«' + esc(c.titulo) + '»</b> (' + esc(c.ordinal) + ')'; });
+      // Se elige cuál va: el texto de esta en el lugar de la del contrato, o sacar esta.
+      var c0 = choca[0], usar = c0.id !== 'garantia'
+        ? '<button type="button" class="iv-link" onclick="clUsarEspecial(' + it.uid + ',\'' + c0.id + '\')">Usar este texto en la cláusula ' + clNumero(c0.ordinal) + '</button>' : '';
+      var sig = c0.id + '|' + c0.ordinal + '|' + choca.length + '|' + nombres.join();
+      if(el.dataset.sig === sig && !el.hidden) return;
+      el.dataset.sig = sig;
       el.innerHTML = '<i class="fas fa-triangle-exclamation" aria-hidden="true"></i><span>El contrato ya trae ' + nombres.join(' y ') +
-        '. Si esta dice algo distinto —un plazo, quién paga, qué pasa al irse—, se contradicen: dejá una sola.</span>';
+        '. Si esta dice algo distinto —un plazo, quién paga, qué pasa al irse—, se contradicen: elegí cuál va.' +
+        '<span class="ce-choca-acc">' + usar + '<button type="button" class="iv-link" onclick="ceQuitar(' + it.uid + ')">Sacar esta especial</button></span></span>';
       el.hidden = false;
     }
     function ceDonde(){
@@ -2790,6 +2913,453 @@
       ctOpcionalesOn[id]=on;
       var c=document.getElementById('campos_'+id); if(c) c.style.display = on?'block':'none';
       ctPreview();
+    }
+
+    // ==========================================================================
+    // PASO 6: LAS CLÁUSULAS DEL CONTRATO
+    // --------------------------------------------------------------------------
+    // Todas las cláusulas, en el orden en que salen. Cada una se abre:
+    //  - las que cambian según el propietario traen OPCIONES (por ahora UTE y
+    //    OSE: el plazo, la baja al irse, cuándo los pasa el dueño, qué se anota);
+    //  - cualquiera se puede escribir a mano para ESTE contrato (texto propio);
+    //  - la Dirección puede dejar un texto propio, o unas opciones, como los de la
+    //    agencia para los contratos que vengan. Viven en config/contrato, que lee
+    //    el equipo y escribe la Dirección. Solo en las cláusulas sin datos del
+    //    contrato: con datos, el texto arrastraría la dirección o las fechas de
+    //    este contrato a los siguientes.
+    // La garantía no se edita: la fija la sección 5 (o la aseguradora). Con ANDA
+    // el contrato es el formulario de ANDA y no se toca: lo propio va en el anexo.
+    // ==========================================================================
+    var CL = { propio:{}, opciones:{}, abierta:null, agencia:{ textos:{}, opciones:{} }, cargando:false, cargada:false };
+    // UTE y OSE tal como salen sin tocar nada (el texto de siempre).
+    var CL_TITULARIDAD = { dias:10, tipo:'corridos', baja:'reconexion', duenio:'oportuno', pendientes:false, demoras:false, otros:false };
+    var CL_CLAVES_TIT = ['dias', 'tipo', 'baja', 'duenio', 'pendientes', 'demoras', 'otros'];
+    // Las que la Dirección puede dejar como texto de la agencia.
+    var CL_AGENCIA_OK = ['titularidad', 'conservacion', 'consumos', 'responsabilidad', 'destinoViv', 'incumplimiento', 'cesion', 'regimen'];
+    // Las que se arman con datos del formulario: con texto propio dejan de tomarlos.
+    var CL_DATOS = { inmueble:1, destino:1, precio:1, pagoInicial:1, plazo:1, plazoViv:1, preaviso:1, estado:1, habilitaciones:1,
+      entrega:1, devolucionViv:1, regimenViv:1, domicilios:1, firma:1 };
+
+    function clDestino(){ return _destino === 'vivienda' ? 'vivienda' : 'comercial'; }
+    function clLimpiar(t){ return String(t == null ? '' : t).replace(/\r\n?/g, '\n').replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim(); }
+    function clTienePropio(id){ return CL.propio[id] != null && !!clLimpiar(CL.propio[id]); }
+    function clAgenciaTexto(id){
+      var t = CL.agencia.textos && CL.agencia.textos[clDestino()], x = t && t[id];
+      return (x && typeof x.texto === 'string' && x.texto.trim()) ? x : null;
+    }
+    function clAgenciaOpciones(id){
+      var o = CL.agencia.opciones && CL.agencia.opciones[clDestino()], x = o && o[id];
+      return (x && typeof x === 'object') ? x : null;
+    }
+    function clNumero(ord){ return ORDINALES.indexOf(ord) + 1; }
+    function clFecha(iso){ var f = new Date(iso); return isNaN(f) ? '' : f.toLocaleDateString('es-UY'); }
+
+    // ---- UTE y OSE: las opciones ----
+    function clNormalTit(o){
+      o = Object.assign({}, CL_TITULARIDAD, o || {});
+      var n = parseInt(o.dias, 10);
+      return {
+        dias: n >= 1 ? Math.min(60, n) : CL_TITULARIDAD.dias,
+        tipo: o.tipo === 'habiles' ? 'habiles' : 'corridos',
+        baja: o.baja === 'prohibida' ? 'prohibida' : 'reconexion',
+        duenio: o.duenio === 'mismoDia' ? 'mismoDia' : 'oportuno',
+        pendientes: !!o.pendientes, demoras: !!o.demoras, otros: !!o.otros
+      };
+    }
+    // Las de la agencia: las originales, o las que dejó la Dirección.
+    function clTitAgencia(){ return clNormalTit(clAgenciaOpciones('titularidad')); }
+    // Las de este contrato.
+    function clOpcionesTitularidad(){ return clNormalTit(Object.assign({}, clAgenciaOpciones('titularidad') || {}, CL.opciones.titularidad || {})); }
+    function clIguales(a, b){ return CL_CLAVES_TIT.every(function(k){ return a[k] === b[k]; }); }
+    function clPlazoTexto(o){
+      var h = o.tipo === 'habiles';
+      if(o.dias === 1) return 'dentro del día ' + (h ? 'hábil' : 'corrido') + ' siguiente a la entrega del inmueble';
+      return 'dentro de los ' + numeroALetras(o.dias) + ' (' + o.dias + ') días ' + (h ? 'hábiles' : 'corridos') + ' siguientes a la entrega del inmueble';
+    }
+    function clResumenTit(o){
+      var uno = o.dias === 1;
+      return o.dias + (uno ? ' día ' : ' días ') + (o.tipo === 'habiles' ? (uno ? 'hábil' : 'hábiles') : (uno ? 'corrido' : 'corridos')) +
+        (o.baja === 'prohibida' ? ' · sin baja' : '');
+    }
+    function clOpcTitularidadHtml(){
+      var o = clOpcionesTitularidad();
+      var seg = function(clave, valor, txt){
+        return '<button type="button" aria-pressed="' + (o[clave] === valor) + '" data-clave="' + clave + '" data-valor="' + valor + '" ' +
+          'onclick="clOpc(\'titularidad\',\'' + clave + '\',\'' + valor + '\')">' + txt + '</button>';
+      };
+      // oninput va antes que el aviso del formulario (que repinta todo); onchange, por si el navegador no avisa con input.
+      var check = function(clave, txt){
+        var h = 'clOpc(\'titularidad\',\'' + clave + '\',this.checked)';
+        return '<label class="cl-check"><input type="checkbox" data-clave="' + clave + '"' + (o[clave] ? ' checked' : '') +
+          ' oninput="' + h + '" onchange="' + h + '"><span>' + txt + '</span></label>';
+      };
+      return '<div class="cl-opc" id="clo_titularidad"><p class="cl-tit">Cómo la quiere este propietario</p>' +
+        '<fieldset class="cl-campo"><legend>Plazo para pasar los servicios a nombre del inquilino</legend>' +
+          '<div class="cl-plazo"><label class="ce-oculto" for="clDias">Cantidad de días</label>' +
+            '<input id="clDias" type="number" min="1" max="60" step="1" inputmode="numeric" value="' + o.dias + '" oninput="clOpc(\'titularidad\',\'dias\',this.value)">' +
+            '<div class="cl-seg" role="group" aria-label="Qué días se cuentan">' + seg('tipo', 'corridos', 'días corridos') + seg('tipo', 'habiles', 'días hábiles') + '</div></div>' +
+          '<div class="cl-atajos"><span>Rápido:</span>' +
+            '<button type="button" class="iv-link" onclick="clPlazoRapido(2,\'corridos\')">2 días corridos</button>' +
+            '<button type="button" class="iv-link" onclick="clPlazoRapido(5,\'habiles\')">5 días hábiles</button>' +
+            '<button type="button" class="iv-link" onclick="clPlazoRapido(10,\'corridos\')">10 días corridos</button></div></fieldset>' +
+        '<fieldset class="cl-campo"><legend>Al irse, ¿puede pedir la baja de los servicios?</legend><div class="cl-seg">' +
+          seg('baja', 'prohibida', 'No, sin coordinarlo con el propietario') + seg('baja', 'reconexion', 'Si la pide sin causa, paga la reconexión') + '</div></fieldset>' +
+        '<fieldset class="cl-campo"><legend>¿Cuándo pasa el propietario los servicios a su nombre?</legend><div class="cl-seg">' +
+          seg('duenio', 'mismoDia', 'El mismo día que recibe las llaves') + seg('duenio', 'oportuno', 'Cuando corresponda') + '</div></fieldset>' +
+        '<div class="cl-checks">' +
+          check('otros', 'También gas, internet y los demás servicios') +
+          check('pendientes', 'Anotar los consumos que falten facturar') +
+          check('demoras', 'Si UTE u OSE demoran, alcanza con probar que el trámite se hizo a tiempo') +
+        '</div>' +
+        '<div class="cl-dir" id="clod_titularidad"></div></div>';
+    }
+    function clOpc(id, clave, valor){
+      var o = CL.opciones[id] = CL.opciones[id] || {};
+      if(clave === 'dias'){
+        var n = parseInt(valor, 10);
+        if(!(n >= 1)) return;                    // a medio escribir: no se toca
+        o.dias = Math.min(60, n);
+      } else o[clave] = valor;
+      ctPreview();
+    }
+    function clPlazoRapido(n, tipo){
+      var o = CL.opciones.titularidad = CL.opciones.titularidad || {};
+      o.dias = n; o.tipo = tipo;
+      var i = document.getElementById('clDias'); if(i) i.value = n;
+      ctPreview();
+    }
+    // Los botones elegidos y, para la Dirección, dejar estas opciones como las de la agencia.
+    function clMarcarOpciones(){
+      var box = document.getElementById('clo_titularidad');
+      if(!box) return;
+      var o = clOpcionesTitularidad();
+      Array.prototype.forEach.call(box.querySelectorAll('button[data-clave]'), function(b){
+        var v = String(o[b.dataset.clave] === b.dataset.valor);
+        if(b.getAttribute('aria-pressed') !== v) b.setAttribute('aria-pressed', v);
+      });
+      Array.prototype.forEach.call(box.querySelectorAll('input[type=checkbox][data-clave]'), function(x){ x.checked = !!o[x.dataset.clave]; });
+      var dias = document.getElementById('clDias');
+      if(dias && document.activeElement !== dias && String(o.dias) !== dias.value) dias.value = o.dias;
+      var od = document.getElementById('clod_titularidad');
+      if(!od) return;
+      var ag = clAgenciaOpciones('titularidad'), h = '';
+      if(esAdmin){
+        if(!clIguales(o, clTitAgencia())) h += '<button type="button" class="iv-link" onclick="clOpcAgenciaGuardar()">Usar estas opciones en los próximos contratos</button>';
+        if(ag) h += '<span class="cl-nota">Las de la agencia las dejó ' + esc(ag.por || 'la Dirección') + (ag.at ? ' el ' + esc(clFecha(ag.at)) : '') + '.</span>' +
+          '<button type="button" class="iv-link" onclick="clOpcAgenciaQuitar()">Volver a las originales</button>';
+      }
+      if(od._h !== h){ od._h = h; od.innerHTML = h; }
+    }
+
+    // ---- La lista ----
+    var _clFirma = '';
+    // Cómo se nombra en la lista: en minúsculas, con los nombres propios bien escritos.
+    function clTituloLista(c){
+      return ceOracion(c.titulo).replace(/\b(ute|ose|anda|bse|sura|mapfre|bps|dgi)\b/gi, function(x){ return x.toUpperCase(); })
+        .replace(/\bporto seguro\b/i, 'Porto Seguro');
+    }
+    function clEstado(c){
+      if(c.especial) return { chip:'Especial', tono:'esp' };
+      if(c.id === 'garantia') return { chip:'Texto de la garantía', tono:'fija' };
+      if(c.origen === 'propio') return { chip:'Texto propio', tono:'oro' };
+      if(c.id === 'titularidad' && c.origen !== 'agenciaDir'){
+        var o = clOpcionesTitularidad();
+        if(!clIguales(o, clTitAgencia())) return { chip:clResumenTit(o), tono:'oro' };
+      }
+      if(c.opcional) return { chip:'Opcional', tono:'' };
+      if(CL_DATOS[c.id]) return { chip:'Datos del formulario', tono:'' };
+      return { chip:'Texto de la agencia', tono:'' };
+    }
+    // Qué cláusulas del contrato repite cada especial: { id: [ {uid, ordinal, titulo} ] }.
+    function clRepetidas(lista){
+      var r = {};
+      CE.lista.filter(ceTieneTexto).forEach(function(it){
+        var ids = ceTemasDe(it), esp = lista.filter(function(c){ return c.especial && c.ceUid === it.uid; })[0];
+        if(!esp) return;
+        var vistas = {};
+        lista.forEach(function(c){
+          if(c.especial || ids.indexOf(c.id) < 0 || vistas[c.id]) return;
+          vistas[c.id] = 1;
+          (r[c.id] = r[c.id] || []).push({ uid:it.uid, ordinal:esp.ordinal, titulo:esp.titulo });
+        });
+      });
+      return r;
+    }
+    function clAyuda(el, t){ if(el && el.textContent !== t) el.textContent = t; }
+    function clTexto(el, t){ if(el && el.textContent !== t) el.textContent = t; }
+    function clPintarLista(){
+      var ol = document.getElementById('clLista'), ayuda = document.getElementById('clAyuda');
+      if(!ol) return;
+      if(ctVal('ctGarantia') === 'anda'){
+        if(_clFirma !== 'anda'){ ol.innerHTML = ''; _clFirma = 'anda'; CL.abierta = null; }
+        clAyuda(ayuda, 'Con ANDA, el contrato es el formulario de ANDA y no se edita. Lo que haga falta agregar va como cláusula especial, en el anexo.');
+        return;
+      }
+      clAyuda(ayuda, 'Así queda el contrato, en orden. Tocá una para ver sus opciones o escribirle un texto propio para este contrato.');
+      var lista;
+      try{ lista = ctClausulas(ctDatos()); }catch(e){ console.warn(e); return; }
+      var rep = clRepetidas(lista), ids = lista.map(function(c){ return c.id; });
+      if(CL.abierta && ids.indexOf(CL.abierta) < 0) CL.abierta = null;
+      var firma = ids.join('|');
+      if(firma !== _clFirma){                    // cambió qué entra o en qué orden: se arma de nuevo
+        _clFirma = firma;
+        ol.innerHTML = lista.map(clFilaHtml).join('');
+      }
+      lista.forEach(function(c, i){ clActualizarFila(c, i, rep[c.id]); });
+      if(CL.abierta) clActualizarPanel(lista[ids.indexOf(CL.abierta)], rep[CL.abierta]);
+    }
+    function clFilaHtml(c){
+      var ab = CL.abierta === c.id;
+      return '<li class="cl-fila' + (ab ? ' abierta' : '') + '" id="clf_' + c.id + '">' +
+        '<button type="button" class="cl-cab" id="clb_' + c.id + '"' + (c.especial ? '' : ' aria-expanded="' + ab + '" aria-controls="clp_' + c.id + '"') +
+          ' onclick="clAbrir(\'' + c.id + '\')">' +
+          '<span class="cl-n"></span><span class="cl-tx"><b></b><small></small></span>' +
+          '<span class="cl-aviso" hidden><i class="fas fa-triangle-exclamation" aria-hidden="true"></i>Se repite</span>' +
+          '<span class="cl-chip"></span>' +
+          '<i class="fas ' + (c.especial ? 'fa-arrow-down' : 'fa-chevron-down') + ' cl-flecha" aria-hidden="true"></i>' +
+        '</button>' +
+        (c.especial ? '' : '<div class="cl-panel" id="clp_' + c.id + '"' + (ab ? '' : ' hidden') + '></div>') +
+      '</li>';
+    }
+    function clActualizarFila(c, i, rep){
+      var f = document.getElementById('clf_' + c.id);
+      if(!f) return;
+      clTexto(f.querySelector('.cl-n'), String(i + 1));
+      clTexto(f.querySelector('.cl-tx b'), clTituloLista(c));
+      clTexto(f.querySelector('.cl-tx small'), ceOracion(c.ordinal) + (c.especial ? ' · se edita más abajo, en Especiales' : ''));
+      var e = clEstado(c), chip = f.querySelector('.cl-chip');
+      if(chip){
+        clTexto(chip, e.chip);
+        var cls = 'cl-chip' + (e.tono ? ' ' + e.tono : '');
+        if(chip.className !== cls) chip.className = cls;
+      }
+      var av = f.querySelector('.cl-aviso');
+      if(av) av.hidden = !(rep && rep.length);
+    }
+    function clAbrir(id){
+      // Una especial se edita en su ficha, más abajo.
+      if(/^esp\d+$/.test(id)){
+        var uid = +id.slice(3), card = document.getElementById('ce_' + uid);
+        if(card){
+          docLlevarA(card, true);
+          var t = document.getElementById('ceTit_' + uid);
+          if(t) setTimeout(function(){ try{ t.focus({ preventScroll:true }); }catch(e){} }, 350);
+        }
+        return;
+      }
+      var antes = CL.abierta;
+      CL.abierta = antes === id ? null : id;
+      [antes, CL.abierta].forEach(function(x){
+        if(!x) return;
+        var on = CL.abierta === x, f = document.getElementById('clf_' + x), b = document.getElementById('clb_' + x), p = document.getElementById('clp_' + x);
+        if(f) f.classList.toggle('abierta', on);
+        if(b) b.setAttribute('aria-expanded', on ? 'true' : 'false');
+        if(p){ p.hidden = !on; if(!on){ p.innerHTML = ''; p.dataset.est = ''; } }
+      });
+      clPintarLista();
+      if(CL.abierta){ var f2 = document.getElementById('clf_' + id); if(f2) docLlevarA(f2); }
+    }
+    function clClausula(id){
+      try{ return ctClausulas(ctDatos()).filter(function(c){ return c.id === id; })[0] || null; }catch(e){ return null; }
+    }
+    function clParrafos(t){
+      return clLimpiar(t).split(/\n\n/).map(function(p){ return '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>'; }).join('');
+    }
+    function clNotaOrigen(c, ag){
+      if(c.id === 'garantia') return '';
+      if(c.origen === 'propio') return 'Texto propio de este contrato';
+      if(c.origen === 'agenciaDir') return 'Texto de la agencia, de ' + (ag && ag.por ? ag.por : 'la Dirección') + (ag && ag.at ? ' (' + clFecha(ag.at) + ')' : '');
+      if(c.id === 'titularidad' && !clIguales(clOpcionesTitularidad(), clTitAgencia())) return 'Con las opciones elegidas';
+      return 'Texto de la agencia';
+    }
+    // El panel se rearma solo cuando cambia lo que muestra (texto propio sí o no,
+    // texto u opciones de la agencia, una especial que lo repite, su número): así
+    // no se pierde lo que se está escribiendo.
+    function clActualizarPanel(c, rep){
+      if(!c) return;
+      var p = document.getElementById('clp_' + c.id);
+      if(!p) return;
+      var ag = CL_AGENCIA_OK.indexOf(c.id) >= 0 ? clAgenciaTexto(c.id) : null;
+      var est = [CL.propio[c.id] != null ? 'e' : '-', ag ? 'a' + (ag.at || '') : '-', clAgenciaOpciones(c.id) ? 'o' : '-',
+        (rep || []).map(function(r){ return r.uid + ':' + r.ordinal; }).join(','), esAdmin ? 'd' : '-', c.ordinal, ctVal('ctGarantia')].join('|');
+      if(p.dataset.est !== est){ p.dataset.est = est; p.innerHTML = clPanelHtml(c, rep, ag); }
+      // Lo que cambia mientras se escribe o se elige: el texto que sale y la nota.
+      var t = document.getElementById('clt_' + c.id);
+      if(t){ var h = clParrafos(c.cuerpo); if(t._h !== h){ t._h = h; t.innerHTML = h; } }
+      clTexto(document.getElementById('cln_' + c.id), clNotaOrigen(c, ag));
+      if(c.id === 'titularidad') clMarcarOpciones();
+    }
+    function clPanelHtml(c, rep, ag){
+      var id = c.id, h = '';
+      if(rep && rep.length){
+        var r = rep[0];
+        h += '<div class="cl-choca" role="note"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i><div>' +
+          '<span>La especial <b>«' + esc(clTituloLista(r)) + '»</b> (cláusula ' + clNumero(r.ordinal) + ') habla de lo mismo. Si dicen cosas distintas, el contrato se contradice: elegí cuál va.</span>' +
+          '<div class="cl-acc">' +
+            (id !== 'garantia' ? '<button type="button" class="cl-btn pri" onclick="clUsarEspecial(' + r.uid + ',\'' + id + '\')">Usar su texto acá</button>' : '') +
+            '<button type="button" class="cl-btn" onclick="ceQuitar(' + r.uid + ')">Sacar la especial</button>' +
+          '</div></div></div>';
+      }
+      if(id === 'garantia'){
+        return h + '<p class="cl-nota"><i class="fas fa-lock" aria-hidden="true"></i>' +
+          (esAseguradora(ctVal('ctGarantia')) ? 'La provee la aseguradora y entra tal cual: no se edita.' : 'Se arma con los datos de la sección 5 (Garantía): se cambia ahí.') + '</p>' +
+          '<div class="cl-texto" id="clt_' + id + '"></div>';
+      }
+      var editando = CL.propio[id] != null;
+      if(id === 'titularidad'){
+        h += (editando || ag)
+          ? '<p class="cl-nota">' + (editando ? 'Con texto propio, las opciones no se aplican.' : 'La agencia usa un texto propio para esta cláusula: las opciones no se aplican.') + '</p>'
+          : clOpcTitularidadHtml();
+      }
+      h += '<div><div class="cl-bloque-cab"><b>Así sale en el contrato</b><span class="cl-nota" id="cln_' + id + '"></span></div>' +
+        '<div class="cl-texto" id="clt_' + id + '"></div></div>';
+      h += '<div class="cl-propio">' + (editando ? clPropioHtml(c) : clSinPropioHtml(c, ag)) + '</div>';
+      if(c.opcional) h += '<div class="cl-acc"><button type="button" class="iv-link" onclick="clQuitarOpcional(\'' + id + '\')">Quitar esta cláusula del contrato</button></div>';
+      return h;
+    }
+    function clPropioHtml(c){
+      var id = c.id;
+      return '<div class="fld"><label for="clTxt_' + id + '">Texto propio, solo para este contrato</label>' +
+          '<textarea id="clTxt_' + id + '" rows="10" oninput="clPropioSet(\'' + id + '\', this.value)">' + esc(CL.propio[id]) + '</textarea>' +
+          '<div class="hint">' + (CL_DATOS[id] ? 'Ojo: así ya no toma los datos del formulario. Si después cambiás un dato, cambialo también acá.' : 'Los demás contratos siguen con el texto de la agencia.') +
+          ' El título y el número los pone el contrato.</div></div>' +
+        '<div class="cl-acc">' +
+          '<button type="button" class="cl-btn" onclick="clPropioQuitar(\'' + id + '\')"><i class="fas fa-rotate-left" aria-hidden="true"></i>Volver al texto de la agencia</button>' +
+          ((esAdmin && CL_AGENCIA_OK.indexOf(id) >= 0) ? '<button type="button" class="iv-link" onclick="clAgenciaGuardar(\'' + id + '\')">Usar este texto en los próximos contratos</button>' : '') +
+        '</div>';
+    }
+    function clSinPropioHtml(c, ag){
+      var id = c.id;
+      return '<div class="cl-acc">' +
+          '<button type="button" class="cl-btn" onclick="clPropioAbrir(\'' + id + '\')"><i class="fas fa-pen" aria-hidden="true"></i>Escribir un texto propio para este contrato</button>' +
+          ((ag && esAdmin) ? '<button type="button" class="iv-link" onclick="clAgenciaQuitar(\'' + id + '\')">Volver al texto original</button>' : '') +
+        '</div>';
+    }
+
+    // ---- Texto propio ----
+    function clPropioAbrir(id){
+      var c = clClausula(id);
+      if(!c) return;
+      CL.propio[id] = c.cuerpo;                  // arranca con lo que sale hoy, para retocarlo
+      ctPreview();
+      // El cursor va al texto en el mismo toque (si fuera después, en el celular no
+      // abre el teclado y lo que ya se empezó a escribir podría quedar en otro lugar).
+      var ta = document.getElementById('clTxt_' + id);
+      if(ta){ try{ ta.focus({ preventScroll:true }); ta.setSelectionRange(0, 0); ta.scrollTop = 0; }catch(e){} }
+    }
+    function clPropioSet(id, v){ CL.propio[id] = v; ctPreview(); }
+    function clPropioQuitar(id){
+      var c = clClausula(id);
+      var cambiado = c && CL.propio[id] != null && clLimpiar(CL.propio[id]) !== clLimpiar(c.base);
+      if(cambiado && !confirm('¿Volver al texto de la agencia? Se pierde lo que escribiste en esta cláusula.')) return;
+      delete CL.propio[id];
+      ctPreview();
+    }
+    // Una especial que repite una cláusula del contrato: su texto pasa a esa cláusula
+    // (como texto propio) y la especial deja de salir aparte.
+    function clUsarEspecial(uid, id){
+      var it = ceItem(uid);
+      if(!it) return;
+      var c = clClausula(id);
+      CL.propio[id] = ceCuerpo(it);
+      CE.lista = CE.lista.filter(function(x){ return x.uid !== uid; });
+      CL.abierta = id;
+      _clFirma = '';
+      cePintar();
+      ctPreview();
+      var f = document.getElementById('clf_' + id);
+      if(f) docLlevarA(f, true);
+      toast('Listo: «' + (c ? clTituloLista(c) : 'la cláusula') + '» lleva el texto de la especial, que ya no sale aparte');
+    }
+    function clQuitarOpcional(id){
+      var cb = document.getElementById('op_' + id);
+      if(cb) cb.checked = false;
+      delete CL.propio[id];
+      CL.abierta = null;
+      ctToggleOp(id, false);
+    }
+
+    // ---- Lo de la agencia (config/contrato) ----
+    function clCargarAgencia(){
+      if(CL.cargando || CL.cargada || typeof db === 'undefined' || !db) return;
+      CL.cargando = true;
+      db.collection('config').doc('contrato').get().then(function(s){
+        var x = (s && s.exists && s.data()) || {};
+        CL.agencia = {
+          textos: (x.textos && typeof x.textos === 'object') ? x.textos : {},
+          opciones: (x.opciones && typeof x.opciones === 'object') ? x.opciones : {}
+        };
+        CL.cargada = true;
+      }).catch(function(e){
+        console.warn('No se pudo leer lo de la agencia para el contrato:', e);
+      }).then(function(){
+        CL.cargando = false;
+        _clFirma = '';
+        ctPreview();
+      });
+    }
+    // Escribe un dato en config/contrato. Si el documento todavía no existe, se crea.
+    function clGuardarAgencia(ruta, valor){
+      var ref = db.collection('config').doc('contrato'), upd = {};
+      upd[ruta.join('.')] = valor;
+      return ref.update(upd).catch(function(e){
+        if(!(e && (e.code === 'not-found' || /no document to update/i.test(e.message || '')))) throw e;
+        var obj = {}, o = obj;
+        ruta.forEach(function(k, i){ o[k] = i === ruta.length - 1 ? valor : {}; o = o[k]; });
+        return ref.set(obj, { merge:true });
+      });
+    }
+    function clQuien(){ return { por: agenteLogueado || 'Dirección', uid: (auth && auth.currentUser && auth.currentUser.uid) || '', at: new Date().toISOString() }; }
+    function clErrorGuardar(e){
+      console.warn(e);
+      toast(e && e.code === 'permission-denied' ? 'Solo la Dirección puede cambiar lo de la agencia' : 'No se pudo guardar. Probá de nuevo en un rato', true);
+    }
+    function clAgenciaGuardar(id){
+      if(!esAdmin || CL_AGENCIA_OK.indexOf(id) < 0) return;
+      var t = clLimpiar(CL.propio[id]);
+      if(!t){ toast('Escribí el texto antes de dejarlo como el de la agencia', true); return; }
+      if(!confirm('¿Usar este texto en los próximos contratos de ' + (clDestino() === 'vivienda' ? 'vivienda' : 'comercio') + '?\n\nVale para todos los agentes desde ahora. Los contratos ya hechos no cambian.')) return;
+      var dato = Object.assign({ texto:t }, clQuien());
+      clGuardarAgencia(['textos', clDestino(), id], dato).then(function(){
+        var m = CL.agencia.textos[clDestino()] = CL.agencia.textos[clDestino()] || {};
+        m[id] = dato;
+        delete CL.propio[id];
+        ctPreview();
+        toast('Listo: es el texto de la agencia para los próximos contratos');
+      }).catch(clErrorGuardar);
+    }
+    function clAgenciaQuitar(id){
+      if(!esAdmin) return;
+      if(!confirm('¿Volver al texto original en los próximos contratos?')) return;
+      clGuardarAgencia(['textos', clDestino(), id], firebase.firestore.FieldValue.delete()).then(function(){
+        var m = CL.agencia.textos[clDestino()];
+        if(m) delete m[id];
+        ctPreview();
+        toast('Listo: vuelve el texto original');
+      }).catch(clErrorGuardar);
+    }
+    function clOpcAgenciaGuardar(){
+      if(!esAdmin) return;
+      var o = clOpcionesTitularidad();
+      if(!confirm('¿Usar estas opciones de UTE y OSE en los próximos contratos?\n\n' + clResumenTit(o) + '\n\nVale para todos los agentes desde ahora, y en cada contrato se pueden cambiar.')) return;
+      var dato = Object.assign({}, o, clQuien());
+      clGuardarAgencia(['opciones', clDestino(), 'titularidad'], dato).then(function(){
+        var m = CL.agencia.opciones[clDestino()] = CL.agencia.opciones[clDestino()] || {};
+        m.titularidad = dato;
+        delete CL.opciones.titularidad;
+        ctPreview();
+        toast('Listo: son las opciones de la agencia para los próximos contratos');
+      }).catch(clErrorGuardar);
+    }
+    function clOpcAgenciaQuitar(){
+      if(!esAdmin) return;
+      if(!confirm('¿Volver a las opciones originales de UTE y OSE en los próximos contratos?')) return;
+      clGuardarAgencia(['opciones', clDestino(), 'titularidad'], firebase.firestore.FieldValue.delete()).then(function(){
+        var m = CL.agencia.opciones[clDestino()];
+        if(m) delete m.titularidad;
+        ctPreview();
+        toast('Listo: vuelven las opciones originales');
+      }).catch(clErrorGuardar);
     }
 
     // ---- Pago al firmar ----
@@ -3142,8 +3712,8 @@
       var modalidad = (function(){ var e=document.getElementById('ctModalidadPago'); return e?e.value:'adelantado'; })();
       // Juegos de llaves: "dos (2) juegos completos".
       var llaves = Math.max(0, Math.min(12, parseInt(ctVal('ctLlaves'),10) || 0));
-      // Plazo para pasar UTE y OSE a su nombre: "dentro de los diez (10) días corridos".
-      var diasTit = Math.max(1, parseInt(ctVal('ctDiasTitularidad'),10) || 10);
+      // UTE y OSE: las opciones de su cláusula (paso 6), sobre las de la agencia.
+      var tit = clOpcionesTitularidad();
       // Si la entrega (inicio) es después de la fecha del documento, el inventario se
       // firma al entregar: no se puede decir que se firma "en la fecha".
       var inicioISO = ctVal('ctInicio'), fechaDocISO = ctVal('ctFecha');
@@ -3152,8 +3722,8 @@
         inventarioAlEntregar: !!(inicioISO && fechaDocISO && inicioISO > fechaDocISO),
         llaves: llaves,
         llavesTexto: llaves ? (NUM_LETRAS[llaves] || String(llaves)) + ' (' + llaves + ') ' + (llaves === 1 ? 'juego completo' : 'juegos completos') : '',
-        plazoTitularidad: diasTit === 1 ? 'dentro del día corrido siguiente a la entrega del inmueble'
-                                        : 'dentro de los ' + numeroALetras(diasTit) + ' (' + diasTit + ') días corridos siguientes a la entrega del inmueble',
+        titularidad: tit,
+        plazoTitularidad: clPlazoTexto(tit),
         obrasEspeciales: ctObrasEspeciales(),
         direccion:ctVal('ctDireccion')||'____', unidad:ctVal('ctUnidad'),
         entre1:ctVal('ctEntre1'), entre2:ctVal('ctEntre2'),
@@ -3431,6 +4001,8 @@
     function ctPreview(){
       // Las tarjetas de las cláusulas especiales dicen con qué número salen.
       ceRefrescar();
+      // Y la lista del paso 6, cómo queda cada cláusula.
+      clPintarLista();
       vistaPrevia('contrato', function(){ return ctVal('ctGarantia')==='anda' ? andaMasAnexo() : ctConstruirPDF(); }, 250);
     }
 
@@ -8937,7 +9509,7 @@
 
     // "Política de la agencia": se define una vez y queda en este navegador, como
     // promete el formulario. (Antes el cartel lo decía pero no se guardaba nada.)
-    var CT_POLITICA = ['ctModalidadPago','ctDiaLimite','ctPreaviso','ctReajuste','ctIndice','ctDiasTitularidad'];
+    var CT_POLITICA = ['ctModalidadPago','ctDiaLimite','ctPreaviso','ctReajuste','ctIndice'];
     // El valor con el que viene cada campo en la página.
     function ctPoliticaOriginal(e){
       if(e.tagName === 'SELECT'){
@@ -9032,6 +9604,8 @@
       ctAgregar('arrendador'); ctAgregar('arrendatario');
       // Cláusulas especiales: los modelos del menú y los guardados por la agencia.
       ceInit();
+      // Los textos y las opciones que la Dirección dejó como los de la agencia.
+      clCargarAgencia();
       // Deja todo como corresponde al destino de entrada (vivienda): régimen,
       // aviso, cláusulas opcionales y garantías.
       ctSetDestino(_destino);
