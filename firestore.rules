@@ -73,6 +73,25 @@ service cloud.firestore {
           && propiedadDeGestion(g).get('status', 'available') in ['available', 'reserved', 'tasacion', 'tasado'];
     }
 
+    // ESTADO DE UNA PROPIEDAD. Un agente lo mueve solo entre los estados "en
+    // juego" (Disponible, Reservada, En tasación, Tasada), o devuelve al mercado un
+    // alquiler que terminó (Alquilada -> Disponible). Vendida y Alquilada salen de
+    // confirmar la firma en el Mapa de cierres (lo hace el servidor) o las pone la
+    // Dirección; Dada de baja y Cerró por afuera, la Dirección o el servidor.
+    // Antes el estado no se controlaba acá: las pantallas no lo ofrecían, pero
+    // desde el navegador se podía poner cualquiera, y eso saca (o vuelve a poner)
+    // el aviso en los portales.
+    function estadoEnJuego(s) {
+      return s in ['available', 'reserved', 'tasacion', 'tasado'];
+    }
+    function cambioDeEstadoDeAgente() {
+      return request.resource.data.get('status', 'available') == resource.data.get('status', 'available')
+          || (estadoEnJuego(resource.data.get('status', 'available'))
+              && estadoEnJuego(request.resource.data.get('status', 'available')))
+          || (resource.data.get('status', '') == 'rented'
+              && request.resource.data.get('status', '') == 'available');
+    }
+
     // ============ USERS ============
     // La lectura sigue siendo pública a propósito: la web pública (propiedad.html)
     // muestra nombre/foto/WhatsApp del agente del aviso.
@@ -201,7 +220,8 @@ service cloud.firestore {
       // restaurar propiedades de los agentes (el doc vuelve con su dueño original).
       allow create: if esDireccion()
                     || (isApproved()
-                        && request.resource.data.ownerId == request.auth.uid);
+                        && request.resource.data.ownerId == request.auth.uid
+                        && estadoEnJuego(request.resource.data.get('status', 'available')));
       allow update: if (isApproved()
                         && (resource.data.ownerId == request.auth.uid
                             || (resource.data.agents is list && request.auth.uid in resource.data.agents)
@@ -238,7 +258,9 @@ service cloud.firestore {
                         // esto, el agente le subía la ganancia por SDK después de confirmado.
                         && (esDireccion()
                             || resource.data.get('cierreConfirmado', false) != true
-                            || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['cierre'])))
+                            || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['cierre']))
+                        // El estado: ver cambioDeEstadoDeAgente() arriba.
+                        && (esDireccion() || cambioDeEstadoDeAgente()))
                     || (esDireccion()
                         && request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['cierre', 'cierreConfirmado', 'status', 'updatedAt']))

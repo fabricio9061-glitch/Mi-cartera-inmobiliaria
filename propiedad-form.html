@@ -6070,13 +6070,20 @@
           commonExpensesCurrency: _v('propExpensesCurrency') === 'USD' ? 'USD' : 'UYU', type: ty, propertyType: document.getElementById('propPropertyType').value, realEstateType: document.getElementById('propRealEstateType').value, clientId: formClientId || null,
           bedrooms: parseInt(document.getElementById('propBedrooms').value) || 0, bathrooms: parseInt(document.getElementById('propBathrooms').value) || 0,
           totalArea: parseInt(document.getElementById('propTotalArea').value) || 0, builtArea: parseInt(document.getElementById('propBuiltArea').value) || 0,
-          commonExpenses: parseInt(document.getElementById('propExpenses').value) || 0, garage: (ficha.PARKING_LOTS || 0) > 0 ? 'yes' : 'no', status: document.getElementById('propStatus').value,
+          commonExpenses: parseInt(document.getElementById('propExpenses').value) || 0, garage: (ficha.PARKING_LOTS || 0) > 0 ? 'yes' : 'no',
           images: iu, description: document.getElementById('propDescription').value, videoUrl: document.getElementById('propVideo').value || '', updatedAt: new Date().toISOString(),
           ficha,
           // Grupos de casilleros que el agente dio por revisados. Va aparte de
           // `ficha` a propósito: eso es la carga que viaja a Mercado Libre.
           fichaRevisado: fichaRevisado.slice()
         };
+        /* El estado (Disponible, Reservada, Vendida…) NO se guarda al editar: lo
+           cambian el Mapa de cierres, Clientes y el servidor. Antes se guardaba el
+           que tenía la propiedad cuando se abrió este formulario, y si mientras
+           tanto la Dirección confirmaba la firma (o se caía la reserva), al guardar
+           la ficha la propiedad volvía al estado viejo. Solo una propiedad nueva
+           arranca con el suyo. */
+        if (!ei) pd.status = document.getElementById('propStatus').value || 'available';
         if (waPuntual) pd.ownerWhatsapp = waPuntual;
         else if (ei) pd.ownerWhatsapp = firebase.firestore.FieldValue.delete();
         if (ei && pp && parseInt(pp) !== np) { pd.previousPrice = parseInt(pp); pd.priceChangedAt = new Date().toISOString() }
