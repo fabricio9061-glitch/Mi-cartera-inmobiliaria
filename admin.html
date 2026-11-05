@@ -298,6 +298,13 @@
     .bd-txt{flex:1;min-width:0}
     .bd-txt b{display:block;font-size:.89rem;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .bd-txt span{display:block;font-size:.77rem;color:var(--muted-2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    /* Consultas: las de propiedades de la Dirección van destacadas (borde dorado) y
+       las de los agentes dicen de quién es la propiedad. */
+    .bd-row.dest{box-shadow:inset 3px 0 0 var(--gold-2)}
+    .bd-txt span.bd-etq{display:inline-flex;align-items:center;gap:5px;max-width:100%;margin:4px 0 1px;padding:2px 9px 2px 8px;border-radius:999px;
+      background:#f6efd9;color:#7a5c0c;font-size:.7rem;font-weight:600}
+    .bd-txt span.bd-etq.ag{background:#e8ebfb;color:#3b3f8f}
+    .bd-etq i{font-size:.64rem}
     .bd-btn{flex:none;border:1px solid var(--line);background:var(--card);border-radius:9px;padding:7px 15px;
       font-family:inherit;font-size:.82rem;font-weight:600;color:var(--ink);cursor:pointer;transition:border-color .13s}
     .bd-btn:hover{border-color:var(--ink)}
@@ -798,6 +805,7 @@
     new_user:            {u:1,i:'fa-user-plus',a:'Aprobar',ir:()=>ver('equipo')},
     ml_lead:             {u:1,i:'fa-comment-dots',a:'Ver',ir:n=>irProp(n)},
     consulta_infocasas:  {u:1,i:'fa-comment-dots',a:'Ver',ir:n=>irProp(n)},
+    lead_portal:         {u:1,i:'fa-comment-dots',a:'Ver',ir:n=>irProp(n)},
     ficha_incompleta:    {u:1,i:'fa-clipboard-list',a:'Completar',ir:n=>n.propertyId&&(location.href='propiedad-form.html?id='+n.propertyId)},
     vencimiento_alquiler:{u:1,i:'fa-calendar-xmark',a:'Ver',ir:n=>irProp(n)},
     revision_rechazada:  {u:2,i:'fa-circle-xmark',a:'Ver',ir:()=>ver('revisiones')},
@@ -809,6 +817,35 @@
   };
   var DEF = {u:2,i:'fa-bell',a:'Ver',ir:()=>{}};
   function irProp(n){ if(n && n.propertyId) location.href='propiedad.html?id='+n.propertyId; }
+
+  // Consultas: de quién es la propiedad. Vuelve, por propiedad, { mia } o
+  // { nombre, direccion }; sin propiedad o sin el perfil del dueño no se adivina.
+  function esConsultaAviso(n){
+    return n.type==='ml_lead' || n.type==='consulta_infocasas' || n.type==='lead_portal' || (!n.type && !!(n.userPhone || n.leadNombre));
+  }
+  async function duenosDe(pids){
+    var r = {};
+    if(!pids.length) return r;
+    var props = await Promise.all(pids.map(id => db.collection('properties').doc(id).get().catch(() => null)));
+    var uids = [];
+    props.forEach(function(d){
+      var o = d && d.exists ? (d.data()||{}).ownerId : '';
+      if(!o) return;
+      r[d.id] = { uid:o };
+      if(o !== yo.uid && uids.indexOf(o) < 0) uids.push(o);
+    });
+    var us = await Promise.all(uids.map(u => db.collection('users').doc(u).get().catch(() => null)));
+    var perfil = {};
+    us.forEach(function(d){ if(d && d.exists) perfil[d.id] = d.data() || {}; });
+    Object.keys(r).forEach(function(pid){
+      var uid = r[pid].uid;
+      if(uid === yo.uid){ r[pid] = { mia:true }; return; }
+      var u = perfil[uid];
+      if(!u){ delete r[pid]; return; }
+      r[pid] = { nombre: u.name || u.email || '', direccion: (u.email||'').toLowerCase() === ADMIN_EMAIL || !!(window.Rangos && Rangos.esDireccion(u)) };
+    });
+    return r;
+  }
 
   var _bandeja = [];
   async function pintarBandeja(c){
@@ -824,12 +861,21 @@
       // solo al aprobar. Las notificaciones de alta cuentan el mismo hecho pero
       // son historia: quedan hasta que alguien las marca leídas, así que sumarlas
       // acá repetía el mismo pendiente dos veces.
-      var items = nots.docs.map(d => ({id:d.id, ...d.data()}))
+      var noLeidas = nots.docs.map(d => ({id:d.id, ...d.data()}))
         .filter(n => !n.read)
-        .filter(n => !(n.type === 'admin_pendiente' && n.subtipo === 'alta'))
-        .map(n => {
+        .filter(n => !(n.type === 'admin_pendiente' && n.subtipo === 'alta'));
+      // Las consultas de propiedades de la Dirección van destacadas; las de los
+      // agentes dicen de quién es la propiedad y van después (las atiende el agente).
+      var pids = [];
+      noLeidas.forEach(n => { if(esConsultaAviso(n) && n.propertyId && pids.indexOf(n.propertyId) < 0) pids.push(n.propertyId); });
+      var duenos = {};
+      try{ duenos = await duenosDe(pids); }catch(e){ console.warn('bandeja, dueños:', e); }
+      var items = noLeidas.map(n => {
         var t = TIPOS[n.type] || DEF;
-        return { u:t.u, ico:t.i, accion:t.a,
+        var du = esConsultaAviso(n) && n.propertyId ? duenos[n.propertyId] : null;
+        var propia = !!(du && (du.mia || du.direccion));
+        var etq = !du ? '' : propia ? (du.mia ? 'Tu propiedad' : 'Propiedad de ' + (du.nombre || 'la Dirección')) : 'Propiedad de ' + (du.nombre || 'un agente');
+        return { u: du && !propia ? 2 : t.u, ico:t.i, accion:t.a, dest:propia, etq:etq, etqAg: !!du && !propia,
           titulo: n.userName || n.propertyTitle || 'Aviso',
           sub: (n.text||'').slice(0,120), fecha: n.createdAt, _id:n.id, ir:()=>t.ir(n) };
       });
@@ -850,8 +896,10 @@
       }
       var COL = ['alta','media','baja'];
       c.innerHTML = '<div class="card">' + items.map((x,i) =>
-        '<div class="bd-row '+COL[x.u]+'"><span class="bd-dot"></span><i class="fas '+x.ico+' bd-ico"></i>' +
-        '<div class="bd-txt"><b>'+esc(x.titulo)+'</b><span>'+esc(x.sub)+(x.fecha?' · '+hace(x.fecha):'')+'</span></div>' +
+        '<div class="bd-row '+COL[x.u]+(x.dest?' dest':'')+'"><span class="bd-dot"></span><i class="fas '+x.ico+' bd-ico"></i>' +
+        '<div class="bd-txt"><b>'+esc(x.titulo)+'</b>' +
+        (x.etq ? '<span class="bd-etq'+(x.etqAg?' ag':'')+'"><i class="fas '+(x.etqAg?'fa-user-tie':'fa-house-user')+'"></i> '+esc(x.etq)+'</span>' : '') +
+        '<span>'+esc(x.sub)+(x.fecha?' · '+hace(x.fecha):'')+'</span></div>' +
         '<button class="bd-btn" onclick="bandejaIr('+i+')">'+esc(x.accion)+'</button></div>').join('') + '</div>';
     }catch(e){
       console.error(e);

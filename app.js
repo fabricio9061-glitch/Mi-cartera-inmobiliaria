@@ -377,6 +377,12 @@
     })
   }
   const _usersReady = loadUsers();
+  // Con el equipo cargado ya se sabe de quién es la propiedad de cada consulta:
+  // si la campanita está abierta, se repinta con las etiquetas.
+  _usersReady.then(() => {
+    const nd = document.getElementById('notificationDropdown');
+    if (nd && nd.classList.contains('active') && typeof renderNotifications === 'function') renderNotifications();
+  }).catch(() => {});
 
   function showToast(t, m, i = 'fa-bell') {
     const c = document.getElementById('toastContainer'),
@@ -1158,6 +1164,22 @@
     } catch (e) { /* si no está cargada la propiedad, se omite */ }
     return '';
   }
+  // De quién es la propiedad de una consulta, para quien la recibe: 'mia', o si es
+  // de otro, su nombre y si es de la Dirección. null si no se sabe (sin propiedad
+  // identificada, o todavía no llegaron las propiedades o el equipo).
+  function duenoConsulta(n) {
+    try {
+      const prop = (n && n.propertyId && typeof properties !== 'undefined' && properties.length)
+        ? properties.find(p => p.id === n.propertyId) : null;
+      const uid = prop && prop.ownerId;
+      if (!uid) return null;
+      if (uid === (currentUser && currentUser.uid)) return { mia: true };
+      const u = allUsers[uid];
+      if (!u) return null;
+      const dir = String(u.email || '').toLowerCase() === ADMIN_EMAIL || !!(window.Rangos && Rangos.esDireccion(u));
+      return { uid, nombre: u.name || u.email || '', direccion: dir };
+    } catch (e) { return null; }
+  }
   function notifDatos(n) {
     const txt = String(n.text || '');
     /* Los avisos nuevos traen los datos del interesado en campos propios. Leerlos
@@ -1426,6 +1448,22 @@
       }
       m.toastTitulo = 'Nueva consulta' + (m.via ? ' · ' + m.via : '');
       m.toastTexto = m.persona ? nombre + (prop ? ' — ' + prop : '') : (prop || nombre);
+      // A la Dirección también le llegan las consultas de las propiedades de los
+      // agentes. Para no confundirlas, las de sus propiedades van destacadas y las
+      // de los agentes dicen de quién es la propiedad (la atiende ese agente).
+      if (isAdminUser()) {
+        const du = duenoConsulta(n);
+        if (du && (du.mia || du.direccion)) {
+          m.destacada = true;
+          m.etiqueta = du.mia ? 'Tu propiedad' : 'Propiedad de ' + (du.nombre || 'la Dirección');
+          m.agente = '';
+        } else if (du) {
+          m.etiqueta = 'Propiedad de ' + (du.nombre || 'un agente');
+          m.etiquetaAgente = true;
+          m.agente = '';
+          m.toastTitulo = 'Consulta para ' + (String(du.nombre || '').trim().split(/\s+/)[0] || 'un agente') + (m.via ? ' · ' + m.via : '');
+        }
+      }
       return m;
     }
     switch (tipo) {
@@ -1923,6 +1961,7 @@
   // Renglón chico de abajo: de qué agente es (lo ve la Dirección) y alguna aclaración.
   function _metaAviso(m) {
     const p = [];
+    if (m.etiqueta) p.push(`<span class="nt-etq${m.etiquetaAgente ? ' nt-etq-ag' : ''}"><i class="fas ${m.etiquetaAgente ? 'fa-user-tie' : 'fa-house-user'}"></i> ${mvEsc(m.etiqueta)}</span>`);
     if (m.agente) p.push(`<span><i class="fas fa-user-tie"></i> ${mvEsc(m.agente)}</span>`);
     if (m.pista) p.push(`<span><i class="fas fa-circle-info"></i> ${mvEsc(m.pista)}</span>`);
     return p.length ? `<div class="nt-pista">${p.join('')}</div>` : '';
@@ -1930,7 +1969,7 @@
   function htmlAviso(n) {
     if (n.type === 'despublicar_confirmar') return tarjetaDespub(n);
     const m = modeloNotif(n);
-    return `<div class="${_claseItem(n)}" data-id="${mvEsc(n.id)}" role="button" tabindex="0">` +
+    return `<div class="${_claseItem(n, m.destacada ? 'nt-dest' : '')}" data-id="${mvEsc(n.id)}" role="button" tabindex="0">` +
       avatarNotif(n, m) +
       `<div class="nt-cuerpo">` +
         _filaAviso(n, mvEsc(m.titulo), m.via, horaCorta(n.createdAt)) +
