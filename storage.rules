@@ -113,6 +113,23 @@ service firebase.storage {
       allow delete: if isAdmin();
     }
     // ============================================
+    // DOCUMENTOS GENERADOS — el PDF de cada documento, tal cual salió
+    // --------------------------------------------
+    // Contratos, recibos e inventarios traen cédulas, direcciones y cuentas.
+    // Cada PDF va en la carpeta de quien lo generó y solo esa persona lo lee
+    // directo; la Dirección lo abre con el enlace del registro (que solo ven la
+    // Dirección y el autor, ver firestore.rules).
+    // Un PDF guardado no se reemplaza ni se borra: una versión nueva es otro
+    // archivo.
+    // ============================================
+    match /documentosGenerados/{uid}/{allPaths=**} {
+      allow read: if isLoggedIn() && request.auth.uid == uid;
+      allow create: if isLoggedIn() && request.auth.uid == uid
+                    && sizeOk()
+                    && request.resource.contentType == 'application/pdf';
+      allow update, delete: if false;
+    }
+    // ============================================
     // CUALQUIER OTRA RUTA — bloqueada por defecto
     // ============================================
     match /{allPaths=**} {

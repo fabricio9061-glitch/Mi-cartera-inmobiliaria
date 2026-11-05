@@ -541,6 +541,56 @@ service cloud.firestore {
       allow delete: if esDireccion();
     }
 
+    // ============ DOCUMENTOS GENERADOS (registro de cada PDF) ============
+    // Cada PDF que sale de Generar documentos (descargado o enviado) queda acá:
+    // quién, cuándo, de qué propiedad y de qué personas, y el enlace al archivo;
+    // en /versiones, los datos del formulario de cada versión. Trae cédulas,
+    // direcciones y cuentas: lo leen SOLO la Dirección y quien lo generó (nunca
+    // público, nunca en la propiedad).
+    // No se borra ni se pisa: volver a generarlo (o corregirlo) AGREGA una versión;
+    // las anteriores quedan tal cual.
+    // - get: leer uno. Un documento que todavía no existe se puede "leer" (vacío):
+    //   la app lo pide al guardar la primera versión.
+    // - list: la lista. Un agente solo puede pedirla filtrando por su uid.
+    match /documentosGenerados/{docId} {
+      allow get: if isApproved()
+                 && (resource == null
+                     || esDireccion()
+                     || resource.data.autorUid == request.auth.uid);
+      allow list: if isApproved()
+                  && (esDireccion() || resource.data.autorUid == request.auth.uid);
+      allow create: if isApproved()
+                    && request.resource.data.autorUid == request.auth.uid
+                    && request.resource.data.version == 1
+                    && request.resource.data.versiones is list
+                    && request.resource.data.versiones.size() == 1;
+      allow update: if isApproved()
+                    && (esDireccion() || resource.data.autorUid == request.auth.uid)
+                    && request.resource.data.autorUid == resource.data.autorUid
+                    && request.resource.data.creado == resource.data.creado
+                    && request.resource.data.tipo == resource.data.tipo
+                    && request.resource.data.clave == resource.data.clave
+                    && request.resource.data.version == resource.data.version + 1
+                    && request.resource.data.versiones is list
+                    && request.resource.data.versiones.size() == resource.data.versiones.size() + 1
+                    && request.resource.data.versiones[0:resource.data.versiones.size()] == resource.data.versiones;
+      allow delete: if false;
+
+      // Los datos del formulario de cada versión (para poder corregirlo).
+      match /versiones/{n} {
+        allow read: if isApproved()
+                    && (esDireccion()
+                        || get(/databases/$(database)/documents/documentosGenerados/$(docId)).data.autorUid == request.auth.uid);
+        allow create: if isApproved()
+                      && request.resource.data.porUid == request.auth.uid
+                      && string(request.resource.data.n) == n
+                      && getAfter(/databases/$(database)/documents/documentosGenerados/$(docId)).data.version == request.resource.data.n
+                      && (esDireccion()
+                          || getAfter(/databases/$(database)/documents/documentosGenerados/$(docId)).data.autorUid == request.auth.uid);
+        allow update, delete: if false;
+      }
+    }
+
     // ============ CONFIG — aprobados leen, admin escribe ============
     match /config/{doc} {
       allow read: if isApproved();
