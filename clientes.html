@@ -1354,7 +1354,7 @@
     // Orden del embudo: cuando un cliente tiene varias gestiones, MANDA la
     // gestión activa más avanzada (no la más reciente). Cerrado/Perdido son
     // terminales y no compiten: solo definen la etiqueta si no queda nada activo.
-    // Reservado (el cliente dejó la seña) es la etapa activa más avanzada: falta la firma.
+    // Reservado (el cliente reservó, con o sin seña) es la etapa activa más avanzada: falta la firma.
     var ESTADO_PRIORIDAD = ['nuevo','contactado','seguimiento','visita','negociacion','cartera','reservado'];
     var ESTADOS_TERMINALES = ['cerrado','perdido','externo','prop_eliminada'];
 
@@ -2873,7 +2873,7 @@
       ['visita', 'Visita coordinada o hecha (a la propiedad, o de tasación si todavía no es cliente con propiedad).'],
       ['negociacion', 'Negociando precio o condiciones.'],
       ['cartera', 'Solo el dueño: su propiedad ya está captada. El silencio es normal.'],
-      ['reservado', 'El cliente dejó la seña. La propiedad pasa a Reservada (en Mercado Libre el aviso se pausa) y la reserva se registra en el Mapa de cierres con el precio y la ganancia; al guardarla se emite el recibo de la seña.'],
+      ['reservado', 'El cliente reservó, con seña o sin seña. La propiedad pasa a Reservada (en Mercado Libre el aviso se pausa) y la reserva se registra en el Mapa de cierres con el precio y la ganancia; si dejó seña, al guardarla se emite el recibo.'],
       ['cerrado', 'Se firmó y la Dirección lo confirmó en el Mapa de cierres. La propiedad pasa sola a Vendida o Alquilada y la ganancia suma en Mis Finanzas. Solo la Dirección lo puede cambiar.'],
       ['externo', 'Se concretó SIN la agencia. Si es el dueño, su propiedad queda Dada de baja (nunca Vendida): si estaba publicada, sale de la web y Dirección confirma la baja de los portales.'],
       ['perdido', 'Dijo que no. Si es el dueño, su propiedad sale de circulación igual que en "Cerró por afuera".']
@@ -2881,8 +2881,8 @@
     // Cómo se integran la etapa y la propiedad: depende de qué es el cliente para
     // cada propiedad (una gestión por propiedad).
     var AYUDA_ROLES = [
-      ['fa-house-user', 'Dueño (propietario)', 'La gestión nace al cargar su propiedad: está En cartera hasta que termina. Cuando alguien deja la seña pasa a Reservado, y a Cerrado cuando la Dirección confirma la firma. Tasación o Disponible se eligen en el selector de la propiedad. Si cerró por afuera o se perdió, la propiedad queda bloqueada; si vuelve, cambiá su avance a En cartera y la propiedad vuelve sola a como estaba.'],
-      ['fa-magnifying-glass-location', 'Interesado', 'Quiere comprar o alquilar una propiedad de la cartera. Va de Nuevo a Negociación; cuando deja la seña pasa a Reservado y, cuando la Dirección confirma la firma, a Cerrado. También puede terminar en Cerró por afuera o Perdido. Si se cae la reserva, la propiedad vuelve sola a Disponible.'],
+      ['fa-house-user', 'Dueño (propietario)', 'La gestión nace al cargar su propiedad: está En cartera hasta que termina. Cuando alguien la reserva pasa a Reservado, y a Cerrado cuando la Dirección confirma la firma. Tasación o Disponible se eligen en el selector de la propiedad. Si cerró por afuera o se perdió, la propiedad queda bloqueada; si vuelve, cambiá su avance a En cartera y la propiedad vuelve sola a como estaba.'],
+      ['fa-magnifying-glass-location', 'Interesado', 'Quiere comprar o alquilar una propiedad de la cartera. Va de Nuevo a Negociación; cuando reserva pasa a Reservado y, cuando la Dirección confirma la firma, a Cerrado. También puede terminar en Cerró por afuera o Perdido. Si se cae la reserva, la propiedad vuelve sola a Disponible.'],
       ['fa-user', 'Sin gestiones', 'Hasta que tiene una propiedad asociada, la etapa es del cliente: Nuevo, Contactado, En seguimiento, Visita, Negociación, Cerró por afuera o Perdido.']
     ];
     var AYUDA_SIT = [
@@ -3128,13 +3128,13 @@
     function faltaRegistrarMapa(prop){ return !!prop && !tieneCierreMapa(prop) && puedeRegistrarCierre(prop); }
 
     // ===== Reserva (la seña) y firma (Cerrado) =====
-    // El agente marca RESERVADO cuando el cliente deja la seña: la propiedad pasa a
+    // El agente marca RESERVADO cuando el cliente reserva (con o sin seña): la propiedad pasa a
     // Reservada y la reserva se registra en el Mapa de cierres. CERRADO lo pone la
     // Dirección al confirmar la firma en el mapa (las gestiones pasan solas). Con la
     // firma ya confirmada, cerrar una gestión que quedó abierta es ponerla al día y
     // lo puede hacer cualquiera.
     function avisoCerradoDireccion(){
-      showToast('Cerrado lo pone la Dirección', 'Cuando el cliente deje la seña, marcá Reservado. Al confirmarse la firma en el Mapa de cierres, la gestión pasa sola a Cerrado.');
+      showToast('Cerrado lo pone la Dirección', 'Cuando el cliente reserve (con seña o sin seña), marcá Reservado. Al confirmarse la firma en el Mapa de cierres, la gestión pasa sola a Cerrado.');
     }
     function firmaConfirmada(prop){ return !!(prop && prop.cierreConfirmado === true); }
     // ¿La reserva de la propiedad es de esta gestión? (es la que el servidor libera si se cae)
@@ -3276,7 +3276,7 @@
           if (stR === 'sold' || stR === 'rented' || stR === 'archived') t = 'La propiedad ya figura <b>'+(PROP_STATUS[stR] || stR)+'</b>: su estado no cambia. ';
           else if (stR === 'reserved' && rr && rr.gestionId && rr.gestionId !== r.value) t = 'La propiedad ya estaba <b>Reservada</b> por otra gestión: la reserva queda a nombre de esta. ';
           else t = 'La propiedad pasa a <b>Reservada</b>: en Mercado Libre el aviso se pausa, no se finaliza. ';
-          if (destino) t += 'En el mapa cargás el precio, la ganancia y quién dejó la seña: al guardar, la gestión pasa a Reservado y se emite el recibo. Cuando se firme, la Dirección lo confirma y pasa a Cerrado.';
+          if (destino) t += 'En el mapa cargás el precio, la ganancia y la seña (0 si no dejó): al guardar, la gestión pasa a Reservado y, si hubo seña, se emite el recibo. Cuando se firme, la Dirección lo confirma y pasa a Cerrado.';
           else if (tieneCierreMapa(p)) t += 'La reserva ya está registrada en el mapa.';
           else t += 'La reserva en el mapa la registra <b>'+esc(p.ownerName || 'el agente de la propiedad')+'</b> y te suma en «¿Cerraron en equipo?».';
         } else if (p){
@@ -4303,7 +4303,7 @@
         if (pendiente) return '<div class="ctr-mini res"><i class="fas fa-handshake"></i><span class="ctr-mini-txt">Reserva registrada en el mapa · falta que la Dirección confirme la firma</span>'+comp+verOConfirmar+'</div>';
         // Con la gestión en el link, el mapa ya trae escrito el nombre de quien dejó la seña.
         if (puedeRegistrarCierre(prop))
-          return '<div class="ctr-mini pend"><i class="fas fa-map-location-dot"></i><span class="ctr-mini-txt">Falta registrar la reserva en el mapa: precio, ganancia y recibo de la seña</span><a class="ctr-mini-btn primary" href="mapa-cierres.html?registrar='+pid+(g && g.id ? '&amp;gestion='+encodeURIComponent(g.id) : '')+'&amp;desde=clientes">Registrar</a></div>';
+          return '<div class="ctr-mini pend"><i class="fas fa-map-location-dot"></i><span class="ctr-mini-txt">Falta registrar la reserva en el mapa: precio, ganancia y seña</span><a class="ctr-mini-btn primary" href="mapa-cierres.html?registrar='+pid+(g && g.id ? '&amp;gestion='+encodeURIComponent(g.id) : '')+'&amp;desde=clientes">Registrar</a></div>';
         return '<div class="ctr-mini pend"><i class="fas fa-map-location-dot"></i><span class="ctr-mini-txt">Falta registrar la reserva en el mapa: la registra '+esc(prop.ownerName || 'el agente de la propiedad')+' y te suma en «¿Cerraron en equipo?»</span></div>';
       }
       if (est !== 'cerrado' || (prop.status !== 'sold' && prop.status !== 'rented')) return '';
@@ -4632,10 +4632,10 @@
           } else repintar();
           return;
         }
-        // 1c) Reservada con la gestión activa: ¿el cliente dejó la seña? Entonces
+        // 1c) Reservada con la gestión activa: ¿el cliente reservó (con o sin seña)? Entonces
         //     va por la gestión (Reservado), que la registra en el Mapa de cierres.
         if (nuevo === 'reserved' && g && ESTADOS_TERMINALES.indexOf(est) < 0 && est !== 'reservado'){
-          if (confirm('¿Este cliente dejó la seña?\n\nAceptar: la gestión pasa a Reservado y registrás la reserva en el Mapa de cierres.\nCancelar: solo cambia el estado de la propiedad.')){
+          if (confirm('¿Este cliente reservó la propiedad (con seña o sin seña)?\n\nAceptar: la gestión pasa a Reservado y registrás la reserva en el Mapa de cierres.\nCancelar: solo cambia el estado de la propiedad.')){
             cambiarEstadoGestion(g.id, 'reservado');
             return;
           }
@@ -4915,7 +4915,7 @@
       };
       if (cambioEtapa){
         var nuevoE = data.estadoGestion;
-        if (nuevoE === 'cerrado' && !isAdmin && !firmaConfirmada(propM)) return volver('Cerrado lo pone la Dirección cuando confirma la firma en el Mapa de cierres. Cuando el cliente deje la seña, marcá Reservado.');
+        if (nuevoE === 'cerrado' && !isAdmin && !firmaConfirmada(propM)) return volver('Cerrado lo pone la Dirección cuando confirma la firma en el Mapa de cierres. Cuando el cliente reserve (con seña o sin seña), marcá Reservado.');
         if (antes.estado === 'cerrado' && !isAdmin && !(data.rol === 'propietario' && nuevoE === 'cartera' && propM && PROP_EN_JUEGO.indexOf(propM.status || 'available') >= 0))
           return volver('La gestión está Cerrada: la firma la confirmó la Dirección y solo la Dirección la puede cambiar.');
         var trabaM = data.rol === 'propietario' ? trabaSalidaDuenio(id, antes.estado, nuevoE, propM) : null;

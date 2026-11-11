@@ -325,6 +325,8 @@
     .b-add2{ border:1px dashed #d9c27e; background:#fff; color:var(--gold-d); border-radius:10px; padding:8px 12px; font-size:.8rem; font-weight:600; cursor:pointer; }
     .b-add2:hover{ border-color:var(--gold); background:var(--gold-bg); }
     .rec-sena{ max-width:260px; }
+    /* Sin seña (puso 0): la reserva se guarda sin recibo y lo que era para el recibo se apaga. */
+    .rec-campos.sin-sena .rec-apaga{ opacity:.45; }
     .chk{ display:flex; gap:9px; align-items:center; font-size:.86rem; color:#39424e; cursor:pointer; margin-top:2px; width:max-content; max-width:100%; }
     .chk input{ accent-color:var(--navy); width:16px; height:16px; flex:none; }
     .resumen.rec-res{ line-height:1.6; }
@@ -493,7 +495,7 @@
       <div class="mh">
         <div>
           <h2 id="regTitulo">Registrar reserva</h2>
-          <p class="sub" id="regSub">Registrala cuando el cliente deja la seña: la propiedad queda Reservada. Cuando se firma, la Dirección lo confirma y recién ahí suma a Mis Finanzas y a Recompensas.</p>
+          <p class="sub" id="regSub">Registrala cuando el cliente reserva, con seña o sin seña: la propiedad queda Reservada. Cuando se firma, la Dirección lo confirma y recién ahí suma a Mis Finanzas y a Recompensas.</p>
         </div>
         <button type="button" class="x" onclick="closeReg()" aria-label="Cerrar"><i class="fas fa-xmark"></i></button>
       </div>
@@ -530,7 +532,7 @@
               <small class="hint" id="regPubHint"></small>
             </div>
             <div class="fg">
-              <label for="regFecha" id="regFechaLbl">Fecha de la seña</label>
+              <label for="regFecha" id="regFechaLbl">Fecha de la reserva</label>
               <input type="date" id="regFecha">
             </div>
           </div>
@@ -561,7 +563,7 @@
           <div class="rs-h"><span class="n">4</span>Recibo de la seña</div>
           <label class="firmado recibo-on" id="regReciboWrap"><input type="checkbox" id="regReciboOn" checked onchange="pintarRecibo()"><span><b>Emitir el recibo de la seña</b><small id="regReciboSub">Se arma solo con estos datos y los de arriba, listo para firmar y mandar.</small></span></label>
           <div class="rec-campos" id="regReciboCampos">
-            <div class="fg">
+            <div class="fg rec-apaga">
               <label>¿Quién dejó la seña?</label>
               <div id="regPagadores"></div>
               <datalist id="regPagSug"></datalist>
@@ -570,11 +572,12 @@
             </div>
             <div class="fg">
               <label for="regSena">Seña que dejó</label>
-              <div class="precio-in rec-sena"><span class="pre" id="regSenaMon">US$</span><input type="number" id="regSena" min="0" step="1" inputmode="decimal" placeholder="0"></div>
+              <div class="precio-in rec-sena"><span class="pre" id="regSenaMon">US$</span><input type="number" id="regSena" min="0" step="1" inputmode="decimal" aria-describedby="regSenaHint"></div>
+              <small class="hint" id="regSenaHint">Si no dejó seña, poné 0: la reserva se guarda igual, sin recibo.</small>
             </div>
-            <label class="chk"><input type="checkbox" id="regIva" checked> Cobrar IVA (22%) sobre la comisión</label>
+            <label class="chk rec-apaga"><input type="checkbox" id="regIva" checked> Cobrar IVA (22%) sobre la comisión</label>
             <div class="resumen rec-res" id="regReciboRes" hidden></div>
-            <div class="fg mt">
+            <div class="fg mt rec-apaga">
               <label for="regRecDir">Dirección en el recibo</label>
               <input type="text" id="regRecDir" placeholder="Calle y número, barrio" autocomplete="off">
             </div>
@@ -874,7 +877,7 @@
         $('btnRef').hidden = !isAdmin;
         $('lede').textContent = isAdmin
           ? 'Todos los cierres del equipo. Confirmá las firmas pendientes, generá los recibos y mirá dónde se está vendiendo.'
-          : 'Las ventas y alquileres que cerró el equipo: sirven de referencia de precios por barrio. Cuando un cliente deja la seña, registrá la reserva acá.';
+          : 'Las ventas y alquileres que cerró el equipo: sirven de referencia de precios por barrio. Cuando un cliente reserva, registrá la reserva acá.';
         pintarFiltros();
         initMap();
         refrescar(true);
@@ -1195,7 +1198,7 @@
       if (p.cierreConfirmado === true) return isAdmin
         ? '<button type="button" class="st ok" onclick="quitarConfirmacion(' + arg(p.id) + ', this)" title="Confirmado. Tocá para volver a Pendiente"><i class="fas fa-circle-check"></i> Confirmado</button>'
         : '<span class="st ok"><i class="fas fa-circle-check"></i> Confirmado</span>';
-      if (esReserva(p)) return '<span class="st res" title="El cliente dejó la seña: falta que la Dirección confirme la firma"><i class="fas fa-handshake"></i> Reservada</span>';
+      if (esReserva(p)) return '<span class="st res" title="' + (p.cierre && p.cierre.sinSena ? 'Reservada sin seña' : 'El cliente dejó la seña') + ': falta que la Dirección confirme la firma"><i class="fas fa-handshake"></i> Reservada</span>';
       return '<span class="st pend" title="Falta que el admin lo confirme"><i class="fas fa-clock"></i> Pendiente</span>';
     }
     // Reserva = cierre pendiente con la propiedad Reservada (todavía no se firmó).
@@ -1213,7 +1216,7 @@
       let s = '<div class="pp">';
       if (foto) s += '<img class="pp-foto" src="' + esc(foto) + '" alt="" onerror="this.remove()">';
       s += '<div class="pp-b">'
-        + '<div class="pp-t"><span class="tipo ' + (c.tipo === 'alquiler' ? 'alquiler' : 'venta') + '">' + (c.tipo === 'alquiler' ? 'Alquiler' : 'Venta') + '</span><span>' + (esReserva(p) ? 'Seña ' : '') + esc(fmtFechaCorta(c.fecha)) + '</span></div>'
+        + '<div class="pp-t"><span class="tipo ' + (c.tipo === 'alquiler' ? 'alquiler' : 'venta') + '">' + (c.tipo === 'alquiler' ? 'Alquiler' : 'Venta') + '</span><span>' + (esReserva(p) ? (c.sinSena ? 'Reserva ' : 'Seña ') : '') + esc(fmtFechaCorta(c.fecha)) + '</span></div>'
         + '<div class="pp-precio">' + esc(fmtMoney(c.precio, c.moneda)) + (c.tipo === 'alquiler' ? '<small>/mes</small>' : '') + (pm ? '<small>· ' + esc(fmtPm2(pm, c.moneda)) + '</small>' : '') + '</div>'
         + '<div class="pp-tit">' + esc(p.title || 'Propiedad') + '</div>'
         + '<div class="pp-meta">' + esc(metaTexto(p)) + '</div>';
@@ -1295,7 +1298,7 @@
         + '<div class="cc-body">'
         +   '<div class="cc-top"><span class="cc-precio">' + esc(fmtMoney(c.precio, c.moneda)) + (tipo === 'alquiler' ? '<small>/mes</small>' : '') + '</span>'
         +     pillEstado(p) + '</div>'
-        +   '<div class="cc-sub">' + [pm ? esc(fmtPm2(pm, c.moneda)) : '', (esReserva(p) ? 'Seña ' : '') + esc(fmtFechaCorta(c.fecha))].filter(Boolean).join(' · ') + '</div>'
+        +   '<div class="cc-sub">' + [pm ? esc(fmtPm2(pm, c.moneda)) : '', (esReserva(p) ? (c.sinSena ? 'Reserva ' : 'Seña ') : '') + esc(fmtFechaCorta(c.fecha))].filter(Boolean).join(' · ') + '</div>'
         +   '<h3 class="cc-tit">' + esc(p.title || 'Propiedad') + '</h3>'
         +   '<div class="cc-meta">' + esc(metaTexto(p)) + '</div>'
         +   quien
@@ -1308,7 +1311,7 @@
       $('btnLimpiar').hidden = !filtrosActivos();
       if (!total){
         wrap.innerHTML = '<div class="vacio"><i class="fas fa-map-location-dot"></i><h3>Todavía no hay cierres</h3>'
-          + 'Cuando un cliente deje la seña, registrá la reserva acá. Cuando se firme, la Dirección la confirma y suma a las ganancias del agente.'
+          + 'Cuando un cliente reserve, registrá la reserva acá. Cuando se firme, la Dirección la confirma y suma a las ganancias del agente.'
           + '<br><button type="button" class="btn btn-gold" onclick="openReg()"><i class="fas fa-plus"></i> Registrar la primera</button></div>';
         return;
       }
@@ -1444,9 +1447,9 @@
       if (Array.isArray(c.participantes) && c.participantes.length) filas.push('En equipo con ' + esc(c.participantes.map(x => x.nombre || 'Agente').join(', ')));
       // Con seña: la fecha cargada es la de la reserva y la de la firma se elige acá.
       const conSena = res || !!c.fechaReserva;
-      filas.push((conSena ? 'Seña: ' : 'Fecha cargada: ') + '<b>' + esc(fmtFecha(c.fechaReserva || c.fecha)) + '</b>');
+      filas.push((conSena ? (c.sinSena ? 'Reserva (sin seña): ' : 'Seña: ') : 'Fecha cargada: ') + '<b>' + esc(fmtFecha(c.fechaReserva || c.fecha)) + '</b>');
       $('confRes').innerHTML = filas[0] + filas.slice(1).join('<br>');
-      $('confSub').textContent = res ? 'El cliente dejó la seña. Confirmalo cuando la operación ya se firmó.' : 'La propiedad ya figura ' + (tipo === 'venta' ? 'vendida' : 'alquilada') + ': confirmá la firma para que sume en las finanzas.';
+      $('confSub').textContent = res ? (c.sinSena ? 'Se reservó sin seña. Confirmalo cuando la operación ya se firmó.' : 'El cliente dejó la seña. Confirmalo cuando la operación ya se firmó.') : 'La propiedad ya figura ' + (tipo === 'venta' ? 'vendida' : 'alquilada') + ': confirmá la firma para que sume en las finanzas.';
       // Si ya se había confirmado antes (y se le quitó la confirmación), queda la fecha de la firma que tenía.
       $('confFecha').value = (conSena && !c.confirmadoEl) ? hoyISO() : (/^\d{4}-\d{2}-\d{2}$/.test(c.fecha || '') ? c.fecha : hoyISO());
       $('confNota').innerHTML = '<i class="fas fa-circle-info"></i><div>' + (res
@@ -1472,7 +1475,7 @@
       wrap.hidden = true; nota.hidden = true; $('confCarta').checked = false;
       pintarConfCarta();
       if (!c.reciboId){
-        if (esReserva(p)){ nota.hidden = false; nota.textContent = 'Esta reserva no tiene recibo de la seña en el sistema: si corresponde, la carta de pago se hace en Recursos → Comisión.'; }
+        if (esReserva(p)){ nota.hidden = false; nota.textContent = c.sinSena ? 'Fue una reserva sin seña, así que no hay recibo: si corresponde, la carta de pago se hace en Recursos → Comisión.' : 'Esta reserva no tiene recibo de la seña en el sistema: si corresponde, la carta de pago se hace en Recursos → Comisión.'; }
         return;
       }
       let r = null;
@@ -1996,6 +1999,13 @@
       return p.status !== 'sold' && p.status !== 'rented';
     }
     function reciboActivo(){ return reciboAplica() && $('regReciboOn').checked && !(regRecibo && regRecibo.error); }
+    // Puso 0 en «Seña que dejó»: se reservó sin seña. La reserva se guarda igual,
+    // sin recibo (vacío no es 0: ahí se pide el monto, para que no se olvide).
+    function senaCero(){
+      const v = String($('regSena').value || '').trim();
+      return v !== '' && Number(v) === 0;
+    }
+    function sinSenaActivo(){ return reciboActivo() && senaCero(); }
     // Comisión de quien deja la seña (comprador o inquilino), sin IVA. Los importes
     // del recibo van en números enteros, como en Recursos: con decimales, comisión
     // más IVA podía no dar el total por un peso.
@@ -2093,6 +2103,8 @@
       if (!esReserva(p)){ pintarRecibo(); return true; }          // ya firmada: el recibo no se toca desde acá
       const id = p.cierre && p.cierre.reciboId;
       $('regReciboOn').checked = !!id;
+      // Fue sin seña: vuelve con 0 (si ahora dejó seña, se pone el monto y sale el recibo).
+      if (!id && p.cierre && p.cierre.sinSena){ $('regReciboOn').checked = true; $('regSena').value = '0'; }
       if (id){
         try{
           const d = await db.collection('comprobantes').doc(id).get();
@@ -2160,16 +2172,19 @@
       const aplica = reciboAplica(), on = $('regReciboOn').checked;
       $('regReciboSec').hidden = !aplica;
       numerarSecciones();
+      const sinSena = aplica && on && senaCero();
       // En una reserva nueva, el botón dice lo que va a pasar.
-      if (regModo !== 'editar' && !(isAdmin && $('regFirmado').checked)) $('regSaveTxt').textContent = (aplica && on) ? 'Guardar y emitir el recibo' : 'Guardar reserva';
+      if (regModo !== 'editar' && !(isAdmin && $('regFirmado').checked)) $('regSaveTxt').textContent = (aplica && on && !sinSena) ? 'Guardar y emitir el recibo' : 'Guardar reserva';
       if (!aplica) return;
       $('regReciboWrap').classList.toggle('on', on);
       $('regReciboCampos').hidden = !on || !!(regRecibo && regRecibo.error);
+      $('regReciboCampos').classList.toggle('sin-sena', sinSena);
       const tipo = tipoSel(), d = datosRecibo(), res = $('regReciboRes');
       $('regSenaMon').textContent = simbolo(d.moneda);
       res.classList.remove('mal');
       res.hidden = !on;
       if (!on) return;
+      if (sinSena){ res.innerHTML = '<b>Sin seña:</b> la reserva se guarda igual y la propiedad queda Reservada, sin recibo.'; return; }
       const quien = tipo === 'venta' ? 'comprador' : 'inquilino';
       if (!(d.precio > 0)){ res.innerHTML = 'Poné el ' + (tipo === 'venta' ? 'precio' : 'alquiler') + ' de arriba y acá se calcula la comisión del ' + quien + '.'; return; }
       if (!(d.neto > 0)){
@@ -2191,13 +2206,14 @@
     // Lo que se guarda en comprobantes/{id}. null si el recibo no va; { error } si falta algo.
     function reciboParaGuardar(p, agUid, agNom, fechaSena){
       if (!reciboActivo()) return null;
+      if (senaCero()) return null;                     // sin seña: la reserva va sin recibo
       const d = datosRecibo();
       const quien = d.tipo === 'venta' ? 'comprador' : 'inquilino';
       if (!(d.neto > 0)) return { error: 'Con 0 ' + (d.tipo === 'venta' ? '%' : 'meses') + ' para el ' + quien + ' no hay comisión para el recibo: corregí su parte o desmarcá «Emitir el recibo de la seña».', campo: $('regPctComprador') };
+      if (!(d.sena > 0)) return { error: 'Poné cuánto dejó de seña (0 si no dejó).', campo: $('regSena') };
       const pg = leerPagadores();
       if (pg.error) return pg;
       if (!pg.lista.length) return { error: 'Poné quién dejó la seña (o desmarcá «Emitir el recibo de la seña»).', campo: $('regPagadores').querySelector('.reg-pag-nom') };
-      if (!(d.sena > 0)) return { error: 'Poné cuánto dejó de seña.', campo: $('regSena') };
       if (d.sena > d.total) return { error: 'La seña (' + fmtRedondo(d.sena, d.moneda) + ') es más que la comisión del ' + quien + ' (' + fmtRedondo(d.total, d.moneda) + '): revisá los montos.', campo: $('regSena') };
       const dir = $('regRecDir').value.replace(/\s+/g, ' ').trim();
       if (!dir) return { error: 'Poné la dirección de la propiedad tal como va en el recibo.', campo: $('regRecDir') };
@@ -2370,12 +2386,12 @@
       const reserva = ed && esReserva(selProp);
       $('regTitulo').textContent = ed ? (reserva ? 'Corregir reserva' : 'Corregir cierre') : (firmado ? 'Registrar cierre firmado' : 'Registrar reserva');
       $('regSaveTxt').textContent = ed ? 'Guardar cambios' : (firmado ? 'Guardar cierre' : 'Guardar reserva');
-      $('regFechaLbl').textContent = ed ? (reserva ? 'Fecha de la seña' : 'Fecha de la firma') : (firmado ? 'Fecha de la firma' : 'Fecha de la seña');
+      $('regFechaLbl').textContent = ed ? (reserva ? 'Fecha de la reserva' : 'Fecha de la firma') : (firmado ? 'Fecha de la firma' : 'Fecha de la reserva');
       $('regSub').textContent = firmado
         ? 'La firma ya se hizo: queda confirmado al guardar y suma en Mis Finanzas y en Recompensas.'
         : (ed && !reserva)
           ? 'Corregí los datos de la operación: fecha, precio, ganancia o equipo.'
-          : 'Registrala cuando el cliente deja la seña: la propiedad queda Reservada. Cuando se firma, la Dirección lo confirma y recién ahí suma a Mis Finanzas y a Recompensas.';
+          : 'Registrala cuando el cliente reserva, con seña o sin seña: la propiedad queda Reservada. Cuando se firma, la Dirección lo confirma y recién ahí suma a Mis Finanzas y a Recompensas.';
       // "La firma ya se hizo" solo la marca la Dirección, y solo en una operación nueva.
       $('regFirmadoWrap').hidden = !(isAdmin && !ed);
       $('regFirmadoWrap').classList.toggle('on', firmado);
@@ -2626,6 +2642,7 @@
       const correccion = esCorreccion();
       // El recibo de la seña se revisa antes de guardar nada.
       let rec = reciboParaGuardar(p, cierreAgUid, cierreAgNom, fecha);
+      const sinSena = sinSenaActivo();
       if (rec && rec.error){
         toast(rec.error, true);
         if (rec.campo){ rec.campo.scrollIntoView({ behavior: 'smooth', block: 'center' }); try{ rec.campo.focus({ preventScroll: true }); }catch(eF){} }
@@ -2682,6 +2699,8 @@
       const yaCerrada = p.status === 'sold' || p.status === 'rented';
       // Resultó que ya figuraba vendida o alquilada: no es una reserva, no va recibo de seña.
       if (rec && !correccion && yaCerrada) rec = null;
+      // Reservada sin seña: queda anotado (en el mapa dice «Reserva» en vez de «Seña»).
+      if (sinSena && !yaCerrada) cierre.sinSena = true;
       if (!correccion) upd.status = yaCerrada ? (tipo === 'venta' ? 'sold' : 'rented') : 'reserved';
       else if (yaCerrada) upd.status = (tipo === 'venta' ? 'sold' : 'rented');
       // Una operación nueva sobre un cierre confirmado (solo la Dirección llega acá):
@@ -2779,7 +2798,7 @@
         }
         if (recFallo) toast('La reserva quedó guardada, pero el recibo no se pudo registrar'
           + (recFallo.code === 'permission-denied' ? ' (falta un permiso en el sistema: avisale a la Dirección)' : '') + '. Probá de nuevo con «Corregir reserva».', true);
-        else if (gestOk !== false) toast(correccion ? 'Cierre actualizado ✓' : (p.cierreConfirmado === true ? 'Cierre registrado y confirmado ✓' : 'Reserva registrada ✓ La propiedad quedó Reservada hasta que se confirme la firma.')
+        else if (gestOk !== false) toast(correccion ? 'Cierre actualizado ✓' : (p.cierreConfirmado === true ? 'Cierre registrado y confirmado ✓' : (cierre.sinSena ? 'Reserva registrada sin seña ✓' : 'Reserva registrada ✓') + ' La propiedad quedó Reservada hasta que se confirme la firma.')
           + (gestOk ? ' La gestión del cliente ya está al día.' : ''));
       }catch(e){
         console.warn('guardarCierre', e);
