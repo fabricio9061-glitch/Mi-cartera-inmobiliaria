@@ -4148,7 +4148,9 @@ async function cymPayload(p, propId, agente) {
 
   const payload = {
     id_orig: String(F.PROPERTY_CODE || propId || ""),
-    activa: "1",
+    // Reservada: inactiva (pausada). Cualquier envío respeta el estado, así que
+    // editar una propiedad reservada no la vuelve a mostrar.
+    activa: PORTAL_ESTADOS_PAUSA.includes(estado) ? "0" : "1",
     // Venta y alquiler son excluyentes acá porque el CRM maneja una sola
     // operación por propiedad. Si algún día se permite ambas, se prenden las dos.
     venta: esVenta ? 1 : 0,
@@ -4293,7 +4295,9 @@ exports.cymAltaMinima = onCall(async (request) => {
       Cloud Functions, nunca a la pantalla del agente.
    ========================================================================== */
 const CYM_LOCK_MS = 4 * 60 * 1000;
-const CYM_PUBLICABLE = ["available", "reserved"];
+/* Solo Disponible se publica de cero (igual que InfoCasas y Mercado Libre). Una
+   reservada ya publicada se pausa (PORTAL_ESTADOS_PAUSA) y vuelve al reactivarse. */
+const CYM_PUBLICABLE = ["available"];
 
 // Lo que devuelve cymPayload está pensado para el log; esto es para el agente.
 function cymFaltanAmigables(faltan) {
@@ -4424,6 +4428,9 @@ async function cymPublicar(ref, id, { origen = "auto", usuario = null } = {}) {
       ...base,
       cymId, cymEstado: "publicado",
       cymActualizadoAt: ahora(),
+      // Publicada estando reservada: sale inactiva (cymPayload) y se reactiva
+      // sola cuando vuelva a Disponible. La marca refleja lo que se mandó.
+      cymPausadaPorReserva: PORTAL_ESTADOS_PAUSA.includes(String(p.status || "available")) ? true : FV.delete(),
       cymOrigen: (nuevo || !p.cymOrigen) ? origen : p.cymOrigen,
       cymFotosOk: !!rf.ok,
       cymFaltan: FV.delete(),
@@ -6146,10 +6153,21 @@ exports.estadoPortales = onCall(async (request) => {
    a los otros dos.
    ========================================================================== */
 
-/* Estados que sacan el aviso de los portales. 'reserved' se deja publicado: la
-   propiedad sigue en el mercado. Los mismos que ML_ESTADOS_SIN_ESPEJO se
-   ignoran, porque ahí la decisión de publicar todavía no está tomada. */
+/* Estados que sacan el aviso de los portales. Los mismos que ML_ESTADOS_SIN_ESPEJO
+   se ignoran, porque ahí la decisión de publicar todavía no está tomada. */
 const PORTAL_ESTADOS_FUERA = ["sold", "rented", "archived"];
+/* Reservada: el aviso se PAUSA en los tres portales, como ya pasaba en Mercado
+   Libre (ML_STATUS_MAP). Antes, en InfoCasas y Casas y Más seguía publicada y
+   recibiendo consultas de una propiedad que ya no estaba en el mercado.
+   InfoCasas: se desactiva sin borrarlo (DISABLED conserva su historia y lo que se
+   le haya comprado). Casas y Más: queda inactiva (activa:"0" en cymPayload).
+   Si la reserva se cae y vuelve a Disponible, se reactivan solos. Las marcas
+   icPausadaPorReserva / cymPausadaPorReserva distinguen esta pausa de un aviso que
+   la Dirección desactivó a mano: ese no se reactiva solo.
+   Lo que la sincronización no pudo hacer (un portal que no respondió, o las que ya
+   estaban reservadas antes de esta regla) lo corrige el repaso de la madrugada
+   (repasarEstadoPortales). */
+const PORTAL_ESTADOS_PAUSA = ["reserved"];
 
 /* Publicación automática en Casas y Más.
 
@@ -6965,6 +6983,66 @@ async function icBajaAutomatica(ref, id, p, st) {
   return r.ok;
 }
 
+/* Reservada: el aviso de InfoCasas se desactiva sin borrarlo; vuelve con ACTIVE
+   cuando la propiedad pasa otra vez a Disponible (ver PORTAL_ESTADOS_PAUSA).
+   La marca guarda el listing_id que se pausó: si ese aviso se da de baja y después
+   se publica uno nuevo, la marca vieja no vale para el nuevo. */
+function icPausada(p) {
+  return !!(p && p.icPausadaPorReserva && p.icListingId &&
+    String(p.icPausadaPorReserva) === String(p.icListingId));
+}
+/* Los avisos de "no se pudo pausar / reactivar" llevan pausa:true y se borran
+   cuando dejan de importar. Se relee la propiedad: en la misma pasada pudo quedar
+   anotado otro aviso (por ejemplo, que a la ficha le falta algo) y ese no se toca. */
+async function limpiarErrorDePausa(ref, campo) {
+  const d = (await ref.get()).data() || {};
+  if (d[campo] && d[campo].pausa) await ref.update({ [campo]: admin.firestore.FieldValue.delete() });
+}
+/* No guarda la tarea de InfoCasas (icTaskId): esa queda para la última edición de
+   la ficha, que es la que el webhook informa. Si el cambio de estado no se
+   aplica, el repaso de la madrugada lo ve en el portal y lo vuelve a pedir. */
+async function icPausaPorReserva(ref, id, p, pausar, st) {
+  const FV = admin.firestore.FieldValue;
+  const estado = pausar ? "DISABLED" : "ACTIVE";
+  const que = pausar ? "pausada por la reserva" : "reactivada (volvió a Disponible)";
+  let r;
+  try {
+    r = await icFetch("/listing/status", {
+      method: "PATCH", conCookie: true,
+      body: [{ listing_id: String(p.icListingId), client_id: await icClientId(), status: estado }],
+    });
+  } catch (e) {
+    logger.error(`icPausaPorReserva ${id}`, e);
+    r = { ok: false, status: String((e && e.message) || e) };
+  }
+  if (!r.ok) {
+    await registrarLog(id, `InfoCasas: ${que}`, false, `HTTP ${r.status}`);
+    // Que se vea en Portales: el aviso quedó como estaba.
+    await ref.update({
+      icUltimoError: {
+        mensaje: pausar
+          ? "No se pudo pausar el aviso en InfoCasas al reservar: sigue visible. Se vuelve a intentar esta noche."
+          : "No se pudo reactivar el aviso en InfoCasas: sigue desactivado. Se vuelve a intentar esta noche.",
+        pausa: true, at: new Date().toISOString(),
+      },
+      icActivaAMano: FV.delete(),
+      portalesAt: FV.delete(),
+    });
+    return false;
+  }
+  await ref.update({
+    icStatusEnviado: estado, icStatusAt: new Date().toISOString(),
+    // Lo que muestran la tarjeta y Portales mientras InfoCasas lo procesa.
+    icEstadoPortal: pausar ? "desactivada" : "publicandose",
+    icPausadaPorReserva: pausar ? String(p.icListingId) : FV.delete(),
+    icActivaAMano: FV.delete(),
+    portalesAt: FV.delete(),
+  });
+  await limpiarErrorDePausa(ref, "icUltimoError");
+  await registrarLog(id, `InfoCasas: ${que}`, true, `estado ${st} · listing ${p.icListingId}`);
+  return true;
+}
+
 /* Busca un aviso por nuestro código (el external_code). Sirve cuando InfoCasas
    contesta una publicación sin listing_id (FORWARDED, o terminada sin él).
    El código se repite cuando una propiedad se vuelve a publicar, y la lista
@@ -7065,6 +7143,62 @@ async function icRepasarPublicaciones() {
   return revisadas;
 }
 
+/* Manda a Casas y Más la ficha de un aviso que ya existe (modificar_propiedad).
+   La usan la sincronización al editar y el repaso de la madrugada. activa va
+   según el estado (cymPayload): "0" si está reservada. cymPausadaPorReserva
+   refleja lo último que se mandó bien: si un envío falla, la marca no coincide
+   con el estado y el siguiente lo corrige solo.
+   fotos: re-subirlas, solo si CAMBIARON. Mandarlas en cada edición haría que el
+   portal las reprocese aunque solo se haya tocado el precio, y son hasta 25
+   descargas por vez. */
+async function cymMandarFicha(ref, id, p, agente, { fotos = false } = {}) {
+  const FV = admin.firestore.FieldValue;
+  const pausar = PORTAL_ESTADOS_PAUSA.includes(String(p.status || "available"));
+  const cambiaPausa = pausar !== !!p.cymPausadaPorReserva;
+  const que = !cambiaPausa ? "actualización automática" : pausar ? "pausada por la reserva" : "reactivada (volvió a Disponible)";
+  const ahora = new Date().toISOString();
+  const armado = await cymPayload(p, id, agente);
+  if (!armado.ok) {
+    /* Antes solo quedaba en el log del servidor: el aviso seguía con la versión
+       vieja y el modal no decía nada. */
+    logger.warn(`cymMandarFicha ${id}: ficha incompleta`, armado.faltan);
+    await ref.update({ cymUltimoError: {
+      mensaje: cambiaPausa
+        ? `No se pudo ${pausar ? "pausar" : "reactivar"} el aviso en Casas y Más: falta ${armado.faltan.join(", ")}. Completalo en Editar propiedad y guardá.`
+        : `Los últimos cambios no se mandaron a Casas y Más: falta ${armado.faltan.join(", ")}. Completalo en Editar propiedad y guardá.`,
+      faltan: armado.faltan, accion: "actualizar", ...(cambiaPausa ? { pausa: true } : {}), at: ahora } });
+    await registrarLog(id, `Casas y Más: ${que}`, false, `no se mandó, faltan: ${armado.faltan.join(", ")}`);
+    return false;
+  }
+  const r = await cymFetch("/modificar_propiedad", { id: String(p.cymId), ...armado.payload }, "PUT");
+  await registrarLog(id, `Casas y Más: ${que}`, !!r.ok, r.ok ? "" : `código ${r.codigo}: ${r.mensaje}`);
+  // El modal de Portales muestra la última sincronización y si falló. Ninguno de
+  // estos campos es contenido: no vuelve a disparar la sincronización. Al pausar
+  // o reactivar, lo que se sabía de la cartera del portal (cymEnPortal) queda
+  // viejo: lo vuelve a mirar el repaso.
+  await ref.update(r.ok
+    ? { cymActualizadoAt: ahora, cymUltimoError: FV.delete(),
+        cymPausadaPorReserva: pausar ? true : FV.delete(),
+        ...(cambiaPausa ? { cymEnPortal: FV.delete(), portalesAt: FV.delete() } : {}) }
+    : { cymUltimoError: {
+          mensaje: r.codigo === 4
+            ? "El aviso ya no existe en Casas y Más. Republicala para volver a publicarla."
+            : cambiaPausa
+              ? (pausar ? "No se pudo pausar el aviso en Casas y Más al reservar: sigue visible. Se vuelve a intentar esta noche."
+                        : "No se pudo reactivar el aviso en Casas y Más. Se vuelve a intentar esta noche.")
+              : "No pudimos enviar los últimos cambios a Casas y Más. Podés republicar para reintentar.",
+          codigo: r.codigo || null, accion: "actualizar", ...(cambiaPausa && r.codigo !== 4 ? { pausa: true } : {}), at: ahora } });
+  if (r.ok && fotos && armado.fotos.length >= 4) {
+    const rf = await cymFetch("/subir_fotos", {
+      id_propiedad: String(p.cymId),
+      fotos: armado.fotos.map((url, i) => ({ foto: url, orden: String(i + 1) })),
+    });
+    await registrarLog(id, "Casas y Más: fotos actualizadas", !!rf.ok,
+      rf.ok ? `${armado.fotos.length} fotos` : `código ${rf.codigo}`);
+  }
+  return !!r.ok;
+}
+
 exports.sincronizarPortales = onDocumentUpdated("properties/{id}", async (event) => {
   const before = event.data.before.data();
   const after = event.data.after.data();
@@ -7098,16 +7232,32 @@ exports.sincronizarPortales = onDocumentUpdated("properties/{id}", async (event)
     try {
       if (fuera) {
         await icBajaAutomatica(ref, id, after, stAfter);
-      } else if (cambioContenido) {
-        await icMandarCambios(ref, id, after, agente, "actualización automática");
-      } else if (confirmada || cambioEstado) {
+      } else {
+        if (cambioContenido) {
+          await icMandarCambios(ref, id, after, agente, "actualización automática");
+        } else if (confirmada || cambioEstado) {
         /* Solo si la ficha cambió desde el último envío: si es lo mismo, no hay
            nada que mandar. Cubre lo editado mientras la publicación estaba
            pendiente, aunque se confirme en un estado que no se sincroniza
            (cerrado_externo, tasación): sale cuando vuelve a uno que sí. */
-        const armado = await icApiPayload(after, id, agente);
-        if (!armado.ok || !after.icFirmaEnviada || icFirma(armado.payload) !== after.icFirmaEnviada) {
-          await icMandarCambios(ref, id, after, agente, confirmada ? "cambios hechos mientras se publicaba" : "cambios pendientes");
+          const armado = await icApiPayload(after, id, agente);
+          if (!armado.ok || !after.icFirmaEnviada || icFirma(armado.payload) !== after.icFirmaEnviada) {
+            await icMandarCambios(ref, id, after, agente, confirmada ? "cambios hechos mientras se publicaba" : "cambios pendientes");
+          }
+        }
+        /* Reservada: se pausa; vuelve a Disponible: se reactiva. Va después de la
+           ficha: si la pausa falla, ese es el aviso que tiene que quedar a la vista
+           en Portales. Un aviso que la Dirección ya había desactivado a mano no se
+           toca (y por eso tampoco se reactiva solo después). */
+        const pausar = PORTAL_ESTADOS_PAUSA.includes(stAfter);
+        const pausada = icPausada(after);
+        if ((cambioEstado || confirmada) && pausar && !pausada && after.icStatusEnviado !== "DISABLED") {
+          await icPausaPorReserva(ref, id, after, true, stAfter);
+        } else if (cambioEstado && !pausar && pausada) {
+          await icPausaPorReserva(ref, id, after, false, stAfter);
+        } else if (cambioEstado) {
+          // Un "no se pudo pausar / reactivar" de antes ya no corre con el estado nuevo.
+          await limpiarErrorDePausa(ref, "icUltimoError");
         }
       }
     } catch (e) {
@@ -7126,43 +7276,18 @@ exports.sincronizarPortales = onDocumentUpdated("properties/{id}", async (event)
         } else {
           await registrarLog(id, "Casas y Más: baja automática", false, `código ${r.codigo}`);
         }
-      } else if (cambioContenido) {
-        const armado = await cymPayload(after, id, agente);
-        if (!armado.ok) {
-          /* Antes solo quedaba en el log del servidor: el aviso seguía con la
-             versión vieja y el modal no decía nada. */
-          logger.warn(`sincronizarPortales ${id}: Casas y Más, ficha incompleta`, armado.faltan);
-          await ref.update({ cymUltimoError: {
-            mensaje: `Los últimos cambios no se mandaron a Casas y Más: falta ${armado.faltan.join(", ")}. Completalo en Editar propiedad y guardá.`,
-            faltan: armado.faltan, accion: "actualizar", at: new Date().toISOString() } });
-          await registrarLog(id, "Casas y Más: actualización automática", false, `no se mandó, faltan: ${armado.faltan.join(", ")}`);
-        } else {
-          const r = await cymFetch("/modificar_propiedad",
-            { id: String(after.cymId), ...armado.payload }, "PUT");
-          await registrarLog(id, "Casas y Más: actualización automática", !!r.ok,
-            r.ok ? "" : `código ${r.codigo}: ${r.mensaje}`);
-          // El modal de Portales muestra la última sincronización y si falló.
-          // Ninguno de estos campos es contenido: no vuelve a disparar el trigger.
-          await ref.update(r.ok
-            ? { cymActualizadoAt: new Date().toISOString(), cymUltimoError: admin.firestore.FieldValue.delete() }
-            : { cymUltimoError: {
-                  mensaje: r.codigo === 4
-                    ? "El aviso ya no existe en Casas y Más. Republicala para volver a publicarla."
-                    : "No pudimos enviar los últimos cambios a Casas y Más. Podés republicar para reintentar.",
-                  codigo: r.codigo || null, accion: "actualizar", at: new Date().toISOString() } });
-          /* Las fotos se re-suben solo si CAMBIARON. Mandarlas en cada edición
-             haría que el portal las reprocese aunque solo se haya tocado el
-             precio, y son hasta 25 descargas por vez. */
+      } else {
+        /* Reservada: se pausa; vuelve a Disponible: se reactiva. Va en el mismo
+           envío de la ficha (activa "0" / "1", ver cymMandarFicha). Si un envío
+           anterior falló, la marca no coincide con el estado y se manda igual. */
+        const pausar = PORTAL_ESTADOS_PAUSA.includes(stAfter);
+        const cambiaPausa = pausar !== !!after.cymPausadaPorReserva;
+        if (cambioContenido || cambiaPausa) {
           const fotosAntes = JSON.stringify((before && before.images) || []);
           const fotosAhora = JSON.stringify(after.images || []);
-          if (r.ok && fotosAntes !== fotosAhora && armado.fotos.length >= 4) {
-            const rf = await cymFetch("/subir_fotos", {
-              id_propiedad: String(after.cymId),
-              fotos: armado.fotos.map((url, i) => ({ foto: url, orden: String(i + 1) })),
-            });
-            await registrarLog(id, "Casas y Más: fotos actualizadas", !!rf.ok,
-              rf.ok ? `${armado.fotos.length} fotos` : `código ${rf.codigo}`);
-          }
+          await cymMandarFicha(ref, id, after, agente, { fotos: fotosAntes !== fotosAhora });
+        } else if (cambioEstado) {
+          await limpiarErrorDePausa(ref, "cymUltimoError");
         }
       }
     } catch (e) {
@@ -11250,6 +11375,7 @@ exports.estadoEnInfocasas = onCall(async (request) => {
              mensaje: "InfoCasas no aceptó el pedido. Podés volver a intentarlo." };
   }
   const taskId = icTaskId(r.data || {});
+  const reservada = PORTAL_ESTADOS_PAUSA.includes(String(p.status || "available"));
 
   /* No se espera a que InfoCasas termine: puede tardar minutos y la llamada del
      navegador corta antes, así que la baja "fallaba" aunque saliera. Igual que
@@ -11265,6 +11391,12 @@ exports.estadoEnInfocasas = onCall(async (request) => {
     ...(estado === "DELETED" ? { icEstado: "eliminado" } : {}),
     // Lo que muestra la tarjeta mientras InfoCasas lo procesa.
     icEstadoPortal: estado === "DELETED" ? "eliminada" : (estado === "DISABLED" ? "desactivada" : "publicandose"),
+    /* Estando reservada, desactivar es la misma pausa de la reserva: vuelve sola
+       cuando pase a Disponible. Reactivarla estando reservada es decisión de la
+       Dirección: el repaso de la madrugada no la vuelve a pausar. */
+    icPausadaPorReserva: estado === "DISABLED" && reservada ? listingId : admin.firestore.FieldValue.delete(),
+    icActivaAMano: estado === "ACTIVE" && reservada ? true : admin.firestore.FieldValue.delete(),
+    ...(p.icUltimoError && p.icUltimoError.pausa ? { icUltimoError: admin.firestore.FieldValue.delete() } : {}),
   });
   await registrarLog(propertyId, "InfoCasas: cambio de estado", true, `status ${estado} · listing ${listingId}`);
   return { ok: true, taskId: taskId ? String(taskId) : null,
@@ -11724,7 +11856,11 @@ async function icAuditarUna(id) {
   else if (fila.diferencias.length) fila.situacion = "distinta";
   else if (fila.enProceso || est === "10" || est === "PUBLISHING") fila.situacion = "procesando";
   else if (fila.faltan) fila.situacion = "faltan";
-  else if (est && IC_ESTADO_FUERA_DEL_PORTAL.includes(est)) fila.situacion = "no_activa";
+  else if (est && IC_ESTADO_FUERA_DEL_PORTAL.includes(est)) {
+    // Reservada: el aviso está desactivado a propósito y vuelve al pasar a Disponible.
+    fila.situacion = (est === "1" || est === "DISABLED") && PORTAL_ESTADOS_PAUSA.includes(String(p.status || "available"))
+      ? "pausada" : "no_activa";
+  }
   else fila.situacion = "igual";
   /* Dada de baja en el CRM (vendida, alquilada, archivada…): si en InfoCasas
      tampoco se ve, está todo en orden y no se lista para revisar. Si allá
@@ -12880,10 +13016,27 @@ exports.pausarML = onCall(async (request) => {
    un aviso desactivado desde el panel de InfoCasas seguía figurando "Activa".
    También borra la copia vieja de los portales que quedaba guardada dentro de
    la propiedad (ver estadoPortales). Solo escribe lo que cambió. */
+/* Lo que la sincronización no pudo hacer con la pausa de las reservadas: avisos
+   de reservadas que todavía se ven (reservadas antes de esta regla, o el portal
+   no respondió) y pausados de propiedades que ya volvieron a Disponible.
+   InfoCasas se decide con lo que el portal muestra HOY (estado). */
+function icPausaPendiente(p, estado) {
+  const st = String(p.status || "available");
+  if (PORTAL_ESTADOS_PAUSA.includes(st)) return estado === "activa" && !p.icActivaAMano ? true : null;
+  if (st === "available" && estado === "desactivada" && icPausada(p)) return false;
+  return null;
+}
+function cymPausaPendiente(p) {
+  if (!p.cymId || p.cymEstado === "eliminado" || p.cymEstado === "error") return false;
+  const st = String(p.status || "available");
+  if (PORTAL_ESTADOS_PAUSA.includes(st)) return !p.cymPausadaPorReserva;
+  return st === "available" && !!p.cymPausadaPorReserva;
+}
+
 async function repasarEstadoPortales() {
   const FV = admin.firestore.FieldValue;
   const snap = await db.collection("properties").get();
-  let ic = 0, cym = 0, limpias = 0, fallos = 0;
+  let ic = 0, cym = 0, limpias = 0, fallos = 0, pausas = 0;
   // Casas y Más: una sola consulta trae toda la cartera.
   let cartera = null;
   try {
@@ -12901,11 +13054,20 @@ async function repasarEstadoPortales() {
       try {
         const r = await icFetchConReintento(`/listing/${encodeURIComponent(p.icListingId)}`, { conCookie: true });
         const estado = r.status === 404 ? "no_esta" : (r.ok ? icClaveEstado(icResumenAviso(icDesenvolver(r.data)).estado) : null);
-        if (estado && estado !== p.icEstadoPortal) { cambios.icEstadoPortal = estado; ic++; }
+        const pausar = icPausaPendiente(p, estado);
+        if (pausar !== null) {
+          // icPausaPorReserva deja anotado el estado nuevo (o el error).
+          if (await icPausaPorReserva(d.ref, d.id, p, pausar, String(p.status || "available"))) pausas++; else fallos++;
+        } else if (estado && estado !== p.icEstadoPortal) { cambios.icEstadoPortal = estado; ic++; }
       } catch (e) { fallos++; }
       await new Promise((x) => setTimeout(x, 150));   // la API de InfoCasas limita las peticiones
     }
-    if (cartera && p.cymId && p.cymEstado !== "eliminado" && p.cymEstado !== "error") {
+    if (cymPausaPendiente(p)) {
+      try {
+        const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+        if (await cymMandarFicha(d.ref, d.id, p, uSnap && uSnap.exists ? uSnap.data() : {})) pausas++; else fallos++;
+      } catch (e) { fallos++; }
+    } else if (cartera && p.cymId && p.cymEstado !== "eliminado" && p.cymEstado !== "error") {
       const item = cartera.get(String(p.cymId));
       if (!!item !== p.cymEnPortal) { cambios.cymEnPortal = !!item; cym++; }
       if (item && (String(item.destacada) === "1") !== !!p.cymDestacada) cambios.cymDestacada = String(item.destacada) === "1";
@@ -12914,8 +13076,8 @@ async function repasarEstadoPortales() {
       try { await d.ref.update(cambios); } catch (e) { fallos++; }
     }
   }
-  logger.info(`refrescarEstadoPortales: InfoCasas ${ic} cambios, Casas y Más ${cym}, copias viejas borradas ${limpias}, fallos ${fallos}.`);
-  return { ic, cym, limpias, fallos };
+  logger.info(`refrescarEstadoPortales: InfoCasas ${ic} cambios, Casas y Más ${cym}, pausas por reserva corregidas ${pausas}, copias viejas borradas ${limpias}, fallos ${fallos}.`);
+  return { ic, cym, limpias, fallos, pausas };
 }
 exports.refrescarEstadoPortales = onSchedule(
   { schedule: "50 5 * * *", timeZone: "America/Montevideo", timeoutSeconds: 540 },

@@ -5340,9 +5340,9 @@
     }
 
     // Algo que impide que el portal la publique aunque esté todo completo. Sigue lo
-    // que hace el servidor con cada estado: Reservada pausa el aviso de Mercado
-    // Libre, InfoCasas no la publica si no estaba (si estaba, sigue y se actualiza)
-    // y Casas y Más la publica igual. Vendida, Alquilada o Archivada la sacan.
+    // que hace el servidor con cada estado: Reservada pausa el aviso en los tres
+    // portales (y vuelve solo al pasar a Disponible); InfoCasas y Casas y Más no la
+    // publican si no estaba. Vendida, Alquilada o Archivada la sacan.
     function bloqueoPortal(k) {
       if (sinCategoria(k)) {
         const tipo = _v('propRealEstateType') === 'otro' ? 'Otros inmuebles' : (NOMBRE_TIPO[_v('propRealEstateType')] || 'este tipo');
@@ -5353,7 +5353,10 @@
       const pub = publicadoEn(k);
       if (st === 'reserved') {
         if (k === 'ml') return { titulo: 'En pausa', corto: 'en pausa', txt: 'Mientras esté Reservada, el aviso de Mercado Libre queda pausado.' };
-        if (k === 'ic' && !pub) return { titulo: 'No se publica', corto: 'en pausa', txt: 'Está Reservada: InfoCasas la publica cuando vuelva a Disponible.' };
+        if (pub) return { titulo: 'En pausa', corto: 'en pausa', txt: `Mientras esté Reservada, el aviso de ${NOMBRE_PORTAL[k]} queda pausado. Vuelve a verse solo cuando pase a Disponible.` };
+        // Si se dio de baja a mano, no vuelve sola: lo dice el aviso de "Dada de baja".
+        const deBaja = (k === 'ic' && p.icEstado === 'eliminado') || (k === 'cym' && p.cymEstado === 'eliminado');
+        if (!deBaja) return { titulo: 'No se publica', corto: 'en pausa', txt: `Está Reservada: ${NOMBRE_PORTAL[k]} la publica cuando vuelva a Disponible.` };
       } else if (st !== 'available') {
         return { titulo: 'No se publica', corto: 'en pausa', txt: `La propiedad está ${NOMBRE_ESTADO[st] || st}: mientras tanto, los portales no la toman.` };
       }

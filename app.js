@@ -3768,12 +3768,25 @@
       const t = vivo && vivo.tarea;
       const est = t ? String(t.estado || '').toUpperCase() : '';
       const procesando = /READY|PENDING|PROCESS|PROGRESS|QUEUED|RUNNING/.test(est);
-      const fallo = !procesando && (!!err || /ERROR|FAIL|REJECT|CANCEL/.test(est));
+      // No se pudo pausar (al reservar) o reactivar (al volver a Disponible): el
+      // servidor lo reintenta solo esa noche. No es un problema de la ficha.
+      const errPausa = !!(err && err.pausa);
+      const fallo = !procesando && !errPausa && (!!err || /ERROR|FAIL|REJECT|CANCEL/.test(est));
       // Lo que InfoCasas tiene publicado hoy: estadoPortales lo lee del portal.
       const real = vivo && vivo.portal;
-      const malReal = real && IC_REAL[real.estado];
+      // Reservada: el aviso queda desactivado a propósito (se pausa al reservar).
+      const reservada = (p.status || 'available') === 'reserved';
+      const pausaReserva = reservada && (real && real.estado ? real.estado === 'desactivada' : p.icEstadoPortal === 'desactivada');
+      const vuelveSola = !!p.icPausadaPorReserva && String(p.icPausadaPorReserva) === String(p.icListingId);
+      const malReal = !pausaReserva && real && IC_REAL[real.estado];
       if (procesando) cfg.estado = { tono: 'busy', texto: 'Actualizando' };
+      else if (pausaReserva) {
+        cfg.estado = { tono: 'off', texto: 'Pausada' };
+        cfg.explica = vuelveSola ? 'No se ve porque la propiedad está reservada. Vuelve a verse sola cuando pase a Disponible.'
+          : 'No se ve: la Dirección desactivó el aviso. No se reactiva sola.';
+      }
       else if (malReal) { cfg.estado = { tono: malReal[0], texto: malReal[1] }; cfg.explica = malReal[2]; }
+      else if (errPausa) cfg.estado = { tono: 'warn', texto: reservada ? 'Sin pausar' : 'Sin reactivar' };
       else if (fallo) cfg.estado = { tono: 'warn', texto: 'Desactualizada' };
       else { cfg.estado = { tono: 'ok', texto: 'Activa' }; if (real && real.estado === 'activa') cfg.explica = 'Se ve en InfoCasas.'; }
       cfg.lead = 'Los cambios de precio, fotos y descripción se envían solos al editar la propiedad.';
@@ -3819,6 +3832,8 @@
           : 'InfoCasas no aceptó los últimos cambios: el aviso sigue publicado con la versión anterior. ' +
             (puede ? 'Tocá <strong>Actualizar</strong> para reintentar.' : 'Lo puede reintentar el agente de la propiedad.') +
             detalleAdmin((err && err.mensaje) || (t && t.motivo) || (t && t.mensajes)) });
+      } else if (errPausa) {
+        cfg.notas.push({ tono: 'warn', texto: err.mensaje });
       } else if (procesando && !_portalFlash.infocasas) {
         cfg.notas.push({ tono: 'info', texto: 'InfoCasas está procesando los últimos cambios. Se ven en el portal en unos minutos.' });
       }
@@ -3920,6 +3935,9 @@
     const pid = mlModalPropId;
     if (!pid || _portalBusy.infocasas) return;
     if (status === 'DISABLED' && !confirm('¿Desactivar el aviso en InfoCasas? Deja de verse, pero no se borra: lo podés reactivar cuando quieras.')) return;
+    const _pr = properties.find(x => x.id === pid);
+    if (status === 'ACTIVE' && _pr && _pr.status === 'reserved' &&
+        !confirm('La propiedad está reservada, por eso el aviso está pausado. ¿Reactivarlo igual? Va a seguir visible mientras esté reservada.')) return;
     _portalBusy.infocasas = status === 'DISABLED' ? 'desactivar' : 'reactivar';
     delete _portalFlash.infocasas;
     repintarPortal('infocasas');
@@ -3981,12 +3999,20 @@
     }
 
     if (vivo) {
-      const noAparece = !!(c && c.noEncontrada);
-      cfg.estado = noAparece ? { tono: 'warn', texto: 'No aparece en el portal' }
+      // Reservada: el aviso queda inactivo a propósito y vuelve solo al pasar a
+      // Disponible. Inactivo no figura en la cartera del portal: no es "no aparece".
+      const reservada = (p.status || 'available') === 'reserved';
+      const pausaReserva = reservada && !!p.cymPausadaPorReserva;
+      const errPausa = !!(err && err.pausa);
+      const noAparece = !pausaReserva && !!(c && c.noEncontrada);
+      cfg.estado = pausaReserva ? { tono: 'off', texto: 'Pausada' }
+        : noAparece ? { tono: 'warn', texto: 'No aparece en el portal' }
         : (err && err.accion === 'fotos') ? { tono: 'warn', texto: 'Fotos sin subir' }
+        : errPausa ? { tono: 'warn', texto: reservada ? 'Sin pausar' : 'Sin reactivar' }
         : err ? { tono: 'warn', texto: 'Desactualizada' }
         : { tono: 'ok', texto: 'Activa' };
-      cfg.explica = noAparece ? 'No figura en la cartera de Casas y Más.' : (c && c.activaEnPortal ? 'Se ve en Casas y Más.' : '');
+      cfg.explica = pausaReserva ? 'No se ve porque la propiedad está reservada. Vuelve a verse sola cuando pase a Disponible.'
+        : noAparece ? 'No figura en la cartera de Casas y Más.' : (c && c.activaEnPortal ? 'Se ve en Casas y Más.' : '');
       if (c && c.activaEnPortal) {
         const fotosFicha = (p.images || []).length;
         cfg.cliente = [
@@ -6411,7 +6437,7 @@
   const BANCOS_UY = [
     'BROU - Banco República', 'Banco Itaú', 'Santander', 'BBVA', 'Scotiabank',
     'HSBC', 'Banco Heritage', 'Citibank', 'Banque Heritage', 'Banco de la Nación Argentina',
-    'BANDES', 'Prex', 'Mi Dinero', 'Midinero', 'OCA Blue', 'Anda', 'Creditel', 'Otro'
+    'BANDES', 'Mercado Pago', 'Prex', 'Mi Dinero', 'Midinero', 'OCA Blue', 'Anda', 'Creditel', 'Otro'
   ];
   function poblarBancos() {
     const sel = document.getElementById('editBanco');
@@ -8054,6 +8080,8 @@
       if (k === 'activa' || k === 'publicandose') return { txt: 'Sigue activa', tono: 'ojo', prob: 'Dada de baja en el CRM, sigue activa en InfoCasas' };
       return { txt: k ? 'Dada de baja' : 'Sin revisar', tono: 'nada' };
     }
+    // Reservada: el aviso se pausa a propósito y vuelve solo al pasar a Disponible.
+    if ((p.status || 'available') === 'reserved' && k === 'desactivada') return { txt: 'Pausada', tono: 'pausa' };
     if (!k) return { txt: 'Publicada', tono: 'ok' };
     const m = TG_IC[k] || [String(k), 'ojo', 'InfoCasas muestra el aviso como ' + k];
     return { txt: m[0], tono: m[1], prob: m[2] || '' };
@@ -8067,6 +8095,8 @@
       if (p.cymEnPortal === true) return { txt: 'Sigue activa', tono: 'ojo', prob: 'Dada de baja en el CRM, sigue activa en Casas y Más' };
       return { txt: p.cymEnPortal === false ? 'Dada de baja' : 'Sin revisar', tono: 'nada' };
     }
+    // Reservada: queda inactiva en Casas y Más (por eso no figura en su cartera).
+    if ((p.status || 'available') === 'reserved' && p.cymPausadaPorReserva) return { txt: 'Pausada', tono: 'pausa' };
     if (p.cymEnPortal === false) return { txt: 'No aparece', tono: 'mal', prob: 'Casas y Más no la muestra' };
     if (p.cymEnPortal === true) return { txt: p.cymDestacada ? 'Destacada' : 'Activa', tono: 'ok' };
     return { txt: 'Publicada', tono: 'ok' };
@@ -8104,8 +8134,11 @@
     if (prob) {
       aviso = `<div class="tg-alerta${prob[1].tono === 'mal' ? ' mal' : ''}"><span>${mvEsc(prob[1].prob)}</span>` +
         `<button type="button" onclick="openMLModal('${id}',{portal:'${prob[0]}'})">Ver y arreglar</button></div>`;
-    } else if ((p.status || 'available') === 'reserved' && p.mlItemId && p.mlStatus === 'paused') {
-      aviso = '<div class="tg-nota">Reservada: Mercado Libre se pausó solo y vuelve si se libera.</div>';
+    } else if ((p.status || 'available') === 'reserved') {
+      // Reservada: cada portal pausa su aviso solo y lo vuelve a mostrar si se libera.
+      const pz = [['Mercado Libre', ml], ['InfoCasas', ic], ['Casas y Más', cm]].filter(x => x[1].txt === 'Pausada').map(x => x[0]);
+      if (pz.length) aviso = '<div class="tg-nota">Reservada: ' + (pz.length === 1 ? `${pz[0]} se pausó solo y vuelve`
+        : `${pz.slice(0, -1).join(', ')} y ${pz[pz.length - 1]} se pausaron solos y vuelven`) + ' si se libera.</div>';
     }
     // El clic dentro de la barra no abre la propiedad (la tarjeta entera es un link).
     return `<div class="tg-barra" onclick="event.stopPropagation()">` +
