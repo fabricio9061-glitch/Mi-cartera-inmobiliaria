@@ -199,6 +199,20 @@ service cloud.firestore {
                               && request.resource.data.get('consid', {}) is map
                               && request.resource.data.get('consid', {}).keys().hasOnly(['conRegimen', 'conDjcu', 'conOcupacion', 'conTributos', 'conObras', 'conNotas']);
       }
+
+      // Las cuentas para cobrar del agente (banco, número, titular y cédula).
+      // Antes estaban en el perfil, que lee todo el equipo. Acá las ve y las
+      // cambia solo el dueño; la Dirección las ve para transferir. La mudanza
+      // (moverCuentasBancarias) usa Admin SDK y no pasa por estas reglas.
+      match /privado/{docId} {
+        allow read: if esDireccion() || (request.auth != null && request.auth.uid == userId);
+        allow create, update: if request.auth != null && request.auth.uid == userId
+                              && docId == 'banco'
+                              && request.resource.data.keys().hasOnly(['cuentas', 'updatedAt'])
+                              && request.resource.data.cuentas is list
+                              && request.resource.data.cuentas.size() <= 10;
+        allow delete: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     // ============ ADMIN DATA (comisiones, etc.) — SOLO admin ============

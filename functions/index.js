@@ -13351,3 +13351,62 @@ exports.repasoPerfiles = onSchedule(
   { schedule: "25 5 * * *", timeZone: "America/Montevideo", timeoutSeconds: 120 },
   async () => { await repasarPerfiles(); },
 );
+
+// =====================================================================
+// ============ CUENTAS BANCARIAS PRIVADAS =============================
+// =====================================================================
+// Las cuentas para cobrar de cada agente (banco, número, titular y cédula)
+// estaban dentro de su perfil ("users/{uid}"), que lee todo el equipo. Ahora
+// viven en "users/{uid}/privado/banco", que ven solo el dueño y la Dirección.
+// Esta función muda las que ya estaban cargadas y borra lo viejo del perfil.
+// Se corre una vez; si se vuelve a correr, no repite nada.
+const BANCO_CAMPOS_VIEJOS = ["cuentasBancarias", "bancoNombre", "cuentaTitular", "cuentaCI",
+  "cuentaNumero", "cuentaMoneda", "cuentaTipo"];
+
+/**
+ * Las cuentas que tenía el perfil, con el mismo criterio que usaba Mis finanzas:
+ * la lista (aunque esté vacía, porque el agente pudo borrarlas todas) o, si
+ * nunca hubo lista, la única cuenta de «Editar perfil».
+ */
+function cuentasDelPerfil(u) {
+  if (Array.isArray(u.cuentasBancarias)) return u.cuentasBancarias;
+  if (u.bancoNombre || u.cuentaNumero) {
+    return [{ id: `cta_${Date.now()}`, banco: u.bancoNombre || "", moneda: u.cuentaMoneda || "",
+      titular: u.cuentaTitular || "", ci: u.cuentaCI || "", numero: u.cuentaNumero || "", tipo: u.cuentaTipo || "" }];
+  }
+  return [];
+}
+
+exports.moverCuentasBancarias = onCall({ timeoutSeconds: 120 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  const users = await db.collection("users").get();
+  let movidas = 0, yaEstaban = 0, limpiados = 0;
+  for (const d of users.docs) {
+    const u = d.data();
+    const viejos = BANCO_CAMPOS_VIEJOS.filter((k) => u[k] !== undefined);
+    if (!viejos.length) continue;
+    const ref = db.doc(`users/${d.id}/privado/banco`);
+    const priv = await ref.get();
+    // Si ya hay cuentas en el lugar nuevo, mandan esas: las cargó el agente
+    // desde Mis finanzas, que arranca de lo que tenía el perfil.
+    if (priv.exists) {
+      yaEstaban++;
+    } else {
+      const cuentas = cuentasDelPerfil(u);
+      if (cuentas.length) {
+        await ref.set({ cuentas, updatedAt: new Date().toISOString() });
+        movidas++;
+      }
+    }
+    const borrar = {};
+    viejos.forEach((k) => { borrar[k] = admin.firestore.FieldValue.delete(); });
+    await d.ref.update(borrar);
+    limpiados++;
+  }
+  logger.info(`moverCuentasBancarias: ${movidas} movidas, ${yaEstaban} ya estaban, ${limpiados} perfiles limpiados`);
+  return { usuarios: users.size, movidas, yaEstaban, limpiados };
+});
