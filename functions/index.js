@@ -13245,3 +13245,109 @@ exports.repasoVitrina = onSchedule(
   { schedule: "20 5 * * *", timeZone: "America/Montevideo", timeoutSeconds: 300, memory: "512MiB" },
   async () => { await repasarVitrina(); },
 );
+
+// =====================================================================
+// ============ PERFILES PÚBLICOS ======================================
+// =====================================================================
+// El mismo criterio que la VITRINA, para los agentes. La web pública (las
+// tarjetas, el perfil del agente y la ficha) lee "perfiles/{uid}": una copia
+// de cada agente aprobado con SOLO lo que se muestra al público. En "users"
+// viven además las cuentas bancarias (con la cédula), las tasaciones (con el
+// nombre del cliente y la dirección), los cálculos guardados y otros datos
+// internos, y una regla no puede esconder campos sueltos.
+//
+// Lista CERRADA a propósito: un campo nuevo del perfil NO llega a la web hasta
+// sumarlo acá (y correr rehacerPerfiles).
+const PERFIL_CAMPOS = [
+  "name", "profilePhoto", "rank", "role", "status", "email", "whatsapp", "location",
+  "bio", "about", "salesCount",
+  "instagram", "facebook", "linkedin", "tiktok", "twitter", "website", "youtube",
+];
+
+/** La copia pública de un agente, o null si no se muestra (no está aprobado). */
+function perfilPublicoDe(u) {
+  if (!u || typeof u !== "object" || u.status !== "approved") return null;
+  const v = {};
+  PERFIL_CAMPOS.forEach((k) => { if (u[k] !== undefined) v[k] = u[k]; });
+  return v;
+}
+
+/** Deja "perfiles/{uid}" igual a lo que dice HOY el usuario, o la borra. */
+async function perfilActualizar(uid) {
+  const snap = await db.doc(`users/${uid}`).get();
+  const v = snap.exists ? perfilPublicoDe(snap.data()) : null;
+  const ref = db.doc(`perfiles/${uid}`);
+  if (v) await ref.set(v);
+  else await ref.delete();
+}
+
+// Corre cada vez que se crea, cambia o borra un usuario. Si lo que cambió no
+// se ve en la web (una cuenta bancaria, una tasación, el token de los avisos),
+// no escribe nada. Si se ve, vuelve a leer el usuario antes de copiar.
+exports.sincronizarPerfil = onDocumentWritten("users/{uid}", async (event) => {
+  const pA = perfilPublicoDe(event.data.before.exists ? event.data.before.data() : null);
+  const pD = perfilPublicoDe(event.data.after.exists ? event.data.after.data() : null);
+  if (!pA && !pD) return;
+  if (pA && pD && vitrinaFirma(pA) === vitrinaFirma(pD)) return;
+  try {
+    await perfilActualizar(event.params.uid);
+  } catch (e) {
+    // Si esto falla, el repaso de la madrugada (repasoPerfiles) lo corrige.
+    logger.error(`sincronizarPerfil ${event.params.uid}: ${(e && e.message) || e}`);
+  }
+});
+
+/**
+ * Pone "perfiles" igual a "users": escribe solo lo que difiere y borra lo que
+ * ya no corresponde. Normalmente no escribe nada.
+ */
+async function repasarPerfiles() {
+  const [users, perfs] = await Promise.all([
+    db.collection("users").get(),
+    db.collection("perfiles").get(),
+  ]);
+  const actuales = new Map(perfs.docs.map((d) => [d.id, d.data()]));
+  let lote = db.batch(), enLote = 0, escritos = 0, borrados = 0, iguales = 0;
+  const sumar = async (fn) => {
+    fn(lote); enLote++;
+    if (enLote >= 400) { await lote.commit(); lote = db.batch(); enLote = 0; }
+  };
+  for (const d of users.docs) {
+    const v = perfilPublicoDe(d.data());
+    const hoy = actuales.get(d.id);
+    actuales.delete(d.id);
+    const ref = db.doc(`perfiles/${d.id}`);
+    if (!v) {
+      if (hoy) { await sumar((b) => b.delete(ref)); borrados++; }
+    } else if (hoy && vitrinaFirma(hoy) === vitrinaFirma(v)) {
+      iguales++;
+    } else {
+      await sumar((b) => b.set(ref, v)); escritos++;
+    }
+  }
+  // Copias de usuarios que ya no existen.
+  for (const id of actuales.keys()) {
+    await sumar((b) => b.delete(db.doc(`perfiles/${id}`))); borrados++;
+  }
+  if (enLote) await lote.commit();
+  logger.info(`repasarPerfiles: ${escritos} escritos, ${borrados} borrados, ${iguales} iguales (de ${users.size} usuarios)`);
+  return { usuarios: users.size, escritos, borrados, iguales };
+}
+
+// Rehace todos los perfiles públicos. Se usa una vez al estrenarlos y cada vez
+// que se sume un campo a PERFIL_CAMPOS. Solo la Dirección.
+exports.rehacerPerfiles = onCall({ timeoutSeconds: 120 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  return await repasarPerfiles();
+});
+
+// Repaso diario: si algún cambio no llegó a los perfiles públicos, se corrige
+// solo de madrugada.
+exports.repasoPerfiles = onSchedule(
+  { schedule: "25 5 * * *", timeZone: "America/Montevideo", timeoutSeconds: 120 },
+  async () => { await repasarPerfiles(); },
+);
