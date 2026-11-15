@@ -96,7 +96,13 @@ service cloud.firestore {
     // La lectura sigue siendo pública a propósito: la web pública (propiedad.html)
     // muestra nombre/foto/WhatsApp del agente del aviso.
     match /users/{userId} {
-      allow read: if resource.data.status == 'approved'
+      // LECTURA: los agentes aprobados ven los perfiles aprobados (como antes),
+      // cada uno ve el suyo y la Dirección ve todos. El público ya no: lee
+      // "perfiles" (más abajo), la copia de cada agente sin datos internos.
+      // Acá viven las cuentas bancarias (con la cédula), las tasaciones (con el
+      // nombre del cliente y la dirección) y los cálculos guardados, y una regla
+      // no puede esconder campos sueltos: quien lee el documento lo lee entero.
+      allow read: if (resource.data.status == 'approved' && isApproved())
                   || (request.auth != null && request.auth.uid == userId)
                   || esDireccion();
 
