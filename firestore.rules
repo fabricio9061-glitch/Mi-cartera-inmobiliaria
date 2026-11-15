@@ -215,7 +215,14 @@ service cloud.firestore {
 
     // ============ PROPERTIES ============
     match /properties/{propertyId} {
-      allow read: if true;
+      // LECTURA: solo agentes aprobados (la Dirección también lo es). El público
+      // lee "vitrina" (más abajo): la copia de cada propiedad sin datos internos.
+      // Acá viven los cierres, los contratos con el nombre del inquilino, el
+      // cliente propietario y los datos de los portales, y una regla no puede
+      // esconder campos sueltos: quien lee el documento lo lee entero.
+      // Las visitas y los clics de contacto se siguen sumando sin sesión (ver la
+      // última condición de "update"): para escribir no hace falta poder leer.
+      allow read: if isApproved();
       // El admin puede crear con cualquier ownerId: lo necesita la PAPELERA para
       // restaurar propiedades de los agentes (el doc vuelve con su dueño original).
       allow create: if esDireccion()
