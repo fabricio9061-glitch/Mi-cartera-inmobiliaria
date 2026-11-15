@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <!-- Google Analytics: mide solo si la persona acepta el aviso de cookies (ver analytics.js) -->
+  <script src="analytics.js?v=20261115a" defer></script>
   <title>Propiedad | MALAVE</title>
   <meta name="description" content="Propiedad en MALAVE Inmobiliaria" id="metaDescription">
   <link rel="icon" type="image/png" href="iso-malave.png">
@@ -182,8 +184,10 @@
       .pp-barra-precio small{ display:block; font-size:.74rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
       .pp-barra .pp-btn{ width:auto; flex:none; padding:12px 18px; }
       .pp-toast{ bottom:calc(92px + env(safe-area-inset-bottom,0px)); }
+      #mvAvisoCookies{ bottom:calc(92px + env(safe-area-inset-bottom,0px)); }   /* aviso de cookies, arriba de la barra */
       .footer{ padding-bottom:calc(84px + env(safe-area-inset-bottom,0px)); }
     }
+    .footer-bottom a{ color:inherit; text-decoration:underline; text-underline-offset:2px; }
     @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation-duration:.01s !important; } }
   </style>
 </head>
@@ -276,7 +280,7 @@
     <button class="pp-btn pp-btn-wa" onclick="ppContact()"><i class="fab fa-whatsapp"></i> Consultar</button>
   </div>
 
-  <footer class="footer"><div class="container"><div class="footer-content"><div class="footer-logo"><img src="iso-malave-white.png" alt="" class="footer-iso"><img src="texto-malave-white.png" alt="MALAVE" class="footer-text"></div><div class="footer-links"><a href="https://www.instagram.com/malave.inmobiliaria/" target="_blank" title="Instagram"><i class="fab fa-instagram"></i></a><a href="https://wa.me/59894029297" target="_blank" title="WhatsApp"><i class="fab fa-whatsapp"></i></a></div></div><div class="footer-bottom">Página creada por Anibal Malave © 2026</div></div></footer>
+  <footer class="footer"><div class="container"><div class="footer-content"><div class="footer-logo"><img src="iso-malave-white.png" alt="" class="footer-iso"><img src="texto-malave-white.png" alt="MALAVE" class="footer-text"></div><div class="footer-links"><a href="https://www.instagram.com/malave.inmobiliaria/" target="_blank" title="Instagram"><i class="fab fa-instagram"></i></a><a href="https://wa.me/59894029297" target="_blank" title="WhatsApp"><i class="fab fa-whatsapp"></i></a></div></div><div class="footer-bottom">Página creada por Anibal Malave © 2026 · <a href="privacidad.html">Privacidad</a></div></div></footer>
 
   <div class="lightbox" id="ppLightbox" onclick="ppCloseLightbox()">
     <button class="lightbox-close" onclick="event.stopPropagation();ppCloseLightbox()" aria-label="Cerrar"><i class="fas fa-times"></i></button>
@@ -292,6 +296,14 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="malave-config.js?v=20260830b"></script>
   <script>
+    // Google Analytics espera al título de la propiedad para contar la visita:
+    // así cada ficha aparece con su nombre (ver analytics.js).
+    window.mvEsperarTitulo = true;
+    function tituloListo() {
+      window.mvTituloListo = true;
+      try { document.dispatchEvent(new Event('mv:titulo')); } catch (e) { }
+    }
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
@@ -336,6 +348,7 @@
       document.getElementById('ppError').style.display = 'flex';
       // Una ficha que no existe (o que ya no es pública) no tiene que quedar en Google.
       document.title = 'Propiedad no encontrada | MALAVE';
+      tituloListo();
       if (!document.querySelector('meta[name="robots"]')) {
         const m = document.createElement('meta');
         m.name = 'robots'; m.content = 'noindex';
@@ -537,6 +550,7 @@
 
       // Título, descripción y vista previa al compartir
       document.title = p.title + ' | MALAVE';
+      tituloListo();
       const resumen = `${formatPrice(p.price, c)}${alq ? '/mes' : ''} · ${lugar}`;
       document.getElementById('ogTitle').content = p.title + ' | MALAVE';
       document.getElementById('ogDescription').content = resumen;
@@ -841,6 +855,14 @@
       const pid = (typeof firebaseConfig !== 'undefined' && firebaseConfig && firebaseConfig.projectId) || 'mi-cartera-inmobiliaria';
       return `https://us-central1-${pid}.cloudfunctions.net/ver/${encodeURIComponent(property.id)}`;
     }
+    // Qué propiedad generó la consulta, para Google Analytics (ver analytics.js).
+    function datosMedicion() {
+      const fc = property.ficha || {};
+      return {
+        propiedad_codigo: String(fc.PROPERTY_CODE || (property.features || {}).codigoInterno || property.id || '').slice(0, 100),
+        propiedad_titulo: String(property.title || '').slice(0, 100)
+      };
+    }
     function ppContact() {
       // Primero el WhatsApp cargado en la propiedad, después el del agente y, si
       // ninguno sirve, el de la inmobiliaria: el cliente siempre puede escribir.
@@ -848,6 +870,7 @@
       const alq = property.type === 'rent';
       // El link va en el mensaje: así el agente sabe de qué propiedad le hablan.
       const m = `Hola, me interesa esta propiedad: ${property.title} - ${formatPrice(property.price, property.currency || 'USD')}${alq ? ' por mes' : ''} en ${getLocationString(property)}\n${location.href.split('#')[0]}`;
+      if (window.mvMedir) mvMedir('consulta_whatsapp', datosMedicion());
       window.open(`https://wa.me/${ph}?text=${encodeURIComponent(m)}`, '_blank');
     }
     function ppShare() {

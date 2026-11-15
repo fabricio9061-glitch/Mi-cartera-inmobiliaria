@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- Google Analytics: mide solo si la persona acepta el aviso de cookies (ver analytics.js) -->
+  <script src="analytics.js?v=20261115a" defer></script>
   <title>Calculadora de garantías de alquiler en Uruguay (2026) | MALAVE</title>
   <meta name="description" content="Calculá gratis qué garantía de alquiler te aprueban en Uruguay y cuánto cuesta: Porto Seguro, Mapfre, SURA, BSE, ANDA, CGN, MVOT, depósito BHU y más.">
   <link rel="canonical" href="https://malaveinmobiliaria.com/calculadora-garantias-alquiler.html">
@@ -632,6 +634,7 @@
         <a href="index.html#alquileres">Alquileres</a>
         <a href="vender.html">Vendé tu propiedad</a>
         <a href="trabaja.html">Trabajá con nosotros</a>
+        <a href="privacidad.html">Privacidad</a>
       </nav>
       <span>© 2026 MALAVE Inmobiliaria. Montevideo, Uruguay.</span>
     </div>
@@ -902,7 +905,7 @@
       var d = leer();
       pintarTope(d);
       var g = $('grupos');
-      if (!d.R) { g.innerHTML = ''; pedirAlquileres(d); guardarEnUrl(d); return; }
+      if (!d.R) { g.innerHTML = ''; pedirAlquileres(d); guardarEnlace(d); return; }
       var res = evaluar(d);
       var califica = res.filter(function (o) { return o.grupo === 'precio' && (o.estado === 'ok' || o.estado === 'confirmar'); })
         .sort(function (a, b) { return (a.estado === 'ok' ? 0 : 1) - (b.estado === 'ok' ? 0 : 1) || a.contrato - b.contrato; });
@@ -930,7 +933,7 @@
       var sel = g.querySelector('select[data-bhu]');
       if (sel) sel.addEventListener('change', function () { $('fBhu').value = sel.value; cambio(); });
       pedirAlquileres(d, res);
-      guardarEnUrl(d);
+      guardarEnlace(d);
     }
 
     // Arriba de todo: hasta cuánto podés alquilar y cuál te sale más barata.
@@ -1040,7 +1043,7 @@
             '<span class="prop-lugar">' + esc(lugar(p)) + (p.bedrooms ? ' · ' + esc(p.bedrooms) + (Number(p.bedrooms) === 1 ? ' dormitorio' : ' dormitorios') : '') + '</span></span></a>';
         }).join('');
       }
-      $('alqWa').href = waLink('Hola MALAVE. Usé la calculadora de garantías y busco un alquiler de hasta ' + fmt(tope) + ' por mes. ¿Me avisan cuando tengan uno?');
+      ponerWa($('alqWa'), 'Hola MALAVE. Usé la calculadora de garantías y busco un alquiler de hasta ' + fmt(tope) + ' por mes. ¿Me avisan cuando tengan uno?');
       $('alq').hidden = false;
     }
 
@@ -1048,13 +1051,33 @@
     // WhatsApp y dirección compartible
     // ======================================================================
     function waLink(texto) { return 'https://wa.me/' + D.wa + '?text=' + encodeURIComponent(texto); }
-    function linkActual() { return D.paginaUrl + location.search; }
+    // El mensaje (con los números) va aparte del enlace: el enlace queda en
+    // wa.me/598… y el botón abre el mensaje completo al tocarlo. Así los
+    // ingresos y el alquiler no viajan a Google Analytics, que anota a qué
+    // dirección lleva cada enlace que se toca.
+    function ponerWa(a, texto) {
+      if (!a) return;
+      a.href = 'https://wa.me/' + D.wa;
+      a.setAttribute('data-wa-url', waLink(texto));
+    }
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[data-wa-url]') : null;
+      if (!a) return;
+      e.preventDefault();
+      var url = a.getAttribute('data-wa-url');
+      if (!window.open(url, '_blank')) location.href = url;
+    });
+    // El cálculo como parámetros (?alquiler=…&ingresos=…). Viaja en el enlace
+    // del mensaje de WhatsApp, no en la dirección del navegador.
+    var CLAVES_CALCULO = /^(alquiler|gastos|ingresos|trabajo|antiguedad|edad|plazo|cgn|propiedad|promovida|bhu)$/;
+    var _enlace = '';
+    function linkActual() { return D.paginaUrl + _enlace; }
     function mensajeWa(d) {
       if (!d.R && !d.I) return 'Hola MALAVE. Estoy buscando alquilar y quiero ayuda con la garantía.';
       return 'Hola MALAVE. Usé la calculadora de garantías' + (d.R ? ': alquiler de ' + fmt(d.R) : '') + (d.I ? (d.R ? ', ' : ': ') + 'ingresos de ' + fmt(d.I) : '') +
         '. Quiero ayuda para elegir la garantía. ' + linkActual();
     }
-    function guardarEnUrl(d) {
+    function guardarEnlace(d) {
       var q = [];
       if (d.R) q.push('alquiler=' + d.R);
       if (d.GC) q.push('gastos=' + d.GC);
@@ -1068,15 +1091,26 @@
       if (d.propDepto) q.push('propiedad=1');
       if (d.promovida) q.push('promovida=1');
       if (d.bhu !== 2) q.push('bhu=' + d.bhu);
-      var s = q.length ? '?' + q.join('&') : '';
-      try { if (s !== location.search) history.replaceState(null, '', location.pathname + s + location.hash); } catch (e) {}
-      Array.prototype.forEach.call(document.querySelectorAll('a[data-wa]'), function (a) { a.href = waLink(mensajeWa(d)); });
+      _enlace = q.length ? '?' + q.join('&') : '';
+      Array.prototype.forEach.call(document.querySelectorAll('a[data-wa]'), function (a) { ponerWa(a, mensajeWa(d)); });
     }
     function leerDeUrl() {
       var p = {};
       location.search.replace(/^\?/, '').split('&').forEach(function (par) {
         var i = par.indexOf('='); if (i > 0) { try { p[decodeURIComponent(par.slice(0, i))] = decodeURIComponent(par.slice(i + 1)); } catch (e) {} }
       });
+      // Los números salen de la dirección apenas se leen, antes de que arranque
+      // Google Analytics (que guarda la dirección de cada visita). Quedan los
+      // demás parámetros, como los utm_ de las campañas.
+      var pares = location.search.replace(/^\?/, '').split('&').filter(Boolean);
+      var resto = pares.filter(function (par) {
+        var k = par.split('=')[0];
+        try { k = decodeURIComponent(k); } catch (e) {}
+        return !CLAVES_CALCULO.test(k);
+      });
+      if (resto.length !== pares.length) {
+        try { history.replaceState(null, '', location.pathname + (resto.length ? '?' + resto.join('&') : '') + location.hash); } catch (e) {}
+      }
       if (num(p.alquiler)) $('fAlq').value = miles(num(p.alquiler));
       if (num(p.gastos)) $('fGc').value = miles(num(p.gastos));
       var ing = String(p.ingresos || '').split('-').map(num).filter(function (x) { return x > 0; }).slice(0, MAX_ING);

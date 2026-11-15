@@ -260,6 +260,11 @@
     };
     try { localStorage.setItem(MV_SESION_KEY, JSON.stringify(s)); } catch (e) { }
     _sesionPrevia = s;
+    // Este navegador es del equipo: Google Analytics deja de medirlo y no le
+    // muestra el aviso de cookies (ver analytics.js). La marca queda aunque
+    // después se cierre la sesión.
+    try { localStorage.setItem('mvEquipo', '1'); } catch (e) { }
+    if (typeof mvNoMedir === 'function') mvNoMedir();
   }
   // Clientes guarda en el equipo una copia de la lista para abrir al instante.
   // Al cerrar sesión se borra: no quedan datos de clientes en un equipo sin usuario.
@@ -6606,11 +6611,19 @@
     host.innerHTML = `<span style="width:100%;font-size:.74rem;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.3px"><i class="fas fa-calendar-check"></i> Agenda de esta propiedad</span>` + chips.join('');
     host.style.display = 'flex';
   }
+  // Qué propiedad generó la consulta, para Google Analytics (ver analytics.js).
+  function datosMedicion(p) {
+    return {
+      propiedad_codigo: String((p.ficha || {}).PROPERTY_CODE || (p.features || {}).codigoInterno || p.id || '').slice(0, 100),
+      propiedad_titulo: String(p.title || '').slice(0, 100)
+    };
+  }
   function contactWhatsapp(id) {
     const p = properties.find(pr => pr.id === id);
     if (!p) return;
     try { db.collection('properties').doc(id).update({ contactClicks: firebase.firestore.FieldValue.increment(1) }); } catch (e) {}
     p.contactClicks = (p.contactClicks || 0) + 1;
+    if (typeof mvMedir === 'function') mvMedir('consulta_whatsapp', datosMedicion(p));
     const o = getOwnerInfo(p),
       ph = waNum(p.ownerWhatsapp || o.whatsapp || '59899000000'),
       m = `Hola, me interesa: ${p.title} - ${formatPrice(p.price,p.currency||'USD')} en ${getLocationString(p)}`;

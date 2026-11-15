@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Google Analytics: mide solo si la persona acepta el aviso de cookies (ver analytics.js) -->
+  <script src="analytics.js?v=20261115a" defer></script>
   <title>Trabajá con nosotros · MALAVE Inmobiliaria</title>
   <meta name="description" content="Sumate al equipo de Malave Inmobiliaria. Enviá tu CV y contanos sobre vos.">
   <link rel="canonical" href="https://malaveinmobiliaria.com/trabaja.html">
@@ -73,6 +75,7 @@
     .gracias h2{ font-size:1.9rem; color:var(--navy); margin-bottom:8px }
     .gracias p{ color:var(--gray-500) }
     .nota{ font-size:.78rem; color:var(--gray-400); margin-top:14px; text-align:center }
+    .nota a{ color:inherit; text-decoration:underline; text-underline-offset:2px }
   </style>
 </head>
 <body>
@@ -134,7 +137,7 @@
       </div>
 
       <button class="btn" id="btnEnviar" onclick="enviar()">Enviar mi postulación</button>
-      <p class="nota">Tus datos quedan solo en la inmobiliaria. No los compartimos con nadie.</p>
+      <p class="nota">Tus datos quedan solo en la inmobiliaria. No los compartimos con nadie. <a href="privacidad.html">Política de privacidad</a>.</p>
     </div>
   </div>
 
@@ -271,6 +274,7 @@
       if (cvRuta) { doc.cvRuta = cvRuta; doc.cvNombre = cvNombre; }
 
       await db.collection('postulaciones').add(doc);
+      if (window.mvMedir) mvMedir('postulacion_agente', { experiencia: doc.experiencia });
 
       $('tarjeta').innerHTML = '<div class="gracias"><i class="fas fa-circle-check"></i>' +
         '<h2>¡Gracias, ' + esc(nombre.split(' ')[0]) + '!</h2>' +

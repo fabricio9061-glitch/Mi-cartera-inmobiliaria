@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Google Analytics: mide solo si la persona acepta el aviso de cookies (ver analytics.js) -->
+  <script src="analytics.js?v=20261115a" defer></script>
   <title>Vendé tu casa o apartamento en Montevideo | MALAVE Inmobiliaria</title>
   <meta name="description" content="Vendé tu propiedad en Montevideo con MALAVE Inmobiliaria: tasación, publicación en MercadoLibre, InfoCasas y Casas y Más, y acompañamiento hasta la firma.">
   <link rel="canonical" href="https://malaveinmobiliaria.com/vender.html">
@@ -116,6 +118,7 @@
     .form-submit:hover{ background:var(--gold-hover); }
     .form-submit:disabled{ opacity:.6; cursor:not-allowed; }
     .form-note{ font-size:.8rem; color:var(--gray-500); text-align:center; margin-top:14px; }
+    .form-note a{ color:inherit; text-decoration:underline; text-underline-offset:2px; }
     .form-ok{ text-align:center; padding:30px 10px; }
     .form-ok .ic{ width:70px; height:70px; border-radius:50%; background:rgba(37,211,102,.12); display:flex; align-items:center; justify-content:center; margin:0 auto 18px; }
     .form-ok .ic i{ font-size:2rem; color:#1eb858; }
@@ -494,7 +497,7 @@
               <textarea id="fMsg" placeholder="Contanos algo más sobre tu propiedad..."></textarea>
             </div>
             <button class="form-submit" id="btnSubmit" onclick="enviarLead()"><i class="fas fa-paper-plane"></i> Enviar y solicitar tasación</button>
-            <p class="form-note">Al enviar, un asesor de MALAVE se contactará con vos. Tus datos no se comparten con terceros.</p>
+            <p class="form-note">Al enviar, un asesor de MALAVE se contactará con vos. Tus datos no se comparten con terceros: mirá nuestra <a href="privacidad.html">política de privacidad</a>.</p>
           </div>
         </div>
       </div>
@@ -519,6 +522,7 @@
         <a href="index.html">Inicio</a>
         <a href="index.html">Ver propiedades</a>
         <a href="#contacto">Vender mi propiedad</a>
+        <a href="privacidad.html">Política de privacidad</a>
       </div>
     </div>
     <div class="wrap">
@@ -624,6 +628,7 @@
         estado: 'nuevo',
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       }).then(function(){
+        if (window.mvMedir) mvMedir('consulta_formulario', { formulario: 'vender', tipo_propiedad: tipo || 'Sin elegir' });
         document.getElementById('formFields').innerHTML =
           '<div class="form-ok">' +
             '<div class="ic"><i class="fas fa-check"></i></div>' +
