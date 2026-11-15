@@ -92,9 +92,23 @@ service cloud.firestore {
               && request.resource.data.get('status', '') == 'available');
     }
 
+    // Las cuentas para cobrar viven en users/{uid}/privado/banco, que ven solo el
+    // agente y la Dirección. El perfil lo lee todo el equipo: estas dos funciones
+    // impiden volver a guardar ahí datos bancarios (agregarlos o cambiarlos).
+    // Borrarlos sí se puede: así limpia el perfil la mudanza de Mis finanzas.
+    function camposBancarios() {
+      return ['cuentasBancarias', 'bancoNombre', 'cuentaTitular', 'cuentaCI',
+              'cuentaNumero', 'cuentaMoneda', 'cuentaTipo'];
+    }
+    function sinDatosBancariosNuevos() {
+      return !request.resource.data.diff(resource.data).addedKeys().hasAny(camposBancarios())
+          && !request.resource.data.diff(resource.data).changedKeys().hasAny(camposBancarios());
+    }
+
     // ============ USERS ============
-    // La lectura sigue siendo pública a propósito: la web pública (propiedad.html)
-    // muestra nombre/foto/WhatsApp del agente del aviso.
+    // El perfil completo lo leen el equipo y la Dirección. La web pública lee
+    // "perfiles" (la copia sin datos internos) y las cuentas para cobrar viven
+    // aparte, en users/{uid}/privado/banco.
     match /users/{userId} {
       // LECTURA: los agentes aprobados ven los perfiles aprobados (como antes),
       // cada uno ve el suyo y la Dirección ve todos. El público ya no: lee
@@ -119,7 +133,8 @@ service cloud.firestore {
                     && (isAdmin() ||
                         (request.resource.data.status == 'pending'
                          && request.resource.data.get('rank', '') in ['', 'asesor_junior']
-                         && request.resource.data.get('role', '') == ''));
+                         && request.resource.data.get('role', '') == ''))
+                    && !request.resource.data.keys().hasAny(camposBancarios());
 
       // Tres capas:
       //  1. El CEO por correo: sin restricciones. Es el dueño del organigrama.
@@ -128,7 +143,8 @@ service cloud.firestore {
       //     puede fabricar otro CEO. Sin esto, "COO = admin" significa que el COO
       //     puede ascenderse y degradarte, que es justo lo que no queremos.
       //  3. El propio usuario edita su perfil pero NO su estado, correo, cargo ni rango.
-      allow update: if isAdmin()
+      // Además, nadie (tampoco el CEO) agrega o cambia datos bancarios en el perfil.
+      allow update: if sinDatosBancariosNuevos() && (isAdmin()
                     || (esDireccion()
                         && !esDocDelCEO()
                         && request.resource.data.get('rank', '') != 'ceo'
@@ -138,17 +154,11 @@ service cloud.firestore {
                         && request.resource.data.status == resource.data.status
                         && request.resource.data.email == resource.data.email
                         && request.resource.data.get('role', '') == resource.data.get('role', '')
-                        && request.resource.data.get('rank', '') == resource.data.get('rank', ''));
+                        && request.resource.data.get('rank', '') == resource.data.get('rank', '')));
 
       // Nadie se borra a sí mismo, y al CEO no lo borra nadie.
       allow delete: if isAdmin()
                     || (esDireccion() && !esDocDelCEO() && request.auth.uid != userId);
-
-      // Datos sensibles del agente (p. ej. comisiones): SOLO Dirección o el propio dueño.
-      match /privado/{doc} {
-        allow read: if esDireccion() || (request.auth != null && request.auth.uid == userId);
-        allow write: if esDireccion();
-      }
 
       // DESTACADOS (entitlements). El agente los LEE para ver cuántos slots
       // tiene, a qué propiedad va cada uno y hasta cuándo. No escribe nunca:
