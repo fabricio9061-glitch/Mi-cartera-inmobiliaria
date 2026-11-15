@@ -20,7 +20,7 @@
  */
 
 const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
-const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted, onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 // La API v2 no tiene triggers de Auth (onCreate/onDelete de usuarios): se usan
 // los de v1, que conviven sin problema con las funciones v2 de este archivo.
@@ -13082,4 +13082,166 @@ async function repasarEstadoPortales() {
 exports.refrescarEstadoPortales = onSchedule(
   { schedule: "50 5 * * *", timeZone: "America/Montevideo", timeoutSeconds: 540 },
   async () => { await repasarEstadoPortales(); },
+);
+
+// =====================================================================
+// ============ VITRINA PÚBLICA ========================================
+// =====================================================================
+// La web pública (portada, ficha y perfil de agente) lee "vitrina/{id}": una
+// copia de cada propiedad con SOLO lo que se muestra al público. En
+// "properties" viven además los cierres, los contratos (con el nombre del
+// inquilino), el cliente propietario y los datos internos de los portales, y
+// las reglas de Firestore no pueden esconder campos sueltos: si el visitante
+// puede leer la propiedad, la lee entera. Por eso la web pública lee la copia
+// y "properties" queda solo para los agentes.
+//
+// La lista es CERRADA a propósito: un campo nuevo de la propiedad NO llega a
+// la web hasta sumarlo acá (y correr rehacerVitrina). Así nada interno se
+// publica por olvido.
+const VITRINA_CAMPOS = [
+  "title", "description", "price", "previousPrice", "currency", "type", "propertyType",
+  "realEstateType", "status", "ciudad", "departamento", "location", "direccion",
+  "bedrooms", "bathrooms", "totalArea", "builtArea", "garage",
+  "commonExpenses", "commonExpensesCurrency", "images", "videoUrl",
+  "featured", "featuredHasta", "views", "codigo", "PROPERTY_CODE",
+  "ownerId", "ownerName", "ownerPhoto", "ownerWhatsapp", "createdAt", "updatedAt",
+];
+// Estados que no aparecen en ningún lugar del sitio público (tampoco en el
+// perfil del agente cuando lo mira un visitante).
+const VITRINA_FUERA = ["archived", "cerrado_externo"];
+
+/** Redondea una coordenada a 3 decimales (unos 100 m). Lo que no es número queda igual. */
+function vitrinaRedondear(x) {
+  if (x === null || x === undefined || x === "") return x;
+  const n = Number(x);
+  return isFinite(n) ? Math.round(n * 1000) / 1000 : x;
+}
+
+/** La copia pública de una propiedad, o null si no va a la vitrina. */
+function vitrinaDe(p) {
+  if (!p || typeof p !== "object" || VITRINA_FUERA.includes(p.status)) return null;
+  const v = {};
+  VITRINA_CAMPOS.forEach((k) => { if (p[k] !== undefined) v[k] = p[k]; });
+  // "Punto exacto" lo elige el agente en la ficha. Si no lo eligió, la web
+  // muestra solo la calle y un círculo de unos 260 m. Entonces la copia no
+  // lleva el número de puerta ni el de apartamento o torre, y la ubicación va
+  // redondeada para que el centro del círculo no delate la casa.
+  const exacto = !!p.ficha && p.ficha.IC_UBICACION === "Punto exacto";
+  if (p.ficha && typeof p.ficha === "object") {
+    const f = { ...p.ficha };
+    if (!exacto) { delete f.APARTMENT_NUMBER; delete f.TOWER_NUMBER; }
+    v.ficha = f;
+  }
+  if (p.features && typeof p.features === "object") {
+    const ft = { ...p.features };
+    if (!exacto) delete ft.numeroPuerta;
+    v.features = ft;
+  }
+  if (p.ubicacion && typeof p.ubicacion === "object") {
+    const u = { ...p.ubicacion };
+    if (!exacto) {
+      delete u.numero;
+      delete u.direccionVisible;
+      if ("lat" in u) u.lat = vitrinaRedondear(u.lat);
+      if ("lng" in u) u.lng = vitrinaRedondear(u.lng);
+      // "direccion" se guarda con el número de puerta: sin punto exacto, solo la calle.
+      const calle = String(u.calle || "").trim();
+      if (calle) v.direccion = calle;
+    }
+    v.ubicacion = u;
+  }
+  return v;
+}
+
+/** Huella para comparar dos copias sin depender del orden de las claves. */
+function vitrinaFirma(o) {
+  return JSON.stringify(o, (k, val) => {
+    if (val && typeof val === "object" && !Array.isArray(val)) {
+      if (typeof val.toMillis === "function") return { _ms: val.toMillis() };
+      return Object.keys(val).sort().reduce((acc, kk) => { acc[kk] = val[kk]; return acc; }, {});
+    }
+    return val;
+  });
+}
+
+/** Deja "vitrina/{id}" igual a lo que dice HOY la propiedad, o la borra. */
+async function vitrinaActualizar(id) {
+  const snap = await db.doc(`properties/${id}`).get();
+  const v = snap.exists ? vitrinaDe(snap.data()) : null;
+  const ref = db.doc(`vitrina/${id}`);
+  if (v) await ref.set(v);
+  else await ref.delete();
+}
+
+// Corre cada vez que se crea, cambia o borra una propiedad. Si lo que cambió
+// no se ve en la web (una consulta, el estado de un portal, un cierre), no
+// escribe nada. Si se ve, vuelve a leer la propiedad antes de copiar: así, si
+// dos cambios llegan desordenados, la copia queda igual a la versión más nueva.
+exports.sincronizarVitrina = onDocumentWritten("properties/{id}", async (event) => {
+  const antes = event.data.before.exists ? event.data.before.data() : null;
+  const despues = event.data.after.exists ? event.data.after.data() : null;
+  const vA = vitrinaDe(antes), vD = vitrinaDe(despues);
+  if (!vA && !vD) return;
+  if (vA && vD && vitrinaFirma(vA) === vitrinaFirma(vD)) return;
+  try {
+    await vitrinaActualizar(event.params.id);
+  } catch (e) {
+    // Si esto falla, el repaso de la madrugada (repasoVitrina) lo corrige.
+    logger.error(`sincronizarVitrina ${event.params.id}: ${(e && e.message) || e}`);
+  }
+});
+
+/**
+ * Pone la vitrina entera igual a "properties": escribe solo lo que difiere y
+ * borra lo que ya no corresponde. Normalmente no escribe nada.
+ */
+async function repasarVitrina() {
+  const [props, vits] = await Promise.all([
+    db.collection("properties").get(),
+    db.collection("vitrina").get(),
+  ]);
+  const actuales = new Map(vits.docs.map((d) => [d.id, d.data()]));
+  let lote = db.batch(), enLote = 0, escritas = 0, borradas = 0, iguales = 0;
+  const sumar = async (fn) => {
+    fn(lote); enLote++;
+    if (enLote >= 400) { await lote.commit(); lote = db.batch(); enLote = 0; }
+  };
+  for (const d of props.docs) {
+    const v = vitrinaDe(d.data());
+    const hoy = actuales.get(d.id);
+    actuales.delete(d.id);
+    const ref = db.doc(`vitrina/${d.id}`);
+    if (!v) {
+      if (hoy) { await sumar((b) => b.delete(ref)); borradas++; }
+    } else if (hoy && vitrinaFirma(hoy) === vitrinaFirma(v)) {
+      iguales++;
+    } else {
+      await sumar((b) => b.set(ref, v)); escritas++;
+    }
+  }
+  // Copias de propiedades que ya no existen.
+  for (const id of actuales.keys()) {
+    await sumar((b) => b.delete(db.doc(`vitrina/${id}`))); borradas++;
+  }
+  if (enLote) await lote.commit();
+  logger.info(`repasarVitrina: ${escritas} escritas, ${borradas} borradas, ${iguales} iguales (de ${props.size} propiedades)`);
+  return { propiedades: props.size, escritas, borradas, iguales };
+}
+
+// Rehace la vitrina entera. Se usa una vez al estrenarla y cada vez que se
+// sume un campo a VITRINA_CAMPOS. Solo la Dirección.
+exports.rehacerVitrina = onCall({ timeoutSeconds: 300, memory: "512MiB" }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  return await repasarVitrina();
+});
+
+// Repaso diario: si algún cambio no llegó a la vitrina (una falla puntual del
+// disparador), se corrige solo de madrugada.
+exports.repasoVitrina = onSchedule(
+  { schedule: "20 5 * * *", timeZone: "America/Montevideo", timeoutSeconds: 300, memory: "512MiB" },
+  async () => { await repasarVitrina(); },
 );

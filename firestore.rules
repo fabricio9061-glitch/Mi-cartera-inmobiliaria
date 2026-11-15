@@ -276,6 +276,16 @@ service cloud.firestore {
       }
     }
 
+    // ============ VITRINA PÚBLICA ============
+    // Copia de cada propiedad con SOLO lo que se muestra al público (fotos,
+    // precio, barrio, características). La escriben las funciones del
+    // servidor (sincronizarVitrina, rehacerVitrina y repasoVitrina) con Admin
+    // SDK, que no pasa por estas reglas. Desde el navegador nadie la escribe.
+    match /vitrina/{propertyId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // ============ PAPELERA (propiedades borradas) — SOLO admin ============
     // Las copias las escribe la Cloud Function al borrar (Admin SDK, no pasa por
     // acá). Desde papelera.html el admin las lee, restaura o elimina definitivo.
