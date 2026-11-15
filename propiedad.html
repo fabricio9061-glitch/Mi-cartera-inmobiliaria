@@ -336,12 +336,25 @@
       document.getElementById('ppError').style.display = 'flex';
     }
 
+    // La ficha pública lee la VITRINA: la copia de la propiedad con solo lo que
+    // se muestra al público (ver VITRINA PÚBLICA en functions/index.js). Si no
+    // está ahí (recién creada, la copia tarda unos segundos; o archivada), un
+    // agente con sesión la lee directo de "properties".
+    async function leerPropiedad(id) {
+      const v = await db.collection('vitrina').doc(id).get();
+      if (v.exists) return v;
+      const u = await new Promise(res => { const off = firebase.auth().onAuthStateChanged(x => { off(); res(x); }); });
+      if (!u) return null;
+      try { const d = await db.collection('properties').doc(id).get(); return d.exists ? d : null; }
+      catch (e) { return null; }   // sin permiso para verla: para este usuario no existe
+    }
+
     async function load() {
       const id = getId();
       if (!id) { showError(); return }
       try {
-        const doc = await db.collection('properties').doc(id).get();
-        if (!doc.exists) { showError(); return }
+        const doc = await leerPropiedad(id);
+        if (!doc) { showError(); return }
         property = { id: doc.id, ...doc.data() };
         if (property.ownerId) {
           try { const ad = await db.collection('users').doc(property.ownerId).get(); if (ad.exists) agent = ad.data() } catch (e) {}

@@ -3224,6 +3224,8 @@
   // Firebase terminó de decidir (entró la sesión o no había). Lo que se pintó
   // con la ficha recordada se repinta con los datos reales.
   function alCambiarSesion() {
+    // Al entrar se pasa a leer "properties" (todo); al salir, la vitrina pública.
+    loadProperties();
     // Las tarjetas: los botones de edición dependen de quién está. Antes, si las
     // propiedades llegaban antes que la sesión, el agente no veía esos botones
     // hasta que cambiara alguna propiedad.
@@ -5224,8 +5226,25 @@
   const FUERA_VITRINA = ['archived', 'cerrado_externo', 'sold', 'rented', 'reserved'];
   const enVitrina = p => FUERA_VITRINA.indexOf(p.status) < 0;
 
-  function loadProperties() {
-    db.collection('properties').orderBy('createdAt', 'desc').onSnapshot(s => {
+  // ===== De dónde salen las propiedades =====
+  // El visitante lee "vitrina": una copia de cada propiedad con SOLO lo que se
+  // muestra al público. La arma el servidor (ver VITRINA PÚBLICA en
+  // functions/index.js). El agente con sesión lee "properties", que además
+  // tiene lo interno: cierres, contratos, cliente propietario y portales.
+  // Al entrar o salir se cambia sola: alCambiarSesion vuelve a llamar acá.
+  let _desuscribirProps = null, _fuenteProps = null;
+  function fuentePropiedades() {
+    // Sesión confirmada, o la recordada mientras Firebase todavía no respondió.
+    return (currentUser && userProfile) || (!_authResuelto && _sesionPrevia) ? 'properties' : 'vitrina';
+  }
+  function loadProperties(forzada) {
+    const fuente = forzada || fuentePropiedades();
+    if (_desuscribirProps && fuente === _fuenteProps) return;   // ya escucha la que corresponde
+    if (_desuscribirProps) _desuscribirProps();
+    _fuenteProps = fuente;
+    // Hasta que llegue la lista de la fuente nueva no se conoce el estado real.
+    window._propsCargadas = false;
+    _desuscribirProps = db.collection(fuente).orderBy('createdAt', 'desc').onSnapshot(s => {
       properties = s.docs.map(d => ({
         id: d.id,
         ...d.data()
@@ -5251,7 +5270,32 @@
       // Con el modal de Portales abierto, sus pestañas se ponen al día solas.
       refrescarPortalesAbiertos();
       // El perfil abierto se repinta solo dentro de pintarVitrinaActual().
-    })
+    }, err => {
+      // Firestore corta la escucha después de un error: se vuelve a armar abajo.
+      _desuscribirProps = null; _fuenteProps = null;
+      console.warn(`No se pudieron leer las propiedades (${fuente}):`, (err && err.code) || err);
+      // La sesión recordada ya no vale: se sigue como visitante, con la vitrina.
+      if (fuente === 'properties') { loadProperties('vitrina'); return; }
+      avisarFallaPropiedades();
+    });
+  }
+  // Sin conexión con la base (una red que bloquea a Google, un bloqueador, una
+  // caída): en vez de "Cargando..." para siempre, un aviso con reintento y el
+  // WhatsApp. Si ya hay propiedades a la vista (la copia recordada), no molesta.
+  function avisarFallaPropiedades() {
+    if (window._propsCargadas || _vitrinaDeCache) return;
+    const ct = document.getElementById('propertiesCount');
+    if (ct) ct.textContent = 'No pudimos cargar las propiedades';
+    const g = document.getElementById('propertiesGrid');
+    if (g) g.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:32px 16px">' +
+      '<p style="margin:0 0 16px">Revisá tu conexión y probá de nuevo, o escribinos y te ayudamos a encontrar tu propiedad.</p>' +
+      '<button type="button" class="btn btn-primary" onclick="reintentarPropiedades()">Reintentar</button> ' +
+      '<a class="btn btn-secondary" href="https://wa.me/59894029297" target="_blank" rel="noopener">Escribinos por WhatsApp</a></div>';
+  }
+  function reintentarPropiedades() {
+    const ct = document.getElementById('propertiesCount');
+    if (ct) ct.textContent = 'Cargando...';
+    loadProperties();
   }
   function pintarVitrinaActual() {
     if (document.getElementById('filterSearch')) filterProperties();
