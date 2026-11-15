@@ -357,7 +357,8 @@
         if (!doc) { showError(); return }
         property = { id: doc.id, ...doc.data() };
         if (property.ownerId) {
-          try { const ad = await db.collection('users').doc(property.ownerId).get(); if (ad.exists) agent = ad.data() } catch (e) {}
+          // El agente, desde su perfil público (ver PERFILES PÚBLICOS en functions/index.js).
+          try { const ad = await db.collection('perfiles').doc(property.ownerId).get(); if (ad.exists) agent = ad.data() } catch (e) {}
         }
         render();
         countView(id);

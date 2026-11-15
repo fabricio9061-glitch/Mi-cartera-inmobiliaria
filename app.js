@@ -370,11 +370,38 @@
       document.getElementById('rememberMe').checked = true
     }
   }
-  async function loadUsers() {
-    const s = await db.collection('users').where('status', '==', 'approved').get();
+  // ===== De dónde salen los perfiles de los agentes =====
+  // El visitante lee "perfiles": la copia de cada agente aprobado con SOLO lo
+  // que se muestra al público (ver PERFILES PÚBLICOS en functions/index.js).
+  // El agente con sesión lee "users", que además tiene lo interno (cuentas
+  // bancarias, tasaciones, comisiones). Al entrar o salir se vuelve a cargar.
+  let _fuenteUsers = null, _turnoUsers = 0;
+  function fuenteUsuarios() {
+    // Sesión confirmada, o la recordada mientras Firebase todavía no respondió.
+    return (currentUser && userProfile) || (!_authResuelto && _sesionPrevia) ? 'users' : 'perfiles';
+  }
+  async function loadUsers(forzada) {
+    const turno = ++_turnoUsers;
+    const fuente = forzada || fuenteUsuarios();
+    let s;
+    try {
+      s = fuente === 'users'
+        ? await db.collection('users').where('status', '==', 'approved').get()
+        : await db.collection('perfiles').get();
+    } catch (e) {
+      if (turno !== _turnoUsers) return;
+      // La sesión recordada ya no vale: se sigue como visitante.
+      if (fuente === 'users') return loadUsers('perfiles');
+      throw e;
+    }
+    if (turno !== _turnoUsers) return;   // llegó tarde: ya hay una carga más nueva
+    // Al cambiar de fuente se vacía todo: al salir no queda nada interno en memoria.
+    if (_fuenteUsers && _fuenteUsers !== fuente) Object.keys(allUsers).forEach(k => { delete allUsers[k]; });
+    _fuenteUsers = fuente;
     s.docs.forEach(d => {
       allUsers[d.id] = d.data()
     })
+    if (currentUser && userProfile) allUsers[currentUser.uid] = userProfile;
   }
   const _usersReady = loadUsers();
   // Con el equipo cargado ya se sabe de quién es la propiedad de cada consulta:
@@ -3226,6 +3253,8 @@
   function alCambiarSesion() {
     // Al entrar se pasa a leer "properties" (todo); al salir, la vitrina pública.
     loadProperties();
+    // Lo mismo con los perfiles de los agentes: "users" con sesión, "perfiles" sin ella.
+    if (_fuenteUsers !== fuenteUsuarios()) loadUsers().catch(() => {});
     // Las tarjetas: los botones de edición dependen de quién está. Antes, si las
     // propiedades llegaban antes que la sesión, el agente no veía esos botones
     // hasta que cambiara alguna propiedad.
@@ -5843,7 +5872,10 @@
     // _cache: datos mínimos de la copia de la vitrina (sin bio, redes ni correo).
     if (!allUsers[ui] || allUsers[ui]._cache) {
       try {
-        const d = await db.collection('users').doc(ui).get();
+        // Visitante: el perfil público. Agente con sesión: el completo.
+        let d;
+        try { d = await db.collection(fuenteUsuarios()).doc(ui).get(); }
+        catch (e1) { d = await db.collection('perfiles').doc(ui).get(); }
         if (d.exists) { ud = d.data(); allUsers[ui] = ud; }
       } catch (e) { /* se queda con lo que había */ }
       if (currentProfileUserId !== ui) return;     // se abrió otro perfil mientras tanto
