@@ -334,7 +334,62 @@
       document.getElementById('ppLoading').style.display = 'none';
       document.getElementById('ppContent').style.display = 'none';
       document.getElementById('ppError').style.display = 'flex';
+      // Una ficha que no existe (o que ya no es pública) no tiene que quedar en Google.
+      document.title = 'Propiedad no encontrada | MALAVE';
+      if (!document.querySelector('meta[name="robots"]')) {
+        const m = document.createElement('meta');
+        m.name = 'robots'; m.content = 'noindex';
+        document.head.appendChild(m);
+      }
     }
+
+    // ===== Para buscadores =====
+    // La dirección oficial de la ficha (canónica) y sus datos ordenados (precio,
+    // zona, dormitorios, fotos) en el formato que leen Google y otros buscadores.
+    function urlFicha(id) { return 'https://malaveinmobiliaria.com/propiedad.html?id=' + encodeURIComponent(id); }
+    function ponerCanonica(p) {
+      let l = document.querySelector('link[rel="canonical"]');
+      if (!l) { l = document.createElement('link'); l.rel = 'canonical'; document.head.appendChild(l); }
+      l.href = urlFicha(p.id);
+    }
+    function fechaISO(v) {
+      if (v && typeof v.toDate === 'function') return v.toDate().toISOString().slice(0, 10);
+      return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : undefined;
+    }
+    function ponerDatosEstructurados(p) {
+      const t = [p.propertyType, p.realEstateType].filter(Boolean).join(' ');
+      const tipo = /casa|house|chalet/i.test(t) ? 'House' : /apart|apto|\bph\b|monoambiente/i.test(t) ? 'Apartment' : 'Place';
+      const vivienda = tipo !== 'Place';
+      const m2 = Number(p.totalArea || p.builtArea) || undefined;
+      const fotos = images.filter(x => x && x !== FOTO_DEFAULT).slice(0, 10);
+      const datos = {
+        '@context': 'https://schema.org',
+        '@type': 'RealEstateListing',
+        name: p.title,
+        url: urlFicha(p.id),
+        description: String(p.description || '').trim().slice(0, 500) || undefined,
+        image: fotos.length ? fotos : undefined,
+        datePosted: fechaISO(p.createdAt),
+        about: {
+          '@type': tipo,
+          name: p.title,
+          numberOfBedrooms: vivienda && Number(p.bedrooms) ? Number(p.bedrooms) : undefined,
+          numberOfBathroomsTotal: vivienda && Number(p.bathrooms) ? Number(p.bathrooms) : undefined,
+          floorSize: vivienda && m2 ? { '@type': 'QuantitativeValue', value: m2, unitCode: 'MTK' } : undefined,
+          address: { '@type': 'PostalAddress', addressLocality: p.ciudad || undefined, addressRegion: p.departamento || undefined, addressCountry: 'UY' }
+        },
+        offers: Number(p.price) ? {
+          '@type': 'Offer', price: Number(p.price), priceCurrency: p.currency === 'UYU' ? 'UYU' : 'USD',
+          availability: (p.status || 'available') === 'available' ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut'
+        } : undefined,
+        provider: { '@id': 'https://malaveinmobiliaria.com/#inmobiliaria' }
+      };
+      let s = document.getElementById('ppDatos');
+      if (!s) { s = document.createElement('script'); s.type = 'application/ld+json'; s.id = 'ppDatos'; document.head.appendChild(s); }
+      s.textContent = JSON.stringify(datos).replace(/</g, '\\u003c');
+    }
+    // Texto de cada foto para Google Imágenes y lectores de pantalla.
+    function altFoto(i, n) { return ((property && property.title) || 'Propiedad') + ' - foto ' + (i + 1) + ' de ' + n; }
 
     // La ficha pública lee la VITRINA: la copia de la propiedad con solo lo que
     // se muestra al público (ver VITRINA PÚBLICA en functions/index.js). Si no
@@ -487,6 +542,8 @@
       document.getElementById('ogDescription').content = resumen;
       document.getElementById('metaDescription').content = resumen + (p.description ? ' · ' + String(p.description).slice(0, 140) : '');
       if (images[0]) document.getElementById('ogImage').content = images[0];
+      ponerCanonica(p);
+      ponerDatosEstructurados(p);
 
       // Etiquetas sobre las fotos
       const stLabels = { tasacion: 'PENDIENTE DE TASACIÓN', tasado: 'TASADO', reserved: 'RESERVADA', sold: 'VENDIDA', rented: 'ALQUILADA', archived: 'NO DISPONIBLE', cerrado_externo: 'NO DISPONIBLE' };
@@ -601,14 +658,14 @@
       const k = Math.min(n, 5);
       fotos.className = 'pp-fotos' + (k < 5 ? ' n' + k : '');
       fotos.innerHTML = `<div class="pp-badges">${badges}</div>` +
-        images.slice(0, k).map((src, i) => `<button type="button" class="pp-tile" onclick="ppOpenLightbox(${i})" aria-label="Ver foto ${i + 1} de ${n}"><img src="${esc(src)}" alt="" ${i ? 'loading="lazy"' : ''}></button>`).join('') +
+        images.slice(0, k).map((src, i) => `<button type="button" class="pp-tile" onclick="ppOpenLightbox(${i})" aria-label="Ver foto ${i + 1} de ${n}"><img src="${esc(src)}" alt="${esc(altFoto(i, n))}" ${i ? 'loading="lazy"' : ''}></button>`).join('') +
         `<div class="pp-fotos-acc">` +
         (tour ? `<a class="pp-vertodas" href="${esc(tour)}" target="_blank" rel="noopener"><i class="fas fa-cube"></i> Recorrido 3D</a>` : '') +
         (n > 1 ? `<button type="button" class="pp-vertodas" onclick="ppOpenLightbox(0)"><i class="fas fa-images"></i> Ver las ${n} fotos</button>` : '') + `</div>`;
       if (tour) { const tm = document.getElementById('ppTourMovil'); tm.href = tour; tm.hidden = false; }
       document.getElementById('ppBadgesMovil').innerHTML = badges;
       const carril = document.getElementById('ppCarril');
-      carril.innerHTML = images.map((src, i) => `<button type="button" onclick="ppOpenLightbox(${i})" aria-label="Ver foto ${i + 1} de ${n}"><img src="${esc(src)}" alt="" ${i ? 'loading="lazy"' : ''}></button>`).join('');
+      carril.innerHTML = images.map((src, i) => `<button type="button" onclick="ppOpenLightbox(${i})" aria-label="Ver foto ${i + 1} de ${n}"><img src="${esc(src)}" alt="${esc(altFoto(i, n))}" ${i ? 'loading="lazy"' : ''}></button>`).join('');
       const cont = document.getElementById('ppContador');
       cont.textContent = n > 1 ? `1 / ${n}` : '';
       cont.style.display = n > 1 ? '' : 'none';
