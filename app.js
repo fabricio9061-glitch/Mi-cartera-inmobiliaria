@@ -6497,29 +6497,10 @@
     document.getElementById('editTiktok').value = userProfile.tiktok || '';
     document.getElementById('editYoutube').value = userProfile.youtube || '';
     document.getElementById('editWebsite').value = userProfile.website || '';
-    // Datos de cobro
-    poblarBancos();
-    document.getElementById('editBanco').value = userProfile.bancoNombre || '';
-    document.getElementById('editCuentaTitular').value = userProfile.cuentaTitular || '';
-    document.getElementById('editCuentaCI').value = userProfile.cuentaCI || '';
-    document.getElementById('editCuentaNumero').value = userProfile.cuentaNumero || '';
-    document.getElementById('editCuentaMoneda').value = userProfile.cuentaMoneda || '';
-    document.getElementById('editCuentaTipo').value = userProfile.cuentaTipo || '';
+    // Los datos de cobro ya no están acá: se cargan en Mis finanzas, en un lugar
+    // privado que ven solo el agente y la Dirección.
     document.getElementById('userDropdown')?.classList.remove('active');
     openModal('editProfileModal')
-  }
-
-  // Bancos y emisores de dinero electrónico habilitados en Uruguay (BCU).
-  const BANCOS_UY = [
-    'BROU - Banco República', 'Banco Itaú', 'Santander', 'BBVA', 'Scotiabank',
-    'HSBC', 'Banco Heritage', 'Citibank', 'Banque Heritage', 'Banco de la Nación Argentina',
-    'BANDES', 'Mercado Pago', 'Prex', 'Mi Dinero', 'Midinero', 'OCA Blue', 'Anda', 'Creditel', 'Otro'
-  ];
-  function poblarBancos() {
-    const sel = document.getElementById('editBanco');
-    if (!sel || sel.dataset.filled) return;
-    sel.insertAdjacentHTML('beforeend', BANCOS_UY.map(b => `<option value="${b}">${b}</option>`).join(''));
-    sel.dataset.filled = '1';
   }
 
   async function handleSaveProfile(e) {
@@ -6546,12 +6527,6 @@
         tiktok: document.getElementById('editTiktok').value.trim(),
         youtube: document.getElementById('editYoutube').value.trim(),
         website: document.getElementById('editWebsite').value.trim(),
-        bancoNombre: document.getElementById('editBanco').value,
-        cuentaTitular: document.getElementById('editCuentaTitular').value.trim(),
-        cuentaCI: document.getElementById('editCuentaCI').value.trim(),
-        cuentaNumero: document.getElementById('editCuentaNumero').value.trim(),
-        cuentaMoneda: document.getElementById('editCuentaMoneda').value,
-        cuentaTipo: document.getElementById('editCuentaTipo').value,
         updatedAt: new Date().toISOString()
       };
       await db.collection('users').doc(currentUser.uid).update(updateData);
@@ -7008,6 +6983,33 @@
   }
   let _sitioDestino = null;
 
+  // ===== Datos de cobro de los agentes (pestaña Comisiones) =====
+  // Viven en "users/{uid}/privado/banco", que ven solo el agente y la Dirección
+  // (ver CUENTAS BANCARIAS PRIVADAS en functions/index.js). Mientras no se haga
+  // la mudanza, se muestran los que todavía estén en el perfil.
+  async function leerCuentasAgentes(uids) {
+    const bancos = {};
+    await Promise.all(uids.map(uid => db.collection('users').doc(uid).collection('privado').doc('banco').get()
+      .then(d => { if (d.exists && Array.isArray(d.data().cuentas)) bancos[uid] = d.data().cuentas; })
+      .catch(() => { })));
+    return bancos;
+  }
+  function cuentasDeAgente(u, bancos) {
+    if (bancos[u._uid]) return bancos[u._uid];
+    if (Array.isArray(u.cuentasBancarias)) return u.cuentasBancarias;
+    if (u.bancoNombre || u.cuentaNumero) return [{ banco: u.bancoNombre, tipo: u.cuentaTipo, moneda: u.cuentaMoneda, numero: u.cuentaNumero, titular: u.cuentaTitular, ci: u.cuentaCI }];
+    return [];
+  }
+  function htmlCobro(ctas) {
+    if (!ctas.length) return `<div class="com-cobro falta"><i class="fas fa-circle-info"></i> Sin datos de cobro cargados</div>`;
+    return ctas.map(c => {
+      const linea = [c.banco, c.tipo, c.moneda ? (c.moneda === 'UYU' ? '$U' : 'US$') : '', c.numero ? ('Nº ' + c.numero) : '']
+        .filter(Boolean).join(' · ');
+      const tit = [c.titular, c.ci].filter(Boolean).join(' — ');
+      return `<div class="com-cobro"><i class="fas fa-university"></i> ${mvEsc(linea)}${tit ? '<br><span class="com-cobro-tit">' + mvEsc(tit) + '</span>' : ''}</div>`;
+    }).join('');
+  }
+
   async function showAdminTab(tb) {
     document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
     // Varias ramas viven bajo una misma pestaña: pending y comisiones son parte
@@ -7159,6 +7161,7 @@
           .filter(uid => (allUsers[uid].email || '').toLowerCase() !== ADMIN_EMAIL)
           .map(uid => Object.assign({ _uid: uid }, allUsers[uid]))
           .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        const bancos = await leerCuentasAgentes(agentes.map(u => u._uid));
 
         let html = '';
         html += `<style>
@@ -7255,16 +7258,8 @@
             const refPill = hasRef ? `<span class="com-pill ref" title="Gana ${num(r.pctSale)}% venta / ${num(r.pctRent)}% alquiler de su comisión"><i class="fas fa-user-tie"></i> ${mvEsc(nom(r.referrerUid))}</span>` : '';
             const ganado = comAgente(u._uid);
             const earn = (Math.round(ganado.USD) || Math.round(ganado.UYU)) ? `<div class="com-earn"><i class="fas fa-sack-dollar"></i> Ganó ${fmtSums(ganado)}</div>` : '';
-            // Datos de cobro del agente (para que el admin transfiera).
-            let cobro = '';
-            if (u.bancoNombre || u.cuentaNumero) {
-              const linea = [u.bancoNombre, u.cuentaTipo, u.cuentaMoneda ? (u.cuentaMoneda === 'UYU' ? '$U' : 'US$') : '', u.cuentaNumero ? ('Nº ' + u.cuentaNumero) : '']
-                .filter(Boolean).join(' · ');
-              const tit = [u.cuentaTitular, u.cuentaCI].filter(Boolean).join(' — ');
-              cobro = `<div class="com-cobro"><i class="fas fa-university"></i> ${mvEsc(linea)}${tit ? '<br><span class="com-cobro-tit">' + mvEsc(tit) + '</span>' : ''}</div>`;
-            } else {
-              cobro = `<div class="com-cobro falta"><i class="fas fa-circle-info"></i> Sin datos de cobro cargados</div>`;
-            }
+            // Datos de cobro del agente (para que el admin transfiera): todas sus cuentas.
+            const cobro = htmlCobro(cuentasDeAgente(u, bancos));
             const rank = u.role ? `<div class="com-rank">${mvEsc(u.role)}</div>` : '';
             return `<div class="com-agent ${hasCom ? '' : 'nocom'}" data-name="${mvEsc((u.name || '').toLowerCase())}" data-com="${hasCom ? 1 : 0}" data-ref="${hasRef ? 1 : 0}"><div class="com-av">${photo}</div><div class="com-body"><div class="com-name">${mvEsc(u.name || 'Sin nombre')}</div>${rank}<div class="com-pills">${pills}${refPill}</div>${earn}${cobro}</div><button class="com-edit" onclick="openComisionAgente('${u._uid}')" title="Editar comisión y referente"><i class="fas fa-sliders-h"></i></button></div>`;
           }).join('');

@@ -258,7 +258,16 @@
       try{
         var pd = await db.collection('users').doc(u.uid).get();
         profile = pd.exists ? pd.data() : {};
-        cuentas = Array.isArray(profile.cuentasBancarias) ? profile.cuentasBancarias : migrarCuentaVieja(profile);
+        // Las cuentas viven en un lugar privado que ven solo vos y la Dirección.
+        // Si todavía están en el perfil (antes de la mudanza), se traen de ahí y
+        // se pasan al lugar privado en este momento.
+        var priv = await refBanco().get();
+        if (priv.exists && Array.isArray(priv.data().cuentas)) {
+          cuentas = priv.data().cuentas;
+        } else {
+          cuentas = Array.isArray(profile.cuentasBancarias) ? profile.cuentasBancarias : migrarCuentaVieja(profile);
+          if (tieneBancoEnPerfil(profile)) guardarCuentas().catch(function(e){ console.warn('No se pudieron mudar las cuentas:', e); });
+        }
         try { var c = await db.collection('config').doc('recompensas').get(); if(c.exists) cfgPts = Object.assign(cfgPts, c.data()); } catch(e){}
         await Promise.all([calcularGanado(u.uid), cargarRetiros(u.uid)]);
         render();
@@ -266,6 +275,23 @@
         document.getElementById('content').style.display='block';
       }catch(e){ console.error(e); toast('No se pudieron cargar tus finanzas: '+(e.code||e.message), true); }
     });
+
+    // ===== Cuentas para cobrar =====
+    // Viven en "users/{uid}/privado/banco" (ver CUENTAS BANCARIAS PRIVADAS en
+    // functions/index.js). Antes estaban en el perfil, que lee todo el equipo.
+    var BANCO_VIEJOS = ['cuentasBancarias','bancoNombre','cuentaTitular','cuentaCI','cuentaNumero','cuentaMoneda','cuentaTipo'];
+    function refBanco(){ return db.collection('users').doc(me.uid).collection('privado').doc('banco'); }
+    function tieneBancoEnPerfil(p){ return BANCO_VIEJOS.some(function(k){ return p[k] !== undefined; }); }
+    // Guarda las cuentas en el lugar privado y, si quedaba algo en el perfil, lo borra de ahí.
+    async function guardarCuentas(){
+      await refBanco().set({ cuentas: cuentas, updatedAt: new Date().toISOString() });
+      if (tieneBancoEnPerfil(profile)) {
+        var borrar = {};
+        BANCO_VIEJOS.forEach(function(k){ if (profile[k] !== undefined) borrar[k] = firebase.firestore.FieldValue.delete(); });
+        await db.collection('users').doc(me.uid).update(borrar);
+        BANCO_VIEJOS.forEach(function(k){ delete profile[k]; });
+      }
+    }
 
     // Compat: si el agente tenía una sola cuenta cargada en el perfil viejo, la trae.
     function migrarCuentaVieja(p){
@@ -430,7 +456,7 @@
       var nueva={ id:'cta_'+Date.now(), banco:banco, moneda:moneda, titular:document.getElementById('accTitular').value.trim(), ci:document.getElementById('accCI').value.trim(), numero:numero, tipo:document.getElementById('accTipo').value };
       try{
         cuentas.push(nueva);
-        await db.collection('users').doc(me.uid).set({ cuentasBancarias:cuentas, updatedAt:new Date().toISOString() }, {merge:true});
+        await guardarCuentas();
         cerrar('accModal'); renderCuentas(); toast('Cuenta agregada');
       }catch(e){ cuentas.pop(); err.textContent='No se pudo guardar: '+(e.code||e.message); err.style.display='block'; }
       btn.disabled=false;
@@ -439,7 +465,7 @@
       if(!confirm('¿Eliminar esta cuenta?')) return;
       var prev=cuentas.slice();
       cuentas=cuentas.filter(function(a){return a.id!==id;});
-      try{ await db.collection('users').doc(me.uid).set({ cuentasBancarias:cuentas, updatedAt:new Date().toISOString() }, {merge:true}); renderCuentas(); toast('Cuenta eliminada'); }
+      try{ await guardarCuentas(); renderCuentas(); toast('Cuenta eliminada'); }
       catch(e){ cuentas=prev; toast('No se pudo eliminar: '+(e.code||e.message), true); }
     }
 
