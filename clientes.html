@@ -4179,6 +4179,21 @@
           acciones: [ A('Se cayó la reserva', "cambiarEstadoGestion('"+gid+"','"+(rol === 'propietario' ? 'cartera' : 'negociacion')+"',{caidaOk:true})", false, 'fa-rotate-left'),
                       A('Sigue reservada', "resincronizarGestion('"+gid+"','"+pid+"',this)", true, 'fa-handshake') ] };
       }
+      // La propiedad del DUEÑO a nombre de otro agente. Las consultas de los
+      // portales le llegan a quien figura en la propiedad, no a quien trabaja la
+      // gestión. Pasaba al traspasar a un INTERESADO: su gestión arrastraba la
+      // propiedad que le interesaba, que era de otro agente.
+      if (rol === 'propietario'){
+        var agenteG = g.agentId || g.createdBy || g.ownerId || '';
+        if (prop.ownerId && agenteG && prop.ownerId !== agenteG){
+          var publicada = st === 'available' || st === 'reserved';
+          var puede = puedeMoverDe(prop.ownerId) && puedeMoverDe(agenteG);
+          return { texto: 'La propiedad figura a nombre de <b>'+esc(prop.ownerName || 'otro agente')+'</b>, pero la gestión del dueño la trabaja <b>'+esc(g.agentName || 'otro agente')+'</b>.' +
+              (publicada ? ' Las consultas de los portales le llegan a quien figura en la propiedad.' : '') +
+              (puede ? '' : (esDir ? ' La puede pasar el CEO.' : ' Avisale a la Dirección para pasarla.')),
+            acciones: puede ? [ A('Pasarla a '+(g.agentName || 'este agente'), "corregirDuenioPropiedad('"+gid+"','"+pid+"',this)", true, 'fa-user-check') ] : [] };
+        }
+      }
       return null;
     }
     function coherenciaHtml(g, prop, rol, est){
@@ -4190,6 +4205,39 @@
             return '<button type="button"'+(a.pri?' class="pri"':'')+' onclick="'+a.fn+'">'+(a.ico?'<i class="fas '+a.ico+'"></i> ':'')+esc(a.txt)+'</button>';
           }).join('')+'</div>' : '') +
         '</div></div>';
+    }
+    // Arreglo del aviso de la propiedad a nombre de otro agente: pasa a quien
+    // trabaja la gestión del dueño. La mueve el servidor (traspasarPropiedades),
+    // como cualquier traspaso: queda registrado y se actualiza el aviso de ML.
+    function corregirDuenioPropiedad(gid, pid, btn){
+      if (!esDir) return;
+      var g = (_gestionesPerfil || []).filter(function(x){ return x.id === gid; })[0];
+      var aUid = g && (g.agentId || g.createdBy || g.ownerId);
+      if (!aUid){ showToast('No se encontró la gestión'); return; }
+      var nombre = g.agentName || 'el agente de la gestión';
+      if (!confirm('¿Pasar la propiedad a nombre de ' + nombre + '?\n\nDesde ahora las consultas de los portales le llegan a ' + nombre + '. Queda registrado el traspaso.')) return;
+      if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Pasando…'; }
+      firebase.functions().httpsCallable('traspasarPropiedades')({ propertyIds: [pid], aUid: aUid }).then(function(r){
+        var x = (r && r.data) || {};
+        if (x.bloqueadas){
+          showToast('No se pudo pasar', 'Está a nombre de alguien de tu mismo rango o superior');
+          if (currentProfileId) renderGestiones(currentProfileId);
+          return;
+        }
+        showToast('Listo', 'La propiedad ahora figura a nombre de ' + nombre);
+        // Un aviso de ML sin actualizar deja el contacto anterior: se avisa, salvo
+        // que la propiedad ya no esté publicada (ahí no llegan consultas).
+        var p = propPorId(pid), st = (p && p.status) || 'available';
+        if ((st === 'available' || st === 'reserved') && x.avisosConError && x.avisosConError.length){
+          alert('La propiedad pasó a ' + nombre + ', pero quedaron ' + x.avisosConError.length + ' aviso(s) de Mercado Libre con el contacto anterior.\n\n' +
+            x.avisosConError.map(function(y){ return '· ' + y.itemId + ': ' + y.error; }).join('\n'));
+        }
+        refrescarPropiedad(pid);   // al llegar el dueño nuevo, el aviso se va solo
+      }).catch(function(e){
+        console.error(e);
+        showToast('No se pudo pasar la propiedad', 'Probá de nuevo en un rato');
+        if (currentProfileId) renderGestiones(currentProfileId);
+      });
     }
     // Marcar Vendida saca la propiedad de la web y de los portales: se confirma.
     function confirmarVendida(gid, pid, btn){
@@ -4429,7 +4477,7 @@
       var data = Object.assign({ id: d.id }, d.data());
       var i = -1; for (var k=0;k<allProperties.length;k++){ if (allProperties[k].id===d.id){ i=k; break; } }
       var antes = i >= 0 ? allProperties[i] : null;
-      var cambio = !antes || ['status','despubPendiente','finalizadaPorGestion','contratoPendiente','bajaSolicitadaUid','motivoBaja','cierre','cierreConfirmado','reservadaPorGestion'].some(function(k){
+      var cambio = !antes || ['status','despubPendiente','finalizadaPorGestion','contratoPendiente','bajaSolicitadaUid','motivoBaja','cierre','cierreConfirmado','reservadaPorGestion','ownerId'].some(function(k){
         return JSON.stringify(antes[k]) !== JSON.stringify(data[k]);
       });
       if (i>=0) allProperties[i] = data; else allProperties.push(data);
@@ -5598,8 +5646,8 @@
           (esDir ? '<label class="trs-chk"><input type="checkbox" id="trsArrastra" checked>' +
             '<span>Traspasar también sus gestiones y propiedades</span></label>' +
             '<p class="dormido-p" style="margin-top:6px;font-size:.82rem">Se mueve solo lo que está a nombre de <b>'+esc(c.createdByName||'ese agente')+'</b>. ' +
-            'Si el cliente tiene otras propiedades con otros agentes, esas no se tocan. ' +
-            'En las que sí se mueven cambia el agente en el CRM y se actualiza el contacto de los avisos de Mercado Libre.</p>' : '') +
+            'De las propiedades viajan solo las que son del cliente: las de otros agentes y las que le interesan siguen con quien las captó. ' +
+            'En las que se mueven cambia el agente en el CRM y se actualiza el contacto de los avisos de Mercado Libre.</p>' : '') +
           '<button class="dormido-opt" onclick="confirmarTraspaso(\'' + escA(clientId) + '\')"><i class="fas fa-check"></i> Traspasar</button>' +
           '<button class="dormido-cancel" onclick="this.closest(\'.dormido-overlay\').remove()">Cancelar</button>' +
         '</div>';
@@ -5673,6 +5721,9 @@
         var g = d.data();
         var actual = g.agentId || g.createdBy || g.ownerId || '';
         if (!puedeMoverDe(actual)){ showToast('No podés cambiarla', 'La trabaja alguien de tu mismo rango o superior'); return; }
+        // La propiedad viaja solo con la gestión del dueño: si el cliente es
+        // interesado, la propiedad es de quien la captó y no se toca.
+        var esDuenio = rolDeGestion(g) === 'propietario';
         return cargarAgentes().then(function(ags){
           var opts = ags.filter(function(a){ return a.uid !== actual; })
             .map(function(a){ return '<option value="'+escA(a.uid)+'">'+esc(a.name||a.email)+'</option>'; }).join('');
@@ -5683,9 +5734,11 @@
           ov.innerHTML = '<div class="dormido-box">' +
             '<div class="dormido-head"><i class="fas fa-user-tie"></i> Agente de esta gestión</div>' +
             '<p class="dormido-p">Hoy la trabaja <b>'+esc(g.agentName||'—')+'</b>. ' +
-            'El agente nuevo pasa a figurar en la gestión y en la propiedad, y se actualiza el contacto de los avisos publicados en Mercado Libre.</p>' +
+            (esDuenio
+              ? 'El agente nuevo pasa a figurar en la gestión y en la propiedad, y se actualiza el contacto de los avisos publicados en Mercado Libre.</p>'
+              : 'El agente nuevo pasa a figurar en esta gestión. La propiedad sigue con su agente: el cliente está interesado en ella, no es el dueño.</p>') +
             '<div class="trs-sel"><label>Nuevo agente</label><select id="gagDestino">'+opts+'</select></div>' +
-            '<label class="trs-chk"><input type="checkbox" id="gagProp" checked><span>Traspasar también la propiedad</span></label>' +
+            (esDuenio ? '<label class="trs-chk"><input type="checkbox" id="gagProp" checked><span>Traspasar también la propiedad</span></label>' : '') +
             '<button class="dormido-opt" onclick="confirmarAgenteGestion(\'' + escA(gestionId) + '\')"><i class="fas fa-check"></i> Cambiar agente</button>' +
             '<button class="dormido-cancel" onclick="this.closest(\'.dormido-overlay\').remove()">Cancelar</button>' +
           '</div>';
@@ -5702,10 +5755,13 @@
       var mueveProp = !!(conProp && conProp.checked);
       var nombre = destino.name || destino.email || 'Agente';
       var ahora = new Date().toISOString();
-      var propertyId = null;
+      var propertyId = null, previo = null, omitida = false;
 
       db.collection('gestiones').doc(gestionId).get().then(function(d){
-        propertyId = d.exists ? (d.data().propertyId || null) : null;
+        var gd = d.exists ? d.data() : {};
+        propertyId = gd.propertyId || null;
+        previo = gd.agentId || gd.createdBy || gd.ownerId || null;
+        if (rolDeGestion(gd) !== 'propietario') mueveProp = false;   // la de un interesado no viaja
         return db.collection('gestiones').doc(gestionId).update({
           agentId: destino.uid, agentName: nombre,
           createdBy: destino.uid, createdByName: nombre,
@@ -5716,9 +5772,13 @@
       }).then(function(){
         if (!mueveProp || !propertyId) return null;
         return firebase.functions().httpsCallable('traspasarPropiedades')({
-          propertyIds: [propertyId], aUid: destino.uid
+          // soloDe: si la propiedad es de otro agente (no del que trabajaba la
+          // gestión), no se toca; la gestión del dueño lo avisa y ofrece el arreglo.
+          propertyIds: [propertyId], aUid: destino.uid, soloDe: previo
         }).then(function(r){
           var x = (r && r.data) || {};
+          refrescarPropiedad(propertyId);
+          if (x.omitidas) omitida = true;   // se dice en el mensaje final (hay uno solo a la vez)
           if (x.avisosConError && x.avisosConError.length){
             alert('La propiedad se traspasó, pero quedaron '+x.avisosConError.length+' aviso(s) de Mercado Libre con el contacto anterior.\n\n'+
               x.avisosConError.map(function(y){ return '· '+y.itemId+': '+y.error; }).join('\n'));
@@ -5731,7 +5791,7 @@
         });
       }).then(function(){
         var ov = document.querySelector('.dormido-overlay'); if (ov) ov.remove();
-        showToast('Ahora la trabaja '+nombre);
+        showToast('Ahora la trabaja '+nombre, omitida ? 'La propiedad no se movió: está a nombre de otro agente' : '');
         if (currentProfileId) renderGestiones(currentProfileId);
       }).catch(function(e){ console.error(e); showToast('No se pudo cambiar el agente'); });
     }
@@ -5752,7 +5812,11 @@
         q.docs.forEach(function(d){
           var g = d.data();
           if (deUid && !gestionEsDe(g, deUid)) { ajenas++; return; }
-          if (g.propertyId) props.push(g.propertyId);
+          // Solo viaja la propiedad de la que el cliente es DUEÑO. Si está
+          // interesado en una, esa es de quien la captó y sigue a su nombre: antes
+          // también se movía, y la propiedad de otro pasaba a quien recibía al
+          // interesado (con las consultas de los portales incluidas).
+          if (g.propertyId && rolDeGestion(g) === 'propietario') props.push(g.propertyId);
           cambios.push(d.ref.update({
             agentId: destino.uid, agentName: nombre,
             createdBy: destino.uid, createdByName: nombre,
@@ -5770,6 +5834,7 @@
           propertyIds: props, aUid: destino.uid, soloDe: deUid || null
         }).then(function(r){
           var d = (r && r.data) || {};
+          props.forEach(function(pid){ refrescarPropiedad(pid); });
           if (d.propiedades) {
             var msg = d.propiedades+' propiedad'+(d.propiedades===1?'':'es')+' a nombre de '+nombre;
             if (d.avisosActualizados) msg += ' · '+d.avisosActualizados+' aviso(s) de ML actualizados';
