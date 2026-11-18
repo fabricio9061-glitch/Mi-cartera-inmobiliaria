@@ -293,6 +293,8 @@
         <div class="hero-ml">
           <button type="button" class="btn-ml" id="btnML" onclick="traerML()"><i class="fas fa-rotate"></i> Actualizar Mercado Libre</button>
           <small id="estadoML" aria-live="polite"></small>
+          <button type="button" class="btn-ml" id="btnCYM" onclick="traerCYM()"><i class="fas fa-rotate"></i> Actualizar Casas y Más</button>
+          <small id="estadoCYM" aria-live="polite"></small>
         </div>
       </div>
       <div class="stats" id="tarjetas" aria-live="polite"></div>
@@ -339,8 +341,9 @@
       </section>
       <div class="col">
         <section class="caja">
-          <div class="caja-h"><div><h2>De dónde viene</h2><p>Contactos por canal. Mercado Libre, de los últimos 30 días.</p></div></div>
+          <div class="caja-h"><div><h2>De dónde viene</h2><p>Contactos de los últimos 30 días, por canal.</p></div></div>
           <div id="portales"><div class="vacio">Cargando…</div></div>
+          <p class="nota-tend" id="notaPortales"></p>
         </section>
         <section class="caja">
           <details class="como">
@@ -348,7 +351,7 @@
             <div class="como-tx">
               <p>El <b>termómetro</b> es el interés por día publicado, no el total: una propiedad de hace seis meses siempre suma más que una de la semana pasada, aunque hoy no la mire nadie.</p>
               <p>No todo pesa igual: una <b>vista vale 1</b> (curiosidad), un <b>contacto por WhatsApp vale 5</b> (intención) y una <b>consulta o pregunta vale 15</b> (alguien que dejó sus datos).</p>
-              <p>Mercado Libre cuenta los <b>últimos 30 días</b>, los mismos números del modal de Portales. La web suma desde que se publicó y cuenta visitantes únicos, no recargas.</p>
+              <p><b>De dónde viene</b> cuenta los <b>últimos 30 días</b> en todos los canales. En el termómetro y la tabla, las visitas, los WhatsApp y las llamadas de Mercado Libre y Casas y Más son de los últimos 30 días; la web y las consultas suman desde el principio. La web cuenta visitantes únicos, no recargas.</p>
             </div>
           </details>
         </section>
@@ -390,6 +393,8 @@
   const db = firebase.firestore(), auth = firebase.auth();
 
   let _props = [], _ordCol = 'termo', _ordAsc = false, _sinPermiso = false, _hayHistorial = false, _mlAt = null;
+  // Resumen de Casas y Más (config/cymMetricas) y desde qué día hay foto diaria de la web.
+  let _cym = null, _webDesde = null;
   // Los filtros de arriba (los botones).
   const FILTRO = { tipo: '', estado: 'available', dest: '' };
 
@@ -472,6 +477,35 @@
     return 'Mercado Libre: datos del ' + p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + ', ' + p2(d.getHours()) + ':' + p2(d.getMinutes()) + '.';
   }
 
+  /* Casas y Más: visitas, WhatsApp, llamadas y consultas de los últimos 30
+     días. El proceso diario (06:40) las mantiene; este botón trae el momento. */
+  async function traerCYM(){
+    const b = document.getElementById('btnCYM'), e = document.getElementById('estadoCYM');
+    b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Consultando…';
+    e.textContent = 'Consultando Casas y Más.';
+    try{
+      const r = await firebase.functions().httpsCallable('actualizarMetricasCYM')({});
+      const d = r.data || {};
+      await cargar();
+      const est = d.estadisticas || {}, con = d.consultas || {};
+      if (d.ok) {
+        e.textContent = 'Listo: ' + (est.ok
+          ? plural(est.enElCrm || 0, 'propiedad', 'propiedades') + ' con visitas y clics'
+          : 'sin visitas ni clics (' + (est.mensaje || 'respuesta no reconocida') + ')') +
+          (con.ok ? ' · ' + plural(con.ult30 || 0, 'consulta', 'consultas') + ' en 30 días' : '') + '.';
+      } else e.textContent = 'No se pudo: ' + (est.mensaje || con.mensaje || d.mensaje || 'error desconocido');
+    }catch(err){
+      e.textContent = 'No se pudo: ' + (err.message || err);
+    }finally{
+      b.disabled = false; b.innerHTML = '<i class="fas fa-rotate"></i> Actualizar Casas y Más';
+    }
+  }
+  function textoCYM(){
+    if (!_cym || !_cym.at) return 'Todavía no se trajeron los datos de Casas y Más.';
+    const d = new Date(_cym.at), p2 = n => String(n).padStart(2, '0');
+    return 'Casas y Más: datos del ' + p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + ', ' + p2(d.getHours()) + ':' + p2(d.getMinutes()) + '.';
+  }
+
   async function cargar(){
     try{
       /* Las consultas de portales viven en los crudos, no en gestiones: los leads
@@ -482,32 +516,45 @@
          de recorrer todas las propiedades. Solo los últimos 8 días, que es lo que
          hace falta para comparar contra hace una semana. */
       const hace8 = new Date(Date.now() - 8 * 86400000).toISOString().slice(0, 10);
-      const [snap, mlS, icS, mtS] = await Promise.all([
+      /* La ventana de "De dónde viene": los últimos 30 días en todos los canales.
+         Las fotos diarias de 30 días sirven para dos cosas: la de hace una semana
+         (tendencia) y la del primer día de la ventana (lo que se movió la web). */
+      const hace30 = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+      const hace30Iso = new Date(Date.now() - 30 * 86400000).toISOString();
+      const [snap, mlS, icS, mtS, cymS] = await Promise.all([
         db.collection('properties').get(),
         db.collection('mlEventos').get().catch(() => null),
         db.collection('leadsPortales').get().catch(() => null),
-        db.collectionGroup('metricas').where('fecha', '>=', hace8).get().catch(() => null)
+        db.collectionGroup('metricas').where('fecha', '>=', hace30).get().catch(() => null),
+        db.collection('config').doc('cymMetricas').get().catch(() => null)
       ]);
+      _cym = cymS && cymS.exists ? cymS.data() : null;
       /* Por propiedad, la foto más vieja del rango. La diferencia contra el valor
          de hoy es el movimiento de la semana. Si no hay fotos todavía —el proceso
          recién empieza a correr— no se muestra tendencia en vez de inventarla. */
-      const base = {};
+      const base = {}, inicio = {};
+      let f0 = null;   // el primer día de la ventana que tiene foto
+      if (mtS) mtS.forEach(d => { const x = d.data(); if (x && x.fecha && (!f0 || x.fecha < f0)) f0 = x.fecha; });
       if (mtS) mtS.forEach(d => {
         const propId = d.ref.parent.parent && d.ref.parent.parent.id;
         if (!propId) return;
         const x = d.data();
-        if (!base[propId] || x.fecha < base[propId].fecha) base[propId] = x;
+        if (x.fecha >= hace8 && (!base[propId] || x.fecha < base[propId].fecha)) base[propId] = x;
+        if (x.fecha === f0) inicio[propId] = x;
       });
+      _webDesde = f0;
       _hayHistorial = !!(mtS && !mtS.empty);
       _sinPermiso = !mlS || !icS;
-      const conML = {}, conIC = {}, conCYM = {};
-      if (mlS) mlS.forEach(d => { const x = d.data(); if (x.propertyId) conML[x.propertyId] = (conML[x.propertyId] || 0) + 1; });
+      const conML = {}, conIC = {}, conCYM = {}, conML30 = {}, conIC30 = {}, conCYM30 = {};
+      const suma = (m, id) => { m[id] = (m[id] || 0) + 1; };
+      const reciente = x => String(x.recibido || '') >= hace30Iso;
+      if (mlS) mlS.forEach(d => { const x = d.data(); if (x.propertyId) { suma(conML, x.propertyId); if (reciente(x)) suma(conML30, x.propertyId); } });
       // leadsPortales mezcla InfoCasas y Casas y Más: se separan por 'fuente'.
       if (icS) icS.forEach(d => {
         const x = d.data();
         if (!x.propertyId) return;
-        if (x.fuente === 'casasymas') conCYM[x.propertyId] = (conCYM[x.propertyId] || 0) + 1;
-        else conIC[x.propertyId] = (conIC[x.propertyId] || 0) + 1;
+        if (x.fuente === 'casasymas') { suma(conCYM, x.propertyId); if (reciente(x)) suma(conCYM30, x.propertyId); }
+        else { suma(conIC, x.propertyId); if (reciente(x)) suma(conIC30, x.propertyId); }
       });
       const hoy = Date.now();
       _props = []; _mlAt = null;
@@ -524,6 +571,18 @@
         const cCYM = Math.max(Number(p.cymConsultas) || 0, conCYM[d.id] || 0);
         const sinResp = Number(p.cymSinResponder) || 0;
         const consultas = cML + cIC + cCYM;
+        // Los mismos conteos, solo de los últimos 30 días (para "De dónde viene").
+        const cML30 = conML30[d.id] || 0, cIC30 = conIC30[d.id] || 0;
+        const cCYM30 = Math.max(Number(p.cymConsultas30) || 0, conCYM30[d.id] || 0);
+        /* Casas y Más, últimos 30 días (metricasCYMDiario). Los WhatsApp y las
+           llamadas son contactos: la persona escribe o llama por fuera del portal. */
+        const vCYM = Number(p.cymVisitas30) || 0, wCYM = Number(p.cymWhatsapp30) || 0, tCYM = Number(p.cymTelefono30) || 0;
+        /* La web en la ventana: cuánto subieron sus contadores desde la foto del
+           primer día. Sin foto ese día, los contadores estaban en cero (la foto
+           se saca de toda propiedad que tenga algo). Sin fotos, desde siempre. */
+        const ini = inicio[d.id];
+        const views30 = f0 ? Math.max(0, views - (ini ? Number(ini.views) || 0 : 0)) : views;
+        const clics30 = f0 ? Math.max(0, clics - (ini ? Number(ini.contactClicks) || 0 : 0)) : clics;
         /* Métricas de Mercado Libre de los ÚLTIMOS 30 DÍAS, los mismos números
            que muestra el modal de Portales. */
         const vML = Number(p.mlVisitas30) || 0;
@@ -541,11 +600,12 @@
           destacada, diasDest: destacada && typeof window.diasDeDestacado === 'function' ? window.diasDeDestacado(p) : null,
           agente: p.ownerName || '',
           views, clics, dias, cML, cIC, consultas, vML, wML, qML, cCYM, sinResp,
+          views30, clics30, cML30, cIC30, cCYM30, vCYM, wCYM, tCYM,
           /* Totales de TODAS las fuentes. La conversión con solo la web daba 0%
              en casi todas —5 clics contra 276 vistas— mientras que en ML hay
              1.556 visitas con 40 contactos. */
-          vistasTot: views + vML,
-          contactosTot: clics + wML + consultas + qML,
+          vistasTot: views + vML + vCYM,
+          contactosTot: clics + wML + wCYM + tCYM + consultas + qML,
           // Movimiento de los últimos días contra la foto más vieja disponible.
           delta: (function(){
             const b = base[d.id];
@@ -559,11 +619,12 @@
              Los pesos NO son iguales a propósito: una vista es curiosidad, un
              clic es intención, y una consulta de portal es una persona que dejó
              sus datos. */
-          termo: dias ? (views + vML + (clics + wML) * 5 + (consultas + qML) * 15) / dias : null,
-          conv: (views + vML) > 0 ? ((clics + wML + consultas + qML) / (views + vML) * 100) : null
+          termo: dias ? (views + vML + vCYM + (clics + wML + wCYM + tCYM) * 5 + (consultas + qML) * 15) / dias : null,
+          conv: (views + vML + vCYM) > 0 ? ((clics + wML + wCYM + tCYM + consultas + qML) / (views + vML + vCYM) * 100) : null
         });
       });
       if (!document.getElementById('btnML').disabled) document.getElementById('estadoML').textContent = textoML();
+      if (!document.getElementById('btnCYM').disabled) document.getElementById('estadoCYM').textContent = textoCYM();
       pintar();
     }catch(e){
       console.error(e);
@@ -647,12 +708,19 @@
   function pintarPortales(l){
     const el = document.getElementById('portales');
     const s = k => l.reduce((a, p) => a + (Number(p[k]) || 0), 0);
+    /* Todo de los últimos 30 días, para que los canales se puedan comparar.
+       Antes Mercado Libre contaba 30 días y el resto desde el principio, y a
+       Casas y Más le faltaban los WhatsApp y las llamadas, que el portal no
+       informaba. InfoCasas sigue sin informar visitas ni clics. */
+    const cymStats = !!(_cym && _cym.estadisticas && _cym.estadisticas.ok);
     const canales = [
-      { ic: 'fa-globe', n: 'Web propia', c: s('clics'), v: s('views'), d: plural(s('views'), 'vista', 'vistas') + ' · ' + plural(s('clics'), 'clic', 'clics') + ' a WhatsApp' },
-      { ic: 'fa-handshake', n: 'Mercado Libre', c: s('wML') + s('qML') + s('cML'), v: s('vML'),
-        d: plural(s('vML'), 'visita', 'visitas') + ' · ' + nf(s('wML')) + ' WhatsApp · ' + plural(s('qML'), 'pregunta', 'preguntas') + ' · ' + plural(s('cML'), 'consulta', 'consultas') },
-      { ic: 'fa-house', n: 'InfoCasas', c: s('cIC'), d: plural(s('cIC'), 'consulta', 'consultas') },
-      { ic: 'fa-house-chimney', n: 'Casas y Más', c: s('cCYM'), d: plural(s('cCYM'), 'consulta', 'consultas') + (s('sinResp') ? ' · <b>' + plural(s('sinResp'), 'sin responder', 'sin responder') + '</b>' : '') }
+      { ic: 'fa-globe', n: 'Web propia', c: s('clics30'), d: plural(s('views30'), 'vista', 'vistas') + ' · ' + plural(s('clics30'), 'clic', 'clics') + ' a WhatsApp' },
+      { ic: 'fa-handshake', n: 'Mercado Libre', c: s('wML') + s('qML') + s('cML30'),
+        d: plural(s('vML'), 'visita', 'visitas') + ' · ' + nf(s('wML')) + ' WhatsApp · ' + plural(s('qML'), 'pregunta', 'preguntas') + ' · ' + plural(s('cML30'), 'consulta', 'consultas') },
+      { ic: 'fa-house', n: 'InfoCasas', c: s('cIC30'), d: plural(s('cIC30'), 'consulta', 'consultas') },
+      { ic: 'fa-house-chimney', n: 'Casas y Más', c: s('wCYM') + s('tCYM') + s('cCYM30'),
+        d: (cymStats ? plural(s('vCYM'), 'visita', 'visitas') + ' · ' + nf(s('wCYM')) + ' WhatsApp · ' + plural(s('tCYM'), 'llamada', 'llamadas') + ' · ' : '') +
+          plural(s('cCYM30'), 'consulta', 'consultas') + (s('sinResp') ? ' · <b>' + plural(s('sinResp'), 'sin responder', 'sin responder') + '</b>' : '') }
     ];
     const tot = canales.reduce((a, x) => a + x.c, 0);
     el.innerHTML = canales.map(x => '<div class="pt"><span class="pt-ic"><i class="fas ' + x.ic + '"></i></span>' +
@@ -660,6 +728,17 @@
       '<span class="pt-v"><b>' + nf(x.c) + '</b><small>' + (tot ? Math.round(x.c / tot * 100) + '% de los contactos' : 'contactos') + '</small></span>' +
       '<span class="pt-d">' + x.d + '</span>' +
       '<span class="pt-bar"><i style="width:' + (tot ? x.c / tot * 100 : 0) + '%"></i></span></div>').join('');
+    // Lo que conviene saber para leer los números, en una línea por tema.
+    const notas = [];
+    const hace28 = new Date(Date.now() - 28 * 86400000).toISOString().slice(0, 10);
+    if (!_webDesde) notas.push('La web suma desde el principio: todavía no hay fotos diarias para cortar en 30 días.');
+    else if (_webDesde > hace28) notas.push('La web cuenta desde el ' + _webDesde.slice(8, 10) + '/' + _webDesde.slice(5, 7) + ': antes no se guardaba la foto diaria.');
+    if (!_cym) notas.push('Casas y Más: tocá «Actualizar Casas y Más» para traer las visitas, los WhatsApp y las llamadas.');
+    else if (!cymStats) notas.push('Casas y Más no mandó visitas ni clics: ' + ((_cym.estadisticas && _cym.estadisticas.mensaje) || 'respuesta no reconocida') + '');
+    const sp = _cym && _cym.consultas && _cym.consultas.ok ? Number(_cym.consultas.sinPropiedad30) || 0 : 0;
+    if (sp) notas.push('Casas y Más tiene ' + plural(sp, 'consulta', 'consultas') + ' de estos 30 días de avisos que no están en el CRM.');
+    const np = document.getElementById('notaPortales');
+    if (np) np.innerHTML = notas.map(esc).join('<br>');
   }
 
   /* Mucha vista y poco contacto. Se pide un mínimo de 30 vistas entre todas las
@@ -724,9 +803,9 @@
         '<td class="c-estado">' + chipEstado(p) + '</td>' +
         '<td class="num c-temp" data-l="Termómetro">' + temp(p) + (p.delta && p.delta.abs ? ' ' + flecha(p.delta) : '') + '</td>' +
         /* Un solo número por concepto, con el desglose debajo y en el globito. */
-        '<td class="num" data-l="Vistas" title="' + nf(p.views) + ' en la web · ' + nf(p.vML) + ' en Mercado Libre (30 días)">' +
-          '<b>' + nf(p.vistasTot) + '</b>' + (p.vML ? '<span class="desg">' + nf(p.vML) + ' ML</span>' : '') + '</td>' +
-        '<td class="num" data-l="Contactos" title="' + nf(p.clics) + ' clics web · ' + nf(p.wML) + ' WhatsApp ML · ' + nf(p.qML) + ' preguntas ML · ' + nf(p.consultas) + ' consultas">' +
+        '<td class="num" data-l="Vistas" title="' + nf(p.views) + ' en la web · ' + nf(p.vML) + ' en Mercado Libre · ' + nf(p.vCYM) + ' en Casas y Más (30 días)">' +
+          '<b>' + nf(p.vistasTot) + '</b>' + ((p.vML || p.vCYM) ? '<span class="desg">' + [p.vML ? nf(p.vML) + ' ML' : '', p.vCYM ? nf(p.vCYM) + ' CyM' : ''].filter(Boolean).join(' · ') + '</span>' : '') + '</td>' +
+        '<td class="num" data-l="Contactos" title="' + nf(p.clics) + ' clics web · ' + nf(p.wML) + ' WhatsApp ML · ' + nf(p.qML) + ' preguntas ML · ' + nf(p.wCYM) + ' WhatsApp CyM · ' + nf(p.tCYM) + ' llamadas CyM · ' + nf(p.consultas) + ' consultas">' +
           '<b>' + nf(p.contactosTot) + '</b></td>' +
         '<td class="num" data-l="Consultas" title="' + nf(p.cML) + ' Mercado Libre · ' + nf(p.cIC) + ' InfoCasas · ' + nf(p.cCYM) + ' Casas y Más">' + nf(p.consultas) +
           (p.sinResp ? '<span class="desg rojo">' + plural(p.sinResp, 'sin responder', 'sin responder') + '</span>' : '') + '</td>' +

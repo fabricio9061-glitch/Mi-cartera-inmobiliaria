@@ -13410,3 +13410,213 @@ exports.moverCuentasBancarias = onCall({ timeoutSeconds: 120 }, async (request) 
   logger.info(`moverCuentasBancarias: ${movidas} movidas, ${yaEstaban} ya estaban, ${limpiados} perfiles limpiados`);
   return { usuarios: users.size, movidas, yaEstaban, limpiados };
 });
+
+/* =====================================================================
+   CASAS Y MÁS: MÉTRICAS DE LOS ÚLTIMOS 30 DÍAS
+   ---------------------------------------------------------------------
+   Maximiliano Schmidt (18/11/2026) pasó GET /estadisticas_propiedad: por
+   propiedad y en total, impresiones, visitas y clics de contacto
+   (clicks_whatsapp, clicks_telefonos y compartido). Las fechas van en la
+   dirección (fecha_inicio, fecha_fin) y la key en el cuerpo, como en el resto
+   de la API. Los clics de WhatsApp y teléfono son contactos sin datos: la
+   persona escribe o llama por fuera del portal, así que nunca llegan como
+   consulta. Hasta ahora el CRM no los contaba y Casas y Más parecía no traer a
+   nadie.
+
+   Además se vuelven a contar las consultas (GET /consultas). El panel de
+   Interés solo veía las que entraban por el callback: las que levantaba el
+   repaso de cada 10 minutos le llegaban al agente, pero no se contaban, y el
+   recuento completo (actualizarConsultasCYM) no lo corría nada.
+
+   Corre una vez por día y cuando la Dirección toca "Actualizar Casas y Más" en
+   interes.html. En cada propiedad escribe solo si algo cambió (no son campos de
+   contenido: no dispara publicaciones en ningún portal) y deja el resumen en
+   config/cymMetricas, que es lo que lee interes.html.
+   ===================================================================== */
+const CYM_METRICAS_DIAS = 30;
+const CYM_ID_CLAVES = ["id_propiedad", "idPropiedad", "propiedad_id", "id_prop", "id"];
+
+function cymNum(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+}
+
+// Fecha de hoy (o de hace N días) en Montevideo, como la pide el portal: YYYY-MM-DD.
+function cymFechaMvd(haceDias) {
+  const d = new Date(Date.now() - (haceDias || 0) * 864e5);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Montevideo", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(d);
+}
+
+/* Una fila con métricas, venga como venga: con los nombres que dio Maximiliano
+   o, por las dudas, con los clics agrupados en "clicks". null si no es una fila. */
+function cymFilaMetricas(o) {
+  if (!o || typeof o !== "object" || Array.isArray(o)) return null;
+  const c = (o.clicks && typeof o.clicks === "object" && !Array.isArray(o.clicks)) ? o.clicks : {};
+  const tiene = ["impresiones", "visitas", "clicks_whatsapp", "clicks_telefonos", "clicks_telefono", "compartido"].some((k) => k in o) ||
+    ["whatsapp", "telefonos", "telefono", "compartido", "clicks_whatsapp", "clicks_telefonos"].some((k) => k in c);
+  if (!tiene) return null;
+  const primero = (...v) => v.find((x) => x != null);
+  return {
+    impresiones: cymNum(o.impresiones),
+    visitas: cymNum(o.visitas),
+    whatsapp: cymNum(primero(o.clicks_whatsapp, c.clicks_whatsapp, c.whatsapp)),
+    telefono: cymNum(primero(o.clicks_telefonos, o.clicks_telefono, c.clicks_telefonos, c.telefonos, c.telefono)),
+    compartido: cymNum(primero(o.compartido, c.compartido)),
+  };
+}
+
+// El id de Casas y Más de una fila: suelto o adentro de "propiedad".
+function cymIdDeFila(o) {
+  for (const k of CYM_ID_CLAVES) {
+    const v = o[k];
+    if (v != null && typeof v !== "object" && String(v).trim() !== "") return String(v).trim();
+  }
+  for (const k of ["propiedad", "inmueble"]) {
+    const s = o[k];
+    if (s && typeof s === "object" && !Array.isArray(s)) {
+      const v = cymIdDeFila(s);
+      if (v) return v;
+    }
+  }
+  return null;
+}
+
+/* Recorre la respuesta buscando filas. Las que traen id (o cuelgan de una clave
+   que es un número, como { "123": {...} }) son de una propiedad; la primera sin
+   id es el total. */
+function cymLeerFilas(nodo, clave, porProp, total, prof) {
+  if (!nodo || typeof nodo !== "object" || prof > 6) return;
+  if (Array.isArray(nodo)) { nodo.forEach((x) => cymLeerFilas(x, null, porProp, total, prof + 1)); return; }
+  const fila = cymFilaMetricas(nodo);
+  if (fila) {
+    let id = cymIdDeFila(nodo);
+    if (!id && clave != null && /^\d+$/.test(String(clave))) id = String(clave);
+    if (id) porProp[id] = fila;
+    else if (!total.fila) total.fila = fila;
+  }
+  for (const [k, v] of Object.entries(nodo)) {
+    if (k === "clicks" || !v || typeof v !== "object") continue;
+    cymLeerFilas(v, k, porProp, total, prof + 1);
+  }
+}
+
+async function cymActualizarMetricas(origen) {
+  if (!CYM_API_KEY) return { ok: false, mensaje: "Falta CYM_API_KEY." };
+  const hasta = cymFechaMvd(0), desde = cymFechaMvd(CYM_METRICAS_DIAS - 1);
+  const [rE, rC] = await Promise.all([
+    cymFetch(`/estadisticas_propiedad?fecha_inicio=${desde}&fecha_fin=${hasta}`, null, "GET"),
+    cymFetch("/consultas", null, "GET"),
+  ]);
+
+  // Visitas y clics. Se acepta la respuesta aunque no traiga "codigo" (la
+  // explicación de este endpoint no lo menciona); si lo trae, tiene que ser 1.
+  const porProp = {}, total = {};
+  const respondio = rE.httpStatus >= 200 && rE.httpStatus < 300 && !!rE.data && typeof rE.data === "object" &&
+    (rE.ok || !Number.isFinite(rE.codigo));
+  if (respondio) cymLeerFilas(rE.data, null, porProp, total, 0);
+  const statsOk = respondio && (Object.keys(porProp).length > 0 || !!total.fila);
+
+  // Consultas: todas las del portal, y aparte las de la ventana de 30 días.
+  let consultas = null;   // null = no se pudieron leer: no se toca lo guardado
+  const conPorProp = {};
+  if (rC.ok) {
+    const c = rC.data && rC.data.consultas;
+    consultas = Array.isArray(c) ? c : (c ? [c] : []);
+    for (const x of consultas) {
+      const k = String((x && x.id_propiedad) || "").trim();
+      if (!k) continue;
+      const v = conPorProp[k] = conPorProp[k] || { total: 0, ult30: 0, sinResponder: 0, ultima: null };
+      const f = cymFechaISO(x.fecha);
+      v.total++;
+      if (f.slice(0, 10) >= desde) v.ult30++;
+      if (!(x.respuesta && x.respuesta.mensaje)) v.sinResponder++;
+      if (f && (!v.ultima || f > v.ultima)) v.ultima = f;
+    }
+  }
+
+  // A cada propiedad con aviso en Casas y Más, solo si cambió algo.
+  const snap = await db.collection("properties").get();
+  const ahora = new Date().toISOString();
+  const nuestros = new Set();
+  let escritas = 0, conDatos = 0;
+  for (const d of snap.docs) {
+    const p = d.data() || {};
+    const id = String(p.cymId || "").trim();
+    if (!id) continue;
+    nuestros.add(id);
+    const upd = {};
+    if (statsOk) {
+      const m = porProp[id] || { impresiones: 0, visitas: 0, whatsapp: 0, telefono: 0, compartido: 0 };
+      if (porProp[id]) conDatos++;
+      upd.cymImpresiones30 = m.impresiones;
+      upd.cymVisitas30 = m.visitas;
+      upd.cymWhatsapp30 = m.whatsapp;
+      upd.cymTelefono30 = m.telefono;
+      upd.cymCompartido30 = m.compartido;
+    }
+    if (consultas) {
+      const v = conPorProp[id] || { total: 0, ult30: 0, sinResponder: 0, ultima: null };
+      upd.cymConsultas = v.total;
+      upd.cymConsultas30 = v.ult30;
+      upd.cymSinResponder = v.sinResponder;
+      upd.cymUltimaConsulta = v.ultima;
+    }
+    const igual = (a, b) => JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b);
+    if (Object.keys(upd).every((k) => igual(p[k], upd[k]))) continue;
+    upd.cymMetricasAt = ahora;
+    try { await d.ref.update(upd); escritas++; }
+    catch (e) { logger.warn(`cymActualizarMetricas: ${d.id}`, e.message); }
+  }
+
+  // Resumen para interes.html. Las consultas de avisos que no son de ninguna
+  // propiedad del CRM se cuentan aparte: si hay, algo no se está asociando.
+  const enVentana = (x) => cymFechaISO(x && x.fecha).slice(0, 10) >= desde;
+  const ajenas = consultas
+    ? consultas.filter((x) => { const k = String((x && x.id_propiedad) || "").trim(); return !k || !nuestros.has(k); })
+    : [];
+  const resumen = {
+    at: ahora, origen: origen || "diario", desde, hasta,
+    estadisticas: statsOk
+      ? { ok: true, propiedades: Object.keys(porProp).length, enElCrm: conDatos, total: total.fila || null }
+      : {
+        ok: false,
+        codigo: Number.isFinite(rE.codigo) ? rE.codigo : null,
+        mensaje: String(respondio
+          ? "La respuesta no trae visitas ni clics que se puedan leer."
+          : (rE.mensaje || `El portal respondió ${rE.httpStatus || "sin conexión"}.`)).slice(0, 200),
+        // Para ajustar la lectura si el portal manda otra forma: solo los nombres.
+        claves: rE.data && typeof rE.data === "object" ? Object.keys(rE.data).slice(0, 15) : null,
+      },
+    consultas: consultas
+      ? {
+        ok: true, total: consultas.length, ult30: consultas.filter(enVentana).length,
+        sinPropiedad: ajenas.length, sinPropiedad30: ajenas.filter(enVentana).length,
+      }
+      : { ok: false, codigo: Number.isFinite(rC.codigo) ? rC.codigo : null, mensaje: String(rC.mensaje || "").slice(0, 200) },
+    propiedadesEscritas: escritas,
+  };
+  await db.doc("config/cymMetricas").set(resumen);
+  logger.info(`cymActualizarMetricas (${resumen.origen}): estadísticas ${statsOk ? "ok" : "no"}, ` +
+    `consultas ${consultas ? consultas.length : "no"}, ${escritas} propiedades escritas`);
+  return { ok: statsOk || !!consultas, ...resumen };
+}
+
+/* Una vez por día, después de las métricas de Mercado Libre (06:20). */
+exports.metricasCYMDiario = onSchedule(
+  { schedule: "40 6 * * *", timeZone: "America/Montevideo", timeoutSeconds: 300 },
+  async () => {
+    try { await cymActualizarMetricas("diario"); } catch (e) { logger.error("metricasCYMDiario", e); }
+  },
+);
+
+/* El botón "Actualizar Casas y Más" de interes.html. Solo la Dirección. */
+exports.actualizarMetricasCYM = onCall({ timeoutSeconds: 300 }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!(await esDireccion(request.auth.uid, email))) {
+    throw new HttpsError("permission-denied", "Solo la Dirección.");
+  }
+  return await cymActualizarMetricas("manual");
+});
