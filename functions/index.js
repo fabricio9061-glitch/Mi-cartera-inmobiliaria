@@ -4927,15 +4927,21 @@ async function cymRepasarConsultas(origen) {
   return res;
 }
 
-/* Cada 10 minutos. Es una sola llamada a la API del portal por corrida. */
+/* Cada 10 minutos. Es una sola llamada a la API del portal por corrida.
+   Hace cuatro repasos (consultas de Casas y Más y de InfoCasas, publicaciones
+   y fotos de InfoCasas) con topes propios de 2 minutos y 90 segundos: con 300
+   segundos de límite, un día lento cortaba la corrida a la mitad. 540 sigue por
+   debajo de los 10 minutos que hay entre corridas. */
 exports.revisarConsultasCYM = onSchedule(
-  { schedule: "*/10 * * * *", timeZone: "America/Montevideo", timeoutSeconds: 300 },
+  { schedule: "*/10 * * * *", timeZone: "America/Montevideo", timeoutSeconds: 540 },
   async () => {
     // Cada portal por separado: que falle uno no deja al otro sin repasar.
     try { await cymRepasarConsultas("repaso"); } catch (e) { logger.error("revisarConsultasCYM (Casas y Más):", e); }
     try { await icRepasarPendientes(); } catch (e) { logger.error("revisarConsultasCYM (InfoCasas):", e); }
     // Publicaciones de InfoCasas que siguen sin confirmar: se mira cómo terminó su tarea.
     try { await icRepasarPublicaciones(); } catch (e) { logger.error("revisarConsultasCYM (publicaciones IC):", e); }
+    // Avisos de InfoCasas con la revisión de fotos vencida: si faltan, se reenvían.
+    try { await icRepasarFotos(); } catch (e) { logger.error("revisarConsultasCYM (fotos IC):", e); }
   },
 );
 
@@ -5210,12 +5216,14 @@ async function icLeerTodosLosAvisos() {
   let conTam = true;
   let ruta = `/listing?page_size=${TAM}`;
   for (let pagina = 0; ruta && pagina < 60; pagina++) {
-    let r = await icFetch(ruta, { conCookie: true });
-    if (!r.ok && pagina === 0 && conTam) {
+    // Con reintento si la API pide esperar (429): esta lista la usa también la
+    // publicación para no duplicar avisos, y un 429 ahí la frenaría.
+    let r = await icFetchConReintento(ruta, { conCookie: true });
+    if (!r.ok && pagina === 0 && conTam && r.status !== 429) {
       // Si no aceptan page_size, se sigue con el tamaño de página de ellos.
       conTam = false;
       ruta = "/listing";
-      r = await icFetch(ruta, { conCookie: true });
+      r = await icFetchConReintento(ruta, { conCookie: true });
     }
     if (!r.ok) {
       throw new HttpsError("unavailable", `InfoCasas respondió ${r.status} al leer ${ruta}.`);
@@ -5233,7 +5241,9 @@ async function icLeerTodosLosAvisos() {
       if (vistos.has(clave)) continue;
       vistos.add(clave);
       nuevos++;
-      const cod = x.integratorCode != null ? x.integratorCode : x.integrator_code;
+      // El código puede venir con cualquiera de estos nombres según el endpoint.
+      const cod = [x.integratorCode, x.integrator_code, x.external_code, x.externalCode]
+        .find((v) => v != null && String(v).trim() !== "");
       avisos.push({
         fr,
         listingId: listingId || null,
@@ -6286,6 +6296,7 @@ async function icPublicar(ref, id, { reingreso = false, manual = false, esperar 
 
   try {
     // ¿Quedó una tarea de un intento anterior? Se mira cómo terminó.
+    let sinAvisoTrasTerminar = null;
     if (p.icTaskId && p.icEstado === "pendiente") {
       const r0 = await icFetch(`/task/${encodeURIComponent(p.icTaskId)}`, { conCookie: true });
       /* Se lee el resultado del AVISO (icLeerTarea), no solo el de la tarea: una
@@ -6305,21 +6316,29 @@ async function icPublicar(ref, id, { reingreso = false, manual = false, esperar 
           icFrPropertyId: fr0 ? String(fr0) : FV.delete(),
           icIntegratorCode: p.icIntegratorCode || id,
           icEstado: "publicado", icPublicadoAt: ahora(), icUltimoError: FV.delete(),
+          // En unos minutos se mira que InfoCasas haya tomado las fotos.
+          icFotosRevisarAt: icEnUnRato(IC_FOTOS_ESPERA_MS), icFotosIntentos: FV.delete(),
         });
         await registrarLog(id, "InfoCasas: publicación recuperada", true, `listing ${lid0}`);
         return { ok: true, recuperado: true, listingId: String(lid0) };
       }
-      if (termino0) {
-        // Terminó sin aviso: publicar otra vez hoy daría FORWARDED de nuevo, o
-        // podría duplicarlo si sí existe. Se explica y se deja para reintentar.
-        const mensaje = l0.resultado === "repetida" ? IC_MSJ_REPETIDA_PUBLICACION : IC_MSJ_SIN_AVISO;
-        await ref.update({ ...soltar, icEstado: "error", portalesAt: FV.delete(), icUltimoError: { mensaje, at: ahora() } });
-        await registrarLog(id, "InfoCasas: publicación sin confirmar", false, l0.resultado);
-        return { ok: false, mensaje };
+      /* Rechazada, pero CON aviso: InfoCasas lo creó y marcó un problema (por
+         ejemplo, con las fotos). Ese aviso existe: se vincula y se le manda la
+         ficha. Antes se descartaba y el reintento creaba OTRO aviso. */
+      if (l0 && l0.resultado === "rechazada" && lid0 && !icMuertos(p).includes(String(lid0))) {
+        const a0 = await icLeerAviso(lid0);
+        if (a0.existe) {
+          const v = await icVincularAviso(ref, id, p, { listingId: lid0, fr: fr0, codigo: l0.externalCode, estado: a0.estado },
+            { motivo: icResumenMensajes(l0.mensajes) || l0.general || "ERROR", origen: "publicación con error", soltar });
+          return { ok: true, recuperado: true, listingId: v.listingId,
+                   mensaje: "InfoCasas ya había creado el aviso: quedó vinculado y se le mandó la ficha de nuevo, con las fotos." };
+        }
       }
+      // Terminó sin aviso: antes de dar error se mira si InfoCasas tiene uno (abajo).
+      if (termino0) sinAvisoTrasTerminar = l0.resultado;
       // Sigue en curso, o no se pudo consultar: publicar otra vez la duplicaría.
-      // Solo se sigue si terminó con error o si la tarea ya no existe (404).
-      if (!(l0 && l0.resultado === "rechazada") && r0.status !== 404) {
+      // Solo se sigue si terminó, si terminó con error o si la tarea ya no existe (404).
+      else if (!(l0 && l0.resultado === "rechazada") && r0.status !== 404) {
         await ref.update(soltar);
         return { ok: false, enCurso: true,
                  mensaje: "InfoCasas todavía está procesando la publicación anterior. Se completa sola en unos minutos." };
@@ -6327,10 +6346,42 @@ async function icPublicar(ref, id, { reingreso = false, manual = false, esperar 
     }
 
     const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
-    const armado = await icApiPayload(p, id, uSnap && uSnap.exists ? uSnap.data() : {});
+    const agente = uSnap && uSnap.exists ? uSnap.data() : {};
+    /* Publicación a mano (botón, reintento, auditoría): las fotos van con una
+       versión nueva. Si un intento de hoy no salió, InfoCasas contesta "ya lo
+       recibí" (FORWARDED) a un envío idéntico y no lo procesa. */
+    const version = manual ? Math.floor(Number(p.icFotosVersion) || 0) + 1 : 0;
+    const armado = await icApiPayload(version ? { ...p, icFotosVersion: version } : p, id, agente);
     if (!armado.ok) {
       await ref.update({ ...soltar, icFaltan: armado.faltan, icRevisadoAt: ahora() });
       return { ok: false, faltan: armado.faltan };
+    }
+
+    /* ¿InfoCasas ya tiene un aviso de esta propiedad? Se vincula ese y NO se
+       crea otro. Si no se pudo consultar, no se publica: podría duplicarse. */
+    const existentes = await icAvisosConCodigo(armado.payload.external_code, { muertos: icMuertos(p) });
+    if (existentes === null) {
+      const mensaje = "InfoCasas no respondió cuando se iba a revisar si la propiedad ya tenía un aviso, " +
+        "así que no se publicó (para no duplicarlo). Probá de nuevo en unos minutos.";
+      await ref.update({ ...soltar, ...(p.icListingId ? {} : { icEstado: "error" }), portalesAt: FV.delete(),
+                         icUltimoError: { mensaje, at: ahora() } });
+      await registrarLog(id, "InfoCasas: publicación", false, "no se pudo revisar si ya había un aviso");
+      return { ok: false, mensaje };
+    }
+    if (existentes.length) {
+      const { elegido, otros } = icElegirAviso(existentes, [p.icListingId, p.icListingIdAnterior]);
+      const v = await icVincularAviso(ref, id, p, elegido, { otros, origen: "ya existía", soltar });
+      return { ok: true, vinculado: true, listingId: v.listingId,
+               mensaje: "InfoCasas ya tenía un aviso de esta propiedad: quedó vinculado y se le mandó la ficha actual. No se creó otro." };
+    }
+    if (sinAvisoTrasTerminar && !manual) {
+      // Terminó sin aviso y InfoCasas no tiene ninguno: mandar lo mismo hoy daría
+      // FORWARDED otra vez. Queda el motivo y el botón para reintentar (que va
+      // con las fotos en versión nueva, así InfoCasas sí lo procesa).
+      const mensaje = sinAvisoTrasTerminar === "repetida" ? IC_MSJ_REPETIDA_PUBLICACION : IC_MSJ_SIN_AVISO;
+      await ref.update({ ...soltar, icEstado: "error", portalesAt: FV.delete(), icUltimoError: { mensaje, at: ahora() } });
+      await registrarLog(id, "InfoCasas: publicación sin confirmar", false, sinAvisoTrasTerminar);
+      return { ok: false, mensaje };
     }
 
     /* Si la propiedad tenía un aviso dado de baja, ese listing_id ya no sirve:
@@ -6360,6 +6411,8 @@ async function icPublicar(ref, id, { reingreso = false, manual = false, esperar 
       ...olvidarAnterior, icTaskId: String(taskId), icEnviadoAt: ahora(), icEstado: "pendiente",
       icFirmaEnviada: icFirma(armado.payload),
       icFaltan: FV.delete(), icUltimoError: FV.delete(), portalesAt: FV.delete(),
+      icBorradoPorPortal: FV.delete(),
+      ...(version ? { icFotosVersion: version } : {}),
     });
     if (!esperar) {
       await ref.update(soltar);
@@ -6384,9 +6437,25 @@ async function icPublicar(ref, id, { reingreso = false, manual = false, esperar 
         icFrPropertyId: frF ? String(frF) : FV.delete(),
         icIntegratorCode: armado.payload.external_code,
         icEstado: "publicado", icPublicadoAt: ahora(), icUltimoError: FV.delete(),
+        // En unos minutos se mira que InfoCasas haya tomado las fotos.
+        icFotosRevisarAt: icEnUnRato(IC_FOTOS_ESPERA_MS), icFotosIntentos: FV.delete(),
       });
       await registrarLog(id, "InfoCasas: publicación automática", true, `listing ${listingId}`);
       return { ok: true, listingId: String(listingId) };
+    }
+    /* Rechazada pero CON aviso: InfoCasas lo creó y marcó un problema (por
+       ejemplo, con las fotos). Existe, así que se vincula y se le manda la ficha
+       de nuevo. Darla por fallida hacía que el próximo intento creara otro. */
+    if (lf && lf.resultado === "rechazada" && listingId) {
+      const aF = await icLeerAviso(listingId);
+      if (aF.existe) {
+        const pAhora = (await ref.get()).data() || p;
+        const v = await icVincularAviso(ref, id, pAhora,
+          { listingId, fr: frF, codigo: armado.payload.external_code, estado: aF.estado },
+          { motivo: icResumenMensajes(lf.mensajes) || fin.estado || "ERROR", origen: "publicación con error", soltar });
+        return { ok: true, listingId: v.listingId, conProblema: true,
+                 mensaje: "InfoCasas creó el aviso pero marcó un problema: se le mandó la ficha de nuevo, con las fotos." };
+      }
     }
     // TIMEOUT: queda "pendiente" con su task_id. Lo resuelve el webhook, o el
     // repaso de cada 10 minutos, o el próximo intento mira la tarea antes de publicar.
@@ -6900,14 +6969,20 @@ function icFirma(payload) {
    la publicación no estaba confirmada.
    Todo lo que impide mandar queda anotado en la propiedad (icUltimoError) y se
    ve en el modal de Portales. */
-async function icMandarCambios(ref, id, p, agente, origen) {
+async function icMandarCambios(ref, id, p, agente, origen, { forzarFotos = false, revisarFotos = true, extra = null } = {}) {
   const FV = admin.firestore.FieldValue;
   const ahora = new Date().toISOString();
   const listingId = String(p.icListingId || "");
   if (!listingId || p.icEstado === "eliminado") {
     return { ok: false, sinAviso: true, mensaje: "La propiedad no tiene un aviso activo en InfoCasas." };
   }
-  const armado = await icApiPayload(p, id, agente || {});
+  /* forzarFotos: las fotos van con una versión nueva (icFotoConVersion). El
+     envío nunca es idéntico al anterior, así que InfoCasas no puede contestar
+     "ya lo recibí hoy" sin procesarlo, y vuelve a bajar las fotos.
+     revisarFotos: unos minutos después se mira que InfoCasas las tenga todas.
+     extra: campos que se guardan junto con el envío (los usa el reintento). */
+  const version = forzarFotos ? Math.floor(Number(p.icFotosVersion) || 0) + 1 : 0;
+  const armado = await icApiPayload(version ? { ...p, icFotosVersion: version } : p, id, agente || {});
   if (!armado.ok) {
     await ref.update({
       icUltimoError: {
@@ -6946,7 +7021,9 @@ async function icMandarCambios(ref, id, p, agente, origen) {
       portalesAt: FV.delete(),
     });
     await registrarLog(id, `InfoCasas: ${origen}`, false, `HTTP ${r.status} ${detalle}`);
-    return { ok: false, status: r.status, detalle: r.data, mensaje: "InfoCasas no aceptó los cambios. Podés volver a intentarlo." };
+    // borrado: quien llama puede vincular otro aviso de la propiedad (icAvisoBorradoEnPortal).
+    return { ok: false, status: r.status, borrado: r.status === 404, detalle: r.data,
+             mensaje: "InfoCasas no aceptó los cambios. Podés volver a intentarlo." };
   }
   const taskId = icTaskId(r.data || {});
   const firma = icFirma(armado.payload);
@@ -6959,6 +7036,9 @@ async function icMandarCambios(ref, id, p, agente, origen) {
     icActualizadoAt: ahora, icFirmaEnviada: firma, icUltimaTarea: FV.delete(), portalesAt: FV.delete(),
     ...(repiteRechazo ? {} : { icUltimoError: FV.delete(), icFirmaRechazada: FV.delete() }),
     ...(taskId ? { icTaskId: String(taskId) } : {}),
+    ...(version ? { icFotosVersion: version } : {}),
+    ...(revisarFotos ? { icFotosRevisarAt: icEnUnRato(IC_FOTOS_ESPERA_MS), icFotosIntentos: FV.delete(), icFotosDesde: FV.delete() } : {}),
+    ...(extra || {}),
   });
   await registrarLog(id, `InfoCasas: ${origen}`, true, `listing ${listingId}${taskId ? " · tarea " + taskId : ""}`);
   return { ok: true, taskId: taskId ? String(taskId) : null };
@@ -7051,21 +7131,396 @@ async function icPausaPorReserva(ref, id, p, pausar, st) {
 async function icBuscarAvisoPorCodigo(codigo, excluir) {
   const c = String(codigo || "").trim();
   if (!c) return null;
-  const r = await icFetch(`/listing?search=${encodeURIComponent(c)}`, { conCookie: true });
-  if (!r.ok) return null;
-  const d = r.data || {};
-  const lista = Array.isArray(d) ? d : (Array.isArray(d.results) ? d.results : (Array.isArray(d.data) ? d.data : []));
-  const candidatos = lista.filter((x) => {
-    if (!x || typeof x !== "object") return false;
-    const cod = x.integratorCode != null ? x.integratorCode : (x.integrator_code != null ? x.integrator_code : x.external_code);
-    const lid = String(x.id || x.listing_id || "");
-    const st = String(x.status != null ? x.status : "").toUpperCase();
-    return String(cod || "").trim() === c && lid && lid !== String(excluir || "") && st !== "7" && st !== "DELETED";
+  const r = await icFetchConReintento(`/listing?search=${encodeURIComponent(c)}`, { conCookie: true });
+  if (r.ok) {
+    const d = r.data || {};
+    const lista = Array.isArray(d) ? d : (Array.isArray(d.results) ? d.results : (Array.isArray(d.data) ? d.data : []));
+    const candidatos = lista.filter((x) => {
+      if (!x || typeof x !== "object") return false;
+      const cod = x.integratorCode != null ? x.integratorCode : (x.integrator_code != null ? x.integrator_code : x.external_code);
+      const lid = String(x.id || x.listing_id || "");
+      const st = String(x.status != null ? x.status : "").toUpperCase();
+      return String(cod || "").trim() === c && lid && lid !== String(excluir || "") && st !== "7" && st !== "DELETED";
+    });
+    if (candidatos.length > 1) return null;   // más de uno: no se adivina
+    if (candidatos.length === 1) {
+      const x = candidatos[0];
+      const fr = x.frPropertyId || x.fr_property_id;
+      return { listingId: String(x.id || x.listing_id), frPropertyId: fr ? String(fr) : null };
+    }
+  }
+  /* La búsqueda no lo encontró (o no filtra por nuestro código): se mira la
+     lista entera, que sí trae el código de cada aviso. */
+  const todos = await icAvisosConCodigo(c, { muertos: excluir ? [String(excluir)] : [] });
+  if (!todos || todos.length !== 1) return null;
+  return { listingId: String(todos[0].listingId), frPropertyId: todos[0].fr ? String(todos[0].fr) : null };
+}
+
+/* ============================================================================
+   INFOCASAS: UN SOLO AVISO POR PROPIEDAD, Y CON SUS FOTOS (25/11/2026)
+   ----------------------------------------------------------------------------
+   Caso MAL-S36PG (24 y 25/11): el aviso quedó en InfoCasas con 0 de 15 fotos y
+   desactivado; "Reenviar" no cambiaba nada; después InfoCasas contestó
+   "Property is deleted" y el CRM saltó solo a OTRO aviso de la misma propiedad
+   (código 194657009 → 194656764), que tenía las fotos pero el título viejo.
+   Había dos avisos de la misma propiedad. Cómo se llegaba a eso:
+     1. Si InfoCasas creaba el aviso pero marcaba un problema (por ejemplo, con
+        las fotos), la tarea volvía con error y el CRM descartaba el listing_id:
+        daba la publicación por fallida y el intento siguiente creaba OTRO aviso.
+     2. Antes de publicar no se le preguntaba a InfoCasas si la propiedad ya
+        tenía un aviso: cualquier confirmación perdida terminaba en un repetido.
+     3. El webhook cambiaba el aviso vinculado por cualquier otro que llegara con
+        el mismo código: el CRM saltaba de un aviso al otro y las ediciones iban
+        a uno solo.
+     4. Nadie miraba si InfoCasas había tomado las fotos, y reenviar las mismas
+        direcciones no servía (FORWARDED, o no las volvía a bajar).
+   Ahora: antes de crear un aviso se busca el que ya exista y se vincula ese; un
+   listing_id que InfoCasas devuelve nunca se descarta; el webhook no cambia el
+   aviso vinculado (anota el otro como repetido y avisa); y después de cada envío
+   se revisa que estén las fotos: si faltan, se reenvían con direcciones nuevas
+   (hasta 3 veces) y el aviso se reactiva si InfoCasas lo había apagado.
+   ========================================================================== */
+const IC_FOTOS_ESPERA_MS = 10 * 60 * 1000;            // primera revisión, después de un envío
+const IC_FOTOS_REINTENTO_MS = 15 * 60 * 1000;         // entre un reintento y la revisión siguiente
+const IC_FOTOS_ESPERA_PUBLICANDO_MS = 60 * 60 * 1000; // cuánto se espera a un aviso "publicándose"
+const IC_FOTOS_MAX_INTENTOS = 3;
+const IC_ESTADOS_BORRADO = ["7", "DELETED"];
+const IC_ESTADOS_APAGADO = ["1", "DISABLED"];
+const IC_ESTADOS_PUBLICANDO = ["10", "PUBLISHING", "PROCESS_PUBLICATION"];
+const icEnUnRato = (ms) => new Date(Date.now() + ms).toISOString();
+const icIdSeguro = (s) => String(s == null ? "" : s).replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 400);
+
+// Avisos que InfoCasas ya nos dijo que están borrados: nunca se vuelven a vincular.
+function icMuertos(p) {
+  return (Array.isArray(p && p.icAvisosMuertos) ? p.icAvisosMuertos : []).map(String);
+}
+
+/* Los avisos que InfoCasas tiene con nuestro código, sin los eliminados ni los
+   que ya sabemos muertos. Lee la lista entera (una o dos páginas): la búsqueda
+   por texto no está confirmada para el código. null = InfoCasas no respondió;
+   quien llama NO publica a ciegas, porque podría duplicar. 'lista': la que ya
+   leyó quien llama en la misma corrida (el repaso de la madrugada la lee una
+   sola vez); si no viene, se lee en el momento. */
+async function icAvisosConCodigo(codigo, { muertos = [], lista = null } = {}) {
+  const c = String(codigo || "").trim();
+  if (!c) return [];
+  let avisos = lista;
+  if (!avisos) {
+    try {
+      avisos = (await icLeerTodosLosAvisos()).avisos;
+    } catch (e) {
+      logger.warn(`icAvisosConCodigo ${c}: no se pudo leer la lista de InfoCasas`, e.message);
+      return null;
+    }
+  }
+  const fuera = new Set((muertos || []).map(String));
+  return avisos.filter((a) => a.codigo === c && a.listingId && !fuera.has(String(a.listingId)) &&
+    !IC_ESTADOS_BORRADO.includes(String(a.estado).toUpperCase()));
+}
+
+/* De varios avisos de la misma propiedad, cuál queda vinculado: primero el que
+   se ve (activo), después el que se está publicando, después el incompleto y el
+   desactivado. A igual estado, el que el CRM ya conocía; si no, el más nuevo.
+   Los demás son repetidos. */
+const IC_PRIORIDAD_ESTADO = { "4": 0, ACTIVE: 0, "10": 1, PUBLISHING: 1, PROCESS_PUBLICATION: 1, "0": 2, "1": 3, DISABLED: 3 };
+function icElegirAviso(avisos, conocidos) {
+  const ya = (conocidos || []).map((x) => String(x || "")).filter(Boolean);
+  const prio = (a) => { const n = IC_PRIORIDAD_ESTADO[String(a.estado).toUpperCase()]; return n == null ? 5 : n; };
+  const conocido = (a) => { const i = ya.indexOf(String(a.listingId)); return i < 0 ? 99 : i; };
+  const lista = (avisos || []).slice().sort((a, b) =>
+    (prio(a) - prio(b)) || (conocido(a) - conocido(b)) || ((Number(b.fr) || 0) - (Number(a.fr) || 0)));
+  return { elegido: lista[0] || null, otros: lista.slice(1) };
+}
+
+/* Lo que InfoCasas tiene hoy de un aviso. existe: true / false (404 o
+   eliminado) / null (no respondió: no se sabe). */
+async function icLeerAviso(listingId) {
+  if (!listingId) return { existe: false };
+  const r = await icFetchConReintento(`/listing/${encodeURIComponent(listingId)}`, { conCookie: true });
+  if (r.status === 404) return { existe: false, http: 404 };
+  if (!r.ok) return { existe: null, http: r.status };
+  const crudo = icDesenvolver(r.data);
+  const ic = icResumenAviso(crudo);
+  const estado = ic.estado != null ? String(ic.estado).toUpperCase() : "";
+  const cod = [crudo.integratorCode, crudo.integrator_code, crudo.external_code, crudo.externalCode]
+    .find((v) => v != null && String(v).trim() !== "");
+  return {
+    existe: !IC_ESTADOS_BORRADO.includes(estado), http: r.status, estado,
+    fotos: ic.fotos, codigo: cod != null ? String(cod).trim() : null,
+  };
+}
+
+/* Un aviso apagado por InfoCasas, no por nosotros: ni pausado por la reserva ni
+   desactivado por la Dirección desde el CRM, con la propiedad Disponible. */
+function icApagadoPorElPortal(p, estado) {
+  return IC_ESTADOS_APAGADO.includes(String(estado || "").toUpperCase()) && !icPausada(p) &&
+    p.icStatusEnviado !== "DISABLED" && String(p.status || "available") === "available" && p.cierreConfirmado !== true;
+}
+
+// "Property is deleted", "listing was deleted", "fue eliminado"... (no un campo que no existe).
+function icMotivoBorrado(texto) {
+  return /\b(is|was|been|fue|está|esta)\s+(deleted|eliminad[oa]|borrad[oa])\b|\b(property|listing|aviso|propiedad)\b[^·]{0,40}\b(deleted|eliminad[oa])\b/i
+    .test(String(texto || ""));
+}
+
+/* Avisa una sola vez por hecho a cada persona de la Dirección: la clave va en
+   el id de la notificación, así un reintento no la repite. */
+async function notificarDireccionUnaVez(datos, push, clave) {
+  for (const u of await getDireccion()) {
+    try { await crearNotificacion(u, datos, push, icIdSeguro(`${clave}_${u.uid}`)); }
+    catch (e) { logger.warn(`notificarDireccionUnaVez: falló para ${u.uid}`, e.message); }
+  }
+}
+
+/* Otros avisos de la misma propiedad: quedan anotados (Avisos en InfoCasas los
+   muestra con el botón para borrarlos) y se avisa a la Dirección una vez por
+   aviso. NO se borran solos: borrar es definitivo. */
+async function icAnotarRepetidos(ref, id, p, otros, { avisar = true } = {}) {
+  const vinculado = String(p.icListingId || "");
+  const muertos = new Set(icMuertos(p));
+  const nuevos = (otros || []).filter((o) => o && o.listingId && String(o.listingId) !== vinculado && !muertos.has(String(o.listingId)));
+  if (!nuevos.length) return 0;
+  const porId = new Map((Array.isArray(p.icAvisosRepetidos) ? p.icAvisosRepetidos : []).map((x) => [String(x.listingId), x]));
+  const ahora = new Date().toISOString();
+  for (const o of nuevos) {
+    const previo = porId.get(String(o.listingId)) || {};
+    porId.set(String(o.listingId), {
+      listingId: String(o.listingId),
+      fr: o.fr ? String(o.fr) : (previo.fr || null),
+      estado: o.estado != null && o.estado !== "" ? String(o.estado) : (previo.estado || null),
+      at: previo.at || ahora,
+    });
+  }
+  const todos = Array.from(porId.values()).filter((x) => x.listingId !== vinculado).slice(-10);
+  await ref.update({ icAvisosRepetidos: todos, icRepetidosIds: todos.flatMap((x) => [x.listingId, x.fr].filter(Boolean)) });
+  await registrarLog(id, "InfoCasas: otro aviso de la misma propiedad", false,
+    nuevos.map((o) => `listing ${o.listingId}${o.fr ? " (" + o.fr + ")" : ""}`).join(" · "));
+  if (avisar) {
+    for (const o of nuevos) {
+      await notificarDireccionUnaVez({
+        type: "portal_error", propertyId: id, propertyTitle: p.title || "", userName: "InfoCasas",
+        url: `auditoria-infocasas.html?id=${encodeURIComponent(id)}`,
+        text: `InfoCasas tiene otro aviso de "${p.title || "una propiedad"}"${o.fr ? ` (código ${o.fr})` : ""}. ` +
+              "El CRM sigue trabajando con uno solo; el otro conviene borrarlo desde Avisos en InfoCasas (botón Borrar el repetido).",
+      }, { title: "InfoCasas: aviso repetido", body: p.title || "" }, `icrep_${id}_${o.listingId}`);
+    }
+  }
+  return nuevos.length;
+}
+
+/* Deja vinculado un aviso que YA existe en InfoCasas y le manda la ficha actual
+   con las fotos forzadas (direcciones nuevas: InfoCasas las vuelve a bajar). Si
+   InfoCasas lo había apagado, se reactiva cuando estén las fotos (lo hace la
+   revisión de fotos). Lo usan la publicación (cuando encuentra que ya había un
+   aviso), una publicación que volvió con error pero con aviso, y la
+   recuperación de un aviso borrado. Nunca crea nada en InfoCasas. */
+async function icVincularAviso(ref, id, p, aviso, { otros = [], motivo = "", origen = "ya existía", soltar = null } = {}) {
+  const FV = admin.firestore.FieldValue;
+  const ahora = new Date().toISOString();
+  const lid = String(aviso.listingId);
+  const mismo = String(p.icListingId || "") === lid;
+  const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+  const agente = uSnap && uSnap.exists ? uSnap.data() : {};
+  const version = Math.floor(Number(p.icFotosVersion) || 0) + 1;
+  // Las marcas de estado de otro aviso (pausa, desactivado a mano) no valen para este.
+  const pV = {
+    ...p, icListingId: lid, icEstado: "publicado", icFotosVersion: version,
+    icIntegratorCode: String(aviso.codigo || p.icIntegratorCode || id),
+    ...(mismo ? {} : { icStatusEnviado: null, icActivaAMano: null, icPausadaPorReserva: null }),
+  };
+  const armado = await icApiPayload(pV, id, agente);
+  const cambios = {
+    ...(soltar || {}),
+    icListingId: lid,
+    icFrPropertyId: aviso.fr ? String(aviso.fr) : (mismo && p.icFrPropertyId ? String(p.icFrPropertyId) : FV.delete()),
+    icIntegratorCode: pV.icIntegratorCode,
+    icEstado: "publicado",
+    icFaltan: FV.delete(), portalesAt: FV.delete(), icBorradoPorPortal: FV.delete(),
+    icFotosVersion: version, icFotosIntentos: FV.delete(), icFotosDesde: FV.delete(),
+    icFotosRevisarAt: icEnUnRato(IC_FOTOS_ESPERA_MS),
+    icReactivarTrasFotos: icApagadoPorElPortal(pV, aviso.estado) ? true : FV.delete(),
+    // Con la firma de lo que se va a mandar ya guardada, sincronizarPortales no lo repite.
+    ...(armado.ok ? { icFirmaEnviada: icFirma(armado.payload) } : {}),
+    icUltimoError: motivo
+      ? { mensaje: `InfoCasas marcó un problema con el aviso (${String(motivo).slice(0, 200)}). Se le mandó la ficha de nuevo, con las fotos.`,
+          accion: "actualizar", at: ahora }
+      : FV.delete(),
+  };
+  if (!mismo) {
+    cambios.icPublicadoAt = ahora;
+    cambios.icStatusEnviado = FV.delete();
+    cambios.icActivaAMano = FV.delete();
+    cambios.icPausadaPorReserva = FV.delete();
+    if (p.icListingId) cambios.icListingIdAnterior = String(p.icListingId);
+  }
+  await ref.update(cambios);
+  await registrarLog(id, `InfoCasas: aviso vinculado (${origen})`, true,
+    `listing ${lid}${aviso.fr ? " · " + aviso.fr : ""}${motivo ? " · " + String(motivo).slice(0, 200) : ""}`);
+  if (otros && otros.length) await icAnotarRepetidos(ref, id, pV, otros);
+  let envio = { ok: false, faltan: armado.ok ? null : armado.faltan };
+  if (armado.ok) {
+    // pV ya tiene la versión nueva: icMandarCambios arma exactamente lo mismo.
+    envio = await icMandarCambios(ref, id, pV, agente, `ficha al aviso vinculado (${origen})`, { revisarFotos: false });
+  }
+  return { ok: true, listingId: lid, envio };
+}
+
+/* Pide a InfoCasas que vuelva a mostrar un aviso que él mismo había apagado. */
+async function icReactivarAviso(ref, id, p, origen) {
+  const FV = admin.firestore.FieldValue;
+  let r;
+  try {
+    r = await icFetch("/listing/status", {
+      method: "PATCH", conCookie: true,
+      body: [{ listing_id: String(p.icListingId), client_id: await icClientId(), status: "ACTIVE" }],
+    });
+  } catch (e) { r = { ok: false, status: String((e && e.message) || e) }; }
+  if (r.ok) {
+    await ref.update({ icStatusEnviado: "ACTIVE", icStatusAt: new Date().toISOString(), icEstadoPortal: "publicandose",
+                       icReactivarTrasFotos: FV.delete(), portalesAt: FV.delete() });
+  }
+  await registrarLog(id, `InfoCasas: reactivado (${origen})`, !!r.ok, r.ok ? `listing ${p.icListingId}` : `HTTP ${r.status}`);
+  return !!r.ok;
+}
+
+/* El aviso vinculado ya no existe en InfoCasas (404, eliminado, o "Property is
+   deleted" al editarlo). Si hay OTRO aviso vivo de la misma propiedad, se
+   vincula ese. Si no, la propiedad queda "dada de baja" con el motivo a la
+   vista y se avisa a la Dirección: volver a publicar es un toque, pero no se
+   hace solo (InfoCasas pudo haberla borrado por algo, y no hay que pelearle). */
+async function icAvisoBorradoEnPortal(ref, id, p, motivo, { lista = null } = {}) {
+  const FV = admin.firestore.FieldValue;
+  const ahora = new Date().toISOString();
+  const muerto = String(p.icListingId || "");
+  const muertos = Array.from(new Set(icMuertos(p).concat(muerto ? [muerto] : []))).slice(-20);
+  if (String(p.status || "available") === "available" && p.cierreConfirmado !== true) {
+    const vivos = await icAvisosConCodigo(p.icIntegratorCode || id, { muertos, lista });
+    if (vivos && vivos.length) {
+      const { elegido, otros } = icElegirAviso(vivos, [p.icListingIdAnterior]);
+      await ref.update({ icAvisosMuertos: muertos });
+      const v = await icVincularAviso(ref, id, { ...p, icAvisosMuertos: muertos }, elegido,
+        { otros, origen: "el vinculado ya no estaba" });
+      return { estado: "vinculado", listingId: v.listingId };
+    }
+  }
+  await ref.update({
+    icEstado: "eliminado", icBorradoPorPortal: true, icStatusAt: ahora, icEstadoPortal: "eliminada",
+    icAvisosMuertos: muertos, icFotosRevisarAt: FV.delete(), icReactivarTrasFotos: FV.delete(), portalesAt: FV.delete(),
+    icUltimoError: {
+      mensaje: "InfoCasas borró este aviso (no se dio de baja desde el CRM)" + (motivo ? `: ${String(motivo).slice(0, 160)}` : "") + ".",
+      accion: "publicar", at: ahora,
+    },
   });
-  if (candidatos.length !== 1) return null;
-  const x = candidatos[0];
-  const fr = x.frPropertyId || x.fr_property_id;
-  return { listingId: String(x.id || x.listing_id), frPropertyId: fr ? String(fr) : null };
+  await registrarLog(id, "InfoCasas: el aviso ya no está en el portal", false, `listing ${muerto}${motivo ? " · " + motivo : ""}`);
+  if (icEnMercado(p)) {
+    await notificarDireccionUnaVez({
+      type: "portal_error", propertyId: id, propertyTitle: p.title || "", userName: "InfoCasas",
+      url: `auditoria-infocasas.html?id=${encodeURIComponent(id)}`,
+      text: `InfoCasas borró el aviso de "${p.title || "una propiedad"}" y no tiene otro de esa propiedad. ` +
+            "Para que vuelva a verse, abrí Portales en la propiedad y tocá Volver a publicar.",
+    }, { title: "InfoCasas: aviso borrado", body: p.title || "" }, `icborr_${id}_${muerto}`);
+  }
+  return { estado: "borrado" };
+}
+
+/* ¿InfoCasas tomó las fotos? Se mira unos minutos después de cada envío.
+   Si faltan: se reenvían con direcciones nuevas (hasta 3 veces, cada 15
+   minutos) y, si InfoCasas había apagado el aviso, se reactiva cuando estén.
+   Si después de los reintentos sigue sin la mayoría, queda el error a la vista
+   en Portales y se avisa a la Dirección (una vez por aviso). */
+async function icRevisarFotosDe(ref, id, p) {
+  const FV = admin.firestore.FieldValue;
+  const ahora = new Date().toISOString();
+  if (!p.icListingId || p.icEstado === "eliminado" || !icEnMercado(p)) {
+    await ref.update({ icFotosRevisarAt: FV.delete(), icFotosDesde: FV.delete(), icReactivarTrasFotos: FV.delete() });
+    return { estado: "nada" };
+  }
+  const aviso = await icLeerAviso(p.icListingId);
+  if (aviso.existe === null) {
+    // InfoCasas no respondió: se mira en la próxima vuelta (no cuenta como intento).
+    await ref.update({ icFotosRevisarAt: icEnUnRato(IC_FOTOS_ESPERA_MS) });
+    return { estado: "sin_respuesta" };
+  }
+  if (aviso.existe === false) {
+    await ref.update({ icFotosRevisarAt: FV.delete(), icFotosDesde: FV.delete() });
+    const b = await icAvisoBorradoEnPortal(ref, id, p,
+      aviso.http === 404 ? "el aviso ya no existe en InfoCasas" : "InfoCasas lo marca como eliminado");
+    return { estado: b.estado };
+  }
+  const esperadas = icFotosEsperadas(p);
+  const tiene = aviso.fotos;
+  const base = { icFotosEnPortal: tiene == null ? FV.delete() : tiene, icFotosVistasAt: ahora };
+  if (tiene == null || tiene >= esperadas) {
+    // Están todas (o InfoCasas no informa las fotos: no hay con qué comparar).
+    const cambios = { ...base, icFotosRevisarAt: FV.delete(), icFotosIntentos: FV.delete(), icFotosDesde: FV.delete() };
+    if (p.icUltimoError && p.icUltimoError.fotos) cambios.icUltimoError = FV.delete();
+    await ref.update(cambios);
+    if (p.icReactivarTrasFotos) {
+      if (icApagadoPorElPortal(p, aviso.estado)) await icReactivarAviso(ref, id, p, "ya tiene las fotos");
+      else await ref.update({ icReactivarTrasFotos: FV.delete() });
+    }
+    return { estado: "ok", fotos: tiene, esperadas };
+  }
+  // Faltan fotos. Si InfoCasas todavía lo está publicando, se le da tiempo (hasta una hora).
+  const desde = Date.parse(p.icFotosDesde || "") || 0;
+  if (IC_ESTADOS_PUBLICANDO.includes(aviso.estado) && (!desde || Date.now() - desde < IC_FOTOS_ESPERA_PUBLICANDO_MS)) {
+    await ref.update({ ...base, icFotosRevisarAt: icEnUnRato(IC_FOTOS_ESPERA_MS), ...(desde ? {} : { icFotosDesde: ahora }) });
+    return { estado: "esperando", fotos: tiene, esperadas };
+  }
+  const intentos = Math.floor(Number(p.icFotosIntentos) || 0);
+  if (intentos < IC_FOTOS_MAX_INTENTOS) {
+    const apagado = icApagadoPorElPortal(p, aviso.estado);
+    const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+    const seguir = { ...base, icFotosIntentos: intentos + 1, icFotosRevisarAt: icEnUnRato(IC_FOTOS_REINTENTO_MS), icFotosDesde: FV.delete() };
+    const r = await icMandarCambios(ref, id, p, uSnap && uSnap.exists ? uSnap.data() : {},
+      `reintento de fotos ${intentos + 1} de ${IC_FOTOS_MAX_INTENTOS} (tenía ${tiene} de ${esperadas})`,
+      { forzarFotos: true, extra: { ...seguir, ...(apagado ? { icReactivarTrasFotos: true } : {}) } });
+    if (!r.ok) {
+      if (r.borrado) {
+        const b = await icAvisoBorradoEnPortal(ref, id, p, "InfoCasas dice que el aviso ya no existe");
+        return { estado: b.estado };
+      }
+      // No salió (InfoCasas no respondió, o a la ficha le falta algo): cuenta igual como intento.
+      await ref.update(seguir);
+    }
+    return { estado: "reenviadas", intento: intentos + 1, fotos: tiene, esperadas };
+  }
+  // Se agotaron los reintentos. Si faltan casi todas, es un problema y se avisa.
+  const grave = tiene === 0 || tiene * 2 < esperadas;
+  const cambios = { ...base, icFotosRevisarAt: FV.delete(), icFotosDesde: FV.delete() };
+  if (grave) {
+    cambios.icUltimoError = {
+      mensaje: `InfoCasas no está mostrando las fotos de este aviso (tiene ${tiene} de ${esperadas}). ` +
+               `Se reenviaron ${IC_FOTOS_MAX_INTENTOS} veces con direcciones nuevas y no las tomó.`,
+      fotos: true, accion: "actualizar", at: ahora,
+    };
+  }
+  await ref.update(cambios);
+  await registrarLog(id, "InfoCasas: fotos sin tomar", !grave, `tiene ${tiene} de ${esperadas} después de ${intentos} reintentos`);
+  if (grave) {
+    await notificarDireccionUnaVez({
+      type: "portal_error", propertyId: id, propertyTitle: p.title || "", userName: "InfoCasas",
+      url: `auditoria-infocasas.html?id=${encodeURIComponent(id)}`,
+      text: `InfoCasas no está mostrando las fotos de "${p.title || "una propiedad"}" (tiene ${tiene} de ${esperadas}). ` +
+            `El CRM las reenvió ${IC_FOTOS_MAX_INTENTOS} veces. Si sigue igual, hay que pedírselo a InfoCasas.`,
+    }, { title: "InfoCasas: faltan fotos", body: p.title || "" }, `icfotos_${id}_${p.icListingId}`);
+  }
+  return { estado: grave ? "sin_fotos" : "casi", fotos: tiene, esperadas };
+}
+
+/* Cada 10 minutos (revisarConsultasCYM): los avisos con la revisión de fotos
+   vencida. Tope de 90 segundos por vuelta; lo que quede, en la próxima. */
+async function icRepasarFotos() {
+  const inicio = Date.now();
+  const q = await db.collection("properties").where("icFotosRevisarAt", "<=", new Date().toISOString()).limit(20).get();
+  let n = 0;
+  for (const d of q.docs) {
+    if (Date.now() - inicio > 90 * 1000) break;
+    try { await icRevisarFotosDe(d.ref, d.id, d.data() || {}); n++; }
+    catch (e) { logger.warn(`icRepasarFotos ${d.id}`, e.message); }
+    await new Promise((x) => setTimeout(x, 200));   // la API de InfoCasas limita las peticiones
+  }
+  return n;
 }
 
 /* Una publicación "pendiente": se le pregunta a InfoCasas cómo terminó la tarea
@@ -7100,10 +7555,24 @@ async function icConfirmarPendiente(ref, id, p) {
       icListingId: String(listingId), icFrPropertyId: fr ? String(fr) : FV.delete(),
       icIntegratorCode: p.icIntegratorCode || l.externalCode || id,
       icEstado: "publicado", icPublicadoAt: ahora, icUltimoError: FV.delete(), portalesAt: FV.delete(),
+      icFotosRevisarAt: icEnUnRato(IC_FOTOS_ESPERA_MS), icFotosIntentos: FV.delete(),
     });
     if (!hecho) return { estado: "ya_estaba" };
     await registrarLog(id, "InfoCasas: publicación confirmada", true, `listing ${listingId} (repaso)`);
     return { estado: "publicada", listingId: String(listingId) };
+  }
+  /* Rechazada pero CON aviso: InfoCasas lo creó. Se vincula (si la propiedad
+     sigue pendiente con esa misma tarea) en vez de darla por fallida, que hacía
+     que el próximo intento creara un segundo aviso. */
+  if (l.resultado === "rechazada" && listingId && !icMuertos(p).includes(String(listingId))) {
+    const a = await icLeerAviso(listingId);
+    if (a.existe) {
+      const d = (await ref.get()).data() || {};
+      if (d.icListingId || d.icEstado !== "pendiente" || String(d.icTaskId || "") !== String(p.icTaskId)) return { estado: "ya_estaba" };
+      await icVincularAviso(ref, id, d, { listingId, fr, codigo: l.externalCode, estado: a.estado },
+        { motivo: icResumenMensajes(l.mensajes) || l.general || "ERROR", origen: "publicación con error (repaso)" });
+      return { estado: "publicada", listingId: String(listingId), conProblema: true };
+    }
   }
   if (termino || l.resultado === "rechazada") {
     /* Terminó sin aviso, o la rechazó: queda en "error" con el motivo, y desde
@@ -8790,6 +9259,14 @@ async function icBuscarPropiedadDeLead(n) {
   };
   for (const r of n.refs || []) { const d = await buscar(r, NUESTROS.concat(DEL_PORTAL)); if (d) return d; }
   for (const r of n.refsSueltas || []) { const d = await buscar(r, NUESTROS); if (d) return d; }
+  /* Una consulta que entra por un aviso repetido o ya borrado de la propiedad
+     (InfoCasas puede tener más de uno): igual es de esa propiedad. */
+  for (const r of n.refs || []) {
+    for (const campo of ["icRepetidosIds", "icAvisosMuertos"]) {
+      const q = await db.collection("properties").where(campo, "array-contains", String(r)).limit(1).get();
+      if (!q.empty) return q.docs[0];
+    }
+  }
   // Un código que el CRM no conocía y que la Dirección ya asignó a mano una vez
   // (ver consultasAsignarIC): la consulta entra sola a esa propiedad.
   for (const r of n.refs || []) { const d = await icPropiedadAprendida(r); if (d) return d; }
@@ -10990,6 +11467,25 @@ function icApiTitulo(t) {
   return s.replace(/[\s|,;:–—·-]+$/, "").trim();
 }
 
+/* La versión de las fotos (icFotosVersion) va al final de cada dirección
+   (&mvf=2). Firebase Storage la ignora y entrega el mismo archivo, pero para
+   InfoCasas es una foto NUEVA y la vuelve a bajar. Sin esto, reenviar las
+   mismas direcciones no servía: InfoCasas contestaba "ya recibí esto hoy"
+   (FORWARDED) o no volvía a bajar una foto que antes no había podido bajar.
+   La versión sube solo cuando hay que forzar las fotos: el reintento
+   automático, los botones Actualizar y Reenviar y la publicación a mano. */
+function icFotoConVersion(url, version) {
+  const u = String(url || "");
+  const v = Math.floor(Number(version) || 0);
+  if (!u || v <= 0) return u;
+  return u + (u.includes("?") ? "&" : "?") + "mvf=" + v;
+}
+/* Cuántas fotos tendría que mostrar InfoCasas: las distintas de las que se
+   mandan (hasta 30). Una dirección repetida es una sola foto para el portal. */
+function icFotosEsperadas(p) {
+  return new Set(((p && p.images) || []).filter(Boolean).slice(0, 30).map(String)).size;
+}
+
 async function icApiPayload(p, propId, agente) {
   const F = p.ficha || {};
   const u = p.ubicacion || {};
@@ -11099,7 +11595,8 @@ async function icApiPayload(p, propId, agente) {
       emails: [{ is_main: true, email: mail, sort_order: 0 }],
       phones: [{ phone: tel, is_whatsapp_number: true, is_click_to_call: true, sort_order: 0 }],
     },
-    photos: imgs.map((url, i) => ({ sort_order: i + 1, is_main: i === 0, image: url })),
+    // Con la versión de las fotos (icFotosVersion): ver icFotoConVersion.
+    photos: imgs.map((url, i) => ({ sort_order: i + 1, is_main: i === 0, image: icFotoConVersion(url, p.icFotosVersion) })),
   };
 
   /* El agente PROPIO del usuario gana sobre el general. Antes estaba al revés
@@ -11274,6 +11771,10 @@ exports.publicarEnInfocasas = onCall({ timeoutSeconds: 120 }, async (request) =>
     if (!armado.ok) return { ok: false, faltan: armado.faltan };
     return { ok: true, dryRun: true, payload: armado.payload };
   }
+  /* "Volver a publicar" con un aviso que el CRM cree vivo pero que InfoCasas
+     ya no tiene: se confirma contra InfoCasas y se publica de nuevo (o se
+     vincula otro aviso de la propiedad, si lo hay). Antes decía "ya publicada". */
+  if (p.icListingId && p.icEstado !== "eliminado") return await icRepublicar(pSnap.ref, propertyId, p, "Volver a publicar");
   return await icPublicar(pSnap.ref, propertyId, { manual: true, esperar: false });
 });
 
@@ -11320,15 +11821,10 @@ exports.editarEnInfocasas = onCall(async (request) => {
     return { ok: true, dryRun: true, payload: { ...armado.payload, listing_id: listingId } };
   }
 
-  // Mismo camino que la sincronización automática: lo que falle queda a la vista.
-  const r = await icMandarCambios(pSnap.ref, propertyId, p, agente, "actualización manual");
-  if (r.ok) {
-    return { ok: true, enviada: true, taskId: r.taskId,
-             mensaje: "Cambios enviados a InfoCasas. Se ven en el portal en unos minutos." };
-  }
-  if (r.faltan) return { ok: false, faltan: r.faltan, mensaje: r.mensaje };
-  return { ok: false, status: r.status || null, detalle: r.detalle || null,
-           mensaje: r.mensaje || "InfoCasas no aceptó los cambios. Podés volver a intentarlo." };
+  /* Con las fotos forzadas: tocar Actualizar siempre manda algo que InfoCasas
+     procesa. Si el aviso ya no existe, lo dice (o vincula otro de la propiedad);
+     si InfoCasas lo había apagado, lo reactiva. Lo que falle queda a la vista. */
+  return await icReenviarFicha(pSnap.ref, propertyId, p, "actualización manual");
 });
 
 /* Cambia el estado de un aviso: es la BAJA.
@@ -11580,6 +12076,38 @@ exports.icWebhook = onRequest(async (req, res) => {
       return;
     }
 
+    /* InfoCasas informa un aviso DISTINTO del vinculado (y no es el anterior):
+       es otro aviso de la misma propiedad. El vinculado NO se cambia: antes se
+       cambiaba y el CRM saltaba de un aviso al otro (caso MAL-S36PG, códigos
+       194657009 → 194656764). El otro queda anotado como repetido y se avisa a
+       la Dirección; los que ya sabemos borrados solo quedan en el registro. */
+    if (listingId && p.icListingId && p.icEstado !== "eliminado" && String(p.icListingId) !== String(listingId)) {
+      await doc.ref.update({ icWebhookAt: ahora });
+      if (!icMuertos(p).includes(String(listingId))) {
+        const otro = await icLeerAviso(String(listingId));
+        if (otro.existe && (!otro.codigo || otro.codigo === String(p.icIntegratorCode || doc.id))) {
+          await icAnotarRepetidos(doc.ref, doc.id, p, [{ listingId: String(listingId), fr: frWh, estado: otro.estado }]);
+        }
+      }
+      await registrarLog(doc.id, "InfoCasas: webhook de otro aviso (el vinculado no se cambia)", !rechazada, detalleLog);
+      if (ref) await ref.update({ procesado: true, propertyId: doc.id, otroAviso: String(listingId) });
+      return;
+    }
+
+    /* Publicación que vuelve con error pero CON aviso: InfoCasas lo creó y marcó
+       un problema (por ejemplo, con las fotos). Existe: se vincula y se le manda
+       la ficha de nuevo. Antes quedaba en "error" y el reintento creaba otro. */
+    if (rechazada && !p.icListingId && listingId && p.icEstado !== "eliminado" && !icMuertos(p).includes(String(listingId))) {
+      const nuevo = await icLeerAviso(String(listingId));
+      if (nuevo.existe) {
+        await icVincularAviso(doc.ref, doc.id, p,
+          { listingId: String(listingId), fr: frWh, codigo: externalCode || null, estado: nuevo.estado },
+          { motivo: motivo || estado || "ERROR", origen: "publicación con error (webhook)" });
+        if (ref) await ref.update({ procesado: true, propertyId: doc.id, vinculadoConError: true });
+        return;
+      }
+    }
+
     /* ¿Es la tarea vigente? Si después de esta se mandó otra (una edición más
        nueva), el resultado de la vieja no pisa el estado: lo va a informar la
        nueva. Una publicación que se confirma se toma siempre, venga de la tarea
@@ -11589,19 +12117,27 @@ exports.icWebhook = onRequest(async (req, res) => {
     // portalesAt se borra para que el modal no siga mostrando la tarea anterior
     // guardada en caché (dura 30 minutos).
     const cambios = { icWebhookAt: ahora, portalesAt: FV.delete() };
-    let bajaFallida = false;
+    let bajaFallida = false, avisoBorrado = false;
     if (lect.resultado === "aplicada" || (lect.resultado === "repetida" && publicacionNueva)) {
       /* Una baja terminada NO puede volver a marcar la propiedad como publicada:
          sincronizarPortales ya la dejó en "eliminado". */
       if (p.icEstado !== "eliminado") {
         cambios.icEstado = "publicado";
         if (listingId) cambios.icListingId = String(listingId);
-        // Aviso nuevo (no una edición del mismo): el modal muestra desde cuándo.
-        if (listingId && String(p.icListingId || "") !== String(listingId)) cambios.icPublicadoAt = ahora;
+        // Aviso nuevo (no una edición del mismo): el modal muestra desde cuándo,
+        // y en unos minutos se revisa que InfoCasas haya tomado las fotos.
+        if (listingId && String(p.icListingId || "") !== String(listingId)) {
+          cambios.icPublicadoAt = ahora;
+          cambios.icFotosRevisarAt = icEnUnRato(IC_FOTOS_ESPERA_MS);
+          cambios.icFotosIntentos = FV.delete();
+        }
         if (frWh) cambios.icFrPropertyId = String(frWh);
         if (externalCode) cambios.icIntegratorCode = externalCode;
       }
       if (vigente) { cambios.icUltimoError = FV.delete(); cambios.icFirmaRechazada = FV.delete(); }
+    } else if (rechazada && p.icEstado === "eliminado" && icMotivoBorrado(motivo)) {
+      /* Se pidió la baja y InfoCasas contesta que ya estaba borrado: la baja está
+         hecha. No es una baja fallida (antes se avisaba como si lo fuera). */
     } else if (rechazada && p.icEstado === "eliminado" && p.icListingId && (vigente || lect.evento === "LISTING_STATUS")) {
       /* Falló una BAJA: el aviso sigue activo en el portal. Se vuelve a
          "publicado" para no creer que se bajó, y se avisa a la Dirección. */
@@ -11618,6 +12154,9 @@ exports.icWebhook = onRequest(async (req, res) => {
       // Si falló una publicación nueva, no salió. Si falló una edición, el aviso
       // sigue publicado con la versión anterior (y el modal dice "Desactualizada").
       if (!p.icListingId) cambios.icEstado = "error";
+      // ...salvo que InfoCasas diga que el aviso ya no existe ("Property is
+      // deleted"): entonces no hay versión anterior publicada. Se resuelve abajo.
+      else if (icMotivoBorrado(motivo)) avisoBorrado = true;
     } else if (lect.resultado === "repetida" && vigente && p.icListingId && !p.icUltimoError &&
                p.icFirmaRechazada && p.icFirmaRechazada === p.icFirmaEnviada) {
       // Se reenvió lo mismo que había rechazado y no lo volvió a procesar.
@@ -11632,6 +12171,12 @@ exports.icWebhook = onRequest(async (req, res) => {
     }
     await doc.ref.update(cambios);
     await registrarLog(doc.id, "InfoCasas: webhook", !rechazada, detalleLog);
+    if (avisoBorrado) {
+      // Si hay otro aviso vivo de la propiedad se vincula; si no, queda dada de
+      // baja con el motivo a la vista y se avisa a la Dirección.
+      const pN = (await doc.ref.get()).data() || p;
+      await icAvisoBorradoEnPortal(doc.ref, doc.id, pN, motivo);
+    }
     if (bajaFallida) {
       await notificarDireccion({
         type: "portal_error", propertyId: doc.id, propertyTitle: p.title || "",
@@ -11783,6 +12328,8 @@ async function icAuditarUna(id) {
     listingId: p.icListingId || null, frPropertyId: p.icFrPropertyId || null,
     ultimoEnvio: p.icActualizadoAt || p.icPublicadoAt || null, ultimaEdicion: p.updatedAt || null,
   };
+  // Otros avisos de la misma propiedad que tiene InfoCasas (ver icAnotarRepetidos).
+  if (Array.isArray(p.icAvisosRepetidos) && p.icAvisosRepetidos.length) fila.repetidos = p.icAvisosRepetidos;
   // Publicación sin confirmar: se mira la tarea y, si terminó, se confirma ahora.
   if (!p.icListingId && p.icEstado === "pendiente") {
     const c = await icConfirmarPendiente(ref, id, p);
@@ -11796,7 +12343,10 @@ async function icAuditarUna(id) {
     fila.confirmadaAhora = true;
   }
   if (!p.icListingId || p.icEstado === "eliminado") {
-    fila.situacion = p.icEstado === "eliminado" ? "dada_de_baja" : (p.icEstado === "error" ? "publicacion_rechazada" : "sin_publicar");
+    // Borrada por InfoCasas (no desde el CRM) y la propiedad sigue en venta: hay que volver a publicarla.
+    fila.situacion = p.icEstado === "eliminado"
+      ? (p.icBorradoPorPortal && icEnMercado(p) ? "borrada_por_infocasas" : "dada_de_baja")
+      : (p.icEstado === "error" ? "publicacion_rechazada" : "sin_publicar");
     if (p.icUltimoError && p.icUltimoError.mensaje) fila.motivo = p.icUltimoError.mensaje;
     return fila;
   }
@@ -11813,6 +12363,8 @@ async function icAuditarUna(id) {
     area: Number(p.builtArea) > 0 ? Number(p.builtArea) : (Number(p.totalArea) || null),
     photos: (p.images || []).filter(Boolean).slice(0, 30), description: p.description || null,
   });
+  // Fotos que tendría que mostrar InfoCasas: las distintas (una repetida es una sola).
+  if (crm.fotos != null) crm.fotos = icFotosEsperadas(p);
   fila.crm = crm;
   fila.firmaAlDia = !!(armado.ok && p.icFirmaEnviada && icFirma(armado.payload) === p.icFirmaEnviada);
 
@@ -11852,9 +12404,23 @@ async function icAuditarUna(id) {
   const tarea = fila.tarea || {};
   const est = ic.estado != null ? String(ic.estado).toUpperCase() : null;
   fila.enProceso = tarea.resultado === "en_curso" && !!tarea.general;
-  if (tarea.resultado === "rechazada") fila.situacion = "rechazada";
+  // Fotos: cuántas tiene InfoCasas de las que tendría que tener, y si hay una revisión en marcha.
+  fila.fotosEsperadas = icFotosEsperadas(p);
+  fila.fotosEnPortal = ic.fotos;
+  if (p.icFotosRevisarAt) {
+    fila.revisionFotos = { at: p.icFotosRevisarAt, intentos: Math.floor(Number(p.icFotosIntentos) || 0), max: IC_FOTOS_MAX_INTENTOS };
+  }
+  /* InfoCasas dice que el aviso está borrado (estado eliminado, o "Property is
+     deleted" al editarlo): reenviar no sirve, hay que volver a publicar. */
+  const borrado = IC_ESTADOS_BORRADO.includes(est || "") || (tarea.resultado === "rechazada" && icMotivoBorrado(tarea.motivo));
+  const publicandose = fila.enProceso || IC_ESTADOS_PUBLICANDO.includes(est || "");
+  const sinFotos = ic.fotos != null && ic.fotos < fila.fotosEsperadas && !publicandose &&
+    (ic.fotos === 0 || ic.fotos * 2 < fila.fotosEsperadas || IC_ESTADOS_APAGADO.includes(est || ""));
+  if (borrado) fila.situacion = "no_esta";
+  else if (tarea.resultado === "rechazada") fila.situacion = "rechazada";
+  else if (sinFotos) fila.situacion = "sin_fotos";
   else if (fila.diferencias.length) fila.situacion = "distinta";
-  else if (fila.enProceso || est === "10" || est === "PUBLISHING") fila.situacion = "procesando";
+  else if (publicandose) fila.situacion = "procesando";
   else if (fila.faltan) fila.situacion = "faltan";
   else if (est && IC_ESTADO_FUERA_DEL_PORTAL.includes(est)) {
     // Reservada: el aviso está desactivado a propósito y vuelve al pasar a Disponible.
@@ -11866,60 +12432,192 @@ async function icAuditarUna(id) {
      tampoco se ve, está todo en orden y no se lista para revisar. Si allá
      sigue activa, ese sí es un problema: hay que darla de baja también ahí. */
   if (!icEnMercado(p)) {
-    fila.situacion = est && IC_ESTADO_FUERA_DEL_PORTAL.includes(est) ? "dada_de_baja" : "sigue_publicada";
+    fila.situacion = borrado || (est && IC_ESTADO_FUERA_DEL_PORTAL.includes(est)) ? "dada_de_baja" : "sigue_publicada";
   }
   return fila;
+}
+
+/* Reenvía la ficha al aviso vinculado de forma que InfoCasas SIEMPRE la
+   procese: con las fotos en versión nueva (así no puede contestar "ya lo
+   recibí hoy" y vuelve a bajarlas). Antes se mira que el aviso exista: si
+   InfoCasas ya no lo tiene, se vincula otro aviso de la propiedad o queda para
+   Volver a publicar (antes se mandaba igual y no pasaba nada). Si InfoCasas lo
+   había apagado, se reactiva: ya, si tiene todas las fotos; si no, cuando las
+   tome. Lo usan el Reenviar de la auditoría y el Actualizar del modal. */
+async function icReenviarFicha(ref, id, p, origen) {
+  if (!p.icListingId || p.icEstado === "eliminado") {
+    return { ok: false, sinAviso: true, mensaje: "La propiedad no tiene un aviso activo en InfoCasas. Usá Volver a publicar." };
+  }
+  const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+  const agente = uSnap && uSnap.exists ? uSnap.data() : {};
+  const sinAviso = async (motivo) => {
+    const b = await icAvisoBorradoEnPortal(ref, id, p, motivo);
+    return b.estado === "vinculado"
+      ? { ok: true, vinculado: true, enviada: true,
+          mensaje: "Ese aviso ya no estaba en InfoCasas, pero había otro de esta propiedad: quedó vinculado y se le mandó la ficha con las fotos." }
+      : { ok: false, borrado: true, mensaje: "InfoCasas ya no tiene este aviso. Tocá Volver a publicar." };
+  };
+  const aviso = await icLeerAviso(p.icListingId);
+  if (aviso.existe === false) {
+    return await sinAviso(aviso.http === 404 ? "el aviso ya no existe en InfoCasas" : "InfoCasas lo marca como eliminado");
+  }
+  const apagado = aviso.existe === true && icApagadoPorElPortal(p, aviso.estado);
+  const r = await icMandarCambios(ref, id, p, agente, origen,
+    { forzarFotos: true, extra: apagado ? { icReactivarTrasFotos: true } : null });
+  if (!r.ok) {
+    if (r.borrado) return await sinAviso("InfoCasas dice que el aviso ya no existe");
+    return { ok: false, faltan: r.faltan || null, status: r.status || null, detalle: r.detalle || null,
+             mensaje: r.mensaje || "InfoCasas no aceptó los cambios. Podés volver a intentarlo." };
+  }
+  let extra = "";
+  if (apagado) {
+    if (aviso.fotos != null && aviso.fotos >= icFotosEsperadas(p)) {
+      if (await icReactivarAviso(ref, id, p, origen)) extra = " También se pidió reactivarlo.";
+    } else extra = " Cuando InfoCasas tome las fotos, el aviso se reactiva solo.";
+  }
+  return { ok: true, enviada: true, taskId: r.taskId || null,
+           mensaje: "Ficha y fotos enviadas a InfoCasas: se ven en el portal en unos minutos, y después el CRM revisa que estén todas las fotos." + extra };
 }
 
 async function icReenviarDesdeAuditoria(id) {
   const ref = db.doc(`properties/${id}`);
   const s = await ref.get();
   if (!s.exists) return { id, ok: false, mensaje: "La propiedad ya no existe." };
-  const p = s.data() || {};
-  const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
-  const r = await icMandarCambios(ref, id, p, uSnap && uSnap.exists ? uSnap.data() : {}, "reenvío desde la auditoría");
-  return { id, ok: !!r.ok, taskId: r.taskId || null, faltan: r.faltan || null,
-           mensaje: r.ok ? "Enviado. InfoCasas lo procesa en unos minutos." : (r.mensaje || "No se pudo enviar.") };
+  const r = await icReenviarFicha(ref, id, s.data() || {}, "reenvío desde la auditoría");
+  return { id, ...r, ok: !!r.ok, mensaje: r.mensaje || (r.ok ? "Enviado." : "No se pudo enviar.") };
 }
 
-/* El CRM cree que el aviso existe, pero InfoCasas dice que no (404) o que está
-   eliminado: se publica de nuevo. Se confirma ANTES contra InfoCasas: si el aviso
-   siguiera ahí, publicar otra vez lo duplicaría. */
+/* El CRM cree que el aviso existe, pero InfoCasas dice que no (404, eliminado,
+   o "Property is deleted" al editarlo): se publica de nuevo. Se confirma ANTES
+   contra InfoCasas: si el aviso siguiera ahí, publicar otra vez lo duplicaría.
+   El aviso muerto queda anotado y nunca se vuelve a vincular. La publicación
+   busca primero si InfoCasas tiene otro aviso de la propiedad y lo vincula;
+   solo si no hay ninguno crea uno nuevo. Lo usan la auditoría y el botón
+   Volver a publicar del modal. */
+async function icRepublicar(ref, id, p, origen) {
+  const FV = admin.firestore.FieldValue;
+  if (!icPublicable(p)) return { ok: false, mensaje: "La propiedad no está Disponible: no se publica." };
+  // Primero, que la ficha esté completa: si no, no se toca nada.
+  const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
+  const armado = await icApiPayload(p, id, uSnap && uSnap.exists ? uSnap.data() : {});
+  if (!armado.ok) return { ok: false, faltan: armado.faltan, mensaje: "La ficha no tiene todo lo que exige InfoCasas. Completala y volvé a intentar." };
+  if (p.icListingId) {
+    // También si figura "eliminado": esa marca se pone cuando InfoCasas ACEPTA la baja, no cuando la aplica.
+    const aviso = await icLeerAviso(p.icListingId);
+    const dijoBorrado = icMotivoBorrado([p.icUltimaTarea && p.icUltimaTarea.motivo, p.icUltimoError && p.icUltimoError.mensaje]
+      .filter(Boolean).join(" · "));
+    if (aviso.existe === null && !dijoBorrado) return { ok: false, mensaje: `InfoCasas no respondió (HTTP ${aviso.http}). Probá más tarde.` };
+    if (aviso.existe === true && !dijoBorrado) {
+      return { ok: false, sigue: true, mensaje: "El aviso sigue existiendo en InfoCasas: no se publica otra vez. Usá Actualizar." };
+    }
+    const muertos = Array.from(new Set(icMuertos(p).concat([String(p.icListingId)]))).slice(-20);
+    await ref.update({ icEstado: "eliminado", icStatusAt: new Date().toISOString(), icAvisosMuertos: muertos,
+                       icFotosRevisarAt: FV.delete(), icReactivarTrasFotos: FV.delete() });
+    await registrarLog(id, "InfoCasas: el aviso ya no estaba", true, `listing ${p.icListingId} (${origen})`);
+  }
+  return await icPublicar(ref, id, { manual: true, esperar: false });
+}
+
 async function icRepublicarDesdeAuditoria(id) {
   const ref = db.doc(`properties/${id}`);
   const s = await ref.get();
   if (!s.exists) return { id, ok: false, mensaje: "La propiedad ya no existe." };
-  const p = s.data() || {};
-  if (!icPublicable(p)) return { id, ok: false, mensaje: "La propiedad no está Disponible: no se publica." };
-  // Primero, que la ficha esté completa: si no, no se toca nada (antes quedaba "dada de baja").
-  const uSnap = p.ownerId ? await db.doc(`users/${p.ownerId}`).get() : null;
-  const armado = await icApiPayload(p, id, uSnap && uSnap.exists ? uSnap.data() : {});
-  if (!armado.ok) return { id, ok: false, faltan: armado.faltan, mensaje: "La ficha no tiene todo lo que exige InfoCasas. Completala y volvé a intentar." };
-  if (p.icListingId) {
-    // También si figura "eliminado": esa marca se pone cuando InfoCasas ACEPTA la baja, no cuando la aplica.
-    const r = await icFetchConReintento(`/listing/${encodeURIComponent(p.icListingId)}`, { conCookie: true });
-    const est = r.ok ? String(icResumenAviso(icDesenvolver(r.data)).estado || "").toUpperCase() : null;
-    if (!(r.status === 404 || est === "7" || est === "DELETED")) {
-      return { id, ok: false, mensaje: r.ok ? "El aviso sigue existiendo en InfoCasas: no se publica otra vez." : `InfoCasas no respondió (HTTP ${r.status}). Probá más tarde.` };
-    }
-    if (p.icEstado !== "eliminado") {
-      await ref.update({ icEstado: "eliminado", icStatusAt: new Date().toISOString() });
-      await registrarLog(id, "InfoCasas: el aviso ya no estaba", true, `listing ${p.icListingId} (auditoría)`);
-    }
-  }
-  const r = await icPublicar(ref, id, { manual: true, esperar: false });
-  return { id, ok: !!r.ok, taskId: r.taskId || null, faltan: r.faltan || null,
+  const r = await icRepublicar(ref, id, s.data() || {}, "auditoría");
+  return { id, ok: !!r.ok, taskId: r.taskId || null, faltan: r.faltan || null, vinculado: !!r.vinculado,
            mensaje: r.mensaje || (r.ok ? "Se mandó a publicar." : "No se pudo publicar.") };
+}
+
+/* Todos los avisos repetidos de InfoCasas: dos o más avisos vivos con el mismo
+   código. Una sola lectura de la lista completa. Quedan anotados en cada
+   propiedad (sin notificar: la Dirección los está mirando). */
+async function icBuscarRepetidos() {
+  const { avisos, total } = await icLeerTodosLosAvisos();
+  const porCodigo = new Map();
+  for (const a of avisos) {
+    if (!a.listingId || !a.codigo || IC_ESTADOS_BORRADO.includes(String(a.estado).toUpperCase())) continue;
+    if (!porCodigo.has(a.codigo)) porCodigo.set(a.codigo, []);
+    porCodigo.get(a.codigo).push(a);
+  }
+  const grupos = [];
+  for (const [codigo, lista] of porCodigo) {
+    if (lista.length < 2) continue;
+    let s = /^[A-Za-z0-9_-]{1,100}$/.test(codigo) ? await db.doc(`properties/${codigo}`).get() : null;
+    if (!s || !s.exists) {
+      const q = await db.collection("properties").where("icIntegratorCode", "==", codigo).limit(1).get();
+      s = q.empty ? null : q.docs[0];
+    }
+    const p = s && s.exists ? (s.data() || {}) : null;
+    const vinculado = p && p.icEstado !== "eliminado" ? String(p.icListingId || "") : "";
+    if (p && vinculado) {
+      await icAnotarRepetidos(s.ref, s.id, p, lista.filter((a) => String(a.listingId) !== vinculado), { avisar: false });
+    }
+    grupos.push({
+      codigo, propertyId: p ? s.id : null, titulo: p ? String(p.title || "") : "", vinculado: vinculado || null,
+      avisos: lista.map((a) => ({
+        listingId: String(a.listingId), fr: a.fr || null, vinculado: String(a.listingId) === vinculado,
+        estado: IC_ESTADO_AVISO[String(a.estado)] || String(a.estado || "").toLowerCase(),
+      })),
+    });
+  }
+  return { ok: true, accion: "repetidos", grupos, total, at: new Date().toISOString() };
+}
+
+/* Borra en InfoCasas un aviso repetido de una propiedad. Nunca el vinculado, y
+   solo si InfoCasas confirma que es de esta propiedad (mismo código). */
+async function icBorrarRepetido(propertyId, listingId) {
+  const FV = admin.firestore.FieldValue;
+  if (!/^[A-Za-z0-9_-]{1,100}$/.test(listingId)) return { ok: false, mensaje: "Falta el aviso a borrar." };
+  const ref = db.doc(`properties/${propertyId}`);
+  const s = await ref.get();
+  if (!s.exists) return { ok: false, mensaje: "La propiedad ya no existe." };
+  const p = s.data() || {};
+  if (!p.icListingId || p.icEstado === "eliminado") {
+    return { ok: false, mensaje: "La propiedad no tiene un aviso vinculado: primero publicala de nuevo (se vincula el mejor de los que hay) y después borrá el resto." };
+  }
+  if (String(p.icListingId) === listingId) return { ok: false, mensaje: "Ese es el aviso vinculado: no se borra desde acá." };
+  const aviso = await icLeerAviso(listingId);
+  if (aviso.existe === null) return { ok: false, mensaje: `InfoCasas no respondió (HTTP ${aviso.http}). Probá más tarde.` };
+  if (aviso.existe && aviso.codigo && aviso.codigo !== String(p.icIntegratorCode || propertyId)) {
+    return { ok: false, mensaje: "Ese aviso no es de esta propiedad: no se toca." };
+  }
+  let tarea = null;
+  if (aviso.existe) {
+    const r = await icFetch("/listing/status", {
+      method: "PATCH", conCookie: true,
+      body: [{ listing_id: listingId, client_id: await icClientId(), status: "DELETED" }],
+    });
+    if (!r.ok) {
+      await registrarLog(propertyId, "InfoCasas: borrar aviso repetido", false, `listing ${listingId} · HTTP ${r.status}`);
+      return { ok: false, mensaje: "InfoCasas no aceptó el pedido. Probá de nuevo en unos minutos." };
+    }
+    tarea = icTaskId(r.data || {});
+  }
+  const quedan = (Array.isArray(p.icAvisosRepetidos) ? p.icAvisosRepetidos : []).filter((x) => String(x.listingId) !== listingId);
+  await ref.update({
+    icAvisosRepetidos: quedan.length ? quedan : FV.delete(),
+    icRepetidosIds: quedan.length ? quedan.flatMap((x) => [x.listingId, x.fr].filter(Boolean)) : FV.delete(),
+    icAvisosMuertos: Array.from(new Set(icMuertos(p).concat([listingId]))).slice(-20),
+  });
+  await registrarLog(propertyId, "InfoCasas: aviso repetido borrado", true, `listing ${listingId}${tarea ? " · tarea " + tarea : ""}`);
+  return { ok: true, mensaje: aviso.existe ? "Pedido de baja enviado: InfoCasas lo borra en unos minutos." : "Ese aviso ya no estaba en InfoCasas: se sacó de la lista." };
 }
 
 exports.auditarInfocasas = onCall({ timeoutSeconds: 300 }, async (request) => {
   await exigirDireccion(request, "Solo la Dirección puede revisar los avisos de InfoCasas.");
   const datos = request.data || {};
   const accion = String(datos.accion || "revisar");
-  if (!["revisar", "reenviar", "republicar"].includes(accion)) throw new HttpsError("invalid-argument", "Acción desconocida.");
+  if (!["revisar", "reenviar", "republicar", "repetidos", "borrarRepetido"].includes(accion)) {
+    throw new HttpsError("invalid-argument", "Acción desconocida.");
+  }
+  // Avisos repetidos de toda la cuenta: una sola lectura de la lista de InfoCasas.
+  if (accion === "repetidos") return await icBuscarRepetidos();
   const ids = [...new Set((Array.isArray(datos.propertyIds) ? datos.propertyIds : [])
     .map((x) => String(x || "").trim()).filter((x) => /^[A-Za-z0-9_-]{1,100}$/.test(x)))].slice(0, 8);
   if (!ids.length) throw new HttpsError("invalid-argument", "Faltan las propiedades.");
+  if (accion === "borrarRepetido") {
+    const r = await icBorrarRepetido(ids[0], String(datos.listingId || "").trim());
+    return { ok: true, accion, filas: [{ id: ids[0], ...r }], at: new Date().toISOString() };
+  }
   const filas = [];
   for (const id of ids) {
     try {
@@ -12959,6 +13657,8 @@ async function icEstadoEnPortal(p, propertyId) {
     const armado = await icApiPayload(p, propertyId, uSnap && uSnap.exists ? uSnap.data() : {});
     if (armado.ok) {
       const crm = icResumenAviso(armado.payload);
+      // Las fotos distintas: una dirección repetida es una sola foto para el portal.
+      if (crm.fotos != null) crm.fotos = icFotosEsperadas(p);
       out.fotosCrm = crm.fotos;
       out.diferencias = icDiferencias(crm, ic).map((d) => ({ campo: d.campo, crm: d.crm, infocasas: d.infocasas }));
     }
@@ -13036,7 +13736,8 @@ function cymPausaPendiente(p) {
 async function repasarEstadoPortales() {
   const FV = admin.firestore.FieldValue;
   const snap = await db.collection("properties").get();
-  let ic = 0, cym = 0, limpias = 0, fallos = 0, pausas = 0;
+  let ic = 0, cym = 0, limpias = 0, fallos = 0, pausas = 0, fotos = 0, borrados = 0;
+  let listaIC;   // avisos de InfoCasas: se leen solo si aparece uno que ya no existe
   // Casas y Más: una sola consulta trae toda la cartera.
   let cartera = null;
   try {
@@ -13053,12 +13754,36 @@ async function repasarEstadoPortales() {
     if (p.icListingId && p.icEstado !== "eliminado") {
       try {
         const r = await icFetchConReintento(`/listing/${encodeURIComponent(p.icListingId)}`, { conCookie: true });
-        const estado = r.status === 404 ? "no_esta" : (r.ok ? icClaveEstado(icResumenAviso(icDesenvolver(r.data)).estado) : null);
+        const resumen = r.ok ? icResumenAviso(icDesenvolver(r.data)) : null;
+        const estado = r.status === 404 ? "no_esta" : (resumen ? icClaveEstado(resumen.estado) : null);
         const pausar = icPausaPendiente(p, estado);
         if (pausar !== null) {
           // icPausaPorReserva deja anotado el estado nuevo (o el error).
           if (await icPausaPorReserva(d.ref, d.id, p, pausar, String(p.status || "available"))) pausas++; else fallos++;
         } else if (estado && estado !== p.icEstadoPortal) { cambios.icEstadoPortal = estado; ic++; }
+        /* Fotos: si InfoCasas tiene menos que la ficha y no hay una revisión en
+           marcha, se agenda una ya; la hace el repaso de cada 10 minutos, que las
+           reenvía con direcciones nuevas y reactiva el aviso si hace falta. */
+        if (resumen && resumen.fotos != null && resumen.fotos < icFotosEsperadas(p) && !p.icFotosRevisarAt &&
+            icEnMercado(p) && estado !== "publicandose" && estado !== "no_esta" && estado !== "eliminada") {
+          cambios.icFotosRevisarAt = new Date().toISOString();
+          cambios.icFotosIntentos = FV.delete();
+          fotos++;
+        }
+        /* El aviso ya no existe en InfoCasas (404 o eliminado) y la propiedad
+           sigue en venta: se vincula otro aviso de la propiedad si lo hay; si no,
+           queda dada de baja con el motivo a la vista y se avisa a la Dirección.
+           Antes solo cambiaba la etiqueta y el CRM seguía mandando cambios a un
+           aviso muerto. */
+        if ((estado === "no_esta" || estado === "eliminada") && icEnMercado(p)) {
+          if (Object.keys(cambios).length) { await d.ref.update(cambios); for (const k of Object.keys(cambios)) delete cambios[k]; }
+          // La lista de avisos de InfoCasas se lee una sola vez por corrida, y solo si hace falta.
+          if (listaIC === undefined) { try { listaIC = (await icLeerTodosLosAvisos()).avisos; } catch (e) { listaIC = null; } }
+          await icAvisoBorradoEnPortal(d.ref, d.id, p,
+            estado === "no_esta" ? "el aviso ya no existe en InfoCasas" : "InfoCasas lo marca como eliminado",
+            { lista: listaIC });
+          borrados++;
+        }
       } catch (e) { fallos++; }
       await new Promise((x) => setTimeout(x, 150));   // la API de InfoCasas limita las peticiones
     }
@@ -13076,8 +13801,9 @@ async function repasarEstadoPortales() {
       try { await d.ref.update(cambios); } catch (e) { fallos++; }
     }
   }
-  logger.info(`refrescarEstadoPortales: InfoCasas ${ic} cambios, Casas y Más ${cym}, pausas por reserva corregidas ${pausas}, copias viejas borradas ${limpias}, fallos ${fallos}.`);
-  return { ic, cym, limpias, fallos, pausas };
+  logger.info(`refrescarEstadoPortales: InfoCasas ${ic} cambios, Casas y Más ${cym}, pausas por reserva corregidas ${pausas}, ` +
+    `fotos a revisar ${fotos}, avisos borrados en InfoCasas ${borrados}, copias viejas borradas ${limpias}, fallos ${fallos}.`);
+  return { ic, cym, limpias, fallos, pausas, fotos, borrados };
 }
 exports.refrescarEstadoPortales = onSchedule(
   { schedule: "50 5 * * *", timeZone: "America/Montevideo", timeoutSeconds: 540 },

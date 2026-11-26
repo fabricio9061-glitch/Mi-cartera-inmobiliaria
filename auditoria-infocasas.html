@@ -139,6 +139,7 @@
     </div>
 
     <div class="aviso" id="avisoTitulos" style="display:none"></div>
+    <div class="aviso" id="avisoRepetidos" style="display:none"></div>
 
     <div class="barra">
       <div class="filtros" id="filtros"></div>
@@ -195,7 +196,9 @@
     procesando: { txt: 'InfoCasas está procesando un cambio', tono: 'busy' },
     faltan: { txt: 'Los cambios no se pueden mandar', tono: 'warn', problema: true },
     no_activa: { txt: 'No se ve en InfoCasas', tono: 'warn', problema: true },
+    sin_fotos: { txt: 'InfoCasas no muestra las fotos', tono: 'err', problema: true },
     no_esta: { txt: 'El aviso no está en InfoCasas', tono: 'err', problema: true },
+    borrada_por_infocasas: { txt: 'InfoCasas borró el aviso', tono: 'err', problema: true },
     sin_respuesta: { txt: 'InfoCasas no respondió', tono: 'idle', problema: true },
     publicandose: { txt: 'Publicándose', tono: 'busy' },
     publicacion_rechazada: { txt: 'InfoCasas rechazó la publicación', tono: 'err', problema: true },
@@ -206,7 +209,7 @@
     error: { txt: 'No se pudo revisar', tono: 'idle', problema: true },
     pendiente_revisar: { txt: 'Sin revisar', tono: 'idle' },
   };
-  const ORDEN = ['sigue_publicada', 'rechazada', 'no_esta', 'publicacion_rechazada', 'distinta', 'faltan', 'no_activa', 'sin_respuesta', 'error',
+  const ORDEN = ['sigue_publicada', 'no_esta', 'borrada_por_infocasas', 'sin_fotos', 'rechazada', 'publicacion_rechazada', 'distinta', 'faltan', 'no_activa', 'sin_respuesta', 'error',
     'procesando', 'publicandose', 'pendiente_revisar', 'igual', 'pausada', 'dada_de_baja', 'sin_publicar', 'no_existe'];
 
   auth.onAuthStateChanged(async (u) => {
@@ -219,11 +222,13 @@
     if (!esDir) { document.getElementById('bloqueado').style.display = ''; return; }
     document.getElementById('app').style.display = '';
     await cargar();
-    revisar();
+    await revisar();
+    if (!SOLO) buscarRepetidos();
   });
 
-  /* Las que se revisan: con aviso en InfoCasas (no dado de baja) y las que se
-     mandaron a publicar y todavía no se confirmaron. */
+  /* Las que se revisan: con aviso en InfoCasas (no dado de baja), las que se
+     mandaron a publicar y todavía no se confirmaron, y las que InfoCasas borró
+     estando en venta (hay que volver a publicarlas). */
   async function cargar() {
     try {
       const snap = await db.collection('properties').get();
@@ -231,7 +236,8 @@
       snap.forEach((d) => {
         const p = d.data() || {};
         const publicada = p.icListingId && p.icEstado !== 'eliminado';
-        if (SOLO ? d.id !== SOLO : !(publicada || p.icEstado === 'pendiente')) return;
+        const borradaAlla = p.icEstado === 'eliminado' && p.icBorradoPorPortal && ['available', 'reserved'].includes(p.status || 'available');
+        if (SOLO ? d.id !== SOLO : !(publicada || borradaAlla || p.icEstado === 'pendiente')) return;
         _props.push({ id: d.id, titulo: p.title || '(sin título)', agente: p.ownerName || '', codigo: (p.ficha && p.ficha.PROPERTY_CODE) || '',
           foto: (p.images || []).filter(Boolean)[0] || '', fr: p.icFrPropertyId || '', listingId: p.icListingId || '' });
       });
@@ -288,16 +294,56 @@
       av.innerHTML = `${accion === 'republicar' ? 'Publicando' : 'Enviando'} <b>${Math.min(hechas + tanda.length, ids.length)}</b> de ${ids.length}…`;
       try {
         const r = await llamar({ accion, propertyIds: tanda });
-        for (const f of r.filas || []) _envios[f.id] = { ok: !!f.ok, texto: f.ok ? (accion === 'republicar' ? 'Se mandó a publicar.' : 'Enviado. InfoCasas lo procesa en unos minutos.') : (f.mensaje || 'No se pudo.') + (f.faltan ? ' Falta: ' + f.faltan.join(', ') + '.' : '') };
+        // El servidor explica qué hizo (por ejemplo, que usó otro aviso que InfoCasas ya tenía).
+        for (const f of r.filas || []) _envios[f.id] = { ok: !!f.ok, texto: (f.mensaje || (f.ok ? (accion === 'republicar' ? 'Se mandó a publicar.' : 'Enviado.') : 'No se pudo.')) + (f.faltan ? ' Falta: ' + f.faltan.join(', ') + '.' : '') };
       } catch (e) {
         for (const id of tanda) _envios[id] = { ok: false, texto: mensajeError(e) };
       }
       hechas += tanda.length;
       pintar();
     }
-    const bien = ids.filter((id) => _envios[id] && _envios[id].ok).length;
-    av.textContent = `${bien} de ${ids.length} ${accion === 'republicar' ? 'mandados a publicar' : 'enviados'}. Volvé a revisar en unos minutos para ver si InfoCasas los aplicó.`;
+    const okIds = ids.filter((id) => _envios[id] && _envios[id].ok);
+    av.textContent = `${okIds.length} de ${ids.length} ${accion === 'republicar' ? 'mandados a publicar' : 'enviados'}.` +
+      (okIds.length && okIds.length <= 12 ? ' Se vuelven a revisar solos en 3 minutos.' : ' Volvé a revisar en unos minutos para ver si InfoCasas los aplicó.');
     _ocupado = false; botones(); pintar();
+    // InfoCasas tarda unos minutos: se vuelve a mirar sola, para ver el resultado sin tocar nada.
+    if (okIds.length && okIds.length <= 12) setTimeout(() => revisar(okIds), 3 * 60 * 1000);
+  }
+
+  /* Avisos repetidos: InfoCasas con dos o más avisos vivos de la misma
+     propiedad. Una sola consulta al servidor, que lee la lista completa. */
+  let _repetidos = null, _repEnvios = {};
+  async function buscarRepetidos() {
+    try { _repetidos = (await llamar({ accion: 'repetidos' })).grupos || []; }
+    catch (e) { _repetidos = null; console.warn('repetidos:', e && e.message); }
+    pintarRepetidos();
+  }
+  function pintarRepetidos() {
+    const el = document.getElementById('avisoRepetidos');
+    if (!_repetidos || !_repetidos.length) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    el.innerHTML = `<p style="flex-basis:100%"><b>InfoCasas tiene avisos repetidos de ${_repetidos.length} ${_repetidos.length === 1 ? 'propiedad' : 'propiedades'}.</b> ` +
+      'El CRM trabaja con uno solo (el vinculado); los otros conviene borrarlos para que no compitan entre sí ni ocupen cupo.</p>' +
+      _repetidos.map((g) => `<div style="flex-basis:100%;display:flex;flex-direction:column;gap:6px;padding-top:8px;border-top:1px solid #eee6cf">` +
+        `<span><b>${esc(g.titulo || g.codigo)}</b>${g.vinculado ? '' : ' — no tiene ninguno vinculado: tocá Publicar de nuevo en su fila y el CRM se queda con el mejor.'}</span>` +
+        g.avisos.map((a) => {
+          const k = g.propertyId + '|' + a.listingId, r = _repEnvios[k];
+          const accion = a.vinculado ? '<span class="res ok"><i class="fas fa-link"></i> Vinculado</span>'
+            : (g.vinculado && g.propertyId ? `<button class="btn chico sec" onclick="borrarRepetido('${esc(g.propertyId)}','${esc(a.listingId)}','${esc(a.fr || a.listingId)}')"${_ocupado ? ' disabled' : ''}><i class="fas fa-trash"></i> Borrar el repetido</button>` : '');
+          return `<span style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">Código ${esc(a.fr || a.listingId)} · ${esc(a.estado || '')} ${accion}` +
+            (r ? ` <span class="res ${r.ok ? 'ok' : 'mal'}">${esc(r.texto)}</span>` : '') + '</span>';
+        }).join('') + '</div>').join('');
+  }
+  async function borrarRepetido(pid, listingId, codigo) {
+    if (_ocupado || !confirm(`Se borra en InfoCasas el aviso repetido (código ${codigo}). El aviso vinculado al CRM no se toca. ¿Seguimos?`)) return;
+    _ocupado = true; botones(); pintarRepetidos();
+    const k = pid + '|' + listingId;
+    try {
+      const r = await llamar({ accion: 'borrarRepetido', propertyIds: [pid], listingId });
+      const f = (r.filas || [])[0] || {};
+      _repEnvios[k] = { ok: !!f.ok, texto: f.mensaje || (f.ok ? 'Borrado.' : 'No se pudo.') };
+    } catch (e) { _repEnvios[k] = { ok: false, texto: mensajeError(e) }; }
+    _ocupado = false; botones(); pintarRepetidos();
   }
   const reenviarUno = (id) => reenviar([id], 'reenviar');
   // Dada de baja en el CRM pero activa en InfoCasas: se la da de baja allá también.
@@ -312,16 +358,16 @@
     _ocupado = false; botones(); pintar();
   }
   const republicarUno = (id) => {
-    if (!confirm('El aviso no está en InfoCasas. ¿Lo publicamos de nuevo? Se crea un aviso nuevo con la ficha del CRM.')) return;
+    if (!confirm('InfoCasas ya no tiene este aviso. ¿Lo publicamos de nuevo? Si InfoCasas tiene otro aviso de esta propiedad se usa ese; si no, se crea uno nuevo con la ficha del CRM.')) return;
     reenviar([id], 'republicar');
   };
   function reenviarDistintas() {
-    const ids = idsCon(['distinta', 'rechazada']);
+    const ids = idsCon(['distinta', 'rechazada', 'sin_fotos']);
     if (ids.length) reenviar(ids, 'reenviar');
   }
   function reenviarTodos() {
     // Las que tienen aviso en InfoCasas. Las que no se pueden mandar (les falta algo) ya lo dicen en su fila.
-    const ids = _props.filter((p) => { const f = _filas[p.id]; return f && f.listingId && !['no_esta', 'dada_de_baja', 'sigue_publicada', 'sin_publicar', 'no_existe', 'publicandose', 'publicacion_rechazada', 'faltan'].includes(f.situacion); }).map((p) => p.id);
+    const ids = _props.filter((p) => { const f = _filas[p.id]; return f && f.listingId && !['no_esta', 'borrada_por_infocasas', 'dada_de_baja', 'sigue_publicada', 'sin_publicar', 'no_existe', 'publicandose', 'publicacion_rechazada', 'faltan'].includes(f.situacion); }).map((p) => p.id);
     if (!ids.length) return;
     if (!confirm(`Se le manda a InfoCasas la versión actual de ${ids.length} ${ids.length === 1 ? 'aviso' : 'avisos'} (título, precio, fotos y todo lo demás). Tarda unos minutos. ¿Seguimos?`)) return;
     reenviar(ids, 'reenviar');
@@ -330,11 +376,11 @@
 
   function botones() {
     document.getElementById('btnRevisar').disabled = _ocupado;
-    const distintas = idsCon(['distinta', 'rechazada']).length;
+    const distintas = idsCon(['distinta', 'rechazada', 'sin_fotos']).length;
     const bd = document.getElementById('btnDistintas');
     bd.style.display = distintas ? '' : 'none';
     bd.disabled = _ocupado;
-    bd.innerHTML = `<i class="fas fa-rotate-right"></i> Reenviar las distintas (${distintas})`;
+    bd.innerHTML = `<i class="fas fa-rotate-right"></i> Reenviar las que tienen problemas (${distintas})`;
     const bt = document.getElementById('btnTodos');
     bt.style.display = !SOLO && Object.keys(_filas).length ? '' : 'none';
     bt.disabled = _ocupado;
@@ -436,7 +482,27 @@
     if (f.situacion === 'publicacion_rechazada' && f.motivo) det.push(`<span class="motivo">${esc(f.motivo)}</span>`);
     if (f.faltan && f.faltan.length) det.push(`<span>A la ficha le falta: <b>${esc(f.faltan.join(', '))}</b>.</span>`);
     if (f.enProceso) det.push(`<span>El último envío todavía está en proceso en InfoCasas${f.ultimoEnvio ? ' (se mandó ' + esc(hace(f.ultimoEnvio)) + ')' : ''}.</span>`);
-    if (f.situacion === 'no_esta') det.push('<span>El CRM lo tiene como publicado, pero InfoCasas dice que ese aviso no existe (puede haberse borrado desde su panel).</span>');
+    if (f.situacion === 'no_esta') {
+      det.push('<span>El CRM lo tiene como publicado, pero InfoCasas dice que ese aviso no existe o está borrado (puede haberse borrado desde su panel). ' +
+        'Reenviar no sirve: <b>Publicar de nuevo</b> usa otro aviso de esta propiedad si InfoCasas lo tiene, y si no, crea uno nuevo.</span>');
+      if (tarea.motivo) det.push(`<span class="motivo">InfoCasas: ${esc(tarea.motivo)}</span>`);
+    }
+    if (f.situacion === 'borrada_por_infocasas') {
+      det.push('<span>InfoCasas borró el aviso (no fue desde el CRM) y la propiedad sigue en venta. <b>Publicar de nuevo</b> usa otro aviso de esta propiedad si InfoCasas lo tiene, y si no, crea uno nuevo.</span>');
+      if (f.motivo) det.push(`<span class="motivo">${esc(f.motivo)}</span>`);
+    }
+    if (f.situacion === 'sin_fotos') {
+      det.push(`<span>InfoCasas tiene <b>${esc(f.fotosEnPortal)} de ${esc(f.fotosEsperadas)}</b> fotos${f.estadoIc ? ` y el aviso figura «${esc(f.estadoIc)}»` : ''}. ` +
+        '<b>Reenviar</b> manda las fotos con direcciones nuevas (así InfoCasas las vuelve a bajar) y, si lo había apagado, lo reactiva cuando las tome.</span>');
+    }
+    if (f.revisionFotos && f.revisionFotos.at) {
+      det.push(`<span>El CRM vuelve a mirar las fotos ${esc(fecha(f.revisionFotos.at))}` +
+        (f.revisionFotos.intentos ? ` (ya las reenvió ${esc(f.revisionFotos.intentos)} de ${esc(f.revisionFotos.max || 3)} veces)` : '') + '.</span>');
+    }
+    if (Array.isArray(f.repetidos) && f.repetidos.length) {
+      det.push(`<span class="motivo">InfoCasas tiene ${f.repetidos.length === 1 ? 'otro aviso' : f.repetidos.length + ' avisos más'} de esta propiedad ` +
+        `(${esc(f.repetidos.map((x) => x.fr || x.listingId).join(', '))}). Se borran desde el recuadro de avisos repetidos, arriba.</span>`);
+    }
     if (f.situacion === 'error' && f.mensaje) det.push(`<span class="motivo">${esc(f.mensaje)}</span>`);
     if (f.situacion === 'publicandose') det.push('<span>InfoCasas todavía no confirmó la publicación.</span>');
     const fechas = [];
@@ -447,11 +513,11 @@
 
     const acc = [];
     const envio = _envios[p.id];
-    const conAviso = f.listingId && !['no_esta', 'dada_de_baja', 'sigue_publicada', 'sin_publicar', 'no_existe', 'publicandose', 'publicacion_rechazada'].includes(f.situacion);
+    const conAviso = f.listingId && !['no_esta', 'borrada_por_infocasas', 'dada_de_baja', 'sigue_publicada', 'sin_publicar', 'no_existe', 'publicandose', 'publicacion_rechazada'].includes(f.situacion);
     if (f.situacion === 'sigue_publicada') acc.push(`<button class="btn chico" onclick="bajarUno('${esc(p.id)}')"${_ocupado ? ' disabled' : ''}><i class="fas fa-circle-stop"></i> Dar de baja en InfoCasas</button>`);
-    if (conAviso && f.situacion !== 'faltan') acc.push(`<button class="btn chico${['distinta', 'rechazada'].includes(f.situacion) ? '' : ' sec'}" onclick="reenviarUno('${esc(p.id)}')"${_ocupado ? ' disabled' : ''}><i class="fas fa-rotate-right"></i> Reenviar</button>`);
+    if (conAviso && f.situacion !== 'faltan') acc.push(`<button class="btn chico${['distinta', 'rechazada', 'sin_fotos'].includes(f.situacion) ? '' : ' sec'}" onclick="reenviarUno('${esc(p.id)}')"${_ocupado ? ' disabled' : ''}><i class="fas fa-rotate-right"></i> Reenviar</button>`);
     if (f.situacion === 'faltan') acc.push(`<a class="btn chico sec" href="propiedad-form.html?id=${encodeURIComponent(p.id)}" target="_blank" rel="noopener"><i class="fas fa-pen"></i> Completar la ficha</a>`);
-    if (f.situacion === 'no_esta') acc.push(`<button class="btn chico" onclick="republicarUno('${esc(p.id)}')"${_ocupado ? ' disabled' : ''}><i class="fas fa-upload"></i> Publicar de nuevo</button>`);
+    if (f.situacion === 'no_esta' || f.situacion === 'borrada_por_infocasas') acc.push(`<button class="btn chico" onclick="republicarUno('${esc(p.id)}')"${_ocupado ? ' disabled' : ''}><i class="fas fa-upload"></i> Publicar de nuevo</button>`);
     if (f.situacion !== 'pendiente_revisar') acc.push(`<button class="btn chico sec" onclick="revisar(['${esc(p.id)}'])"${_ocupado ? ' disabled' : ''}><i class="fas fa-magnifying-glass"></i> Revisar esta</button>`);
     if (envio) acc.push(`<span class="res ${envio.ok ? 'ok' : 'mal'}">${envio.ok ? '<i class="fas fa-check"></i> ' : ''}${esc(envio.texto)}</span>`);
 

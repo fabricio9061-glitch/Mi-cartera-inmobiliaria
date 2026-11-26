@@ -3815,7 +3815,16 @@
       const pausaReserva = reservada && (real && real.estado ? real.estado === 'desactivada' : p.icEstadoPortal === 'desactivada');
       const vuelveSola = !!p.icPausadaPorReserva && String(p.icPausadaPorReserva) === String(p.icListingId);
       const malReal = !pausaReserva && real && IC_REAL[real.estado];
+      /* InfoCasas ya no tiene el aviso (no aparece, o al editarlo contestó
+         "Property is deleted"): Actualizar no sirve, hay que volver a publicar.
+         El servidor usa otro aviso de la propiedad si InfoCasas lo tiene; si no,
+         publica uno nuevo. Antes la tarjeta decía "Tocá Actualizar" y no pasaba nada. */
+      const textoError = String((err && err.mensaje) || (t && t.motivo) || '');
+      const muerto = !procesando && ((real && (real.estado === 'no_esta' || real.estado === 'eliminada')) || /\bis deleted\b/i.test(textoError));
+      // InfoCasas no muestra las fotos y el CRM ya agotó los reintentos (lo dice el servidor).
+      const sinFotos = !muerto && !!(err && err.fotos);
       if (procesando) cfg.estado = { tono: 'busy', texto: 'Actualizando' };
+      else if (muerto) { cfg.estado = { tono: 'err', texto: 'No aparece' }; cfg.explica = 'InfoCasas ya no tiene este aviso.'; }
       else if (pausaReserva) {
         cfg.estado = { tono: 'off', texto: 'Pausada' };
         cfg.explica = vuelveSola ? 'No se ve porque la propiedad está reservada. Vuelve a verse sola cuando pase a Disponible.'
@@ -3825,9 +3834,10 @@
       else if (errPausa) cfg.estado = { tono: 'warn', texto: reservada ? 'Sin pausar' : 'Sin reactivar' };
       else if (fallo) cfg.estado = { tono: 'warn', texto: 'Desactualizada' };
       else { cfg.estado = { tono: 'ok', texto: 'Activa' }; if (real && real.estado === 'activa') cfg.explica = 'Se ve en InfoCasas.'; }
-      cfg.lead = 'Los cambios de precio, fotos y descripción se envían solos al editar la propiedad.';
+      // Con el aviso borrado en InfoCasas no hay nada que el cliente vea ni adónde mandar cambios.
+      if (!muerto) cfg.lead = 'Los cambios de precio, fotos y descripción se envían solos al editar la propiedad.';
       const difs = real && Array.isArray(real.diferencias) ? real.diferencias : [];
-      if (real && real.estado) {
+      if (real && real.estado && !muerto) {
         const dif = (campo) => difs.find(x => x.campo === campo);
         const num = (n) => n == null ? '—' : Number(n).toLocaleString('es-UY');
         const dp = dif('precio'), df = dif('fotos'), dt = dif('titulo');
@@ -3858,7 +3868,15 @@
         codigo && { icono: 'fas fa-hashtag', texto: `Código en el portal: ${codigo}` },
         !_portalesData && { icono: 'fas fa-spinner fa-spin', texto: 'Consultando el portal…' }
       ];
-      if (fallo) {
+      if (muerto) {
+        cfg.notas.push({ tono: 'warn', html: 'InfoCasas ya no tiene este aviso (lo borraron en el portal o lo dio de baja InfoCasas), así que <strong>Actualizar</strong> no sirve. ' +
+          (puede ? 'Tocá <strong>Volver a publicar</strong>: si InfoCasas tiene otro aviso de esta propiedad se usa ese, y si no, se publica de nuevo.'
+                 : 'La puede volver a publicar el agente de la propiedad o la Dirección.') +
+          detalleAdmin(textoError) });
+      } else if (sinFotos) {
+        cfg.notas.push({ tono: 'warn', html: mvEsc(err.mensaje) + ' ' +
+          (puede ? 'Tocá <strong>Actualizar</strong> para mandarlas de nuevo; si sigue igual, avisale a la Dirección.' : 'Avisale a la Dirección.') });
+      } else if (fallo) {
         /* Si no se mandó porque a la ficha le falta algo, no es que InfoCasas lo
            rechazó: se dice qué falta y dónde se completa. */
         const sinMandar = err && Array.isArray(err.faltan) && err.faltan.length ? icFaltanAmigable(err.faltan) : null;
@@ -3872,6 +3890,29 @@
         cfg.notas.push({ tono: 'warn', texto: err.mensaje });
       } else if (procesando && !_portalFlash.infocasas) {
         cfg.notas.push({ tono: 'info', texto: 'InfoCasas está procesando los últimos cambios. Se ven en el portal en unos minutos.' });
+      }
+      /* Las fotos se revisan solas unos minutos después de cada envío: si
+         InfoCasas todavía no tiene todas, se dice cuándo se vuelve a mirar. */
+      if (!muerto && !sinFotos && p.icFotosRevisarAt && real && real.fotos != null && real.fotosCrm != null && real.fotos < real.fotosCrm) {
+        const intento = Number(p.icFotosIntentos) || 0;
+        cfg.notas.push({ tono: 'info', texto: `InfoCasas todavía muestra ${real.fotos} de ${real.fotosCrm} fotos. ` +
+          `El CRM las vuelve a revisar a las ${new Date(p.icFotosRevisarAt).toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' })} ` +
+          `y, si faltan, las reenvía solo${intento ? ` (ya lo hizo ${intento} de 3 veces)` : ''}.` });
+      }
+      // Solo Dirección: InfoCasas tiene más de un aviso de esta propiedad.
+      const repetidos = Array.isArray(p.icAvisosRepetidos) ? p.icAvisosRepetidos : [];
+      if (admin && repetidos.length) {
+        const codigos = repetidos.map(x => x.fr || x.listingId).filter(Boolean).join(', ');
+        cfg.notas.push({ tono: 'warn', html: `InfoCasas tiene ${repetidos.length === 1 ? 'otro aviso' : repetidos.length + ' avisos más'} de esta propiedad` +
+          (codigos ? ` (${mvEsc(codigos)})` : '') + '. El CRM trabaja con uno solo; el repetido conviene borrarlo desde ' +
+          `<a href="${location.origin}/auditoria-infocasas.html?id=${encodeURIComponent(p.id)}">Avisos en InfoCasas</a>.` });
+      }
+      if (muerto) {
+        cfg.acciones = [
+          accion('republicar', 'Volver a publicar', 'fa-rotate-right', 'primary', 'canRepublish'),
+          admin && { texto: 'Comparar', icono: 'fa-scale-balanced', href: location.origin + '/auditoria-infocasas.html?id=' + encodeURIComponent(p.id), cap: 'canViewExternalListing' }
+        ];
+        return portalCard(cfg);
       }
       cfg.acciones = [
         { texto: 'Ver aviso', icono: 'fa-external-link-alt', href: icUrlAviso(p, t), cap: 'canViewExternalListing' },
@@ -3920,7 +3961,11 @@
         cfg.lead = `El aviso se dio de baja en InfoCasas${cuando}. ${icMotivoNoPublicable(p)}`;
         return portalCard(cfg);
       }
-      cfg.lead = `El aviso se dio de baja en InfoCasas${cuando}. No se vuelve a publicar solo.`;
+      if (p.icBorradoPorPortal) {
+        // No fue desde el CRM: InfoCasas lo borró (o alguien desde su panel).
+        cfg.estado = { tono: 'warn', texto: 'Borrada en InfoCasas' };
+        cfg.lead = `InfoCasas borró el aviso${cuando} (no fue desde el CRM). Tocá Volver a publicar: si InfoCasas tiene otro aviso de esta propiedad se usa ese, y si no, se publica de nuevo.`;
+      } else cfg.lead = `El aviso se dio de baja en InfoCasas${cuando}. No se vuelve a publicar solo.`;
       if (faltan.length) { cfg.faltan = faltan; cfg.faltanPie = pie; }
       else cfg.acciones = [accion('publicar', 'Volver a publicar', 'fa-rotate-right', 'primary', 'canRepublish')];
       return portalCard(cfg);
@@ -4146,7 +4191,7 @@
      claro dentro de la pestaña, y los datos se releen del servidor. */
   const PORTAL_ACCIONES = {
     casasymas: { publicar: 'publicarEnCasasYMas', republicar: 'publicarEnCasasYMas', actualizar: 'publicarEnCasasYMas', consultas: 'repasarConsultasCYM' },
-    infocasas: { publicar: 'publicarEnInfocasas', actualizar: 'editarEnInfocasas' }
+    infocasas: { publicar: 'publicarEnInfocasas', republicar: 'publicarEnInfocasas', actualizar: 'editarEnInfocasas' }
   };
   const PORTAL_VERBO = { actualizar: 'actualizar el aviso en', consultas: 'buscar las consultas de' };
   function repintarPortal(portal) {
@@ -4186,7 +4231,8 @@
       else if (d.ok && d.fotosOk === false) flash = { tono: 'warn', texto: `Quedó publicada en ${nombre}, pero las fotos no se pudieron subir. Probá Actualizar.` };
       // InfoCasas no responde en el momento: se envió y el resultado llega en unos minutos.
       else if (d.ok && d.enviada) flash = { tono: 'ok', texto: d.mensaje || `Listo: se envió a ${nombre}.` };
-      else if (d.ok) flash = { tono: 'ok', texto: (accion === 'republicar' || accion === 'actualizar') ? `Listo: el aviso en ${nombre} quedó actualizado.` : `Listo: la propiedad ya está publicada en ${nombre}.` };
+      // El mensaje del servidor dice qué pasó (por ejemplo, que se usó un aviso que InfoCasas ya tenía).
+      else if (d.ok) flash = { tono: 'ok', texto: d.mensaje || ((accion === 'republicar' || accion === 'actualizar') ? `Listo: el aviso en ${nombre} quedó actualizado.` : `Listo: la propiedad ya está publicada en ${nombre}.`) };
       else if (d.enCurso) flash = { tono: 'info', texto: d.mensaje || `Ya se está publicando en ${nombre}.` };
       else if (d.faltan && d.faltan.length) {
         // Con el aviso publicado la pestaña no muestra la lista de faltantes: va acá.
@@ -4262,6 +4308,7 @@
      aviso de InfoCasas, también cuando termina una actualización del mismo aviso. */
   const CAMPOS_PORTALES = ['status', 'cierreConfirmado', 'despubPendiente',
     'icListingId', 'icEstado', 'icTaskId', 'icUltimoError', 'icActualizadoAt', 'icFaltan', 'icEnviadoAt', 'icStatusAt', 'icPublicadoAt', 'icFrPropertyId', 'icWebhookAt',
+    'icFotosRevisarAt', 'icFotosIntentos', 'icAvisosRepetidos', 'icBorradoPorPortal',
     'cymId', 'cymEstado', 'cymPublicando', 'cymUltimoError', 'cymActualizadoAt', 'cymFaltan', 'cymPublicadoAt', 'cymBajaAt'];
   function firmaPortales(p) { return p ? JSON.stringify(CAMPOS_PORTALES.map(k => (p[k] == null ? null : p[k]))) : ''; }
   let _refrescoPortalesT = null;
