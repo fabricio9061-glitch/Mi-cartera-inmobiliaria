@@ -6069,13 +6069,13 @@ exports.estadoPortales = onCall(async (request) => {
      iniciar sesión (la web la necesita así), y llevaba los nombres de quienes
      consultaron en Casas y Más. portalesAt sigue en la propiedad: borrarlo, como
      hacen los envíos a los portales, invalida la copia.
-     v:3 trae el estado real del aviso en InfoCasas. */
+     v:3 trae el estado real del aviso en InfoCasas; v:4, su nivel de destacado. */
   const cacheRef = db.collection("portalesCache").doc(propertyId);
   if (!forzar && cacheAt && Date.now() - cacheAt < 30 * 60 * 1000) {
     try {
       const c = await cacheRef.get();
       const datos = c.exists ? (c.data() || {}).datos : null;
-      if (datos && datos.v === 3) return { ...datos, cacheado: true, consultadoAt: p.portalesAt };
+      if (datos && datos.v === 4) return { ...datos, cacheado: true, consultadoAt: p.portalesAt };
     } catch (e) { logger.warn(`estadoPortales ${propertyId}: no se pudo leer la copia`, e.message); }
   }
 
@@ -6201,7 +6201,7 @@ exports.estadoPortales = onCall(async (request) => {
     out.casasymas = { publicado: false, eliminado: true };
   }
 
-  out.v = 3;
+  out.v = 4;
   /* Con una tarea de InfoCasas todavía en proceso no se guarda en caché: si el
      aviso de que terminó no llegara, el modal diría "Actualizando" media hora. */
   const tareaEnCurso = !!(out.infocasas && out.infocasas.tarea &&
@@ -13711,6 +13711,33 @@ function icEnMercado(p) {
   return ["available", "reserved"].includes(String((p && p.status) || "available")) && !(p && p.cierreConfirmado === true);
 }
 
+/* Nivel de destacado del aviso en InfoCasas, si su API lo informa. La
+   documentación no dice cómo se llama el campo, así que se prueban los nombres
+   habituales y solo se aceptan valores simples (texto, número o sí/no). Si no
+   viene nada, el modal muestra "Sin dato": no se inventa. */
+const IC_DESTAQUE_CLAVES = ["highlight_level", "highlightLevel", "highlight", "highlighted", "is_highlighted", "featured", "is_featured",
+  "destacado", "destacada", "nivel_destaque", "publication_plan", "publicationPlan"];
+const IC_DESTAQUE_TEXTO = { superhighlighted: "Súper destacado", super_highlighted: "Súper destacado", superdestacado: "Súper destacado",
+  highlighted: "Destacado", destacado: "Destacado", featured: "Destacado", premium: "Premium", gold: "Oro", silver: "Plata",
+  basic: "Común", simple: "Común", standard: "Común", normal: "Común", free: "Común", none: "Común" };
+function icNivelDestaque(o) {
+  if (!o || typeof o !== "object") return null;
+  for (const k of IC_DESTAQUE_CLAVES) {
+    let v = o[k];
+    if (v && typeof v === "object" && !Array.isArray(v)) v = v.name != null ? v.name : (v.label != null ? v.label : (v.type != null ? v.type : v.level));
+    if (v === undefined || v === null || v === "" || typeof v === "object") continue;
+    if (typeof v === "boolean" || v === 0 || v === 1 || v === "0" || v === "1") {
+      const si = v === true || v === 1 || v === "1";
+      return { texto: si ? "Destacado" : "Común", destacada: si, campo: k };
+    }
+    const crudoTxt = String(v).trim().slice(0, 40);
+    const clave = crudoTxt.toLowerCase().replace(/[\s-]+/g, "_");
+    const texto = IC_DESTAQUE_TEXTO[clave] || crudoTxt.charAt(0).toUpperCase() + crudoTxt.slice(1).replace(/_/g, " ");
+    return { texto, destacada: IC_DESTAQUE_TEXTO[clave] !== "Común", campo: k };
+  }
+  return null;
+}
+
 /* Lo que InfoCasas tiene publicado HOY de esta propiedad: el estado del aviso
    y lo que quedó distinto de la ficha (precio, fotos, título…). Es lo mismo que
    mira la página "Avisos en InfoCasas", para una sola propiedad. */
@@ -13719,9 +13746,11 @@ async function icEstadoEnPortal(p, propertyId) {
   const r = await icFetchConReintento(`/listing/${encodeURIComponent(p.icListingId)}`, { conCookie: true });
   if (r.status === 404) return { estado: "no_esta", http: 404 };
   if (!r.ok) return { estado: null, http: r.status };
-  const ic = icResumenAviso(icDesenvolver(r.data));
+  const crudo = icDesenvolver(r.data);
+  const ic = icResumenAviso(crudo);
   const out = {
     estado: icClaveEstado(ic.estado),
+    destaque: icNivelDestaque(crudo),
     precio: ic.precio, moneda: ic.moneda, fotos: ic.fotos, titulo: ic.titulo,
     dormitorios: ic.dormitorios, banos: ic.banos, area: ic.area,
     diferencias: [],

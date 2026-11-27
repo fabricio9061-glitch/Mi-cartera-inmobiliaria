@@ -3365,13 +3365,16 @@
     const tabs = PORTAL_TABS.map(t =>
       `<button type="button" class="pt-tab" role="tab" data-portal="${t.key}" onclick="portalTab('${t.key}')">` +
       `<span class="pt-chip" style="background:${PORTAL_COLOR[t.key].bg};color:${PORTAL_COLOR[t.key].fg}">${t.nombre}</span>` +
-      `<span class="pt-estado"></span><span class="pt-lineas"></span></button>`).join('');
+      `<span class="pt-estado"></span><span class="pt-nivel"></span><span class="pt-lineas"></span></button>`).join('');
     const mlCargando = portalCard({ key: 'ml', nombre: 'Mercado Libre', color: PORTAL_COLOR.ml, estado: { tono: 'busy', texto: 'Consultando…' }, cuerpo: '<div class="ml-loading" style="padding:14px 0 6px"><div class="sp"></div><p>Consultando Mercado Libre...</p></div>' });
-    body.innerHTML = `<div class="ml-ui">${cabeceraPortales()}<div class="pt-tabs" role="tablist" aria-label="Portales">${tabs}</div>` +
-      `<div class="pt-panel" id="secML" role="tabpanel">${mlCargando}</div>` +
+    /* En la compu: a la izquierda la propiedad, los tres portales (con su
+       estado y su nivel de destacado) y la baja; a la derecha el portal elegido.
+       En el celular se apila todo como antes. */
+    body.innerHTML = `<div class="ml-ui pm-grid"><aside class="pm-side">${cabeceraPortales()}<div class="pt-tabs" role="tablist" aria-label="Portales">${tabs}</div>` +
+      `<div class="pm-web" id="pmWeb">${webDestacadoHtml()}</div><div id="secBaja"></div></aside>` +
+      `<div class="pm-main"><div class="pt-panel" id="secML" role="tabpanel">${mlCargando}</div>` +
       `<div class="pt-panel" id="secIC" role="tabpanel">${mlSeccionInfocasas()}</div>` +
-      `<div class="pt-panel" id="secCYM" role="tabpanel">${mlSeccionCasasYMas()}</div>` +
-      `<div id="secBaja"></div></div>`;
+      `<div class="pt-panel" id="secCYM" role="tabpanel">${mlSeccionCasasYMas()}</div></div></div>`;
     pintarPestanas();
   }
   function portalTab(k) {
@@ -3393,12 +3396,64 @@
         const est = b.querySelector('.pt-estado'), lin = b.querySelector('.pt-lineas');
         if (est) est.innerHTML = `<span class="pc-pill ${r.tono}">${r.tono === 'busy' ? '<i class="fas fa-spinner fa-spin"></i>' : '<span class="dot"></span>'}${mvEsc(r.texto)}</span>`;
         if (lin) lin.innerHTML = r.lineas.map(x => `<span>${mvEsc(x)}</span>`).join('');
+        const niv = b.querySelector('.pt-nivel');
+        if (niv) niv.innerHTML = nivelDestacadoHtml(t.key);
       }
       const panel = document.getElementById(t.sec);
       if (panel) panel.classList.toggle('activo', activo);
     });
     const ck = document.getElementById('pmCheck');
     if (ck) ck.textContent = textoComprobado();
+    const web = document.getElementById('pmWeb');
+    if (web) web.innerHTML = webDestacadoHtml();
+  }
+  /* ---------- Nivel de destacado en cada portal ----------
+     Mercado Libre: el tipo de aviso (Plata, Oro, Oro Premium), de estadoML.
+     Casas y Más: si el aviso está destacado (su API dice sí o no).
+     InfoCasas: lo que diga el aviso, si su API lo informa (estadoPortales lo
+     busca en el aviso); si no lo informa, "Sin dato".
+     Devuelve { texto, tono, nota }: tono pinta la insignia (oro, plata, si, no, nd). */
+  const ML_NIVEL_TONO = { gold_premium: 'oro', gold_pro: 'oro', gold: 'oro', gold_special: 'plata', silver: 'plata', bronze: 'bronce', free: 'no' };
+  function nivelDestacado(key) {
+    const p = properties.find(x => x.id === mlModalPropId) || {};
+    if (key === 'ml') {
+      const d = _mlData;
+      if (!d) return { texto: 'Consultando…', tono: 'nd' };
+      if (!d.publicado || d.error || d.status === 'closed') return { texto: 'No publicada', tono: 'nd' };
+      if (!d.listingType) return { texto: 'Sin dato', tono: 'nd', nota: 'Mercado Libre no informó el tipo de aviso.' };
+      return { texto: mlListingTypeName(d.listingType), tono: ML_NIVEL_TONO[d.listingType] || 'plata' };
+    }
+    if (key === 'infocasas') {
+      if (!p.icListingId || p.icEstado === 'eliminado') return { texto: 'No publicada', tono: 'nd' };
+      const real = _portalesData && _portalesData.infocasas && _portalesData.infocasas.portal;
+      if (!_portalesData) return { texto: 'Consultando…', tono: 'nd' };
+      const dq = real && real.destaque;
+      if (!dq) return { texto: 'Sin dato', tono: 'nd', nota: 'InfoCasas no informa el nivel de destacado por su API.' };
+      return { texto: dq.texto, tono: dq.destacada === false ? 'no' : 'si' };
+    }
+    if (key === 'casasymas') {
+      if (!p.cymId || p.cymEstado === 'eliminado' || p.cymEstado === 'error') return { texto: 'No publicada', tono: 'nd' };
+      const c = _portalesData && _portalesData.casasymas;
+      const dest = c && c.activaEnPortal ? !!c.destacada : (typeof p.cymDestacada === 'boolean' ? p.cymDestacada : null);
+      if (dest == null) return _portalesData ? { texto: 'Sin dato', tono: 'nd' } : { texto: 'Consultando…', tono: 'nd' };
+      return dest ? { texto: 'Destacada', tono: 'si' } : { texto: 'Común (sin destacar)', tono: 'no' };
+    }
+    return { texto: 'Sin dato', tono: 'nd' };
+  }
+  function nivelDestacadoHtml(key) {
+    const n = nivelDestacado(key);
+    return `<span class="pm-nivel ${n.tono}"${n.nota ? ` title="${mvEsc(n.nota)}"` : ''}><i class="fas ${n.tono === 'oro' || n.tono === 'si' ? 'fa-star' : 'fa-award'}"></i>${mvEsc(n.texto)}</span>`;
+  }
+  // El destacado de la web propia (Recompensas → destacados), con su vencimiento.
+  function webDestacado(p) {
+    p = p || properties.find(x => x.id === mlModalPropId) || {};
+    const hasta = p.featuredHasta ? Date.parse(p.featuredHasta) : NaN;
+    const vigente = p.featured === true && (!Number.isFinite(hasta) || hasta > Date.now());
+    return vigente ? { texto: Number.isFinite(hasta) ? `Destacada hasta el ${new Date(hasta).toLocaleDateString('es-UY', { day: 'numeric', month: 'short' })}` : 'Destacada', si: true } : { texto: 'No destacada', si: false };
+  }
+  function webDestacadoHtml() {
+    const w = webDestacado();
+    return `<span class="k">Tu web</span><span class="pm-nivel ${w.si ? 'si' : 'no'}"><i class="fas ${w.si ? 'fa-star' : 'fa-award'}"></i>${mvEsc(w.texto)}</span>`;
   }
   // Arriba del modal: qué propiedad es y cuándo se comprobó su estado en los portales.
   function cabeceraPortales() {
@@ -3414,26 +3469,136 @@
       `<button type="button" class="pm-lnk" onclick="volverAConsultarPortales()">Volver a consultar</button></div>`;
   }
   function textoComprobado() {
-    if (!_portalesData || _portalesConsultando === mlModalPropId) return 'Consultando los portales…';
+    if (!_portalesData || _portalesConsultando === mlModalPropId) return 'Consultando portales…';
     const at = _portalesData.consultadoAt;
-    if (!at) return 'No se pudo comprobar el estado en los portales.';
+    if (!at) return 'No se pudo comprobar';
     const min = Math.floor((Date.now() - Date.parse(at)) / 60000);
     const hs = Math.floor(min / 60);
     const hace = min < 1 ? 'recién' : min < 60 ? `hace ${min} minuto${min === 1 ? '' : 's'}`
       : hs < 24 ? `hace ${hs} hora${hs === 1 ? '' : 's'}` : `el ${pcFechaHora(at)}`;
-    return `Estado comprobado en los portales ${hace}`;
+    return `Comprobado ${hace}`;
   }
   // Pide de nuevo el estado a los tres portales, sin la copia de los últimos minutos.
   async function volverAConsultarPortales() {
     const pid = mlModalPropId;
     if (!pid) return;
     const ck = document.getElementById('pmCheck');
-    if (ck) ck.textContent = 'Consultando los portales…';
+    if (ck) ck.textContent = 'Consultando portales…';
     cargarEstadoPortales(pid, true);
     try {
       const res = await firebase.functions().httpsCallable('estadoML')({ propertyId: pid });
       if (mlModalPropId === pid) renderMLStatus(res.data);
     } catch (e) { console.warn('estadoML:', e && e.message); }
+  }
+  /* ---------- Informe imprimible ----------
+     Arma una hoja A4 con el estado, el nivel de destacado y las visitas o
+     consultas de los últimos 30 días en cada portal, con un gráfico por portal.
+     Se imprime desde un marco oculto: en el diálogo de impresión se puede elegir
+     "Guardar como PDF" para mandarlo al propietario. Usa lo que el modal ya
+     consultó: no vuelve a pedir nada a los portales. */
+  function svgBarrasInforme(cruda, color, singular, plural) {
+    const serie = serieCompleta(cruda);
+    const W = 680, H = 150, L = 34, R = 8, T = 18, B = 22;
+    const vacio = (t) => `<div class="g-vacio">${t}</div>`;
+    if (serie.length < 2) return vacio('El portal no informó datos por día.');
+    const tot = serie.reduce((n, x) => n + x.total, 0);
+    if (!tot) return vacio(`Sin ${plural} en este período.`);
+    const max = Math.max.apply(null, serie.map(x => x.total));
+    const tope = Math.max(2, Math.ceil(max / 2) * 2);   // par: la línea del medio cae en un número entero
+    const ancho = (W - L - R) / serie.length, gap = 2, bw = Math.max(1, ancho - gap);
+    const y = (v) => T + (H - T - B) * (1 - v / tope);
+    const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
+    let out = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${tot} ${plural} en ${serie.length} días">`;
+    [0, tope / 2, tope].forEach(v => {
+      const yy = y(v).toFixed(1);
+      out += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="${v ? '#e6e9ee' : '#b8c0cb'}" stroke-width="1"/>` +
+        `<text x="${L - 6}" y="${(+yy + 3.5).toFixed(1)}" text-anchor="end" class="ax">${v}</text>`;
+    });
+    const pico = serie.findIndex(x => x.total === max);
+    serie.forEach((x, i) => {
+      if (!x.total) return;
+      const x0 = L + i * ancho + gap / 2, y0 = y(x.total), base = y(0), h = base - y0, r = Math.min(4, bw / 2, h);
+      out += `<path d="M${x0.toFixed(1)},${base.toFixed(1)}V${(y0 + r).toFixed(1)}Q${x0.toFixed(1)},${y0.toFixed(1)} ${(x0 + r).toFixed(1)},${y0.toFixed(1)}` +
+        `H${(x0 + bw - r).toFixed(1)}Q${(x0 + bw).toFixed(1)},${y0.toFixed(1)} ${(x0 + bw).toFixed(1)},${(y0 + r).toFixed(1)}V${base.toFixed(1)}Z" fill="${color}"><title>${fmt(x.date)}: ${x.total} ${x.total === 1 ? singular : plural}</title></path>`;
+      if (i === pico) out += `<text x="${(x0 + bw / 2).toFixed(1)}" y="${(y0 - 5).toFixed(1)}" text-anchor="middle" class="pk">${x.total}</text>`;
+    });
+    [0, Math.floor(serie.length / 2), serie.length - 1].forEach((i, k) => {
+      const cx = L + i * ancho + ancho / 2;
+      out += `<text x="${cx.toFixed(1)}" y="${H - 6}" text-anchor="${k === 0 ? 'start' : k === 2 ? 'end' : 'middle'}" class="ax">${fmt(serie[i].date)}</text>`;
+    });
+    return out + '</svg>';
+  }
+  function imprimirInformePortales() {
+    const p = properties.find(x => x.id === mlModalPropId);
+    if (!p) return;
+    if (!_mlData || !_portalesData) showToast('Informe', 'Algunos portales todavía se están consultando: salen como "Sin dato".', 'fa-circle-info');
+    const d = _mlData || {}, ic = (_portalesData && _portalesData.infocasas) || {}, cy = (_portalesData && _portalesData.casasymas) || {};
+    const e = mvEsc, num = (v) => v == null ? '—' : Number(v).toLocaleString('es-UY');
+    const estado = (k) => (_portalResumen[k] && _portalResumen[k].texto) || 'Sin dato';
+    const nivel = (k) => nivelDestacado(k).texto;
+    const hp = d.health != null ? Math.round(d.health * 100) : null;
+    const preg = d.preguntas && d.preguntas.total != null ? d.preguntas.total : null;
+    const web = webDestacado(p);
+    const codigo = (p.ficha || {}).PROPERTY_CODE || (p.features || {}).codigoInterno || '';
+    const agente = (getOwnerInfo(p) || {}).name || '';
+    const precio = p.price ? formatPrice(p.price, p.currency || 'USD') + (p.type === 'rent' ? ' por mes' : '') : '';
+    const foto = p.images && p.images[0] ? safeUrl(p.images[0]) : '';
+    const hoy = new Date().toLocaleDateString('es-UY', { day: 'numeric', month: 'long', year: 'numeric' });
+    const COL = { visitas: '#1e9e6a', consultas: '#2563eb' };
+    const filas = [
+      ['Mercado Libre', estado('ml'), nivel('ml'), `<b>${num(d.visitas)}</b> visitas · <b>${num(preg)}</b> preguntas · <b>${num(d.contactosWhatsapp)}</b> WhatsApp`, hp != null ? `Calidad del aviso ${hp}%` : ''],
+      ['InfoCasas', estado('infocasas'), nivel('infocasas'), `<b>${num(ic.consultas30)}</b> consultas`, ic.consultasTotal != null ? `${num(ic.consultasTotal)} consultas en total` : ''],
+      ['Casas y Más', estado('casasymas'), nivel('casasymas'), `<b>${num(cy.consultas30)}</b> consultas`, cy.consultas != null ? `${num(cy.consultas)} consultas en total` : ''],
+      ['Tu web', '—', web.texto, '—', `<b>${num(p.views || 0)}</b> visitas · <b>${num(p.contactClicks || 0)}</b> contactos (histórico)`]
+    ];
+    const tabla = `<table><thead><tr><th>Portal</th><th>Estado</th><th>Destacado</th><th>Últimos 30 días</th><th>Además</th></tr></thead><tbody>` +
+      filas.map(f => `<tr><td class="pn">${e(f[0])}</td><td>${e(f[1])}</td><td>${e(f[2])}</td><td>${f[3]}</td><td class="mut">${f[4]}</td></tr>`).join('') + '</tbody></table>';
+    const bloque = (titulo, total, sub, svg) => `<section class="g"><div class="g-cab"><h3>${e(titulo)}</h3><span><b>${total}</b> ${e(sub)}</span></div>${svg}</section>`;
+    const sum = (sr) => serieCompleta(sr).reduce((n, x) => n + x.total, 0);
+    const graficos =
+      bloque('Mercado Libre · visitas por día', num(d.visitasSerie ? sum(d.visitasSerie) : d.visitas), 'visitas', svgBarrasInforme(d.visitasSerie, COL.visitas, 'visita', 'visitas')) +
+      bloque('InfoCasas · consultas por día', num(ic.serie ? sum(ic.serie) : ic.consultas30), 'consultas', svgBarrasInforme(ic.serie, COL.consultas, 'consulta', 'consultas')) +
+      bloque('Casas y Más · consultas por día', num(cy.serie ? sum(cy.serie) : cy.consultas30), 'consultas', svgBarrasInforme(cy.serie, COL.consultas, 'consulta', 'consultas'));
+    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe de portales · ${e(p.title || 'Propiedad')}</title><style>
+      @page{ size:A4; margin:14mm 14mm 16mm; }
+      *{ box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      body{ margin:0; font:13px/1.45 'Jost',system-ui,-apple-system,'Segoe UI',sans-serif; color:#16273f; background:#fff; }
+      .top{ display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #16273f; padding-bottom:8px; }
+      .top h1{ margin:0; font-size:20px; } .top .f{ color:#5b6574; font-size:12px; text-align:right; }
+      .prop{ display:flex; gap:14px; align-items:center; margin:14px 0 16px; }
+      .prop img{ width:110px; height:76px; object-fit:cover; border-radius:8px; background:#e6e9ee; }
+      .prop h2{ margin:0 0 3px; font-size:16px; } .prop .s{ color:#5b6574; }
+      table{ width:100%; border-collapse:collapse; font-size:12px; }
+      th{ text-align:left; font-weight:600; color:#5b6574; border-bottom:1px solid #b8c0cb; padding:6px 8px; }
+      td{ border-bottom:1px solid #e6e9ee; padding:7px 8px; vertical-align:top; } td.pn{ font-weight:600; } td.mut{ color:#5b6574; }
+      .g{ margin-top:16px; break-inside:avoid; } .g-cab{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px; }
+      .g h3{ margin:0; font-size:13.5px; } .g-cab span{ color:#5b6574; } .g-cab b{ color:#16273f; font-size:15px; }
+      svg text{ font-family:inherit; } .ax{ font-size:10px; fill:#5b6574; } .pk{ font-size:10.5px; font-weight:700; fill:#16273f; }
+      .g-vacio{ border:1px dashed #cfd5dd; border-radius:8px; padding:16px; color:#5b6574; text-align:center; }
+      .pie{ margin-top:18px; font-size:10.5px; color:#5b6574; border-top:1px solid #e6e9ee; padding-top:8px; }
+    </style></head><body>
+      <div class="top"><h1>Informe de portales</h1><div class="f">${e(hoy)}${agente ? `<br>Agente: ${e(agente)}` : ''}</div></div>
+      <div class="prop">${foto ? `<img src="${foto}" alt="">` : ''}<div><h2>${e(p.title || 'Propiedad')}</h2><div class="s">${[codigo, precio].filter(Boolean).map(x => e(String(x))).join(' · ')}</div></div></div>
+      ${tabla}${graficos}
+      <div class="pie">Mercado Libre informa visitas; InfoCasas y Casas y Más, consultas recibidas. "Sin dato" significa que el portal no lo informa o no respondió al consultar. Estado de los portales: ${e(textoComprobado().toLowerCase())}.</div>
+    </body></html>`;
+    const viejo = document.getElementById('pmInformeFrame');
+    if (viejo) viejo.remove();
+    const fr = document.createElement('iframe');
+    fr.id = 'pmInformeFrame';
+    fr.setAttribute('aria-hidden', 'true');
+    fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+    document.body.appendChild(fr);
+    let impreso = false;
+    const imprimir = () => {
+      if (impreso) return; impreso = true;
+      try { fr.contentWindow.focus(); fr.contentWindow.print(); }
+      catch (err) { console.error('informe:', err); showToast('Informe', 'No se pudo abrir la impresión.', 'fa-circle-exclamation'); }
+    };
+    fr.onload = imprimir;
+    const doc = fr.contentDocument;
+    doc.open(); doc.write(html); doc.close();
+    setTimeout(imprimir, 2500);   // por si la foto tarda: se imprime igual
   }
   // Estilos del modal de Portales (se inyectan una sola vez).
   function ensureMLStyles() {
@@ -3650,7 +3815,7 @@
       ? nota({ tono: 'warn', icono: 'fa-list-check', html: `<strong>Faltan datos para publicar</strong><ul class="pc-faltan">${c.faltan.map(f => `<li>${mvEsc(f)}</li>`).join('')}</ul>${c.faltanPie ? `<div style="margin-top:8px;font-size:.8rem">${c.faltanPie}</div>` : ''}` })
       : '';
     const metricas = (cap.hasMetrics && c.metricas && c.metricas.length)
-      ? `<div class="ml-stats" style="margin-top:10px">${c.metricas.map(m => `<div class="ml-stat"><i class="${m.icono}" style="color:${m.color || '#6a7280'}"></i><div><div class="n">${m.valor == null ? '—' : mvEsc(String(m.valor))}</div><div class="t">${mvEsc(m.texto)}</div></div></div>`).join('')}</div>`
+      ? `<div class="ml-stats">${c.metricas.map(m => `<div class="ml-stat"><i class="${m.icono}" style="color:${m.color || '#6a7280'}"></i><div><div class="n">${m.valor == null ? '—' : mvEsc(String(m.valor))}</div><div class="t">${mvEsc(m.texto)}</div></div></div>`).join('')}</div>`
       : '';
     const meta = (c.meta || []).filter(Boolean);
     const metaHtml = meta.length ? `<div class="pc-metas">${meta.map(m => `<span>${m.icono && /fa-spin/.test(m.icono) ? `<i class="${m.icono}"></i> ` : ''}${mvEsc(m.texto)}</span>`).join('')}</div>` : '';
@@ -3667,22 +3832,27 @@
     const clienteHtml = cliente.length ? `<div class="pc-blk"><h3 class="pc-tit">Lo que ve el cliente</h3>` +
       cliente.map(f => `<div class="pc-fila"><span class="k">${mvEsc(f.k)}</span><span class="v">${mvEsc(f.v)}</span>${marca(f)}</div>`).join('') +
       `${c.clienteNota ? `<p class="pc-hint">${c.clienteNota}</p>` : ''}</div>` : '';
-    const ultimos = (metricas || c.grafico) ? `<div class="pc-blk"><h3 class="pc-tit">Últimos 30 días</h3>${metricas}${c.grafico || ''}</div>` : '';
-    return `<section class="pc-card" id="pc-${c.key}"><h3 class="pc-tit">Estado en ${mvEsc(c.nombre)}</h3>` +
+    /* Dos columnas en la compu (en el celular quedan una debajo de la otra):
+       a la izquierda el estado y lo que ve el cliente; a la derecha los últimos
+       30 días. Así el modal entra entero en una notebook sin bajar. */
+    const ultimos = (metricas || c.grafico || c.ultimos) ? `<div class="pc-blk pc-blk-30"><h3 class="pc-tit">Últimos 30 días</h3>${c.ultimos || ''}${metricas}${c.grafico || ''}${c.pie || ''}</div>` : (c.pie || '');
+    const accHtml = acciones ? `<div class="pc-blk pc-acc"><div class="ml-btns">${acciones}</div>${c.pieAcciones ? `<p class="pc-hint">${c.pieAcciones}</p>` : ''}</div>` : '';
+    const colA = `${metaHtml}${c.lead ? `<div class="pc-lead">${c.lead}</div>` : ''}${notas}${faltan}${clienteHtml}${c.cuerpo || ''}`;
+    return `<section class="pc-card" id="pc-${c.key}"><h3 class="pc-tit pc-tit-estado">Estado en ${mvEsc(c.nombre)}</h3>` +
       `<div class="pc-head"><span class="pc-name" style="background:${c.color.bg};color:${c.color.fg}">${mvEsc(c.nombre)}</span>${pill}${c.explica ? `<span class="pc-explica">${c.explica}</span>` : ''}</div>` +
-      `${metaHtml}${c.lead ? `<div class="pc-lead">${c.lead}</div>` : ''}${notas}${faltan}${clienteHtml}${c.cuerpo || ''}${ultimos}${c.pie || ''}` +
-      `${acciones ? `<div class="pc-blk pc-acc"><div class="ml-btns">${acciones}</div>${c.pieAcciones ? `<p class="pc-hint">${c.pieAcciones}</p>` : ''}</div>` : ''}</section>`;
+      // Los botones van al pie de la columna de los 30 días (o de la única columna).
+      `<div class="pc-cols${ultimos ? '' : ' una'}"><div class="pc-colA">${colA}${ultimos ? '' : accHtml}</div>${ultimos ? `<div class="pc-colB">${ultimos}${accHtml}</div>` : ''}</div></section>`;
   }
   /* Gráfico de barras de los últimos 30 días. Lo usan los tres portales: Mercado
      Libre (visitas) e InfoCasas y Casas y Más (consultas). serie = [{ date:
      'AAAA-MM-DD', total }], el formato que devuelven estadoML y estadoPortales. */
-  function portalGrafico(o) {
-    // Los portales no siempre mandan los días en orden ni todos los días: Mercado
-    // Libre devolvió 04/10, 03/10, 02/10, 05/10 y el gráfico salía con las fechas
-    // salteadas. Se ordenan, y los días que faltan entre el primero y el último
-    // van en cero: cada barra es un día, uno detrás del otro.
+  // Los portales no siempre mandan los días en orden ni todos los días: Mercado
+  // Libre devolvió 04/10, 03/10, 02/10, 05/10 y el gráfico salía con las fechas
+  // salteadas. Se ordenan, y los días que faltan entre el primero y el último
+  // van en cero: cada barra es un día, uno detrás del otro.
+  function serieCompleta(cruda) {
     const porDia = {};
-    (Array.isArray(o.serie) ? o.serie : []).forEach(x => {
+    (Array.isArray(cruda) ? cruda : []).forEach(x => {
       const d = String((x && x.date) || '').slice(0, 10);
       if (/^\d{4}-\d{2}-\d{2}$/.test(d)) porDia[d] = (porDia[d] || 0) + (Number(x && x.total) || 0);
     });
@@ -3695,6 +3865,10 @@
         serie.push({ date: d, total: porDia[d] || 0 });
       }
     }
+    return serie;
+  }
+  function portalGrafico(o) {
+    const serie = serieCompleta(o.serie);
     if (serie.length < 2) return '';
     const val = (x) => Number(x && x.total) || 0;
     const fmt = (x) => { const dt = String((x && x.date) || '').slice(0, 10); return dt.length === 10 ? dt.slice(8, 10) + '/' + dt.slice(5, 7) : ''; };
@@ -3861,7 +4035,8 @@
         cfg.cliente = [
           real.precio != null && { k: 'Precio', v: num(real.precio), ok: !dp, nota: dp ? `En la ficha: ${num(dp.crm)}` : 'Igual a la ficha' },
           real.fotos != null && { k: 'Fotos', v: `${real.fotos} de ${real.fotosCrm != null ? real.fotosCrm : (p.images || []).length}`, ok: !df, nota: df ? 'Faltan fotos' : 'Todas' },
-          { k: 'Título', v: dt ? String(dt.infocasas || '') : 'Igual a la ficha', ok: !dt, nota: dt ? 'Distinto' : 'Al día' }
+          { k: 'Título', v: dt ? String(dt.infocasas || '') : 'Igual a la ficha', ok: !dt, nota: dt ? 'Distinto' : 'Al día' },
+          { k: 'Destacado', v: real.destaque ? real.destaque.texto : 'Sin dato', ok: null, nota: real.destaque ? '' : 'InfoCasas no lo informa' }
         ];
         difs.filter(x => IC_CAMPO[x.campo]).forEach(x => cfg.cliente.push(x.campo === 'descripcion'
           ? { k: 'Descripción', v: 'Distinta a la ficha', ok: false, nota: '' }
@@ -4115,10 +4290,10 @@
         const fotosFicha = (p.images || []).length;
         cfg.cliente = [
           c.fotosEnPortal != null && fotosFicha && { k: 'Fotos', v: `${c.fotosEnPortal} de ${fotosFicha}`, ok: c.fotosEnPortal >= fotosFicha ? true : null, nota: c.fotosEnPortal >= fotosFicha ? 'Todas' : '' },
-          { k: 'Destacada', v: c.destacada ? 'Sí' : 'No', ok: null, nota: '' }
+          { k: 'Destacado', v: c.destacada ? 'Destacada' : 'Común (sin destacar)', ok: null, nota: '' }
         ];
       }
-      cfg.resumen = [c && c.destacada ? 'Destacada' : '', c && c.consultas30 != null ? `${c.consultas30} consulta${c.consultas30 === 1 ? '' : 's'} en 30 días` : ''];
+      cfg.resumen = [c && c.consultas30 != null ? `${c.consultas30} consulta${c.consultas30 === 1 ? '' : 's'} en 30 días` : ''];
       const quien = p.cymUltimaAccion && p.cymUltimaAccion.por;
       cfg.lead = (p.cymOrigen === 'auto' ? 'Publicada automáticamente desde el CRM.'
         : (p.cymOrigen && quien) ? `Publicada desde el CRM por ${mvEsc(quien)}.` : 'Publicada desde el CRM.') +
@@ -4399,7 +4574,7 @@
     const _pregN = (d.preguntas && d.preguntas.total != null) ? d.preguntas.total : null;
     const _pregSR = (d.preguntas && d.preguntas.sinResponder) ? ` · ${d.preguntas.sinResponder} sin responder` : '';
     const _chart = portalGrafico({ titulo: 'Visitas por día', color: '#1e9e6a', serie: d.visitasSerie, singular: 'visita', plural: 'visitas', vacio: 'Todavía sin visitas registradas en este período.' });
-    const interaccion = `<div class="ml-section"><div class="ml-stats"><div class="ml-stat"><i class="fas fa-eye" style="color:#1e9e6a"></i><div><div class="n">${_dash(d.visitas)}</div><div class="t">${d.visitas === 1 ? 'visita' : 'visitas'} · 30 días</div></div></div><div class="ml-stat"><i class="fas fa-circle-question" style="color:#2e86de"></i><div><div class="n">${_dash(_pregN)}</div><div class="t">${_pregN === 1 ? 'pregunta' : 'preguntas'}${_pregSR}</div></div></div><div class="ml-stat"><i class="fab fa-whatsapp" style="color:#25d366"></i><div><div class="n">${_dash(d.contactosWhatsapp)}</div><div class="t">${d.contactosWhatsapp === 1 ? 'contacto' : 'contactos'} WhatsApp · 30 días</div></div></div></div>${_chart}<div class="ml-webline"><span>En tu web:</span><span><i class="fas fa-eye"></i> <b>${_prop.views || 0}</b> visitas</span><span><i class="fab fa-whatsapp" style="color:#25d366"></i> <b>${_prop.contactClicks || 0}</b> contactos</span><span style="color:#a8b0ba">· histórico del sitio</span></div></div>`;
+    const interaccion = `<div class="ml-section ml-30"><div class="ml-stats"><div class="ml-stat"><i class="fas fa-eye" style="color:#1e9e6a"></i><div><div class="n">${_dash(d.visitas)}</div><div class="t">${d.visitas === 1 ? 'visita' : 'visitas'} · 30 días</div></div></div><div class="ml-stat"><i class="fas fa-circle-question" style="color:#2e86de"></i><div><div class="n">${_dash(_pregN)}</div><div class="t">${_pregN === 1 ? 'pregunta' : 'preguntas'}${_pregSR}</div></div></div><div class="ml-stat"><i class="fab fa-whatsapp" style="color:#25d366"></i><div><div class="n">${_dash(d.contactosWhatsapp)}</div><div class="t">${d.contactosWhatsapp === 1 ? 'contacto' : 'contactos'} WhatsApp · 30 días</div></div></div></div>${_chart}<div class="ml-webline"><span>En tu web:</span><span><i class="fas fa-eye"></i> <b>${_prop.views || 0}</b> visitas</span><span><i class="fab fa-whatsapp" style="color:#25d366"></i> <b>${_prop.contactClicks || 0}</b> contactos</span><span style="color:#a8b0ba">· histórico del sitio</span></div></div>`;
     const pagoHint = d.status === 'payment_required' ? `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-circle-info"></i><div>El aviso está creado pero Mercado Libre exige pagar el tipo <strong>${mlListingTypeName(d.listingType)}</strong> para activarlo (se abona desde tu cuenta de ML, sección Publicaciones). Si no querés pagarlo, dale <strong>Dar de baja</strong> y volvé a publicarlo eligiendo otro tipo. Mientras no lo pagues, no se cobra nada.</div></div></div>` : '';
     // Qué falta para el 100%: lo MÁS confiable es comparar los atributos de la
     // categoría contra los que el aviso tiene cargados (d.faltan, lo calcula el
@@ -4436,10 +4611,11 @@
     } else if (reqs.length || opts.length) {
       if (opts.length) {
         const CAP = 14, shown = opts.slice(0, CAP), rest = opts.length - shown.length;
-        hImp += `<div class="ml-improve-title"${reqs.length ? ' style="margin-top:10px"' : ''}>Completá estos datos para subir la calidad</div><ul class="ml-improve">`
+        // Plegado: con la lista abierta el modal ya no entra en la pantalla.
+        hImp += `<details class="ml-more"><summary><i class="fas fa-chevron-right"></i>Completá estos datos para subir la calidad (${opts.length})</summary><ul class="ml-improve">`
           + shown.map(x => _item(x, 'fas fa-arrow-up')).join('')
           + (rest > 0 ? `<li style="opacity:.65"><i class="fas fa-ellipsis-h"></i><span>y ${rest} dato${rest === 1 ? '' : 's'} más</span></li>` : '')
-          + '</ul>';
+          + '</ul></details>';
       }
       improve = `<div class="ml-section">${hImp}${_guia}</div>`;
     } else {
@@ -4454,7 +4630,7 @@
       if (hp != null && hp >= 99) {
         improve = `<div class="ml-section">${_oro}</div>`;
       } else if (acc) {
-        improve = `<div class="ml-section"><div class="ml-improve-title">Para llegar al 100%, completá:</div><ul class="ml-improve">${acc}</ul>${_guia}</div>`;
+        improve = `<div class="ml-section"><details class="ml-more"><summary><i class="fas fa-chevron-right"></i>Para llegar al 100%, completá (${_mej.length})</summary><ul class="ml-improve">${acc}</ul>${_guia}</details></div>`;
       } else if (hp != null && hp < 99) {
         improve = `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-circle-info"></i><div>Sumá <strong>más fotos</strong> (al menos 12) y una <strong>descripción</strong> más completa para subir la calidad.</div></div></div>`;
       } else {
@@ -4490,7 +4666,7 @@
       cliente.push({ k: 'Fotos', v: `${d.fotos} de ${fotosFicha}`, ok: todas, nota: todas ? 'Todas' : 'Faltan fotos' });
     }
     const tipoML = d.listingType ? mlListingTypeName(d.listingType) : '';
-    if (tipoML) cliente.push({ k: 'Tipo de aviso', v: tipoML, ok: null, nota: '' });
+    if (tipoML) cliente.push({ k: 'Destacado', v: tipoML, ok: null, nota: 'Tipo de aviso' });
     const venceDias = d.vence ? Math.ceil((Date.parse(d.vence) - Date.now()) / 864e5) : null;
     pintarTarjetaML({
       key: 'ml', nombre: 'Mercado Libre', color: PORTAL_COLOR.ml,
@@ -4501,10 +4677,10 @@
         _prop.mlItemId && { texto: `Código ${_prop.mlItemId}` }
       ],
       cliente,
-      resumen: [tipoML ? tipoML + (hp != null ? ` · calidad ${hp}%` : '') : (hp != null ? `Calidad ${hp}%` : ''),
+      resumen: [hp != null ? `Calidad del aviso ${hp}%` : '',
         d.visitas != null ? `${d.visitas} visita${d.visitas === 1 ? '' : 's'} en 30 días` : ''],
-      cuerpo: `${pagoHint}<div class="pc-blk"><h3 class="pc-tit">Últimos 30 días</h3>${interaccion}</div>` +
-        `<div class="pc-blk"><h3 class="pc-tit">Calidad del aviso</h3>${hero}${improve}</div>${selTipo}`,
+      ultimos: interaccion,
+      cuerpo: `${pagoHint}<div class="pc-blk"><h3 class="pc-tit">Calidad del aviso</h3>${hero}${improve}</div>${selTipo}`,
       pieAcciones: (typeof isAdminUser === 'function' && isAdminUser() && d.status === 'active')
         ? 'Pausar se deshace con Republicar. Dar de baja no: para volver hay que publicar un aviso nuevo y, si es pago, se cobra otra vez.' : '',
       capacidades: capML(), acciones
@@ -4559,19 +4735,18 @@
     const botonesBaja = [];
     let bajaHint = '';
     if (isAdminUser()) {
-      botonesBaja.push(`<button class="ml-btn ml-btn-danger" onclick="bajaPropiedad()"><i class="fas fa-circle-stop"></i> Dar de baja de todos los portales</button>`);
+      botonesBaja.push(`<button class="ml-btn ml-btn-danger" onclick="bajaPropiedad()"><i class="fas fa-circle-stop"></i> Dar de baja de todos</button>`);
       if (_pendiente) bajaHint = `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-hand"></i><div><strong>${mvEsc(_pB.bajaSolicitadaPor || 'Un agente')} pidió dar de baja esta propiedad.</strong>${_pB.bajaSolicitadaMotivo ? ` Motivo: ${mvEsc(_pB.bajaSolicitadaMotivo)}` : ''}<br>Resolvelo desde la campanita: <em>Despublicar</em> la saca de la web y de los portales; <em>Mantener publicada</em> descarta el pedido.</div></div></div>`;
     } else if (_pendiente) {
       botonesBaja.push(`<button class="ml-btn ml-btn-ghost" disabled style="opacity:.65;cursor:default"><i class="fas fa-hourglass-half"></i> Baja solicitada</button>`);
       bajaHint = `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-paper-plane"></i><div>Tu pedido de baja ya está con el administrador. Hasta que lo resuelva, la propiedad sigue publicada. Te va a llegar un aviso con la respuesta.</div></div></div>`;
     } else {
-      botonesBaja.push(`<button class="ml-btn ml-btn-danger" onclick="pedirBaja()"><i class="fas fa-circle-stop"></i> Pedir baja de todos los portales</button>`);
-      bajaHint = `<div class="ml-section"><div class="ml-note info"><i class="fas fa-circle-info"></i><div>La baja la confirma el administrador. Si la operación se cerró con la agencia, no hace falta pedir nada: cerrá la <strong>gestión en Clientes</strong> y la propiedad se da de baja sola.</div></div></div>`;
+      botonesBaja.push(`<button class="ml-btn ml-btn-danger" onclick="pedirBaja()"><i class="fas fa-circle-stop"></i> Pedir baja de todos</button>`);
+      bajaHint = `<details class="ml-more"><summary><i class="fas fa-chevron-right"></i>Cómo funciona la baja</summary><div class="ml-note info"><i class="fas fa-circle-info"></i><div>La baja la confirma el administrador. Si la operación se cerró con la agencia, no hace falta pedir nada: cerrá la <strong>gestión en Clientes</strong> y la propiedad se da de baja sola.</div></div></details>`;
     }
     const donde = vivos.map(k => PORTAL_NOMBRE[k]).join(', ');
-    return `<div class="ml-divider" style="margin-top:22px"><span class="tagchip" style="background:#fee2e2;color:#b91c1c">Sacar de circulación</span><span class="line"></span></div>` +
-      `<div style="font-size:.8rem;color:#8a93a0;margin-bottom:10px">Da de baja el aviso en <strong>${mvEsc(donde)}</strong>.${vivos.includes('ml') ? ' En Mercado Libre es irreversible.' : ''}</div>` +
-      bajaHint + `<div class="ml-btns" style="margin-top:10px">${botonesBaja.join('')}</div>`;
+    return `<div class="pm-baja"><div class="pm-baja-txt"><strong>Sacar de circulación:</strong> da de baja el aviso en <strong>${mvEsc(donde)}</strong>.${vivos.includes('ml') ? ' En Mercado Libre es irreversible.' : ''}</div>` +
+      `<div class="ml-btns">${botonesBaja.join('')}</div>` + bajaHint + '</div>';
   }
   async function republicarPropiedad() {
     if (!mlModalPropId || _portalBusy.ml) return;
