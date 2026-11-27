@@ -629,6 +629,8 @@
     document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !verDir);
     document.getElementById('mvSideRetiros')?.classList.toggle('hidden', !esCeo);
     document.getElementById('mvSidePapelera')?.classList.toggle('hidden', !esCeo);
+    // Las contraseñas de las cuentas oficiales las ve solo el CEO (ver firestore.rules).
+    document.getElementById('mvSideCuentas')?.classList.toggle('hidden', !esCeo);
     document.getElementById('mvSideRenta')?.classList.toggle('hidden', !verDir);
     document.getElementById('mvSideInteres')?.classList.toggle('hidden', !verDir);
     document.getElementById('mvSideAuditIC')?.classList.toggle('hidden', !verDir);
@@ -1611,7 +1613,7 @@
       case 'refresh_token':
       case 'authorization_code':
         Object.assign(m, { fam: 'gestion', ic: 'fa-key', col: 'ambar', titulo: 'Reconectar Mercado Libre', txt: n.text || '' });
-        m.ir = { a: 'url', url: 'cuentas.html' };
+        m.ir = { a: 'url', url: 'conectar-ml.html' };
         break;
       case 'retiro':
         Object.assign(m, { fam: 'gestion', ic: 'fa-money-bill-transfer', col: 'ambar', titulo: 'Solicitud de retiro', txt: n.text || '' });

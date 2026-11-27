@@ -305,10 +305,13 @@
       if (!u) { tpShow('tpAuth'); return; }
       let prof = {};
       try { const d = await db.collection('users').doc(u.uid).get(); prof = d.exists ? d.data() : {}; } catch (e) { prof = {}; }
-      esAdmin = (prof.email || u.email || '').toLowerCase() === ADMIN_EMAIL;
-      if (prof.status !== 'approved' && !esAdmin) {
-        document.getElementById('tpAuthTitle').textContent = 'Cuenta pendiente';
-        document.getElementById('tpAuthMsg').textContent = 'Tu cuenta está pendiente de aprobación.';
+      // Solo el CEO (por correo, o por rango con la cuenta aprobada), igual que
+      // esCEO() en firestore.rules: las contraseñas no las ve nadie más.
+      esAdmin = (prof.email || u.email || '').toLowerCase() === ADMIN_EMAIL
+             || (prof.rank === 'ceo' && prof.status === 'approved');
+      if (!esAdmin) {
+        document.getElementById('tpAuthTitle').textContent = 'Solo para el CEO';
+        document.getElementById('tpAuthMsg').textContent = 'Las cuentas y contraseñas oficiales las administra el CEO. Si necesitás acceder a alguna, pedísela.';
         tpShow('tpAuth'); return;
       }
       document.getElementById('paAddBtn').style.display = esAdmin ? 'inline-flex' : 'none';
