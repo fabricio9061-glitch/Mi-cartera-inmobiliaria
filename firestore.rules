@@ -301,13 +301,25 @@ service cloud.firestore {
                     || (esDireccion()
                         && request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['cierre', 'cierreConfirmado', 'status', 'updatedAt']))
+                    // Contadores públicos: SOLO de a uno hacia arriba (lo que hace
+                    // FieldValue.increment(1)). Antes se podía poner cualquier valor
+                    // (un millón, negativo o un texto) sin iniciar sesión.
                     || (request.resource.data.diff(resource.data).affectedKeys()
-                          .hasOnly(['views', 'contactClicks']));
+                          .hasOnly(['views', 'contactClicks'])
+                        && request.resource.data.get('views', 0) is number
+                        && request.resource.data.get('contactClicks', 0) is number
+                        && request.resource.data.get('views', 0) >= resource.data.get('views', 0)
+                        && request.resource.data.get('views', 0) <= resource.data.get('views', 0) + 1
+                        && request.resource.data.get('contactClicks', 0) >= resource.data.get('contactClicks', 0)
+                        && request.resource.data.get('contactClicks', 0) <= resource.data.get('contactClicks', 0) + 1);
       allow delete: if esDireccion();
 
-      // Comentarios públicos del aviso (web pública).
+      // Comentarios públicos del aviso. Ninguna pantalla los escribe hoy, y un
+      // 'create: if true' sin validar era una puerta pública para cargar
+      // cualquier cosa de cualquier tamaño. Se cierra hasta que haya una función.
       match /comments/{commentId} {
-        allow read, create: if true;
+        allow read: if true;
+        allow create: if false;
         allow update, delete: if request.auth != null &&
                               (resource.data.userId == request.auth.uid || esDireccion());
       }
@@ -396,12 +408,20 @@ service cloud.firestore {
     }
 
     // ============ NOTIFICATIONS ============
-    // Crear ya no es público (antes 'if true' permitía forjar notificaciones).
+    // Las crea SOLO el servidor (Admin SDK). Ninguna pantalla las crea, y con
+    // 'request.auth != null' cualquier cuenta recién registrada (sin aprobar)
+    // podía mandarle a cualquier agente un aviso falso ("transferí a…").
+    // Al marcarlas leídas/resueltas no se puede cambiar de quién son.
     match /notifications/{notificationId} {
-      allow create: if request.auth != null;
-      allow read, update: if request.auth != null &&
+      allow create: if false;
+      allow read: if request.auth != null &&
         (resource.data.ownerId == request.auth.uid ||
          resource.data.userId == request.auth.uid || esDireccion());
+      allow update: if request.auth != null &&
+        (resource.data.ownerId == request.auth.uid ||
+         resource.data.userId == request.auth.uid || esDireccion())
+        && request.resource.data.get('ownerId', null) == resource.data.get('ownerId', null)
+        && request.resource.data.get('userId', null) == resource.data.get('userId', null);
       allow delete: if request.auth != null &&
         (resource.data.ownerId == request.auth.uid || esDireccion());
     }
@@ -417,8 +437,9 @@ service cloud.firestore {
     }
 
     // ============ NEWSLETTER (web pública) ============
+    // La web ya no tiene newsletter (ver index.html): se cierra la escritura pública.
     match /newsletter/{id} {
-      allow create: if request.resource.data.keys().hasOnly(['email', 'createdAt']);
+      allow create: if false;
       allow read, delete: if esDireccion();
       allow update: if false;
     }
@@ -435,8 +456,23 @@ service cloud.firestore {
     }
 
     // ============ LEADS DE VENTA (web pública) ============
+    // Público (vender.html no pide login), pero acotado como los testimonios.
+    // Antes era 'if true': se podía guardar cualquier campo, y un 'estado'
+    // inventado se pintaba sin escapar en el panel de la Dirección (XSS).
     match /leadsVenta/{leadId} {
-      allow create: if true;
+      allow create: if request.resource.data.keys().hasOnly(
+             ['nombre','telefono','email','tipo','zona','mensaje','origen','estado','createdAt'])
+        && request.resource.data.keys().hasAll(['nombre','telefono','estado'])
+        && request.resource.data.estado == 'nuevo'
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() >= 1 && request.resource.data.nombre.size() <= 80
+        && request.resource.data.telefono is string
+        && request.resource.data.telefono.size() >= 1 && request.resource.data.telefono.size() <= 40
+        && request.resource.data.get('email', '') is string && request.resource.data.get('email', '').size() <= 120
+        && request.resource.data.get('tipo', '') is string && request.resource.data.get('tipo', '').size() <= 30
+        && request.resource.data.get('zona', '') is string && request.resource.data.get('zona', '').size() <= 120
+        && request.resource.data.get('mensaje', '') is string && request.resource.data.get('mensaje', '').size() <= 2000
+        && request.resource.data.get('origen', '') is string && request.resource.data.get('origen', '').size() <= 40;
       allow read, update, delete: if esDireccion();
     }
 
