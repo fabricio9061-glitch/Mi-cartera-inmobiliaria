@@ -634,7 +634,7 @@
     document.getElementById('mvSideRenta')?.classList.toggle('hidden', !verDir);
     document.getElementById('mvSideInteres')?.classList.toggle('hidden', !verDir);
     document.getElementById('mvSideAuditIC')?.classList.toggle('hidden', !verDir);
-    if (currentUser && isAdminUser()) actualizarBadgePendientes();
+    if (currentUser && isAdminUser() && !_pendUnsub) actualizarBadgePendientes();
   }
   function closeSideMenu() {
     document.getElementById('mvSide')?.classList.remove('open');
@@ -1049,7 +1049,7 @@
   // ==========================================================================
   const NOTIF_LIMITE = 50;
   const NOTIF_PAGINA = 30;
-  let _notifUnsub = null, _notifPrimera = true, _notifUltimoMs = 0, _pendInterval = null;
+  let _notifUnsub = null, _notifPrimera = true, _notifUltimoMs = 0, _pendInterval = null, _pendUnsub = null;
   let _notifsCargadas = false;
   let _notifVivas = [];                 // la ventana en vivo (las 50 más nuevas)
   let _notifViejas = [];                // lo que se trajo con "Ver anteriores"
@@ -1164,7 +1164,21 @@
     } catch (e) { _notifUnsub = null; sondear(); }
     // Registros pendientes de aprobación (Dirección): cambian poco, alcanza con
     // mirar cada minuto (antes iba pegado al sondeo de 10 s).
-    if (isAdminUser()) { actualizarBadgePendientes(); _pendInterval = setInterval(actualizarBadgePendientes, 60000); }
+    // Antes se consultaba cada minuto (60 lecturas por hora aunque no hubiera
+    // nadie nuevo). Ahora se escucha en vivo: Firestore solo cobra cuando entra
+    // o sale alguien de la lista. Si la escucha falla, se vuelve a mirar cada minuto.
+    if (isAdminUser()) {
+      try {
+        _pendUnsub = db.collection('users').where('status', '==', 'pending').onSnapshot(
+          s => pintarBadgePendientes(s.size),
+          err => {
+            console.warn('[pendientes] en vivo no disponible, se consulta cada minuto:', err && err.message);
+            _pendUnsub = null;
+            if (!_pendInterval && currentUser && currentUser.uid === uid) { actualizarBadgePendientes(); _pendInterval = setInterval(actualizarBadgePendientes, 60000); }
+          }
+        );
+      } catch (e) { actualizarBadgePendientes(); _pendInterval = setInterval(actualizarBadgePendientes, 60000); }
+    }
   }
 
   function stopNotificationPolling() {
@@ -1173,6 +1187,7 @@
       clearInterval(notificationCheckInterval);
       notificationCheckInterval = null
     }
+    if (_pendUnsub) { try { _pendUnsub(); } catch (e) { } _pendUnsub = null; }
     if (_pendInterval) { clearInterval(_pendInterval); _pendInterval = null; }
     _notifsCargadas = false;
     _notifVivas = []; _notifViejas = []; _notifSueltas = []; _notifHayMasViejas = false; _notifCargandoMas = false;
@@ -3393,7 +3408,7 @@
     const agente = (getOwnerInfo(p) || {}).name || '';
     const precio = p.price ? formatPrice(p.price, p.currency || 'USD') + (p.type === 'rent' ? ' por mes' : '') : '';
     const sub = [codigo, precio, agente].filter(Boolean).map(x => mvEsc(String(x))).join(' · ');
-    return `<div class="pm-prop">${foto ? `<img src="${foto}" alt="">` : '<span class="pm-sinfoto"><i class="fas fa-house"></i></span>'}` +
+    return `<div class="pm-prop">${foto ? `<img src="${foto}" alt="" loading="lazy">` : '<span class="pm-sinfoto"><i class="fas fa-house"></i></span>'}` +
       `<div class="pm-txt"><div class="pm-tit">${mvEsc(p.title || 'Propiedad')}</div>${sub ? `<div class="pm-sub">${sub}</div>` : ''}</div></div>` +
       `<div class="pm-check"><span id="pmCheck">${textoComprobado()}</span>` +
       `<button type="button" class="pm-lnk" onclick="volverAConsultarPortales()">Volver a consultar</button></div>`;
@@ -6526,13 +6541,15 @@
   async function actualizarBadgePendientes() {
     try {
       const s = await db.collection('users').where('status', '==', 'pending').get();
-      const n = s.size;
-      const badge = document.getElementById('mvPendBadge');
-      if (badge) {
-        badge.textContent = n;
-        badge.style.display = n > 0 ? 'inline-flex' : 'none';
-      }
+      pintarBadgePendientes(s.size);
     } catch (e) { console.warn('[pendientes]', e && e.message); }
+  }
+  function pintarBadgePendientes(n) {
+    const badge = document.getElementById('mvPendBadge');
+    if (badge) {
+      badge.textContent = n;
+      badge.style.display = n > 0 ? 'inline-flex' : 'none';
+    }
   }
 
   function openEditProfileModal() {
@@ -7122,12 +7139,12 @@
           .sort((a,b) => ((a.email||'').toLowerCase()===ADMIN_EMAIL ? -1 : (b.email||'').toLowerCase()===ADMIN_EMAIL ? 1 : (a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'})));
         document.getElementById('pendingCount').textContent = pendientes.length ? `(${pendientes.length})` : '';
 
-        const tarjeta = (u) => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${safeUrl(u.profilePhoto)}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${mvEsc(u.role||'Asesor Inmobiliario')}</small>${u.commissionSale!=null||u.commissionRent!=null||u.commissionPct!=null?`<br><small style="color:#8a6d12"><i class="fas fa-percent"></i> Venta: ${u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:'—')}% · Alq: ${u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:'—')}%</small>`:'<br><small style="color:var(--gray-400)"><i class="fas fa-percent"></i> Sin comisión propia · usa la de la agencia</small>'}</div><div class="user-card-actions"><button class="btn-edit" onclick="abrirEditorAgente('${u.id}')" title="Editar datos"><i class="fas fa-pen"></i></button><button class="btn-edit" onclick="abrirFinanzasAgente('${u.id}')" title="Dinero y puntos"><i class="fas fa-wallet"></i></button><button class="btn-edit" onclick="openComisionAgente('${u.id}')" title="Comisión"><i class="fas fa-percent"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`;
+        const tarjeta = (u) => `<div class="user-card"><div class="user-card-avatar">${u.profilePhoto?`<img src="${safeUrl(u.profilePhoto)}" alt="" loading="lazy">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')} ${(u.email||'').toLowerCase()===ADMIN_EMAIL?'<span class="admin-badge">Admin</span>':''}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)"><i class="fas fa-id-badge" style="color:var(--accent,#C9A227)"></i> ${mvEsc(u.role||'Asesor Inmobiliario')}</small>${u.commissionSale!=null||u.commissionRent!=null||u.commissionPct!=null?`<br><small style="color:#8a6d12"><i class="fas fa-percent"></i> Venta: ${u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:'—')}% · Alq: ${u.commissionRent!=null?u.commissionRent:(u.commissionPct!=null?u.commissionPct:'—')}%</small>`:'<br><small style="color:var(--gray-400)"><i class="fas fa-percent"></i> Sin comisión propia · usa la de la agencia</small>'}</div><div class="user-card-actions"><button class="btn-edit" onclick="abrirEditorAgente('${u.id}')" title="Editar datos"><i class="fas fa-pen"></i></button><button class="btn-edit" onclick="abrirFinanzasAgente('${u.id}')" title="Dinero y puntos"><i class="fas fa-wallet"></i></button><button class="btn-edit" onclick="openComisionAgente('${u.id}')" title="Comisión"><i class="fas fa-percent"></i></button><button class="btn-edit" onclick="showProfile('${u.id}')" title="Ver perfil"><i class="fas fa-eye"></i></button>${(u.email||'').toLowerCase()!==ADMIN_EMAIL?`<button class="btn-reject" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button>`:''}</div></div>`;
 
         // Los pendientes van primero y con sus propios botones: es lo único que
         // requiere una decisión, el resto es consulta.
         const bloquePend = pendientes.length ? `<div class="eq-sec"><span>Esperando aprobación</span><b>${pendientes.length}</b><i></i></div>` +
-          pendientes.map(u => `<div class="user-card pend"><div class="user-card-avatar">${u.profilePhoto?`<img src="${safeUrl(u.profilePhoto)}" alt="">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)">${u.createdAt?'Solicitó el '+new Date(u.createdAt).toLocaleDateString('es-UY'):''}</small></div><div class="user-card-actions"><button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i> Aprobar</button><button class="btn-reject" onclick="rejectUser('${u.id}')"><i class="fas fa-xmark"></i></button></div></div>`).join('') : '';
+          pendientes.map(u => `<div class="user-card pend"><div class="user-card-avatar">${u.profilePhoto?`<img src="${safeUrl(u.profilePhoto)}" alt="" loading="lazy">`:'<i class="fas fa-user"></i>'}</div><div class="user-card-info"><h4>${mvEsc(u.name||'Sin nombre')}</h4><p>${mvEsc(u.email||'')}</p><small style="color:var(--gray-500)">${u.createdAt?'Solicitó el '+new Date(u.createdAt).toLocaleDateString('es-UY'):''}</small></div><div class="user-card-actions"><button class="btn-approve" onclick="approveUser('${u.id}')"><i class="fas fa-check"></i> Aprobar</button><button class="btn-reject" onclick="rejectUser('${u.id}')"><i class="fas fa-xmark"></i></button></div></div>`).join('') : '';
 
         const cfg = await db.collection('adminData').doc('comisiones').get().catch(() => null);
         const d = (cfg && cfg.exists) ? cfg.data() : {};
@@ -7313,7 +7330,7 @@
             const r = refDocs[u._uid];
             const hasCom = (u.commissionSale != null || u.commissionRent != null);
             const hasRef = !!(r && r.referrerUid);
-            const photo = u.profilePhoto ? `<img src="${safeUrl(u.profilePhoto)}" alt="">` : '<i class="fas fa-user"></i>';
+            const photo = u.profilePhoto ? `<img src="${safeUrl(u.profilePhoto)}" alt="" loading="lazy">` : '<i class="fas fa-user"></i>';
             const pills = hasCom
               ? `<span class="com-pill sale">Venta ${u.commissionSale != null ? u.commissionSale : 0}%</span><span class="com-pill rent">Alq ${u.commissionRent != null ? u.commissionRent : 0}%</span>`
               : '<span class="com-pill none"><i class="fas fa-triangle-exclamation"></i> Falta comisión</span>';

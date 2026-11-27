@@ -13983,6 +13983,12 @@ exports.sincronizarVitrina = onDocumentWritten("properties/{id}", async (event) 
   const vA = vitrinaDe(antes), vD = vitrinaDe(despues);
   if (!vA && !vD) return;
   if (vA && vD && vitrinaFirma(vA) === vitrinaFirma(vD)) return;
+  // Una visita a la ficha solo suma 1 a "views". Copiarla en el momento costaba
+  // una lectura y una escritura acá, y además una lectura por cada persona que
+  // tenía la web abierta (la grilla entera se volvía a pintar). El contador de la
+  // web se pone al día en el repaso de la madrugada (repasoVitrina); el agente
+  // sigue viendo el número al instante en el CRM, que lee "properties".
+  if (vA && vD && vitrinaFirma({ ...vA, views: 0 }) === vitrinaFirma({ ...vD, views: 0 })) return;
   try {
     await vitrinaActualizar(event.params.id);
   } catch (e) {
