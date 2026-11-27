@@ -5733,8 +5733,74 @@
         archived: 'DADA DE BAJA'
       };
       const stLabel = stLabels[st] || '';
-      return `<div class="property-card ${st!=='available'?`status-${st}`:''} ${isFeatured?'featured':''}" onclick="openPropertyTab('${p.id}')"><div class="card-image"><img src="${p.images?.[0]||'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy" decoding="async">${st!=='available'?`<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>`:''}<div class="card-badges">${isFeatured?'<span class="badge badge-featured"><i class="fas fa-star"></i> DESTACADA</span>':''}<span class="badge ${p.type==='sale'?'badge-sale':'badge-rent'}">${p.type==='sale'?'VENTA':'ALQUILER'}</span>${p.propertyType==='ph'?'<span class="badge badge-ph">PH</span>':''}${c==='UYU'?'<span class="badge badge-currency">UYU</span>':''}${p.garage==='yes'?'<span class="badge badge-garage"><i class="fas fa-car"></i></span>':''}${hop?`<span class="badge badge-reduced">-${pdp}%</span>`:''}</div><div class="card-owner" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${o.profilePhoto?`<img src="${safeUrl(o.profilePhoto)}" alt="">`:`<div class="card-owner-initial">${oi}</div>`}<span>${mvEsc(o.name||'Usuario')}</span></div></div><div class="card-content"><div class="card-price ${hop?'card-price-reduced':''}">${hop?`<span class="card-price-old">${formatPrice(p.previousPrice,c)}</span>`:''}${formatPrice(p.price,c)}${p.type==='rent'?'<span>/mes</span>':''}${hop?`<span class="price-drop-badge" style="color:#FFFFFF!important">-${pdp}%</span>`:''}</div><h3 class="card-title"><a href="propiedad.html?id=${encodeURIComponent(p.id)}" onclick="event.preventDefault()">${mvEsc(p.title)}</a></h3><div class="card-meta"><div class="card-location"><i class="fas fa-map-marker-alt"></i>${mvEsc(l)}</div>${chipCliente(p)}</div><div class="card-features">${p.bedrooms?`<div class="card-feature"><i class="fas fa-bed"></i>${p.bedrooms}</div>`:''}${p.bathrooms?`<div class="card-feature"><i class="fas fa-bath"></i>${p.bathrooms}</div>`:''}${p.totalArea?`<div class="card-feature"><i class="fas fa-expand"></i>${p.totalArea}m²</div>`:''}${p.builtArea?`<div class="card-feature"><i class="fas fa-home"></i>${p.builtArea}m² edif.</div>`:''}${p.garage==='yes'?`<div class="card-feature"><i class="fas fa-car"></i>Garaje</div>`:''}</div>${ce?`<div class="tg-web">${textoWebTarjeta(p)}</div>`:''}</div>${ce?barraGestion(p):`<div class="card-footer"><div style="display:flex;gap:12px;align-items:center"><span class="card-views"><i class="fas fa-eye"></i> ${p.views||0}</span></div><div style="display:flex;gap:8px"><button class="btn-share" onclick="event.stopPropagation();openShareModal('${p.id}')" title="Compartir"><i class="fas fa-share-alt"></i></button>${hi?`<button class="btn-instagram" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')"><i class="fab fa-instagram"></i></button>`:''}<button class="btn-whatsapp" onclick="event.stopPropagation();contactWhatsapp('${p.id}')"><i class="fab fa-whatsapp"></i> Contactar</button></div></div>`}</div>`
+      return tarjetaPropiedad(p, { ce, isFeatured, st, stLabel, hop, pdp, o, oi, c, l, hi });
     }).join('')
+  }
+
+  // ===== Tarjeta de propiedad =====
+  // Una sola tarjeta para todos, con dos pies distintos:
+  //  - Quien gestiona la propiedad (su agente o la Dirección): propietario,
+  //    visitas, contactos y días publicada, y abajo la barra de Portales con el
+  //    nivel de destacado de cada uno y Editar / Agendar visita / Más acciones.
+  //  - El público y los demás agentes: el agente con su foto y Consultar por WhatsApp.
+  // Sobre la foto va un solo cartel (operación y tipo), Destacada si corresponde
+  // y la cantidad de fotos. La rebaja se muestra una vez: precio anterior
+  // tachado y el porcentaje, al lado del precio.
+  const PC_TIPO = { casa: 'CASA', apartamento: 'APTO', terreno: 'TERRENO', local: 'LOCAL', oficina: 'OFICINA', galpon: 'GALPÓN', campo: 'CAMPO', chacra: 'CHACRA', cochera: 'COCHERA', llave: 'LLAVE', habitacion: 'HABITACIÓN' };
+  function pcDiasPublicada(p) {
+    const t = Date.parse(p.createdAt || '');
+    if (!Number.isFinite(t)) return null;
+    return Math.max(0, Math.floor((Date.now() - t) / 86400000));
+  }
+  function tarjetaPropiedad(p, k) {
+    const { ce, isFeatured, st, stLabel, hop, pdp, o, oi, c, l, hi } = k;
+    const id = p.id;
+    const fotos = Array.isArray(p.images) ? p.images.length : 0;
+    const op = p.type === 'sale' ? 'VENTA' : 'ALQUILER';
+    const tipo = p.propertyType === 'ph' ? 'PH' : (PC_TIPO[p.realEstateType] || '');
+    const cartel = ce && tipo ? `${op} · ${tipo}` : op;
+    let dest = '';
+    if (isFeatured) {
+      const d = ce ? (Number(diasDeDestacado(p)) || 0) : 0;
+      dest = `<span class="pc-pill pc-oro"><i class="fas fa-star" aria-hidden="true"></i> Destacada${d ? ` · ${d} d` : ''}</span>`;
+    }
+    const avatar = (cls) => o.profilePhoto ? `<img class="${cls}" src="${safeUrl(o.profilePhoto)}" alt="">` : `<span class="${cls}">${oi}</span>`;
+    const foto = `<div class="pc-foto"><img src="${p.images?.[0] || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'}" alt="${mvEsc(p.title)}" loading="lazy" decoding="async">` +
+      (st !== 'available' ? `<div class="property-status-overlay ${st}"><div class="status-ribbon ${st}">${stLabel}</div></div>` : '') +
+      `<div class="pc-arriba"><span class="pc-pill">${cartel}</span>${ce ? '' : dest}</div>` +
+      (ce && dest ? `<div class="pc-arriba-der">${dest}</div>` : '') +
+      (ce ? `<div class="pc-agente" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${avatar('pc-av')}<span>${mvEsc(o.name || 'Usuario')}</span></div>` : '') +
+      (fotos > 1 ? `<div class="pc-nfotos"><i class="fas fa-camera" aria-hidden="true"></i>${fotos}</div>` : '') +
+      `</div>`;
+    const precio = `<div class="pc-precio"><span class="pc-v">${formatPrice(p.price, c)}</span>${p.type === 'rent' ? '<span class="pc-mes">/mes</span>' : ''}` +
+      (hop ? `<span class="pc-antes">${formatPrice(p.previousPrice, c)}</span><span class="pc-baja" title="Bajó ${pdp}%"><i class="fas fa-arrow-down" aria-hidden="true"></i>${pdp}%</span>` : '') + `</div>`;
+    const dato = (v, t) => `<div><b>${v}</b><small>${t}</small></div>`;
+    const datos = [
+      p.bedrooms ? dato(p.bedrooms, 'dorm.') : '',
+      p.bathrooms ? dato(p.bathrooms, Number(p.bathrooms) === 1 ? 'baño' : 'baños') : '',
+      p.totalArea ? dato(`${p.totalArea} m²`, 'terreno') : '',
+      p.builtArea ? dato(`${p.builtArea} m²`, 'edif.') : '',
+      p.garage === 'yes' ? dato('<i class="fas fa-car" aria-hidden="true"></i>', 'garaje') : ''
+    ].join('');
+    let gest = '';
+    if (ce) {
+      const v = Number(p.views) || 0, cc = Number(p.contactClicks) || 0, dp = pcDiasPublicada(p);
+      gest = `<div class="pc-gest">${chipCliente(p) || '<span></span>'}<span class="pc-met" title="${mvEsc(textoWebTarjeta(p))}">` +
+        `<span aria-label="${v} visitas en la web"><i class="fas fa-eye" aria-hidden="true"></i>${v}</span>` +
+        `<span aria-label="${cc} contactos"><i class="fab fa-whatsapp" aria-hidden="true"></i>${cc}</span>` +
+        (dp != null ? `<span title="Publicada hace ${dp} día${dp === 1 ? '' : 's'}"><i class="far fa-clock" aria-hidden="true"></i>${dp} d</span>` : '') +
+        `</span></div>`;
+    }
+    const cuerpo = `<div class="card-content pc-bd">${precio}` +
+      `<h3 class="pc-titulo"><a href="propiedad.html?id=${encodeURIComponent(id)}" onclick="event.preventDefault()">${mvEsc(p.title)}</a></h3>` +
+      `<div class="pc-ubic"><i class="fas fa-location-dot" aria-hidden="true"></i>${mvEsc(l)}</div>` +
+      (datos ? `<div class="pc-datos">${datos}</div>` : '') + gest + `</div>`;
+    const pie = ce ? barraGestion(p) :
+      `<div class="pc-pie"><div class="pc-quien" onclick="event.stopPropagation();showProfile('${p.ownerId}')">${avatar('pc-av2')}<div><b>${mvEsc(o.name || 'Usuario')}</b><small>Agente Malavé</small></div></div>` +
+      `<button class="pc-ib" onclick="event.stopPropagation();openShareModal('${id}')" title="Compartir" aria-label="Compartir"><i class="fas fa-share-nodes"></i></button>` +
+      (hi ? `<button class="pc-ib" onclick="event.stopPropagation();window.open('${safeUrl(o.instagram)}','_blank')" title="Instagram" aria-label="Instagram"><i class="fab fa-instagram"></i></button>` : '') +
+      `<button class="pc-wa" onclick="event.stopPropagation();contactWhatsapp('${id}')"><i class="fab fa-whatsapp"></i>Consultar</button></div>`;
+    return `<div class="property-card pc ${st !== 'available' ? `status-${st}` : ''} ${isFeatured ? 'featured' : ''}" onclick="openPropertyTab('${id}')">${foto}${cuerpo}${pie}</div>`;
   }
 
   // ===== Cliente dueño de la propiedad (solo para el equipo) =====
@@ -8423,17 +8489,33 @@
     // Reservada: queda inactiva en Casas y Más (por eso no figura en su cartera).
     if ((p.status || 'available') === 'reserved' && p.cymPausadaPorReserva) return { txt: 'Pausada', tono: 'pausa' };
     if (p.cymEnPortal === false) return { txt: 'No aparece', tono: 'mal', prob: 'Casas y Más no la muestra' };
-    if (p.cymEnPortal === true) return { txt: p.cymDestacada ? 'Destacada' : 'Activa', tono: 'ok' };
+    if (p.cymEnPortal === true) return { txt: 'Activa', tono: 'ok' };
     return { txt: 'Publicada', tono: 'ok' };
   }
+  // Nivel de destacado de cada portal con lo que la propiedad ya tiene guardado
+  // (el mismo criterio que el modal de Portales). InfoCasas no lo guarda en la
+  // propiedad, así que su chip no lleva nivel.
+  function tgNivel(p, clave) {
+    if (clave === 'ml') {
+      if (!p.mlItemId || p.mlStatus === 'closed' || !p.mlListingType) return null;
+      return { texto: mlListingTypeName(p.mlListingType), tono: ML_NIVEL_TONO[p.mlListingType] || 'plata' };
+    }
+    if (clave === 'casasymas') {
+      if (!p.cymId || p.cymEstado === 'eliminado' || p.cymEstado === 'error' || typeof p.cymDestacada !== 'boolean') return null;
+      return p.cymDestacada ? { texto: 'Destacada', tono: 'si' } : { texto: 'Común', tono: 'no' };
+    }
+    return null;
+  }
   // Cada chip abre el modal de Portales en la pestaña de ese portal.
-  function tgChip(id, clave, sigla, nombre, e) {
+  function tgChip(id, clave, sigla, nombre, e, n) {
     const marca = e.prob ? ' ' + e.tono : '';
     const apagado = !e.prob && (e.tono === 'nada' || e.tono === 'pausa') ? ' apagado' : '';
-    const aria = `${nombre}: ${e.aria || e.txt.toLowerCase()}. Abre Portales`;
+    const aria = `${nombre}: ${e.aria || e.txt.toLowerCase()}${n ? ', ' + n.texto.toLowerCase() : ''}. Abre Portales`;
     return `<button type="button" class="tg-chip${marca}" onclick="openMLModal('${id}',{portal:'${clave}'})" aria-label="${mvEsc(aria)}" title="${nombre}">` +
       `<span class="tg-sig"><span class="tg-sg ${sigla.toLowerCase()}">${sigla}</span><span class="tg-punto" style="background:${TG_PUNTO[e.tono] || TG_PUNTO.nada}"></span></span>` +
-      `<span class="tg-est${marca}${apagado}">${mvEsc(e.txt)}</span></button>`;
+      `<span class="tg-est${marca}${apagado}">${mvEsc(e.txt)}</span>` +
+      (n ? `<span class="tg-nivel ${n.tono}">${n.tono === 'oro' || n.tono === 'si' ? '<i class="fas fa-star" aria-hidden="true"></i>' : ''}${mvEsc(n.texto)}</span>` : '') +
+      `</button>`;
   }
   // La flechita de "Portales" pliega o despliega los chips de los portales. Vale
   // para todas las tarjetas y se recuerda en este navegador. Plegados, quedan tres
@@ -8467,13 +8549,14 @@
     }
     // El clic dentro de la barra no abre la propiedad (la tarjeta entera es un link).
     return `<div class="tg-barra" onclick="event.stopPropagation()">` +
-      `<button type="button" class="tg-lab" aria-expanded="${tgPlegado() ? 'false' : 'true'}" onclick="alternarPortalesTarjeta()">Portales` +
-      `<span class="tg-mini" aria-hidden="true">${[ml, ic, cm].map(e => `<span style="background:${TG_PUNTO[e.tono] || TG_PUNTO.nada}"></span>`).join('')}</span>` +
-      `<i class="fas fa-chevron-down" aria-hidden="true"></i></button>` +
-      `<div class="tg-chips">${tgChip(id, 'ml', 'ML', 'Mercado Libre', ml)}${tgChip(id, 'infocasas', 'IC', 'InfoCasas', ic)}${tgChip(id, 'casasymas', 'CM', 'Casas y Más', cm)}</div>` +
+      `<div class="tg-cab"><button type="button" class="tg-lab" aria-expanded="${tgPlegado() ? 'false' : 'true'}" onclick="alternarPortalesTarjeta()">Portales` +
+      `<i class="fas fa-chevron-down" aria-hidden="true"></i>` +
+      `<span class="tg-mini" aria-hidden="true">${[ml, ic, cm].map(e => `<span style="background:${TG_PUNTO[e.tono] || TG_PUNTO.nada}"></span>`).join('')}</span></button>` +
+      `<button type="button" class="tg-ver" onclick="openMLModal('${id}')">Ver detalle<i class="fas fa-chevron-right" aria-hidden="true"></i></button></div>` +
+      `<div class="tg-chips">${tgChip(id, 'ml', 'ML', 'Mercado Libre', ml, tgNivel(p, 'ml'))}${tgChip(id, 'infocasas', 'IC', 'InfoCasas', ic)}${tgChip(id, 'casasymas', 'CM', 'Casas y Más', cm, tgNivel(p, 'casasymas'))}</div>` +
       aviso +
       `<div class="tg-acts">` +
-      `<button type="button" class="tg-b" onclick="openPropertyFormTab('${id}')"><i class="fas fa-pen" aria-hidden="true"></i>Editar</button>` +
+      `<button type="button" class="tg-b tg-pri" onclick="openPropertyFormTab('${id}')"><i class="fas fa-pen" aria-hidden="true"></i>Editar</button>` +
       `<button type="button" class="tg-b" onclick="openVisitModal('${id}')"><i class="fas fa-calendar-plus" aria-hidden="true"></i>Agendar visita</button>` +
       `<button type="button" class="tg-b tg-mas" aria-label="Más acciones" aria-haspopup="menu" aria-expanded="false" onclick="abrirMasAcciones('${id}',this)"><i class="fas fa-ellipsis" aria-hidden="true"></i></button>` +
       `</div></div>`;
