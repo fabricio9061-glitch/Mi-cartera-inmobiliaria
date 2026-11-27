@@ -2127,7 +2127,7 @@ async function crearAvisoML(ref, id, extra = {}, opciones = {}) {
 // =====================================================================
 // 3) PUBLICAR  — se dispara solo al crear una propiedad
 // =====================================================================
-exports.publicarEnML = onDocumentCreated("properties/{id}", async (event) => {
+const publicarEnML = async (event) => {   // corre dentro de alCambiarPropiedad
   const snap = event.data;
   if (!snap) return;
   const p = snap.data() || {};
@@ -2145,7 +2145,7 @@ exports.publicarEnML = onDocumentCreated("properties/{id}", async (event) => {
     } catch (e) { /* si el aviso no se puede leer, se publica de nuevo abajo */ }
   }
   await crearAvisoML(snap.ref, event.params.id, { mlPublishedAt: new Date().toISOString() });
-});
+};
 
 // =====================================================================
 // 3b) SINCRONIZACIÓN al EDITAR una propiedad.
@@ -2176,7 +2176,7 @@ const ML_STATUS_MAP = { available: "active", reserved: "paused", sold: "closed",
 // momento en que la operación se había hecho sin la agencia.
 const ML_ESTADOS_SIN_ESPEJO = ["cerrado_externo", "tasacion", "tasado"];
 
-exports.sincronizarEdicionML = onDocumentUpdated("properties/{id}", async (event) => {
+const sincronizarEdicionML = async (event) => {   // corre dentro de alCambiarPropiedad
   const before = event.data.before.data();
   const after = event.data.after.data();
   const ref = event.data.after.ref;
@@ -2378,14 +2378,14 @@ exports.sincronizarEdicionML = onDocumentUpdated("properties/{id}", async (event
       await notificarErrorML(after, id, "No se pudo sincronizar la edición con Mercado Libre", resumen);
     }
   }
-});
+};
 
 // =====================================================================
 // 3c) BORRADO — al eliminar una propiedad de la app, su aviso se CIERRA en ML.
 //     Antes el documento se borraba y el aviso quedaba huérfano, publicado y
 //     activo para siempre en Mercado Libre.
 // =====================================================================
-exports.cerrarMLAlBorrar = onDocumentDeleted("properties/{id}", async (event) => {
+const cerrarMLAlBorrar = async (event) => {   // corre dentro de alCambiarPropiedad
   const p = event.data ? event.data.data() : null;
   const id = event.params.id;
   if (!p) return;
@@ -2445,7 +2445,7 @@ exports.cerrarMLAlBorrar = onDocumentDeleted("properties/{id}", async (event) =>
     await registrarLog(id, "cerrar al borrar", false, `${p.mlItemId} · ${resumen}`);
     await notificarErrorML(p, id, `La propiedad se borró pero su aviso ${p.mlItemId} sigue en Mercado Libre`, resumen);
   }
-});
+};
 
 // =====================================================================
 // 5) USUARIOS NUEVOS — cuando alguien se registra (status: 'pending'), el
@@ -3455,7 +3455,7 @@ exports.pedirBajaPropiedad = onCall(async (request) => {
 // El agente que pidió la baja tiene derecho a una respuesta. Cuando el admin
 // resuelve (despubPendiente deja de estar), se le avisa cómo salió. Sin esto el
 // pedido se siente como un pozo: se manda y nunca se sabe en qué quedó.
-exports.avisarResolucionBaja = onDocumentUpdated("properties/{id}", async (event) => {
+const avisarResolucionBaja = async (event) => {   // corre dentro de alCambiarPropiedad
   const antes = event.data.before.data() || {};
   const ahora = event.data.after.data() || {};
   if (antes.despubPendiente !== true || ahora.despubPendiente === true) return;
@@ -3508,7 +3508,7 @@ exports.avisarResolucionBaja = onDocumentUpdated("properties/{id}", async (event
       bajaSolicitadaMotivo: admin.firestore.FieldValue.delete(),
     });
   } catch (e) { logger.warn("avisarResolucionBaja limpieza:", e.message); }
-});
+};
 
 // ============================================================
 // SALUD DE VARIOS AVISOS DE UNA (lo que usa la grilla)
@@ -6267,7 +6267,7 @@ const PORTAL_ESTADOS_PAUSA = ["reserved"];
    propiedades acá sería adivinar: el cupo lo administran ellos y puede cambiar
    sin que nos enteremos. Cuando pasa, se avisa a Dirección. */
 
-exports.publicarAutoCasasYMas = onDocumentUpdated("properties/{id}", async (event) => {
+const publicarAutoCasasYMas = async (event) => {   // corre dentro de alCambiarPropiedad
   const before = event.data.before.data();
   const after = event.data.after.data();
   if (!after) return;
@@ -6287,20 +6287,20 @@ exports.publicarAutoCasasYMas = onDocumentUpdated("properties/{id}", async (even
   if (!entroAlMercado && !contentChanged(before, after)) return;
 
   await cymPublicar(event.data.after.ref, event.params.id, { origen: "auto" });
-});
+};
 
 /* El alta automática nunca corría para una propiedad que se CREABA completa: el
    formulario sube las fotos antes y guarda todo en una sola escritura, así que no
    había edición que disparara el trigger de arriba. Esas propiedades quedaban
    esperando que la Dirección las publicara a mano. */
-exports.publicarAutoCasasYMasAlCrear = onDocumentCreated("properties/{id}", async (event) => {
+const publicarAutoCasasYMasAlCrear = async (event) => {   // corre dentro de alCambiarPropiedad
   const snap = event.data;
   if (!snap) return;
   const p = snap.data() || {};
   if (p.cymId || p.cymEstado === "eliminado") return;   // restaurada desde la papelera
   if (!CYM_PUBLICABLE.includes(p.status || "available")) return;
   await cymPublicar(snap.ref, event.params.id, { origen: "auto" });
-});
+};
 
 /* ============================================================================
    PUBLICACIÓN AUTOMÁTICA EN INFOCASAS
@@ -6558,7 +6558,7 @@ async function icPublicar(ref, id, { reingreso = false, manual = false, esperar 
   }
 }
 
-exports.publicarAutoInfocasas = onDocumentUpdated({ document: "properties/{id}", timeoutSeconds: 300 }, async (event) => {
+const publicarAutoInfocasas = async (event) => {   // corre dentro de alCambiarPropiedad
   const before = event.data.before.data();
   const after = event.data.after.data();
   if (!after) return;
@@ -6570,16 +6570,16 @@ exports.publicarAutoInfocasas = onDocumentUpdated({ document: "properties/{id}",
   const reingreso = !before || !icPublicable(before);
   if (!reingreso && !contentChanged(before, after)) return;
   await icPublicar(event.data.after.ref, event.params.id, { reingreso });
-});
+};
 
-exports.publicarAutoInfocasasAlCrear = onDocumentCreated({ document: "properties/{id}", timeoutSeconds: 300 }, async (event) => {
+const publicarAutoInfocasasAlCrear = async (event) => {   // corre dentro de alCambiarPropiedad
   const snap = event.data;
   if (!snap) return;
   const p = snap.data() || {};
   if (p.icListingId || p.icEstado === "eliminado") return;   // restaurada desde la papelera
   if (!icPublicable(p)) return;
   await icPublicar(snap.ref, event.params.id);
-});
+};
 
 /* Aviso al CEO cuando llega una postulación desde "Trabajá con nosotros".
 
@@ -6661,7 +6661,7 @@ function montoCierre(precio, moneda, tipo) {
   // Siempre con punto de miles (US$ 1.500), igual que el CRM.
   return `${moneda === "UYU" ? "$U" : "US$"} ${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}${tipo === "alquiler" ? " al mes" : ""}`;
 }
-exports.avisarCierre = onDocumentUpdated("properties/{id}", async (event) => {
+const avisarCierre = async (event) => {   // corre dentro de alCambiarPropiedad
   const before = event.data.before.data() || {};
   const after = event.data.after.data();
   if (!after) return;
@@ -6724,10 +6724,10 @@ exports.avisarCierre = onDocumentUpdated("properties/{id}", async (event) => {
   }
   await registrarLog(id, "Cierre registrado: aviso a la Dirección", true,
     `${tipo} · ${agente} · ${avisados ? `${avisados} avisado(s)` : "nadie más que avisar"}`);
-});
+};
 
 /* Aviso a Dirección cuando una propiedad pasa a reservada. */
-exports.avisarReserva = onDocumentUpdated("properties/{id}", async (event) => {
+const avisarReserva = async (event) => {   // corre dentro de alCambiarPropiedad
   const before = event.data.before.data();
   const after = event.data.after.data();
   if (!after) return;
@@ -6754,7 +6754,7 @@ exports.avisarReserva = onDocumentUpdated("properties/{id}", async (event) => {
     }
     await registrarLog(id, "Reservada", true, quien);
   } catch (e) { logger.error(`avisarReserva ${id}`, e); }
-});
+};
 
 /* ============================================================================
    CIERRES: RESERVA -> FIRMA -> HISTORIAL
@@ -6892,7 +6892,7 @@ async function caidaDeReserva(id, ref, before, after, c, ahora) {
   await registrarLog(id, "Se cayó la reserva", true, `${tipo} · ${agente}`);
 }
 
-exports.sincronizarCierresPropiedad = onDocumentUpdated("properties/{id}", async (event) => {
+const sincronizarCierresPropiedad = async (event) => {   // corre dentro de alCambiarPropiedad
   const before = event.data.before.data() || {};
   const after = event.data.after.data();
   if (!after) return;
@@ -6945,7 +6945,7 @@ exports.sincronizarCierresPropiedad = onDocumentUpdated("properties/{id}", async
   } catch (e) {
     logger.error(`sincronizarCierresPropiedad ${id}`, e);
   }
-});
+};
 
 /* ============================================================================
    INFOCASAS: QUÉ PASÓ CON CADA ENVÍO
@@ -7742,7 +7742,7 @@ async function cymMandarFicha(ref, id, p, agente, { fotos = false } = {}) {
   return !!r.ok;
 }
 
-exports.sincronizarPortales = onDocumentUpdated("properties/{id}", async (event) => {
+const sincronizarPortales = async (event) => {   // corre dentro de alCambiarPropiedad
   const before = event.data.before.data();
   const after = event.data.after.data();
   const ref = event.data.after.ref;
@@ -7837,7 +7837,7 @@ exports.sincronizarPortales = onDocumentUpdated("properties/{id}", async (event)
       logger.error(`sincronizarPortales ${id}: Casas y Más`, e);
     }
   }
-});
+};
 
 /* ============================================================================
    MÉTRICAS DE MERCADO LIBRE POR PROPIEDAD
@@ -13977,7 +13977,7 @@ async function vitrinaActualizar(id) {
 // no se ve en la web (una consulta, el estado de un portal, un cierre), no
 // escribe nada. Si se ve, vuelve a leer la propiedad antes de copiar: así, si
 // dos cambios llegan desordenados, la copia queda igual a la versión más nueva.
-exports.sincronizarVitrina = onDocumentWritten("properties/{id}", async (event) => {
+const sincronizarVitrina = async (event) => {   // corre dentro de alCambiarPropiedad
   const antes = event.data.before.exists ? event.data.before.data() : null;
   const despues = event.data.after.exists ? event.data.after.data() : null;
   const vA = vitrinaDe(antes), vD = vitrinaDe(despues);
@@ -13995,7 +13995,7 @@ exports.sincronizarVitrina = onDocumentWritten("properties/{id}", async (event) 
     // Si esto falla, el repaso de la madrugada (repasoVitrina) lo corrige.
     logger.error(`sincronizarVitrina ${event.params.id}: ${(e && e.message) || e}`);
   }
-});
+};
 
 /**
  * Pone la vitrina entera igual a "properties": escribe solo lo que difiere y
@@ -14426,3 +14426,94 @@ exports.actualizarMetricasCYM = onCall({ timeoutSeconds: 300 }, async (request) 
   }
   return await cymActualizarMetricas("manual");
 });
+
+/* ============================================================================
+   UN SOLO DISPARADOR PARA LAS PROPIEDADES
+   ----------------------------------------------------------------------------
+   Antes había 13 funciones escuchando "properties/{id}": cada edición (y cada
+   visita a una ficha, que suma 1 a "views") despertaba 9 a la vez, cada una en
+   su propio servidor, con su propio arranque en frío. Ahora despierta UNA, que
+   le pasa el cambio a cada parte, igual que antes:
+
+     · al CREAR:      publicarEnML, publicarAutoCasasYMasAlCrear,
+                      publicarAutoInfocasasAlCrear, sincronizarVitrina
+     · al EDITAR:     sincronizarEdicionML, avisarResolucionBaja,
+                      publicarAutoCasasYMas, publicarAutoInfocasas, avisarCierre,
+                      avisarReserva, sincronizarCierresPropiedad,
+                      sincronizarPortales, sincronizarVitrina
+     · al BORRAR:     cerrarMLAlBorrar, sincronizarVitrina
+
+   Cada parte recibe exactamente lo mismo que recibía cuando era una función
+   aparte (event.data y event.params.id) y su código no cambió.
+
+   Las partes corren a la vez, como antes (eran funciones independientes, sin un
+   orden entre ellas). Cada una tiene su propio try/catch: si una falla, se anota
+   en el registro con su nombre y las demás siguen.
+
+   Sin reintentos (igual que antes, ninguna tenía "retry"): si una parte falla, no
+   se vuelve a correr el evento entero, así que nunca se publica dos veces en ML,
+   Casas y Más ni InfoCasas por un error de otra parte. Esas publicaciones además
+   tienen sus propios candados (mlPublishing, cymPublicar, icPublicar).
+
+   Tiempo y memoria: la parte más lenta (InfoCasas) tenía 300 s; ahora todo tiene
+   540 s y 512 MiB, porque varias partes trabajan en el mismo servidor.
+   ============================================================================ */
+const PARTES_PROPIEDAD = {
+  crear: [
+    ["publicarEnML", publicarEnML],
+    ["publicarAutoCasasYMasAlCrear", publicarAutoCasasYMasAlCrear],
+    ["publicarAutoInfocasasAlCrear", publicarAutoInfocasasAlCrear],
+  ],
+  editar: [
+    ["sincronizarEdicionML", sincronizarEdicionML],
+    ["avisarResolucionBaja", avisarResolucionBaja],
+    ["publicarAutoCasasYMas", publicarAutoCasasYMas],
+    ["publicarAutoInfocasas", publicarAutoInfocasas],
+    ["avisarCierre", avisarCierre],
+    ["avisarReserva", avisarReserva],
+    ["sincronizarCierresPropiedad", sincronizarCierresPropiedad],
+    ["sincronizarPortales", sincronizarPortales],
+  ],
+  borrar: [
+    ["cerrarMLAlBorrar", cerrarMLAlBorrar],
+  ],
+  // La vitrina escuchaba crear, editar y borrar (onDocumentWritten): recibe el cambio entero.
+  siempre: [
+    ["sincronizarVitrina", sincronizarVitrina],
+  ],
+};
+
+/** Corre las partes que tocan para este cambio, cada una aislada. */
+async function repartirCambioPropiedad(event, partes = PARTES_PROPIEDAD) {
+  const change = event.data;
+  if (!change) return [];
+  const existiaAntes = !!(change.before && change.before.exists);
+  const existeAhora = !!(change.after && change.after.exists);
+  let tipo, data;
+  if (!existiaAntes && existeAhora) { tipo = "crear"; data = change.after; }      // como onDocumentCreated
+  else if (existiaAntes && existeAhora) { tipo = "editar"; data = change; }       // como onDocumentUpdated
+  else if (existiaAntes && !existeAhora) { tipo = "borrar"; data = change.before; } // como onDocumentDeleted
+  else return [];
+  const evParte = { ...event, data };
+  const lista = [
+    ...(partes[tipo] || []).map(([n, fn]) => [n, fn, evParte]),
+    ...(partes.siempre || []).map(([n, fn]) => [n, fn, event]),
+  ];
+  const id = event.params && event.params.id;
+  return Promise.all(lista.map(async ([nombre, fn, ev]) => {
+    try {
+      await fn(ev);
+      return { nombre, ok: true };
+    } catch (e) {
+      logger.error(`alCambiarPropiedad/${nombre} ${id}:`, e);
+      return { nombre, ok: false, error: (e && e.message) || String(e) };
+    }
+  }));
+}
+// Solo para las pruebas locales (no se despliega como función).
+if (process.env.MALAVE_PRUEBAS === "1") exports.__repartirCambioPropiedad = repartirCambioPropiedad;
+
+exports.alCambiarPropiedad = onDocumentWritten(
+  { document: "properties/{id}", timeoutSeconds: 540, memory: "512MiB", maxInstances: 20 },
+  async (event) => { await repartirCambioPropiedad(event); },
+);
