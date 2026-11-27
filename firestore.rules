@@ -368,6 +368,16 @@ service cloud.firestore {
     }
 
     // ============ GESTIONES — solo aprobados ============
+    // ¿De quién es la gestión? Del agente que la trabaja (agentId); en las viejas
+    // que no lo tienen, de quien la creó (createdBy) o de ownerId. clientes.html
+    // usa la misma cuenta (duenioGestion) para apagar los controles.
+    function esDuenioDeGestion(g) {
+      return request.auth != null && (
+        g.get('agentId', '') == request.auth.uid
+        || (g.get('agentId', '') in ['', null] && g.get('createdBy', '') == request.auth.uid)
+        || (g.get('agentId', '') in ['', null] && g.get('createdBy', '') in ['', null]
+            && g.get('ownerId', '') == request.auth.uid));
+    }
     match /gestiones/{gestionId} {
       allow read: if isApproved();
       // CERRADO es de la Dirección: lo pone al confirmar la firma en el Mapa de
@@ -376,18 +386,30 @@ service cloud.firestore {
       // ya cerradas ni saca una de Cerrado, salvo el dueño que vuelve a En cartera
       // cuando su propiedad está otra vez en el mercado. Con la firma ya confirmada,
       // cerrar una gestión que quedó abierta es ponerla al día: se permite.
+      //
+      // DE QUIÉN ES: una gestión la mueve SOLO el agente que la trabaja o la
+      // Dirección (CEO y COO). Antes bastaba con estar aprobado: cualquier agente
+      // que abría el cliente de un compañero le podía marcar Reservado (y el
+      // servidor reservaba la propiedad), cambiarle el avance o el rol, o
+      // "sincronizarla". El traspaso a otro agente (agentId, createdBy, ownerId)
+      // es solo de la Dirección. Y nadie crea gestiones a nombre de otro.
       allow create: if isApproved()
-                    && (esDireccion() || request.resource.data.get('estadoGestion', '') != 'cerrado');
+                    && (esDireccion()
+                        || (request.resource.data.get('estadoGestion', '') != 'cerrado'
+                            && request.resource.data.get('agentId', '') == request.auth.uid));
       allow update: if isApproved()
                     && (esDireccion()
-                        || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['estadoGestion'])
-                        || (request.resource.data.get('estadoGestion', '') != 'cerrado'
-                            && resource.data.get('estadoGestion', '') != 'cerrado')
-                        || (request.resource.data.get('estadoGestion', '') == 'cerrado'
-                            && firmaConfirmadaDe(resource.data))
-                        || (resource.data.get('estadoGestion', '') == 'cerrado'
-                            && request.resource.data.get('estadoGestion', '') == 'cartera'
-                            && propiedadEnJuegoDe(resource.data)));
+                        || (esDuenioDeGestion(resource.data)
+                            && !request.resource.data.diff(resource.data).affectedKeys()
+                                 .hasAny(['agentId', 'createdBy', 'ownerId'])
+                            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['estadoGestion'])
+                                || (request.resource.data.get('estadoGestion', '') != 'cerrado'
+                                    && resource.data.get('estadoGestion', '') != 'cerrado')
+                                || (request.resource.data.get('estadoGestion', '') == 'cerrado'
+                                    && firmaConfirmadaDe(resource.data))
+                                || (resource.data.get('estadoGestion', '') == 'cerrado'
+                                    && request.resource.data.get('estadoGestion', '') == 'cartera'
+                                    && propiedadEnJuegoDe(resource.data)))));
       allow delete: if isApproved() &&
                     (resource.data.createdBy == request.auth.uid || esDireccion());
     }

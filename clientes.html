@@ -1710,7 +1710,7 @@
       // recién llegados se veían como cartera ya captada).
       var rolG = rolDeGestion(g, c || {});
       var e = etapaEfectiva(g, rolG);
-      if (!a.ult || ts > a.ult.ts) a.ult = { id: id, ts: ts, rol: rolG, titulo: g.propertyTitle || '', estado: e, pid: g.propertyId || '' };
+      if (!a.ult || ts > a.ult.ts) a.ult = { id: id, ts: ts, rol: rolG, titulo: g.propertyTitle || '', estado: e, pid: g.propertyId || '', agente: duenioGestion(g), agenteNombre: g.agentName || '' };
       if (ESTADOS_TERMINALES.indexOf(e) >= 0){
         if (e === 'cerrado') a.cerradas++;
         else if (e === 'externo') a.externas = (a.externas||0) + 1;
@@ -1722,7 +1722,7 @@
       // Manda la más avanzada; a igual etapa, la de actividad más reciente.
       var pe = ESTADO_PRIORIDAD.indexOf(e);
       if (!a.manda || pe > a.manda.prio || (pe === a.manda.prio && ts > a.manda.ts)){
-        a.manda = { id: id, estado: e, prio: pe, ts: ts, creada: g.createdAt || ts, rol: rolG, titulo: g.propertyTitle || '', pid: g.propertyId || '' };
+        a.manda = { id: id, estado: e, prio: pe, ts: ts, creada: g.createdAt || ts, rol: rolG, titulo: g.propertyTitle || '', pid: g.propertyId || '', agente: duenioGestion(g), agenteNombre: g.agentName || '' };
       }
     }
     // Recalcula la etiqueta de UN cliente con sus gestiones ya leídas (las del
@@ -1750,6 +1750,9 @@
       c._rolPrincipal = ppal ? (ppal.rol || 'propietario') : null;
       c._tituloPrincipal = ppal ? (ppal.titulo || '') : '';
       c._propPrincipal = ppal ? (ppal.pid || '') : '';
+      // De quién es esa gestión: solo ese agente (o la Dirección) la mueve.
+      c._agentePrincipal = ppal ? (ppal.agente || '') : '';
+      c._agenteNombrePrincipal = ppal ? (ppal.agenteNombre || '') : '';
       // Su etapa real (la etiqueta puede resumir varias): Reservado y Cerrado tienen reglas propias.
       c._estadoPrincipal = ppal ? (ppal.estado || null) : null;
       // Última actividad: lo más reciente entre gestiones y la propia ficha.
@@ -2830,7 +2833,7 @@
       var quien = (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente';
       var ahora = new Date().toISOString();
       var nota = { tipo:'nota', valor:'Contacto registrado (se mantiene activo)', autor: quien, fecha: ahora };
-      var gid = c._gestionPrincipal || null;
+      var gid = (c._gestionPrincipal && puedoTocarUid(c._agentePrincipal)) ? c._gestionPrincipal : null;
       var done = function(){
         c._lastActivity = ahora; c._diasSinContacto = 0;
         renderClients();
@@ -2972,6 +2975,13 @@
       var conGestion = !!c._gestionPrincipal;
       var rol = conGestion ? (c._rolPrincipal || 'propietario') : 'cliente';
       var titulo = c._tituloPrincipal ? '<b>'+esc(c._tituloPrincipal)+'</b>' : 'su propiedad';
+      // La gestión que manda es de otro agente: se ve, pero no se mueve.
+      if (conGestion && !puedoTocarUid(c._agentePrincipal)){
+        pop.innerHTML = '<div class="st-pop-hint" style="border-bottom:none;margin-bottom:0">La gestión de '+titulo+' es de <b>'+esc(c._agenteNombrePrincipal || 'otro agente')+'</b>: solo ese agente o la Dirección pueden cambiar su avance.</div>';
+        _posicionarPop(pop, rect || ev);
+        _stPopEl = pop; _stPopId = 'et'+id;
+        return;
+      }
       // Cerrado lo confirmó la Dirección: el agente no lo cambia.
       if (conGestion && !isAdmin && c._estadoPrincipal === 'cerrado'){
         pop.innerHTML = '<div class="st-pop-hint" style="border-bottom:none;margin-bottom:0">La operación de '+titulo+' está <b>Cerrada</b>: la firma la confirmó la Dirección en el Mapa de cierres. Solo la Dirección la puede cambiar.</div>';
@@ -3036,6 +3046,7 @@
       var c = null; for (var i=0;i<clients.length;i++){ if (clients[i].id===id){ c = clients[i]; break; } }
       if (!c) return;
       var rolCambio = c._gestionPrincipal ? (c._rolPrincipal || 'propietario') : 'cliente';
+      if (c._gestionPrincipal && !puedoTocarUid(c._agentePrincipal)){ avisoGestionAjena({ agentName: c._agenteNombrePrincipal }); return; }
       if (ETAPAS_POR_ROL[rolCambio].indexOf(nuevo) < 0){
         showToast('Esa etapa no corresponde', rolCambio === 'cliente' ? 'Asociale una propiedad para marcarlo En cartera, Reservado o Cerrado' : 'Revisá la gestión desde su ficha');
         return;
@@ -3321,7 +3332,7 @@
         // Solo las que se pueden cerrar (las ya cerradas no son respuesta), la más
         // reciente primero. Para reservar, además, que tengan propiedad y no estén ya reservadas.
         var todas = res[1];
-        var abiertas = todas.map(function(g){ return { g: g, p: propEnMemoria(g.propertyId), est: etapaEfectiva(g) }; })
+        var abiertas = todas.filter(puedoTocarGestion).map(function(g){ return { g: g, p: propEnMemoria(g.propertyId), est: etapaEfectiva(g) }; })
           .filter(function(f){ return f.est !== 'cerrado' && f.est !== 'prop_eliminada' && (!reserva || (f.est !== 'reservado' && !!f.g.propertyId)); });
         abiertas.sort(function(a,b){ return String(b.g.updatedAt||b.g.createdAt||'').localeCompare(String(a.g.updatedAt||a.g.createdAt||'')); });
         if (!abiertas.length){
@@ -3393,6 +3404,7 @@
           // Las del dueño que no pueden pasar a este avance (venta de la agencia,
           // reserva de otro cliente en el mapa) se muestran sin poder marcarlas.
           var traba = (!yaTerminal && esDuenio) ? trabaSalidaDuenio(g.id, est, nuevo, p) : null;
+          if (!yaTerminal && !traba && !puedoTocarGestion(g)) traba = { titulo: 'Es de ' + (g.agentName || 'otro agente'), texto: 'Solo ese agente o la Dirección la pueden cambiar.' };
           var off = yaTerminal || !!traba;
           if (!off) abiertas++;
           if (traba) trabadas++;
@@ -3987,6 +3999,9 @@
       var stCol = PROP_STATUS_COL[estadoProp] || 'var(--navy)';
       var rol = rolDeGestion(g);
       var est = etapaEfectiva(g, rol);
+      // Gestión de otro agente: se ve todo, pero no se mueve nada.
+      var puedo = puedoTocarGestion(g);
+      var ajenaTit = 'Esta gestión es de ' + (g.agentName || 'otro agente') + ': solo ese agente o la Dirección la pueden cambiar.';
 
       // AVANCE: las etapas del rol. "Propiedad eliminada" no se elige a mano: lo
       // pone el sistema al borrar la propiedad. Si la gestión está en ese estado y
@@ -4009,8 +4024,8 @@
           return '<option value="'+k+'"'+(est===k?' selected':'')+'>'+GESTION_ESTADO[k]+'</option>';
         }).join('');
       }
-      var avanceOff = (esPropElim && !prop) || (bloqueoCerrado && !reabreCartera);
-      var avanceTit = bloqueoCerrado ? 'Cerrado: la firma la confirmó la Dirección en el Mapa de cierres. Solo la Dirección lo puede cambiar.' : '';
+      var avanceOff = (esPropElim && !prop) || (bloqueoCerrado && !reabreCartera) || !puedo;
+      var avanceTit = !puedo ? ajenaTit : bloqueoCerrado ? 'Cerrado: la firma la confirmó la Dirección en el Mapa de cierres. Solo la Dirección lo puede cambiar.' : '';
 
       // PROPIEDAD: depende del avance. Con el propietario cerrado por afuera o
       // perdido, la propiedad está fuera de circulación y el selector queda
@@ -4032,11 +4047,17 @@
           return '<option value="'+k+'"'+(estadoProp===k?' selected':'')+'>'+PROP_STATUS[k]+'</option>';
         }).join('');
       }
+      // El estado de la propiedad desde una gestión ajena, o de una propiedad que
+      // no es mía: apagado (lo cambia su agente o la Dirección).
+      if (!propDisabled && (!puedo || !puedoTocarPropiedad(prop))){
+        propDisabled = ' disabled';
+        propTitle = !puedo ? ajenaTit : 'La propiedad es de ' + ((prop && prop.ownerName) || 'otro agente') + ': su estado lo cambian ese agente o la Dirección.';
+      }
 
       // Editar -> ficha técnica de la propiedad. Sin propiedad, edita la gestión.
       var editar = prop
         ? '<a class="cp-ico" href="propiedad-form.html?id='+g.propertyId+'" title="Editar ficha de la propiedad"><i class="fas fa-pen"></i></a>'
-        : '<button class="cp-ico" onclick="openGestionModal(\''+g.id+'\')" title="Editar gestión"><i class="fas fa-pen"></i></button>';
+        : (puedo ? '<button class="cp-ico" onclick="openGestionModal(\''+g.id+'\')" title="Editar gestión"><i class="fas fa-pen"></i></button>' : '');
 
       return '<div class="cp-grow" id="g-'+g.id+'">' +
         '<div class="cp-grow-row">' +
@@ -4065,13 +4086,15 @@
           // El rol define qué etapas tiene la gestión y cómo mueve a la propiedad:
           // se cambia tocándolo (antes decía "con el lápiz", pero el lápiz abre la
           // ficha de la propiedad y no había forma de corregirlo).
-          '<button type="button" class="g-rol '+rol+'" onclick="openGestionModal(\''+escA(g.id)+'\')" title="Rol del cliente en esta gestión: tocá para cambiarlo">'+(rol==='propietario'?'Propietario':'Interesado')+' <i class="fas fa-pen"></i></button>' +
+          (puedo
+            ? '<button type="button" class="g-rol '+rol+'" onclick="openGestionModal(\''+escA(g.id)+'\')" title="Rol del cliente en esta gestión: tocá para cambiarlo">'+(rol==='propietario'?'Propietario':'Interesado')+' <i class="fas fa-pen"></i></button>'
+            : '<span class="g-rol '+rol+'" title="'+escA(ajenaTit)+'">'+(rol==='propietario'?'Propietario':'Interesado')+' <i class="fas fa-lock"></i></span>') +
           (puedeMoverDe(g.agentId || g.createdBy || g.ownerId || '')
             ? '<button class="cp-grow-agent cp-agent-btn" title="Cambiar el agente de esta gestión" onclick="cambiarAgenteGestion(\''+escA(g.id)+'\')"><i class="fas fa-user-tie"></i> '+esc(g.agentName||'Agente')+' <i class="fas fa-pen" style="font-size:.62rem;opacity:.6"></i></button>'
             : '<span class="cp-grow-agent"><i class="fas fa-user-tie"></i> '+esc(g.agentName||'Agente')+'</span>') +
           visitasGestionHtml(g) +
         '</div>' +
-        coherenciaHtml(g, prop, rol, est) +
+        (puedo ? coherenciaHtml(g, prop, rol, est) : '') +
         contratoGestionHtml(prop, g) +
         cierreMapaHtml(prop, est, g) +
         selloExternoHtml(g) +
@@ -4249,6 +4272,8 @@
     // etapa: por ejemplo, sacar de circulación la propiedad de un propietario que ya
     // figuraba "Cerró por afuera".
     function resincronizarGestion(gid, pid, btn){
+      var gLoc = (_gestionesPerfil || []).filter(function(x){ return x.id === gid; })[0];
+      if (gLoc && !puedoTocarGestion(gLoc)){ avisoGestionAjena(gLoc); return; }
       if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Arreglando…'; }
       var quien = (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente';
       var entrada = { tipo:'sincronizar', valor:'Se sincronizó la propiedad con el avance', autor: quien, fecha: new Date().toISOString() };
@@ -4518,6 +4543,7 @@
         var rol = rolDeGestion(g);
         var anterior = etapaEfectiva(g, rol);
         var repintar = function(){ if (currentProfileId) renderGestiones(currentProfileId); };
+        if (!puedoTocarGestion(g)){ avisoGestionAjena(g); repintar(); return false; }
         if (nuevo === anterior){ repintar(); return true; }
         if (etapasDe(rol, anterior).indexOf(nuevo) < 0 || nuevo === 'prop_eliminada'){
           showToast('Esa etapa no corresponde', rol === 'propietario' ? 'El dueño de la propiedad va de En cartera a Reservado, Cerrado, Cerró por afuera o Perdido' : 'Revisá el rol de la gestión con el lápiz');
@@ -4627,6 +4653,7 @@
           if (currentProfileId){
             db.collection('gestiones').where('clientId','==',currentProfileId).where('propertyId','==',propId).get().then(function(q){
               q.docs.forEach(function(d){
+                if (!puedoTocarGestion(d.data())) return;
                 db.collection('gestiones').doc(d.id).update({ historial: firebase.firestore.FieldValue.arrayUnion(entrada) }).catch(function(){});
               });
             }).catch(function(){});
@@ -4641,6 +4668,11 @@
     // gestión (y el servidor acomoda la propiedad), nunca dejándolas en desacuerdo.
     function cambiarEstadoPropiedad(propId, nuevo){
       var repintar = function(){ if (currentProfileId) renderGestiones(currentProfileId); };
+      var propYo = null; for (var kk=0;kk<allProperties.length;kk++){ if (allProperties[kk].id===propId){ propYo = allProperties[kk]; break; } }
+      if (propYo && !puedoTocarPropiedad(propYo)){
+        showToast('Esta propiedad es de ' + (propYo.ownerName || 'otro agente'), 'Su estado lo cambian ese agente o la Dirección.');
+        repintar(); return;
+      }
       // Vendida/Alquilada implican pago, puntos y baja del aviso: se registran en el
       // Mapa de cierres, no acá. El agente queda hasta Reservada.
       if (!isAdmin && (nuevo==='sold' || nuevo==='rented')){
@@ -4806,6 +4838,7 @@
         db.collection('gestiones').doc(gestionId).get().then(function(d){
           if (d.exists){
             var g = d.data();
+            if (!puedoTocarGestion(g)){ closeGestionModal(); avisoGestionAjena(g); return; }
             var rol = rolDeGestion(g);
             _gestionModalAntes = { id: gestionId, estado: etapaEfectiva(g, rol), rol: rol, propertyId: g.propertyId || null };
             document.getElementById('gestionPropName').value = g.propertyTitle || 'Propiedad';
@@ -5627,6 +5660,24 @@
       return nivel(userProfile) > nivel(u);
     }
     function puedeTraspasarCliente(c){ return !!c && puedeMoverDe(c.createdBy || ''); }
+
+    // ===== ¿Quién puede mover una gestión? =====
+    // La gestión es del agente que la trabaja (agentId; en las viejas, quien la
+    // creó). Su avance, su rol y el estado de la propiedad desde ella los cambian
+    // SOLO ese agente y la Dirección (CEO y COO). Antes cualquier agente que
+    // abría el cliente podía marcar Reservado o mover el avance de un compañero.
+    // Es la misma cuenta que hace firestore.rules (esDuenioDeGestion): esto solo
+    // apaga los controles para que no se intente algo que el servidor rechaza.
+    function duenioGestion(g){ return (g && (g.agentId || g.createdBy || g.ownerId)) || ''; }
+    function puedoTocarUid(uid){ return esDir || (!!currentUser && !!uid && uid === currentUser.uid); }
+    function puedoTocarGestion(g){ return puedoTocarUid(duenioGestion(g)); }
+    // El estado de la propiedad: su dueño, los agentes que la comparten y la Dirección.
+    function puedoTocarPropiedad(p){
+      return esDir || (!!p && !!currentUser && (p.ownerId === currentUser.uid || (Array.isArray(p.agents) && p.agents.indexOf(currentUser.uid) >= 0)));
+    }
+    function avisoGestionAjena(g){
+      showToast('Esta gestión es de ' + ((g && g.agentName) || 'otro agente'), 'Solo ese agente o la Dirección pueden cambiar su avance o reservarla.');
+    }
 
     function abrirTraspaso(clientId){
       var c = null; for (var i=0;i<clients.length;i++){ if(clients[i].id===clientId){ c=clients[i]; break; } }
