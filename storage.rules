@@ -13,6 +13,14 @@ service firebase.storage {
       return request.auth != null &&
              request.auth.token.email.lower() == 'fabricio9061@gmail.com';
     }
+    // ¿Cuenta APROBADA? Cualquiera puede registrarse (queda 'pending'), así que
+    // "logueado" equivale a "cualquier persona de internet". Se lee el perfil en
+    // Firestore (reglas cruzadas Storage -> Firestore). La primera vez que se
+    // publica, Firebase pide autorizar ese acceso: aceptarlo.
+    function isApproved() {
+      return isAdmin() || (request.auth != null &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == 'approved');
+    }
     // Límite de tamaño por archivo (25 MB) para no disparar costos.
     function sizeOk() {
       return request.resource.size < 25 * 1024 * 1024;
@@ -35,44 +43,48 @@ service firebase.storage {
     // ============================================
     match /properties/{allPaths=**} {
       allow read: if true;                                  // las fotos se ven en la web pública
-      allow write: if isLoggedIn() && sizeOk() && esImagen();
+      // Antes: cualquier logueado (incluso sin aprobar) podía subir o pisar las
+      // fotos de cualquier propiedad.
+      allow write: if isApproved() && sizeOk() && esImagen();
     }
     // ============================================
     // FOTOS DE PERFIL (carpeta vieja, por si quedó algo ahí)
     // ============================================
     match /profilePhotos/{allPaths=**} {
       allow read: if true;
-      allow write: if isLoggedIn() && sizeOk() && esImagen();
+      allow write: if isApproved() && sizeOk() && esImagen();
     }
     // ============================================
     // DOCUMENTOS OFICIALES — todos los logueados descargan, SOLO admin sube/borra
     // ============================================
     match /documentos/{allPaths=**} {
-      allow read: if isLoggedIn();
+      allow read: if isApproved();
       allow write: if isAdmin() && sizeOk();
     }
     // ============================================
     // MALAVE ACADEMY — todos los logueados ven, SOLO admin sube/borra
     // ============================================
     match /academy/{allPaths=**} {
-      allow read: if isLoggedIn();
+      allow read: if isApproved();
       allow write: if isAdmin() && sizeOk();
     }
     // ============================================
     // PROPIEDADES COMPARTIDAS — logueados ven y suben
     // ============================================
     match /compartidas/{allPaths=**} {
-      allow read: if isLoggedIn();
-      allow write: if isLoggedIn() && sizeOk();
+      allow read: if isApproved();
+      allow write: if isApproved() && sizeOk();
     }
     // ============================================
     // PDFs DE TASACIONES PARA REVISIÓN
     // Copia temporal del informe. Se borra automáticamente cuando el admin
     // marca la tasación como revisada. Logueados suben/leen/borran.
     // ============================================
+    // Traen nombre del cliente y dirección del inmueble: solo cuentas aprobadas
+    // (antes cualquier cuenta recién registrada los podía bajar).
     match /tasacionesPDF/{allPaths=**} {
-      allow read: if isLoggedIn();
-      allow write: if isLoggedIn() && sizeOk();
+      allow read: if isApproved();
+      allow write: if isApproved() && sizeOk();
     }
     // ============================================
     // IMÁGENES DE RECOMPENSAS — todos las ven, SOLO admin sube/borra

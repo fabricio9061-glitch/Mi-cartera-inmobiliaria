@@ -51,6 +51,15 @@ exports.checkClientPhone = onCall(async (request) => {
   const uid = request.auth && request.auth.uid;
   const excludeId = (request.data && request.data.excludeId) || null;
   if (!phone || !uid) return { exists: false };
+  // Solo cuentas APROBADAS. Cualquiera puede registrarse (queda 'pending'), y
+  // sin este chequeo una cuenta recién creada podía preguntar teléfonos y
+  // obtener el nombre del cliente y del agente que lo tiene.
+  const yo = await admin.firestore().doc(`users/${uid}`).get();
+  const esCeo = String((request.auth.token && request.auth.token.email) || "").toLowerCase() ===
+    String(process.env.ADMIN_EMAIL || "fabricio9061@gmail.com").toLowerCase();
+  if (!esCeo && !(yo.exists && yo.data().status === "approved")) {
+    throw new HttpsError("permission-denied", "Tu cuenta no está aprobada.");
+  }
   const snap = await admin.firestore().collection("clients").get();
   for (const doc of snap.docs) {
     if (doc.id === excludeId) continue;
@@ -452,6 +461,18 @@ async function notificarErrorML(p, propertyId, titulo, resumen) {
 // ML exige HTTP 200 en menos de 500 ms o desactiva los tópicos: acá SOLO se
 // guarda el evento y se responde; el trigger de abajo hace el trabajo pesado.
 // =====================================================================
+/* ¿Es una ruta válida de la API de ML? ("/questions/123", "/vis/leads/abc").
+   El "resource" llega en un POST público y después se pide como
+   `${API}${resource}` CON el token de la inmobiliaria. Sin esta validación,
+   un resource como "@otro-sitio.com/x" convierte la URL en
+   https://api.mercadolibre.com@otro-sitio.com/x y el token viaja a ese sitio.
+   Por eso se exige que empiece con "/" y que tenga solo caracteres de ruta. */
+function mlRecursoValido(r) {
+  return typeof r === "string" && r.length > 1 && r.length <= 300 &&
+    /^\/[A-Za-z0-9_\-\/.:]+(\?[A-Za-z0-9_\-=&.:]*)?$/.test(r) &&
+    !r.startsWith("//") && !r.includes("..");
+}
+
 exports.mlNotificaciones = onRequest(async (req, res) => {
   try {
     if (req.method !== "POST") { res.status(200).send("mlNotificaciones OK"); return; }
@@ -459,6 +480,10 @@ exports.mlNotificaciones = onRequest(async (req, res) => {
     const topic = String(ev.topic || "");
     const resource = String(ev.resource || "");
     if (!resource || !["questions", "vis_leads", "leads", "messages"].some((t) => topic.startsWith(t))) {
+      res.status(200).send("ignorado"); return;
+    }
+    if (!mlRecursoValido(resource)) {
+      logger.warn("[mlNotificaciones] resource rechazado:", resource.slice(0, 120));
       res.status(200).send("ignorado"); return;
     }
     // Dedupe por id determinístico: los reintentos de ML no crean eventos nuevos.
@@ -564,6 +589,9 @@ exports.mlVerificarLeads = onCall({ timeoutSeconds: 120 }, async (request) => {
      directa de responder "¿mandaron el teléfono o no?" para una consulta puntual,
      sin conjeturas: lo que se ve es lo que contesta Mercado Libre. */
   const recurso = String((request.data && request.data.resource) || "").trim();
+  if (recurso && !mlRecursoValido(recurso.startsWith("/") ? recurso : "/" + recurso)) {
+    throw new HttpsError("invalid-argument", "El resource no es una ruta válida de Mercado Libre.");
+  }
   if (recurso) {
     try {
       const l = (await axios.get(`${API}${recurso.startsWith("/") ? "" : "/"}${recurso}`, { headers })).data || {};
@@ -619,6 +647,10 @@ exports.procesarEventoML = onDocumentCreated("mlEventos/{id}", async (event) => 
   if (!snap) return;
   const ev = snap.data() || {};
   const topic = String(ev.topic || ""), resource = String(ev.resource || "");
+  if (!mlRecursoValido(resource)) {
+    try { await snap.ref.update({ estado: "resource_invalido" }); } catch (e) { /* nada */ }
+    return;
+  }
 
   // GUARDIA DE ENTRADA. Los triggers de Firestore son "al menos una vez": la misma
   // creación puede entregarse dos veces y antes eso significaba dos consultas a la
@@ -746,16 +778,51 @@ exports.procesarEventoML = onDocumentCreated("mlEventos/{id}", async (event) => 
 // =====================================================================
 // 1) INICIAR AUTORIZACIÓN  — abrí esta URL en el navegador una sola vez
 // =====================================================================
-exports.iniciarAuthML = onRequest(async (req, res) => {
+/* CONEXIÓN CON "state". Antes esta URL era pública y el callback guardaba el
+   código de CUALQUIER cuenta: cualquiera que la abriera y entrara con SU cuenta
+   de Mercado Libre reemplazaba los tokens de la inmobiliaria (los avisos se
+   empezaban a publicar en la cuenta de esa persona, o dejaban de publicarse).
+   Ahora la URL de autorización la arma urlConexionML, que solo puede pedir el
+   CEO con sesión iniciada (desde conectar-ml.html), con un "state" de un solo
+   uso que vence en 15 minutos. El callback rechaza cualquier código sin ese state. */
+const ML_OAUTH_STATE_DOC = db.collection("adminData").doc("mlOAuthState");
+
+exports.urlConexionML = onCall(async (request) => {
+  const quien = await exigirDireccion(request, "Solo el CEO conecta la cuenta de Mercado Libre.");
+  if (!quien.esCEO) throw new HttpsError("permission-denied", "Solo el CEO conecta la cuenta de Mercado Libre.");
   if (!CLIENT_ID || !REDIRECT_URI) {
-    res.status(500).send("Faltan credenciales (ML_CLIENT_ID / ML_REDIRECT_URI) en el archivo .env");
-    return;
+    throw new HttpsError("failed-precondition", "Faltan credenciales (ML_CLIENT_ID / ML_REDIRECT_URI) en el archivo .env");
   }
+  const state = crypto.randomBytes(24).toString("hex");
+  await ML_OAUTH_STATE_DOC.set({ state, expira: Date.now() + 15 * 60 * 1000, por: quien.uid, creado: new Date().toISOString() });
   const url = `${AUTH_DOMAIN}/authorization?response_type=code` +
     `&client_id=${encodeURIComponent(CLIENT_ID)}` +
-    `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
-  res.redirect(url);
+    `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+    `&state=${encodeURIComponent(state)}`;
+  return { url };
 });
+
+exports.iniciarAuthML = onRequest(async (req, res) => {
+  // Ya no redirige directo a Mercado Libre: la conexión se inicia con sesión del CEO.
+  const destino = `${String(process.env.SITIO_WEB || "https://malaveinmobiliaria.com").replace(/\/+$/, "")}/conectar-ml.html`;
+  res.redirect(302, destino);
+});
+
+/** Valida y CONSUME el state (un solo uso). */
+async function mlConsumirState(recibido) {
+  recibido = String(recibido || "");
+  if (!recibido) return false;
+  return db.runTransaction(async (tx) => {
+    const d = await tx.get(ML_OAUTH_STATE_DOC);
+    if (!d.exists) return false;
+    const { state, expira } = d.data() || {};
+    const a = Buffer.from(String(state || "")), b = Buffer.from(recibido);
+    const igual = a.length === b.length && a.length > 0 && crypto.timingSafeEqual(a, b);
+    if (!igual || !(Number(expira) > Date.now())) return false;
+    tx.delete(ML_OAUTH_STATE_DOC);
+    return true;
+  });
+}
 
 // =====================================================================
 // 2) CALLBACK  — Mercado Libre vuelve acá con ?code=...; guardamos tokens
@@ -764,6 +831,13 @@ exports.callbackML = onRequest(async (req, res) => {
   const code = req.query.code;
   if (!code) {
     res.status(400).send("No llegó el código de autorización.");
+    return;
+  }
+  let stateOk = false;
+  try { stateOk = await mlConsumirState(req.query.state); } catch (e) { logger.warn("[callbackML] state:", e.message); }
+  if (!stateOk) {
+    logger.warn("[callbackML] código rechazado: state ausente, vencido o distinto.");
+    res.status(403).send("<h2>Conexión rechazada</h2><p>El enlace venció o no se inició desde el CRM. Volvé a entrar a conectar-ml.html con la cuenta del CEO.</p>");
     return;
   }
   try {
@@ -789,7 +863,7 @@ exports.callbackML = onRequest(async (req, res) => {
     res.send("<h2>✅ Cuenta de Mercado Libre conectada correctamente.</h2><p>Ya podés cerrar esta pestaña.</p>");
   } catch (e) {
     logger.error("Error obteniendo token:", e.response?.data || e.message);
-    res.status(500).send("Error al conectar con Mercado Libre: " + JSON.stringify(e.response?.data || e.message));
+    res.status(500).send("Error al conectar con Mercado Libre. El detalle quedó en los logs de Functions.");
   }
 });
 
@@ -866,7 +940,7 @@ async function getValidToken() {
     } catch (e2) { /* nada */ }
     logger.error("Error renovando token de ML:", JSON.stringify(detail));
     if (detail && (detail.error === "invalid_grant" || /invalid_grant/.test(JSON.stringify(detail)))) {
-      throw new Error("La conexión con Mercado Libre se invalidó (invalid_grant). Volvé a conectar la cuenta abriendo la URL de iniciarAuthML.");
+      throw new Error("La conexión con Mercado Libre se invalidó (invalid_grant). Volvé a conectar la cuenta desde conectar-ml.html (sesión del CEO).");
     }
     throw new Error("No se pudo renovar el token de Mercado Libre: " + resumirErrorML(detail));
   }
