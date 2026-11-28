@@ -6092,15 +6092,6 @@
     mvContar('statTotal', av.length);
     mvContar('statSale', av.filter(p => p.type === 'sale').length);
     mvContar('statRent', av.filter(p => p.type === 'rent').length);
-    // Fotos para la portada que va cambiando: la primera foto de propiedades
-    // disponibles, las destacadas primero y después las más nuevas.
-    try {
-      if (window.mvPortadaFotos) window.mvPortadaFotos(av
-        .filter(p => (p.status || 'available') === 'available' && p.images && safeUrl(p.images[0]))
-        .sort((a, b) => ((window.isEffectivelyFeatured && isEffectivelyFeatured(b)) ? 1 : 0) - ((window.isEffectivelyFeatured && isEffectivelyFeatured(a)) ? 1 : 0)
-          || new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-        .slice(0, 4).map(p => safeUrl(p.images[0])));
-    } catch (e) { }
   }
   // Los números de la portada llegan contando hasta su valor. Solo cuando
   // cambian: si el número es el mismo, no se toca (updateStats se llama seguido).
