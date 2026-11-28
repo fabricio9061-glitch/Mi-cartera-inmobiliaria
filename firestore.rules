@@ -527,11 +527,14 @@ service cloud.firestore {
                     (resource.data.createdBy == request.auth.uid || esDireccion());
     }
 
-    // ============ PORTAL ACCOUNTS — SOLO el CEO ============
-    // Usuarios y contraseñas de las cuentas oficiales (portales, herramientas).
-    // Antes las leía todo agente aprobado: quien se iba, se las podía llevar.
+    // ============ PORTAL ACCOUNTS — "Cuentas y Portales" ============
+    // Usuarios y contraseñas de las cuentas oficiales (portales, páginas del
+    // Estado, herramientas). Las LEE todo el equipo aprobado (Anibal lo decidió
+    // el 2026-11-28: las usan para trabajar). El asociado no es del equipo y no
+    // las ve. Agregar, editar y borrar, solo el CEO.
     match /portalAccounts/{id} {
-      allow read, write: if esCEO();
+      allow read: if isInterno();
+      allow write: if esCEO();
     }
 
     // ============ NOTIFICATIONS ============

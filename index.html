@@ -1874,7 +1874,7 @@
       #mlModalBody .pt-tab .pm-nivel { font-size: 10.5px; padding: 2px 6px }
     }
   </style>
-  <script src="app.js?v=20261128g"></script>
+  <script src="app.js?v=20261128h"></script>
   <!-- ====== MENÚ DEL VISITANTE (celular) ======
        En celular la barra oculta los enlaces del encabezado; este menú es la
        forma de llegar a "Vendé tu propiedad", "Trabajá con nosotros" y al acceso
@@ -1910,120 +1910,125 @@
   </aside>
 
   <!-- ====== MENÚ DEL AGENTE (panel lateral) ======
-       Arriba, el agente con su rango real; tocando el nombre se despliegan saldo,
-       puntos y nivel (plegados por defecto, se recuerda). Después los cuatro
-       accesos de todos los días en grande, las herramientas en tarjetas de a dos
-       (antes eran diecisiete renglones que obligaban a scrollear) y, para la
-       Dirección, su propio bloque. Tutorial, contraseña y salir quedan fijos abajo. -->
+       Pensado para que entre sin scrollear (nov 2026). Arriba, el agente con su
+       rango y una tira con saldo y puntos, siempre a la vista. Abajo, los accesos
+       de todos los días y las herramientas en cuadritos de a tres: cada grupo es
+       una fila. CEO y COO tienen una pestaña "Dirección" aparte, y el asociado ve
+       su plan en la cabecera y "Subir propiedad". Tutorial, contraseña y salir,
+       fijos abajo. -->
   <div class="mv-side-overlay" id="mvSideOverlay" onclick="closeSideMenu()"></div>
   <aside class="mv-side" id="mvSide" aria-hidden="true" aria-label="Menú del agente">
     <div class="mv-side-head">
       <div class="mv-side-top">
-        <button type="button" class="mv-side-user" id="mvSideUser" onclick="toggleMenuDatos()" aria-expanded="false" aria-controls="mvSideDatos" title="Saldo, puntos y nivel">
+        <div class="mv-side-user" id="mvSideUser">
           <div class="mv-side-av" id="mvSideAv"><i class="fas fa-user"></i></div>
           <div class="mv-side-quien"><strong id="mvSideName">Usuario</strong><span class="mv-side-rol" id="mvSideRole">Agente</span></div>
-          <span class="mv-side-caret-wrap" aria-hidden="true" data-equipo><i class="fas fa-chevron-down mv-side-caret" id="mvSideCaret"></i></span>
-        </button>
+        </div>
         <button class="mv-side-close" onclick="closeSideMenu()" aria-label="Cerrar"><i class="fas fa-xmark"></i></button>
       </div>
-      <div class="mv-side-datos" id="mvSideDatos" hidden>
-        <div class="mv-side-finanzas" id="mvSideFinanzas" data-equipo>
-          <a class="mv-fin-saldo" href="finanzas.html" title="Ver mis finanzas y solicitar cobros">
-            <span class="mv-fin-cap"><i class="fas fa-wallet"></i> Saldo a cobrar</span>
-            <span class="mv-fin-val" id="mvFinUsd">US$ 0</span>
-            <span class="mv-fin-val uyu" id="mvFinUyu">$U 0</span>
-          </a>
-          <a class="mv-fin-pts" href="recompensas.html" title="Ver mis puntos y canjear">
-            <i class="fas fa-star"></i>
-            <span class="mv-fin-ptsnum" id="mvFinPuntos">—</span>
-            <span class="mv-fin-ptslbl">puntos</span>
-          </a>
-        </div>
-        <!-- Nivel del agente: rango + cuánto falta, y la barra. El detalle, en el botón de información. -->
-        <div class="mv-nivel" id="mvNivel" hidden>
-          <div class="mv-nivel-top">
-            <span class="mv-nivel-rango" id="mvNivelRango">—</span>
-            <span class="mv-nivel-meta" id="mvNivelMeta"></span>
-            <button type="button" class="mv-nivel-info" id="mvNivelInfo" onclick="verBeneficiosRango()" aria-label="Qué gano subiendo de nivel"><i class="fas fa-circle-info"></i></button>
-          </div>
-          <div class="mv-nivel-barra"><span id="mvNivelFill"></span></div>
-        </div>
-      </div>
-    </div>
 
-    <nav class="mv-side-nav">
-      <div class="mv-rapidos">
-        <!-- "Mi perfil" solo en compu: en celular está fijo en la barra de abajo. -->
-        <button type="button" class="mv-rapido mv-side-dup" onclick="closeSideMenu();showMyProfile()"><i class="fas fa-user"></i><span>Mi perfil</span></button>
-        <a class="mv-rapido" href="agenda.html"><i class="fas fa-calendar-days"></i><span>Agenda</span></a>
-        <a class="mv-rapido" href="clientes.html"><i class="fas fa-address-book"></i><span>Clientes</span></a>
-        <a class="mv-rapido" href="finanzas.html" data-equipo><i class="fas fa-wallet"></i><span>Finanzas</span></a>
-        <a class="mv-rapido" href="mapa-cierres.html"><i class="fas fa-map-location-dot"></i><span>Cierres</span></a>
+      <!-- Saldo y puntos (el nivel no va: Anibal lo sacó, "no es un juego"). -->
+      <div class="mv-tira" id="mvSideFinanzas" data-equipo>
+        <a class="mv-tira-saldo" href="finanzas.html" title="Ver mis finanzas y solicitar cobros">
+          <span class="mv-tira-cap"><i class="fas fa-wallet"></i> Saldo a cobrar</span>
+          <span class="mv-tira-val"><span id="mvFinUsd">US$ 0</span> <small id="mvFinUyu">$U 0</small></span>
+        </a>
+        <a class="mv-tira-pts" href="recompensas.html" title="Ver mis puntos y canjear">
+          <span class="mv-tira-cap"><i class="fas fa-star"></i> Puntos</span>
+          <span class="mv-tira-val" id="mvFinPuntos">—</span>
+        </a>
       </div>
 
-      <!-- Agente asociado: su plan (cuántas de 50 tiene publicadas y hasta cuándo
-           pagó), el botón para subir y sus herramientas. Clientes y Cierres le
-           muestran solo lo suyo (las reglas no le dan lo de MALAVE). -->
-      <section class="mv-grupo mv-plan hidden" data-asociado>
+      <!-- Agente asociado: cuántas de 50 tiene publicadas y hasta cuándo pagó. -->
+      <div class="mv-plan hidden" data-asociado>
         <div class="mv-plan-top">
-          <span class="mv-plan-tit"><i class="fas fa-id-badge"></i> Mi plan</span>
+          <span class="mv-tira-cap"><i class="fas fa-id-badge"></i> Mi plan · publicadas</span>
           <span class="mv-plan-num" id="mvPlanNum">0 de 50</span>
         </div>
         <div class="mv-plan-barra"><span id="mvPlanFill"></span></div>
         <p class="mv-plan-txt" id="mvPlanAsociado"></p>
-        <button type="button" class="mv-plan-subir" onclick="closeSideMenu();location.href='clientes.html?subir=1'"><i class="fas fa-plus"></i> Subir propiedad</button>
-      </section>
+      </div>
 
-      <!-- Dos grupos y no "Calculadoras": cuánto VALE una propiedad y cuánto
-           DINERO deja la operación son preguntas distintas. -->
-      <section class="mv-grupo" data-equipo>
-        <h3 class="mv-side-group">Cuánto vale</h3>
-        <div class="mv-grid">
-          <a class="mv-side-item" href="tasador.html"><i class="fas fa-calculator"></i><span>Tasar propiedad</span></a>
-          <a class="mv-side-item" href="terreno.html"><i class="fas fa-ruler-combined"></i><span>Tasar terreno</span></a>
-          <a class="mv-side-item ancho" href="usufructo.html"><i class="fas fa-scale-balanced"></i><span>Usufructo y nuda propiedad</span></a>
-        </div>
-      </section>
-      <section class="mv-grupo" data-equipo>
-        <h3 class="mv-side-group">Cuánto deja la operación</h3>
-        <div class="mv-grid">
-          <a class="mv-side-item" href="ganancias.html"><i class="fas fa-sack-dollar"></i><span>Mi comisión</span></a>
-          <a class="mv-side-item" href="gastos.html"><i class="fas fa-file-invoice-dollar"></i><span>Gastos del cliente</span></a>
-          <a class="mv-side-item ancho" href="inversion.html"><i class="fas fa-hand-holding-dollar"></i><span>Rentabilidad para inversores</span></a>
-        </div>
-      </section>
-      <section class="mv-grupo" data-equipo>
-        <h3 class="mv-side-group">Crecer</h3>
-        <div class="mv-grid">
-          <a class="mv-side-item" href="recompensas.html"><i class="fas fa-trophy"></i><span>Recompensas</span></a>
-          <a class="mv-side-item" href="academy.html"><i class="fas fa-graduation-cap"></i><span>Malavé Academy</span></a>
-        </div>
-      </section>
-      <section class="mv-grupo" data-equipo>
-        <h3 class="mv-side-group">Recursos</h3>
-        <div class="mv-grid">
-          <a class="mv-side-item" href="generar-documentos.html"><i class="fas fa-file-signature"></i><span>Generar documentos</span></a>
-          <a class="mv-side-item hidden" id="mvSideCuentas" href="cuentas.html"><i class="fas fa-key"></i><span>Cuentas de portales</span></a>
-        </div>
-      </section>
+      <!-- CEO y COO: lo de agente en "Mi trabajo" y lo de la Dirección aparte. -->
+      <div class="mv-tabs hidden" id="mvSideAdminGroup" role="tablist">
+        <button type="button" role="tab" id="mvTabTrabajo" aria-selected="true" onclick="mvMenuTab('trabajo')">Mi trabajo</button>
+        <button type="button" role="tab" id="mvTabDir" aria-selected="false" onclick="mvMenuTab('dir')">Dirección <span class="mv-pend-badge" id="mvPendBadgeTab" style="display:none"></span></button>
+      </div>
+    </div>
 
-      <!-- Dirección (CEO y COO). Retiros y Papelera, solo el CEO. -->
-      <section class="mv-grupo mv-dir hidden" id="mvSideAdminGroup">
-        <h3 class="mv-side-group"><i class="fas fa-shield-halved"></i> Dirección</h3>
+    <nav class="mv-side-nav">
+      <div class="mv-vista" id="mvVistaTrabajo">
+        <button type="button" class="mv-plan-subir hidden" data-asociado onclick="closeSideMenu();location.href='clientes.html?subir=1'"><i class="fas fa-plus"></i> Subir propiedad</button>
+
+        <div class="mv-rapidos">
+          <!-- "Mi perfil" solo en compu: en celular está fijo en la barra de abajo. -->
+          <button type="button" class="mv-rapido mv-side-dup" onclick="closeSideMenu();showMyProfile()"><i class="fas fa-user"></i><span>Mi perfil</span></button>
+          <a class="mv-rapido" href="agenda.html"><i class="fas fa-calendar-days"></i><span>Agenda</span></a>
+          <a class="mv-rapido" href="clientes.html"><i class="fas fa-address-book"></i><span>Clientes</span></a>
+          <a class="mv-rapido" href="finanzas.html" data-equipo><i class="fas fa-wallet"></i><span>Finanzas</span></a>
+          <a class="mv-rapido" href="mapa-cierres.html"><i class="fas fa-map-location-dot"></i><span>Cierres</span></a>
+        </div>
+
+        <!-- Cuánto VALE una propiedad y cuánto DINERO deja la operación son
+             preguntas distintas: van en grupos separados. -->
+        <section class="mv-grupo" data-equipo>
+          <h3 class="mv-side-group">Tasar</h3>
+          <div class="mv-grid">
+            <a class="mv-side-item" href="tasador.html"><i class="fas fa-calculator"></i><span>Propiedad</span></a>
+            <a class="mv-side-item" href="terreno.html"><i class="fas fa-ruler-combined"></i><span>Terreno</span></a>
+            <a class="mv-side-item" href="usufructo.html"><i class="fas fa-scale-balanced"></i><span>Usufructo y nuda prop.</span></a>
+          </div>
+        </section>
+        <section class="mv-grupo" data-equipo>
+          <h3 class="mv-side-group">Números de la operación</h3>
+          <div class="mv-grid">
+            <a class="mv-side-item" href="ganancias.html"><i class="fas fa-sack-dollar"></i><span>Mi comisión</span></a>
+            <a class="mv-side-item" href="gastos.html"><i class="fas fa-file-invoice-dollar"></i><span>Gastos del cliente</span></a>
+            <a class="mv-side-item" href="inversion.html"><i class="fas fa-hand-holding-dollar"></i><span>Rentabilidad inversor</span></a>
+          </div>
+        </section>
+        <div class="mv-dos" data-equipo>
+          <section class="mv-grupo">
+            <h3 class="mv-side-group">Crecer</h3>
+            <div class="mv-grid">
+              <a class="mv-side-item" href="recompensas.html"><i class="fas fa-trophy"></i><span>Recompensas</span></a>
+              <a class="mv-side-item" href="academy.html"><i class="fas fa-graduation-cap"></i><span>Malavé Academy</span></a>
+            </div>
+          </section>
+          <section class="mv-grupo">
+            <h3 class="mv-side-group">Recursos</h3>
+            <div class="mv-grid">
+              <a class="mv-side-item" href="generar-documentos.html"><i class="fas fa-file-signature"></i><span>Generar documentos</span></a>
+              <a class="mv-side-item" id="mvSideCuentas" href="cuentas.html"><i class="fas fa-key"></i><span>Cuentas y Portales</span></a>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- Pestaña Dirección (CEO y COO). Retiros y Papelera, solo el CEO. -->
+      <div class="mv-vista mv-dir hidden" id="mvVistaDir">
         <button type="button" class="mv-dir-panel" id="mvSideAdmin" onclick="closeSideMenu();location.href='admin.html'">
           <i class="fas fa-gauge-high"></i>
           <span class="mv-dir-tx"><strong>Panel de administración</strong><small>Equipo, revisiones, bandeja y sitio</small></span>
           <span class="mv-pend-badge" id="mvPendBadge" style="display:none" title="Registros esperando aprobación"></span>
           <i class="fas fa-chevron-right mv-dir-go"></i>
         </button>
-        <div class="mv-grid">
-          <a class="mv-side-item mv-side-admin hidden" id="mvSideRetiros" href="retiros-admin.html"><i class="fas fa-money-check-dollar"></i><span>Retiros de agentes</span></a>
-          <a class="mv-side-item mv-side-admin hidden" id="mvSidePapelera" href="papelera.html"><i class="fas fa-trash-can"></i><span>Papelera</span></a>
-          <a class="mv-side-item mv-side-admin hidden" id="mvSideRenta" href="rentabilidad.html"><i class="fas fa-chart-line"></i><span>Rentabilidad de la agencia</span></a>
-          <a class="mv-side-item mv-side-admin hidden" id="mvSideInteres" href="interes.html"><i class="fas fa-fire"></i><span>Interés por propiedad</span></a>
-          <a class="mv-side-item mv-side-admin hidden" id="mvSideAuditIC" href="auditoria-infocasas.html"><i class="fas fa-scale-balanced"></i><span>Avisos en InfoCasas</span></a>
-        </div>
-      </section>
+        <section class="mv-grupo">
+          <h3 class="mv-side-group"><i class="fas fa-shield-halved"></i> Control</h3>
+          <div class="mv-grid">
+            <a class="mv-side-item hidden" id="mvSideRetiros" href="retiros-admin.html"><i class="fas fa-money-check-dollar"></i><span>Retiros de agentes</span></a>
+            <a class="mv-side-item hidden" id="mvSideRenta" href="rentabilidad.html"><i class="fas fa-chart-line"></i><span>Rentabilidad agencia</span></a>
+            <a class="mv-side-item hidden" id="mvSideInteres" href="interes.html"><i class="fas fa-fire"></i><span>Interés por propiedad</span></a>
+          </div>
+        </section>
+        <section class="mv-grupo">
+          <h3 class="mv-side-group"><i class="fas fa-shield-halved"></i> Portales y limpieza</h3>
+          <div class="mv-grid">
+            <a class="mv-side-item hidden" id="mvSideAuditIC" href="auditoria-infocasas.html"><i class="fas fa-scale-balanced"></i><span>Avisos en InfoCasas</span></a>
+            <a class="mv-side-item hidden" id="mvSidePapelera" href="papelera.html"><i class="fas fa-trash-can"></i><span>Papelera</span></a>
+          </div>
+        </section>
+      </div>
     </nav>
 
     <div class="mv-side-pie">
@@ -2094,94 +2099,90 @@
     .mv-side-head{ flex:none; position:relative; color:#fff; padding:calc(18px + env(safe-area-inset-top,0px)) 16px 16px;
       background:radial-gradient(120% 140% at 100% 0%, rgba(201,162,39,.22) 0%, rgba(201,162,39,0) 46%), linear-gradient(135deg,#0e1a2c 0%, #16273f 58%, #1f3656 100%); }
     .mv-side-top{ display:flex; align-items:center; gap:10px; }
-    .mv-side-user{ flex:1; min-width:0; display:flex; align-items:center; gap:13px; background:none; border:none; color:inherit;
-      font-family:inherit; text-align:left; cursor:pointer; padding:6px; margin:-6px; border-radius:14px; transition:background .15s; }
-    @media (hover:hover){ .mv-side-user:hover{ background:rgba(255,255,255,.06); } }
-    .mv-side-user.sin-datos{ cursor:default; }
-    @media (hover:hover){ .mv-side-user.sin-datos:hover{ background:none; } }
-    .mv-side-av{ width:56px; height:56px; border-radius:50%; flex:none; overflow:hidden; display:flex; align-items:center; justify-content:center;
-      background:rgba(255,255,255,.1); border:2px solid #C9A227; box-shadow:0 0 0 4px rgba(201,162,39,.15);
-      font-family:'Cormorant Garamond',serif; font-size:1.6rem; font-weight:700; color:#fff; }
+    .mv-side-user{ flex:1; min-width:0; display:flex; align-items:center; gap:12px; color:inherit; }
+    .mv-side-av{ width:48px; height:48px; border-radius:50%; flex:none; overflow:hidden; display:flex; align-items:center; justify-content:center;
+      background:rgba(255,255,255,.1); border:2px solid #C9A227; box-shadow:0 0 0 3px rgba(201,162,39,.15);
+      font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:700; color:#fff; }
     .mv-side-av img{ width:100%; height:100%; object-fit:cover; }
     .mv-side-quien{ flex:1; min-width:0; }
-    .mv-side-quien strong{ display:block; font-size:1.08rem; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .mv-side-rol{ display:inline-block; max-width:100%; margin-top:6px; padding:3px 10px; border-radius:999px; font-size:.64rem; font-weight:700;
+    .mv-side-quien strong{ display:block; font-size:1.06rem; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .mv-side-rol{ display:inline-block; max-width:100%; margin-top:5px; padding:2px 9px; border-radius:999px; font-size:.62rem; font-weight:700;
       letter-spacing:.09em; text-transform:uppercase; color:#ecd68c; background:rgba(201,162,39,.14); border:1px solid rgba(201,162,39,.42);
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:top; }
-    .mv-side-caret-wrap{ flex:none; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.09); }
-    .mv-side-caret{ font-size:.68rem; color:rgba(255,255,255,.8); transition:transform .25s ease; }
-    .mv-side-user[aria-expanded="true"] .mv-side-caret{ transform:rotate(180deg); }
     .mv-side-close{ flex:none; width:38px; height:38px; border-radius:50%; border:none; cursor:pointer; background:rgba(255,255,255,.1); color:#fff; font-size:1.05rem; transition:background .2s; }
     .mv-side-close:hover{ background:rgba(255,255,255,.2); }
-    .mv-side-datos[hidden]{ display:none; }
-    .mv-side-datos{ margin-top:14px; animation:mvDatosIn .22s ease; }
-    @keyframes mvDatosIn{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:none; } }
-    .mv-side-finanzas{ display:flex; align-items:stretch; gap:9px; }
-    .mv-fin-saldo{ flex:1; display:flex; flex-direction:column; gap:2px; background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.08); border-radius:13px; padding:11px 14px; text-decoration:none; transition:background .15s; }
-    .mv-fin-saldo:hover{ background:rgba(255,255,255,.14); }
-    .mv-fin-cap{ font-size:.64rem; color:rgba(255,255,255,.6); text-transform:uppercase; letter-spacing:.06em; font-weight:600; display:flex; align-items:center; gap:6px; margin-bottom:3px; }
-    .mv-fin-cap i{ color:#C9A227; }
-    .mv-fin-val{ font-size:1.08rem; font-weight:700; color:#fff; line-height:1.25; white-space:nowrap; }
-    .mv-fin-val.uyu{ font-size:.95rem; color:rgba(255,255,255,.82); }
-    .mv-fin-pts{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; min-width:74px; background:rgba(201,162,39,.16); border:1px solid rgba(201,162,39,.3); border-radius:13px; padding:9px 12px; text-decoration:none; transition:background .15s; }
-    .mv-fin-pts:hover{ background:rgba(201,162,39,.26); }
-    .mv-fin-pts>i{ font-size:.82rem; color:#C9A227; margin-bottom:2px; }
-    .mv-fin-ptsnum{ font-size:1.15rem; font-weight:700; color:#fff; line-height:1; }
-    .mv-fin-ptslbl{ font-size:.62rem; color:rgba(255,255,255,.6); text-transform:uppercase; letter-spacing:.04em; }
-    .mv-side-datos .mv-nivel{ margin:9px 0 0; }
-    .mv-side-nav{ flex:1; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:14px 14px 18px; }
-    .mv-rapidos{ display:flex; gap:8px; }
-    .mv-rapido{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; gap:7px; padding:12px 4px 10px;
-      background:#fff; border:1px solid #e6e9ee; border-radius:15px; color:#16273f; text-decoration:none; font-family:inherit;
-      font-size:.74rem; font-weight:600; cursor:pointer; box-shadow:0 1px 2px rgba(16,29,48,.04); transition:transform .15s, box-shadow .15s, border-color .15s; }
-    .mv-rapido i{ width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; background:#16273f; color:#C9A227; font-size:1.02rem; }
-    .mv-rapido span{ max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .mv-grupo{ margin-top:16px; }
-    .mv-side-group{ margin:0 2px 8px; font-family:'Jost',sans-serif; font-size:.67rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#8a93a0; display:flex; align-items:center; gap:7px; }
-    .mv-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-    /* Plan del agente asociado */
-    .mv-plan{ background:linear-gradient(135deg,#16273f,#24395a); color:#fff; border-radius:16px; padding:14px 14px 12px; }
-    .mv-plan-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:9px; }
-    .mv-plan-tit{ font-size:.78rem; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:#e9d8a0; display:flex; align-items:center; gap:7px; }
-    .mv-plan-num{ font-size:1.05rem; font-weight:700; }
-    .mv-plan-barra{ height:8px; border-radius:99px; background:rgba(255,255,255,.16); overflow:hidden; }
-    .mv-plan-barra span{ display:block; height:100%; width:0; border-radius:99px; background:#C9A227; transition:width .4s; }
+    /* Tira de saldo y puntos */
+    .mv-tira{ margin-top:13px; display:grid; grid-template-columns:1.6fr 1fr; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.09); border-radius:14px; overflow:hidden; }
+    .mv-tira a{ display:flex; flex-direction:column; gap:3px; min-width:0; padding:9px 12px; color:#fff; text-decoration:none; transition:background .15s; }
+    .mv-tira a + a{ border-left:1px solid rgba(255,255,255,.09); }
+    @media (hover:hover){ .mv-tira a:hover{ background:rgba(255,255,255,.07); } }
+    .mv-tira-cap{ font-size:.6rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,.6); white-space:nowrap; display:flex; align-items:center; gap:6px; }
+    .mv-tira-cap i{ color:#C9A227; }
+    .mv-tira-val{ font-size:1.04rem; font-weight:700; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .mv-tira-val small{ font-size:.78rem; font-weight:500; color:rgba(255,255,255,.75); margin-left:4px; }
+    /* Plan del agente asociado (en la cabecera) */
+    .mv-plan{ margin-top:13px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.09); border-radius:14px; padding:10px 12px; }
+    .mv-plan-top{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:7px; }
+    .mv-plan-num{ font-size:1.05rem; font-weight:700; white-space:nowrap; }
+    .mv-plan-barra{ height:7px; border-radius:99px; background:rgba(255,255,255,.16); overflow:hidden; }
+    .mv-plan-barra span{ display:block; height:100%; width:0; border-radius:99px; background:linear-gradient(90deg,#C9A227,#ecd68c); transition:width .4s; }
     .mv-plan-barra span.lleno{ background:#e07a5f; }
-    .mv-plan-txt{ margin:9px 0 11px; font-size:.82rem; line-height:1.45; color:rgba(255,255,255,.82); }
+    .mv-plan-txt{ margin:7px 0 0; font-size:.74rem; line-height:1.45; color:rgba(255,255,255,.75); }
     .mv-plan-txt b{ color:#fff; }
     .mv-plan-txt .venc{ color:#ffb4a2; }
-    .mv-plan-subir{ width:100%; border:none; border-radius:11px; padding:10px 12px; background:#C9A227; color:#16273f; font-weight:700; font-size:.9rem;
+    .mv-plan-subir{ width:100%; border:none; border-radius:14px; padding:13px 12px; margin-bottom:12px; background:#C9A227; color:#16273f; font-weight:700; font-size:.92rem;
       font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
+    .mv-plan-subir.hidden{ display:none; }
     .mv-plan-subir:active{ transform:scale(.98); }
-    button.mv-side-item{ font-family:inherit; text-align:left; cursor:pointer; width:100%; }
-    .mv-side-item{ display:flex; align-items:center; gap:10px; min-height:54px; padding:9px 10px; background:#fff; border:1px solid #e6e9ee; border-radius:13px;
-      color:#27313f; text-decoration:none; font-family:inherit; font-size:.84rem; font-weight:500; line-height:1.2; cursor:pointer;
+    /* Pestañas de la Dirección */
+    .mv-tabs{ margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:3px; background:rgba(0,0,0,.22); border-radius:11px; padding:3px; }
+    .mv-tabs.hidden{ display:none; }
+    .mv-tabs button{ display:flex; align-items:center; justify-content:center; gap:6px; padding:7px 0; border:none; border-radius:9px; background:none;
+      color:rgba(255,255,255,.72); font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; transition:background .15s, color .15s; }
+    .mv-tabs button[aria-selected="true"]{ background:#fff; color:#16273f; }
+    .mv-tabs .mv-pend-badge{ min-width:18px; height:18px; font-size:.64rem; padding:0 5px; }
+    /* Cuerpo */
+    .mv-side-nav{ flex:1; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:13px 14px 14px; }
+    .mv-vista.hidden{ display:none; }
+    .mv-rapidos{ display:flex; gap:4px; background:#fff; border:1px solid #e6e9ee; border-radius:16px; padding:9px 5px; }
+    .mv-rapido{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; gap:5px; padding:3px 2px; border:none; background:none; border-radius:12px;
+      color:#16273f; text-decoration:none; font-family:inherit; font-size:.72rem; font-weight:500; cursor:pointer; transition:transform .15s, background .15s; }
+    .mv-rapido i{ width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; background:#16273f; color:#C9A227; font-size:.98rem; }
+    .mv-rapido span{ max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .mv-grupo{ margin-top:13px; min-width:0; }
+    .mv-side-group{ margin:0 2px 7px; font-family:'Jost',sans-serif; font-size:.62rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#8a93a0; display:flex; align-items:center; gap:6px; white-space:nowrap; }
+    .mv-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+    .mv-dos{ display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+    .mv-dos.hidden{ display:none; }
+    .mv-dos .mv-grid{ grid-template-columns:1fr 1fr; }
+    .mv-side-item{ display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:6px; min-height:78px; min-width:0; padding:10px 5px 9px;
+      background:#fff; border:1px solid #e6e9ee; border-radius:14px; text-align:center;
+      color:#2b3a50; text-decoration:none; font-family:inherit; font-size:.72rem; font-weight:500; line-height:1.15; cursor:pointer;
       transition:border-color .15s, box-shadow .15s, transform .15s; }
-    .mv-side-item.ancho{ grid-column:1 / -1; }
-    .mv-side-item i{ flex:none; width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:rgba(201,162,39,.13); color:#a4821a; font-size:.9rem; }
+    .mv-side-item.hidden{ display:none; }
+    .mv-side-item i{ flex:none; width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center; background:#f6efd9; color:#a88516; font-size:.92rem; }
     @media (hover:hover){
-      .mv-rapido:hover{ transform:translateY(-2px); box-shadow:0 8px 18px rgba(16,29,48,.10); border-color:#e2d3a0; }
+      .mv-rapido:hover{ background:#f6f7f9; }
       .mv-side-item:hover{ border-color:#e2d3a0; box-shadow:0 6px 14px rgba(16,29,48,.07); transform:translateY(-1px); }
     }
     .mv-rapido:active, .mv-side-item:active{ transform:scale(.97); }
-    .mv-dir{ background:#fff; border:1px solid #e1e5eb; border-radius:16px; padding:12px; }
-    .mv-dir .mv-side-group{ color:#16273f; }
+    .mv-dir .mv-grupo:first-of-type{ margin-top:13px; }
     .mv-dir .mv-side-group i{ color:#C9A227; }
-    .mv-dir-panel{ width:100%; display:flex; align-items:center; gap:11px; padding:11px 12px; margin-bottom:8px; border:none; border-radius:12px;
+    .mv-dir .mv-side-item i{ background:#e7ecf3; color:#16273f; }
+    .mv-dir-panel{ width:100%; display:flex; align-items:center; gap:12px; padding:12px 14px; border:none; border-radius:16px;
       background:linear-gradient(135deg,#16273f,#223a5c); color:#fff; font-family:inherit; text-align:left; cursor:pointer; }
-    .mv-dir-panel > i:first-child{ width:36px; height:36px; border-radius:10px; background:rgba(201,162,39,.2); color:#e6c65c; display:flex; align-items:center; justify-content:center; flex:none; }
+    .mv-dir-panel > i:first-child{ width:40px; height:40px; border-radius:12px; background:rgba(201,162,39,.2); color:#e6c65c; display:flex; align-items:center; justify-content:center; flex:none; }
     .mv-dir-tx{ flex:1; min-width:0; }
     .mv-dir-tx strong{ display:block; font-size:.9rem; }
     .mv-dir-tx small{ display:block; font-size:.7rem; color:rgba(255,255,255,.65); margin-top:2px; }
     .mv-dir-go{ color:rgba(255,255,255,.5); font-size:.75rem; }
-    .mv-dir .mv-side-item{ background:#f6f7f9; border-color:#edf0f3; }
-    .mv-dir .mv-side-item i{ background:rgba(22,39,63,.08); color:#16273f; }
     .mv-pend-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 7px; background:#e11d48; color:#fff; border-radius:22px; font-size:.72rem; font-weight:700; }
-    .mv-side-pie{ flex:none; display:flex; gap:8px; padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px)); background:#fff; border-top:1px solid #e6e9ee; }
-    .mv-side-pie button{ flex:1; display:flex; align-items:center; justify-content:center; gap:7px; padding:10px 6px; border-radius:11px; border:1px solid #e1e5eb;
-      background:#fff; color:#4a5565; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; transition:background .15s; }
+    /* Pie: Tutorial y Contraseña livianos, Salir marcado */
+    .mv-side-pie{ flex:none; display:flex; align-items:center; gap:4px; padding:9px 14px calc(9px + env(safe-area-inset-bottom,0px)); background:#fff; border-top:1px solid #e6e9ee; }
+    .mv-side-pie button{ display:flex; align-items:center; gap:6px; padding:8px 10px; border-radius:10px; border:1px solid transparent;
+      background:none; color:#5d6878; font-family:inherit; font-size:.8rem; font-weight:500; cursor:pointer; transition:background .15s; }
     .mv-side-pie button:hover{ background:#f5f6f8; }
-    .mv-side-pie .salir{ color:#c0392b; border-color:#f1d3cf; }
+    .mv-side-pie .salir{ margin-left:auto; color:#c0392b; border-color:#f1d3cf; font-weight:600; }
     .mv-side-pie .salir:hover{ background:#fdf1ef; }
     .mv-soon{ margin-left:auto; font-size:.66rem; letter-spacing:.03em; background:var(--gray-100,#eef0f3); color:var(--gray-500,#8a8a8a); padding:3px 9px; border-radius:999px; font-weight:600; text-transform:uppercase; }
     @media (max-width:640px){
