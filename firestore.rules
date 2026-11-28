@@ -39,9 +39,9 @@ service cloud.firestore {
 
     // AGENTE ASOCIADO: agente de afuera que paga una cuota para publicar en la
     // web. Está aprobado (entra al CRM) pero NO es del equipo: ve y edita solo
-    // sus propiedades, su perfil, su agenda y sus avisos. No ve clientes,
-    // gestiones, finanzas, puntos, tasaciones, cuentas de portales, documentos
-    // ni el resto de la cartera de MALAVE.
+    // sus propiedades, su perfil, su agenda, sus avisos y la Academy. No ve
+    // clientes, gestiones, finanzas, puntos, tasaciones, cuentas de portales,
+    // documentos ni el resto de la cartera de MALAVE.
     // isInterno() es "aprobado y del equipo": va en lugar de isApproved() en todo
     // lo que es solo de MALAVE.
     function esAsociado() {
@@ -294,8 +294,8 @@ service cloud.firestore {
                           || (resource.data.agents is list && request.auth.uid in resource.data.agents)));
       // El admin puede crear con cualquier ownerId: lo necesita la PAPELERA para
       // restaurar propiedades de los agentes (el doc vuelve con su dueño original).
-      // 'asociado' marca la propiedad de un agente asociado: no va a los
-      // portales (functions/index.js) y cuenta para su tope de 50. El asociado
+      // 'asociado' marca la propiedad de un agente asociado: sus consultas le
+      // llegan solo a él (functions/index.js) y cuenta para su tope de 50. El asociado
       // la tiene que crear con asociado == true y con la cuota al día; el resto
       // del equipo, sin la marca. Después nadie la cambia desde el navegador.
       allow create: if esDireccion()
@@ -504,8 +504,9 @@ service cloud.firestore {
       allow read: if isInterno();
       allow write: if esDireccion();
     }
+    // La Academy la ven también los agentes asociados.
     match /academy/{id} {
-      allow read: if isInterno();
+      allow read: if isApproved();
       allow write: if esDireccion();
     }
 

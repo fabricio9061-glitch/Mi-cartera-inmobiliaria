@@ -641,8 +641,8 @@
     document.getElementById('mvSideInteres')?.classList.toggle('hidden', !verDir);
     document.getElementById('mvSideAuditIC')?.classList.toggle('hidden', !verDir);
     // Agente asociado: sin clientes, finanzas, puntos, tasaciones, cuentas,
-    // rentabilidad ni documentos. Le queda su perfil, la agenda y la consulta
-    // "¿ya es cliente de MALAVE?". (Las reglas de Firestore lo bloquean igual.)
+    // rentabilidad ni documentos. Le queda su perfil, la agenda, la Academy y
+    // la consulta "¿ya es cliente de MALAVE?". (Las reglas lo bloquean igual.)
     const asoc = esAsociadoPerfil(perfil);
     document.querySelectorAll('#mvSide [data-equipo]').forEach(el => el.classList.toggle('hidden', asoc));
     document.querySelectorAll('#mvSide [data-asociado]').forEach(el => el.classList.toggle('hidden', !asoc));
@@ -3338,11 +3338,6 @@
   /* opts.conservar: mantiene el resultado de la última acción (se reabre después de actuar).
      opts.portal: abre en esa pestaña (por ejemplo, desde un aviso de error de Mercado Libre). */
   async function openMLModal(propertyId, opts) {
-    const _pa = properties.find(x => x.id === propertyId);
-    if (_pa && _pa.asociado === true) {
-      showToast('Solo en la web', 'Las propiedades de agentes asociados se publican en la web de MALAVE, no en los portales', 'fa-globe');
-      return;
-    }
     const conservar = !!(opts && opts.conservar);
     if (!conservar || mlModalPropId !== propertyId) { for (const k in _portalFlash) delete _portalFlash[k]; }
     if (opts && opts.portal && PORTAL_TABS.some(t => t.key === opts.portal)) _portalTab = opts.portal;
@@ -8577,22 +8572,6 @@
     try { localStorage.setItem('mvTarjetaPortales', plegar ? 'plegado' : 'abierto'); } catch (e) { /* sin almacenamiento: dura hasta recargar */ }
   }
   try { if (localStorage.getItem('mvTarjetaPortales') === 'plegado') document.documentElement.classList.add('tg-plegado'); } catch (e) { /* sin almacenamiento */ }
-  /* La tarjeta de una propiedad de agente asociado: no va a los portales, así
-     que en lugar de los chips de ML, InfoCasas y Casas y Más dice dónde sale. */
-  function barraAsociado(p) {
-    const id = p.id;
-    const st = p.status || 'available';
-    const nota = st === 'archived'
-      ? (p.asociadoExcedido ? 'Guardada sin publicar: llegaste al tope de tu plan.' : 'Dada de baja: no se ve en la web.')
-      : 'Se publica solo en la web de MALAVE (no va a los portales).';
-    return `<div class="tg-barra" onclick="event.stopPropagation()">` +
-      `<div class="tg-nota"><i class="fas fa-globe" aria-hidden="true"></i> ${mvEsc(nota)}</div>` +
-      `<div class="tg-acts">` +
-      `<button type="button" class="tg-b tg-pri" onclick="openPropertyFormTab('${id}')"><i class="fas fa-pen" aria-hidden="true"></i>Editar</button>` +
-      `<button type="button" class="tg-b" onclick="openVisitModal('${id}')"><i class="fas fa-calendar-plus" aria-hidden="true"></i>Agendar visita</button>` +
-      `<button type="button" class="tg-b tg-mas" aria-label="Más acciones" aria-haspopup="menu" aria-expanded="false" onclick="abrirMasAcciones('${id}',this)"><i class="fas fa-ellipsis" aria-hidden="true"></i></button>` +
-      `</div></div>`;
-  }
   // "Mi plan": cuántas propiedades tiene publicadas de las que le permite su plan
   // y hasta cuándo está paga la cuota.
   function pintarPlanAsociado(perfil) {
@@ -8632,12 +8611,12 @@
     const p = properties.find(x => x.id === id); if (!p) return;
     const baja = (p.status || 'available') !== 'archived';
     const ok = confirm(baja
-      ? '¿Dar de baja "' + (p.title || 'esta propiedad') + '"?\n\nDeja de verse en la web y libera un lugar de tu plan. La podés volver a publicar cuando quieras.'
-      : '¿Volver a publicar "' + (p.title || 'esta propiedad') + '" en la web?');
+      ? '¿Dar de baja "' + (p.title || 'esta propiedad') + '"?\n\nDeja de verse en la web y en los portales, y libera un lugar de tu plan. La podés volver a publicar cuando quieras.'
+      : '¿Volver a publicar "' + (p.title || 'esta propiedad') + '" en la web y los portales?');
     if (!ok) return;
     try {
       await db.collection('properties').doc(id).update({ status: baja ? 'archived' : 'available', updatedAt: new Date().toISOString() });
-      showToast(baja ? 'Dada de baja' : 'Publicada', baja ? 'Ya no se ve en la web' : 'Vuelve a verse en la web', 'fa-check');
+      showToast(baja ? 'Dada de baja' : 'Publicada', baja ? 'Sale de la web y de los portales' : 'Vuelve a la web y a los portales', 'fa-check');
     } catch (e) {
       console.error('cambiarBajaAsociado:', e);
       showToast('No se pudo', (e && e.code) === 'permission-denied' ? 'Revisá que tu cuota esté al día' : 'Probá de nuevo en un rato', 'fa-circle-exclamation');
@@ -8649,7 +8628,6 @@
   }
   function barraGestion(p) {
     const id = p.id;
-    if (p.asociado === true) return barraAsociado(p);
     const ml = tgEstadoML(p), ic = tgEstadoIC(p), cm = tgEstadoCM(p);
     // Un solo aviso por tarjeta: el primero que haya que resolver.
     const prob = [['infocasas', ic], ['casasymas', cm], ['ml', ml]].find(x => x[1].prob);
@@ -8705,13 +8683,14 @@
       `<i class="${ic}" aria-hidden="true"></i><span>${txt}<small>${sub}</small></span></button>`;
     let html = `<div class="ma-cab"><div class="ma-asa" aria-hidden="true"></div><div class="ma-tit">Más acciones</div><div class="ma-sub">${mvEsc(p.title || '')}</div></div>`;
     if (p.asociado === true && !dirV) {
-      // Agente asociado: sin destacados ni portales; la baja la hace él.
+      // Agente asociado: sin destacados; la baja la hace él (los portales la bajan solos).
       html += op('compartir', 'fas fa-share-nodes', 'Compartir', 'Con foto en WhatsApp y redes');
+      html += op('portales', 'fas fa-bullhorn', 'Portales', 'Mercado Libre, InfoCasas y Casas y Más');
       html += op('ficha', 'fas fa-arrow-up-right-from-square', 'Ver ficha pública', 'Como la ve el cliente');
       html += '<div class="ma-sep" role="separator"></div>';
       html += st === 'archived'
         ? op('bajaAsociado', 'fas fa-rotate-left', 'Volver a publicar', 'Ocupa un lugar de tu plan')
-        : op('bajaAsociado', 'fas fa-circle-stop', 'Dar de baja', 'Deja de verse en la web');
+        : op('bajaAsociado', 'fas fa-circle-stop', 'Dar de baja', 'Sale de la web y de los portales');
     } else {
     html += op('destacar', 'fas fa-star', dest ? 'Cambiar o quitar el destacado' : 'Destacar en la web',
       dest ? `Destacada: vence en ${dias} día${dias === 1 ? '' : 's'}` : 'Aparece primero en la web', 'oro');

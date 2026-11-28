@@ -148,10 +148,11 @@ const NIVEL_RANGO = {
 };
 
 // ===== Agente asociado (espejo de rangos.js) =====
-// Agente de afuera que paga una cuota para publicar en la web. Sus propiedades
-// llevan asociado: true (lo exige firestore.rules al crearlas): no van a
-// Mercado Libre, InfoCasas ni Casas y Más, y tiene un tope de propiedades
-// en el mercado a la vez.
+// Agente de afuera que paga una cuota para publicar. Sus propiedades llevan
+// asociado: true (lo exige firestore.rules al crearlas). Van a la web y a los
+// tres portales como las demás, con su nombre y su contacto, pero las consultas
+// le llegan SOLO a él: ni a la Dirección ni al CRM de MALAVE (no se crean
+// clientes ni gestiones). Tiene un tope de propiedades en el mercado a la vez.
 const RANGO_ASOCIADO = "agente_asociado";
 const ASOCIADO_MAX_PROPIEDADES = 50;
 function esPropiedadDeAsociado(p) { return !!p && p.asociado === true; }
@@ -781,7 +782,8 @@ exports.procesarEventoML = onDocumentCreated("mlEventos/{id}", async (event) => 
     // La consulta va al agente dueño Y a la Dirección (CEO y COO), que supervisan
     // que nadie quede sin responder. Antes acá solo se sumaba getAdminUser(), o sea
     // el CEO: por eso al COO no le llegaban las consultas de los demás agentes.
-    for (const u of await getDireccion()) {
+    // Propiedad de un agente asociado: la consulta es solo suya.
+    if (!esPropiedadDeAsociado(p)) for (const u of await getDireccion()) {
       if (!destinos.some((d) => d.uid === u.uid)) destinos.push(u);
     }
     // Segunda red, independiente de la guardia de arriba: el id de la notificación
@@ -2716,13 +2718,8 @@ exports.notificarEstadoCanje = onDocumentUpdated("canjes/{id}", async (event) =>
 //   - cuenta aprobada (o ser el admin),
 //   - y ser el agente dueño de la propiedad (o el admin).
 // =====================================================================
-async function exigirAgente(request, p, opciones) {
+async function exigirAgente(request, p) {
   if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
-  // Las propiedades de los agentes asociados no van a los portales: ningún
-  // botón de portales hace nada con ellas (pedir la baja, sí).
-  if (esPropiedadDeAsociado(p) && !(opciones && opciones.permitirAsociado)) {
-    throw new HttpsError("failed-precondition", "Las propiedades de agentes asociados se publican solo en la web de MALAVE, no en los portales.");
-  }
   const uid = request.auth.uid;
   const email = String(request.auth.token.email || "").toLowerCase();
   // Antes acá sólo pasaba el correo del CEO. Ahora pasa Dirección (CEO y COO):
@@ -3445,7 +3442,7 @@ exports.pedirBajaPropiedad = onCall(async (request) => {
   const doc = await ref.get();
   if (!doc.exists) throw new HttpsError("not-found", "La propiedad no existe.");
   const p = doc.data();
-  const { uid } = await exigirAgente(request, p, { permitirAsociado: true }); // agente dueño del aviso, o admin
+  const { uid } = await exigirAgente(request, p); // agente dueño del aviso, o admin
   if (p.despubPendiente === true) {
     throw new HttpsError("already-exists", "Ya hay un pedido de baja esperando la decisión del administrador.");
   }
@@ -4827,7 +4824,8 @@ async function cymAvisarConsulta(n, clave, origen) {
     const dueno = await db.doc(`users/${p.ownerId}`).get();
     if (dueno.exists) destinos.push({ uid: p.ownerId, ...dueno.data() });
   }
-  for (const u of await getDireccion()) {
+  // Propiedad de un agente asociado: la consulta es solo suya.
+  if (!esPropiedadDeAsociado(p)) for (const u of await getDireccion()) {
     if (!destinos.some((d) => d.uid === u.uid)) destinos.push(u);
   }
   let avisados = 0;
@@ -9512,7 +9510,10 @@ async function icProcesarLead(n, origen) {
         if (u.exists) { ownerName = u.data().name || ""; destinos.push({ uid: u.id, ...u.data() }); }
       } catch (e) { /* sin perfil */ }
     }
-    for (const u of await getDireccion()) {
+    // Propiedad de un agente asociado: la consulta es solo suya (ni la Dirección
+    // ni el CRM de MALAVE: no se crea cliente ni gestión).
+    const deAsociado = esPropiedadDeAsociado(prop);
+    if (!deAsociado) for (const u of await getDireccion()) {
       if (!destinos.some((d) => d.uid === u.uid)) destinos.push(u);
     }
 
@@ -9520,7 +9521,7 @@ async function icProcesarLead(n, origen) {
     // teléfono, por correo. Sin ninguno de los dos no hay a quién llamar: no se crea.
     const nombre = n.nombre || "Consulta InfoCasas";
     let clientId = null, clienteExistia = false;
-    if (telNorm || mail) {
+    if ((telNorm || mail) && !deAsociado) {
       const cs = await db.collection("clients").get();
       for (const d of cs.docs) {
         const c = d.data() || {};
@@ -14531,17 +14532,17 @@ exports.actualizarMetricasCYM = onCall({ timeoutSeconds: 300 }, async (request) 
    Dirección sí, cuando libere un lugar. */
 const ESTADOS_EN_MERCADO = ["available", "reserved", "tasacion", "tasado"];
 const controlarCupoAsociado = async (event) => {   // corre dentro de alCambiarPropiedad
-  const ch = event.data;
+  const ch = event.data;   // el cambio entero (antes y después)
   const despues = ch && ch.after && ch.after.exists ? ch.after.data() : null;
-  if (!esPropiedadDeAsociado(despues) || !despues.ownerId) return;
+  if (!esPropiedadDeAsociado(despues) || !despues.ownerId) return false;
   const antes = ch.before && ch.before.exists ? ch.before.data() : null;
   const enMercado = (p) => !!p && ESTADOS_EN_MERCADO.includes(p.status || "available");
-  if (!enMercado(despues) || enMercado(antes)) return;   // solo cuando ENTRA al mercado
+  if (!enMercado(despues) || enMercado(antes)) return false;   // solo cuando ENTRA al mercado
   const id = event.params.id;
   const q = await db.collection("properties")
     .where("ownerId", "==", despues.ownerId).where("asociado", "==", true).get();
   const otras = q.docs.filter((d) => d.id !== id && enMercado(d.data())).length;
-  if (otras < ASOCIADO_MAX_PROPIEDADES) return;
+  if (otras < ASOCIADO_MAX_PROPIEDADES) return false;
   await ch.after.ref.update({ status: "archived", asociadoExcedido: true, updatedAt: new Date().toISOString() });
   try {
     const u = await db.doc(`users/${despues.ownerId}`).get();
@@ -14555,8 +14556,9 @@ const controlarCupoAsociado = async (event) => {   // corre dentro de alCambiarP
       }, { title: "Llegaste al tope de propiedades", body: despues.title || "" }, `asociado_tope_${id}_${Date.now()}`);
     }
   } catch (e) { logger.warn(`controlarCupoAsociado ${id}: no se pudo avisar:`, e.message); }
+  return true;
 };
-// Las partes que hablan con los portales: no corren para propiedades de asociados.
+// Las partes que hablan con los portales: no corren cuando el tope acaba de bajar la propiedad.
 const PARTES_DE_PORTALES = [
   "publicarEnML", "publicarAutoCasasYMasAlCrear", "publicarAutoInfocasasAlCrear",
   "sincronizarEdicionML", "publicarAutoCasasYMas", "publicarAutoInfocasas",
@@ -14585,7 +14587,6 @@ const PARTES_PROPIEDAD = {
   // La vitrina escuchaba crear, editar y borrar (onDocumentWritten): recibe el cambio entero.
   siempre: [
     ["sincronizarVitrina", sincronizarVitrina],
-    ["controlarCupoAsociado", controlarCupoAsociado],
   ],
 };
 
@@ -14601,9 +14602,17 @@ async function repartirCambioPropiedad(event, partes = PARTES_PROPIEDAD) {
   else if (existiaAntes && !existeAhora) { tipo = "borrar"; data = change.before; } // como onDocumentDeleted
   else return [];
   const evParte = { ...event, data };
-  // Propiedad de un agente asociado: no toca ningún portal.
+  /* Propiedad de un agente asociado: primero el tope. Si con esta pasa el tope,
+     queda Dada de baja y en esta vuelta no se manda a ningún portal (si no, se
+     publicaría y enseguida se bajaría). */
   const pd = (existeAhora ? change.after.data() : change.before.data()) || {};
-  const saltear = esPropiedadDeAsociado(pd) ? PARTES_DE_PORTALES : [];
+  let saltear = [];
+  if (esPropiedadDeAsociado(pd) && tipo !== "borrar") {
+    let bajada = false;
+    try { bajada = await controlarCupoAsociado(event); }
+    catch (e) { logger.error(`alCambiarPropiedad/controlarCupoAsociado ${event.params && event.params.id}:`, e); }
+    if (bajada) saltear = PARTES_DE_PORTALES;
+  }
   const lista = [
     ...(partes[tipo] || []).filter(([n]) => !saltear.includes(n)).map(([n, fn]) => [n, fn, evParte]),
     ...(partes.siempre || []).filter(([n]) => !saltear.includes(n)).map(([n, fn]) => [n, fn, event]),

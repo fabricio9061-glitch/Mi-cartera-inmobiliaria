@@ -856,8 +856,8 @@
     storage.setMaxUploadRetryTime(60000);
     storage.setMaxOperationRetryTime(30000);
 
-    // Agente asociado (paga para publicar en la web): sus fotos van SIN la marca
-    // de agua de MALAVE, la propiedad no va a los portales y tiene tope de 50.
+    // Agente asociado (paga para publicar): sus fotos van SIN la marca de agua de
+    // MALAVE y tiene tope de 50 propiedades publicadas. Va a la web y a los portales.
     let esAsociado = false;
     const ASOCIADO_MAX = 50;   // el mismo de rangos.js y functions/index.js
     let currentUser = null, userProfile = null, selectedImages = [], draggedImageIndex = null, editingProperty = null, formClientId = null;
@@ -5926,7 +5926,6 @@
       return r.bottom > 0 && r.top < window.innerHeight && r.height > 0;
     }
     function confirmarPortales() {
-      if (esAsociado) return true;   // no va a los portales: no hay nada que revisar
       try { return revisarAntesDeGuardar(); }
       catch (e) { console.warn('[revisión antes de guardar]', e); return true; }   // un error acá nunca frena el guardado
     }
@@ -6203,10 +6202,6 @@
           showState('ppfErr', { msg: 'Tu cuota de agente asociado está vencida. Cuando se renueve vas a poder subir y editar propiedades de nuevo.' });
           return;
         }
-        // En el paso 8 no hay portales que revisar: sale solo en la web de MALAVE.
-        const rev = document.getElementById('pfRevision'); if (rev) rev.style.display = 'none';
-        const cab = document.querySelector('#sec8 .pf-sec-head small');
-        if (cab) cab.textContent = 'Se publica en la web de MALAVE. Las propiedades de agentes asociados no van a los portales.';
       }
       initDepartamentos();
       renderFicha();
