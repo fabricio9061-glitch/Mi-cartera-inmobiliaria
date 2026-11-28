@@ -14,7 +14,8 @@
    - Si la persona pidió "reducir movimiento" en su equipo, no aparece.
    - En el inicio, cuando un agente tiene la sesión abierta (ve el CRM),
      tampoco aparece.
-   - Para probarlo fuera de fecha: agregar ?nieve=1 a la dirección.
+   - Para probarlo fuera de fecha: agregar ?nieve=1 a la dirección (así
+     se ve también con la sesión de agente abierta).
      ?nieve=0 lo apaga en esa visita.
 
    Lo cargan: index, propiedad, vender, trabaja, gastos, calculadora de
@@ -116,7 +117,7 @@
 
       if (t - ultimoChequeo > 1000) {        // una vez por segundo alcanza
         ultimoChequeo = t;
-        oculto = hayAgente();
+        oculto = q !== '1' && hayAgente();
         cv.style.display = oculto ? 'none' : '';
       }
       if (!oculto) {
