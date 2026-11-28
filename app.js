@@ -4733,6 +4733,8 @@
       // crea uno nuevo si está finalizado. Con el aviso activo, la actualización
       // ya es automática al editar (sincronizarEdicionML).
       (d.status === 'paused' || d.status === 'closed') && { id: 'publicar', texto: 'Republicar', icono: 'fa-rotate-right', tipo: 'primary', onclick: 'republicarPropiedad()', cap: 'canRepublish' },
+      // Aviso trabado esperando cupo: ML no deja reactivarlo ni cerrarlo. La Dirección puede publicar uno nuevo y dejar ese.
+      mlEsperaCupo(d) && isAdminUser() && { id: 'nuevo', texto: 'Publicar uno nuevo', icono: 'fa-plus', tipo: 'ghost', onclick: 'republicarPropiedad(true)', cap: 'canRepublish' },
       // Baja solo de Mercado Libre (Dirección). Es irreversible: portalBaja lo advierte.
       // Pausar (solo Dirección): deja de verse y se deshace con Republicar.
       d.status === 'active' && { id: 'pausar', texto: 'Pausar', icono: 'fa-pause', tipo: 'ghost', onclick: 'pausarAvisoML(true)', cap: 'canDeactivate' },
@@ -4741,7 +4743,7 @@
     // Motivo que da Mercado Libre (sub_status). Vacío = la pausa la hizo alguien
     // (CRM o web de ML) y Republicar la levanta. Mismo texto que el backend.
     const ML_SUBSTATUS_TXT = {
-      pack_quota_pending: 'Tu plan de Mercado Libre no tiene cupo libre, por eso el aviso nunca llegó a publicarse. Liberá un lugar (finalizá otro aviso) o ampliá el plan en Mercado Libre y después tocá Republicar.',
+      pack_quota_pending: 'Mercado Libre dejó el aviso esperando un lugar del plan y nunca lo activó. Si el plan tiene lugares libres, es una traba de Mercado Libre: pediles en Ayuda que lo destraben, o publicá uno nuevo en su lugar.',
       out_of_stock: 'Tu plan de Mercado Libre no tiene cupo libre. Liberá un lugar o ampliá el plan y después tocá Republicar.',
       expired: 'El aviso venció en Mercado Libre.',
       suspended: 'Mercado Libre lo suspendió (suele ser un pago pendiente o un problema de la cuenta).',
@@ -4864,7 +4866,7 @@
     else if (c.tipos) li.push('Mercado Libre no ofrece ningún tipo de aviso con lugar libre en esta categoría.');
     if (c.activos != null || c.pausados != null) li.push(`En la cuenta hay <strong>${c.activos ?? '?'}</strong> avisos activos y <strong>${c.pausados ?? '?'}</strong> pausados. Los pausados también pueden ocupar lugar del plan.`);
     if (c.sinCRM) li.push(`<strong>${c.sinCRM}</strong> de esos avisos no están vinculados a ninguna propiedad del CRM (duplicados viejos o cargados a mano). Finalizarlos en Mercado Libre libera lugar` + (isAdminUser() && c.sinCRMIds && c.sinCRMIds.length ? `: ${mvEsc(c.sinCRMIds.join(', '))}${c.sinCRM > c.sinCRMIds.length ? '…' : ''}` : '') + '.');
-    li.push('El plan reparte el cupo por tipo de aviso (Plata, Oro…): si el de Plata está lleno, este aviso espera aunque el total del plan sea mayor.');
+    li.push('El plan puede repartir el cupo por tipo de aviso (Plata, Oro…): si el de Plata está lleno, este aviso espera aunque el total del plan sea mayor. Si hay lugares libres del tipo del aviso, es una traba de Mercado Libre: reclamá en Ayuda con el código del aviso o usá <strong>Publicar uno nuevo</strong>.');
     return `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-box-open"></i><div><strong>Por qué no hay cupo</strong><ul style="margin:6px 0 0 18px;padding:0">${li.map(x => `<li>${x}</li>`).join('')}</ul></div></div></div>`;
   }
   function portalesVivos(d) {
@@ -4897,8 +4899,9 @@
     return `<div class="pm-baja"><div class="pm-baja-txt"><strong>Sacar de circulación:</strong> da de baja el aviso en <strong>${mvEsc(donde)}</strong>.${vivos.includes('ml') ? ' En Mercado Libre es irreversible.' : ''}</div>` +
       `<div class="ml-btns">${botonesBaja.join('')}</div>` + bajaHint + '</div>';
   }
-  async function republicarPropiedad() {
+  async function republicarPropiedad(nuevo) {
     if (!mlModalPropId || _portalBusy.ml) return;
+    if (nuevo && !confirm('¿Publicar un aviso NUEVO en Mercado Libre para esta propiedad?\n\nEl trabado no se ve, así que no queda duplicado a la vista. Si Mercado Libre lo destraba más adelante, finalizalo desde Mercado Libre para no tener dos.')) return;
     const sel = document.getElementById('mlTipoAviso');
     const listingType = sel ? sel.value : null;
     const id = mlModalPropId;
@@ -4906,7 +4909,7 @@
     delete _portalFlash.ml;
     repintarPortal('ml');
     try {
-      await firebase.functions().httpsCallable('republicarML')({ propertyId: id, listingType });
+      await firebase.functions().httpsCallable('republicarML')({ propertyId: id, listingType, nuevo: !!nuevo });
       _portalFlash.ml = { tono: 'ok', texto: 'Listo: el aviso se envió a Mercado Libre.' };
       showToast('Mercado Libre', 'El aviso se envió a Mercado Libre', 'fa-tag');
     } catch (e) {

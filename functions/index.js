@@ -294,7 +294,7 @@ function resumirErrorML(detail) {
 // la pausa la puso Mercado Libre y no se levanta desde la API: hay que
 // resolverlo en Mercado Libre (o, si es el cupo, liberar lugar en el plan).
 const ML_SUBSTATUS_TXT = {
-  pack_quota_pending: "Tu plan de Mercado Libre no tiene cupo libre, por eso el aviso nunca llegó a publicarse. Liberá un lugar (finalizá otro aviso) o ampliá el plan en Mercado Libre y después tocá Republicar.",
+  pack_quota_pending: "Mercado Libre dejó el aviso esperando un lugar del plan y nunca lo activó. Si el plan tiene lugares libres, es una traba de Mercado Libre: pediles en Ayuda que lo destraben, o publicá uno nuevo en su lugar.",
   out_of_stock: "Tu plan de Mercado Libre no tiene cupo libre. Liberá un lugar o ampliá el plan y después tocá Republicar.",
   expired: "El aviso venció en Mercado Libre.",
   suspended: "Mercado Libre suspendió el aviso (suele ser por un pago pendiente o un problema de la cuenta).",
@@ -3076,7 +3076,10 @@ exports.republicarML = onCall(async (request) => {
   const doc = await ref.get();
   if (!doc.exists) throw new HttpsError("not-found", "La propiedad no existe.");
   const p = doc.data();
-  await exigirAgente(request, p);
+  const { esAdmin } = await exigirAgente(request, p);
+  // "Publicar uno nuevo" (solo Dirección): para un aviso que ML dejó trabado
+  // esperando cupo (pack_quota_pending) y que no deja ni reactivar ni cerrar.
+  const nuevo = !!(request.data && request.data.nuevo);
   const token = await getValidToken();
   const headers = { Authorization: `Bearer ${token}`, "content-type": "application/json" };
   // Si ya hay aviso, decidir según su estado y el tipo elegido.
@@ -3088,6 +3091,17 @@ exports.republicarML = onCall(async (request) => {
       const tipoActual = r.data.listing_type_id;
       if (st === "closed") {
         recrear = true; // se recrea más abajo
+      } else if (nuevo && (r.data.sub_status || []).includes("pack_quota_pending")) {
+        if (!esAdmin) throw new HttpsError("permission-denied", "Publicar un aviso nuevo en lugar del trabado lo hace la Dirección.");
+        // El trabado queda anotado como abandonado: así el rescate por SKU no lo
+        // vuelve a adoptar y queda registro por si ML lo activa más adelante
+        // (en ese caso hay que finalizarlo a mano para no tener dos).
+        await ref.update({
+          mlAbandonados: admin.firestore.FieldValue.arrayUnion(p.mlItemId),
+          mlTrabados: admin.firestore.FieldValue.arrayUnion(p.mlItemId),
+        });
+        await registrarLog(propertyId, "aviso trabado (pack_quota_pending) reemplazado por uno nuevo", true, p.mlItemId);
+        recrear = true;
       } else if (listingType && listingType !== tipoActual) {
         // El agente eligió OTRO tipo de aviso: se cierra (o elimina, si está
         // impago) el actual y se crea uno nuevo con el tipo elegido.
