@@ -419,6 +419,20 @@ service cloud.firestore {
       return esAsociado() && isApproved()
           && (c.get('createdBy', '') == request.auth.uid || c.get('agentId', '') == request.auth.uid);
     }
+    // "También lo trabajan" (enLista): cada agente se suma o se saca SOLO a sí
+    // mismo. Sacar a OTRO agente (por ejemplo, uno que quedó por error) es de la
+    // Dirección. Se mira qué entradas salieron y cuáles entraron: a lo sumo una
+    // de cada lado, y las dos tienen que ser del que escribe (al volver a
+    // sumarse, su entrada vieja sale y entra la nueva).
+    function enListaSoloLaMia() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['enLista'])
+          || (soloMiaEn(resource.data.get('enLista', []).removeAll(request.resource.data.get('enLista', [])))
+              && soloMiaEn(request.resource.data.get('enLista', []).removeAll(resource.data.get('enLista', []))));
+    }
+    function soloMiaEn(l) {
+      return l.size() == 0
+          || (l.size() == 1 && l[0] is map && l[0].get('uid', '') == request.auth.uid);
+    }
     match /clients/{clientId} {
       allow read: if isInterno() || esClienteDelAsociado(resource.data);
       allow create: if isInterno()
@@ -426,8 +440,10 @@ service cloud.firestore {
                         && request.resource.data.get('createdBy', '') == request.auth.uid
                         && request.resource.data.get('agentId', request.auth.uid) == request.auth.uid
                         && request.resource.data.get('ownerId', request.auth.uid) == request.auth.uid);
-      allow update: if isInterno()
+      allow update: if esDireccion()
+                    || (isInterno() && enListaSoloLaMia())
                     || (esClienteDelAsociado(resource.data)
+                        && enListaSoloLaMia()
                         && !request.resource.data.diff(resource.data).affectedKeys()
                              .hasAny(['createdBy', 'agentId', 'ownerId']));
       allow delete: if esDireccion();

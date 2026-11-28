@@ -451,6 +451,10 @@
     .cp-lista{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-top:12px; font-size:.8rem; color:rgba(255,255,255,.72); }
     .cp-lista b{ color:#fff; font-weight:600; }
     .cp-lista .cp-ag{ display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.1); border-radius:99px; padding:4px 11px 4px 4px; }
+    .cp-lista .cp-ag.con-x{ padding-right:4px; }
+    .cp-lista .cp-ag-x{ width:20px; height:20px; border-radius:50%; border:0; background:transparent; color:rgba(255,255,255,.6); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:.72rem; padding:0; margin-left:2px; }
+    .cp-lista .cp-ag-x:hover{ background:rgba(229,72,77,.85); color:#fff; }
+    .cp-lista .cp-ag-x i{ width:auto; height:auto; background:none; color:inherit; font-size:inherit; }
     .cp-lista .cp-ag i{ width:20px; height:20px; border-radius:50%; background:var(--gold); color:var(--navy); display:flex; align-items:center; justify-content:center; font-size:.6rem; font-style:normal; font-weight:700; }
     /* Quiénes lo tienen, también en la tarjeta: se ve de un vistazo sin entrar. */
     .cc-enlista{ display:inline-flex; align-items:center; gap:4px; margin-left:9px; }
@@ -3957,6 +3961,7 @@
         else if (e.tipo === 'etapa') add('fa-arrow-trend-up', 'Avance → <b>'+v+'</b>', e.fecha, e.autor);
         else if (e.tipo === 'gestion_borrada') add('fa-trash-can', 'Borraron la gestión de <b>'+v+'</b>', e.fecha, e.autor);
         else if (e.tipo === 'lista_salio') add('fa-user-minus', '<b>'+v+'</b> lo sacó de su lista', e.fecha, e.autor);
+        else if (e.tipo === 'lista_quitado') add('fa-user-xmark', 'La Dirección sacó a <b>'+v+'</b> de este cliente', e.fecha, e.autor);
         else if (e.tipo === 'descartada') add('fa-ban', 'Consulta <b>descartada</b>' + (MOTIVOS_DESCARTE[e.valor] ? ' <span class="cp-activity-nota">('+esc(MOTIVOS_DESCARTE[e.valor])+')</span>' : ''), e.fecha, e.autor);
         else if (e.tipo === 'recuperada') add('fa-rotate-left', 'Consulta <b>recuperada</b>', e.fecha, e.autor);
         else if (v) add('fa-circle-info', v, e.fecha, e.autor);
@@ -5667,8 +5672,48 @@
       var otros = listaDe(c).filter(function(x){ return x.uid !== c.createdBy; });
       caja.innerHTML = otros.length
         ? '<span>También lo trabajan:</span>' +
-          otros.map(function(x){ return '<span class="cp-ag"><i>'+esc(iniciales(x.nombre))+'</i>'+esc(x.nombre)+'</span>'; }).join('')
+          otros.map(function(x){
+            // La Dirección puede sacar a un agente que quedó por error. Al que
+            // está mirando no: para eso tiene su propio botón de la lista.
+            var x_ = (esDir && currentUser && x.uid !== currentUser.uid)
+              ? '<button type="button" class="cp-ag-x" title="Quitar a '+escA(x.nombre||'este agente')+' de este cliente" onclick="quitarDeLista(\''+escA(c.id)+'\',\''+escA(x.uid)+'\')"><i class="fas fa-xmark"></i></button>'
+              : '';
+            return '<span class="cp-ag'+(x_?' con-x':'')+'"><i>'+esc(iniciales(x.nombre))+'</i>'+esc(x.nombre)+x_+'</span>';
+          }).join('')
         : '';
+    }
+
+    // Dirección: saca a OTRO agente de "También lo trabajan" (por ejemplo, si se
+    // sumó al cliente por error). Sus gestiones con este cliente NO se tocan:
+    // siguen siendo suyas, y si hay que moverlas se traspasan aparte.
+    function quitarDeLista(clientId, uid){
+      if (!esDir || !currentUser || !uid || uid === currentUser.uid) return;
+      var c = null; for (var i=0;i<clients.length;i++){ if(clients[i].id===clientId){ c=clients[i]; break; } }
+      if (!c) return;
+      var quien = listaDe(c).filter(function(x){ return x && x.uid === uid; })[0];
+      if (!quien) return;
+      var nombre = quien.nombre || 'este agente';
+      var suyas = (currentProfileId === clientId ? _gestionesPerfil : []).filter(function(g){ return duenioGestion(g) === uid; }).length;
+      var msj = '¿Quitar a ' + nombre + ' de ' + (c.name || 'este cliente') + '?\n\n'
+        + 'Deja de figurar en "También lo trabajan" y el cliente ya no le aparece en "Mis clientes".'
+        + (suyas ? '\n\nOjo: tiene ' + suyas + (suyas === 1 ? ' gestión' : ' gestiones') + ' con este cliente. Esas NO se borran: siguen a su nombre.' : '')
+        + '\n\nQueda anotado en la actividad del cliente.';
+      if (!confirm(msj)) return;
+      var ref = db.collection('clients').doc(clientId);
+      var reg = entradaRegistro('lista_quitado', nombre);
+      // Con el documento fresco, igual que al salir de la lista: no pisar a otro
+      // agente que se haya sumado mientras tanto.
+      ref.get().then(function(s){
+        var d = s.exists ? s.data() : {};
+        var nueva = (Array.isArray(d.enLista) ? d.enLista : []).filter(function(x){ return x && x.uid !== uid; });
+        return ref.update({ enLista: nueva, registro: firebase.firestore.FieldValue.arrayUnion(reg) }).then(function(){ return nueva; });
+      }).then(function(nueva){
+        c.enLista = nueva;
+        sumarRegistroLocal(c, reg);
+        showToast(nombre + ' ya no figura en este cliente');
+        pintarLista(c);
+        renderClients();
+      }).catch(function(e){ console.error(e); showToast('No se pudo quitar'); });
     }
 
 
