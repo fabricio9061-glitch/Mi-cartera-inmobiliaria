@@ -68,7 +68,7 @@ exports.checkClientPhone = onCall(async (request) => {
   if (asociado) {
     const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);   // día de Uruguay
     const lim = admin.firestore().doc(`limitesConsultas/${uid}`);
-    const TOPE = 30;
+    const TOPE = 60;
     await admin.firestore().runTransaction(async (tx) => {
       const l = await tx.get(lim);
       const d = l.exists ? l.data() : {};
@@ -83,7 +83,12 @@ exports.checkClientPhone = onCall(async (request) => {
   for (const doc of snap.docs) {
     if (doc.id === excludeId) continue;
     const c = doc.data();
-    if (normalizarTel(c.phone) === phone) {
+    // Los clientes del propio asociado no son "de MALAVE".
+    if (asociado && (c.createdBy === uid || c.agentId === uid)) continue;
+    // El número se guarda partido (areaCode + phone) y también entero
+    // (phoneNormalized); los clientes viejos o de portales pueden tener solo uno.
+    const claves = [c.phoneNormalized, c.phone, String(c.areaCode || "") + String(c.phone || "")].map(normalizarTel);
+    if (claves.includes(phone)) {
       if (asociado) return { exists: true };
       return {
         exists: true,
@@ -94,6 +99,48 @@ exports.checkClientPhone = onCall(async (request) => {
     }
   }
   return { exists: false };
+});
+
+/* AGENTE ASOCIADO — Mapa de cierres: además de los suyos, ve los puntos de las
+   ventas y alquileres que cerró MALAVE, como referencia de precios por barrio.
+   Las reglas no le dejan leer esas propiedades, así que se le mandan desde acá
+   y solo lo que sirve de referencia: dónde, qué, cuánto y cuándo. Nada del
+   agente, la comisión, el cliente, la seña ni los recibos. */
+exports.cierresDeReferencia = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Tenés que iniciar sesión.");
+  const yo = await admin.firestore().doc(`users/${uid}`).get();
+  if (!(yo.exists && yo.data().status === "approved")) {
+    throw new HttpsError("permission-denied", "Tu cuenta no está aprobada.");
+  }
+  const num = (v) => (v != null && v !== "" && isFinite(Number(v)) ? Number(v) : null);
+  const snap = await admin.firestore().collection("properties").where("cierre.lat", ">=", -90).get();
+  const cierres = [];
+  snap.docs.forEach((d, i) => {
+    const p = d.data();
+    if (p.cierreConfirmado !== true || p.asociado === true) return;
+    const c = p.cierre || {};
+    const lat = num(c.lat), lng = num(c.lng);
+    if (lat == null || lng == null) return;
+    cierres.push({
+      ref: "ref" + i,
+      title: String(p.title || "").slice(0, 140),
+      foto: (Array.isArray(p.images) && typeof p.images[0] === "string") ? p.images[0] : "",
+      cierre: {
+        lat, lng,
+        tipo: c.tipo === "alquiler" ? "alquiler" : "venta",
+        precio: num(c.precio),
+        moneda: c.moneda === "UYU" ? "UYU" : "USD",
+        fecha: String(c.fecha || "").slice(0, 10),
+        barrio: String(c.barrio || "").slice(0, 80),
+        realEstateType: String(c.realEstateType || "").slice(0, 60),
+        m2: num(c.m2),
+        dormitorios: num(c.dormitorios),
+        banos: num(c.banos),
+      },
+    });
+  });
+  return { cierres };
 });
 const db = admin.firestore();
 setGlobalOptions({ region: "us-central1", maxInstances: 10 });
