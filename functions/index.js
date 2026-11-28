@@ -152,7 +152,9 @@ const NIVEL_RANGO = {
 // asociado: true (lo exige firestore.rules al crearlas). Van a la web y a los
 // tres portales como las demás, con su nombre y su contacto, pero las consultas
 // le llegan SOLO a él: ni a la Dirección ni al CRM de MALAVE (no se crean
-// clientes ni gestiones). Tiene un tope de propiedades en el mercado a la vez.
+// clientes ni gestiones). Tiene su propio CRM (solo sus clientes) y confirma él
+// mismo la firma de sus operaciones, que no suman en los números de MALAVE.
+// Tiene un tope de propiedades en el mercado a la vez.
 const RANGO_ASOCIADO = "agente_asociado";
 const ASOCIADO_MAX_PROPIEDADES = 50;
 function esPropiedadDeAsociado(p) { return !!p && p.asociado === true; }
@@ -6720,6 +6722,8 @@ const avisarCierre = async (event) => {   // corre dentro de alCambiarPropiedad
 
   // 2) Operación nueva, pendiente de confirmar.
   if (!cD || after.cierreConfirmado === true) return;
+  // Agente asociado: la firma la confirma él mismo; la Dirección no interviene.
+  if (esPropiedadDeAsociado(after)) return;
   const nuevo = !cA || String(cA.registradoEl || "") !== String(cD.registradoEl || "");
   if (!nuevo) return;
   const tipo = cD.tipo === "alquiler" ? "alquiler" : "venta";
@@ -6769,6 +6773,8 @@ const avisarReserva = async (event) => {   // corre dentro de alCambiarPropiedad
   // Si la reserva se registró en el Mapa de cierres (con precio y ganancia), el aviso
   // lo manda avisarCierre, con el botón para confirmar la firma: acá no se repite.
   if (after.cierre && typeof after.cierre === "object" && after.cierreConfirmado !== true) return;
+  // Agente asociado: sus reservas son cosa suya, no se le avisa a la Dirección.
+  if (esPropiedadDeAsociado(after)) return;
 
   const id = event.params.id;
   const uSnap = after.ownerId ? await db.doc(`users/${after.ownerId}`).get() : null;
@@ -9510,8 +9516,9 @@ async function icProcesarLead(n, origen) {
         if (u.exists) { ownerName = u.data().name || ""; destinos.push({ uid: u.id, ...u.data() }); }
       } catch (e) { /* sin perfil */ }
     }
-    // Propiedad de un agente asociado: la consulta es solo suya (ni la Dirección
-    // ni el CRM de MALAVE: no se crea cliente ni gestión).
+    // Propiedad de un agente asociado: la consulta es solo suya. No se avisa a la
+    // Dirección, y el cliente va a SU CRM (se busca solo entre sus clientes), no
+    // al de MALAVE.
     const deAsociado = esPropiedadDeAsociado(prop);
     if (!deAsociado) for (const u of await getDireccion()) {
       if (!destinos.some((d) => d.uid === u.uid)) destinos.push(u);
@@ -9521,8 +9528,10 @@ async function icProcesarLead(n, origen) {
     // teléfono, por correo. Sin ninguno de los dos no hay a quién llamar: no se crea.
     const nombre = n.nombre || "Consulta InfoCasas";
     let clientId = null, clienteExistia = false;
-    if ((telNorm || mail) && !deAsociado) {
-      const cs = await db.collection("clients").get();
+    if (telNorm || mail) {
+      const cs = deAsociado
+        ? await db.collection("clients").where("createdBy", "==", ownerId).get()
+        : await db.collection("clients").get();
       for (const d of cs.docs) {
         const c = d.data() || {};
         const mismo = telNorm ? normalizarTel(c.phone) === telNorm : String(c.email || "").trim().toLowerCase() === mail;

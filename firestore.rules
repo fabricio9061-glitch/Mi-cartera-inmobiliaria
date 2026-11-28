@@ -349,6 +349,14 @@ service cloud.firestore {
                     || (esDireccion()
                         && request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['cierre', 'cierreConfirmado', 'status', 'updatedAt']))
+                    // El AGENTE ASOCIADO confirma él mismo la firma de SUS propiedades
+                    // (o la vuelve atrás): sus operaciones no pasan por la Dirección ni
+                    // suman en los números de MALAVE.
+                    || (esAsociado() && isApproved() && asociadoAlDia()
+                        && resource.data.get('asociado', false) == true
+                        && resource.data.ownerId == request.auth.uid
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['cierre', 'cierreConfirmado', 'status', 'updatedAt']))
                     // Contadores públicos: SOLO de a uno hacia arriba (lo que hace
                     // FieldValue.increment(1)). Antes se podía poner cualquier valor
                     // (un millón, negativo o un texto) sin iniciar sesión.
@@ -401,19 +409,34 @@ service cloud.firestore {
     }
 
     // ============ CLIENTS (CRM) — solo aprobados ============
-    // El agente asociado no los ve: para saber si un teléfono ya es cliente usa
+    // El equipo de MALAVE ve todos. El AGENTE ASOCIADO tiene su propio CRM: ve,
+    // carga y edita SOLO los clientes que cargó él (createdBy o agentId), nunca
+    // los de MALAVE. Para saber si un teléfono ya es cliente de MALAVE usa
     // checkClientPhone (functions/index.js), que solo le contesta sí o no.
+    // Las consultas de clientes.html filtran por createdBy / agentId: así la
+    // regla puede probar que cada resultado es suyo.
+    function esClienteDelAsociado(c) {
+      return esAsociado() && isApproved()
+          && (c.get('createdBy', '') == request.auth.uid || c.get('agentId', '') == request.auth.uid);
+    }
     match /clients/{clientId} {
-      allow read: if isInterno();
-      allow create: if isInterno();
-      allow update: if isInterno();
+      allow read: if isInterno() || esClienteDelAsociado(resource.data);
+      allow create: if isInterno()
+                    || (esAsociado() && isApproved()
+                        && request.resource.data.get('createdBy', '') == request.auth.uid
+                        && request.resource.data.get('agentId', request.auth.uid) == request.auth.uid
+                        && request.resource.data.get('ownerId', request.auth.uid) == request.auth.uid);
+      allow update: if isInterno()
+                    || (esClienteDelAsociado(resource.data)
+                        && !request.resource.data.diff(resource.data).affectedKeys()
+                             .hasAny(['createdBy', 'agentId', 'ownerId']));
       allow delete: if esDireccion();
       match /notes/{noteId} {
-        allow read: if isInterno();
-        allow create: if isInterno();
+        allow read, create: if isInterno()
+                    || esClienteDelAsociado(get(/databases/$(database)/documents/clients/$(clientId)).data);
         allow update: if false;
-        allow delete: if isInterno() &&
-                      (resource.data.authorId == request.auth.uid || esDireccion());
+        allow delete: if (isInterno() || esClienteDelAsociado(get(/databases/$(database)/documents/clients/$(clientId)).data))
+                      && (resource.data.authorId == request.auth.uid || esDireccion());
       }
     }
 
@@ -428,8 +451,17 @@ service cloud.firestore {
         || (g.get('agentId', '') in ['', null] && g.get('createdBy', '') in ['', null]
             && g.get('ownerId', '') == request.auth.uid));
     }
+    // El AGENTE ASOCIADO ve y mueve solo SUS gestiones (agentId), y solo las crea
+    // sobre un cliente suyo y una propiedad suya.
+    function gestionNuevaDelAsociadoOk() {
+      return request.resource.data.get('clientId', '') != ''
+          && esClienteDelAsociado(get(/databases/$(database)/documents/clients/$(request.resource.data.clientId)).data)
+          && (request.resource.data.get('propertyId', '') == ''
+              || get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerId', '') == request.auth.uid);
+    }
     match /gestiones/{gestionId} {
-      allow read: if isInterno();
+      allow read: if isInterno()
+                  || (esAsociado() && isApproved() && resource.data.get('agentId', '') == request.auth.uid);
       // CERRADO es de la Dirección: lo pone al confirmar la firma en el Mapa de
       // cierres (el servidor pasa las gestiones solas y no pasa por estas reglas).
       // El agente marca Reservado cuando el cliente deja la seña. No crea gestiones
@@ -443,11 +475,12 @@ service cloud.firestore {
       // servidor reservaba la propiedad), cambiarle el avance o el rol, o
       // "sincronizarla". El traspaso a otro agente (agentId, createdBy, ownerId)
       // es solo de la Dirección. Y nadie crea gestiones a nombre de otro.
-      allow create: if isInterno()
+      allow create: if isApproved()
                     && (esDireccion()
                         || (request.resource.data.get('estadoGestion', '') != 'cerrado'
-                            && request.resource.data.get('agentId', '') == request.auth.uid));
-      allow update: if isInterno()
+                            && request.resource.data.get('agentId', '') == request.auth.uid
+                            && (!esAsociado() || gestionNuevaDelAsociadoOk())));
+      allow update: if isApproved()
                     && (esDireccion()
                         || (esDuenioDeGestion(resource.data)
                             && !request.resource.data.diff(resource.data).affectedKeys()
@@ -718,11 +751,11 @@ service cloud.firestore {
       allow read: if isApproved()
                   && (resource.data.agenteUid == request.auth.uid || esDireccion());
       allow create: if esDireccion()
-                    || (isInterno()
+                    || (isApproved()
                         && request.resource.data.agenteUid == request.auth.uid
                         && request.resource.data.tipo == 'reserva');
       allow update: if esDireccion()
-                    || (isInterno()
+                    || (isApproved()
                         && resource.data.agenteUid == request.auth.uid
                         && resource.data.tipo == 'reserva'
                         && request.resource.data.agenteUid == request.auth.uid

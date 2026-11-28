@@ -1743,7 +1743,7 @@
       #mlModalBody .pt-tab .pm-nivel { font-size: 10.5px; padding: 2px 6px }
     }
   </style>
-  <script src="app.js?v=20261128b"></script>
+  <script src="app.js?v=20261128c"></script>
   <!-- ====== MENÚ DEL VISITANTE (celular) ======
        En celular la barra oculta los enlaces del encabezado; este menú es la
        forma de llegar a "Vendé tu propiedad", "Trabajá con nosotros" y al acceso
@@ -1791,7 +1791,7 @@
         <button type="button" class="mv-side-user" id="mvSideUser" onclick="toggleMenuDatos()" aria-expanded="false" aria-controls="mvSideDatos" title="Saldo, puntos y nivel">
           <div class="mv-side-av" id="mvSideAv"><i class="fas fa-user"></i></div>
           <div class="mv-side-quien"><strong id="mvSideName">Usuario</strong><span class="mv-side-rol" id="mvSideRole">Agente</span></div>
-          <span class="mv-side-caret-wrap" aria-hidden="true"><i class="fas fa-chevron-down mv-side-caret" id="mvSideCaret"></i></span>
+          <span class="mv-side-caret-wrap" aria-hidden="true" data-equipo><i class="fas fa-chevron-down mv-side-caret" id="mvSideCaret"></i></span>
         </button>
         <button class="mv-side-close" onclick="closeSideMenu()" aria-label="Cerrar"><i class="fas fa-xmark"></i></button>
       </div>
@@ -1825,16 +1825,29 @@
         <!-- "Mi perfil" solo en compu: en celular está fijo en la barra de abajo. -->
         <button type="button" class="mv-rapido mv-side-dup" onclick="closeSideMenu();showMyProfile()"><i class="fas fa-user"></i><span>Mi perfil</span></button>
         <a class="mv-rapido" href="agenda.html"><i class="fas fa-calendar-days"></i><span>Agenda</span></a>
-        <a class="mv-rapido" href="clientes.html" data-equipo><i class="fas fa-address-book"></i><span>Clientes</span></a>
+        <a class="mv-rapido" href="clientes.html"><i class="fas fa-address-book"></i><span>Clientes</span></a>
         <a class="mv-rapido" href="finanzas.html" data-equipo><i class="fas fa-wallet"></i><span>Finanzas</span></a>
-        <a class="mv-rapido" href="mapa-cierres.html" data-equipo><i class="fas fa-map-location-dot"></i><span>Cierres</span></a>
-        <!-- Agente asociado: no ve los clientes de MALAVE, pero puede preguntar si un teléfono ya es cliente (sí o no). -->
-        <button type="button" class="mv-rapido hidden" data-asociado onclick="closeSideMenu();consultarClienteAsociado()"><i class="fas fa-user-check"></i><span>¿Ya es cliente?</span></button>
+        <a class="mv-rapido" href="mapa-cierres.html"><i class="fas fa-map-location-dot"></i><span>Cierres</span></a>
       </div>
 
+      <!-- Agente asociado: su plan (cuántas de 50 tiene publicadas y hasta cuándo
+           pagó), el botón para subir y sus herramientas. Clientes y Cierres le
+           muestran solo lo suyo (las reglas no le dan lo de MALAVE). -->
+      <section class="mv-grupo mv-plan hidden" data-asociado>
+        <div class="mv-plan-top">
+          <span class="mv-plan-tit"><i class="fas fa-id-badge"></i> Mi plan</span>
+          <span class="mv-plan-num" id="mvPlanNum">0 de 50</span>
+        </div>
+        <div class="mv-plan-barra"><span id="mvPlanFill"></span></div>
+        <p class="mv-plan-txt" id="mvPlanAsociado"></p>
+        <button type="button" class="mv-plan-subir" onclick="closeSideMenu();openPropertyFormTab()"><i class="fas fa-plus"></i> Subir propiedad</button>
+      </section>
       <section class="mv-grupo hidden" data-asociado>
-        <h3 class="mv-side-group">Mi plan de agente asociado</h3>
-        <p id="mvPlanAsociado" style="margin:0;font-size:.85rem;line-height:1.5;color:inherit;opacity:.85"></p>
+        <h3 class="mv-side-group">Herramientas</h3>
+        <div class="mv-grid">
+          <button type="button" class="mv-side-item" onclick="closeSideMenu();consultarClienteAsociado()"><i class="fas fa-user-check"></i><span>¿Ya es cliente de MALAVE?</span></button>
+          <a class="mv-side-item" href="academy.html"><i class="fas fa-graduation-cap"></i><span>Malavé Academy</span></a>
+        </div>
       </section>
 
       <!-- Dos grupos y no "Calculadoras": cuánto VALE una propiedad y cuánto
@@ -1855,10 +1868,10 @@
           <a class="mv-side-item ancho" href="inversion.html"><i class="fas fa-hand-holding-dollar"></i><span>Rentabilidad para inversores</span></a>
         </div>
       </section>
-      <section class="mv-grupo">
+      <section class="mv-grupo" data-equipo>
         <h3 class="mv-side-group">Crecer</h3>
         <div class="mv-grid">
-          <a class="mv-side-item" href="recompensas.html" data-equipo><i class="fas fa-trophy"></i><span>Recompensas</span></a>
+          <a class="mv-side-item" href="recompensas.html"><i class="fas fa-trophy"></i><span>Recompensas</span></a>
           <a class="mv-side-item" href="academy.html"><i class="fas fa-graduation-cap"></i><span>Malavé Academy</span></a>
         </div>
       </section>
@@ -2000,6 +2013,21 @@
     .mv-grupo{ margin-top:16px; }
     .mv-side-group{ margin:0 2px 8px; font-family:'Jost',sans-serif; font-size:.67rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#8a93a0; display:flex; align-items:center; gap:7px; }
     .mv-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    /* Plan del agente asociado */
+    .mv-plan{ background:linear-gradient(135deg,#16273f,#24395a); color:#fff; border-radius:16px; padding:14px 14px 12px; }
+    .mv-plan-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:9px; }
+    .mv-plan-tit{ font-size:.78rem; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:#e9d8a0; display:flex; align-items:center; gap:7px; }
+    .mv-plan-num{ font-size:1.05rem; font-weight:700; }
+    .mv-plan-barra{ height:8px; border-radius:99px; background:rgba(255,255,255,.16); overflow:hidden; }
+    .mv-plan-barra span{ display:block; height:100%; width:0; border-radius:99px; background:#C9A227; transition:width .4s; }
+    .mv-plan-barra span.lleno{ background:#e07a5f; }
+    .mv-plan-txt{ margin:9px 0 11px; font-size:.82rem; line-height:1.45; color:rgba(255,255,255,.82); }
+    .mv-plan-txt b{ color:#fff; }
+    .mv-plan-txt .venc{ color:#ffb4a2; }
+    .mv-plan-subir{ width:100%; border:none; border-radius:11px; padding:10px 12px; background:#C9A227; color:#16273f; font-weight:700; font-size:.9rem;
+      font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
+    .mv-plan-subir:active{ transform:scale(.98); }
+    button.mv-side-item{ font-family:inherit; text-align:left; cursor:pointer; width:100%; }
     .mv-side-item{ display:flex; align-items:center; gap:10px; min-height:54px; padding:9px 10px; background:#fff; border:1px solid #e6e9ee; border-radius:13px;
       color:#27313f; text-decoration:none; font-family:inherit; font-size:.84rem; font-weight:500; line-height:1.2; cursor:pointer;
       transition:border-color .15s, box-shadow .15s, transform .15s; }
