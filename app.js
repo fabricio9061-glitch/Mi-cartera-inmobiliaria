@@ -641,14 +641,22 @@
     document.getElementById('mvSideInteres')?.classList.toggle('hidden', !verDir);
     document.getElementById('mvSideAuditIC')?.classList.toggle('hidden', !verDir);
     // Agente asociado: sin clientes, finanzas, puntos, tasaciones, cuentas,
-    // rentabilidad ni documentos. Le queda su perfil, la agenda, la Academy y
-    // la consulta "¿ya es cliente de MALAVE?". (Las reglas lo bloquean igual.)
+    // rentabilidad ni documentos. Le queda su perfil, la agenda, sus clientes,
+    // sus cierres y su plan. (Las reglas lo bloquean igual.)
     const asoc = esAsociadoPerfil(perfil);
     document.querySelectorAll('#mvSide [data-equipo]').forEach(el => el.classList.toggle('hidden', asoc));
     document.querySelectorAll('#mvSide [data-asociado]').forEach(el => el.classList.toggle('hidden', !asoc));
     if (asoc) {
       pintarPlanAsociado(perfil);
       const pd = document.getElementById('mvSideDatos'); if (pd) pd.hidden = true;
+    }
+    // El nombre abre "Saldo, puntos y nivel", que el asociado no tiene: para él
+    // es solo su nombre, sin cartel ni efecto al pasar el mouse.
+    const su = document.getElementById('mvSideUser');
+    if (su) {
+      if (su.dataset.title == null) su.dataset.title = su.getAttribute('title') || '';
+      if (asoc) su.removeAttribute('title'); else if (su.dataset.title) su.setAttribute('title', su.dataset.title);
+      su.classList.toggle('sin-datos', asoc);
     }
     if (currentUser && isAdminUser() && !_pendUnsub) actualizarBadgePendientes();
   }
