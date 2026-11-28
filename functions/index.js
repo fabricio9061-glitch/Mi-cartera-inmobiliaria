@@ -288,6 +288,33 @@ function resumirErrorML(detail) {
   return (msg || JSON.stringify(detail)).slice(0, 300);
 }
 
+// Por qué Mercado Libre tiene un aviso pausado o bloqueado (item.sub_status).
+// Cuando el sub_status viene vacío, la pausa la hizo alguien (el CRM o una
+// persona desde la web de ML) y se puede reactivar. Cuando trae algo de esto,
+// la pausa la puso Mercado Libre y no se levanta desde la API: hay que
+// resolverlo en Mercado Libre (o, si es el cupo, liberar lugar en el plan).
+const ML_SUBSTATUS_TXT = {
+  out_of_stock: "No hay cupo libre en el plan de publicaciones de Mercado Libre.",
+  expired: "El aviso venció en Mercado Libre.",
+  suspended: "Mercado Libre suspendió el aviso (suele ser por un pago pendiente o un problema de la cuenta).",
+  freezed: "Mercado Libre congeló el aviso mientras revisa la cuenta o el aviso.",
+  frozen: "Mercado Libre congeló el aviso mientras revisa la cuenta o el aviso.",
+  forbidden: "Mercado Libre bloqueó el aviso por no cumplir sus políticas.",
+  banned: "Mercado Libre bloqueó el aviso por no cumplir sus políticas.",
+  held: "Mercado Libre retuvo el aviso para revisarlo.",
+  under_review: "Mercado Libre está revisando el aviso.",
+  waiting_for_patch: "Mercado Libre pide corregir algo del aviso antes de reactivarlo.",
+  warning: "Mercado Libre marcó el aviso con una advertencia de moderación.",
+  moderation_penalty: "Mercado Libre penalizó el aviso por moderación.",
+  pending_documentation: "Mercado Libre pide documentación para habilitar el aviso.",
+  picture_download_pending: "Mercado Libre todavía está procesando las fotos.",
+  deleted: "El aviso fue eliminado en Mercado Libre.",
+};
+function explicarSubStatusML(subs) {
+  const lista = (Array.isArray(subs) ? subs : [subs]).map((x) => String(x || "").trim()).filter(Boolean);
+  return lista.map((x) => ML_SUBSTATUS_TXT[x] || `Mercado Libre lo marcó como "${x}".`).join(" ");
+}
+
 // =====================================================================
 // Admin — se busca UNA vez (y se cachea) el perfil del administrador para
 // poder mandarle notificaciones (campanita + push FCM).
@@ -3019,7 +3046,19 @@ exports.republicarML = onCall(async (request) => {
         }
         recrear = true;
       } else if (st === "paused") {
-        await axios.put(`${API}/items/${p.mlItemId}`, { status: "active" }, { headers });
+        // Si ML no deja reactivarlo (lo pausó Mercado Libre: cupo, moderación,
+        // pago...), se avisa el motivo. ANTES el error caía en el catch de abajo,
+        // que lo tomaba como "no se pudo leer" y desvinculaba el aviso para crear
+        // otro nuevo: un duplicado (y, si es de pago, otro cobro).
+        try {
+          await axios.put(`${API}/items/${p.mlItemId}`, { status: "active" }, { headers });
+        } catch (e2) {
+          const det = e2.response?.data || e2.message;
+          const porQue = explicarSubStatusML(r.data.sub_status);
+          await registrarLog(propertyId, "republicar (reactivar)", false, `${p.mlItemId} sub_status=${JSON.stringify(r.data.sub_status || [])} ${resumirErrorML(det)}`);
+          throw new HttpsError("failed-precondition",
+            (porQue || "Mercado Libre no dejó reactivar el aviso.") + " Hay que resolverlo en Mercado Libre. [ML: " + resumirErrorML(det) + "]");
+        }
         await ref.update({ mlStatus: "active" });
         await registrarLog(propertyId, "republicar (reactivado)", true, p.mlItemId);
         return { ok: true, reactivado: true, mlItemId: p.mlItemId, permalink: r.data.permalink || "" };
@@ -3468,8 +3507,12 @@ exports.bajaML = onCall(async (request) => {
   }
   const detail = cierre.error && (cierre.error.response?.data || cierre.error.message);
   logger.error(`Error dando de baja ${propertyId}:`, JSON.stringify(detail));
-  await registrarLog(propertyId, "baja manual", false, resumirErrorML(detail));
-  throw new HttpsError("internal", typeof detail === "string" ? detail : ((detail && detail.message) || "No se pudo dar de baja."));
+  // Si ML tiene el aviso bloqueado (sub_status), ese es el motivo real del
+  // "Validation error": se agrega para que se entienda qué hacer.
+  let porQue = "";
+  try { porQue = explicarSubStatusML(((await axios.get(`${API}/items/${p.mlItemId}`, { headers })).data || {}).sub_status); } catch (e) { /* sin motivo extra */ }
+  await registrarLog(propertyId, "baja manual", false, (porQue ? porQue + " " : "") + resumirErrorML(detail));
+  throw new HttpsError("internal", (porQue ? porQue + " " : "") + resumirErrorML(detail));
 });
 
 // ============================================================

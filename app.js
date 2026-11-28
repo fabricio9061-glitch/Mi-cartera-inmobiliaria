@@ -4738,6 +4738,27 @@
       d.status === 'active' && { id: 'pausar', texto: 'Pausar', icono: 'fa-pause', tipo: 'ghost', onclick: 'pausarAvisoML(true)', cap: 'canDeactivate' },
       d.status && d.status !== 'closed' && accionBaja('ml')
     ];
+    // Motivo que da Mercado Libre (sub_status). Vacío = la pausa la hizo alguien
+    // (CRM o web de ML) y Republicar la levanta. Mismo texto que el backend.
+    const ML_SUBSTATUS_TXT = {
+      out_of_stock: 'Motivo: no hay cupo libre en el plan de publicaciones de Mercado Libre.',
+      expired: 'Motivo: el aviso venció en Mercado Libre.',
+      suspended: 'Motivo: Mercado Libre lo suspendió (suele ser un pago pendiente o un problema de la cuenta).',
+      freezed: 'Motivo: Mercado Libre lo congeló mientras revisa la cuenta o el aviso.',
+      frozen: 'Motivo: Mercado Libre lo congeló mientras revisa la cuenta o el aviso.',
+      forbidden: 'Motivo: Mercado Libre lo bloqueó por no cumplir sus políticas.',
+      banned: 'Motivo: Mercado Libre lo bloqueó por no cumplir sus políticas.',
+      held: 'Motivo: Mercado Libre lo retuvo para revisarlo.',
+      under_review: 'Motivo: Mercado Libre lo está revisando.',
+      waiting_for_patch: 'Motivo: Mercado Libre pide corregir algo del aviso.',
+      warning: 'Motivo: advertencia de moderación de Mercado Libre.',
+      moderation_penalty: 'Motivo: penalización de moderación de Mercado Libre.',
+      pending_documentation: 'Motivo: Mercado Libre pide documentación.',
+      picture_download_pending: 'Motivo: Mercado Libre todavía procesa las fotos.',
+      deleted: 'Motivo: el aviso fue eliminado en Mercado Libre.'
+    };
+    const mlPorQue = (subs) => (Array.isArray(subs) ? subs : []).filter(Boolean)
+      .map(x => ML_SUBSTATUS_TXT[x] || `Mercado Libre lo marcó como "${x}".`).join(' ');
     const ML_EXPLICA = { active: 'Se ve en Mercado Libre.', paused: 'No se ve: el aviso está pausado.', closed: 'Finalizado: ya no se ve en Mercado Libre.',
       under_review: 'Mercado Libre lo está revisando.', inactive: 'Mercado Libre lo marcó como inactivo.', payment_required: 'Falta pagar el tipo de aviso en Mercado Libre.' };
     // Lo que ve el cliente: lo que el aviso muestra hoy, comparado con la ficha.
@@ -4759,7 +4780,7 @@
     pintarTarjetaML({
       key: 'ml', nombre: 'Mercado Libre', color: PORTAL_COLOR.ml,
       estado: { tono: ML_TONO[d.status] || 'off', texto: mlStatusName(d.status) },
-      explica: ML_EXPLICA[d.status] || '',
+      explica: mvEsc([ML_EXPLICA[d.status] || '', mlPorQue(d.subStatus)].filter(Boolean).join(' ')),
       meta: [
         d.vence && { texto: `Vence el ${pcFecha(d.vence)}` + (venceDias != null && venceDias >= 0 ? `, en ${venceDias} día${venceDias === 1 ? '' : 's'}` : '') },
         _prop.mlItemId && { texto: `Código ${_prop.mlItemId}` }
@@ -4860,7 +4881,11 @@
       showToast('Mercado Libre', 'El aviso se envió a Mercado Libre', 'fa-tag');
     } catch (e) {
       console.error('republicarML:', e);
-      _portalFlash.ml = { tono: 'err', html: 'No pudimos publicar la propiedad en Mercado Libre. Podés volver a intentarlo.' + detalleAdmin(e && e.message) };
+      // failed-precondition trae el motivo ya explicado (p. ej. ML pausó el aviso
+      // por cupo o moderación): se le muestra a todos; el detalle de ML, a Dirección.
+      const msg = String((e && e.message) || '');
+      const motivo = e && e.code && String(e.code).includes('failed-precondition') ? msg.split(' [ML:')[0] : '';
+      _portalFlash.ml = { tono: 'err', html: (motivo ? mvEsc(motivo) : 'No pudimos publicar la propiedad en Mercado Libre. Podés volver a intentarlo.') + detalleAdmin(msg) };
       showToast('Mercado Libre', 'No se pudo publicar', 'fa-circle-exclamation');
     }
     delete _portalBusy.ml;
