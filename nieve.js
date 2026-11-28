@@ -12,10 +12,8 @@
    - Liviano: un solo <canvas>, ~40 copos en compu y ~16 en celular, y se
      frena cuando la pestaña no está a la vista.
    - Si la persona pidió "reducir movimiento" en su equipo, no aparece.
-   - En el inicio, cuando un agente tiene la sesión abierta (ve el CRM),
-     tampoco aparece.
-   - Para probarlo fuera de fecha: agregar ?nieve=1 a la dirección (así
-     se ve también con la sesión de agente abierta).
+   - Los agentes con sesión abierta también la ven en el inicio.
+   - Para probarlo fuera de fecha: agregar ?nieve=1 a la dirección.
      ?nieve=0 lo apaga en esa visita.
 
    Lo cargan: index, propiedad, vender, trabaja, gastos, calculadora de
@@ -50,14 +48,6 @@
   try {
     if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   } catch (e) {}
-
-  // En el inicio con sesión de agente se ve el CRM: ahí no va la nieve.
-  function hayAgente() {
-    var de = document.documentElement;
-    if (de.classList.contains('mv-sesion')) return true;
-    var u = document.getElementById('nav-user');
-    return !!(u && !u.classList.contains('hidden'));
-  }
 
   function arrancar() {
     var cv = document.createElement('canvas');
@@ -110,17 +100,12 @@
     medir();
     window.addEventListener('resize', medir);
 
-    var antes = 0, oculto = false, ultimoChequeo = 0;
+    var antes = 0;
     function cuadro(t) {
       var dt = antes ? Math.min((t - antes) / 1000, 0.05) : 0;
       antes = t;
 
-      if (t - ultimoChequeo > 1000) {        // una vez por segundo alcanza
-        ultimoChequeo = t;
-        oculto = q !== '1' && hayAgente();
-        cv.style.display = oculto ? 'none' : '';
-      }
-      if (!oculto) {
+      {
         ctx.clearRect(0, 0, W, H);
         var fin = H * 0.72;                  // desde acá se van apagando
         for (var i = 0; i < copos.length; i++) {
