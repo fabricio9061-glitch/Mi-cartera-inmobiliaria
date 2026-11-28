@@ -8601,21 +8601,6 @@
       (hasta ? `<br>${vencido ? '<b class="venc">Cuota vencida</b> el' : 'Cuota paga hasta el'} <b>${mvEsc(hasta)}</b>.` : '') +
       (vencido ? '<br>Hasta que se renueve no podés subir ni editar propiedades.' : '');
   }
-  // ¿Este teléfono ya es cliente de MALAVE? El servidor contesta solo sí o no
-  // (checkClientPhone), con un tope de consultas por día.
-  async function consultarClienteAsociado() {
-    const tel = (prompt('¿Qué teléfono querés consultar?\n\nTe decimos si ya es cliente de MALAVE (sí o no).') || '').trim();
-    if (!tel) return;
-    if (tel.replace(/\D/g, '').length < 6) { showToast('Teléfono incompleto', 'Escribilo con todos los números', 'fa-phone'); return; }
-    try {
-      const r = await firebase.functions().httpsCallable('checkClientPhone')({ phone: tel });
-      if (r && r.data && r.data.exists) alert('Sí: ese teléfono ya es cliente de MALAVE.\n\nAntes de avanzar, hablalo con la inmobiliaria.');
-      else alert('No: ese teléfono no figura entre los clientes de MALAVE.');
-    } catch (e) {
-      console.error('checkClientPhone:', e);
-      showToast('No se pudo consultar', (e && e.code) === 'functions/resource-exhausted' ? (e.message || 'Llegaste al tope de hoy') : 'Probá de nuevo en un rato', 'fa-circle-exclamation');
-    }
-  }
   // El asociado da de baja (o vuelve a publicar) su propiedad él mismo.
   async function cambiarBajaAsociado(id) {
     const p = properties.find(x => x.id === id); if (!p) return;

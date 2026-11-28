@@ -653,6 +653,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
   <script src="malave-config.js?v=20260830b"></script>
   <script>
     /* =========================================================================
@@ -804,9 +805,16 @@
     let _todasLeidas = false, _editables = null, _agentes = null, _cfgPts = null, cfgPts = null;
     async function leerCierres(){
       if (esAsoc){
-        const q = await db.collection('properties').where('ownerId', '==', curUser.uid).get();
+        // Los suyos, más los cierres de MALAVE como referencia (solo lectura y
+        // sin datos del agente ni del cliente: los manda el servidor).
+        const [q, refs] = await Promise.all([
+          db.collection('properties').where('ownerId', '==', curUser.uid).get(),
+          firebase.functions().httpsCallable('cierresDeReferencia')().then(r => (r && r.data && r.data.cierres) || []).catch(e => { console.warn('[mapa] cierres de MALAVE', e && (e.code || e.message)); return []; })
+        ]);
         _todasLeidas = true;
-        return q.docs.map(d => unir(d.id, d.data()));
+        const propios = q.docs.map(d => unir(d.id, d.data()));
+        const deMalave = refs.map(r => unir('malave-' + r.ref, { _ref: true, title: r.title, images: r.foto ? [r.foto] : [], cierre: r.cierre, cierreConfirmado: true }));
+        return propios.concat(deMalave);
       }
       try{
         // Firestore devuelve solo los documentos que TIENEN cierre.lat (numérico).
@@ -891,7 +899,7 @@
         $('lede').textContent = isAdmin
           ? 'Todos los cierres del equipo. Confirmá las firmas pendientes, generá los recibos y mirá dónde se está vendiendo.'
           : esAsoc
-          ? 'Tus ventas y alquileres. Cuando un cliente reserva, registrá la reserva acá; cuando se firma, confirmala vos.'
+          ? 'Tus ventas y alquileres, y los que cerró MALAVE como referencia de precios por barrio. Cuando un cliente tuyo reserva, registrá la reserva acá; cuando se firma, confirmala vos.'
           : 'Las ventas y alquileres que cerró el equipo: sirven de referencia de precios por barrio. Cuando un cliente reserva, registrá la reserva acá.';
         pintarFiltros();
         initMap();
@@ -1235,9 +1243,10 @@
         + '<div class="pp-precio">' + esc(fmtMoney(c.precio, c.moneda)) + (c.tipo === 'alquiler' ? '<small>/mes</small>' : '') + (pm ? '<small>· ' + esc(fmtPm2(pm, c.moneda)) + '</small>' : '') + '</div>'
         + '<div class="pp-tit">' + esc(p.title || 'Propiedad') + '</div>'
         + '<div class="pp-meta">' + esc(metaTexto(p)) + '</div>';
+      if (p._ref) s += '<div class="pp-ag"><i class="fas fa-building"></i>Cerrado por MALAVE</div>';
       if (isAdmin && (c.agenteNombre || p.ownerName)) s += '<div class="pp-ag"><i class="fas fa-user-tie"></i>' + esc(c.agenteNombre || p.ownerName) + (tieneGan(c) ? ' · ganancia ' + esc(fmtMoney(c.gananciaAgente, c.moneda)) : '') + '</div>';
       s += '<div class="pp-pie"><div class="pp-est">' + pillEstado(p) + botonConfirmar(p) + botonCaida(p) + '</div><div class="pp-acc">'
-        + '<a href="propiedad.html?id=' + encodeURIComponent(p.id) + '" target="_blank" rel="noopener">Ver propiedad &rarr;</a>'
+        + (p._ref ? '' : '<a href="propiedad.html?id=' + encodeURIComponent(p.id) + '" target="_blank" rel="noopener">Ver propiedad &rarr;</a>')
         + (isAdmin ? '<a class="del" onclick="eliminarCierre(' + arg(p.id) + ')">Eliminar</a>' : '')
         + '</div></div></div></div>';
       return s;
@@ -1291,6 +1300,8 @@
           ? ' · <span title="' + esc(c.participantes.map(x => (x.nombre || 'Agente') + ': ' + fmtMoney(x.monto, c.moneda)).join('\n')) + '">+' + c.participantes.length + ' en equipo</span>' : '';
         quien = '<div class="cc-quien"><i class="fas fa-user-tie"></i>' + esc(c.agenteNombre || p.ownerName || 'Sin agente')
           + (tieneGan(c) ? ' · ganancia ' + esc(fmtMoney(c.gananciaAgente, c.moneda)) : '') + eq + '</div>';
+      } else if (p._ref){
+        quien = '<div class="cc-quien"><i class="fas fa-building"></i>Cerrado por MALAVE</div>';
       } else if (mio){
         const uid = curUser.uid, parte = (c.agenteUid ? c.agenteUid === uid : p.ownerId === uid)
           ? (tieneGan(c) ? Number(c.gananciaAgente) : null)
@@ -1298,7 +1309,7 @@
         quien = '<div class="cc-quien"><span class="tuyo">Tuyo</span>' + (parte != null ? ' · tu parte ' + esc(fmtMoney(parte, c.moneda)) : '') + '</div>';
       }
       let acc = botonConfirmar(p) + botonCaida(p);
-      acc += '<a class="b ic" href="propiedad.html?id=' + encodeURIComponent(p.id) + '" target="_blank" rel="noopener" title="Ver la propiedad" aria-label="Ver la propiedad"><i class="fas fa-arrow-up-right-from-square"></i></a>';
+      if (!p._ref) acc += '<a class="b ic" href="propiedad.html?id=' + encodeURIComponent(p.id) + '" target="_blank" rel="noopener" title="Ver la propiedad" aria-label="Ver la propiedad"><i class="fas fa-arrow-up-right-from-square"></i></a>';
       // Recibo de la seña y carta de pago (Recursos, con los datos fijos).
       if (veComprobantes(p) && c.reciboId) acc += '<a class="b ic" href="' + esc(urlComprobante(c.reciboId)) + '" title="Recibo de la seña" aria-label="Recibo de la seña"><i class="fas fa-receipt"></i></a>';
       if (veComprobantes(p) && c.cartaId) acc += '<a class="b ic" href="' + esc(urlComprobante(c.cartaId)) + '" title="Carta de pago" aria-label="Carta de pago"><i class="fas fa-file-invoice"></i></a>';

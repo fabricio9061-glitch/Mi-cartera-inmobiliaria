@@ -1288,6 +1288,7 @@
           <input type="tel" id="clientPhone" placeholder="99 123 456" oninput="revisarTelDiferido()" onblur="revisarTelefono()">
         </div>
         <div class="cli-dup" id="clientDup" hidden></div>
+        <div class="cli-dup" id="clientMalave" hidden></div>
       </div>
       <div class="fg">
         <label>Links de propiedades <span style="font-weight:400;color:var(--gray-500)">(opcional)</span></label>
@@ -1652,6 +1653,7 @@
         userProfile = d.exists ? d.data() : { email:user.email };
         esDir = isAdmin || (userProfile.status === 'approved' && (userProfile.rank === 'ceo' || userProfile.rank === 'coo'));
         esAsoc = !isAdmin && userProfile.rank === 'agente_asociado';
+        if (esAsoc){ misClientesOnly = true; updateMisBtn(); }
         // La COO necesita saber de quién es cada cliente para no tocar lo del CEO:
         // el equipo se lee una vez y se vuelve a pintar cuando llega.
         if (esDir && !isAdmin) cargarAgentes().then(function(){ if (!_cargando) renderClients(); });
@@ -5321,6 +5323,7 @@
         }
       }
       pintarTelRepetido(null);
+      pintarTelMalave('');
       document.getElementById('clientModal').classList.add('open');
     }
     function closeClientModal(){ clearTimeout(_telT); document.getElementById('clientModal').classList.remove('open'); }
@@ -5401,7 +5404,48 @@
       var t = partirTelefono(document.getElementById('clientAreaCode').value, document.getElementById('clientPhone').value);
       var dup = t.local.length >= 6 && !telSinCambios(id, t.full) ? buscarTelRepetido(t.full, id || null) : null;
       pintarTelRepetido(dup, !!id);
+      if (esAsoc) revisarTelMalave(!id && !dup && t.full.replace(/\D/g, '').length >= 9 ? t.full : '');
       return dup;
+    }
+    /* Agente asociado: mientras escribe el teléfono de un cliente nuevo se
+       pregunta al servidor si ya es cliente de MALAVE. Contesta solo sí o no.
+       Cada número se pregunta una sola vez (hay un tope de consultas por día). */
+    var _telMalave = {}, _telMalaveT = null, _telMalavePedido = '';
+    function revisarTelMalave(full){
+      clearTimeout(_telMalaveT);
+      if (!full){ pintarTelMalave(''); return; }
+      if (_telMalave[full]){ pintarTelMalave(full); return; }
+      pintarTelMalave('');
+      _telMalaveT = setTimeout(function(){
+        if (_telMalavePedido === full) return;
+        _telMalavePedido = full;
+        _telMalave[full] = { estado: 'buscando' };
+        pintarTelMalave(full);
+        firebase.functions().httpsCallable('checkClientPhone')({ phone: full }).then(function(r){
+          _telMalave[full] = { estado: r && r.data && r.data.exists ? 'si' : 'no' };
+        }).catch(function(err){
+          console.warn('checkClientPhone:', err);
+          _telMalave[full] = { estado: 'error', msg: (err && err.code === 'functions/resource-exhausted' && err.message) || '' };
+        }).then(function(){
+          _telMalavePedido = '';
+          var t = partirTelefono(document.getElementById('clientAreaCode').value, document.getElementById('clientPhone').value);
+          if (t.full === full) pintarTelMalave(full);
+          // Un error que no sea el tope del día se vuelve a probar al seguir escribiendo.
+          if (_telMalave[full] && _telMalave[full].estado === 'error' && !_telMalave[full].msg) delete _telMalave[full];
+        });
+      }, 600);
+    }
+    function pintarTelMalave(full){
+      var box = document.getElementById('clientMalave');
+      if (!box) return;
+      var r = full && _telMalave[full];
+      if (!r || r.estado === 'no'){ box.hidden = true; box.innerHTML = ''; return; }
+      var ico, txt;
+      if (r.estado === 'buscando'){ ico = 'fa-spinner fa-spin'; txt = 'Revisando si este teléfono ya es cliente de MALAVE...'; box.className = 'cli-dup mio'; }
+      else if (r.estado === 'si'){ ico = 'fa-triangle-exclamation'; txt = '<b>Este teléfono ya es cliente de MALAVE.</b><small>Antes de avanzar, hablalo con la inmobiliaria. Si igual lo cargás, queda solo en tu lista.</small>'; box.className = 'cli-dup'; }
+      else { ico = 'fa-circle-info'; txt = 'No se pudo revisar si este teléfono es cliente de MALAVE.' + (r.msg ? '<small>' + esc(r.msg) + '</small>' : '<small>Probá de nuevo en un rato.</small>'); box.className = 'cli-dup mio'; }
+      box.innerHTML = '<div class="cli-dup-top"><i class="fas ' + ico + '"></i><div>' + txt + '</div></div>';
+      box.hidden = false;
     }
     var _dupPintado = '';
     function pintarTelRepetido(dup, editando){
@@ -5542,24 +5586,26 @@
       }
       if (!name){ er.textContent='Ingresá el nombre del cliente.'; er.classList.remove('hidden'); return; }
 
-      /* Agente asociado: antes de cargar un cliente nuevo se pregunta si ese
-         teléfono ya es cliente de MALAVE. El servidor contesta solo sí o no. */
+      /* Agente asociado: si el teléfono ya es cliente de MALAVE se avisa antes de
+         guardar (el aviso ya se vio en el formulario; acá se confirma). */
       if (esAsoc && !id && phoneFull && _telMalaveVisto !== phoneFull){
-        b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Revisando el teléfono...';
-        firebase.functions().httpsCallable('checkClientPhone')({ phone: phoneFull }).then(function(r){
-          _telMalaveVisto = phoneFull;
-          b.disabled = false; b.innerHTML = '<i class="fas fa-save"></i> Guardar Cliente';
-          if (r && r.data && r.data.exists){
-            if (!confirm('Ese teléfono ya es cliente de MALAVE.\n\nAntes de avanzar, hablalo con la inmobiliaria. ¿Lo cargás igual en tu lista?')) return;
-          }
-          handleSaveClient(e);
-        }).catch(function(err){
-          console.warn('checkClientPhone:', err);
-          _telMalaveVisto = phoneFull;   // si no se pudo consultar, no frena la carga
-          b.disabled = false; b.innerHTML = '<i class="fas fa-save"></i> Guardar Cliente';
-          handleSaveClient(e);
-        });
-        return;
+        var rm = _telMalave[phoneFull];
+        if (!rm || rm.estado === 'buscando'){
+          b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Revisando el teléfono...';
+          firebase.functions().httpsCallable('checkClientPhone')({ phone: phoneFull }).then(function(r){
+            _telMalave[phoneFull] = { estado: r && r.data && r.data.exists ? 'si' : 'no' };
+          }).catch(function(err){
+            console.warn('checkClientPhone:', err);
+            _telMalave[phoneFull] = { estado: 'error' };
+          }).then(function(){
+            b.disabled = false; b.innerHTML = '<i class="fas fa-save"></i> Guardar Cliente';
+            pintarTelMalave(phoneFull);
+            handleSaveClient(e);
+          });
+          return;
+        }
+        _telMalaveVisto = phoneFull;
+        if (rm.estado === 'si' && !confirm('Ese teléfono ya es cliente de MALAVE.\n\nAntes de avanzar, hablalo con la inmobiliaria. ¿Lo cargás igual en tu lista?')){ _telMalaveVisto = ''; return; }
       }
 
       b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
@@ -6151,6 +6197,7 @@
     function updateMisBtn(){
       var hayBusqueda = !!((document.getElementById('clientSearch')||{}).value||'').trim();
       var b = document.getElementById('misClientesBtn');
+      if (esAsoc){ misClientesOnly = true; if (b) b.style.display = 'none'; b = null; }
       if (b){
         b.classList.remove('on', 'apagado');
         if (misClientesOnly && hayBusqueda){
@@ -6174,7 +6221,8 @@
       }
       var s = document.getElementById('crmSubtitle');
       if (s) {
-        if (_vista === 'consultas'){
+        if (esAsoc) s.textContent = _vista === 'consultas' ? 'Las consultas de tus propiedades' : 'Tus clientes';
+        else if (_vista === 'consultas'){
           if (misClientesOnly && hayBusqueda) s.textContent = 'Buscando en todas las consultas';
           else s.textContent = misClientesOnly ? 'Las consultas de tus propiedades' : 'Todas las consultas de los portales';
         }
@@ -6321,6 +6369,7 @@
     }
 
     function toggleMisClientes(){
+      if (esAsoc) return;
       misClientesOnly = !misClientesOnly;
       updateMisBtn();
       renderClients();
