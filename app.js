@@ -4736,29 +4736,39 @@
       // Baja solo de Mercado Libre (Dirección). Es irreversible: portalBaja lo advierte.
       // Pausar (solo Dirección): deja de verse y se deshace con Republicar.
       d.status === 'active' && { id: 'pausar', texto: 'Pausar', icono: 'fa-pause', tipo: 'ghost', onclick: 'pausarAvisoML(true)', cap: 'canDeactivate' },
-      d.status && d.status !== 'closed' && accionBaja('ml')
+      d.status && d.status !== 'closed' && !mlEsperaCupo(d) && accionBaja('ml')
     ];
     // Motivo que da Mercado Libre (sub_status). Vacío = la pausa la hizo alguien
     // (CRM o web de ML) y Republicar la levanta. Mismo texto que el backend.
     const ML_SUBSTATUS_TXT = {
-      out_of_stock: 'Motivo: no hay cupo libre en el plan de publicaciones de Mercado Libre.',
-      expired: 'Motivo: el aviso venció en Mercado Libre.',
-      suspended: 'Motivo: Mercado Libre lo suspendió (suele ser un pago pendiente o un problema de la cuenta).',
-      freezed: 'Motivo: Mercado Libre lo congeló mientras revisa la cuenta o el aviso.',
-      frozen: 'Motivo: Mercado Libre lo congeló mientras revisa la cuenta o el aviso.',
-      forbidden: 'Motivo: Mercado Libre lo bloqueó por no cumplir sus políticas.',
-      banned: 'Motivo: Mercado Libre lo bloqueó por no cumplir sus políticas.',
-      held: 'Motivo: Mercado Libre lo retuvo para revisarlo.',
-      under_review: 'Motivo: Mercado Libre lo está revisando.',
-      waiting_for_patch: 'Motivo: Mercado Libre pide corregir algo del aviso.',
-      warning: 'Motivo: advertencia de moderación de Mercado Libre.',
-      moderation_penalty: 'Motivo: penalización de moderación de Mercado Libre.',
-      pending_documentation: 'Motivo: Mercado Libre pide documentación.',
-      picture_download_pending: 'Motivo: Mercado Libre todavía procesa las fotos.',
-      deleted: 'Motivo: el aviso fue eliminado en Mercado Libre.'
+      pack_quota_pending: 'Tu plan de Mercado Libre no tiene cupo libre, por eso el aviso nunca llegó a publicarse. Liberá un lugar (finalizá otro aviso) o ampliá el plan en Mercado Libre y después tocá Republicar.',
+      out_of_stock: 'Tu plan de Mercado Libre no tiene cupo libre. Liberá un lugar o ampliá el plan y después tocá Republicar.',
+      expired: 'El aviso venció en Mercado Libre.',
+      suspended: 'Mercado Libre lo suspendió (suele ser un pago pendiente o un problema de la cuenta).',
+      freezed: 'Mercado Libre lo congeló mientras revisa la cuenta o el aviso.',
+      frozen: 'Mercado Libre lo congeló mientras revisa la cuenta o el aviso.',
+      forbidden: 'Mercado Libre lo bloqueó por no cumplir sus políticas.',
+      banned: 'Mercado Libre lo bloqueó por no cumplir sus políticas.',
+      held: 'Mercado Libre lo retuvo para revisarlo.',
+      under_review: 'Mercado Libre lo está revisando.',
+      waiting_for_patch: 'Mercado Libre pide corregir algo del aviso.',
+      warning: 'Advertencia de moderación de Mercado Libre.',
+      moderation_penalty: 'Penalización de moderación de Mercado Libre.',
+      pending_documentation: 'Mercado Libre pide documentación.',
+      picture_download_pending: 'Mercado Libre todavía procesa las fotos.',
+      deleted: 'El aviso fue eliminado en Mercado Libre.'
     };
-    const mlPorQue = (subs) => (Array.isArray(subs) ? subs : []).filter(Boolean)
-      .map(x => ML_SUBSTATUS_TXT[x] || `Mercado Libre lo marcó como "${x}".`).join(' ');
+    // Igual que explicarSubStatusML del backend: paused_by_seller solo cuenta si
+    // viene solo, y cada motivo se dice una vez.
+    const mlPorQue = (subs) => {
+      let l = [...new Set((Array.isArray(subs) ? subs : []).filter(Boolean))];
+      if (l.length > 1) l = l.filter(x => x !== 'paused_by_seller');
+      if (l.length === 1 && l[0] === 'paused_by_seller') return 'Lo pausó alguien desde la cuenta (el CRM o la web de Mercado Libre). Republicar lo vuelve a activar.';
+      const t = [...new Set(l.map(x => ML_SUBSTATUS_TXT[x]).filter(Boolean))];
+      const raros = l.filter(x => !ML_SUBSTATUS_TXT[x]);
+      if (raros.length) t.push(`Mercado Libre informa: ${raros.join(', ')}.`);
+      return t.join(' ');
+    };
     const ML_EXPLICA = { active: 'Se ve en Mercado Libre.', paused: 'No se ve: el aviso está pausado.', closed: 'Finalizado: ya no se ve en Mercado Libre.',
       under_review: 'Mercado Libre lo está revisando.', inactive: 'Mercado Libre lo marcó como inactivo.', payment_required: 'Falta pagar el tipo de aviso en Mercado Libre.' };
     // Lo que ve el cliente: lo que el aviso muestra hoy, comparado con la ficha.
@@ -4799,8 +4809,10 @@
           { valor: d.contactosWhatsapp, texto: `${d.contactosWhatsapp === 1 ? 'contacto' : 'contactos'} WhatsApp · 30 días` }
         ]
       },
-      cuerpo: `${pagoHint}<div class="pc-blk"><h3 class="pc-tit">Calidad del aviso</h3>${hero}${improve}</div>${selTipo}`,
-      pieAcciones: (typeof isAdminUser === 'function' && isAdminUser() && d.status === 'active')
+      cuerpo: `${pagoHint}${cupoHintML(d)}<div class="pc-blk"><h3 class="pc-tit">Calidad del aviso</h3>${hero}${improve}</div>${selTipo}`,
+      pieAcciones: mlEsperaCupo(d)
+        ? 'Mientras espera cupo, Mercado Libre no deja darlo de baja. No se ve ni se cobra: si no lo querés publicar, alcanza con dejarlo así.'
+        : (typeof isAdminUser === 'function' && isAdminUser() && d.status === 'active')
         ? 'Pausar se deshace con Republicar. Dar de baja no: para volver hay que publicar un aviso nuevo y, si es pago, se cobra otra vez.' : '',
       capacidades: capML(), acciones
     }, d);
@@ -4837,10 +4849,28 @@
      cerrar un aviso es irreversible (no se reabre — hay que crear uno nuevo, y si
      es de pago se vuelve a cobrar), y además no toca el estado de la propiedad en
      el CRM. El pedido del agente le llega al admin a la campanita. */
+  // Aviso que nunca se activó por falta de cupo en el plan (ML lo deja en
+  // not_yet_active): Mercado Libre no acepta cerrarlo, así que no se ofrece la baja.
+  function mlEsperaCupo(d) {
+    return !!(d && Array.isArray(d.subStatus) && d.subStatus.includes('pack_quota_pending'));
+  }
+  // Qué ocupa el cupo del plan de ML (solo llega cuando ML dice pack_quota_pending).
+  function cupoHintML(d) {
+    const c = d && d.cupo;
+    if (!c) return '';
+    const li = [];
+    const tipos = (c.tipos || []).filter(t => t.libres != null);
+    if (tipos.length) li.push('Lugares libres que informa Mercado Libre en esta categoría: ' + tipos.map(t => `${mvEsc(mlListingTypeName(t.id) || t.nombre)}: <strong>${t.libres}</strong>`).join(' · ') + '.');
+    else if (c.tipos) li.push('Mercado Libre no ofrece ningún tipo de aviso con lugar libre en esta categoría.');
+    if (c.activos != null || c.pausados != null) li.push(`En la cuenta hay <strong>${c.activos ?? '?'}</strong> avisos activos y <strong>${c.pausados ?? '?'}</strong> pausados. Los pausados también pueden ocupar lugar del plan.`);
+    if (c.sinCRM) li.push(`<strong>${c.sinCRM}</strong> de esos avisos no están vinculados a ninguna propiedad del CRM (duplicados viejos o cargados a mano). Finalizarlos en Mercado Libre libera lugar` + (isAdminUser() && c.sinCRMIds && c.sinCRMIds.length ? `: ${mvEsc(c.sinCRMIds.join(', '))}${c.sinCRM > c.sinCRMIds.length ? '…' : ''}` : '') + '.');
+    li.push('El plan reparte el cupo por tipo de aviso (Plata, Oro…): si el de Plata está lleno, este aviso espera aunque el total del plan sea mayor.');
+    return `<div class="ml-section"><div class="ml-note warn"><i class="fas fa-box-open"></i><div><strong>Por qué no hay cupo</strong><ul style="margin:6px 0 0 18px;padding:0">${li.map(x => `<li>${x}</li>`).join('')}</ul></div></div></div>`;
+  }
   function portalesVivos(d) {
     const p = properties.find(x => x.id === mlModalPropId) || {};
     const vivos = [];
-    if (d && d.publicado && d.status && d.status !== 'closed') vivos.push('ml');
+    if (d && d.publicado && d.status && d.status !== 'closed' && !mlEsperaCupo(d)) vivos.push('ml');
     if (p.icListingId && p.icEstado !== 'eliminado') vivos.push('infocasas');
     if (p.cymId && p.cymEstado !== 'eliminado' && p.cymEstado !== 'error') vivos.push('casasymas');
     return vivos;
