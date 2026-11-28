@@ -646,7 +646,10 @@
     const asoc = esAsociadoPerfil(perfil);
     document.querySelectorAll('#mvSide [data-equipo]').forEach(el => el.classList.toggle('hidden', asoc));
     document.querySelectorAll('#mvSide [data-asociado]').forEach(el => el.classList.toggle('hidden', !asoc));
-    if (asoc) pintarPlanAsociado(perfil);
+    if (asoc) {
+      pintarPlanAsociado(perfil);
+      const pd = document.getElementById('mvSideDatos'); if (pd) pd.hidden = true;
+    }
     if (currentUser && isAdminUser() && !_pendUnsub) actualizarBadgePendientes();
   }
   function closeSideMenu() {
@@ -6008,6 +6011,7 @@
     try { localStorage.setItem(MV_DATOS_KEY, abierto ? '1' : '0'); } catch (e) { }
   }
   function toggleMenuDatos() {
+    if (soyAsociado()) return;   // el asociado no tiene saldo, puntos ni nivel
     const panel = document.getElementById('mvSideDatos');
     if (panel) setMenuDatos(panel.hidden);
   }
@@ -8587,8 +8591,14 @@
       if (!isNaN(d.getTime())) hasta = d.toLocaleDateString('es-UY', { day: 'numeric', month: 'long', year: 'numeric' });
     }
     const vencido = window.Rangos && Rangos.asociadoVencido(perfil);
-    el.innerHTML = `Propiedades publicadas: <b>${usadas} de ${max}</b>.` +
-      (hasta ? `<br>${vencido ? '<b style="color:#c0392b">Cuota vencida</b> el' : 'Cuota paga hasta el'} <b>${mvEsc(hasta)}</b>.` : '') +
+    const num = document.getElementById('mvPlanNum');
+    if (num) num.textContent = `${usadas} de ${max}`;
+    const fill = document.getElementById('mvPlanFill');
+    if (fill) { fill.style.width = Math.min(100, Math.round(usadas / max * 100)) + '%'; fill.classList.toggle('lleno', usadas >= max); }
+    const libres = Math.max(0, max - usadas);
+    el.innerHTML = (usadas >= max ? 'Llegaste al tope de tu plan: dá de baja una para subir otra.'
+        : `Te ${libres === 1 ? 'queda' : 'quedan'} <b>${libres}</b> ${libres === 1 ? 'lugar' : 'lugares'} para publicar.`) +
+      (hasta ? `<br>${vencido ? '<b class="venc">Cuota vencida</b> el' : 'Cuota paga hasta el'} <b>${mvEsc(hasta)}</b>.` : '') +
       (vencido ? '<br>Hasta que se renueve no podés subir ni editar propiedades.' : '');
   }
   // ¿Este teléfono ya es cliente de MALAVE? El servidor contesta solo sí o no
@@ -8684,6 +8694,7 @@
     let html = `<div class="ma-cab"><div class="ma-asa" aria-hidden="true"></div><div class="ma-tit">Más acciones</div><div class="ma-sub">${mvEsc(p.title || '')}</div></div>`;
     if (p.asociado === true && !dirV) {
       // Agente asociado: sin destacados; la baja la hace él (los portales la bajan solos).
+      // La venta o el alquiler los registra y confirma en el Mapa de cierres.
       html += op('compartir', 'fas fa-share-nodes', 'Compartir', 'Con foto en WhatsApp y redes');
       html += op('portales', 'fas fa-bullhorn', 'Portales', 'Mercado Libre, InfoCasas y Casas y Más');
       html += op('ficha', 'fas fa-arrow-up-right-from-square', 'Ver ficha pública', 'Como la ve el cliente');

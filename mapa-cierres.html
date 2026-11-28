@@ -703,6 +703,13 @@
     const HOVER = !!(window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches);
 
     let curUser = null, curProfile = {}, isAdmin = false;
+    /* AGENTE ASOCIADO: ve solo los cierres de SUS propiedades (no los de MALAVE),
+       registra sus reservas y confirma él mismo la firma. Sus operaciones no
+       suman en los números de MALAVE (rentabilidad.html las deja afuera). */
+    let esAsoc = false;
+    function puedeConfirmar(p){
+      return !!p && (isAdmin || (esAsoc && p.asociado === true && curUser && p.ownerId === curUser.uid));
+    }
     const porId = {};          // una sola copia de cada propiedad, la comparten mapa, lista y formulario
     let cierres = [];          // propiedades con cierre ubicado
     let vista = [];            // lo que queda después de los filtros
@@ -796,6 +803,11 @@
     // ---------- Lecturas ----------
     let _todasLeidas = false, _editables = null, _agentes = null, _cfgPts = null, cfgPts = null;
     async function leerCierres(){
+      if (esAsoc){
+        const q = await db.collection('properties').where('ownerId', '==', curUser.uid).get();
+        _todasLeidas = true;
+        return q.docs.map(d => unir(d.id, d.data()));
+      }
       try{
         // Firestore devuelve solo los documentos que TIENEN cierre.lat (numérico).
         const q = await db.collection('properties').where('cierre.lat', '>=', -90).get();
@@ -878,6 +890,8 @@
         $('btnRef').hidden = !isAdmin;
         $('lede').textContent = isAdmin
           ? 'Todos los cierres del equipo. Confirmá las firmas pendientes, generá los recibos y mirá dónde se está vendiendo.'
+          : esAsoc
+          ? 'Tus ventas y alquileres. Cuando un cliente reserva, registrá la reserva acá; cuando se firma, confirmala vos.'
           : 'Las ventas y alquileres que cerró el equipo: sirven de referencia de precios por barrio. Cuando un cliente reserva, registrá la reserva acá.';
         pintarFiltros();
         initMap();
@@ -940,7 +954,7 @@
       selId = p.id;
       refrescar(false);
       setTimeout(() => enfocarCierre(p.id), 450);
-      if (!isAdmin) return;
+      if (!puedeConfirmar(p)) return;
       if (p.cierreConfirmado === true){ toast('Esa firma ya está confirmada.'); return; }
       setTimeout(() => abrirConfirmar(p.id), 650);
     }
@@ -1207,7 +1221,7 @@
     // "Se cayó": el agente del cierre (mientras no esté confirmado) o el admin.
     function puedeCaerse(p){ return esReserva(p) && (isAdmin || puedeEditar(p)); }
     function botonConfirmar(p){
-      return (isAdmin && p.cierreConfirmado !== true) ? '<button type="button" class="b ok" onclick="confirmarCierre(' + arg(p.id) + ', this)"><i class="fas fa-check"></i> ' + (esReserva(p) ? 'Confirmar firma' : 'Confirmar') + '</button>' : '';
+      return (puedeConfirmar(p) && p.cierreConfirmado !== true) ? '<button type="button" class="b ok" onclick="confirmarCierre(' + arg(p.id) + ', this)"><i class="fas fa-check"></i> ' + (esReserva(p) ? 'Confirmar firma' : 'Confirmar') + '</button>' : '';
     }
     function botonCaida(p){
       return puedeCaerse(p) ? '<button type="button" class="b caida" onclick="seCayoReserva(' + arg(p.id) + ', this)" title="La reserva se cayó: la propiedad vuelve a Disponible"><i class="fas fa-handshake-slash"></i> Se cayó</button>' : '';
@@ -1436,8 +1450,8 @@
       }
     }
     function abrirConfirmar(id){
-      if (!isAdmin) return;
       const p = porId[id];
+      if (!puedeConfirmar(p)) return;
       if (!p || !p.cierre || p.cierreConfirmado === true) return;
       confId = id;
       const c = p.cierre, tipo = c.tipo === 'alquiler' ? 'alquiler' : 'venta', res = esReserva(p);
@@ -1456,6 +1470,7 @@
       $('confNota').innerHTML = '<i class="fas fa-circle-info"></i><div>' + (res
         ? 'Al confirmar, la propiedad pasa a <b>' + (tipo === 'venta' ? 'Vendida' : 'Alquilada') + '</b>, las gestiones a <b>Cerrado</b> (el agente ya no las puede cambiar) y la ganancia entra en Mis Finanzas y en Recompensas.'
         : 'Al confirmar, la ganancia entra en Mis Finanzas y en Recompensas, y las gestiones que sigan abiertas pasan a <b>Cerrado</b>.') + '</div>';
+      if (esAsoc) $('confNota').innerHTML = '<i class="fas fa-circle-info"></i><div>Al confirmar, la propiedad pasa a <b>' + (tipo === 'venta' ? 'Vendida' : 'Alquilada') + '</b> y sale de la web y de los portales. Las gestiones de esta propiedad pasan a <b>Cerrado</b>.</div>';
       ocupado($('confSave'), false);
       prepararConfCarta(p);
       abrirOverlay('confModal');
@@ -1475,6 +1490,7 @@
       const wrap = $('confCartaWrap'), nota = $('confCartaNota'), c = p.cierre || {}, id = p.id;
       wrap.hidden = true; nota.hidden = true; $('confCarta').checked = false;
       pintarConfCarta();
+      if (!isAdmin) return;   // la carta de pago es de MALAVE: el asociado no la emite
       if (!c.reciboId){
         if (esReserva(p)){ nota.hidden = false; nota.textContent = c.sinSena ? 'Fue una reserva sin seña, así que no hay recibo: si corresponde, la carta de pago se hace en Recursos → Comisión.' : 'Esta reserva no tiene recibo de la seña en el sistema: si corresponde, la carta de pago se hace en Recursos → Comisión.'; }
         return;
@@ -1502,7 +1518,7 @@
     }
     async function guardarConfirmacion(){
       const id = confId, p = id && porId[id];
-      if (!isAdmin || !p || !p.cierre) return;
+      if (!puedeConfirmar(p) || !p.cierre) return;
       const fecha = $('confFecha').value;
       if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha || '')){ toast('Poné la fecha de la firma', true); $('confFecha').focus(); return; }
       const c = Object.assign({}, p.cierre);
@@ -1512,6 +1528,9 @@
       c.fecha = fecha;
       c.confirmadoEl = new Date().toISOString();
       c.confirmadoPor = curProfile.name || curUser.email || 'Dirección';
+      // El asociado no tiene un trigger de gestión que mueva la propiedad si cargó
+      // el cierre sin gestión: se pasa acá a Vendida o Alquilada.
+      const estadoFirmado = c.tipo === 'alquiler' ? 'rented' : 'sold';
       const btn = $('confSave'); ocupado(btn, true);
       try{
         const gidVolver = (gestionPedida && gestionPedida.pid === id) ? gestionPedida.gid : '';
@@ -1537,8 +1556,10 @@
         }
         // Solo estos campos: las reglas le dejan a la Dirección tocar cierre y
         // cierreConfirmado. La propiedad y las gestiones las mueve el backend.
-        await db.collection('properties').doc(id).update({ cierre: c, cierreConfirmado: true, updatedAt: new Date().toISOString() });
-        p.cierre = c; p.cierreConfirmado = true;
+        const updConf = { cierre: c, cierreConfirmado: true, updatedAt: new Date().toISOString() };
+        if (esAsoc) updConf.status = estadoFirmado;
+        await db.collection('properties').doc(id).update(updConf);
+        p.cierre = c; p.cierreConfirmado = true; if (esAsoc) p.status = estadoFirmado;
         // Desde Clientes: la gestión de ese cliente pasa a Cerrado.
         const gestOk = (gestionPedida && gestionPedida.pid === id) ? await marcarGestion(gestionPedida, 'cerrado') : null;
         if (gestionPedida && gestionPedida.pid === id) gestionPedida = null;
@@ -1555,7 +1576,7 @@
       }catch(e){
         console.warn('guardarConfirmacion', e);
         ocupado(btn, false);
-        toast(e && e.code === 'permission-denied' ? 'Solo el admin puede confirmar cierres.' : ('No se pudo confirmar: ' + (e.message || e)), true);
+        toast(e && e.code === 'permission-denied' ? (esAsoc ? 'No se pudo confirmar: revisá que tu cuota esté al día.' : 'Solo el admin puede confirmar cierres.') : ('No se pudo confirmar: ' + (e.message || e)), true);
       }
     }
     // Se cayó la reserva: la propiedad vuelve a Disponible (en Mercado Libre el aviso
@@ -2150,7 +2171,7 @@
       dl.innerHTML = '';
       if (!p) return;
       let gs = [];
-      try{ gs = (await db.collection('gestiones').where('propertyId', '==', p.id).get()).docs.map(d => Object.assign({ id: d.id }, d.data())); }
+      try{ gs = (await (esAsoc ? db.collection('gestiones').where('agentId', '==', curUser.uid) : db.collection('gestiones')).where('propertyId', '==', p.id).get()).docs.map(d => Object.assign({ id: d.id }, d.data())); }
       catch(e){ return; }
       if (tk !== _recSugTk || selProp !== p) return;
       const nombres = [];
@@ -2814,12 +2835,12 @@
       curUser = u;
       try{ const d = await db.collection('users').doc(u.uid).get(); curProfile = d.exists ? d.data() : {}; }catch(e){ curProfile = {}; }
       isAdmin = (curProfile.email || u.email || '').toLowerCase() === ADMIN_EMAIL;
+      esAsoc = !isAdmin && curProfile.rank === 'agente_asociado';
       // Como antes: nada de cierres para una cuenta que todavía no está aprobada.
       if (curProfile.status !== 'approved' && !isAdmin){ show('authState'); $('authTit').textContent = 'Cuenta pendiente'; $('authMsg').textContent = 'Tu cuenta está pendiente de aprobación.'; return; }
       cargar(leerCierres());
     });
   </script>
 <script src="fcm-init.js"></script>
-<script src="solo-equipo.js?v=20261128a"></script>
 </body>
 </html>

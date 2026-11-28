@@ -588,8 +588,9 @@
       S.cierres = [];
       const vistos = new Set();
       const props = new Map();
-      conf.forEach((d) => props.set(d.id, d.data() || {}));
-      if (ant) ant.forEach((d) => { if (!props.has(d.id)) props.set(d.id, d.data() || {}); });
+      // Las operaciones de los agentes asociados son suyas: no son ingresos de MALAVE.
+      conf.forEach((d) => { if ((d.data() || {}).asociado !== true) props.set(d.id, d.data() || {}); });
+      if (ant) ant.forEach((d) => { if (!props.has(d.id) && (d.data() || {}).asociado !== true) props.set(d.id, d.data() || {}); });
       props.forEach((p, id) => {
         cierresConfirmadosDe(p).forEach((c, i) => {
           const r = registro(i ? id + '#' + i : id, Object.assign({}, p, { cierre: c }), true);
@@ -600,7 +601,7 @@
       S.pendientes = [];
       if (conCierre) conCierre.forEach((d) => {
         const p = d.data() || {};
-        if (vistos.has(d.id) || p.cierreConfirmado === true) return;
+        if (vistos.has(d.id) || p.cierreConfirmado === true || p.asociado === true) return;
         const r = registro(d.id, p, false);
         if (r) S.pendientes.push(r);
       });

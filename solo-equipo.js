@@ -20,7 +20,7 @@
     d.innerHTML = '<div style="max-width:420px;background:#fff;border-radius:16px;padding:28px 24px;box-shadow:0 10px 30px rgba(16,29,48,.12)">' +
       '<div style="font-size:2rem;color:#C9A227;margin-bottom:8px">&#128274;</div>' +
       '<h2 style="margin:0 0 8px;color:#16273f;font-size:1.2rem">Esta herramienta es del equipo de MALAVE</h2>' +
-      '<p style="margin:0 0 18px;color:#555;font-size:.95rem;line-height:1.5">Tu plan de agente asociado incluye publicar tus propiedades en la web y los portales, tus consultas, tu perfil, tu agenda y la Academy.</p>' +
+      '<p style="margin:0 0 18px;color:#555;font-size:.95rem;line-height:1.5">Tu plan de agente asociado incluye publicar tus propiedades en la web y los portales, tus clientes, tus cierres, tu agenda, tu perfil y la Academy.</p>' +
       '<a href="index.html" style="display:inline-block;background:#16273f;color:#fff;text-decoration:none;border-radius:10px;padding:10px 20px;font-weight:600">Volver al inicio</a>' +
       '</div>';
     document.body.appendChild(d);

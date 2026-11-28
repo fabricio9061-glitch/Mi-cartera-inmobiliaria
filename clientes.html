@@ -1647,6 +1647,7 @@
       db.collection('users').doc(user.uid).get().then(function(d){
         userProfile = d.exists ? d.data() : { email:user.email };
         esDir = isAdmin || (userProfile.status === 'approved' && (userProfile.rank === 'ceo' || userProfile.rank === 'coo'));
+        esAsoc = !isAdmin && userProfile.rank === 'agente_asociado';
         // La COO necesita saber de quién es cada cliente para no tocar lo del CEO:
         // el equipo se lee una vez y se vuelve a pintar cuando llega.
         if (esDir && !isAdmin) cargarAgentes().then(function(){ if (!_cargando) renderClients(); });
@@ -1667,6 +1668,26 @@
     // Se leen clientes, gestiones y propiedades una sola vez. Las propiedades
     // quedan guardadas para el perfil: antes, cada vez que se abría un cliente,
     // se volvía a leer la colección entera de propiedades.
+    /* AGENTE ASOCIADO: tiene su propio CRM. Ve solo SUS clientes (los que cargó),
+       SUS gestiones y SUS propiedades, nunca los de MALAVE. Las reglas de
+       Firestore no dejan leer la colección entera, así que se pide filtrado por
+       dueño (una consulta por campo) y se junta. Para el resto, igual que antes. */
+    var esAsoc = false;
+    function leerColeccion(col, opts){
+      if (!esAsoc) return db.collection(col).get(opts);
+      var uid = currentUser.uid;
+      var campos = col === 'properties' ? ['ownerId'] : col === 'gestiones' ? ['agentId'] : ['createdBy', 'agentId'];
+      return Promise.all(campos.map(function(f){ return db.collection(col).where(f, '==', uid).get(opts); })).then(function(rs){
+        var vistos = {}, docs = [];
+        rs.forEach(function(r){ r.docs.forEach(function(d){ if (!vistos[d.id]){ vistos[d.id] = 1; docs.push(d); } }); });
+        return { docs: docs, metadata: rs[0].metadata, size: docs.length, empty: !docs.length, forEach: function(f){ docs.forEach(f); } };
+      });
+    }
+    // Las gestiones de un cliente: el asociado solo puede pedir las suyas.
+    function gestionesQ(){
+      var q = db.collection('gestiones');
+      return esAsoc ? q.where('agentId', '==', currentUser.uid) : q;
+    }
     var _cargando = false, _errorCarga = null, _desdeCache = false, _sinConexion = false, _cargaN = 0;
     var _propsCargadas = false, _propPorId = {}, _ultGestiones = null, _pPropsEnCurso = null;
     function loadClients(){
@@ -1678,9 +1699,9 @@
       if (primera && _pCache) _pCache.then(function(ok){
         if (!ok || n !== _cargaN || !_cargando) return;
         return Promise.all([
-          db.collection('clients').get({ source:'cache' }),
-          db.collection('gestiones').get({ source:'cache' }),
-          db.collection('properties').get({ source:'cache' })
+          leerColeccion('clients', { source:'cache' }),
+          leerColeccion('gestiones', { source:'cache' }),
+          leerColeccion('properties', { source:'cache' })
         ]).then(function(r){
           if (n !== _cargaN || !_cargando || !r[0].docs.length) return;   // ya llegó lo del servidor, o no había nada
           ponerPropiedades(r[2]);
@@ -1690,11 +1711,11 @@
         });
       }).catch(function(){});
       // 2) Del servidor. Las propiedades no frenan la lista: se completan después.
-      var pProps = db.collection('properties').get().catch(function(e){ console.warn('No se pudieron leer las propiedades:', e); return null; });
+      var pProps = leerColeccion('properties').catch(function(e){ console.warn('No se pudieron leer las propiedades:', e); return null; });
       _pPropsEnCurso = pProps;
       Promise.all([
-        db.collection('clients').get(),
-        db.collection('gestiones').get().catch(function(){ return { docs:[] }; })
+        leerColeccion('clients'),
+        leerColeccion('gestiones').catch(function(){ return { docs:[] }; })
       ]).then(function(r){
         if (n !== _cargaN) return;
         armarLista(r[0], r[1]);
@@ -3392,7 +3413,7 @@
 
       var leer = gidFija
         ? db.collection('gestiones').doc(gidFija).get().then(function(d){ return d.exists ? [Object.assign({ id:d.id }, d.data())] : []; })
-        : db.collection('gestiones').where('clientId','==',clientId).get().then(function(q){ return q.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); }); });
+        : gestionesQ().where('clientId','==',clientId).get().then(function(q){ return q.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); }); });
       var props = allProperties.length ? Promise.resolve() : cargarPropiedadesSelect();
       Promise.all([props, leer]).then(function(res){
         if (!document.body.contains(ov)) return;   // se cerró mientras cargaba
@@ -3457,7 +3478,7 @@
 
       var props = allProperties.length ? Promise.resolve() : cargarPropiedadesSelect();
       _elgGestiones = {};
-      Promise.all([ props, db.collection('gestiones').where('clientId','==',clientId).get() ]).then(function(res){
+      Promise.all([ props, gestionesQ().where('clientId','==',clientId).get() ]).then(function(res){
         var cont = document.getElementById('elgList');
         if (!cont) return; // se cerró el modal mientras cargaba
         var gs = res[1].docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
@@ -3778,7 +3799,7 @@
       var cnt = document.getElementById('cpPropsCount');
       var grid = document.getElementById('cpGestionesGrid');
       grid.innerHTML = '<div class="cp-prop-soon"><i class="fas fa-spinner fa-spin"></i> Cargando gestiones...</div>';
-      db.collection('gestiones').where('clientId','==',clientId).get().then(function(q){
+      gestionesQ().where('clientId','==',clientId).get().then(function(q){
         if (clientId !== currentProfileId) return;   // se cambió de cliente mientras cargaba
         var gestiones = q.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
         gestiones.sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
@@ -4737,7 +4758,7 @@
           var quien = (userProfile && userProfile.name) || (currentUser && currentUser.email) || 'Agente';
           var entrada = { tipo:'propiedad', valor: PROP_STATUS[nuevo]||nuevo, autor: quien, fecha: new Date().toISOString() };
           if (currentProfileId){
-            db.collection('gestiones').where('clientId','==',currentProfileId).where('propertyId','==',propId).get().then(function(q){
+            gestionesQ().where('clientId','==',currentProfileId).where('propertyId','==',propId).get().then(function(q){
               q.docs.forEach(function(d){
                 if (!puedoTocarGestion(d.data())) return;
                 db.collection('gestiones').doc(d.id).update({ historial: firebase.firestore.FieldValue.arrayUnion(entrada) }).catch(function(){});
@@ -4770,7 +4791,7 @@
       if (!currentProfileId){ seguir(); return; }
       var prop = null; for (var k=0;k<allProperties.length;k++){ if (allProperties[k].id===propId){ prop = allProperties[k]; break; } }
       // La coherencia se evalúa contra la gestión de ESTE cliente con la propiedad.
-      db.collection('gestiones').where('clientId','==',currentProfileId).where('propertyId','==',propId).get().then(function(q){
+      gestionesQ().where('clientId','==',currentProfileId).where('propertyId','==',propId).get().then(function(q){
         var g = null; q.docs.forEach(function(d){ if (!g) g = Object.assign({ id: d.id }, d.data()); });
         var rol = g ? rolDeGestion(g) : null;
         var est = g ? etapaEfectiva(g, rol) : null;
@@ -4900,7 +4921,7 @@
     // ===== Modal de gestión =====
     function cargarPropiedadesSelect(){
       // Si la lista ya las está leyendo, se espera esa lectura en vez de repetirla.
-      var p = _pPropsEnCurso || db.collection('properties').get();
+      var p = _pPropsEnCurso || leerColeccion('properties');
       return Promise.resolve(p).then(function(q){ if (q) ponerPropiedades(q); })
         .catch(function(e){ console.error('Error cargando propiedades:', e); });
     }
@@ -5014,7 +5035,7 @@
       var quien = (userProfile && userProfile.name) || currentUser.email || 'Agente';
       var ahora = new Date().toISOString();
       // Se consulta en el momento (las gestiones del perfil pueden estar cargando).
-      db.collection('gestiones').where('clientId','==',c.id).where('propertyId','==',pid).get().then(function(q){
+      gestionesQ().where('clientId','==',c.id).where('propertyId','==',pid).get().then(function(q){
         if (!q.empty){
           closeGestionModal();
           _focoGestion = q.docs[0].id;
@@ -5488,8 +5509,9 @@
       showClientProfile(dup.id);
     }
 
+    var _telMalaveVisto = '';
     function handleSaveClient(e){
-      e.preventDefault();
+      if (e && e.preventDefault) e.preventDefault();
       if (!currentUser) return;
       var b = document.getElementById('clientBtn');
       var er = document.getElementById('clientError');
@@ -5514,6 +5536,26 @@
         }
       }
       if (!name){ er.textContent='Ingresá el nombre del cliente.'; er.classList.remove('hidden'); return; }
+
+      /* Agente asociado: antes de cargar un cliente nuevo se pregunta si ese
+         teléfono ya es cliente de MALAVE. El servidor contesta solo sí o no. */
+      if (esAsoc && !id && phoneFull && _telMalaveVisto !== phoneFull){
+        b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Revisando el teléfono...';
+        firebase.functions().httpsCallable('checkClientPhone')({ phone: phoneFull }).then(function(r){
+          _telMalaveVisto = phoneFull;
+          b.disabled = false; b.innerHTML = '<i class="fas fa-save"></i> Guardar Cliente';
+          if (r && r.data && r.data.exists){
+            if (!confirm('Ese teléfono ya es cliente de MALAVE.\n\nAntes de avanzar, hablalo con la inmobiliaria. ¿Lo cargás igual en tu lista?')) return;
+          }
+          handleSaveClient(e);
+        }).catch(function(err){
+          console.warn('checkClientPhone:', err);
+          _telMalaveVisto = phoneFull;   // si no se pudo consultar, no frena la carga
+          b.disabled = false; b.innerHTML = '<i class="fas fa-save"></i> Guardar Cliente';
+          handleSaveClient(e);
+        });
+        return;
+      }
 
       b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
       var nt = document.getElementById('clientNotes').value.trim();
@@ -5943,7 +5985,7 @@
     function arrastrarGestionesYPropiedades(clientId, destino, deUid){
       var nombre = destino.name || destino.email || 'Agente';
       var ahora = new Date().toISOString();
-      return db.collection('gestiones').where('clientId','==',clientId).get().then(function(q){
+      return gestionesQ().where('clientId','==',clientId).get().then(function(q){
         var props = [], ajenas = 0;
         var cambios = [];
         q.docs.forEach(function(d){
@@ -6283,6 +6325,5 @@
     });
   </script>
 <script src="fcm-init.js"></script>
-<script src="solo-equipo.js?v=20261128a"></script>
 </body>
 </html>
