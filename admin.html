@@ -271,6 +271,16 @@
     .cp input:focus{outline:none;border-color:var(--ink)}
     .cp input:disabled{background:var(--paper);color:var(--muted-2)}
     .cp-nota{font-size:.79rem;color:var(--muted);line-height:1.5;margin:0 0 16px}
+    .fi-tot{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px}
+    .fi-tot div{border:1px solid var(--line);border-radius:10px;padding:12px 8px;text-align:center}
+    .fi-tot b{display:block;font-size:1.05rem;color:var(--ink)}
+    .fi-tot span{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+    .fi-sec{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:16px 0 8px}
+    .fi-l{display:flex;justify-content:space-between;gap:12px;font-size:.83rem;padding:4px 0;color:var(--ink)}
+    .fi-l span:last-child{text-align:right}
+    .fi-l.neg span:last-child{color:#b91c1c}
+    .fi-aj{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:.83rem}
+    .fi-aj small{display:block;color:var(--muted);margin-top:2px}
     @media(max-width:600px){
       /* Hoja desde abajo, como el resto de la app. */
       .slide{align-items:flex-end}
@@ -629,6 +639,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
 <script src="rangos.js?v=20261128a"></script>
+<script src="finanzas-equipo.js?v=20261128a"></script>
 <script>
   var firebaseConfig = {
     apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
@@ -924,6 +935,11 @@
       // porque sin ese dato "1 propiedad" no distingue al que no trabaja del
       // que trabaja y todavía no cerró.
       var hoyUY = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Montevideo' });
+      // Saldo y puntos se CALCULAN (no están en el perfil): solo para el CEO,
+      // que es el único que puede leer retiros y ajustes.
+      var finP = (soyCEO && window.FinanzasEquipo)
+        ? FinanzasEquipo.cargar(db).catch(function(e){ console.error('finanzas equipo:', e); return null; })
+        : Promise.resolve(null);
       var [us, props, clis, cfg, vis] = await Promise.all([
         db.collection('users').get(),
         db.collection('properties').get(),
@@ -968,6 +984,14 @@
         ((a.email||'').toLowerCase()===ADMIN_EMAIL ? -1 : (b.email||'').toLowerCase()===ADMIN_EMAIL ? 1
           : ((a.status==='rejected')-(b.status==='rejected')) || (a.name||'').localeCompare(b.name||'','es',{sensitivity:'base'})));
       _agentes = todos;
+      _fin = null;
+      var datosFin = await finP;
+      if (datosFin){
+        try{
+          var perfiles = {}; todos.forEach(u => { perfiles[u.id] = u; });
+          _fin = FinanzasEquipo.calcular(props.docs.map(d => d.data()), perfiles, datosFin);
+        }catch(e){ console.error('finanzas equipo:', e); _fin = null; }
+      }
       var b=document.getElementById('cEquipo');
       b.textContent = pendientes.length || ''; b.style.display = pendientes.length ? '' : 'none';
 
@@ -992,7 +1016,7 @@
       var tProps = Object.values(propsPorAgente).reduce((a,b)=>a+b,0);
       var tTodas = Object.values(propsTotal).reduce((a,b)=>a+b,0);
       var tClis  = Object.values(clisPorAgente).reduce((a,b)=>a+b,0);
-      var tSaldo = equipo.reduce((a,u)=>a+(Number(u.saldoUSD)||0),0);
+      var tSaldo = equipo.reduce((a,u)=>a+saldoDe(u),0);
       var sinAct = equipo.filter(u => u.status!=='rejected' && !(propsPorAgente[u.id]||0) && !(clisPorAgente[u.id]||0)).length;
       html += '<div class="resumen">' +
         '<div class="rs"><b>'+equipo.filter(u => u.status!=='rejected').length+'</b><span>Agentes</span></div>' +
@@ -1112,7 +1136,7 @@
     var admin = (u.email||'').toLowerCase()===ADMIN_EMAIL;
     // Un agente sin nada cargado es lo que un dueño quiere ver de un vistazo.
     var quieto = !admin && u.status !== 'rejected' && !nProps && !nClis;
-    var saldo = Number(u.saldoUSD||0);
+    var saldo = saldoDe(u);
     // Sin comisión propia hereda la de la agencia: se muestra para que no
     // parezca un dato faltante.
     var cs = u.commissionSale!=null?u.commissionSale:(u.commissionPct!=null?u.commissionPct:null);
@@ -1137,6 +1161,11 @@
       '</div>';
   }
 
+  // Saldo a cobrar en US$ ya calculado (cierres, referidos, ajustes y retiros).
+  // Sin el cálculo (la COO, o si falló la lectura) da 0 y la columna muestra "—".
+  var _fin = null;
+  function saldoDe(u){ var f = _fin && _fin[u.id]; return f ? f.usd : 0; }
+
   var _eqDatos = null;
   function filtrarEquipo(){
     if (!_eqDatos) return;
@@ -1149,7 +1178,7 @@
     lista.sort(function(a,b){
       if (orden==='props') return (P[b.id]||0)-(P[a.id]||0) || (a.name||'').localeCompare(b.name||'','es');
       if (orden==='clis')  return (C[b.id]||0)-(C[a.id]||0) || (a.name||'').localeCompare(b.name||'','es');
-      if (orden==='saldo') return (Number(b.saldoUSD)||0)-(Number(a.saldoUSD)||0) || (a.name||'').localeCompare(b.name||'','es');
+      if (orden==='saldo') return saldoDe(b)-saldoDe(a) || (a.name||'').localeCompare(b.name||'','es');
       // Por nombre: el admin primero, es la referencia de la lista; los que no tienen acceso, al final.
       var ad = (a.email||'').toLowerCase()===ADMIN_EMAIL, bd = (b.email||'').toLowerCase()===ADMIN_EMAIL;
       if (ad!==bd) return ad ? -1 : 1;
@@ -1475,24 +1504,83 @@
     }catch(e){ console.error(e); toast('No se pudo guardar'); }
   }
 
+  // Dinero y puntos: el saldo y los puntos no se escriben a mano, se calculan
+  // (finanzas-equipo.js). Para corregirlos se registra un AJUSTE con motivo, que
+  // entra en la misma cuenta que ve el agente en su menú y en Recompensas.
   function finanzas(id){
     var u=agente(id); if(!u || !soyCEO) return;
+    var f = _fin && _fin[id];
+    if (!f){ toast('No se pudo calcular el saldo. Recargá la página.'); return; }
+    var m = function(n){ return Math.round(n||0).toLocaleString('es-UY'); };
+    var sg = function(n){ return n > 0 ? '+' : n < 0 ? '−' : ''; };
+    var fila = function(txt, val, cls){ return '<div class="fi-l'+(cls?' '+cls:'')+'"><span>'+txt+'</span><span>'+val+'</span></div>'; };
+    var aj = f.ajustes.map(function(a){
+      var partes = [];
+      if (Number(a.montoUSD)) partes.push(sg(a.montoUSD)+'US$ '+m(Math.abs(a.montoUSD)));
+      if (Number(a.montoUYU)) partes.push(sg(a.montoUYU)+'$U '+m(Math.abs(a.montoUYU)));
+      if (Number(a.puntos)) partes.push(sg(a.puntos)+m(Math.abs(a.puntos))+' pts');
+      return '<div class="fi-aj"><div><b>'+esc(partes.join(' · ')||'—')+'</b><small>'+esc(a.motivo||'Sin motivo')+
+        (a.fecha?' · '+esc(new Date(a.fecha).toLocaleDateString('es-UY')):'')+(a.autor?' · '+esc(a.autor):'')+'</small></div>'+
+        '<button class="kb" title="Quitar ajuste" data-quitar="'+escA(a.id)+'"><i class="fas fa-xmark"></i></button></div>';
+    }).join('');
     abrirPanel('Dinero y puntos · '+(u.name||'agente'),
-      '<p class="cp-nota" style="margin-top:0">Saldo a cobrar y puntos acumulados del agente.</p>' +
-      campo('Saldo a cobrar (US$)','fiSaldo',u.saldoUSD||0,'number','step="1" min="0"') +
-      campo('Saldo a cobrar ($U)','fiSaldoUyu',u.saldoUYU||0,'number','step="1" min="0"') +
-      campo('Puntos','fiPuntos',u.puntos||0,'number','step="1" min="0"'),
-      function(){ return guardarFinanzas(id); });
+      '<div class="fi-tot"><div><b>'+plata(f.usd,'USD')+'</b><span>A cobrar</span></div>'+
+        '<div><b>'+plata(f.uyu,'UYU')+'</b><span>A cobrar</span></div>'+
+        '<div><b>'+m(f.pts)+'</b><span>Puntos</span></div></div>'+
+      '<div class="fi-sec">Desglose</div>'+
+      fila('Ganado en cierres', plata(f.ganadoUSD,'USD')+' · '+plata(f.ganadoUYU,'UYU')+' · '+m(f.ganadoPts)+' pts')+
+      ((f.ajUSD||f.ajUYU||f.ajPts) ? fila('Ajustes de la Dirección', sg(f.ajUSD)+plata(Math.abs(f.ajUSD),'USD')+' · '+sg(f.ajUYU)+plata(Math.abs(f.ajUYU),'UYU')+' · '+sg(f.ajPts)+m(Math.abs(f.ajPts))+' pts') : '')+
+      ((f.retUSD||f.retUYU) ? fila('Retiros (pagados o pedidos)', '−'+plata(f.retUSD,'USD')+' · −'+plata(f.retUYU,'UYU'), 'neg') : '')+
+      (f.canjPts ? fila('Puntos canjeados', '−'+m(f.canjPts)+' pts', 'neg') : '')+
+      '<div class="fi-sec">Ajustes registrados ('+f.ajustes.length+')</div>'+
+      (aj || '<p class="cp-nota">Sin ajustes.</p>')+
+      '<div class="fi-sec">Registrar un ajuste</div>'+
+      '<p class="cp-nota">Usá números negativos para descontar (por ejemplo <b>-200</b> en US$). El motivo queda registrado.</p>'+
+      campo('Dinero en US$ (±)','fiUsd','','number','step="any"') +
+      campo('Dinero en $U (±)','fiUyu','','number','step="any"') +
+      campo('Puntos (±)','fiPts','','number','step="1"') +
+      campo('Motivo','fiMotivo','','text','maxlength="300"'),
+      function(){ return guardarAjuste(id); }, { boton: 'Guardar ajuste' });
+    document.querySelectorAll('.slide [data-quitar]').forEach(function(b){
+      b.addEventListener('click', function(){ quitarAjuste(b.getAttribute('data-quitar'), id); });
+    });
   }
-  async function guardarFinanzas(id){
+  async function recalcularFinanzas(id){
+    var datos = await FinanzasEquipo.cargar(db);
+    var props = await db.collection('properties').where('cierreConfirmado','==',true).get();
+    var hist = await db.collection('properties').where('tieneCierresAnteriores','==',true).get().catch(function(){ return null; });
+    var vistas = {}, lista = [];
+    props.docs.concat(hist ? hist.docs : []).forEach(function(d){ if(!vistas[d.id]){ vistas[d.id]=1; lista.push(d.data()); } });
+    var perfiles = {}; _agentes.forEach(function(u){ perfiles[u.id] = u; });
+    _fin = FinanzasEquipo.calcular(lista, perfiles, datos);
+    finanzas(id);
+  }
+  async function guardarAjuste(id){
+    var usd = Number(document.getElementById('fiUsd').value) || 0;
+    var uyu = Number(document.getElementById('fiUyu').value) || 0;
+    var pts = Math.round(Number(document.getElementById('fiPts').value) || 0);
+    var motivo = (document.getElementById('fiMotivo').value || '').trim();
+    if (!usd && !uyu && !pts){ toast('Poné un monto o puntos'); return; }
+    if (!motivo){ toast('El motivo es obligatorio'); return; }
     try{
-      await db.collection('users').doc(id).update({
-        saldoUSD: parseFloat(document.getElementById('fiSaldo').value)||0,
-        saldoUYU: parseFloat(document.getElementById('fiSaldoUyu').value)||0,
-        puntos: parseInt(document.getElementById('fiPuntos').value)||0
+      await db.collection('ajustesFinancieros').add({
+        agenteUid: id, montoUSD: usd, montoUYU: uyu, puntos: pts, motivo: motivo,
+        autor: (miPerfil && miPerfil.name) || (yo && yo.email) || 'Dirección',
+        autorUid: yo ? yo.uid : null, fecha: new Date().toISOString()
       });
-      cerrarPanel(); toast('Guardado'); ver('equipo');
-    }catch(e){ toast('No se pudo guardar'); }
+      toast('Ajuste guardado');
+      await recalcularFinanzas(id);
+      ver('equipo');
+    }catch(e){ console.error(e); toast(msgPermiso(e, 'No se pudo guardar')); }
+  }
+  async function quitarAjuste(ajId, id){
+    if (!confirm('¿Quitar este ajuste? El saldo se vuelve a calcular sin él.')) return;
+    try{
+      await db.collection('ajustesFinancieros').doc(ajId).delete();
+      toast('Ajuste quitado');
+      await recalcularFinanzas(id);
+      ver('equipo');
+    }catch(e){ console.error(e); toast(msgPermiso(e, 'No se pudo quitar')); }
   }
 
   // ==========================================================================
