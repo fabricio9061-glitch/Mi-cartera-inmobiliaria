@@ -58,7 +58,7 @@
   /* ---------- DECORACIÓN ----------
      1. Guirnalda de luces colgando bajo el encabezado (dorado, blanco,
         rojo y verde apagados), titilando despacio.
-     2. Gorrito navideño sobre el isotipo del logo.
+     2. Gorro de Papá Noel sobre el isotipo del logo (navidad-gorro.png).
      3. En la portada del inicio: tres adornos colgantes y un cartelito
         "Felices fiestas" arriba del título.
      Todo es decorativo: aria-hidden, sin clics, y si no encuentra dónde
@@ -119,24 +119,21 @@
   function gorro(img) {
     var cont = img.parentNode;
     if (getComputedStyle(cont).position === 'static') cont.style.position = 'relative';
-    var g = document.createElement('span');
+    var g = document.createElement('img');
     g.className = 'nv-gorro';
+    g.alt = '';
     g.setAttribute('aria-hidden', 'true');
-    g.innerHTML = '<svg viewBox="0 0 40 30" width="100%" height="100%">' +
-      '<path d="M5 24 C9 12 18 3 30 4 C33 4 36 8 35 13 C31 9 26 10 24 13 C22 17 23 21 24 24 Z" fill="#b23a3a"/>' +
-      '<path d="M5 24 C9 12 18 3 30 4" fill="none" stroke="rgba(0,0,0,.12)" stroke-width="1.2"/>' +
-      '<rect x="2" y="21.5" width="25" height="6.5" rx="3.2" fill="#fbf8ef" stroke="rgba(22,39,63,.18)" stroke-width=".6"/>' +
-      '<circle cx="35" cy="14" r="3.6" fill="#fbf8ef" stroke="rgba(22,39,63,.18)" stroke-width=".6"/></svg>';
+    // El gorro que mandó Anibal, recortado de su logo navideño.
+    g.src = '/navidad-gorro.png?v=1';
     cont.appendChild(g);
     function ubicar() {
       var r = img.getBoundingClientRect(), rc = cont.getBoundingClientRect();
       if (!r.width) return;
-      var w = r.width * 0.62;
-      g.style.width = w + 'px';
-      g.style.height = (w * 0.75) + 'px';
-      g.style.left = (r.left - rc.left + r.width * 0.30) + 'px';
-      g.style.top = (r.top - rc.top - w * 0.42) + 'px';
-      g.style.transform = 'rotate(8deg)';
+      // Medidas tomadas del logo navideño original (en proporción al isotipo).
+      g.style.width = (r.width * 0.582) + 'px';
+      g.style.height = 'auto';
+      g.style.left = (r.left - rc.left + r.width * 0.385) + 'px';
+      g.style.top = (r.top - rc.top - r.height * 0.081) + 'px';
     }
     if (img.complete) ubicar(); else img.addEventListener('load', ubicar);
     window.addEventListener('resize', ubicar);
