@@ -635,11 +635,12 @@
     document.getElementById('mvSideAdmin')?.classList.toggle('hidden', !verDir);
     document.getElementById('mvSideRetiros')?.classList.toggle('hidden', !esCeo);
     document.getElementById('mvSidePapelera')?.classList.toggle('hidden', !esCeo);
-    // Las contraseñas de las cuentas oficiales las ve solo el CEO (ver firestore.rules).
-    document.getElementById('mvSideCuentas')?.classList.toggle('hidden', !esCeo);
     document.getElementById('mvSideRenta')?.classList.toggle('hidden', !verDir);
     document.getElementById('mvSideInteres')?.classList.toggle('hidden', !verDir);
     document.getElementById('mvSideAuditIC')?.classList.toggle('hidden', !verDir);
+    // Sin pestaña Dirección, siempre "Mi trabajo" (la pestaña no puede quedar
+    // elegida de una sesión de CEO en la misma compu).
+    if (!verDir) mvMenuTab('trabajo');
     // Agente asociado: sin clientes, finanzas, puntos, tasaciones, cuentas,
     // rentabilidad ni documentos. Le queda su perfil, la agenda, sus clientes,
     // sus cierres y su plan. (Las reglas lo bloquean igual.)
@@ -659,6 +660,14 @@
       su.classList.toggle('sin-datos', asoc);
     }
     if (currentUser && isAdminUser() && !_pendUnsub) actualizarBadgePendientes();
+  }
+  // Pestañas del menú para CEO y COO: "Mi trabajo" y "Dirección".
+  function mvMenuTab(cual) {
+    const dir = cual === 'dir';
+    document.getElementById('mvVistaTrabajo')?.classList.toggle('hidden', dir);
+    document.getElementById('mvVistaDir')?.classList.toggle('hidden', !dir);
+    document.getElementById('mvTabTrabajo')?.setAttribute('aria-selected', dir ? 'false' : 'true');
+    document.getElementById('mvTabDir')?.setAttribute('aria-selected', dir ? 'true' : 'false');
   }
   function closeSideMenu() {
     document.getElementById('mvSide')?.classList.remove('open');
@@ -680,15 +689,15 @@
       // Los selectores van dentro de #mvSide: el ícono de agenda del encabezado
       // también es a[href="agenda.html"] y aparecía primero en la página, así
       // que el recorrido resaltaba ese ícono (oculto en celular) y no el menú.
-      { sel:'#mvSide a[href="agenda.html"]', t:'Mi Agenda', d:'Agendá visitas, reuniones y entregas. Podés vincular un cliente y una propiedad a cada evento.' },
-      { sel:'#mvSide a[href="clientes.html"]', t:'Clientes', d:'Tu cartera de clientes. Cargá prospectos, seguí gestiones y mirá su actividad.' },
-      { sel:'#mvSide a[href="finanzas.html"]', t:'Mis finanzas', d:'Tu saldo a cobrar, tus puntos y los retiros que pediste.' },
-      { sel:'#mvSide a[href="mapa-cierres.html"]', t:'Mapa de cierres', d:'Mirá en el mapa las ventas y alquileres cerrados del equipo.' },
-      { sel:'#mvSide a[href="tasador.html"]', t:'Tasador', d:'Calculá el valor estimado de una propiedad con comparables.' },
-      { sel:'#mvSide a[href="gastos.html"]', t:'Gastos del cliente', d:'Calculá gastos, comisiones e impuestos de una operación para el comprador o el vendedor.' },
-      { sel:'#mvSide a[href="ganancias.html"]', t:'Mi comisión', d:'Cuánto ganás según tu comisión en cada operación.' },
-      { sel:'#mvSide a[href="recompensas.html"]', t:'Recompensas', d:'Sumás puntos por cada operación cerrada y los canjeás por premios.' },
-      { sel:'#mvSide a[href="generar-documentos.html"]', t:'Recursos', d:'Generá contratos, recibos e inventarios con el membrete de la agencia, y guardá las cuentas de los portales.' },
+      { sel:'#mvSide .mv-side-nav a[href="agenda.html"]', t:'Mi Agenda', d:'Agendá visitas, reuniones y entregas. Podés vincular un cliente y una propiedad a cada evento.' },
+      { sel:'#mvSide .mv-side-nav a[href="clientes.html"]', t:'Clientes', d:'Tu cartera de clientes. Cargá prospectos, seguí gestiones y mirá su actividad.' },
+      { sel:'#mvSide .mv-side-nav a[href="finanzas.html"]', t:'Mis finanzas', d:'Tu saldo a cobrar, tus puntos y los retiros que pediste.' },
+      { sel:'#mvSide .mv-side-nav a[href="mapa-cierres.html"]', t:'Mapa de cierres', d:'Mirá en el mapa las ventas y alquileres cerrados del equipo.' },
+      { sel:'#mvSide .mv-side-nav a[href="tasador.html"]', t:'Tasador', d:'Calculá el valor estimado de una propiedad con comparables.' },
+      { sel:'#mvSide .mv-side-nav a[href="gastos.html"]', t:'Gastos del cliente', d:'Calculá gastos, comisiones e impuestos de una operación para el comprador o el vendedor.' },
+      { sel:'#mvSide .mv-side-nav a[href="ganancias.html"]', t:'Mi comisión', d:'Cuánto ganás según tu comisión en cada operación.' },
+      { sel:'#mvSide .mv-side-nav a[href="recompensas.html"]', t:'Recompensas', d:'Sumás puntos por cada operación cerrada y los canjeás por premios.' },
+      { sel:'#mvSide .mv-side-nav a[href="generar-documentos.html"]', t:'Recursos', d:'Generá contratos, recibos e inventarios con el membrete de la agencia. En Cuentas y Portales tenés los usuarios y claves oficiales.' },
       { sel:null, t:'¡Listo! 🎉', d:'Abrí el menú ☰ cuando quieras. Podés volver a ver este recorrido tocando "Tutorial" en el menú.' }
     ];
     return steps.filter(function(s){ var el = s.sel && document.querySelector(s.sel); return !s.sel || (el && !el.closest('.hidden')); });
@@ -711,6 +720,7 @@
   function startTour(){
     if (!currentUser) return;
     ensureTourEls();
+    mvMenuTab('trabajo');
     TOUR_STEPS = buildTourSteps();
     if (!TOUR_STEPS.length) return;
     tourIdx = 0;
@@ -6842,11 +6852,12 @@
     } catch (e) { console.warn('[pendientes]', e && e.message); }
   }
   function pintarBadgePendientes(n) {
-    const badge = document.getElementById('mvPendBadge');
-    if (badge) {
+    ['mvPendBadge', 'mvPendBadgeTab'].forEach(id => {
+      const badge = document.getElementById(id);
+      if (!badge) return;
       badge.textContent = n;
       badge.style.display = n > 0 ? 'inline-flex' : 'none';
-    }
+    });
   }
 
   function openEditProfileModal() {
