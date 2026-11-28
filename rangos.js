@@ -67,8 +67,32 @@
       key: 'marketing', grupo: 'Operaciones', label: 'Marketing', nivel: 35,
       caps: ['sitio.editar', 'academy.editar', 'recompensas.gestionar'],
       destacados: 1
+    },
+
+    // ---- Asociados: agentes de afuera que pagan una cuota para publicar en la
+    //      web de MALAVE. No son del equipo: suben sus propiedades (hasta
+    //      ASOCIADO_MAX_PROPIEDADES, sin la marca de agua de MALAVE y sin ir a los
+    //      portales) y no ven clientes, finanzas, puntos, tasaciones, cuentas de
+    //      portales, rentabilidad ni documentos. Nivel 10: cualquiera del equipo
+    //      que administre gente está por encima. El candado de verdad está en
+    //      firestore.rules (esAsociado) y en functions/index.js. ----
+    {
+      key: 'agente_asociado', grupo: 'Asociados', label: 'Agente Asociado', nivel: 10,
+      caps: [], destacados: 0
     }
   ];
+
+  var RANGO_ASOCIADO = 'agente_asociado';
+  var ASOCIADO_MAX_PROPIEDADES = 50;
+  function esAsociado(u) { return !!u && u.rank === RANGO_ASOCIADO; }
+  /* ¿Ya venció lo pagado? 'asociadoHasta' lo carga la Dirección (Cargo y rango).
+     Sin fecha cargada no vence. Acepta Timestamp de Firestore, Date o texto. */
+  function asociadoVencido(u) {
+    if (!esAsociado(u) || !u.asociadoHasta) return false;
+    var h = u.asociadoHasta;
+    var ms = (h && typeof h.toMillis === 'function') ? h.toMillis() : new Date(h).getTime();
+    return isFinite(ms) && ms <= Date.now();
+  }
 
   // Catálogo de capacidades, para tener la lista completa en un solo lugar.
   var CAPS = [
@@ -201,6 +225,10 @@
     porGrupo: porGrupo,
     ESCALERA: ESCALERA,
     progresoRango: progresoRango,
-    destacadosDe: destacadosDe
+    destacadosDe: destacadosDe,
+    RANGO_ASOCIADO: RANGO_ASOCIADO,
+    ASOCIADO_MAX_PROPIEDADES: ASOCIADO_MAX_PROPIEDADES,
+    esAsociado: esAsociado,
+    asociadoVencido: asociadoVencido
   };
 })(typeof window !== 'undefined' ? window : this);

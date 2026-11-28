@@ -294,6 +294,9 @@
     if ((p.email || '').toLowerCase() === ADMIN_EMAIL) return true;
     return !!(window.Rangos && Rangos.esDireccion(p));
   }
+  // Agente asociado: paga para publicar en la web, no es del equipo (rangos.js).
+  function esAsociadoPerfil(p) { return !!(p && window.Rangos && Rangos.esAsociado(p)); }
+  function soyAsociado() { return esAsociadoPerfil(perfilVisible()); }
   // "COO — Director de Operaciones" es largo para una etiqueta: queda la sigla.
   function etiquetaRango(p) {
     if (!p) return '';
@@ -383,6 +386,9 @@
   let _fuenteUsers = null, _turnoUsers = 0;
   function fuenteUsuarios() {
     // Sesión confirmada, o la recordada mientras Firebase todavía no respondió.
+    // El agente asociado no lee los perfiles internos del equipo (traen
+    // tasaciones y comisiones): ve los públicos, como un visitante, y el suyo.
+    if (soyAsociado()) return 'perfiles';
     return (currentUser && userProfile) || (!_authResuelto && _sesionPrevia) ? 'users' : 'perfiles';
   }
   async function loadUsers(forzada) {
@@ -618,7 +624,7 @@
     // o "Agente", y la COO figuraba como Administrador.
     const rl = document.getElementById('mvSideRole'); if (rl) rl.textContent = etiquetaRango(perfil);
     initMenuDatos();
-    if (currentUser) cargarFinanzasMenu();
+    if (currentUser && !esAsociadoPerfil(perfil)) cargarFinanzasMenu();
     /* El Panel de Administración, Rentabilidad e Interés los ve la Dirección
        (CEO y COO). esDireccionPerfil incluye el rango 'coo' (esCEO() no).
        Retiros y Papelera siguen siendo solo del CEO (plata y borrado definitivo),
@@ -634,6 +640,13 @@
     document.getElementById('mvSideRenta')?.classList.toggle('hidden', !verDir);
     document.getElementById('mvSideInteres')?.classList.toggle('hidden', !verDir);
     document.getElementById('mvSideAuditIC')?.classList.toggle('hidden', !verDir);
+    // Agente asociado: sin clientes, finanzas, puntos, tasaciones, cuentas,
+    // rentabilidad ni documentos. Le queda su perfil, la agenda y la consulta
+    // "¿ya es cliente de MALAVE?". (Las reglas de Firestore lo bloquean igual.)
+    const asoc = esAsociadoPerfil(perfil);
+    document.querySelectorAll('#mvSide [data-equipo]').forEach(el => el.classList.toggle('hidden', asoc));
+    document.querySelectorAll('#mvSide [data-asociado]').forEach(el => el.classList.toggle('hidden', !asoc));
+    if (asoc) pintarPlanAsociado(perfil);
     if (currentUser && isAdminUser() && !_pendUnsub) actualizarBadgePendientes();
   }
   function closeSideMenu() {
@@ -667,7 +680,7 @@
       { sel:'#mvSide a[href="generar-documentos.html"]', t:'Recursos', d:'Generá contratos, recibos e inventarios con el membrete de la agencia, y guardá las cuentas de los portales.' },
       { sel:null, t:'¡Listo! 🎉', d:'Abrí el menú ☰ cuando quieras. Podés volver a ver este recorrido tocando "Tutorial" en el menú.' }
     ];
-    return steps.filter(function(s){ return !s.sel || document.querySelector(s.sel); });
+    return steps.filter(function(s){ var el = s.sel && document.querySelector(s.sel); return !s.sel || (el && !el.closest('.hidden')); });
   }
   function ensureTourEls(){
     if (document.getElementById('tourBlock')) return;
@@ -3325,6 +3338,11 @@
   /* opts.conservar: mantiene el resultado de la última acción (se reabre después de actuar).
      opts.portal: abre en esa pestaña (por ejemplo, desde un aviso de error de Mercado Libre). */
   async function openMLModal(propertyId, opts) {
+    const _pa = properties.find(x => x.id === propertyId);
+    if (_pa && _pa.asociado === true) {
+      showToast('Solo en la web', 'Las propiedades de agentes asociados se publican en la web de MALAVE, no en los portales', 'fa-globe');
+      return;
+    }
     const conservar = !!(opts && opts.conservar);
     if (!conservar || mlModalPropId !== propertyId) { for (const k in _portalFlash) delete _portalFlash[k]; }
     if (opts && opts.portal && PORTAL_TABS.some(t => t.key === opts.portal)) _portalTab = opts.portal;
@@ -5507,8 +5525,32 @@
   // Al entrar o salir se cambia sola: alCambiarSesion vuelve a llamar acá.
   let _desuscribirProps = null, _fuenteProps = null;
   function fuentePropiedades() {
+    // El agente asociado no lee la cartera interna de MALAVE: ve la vitrina como
+    // el público y, aparte, sus propias propiedades completas (ver abajo).
+    const uid = uidVisible();
+    if (soyAsociado() && uid) return 'asociado:' + uid;
     // Sesión confirmada, o la recordada mientras Firebase todavía no respondió.
     return (currentUser && userProfile) || (!_authResuelto && _sesionPrevia) ? 'properties' : 'vitrina';
+  }
+  // Para el asociado: la vitrina (lo público de todos) + sus propiedades enteras
+  // de "properties" (la regla le deja leer solo las suyas). Las suyas pisan a su
+  // copia pública. Devuelve una función para dejar de escuchar las dos.
+  function escucharAsociado(uid, alLlegar, alFallar) {
+    let pub = null, mias = null;
+    const juntar = () => {
+      if (!pub || !mias) return;
+      const ids = {}; mias.forEach(p => { ids[p.id] = true; });
+      const lista = mias.concat(pub.filter(p => !ids[p.id]));
+      lista.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+      alLlegar(lista);
+    };
+    const u1 = db.collection('vitrina').orderBy('createdAt', 'desc').onSnapshot(s => {
+      pub = s.docs.map(d => ({ id: d.id, ...d.data() })); juntar();
+    }, alFallar);
+    const u2 = db.collection('properties').where('ownerId', '==', uid).onSnapshot(s => {
+      mias = s.docs.map(d => ({ id: d.id, ...d.data() })); juntar();
+    }, alFallar);
+    return () => { try { u1(); } catch (e) { } try { u2(); } catch (e) { } };
   }
   function loadProperties(forzada) {
     const fuente = forzada || fuentePropiedades();
@@ -5517,11 +5559,8 @@
     _fuenteProps = fuente;
     // Hasta que llegue la lista de la fuente nueva no se conoce el estado real.
     window._propsCargadas = false;
-    _desuscribirProps = db.collection(fuente).orderBy('createdAt', 'desc').onSnapshot(s => {
-      properties = s.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      }));
+    const alLlegar = lista => {
+      properties = lista;
       _vitrinaDeCache = false;
       // Las notificaciones de despublicación leen el estado REAL de la propiedad;
       // hasta que llega este primer snapshot no se puede saber, y no deben adivinar.
@@ -5543,14 +5582,24 @@
       // Con el modal de Portales abierto, sus pestañas se ponen al día solas.
       refrescarPortalesAbiertos();
       // El perfil abierto se repinta solo dentro de pintarVitrinaActual().
-    }, err => {
+    };
+    const alFallar = err => {
+      // Del asociado escuchan dos: si ya se reemplazó por otra fuente, no se toca.
+      if (_fuenteProps !== fuente) return;
       // Firestore corta la escucha después de un error: se vuelve a armar abajo.
+      if (_desuscribirProps) { try { _desuscribirProps(); } catch (e) { } }
       _desuscribirProps = null; _fuenteProps = null;
       console.warn(`No se pudieron leer las propiedades (${fuente}):`, (err && err.code) || err);
       // La sesión recordada ya no vale: se sigue como visitante, con la vitrina.
-      if (fuente === 'properties') { loadProperties('vitrina'); return; }
+      if (fuente !== 'vitrina') { loadProperties('vitrina'); return; }
       avisarFallaPropiedades();
-    });
+    };
+    if (fuente.indexOf('asociado:') === 0) {
+      _desuscribirProps = escucharAsociado(fuente.slice(9), alLlegar, alFallar);
+      return;
+    }
+    _desuscribirProps = db.collection(fuente).orderBy('createdAt', 'desc').onSnapshot(
+      s => alLlegar(s.docs.map(d => ({ id: d.id, ...d.data() }))), alFallar);
   }
   // Sin conexión con la base (una red que bloquea a Google, un bloqueador, una
   // caída): en vez de "Cargando..." para siempre, un aviso con reintento y el
@@ -6748,7 +6797,7 @@
   }
 
   async function cargarFinanzasMenu() {
-    if (_finBusy || !currentUser) return;
+    if (_finBusy || !currentUser || soyAsociado()) return;
     if (Date.now() - _finUltima < 120000) return;
     _finBusy = true;
     try {
@@ -8528,12 +8577,79 @@
     try { localStorage.setItem('mvTarjetaPortales', plegar ? 'plegado' : 'abierto'); } catch (e) { /* sin almacenamiento: dura hasta recargar */ }
   }
   try { if (localStorage.getItem('mvTarjetaPortales') === 'plegado') document.documentElement.classList.add('tg-plegado'); } catch (e) { /* sin almacenamiento */ }
+  /* La tarjeta de una propiedad de agente asociado: no va a los portales, así
+     que en lugar de los chips de ML, InfoCasas y Casas y Más dice dónde sale. */
+  function barraAsociado(p) {
+    const id = p.id;
+    const st = p.status || 'available';
+    const nota = st === 'archived'
+      ? (p.asociadoExcedido ? 'Guardada sin publicar: llegaste al tope de tu plan.' : 'Dada de baja: no se ve en la web.')
+      : 'Se publica solo en la web de MALAVE (no va a los portales).';
+    return `<div class="tg-barra" onclick="event.stopPropagation()">` +
+      `<div class="tg-nota"><i class="fas fa-globe" aria-hidden="true"></i> ${mvEsc(nota)}</div>` +
+      `<div class="tg-acts">` +
+      `<button type="button" class="tg-b tg-pri" onclick="openPropertyFormTab('${id}')"><i class="fas fa-pen" aria-hidden="true"></i>Editar</button>` +
+      `<button type="button" class="tg-b" onclick="openVisitModal('${id}')"><i class="fas fa-calendar-plus" aria-hidden="true"></i>Agendar visita</button>` +
+      `<button type="button" class="tg-b tg-mas" aria-label="Más acciones" aria-haspopup="menu" aria-expanded="false" onclick="abrirMasAcciones('${id}',this)"><i class="fas fa-ellipsis" aria-hidden="true"></i></button>` +
+      `</div></div>`;
+  }
+  // "Mi plan": cuántas propiedades tiene publicadas de las que le permite su plan
+  // y hasta cuándo está paga la cuota.
+  function pintarPlanAsociado(perfil) {
+    const el = document.getElementById('mvPlanAsociado'); if (!el || !perfil) return;
+    const uid = uidVisible();
+    const max = (window.Rangos && Rangos.ASOCIADO_MAX_PROPIEDADES) || 50;
+    const usadas = properties.filter(p => p.ownerId === uid && p.asociado === true &&
+      ['available', 'reserved', 'tasacion', 'tasado'].indexOf(p.status || 'available') >= 0).length;
+    let hasta = '';
+    const h = perfil.asociadoHasta;
+    if (h) {
+      const d = typeof h.toDate === 'function' ? h.toDate() : new Date(h);
+      if (!isNaN(d.getTime())) hasta = d.toLocaleDateString('es-UY', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+    const vencido = window.Rangos && Rangos.asociadoVencido(perfil);
+    el.innerHTML = `Propiedades publicadas: <b>${usadas} de ${max}</b>.` +
+      (hasta ? `<br>${vencido ? '<b style="color:#c0392b">Cuota vencida</b> el' : 'Cuota paga hasta el'} <b>${mvEsc(hasta)}</b>.` : '') +
+      (vencido ? '<br>Hasta que se renueve no podés subir ni editar propiedades.' : '');
+  }
+  // ¿Este teléfono ya es cliente de MALAVE? El servidor contesta solo sí o no
+  // (checkClientPhone), con un tope de consultas por día.
+  async function consultarClienteAsociado() {
+    const tel = (prompt('¿Qué teléfono querés consultar?\n\nTe decimos si ya es cliente de MALAVE (sí o no).') || '').trim();
+    if (!tel) return;
+    if (tel.replace(/\D/g, '').length < 6) { showToast('Teléfono incompleto', 'Escribilo con todos los números', 'fa-phone'); return; }
+    try {
+      const r = await firebase.functions().httpsCallable('checkClientPhone')({ phone: tel });
+      if (r && r.data && r.data.exists) alert('Sí: ese teléfono ya es cliente de MALAVE.\n\nAntes de avanzar, hablalo con la inmobiliaria.');
+      else alert('No: ese teléfono no figura entre los clientes de MALAVE.');
+    } catch (e) {
+      console.error('checkClientPhone:', e);
+      showToast('No se pudo consultar', (e && e.code) === 'functions/resource-exhausted' ? (e.message || 'Llegaste al tope de hoy') : 'Probá de nuevo en un rato', 'fa-circle-exclamation');
+    }
+  }
+  // El asociado da de baja (o vuelve a publicar) su propiedad él mismo.
+  async function cambiarBajaAsociado(id) {
+    const p = properties.find(x => x.id === id); if (!p) return;
+    const baja = (p.status || 'available') !== 'archived';
+    const ok = confirm(baja
+      ? '¿Dar de baja "' + (p.title || 'esta propiedad') + '"?\n\nDeja de verse en la web y libera un lugar de tu plan. La podés volver a publicar cuando quieras.'
+      : '¿Volver a publicar "' + (p.title || 'esta propiedad') + '" en la web?');
+    if (!ok) return;
+    try {
+      await db.collection('properties').doc(id).update({ status: baja ? 'archived' : 'available', updatedAt: new Date().toISOString() });
+      showToast(baja ? 'Dada de baja' : 'Publicada', baja ? 'Ya no se ve en la web' : 'Vuelve a verse en la web', 'fa-check');
+    } catch (e) {
+      console.error('cambiarBajaAsociado:', e);
+      showToast('No se pudo', (e && e.code) === 'permission-denied' ? 'Revisá que tu cuota esté al día' : 'Probá de nuevo en un rato', 'fa-circle-exclamation');
+    }
+  }
   function textoWebTarjeta(p) {
     const v = Number(p.views) || 0, c = Number(p.contactClicks) || 0;
     return `En la web: ${v} visita${v === 1 ? '' : 's'} y ${c} contacto${c === 1 ? '' : 's'}`;
   }
   function barraGestion(p) {
     const id = p.id;
+    if (p.asociado === true) return barraAsociado(p);
     const ml = tgEstadoML(p), ic = tgEstadoIC(p), cm = tgEstadoCM(p);
     // Un solo aviso por tarjeta: el primero que haya que resolver.
     const prob = [['infocasas', ic], ['casasymas', cm], ['ml', ml]].find(x => x[1].prob);
@@ -8572,7 +8688,8 @@
     portales: (id) => openMLModal(id),
     ficha: (id) => openPropertyTab(id),
     baja: (id) => irAGestion(id),
-    eliminar: (id) => deleteProperty(id)
+    eliminar: (id) => deleteProperty(id),
+    bajaAsociado: (id) => cambiarBajaAsociado(id)
   };
   let _masAcc = null;
   function abrirMasAcciones(id, btn) {
@@ -8587,6 +8704,15 @@
     const op = (acc, ic, txt, sub, cls) => `<button type="button" class="ma-op${cls ? ' ' + cls : ''}" role="menuitem" data-acc="${acc}">` +
       `<i class="${ic}" aria-hidden="true"></i><span>${txt}<small>${sub}</small></span></button>`;
     let html = `<div class="ma-cab"><div class="ma-asa" aria-hidden="true"></div><div class="ma-tit">Más acciones</div><div class="ma-sub">${mvEsc(p.title || '')}</div></div>`;
+    if (p.asociado === true && !dirV) {
+      // Agente asociado: sin destacados ni portales; la baja la hace él.
+      html += op('compartir', 'fas fa-share-nodes', 'Compartir', 'Con foto en WhatsApp y redes');
+      html += op('ficha', 'fas fa-arrow-up-right-from-square', 'Ver ficha pública', 'Como la ve el cliente');
+      html += '<div class="ma-sep" role="separator"></div>';
+      html += st === 'archived'
+        ? op('bajaAsociado', 'fas fa-rotate-left', 'Volver a publicar', 'Ocupa un lugar de tu plan')
+        : op('bajaAsociado', 'fas fa-circle-stop', 'Dar de baja', 'Deja de verse en la web');
+    } else {
     html += op('destacar', 'fas fa-star', dest ? 'Cambiar o quitar el destacado' : 'Destacar en la web',
       dest ? `Destacada: vence en ${dias} día${dias === 1 ? '' : 's'}` : 'Aparece primero en la web', 'oro');
     html += op('compartir', 'fas fa-share-nodes', 'Compartir', 'Con foto en WhatsApp y redes');
@@ -8597,6 +8723,7 @@
     if (st === 'available' || st === 'reserved') cierre.push(op('baja', 'fas fa-circle-stop', 'Dar de baja', 'Se hace cerrando la gestión del cliente'));
     if (dirV) cierre.push(op('eliminar', 'fas fa-trash-can', 'Eliminar propiedad', 'Solo Dirección. Pide confirmación', 'peligro'));
     if (cierre.length) html += '<div class="ma-sep" role="separator"></div>' + cierre.join('');
+    }
     const el = document.createElement('div');
     el.className = 'ma';
     el.setAttribute('role', 'menu');
@@ -9363,7 +9490,7 @@
     return !!(window.Rangos && Rangos.esDireccion(userProfile));
   }
   async function loadClients() {
-    if (!currentUser) {
+    if (!currentUser || soyAsociado()) {
       clients = [];
       return
     }

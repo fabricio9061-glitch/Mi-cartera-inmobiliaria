@@ -60,11 +60,31 @@ exports.checkClientPhone = onCall(async (request) => {
   if (!esCeo && !(yo.exists && yo.data().status === "approved")) {
     throw new HttpsError("permission-denied", "Tu cuenta no está aprobada.");
   }
+  /* AGENTE ASOCIADO: no ve los clientes de MALAVE, pero puede preguntar si un
+     teléfono ya es cliente. Recibe solo sí o no: ni el nombre del cliente ni el
+     del agente. Y con tope de consultas por día, para que no pueda recorrer
+     números de a uno hasta armarse la lista. */
+  const asociado = !esCeo && yo.exists && yo.data().rank === "agente_asociado";
+  if (asociado) {
+    const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);   // día de Uruguay
+    const lim = admin.firestore().doc(`limitesConsultas/${uid}`);
+    const TOPE = 30;
+    await admin.firestore().runTransaction(async (tx) => {
+      const l = await tx.get(lim);
+      const d = l.exists ? l.data() : {};
+      const usadas = d.dia === hoy ? (Number(d.telefonos) || 0) : 0;
+      if (usadas >= TOPE) {
+        throw new HttpsError("resource-exhausted", `Llegaste a las ${TOPE} consultas de hoy. Mañana podés seguir.`);
+      }
+      tx.set(lim, { dia: hoy, telefonos: usadas + 1, actualizado: new Date().toISOString() });
+    });
+  }
   const snap = await admin.firestore().collection("clients").get();
   for (const doc of snap.docs) {
     if (doc.id === excludeId) continue;
     const c = doc.data();
     if (normalizarTel(c.phone) === phone) {
+      if (asociado) return { exists: true };
       return {
         exists: true,
         isOwn: c.ownerId === uid,
@@ -124,7 +144,17 @@ const NIVEL_RANGO = {
   ceo: 100, coo: 90, gerente_comercial: 70,
   asesor_elite: 50, asesor_senior: 40, asesor_semi_senior: 30, asesor_junior: 20,
   finanzas: 40, administracion: 35, marketing: 35,
+  agente_asociado: 10,
 };
+
+// ===== Agente asociado (espejo de rangos.js) =====
+// Agente de afuera que paga una cuota para publicar en la web. Sus propiedades
+// llevan asociado: true (lo exige firestore.rules al crearlas): no van a
+// Mercado Libre, InfoCasas ni Casas y Más, y tiene un tope de propiedades
+// en el mercado a la vez.
+const RANGO_ASOCIADO = "agente_asociado";
+const ASOCIADO_MAX_PROPIEDADES = 50;
+function esPropiedadDeAsociado(p) { return !!p && p.asociado === true; }
 function esPerfilCEO(u) {
   return !!u && (String(u.email || "").toLowerCase() === ADMIN_EMAIL || u.rank === "ceo");
 }
@@ -2686,8 +2716,13 @@ exports.notificarEstadoCanje = onDocumentUpdated("canjes/{id}", async (event) =>
 //   - cuenta aprobada (o ser el admin),
 //   - y ser el agente dueño de la propiedad (o el admin).
 // =====================================================================
-async function exigirAgente(request, p) {
+async function exigirAgente(request, p, opciones) {
   if (!request.auth) throw new HttpsError("unauthenticated", "Iniciá sesión.");
+  // Las propiedades de los agentes asociados no van a los portales: ningún
+  // botón de portales hace nada con ellas (pedir la baja, sí).
+  if (esPropiedadDeAsociado(p) && !(opciones && opciones.permitirAsociado)) {
+    throw new HttpsError("failed-precondition", "Las propiedades de agentes asociados se publican solo en la web de MALAVE, no en los portales.");
+  }
   const uid = request.auth.uid;
   const email = String(request.auth.token.email || "").toLowerCase();
   // Antes acá sólo pasaba el correo del CEO. Ahora pasa Dirección (CEO y COO):
@@ -3410,7 +3445,7 @@ exports.pedirBajaPropiedad = onCall(async (request) => {
   const doc = await ref.get();
   if (!doc.exists) throw new HttpsError("not-found", "La propiedad no existe.");
   const p = doc.data();
-  const { uid } = await exigirAgente(request, p); // agente dueño del aviso, o admin
+  const { uid } = await exigirAgente(request, p, { permitirAsociado: true }); // agente dueño del aviso, o admin
   if (p.despubPendiente === true) {
     throw new HttpsError("already-exists", "Ya hay un pedido de baja esperando la decisión del administrador.");
   }
@@ -14487,6 +14522,47 @@ exports.actualizarMetricasCYM = onCall({ timeoutSeconds: 300 }, async (request) 
    Tiempo y memoria: la parte más lenta (InfoCasas) tenía 300 s; ahora todo tiene
    540 s y 512 MiB, porque varias partes trabajan en el mismo servidor.
    ============================================================================ */
+/* TOPE DEL AGENTE ASOCIADO. Cuando una propiedad suya entra al mercado (se crea
+   o vuelve a Disponible, Reservada, En tasación o Tasada) se cuentan las que ya
+   tiene en el mercado. Si pasa el tope, esa queda "Dada de baja" y le llega un
+   aviso. Va en el servidor porque las reglas de Firestore no saben contar: desde
+   el navegador se podría saltear el control del formulario. Él no puede volver
+   a ponerla en el mercado (cambioDeEstadoDeAgente en firestore.rules); la
+   Dirección sí, cuando libere un lugar. */
+const ESTADOS_EN_MERCADO = ["available", "reserved", "tasacion", "tasado"];
+const controlarCupoAsociado = async (event) => {   // corre dentro de alCambiarPropiedad
+  const ch = event.data;
+  const despues = ch && ch.after && ch.after.exists ? ch.after.data() : null;
+  if (!esPropiedadDeAsociado(despues) || !despues.ownerId) return;
+  const antes = ch.before && ch.before.exists ? ch.before.data() : null;
+  const enMercado = (p) => !!p && ESTADOS_EN_MERCADO.includes(p.status || "available");
+  if (!enMercado(despues) || enMercado(antes)) return;   // solo cuando ENTRA al mercado
+  const id = event.params.id;
+  const q = await db.collection("properties")
+    .where("ownerId", "==", despues.ownerId).where("asociado", "==", true).get();
+  const otras = q.docs.filter((d) => d.id !== id && enMercado(d.data())).length;
+  if (otras < ASOCIADO_MAX_PROPIEDADES) return;
+  await ch.after.ref.update({ status: "archived", asociadoExcedido: true, updatedAt: new Date().toISOString() });
+  try {
+    const u = await db.doc(`users/${despues.ownerId}`).get();
+    if (u.exists) {
+      await crearNotificacion({ uid: u.id, ...u.data() }, {
+        type: "asociado_tope",
+        propertyId: id,
+        propertyTitle: despues.title || "",
+        userName: "Tope de propiedades",
+        text: `Tu plan permite ${ASOCIADO_MAX_PROPIEDADES} propiedades publicadas a la vez. "${despues.title || "La propiedad nueva"}" quedó guardada pero no se publica. Dá de baja otra o hablá con MALAVE.`,
+      }, { title: "Llegaste al tope de propiedades", body: despues.title || "" }, `asociado_tope_${id}_${Date.now()}`);
+    }
+  } catch (e) { logger.warn(`controlarCupoAsociado ${id}: no se pudo avisar:`, e.message); }
+};
+// Las partes que hablan con los portales: no corren para propiedades de asociados.
+const PARTES_DE_PORTALES = [
+  "publicarEnML", "publicarAutoCasasYMasAlCrear", "publicarAutoInfocasasAlCrear",
+  "sincronizarEdicionML", "publicarAutoCasasYMas", "publicarAutoInfocasas",
+  "sincronizarPortales", "cerrarMLAlBorrar",
+];
+
 const PARTES_PROPIEDAD = {
   crear: [
     ["publicarEnML", publicarEnML],
@@ -14509,6 +14585,7 @@ const PARTES_PROPIEDAD = {
   // La vitrina escuchaba crear, editar y borrar (onDocumentWritten): recibe el cambio entero.
   siempre: [
     ["sincronizarVitrina", sincronizarVitrina],
+    ["controlarCupoAsociado", controlarCupoAsociado],
   ],
 };
 
@@ -14524,9 +14601,12 @@ async function repartirCambioPropiedad(event, partes = PARTES_PROPIEDAD) {
   else if (existiaAntes && !existeAhora) { tipo = "borrar"; data = change.before; } // como onDocumentDeleted
   else return [];
   const evParte = { ...event, data };
+  // Propiedad de un agente asociado: no toca ningún portal.
+  const pd = (existeAhora ? change.after.data() : change.before.data()) || {};
+  const saltear = esPropiedadDeAsociado(pd) ? PARTES_DE_PORTALES : [];
   const lista = [
-    ...(partes[tipo] || []).map(([n, fn]) => [n, fn, evParte]),
-    ...(partes.siempre || []).map(([n, fn]) => [n, fn, event]),
+    ...(partes[tipo] || []).filter(([n]) => !saltear.includes(n)).map(([n, fn]) => [n, fn, evParte]),
+    ...(partes.siempre || []).filter(([n]) => !saltear.includes(n)).map(([n, fn]) => [n, fn, event]),
   ];
   const id = event.params && event.params.id;
   return Promise.all(lista.map(async ([nombre, fn, ev]) => {
