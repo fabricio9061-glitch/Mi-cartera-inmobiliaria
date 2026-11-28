@@ -21,6 +21,12 @@ service firebase.storage {
       return isAdmin() || (request.auth != null &&
         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == 'approved');
     }
+    // Agente asociado (paga para publicar en la web): sube las fotos de SUS
+    // propiedades y su foto de perfil, nada más. Ver esAsociado en firestore.rules.
+    function isInterno() {
+      return isApproved() && (isAdmin() ||
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('rank', '') != 'agente_asociado');
+    }
     // Límite de tamaño por archivo (25 MB) para no disparar costos.
     function sizeOk() {
       return request.resource.size < 25 * 1024 * 1024;
@@ -41,11 +47,16 @@ service firebase.storage {
     // ============================================
     // FOTOS DE PROPIEDADES
     // ============================================
-    match /properties/{allPaths=**} {
+    match /properties/{propId}/{allPaths=**} {
       allow read: if true;                                  // las fotos se ven en la web pública
       // Antes: cualquier logueado (incluso sin aprobar) podía subir o pisar las
       // fotos de cualquier propiedad.
-      allow write: if isApproved() && sizeOk() && esImagen();
+      // El agente asociado, solo en la carpeta de una propiedad SUYA o de una que
+      // todavía no existe (las fotos se suben antes de guardar la propiedad).
+      allow write: if isApproved() && sizeOk() && esImagen()
+                   && (isInterno()
+                       || !firestore.exists(/databases/(default)/documents/properties/$(propId))
+                       || firestore.get(/databases/(default)/documents/properties/$(propId)).data.ownerId == request.auth.uid);
     }
     // ============================================
     // FOTOS DE PERFIL (carpeta vieja, por si quedó algo ahí)
@@ -58,22 +69,22 @@ service firebase.storage {
     // DOCUMENTOS OFICIALES — todos los logueados descargan, SOLO admin sube/borra
     // ============================================
     match /documentos/{allPaths=**} {
-      allow read: if isApproved();
+      allow read: if isInterno();
       allow write: if isAdmin() && sizeOk();
     }
     // ============================================
     // MALAVE ACADEMY — todos los logueados ven, SOLO admin sube/borra
     // ============================================
     match /academy/{allPaths=**} {
-      allow read: if isApproved();
+      allow read: if isInterno();
       allow write: if isAdmin() && sizeOk();
     }
     // ============================================
     // PROPIEDADES COMPARTIDAS — logueados ven y suben
     // ============================================
     match /compartidas/{allPaths=**} {
-      allow read: if isApproved();
-      allow write: if isApproved() && sizeOk();
+      allow read: if isInterno();
+      allow write: if isInterno() && sizeOk();
     }
     // ============================================
     // PDFs DE TASACIONES PARA REVISIÓN
@@ -83,8 +94,8 @@ service firebase.storage {
     // Traen nombre del cliente y dirección del inmueble: solo cuentas aprobadas
     // (antes cualquier cuenta recién registrada los podía bajar).
     match /tasacionesPDF/{allPaths=**} {
-      allow read: if isApproved();
-      allow write: if isApproved() && sizeOk();
+      allow read: if isInterno();
+      allow write: if isInterno() && sizeOk();
     }
     // ============================================
     // IMÁGENES DE RECOMPENSAS — todos las ven, SOLO admin sube/borra
@@ -137,6 +148,7 @@ service firebase.storage {
     match /documentosGenerados/{uid}/{allPaths=**} {
       allow read: if isLoggedIn() && request.auth.uid == uid;
       allow create: if isLoggedIn() && request.auth.uid == uid
+                    && isInterno()
                     && sizeOk()
                     && request.resource.contentType == 'application/pdf';
       allow update, delete: if false;

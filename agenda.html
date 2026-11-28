@@ -724,7 +724,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
   <script src="malave-config.js?v=20260830b"></script>
-  <script src="rangos.js?v=20260821l"></script>
+  <script src="rangos.js?v=20261128a"></script>
   <script>
     /* =====================================================================
        AGENDA — lógica
@@ -938,12 +938,16 @@
     // ---------- Datos: CRM ----------
     function cargarCRM() {
       _crmT = Date.now();
-      var p1 = db.collection('clients').get().then(function (s) {
+      // El agente asociado no ve los clientes ni la cartera de MALAVE (reglas):
+      // en la agenda vincula solo sus propiedades.
+      var asociado = !!(window.Rangos && Rangos.esAsociado(perfil));
+      var p1 = asociado ? Promise.resolve() : db.collection('clients').get().then(function (s) {
         CLI = []; CLI_BY = {};
         s.docs.forEach(function (d) { var x = d.data() || {}; x.id = d.id; if (x.archived) return; CLI.push(x); CLI_BY[d.id] = x; });
         CLI.sort(function (a, b) { return String(a.name || '').localeCompare(String(b.name || ''), 'es'); });
       }).catch(function (e) { console.warn('clients', e); });
-      var p2 = db.collection('properties').get().then(function (s) {
+      var qp2 = asociado ? db.collection('properties').where('ownerId', '==', yo.uid) : db.collection('properties');
+      var p2 = qp2.get().then(function (s) {
         PROPS = []; PROPS_BY = {};
         s.docs.forEach(function (d) { var x = d.data() || {}; x.id = d.id; PROPS.push(x); PROPS_BY[d.id] = x; });
         PROPS.sort(function (a, b) { return String(a.title || '').localeCompare(String(b.title || ''), 'es'); });

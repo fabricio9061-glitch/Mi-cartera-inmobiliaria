@@ -37,6 +37,24 @@ service cloud.firestore {
     // Alias histórico: la agenda ya lo usaba con este nombre.
     function rangoVeTodo() { return esDireccion(); }
 
+    // AGENTE ASOCIADO: agente de afuera que paga una cuota para publicar en la
+    // web. Está aprobado (entra al CRM) pero NO es del equipo: ve y edita solo
+    // sus propiedades, su perfil, su agenda y sus avisos. No ve clientes,
+    // gestiones, finanzas, puntos, tasaciones, cuentas de portales, documentos
+    // ni el resto de la cartera de MALAVE.
+    // isInterno() es "aprobado y del equipo": va en lugar de isApproved() en todo
+    // lo que es solo de MALAVE.
+    function esAsociado() {
+      return request.auth != null && !isAdmin()
+          && perfil().get('rank', '') == 'agente_asociado';
+    }
+    function isInterno() { return isApproved() && !esAsociado(); }
+    // Cuota al día: sin fecha cargada no vence. Vencida, no sube ni edita.
+    function asociadoAlDia() {
+      return perfil().get('asociadoHasta', null) == null
+          || perfil().get('asociadoHasta', null) > request.time;
+    }
+
     // SOLO EL CEO. La Dirección (que incluye al COO) comparte lo operativo, pero
     // el dinero y lo irreversible no: aprobar un retiro es autorizar un pago y la
     // papelera borra definitivo. Esconder el botón en el menú no alcanza — si el
@@ -92,6 +110,17 @@ service cloud.firestore {
               && request.resource.data.get('status', '') == 'available');
     }
 
+    // El agente asociado no pasa por clientes ni por el Mapa de cierres: él
+    // mismo da de baja su propiedad (Dada de baja) y la vuelve a poner en el
+    // mercado. Si con eso pasa su tope de 50, el servidor la vuelve a bajar
+    // (controlarCupoAsociado en functions/index.js).
+    function cambioDeEstadoDeAsociado() {
+      return esAsociado()
+          && resource.data.get('asociado', false) == true
+          && (estadoEnJuego(resource.data.get('status', 'available')) || resource.data.get('status', '') == 'archived')
+          && (estadoEnJuego(request.resource.data.get('status', 'available')) || request.resource.data.get('status', '') == 'archived');
+    }
+
     // Las cuentas para cobrar viven en users/{uid}/privado/banco, que ven solo el
     // agente y la Dirección. El perfil lo lee todo el equipo: estas dos funciones
     // impiden volver a guardar ahí datos bancarios (agregarlos o cambiarlos).
@@ -116,7 +145,8 @@ service cloud.firestore {
       // Acá viven las cuentas bancarias (con la cédula), las tasaciones (con el
       // nombre del cliente y la dirección) y los cálculos guardados, y una regla
       // no puede esconder campos sueltos: quien lee el documento lo lee entero.
-      allow read: if (resource.data.status == 'approved' && isApproved())
+      // El asociado ve solo el suyo: el del resto del equipo trae tasaciones.
+      allow read: if (resource.data.status == 'approved' && isInterno())
                   || (request.auth != null && request.auth.uid == userId)
                   || esDireccion();
 
@@ -133,7 +163,8 @@ service cloud.firestore {
                     && (isAdmin() ||
                         (request.resource.data.status == 'pending'
                          && request.resource.data.get('rank', '') in ['', 'asesor_junior']
-                         && request.resource.data.get('role', '') == ''))
+                         && request.resource.data.get('role', '') == ''
+                         && !request.resource.data.keys().hasAny(['asociadoHasta'])))
                     && !request.resource.data.keys().hasAny(camposBancarios());
 
       // Tres capas:
@@ -154,7 +185,8 @@ service cloud.firestore {
                         && request.resource.data.status == resource.data.status
                         && request.resource.data.email == resource.data.email
                         && request.resource.data.get('role', '') == resource.data.get('role', '')
-                        && request.resource.data.get('rank', '') == resource.data.get('rank', '')));
+                        && request.resource.data.get('rank', '') == resource.data.get('rank', '')
+                        && request.resource.data.get('asociadoHasta', null) == resource.data.get('asociadoHasta', null)));
 
       // Nadie se borra a sí mismo, y al CEO no lo borra nadie.
       allow delete: if isAdmin()
@@ -187,7 +219,7 @@ service cloud.firestore {
       // necesita para corregir la tasación y rehacer el PDF.
       match /tasacionFotos/{fotoId} {
         allow read, delete: if esDireccion() || (request.auth != null && request.auth.uid == userId);
-        allow create, update: if (esDireccion() || (request.auth != null && request.auth.uid == userId))
+        allow create, update: if (esDireccion() || (request.auth != null && request.auth.uid == userId && !esAsociado()))
                               && request.resource.data.keys().hasOnly(['tasId', 'n', 'img', 'titulo', 'desc', 'entera', 'fecha'])
                               && request.resource.data.tasId is string && request.resource.data.tasId.size() <= 80
                               && request.resource.data.n is int && request.resource.data.n >= 0 && request.resource.data.n < 9
@@ -201,7 +233,7 @@ service cloud.firestore {
       // perfil: un documento por tasación, que ven solo el agente y la Dirección.
       match /tasacionPrivado/{tasId} {
         allow read, delete: if esDireccion() || (request.auth != null && request.auth.uid == userId);
-        allow create, update: if (esDireccion() || (request.auth != null && request.auth.uid == userId))
+        allow create, update: if (esDireccion() || (request.auth != null && request.auth.uid == userId && !esAsociado()))
                               && request.resource.data.keys().hasOnly(['tasId', 'cli', 'consid', 'fecha'])
                               && request.resource.data.tasId == tasId && tasId.size() <= 80
                               && request.resource.data.get('cli', {}) is map
@@ -217,6 +249,7 @@ service cloud.firestore {
       match /privado/{docId} {
         allow read: if esDireccion() || (request.auth != null && request.auth.uid == userId);
         allow create, update: if request.auth != null && request.auth.uid == userId
+                              && !esAsociado()
                               && docId == 'banco'
                               && request.resource.data.keys().hasOnly(['cuentas', 'updatedAt'])
                               && request.resource.data.cuentas is list
@@ -237,7 +270,7 @@ service cloud.firestore {
       // quién lo refirió) y los docs donde él es el referente (para calcular su
       // ganancia por referidos en su saldo). Escribir, solo el admin.
       allow read: if esDireccion()
-                  || (request.auth != null
+                  || (isInterno()
                       && (request.auth.uid == referredUid
                           || resource.data.referrerUid == request.auth.uid));
       allow write: if esDireccion();
@@ -252,19 +285,32 @@ service cloud.firestore {
       // esconder campos sueltos: quien lee el documento lo lee entero.
       // Las visitas y los clics de contacto se siguen sumando sin sesión (ver la
       // última condición de "update"): para escribir no hace falta poder leer.
-      allow read: if isApproved();
+      // El agente asociado lee SOLO las suyas (o en las que figura como agente):
+      // la cartera de MALAVE, con sus dueños y cierres, no es para él. Para ver
+      // el resto lee "vitrina", como el público.
+      allow read: if isInterno()
+                  || (isApproved()
+                      && (resource.data.ownerId == request.auth.uid
+                          || (resource.data.agents is list && request.auth.uid in resource.data.agents)));
       // El admin puede crear con cualquier ownerId: lo necesita la PAPELERA para
       // restaurar propiedades de los agentes (el doc vuelve con su dueño original).
+      // 'asociado' marca la propiedad de un agente asociado: no va a los
+      // portales (functions/index.js) y cuenta para su tope de 50. El asociado
+      // la tiene que crear con asociado == true y con la cuota al día; el resto
+      // del equipo, sin la marca. Después nadie la cambia desde el navegador.
       allow create: if esDireccion()
                     || (isApproved()
                         && request.resource.data.ownerId == request.auth.uid
-                        && estadoEnJuego(request.resource.data.get('status', 'available')));
+                        && estadoEnJuego(request.resource.data.get('status', 'available'))
+                        && (esAsociado()
+                            ? (request.resource.data.get('asociado', false) == true && asociadoAlDia())
+                            : request.resource.data.get('asociado', false) == false));
       allow update: if (isApproved()
                         && (resource.data.ownerId == request.auth.uid
                             || (resource.data.agents is list && request.auth.uid in resource.data.agents)
                             || esDireccion())
                         && !request.resource.data.diff(resource.data).affectedKeys()
-                             .hasAny(['ownerId', 'mlItemId', 'mlStatus', 'mlPermalink',
+                             .hasAny(['ownerId', 'asociado', 'mlItemId', 'mlStatus', 'mlPermalink',
                                       'mlPublishing', 'mlPublishingAt', 'cierreConfirmado',
                                       // DESTACADOS: solo los escribe el servidor.
                                       // El cupo depende del rango y del vencimiento, y eso
@@ -297,7 +343,9 @@ service cloud.firestore {
                             || resource.data.get('cierreConfirmado', false) != true
                             || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['cierre']))
                         // El estado: ver cambioDeEstadoDeAgente() arriba.
-                        && (esDireccion() || cambioDeEstadoDeAgente()))
+                        && (esDireccion() || cambioDeEstadoDeAgente() || cambioDeEstadoDeAsociado())
+                        // Asociado con la cuota vencida: no edita.
+                        && (!esAsociado() || asociadoAlDia()))
                     || (esDireccion()
                         && request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['cierre', 'cierreConfirmado', 'status', 'updatedAt']))
@@ -353,16 +401,18 @@ service cloud.firestore {
     }
 
     // ============ CLIENTS (CRM) — solo aprobados ============
+    // El agente asociado no los ve: para saber si un teléfono ya es cliente usa
+    // checkClientPhone (functions/index.js), que solo le contesta sí o no.
     match /clients/{clientId} {
-      allow read: if isApproved();
-      allow create: if isApproved();
-      allow update: if isApproved();
+      allow read: if isInterno();
+      allow create: if isInterno();
+      allow update: if isInterno();
       allow delete: if esDireccion();
       match /notes/{noteId} {
-        allow read: if isApproved();
-        allow create: if isApproved();
+        allow read: if isInterno();
+        allow create: if isInterno();
         allow update: if false;
-        allow delete: if isApproved() &&
+        allow delete: if isInterno() &&
                       (resource.data.authorId == request.auth.uid || esDireccion());
       }
     }
@@ -379,7 +429,7 @@ service cloud.firestore {
             && g.get('ownerId', '') == request.auth.uid));
     }
     match /gestiones/{gestionId} {
-      allow read: if isApproved();
+      allow read: if isInterno();
       // CERRADO es de la Dirección: lo pone al confirmar la firma en el Mapa de
       // cierres (el servidor pasa las gestiones solas y no pasa por estas reglas).
       // El agente marca Reservado cuando el cliente deja la seña. No crea gestiones
@@ -393,11 +443,11 @@ service cloud.firestore {
       // servidor reservaba la propiedad), cambiarle el avance o el rol, o
       // "sincronizarla". El traspaso a otro agente (agentId, createdBy, ownerId)
       // es solo de la Dirección. Y nadie crea gestiones a nombre de otro.
-      allow create: if isApproved()
+      allow create: if isInterno()
                     && (esDireccion()
                         || (request.resource.data.get('estadoGestion', '') != 'cerrado'
                             && request.resource.data.get('agentId', '') == request.auth.uid));
-      allow update: if isApproved()
+      allow update: if isInterno()
                     && (esDireccion()
                         || (esDuenioDeGestion(resource.data)
                             && !request.resource.data.diff(resource.data).affectedKeys()
@@ -416,10 +466,10 @@ service cloud.firestore {
 
     // ============ COMPARTIDAS — solo aprobados ============
     match /compartidas/{id} {
-      allow read: if isApproved();
-      allow create: if isApproved();
-      allow update: if isApproved();
-      allow delete: if isApproved() &&
+      allow read: if isInterno();
+      allow create: if isInterno();
+      allow update: if isInterno();
+      allow delete: if isInterno() &&
                     (resource.data.createdBy == request.auth.uid || esDireccion());
     }
 
@@ -451,11 +501,11 @@ service cloud.firestore {
 
     // ============ DOCUMENTOS Y ACADEMY — solo aprobados leen, admin escribe ============
     match /documentos/{id} {
-      allow read: if isApproved();
+      allow read: if isInterno();
       allow write: if esDireccion();
     }
     match /academy/{id} {
-      allow read: if isApproved();
+      allow read: if isInterno();
       allow write: if esDireccion();
     }
 
@@ -605,15 +655,15 @@ service cloud.firestore {
 
     // ============ RECOMPENSAS (catálogo) — aprobados leen, admin escribe ============
     match /recompensas/{id} {
-      allow read: if isApproved();
+      allow read: if isInterno();
       allow write: if esDireccion();
     }
 
     // ============ CANJES (pedidos de recompensa) ============
     match /canjes/{id} {
-      allow read: if isApproved()
+      allow read: if isInterno()
                   && (resource.data.agenteUid == request.auth.uid || esDireccion());
-      allow create: if isApproved()
+      allow create: if isInterno()
                     && request.resource.data.agenteUid == request.auth.uid
                     && request.resource.data.status == 'pendiente';
       allow update, delete: if esDireccion();
@@ -628,7 +678,7 @@ service cloud.firestore {
     match /retiros/{id} {
       allow read: if isApproved()
                   && (resource.data.agenteUid == request.auth.uid || esCEO());
-      allow create: if isApproved()
+      allow create: if isInterno()
                     && request.resource.data.agenteUid == request.auth.uid
                     && request.resource.data.status == 'pendiente'
                     && request.resource.data.monto is number
@@ -652,7 +702,7 @@ service cloud.firestore {
     // (Recompensas). Antes no había regla y la app no los podía leer ni guardar.
     match /ajustesFinancieros/{id} {
       allow read: if esCEO()
-                  || (isApproved() && resource.data.agenteUid == request.auth.uid);
+                  || (isInterno() && resource.data.agenteUid == request.auth.uid);
       allow create, update, delete: if esCEO();
     }
 
@@ -667,11 +717,11 @@ service cloud.firestore {
       allow read: if isApproved()
                   && (resource.data.agenteUid == request.auth.uid || esDireccion());
       allow create: if esDireccion()
-                    || (isApproved()
+                    || (isInterno()
                         && request.resource.data.agenteUid == request.auth.uid
                         && request.resource.data.tipo == 'reserva');
       allow update: if esDireccion()
-                    || (isApproved()
+                    || (isInterno()
                         && resource.data.agenteUid == request.auth.uid
                         && resource.data.tipo == 'reserva'
                         && request.resource.data.agenteUid == request.auth.uid
@@ -697,12 +747,13 @@ service cloud.firestore {
                      || resource.data.autorUid == request.auth.uid);
       allow list: if isApproved()
                   && (esDireccion() || resource.data.autorUid == request.auth.uid);
-      allow create: if isApproved()
+      // Generar documentos no es para el agente asociado.
+      allow create: if isInterno()
                     && request.resource.data.autorUid == request.auth.uid
                     && request.resource.data.version == 1
                     && request.resource.data.versiones is list
                     && request.resource.data.versiones.size() == 1;
-      allow update: if isApproved()
+      allow update: if isInterno()
                     && (esDireccion() || resource.data.autorUid == request.auth.uid)
                     && request.resource.data.autorUid == resource.data.autorUid
                     && request.resource.data.creado == resource.data.creado
@@ -719,7 +770,7 @@ service cloud.firestore {
         allow read: if isApproved()
                     && (esDireccion()
                         || get(/databases/$(database)/documents/documentosGenerados/$(docId)).data.autorUid == request.auth.uid);
-        allow create: if isApproved()
+        allow create: if isInterno()
                       && request.resource.data.porUid == request.auth.uid
                       && string(request.resource.data.n) == n
                       && getAfter(/databases/$(database)/documents/documentosGenerados/$(docId)).data.version == request.resource.data.n
@@ -731,7 +782,7 @@ service cloud.firestore {
 
     // ============ CONFIG — aprobados leen, admin escribe ============
     match /config/{doc} {
-      allow read: if isApproved();
+      allow read: if isInterno();
       allow write: if esDireccion();
     }
   }

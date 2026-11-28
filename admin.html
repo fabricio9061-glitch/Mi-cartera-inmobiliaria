@@ -628,7 +628,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
-<script src="rangos.js?v=20260821b"></script>
+<script src="rangos.js?v=20261128a"></script>
 <script>
   var firebaseConfig = {
     apiKey: "AIzaSyDnCQLlJuBtZqXNwYILio9a8ltb972bXzQ",
@@ -1410,7 +1410,8 @@
   // permiso por rango lo saltean. Es la lista de pendientes del backfill.
   function chipRango(u){
     var r = window.Rangos && Rangos.rango(u.rank);
-    if (r) return '<span class="chip">'+esc(r.label)+'</span>';
+    if (r) return '<span class="chip">'+esc(r.label)+'</span>' +
+      (Rangos.asociadoVencido(u) ? '<span class="chip warn">Cuota vencida</span>' : '');
     return (u.role ? '<span class="chip">'+esc(u.role)+'</span>' : '') +
            '<span class="chip warn">Sin rango</span>';
   }
@@ -1431,12 +1432,35 @@
     abrirPanel('Cargo y rango · '+(u.name||'agente'),
       '<p class="cp-nota" style="margin-top:0">El rango define el cargo que se muestra y, más adelante, los permisos. ' +
       '<b>Dirección</b> (CEO y COO) administra todo el sistema.</p>' +
-      '<label class="cp"><span>Rango</span><select id="rkSel">'+opts+'</select></label>' +
+      '<label class="cp"><span>Rango</span><select id="rkSel" onchange="rkVerAsociado()">'+opts+'</select></label>' +
+      // Agente Asociado: hasta cuándo está pago. Pasada esa fecha no puede subir
+      // ni editar propiedades (lo hace cumplir firestore.rules). Vacío = no vence.
+      '<div id="rkAsociado"'+(actual==='agente_asociado'?'':' hidden')+'>' +
+        '<label class="cp"><span>Pagado hasta</span><input type="date" id="rkHasta" value="'+esc(fechaInput(u.asociadoHasta))+'"></label>' +
+        '<p class="cp-nota">Agente de afuera que paga la cuota mensual. Publica hasta '+Rangos.ASOCIADO_MAX_PROPIEDADES+' propiedades en la web, sin marca de agua de MALAVE y sin portales. No ve clientes, finanzas, puntos, tasaciones, cuentas de portales, rentabilidad ni documentos. Cuando pague el mes siguiente, corré esta fecha.</p>' +
+      '</div>' +
       (u.role ? '<p class="cp-nota">Cargo viejo escrito a mano: <b>'+esc(u.role)+'</b>. Al guardar se reemplaza por el rango elegido.</p>' : ''),
       function(){ return guardarRango(id); });
   }
+  function fechaInput(v){
+    if (!v) return '';
+    var d = (typeof v.toDate === 'function') ? v.toDate() : new Date(v);
+    if (isNaN(d.getTime())) return '';
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function rkVerAsociado(){
+    var b = document.getElementById('rkAsociado');
+    if (b) b.hidden = document.getElementById('rkSel').value !== 'agente_asociado';
+  }
+  window.rkVerAsociado = rkVerAsociado;
   async function guardarRango(id){
     var key = document.getElementById('rkSel').value;
+    // Pagado hasta: el último minuto de ese día, hora de Uruguay.
+    var hasta = firebase.firestore.FieldValue.delete();
+    var fh = (document.getElementById('rkHasta') || {}).value || '';
+    if (key === 'agente_asociado' && /^\d{4}-\d{2}-\d{2}$/.test(fh)) {
+      hasta = firebase.firestore.Timestamp.fromDate(new Date(fh + 'T23:59:59-03:00'));
+    }
     // 'role' se sigue escribiendo porque lo leen el perfil público y otras
     // pantallas que todavía no migré. Pero ya no se tipea: sale del organigrama,
     // así no vuelven a existir dos fuentes de verdad.
@@ -1444,7 +1468,8 @@
     try{
       await db.collection('users').doc(id).update({
         rank: key || firebase.firestore.FieldValue.delete(),
-        role: r ? r.label : firebase.firestore.FieldValue.delete()
+        role: r ? r.label : firebase.firestore.FieldValue.delete(),
+        asociadoHasta: hasta
       });
       cerrarPanel(); toast(r?('Ahora es '+r.label):'Rango quitado'); ver('equipo');
     }catch(e){ console.error(e); toast('No se pudo guardar'); }

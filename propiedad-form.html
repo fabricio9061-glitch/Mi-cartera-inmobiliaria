@@ -856,6 +856,10 @@
     storage.setMaxUploadRetryTime(60000);
     storage.setMaxOperationRetryTime(30000);
 
+    // Agente asociado (paga para publicar en la web): sus fotos van SIN la marca
+    // de agua de MALAVE, la propiedad no va a los portales y tiene tope de 50.
+    let esAsociado = false;
+    const ASOCIADO_MAX = 50;   // el mismo de rangos.js y functions/index.js
     let currentUser = null, userProfile = null, selectedImages = [], draggedImageIndex = null, editingProperty = null, formClientId = null;
 
     /* Estado agregado en el pulido (26/09/2026):
@@ -1524,6 +1528,7 @@
     ]).then(function (r) { _wmLogo = r[0]; _wmViejo = r[1]; });
 
     function dibujarMarcaAgua(ctx, w, h){
+      if (esAsociado) return;   // las propiedades de asociados no llevan la marca de MALAVE
       try {
         if (_wmLogo) {
           // Logo abajo al medio: 24% del ancho (en fotos verticales, 34%), blanco
@@ -5921,6 +5926,7 @@
       return r.bottom > 0 && r.top < window.innerHeight && r.height > 0;
     }
     function confirmarPortales() {
+      if (esAsociado) return true;   // no va a los portales: no hay nada que revisar
       try { return revisarAntesDeGuardar(); }
       catch (e) { console.warn('[revisión antes de guardar]', e); return true; }   // un error acá nunca frena el guardado
     }
@@ -6119,6 +6125,8 @@
           showToast('Propiedad actualizada', 'Redirigiendo...', 'fa-check');
         } else {
           pd.ownerId = currentUser.uid; pd.ownerName = userProfile.name; pd.views = 0; pd.createdAt = new Date().toISOString();
+          // La marca la exige firestore.rules: sin ella el asociado no puede crear.
+          if (esAsociado) pd.asociado = true;
           pd.agents = [currentUser.uid]; // lista de agentes que comparten la propiedad (empieza con el creador)
           pd.agentsInfo = [{ uid: currentUser.uid, name: userProfile.name || '' }]; // para mostrar nombres sin consultar
           await db.collection('properties').doc(pi).set(pd);
@@ -6186,6 +6194,20 @@
       const isAdmin = (userProfile.email || u.email || '').toLowerCase() === ADMIN_EMAIL
         || ((_rango === 'ceo' || _rango === 'coo') && userProfile.status === 'approved');
       if (userProfile.status !== 'approved' && !isAdmin) { showState('ppfAuth', { title: 'Cuenta pendiente', msg: 'Tu cuenta está pendiente de aprobación.' }); return }
+      esAsociado = !isAdmin && _rango === 'agente_asociado';
+      if (esAsociado) {
+        // Cuota vencida: las reglas no lo dejan guardar, mejor decirlo antes de cargar todo.
+        const h = userProfile.asociadoHasta;
+        const hMs = h ? (typeof h.toMillis === 'function' ? h.toMillis() : new Date(h).getTime()) : NaN;
+        if (isFinite(hMs) && hMs <= Date.now()) {
+          showState('ppfErr', { msg: 'Tu cuota de agente asociado está vencida. Cuando se renueve vas a poder subir y editar propiedades de nuevo.' });
+          return;
+        }
+        // En el paso 8 no hay portales que revisar: sale solo en la web de MALAVE.
+        const rev = document.getElementById('pfRevision'); if (rev) rev.style.display = 'none';
+        const cab = document.querySelector('#sec8 .pf-sec-head small');
+        if (cab) cab.textContent = 'Se publica en la web de MALAVE. Las propiedades de agentes asociados no van a los portales.';
+      }
       initDepartamentos();
       renderFicha();
       const id = new URLSearchParams(location.search).get('id');
@@ -6212,6 +6234,18 @@
           wizInit();
         } catch (e) { console.error(e); showState('ppfErr', { msg: 'Error al cargar la propiedad.' }) }
       } else {
+        if (esAsociado) {
+          // Tope del plan. El servidor lo vuelve a controlar (controlarCupoAsociado):
+          // esto es para avisar antes de que cargue toda la ficha.
+          try {
+            const mias = await db.collection('properties').where('ownerId', '==', u.uid).get();
+            const enMercado = mias.docs.filter(d => ['available', 'reserved', 'tasacion', 'tasado'].indexOf(d.data().status || 'available') >= 0).length;
+            if (enMercado >= ASOCIADO_MAX) {
+              showState('ppfErr', { msg: 'Ya tenés ' + enMercado + ' propiedades publicadas, el máximo de tu plan (' + ASOCIADO_MAX + '). Dá de baja alguna para subir otra.' });
+              return;
+            }
+          } catch (e) { /* si no se pudo contar, sigue: el servidor controla igual */ }
+        }
         showState('ppfFormWrap');
         initMapa();
         document.getElementById('ppfTitle').textContent = 'Nueva propiedad';
