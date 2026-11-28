@@ -3353,6 +3353,7 @@
   let _portalTab = leerPestanaPortal();
   const _portalTono = {};    // tono del estado de cada portal: pinta el punto de su pestaña
   const _portalResumen = {}; // estado y dos datos clave de cada portal: arman la tarjeta de su pestaña
+  const _portalCfg = {};     // la última tarjeta armada de cada portal (estado, datos, notas): arma el informe
   let _portalesConsultando = null;   // propiedad cuyos portales se están consultando en este momento
   let _portalesFirma = '';   // campos de portales de la propiedad abierta (ver refrescarPortalesAbiertos)
 
@@ -3370,6 +3371,7 @@
     openModal('mlModal');
     ensureMLStyles();
     armarModalPortales();
+    cargarLibInforme().catch(() => {});   // así "Imprimir informe" abre al instante
     try {
       const res = await firebase.functions().httpsCallable('estadoML')({ propertyId });
       if (mlModalPropId === propertyId) renderMLStatus(res.data)
@@ -3395,6 +3397,7 @@
     if (!body) return;
     for (const k in _portalTono) delete _portalTono[k];   // nada heredado de otra propiedad
     for (const k in _portalResumen) delete _portalResumen[k];
+    for (const k in _portalCfg) delete _portalCfg[k];
     // Cada pestaña es una tarjeta: el portal, su estado y dos datos clave.
     const tabs = PORTAL_TABS.map(t =>
       `<button type="button" class="pt-tab" role="tab" data-portal="${t.key}" onclick="portalTab('${t.key}')">` +
@@ -3524,115 +3527,161 @@
       if (mlModalPropId === pid) renderMLStatus(res.data);
     } catch (e) { console.warn('estadoML:', e && e.message); }
   }
-  /* ---------- Informe imprimible ----------
-     Arma una hoja A4 con el estado, el nivel de destacado y las visitas o
-     consultas de los últimos 30 días en cada portal, con un gráfico por portal.
-     Se imprime desde un marco oculto: en el diálogo de impresión se puede elegir
-     "Guardar como PDF" para mandarlo al propietario. Usa lo que el modal ya
-     consultó: no vuelve a pedir nada a los portales. */
-  function svgBarrasInforme(cruda, color, singular, plural) {
-    const serie = serieCompleta(cruda);
-    const W = 680, H = 150, L = 34, R = 8, T = 18, B = 22;
-    const vacio = (t) => `<div class="g-vacio">${t}</div>`;
-    if (serie.length < 2) return vacio('El portal no informó datos por día.');
-    const tot = serie.reduce((n, x) => n + x.total, 0);
-    if (!tot) return vacio(`Sin ${plural} en este período.`);
-    const max = Math.max.apply(null, serie.map(x => x.total));
-    const tope = Math.max(2, Math.ceil(max / 2) * 2);   // par: la línea del medio cae en un número entero
-    const ancho = (W - L - R) / serie.length, gap = 2, bw = Math.max(1, ancho - gap);
-    const y = (v) => T + (H - T - B) * (1 - v / tope);
-    const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
-    let out = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${tot} ${plural} en ${serie.length} días">`;
-    [0, tope / 2, tope].forEach(v => {
-      const yy = y(v).toFixed(1);
-      out += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="${v ? '#e6e9ee' : '#b8c0cb'}" stroke-width="1"/>` +
-        `<text x="${L - 6}" y="${(+yy + 3.5).toFixed(1)}" text-anchor="end" class="ax">${v}</text>`;
+  /* ---------- Informe imprimible (PDF) ----------
+     Informe TOTAL: portada (mismo modelo que el tasador, el terreno y el
+     usufructo), una hoja de resumen con todos los portales y una hoja por
+     portal con su estado, lo que ve el cliente, los números y el gráfico de los
+     últimos 30 días. Lo dibuja informe-portales.js con jsPDF; acá se juntan los
+     datos que el modal ya consultó (no vuelve a pedir nada a los portales). */
+  let _informeLib = null;
+  function cargarLibInforme() {
+    if (_informeLib) return _informeLib;
+    const cargar = (src) => new Promise((ok, mal) => {
+      const s = document.createElement('script');
+      s.src = src; s.onload = ok; s.onerror = () => mal(new Error('No se pudo cargar ' + src));
+      document.head.appendChild(s);
     });
-    const pico = serie.findIndex(x => x.total === max);
-    serie.forEach((x, i) => {
-      if (!x.total) return;
-      const x0 = L + i * ancho + gap / 2, y0 = y(x.total), base = y(0), h = base - y0, r = Math.min(4, bw / 2, h);
-      out += `<path d="M${x0.toFixed(1)},${base.toFixed(1)}V${(y0 + r).toFixed(1)}Q${x0.toFixed(1)},${y0.toFixed(1)} ${(x0 + r).toFixed(1)},${y0.toFixed(1)}` +
-        `H${(x0 + bw - r).toFixed(1)}Q${(x0 + bw).toFixed(1)},${y0.toFixed(1)} ${(x0 + bw).toFixed(1)},${(y0 + r).toFixed(1)}V${base.toFixed(1)}Z" fill="${color}"><title>${fmt(x.date)}: ${x.total} ${x.total === 1 ? singular : plural}</title></path>`;
-      if (i === pico) out += `<text x="${(x0 + bw / 2).toFixed(1)}" y="${(y0 - 5).toFixed(1)}" text-anchor="middle" class="pk">${x.total}</text>`;
-    });
-    [0, Math.floor(serie.length / 2), serie.length - 1].forEach((i, k) => {
-      const cx = L + i * ancho + ancho / 2;
-      out += `<text x="${cx.toFixed(1)}" y="${H - 6}" text-anchor="${k === 0 ? 'start' : k === 2 ? 'end' : 'middle'}" class="ax">${fmt(serie[i].date)}</text>`;
-    });
-    return out + '</svg>';
+    _informeLib = (window.jspdf ? Promise.resolve() : cargar('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'))
+      .then(() => window.armarInformePortalesPDF ? null : cargar('informe-portales.js?v=20261128a'))
+      .catch(e => { _informeLib = null; throw e; });
+    return _informeLib;
+  }
+  // Texto sin etiquetas (las notas de las tarjetas vienen en HTML). El detalle
+  // técnico que ve la Dirección no va al informe del propietario.
+  function textoDeHtml(h) {
+    if (h == null || h === '') return '';
+    const el = document.createElement('div');
+    el.innerHTML = String(h);
+    el.querySelectorAll('.pc-det').forEach(x => x.remove());
+    return el.textContent.replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
+  }
+  // "Vence el 30 oct. 2027, en 336 días" → ['Vence', '30 oct. 2027, en 336 días']
+  function metaComoDato(t) {
+    t = String(t || '');
+    let m = t.match(/^([^:]{2,40}):\s*(.+)$/);
+    if (m) return [m[1], m[2]];
+    if ((m = t.match(/^(Vence|Publicada|Venció) el (.+)$/))) return [m[1], m[2]];
+    if ((m = t.match(/^Código (.+)$/))) return ['Código', m[1]];
+    return ['Dato', t];
+  }
+  function datosInformePortales(p) {
+    const d = _mlData || {}, ic = (_portalesData && _portalesData.infocasas) || {}, cy = (_portalesData && _portalesData.casasymas) || {};
+    const num = (v) => v == null || v === '' ? '—' : (typeof v === 'number' ? v.toLocaleString('es-UY') : String(v));
+    const n2 = (x) => String(x).padStart(2, '0'), hoy = new Date();
+    const codigo = (p.ficha || {}).PROPERTY_CODE || (p.features || {}).codigoInterno || '';
+    const ow = getOwnerInfo(p) || {};
+    const agente = { name: ow.name && ow.name !== 'Usuario' ? ow.name : '', whatsapp: ow.whatsapp || '', email: ow.email || '' };
+    const precio = p.price ? formatPrice(p.price, p.currency || 'USD') + (p.type === 'rent' ? ' por mes' : '') : '';
+    const lugar = [p.direccion, p.ciudad && p.departamento ? `${p.ciudad}, ${p.departamento}` : (p.location || '')].filter(Boolean).join(', ');
+    const fotosFicha = (p.images || []).length;
+    const preg = d.preguntas && d.preguntas.total != null ? d.preguntas.total : null;
+    const web = webDestacado(p);
+    const sumar = (sr) => serieCompleta(sr).reduce((n, x) => n + x.total, 0);
+    const estadoDe = (k) => _portalResumen[k] || { tono: 'off', texto: 'Sin dato' };
+
+    // Una hoja por portal: todo lo que muestra su tarjeta en el modal.
+    const portal = (k, nombre, grafico) => {
+      const c = _portalCfg[k] || {}, est = estadoDe(k), niv = nivelDestacado(k);
+      const meta = (c.meta || []).filter(m => m && m.texto && !/fa-spin/.test(m.icono || '')).map(m => metaComoDato(m.texto));
+      const datos = [['Destacado', niv.texto + (niv.nota ? ` (${niv.nota.replace(/\.$/, '')})` : '')], ...meta];
+      const notas = (c.notas || []).map(n => n.html != null ? textoDeHtml(n.html) : String(n.texto || '')).filter(Boolean);
+      if (c.faltan && c.faltan.length) notas.unshift('Faltan datos para publicar: ' + c.faltan.join(', ') + '.');
+      const r = {
+        nombre, estado: est.texto, tono: est.tono,
+        explica: textoDeHtml(c.explica), lead: textoDeHtml(c.lead), datos,
+        cliente: (c.cliente || []).filter(Boolean).map(f => [f.k, f.v, f.nota || (f.ok ? 'Al día' : '')]),
+        metricas: (c.metricas || []).filter(Boolean).map(m => ({ v: num(m.valor), t: m.texto })),
+        ultimas: c.informeUltimas || [], notas
+      };
+      if (grafico && grafico.serie && (r.metricas.length || serieCompleta(grafico.serie).length >= 2)) r.grafico = { ...grafico, serie: serieCompleta(grafico.serie) };
+      const inf = c.informe;
+      if (inf) {
+        r.metricas = inf.metricas.map(m => ({ v: num(m.valor), t: m.texto }));
+        if (inf.calidad != null) {
+          const al100 = inf.calidad >= 99 && !inf.obligatorios.length;
+          r.calidad = {
+            numeros: [{ v: inf.calidad + '%', t: 'Calidad del aviso según Mercado Libre', destacado: true }, { v: inf.tipo || '—', t: 'Tipo de aviso' }],
+            texto: al100 ? '**¡Publicación al 100%!** El aviso tiene la máxima calidad que mide Mercado Libre: mejor posición en los resultados y más visitas.' : '',
+            faltanTitulo: inf.obligatorios.length ? 'Datos obligatorios sin completar' : al100 ? 'Datos opcionales que todavía se pueden sumar' : 'Datos que suben la calidad',
+            faltan: (inf.obligatorios.length ? inf.obligatorios : inf.opcionales).slice(0, 20)
+          };
+        }
+      }
+      return r;
+    };
+    const portales = [
+      portal('ml', 'Mercado Libre', { titulo: 'Visitas por día', serie: d.visitasSerie, color: [30, 158, 106], singular: 'visita', plural: 'visitas' }),
+      portal('infocasas', 'InfoCasas', { titulo: 'Consultas por día', serie: ic.serie, color: [29, 78, 216], singular: 'consulta', plural: 'consultas' }),
+      portal('casasymas', 'Casas y Más', { titulo: 'Consultas por día', serie: cy.serie, color: [30, 125, 79], singular: 'consulta', plural: 'consultas' }),
+      {
+        nombre: 'Tu web', mismaHoja: true, estado: (p.status || 'available') === 'available' ? 'Publicada' : 'No disponible',
+        tono: (p.status || 'available') === 'available' ? 'ok' : 'off', explica: 'malaveinmobiliaria.com',
+        datos: [['Destacado', web.texto]],
+        tituloNumeros: 'Desde que se publicó',
+        metricas: [{ v: num(p.views || 0), t: 'visitas a la ficha (histórico)' }, { v: num(p.contactClicks || 0), t: 'contactos desde la ficha (histórico)' }]
+      }
+    ];
+    const ml30 = d.visitasSerie ? sumar(d.visitasSerie) : d.visitas;
+    const ic30 = ic.consultas30 != null ? ic.consultas30 : null, cy30 = cy.consultas30 != null ? cy.consultas30 : null;
+    const activos = ['ml', 'infocasas', 'casasymas'].filter(k => estadoDe(k).tono === 'ok').length;
+    return {
+      fecha: `${n2(hoy.getDate())}/${n2(hoy.getMonth() + 1)}/${hoy.getFullYear()}`,
+      titulo: p.title || 'Propiedad', codigo, agente,
+      portalesTexto: 'MERCADO LIBRE · INFOCASAS · CASAS Y MÁS · WEB',
+      portadaFilas: [
+        ['PROPIEDAD', p.title || 'Propiedad'],
+        codigo && ['CÓDIGO', codigo],
+        precio && [p.type === 'rent' ? 'ALQUILER' : 'VENTA', precio],
+        ['PORTALES', `Activa en ${activos} de 3 portales`]
+      ].filter(Boolean),
+      datos: [
+        ['Propiedad', p.title || ''], ['Código', codigo], ['Operación', p.type === 'rent' ? 'Alquiler' : 'Venta'],
+        ['Precio', precio], ['Ubicación', lugar], ['Fotos en la ficha', fotosFicha ? String(fotosFicha) : ''],
+        ['Agente', agente.name]
+      ].filter(x => x[1]),
+      tabla: [
+        ['Mercado Libre', estadoDe('ml').texto, nivelDestacado('ml').texto, `${num(d.visitas)} visitas · ${num(preg)} preguntas · ${num(d.contactosWhatsapp)} contactos WhatsApp`],
+        ['InfoCasas', estadoDe('infocasas').texto, nivelDestacado('infocasas').texto, `${num(ic30)} consultas` + (ic.consultasTotal != null ? ` (${num(ic.consultasTotal)} en total)` : '')],
+        ['Casas y Más', estadoDe('casasymas').texto, nivelDestacado('casasymas').texto, `${num(cy30)} consultas` + (cy.consultas != null ? ` (${num(cy.consultas)} en total)` : '')],
+        ['Tu web', portales[3].estado, web.texto, `${num(p.views || 0)} visitas · ${num(p.contactClicks || 0)} contactos (histórico)`]
+      ],
+      totales: [
+        { v: num(ml30), t: 'visitas en Mercado Libre', destacado: true },
+        { v: num(ic30 == null && cy30 == null ? null : (ic30 || 0) + (cy30 || 0)), t: 'consultas en InfoCasas y Casas y Más' },
+        { v: num(d.contactosWhatsapp), t: 'contactos por WhatsApp (Mercado Libre)' },
+        { v: num(preg), t: 'preguntas en Mercado Libre' }
+      ],
+      comprobado: `Estado de los portales: ${textoComprobado().toLowerCase()}.`,
+      portales,
+      aclaraciones: [
+        'Mercado Libre informa visitas, preguntas y contactos por WhatsApp; InfoCasas y Casas y Más informan las consultas recibidas. Las visitas y contactos de la web son el total desde que se publicó la ficha.',
+        '"Sin dato" o una raya significan que el portal no lo informa o no respondió al consultar. Los números son los que cada portal informó el ' + `${n2(hoy.getDate())}/${n2(hoy.getMonth() + 1)}/${hoy.getFullYear()}` + '.'
+      ]
+    };
   }
   function imprimirInformePortales() {
     const p = properties.find(x => x.id === mlModalPropId);
     if (!p) return;
-    if (!_mlData || !_portalesData) showToast('Informe', 'Algunos portales todavía se están consultando: salen como "Sin dato".', 'fa-circle-info');
-    const d = _mlData || {}, ic = (_portalesData && _portalesData.infocasas) || {}, cy = (_portalesData && _portalesData.casasymas) || {};
-    const e = mvEsc, num = (v) => v == null ? '—' : Number(v).toLocaleString('es-UY');
-    const estado = (k) => (_portalResumen[k] && _portalResumen[k].texto) || 'Sin dato';
-    const nivel = (k) => nivelDestacado(k).texto;
-    const hp = d.health != null ? Math.round(d.health * 100) : null;
-    const preg = d.preguntas && d.preguntas.total != null ? d.preguntas.total : null;
-    const web = webDestacado(p);
-    const codigo = (p.ficha || {}).PROPERTY_CODE || (p.features || {}).codigoInterno || '';
-    const agente = (getOwnerInfo(p) || {}).name || '';
-    const precio = p.price ? formatPrice(p.price, p.currency || 'USD') + (p.type === 'rent' ? ' por mes' : '') : '';
-    const foto = p.images && p.images[0] ? safeUrl(p.images[0]) : '';
-    const hoy = new Date().toLocaleDateString('es-UY', { day: 'numeric', month: 'long', year: 'numeric' });
-    const COL = { visitas: '#1e9e6a', consultas: '#2563eb' };
-    const filas = [
-      ['Mercado Libre', estado('ml'), nivel('ml'), `<b>${num(d.visitas)}</b> visitas · <b>${num(preg)}</b> preguntas · <b>${num(d.contactosWhatsapp)}</b> WhatsApp`, hp != null ? `Calidad del aviso ${hp}%` : ''],
-      ['InfoCasas', estado('infocasas'), nivel('infocasas'), `<b>${num(ic.consultas30)}</b> consultas`, ic.consultasTotal != null ? `${num(ic.consultasTotal)} consultas en total` : ''],
-      ['Casas y Más', estado('casasymas'), nivel('casasymas'), `<b>${num(cy.consultas30)}</b> consultas`, cy.consultas != null ? `${num(cy.consultas)} consultas en total` : ''],
-      ['Tu web', '—', web.texto, '—', `<b>${num(p.views || 0)}</b> visitas · <b>${num(p.contactClicks || 0)}</b> contactos (histórico)`]
-    ];
-    const tabla = `<table><thead><tr><th>Portal</th><th>Estado</th><th>Destacado</th><th>Últimos 30 días</th><th>Además</th></tr></thead><tbody>` +
-      filas.map(f => `<tr><td class="pn">${e(f[0])}</td><td>${e(f[1])}</td><td>${e(f[2])}</td><td>${f[3]}</td><td class="mut">${f[4]}</td></tr>`).join('') + '</tbody></table>';
-    const bloque = (titulo, total, sub, svg) => `<section class="g"><div class="g-cab"><h3>${e(titulo)}</h3><span><b>${total}</b> ${e(sub)}</span></div>${svg}</section>`;
-    const sum = (sr) => serieCompleta(sr).reduce((n, x) => n + x.total, 0);
-    const graficos =
-      bloque('Mercado Libre · visitas por día', num(d.visitasSerie ? sum(d.visitasSerie) : d.visitas), 'visitas', svgBarrasInforme(d.visitasSerie, COL.visitas, 'visita', 'visitas')) +
-      bloque('InfoCasas · consultas por día', num(ic.serie ? sum(ic.serie) : ic.consultas30), 'consultas', svgBarrasInforme(ic.serie, COL.consultas, 'consulta', 'consultas')) +
-      bloque('Casas y Más · consultas por día', num(cy.serie ? sum(cy.serie) : cy.consultas30), 'consultas', svgBarrasInforme(cy.serie, COL.consultas, 'consulta', 'consultas'));
-    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe de portales · ${e(p.title || 'Propiedad')}</title><style>
-      @page{ size:A4; margin:14mm 14mm 16mm; }
-      *{ box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-      body{ margin:0; font:13px/1.45 'Jost',system-ui,-apple-system,'Segoe UI',sans-serif; color:#16273f; background:#fff; }
-      .top{ display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #16273f; padding-bottom:8px; }
-      .top h1{ margin:0; font-size:20px; } .top .f{ color:#5b6574; font-size:12px; text-align:right; }
-      .prop{ display:flex; gap:14px; align-items:center; margin:14px 0 16px; }
-      .prop img{ width:110px; height:76px; object-fit:cover; border-radius:8px; background:#e6e9ee; }
-      .prop h2{ margin:0 0 3px; font-size:16px; } .prop .s{ color:#5b6574; }
-      table{ width:100%; border-collapse:collapse; font-size:12px; }
-      th{ text-align:left; font-weight:600; color:#5b6574; border-bottom:1px solid #b8c0cb; padding:6px 8px; }
-      td{ border-bottom:1px solid #e6e9ee; padding:7px 8px; vertical-align:top; } td.pn{ font-weight:600; } td.mut{ color:#5b6574; }
-      .g{ margin-top:16px; break-inside:avoid; } .g-cab{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px; }
-      .g h3{ margin:0; font-size:13.5px; } .g-cab span{ color:#5b6574; } .g-cab b{ color:#16273f; font-size:15px; }
-      svg text{ font-family:inherit; } .ax{ font-size:10px; fill:#5b6574; } .pk{ font-size:10.5px; font-weight:700; fill:#16273f; }
-      .g-vacio{ border:1px dashed #cfd5dd; border-radius:8px; padding:16px; color:#5b6574; text-align:center; }
-      .pie{ margin-top:18px; font-size:10.5px; color:#5b6574; border-top:1px solid #e6e9ee; padding-top:8px; }
-    </style></head><body>
-      <div class="top"><h1>Informe de portales</h1><div class="f">${e(hoy)}${agente ? `<br>Agente: ${e(agente)}` : ''}</div></div>
-      <div class="prop">${foto ? `<img src="${foto}" alt="">` : ''}<div><h2>${e(p.title || 'Propiedad')}</h2><div class="s">${[codigo, precio].filter(Boolean).map(x => e(String(x))).join(' · ')}</div></div></div>
-      ${tabla}${graficos}
-      <div class="pie">Mercado Libre informa visitas; InfoCasas y Casas y Más, consultas recibidas. "Sin dato" significa que el portal no lo informa o no respondió al consultar. Estado de los portales: ${e(textoComprobado().toLowerCase())}.</div>
-    </body></html>`;
-    const viejo = document.getElementById('pmInformeFrame');
-    if (viejo) viejo.remove();
-    const fr = document.createElement('iframe');
-    fr.id = 'pmInformeFrame';
-    fr.setAttribute('aria-hidden', 'true');
-    fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
-    document.body.appendChild(fr);
-    let impreso = false;
-    const imprimir = () => {
-      if (impreso) return; impreso = true;
-      try { fr.contentWindow.focus(); fr.contentWindow.print(); }
-      catch (err) { console.error('informe:', err); showToast('Informe', 'No se pudo abrir la impresión.', 'fa-circle-exclamation'); }
+    const btn = document.querySelector('#mlModal .pm-print');
+    const armarYAbrir = () => {
+      if (!_mlData || !_portalesData) showToast('Informe', 'Algunos portales todavía se están consultando: salen como "Sin dato".', 'fa-circle-info');
+      let pdf;
+      try { pdf = window.armarInformePortalesPDF(datosInformePortales(p)); }
+      catch (e) { console.error('informe:', e); showToast('Informe', 'No se pudo armar el informe.', 'fa-circle-exclamation'); return; }
+      const codigo = (p.ficha || {}).PROPERTY_CODE || (p.features || {}).codigoInterno || '';
+      const archivo = 'Informe_portales_' + String(codigo || 'MALAVE').replace(/[^\w-]+/g, '_') + '.pdf';
+      try {
+        pdf.autoPrint();
+        const w = window.open(pdf.output('bloburl'), '_blank');
+        if (!w) { pdf.save(archivo); showToast('Informe', 'Se descargó el informe: abrilo e imprimilo desde ahí.', 'fa-file-pdf'); }
+      } catch (e) { pdf.save(archivo); }
     };
-    fr.onload = imprimir;
-    const doc = fr.contentDocument;
-    doc.open(); doc.write(html); doc.close();
-    setTimeout(imprimir, 2500);   // por si la foto tarda: se imprime igual
+    // Normalmente ya está cargado (se pide al abrir el modal) y se abre al instante.
+    if (window.armarInformePortalesPDF && window.jspdf) { armarYAbrir(); return; }
+    if (btn) btn.disabled = true;
+    cargarLibInforme().then(armarYAbrir)
+      .catch(e => { console.error('informe:', e); showToast('Informe', 'No se pudo cargar el generador del PDF. Revisá la conexión y probá de nuevo.', 'fa-circle-exclamation'); })
+      .finally(() => { if (btn) btn.disabled = false; });
   }
   // Estilos del modal de Portales (se inyectan una sola vez).
   function ensureMLStyles() {
@@ -3840,6 +3889,7 @@
     const estado = busy ? { tono: 'busy', texto: textoBusy } : (c.estado || { tono: 'off', texto: '—' });
     _portalTono[c.key] = estado.tono;   // el punto de la pestaña
     _portalResumen[c.key] = { tono: estado.tono, texto: estado.texto, lineas: (c.resumen || []).filter(Boolean).slice(0, 2) };
+    _portalCfg[c.key] = c;   // todo lo que muestra la tarjeta: lo usa el informe impreso
     const pill = `<span class="pc-pill ${estado.tono}">${estado.tono === 'busy' ? '<i class="fas fa-spinner fa-spin"></i>' : '<span class="dot"></span>'}${mvEsc(estado.texto)}</span>`;
     const nota = (n) => `<div class="ml-note ${n.tono === 'err' ? 'warn' : n.tono}"${n.tono === 'err' ? ' style="background:#fdeced;border-color:#f5c6c6;color:#a93226"' : ''}><i class="fas ${n.icono || PC_ICONO[n.tono] || 'fa-circle-info'}"${n.tono === 'err' ? ' style="color:#c0392b"' : ''}></i><div>${n.html != null ? n.html : mvEsc(n.texto)}</div></div>`;
     const flash = _portalFlash[c.key];
@@ -4341,6 +4391,7 @@
           `<div>${mvEsc(x.nombre || 'Sin nombre')}<span style="color:#a8b0ba"> · ${mvEsc(String(x.fecha || '').slice(0, 10))}</span>` +
           (x.respondida ? '<span style="color:#1e7d4f"> · respondida</span>' : '<span style="color:#c0392b"> · sin responder</span>') + '</div>').join('');
         if (ultimas) cfg.pie = `<div class="pc-list">${ultimas}</div>`;
+        cfg.informeUltimas = (c.ultimas || []).map(x => `${x.nombre || 'Sin nombre'} · ${String(x.fecha || '').slice(0, 10)} · ${x.respondida ? 'respondida' : 'sin responder'}`);
       }
       if (c && c.serie) cfg.grafico = portalGrafico({ titulo: 'Consultas por día', color: '#1e7d4f', serie: c.serie, singular: 'consulta', plural: 'consultas', vacio: 'Todavía sin consultas en este período.' });
       cfg.meta = [
@@ -4714,6 +4765,16 @@
       resumen: [hp != null ? `Calidad del aviso ${hp}%` : '',
         d.visitas != null ? `${d.visitas} visita${d.visitas === 1 ? '' : 's'} en 30 días` : ''],
       ultimos: interaccion,
+      informe: {
+        calidad: hp, tipo: tipoML,
+        obligatorios: reqs.map(x => x.nombre).filter(Boolean),
+        opcionales: opts.map(x => x.nombre).filter(Boolean),
+        metricas: [
+          { valor: d.visitas, texto: `${d.visitas === 1 ? 'visita' : 'visitas'} · 30 días` },
+          { valor: _pregN, texto: `${_pregN === 1 ? 'pregunta' : 'preguntas'}${_pregSR}` },
+          { valor: d.contactosWhatsapp, texto: `${d.contactosWhatsapp === 1 ? 'contacto' : 'contactos'} WhatsApp · 30 días` }
+        ]
+      },
       cuerpo: `${pagoHint}<div class="pc-blk"><h3 class="pc-tit">Calidad del aviso</h3>${hero}${improve}</div>${selTipo}`,
       pieAcciones: (typeof isAdminUser === 'function' && isAdminUser() && d.status === 'active')
         ? 'Pausar se deshace con Republicar. Dar de baja no: para volver hay que publicar un aviso nuevo y, si es pago, se cobra otra vez.' : '',
