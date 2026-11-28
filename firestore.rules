@@ -298,12 +298,17 @@ service cloud.firestore {
       // llegan solo a él (functions/index.js) y cuenta para su tope de 50. El asociado
       // la tiene que crear con asociado == true y con la cuota al día; el resto
       // del equipo, sin la marca. Después nadie la cambia desde el navegador.
+      // Como en MALAVE, la propiedad del asociado nace de un cliente SUYO (el
+      // dueño): clientId tiene que ser de un cliente que cargó él.
       allow create: if esDireccion()
                     || (isApproved()
                         && request.resource.data.ownerId == request.auth.uid
                         && estadoEnJuego(request.resource.data.get('status', 'available'))
                         && (esAsociado()
-                            ? (request.resource.data.get('asociado', false) == true && asociadoAlDia())
+                            ? (request.resource.data.get('asociado', false) == true && asociadoAlDia()
+                               && request.resource.data.get('clientId', '') is string
+                               && request.resource.data.get('clientId', '') != ''
+                               && esClienteDelAsociado(get(/databases/$(database)/documents/clients/$(request.resource.data.clientId)).data))
                             : request.resource.data.get('asociado', false) == false));
       allow update: if (isApproved()
                         && (resource.data.ownerId == request.auth.uid
