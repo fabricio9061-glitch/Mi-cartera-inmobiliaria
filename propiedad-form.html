@@ -1504,7 +1504,7 @@
     }
     // Marca de agua (se carga una vez). _wmLista avisa cuando está lista:
     // las fotos se preparan apenas se eligen y ninguna puede salir sin la marca.
-    // Va el logo nuevo completo al centro (marca-agua.js). Si ese archivo no
+    // Va el logo nuevo completo abajo al medio (marca-agua.js). Si ese archivo no
     // está, se usa el logo viejo al centro, como antes.
     var _wmLogo = null, _wmViejo = null;
     function _wmCargar(src) {
@@ -1526,7 +1526,7 @@
     function dibujarMarcaAgua(ctx, w, h){
       try {
         if (_wmLogo) {
-          // Logo al centro: 24% del ancho (en fotos verticales, 34%), blanco
+          // Logo abajo al medio: 24% del ancho (en fotos verticales, 34%), blanco
           // al 85% con una sombra suave para que se lea sobre paredes claras.
           var ancho = w * (h > w ? 0.34 : 0.24);
           var alto = ancho * (_wmLogo.naturalHeight / _wmLogo.naturalWidth || 1);
@@ -1536,7 +1536,8 @@
           ctx.globalAlpha = 0.85;
           ctx.shadowColor = 'rgba(0,0,0,.6)';
           ctx.shadowBlur = blur; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = Math.max(1, blur / 4);
-          ctx.drawImage(_wmLogo, (w - ancho) / 2, (h - alto) / 2, ancho, alto);
+          // Centrado de lado a lado y abajo, casi al pie de la foto.
+          ctx.drawImage(_wmLogo, (w - ancho) / 2, h - alto - h * 0.04, ancho, alto);
           ctx.restore();
           return;
         }
