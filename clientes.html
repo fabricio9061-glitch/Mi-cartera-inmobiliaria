@@ -1027,6 +1027,66 @@
       .cp-grow-foot .g-rol, .cp-grow-agent{ align-self:center; }
       .cp-grow-pasos{ padding:0 12px 12px; }
     }
+
+    /* ===== Ficha del cliente, segunda vuelta (nov. 2026) =====
+       Encabezado más bajo (migas en vez del botón grande y el resumen en una
+       franja), Actividad debajo de las gestiones (antes quedaba al fondo, bajo
+       las notas), notas fijas a la derecha y botones más claros. */
+    .cp-hero{ padding:14px 0 0; }
+    .cp-crumb{ background:none; border:0; padding:0; font-family:inherit; font-size:.8rem; color:#aeb9c8; cursor:pointer; display:inline-flex; align-items:center; gap:7px; margin-bottom:12px; }
+    .cp-crumb:hover{ color:#fff; }
+    .cp-crumb b{ color:#fff; font-weight:500; max-width:50vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cp-crumb .sep{ opacity:.5; }
+    .cp-avatar{ width:62px; height:62px; font-size:1.75rem; }
+    .cp-name-row h1{ font-size:2rem; }
+    .cp-lista{ margin-top:8px; }
+    .cp-hero-actions .cp-btn{ height:40px; padding:0 16px; }
+    .cp-btn-lista{ background:transparent; border-color:rgba(255,255,255,.22); }
+    .cp-btn-mas{ width:40px; padding:0 !important; justify-content:center; }
+    .cp-summary{ margin-top:16px; border-top:1px solid rgba(255,255,255,.09); }
+    .cp-summary-grid{ gap:0; }
+    .cp-summary-item{ background:none; border:0; border-radius:0; padding:13px 0 14px; }
+    .cp-summary-item + .cp-summary-item{ padding-left:20px; border-left:1px solid rgba(255,255,255,.09); }
+    .cp-summary-ico{ background:none; width:18px; }
+    /* Dos botones para empezar una gestión */
+    .cp-add-btns{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+    .cp-add-btn{ display:inline-flex; align-items:center; gap:7px; height:34px; padding:0 13px; border-radius:9px; font-family:inherit; font-size:.82rem; font-weight:600; border:1px solid var(--navy); color:var(--navy); background:#fff; cursor:pointer; white-space:nowrap; transition:background .15s, color .15s; }
+    .cp-add-btn:hover{ background:var(--gray-50); }
+    .cp-add-btn.solid{ background:var(--navy); color:#fff; }
+    .cp-add-btn.solid:hover{ background:var(--navy-2); }
+    .cp-props-head{ gap:12px; flex-wrap:wrap; }
+    /* Botones de la gestión */
+    .cp-grow-tools{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .cp-visita-btn{ display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 11px; border-radius:8px; background:#f3efff; color:#6d28d9; font-weight:600; font-size:.8rem; text-decoration:none; }
+    .cp-visita-btn:hover{ background:#e9e2ff; }
+    .cp-seg{ display:inline-flex; border:1px solid var(--gray-200); border-radius:8px; overflow:hidden; background:#fff; }
+    .cp-seg:empty{ display:none; }
+    .cp-seg .cp-ico{ width:32px; height:28px; border:0; border-radius:0; font-size:.76rem; }
+    .cp-seg .cp-ico + .cp-ico{ border-left:1px solid var(--gray-200); }
+    .cp-seg .cp-ico:hover{ background:var(--gray-50); }
+    /* Notas: el botón dentro del cuadro; la columna acompaña al bajar */
+    .cp-col-side{ position:sticky; top:16px; }
+    .cp-note-box{ border:1px solid var(--gray-300); border-radius:12px; padding:8px 8px 8px 12px; margin-bottom:16px; transition:border-color .15s, box-shadow .15s; }
+    .cp-note-box:focus-within{ border-color:var(--gold-2); box-shadow:0 0 0 3px rgba(201,162,39,.12); }
+    .cp-note-box textarea, .cp-note-box textarea:focus{ border:0; box-shadow:none; padding:2px 0; min-height:52px; resize:vertical; }
+    .cp-note-row{ justify-content:space-between; align-items:center; gap:8px; }
+    .cp-note-row small{ font-size:.72rem; color:var(--gray-400); }
+    .cp-note-box .cp-note-btn{ margin-top:0; padding:7px 12px; font-size:.8rem; }
+    /* Actividad a lo ancho: el título de la propiedad entra entero */
+    .cp-col-main .cp-activity-foot span{ white-space:normal; }
+    @media (max-width:1000px){
+      .cp-col-side{ position:static; }
+    }
+    @media (max-width:760px){
+      .cp-hero-actions{ min-width:0; }
+      .cp-hero-actions .cp-btn{ flex:1 1 0; min-width:0; padding:0 10px; }
+      .cp-hero-actions .cp-btn{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .cp-hero-actions .cp-btn-mas{ flex:none; }
+      .cp-summary-item:nth-child(3){ padding-left:0; border-left:0; }
+      .cp-summary-item:nth-child(n+3){ border-top:1px solid rgba(255,255,255,.09); }
+      .cp-add-btns{ width:100%; flex-direction:column; }
+      .cp-add-btn{ justify-content:center; height:38px; }
+    }
   </style>
 <style>
   /* Área segura superior (isla dinámica / notch) en toda la herramienta */
@@ -1214,7 +1274,7 @@
   <div id="cProfile" style="display:none">
     <div class="cp-hero">
       <div class="wrap">
-        <button class="cp-back" onclick="closeProfile()"><i class="fas fa-arrow-left"></i> Volver a Clientes</button>
+        <button type="button" class="cp-crumb" onclick="closeProfile()" title="Volver a Clientes"><i class="fas fa-arrow-left"></i> Clientes <span class="sep">/</span> <b id="cpCrumbName">Cliente</b></button>
         <div class="cp-hero-main">
           <div class="cp-avatar" id="cpAvatar">?</div>
           <div class="cp-hero-info">
@@ -1245,28 +1305,33 @@
           <div class="cp-card">
             <div class="cp-props-head">
               <h3><i class="fas fa-handshake"></i> Gestiones del cliente</h3>
-              <button class="cp-add-prop" id="cpAddGestion" onclick="openGestionModal()"><i class="fas fa-plus"></i> Nueva gestión</button>
+              <!-- Antes era un solo "Nueva gestión" que abría una ventana para elegir.
+                   Ahora los dos caminos se ven directo: es el dueño o es un interesado. -->
+              <div class="cp-add-btns" id="cpAddGestion">
+                <button type="button" class="cp-add-btn" onclick="nuevaGestionInteresado()" title="Lo seguís como interesado en una propiedad de la cartera"><i class="fas fa-magnifying-glass-location"></i> Le interesa una propiedad</button>
+                <button type="button" class="cp-add-btn solid" onclick="cargarSuPropiedad()" title="Es el dueño: cargás su propiedad y la gestión queda En cartera"><i class="fas fa-house-user"></i> Cargar su propiedad</button>
+              </div>
             </div>
             <div id="cpPropsCount" class="cp-props-count" style="margin-bottom:14px"></div>
             <div id="cpGestionesGrid" class="cp-props-grid"></div>
+          </div>
+          <div class="cp-card" id="cpActivityCard" style="display:none">
+            <h3><i class="fas fa-wave-square"></i> Actividad reciente</h3>
+            <div id="cpActivityList" class="cp-activity-list"></div>
           </div>
         </div>
         <aside class="cp-col cp-col-side">
           <div class="cp-card" id="cpNotesCard">
             <h3><i class="fas fa-note-sticky"></i> Notas del seguimiento</h3>
-            <div class="cp-note-add">
-              <textarea id="cpNewNote" placeholder="Escribí una nota… (queda firmada con tu nombre y la fecha)"></textarea>
-              <div class="cp-note-row"><button class="cp-note-btn" id="cpAddNoteBtn" onclick="agregarNota()"><i class="fas fa-paper-plane"></i> Agregar nota</button></div>
+            <div class="cp-note-add cp-note-box">
+              <textarea id="cpNewNote" placeholder="Escribí una nota…"></textarea>
+              <div class="cp-note-row"><small>Queda firmada con tu nombre y la fecha</small><button class="cp-note-btn" id="cpAddNoteBtn" onclick="agregarNota()"><i class="fas fa-paper-plane"></i> Agregar</button></div>
             </div>
             <div id="cpNotesList" class="cp-notes-list"></div>
           </div>
           <div class="cp-card" id="cpDatosCard" style="display:none">
             <h3><i class="fas fa-link"></i> Links</h3>
             <div class="cp-fields" id="cpFields"></div>
-          </div>
-          <div class="cp-card" id="cpActivityCard" style="display:none">
-            <h3><i class="fas fa-wave-square"></i> Actividad reciente</h3>
-            <div id="cpActivityList" class="cp-activity-list"></div>
           </div>
         </aside>
       </div>
@@ -3660,6 +3725,7 @@
 
       document.getElementById('cpAvatar').textContent = iniciales(c.name);
       document.getElementById('cpName').textContent = c.name||'Cliente';
+      document.getElementById('cpCrumbName').textContent = c.name||'Cliente';
       // El estado ahora es por gestión, no del cliente: ocultamos el badge general del encabezado.
       var stEl = document.getElementById('cpStatus');
       stEl.style.display = 'none';
@@ -4186,13 +4252,16 @@
               '<span class="cp-grow-dot"></span><span class="cp-grow-op">'+(esRent?'ALQUILER':'VENTA')+'</span>' +
               '<span class="cp-grow-st" style="background:'+stCol+'">'+esc(PROP_STATUS[estadoProp]||'-')+'</span>' +
             '</div>' +
-          '</div>' +
-          '<div class="cp-grow-acts">' +
-            '<a class="cp-ico visita" href="agenda.html?cliente='+encodeURIComponent(currentProfileId)+'&prop='+encodeURIComponent(g.propertyId||'')+'&nuevo=visita" title="Agendar visita"><i class="fas fa-calendar-plus"></i></a>' +
-            (prop?'<a class="cp-ico" href="propiedad.html?id='+g.propertyId+'" target="_blank" rel="noopener" title="Ver publicación"><i class="fas fa-up-right-from-square"></i></a>':'') +
-            editar +
-            ((g.historial && g.historial.length)?'<button class="cp-ico" onclick="verHistorial(\''+g.id+'\')" title="Historial"><i class="fas fa-clock-rotate-left"></i></button>':'') +
-            (isAdmin?'<button class="cp-ico del" onclick="borrarGestion(\''+g.id+'\')" title="Eliminar gestión"><i class="fas fa-trash"></i></button>':'') +
+            // Lo que más se usa (agendar) con texto; el resto en una barrita.
+            '<div class="cp-grow-tools">' +
+              '<a class="cp-visita-btn" href="agenda.html?cliente='+encodeURIComponent(currentProfileId)+'&prop='+encodeURIComponent(g.propertyId||'')+'&nuevo=visita"><i class="fas fa-calendar-plus"></i> Agendar visita</a>' +
+              '<span class="cp-seg">' +
+                (prop?'<a class="cp-ico" href="propiedad.html?id='+g.propertyId+'" target="_blank" rel="noopener" title="Ver publicación"><i class="fas fa-up-right-from-square"></i></a>':'') +
+                editar +
+                ((g.historial && g.historial.length)?'<button class="cp-ico" onclick="verHistorial(\''+g.id+'\')" title="Historial"><i class="fas fa-clock-rotate-left"></i></button>':'') +
+                (isAdmin?'<button class="cp-ico del" onclick="borrarGestion(\''+g.id+'\')" title="Eliminar gestión"><i class="fas fa-trash"></i></button>':'') +
+              '</span>' +
+            '</div>' +
           '</div>' +
         '</div>' +
         '<div class="cp-grow-foot">' +
@@ -5002,6 +5071,15 @@
     // Hasta ahora "Nueva gestión" solo servía para cargar la propiedad del cliente
     // (propietario): al comprador que pregunta por una propiedad publicada no había
     // cómo seguirlo, salvo que entrara como lead de InfoCasas.
+    // Los dos botones de la ficha que reemplazan a "Nueva gestión".
+    function nuevaGestionInteresado(){
+      openGestionModal();
+      mostrarBuscadorInteresado();
+    }
+    function cargarSuPropiedad(){
+      if (!currentProfileId) return;
+      location.href = 'propiedad-form.html?clientId=' + encodeURIComponent(currentProfileId);
+    }
     function mostrarBuscadorInteresado(){
       document.getElementById('gnOpInteresado').classList.add('on');
       document.getElementById('gnBuscador').style.display = 'block';
@@ -5264,7 +5342,7 @@
       }).catch(function(e){
         showToast('No se pudo agregar la nota'); console.error(e);
       }).finally(function(){
-        btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Agregar nota';
+        btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Agregar';
       });
     }
 
