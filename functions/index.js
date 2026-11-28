@@ -294,7 +294,8 @@ function resumirErrorML(detail) {
 // la pausa la puso Mercado Libre y no se levanta desde la API: hay que
 // resolverlo en Mercado Libre (o, si es el cupo, liberar lugar en el plan).
 const ML_SUBSTATUS_TXT = {
-  out_of_stock: "No hay cupo libre en el plan de publicaciones de Mercado Libre.",
+  pack_quota_pending: "Tu plan de Mercado Libre no tiene cupo libre, por eso el aviso nunca llegó a publicarse. Liberá un lugar (finalizá otro aviso) o ampliá el plan en Mercado Libre y después tocá Republicar.",
+  out_of_stock: "Tu plan de Mercado Libre no tiene cupo libre. Liberá un lugar o ampliá el plan y después tocá Republicar.",
   expired: "El aviso venció en Mercado Libre.",
   suspended: "Mercado Libre suspendió el aviso (suele ser por un pago pendiente o un problema de la cuenta).",
   freezed: "Mercado Libre congeló el aviso mientras revisa la cuenta o el aviso.",
@@ -310,9 +311,17 @@ const ML_SUBSTATUS_TXT = {
   picture_download_pending: "Mercado Libre todavía está procesando las fotos.",
   deleted: "El aviso fue eliminado en Mercado Libre.",
 };
+// paused_by_seller solo dice que la pausa figura a nombre de la cuenta; si viene
+// junto a otro motivo, el que importa es el otro y no se repite.
+const ML_PAUSA_VENDEDOR = "Lo pausó alguien desde la cuenta (el CRM o la web de Mercado Libre). Republicar lo vuelve a activar.";
 function explicarSubStatusML(subs) {
-  const lista = (Array.isArray(subs) ? subs : [subs]).map((x) => String(x || "").trim()).filter(Boolean);
-  return lista.map((x) => ML_SUBSTATUS_TXT[x] || `Mercado Libre lo marcó como "${x}".`).join(" ");
+  let lista = [...new Set((Array.isArray(subs) ? subs : [subs]).map((x) => String(x || "").trim()).filter(Boolean))];
+  if (lista.length > 1) lista = lista.filter((x) => x !== "paused_by_seller");
+  if (lista.length === 1 && lista[0] === "paused_by_seller") return ML_PAUSA_VENDEDOR;
+  const textos = [...new Set(lista.map((x) => ML_SUBSTATUS_TXT[x]).filter(Boolean))];
+  const raros = lista.filter((x) => !ML_SUBSTATUS_TXT[x]);
+  if (raros.length) textos.push(`Mercado Libre informa: ${raros.join(", ")}.`);
+  return textos.join(" ");
 }
 
 // =====================================================================
@@ -2985,6 +2994,8 @@ exports.estadoML = onCall(async (request) => {
     mlItemId: p.mlItemId,
     status: item.status,
     subStatus: item.sub_status || [],
+    // Solo si ML dice que falta cupo: cuánto cupo queda y qué lo está ocupando.
+    cupo: (item.sub_status || []).includes("pack_quota_pending") ? await diagnosticoCupoML(item, headers) : null,
     listingType: item.listing_type_id || "",
     permalink: item.permalink || p.mlPermalink || "",
     health,
@@ -3003,6 +3014,52 @@ exports.estadoML = onCall(async (request) => {
     titulo: item.title || null,
   };
 });
+
+/* Por qué ML dice que no hay cupo (pack_quota_pending) si el plan es grande.
+   Mejor esfuerzo, cada parte por separado:
+   - tipos: lo que ML informa que queda libre por tipo de aviso en esta
+     categoría (el plan reparte el cupo por tipo: Plata, Oro...).
+   - activos / pausados: avisos de la cuenta en cada estado. Los pausados
+     también pueden ocupar lugar del plan.
+   - sinCRM: avisos activos o pausados en ML que ninguna propiedad del CRM
+     tiene vinculados (duplicados viejos, impagos abandonados, cargados a mano).
+     Son los primeros candidatos a finalizar para liberar lugar. */
+async function diagnosticoCupoML(item, headers) {
+  const out = { tipos: null, activos: null, pausados: null, sinCRM: null, sinCRMIds: [] };
+  let userId = null;
+  try { userId = ((await TOKENS_DOC.get()).data() || {}).user_id || null; } catch (e) { /* sin user_id */ }
+  if (!userId) return out;
+  try {
+    const r = await axios.get(`${API}/users/${userId}/available_listing_types?category_id=${item.category_id}`, { headers });
+    const lista = (r.data && r.data.available) || (Array.isArray(r.data) ? r.data : []);
+    out.tipos = lista.filter((x) => x && x.id).map((x) => ({ id: x.id, nombre: x.name || x.id, libres: x.remaining_listings != null ? Number(x.remaining_listings) : null }));
+  } catch (e) { logger.warn("[cupoML tipos]", e.response?.data || e.message); }
+  const idsVivos = [];
+  for (const st of ["active", "paused"]) {
+    try {
+      let offset = 0, total = 0;
+      do {
+        const r = await axios.get(`${API}/users/${userId}/items/search`, { headers, params: { status: st, limit: 100, offset } });
+        total = Number((r.data.paging || {}).total) || 0;
+        (r.data.results || []).forEach((id) => idsVivos.push(id));
+        offset += 100;
+      } while (offset < total && offset < 1000);
+      out[st === "active" ? "activos" : "pausados"] = total;
+    } catch (e) { logger.warn(`[cupoML ${st}]`, e.response?.data || e.message); }
+  }
+  if (idsVivos.length) {
+    try {
+      const vinculados = new Set();
+      const snap = await db.collection("properties").select("mlItemId").get();
+      snap.forEach((d) => { const m = d.get("mlItemId"); if (m) vinculados.add(String(m)); });
+      const sueltos = idsVivos.filter((id) => !vinculados.has(String(id)));
+      out.sinCRM = sueltos.length;
+      out.sinCRMIds = sueltos.slice(0, 30);
+    } catch (e) { logger.warn("[cupoML sinCRM]", e.message); }
+  }
+  logger.info(`[cupoML] ${item.id} ${JSON.stringify(out)}`);
+  return out;
+}
 
 // Intenta parsear el mlError guardado (suele ser JSON de ML en texto).
 function safeParse(s) {
