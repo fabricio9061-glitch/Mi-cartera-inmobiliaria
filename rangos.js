@@ -70,10 +70,11 @@
     },
 
     // ---- Asociados: agentes de afuera que pagan una cuota para publicar en la
-    //      web de MALAVE. No son del equipo: suben sus propiedades (hasta
-    //      ASOCIADO_MAX_PROPIEDADES, sin la marca de agua de MALAVE y sin ir a los
-    //      portales) y no ven clientes, finanzas, puntos, tasaciones, cuentas de
-    //      portales, rentabilidad ni documentos. Nivel 10: cualquiera del equipo
+    //      web y los portales de MALAVE. No son del equipo: suben sus propiedades
+    //      (hasta ASOCIADO_MAX_PROPIEDADES, sin la marca de agua de MALAVE), sus
+    //      consultas les llegan solo a ellos, ven la Academy, y no ven clientes,
+    //      finanzas, puntos, tasaciones, cuentas de portales, rentabilidad ni
+    //      documentos. Nivel 10: cualquiera del equipo
     //      que administre gente está por encima. El candado de verdad está en
     //      firestore.rules (esAsociado) y en functions/index.js. ----
     {
