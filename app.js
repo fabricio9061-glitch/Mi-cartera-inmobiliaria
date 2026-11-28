@@ -276,6 +276,9 @@
   }
   function borrarSesionRecordada() {
     try { localStorage.removeItem(MV_SESION_KEY); } catch (e) { }
+    // La copia de la grilla del agente lleva datos internos (propietarios):
+    // al salir se descarta y la próxima la arma la vitrina pública.
+    try { localStorage.removeItem('mvVitrina1'); } catch (e) { }
     _sesionPrevia = null;
     document.documentElement.classList.remove('mv-sesion');
   }
@@ -5714,8 +5717,15 @@
     'ciudad', 'departamento', 'location', 'bedrooms', 'bathrooms', 'totalArea', 'builtArea', 'garage',
     'featured', 'featuredHasta', 'createdAt', 'ownerId', 'ownerName', 'ownerPhoto', 'ownerWhatsapp',
     'views', 'contactClicks', 'clientId', 'mlItemId', 'mlHealth', 'mlHealthAt', 'mlPermalink',
-    'codigo', 'PROPERTY_CODE', 'icListingId', 'icEstado', 'icFrPropertyId', 'infocasasUrl', 'cymId', 'cymEstado'];
+    'codigo', 'PROPERTY_CODE', 'icListingId', 'icEstado', 'icFrPropertyId', 'infocasasUrl', 'cymId', 'cymEstado',
+    // Lo que usa la tarjeta del agente: tipo (VENTA · CASA) y la barra de Portales.
+    // Sin esto, la tarjeta del primer instante salía más pobre que la real.
+    'realEstateType', 'asociado', 'mlStatus', 'mlListingType', 'icEstadoPortal',
+    'cymEnPortal', 'cymDestacada', 'cymPausadaPorReserva'];
   let _vitrinaDeCache = false, _vitrinaT = null;
+  // Nombres de propietarios de la copia recordada: el chip los usa hasta que
+  // llegan los clientes de verdad (así no aparece y desaparece al cargar).
+  const _clienteRecordado = {};
   // La grilla se pintó con algún agente todavía sin datos (nombre/foto): cuando
   // llegan los perfiles se repinta una vez.
   let _faltanDuenos = false;
@@ -5730,6 +5740,14 @@
           const o = { id: p.id };
           CAMPOS_VITRINA.forEach(k => { if (p[k] !== undefined && p[k] !== null && p[k] !== '') o[k] = _planoCache(p[k]); });
           if (p.images && p.images[0]) o.images = [p.images[0]];
+          // Se guarda una sola foto, pero la tarjeta muestra cuántas tiene.
+          if (Array.isArray(p.images) && p.images.length > 1) o._nFotos = p.images.length;
+          // Nombre del propietario (dato interno): solo en la copia del equipo,
+          // y se borra al cerrar sesión. Así el chip sale desde el primer cuadro.
+          if (p.clientId && esDelEquipo()) {
+            const cl = clienteDePropiedad(p);
+            if (cl && cl.name) o._cliente = cl.name;
+          }
           const cod = p.ficha && (p.ficha.PROPERTY_CODE || p.ficha.property_code);
           if (cod) o.ficha = { PROPERTY_CODE: cod };
           return o;
@@ -5754,6 +5772,7 @@
       if (window._propsCargadas) return;   // la lista real ya llegó
       Object.entries(c.owners || {}).forEach(([uid, o]) => { if (!allUsers[uid]) allUsers[uid] = o; });
       properties = c.props;
+      c.props.forEach(p => { if (p.clientId && p._cliente) _clienteRecordado[p.clientId] = p._cliente; });
       _vitrinaDeCache = true;
       renderProperties(properties.filter(enVitrina));
       updateStats();
@@ -5881,7 +5900,7 @@
   function tarjetaPropiedad(p, k) {
     const { ce, isFeatured, st, stLabel, hop, pdp, o, oi, c, l, hi } = k;
     const id = p.id;
-    const fotos = Array.isArray(p.images) ? p.images.length : 0;
+    const fotos = Math.max(Array.isArray(p.images) ? p.images.length : 0, Number(p._nFotos) || 0);
     const op = p.type === 'sale' ? 'VENTA' : 'ALQUILER';
     const tipo = p.propertyType === 'ph' ? 'PH' : (PC_TIPO[p.realEstateType] || '');
     const cartel = ce && tipo ? `${op} · ${tipo}` : op;
@@ -5948,10 +5967,18 @@
   // en un data-, y cuando los clientes llegan se completan los nombres que
   // quedaron vacíos. Así no hay que re-renderizar la grilla entera ni se pierden
   // los filtros o el scroll que tenga puesto el agente.
+  // Mientras Firebase confirma la sesión, la grilla se pinta con la sesión
+  // recordada: también vale para el chip (solo es pintar; los datos de
+  // verdad los sigue cuidando Firestore).
+  function veoPropietarios() {
+    // La ficha recordada solo se guarda para cuentas aprobadas (ver
+    // guardarSesionRecordada), así que alcanza con que haya una.
+    return esDelEquipo() || (!currentUser && !!perfilVisible());
+  }
   function chipCliente(p) {
-    if (!p || !p.clientId || !esDelEquipo()) return '';
+    if (!p || !p.clientId || !veoPropietarios()) return '';
     const c = clienteDePropiedad(p);
-    const nombre = c ? (c.name || 'Sin nombre') : '';
+    const nombre = c ? (c.name || 'Sin nombre') : (p._cliente || _clienteRecordado[p.clientId] || '');
     return `<div class="card-client${nombre?'':' vacio'}" data-cid="${p.clientId}"` +
       ` onclick="event.stopPropagation();irAlCliente('${p.clientId}')"` +
       ` title="Ver la ficha del propietario"><i class="fas fa-user-tie"></i>` +
