@@ -983,6 +983,12 @@
       var equipo = todos.filter(u => u.status!=='pending').sort((a,b) =>
         ((a.email||'').toLowerCase()===ADMIN_EMAIL ? -1 : (b.email||'').toLowerCase()===ADMIN_EMAIL ? 1
           : ((a.status==='rejected')-(b.status==='rejected')) || (a.name||'').localeCompare(b.name||'','es',{sensitivity:'base'})));
+      // Los agentes asociados pagan por publicar: no son del equipo (no cobran
+      // comisión ni tienen saldo ni puntos). Van en su propia lista y no suman
+      // en los totales del equipo.
+      var esAsoc = u => !!(window.Rangos && Rangos.esAsociado ? Rangos.esAsociado(u) : u.rank === 'agente_asociado');
+      var asociados = equipo.filter(esAsoc);
+      equipo = equipo.filter(u => !esAsoc(u));
       _agentes = todos;
       _fin = null;
       var datosFin = await finP;
@@ -996,7 +1002,7 @@
       b.textContent = pendientes.length || ''; b.style.display = pendientes.length ? '' : 'none';
 
       // Se guardan para poder filtrar y ordenar sin volver a consultar.
-      _eqDatos = { equipo:equipo, props:propsPorAgente, total:propsTotal, det:propsDet, clis:clisPorAgente };
+      _eqDatos = { equipo:equipo, asociados:asociados, props:propsPorAgente, total:propsTotal, det:propsDet, clis:clisPorAgente };
       var html = '';
       if (pendientes.length){
         html += '<div class="ad-sec"><span>Esperando aprobación</span><b>'+pendientes.length+'</b><i></i></div><div class="card">' +
@@ -1013,9 +1019,12 @@
 
       // Totales del equipo: el dato que un dueño mira primero y que hoy había que
       // sumar a mano recorriendo las filas.
-      var tProps = Object.values(propsPorAgente).reduce((a,b)=>a+b,0);
-      var tTodas = Object.values(propsTotal).reduce((a,b)=>a+b,0);
-      var tClis  = Object.values(clisPorAgente).reduce((a,b)=>a+b,0);
+      var sumar = (m) => equipo.reduce((a,u)=>a+(m[u.id]||0),0);
+      var tProps = sumar(propsPorAgente);
+      var tTodas = sumar(propsTotal);
+      var tClis  = sumar(clisPorAgente);
+      var asocActivos = asociados.filter(u => u.status!=='rejected');
+      var asocVencidos = asocActivos.filter(u => window.Rangos && Rangos.asociadoVencido(u)).length;
       var tSaldo = equipo.reduce((a,u)=>a+saldoDe(u),0);
       var sinAct = equipo.filter(u => u.status!=='rejected' && !(propsPorAgente[u.id]||0) && !(clisPorAgente[u.id]||0)).length;
       html += '<div class="resumen">' +
@@ -1024,6 +1033,7 @@
         '<div class="rs"><b>'+tClis+'</b><span>Clientes</span></div>' +
         '<div class="rs"><b'+(tSaldo>0?' class="ok"':'')+'>'+(tSaldo>0?plata(tSaldo,'USD'):'—')+'</b><span>A cobrar</span></div>' +
         (sinAct?'<div class="rs"><b class="warn">'+sinAct+'</b><span>Sin actividad</span></div>':'') +
+        (asocActivos.length?'<div class="rs" title="'+escA(asocVencidos ? asocVencidos+' con la cuota vencida' : 'Todos con la cuota al día')+'"><b'+(asocVencidos?' class="warn"':'')+'>'+asocActivos.length+'</b><span>Asociados</span></div>':'') +
       '</div>';
       var hl = Object.values(huerf).filter(h => h.props || h.cerr || h.clis || h.vis)
         .sort((a,b) => (b.props+b.cerr+b.clis+b.vis) - (a.props+a.cerr+a.clis+a.vis));
@@ -1041,6 +1051,8 @@
       }
       html += '<div class="ad-sec"><span>Equipo</span><b>'+equipo.length+'</b><i></i></div>' +
         '<div class="card" id="eqLista">' + equipo.map(u => fila(u, propsPorAgente[u.id]||0, clisPorAgente[u.id]||0, propsDet[u.id])).join('') + '</div>';
+      if (asociados.length) html += '<div class="ad-sec"><span>Agentes asociados</span><b>'+asociados.length+'</b><i></i></div>' +
+        '<div class="card" id="eqAsociados">' + asociados.map(u => filaAsociado(u, propsPorAgente[u.id]||0, clisPorAgente[u.id]||0, propsDet[u.id])).join('') + '</div>';
 
       var d = (cfg && cfg.exists) ? cfg.data() : {};
       if (soyCEO) html += '<div class="ad-sec"><span>Comisión de la agencia</span><i></i></div>' +
@@ -1067,12 +1079,15 @@
   function accionesDe(u, esAdminFila){
     var id = u.id, puedo = puedoAdministrar(u), acc = [];
     if (soyCEO || puedo) acc.push({ico:'fa-pen', txt:'Editar datos', fn:function(){ editar(id); }});
-    if (soyCEO){
+    var asoc = window.Rangos && Rangos.esAsociado && Rangos.esAsociado(u);
+    if (soyCEO && asoc){
+      acc.push({ico:'fa-calendar-check', txt:'Cuota y rango', fn:function(){ panelRango(id); }});
+    } else if (soyCEO){
       acc.push({ico:'fa-id-badge', txt:'Cargo y rango', fn:function(){ panelRango(id); }});
       acc.push({ico:'fa-percent', txt:'Comisión', fn:function(){ comision(id); }});
       acc.push({ico:'fa-wallet', txt:'Dinero y puntos', fn:function(){ finanzas(id); }});
     }
-    if (puedo && u.status === 'approved') acc.push({ico:'fa-clipboard-list', txt:'Ficha de reunión', fn:function(){ abrirFicha(id); }});
+    if (puedo && !asoc && u.status === 'approved') acc.push({ico:'fa-clipboard-list', txt:'Ficha de reunión', fn:function(){ abrirFicha(id); }});
     if (puedo && !esAdminFila) acc.push({ico:'fa-right-left', txt:'Transferir cartera', fn:function(){ traspasar(id); }});
     acc.push({ico:'fa-eye', txt:'Ver perfil público', fn:function(){ window.open('index.html#perfil/'+encodeURIComponent(id),'_blank'); }});
     if (puedo && !esAdminFila && u.status === 'approved') acc.push({ico:'fa-user-lock', txt:'Quitar acceso', fn:function(){ quitarAcceso(id); }});
@@ -1161,6 +1176,27 @@
       '</div>';
   }
 
+  // Fila de un agente asociado: no cobra comisión ni tiene saldo. Lo que importa
+  // es cuánto de su plan usa y hasta cuándo pagó.
+  function filaAsociado(u, nProps, nClis, det){
+    var max = (window.Rangos && Rangos.ASOCIADO_MAX_PROPIEDADES) || 50;
+    var hasta = fechaInput(u.asociadoHasta), vencido = !!(window.Rangos && Rangos.asociadoVencido(u));
+    var cuota = !hasta ? '<b class="nada">Sin fecha</b>'
+      : '<b'+(vencido?' style="color:var(--warn)"':' class="ok"')+'>'+esc(hasta.split('-').reverse().join('/'))+'</b>';
+    _acciones[u.id] = accionesDe(u, false);
+    return '<div class="row">'+avatar(u)+
+      '<div class="id"><div class="id-n"><b>'+esc(u.name||'Sin nombre')+'</b>' + chipRango(u) +
+        (u.status==='rejected'?'<span class="chip gris">Sin acceso</span>':'') +
+      '</div><div class="id-s">'+esc(u.email||'')+'</div></div>' +
+      '<div class="mets">' +
+        '<div class="met" title="'+escA(detalleProps(det))+'"><b'+(nProps?'':' class="nada"')+'>'+nProps+' / '+max+'</b><span>Publicadas</span></div>' +
+        '<div class="met"><b'+(nClis?'':' class="nada"')+'>'+(nClis||'—')+'</b><span>Clientes</span></div>' +
+        '<div class="met" title="'+escA(vencido ? 'La cuota está vencida: no puede subir ni editar propiedades' : hasta ? 'Cuota paga' : 'Cargá la fecha en Cuota y rango')+'">'+cuota+'<span>'+(vencido?'Venció':'Pagado hasta')+'</span></div>' +
+      '</div>' +
+      '<button class="kb" onclick="menuAgente(event,\''+escA(u.id)+'\')"><i class="fas fa-ellipsis-vertical"></i></button>' +
+      '</div>';
+  }
+
   // Saldo a cobrar en US$ ya calculado (cierres, referidos, ajustes y retiros).
   // Sin el cálculo (la COO, o si falló la lectura) da 0 y la columna muestra "—".
   var _fin = null;
@@ -1191,6 +1227,12 @@
     cont.innerHTML = lista.length
       ? lista.map(u => fila(u, P[u.id]||0, C[u.id]||0, _eqDatos.det[u.id])).join('')
       : '<div class="vacio" style="padding:36px"><i class="fas fa-user-slash"></i><h3>Sin resultados</h3><p>Probá con otro nombre.</p></div>';
+    var ca = document.getElementById('eqAsociados');
+    if (ca && _eqDatos.asociados){
+      var la = _eqDatos.asociados.filter(u => !q || (u.name||'').toLowerCase().indexOf(q)>=0 || (u.email||'').toLowerCase().indexOf(q)>=0);
+      ca.innerHTML = la.length ? la.map(u => filaAsociado(u, P[u.id]||0, C[u.id]||0, _eqDatos.det[u.id])).join('')
+        : '<div class="vacio" style="padding:24px"><p>Ningún asociado con ese nombre.</p></div>';
+    }
   }
 
   async function aprobar(id){
