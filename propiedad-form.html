@@ -845,7 +845,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="malave-logos.js"></script>
-  <script src="marca-agua.js?v=20261127"></script>
+  <script src="marca-agua.js?v=20261127b"></script>
   <script src="malave-config.js?v=20260830b"></script>
   <script>
     firebase.initializeApp(firebaseConfig);
@@ -1504,10 +1504,9 @@
     }
     // Marca de agua (se carga una vez). _wmLista avisa cuando está lista:
     // las fotos se preparan apenas se eligen y ninguna puede salir sin la marca.
-    // Dos piezas del logo nuevo (marca-agua.js): la casita muy tenue al centro
-    // y la firma "MALAVE" abajo a la derecha. Si no está el archivo nuevo,
-    // se usa el logo viejo al centro, como antes.
-    var _wmIcono = null, _wmFirma = null, _wmViejo = null;
+    // Va el logo nuevo completo al centro (marca-agua.js). Si ese archivo no
+    // está, se usa el logo viejo al centro, como antes.
+    var _wmLogo = null, _wmViejo = null;
     function _wmCargar(src) {
       return new Promise(function (listo) {
         try {
@@ -1520,34 +1519,25 @@
       });
     }
     const _wmLista = Promise.all([
-      _wmCargar(typeof MALAVE_WM_ICONO !== 'undefined' ? MALAVE_WM_ICONO : null),
-      _wmCargar(typeof MALAVE_WM_FIRMA !== 'undefined' ? MALAVE_WM_FIRMA : null),
+      _wmCargar(typeof MALAVE_WM_LOGO !== 'undefined' ? MALAVE_WM_LOGO : null),
       _wmCargar(typeof MALAVE_LOGO_ISO !== 'undefined' ? MALAVE_LOGO_ISO : null)
-    ]).then(function (r) { _wmIcono = r[0]; _wmFirma = r[1]; _wmViejo = r[2]; });
+    ]).then(function (r) { _wmLogo = r[0]; _wmViejo = r[1]; });
 
-    // Dibuja una pieza blanca con una sombra suave, para que se lea
-    // también sobre paredes claras o cielo.
-    function _wmPieza(ctx, im, x, y, ancho, opacidad, sombra, blur) {
-      var alto = ancho * (im.naturalHeight / im.naturalWidth || 1);
-      ctx.save();
-      ctx.globalAlpha = opacidad;
-      ctx.shadowColor = 'rgba(0,0,0,' + sombra + ')';
-      ctx.shadowBlur = blur; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = Math.max(1, blur / 4);
-      ctx.drawImage(im, x, y, ancho, alto);
-      ctx.restore();
-      return alto;
-    }
     function dibujarMarcaAgua(ctx, w, h){
       try {
-        if (_wmIcono && _wmFirma) {
-          // Casita al centro: 30% del ancho, muy tenue.
-          var anchoI = w * 0.30, altoI = anchoI * (_wmIcono.naturalHeight / _wmIcono.naturalWidth || 1);
-          if (altoI > h * 0.6) { anchoI *= (h * 0.6) / altoI; altoI = h * 0.6; } // fotos muy apaisadas
-          _wmPieza(ctx, _wmIcono, (w - anchoI) / 2, (h - altoI) / 2, anchoI, 0.24, 0.45, Math.max(4, w / 150));
-          // Firma abajo a la derecha: 21% del ancho (en fotos verticales, un poco más).
-          var anchoF = w * (h > w ? 0.30 : 0.21), margen = Math.min(w, h) * 0.035;
-          var altoF = anchoF * (_wmFirma.naturalHeight / _wmFirma.naturalWidth || 1);
-          _wmPieza(ctx, _wmFirma, w - anchoF - margen, h - altoF - margen, anchoF, 0.80, 0.55, Math.max(3, w / 200));
+        if (_wmLogo) {
+          // Logo al centro: 24% del ancho (en fotos verticales, 34%), blanco
+          // al 85% con una sombra suave para que se lea sobre paredes claras.
+          var ancho = w * (h > w ? 0.34 : 0.24);
+          var alto = ancho * (_wmLogo.naturalHeight / _wmLogo.naturalWidth || 1);
+          if (alto > h * 0.45) { ancho *= (h * 0.45) / alto; alto = h * 0.45; } // fotos muy apaisadas
+          var blur = Math.max(3, w / 200);
+          ctx.save();
+          ctx.globalAlpha = 0.85;
+          ctx.shadowColor = 'rgba(0,0,0,.6)';
+          ctx.shadowBlur = blur; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = Math.max(1, blur / 4);
+          ctx.drawImage(_wmLogo, (w - ancho) / 2, (h - alto) / 2, ancho, alto);
+          ctx.restore();
           return;
         }
         if (!_wmViejo) return; // si no cargó ningún logo, la foto va sin marca
