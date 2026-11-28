@@ -194,6 +194,25 @@
       .mv-destello .mv-brillo{ animation:mvBrillo 2.8s linear both; }
       .mv-destello .mv-brillo + .mv-brillo{ animation-delay:.7s; }
     }
+    /* ---- Portada que va cambiando ----
+       Cada tanto el título se va para arriba por las mismas "ventanas" por las que
+       entró y llega el siguiente; la foto de adentro de las torres cambia con un
+       fundido. El alto del título y del párrafo queda fijo en el más largo de
+       todos (lo calcula el script), así nada de abajo salta al cambiar. */
+    @keyframes mvSale{ from{ transform:none; } to{ transform:translate3d(0,-112%,0); } }
+    @keyframes mvSeVa{ from{ opacity:1; } to{ opacity:0; transform:translate3d(0,-8px,0); } }
+    .mv-hero.mv-rota-sale .mv-ln > span{ animation:mvSale .55s cubic-bezier(.55,0,.75,.25) both; }
+    .mv-hero.mv-rota-sale .mv-ln:nth-child(2) > span{ animation-delay:.05s; }
+    .mv-hero.mv-rota-sale .mv-ln:nth-child(3) > span{ animation-delay:.11s; }
+    .mv-hero.mv-rota-sale .mv-hero-copy > p{ animation:mvSeVa .45s ease both; }
+    .mv-hero.mv-rota-entra .mv-ln > span{ animation:mvSube .9s cubic-bezier(.2,.75,.15,1) both; }
+    .mv-hero.mv-rota-entra .mv-ln:nth-child(2) > span{ animation-delay:.08s; }
+    .mv-hero.mv-rota-entra .mv-ln:nth-child(3) > span{ animation-delay:.17s; }
+    .mv-hero.mv-rota-entra .mv-hero-copy > p{ animation:mvAparece .7s .28s ease both; }
+    .mv-foto img.mv-foto-nueva{ opacity:0; transition:opacity 1.6s ease; }
+    .mv-foto img.mv-foto-nueva.mv-ve{ opacity:1; }
+    .mv-hero-copy h1{ align-content:flex-start; }
+    .mv-rota-medir{ position:absolute !important; left:0; top:0; visibility:hidden; pointer-events:none; }
     .mv-search-wrap{ position:relative; z-index:5; margin-top:-46px; }
     .mv-search{ background:#fff; border:1px solid var(--gray-200,#ececec); border-radius:16px; box-shadow:0 18px 40px rgba(16,29,48,.14); padding:18px 20px; display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap; }
     .mv-field{ display:flex; flex-direction:column; gap:7px; flex:1 1 150px; }
@@ -752,6 +771,117 @@
           cuadro = requestAnimationFrame(function () { cuadro = 0; art.style.setProperty('--mx', x.toFixed(3)); art.style.setProperty('--my', y.toFixed(3)); });
         });
         hero.addEventListener('pointerleave', function () { art.style.setProperty('--mx', 0); art.style.setProperty('--my', 0); });
+      })();
+    </script>
+    <script>
+      // Portada que va cambiando: cada 7 segundos pasa al siguiente título (con su
+      // párrafo) y la foto de las torres cambia por la de una propiedad publicada
+      // (las destacadas primero; app.js las avisa con mvPortadaFotos). La primera
+      // vuelta siempre es la de siempre, con su foto. Quien pidió menos movimiento
+      // en su equipo la ve quieta, y no cambia mientras la portada no está a la vista.
+      (function () {
+        var hero = document.getElementById('mvHero'), art = document.getElementById('mvHeroArt');
+        var h1 = hero && hero.querySelector('.mv-hero-copy h1'), p = hero && hero.querySelector('.mv-hero-copy > p');
+        var fotos = [];
+        window.mvPortadaFotos = function (urls) {
+          fotos = (urls || []).filter(function (u) { return typeof u === 'string' && /^https:\/\/[^\s'"<>\\]+$/.test(u); }).slice(0, 4);
+        };
+        if (!hero || !art || !h1 || !p) return;
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        var CADA = 7000;
+        var FOTO0 = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00';
+        // [primera parte, segunda parte, renglón dorado, párrafo]. Partes cortas:
+        // en celular cada una va en su propio renglón, al lado de las torres.
+        var TEXTOS = [
+          ['Encontrá', 'la propiedad', 'de tus sueños', 'Explorá nuestra selección de propiedades en venta y alquiler en Montevideo y todo Uruguay.'],
+          ['Tu próximo', 'hogar', 'te está esperando', 'Casas y apartamentos elegidos uno por uno, con un equipo que te acompaña hasta la firma.'],
+          ['Vendé', 'tu propiedad', 'sin vueltas', 'Tasamos, publicamos en los principales portales y te acompañamos hasta escriturar.'],
+          ['Alquilá', 'sin sorpresas', 'de principio a fin', 'Te ayudamos a encontrar el alquiler justo y a elegir la garantía que mejor te sirve.'],
+          ['Invertí', 'en ladrillos', 'con quien sabe', 'Te asesoramos para que tu inversión rinda, en Montevideo y en todo Uruguay.']
+        ];
+        var esc = function (t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+        var titulo = function (t) {
+          return '<span class="mv-ln"><span>' + esc(t[0]) + '</span></span> <span class="mv-ln"><span>' + esc(t[1]) +
+            '</span></span> <span class="mv-ln mv-ln-oro"><span>' + esc(t[2]) + '</span></span>';
+        };
+
+        // El título y el párrafo quedan con el alto del más largo, así lo de abajo no salta.
+        var medir = function () {
+          var caja = h1.parentNode, ch = h1.cloneNode(false), cp = p.cloneNode(false), ah = 0, ap = 0;
+          ch.className = cp.className = 'mv-rota-medir';
+          ch.setAttribute('aria-hidden', 'true'); cp.setAttribute('aria-hidden', 'true');
+          ch.style.width = h1.getBoundingClientRect().width + 'px'; ch.style.minHeight = '';
+          cp.style.width = p.getBoundingClientRect().width + 'px'; cp.style.minHeight = '';
+          caja.appendChild(ch); caja.appendChild(cp);
+          TEXTOS.forEach(function (t) {
+            ch.innerHTML = titulo(t); cp.textContent = t[3];
+            ah = Math.max(ah, ch.getBoundingClientRect().height); ap = Math.max(ap, cp.getBoundingClientRect().height);
+          });
+          ch.remove(); cp.remove();
+          h1.style.minHeight = Math.ceil(ah) + 'px'; p.style.minHeight = Math.ceil(ap) + 'px';
+        };
+        medir();
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(medir);
+        var tm = 0;
+        window.addEventListener('resize', function () { clearTimeout(tm); tm = setTimeout(medir, 150); });
+
+        // Fotos: se bajan antes de mostrarlas. Si una no llega, sigue la que estaba.
+        var cache = {};
+        var precargar = function (url) {
+          if (!url) return Promise.resolve(true);
+          if (!cache[url]) cache[url] = new Promise(function (ok) {
+            var im = new Image(), fin = function (v) { clearTimeout(t); ok(v); }, t = setTimeout(function () { ok(false); delete cache[url]; }, 6000);
+            im.onload = function () { (im.decode ? im.decode() : Promise.resolve()).then(function () { fin(true); }, function () { fin(true); }); };
+            im.onerror = function () { fin(false); };
+            im.src = url;
+          });
+          return cache[url];
+        };
+        var fotoDe = function (j) { return j === 0 || !fotos.length ? '' : fotos[(j - 1) % fotos.length]; };
+        var fotoActual = '';
+        var cambiarFoto = function (url) {
+          if (url === fotoActual) return;
+          fotoActual = url;
+          art.querySelectorAll('.mv-foto').forEach(function (caja) {
+            var viejas = Array.prototype.slice.call(caja.querySelectorAll('img')), vieja = viejas[viejas.length - 1];
+            var nu = document.createElement('img');
+            nu.alt = ''; nu.decoding = 'async'; nu.className = 'mv-foto-nueva';
+            if (url) nu.src = url;
+            else { nu.sizes = '(max-width: 768px) 100vw, 1500px'; nu.srcset = FOTO0 + '?w=800&q=72 800w, ' + FOTO0 + '?w=1200&q=75 1200w, ' + FOTO0 + '?w=1600&q=78 1600w'; nu.src = FOTO0 + '?w=1400&q=80'; }
+            caja.appendChild(nu);
+            // El movimiento lento de la foto sigue donde iba (si no, la nueva arrancaría de cero y se notaría).
+            try {
+              var deriva = function (el) { return (el.getAnimations ? el.getAnimations() : []).filter(function (a) { return a.animationName === 'mvDeriva'; })[0]; };
+              var a = vieja && deriva(vieja), b = deriva(nu);
+              if (a && b && a.currentTime != null) b.currentTime = a.currentTime;
+            } catch (e) {}
+            requestAnimationFrame(function () { requestAnimationFrame(function () { nu.classList.add('mv-ve'); }); });
+            setTimeout(function () { viejas.forEach(function (v) { v.remove(); }); }, 1900);
+          });
+        };
+
+        var i = 0, ocupado = false;
+        var siguiente = function () {
+          if (ocupado || document.hidden || !hero.classList.contains('mv-hecha') || hero.classList.contains('mv-fuera')) return;
+          ocupado = true;
+          var j = (i + 1) % TEXTOS.length, url = fotoDe(j);
+          precargar(url).then(function (llego) {
+            hero.classList.remove('mv-rota-entra');
+            hero.classList.add('mv-rota-sale');
+            if (llego) cambiarFoto(url);
+            setTimeout(function () {
+              h1.innerHTML = titulo(TEXTOS[j]); p.textContent = TEXTOS[j][3];
+              hero.classList.remove('mv-rota-sale');
+              void h1.offsetWidth;
+              hero.classList.add('mv-rota-entra');
+              i = j;
+              precargar(fotoDe((j + 1) % TEXTOS.length));   // la próxima ya queda bajada
+              setTimeout(function () { hero.classList.remove('mv-rota-entra'); ocupado = false; }, 1150);
+            }, 680);
+          });
+        };
+        setInterval(siguiente, CADA);
       })();
     </script>
     <!-- Buscador. Filtra mientras se escribe y al cambiar cada opción (el botón
@@ -1744,7 +1874,7 @@
       #mlModalBody .pt-tab .pm-nivel { font-size: 10.5px; padding: 2px 6px }
     }
   </style>
-  <script src="app.js?v=20261128e"></script>
+  <script src="app.js?v=20261128f"></script>
   <!-- ====== MENÚ DEL VISITANTE (celular) ======
        En celular la barra oculta los enlaces del encabezado; este menú es la
        forma de llegar a "Vendé tu propiedad", "Trabajá con nosotros" y al acceso
