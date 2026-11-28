@@ -678,7 +678,7 @@
     <i class="fas fa-triangle-exclamation"></i>
     <h2>No disponible</h2>
     <p id="ppfErrMsg"></p>
-    <a href="index.html"><i class="fas fa-arrow-left"></i> Ir al inicio</a>
+    <a href="index.html" id="ppfErrLink"><i class="fas fa-arrow-left"></i> Ir al inicio</a>
   </div>
 
   <div class="pf-shell" id="ppfFormWrap" style="display:none">
@@ -925,6 +925,7 @@
       document.getElementById(which).style.display = which === 'ppfFormWrap' ? 'grid' : 'flex';
       if (which === 'ppfAuth') { if (opts.title) document.getElementById('ppfAuthTitle').textContent = opts.title; if (opts.msg) document.getElementById('ppfAuthMsg').textContent = opts.msg }
       if (which === 'ppfErr' && opts.msg) document.getElementById('ppfErrMsg').textContent = opts.msg;
+      if (which === 'ppfErr' && opts.link) { const a = document.getElementById('ppfErrLink'); a.href = opts.link.href; a.innerHTML = opts.link.html; }
       if (typeof medirTope === 'function') setTimeout(medirTope, 0);
     }
 
@@ -6230,6 +6231,24 @@
         } catch (e) { console.error(e); showState('ppfErr', { msg: 'Error al cargar la propiedad.' }) }
       } else {
         if (esAsociado) {
+          /* Como en MALAVE: la propiedad nace de un cliente (el dueño) y de una
+             gestión. El asociado entra desde Clientes > el cliente > Nueva
+             gestión > Es el dueño. firestore.rules lo exige igual. */
+          const irAClientes = { href: 'clientes.html', html: '<i class="fas fa-address-book"></i> Ir a mis clientes' };
+          if (!clientIdParam) {
+            showState('ppfErr', { msg: 'Para subir una propiedad, primero cargá al dueño como cliente. Después, en su ficha, tocá «Nueva gestión» y elegí «Es el dueño».', link: irAClientes });
+            return;
+          }
+          let esMiCliente = false;
+          try {
+            const cd = await db.collection('clients').doc(clientIdParam).get();
+            const c = cd.exists ? cd.data() : null;
+            esMiCliente = !!c && (c.createdBy === u.uid || c.agentId === u.uid);
+          } catch (e) { /* sin permiso: no es suyo */ }
+          if (!esMiCliente) {
+            showState('ppfErr', { msg: 'Ese cliente no está en tu lista. Elegí al dueño entre tus clientes y tocá «Nueva gestión» > «Es el dueño».', link: irAClientes });
+            return;
+          }
           // Tope del plan. El servidor lo vuelve a controlar (controlarCupoAsociado):
           // esto es para avisar antes de que cargue toda la ficha.
           try {

@@ -1653,7 +1653,12 @@
         userProfile = d.exists ? d.data() : { email:user.email };
         esDir = isAdmin || (userProfile.status === 'approved' && (userProfile.rank === 'ceo' || userProfile.rank === 'coo'));
         esAsoc = !isAdmin && userProfile.rank === 'agente_asociado';
-        if (esAsoc){ misClientesOnly = true; updateMisBtn(); }
+        if (esAsoc){
+          misClientesOnly = true; updateMisBtn();
+          // Desde "Subir propiedad" del menú: la propiedad nace de un cliente (el dueño).
+          var _subir = false; try { _subir = new URLSearchParams(location.search).get('subir') === '1'; } catch(e){}
+          if (_subir) setTimeout(function(){ showToast('Para subir una propiedad', 'Abrí la ficha del dueño (o cargalo como cliente nuevo) y tocá Nueva gestión > Es el dueño.', { txt:'Nuevo cliente', fn:function(){ openClientModal(); } }); }, 600);
+        }
         // La COO necesita saber de quién es cada cliente para no tocar lo del CEO:
         // el equipo se lee una vez y se vuelve a pintar cuando llega.
         if (esDir && !isAdmin) cargarAgentes().then(function(){ if (!_cargando) renderClients(); });
