@@ -1065,7 +1065,7 @@
     .cp-seg .cp-ico + .cp-ico{ border-left:1px solid var(--gray-200); }
     .cp-seg .cp-ico:hover{ background:var(--gray-50); }
     /* Notas: el botón dentro del cuadro; la columna acompaña al bajar */
-    .cp-col-side{ position:sticky; top:16px; }
+    /* La columna derecha ya no queda fija: ahora también lleva la actividad y es larga */
     .cp-note-box{ border:1px solid var(--gray-300); border-radius:12px; padding:8px 8px 8px 12px; margin-bottom:16px; transition:border-color .15s, box-shadow .15s; }
     .cp-note-box:focus-within{ border-color:var(--gold-2); box-shadow:0 0 0 3px rgba(201,162,39,.12); }
     .cp-note-box textarea, .cp-note-box textarea:focus{ border:0; box-shadow:none; padding:2px 0; min-height:52px; resize:vertical; }
@@ -1073,7 +1073,7 @@
     .cp-note-row small{ font-size:.72rem; color:var(--gray-400); }
     .cp-note-box .cp-note-btn{ margin-top:0; padding:7px 12px; font-size:.8rem; }
     /* Actividad a lo ancho: el título de la propiedad entra entero */
-    .cp-col-main .cp-activity-foot span{ white-space:normal; }
+    .cp-activity-foot span{ white-space:normal; }
     @media (max-width:1000px){
       .cp-col-side{ position:static; }
     }
@@ -1315,10 +1315,6 @@
             <div id="cpPropsCount" class="cp-props-count" style="margin-bottom:14px"></div>
             <div id="cpGestionesGrid" class="cp-props-grid"></div>
           </div>
-          <div class="cp-card" id="cpActivityCard" style="display:none">
-            <h3><i class="fas fa-wave-square"></i> Actividad reciente</h3>
-            <div id="cpActivityList" class="cp-activity-list"></div>
-          </div>
         </div>
         <aside class="cp-col cp-col-side">
           <div class="cp-card" id="cpNotesCard">
@@ -1328,6 +1324,10 @@
               <div class="cp-note-row"><small>Queda firmada con tu nombre y la fecha</small><button class="cp-note-btn" id="cpAddNoteBtn" onclick="agregarNota()"><i class="fas fa-paper-plane"></i> Agregar</button></div>
             </div>
             <div id="cpNotesList" class="cp-notes-list"></div>
+          </div>
+          <div class="cp-card" id="cpActivityCard" style="display:none">
+            <h3><i class="fas fa-wave-square"></i> Actividad reciente</h3>
+            <div id="cpActivityList" class="cp-activity-list"></div>
           </div>
           <div class="cp-card" id="cpDatosCard" style="display:none">
             <h3><i class="fas fa-link"></i> Links</h3>
@@ -3698,10 +3698,22 @@
       if (!evs.length){ el.style.display='none'; el.innerHTML=''; return; }
       var counts = {};
       evs.forEach(function(v){ var t=v.eventType||'other'; counts[t]=(counts[t]||0)+1; });
-      var parts = ['visit','meeting','delivery','review','other'].filter(function(t){ return counts[t]; }).map(function(t){
+      // Las visitas se cuentan aparte: las que vienen ("agendada") y las que ya
+      // pasaron ("hecha"), así se entiende de un vistazo.
+      var hoyEv = new Date(); hoyEv.setHours(0,0,0,0);
+      var visProx = 0, visHechas = 0;
+      evs.forEach(function(v){
+        if ((v.eventType||'other') !== 'visit') return;
+        var d = v.date ? new Date(v.date+'T00:00:00') : null;
+        if (d && d < hoyEv) visHechas++; else visProx++;
+      });
+      var parts = [];
+      if (visProx) parts.push('<span class="cp-ev-chip"><i class="fas fa-calendar-check"></i> '+visProx+' '+(visProx===1?'visita agendada':'visitas agendadas')+'</span>');
+      if (visHechas) parts.push('<span class="cp-ev-chip"><i class="fas fa-home"></i> '+visHechas+' '+(visHechas===1?'visita hecha':'visitas hechas')+'</span>');
+      parts = parts.concat(['meeting','delivery','review','other'].filter(function(t){ return counts[t]; }).map(function(t){
         var n=counts[t], lab=EV_LAB[t]||['evento','eventos'];
         return '<span class="cp-ev-chip"><i class="fas fa-'+(EV_ICO[t]||'star')+'"></i> '+n+' '+(n===1?lab[0]:lab[1])+'</span>';
-      });
+      }));
       el.innerHTML = parts.join('');
       el.style.display = 'flex';
     }
@@ -3879,7 +3891,20 @@
       gestionesQ().where('clientId','==',clientId).get().then(function(q){
         if (clientId !== currentProfileId) return;   // se cambió de cliente mientras cargaba
         var gestiones = q.docs.map(function(d){ return Object.assign({ id:d.id }, d.data()); });
-        gestiones.sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
+        // Arriba las que siguen en curso; después las cerradas (ganadas) y al
+        // fondo las perdidas, las que cerraron por afuera y las de propiedades
+        // dadas de baja. Dentro de cada grupo, la más nueva primero.
+        var cliOrden = clienteLocal(clientId) || {};
+        var grupoGestion = function(g){
+          var e = etapaEfectiva(g, rolDeGestion(g, cliOrden));
+          var prop = g.propertyId ? allProperties.find(function(p){ return p.id === g.propertyId; }) : null;
+          if (e === 'perdido' || e === 'externo' || e === 'prop_eliminada' || (prop && prop.status === 'archived')) return 2;
+          if (e === 'cerrado') return 1;
+          return 0;
+        };
+        gestiones.forEach(function(g){ g._orden = grupoGestion(g); });
+        gestiones.sort(function(a,b){ return (a._orden - b._orden) || (b.createdAt||'').localeCompare(a.createdAt||''); });
+        gestiones.forEach(function(g){ delete g._orden; });
         _gestionesPerfil = gestiones;
         recalcularCliente(clienteLocal(clientId), gestiones);
         // Si el buscador de "Nueva gestión" quedó abierto mientras cargaban, se
@@ -4658,10 +4683,12 @@
       var chips = vs.map(function(v){
         var d = v.date ? new Date(v.date+'T00:00:00') : null;
         var pasada = d && d < hoy;
-        var txt = (v.date? d.toLocaleDateString('es-UY',{day:'numeric',month:'short'}) : 'Sin fecha') + (v.time? ' '+v.time : '');
-        return '<a class="cp-visita-chip'+(pasada?' pasada':'')+'" href="agenda.html?evento='+encodeURIComponent(v.id)+'" title="Ver en la agenda"><i class="fas fa-house-circle-check"></i> '+esc(txt)+'</a>';
+        var fecha = v.date ? d.toLocaleDateString('es-UY',{day:'numeric',month:'short'}) : '';
+        var txt = !v.date ? 'Visita sin fecha'
+          : (pasada ? 'Visitó el '+fecha : 'Visita el '+fecha+(v.time ? ' a las '+v.time : ''));
+        return '<a class="cp-visita-chip'+(pasada?' pasada':'')+'" href="agenda.html?evento='+encodeURIComponent(v.id)+'" title="Ver en la agenda"><i class="fas '+(pasada?'fa-house-circle-check':'fa-calendar-check')+'"></i> '+esc(txt)+'</a>';
       }).join('');
-      return '<div class="cp-grow-visitas"><span class="lbl"><i class="fas fa-calendar-check"></i></span>'+chips+'</div>';
+      return '<div class="cp-grow-visitas">'+chips+'</div>';
     }
 
     // Cambiar el avance de la gestión (rápido, desde la tarjeta)
